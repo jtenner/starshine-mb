@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-02
+last_reviewed: 2026-09-22
 sources:
   - ../binaryen/passes/reorder-locals/index.md
   - ./registry-map.md
@@ -47,6 +47,15 @@ There are 30 active module entries. They include the plain and optimizing DAE sp
 `optimize` and `shrink` use measured wall-time-first rosters outside O4z. O1/O2/default optimize run DFE plus final debug stripping; O3/O4/Os/Oz/default shrink add only Vacuum and ReorderLocals. Expensive direct passes remain available but are not paid automatically by those public presets.
 
 O4z remains the locked full compatibility point: Binaryen v131's 56 slots, followed by Starshine-only `strip-debug` at slot 57. Its early module order is `global-refining -> remove-unused-module-elements -> global-struct-inference`; its function phase contains the aggressive `ssa-nomerge -> flatten -> simplify-locals-notee-nostructure -> local-cse` prelude, both propagating-precompute slots, and the three-slot RUB placement; its post phase ends with the accepted global/string/reorder/directize tail. Starshine's additional 18-pass local-convergence suffix remains enabled below 2,000 defined functions. At artifact scale the scheduler skips that exact suffix as one unit while preserving later explicit user passes: an August 22 production A/B measured the suffix at +60.285 seconds and +25,152 bytes, so retaining it there was both slower and larger.
+
+The September 22 mixed-request repair tracks whether an expanded pass came
+from the preset. Artifact-scale `remove-unused-brs`, `precompute-propagate`,
+SSA-wave, and late-convergence skips apply only to those preset entries, so an
+explicitly named pass still runs before or after `optimize`/`shrink`. If an
+O4z preset transaction rolls back on a caught `try_table`, the scheduler
+applies the explicitly named passes to the original module. Red-first
+regressions cover both cases; the large-module probe is skipped in the default
+suite and run in its dedicated lane. See the [audit follow-up](./architecture-rules.md#september-22-eight-agent-pass-safety-audit).
 
 Nested optimizing owners use the same function scheduler with the parent levels and module features. DAE and optimizing inlining prepend their required `precompute-propagate`; SGO does not. All three retain touched-function application, and SGO no longer suppresses the required roster solely because a touched function exceeds 192 locals or 1,000 instructions.
 

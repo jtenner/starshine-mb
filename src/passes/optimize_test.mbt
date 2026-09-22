@@ -1956,6 +1956,79 @@ test "O4z rolls back caught try-table throw modules" {
 }
 
 ///|
+test "O4z caught try-table rollback preserves explicit passes around preset" {
+  let input = pass_test_module_from_wat(
+    "(module (tag $e) (func (block $handler (try_table (catch_all $handler) (throw $e)))))",
+  ).with_name_sec(
+    @lib.NameSec::new(module_name=Some(@lib.Name::from_string("keep-input"))),
+  )
+  let options = HotPipelineOptions::new(optimize_level=4, shrink_level=4)
+  for passes in [["strip-debug", "optimize"], ["optimize", "strip-debug"]] {
+    let optimized = match run_hot_pipeline(input, options, passes) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected mixed O4z pipeline success, got \{err}")
+    }
+    @debug.assert_eq(optimized.name_sec, None)
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) => fail("expected mixed O4z output to validate, got \{err}")
+    }
+  }
+}
+
+///|
+#skip("artifact-scale mixed-preset scheduler probe; run in the dedicated lane")
+test "O4z mixed preset executes explicit large-module passes" {
+  let wat = StringBuilder::new()
+  wat.write_string("(module (func (export \"run\") (block (br 0)))")
+  for _ in 1..<2000 {
+    wat.write_string(" (func)")
+  }
+  wat.write_string(")")
+  let input = pass_test_module_from_wat(wat.to_string())
+  let options = HotPipelineOptions::new(optimize_level=4, shrink_level=4)
+  let direct = match run_hot_pipeline(input, options, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected direct large-module branch cleanup, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(direct_body)) = match direct.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs[0]
+    None => fail("expected direct cleanup function")
+  }
+  assert_false(direct_body.any(fn(instr) { instr is @lib.Br(_) }))
+
+  let trace : Array[String] = []
+  let mixed = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["remove-unused-brs", "precompute-propagate", "optimize"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected mixed large-module pipeline, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[remove-unused-brs]:skip reason=artifact-scale-defined-functions",
+      ) ||
+      line.contains(
+        "pass[precompute-propagate]:skip reason=artifact-scale-defined-functions",
+      )
+    }),
+  )
+  match @validate.validate_module(mixed) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected mixed large-module output to validate, got \{err}")
+  }
+}
+
+///|
 test "vacuum removes dropped pure GC allocations" {
   let input = match
     @binary.decode_module(

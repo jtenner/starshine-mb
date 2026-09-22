@@ -1163,8 +1163,8 @@ fn run_hot_pipeline_expand_passes(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
   requested_passes : Array[String],
-) -> Result[Array[HotPassRegistryEntry], String] {
-  let expanded : Array[HotPassRegistryEntry] = []
+) -> Result[Array[(HotPassRegistryEntry, Bool)], String] {
+  let expanded : Array[(HotPassRegistryEntry, Bool)] = []
   for name in requested_passes {
     let lookup_name = match no_inline_pass_pattern(name) {
       Some((base, _)) => base
@@ -1180,8 +1180,8 @@ fn run_hot_pipeline_expand_passes(
       None => return Err("unknown pass flag \{name}")
     }
     match entry.category {
-      HotPassRegistryCategory::HotPass => expanded.push(entry)
-      HotPassRegistryCategory::ModulePass => expanded.push(entry)
+      HotPassRegistryCategory::HotPass => expanded.push((entry, false))
+      HotPassRegistryCategory::ModulePass => expanded.push((entry, false))
       HotPassRegistryCategory::BoundaryOnly =>
         return Err(
           "pass flag \{name} is boundary-only and is not implemented in the hot pipeline: \{entry.summary}",
@@ -1198,7 +1198,7 @@ fn run_hot_pipeline_expand_passes(
         }
         for expanded_name in preset_passes {
           match pass_registry_lookup_cached(expanded_name) {
-            Some(pass_entry) => expanded.push(pass_entry)
+            Some(pass_entry) => expanded.push((pass_entry, true))
             None =>
               return Err(
                 "preset \{name} expanded to unknown pass \{expanded_name}",
@@ -1223,7 +1223,8 @@ pub fn pass_registry_expanded_names_for_module(
     Err(err) => return Err(err)
   }
   let names : Array[String] = []
-  for entry in entries {
+  for item in entries {
+    let (entry, _) = item
     names.push(entry.name)
   }
   Ok(names)
@@ -1243,7 +1244,7 @@ fn run_hot_pipeline_entry_can_stack(entry : HotPassRegistryEntry) -> Bool {
 
 ///|
 fn run_hot_pipeline_entries_match_names(
-  entries : Array[HotPassRegistryEntry],
+  entries : Array[(HotPassRegistryEntry, Bool)],
   start : Int,
   names : Array[String],
 ) -> Bool {
@@ -1251,7 +1252,8 @@ fn run_hot_pipeline_entries_match_names(
     return false
   }
   for idx = 0; idx < names.length(); idx = idx + 1 {
-    if entries[start + idx].name != names[idx] {
+    let (entry, from_preset) = entries[start + idx]
+    if !from_preset || entry.name != names[idx] {
       return false
     }
   }
@@ -1289,6 +1291,23 @@ pub fn run_hot_pipeline(
     run_hot_pipeline_expand_passes(mod_, options, requested_passes) {
     Ok(entries) => entries
     Err(err) => return Err(err)
+  }
+  if options.optimize_level >= 4 &&
+    options.shrink_level >= 4 &&
+    run_hot_pipeline_module_has_caught_try_table(mod_) &&
+    requested_passes.any(fn(name) { name == "optimize" || name == "shrink" }) {
+    let explicit_passes : Array[String] = []
+    for name in requested_passes {
+      if name != "optimize" && name != "shrink" {
+        explicit_passes.push(name)
+      }
+    }
+    if !explicit_passes.is_empty() {
+      (options.trace)(
+        "pipeline:o4z-transaction:rollback preset-only reason=caught-try-table",
+      )
+      return run_hot_pipeline(mod_, options, explicit_passes)
+    }
   }
   (options.trace)("pipeline:start requested=\{requested_passes.length()}")
   let pipeline_start_us = perf_start_timer_opt(options.perf, "pipeline")
@@ -1340,7 +1359,8 @@ pub fn run_hot_pipeline(
     pending_hot_passes.clear()
     Ok(())
   }
-  for entry_idx, entry in entries {
+  for entry_idx, item in entries {
+    let (entry, from_preset) = item
     if skip_o4z_late_convergence_entries > 0 {
       (options.trace)(
         "pass[\{entry.name}]:skip reason=artifact-scale-late-convergence",
@@ -1348,7 +1368,9 @@ pub fn run_hot_pipeline(
       skip_o4z_late_convergence_entries -= 1
       continue
     }
-    if entry.name == "remove-unused-brs" && artifact_scale_o4z_preset {
+    if entry.name == "remove-unused-brs" &&
+      artifact_scale_o4z_preset &&
+      from_preset {
       let defined_func_count = dae_defined_func_count(current)
       if !run_hot_pipeline_o4z_remove_unused_brs_selected(defined_func_count) {
         match flush_hot_passes() {
@@ -1361,7 +1383,9 @@ pub fn run_hot_pipeline(
         continue
       }
     }
-    if entry.name == "precompute-propagate" && artifact_scale_o4z_preset {
+    if entry.name == "precompute-propagate" &&
+      artifact_scale_o4z_preset &&
+      from_preset {
       let defined_func_count = dae_defined_func_count(current)
       if !run_hot_pipeline_o4z_precompute_propagate_selected(defined_func_count) {
         match flush_hot_passes() {
@@ -1374,7 +1398,7 @@ pub fn run_hot_pipeline(
         continue
       }
     }
-    if entry.name == "ssa-nomerge" {
+    if entry.name == "ssa-nomerge" && from_preset {
       ssa_wave += 1
       let defined_func_count = dae_defined_func_count(current)
       if artifact_scale_o4z_preset &&
@@ -1418,7 +1442,7 @@ pub fn run_hot_pipeline(
       }
       _ => ()
     }
-    if artifact_scale_o4z_preset && entry.name == "strip-debug" {
+    if artifact_scale_o4z_preset && from_preset && entry.name == "strip-debug" {
       let late_convergence = hot_pipeline_o4z_late_convergence_passes()
       let defined_func_count = dae_defined_func_count(current)
       let has_caught_try_table = original_has_caught_try_table
