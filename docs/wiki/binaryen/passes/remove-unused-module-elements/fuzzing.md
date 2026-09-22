@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-22
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../tooling/pass-fuzz-compare.md
@@ -14,6 +14,18 @@ sources:
 # `remove-unused-module-elements` Fuzzing Profile
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 22 memory64 bounds repair signoff
+
+The overflow-safe active-data bound passed its red-first extreme memory64
+regression and CLI dispatch test. With the final native binary and verified
+Binaryen 132, both `remove-unused-module-elements` and
+`remove-unused-nonfunction-module-elements` compared 10,000/10,000 `rume-all`
+cases: 4,106 direct plus 5,894 documented local-cleanup-normalized matches
+per lane, with zero residual mismatches or failures. Artifacts are at
+`.tmp/pass-safety-final-rume-10000` and
+`.tmp/pass-safety-final-rume-nonfunction-10000`; the [safety audit](../../../ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit)
+records the binary and common flags.
 
 ## 2026-08-21 composite `ref.func` repair
 

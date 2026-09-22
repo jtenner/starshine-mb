@@ -998,6 +998,46 @@ test "remove-unused-nonfunction-module-elements keeps out-of-bounds active data 
 }
 
 ///|
+test "remove-unused-nonfunction-module-elements keeps wrapping memory64 data trap" {
+  let input = @lib.Module::new()
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i64(281474976710655UL, None)),
+      ]),
+    )
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(-65536L))]),
+          ),
+          Bytes::new(65537),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid memory64 trap fixture, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "remove-unused-nonfunction-module-elements",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected memory64 RUME success, got \{err}")
+  }
+  match optimized.mem_sec {
+    Some(@lib.MemSec(mems)) => @debug.assert_eq(mems.length(), 1)
+    None => fail("expected trapping memory64 memory to remain")
+  }
+  match optimized.data_sec {
+    Some(@lib.DataSec(datas)) => @debug.assert_eq(datas.length(), 1)
+    None => fail("expected trapping memory64 data to remain")
+  }
+}
+
+///|
 test "remove-unused-nonfunction-module-elements drops empty const-offset active elems on live table" {
   let input = @lib.Module::new()
     .with_import_sec(

@@ -2619,7 +2619,7 @@ fn rume_lookup_mem_type(mod_ : @lib.Module, idx : @lib.MemIdx) -> @lib.MemType? 
 
 ///|
 fn rume_range_exceeds_min(offset : UInt64, len : UInt64, min : UInt64) -> Bool {
-  offset > min || offset + len > min
+  offset > min || len > min - offset
 }
 
 ///|

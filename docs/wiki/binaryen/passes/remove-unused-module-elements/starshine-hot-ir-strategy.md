@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-22
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ./index.md
@@ -22,6 +22,12 @@ related:
 ---
 
 # Starshine strategy for `remove-unused-module-elements`
+
+> **Repaired September 22, 2026:** the memory64 active-data bounds check
+> previously wrapped `offset + length`; a validated extreme-minimum module
+> lost its out-of-bounds initializer and became empty. The check now compares
+> `length` against `minimum - offset` after guarding `offset > minimum`.
+> See the [replayed safety audit](../../../ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit).
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
@@ -57,13 +63,14 @@ So the practical rule is simple:
   - registers `remove-unused-module-elements` as an active **module pass** entry, not a hot pass
 - `src/passes/pass_manager.mbt:8627-8640`
   - dispatches the module-pass name directly to `rume_run_module_pass(...)`
-- `src/passes/optimize.mbt:379-402`
-  - current public `optimize` / `shrink` presets do **not** include RUME
+- `src/passes/optimize.mbt` full-preset expansion
+  - includes RUME early at optimize level 2+ and again in its late module
+    cleanup queue
 
 That already tells readers two important local facts:
 
-- the pass is public and runnable by name
-- but its implementation ownership is module-level rather than HOT-function-level
+- the pass is public and runnable by name or through eligible presets
+- its implementation ownership is module-level rather than HOT-function-level
 
 ### 2. Root seeding and imported-parent retention
 
