@@ -119,6 +119,18 @@ Direct behavior is closed. Exact O4z late-preset reconciliation remains owned by
 
 `duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements`
 
+The slot remains queued, but preset-origin DIE skips a module with function
+imports. JavaScript import lookup may invoke a getter independently for each
+same-name function import and return a different function each time; merging
+the imports changes that host-visible behavior. Direct
+`--duplicate-import-elimination` remains an explicit opt-in merge with the
+same Binaryen 132 pass contract. The [Node host regression](../../../../../tests/optimizer/regressions/host-identity.test.ts)
+asserts both cases. The broad preset skip is a deliberate host-correctness
+choice, not a direct-pass parity result.
+The CLI's pure O4z size portfolio also omits DIE from automatic candidate
+rosters when the original module has imports or exports. This closes the
+candidate-selection bypass while leaving explicit requests unchanged.
+
 Do not reopen direct DIE merely because a broader neighborhood has an independently owned shape difference.
 
 ## Reopening criteria

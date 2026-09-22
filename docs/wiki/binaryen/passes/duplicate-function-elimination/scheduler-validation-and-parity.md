@@ -88,12 +88,23 @@ The local implementation is deliberately broader than upstream DFE in some areas
 
 ### 3. Current Starshine preset gap
 
-`src/passes/optimize.mbt` now defines public `optimize` and `shrink` preset entries with two DFE slots:
+`src/passes/optimize.mbt` defines an early DFE slot in fast public presets and
+an early and late slot at O4z:
 
 - early pre-pass neighborhood: `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing`;
 - late post-pass neighborhood: `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements`.
 
 Validation modes therefore split into direct DFE behavior and preset-neighborhood behavior. Keep both focused direct tests and preset order/behavior tests green when changing this pass.
+
+The queue retains both slots, but preset execution skips DFE if the original
+or current module has imports or exports. This is the conservative
+host-identity policy: exported functions and references crossing tables,
+globals, or imported callbacks must retain distinct identities. Closed modules
+still execute DFE. Directly named DFE keeps its explicit merge contract.
+The [Node host regression](../../../../../tests/optimizer/regressions/host-identity.test.ts)
+and `src/passes/optimize_test.mbt` distinguish these cases. The gate trades
+some size opportunities for host correctness until a protected-function escape
+analysis is available.
 
 ## Known Starshine-vs-Binaryen split
 
@@ -104,8 +115,8 @@ Validation modes therefore split into direct DFE behavior and preset-neighborhoo
 | Core proof | Hash prefilter plus exact equality. | Hash prefilter plus exact equality over normalized local forms. |
 | Survivor choice | Earliest equivalent function survives. | Earliest equivalent function survives. |
 | Function-reference rewrite | Required. | Required and implemented across code/module carriers. |
-| Iteration | Option-dependent repeat budget. | Direct pass iterates to fixed point; presets schedule the two top-level DFE slots. |
-| Default scheduling | Early global pre-pass and late global post-pass. | Public presets now include the early and late DFE neighborhoods. |
+| Iteration | Option-dependent repeat budget. | Direct pass iterates to fixed point; O4z queues two top-level DFE slots. |
+| Default scheduling | Early global pre-pass and late global post-pass. | Fast public presets queue the early slot; O4z also queues the late slot. Preset execution applies the host-identity guard. |
 | Type compaction | Not DFE proper. | Local extra after a successful merge for duplicate simple function types. |
 | Name and annotation cleanup | Not the central upstream algorithm. | Local extra cleanup with focused tests. |
 

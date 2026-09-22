@@ -136,9 +136,9 @@ skip policy and passed after the repair. The fixes are:
   On caught `try_table`, mixed requests retain explicitly named passes when the
   preset transaction rolls back.
 
-The host-visible duplicate import/function identity policy remains open in
-[`agent-todo.md`](../../../agent-todo.md). The focused fixes do not define a new
-policy for those intentional merges.
+The host-visible duplicate import/function identity policy was still open at
+this safety-repair signoff. The subsequent preset policy is recorded below;
+the direct-pass merge contracts remain explicit.
 
 Final validation after the nested-route repair: `moon info`, `moon fmt`, and
 the default `moon test` passed **12,053/12,053** with no `.mbti` diff. The
@@ -167,6 +167,32 @@ for the race-sensitive repair.
 The repository gate `bun validate full --profile ci --target wasm-gc` also
 passed: 12,050 wasm-gc target tests and all 14 CI fuzz suites (100,766
 attempts), including validator, binary roundtrip, and command-harness lanes.
+
+### Host-visible identity preset policy
+
+The later Node regression
+[`host-identity.test.ts`](../../../tests/optimizer/regressions/host-identity.test.ts)
+made both embedding observations executable. Two same-name function imports
+resolve a JavaScript getter twice and can receive different functions. Two
+equal-body functions exported separately have distinct JavaScript identities.
+The direct `duplicate-import-elimination` and
+`duplicate-function-elimination` passes intentionally merge these identities;
+their opt-in contracts are asserted separately in the same test file.
+
+Public presets now retain their scheduled DFE/DIE slots but skip preset-origin
+DFE when the original or current module has imports or exports, and skip
+preset-origin DIE when either module has function imports. A module with no
+host boundary can still run preset DFE. The gate is intentionally broad:
+exports and imports can expose `ref.func` through tables, globals, callbacks,
+and return values, so checking only direct function exports would be unsound.
+The CLI O4z size portfolio also builds automatic candidate rosters containing
+literal DFE/DIE pass names. Those rosters now omit both merges for an original
+module with imports or exports; a closed module keeps them, and a mixed request
+with an explicitly named merge pass does not enter the pure-preset portfolio.
+This is a host-correctness divergence from Binaryen 132's merge behavior,
+not a claim of output-shape parity. Narrowing the guard requires escape
+analysis and measured size/performance evidence; that work remains in
+[`agent-todo.md`](../../../agent-todo.md).
 
 ## Overview
 

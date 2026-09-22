@@ -95,7 +95,22 @@ The target-insensitive hash is deliberately an over-approximation: direct `call`
 The important current local boundary is direct behavior versus broader no-DWARF preset parity:
 
 - direct `duplicate-function-elimination` converges transitive callee/caller duplicates over one fixed candidate partition
-- public `optimize` / `shrink` schedule Binaryen's early and late DFE slots
+- fast public `optimize` / `shrink` queues contain the early DFE slot; O4z also
+  queues Binaryen's late DFE slot
+
+The scheduled slots remain in the queue, but execution now skips preset-origin
+DFE when the original or current module has any imports or exports. Such a
+boundary can expose a function reference through exports, tables, globals, or
+imported callbacks; merging equal bodies would then collapse distinct host
+identities. Closed modules still run the scheduled DFE slot. Direct
+`--duplicate-function-elimination` remains an explicit opt-in merge and retains
+the pass's Binaryen comparison contract. The [Node host regression](../../../../../tests/optimizer/regressions/host-identity.test.ts)
+asserts these behaviors; narrowing the broad preset gate requires a sound
+escape analysis and measured size/performance evidence.
+The CLI's pure O4z size portfolio filters DFE from its automatic candidate
+rosters on the same host-boundary condition, so a shorter candidate cannot
+bypass the preset-origin guard. Mixed explicitly named passes do not use that
+portfolio.
 
 White-box tests lock one-time hashing, candidate-only type normalization, complete body hashing, target-insensitive grouping, type/cleanup fact collection, and direct-target rewrite admission.
 

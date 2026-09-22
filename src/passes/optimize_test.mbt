@@ -7419,7 +7419,7 @@ fn optimize_test_named_custom_module() -> @lib.Module {
 }
 
 ///|
-fn optimize_test_assert_preset_merges_exported_duplicate_functions(
+fn optimize_test_assert_preset_preserves_exported_function_identity(
   pass_name : String,
 ) -> Unit raise {
   let optimized = match
@@ -7444,7 +7444,7 @@ fn optimize_test_assert_preset_merges_exported_duplicate_functions(
     Err(err) => fail("expected \{pass_name} output to validate, got \{err}")
   }
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 1)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 2)
     None => fail("expected code section after \{pass_name}")
   }
   match optimized.export_sec {
@@ -7454,7 +7454,7 @@ fn optimize_test_assert_preset_merges_exported_duplicate_functions(
         (
           @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(first))),
           @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(second))),
-        ) => @debug.assert_eq(first, second)
+        ) => assert_true(first != second)
         _ => fail("expected both exports to remain function exports")
       }
     }
@@ -7463,13 +7463,38 @@ fn optimize_test_assert_preset_merges_exported_duplicate_functions(
 }
 
 ///|
-test "optimize preset runs early duplicate-function-elimination on input duplicates" {
-  try! optimize_test_assert_preset_merges_exported_duplicate_functions(
+test "optimize preset preserves independently exported function identities" {
+  try! optimize_test_assert_preset_preserves_exported_function_identity(
     "optimize",
   )
 }
 
 ///|
-test "shrink preset runs early duplicate-function-elimination on input duplicates" {
-  try! optimize_test_assert_preset_merges_exported_duplicate_functions("shrink")
+test "shrink preset preserves independently exported function identities" {
+  try! optimize_test_assert_preset_preserves_exported_function_identity(
+    "shrink",
+  )
+}
+
+///|
+test "optimize preset still eliminates duplicates in a closed module" {
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(
+        (
+          #|(module
+          #|  (func $a (result i32) i32.const 7)
+          #|  (func $b (result i32) i32.const 7))
+        ),
+      ),
+      HotPipelineOptions::new(),
+      ["optimize"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected optimize pipeline success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 1)
+    None => fail("expected code section")
+  }
 }

@@ -4562,6 +4562,32 @@ fn cmd_o4z_size_cleanup_passes() -> Array[String] {
 }
 
 ///|
+fn cmd_o4z_host_identity_safe_candidate_passes(
+  original : Module,
+  passes : Array[String],
+) -> Array[String] {
+  let has_imports = match original.import_sec {
+    Some(@lib.ImportSec(imports)) => !imports.is_empty()
+    None => false
+  }
+  let has_exports = match original.export_sec {
+    Some(@lib.ExportSec(exports)) => !exports.is_empty()
+    None => false
+  }
+  if !has_imports && !has_exports {
+    return passes
+  }
+  let safe : Array[String] = []
+  for pass in passes {
+    if pass != "duplicate-function-elimination" &&
+      pass != "duplicate-import-elimination" {
+      safe.push(pass)
+    }
+  }
+  safe
+}
+
+///|
 fn cmd_o4z_observable_assemblyscript_safe_cleanup_passes() -> Array[String] {
   ["code-folding", "remove-unused-brs", "merge-blocks", "vacuum"]
 }
@@ -5838,7 +5864,10 @@ pub fn run_cmd_with_adapter(
             match
               optimize_module_with_pass_flags(
                 original,
-                cmd_o4z_stack_carried_simd_safe_passes(),
+                cmd_o4z_host_identity_safe_candidate_passes(
+                  mod,
+                  cmd_o4z_stack_carried_simd_safe_passes(),
+                ),
                 options,
               ) {
               Ok(cleaned) => {
@@ -5939,9 +5968,9 @@ pub fn run_cmd_with_adapter(
                 match
                   optimize_module_with_pass_flags(
                     optimized,
-                    [
+                    cmd_o4z_host_identity_safe_candidate_passes(mod, [
                       "global-refining", "optimize-instructions", "precompute", "duplicate-function-elimination",
-                    ],
+                    ]),
                     final_cleanup_options,
                     validate_final_module=false,
                   ) {
@@ -6049,7 +6078,10 @@ pub fn run_cmd_with_adapter(
         match
           optimize_module_with_pass_flags(
             optimized,
-            cmd_o4z_size_cleanup_passes(),
+            cmd_o4z_host_identity_safe_candidate_passes(
+              mod,
+              cmd_o4z_size_cleanup_passes(),
+            ),
             cleanup_options,
           ) {
           Ok(cleaned) => {
@@ -6088,7 +6120,9 @@ pub fn run_cmd_with_adapter(
                         match
                           optimize_module_with_pass_flags(
                             ssa_cleaned,
-                            stateful_cleanup_passes,
+                            cmd_o4z_host_identity_safe_candidate_passes(
+                              mod, stateful_cleanup_passes,
+                            ),
                             cleanup_options,
                             validate_final_module=false,
                           ) {
@@ -6172,7 +6206,10 @@ pub fn run_cmd_with_adapter(
                                               match
                                                 optimize_module_with_pass_flags(
                                                   fixed_point,
-                                                  cmd_o4z_post_fixed_point_finish_passes(),
+                                                  cmd_o4z_host_identity_safe_candidate_passes(
+                                                    mod,
+                                                    cmd_o4z_post_fixed_point_finish_passes(),
+                                                  ),
                                                   cleanup_options,
                                                   validate_final_module=false,
                                                 ) {
@@ -6319,7 +6356,10 @@ pub fn run_cmd_with_adapter(
                               match
                                 optimize_module_with_pass_flags(
                                   fixed_point_candidate,
-                                  cmd_o4z_post_fixed_point_finish_passes(),
+                                  cmd_o4z_host_identity_safe_candidate_passes(
+                                    mod,
+                                    cmd_o4z_post_fixed_point_finish_passes(),
+                                  ),
                                   cleanup_options,
                                   validate_final_module=false,
                                 ) {
@@ -6358,7 +6398,10 @@ pub fn run_cmd_with_adapter(
                                     match
                                       optimize_module_with_pass_flags(
                                         finish_input,
-                                        cmd_o4z_post_fixed_point_finish_passes(),
+                                        cmd_o4z_host_identity_safe_candidate_passes(
+                                          mod,
+                                          cmd_o4z_post_fixed_point_finish_passes(),
+                                        ),
                                         cleanup_options,
                                         validate_final_module=false,
                                       ) {

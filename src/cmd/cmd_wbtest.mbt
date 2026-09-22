@@ -1910,6 +1910,32 @@ test "O4z size portfolio selects the shortest encoded candidate stably" {
 }
 
 ///|
+test "O4z automatic candidates preserve host identities without filtering closed modules" {
+  let roster = [
+    "duplicate-function-elimination", "vacuum", "duplicate-import-elimination",
+  ]
+  let exported = @passes.pass_test_module_from_wat(
+    "(module (func (export \"f\")))",
+  )
+  let imported = @passes.pass_test_module_from_wat(
+    "(module (import \"env\" \"f\" (func)))",
+  )
+  let closed = @passes.pass_test_module_from_wat("(module (func))")
+  @debug.assert_eq(
+    cmd_o4z_host_identity_safe_candidate_passes(exported, roster),
+    ["vacuum"],
+  )
+  @debug.assert_eq(
+    cmd_o4z_host_identity_safe_candidate_passes(imported, roster),
+    ["vacuum"],
+  )
+  @debug.assert_eq(
+    cmd_o4z_host_identity_safe_candidate_passes(closed, roster),
+    roster,
+  )
+}
+
+///|
 test "O4z size portfolio validates shortest candidates first and stops" {
   let visited : Array[String] = []
   let small_invalid = bytes_from_ints([1])
@@ -2136,7 +2162,7 @@ test "run_cmd_with_adapter mixed O4z queues do not enable the size portfolio" {
 }
 
 ///|
-test "O4z size portfolio admits validated global-refining cleanup" {
+test "O4z size portfolio preserves host identities while considering global-refining cleanup" {
   let input = @passes.pass_test_module_from_wat(
     (
       #|(module
@@ -2155,6 +2181,33 @@ test "O4z size portfolio admits validated global-refining cleanup" {
       #|,
     ),
   )
+  let directly_refined = match
+    optimize_module_with_pass_flags(
+      input,
+      ["global-refining", "optimize-instructions", "precompute"],
+      OptimizeOptions::new(),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected direct global-refining cleanup, got \{err}")
+  }
+  match directly_refined.global_sec {
+    Some(@lib.GlobalSec([@lib.Global(global_type, _)])) =>
+      @debug.assert_eq(
+        global_type,
+        @lib.GlobalType::new(
+          @lib.ValType::ref_type(
+            @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+          ),
+          true,
+        ),
+      )
+    other => fail("expected one directly refined global, got \{other}")
+  }
+  match @validate.validate_module(directly_refined) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected direct global-refining output to validate: \{err}")
+  }
   let wasm = encode_module_bytes(input)
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -2178,27 +2231,43 @@ test "O4z size portfolio admits validated global-refining cleanup" {
   }
   @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
-  match optimized.global_sec {
-    Some(@lib.GlobalSec([@lib.Global(global_type, _)])) =>
-      @debug.assert_eq(
-        global_type,
-        @lib.GlobalType::new(
-          @lib.ValType::ref_type(
-            @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
-          ),
-          true,
-        ),
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected O4z output to validate: \{err}")
+  }
+  match optimized.import_sec {
+    Some(
+      @lib.ImportSec(
+        [@lib.Import(module_name, field_name, @lib.FuncExternType(_))]
       )
-    other => fail("expected one refined global, got \{other}")
+    ) => {
+      @debug.assert_eq(module_name, @lib.Name::from_string("M"))
+      @debug.assert_eq(field_name, @lib.Name::from_string("f"))
+    }
+    other => fail("expected the original function import, got \{other}")
+  }
+  match optimized.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 4)
+      let targets : Array[UInt] = []
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(target))) => {
+            for previous in targets {
+              assert_true(previous != target)
+            }
+            targets.push(target)
+          }
+          _ => fail("expected function exports")
+        }
+      }
+    }
+    other => fail("expected four distinct function exports, got \{other}")
   }
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 4)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 5)
     None => fail("expected optimized functions")
   }
-  let text = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_false(text.contains("global.get"), msg=text)
-  assert_false(text.contains("ref.is_null"), msg=text)
-  assert_true(text.contains("I32(0)"), msg=text)
 }
 
 ///|
