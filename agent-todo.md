@@ -1,5 +1,43 @@
 # Agent Tasks
 
+## v0.1.1 — host-visible function identity policy [IR2-SAFETY]
+
+- **Goal / why:** the September 22 [eight-agent audit](docs/wiki/ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit)
+  replayed two identity changes that can matter to JS hosts: duplicate-import
+  elimination resolves one import instead of two, and duplicate-function
+  elimination makes distinct exported functions share an identity. The direct
+  passes intentionally merge these today; the default `--optimize` preset also
+  merges the exported functions.
+- **Deliverables / tasks:** choose and document an embedding contract or a
+  preservation option, add red-first Node getter/export-identity tests for the
+  selected behavior, then implement and compare direct passes and presets.
+- **Required APIs / invariants:** preserve the existing merge contract until
+  the replacement is explicit; do not claim semantic safety from wasm-core
+  output validation alone when the host relies on import lookup count or
+  exported function identity.
+- **Dependencies / exit:** policy decision and focused host runtime tests,
+  followed by v132 comparison for any changed pass.
+- **Suggested tests:** a getter returning different functions on consecutive
+  `env.f` reads, and JS equality of two equal-body exported functions.
+
+## v0.1.1 — invalid Precompute aggregate atomic cases [IR2-GENVALID]
+
+- **Goal / why:** the final `precompute-all` v132 lane requested 10,600 cases
+  but independent `wasm-tools` validation rejected 477 generated atomic cases
+  with invalid consistency ordering. The remaining 10,123 cases compared with
+  zero output mismatches; oversampling met the 10,000-comparison gate.
+- **Deliverables / tasks:** repair the aggregate leaf's atomic encoding or
+  validation claim, add a red-first generator fixture, and rerun the dedicated
+  aggregate without input-validation failures.
+- **Required APIs / invariants:** every generated case marked validated must
+  pass the independent primary validator; preserve deterministic profile and
+  manifest selection for replay.
+- **Dependencies / exit:** isolate one saved failure at
+  `.tmp/pass-safety-final-precompute-10600`, fix the generator, and obtain
+  10,000/10,000 valid dedicated comparisons.
+- **Suggested tests:** exact atomic consistency-order bytes for the failing
+  `precompute-gc-atomic-boundary` leaf and external validation of emitted wasm.
+
 ## v0.1.1 — audit verification follow-ups [IR2-PARITY]
 
 ### Resume checkpoint — September 15, user-requested usage pause

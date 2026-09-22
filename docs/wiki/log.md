@@ -23961,3 +23961,15 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   and 40,000 exact baseline/current output matches. Preserve existing Vacuum
   cleanup residuals and MemoryPacking correctness/size tradeoffs; no new output
   regression or public API change was observed.
+
+### 2026-09-22 — Eight-agent optimizer pass safety audit
+
+- [IR2 audit](ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit) recorded three then-open direct-pass semantic defects: replayed Precompute SIMD aliasing (`1 -> 0`), replayed Local CSE shared-memory load collapse, and replayed RUME memory64 bounds overflow (validated input becomes an empty module). The full `--optimize` preset preserved the original behavior on these exact minimal fixtures.
+- Also recorded independently supplied duplicate-import behavior (`2 -> 1` in a Node getter host), exported-function identity merging, source-backed memory-packing input mutation, and mixed explicit/preset pass suppression. Identity merging is an existing pass contract; the other source-only risks need focused tests. No implementation or Binaryen 132 comparison was claimed.
+- The existing pass package baseline passed `8,038/8,038`. The red/green repair outcomes and remaining active policy work are recorded below.
+
+### 2026-09-22 — Red/green optimizer safety repairs and v132 signoff
+
+- [IR2 audit follow-up](ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit) records red-first repairs for Precompute SIMD local aliasing, direct and nested Local CSE shared-memory reuse, RUME memory64 endpoint overflow, Memory Packing caller-array mutation, and mixed explicit/O4Z4 pass suppression. The final default `moon test` passed `12,053/12,053`; `moon info` and `moon fmt` passed, and no `.mbti` changed.
+- Seven pass-targeted GenValid lanes used fresh native SHA-256 `1b354cea5152439252c7f2ba8c5349fdd62a03cebd74407541ff40f292c7a97f`, eight workers, independent `wasm-tools` validation, and verified Binaryen 132. Precompute compared `10,123` valid cases, and Local CSE, both RUME names, Memory Packing, DAE optimizing, and SGO each compared `10,000`. There were no optimized-output validation or command failures. Memory Packing's `2,712` previously runtime-backed residuals and smaller DAE/SGO cleanup families are classified in the audit table; direct Precompute, Local CSE, and both RUME lanes had zero residual mismatches after their documented normalizers. `bun validate full --profile ci --target wasm-gc` passed 12,050 target tests and 14 CI fuzz suites / 100,766 attempts.
+- The active backlog retains the host-visible duplicate-import/function identity policy and 477 independently invalid generated atomic cases in the Precompute aggregate. The latter did not enter comparison; oversampling met the 10,000-valid-case gate.

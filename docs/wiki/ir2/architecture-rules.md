@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-15
+last_reviewed: 2026-09-22
 sources:
   - ./test-matrix.md
   - ./local-ssa-policy.md
@@ -14,6 +14,11 @@ sources:
   - ../../../src/passes/apply_compiler_facts.mbt
   - ../../../src/passes/dead_argument_elimination2.mbt
   - ../../../src/passes/dead_argument_elimination2_identity.mbt
+  - ../../../src/passes/precompute.mbt
+  - ../../../src/passes/local_cse.mbt
+  - ../../../src/rume/remove_unused_module_elements.mbt
+  - ../../../src/passes/memory_packing.mbt
+  - ../../../src/passes/optimize.mbt
   - ../../../tests/optimizer/regressions/round2-correctness.test.ts
   - ../../../tests/optimizer/regressions/try-table-cleanup.test.ts
   - ../../../tests/optimizer/regressions/compiler-fact-stack.test.ts
@@ -31,6 +36,137 @@ related:
 ---
 
 # IR2 Architecture Rules
+
+## September 22 eight-agent pass safety audit
+
+Eight read-only scouts divided the active passes by numeric rewrites, locals,
+control flow, dataflow, GC/heap, interprocedural, module state, and orchestration.
+The root replayed five findings with the current native CLI after
+`moon build --target native --release src/cmd` (`e69305764af4840c6ce800ad9d72a2eac7a887c24fb0801d4d914194d2893a45`).
+The existing `moon test --target wasm-gc src/passes` suite passed **8,038/8,038**;
+that result did not cover the cases below. During this scouting phase, no
+implementation or regression test was changed, and no Binaryen comparison or
+fuzz signoff was run.
+
+### Confirmed semantic defects
+
+- **Precompute SIMD local aliasing:**
+  [`precompute_raw_fold_output_tail`](../../../src/passes/precompute.mbt) folds a
+  12-instruction `f32x4.eq`/`v128.bitselect` chain using the earlier literal
+  values, without proving its three local indices distinct. A valid function
+  that writes `v128.const i32x4 0 0 0 0` and then `1 1 1 1` to local 0, compares
+  two `local.get 0`s, and selects with the resulting mask returns lane 0 = **1**
+  before `--precompute` and **0** afterward. `--validate` accepts the output.
+  The [existing fixture](../../../src/passes/precompute_test.mbt) uses three
+  distinct locals. First repair: red-first tests for first/second, first/mask,
+  and second/mask alias pairs, then require distinct indices or recompute the
+  exact live values before folding.
+- **Local CSE on shared memory:**
+  [`local_cse.mbt`](../../../src/passes/local_cse.mbt) reuses ordinary loads
+  from a shared memory. A two-load `i32.sub` function becomes one `i32.load`,
+  `local.tee`, `local.get`, `i32.sub` under `--local-cse`. A concurrent write can
+  make the original two reads differ while the transformed function always
+  subtracts a value from itself. The [WebAssembly threads memory model](https://webassembly.github.io/threads/core/bikeshed/)
+  explicitly permits different observations in non-atomic data races. Review
+  `memory.size` reuse under concurrent growth in the same repair. Add shared
+  memory negatives to both raw and HOT CSE paths before changing the reuse
+  policy.
+- **RUME memory64 endpoint overflow:**
+  [`rume_range_exceeds_min`](../../../src/rume/remove_unused_module_elements.mbt)
+  uses wrapping `offset + len`. A validated memory64 module with minimum
+  `2^48 - 1` pages and 65,537 active data bytes at `i64.const -65536` has an
+  out-of-bounds initializer, but `--remove-unused-nonfunction-module-elements`
+  emits an empty eight-byte module. This is a core-semantic instantiation-trap
+  gap at a pathological memory size; no practical host allocation or runtime
+  instantiation was claimed. Use subtraction-based bounds checking and a
+  red-first boundary test.
+
+On these exact minimal fixtures, `--optimize` preserved the original SIMD
+result, both shared-memory loads, and the memory64 active segment. The
+replayed failures establish direct-pass defects, not a reproduced wrong-code
+result for the full preset.
+
+### Host contracts and other observed gaps
+
+- `--duplicate-import-elimination` merges equal-name/type imports. In a Node
+  host with a getter returning a different function for each `env.f` lookup,
+  the original module resolves two imports and `run()` returns **2**; the
+  optimized module resolves one and returns **1**. This is an embedding contract
+  question because the existing pass intentionally merges duplicate imports.
+  Likewise, `--duplicate-function-elimination` changes two identical exported
+  functions from distinct JS identities (`a === b` false) to one identity
+  (true); its existing test expects that merge. On these exact fixtures,
+  `--optimize` also merges the exported identities but preserves the two
+  independently resolved imports. Users requiring independent import slots or
+  exported function identities must review direct-pass and preset selection
+  until an explicit preservation mode or precondition exists.
+- Source inspection found that `memory_packing_run_module_pass` passes the
+  input module's data array into `mp_zero_out_trampled_data`, which overwrites
+  array entries. This is an input-object mutation risk for library callers;
+  it was not exercised by a new runtime test. Mixed explicit/preset requests
+  also have pass-selection gaps: preset-wide O4/Z4 skips can suppress explicit
+  `remove-unused-brs`/`precompute-propagate`, and caught-`try_table` rollback
+  discards the entire mixed pipeline. These are source-confirmed requested-pass
+  omissions, not demonstrated wrong-code.
+
+The locals, control-flow, and GC/heap scouts found no additional confirmed
+valid-module counterexample. Their finite-window coalescing, nested-effect, and
+cast-subtype leads remain unproven and should not be reported as failures.
+
+### Red/green repair follow-up
+
+Focused tests failed before implementation for all three direct-pass semantic
+defects above, Memory Packing's input-array mutation, and the caught-`try_table`
+mixed-preset rollback. An artifact-scale `#skip` probe failed with the old O4/Z4
+skip policy and passed after the repair. The fixes are:
+
+- Precompute requires pairwise distinct locals before the specialized SIMD
+  bitselect fold. The regression covers every alias pair, and a CLI test covers
+  the first/second alias.
+- Raw Local CSE excludes memory loads and `memory.size` from CSE when any memory
+  in the module is shared. The nested touched-function route passes the same
+  module fact. Tests cover shared defined/imported memories, an unshared
+  control, nested DAE cleanup, and CLI dispatch of the shared-load case.
+- RUME compares active-data length to `minimum - offset` after checking the
+  offset bound. The memory64 extreme-minimum case remains in the pass and CLI
+  tests.
+- Memory Packing copies the data-segment array before zeroing overlapped
+  entries, preserving the caller's input module.
+- O4/Z4 artifact-scale skips now apply only to passes expanded from a preset.
+  On caught `try_table`, mixed requests retain explicitly named passes when the
+  preset transaction rolls back.
+
+The host-visible duplicate import/function identity policy remains open in
+[`agent-todo.md`](../../../agent-todo.md). The focused fixes do not define a new
+policy for those intentional merges.
+
+Final validation after the nested-route repair: `moon info`, `moon fmt`, and
+the default `moon test` passed **12,053/12,053** with no `.mbti` diff. The
+native command binary was rebuilt at SHA-256
+`1b354cea5152439252c7f2ba8c5349fdd62a03cebd74407541ff40f292c7a97f`.
+All lanes below used that explicit binary, prebuilt native GenValid, eight
+workers, independent `wasm-tools` output validation, and verified
+`wasm-opt version 132 (version_132-100-gfbf2e5aa2)`; no external-generator
+lane was requested. Artifacts are under `.tmp/pass-safety-final-*`.
+
+| Direct pass / GenValid profile | Compared / requested | Match evidence | Agent judgment |
+| --- | ---: | --- | --- |
+| `precompute` / `precompute-all` | 10,123 / 10,600 | 2,955 direct, 7,168 cleanup-normalized, zero mismatches or output failures | The three existing cleanup normalizers account for the smaller output; 477 generated atomic cases failed independent input validation with invalid consistency ordering and never entered comparison. |
+| `local-cse` / regular | 10,000 / 10,000 | 10,000 canonical matches, zero failures | Direct parity. Raw-size padding differs, canonical bytes agree. |
+| `remove-unused-module-elements` / `rume-all` | 10,000 / 10,000 | 4,106 direct, 5,894 local-cleanup-normalized, zero failures | Existing standalone-`nop` cleanup family, with no residual parity gap. |
+| `remove-unused-nonfunction-module-elements` / `rume-all` | 10,000 / 10,000 | 4,106 direct, 5,894 local-cleanup-normalized, zero failures | Same shared RUME helper and cleanup family. |
+| `memory-packing` / `memory-packing-all` | 10,000 / 10,000 | 7,288 direct, 2,712 residuals, zero failures | Exactly the documented 1,382 active zero-length smaller correctness wins (-6 bytes each) and 1,330 dynamic memory64 complete-preflight correctness wins (+43 bytes each). The ownership copy changes no output; see its [runtime-backed classification](../binaryen/passes/memory-packing/fuzzing.md#september-12-2026-size-parity-follow-up). |
+| `dae-optimizing` / `dae-optimizing` | 10,000 / 10,000 | 5,153 direct, 4,847 residuals, zero failures | Four previously documented transform-contract families plus 602 `many-touched` and 610 `result-control` cases omitting inert `nop`s, and 589 `table-effects` cases replacing an unread `local.set` with `drop` while retaining `table.grow` effects and `table.get` traps. All residual canonical outputs are smaller by 1–14 bytes; inspected representative diffs establish the semantics and size benefit. |
+| `simplify-globals-optimizing` / `simplify-globals-optimizing-all` | 10,000 / 10,000 | 5,055 direct, 4,945 residuals, zero failures | 1,391 cases use a shorter immutable `global.get` alias (-3 bytes each); 1,427 nested-cleanup and 2,127 read-only-to-write cases omit one inert `nop` each. These are the documented shorter semantic-equivalent shapes, confirmed by representative diffs. |
+
+All compared outputs validated; there were no command or property failures.
+The DAE/SGO dedicated profiles are not a concurrency stress lane. The directed
+shared-memory regression, including nested DAE cleanup, is the semantic proof
+for the race-sensitive repair.
+
+The repository gate `bun validate full --profile ci --target wasm-gc` also
+passed: 12,050 wasm-gc target tests and all 14 CI fuzz suites (100,766
+attempts), including validator, binary roundtrip, and command-harness lanes.
 
 ## Overview
 
