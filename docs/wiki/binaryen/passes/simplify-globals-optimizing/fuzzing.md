@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-21
+last_reviewed: 2026-09-22
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -11,6 +11,17 @@ sources:
 ---
 
 # `simplify-globals-optimizing` Fuzzing Profile
+
+## September 22 nested Local CSE guard signoff
+
+The shared touched-function cleanup helper used by SGO now receives the
+module's shared-memory fact. The final verified-v132 aggregate at
+`.tmp/pass-safety-final-sgo-10000` compared 10,000/10,000 with 5,055 direct
+matches and 4,945 smaller residuals, zero output or tool failures. Inspected
+representatives show 1,391 shorter immutable-global aliases and 3,554 omitted
+inert `nop`s; all cases in each family have the same canonical size delta.
+The [safety audit](../../../ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit)
+records the binary and remaining lanes.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

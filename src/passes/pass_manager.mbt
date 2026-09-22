@@ -81625,6 +81625,7 @@ fn run_hot_pipeline_apply_local_cse_to_touched(
   }
   let params = cl_defined_func_param_cache(mod_)
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
+  let has_shared_memory = lcse_module_has_shared_memory(mod_)
   let mut rewritten : Array[@lib.Func]? = None
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     if code_idx >= touched.length() || !touched[code_idx] {
@@ -81643,6 +81644,7 @@ fn run_hot_pipeline_apply_local_cse_to_touched(
     let (next_func, changed) = local_cse_run_raw_func_with_params(
       funcs[code_idx],
       params[code_idx],
+      has_shared_memory~,
     )
     pipeline_trace_hook(
       options.trace,

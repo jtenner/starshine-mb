@@ -2432,6 +2432,7 @@ fn lcse_raw_rewrite_instrs(
   local_types : Array[@lib.ValType],
   call_infos : Array[LcseRawCallInfo],
   subtypes : Array[@lib.SubType],
+  has_shared_memory : Bool,
   env? : @validate.Env? = None,
 ) -> (Array[@lib.Instruction], Bool) {
   if instrs.length() > 16 {
@@ -2651,6 +2652,7 @@ fn lcse_raw_rewrite_instrs(
         let contiguous = idx - start + 1 == size
         let reusable_root = match instr {
           _ if !contiguous => false
+          _ if has_shared_memory && (reads_memory || reads_memory_size) => false
           @lib.Instruction::MemoryGrow(_) | @lib.Instruction::TableGrow(_) =>
             false
           _ if lcse_raw_instr_is_allocation_or_string_effect(instr) => false
@@ -2807,6 +2809,7 @@ fn lcse_raw_rewrite_instrs(
           local_types,
           call_infos,
           subtypes,
+          has_shared_memory,
           env~,
         )
         if outer_body_changed || body_changed {
@@ -2821,6 +2824,7 @@ fn lcse_raw_rewrite_instrs(
           local_types,
           call_infos,
           subtypes,
+          has_shared_memory,
           env~,
         )
         if body_changed {
@@ -2838,6 +2842,7 @@ fn lcse_raw_rewrite_instrs(
           local_types,
           call_infos,
           subtypes,
+          has_shared_memory,
           env~,
         )
         let (next_else, else_changed) = match else_body {
@@ -2848,6 +2853,7 @@ fn lcse_raw_rewrite_instrs(
               local_types,
               call_infos,
               subtypes,
+              has_shared_memory,
               env~,
             )
             (Some(body2), changed2)
@@ -2869,6 +2875,7 @@ fn lcse_raw_rewrite_instrs(
           local_types,
           call_infos,
           subtypes,
+          has_shared_memory,
           env~,
         )
         if outer_body_changed || body_changed {
@@ -2907,6 +2914,7 @@ fn lcse_raw_rewrite_func(
   params : Array[@lib.ValType],
   call_infos : Array[LcseRawCallInfo],
   subtypes : Array[@lib.SubType],
+  has_shared_memory? : Bool = false,
   env? : @validate.Env? = None,
 ) -> LcseRawRewrite {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
@@ -2925,6 +2933,7 @@ fn lcse_raw_rewrite_func(
       local_types,
       call_infos,
       subtypes,
+      has_shared_memory,
       env~,
     )
   } else {
@@ -2950,8 +2959,9 @@ fn lcse_raw_rewrite_func(
 fn local_cse_run_raw_func_with_params(
   func : @lib.Func,
   params : Array[@lib.ValType],
+  has_shared_memory? : Bool = false,
 ) -> (@lib.Func, Bool) {
-  let rewrite = lcse_raw_rewrite_func(func, params, [], [])
+  let rewrite = lcse_raw_rewrite_func(func, params, [], [], has_shared_memory~)
   (rewrite.func, rewrite.changed)
 }
 
@@ -3044,12 +3054,38 @@ fn lcse_raw_module_call_infos(mod_ : @lib.Module) -> Array[LcseRawCallInfo] {
 }
 
 ///|
+fn lcse_module_has_shared_memory(mod_ : @lib.Module) -> Bool {
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.MemExternType(@lib.MemType(_, true))) =>
+            return true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.mem_sec {
+    Some(@lib.MemSec(mems)) =>
+      for mem in mems {
+        if mem is @lib.MemType(_, true) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 pub fn local_cse_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let params = cl_defined_func_param_cache(mod_)
       let call_infos = lcse_raw_module_call_infos(mod_)
       let subtypes = cl_module_subtypes(mod_)
+      let has_shared_memory = lcse_module_has_shared_memory(mod_)
       let env = Some(@validate.Env::new().with_module(mod_))
       let rewritten : Array[@lib.Func] = []
       let mut changed = false
@@ -3059,6 +3095,7 @@ pub fn local_cse_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           params[idx],
           call_infos,
           subtypes,
+          has_shared_memory~,
           env~,
         )
         rewritten.push(rewrite.func)

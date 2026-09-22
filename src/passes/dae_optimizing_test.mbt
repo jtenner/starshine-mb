@@ -16449,6 +16449,35 @@ test "dae-optimizing nested local-cse only rewrites touched functions" {
 }
 
 ///|
+test "dae-optimizing nested local-cse preserves shared loads" {
+  let source =
+    #|(module
+    #|  (memory 1 1 shared)
+    #|  (import "env" "use" (func $use (param i32 i32)))
+    #|  (func $f (param i32 i32)
+    #|    local.get 0
+    #|    i32.load
+    #|    local.get 0
+    #|    i32.load
+    #|    call $use)
+    #|  (func (export "run") (param i32)
+    #|    local.get 0
+    #|    i32.const 7
+    #|    call $f))
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(source),
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["dae-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected DAE shared-memory pipeline success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(audit_count(body, fn(i) { i is @lib.I32Load(_) }), 2)
+}
+
+///|
 test "dae-optimizing nested merge-blocks only rewrites touched functions" {
   let source =
     #|(module

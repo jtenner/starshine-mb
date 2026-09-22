@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-19
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md
+  - https://webassembly.github.io/threads/core/bikeshed/
+  - ../../../../../src/passes/local_cse.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -16,6 +18,15 @@ related:
 ---
 
 # `local-cse` Basic-Block Windows And Barriers
+
+> **Repaired September 22, 2026:** `--local-cse` previously reduced two
+> ordinary loads from a shared memory to one load. The original reads may
+> observe a concurrent write between them under the WebAssembly threads
+> memory model. Raw Local CSE now excludes memory reads and `memory.size`
+> from reuse when the module has shared memory, including touched-function
+> cleanup called by DAE/SGO; focused regression tests cover defined and
+> imported shared memories and nested DAE cleanup. See the
+> [replayed safety audit](../../../ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit).
 
 This page exists because the most common beginner mistake is to hear “common subexpression elimination inside basic blocks” and imagine a much simpler pass than Binaryen actually implements.
 

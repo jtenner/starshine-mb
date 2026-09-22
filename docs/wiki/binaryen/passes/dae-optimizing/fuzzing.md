@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-22
 sources:
   - ../../../ir2/architecture-rules.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -10,6 +10,17 @@ sources:
 ---
 
 # `dae-optimizing` Fuzzing Profile
+
+## September 22 nested Local CSE guard signoff
+
+The nested DAE cleanup path now passes the module's shared-memory fact into
+Local CSE. A red-first public pipeline regression retained both shared loads;
+the full default suite passed 12,053 tests. The final verified-v132 aggregate
+at `.tmp/pass-safety-final-dae-optimizing-10000` compared 10,000/10,000:
+5,153 direct matches and 4,847 smaller residuals, with zero output or tool
+failures. The [safety audit](../../../ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit)
+classifies all seven residual families using prior transform contracts and
+inspected representative diffs. Earlier v131 results below remain historical.
 
 ## September 13 touched-local cleanup
 

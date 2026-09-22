@@ -1,13 +1,21 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-06-16
+last_reviewed: 2026-09-22
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 ---
 
 # `local-cse` Fuzzing Profile
+
+The September 22 shared-memory repair passed red-first direct and nested DAE
+regressions, the full 12,053-test suite, and a verified-v132 regular GenValid
+lane at `.tmp/pass-safety-final-local-cse-10000`: 10,000/10,000 canonical
+matches, zero failures. The native binary and full validation matrix are
+recorded in the [safety audit](../../../ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit).
+The directed shared-memory tests cover concurrency-sensitive observations
+that this regular profile does not generate.
 
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 

@@ -3580,6 +3580,67 @@ test "local-cse reuses repeated load trees until a store barrier" {
 }
 
 ///|
+test "local-cse preserves separate loads from shared memory" {
+  let input =
+    #|(module
+    #|  (memory 1 1 shared)
+    #|  (func (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.load
+    #|    local.get 0
+    #|    i32.load
+    #|    i32.sub))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected shared-memory local-cse success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = lcse_test_first_defined_func(optimized)
+  @debug.assert_eq(audit_count(body, fn(i) { i is @lib.I32Load(_) }), 2)
+}
+
+///|
+test "local-cse preserves shared memory size observations" {
+  let defined_shared =
+    #|(module
+    #|  (memory 1 2 shared)
+    #|  (func (result i32)
+    #|    memory.size i32.const 0 i32.add
+    #|    memory.size i32.const 0 i32.add
+    #|    i32.sub))
+    #|
+  let imported_shared =
+    #|(module
+    #|  (import "m" "mem" (memory 1 2 shared))
+    #|  (func (result i32)
+    #|    memory.size i32.const 0 i32.add
+    #|    memory.size i32.const 0 i32.add
+    #|    i32.sub))
+    #|
+  let shared_inputs = [defined_shared, imported_shared]
+  for input in shared_inputs {
+    let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected shared memory-size CSE success, got \{err}")
+    }
+    let @lib.Func(_, @lib.Expr(body)) = lcse_test_first_defined_func(optimized)
+    @debug.assert_eq(audit_count(body, fn(i) { i is @lib.MemorySize(_) }), 2)
+  }
+  let unshared_input =
+    #|(module (memory 1 2) (func (result i32)
+    #|  memory.size i32.const 0 i32.add
+    #|  memory.size i32.const 0 i32.add
+    #|  i32.sub))
+    #|
+  let unshared = match pass_test_run_pipeline(unshared_input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unshared memory-size CSE success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = lcse_test_first_defined_func(unshared)
+  @debug.assert_eq(audit_count(body, fn(i) { i is @lib.MemorySize(_) }), 1)
+}
+
+///|
 test "local-cse does not reuse load roots across memory writes" {
   let input =
     #| (module
