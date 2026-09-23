@@ -5,6 +5,7 @@
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
 - [`binaryen/version-132-upgrade.md`](binaryen/version-132-upgrade.md) — Current v132 comparison target, exact 59-commit release ledger, proposal boundaries and U01–U10 upgrade contracts.
+- [`binaryen/version-133-upgrade.md`](binaryen/version-133-upgrade.md) — New public v133 release inventory, optimizer-shape catalog, verified oracle, and Starshine red corpus; ordinary comparisons remain pinned to v132.
 
 ## Schema And Operations
 
@@ -58,7 +59,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [research note 1570](./binaryen/passes/flatten/index.md) - Top-level aggressive-trio scheduling, the failure-atomic legacy-WAST validation-scaffold boundary, and the historically recorded pass-specific timing exception: `1,140 us` Starshine versus `285.236 us` Binaryen v130 (`4.00x`) over 120 functions.
 - [research note 1572](./binaryen/passes/pick-load-signs/index.md) - Completed PLS v131 source, profile, runtime, size, performance, neighborhood, and four-lane closeout.
 - [research note 1573](./binaryen/release-horizon-and-oracles.md) - Full v130-to-v131 release impact: exact tag/date/commit range, unchanged 56-slot O4z scheduler, new pass registrations, mandatory Starshine parity reopens, upstream-only dossier refreshes, shared-helper spot-check set, and explicit-v131-oracle rule.
-- [`binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md) - Current Binaryen `version_132` baseline and exact tag identity, with the v131 release impact retained as historical evidence and per-pass source routing kept explicit.
+- [`binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md) - Public `version_133` horizon and separate Starshine `version_132` comparison baseline, with historical release evidence and per-pass source routing kept explicit.
 - [`binaryen/ir-model-and-starshine-boundaries.md`](binaryen/ir-model-and-starshine-boundaries.md) - Beginner-to-advanced bridge between Wasm boundary instructions, Binaryen's named expression IR, optional Binaryen Flat IR, and Starshine's boundary `@lib` / owned `HotFunc` model; explains label-depth translation, symbolic-identity porting, exact-payload preservation, revision-keyed analysis invalidation, and evidence required before treating a representation difference as parity.
 - [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) - Compact O4z/late-tail roster and source guide. The historical v131 scheduler audit remains explicit; new comparisons use v132, and DAE2/constraint analysis remain opt-in. Later `main` scheduling changes are separate from the release.
 - [`binaryen/pass-manager-threshold-guards.md`](binaryen/pass-manager-threshold-guards.md) - Audited pass-manager skip and size-threshold policy: correctness versus performance classification, complete RUB and SimplifyLocals gate inventories, classified trace reasons, focused ±1 boundary coverage, cross-pass size guards, and maintenance rules for future numeric gates.

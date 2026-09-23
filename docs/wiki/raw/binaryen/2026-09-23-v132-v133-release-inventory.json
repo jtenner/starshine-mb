@@ -1,0 +1,1478 @@
+{
+  "kind": "binaryen-tag-delta-inventory",
+  "captured_at": "2026-09-23",
+  "upstream": "https://github.com/WebAssembly/binaryen",
+  "base": {
+    "tag": "version_132",
+    "sha": "79dfe6b412a3c22bfdb190ed6a4d79adf734db5d"
+  },
+  "head": {
+    "tag": "version_133",
+    "sha": "fba5005a132d85d578be5bd010e0487ed8e2ce3e"
+  },
+  "comparison_url": "https://github.com/WebAssembly/binaryen/compare/version_132...version_133",
+  "release_url": "https://github.com/WebAssembly/binaryen/releases/tag/version_133",
+  "commit_count": 107,
+  "changed_path_count": 292,
+  "changed_paths": [
+    ".github/workflows/ci.yml",
+    ".gitignore",
+    ".gitmodules",
+    "CHANGELOG.md",
+    "CMakeLists.txt",
+    "check.py",
+    "requirements-dev.txt",
+    "scripts/bundle_clusterfuzz.py",
+    "scripts/clang-tidy-diff.sh",
+    "scripts/fuzz_opt.py",
+    "scripts/gen-s-parser.py",
+    "scripts/monitor_fuzz.py",
+    "scripts/test/acquire_release_atomics_execution_tests.py",
+    "scripts/test/fuzzing.py",
+    "scripts/test/generate_atomic_spec_test.py",
+    "scripts/test/shared.py",
+    "scripts/test/support.py",
+    "scripts/test/wasm2c.py",
+    "scripts/test/wasm2js.py",
+    "scripts/test/wasm_opt.py",
+    "scripts/update_help_checks.py",
+    "scripts/update_lit_checks.py",
+    "src/binaryen-c.cpp",
+    "src/binaryen-c.h",
+    "src/dataflow/node.h",
+    "src/gen-s-parser.inc",
+    "src/interpreter/interpreter.cpp",
+    "src/ir/ReFinalize.cpp",
+    "src/ir/child-typer.h",
+    "src/ir/constraint.cpp",
+    "src/ir/constraint.h",
+    "src/ir/cost.h",
+    "src/ir/effects.cpp",
+    "src/ir/effects.h",
+    "src/ir/js-utils.h",
+    "src/ir/linear-execution.h",
+    "src/ir/manipulation.h",
+    "src/ir/match.h",
+    "src/ir/memory-utils.cpp",
+    "src/ir/module-splitting.cpp",
+    "src/ir/module-utils.cpp",
+    "src/ir/possible-contents.cpp",
+    "src/ir/properties.cpp",
+    "src/ir/properties.h",
+    "src/ir/struct-utils.h",
+    "src/ir/subtype-exprs.h",
+    "src/ir/subtypes.h",
+    "src/ir/trapping.h",
+    "src/ir/type-updating.cpp",
+    "src/js/binaryen.js-post.js",
+    "src/literal.h",
+    "src/parser/contexts.h",
+    "src/parser/parsers.h",
+    "src/passes/CMakeLists.txt",
+    "src/passes/ConstraintAnalysis.cpp",
+    "src/passes/DeAlign.cpp",
+    "src/passes/DeadArgumentElimination2.cpp",
+    "src/passes/GlobalEffects.cpp",
+    "src/passes/GlobalTypeOptimization.cpp",
+    "src/passes/HeapStoreOptimization.cpp",
+    "src/passes/I64ToI32Lowering.cpp",
+    "src/passes/Inlining.cpp",
+    "src/passes/Intrinsics.cpp",
+    "src/passes/LLVMNontrappingFPToIntLowering.cpp",
+    "src/passes/MakeSharedObjects.cpp",
+    "src/passes/MergeBlocks.cpp",
+    "src/passes/MergeSimilarFunctions.cpp",
+    "src/passes/MultiMemoryLowering.cpp",
+    "src/passes/OptimizeCasts.cpp",
+    "src/passes/OptimizeInstructions.cpp",
+    "src/passes/Precompute.cpp",
+    "src/passes/Print.cpp",
+    "src/passes/RemoveEmptyFunctionExports.cpp",
+    "src/passes/TailCall.cpp",
+    "src/passes/TranslateEH.cpp",
+    "src/passes/TrapMode.cpp",
+    "src/passes/TypeGeneralizing.cpp",
+    "src/passes/TypeRefining.cpp",
+    "src/passes/Unsubtyping.cpp",
+    "src/passes/pass.cpp",
+    "src/passes/passes.h",
+    "src/support/command-line.cpp",
+    "src/support/file_lock.h",
+    "src/support/inplace_vector.h",
+    "src/support/path.cpp",
+    "src/support/path.h",
+    "src/support/small_vector.h",
+    "src/support/span.h",
+    "src/support/stdckdint.h",
+    "src/support/utilities.h",
+    "src/tools/CMakeLists.txt",
+    "src/tools/fuzzing.h",
+    "src/tools/fuzzing/fuzz-stats.cpp",
+    "src/tools/fuzzing/fuzz-stats.h",
+    "src/tools/fuzzing/fuzzing.cpp",
+    "src/tools/fuzzing/heap-types.cpp",
+    "src/tools/optimization-options.h",
+    "src/tools/wasm-ctor-eval.cpp",
+    "src/tools/wasm-emscripten-finalize.cpp",
+    "src/tools/wasm-fuzz-lattices.cpp",
+    "src/tools/wasm-opt.cpp",
+    "src/tools/wasm-reduce/wasm-reduce.cpp",
+    "src/tools/wasm-split/instrumenter.cpp",
+    "src/tools/wasm2c/CMakeLists.txt",
+    "src/tools/wasm2c/README.md",
+    "src/tools/wasm2c/assertion-emitter.cpp",
+    "src/tools/wasm2c/assertion-emitter.h",
+    "src/tools/wasm2c/c-printer.h",
+    "src/tools/wasm2c/prebuilt/wasm2c_atomicops_source_declarations.cpp",
+    "src/tools/wasm2c/prebuilt/wasm2c_header_bottom.cpp",
+    "src/tools/wasm2c/prebuilt/wasm2c_header_top.cpp",
+    "src/tools/wasm2c/prebuilt/wasm2c_simd_source_declarations.cpp",
+    "src/tools/wasm2c/prebuilt/wasm2c_source_declarations.cpp",
+    "src/tools/wasm2c/prebuilt/wasm2c_source_includes.cpp",
+    "src/tools/wasm2c/prebuilt/wasm2c_spec_top.cpp",
+    "src/tools/wasm2c/wasm-rt/wasm-rt-exceptions-impl.c",
+    "src/tools/wasm2c/wasm-rt/wasm-rt-exceptions.h",
+    "src/tools/wasm2c/wasm-rt/wasm-rt-impl-tableops.inc",
+    "src/tools/wasm2c/wasm-rt/wasm-rt-impl.c",
+    "src/tools/wasm2c/wasm-rt/wasm-rt-impl.h",
+    "src/tools/wasm2c/wasm-rt/wasm-rt-mem-impl-helper.inc",
+    "src/tools/wasm2c/wasm-rt/wasm-rt-mem-impl.c",
+    "src/tools/wasm2c/wasm-rt/wasm-rt.h",
+    "src/tools/wasm2c/wasm2c-builder.cpp",
+    "src/tools/wasm2c/wasm2c.cpp",
+    "src/wasm-binary.h",
+    "src/wasm-builder.h",
+    "src/wasm-delegations-fields.def",
+    "src/wasm-delegations.def",
+    "src/wasm-interpreter.h",
+    "src/wasm-ir-builder.h",
+    "src/wasm-type.h",
+    "src/wasm.h",
+    "src/wasm/literal.cpp",
+    "src/wasm/wasm-binary.cpp",
+    "src/wasm/wasm-ir-builder.cpp",
+    "src/wasm/wasm-stack.cpp",
+    "src/wasm/wasm-type.cpp",
+    "src/wasm/wasm-validator.cpp",
+    "src/wasm/wasm.cpp",
+    "src/wasm2js.h",
+    "test/binaryen.js/atomics.js",
+    "test/binaryen.js/copy-expression.js",
+    "test/binaryen.js/emit_asmjs.js",
+    "test/binaryen.js/exception-handling.js",
+    "test/binaryen.js/exception-handling.js.txt",
+    "test/binaryen.js/expressionrunner.js",
+    "test/binaryen.js/expressions.js",
+    "test/binaryen.js/expressions.js.txt",
+    "test/binaryen.js/functions.js",
+    "test/binaryen.js/gc.js",
+    "test/binaryen.js/global.js",
+    "test/binaryen.js/hello-world.js",
+    "test/binaryen.js/kitchen-sink.js",
+    "test/binaryen.js/kitchen-sink.js.txt",
+    "test/binaryen.js/reloc.js",
+    "test/binaryen.js/sideffects.js",
+    "test/binaryen.js/sideffects.js.txt",
+    "test/binaryen.js/sieve.js",
+    "test/binaryen.js/sourcemap.js",
+    "test/binaryen.js/tables.js",
+    "test/binaryen.js/tag.js",
+    "test/binaryen.js/tail_calls.js",
+    "test/binaryen.js/validation_errors.js",
+    "test/example/c-api-kitchen-sink.c",
+    "test/example/c-api-kitchen-sink.txt",
+    "test/gtest/CMakeLists.txt",
+    "test/gtest/constraint.cpp",
+    "test/gtest/effects.cpp",
+    "test/gtest/matchers/effects.h",
+    "test/gtest/sizes.cpp",
+    "test/gtest/span.cpp",
+    "test/gtest/type-builder.cpp",
+    "test/gtest/type-updating.cpp",
+    "test/lit/basic/exception-handling-legacy.wast",
+    "test/lit/basic/relaxed-atomics.wast",
+    "test/lit/ctor-eval/flatten_oob.wast",
+    "test/lit/ctor-eval/gc-desc.wast",
+    "test/lit/ctor-eval/multivalue-local.wast",
+    "test/lit/ctor-eval/return_call.wast",
+    "test/lit/exec/resume_throw_ref.wast",
+    "test/lit/fuzz-types.test",
+    "test/lit/help/wasm-as.test",
+    "test/lit/help/wasm-ctor-eval.test",
+    "test/lit/help/wasm-dis.test",
+    "test/lit/help/wasm-emscripten-finalize.test",
+    "test/lit/help/wasm-fuzz-types.test",
+    "test/lit/help/wasm-merge.test",
+    "test/lit/help/wasm-metadce.test",
+    "test/lit/help/wasm-opt.test",
+    "test/lit/help/wasm-reduce.test",
+    "test/lit/help/wasm-shell.test",
+    "test/lit/help/wasm-split.test",
+    "test/lit/help/wasm2js.test",
+    "test/lit/merge/manifest-explicit-name.wat",
+    "test/lit/merge/manifest.wat",
+    "test/lit/passes/abstract-type-refining-desc.wast",
+    "test/lit/passes/coalesce-locals.wast",
+    "test/lit/passes/constraint-analysis-float.wast",
+    "test/lit/passes/constraint-analysis-loops.wast",
+    "test/lit/passes/constraint-analysis-propagation.wast",
+    "test/lit/passes/constraint-analysis.wast",
+    "test/lit/passes/dae-merge-similar-functions-exact.wast",
+    "test/lit/passes/dae2-results-open-world.wast",
+    "test/lit/passes/dealign-atomics.wast",
+    "test/lit/passes/flatten_i64-to-i32-lowering.wast",
+    "test/lit/passes/global-effects-suspends.wast",
+    "test/lit/passes/gto-jsinterop.wast",
+    "test/lit/passes/gto-removals.wast",
+    "test/lit/passes/gufa-cont.wast",
+    "test/lit/passes/gufa-desc.wast",
+    "test/lit/passes/gufa-tnh.wast",
+    "test/lit/passes/gufa-waitqueue.wast",
+    "test/lit/passes/heap2local-desc.wast",
+    "test/lit/passes/inlining-eh-legacy.wast",
+    "test/lit/passes/inlining-optimizing.wast",
+    "test/lit/passes/inlining-optimizing_optimize-level=3.wast",
+    "test/lit/passes/inlining_optimize-level=3.wast",
+    "test/lit/passes/intrinsic-lowering.wast",
+    "test/lit/passes/make-shared-objects.wast",
+    "test/lit/passes/once-reduction.wast",
+    "test/lit/passes/optimize-casts.wast",
+    "test/lit/passes/optimize-instructions-atomics.wast",
+    "test/lit/passes/optimize-instructions-desc.wast",
+    "test/lit/passes/optimize-instructions-eh-legacy.wast",
+    "test/lit/passes/optimize-instructions-gc-atomics.wast",
+    "test/lit/passes/optimize-instructions-publish.wast",
+    "test/lit/passes/optimize-instructions-resume.wast",
+    "test/lit/passes/optimize-instructions-struct-rmw.wast",
+    "test/lit/passes/optimize-instructions-waitqueue.wast",
+    "test/lit/passes/optimize-instructions_branch-hints-fold.wast",
+    "test/lit/passes/post-emscripten.wast",
+    "test/lit/passes/precompute-effects.wast",
+    "test/lit/passes/precompute-gc-loop.wast",
+    "test/lit/passes/remove-empty-function-exports.wat",
+    "test/lit/passes/remove-unused-module-elements_all-features.wast",
+    "test/lit/passes/rse-eh-legacy.wast",
+    "test/lit/passes/simplify-locals-atomic-effects.wast",
+    "test/lit/passes/simplify-locals-desc.wast",
+    "test/lit/passes/simplify-locals-gc.wast",
+    "test/lit/passes/simplify-locals.wast",
+    "test/lit/passes/stack-ir-eh-legacy.wast",
+    "test/lit/passes/tail-call-eh.wast",
+    "test/lit/passes/tail-call-tnh.wast",
+    "test/lit/passes/tail-call.wast",
+    "test/lit/passes/toolchain-inlining.wast",
+    "test/lit/passes/type-generalizing.wast",
+    "test/lit/passes/type-merging-desc.wast",
+    "test/lit/passes/type-merging.wast",
+    "test/lit/passes/type-refining-gufa-rmw.wast",
+    "test/lit/passes/type-ssa-desc.wast",
+    "test/lit/passes/unsubtyping-desc.wast",
+    "test/lit/passes/unsubtyping-jsinterop.wast",
+    "test/lit/passes/unsubtyping-stack-switching.wast",
+    "test/lit/publish.wast",
+    "test/lit/scripts/extract_wasms.lit",
+    "test/lit/validation/atomic-alignment.wast",
+    "test/lit/validation/fp16-memory.wast",
+    "test/lit/validation/fp16-unary.wast",
+    "test/lit/validation/publish.wast",
+    "test/lit/validation/relaxed-atomics.wast",
+    "test/lit/validation/waitqueue.wast",
+    "test/lit/wasm-split/multi-split2.wast",
+    "test/lit/wasm-split/passive-deps.wast",
+    "test/lit/wasm-split/split-module-items.wast",
+    "test/lit/wasm-split/transitive-globals-multi.wast",
+    "test/lit/wasm-split/transitive-globals.wast",
+    "test/lit/wasm-split/transitive-immutable-globals-multi.wast",
+    "test/lit/wasm-split/transitive-mutable-globals-multi.wast",
+    "test/lit/wasm2c/minimal.wast",
+    "test/passes/fannkuch3_manyopts_dwarf.bin.txt",
+    "test/passes/simplify-locals.txt",
+    "test/passes/simplify-locals.wast",
+    "test/passes/simplify-locals_all-features_disable-exception-handling_disable-stack-switching.txt",
+    "test/passes/simplify-locals_all-features_disable-exception-handling_disable-stack-switching.wast",
+    "test/passes/translate-to-fuzz_all-features_metrics_noprint.txt",
+    "test/passes/trap-mode-clamp.txt",
+    "test/passes/trap-mode-clamp.wast",
+    "test/passes/trap-mode-js.txt",
+    "test/passes/trap-mode-js.wast",
+    "test/spec/acquire-release-atomics/basic.wast",
+    "test/spec/acquire-release-atomics/threaded.wast",
+    "test/spec/descriptors.wast",
+    "test/spec/gc-elem-declare.wast",
+    "test/spec/stack-switching/resume_throw.wast",
+    "test/spec/waitqueue.wast",
+    "test/unit/test_cluster_fuzz.py",
+    "test/unit/test_fuzz_stats.py",
+    "test/wasm2js/conversions-emscripten-modified.2asm.js",
+    "test/wasm2js/conversions-emscripten-modified.2asm.js.opt",
+    "third_party/picosha2",
+    "third_party/simde"
+  ],
+  "commits": [
+    {
+      "sha": "fba5005a132d85d578be5bd010e0487ed8e2ce3e",
+      "subject": "Version 133 (#9131)",
+      "paths": [
+        "CHANGELOG.md",
+        "CMakeLists.txt"
+      ]
+    },
+    {
+      "sha": "7855ff42a1c0e041c475173b3326114bd286d96c",
+      "subject": "Do not create invalid public types in MergeSimilarFunctions (#9126)",
+      "paths": [
+        "src/passes/MergeSimilarFunctions.cpp",
+        "src/wasm/wasm-validator.cpp",
+        "test/lit/passes/dae-merge-similar-functions-exact.wast"
+      ]
+    },
+    {
+      "sha": "aaffe1837f1335ea4972bbd1eda3f1b95f0b1bb3",
+      "subject": "Fix type updating for struct.wait (#9128)",
+      "paths": [
+        "src/ir/struct-utils.h",
+        "src/passes/GlobalTypeOptimization.cpp",
+        "src/passes/TypeRefining.cpp",
+        "test/lit/passes/gto-removals.wast",
+        "test/lit/passes/type-refining-gufa-rmw.wast"
+      ]
+    },
+    {
+      "sha": "687a4cfa98de8d0cdaebce1b1b53bac10c3f3857",
+      "subject": "Expose `try_table` and `throw_ref` in C and JS API (#9057)",
+      "paths": [
+        "src/binaryen-c.cpp",
+        "src/binaryen-c.h",
+        "src/js/binaryen.js-post.js",
+        "test/binaryen.js/exception-handling.js",
+        "test/binaryen.js/exception-handling.js.txt",
+        "test/binaryen.js/expressions.js",
+        "test/binaryen.js/expressions.js.txt",
+        "test/binaryen.js/kitchen-sink.js",
+        "test/binaryen.js/kitchen-sink.js.txt",
+        "test/example/c-api-kitchen-sink.c",
+        "test/example/c-api-kitchen-sink.txt"
+      ]
+    },
+    {
+      "sha": "4ec160e1a114df62e8e305650d1dd46f65bdbb00",
+      "subject": "Handle new block-nested pops in Unsubtyping (#9130)",
+      "paths": [
+        "src/passes/Unsubtyping.cpp",
+        "test/lit/passes/unsubtyping-desc.wast"
+      ]
+    },
+    {
+      "sha": "da9a372c83de9546c181e10cee0bf5588c532f76",
+      "subject": "Update monitor_fuzz.py return codes (#9120)",
+      "paths": [
+        "scripts/monitor_fuzz.py"
+      ]
+    },
+    {
+      "sha": "21312a03e1d028a9d53f2cf855888a23b4b69862",
+      "subject": "[JS API] Organize types into enums (#9098)",
+      "paths": [
+        "CHANGELOG.md",
+        "src/js/binaryen.js-post.js",
+        "test/binaryen.js/atomics.js",
+        "test/binaryen.js/copy-expression.js",
+        "test/binaryen.js/emit_asmjs.js",
+        "test/binaryen.js/exception-handling.js",
+        "test/binaryen.js/expressionrunner.js",
+        "test/binaryen.js/expressions.js",
+        "test/binaryen.js/functions.js",
+        "test/binaryen.js/gc.js",
+        "test/binaryen.js/global.js",
+        "test/binaryen.js/hello-world.js",
+        "test/binaryen.js/kitchen-sink.js",
+        "test/binaryen.js/reloc.js",
+        "test/binaryen.js/sideffects.js",
+        "test/binaryen.js/sieve.js",
+        "test/binaryen.js/sourcemap.js",
+        "test/binaryen.js/tables.js",
+        "test/binaryen.js/tag.js",
+        "test/binaryen.js/tail_calls.js",
+        "test/binaryen.js/validation_errors.js"
+      ]
+    },
+    {
+      "sha": "fbf2e5aa2cca8c9b8ae0bbd021f57c839c9640f2",
+      "subject": "[MakeSharedObjects] Lower externrefs using a dynamically grown table (#9114)",
+      "paths": [
+        "src/passes/MakeSharedObjects.cpp",
+        "test/lit/passes/make-shared-objects.wast"
+      ]
+    },
+    {
+      "sha": "829cbec1b75d201cdc632478450e4748f2472bde",
+      "subject": "Fix TypeRefining-GUFA on unreachable StructCmpxchg (#9113)",
+      "paths": [
+        "src/ir/possible-contents.cpp",
+        "src/ir/struct-utils.h",
+        "src/passes/GlobalTypeOptimization.cpp",
+        "src/passes/TypeRefining.cpp",
+        "test/lit/passes/type-refining-gufa-rmw.wast"
+      ]
+    },
+    {
+      "sha": "e45f5ba1204484a59a38a6881b8e6fb6339f2c71",
+      "subject": "Mark atomic read-write etc. operations as generative (#9112)",
+      "paths": [
+        "scripts/test/fuzzing.py",
+        "src/ir/properties.cpp",
+        "test/lit/passes/optimize-instructions-atomics.wast",
+        "test/lit/passes/optimize-instructions-gc-atomics.wast",
+        "test/lit/passes/optimize-instructions-waitqueue.wast"
+      ]
+    },
+    {
+      "sha": "3f54c9d121d8133bc3ee9ea9914c46a5d7b464e1",
+      "subject": "Optionally collect fuzzer statistics across runs (#9073)",
+      "paths": [
+        "src/support/file_lock.h",
+        "src/tools/CMakeLists.txt",
+        "src/tools/fuzzing/fuzz-stats.cpp",
+        "src/tools/fuzzing/fuzz-stats.h",
+        "src/tools/fuzzing/fuzzing.cpp",
+        "test/unit/test_fuzz_stats.py"
+      ]
+    },
+    {
+      "sha": "7d27e49028f753b74507ce5b8effc84feca1caf7",
+      "subject": "[TailCall] Fix intrinsic and unreachable calls (#9111)",
+      "paths": [
+        "src/passes/Intrinsics.cpp",
+        "src/passes/TailCall.cpp",
+        "test/lit/passes/intrinsic-lowering.wast",
+        "test/lit/passes/tail-call.wast"
+      ]
+    },
+    {
+      "sha": "cbecb31262f41e65b54aad4f7bd4f9b4f22cb55c",
+      "subject": "[GUFA] Fix crash on switch handlers (#9110)",
+      "paths": [
+        "src/ir/possible-contents.cpp",
+        "test/lit/passes/gufa-cont.wast"
+      ]
+    },
+    {
+      "sha": "e653452764b6f7806a34196bda15f76564e66c39",
+      "subject": "ConstraintAnalysis: Parse tees (#9109)",
+      "paths": [
+        "src/ir/constraint.cpp",
+        "test/lit/passes/constraint-analysis.wast",
+        "test/lit/passes/inlining-optimizing_optimize-level=3.wast",
+        "test/passes/fannkuch3_manyopts_dwarf.bin.txt"
+      ]
+    },
+    {
+      "sha": "0c068b71d4015db83b9e57f9f8a514b40a566d86",
+      "subject": "Add TailCall optimization pass (--tail-call) (#9103)",
+      "paths": [
+        "scripts/fuzz_opt.py",
+        "src/passes/CMakeLists.txt",
+        "src/passes/TailCall.cpp",
+        "src/passes/pass.cpp",
+        "src/passes/passes.h",
+        "test/lit/help/wasm-metadce.test",
+        "test/lit/help/wasm-opt.test",
+        "test/lit/help/wasm2js.test",
+        "test/lit/passes/tail-call-eh.wast",
+        "test/lit/passes/tail-call-tnh.wast",
+        "test/lit/passes/tail-call.wast"
+      ]
+    },
+    {
+      "sha": "5b07da180bbcdea2f3761be96215cc94ee7f4930",
+      "subject": "[GTO] Update struct field indices after localizing operands (#9108)",
+      "paths": [
+        "src/passes/GlobalTypeOptimization.cpp",
+        "test/lit/passes/gto-jsinterop.wast"
+      ]
+    },
+    {
+      "sha": "1b198ae5968b3f3322d6c844aad314d31dc79271",
+      "subject": "Add a pass to remove empty function exports (#9078)",
+      "paths": [
+        "src/passes/CMakeLists.txt",
+        "src/passes/RemoveEmptyFunctionExports.cpp",
+        "src/passes/pass.cpp",
+        "src/passes/passes.h",
+        "test/lit/help/wasm-metadce.test",
+        "test/lit/help/wasm-opt.test",
+        "test/lit/help/wasm2js.test",
+        "test/lit/passes/remove-empty-function-exports.wat"
+      ]
+    },
+    {
+      "sha": "b71b29e2afa8d2dc848a385a42d47327caa48a82",
+      "subject": "Port threaded tests from acquire/release proposal (#9107)",
+      "paths": [
+        "test/spec/acquire-release-atomics/threaded.wast"
+      ]
+    },
+    {
+      "sha": "2746295ac84dc054ff0120fbd550bd7086ff09e8",
+      "subject": "Support parallel fuzzing in monitor_fuzz.py (#9105)",
+      "paths": [
+        "scripts/fuzz_opt.py",
+        "scripts/monitor_fuzz.py",
+        "scripts/test/shared.py"
+      ]
+    },
+    {
+      "sha": "7d9ec2fa2129e6cfb3558bf07bdb3d345dd9962d",
+      "subject": "[BranchHinting] Do not reorder traps in OptimizeInstructions when neverReorder is set (#9096)",
+      "paths": [
+        "src/passes/OptimizeInstructions.cpp",
+        "test/lit/passes/optimize-instructions_branch-hints-fold.wast"
+      ]
+    },
+    {
+      "sha": "5eb87bfcbdfa86d24ac8b9b07c1fa606124d140d",
+      "subject": "Fix invalid tag index when parsing declarative element segments with \u2026 (#9093)",
+      "paths": [
+        "src/wasm/wasm-binary.cpp",
+        "test/spec/gc-elem-declare.wast"
+      ]
+    },
+    {
+      "sha": "b7c5ff3c8b4e2f2276f79d79557b96da3d5c5332",
+      "subject": "[ctor-eval] Fix partial evaluation of return calls (#9104)",
+      "paths": [
+        "src/tools/wasm-ctor-eval.cpp",
+        "test/lit/ctor-eval/return_call.wast"
+      ]
+    },
+    {
+      "sha": "1883e1b8be2e0298486f281c530a0cfd37c5ad7f",
+      "subject": "Parallelize fixed wasm-reduce testcases (#9101)",
+      "paths": [
+        "check.py"
+      ]
+    },
+    {
+      "sha": "45b6cd96f29e477aad6bc4ccd216121e186333b8",
+      "subject": "Optimize `publish` (#9091)",
+      "paths": [
+        "scripts/test/fuzzing.py",
+        "src/ir/properties.h",
+        "src/passes/OptimizeInstructions.cpp",
+        "test/lit/passes/optimize-instructions-publish.wast"
+      ]
+    },
+    {
+      "sha": "cb3586b8763ddd528c41524778e1c506fb13f735",
+      "subject": "Parallelize native example testcases (#9097)",
+      "paths": [
+        "check.py"
+      ]
+    },
+    {
+      "sha": "43dd29435f1148f8d444bbf0e606e737f6112bcb",
+      "subject": "[NFC] Process Binary arms in natural execution order in Constraints (#9099)",
+      "paths": [
+        "src/ir/constraint.cpp",
+        "test/gtest/constraint.cpp"
+      ]
+    },
+    {
+      "sha": "14bdb7f536a96b4abf65c99e768935c6d646379a",
+      "subject": "Parallelize wasm2js test suite (#9090)",
+      "paths": [
+        "scripts/test/wasm2js.py"
+      ]
+    },
+    {
+      "sha": "14fdf52436d9c5ecbc040cfd845aa3cb504cd230",
+      "subject": "[NFC] Reorder some small fields in wasm.h for size reduction (#9094)",
+      "paths": [
+        "src/wasm.h",
+        "test/gtest/sizes.cpp"
+      ]
+    },
+    {
+      "sha": "ee098931c69f230650e738b71f3e5eba2684fdd8",
+      "subject": "[NFC] Remove ancient trapping-mode support code (#9095)",
+      "paths": [
+        "src/ir/trapping.h",
+        "src/passes/CMakeLists.txt",
+        "src/passes/TrapMode.cpp",
+        "src/passes/pass.cpp",
+        "src/passes/passes.h",
+        "src/tools/wasm-emscripten-finalize.cpp",
+        "test/lit/help/wasm-metadce.test",
+        "test/lit/help/wasm-opt.test",
+        "test/lit/help/wasm2js.test",
+        "test/passes/trap-mode-clamp.txt",
+        "test/passes/trap-mode-clamp.wast",
+        "test/passes/trap-mode-js.txt",
+        "test/passes/trap-mode-js.wast"
+      ]
+    },
+    {
+      "sha": "b872d117f55a18a3f8e907b14f13eb730baa6a31",
+      "subject": "Optimize tail-padding reuse [NFC] (#9084)",
+      "paths": [
+        "src/wasm.h",
+        "test/gtest/CMakeLists.txt",
+        "test/gtest/sizes.cpp"
+      ]
+    },
+    {
+      "sha": "994a5cb99168d29b2071053232202a5fbf66f02a",
+      "subject": "Avoid newly exposing prototypes in GTO (#9043)",
+      "paths": [
+        "src/ir/js-utils.h",
+        "src/passes/GlobalTypeOptimization.cpp",
+        "test/lit/passes/gto-jsinterop.wast"
+      ]
+    },
+    {
+      "sha": "d57c2a8488655b1a7105f22b2611cb29bbf43356",
+      "subject": "ConstraintAnalysis: Parse AND operations (#9075)",
+      "paths": [
+        "src/ir/constraint.cpp",
+        "src/ir/constraint.h",
+        "src/ir/match.h",
+        "src/passes/ConstraintAnalysis.cpp",
+        "src/support/inplace_vector.h",
+        "src/support/small_vector.h",
+        "test/gtest/constraint.cpp",
+        "test/lit/passes/constraint-analysis.wast"
+      ]
+    },
+    {
+      "sha": "3e2bcc00a452c307d83f4d2c3381fad23efb9fa5",
+      "subject": "Optimize resume of non-suspending continuations (#9071)",
+      "paths": [
+        "src/passes/OptimizeInstructions.cpp",
+        "test/lit/passes/optimize-instructions-resume.wast"
+      ]
+    },
+    {
+      "sha": "5d93aba7a2684fad8e3cdfcd375a82b0bf8e4604",
+      "subject": "Fix fallthrough for desc operands (#9089)",
+      "paths": [
+        "src/ir/effects.h",
+        "src/ir/properties.h",
+        "src/passes/OptimizeInstructions.cpp",
+        "test/lit/passes/optimize-instructions-desc.wast",
+        "test/lit/passes/optimize-instructions-struct-rmw.wast",
+        "test/lit/passes/simplify-locals-atomic-effects.wast"
+      ]
+    },
+    {
+      "sha": "d2e5e03c39972054a154fa32aae9a1de1306db52",
+      "subject": "Parallelize wasm-opt passes and print tests (#9088)",
+      "paths": [
+        "scripts/test/shared.py",
+        "scripts/test/support.py",
+        "scripts/test/wasm_opt.py"
+      ]
+    },
+    {
+      "sha": "ac7914969df93a06ef18b3defc6872ad2d527606",
+      "subject": "Add unified parallel test runner and refactor spec tests (#9083)",
+      "paths": [
+        "check.py",
+        "scripts/test/shared.py"
+      ]
+    },
+    {
+      "sha": "8d786b30188c1a44d7c1b1686aba19031adec3a4",
+      "subject": "[CI] Use existing clang, don't install using llvm.sh (#9087)",
+      "paths": [
+        ".github/workflows/ci.yml"
+      ]
+    },
+    {
+      "sha": "72e6b562e3f196701a50d5c228ee0b313d52e7b9",
+      "subject": "[Stack Switching / Exceptions] Add missing null check for null exnref in resume_throw_ref (#9082)",
+      "paths": [
+        "src/wasm-interpreter.h",
+        "test/lit/exec/resume_throw_ref.wast"
+      ]
+    },
+    {
+      "sha": "a7f790969ee888cba48f420a9621d3c65f8e4398",
+      "subject": "Store primitive GC arrays as raw byte buffers (#9051)",
+      "paths": [
+        "src/literal.h",
+        "src/passes/Precompute.cpp",
+        "src/tools/wasm-ctor-eval.cpp",
+        "src/wasm-builder.h",
+        "src/wasm-interpreter.h",
+        "src/wasm/literal.cpp"
+      ]
+    },
+    {
+      "sha": "2abebd2a71634833bec018a3cbeed4c5cdb2a2ec",
+      "subject": "Initial support for `publish` (#9072)",
+      "paths": [
+        "scripts/gen-s-parser.py",
+        "scripts/test/fuzzing.py",
+        "src/binaryen-c.cpp",
+        "src/binaryen-c.h",
+        "src/gen-s-parser.inc",
+        "src/interpreter/interpreter.cpp",
+        "src/ir/ReFinalize.cpp",
+        "src/ir/child-typer.h",
+        "src/ir/cost.h",
+        "src/ir/effects.h",
+        "src/ir/possible-contents.cpp",
+        "src/ir/subtype-exprs.h",
+        "src/js/binaryen.js-post.js",
+        "src/parser/contexts.h",
+        "src/parser/parsers.h",
+        "src/passes/Print.cpp",
+        "src/passes/TypeGeneralizing.cpp",
+        "src/wasm-binary.h",
+        "src/wasm-builder.h",
+        "src/wasm-delegations-fields.def",
+        "src/wasm-delegations.def",
+        "src/wasm-interpreter.h",
+        "src/wasm-ir-builder.h",
+        "src/wasm.h",
+        "src/wasm/wasm-binary.cpp",
+        "src/wasm/wasm-ir-builder.cpp",
+        "src/wasm/wasm-stack.cpp",
+        "src/wasm/wasm-validator.cpp",
+        "src/wasm/wasm.cpp",
+        "src/wasm2js.h",
+        "test/lit/publish.wast",
+        "test/lit/validation/publish.wast"
+      ]
+    },
+    {
+      "sha": "cdb9eaa079d0264c353809df9816d0d0cf3ca36f",
+      "subject": "Use fast gzip compression level 1 in ClusterFuzz bundling (#9076)",
+      "paths": [
+        "scripts/bundle_clusterfuzz.py"
+      ]
+    },
+    {
+      "sha": "c75f2ae1a525c964f7f2b8067f975e9518012859",
+      "subject": "Add a suspends effect (#9070)",
+      "paths": [
+        "scripts/test/wasm2js.py",
+        "src/binaryen-c.cpp",
+        "src/binaryen-c.h",
+        "src/ir/effects.cpp",
+        "src/ir/effects.h",
+        "src/js/binaryen.js-post.js",
+        "src/passes/GlobalEffects.cpp",
+        "test/binaryen.js/sideffects.js",
+        "test/binaryen.js/sideffects.js.txt",
+        "test/gtest/CMakeLists.txt",
+        "test/gtest/effects.cpp",
+        "test/gtest/matchers/effects.h",
+        "test/lit/passes/global-effects-suspends.wast",
+        "test/passes/simplify-locals_all-features_disable-exception-handling.txt",
+        "test/passes/simplify-locals_all-features_disable-exception-handling.wast",
+        "test/passes/simplify-locals_all-features_disable-exception-handling_disable-stack-switching.txt",
+        "test/passes/simplify-locals_all-features_disable-exception-handling_disable-stack-switching.wast"
+      ]
+    },
+    {
+      "sha": "180bae3ed42f49fa38b0c4bcab47f6d61e0375e8",
+      "subject": "Add a monitor_fuzz.py script (#9069)",
+      "paths": [
+        "scripts/monitor_fuzz.py"
+      ]
+    },
+    {
+      "sha": "6c4214f7d34da89cac016c43ce2a166294f29fa4",
+      "subject": "Require matching finality in descriptor types (#9068)",
+      "paths": [
+        "src/tools/fuzzing/heap-types.cpp",
+        "src/wasm-type.h",
+        "src/wasm/wasm-type.cpp",
+        "test/gtest/type-builder.cpp",
+        "test/lit/ctor-eval/gc-desc.wast",
+        "test/lit/fuzz-types.test",
+        "test/lit/passes/abstract-type-refining-desc.wast",
+        "test/lit/passes/heap2local-desc.wast",
+        "test/lit/passes/type-ssa-desc.wast",
+        "test/passes/translate-to-fuzz_all-features_metrics_noprint.txt",
+        "test/spec/descriptors.wast"
+      ]
+    },
+    {
+      "sha": "e7a45512aa267af4de0fe5dac0bf3d045dc50493",
+      "subject": "Constraints: Add comparisons for term-equal proving (#9066)",
+      "paths": [
+        "src/ir/constraint.cpp",
+        "test/gtest/constraint.cpp"
+      ]
+    },
+    {
+      "sha": "0f19a05b6e5dfad15e9cce0175b2922949a2e1ba",
+      "subject": "OptimizeInstructions: Do not remove an inner cast when there are descriptor effects in the way (#9067)",
+      "paths": [
+        "src/passes/OptimizeInstructions.cpp",
+        "test/lit/passes/optimize-instructions-desc.wast"
+      ]
+    },
+    {
+      "sha": "20486056d457ed2167e6fbe9febbe904cac3581e",
+      "subject": "Fix typos in the codebase (#9063)",
+      "paths": [
+        "scripts/fuzz_opt.py",
+        "scripts/test/fuzzing.py",
+        "scripts/update_lit_checks.py",
+        "src/binaryen-c.h",
+        "src/dataflow/node.h",
+        "src/interpreter/interpreter.cpp",
+        "src/ir/child-typer.h",
+        "src/ir/manipulation.h",
+        "src/ir/module-splitting.cpp",
+        "src/ir/module-utils.cpp",
+        "src/ir/subtype-exprs.h",
+        "src/ir/type-updating.cpp",
+        "src/passes/DeadArgumentElimination2.cpp",
+        "src/passes/HeapStoreOptimization.cpp",
+        "src/passes/Inlining.cpp",
+        "src/passes/MergeBlocks.cpp",
+        "src/passes/MultiMemoryLowering.cpp",
+        "src/passes/OptimizeCasts.cpp",
+        "src/passes/OptimizeInstructions.cpp",
+        "src/passes/Print.cpp",
+        "src/passes/TranslateEH.cpp",
+        "src/passes/pass.cpp",
+        "src/tools/fuzzing/fuzzing.cpp",
+        "src/tools/wasm-fuzz-lattices.cpp",
+        "src/tools/wasm-split/instrumenter.cpp",
+        "src/wasm/wasm-ir-builder.cpp",
+        "src/wasm/wasm-validator.cpp",
+        "test/gtest/type-updating.cpp",
+        "test/lit/basic/exception-handling-legacy.wast",
+        "test/lit/ctor-eval/multivalue-local.wast",
+        "test/lit/help/wasm-metadce.test",
+        "test/lit/help/wasm-opt.test",
+        "test/lit/help/wasm2js.test",
+        "test/lit/passes/coalesce-locals.wast",
+        "test/lit/passes/gto-removals.wast",
+        "test/lit/passes/gufa-desc.wast",
+        "test/lit/passes/gufa-tnh.wast",
+        "test/lit/passes/inlining-eh-legacy.wast",
+        "test/lit/passes/inlining-optimizing.wast",
+        "test/lit/passes/inlining_optimize-level=3.wast",
+        "test/lit/passes/once-reduction.wast",
+        "test/lit/passes/optimize-casts.wast",
+        "test/lit/passes/optimize-instructions-eh-legacy.wast",
+        "test/lit/passes/post-emscripten.wast",
+        "test/lit/passes/precompute-effects.wast",
+        "test/lit/passes/precompute-gc-loop.wast",
+        "test/lit/passes/remove-unused-module-elements_all-features.wast",
+        "test/lit/passes/rse-eh-legacy.wast",
+        "test/lit/passes/simplify-locals-gc.wast",
+        "test/lit/passes/toolchain-inlining.wast",
+        "test/lit/passes/type-generalizing.wast",
+        "test/lit/passes/type-merging.wast",
+        "test/lit/passes/type-ssa-desc.wast",
+        "test/lit/passes/unsubtyping-jsinterop.wast",
+        "test/lit/passes/unsubtyping-stack-switching.wast",
+        "test/lit/scripts/extract_wasms.lit",
+        "test/lit/wasm-split/multi-split2.wast",
+        "test/spec/stack-switching/resume_throw.wast",
+        "test/unit/test_cluster_fuzz.py"
+      ]
+    },
+    {
+      "sha": "3d7eee7a4d2c1578f56eedc7164af4728611b7fb",
+      "subject": "Increase ConstraintAnalysis limit on basic block computations (#9065)",
+      "paths": [
+        "src/passes/ConstraintAnalysis.cpp"
+      ]
+    },
+    {
+      "sha": "d036a3b6c3a04c5d1aefe5a945e75ab113d7dcad",
+      "subject": "Add missing visit to descriptor in LinearExecutionWalker (#9060)",
+      "paths": [
+        "src/ir/linear-execution.h",
+        "test/lit/passes/simplify-locals-desc.wast"
+      ]
+    },
+    {
+      "sha": "6531a981a86daf8c83ba7d933d824bab27f6e02a",
+      "subject": "[wasm-split] Make mutable/immutable versions of tests (#9062)",
+      "paths": [
+        "test/lit/wasm-split/split-module-items.wast",
+        "test/lit/wasm-split/transitive-globals-multi.wast",
+        "test/lit/wasm-split/transitive-immutable-globals-multi.wast",
+        "test/lit/wasm-split/transitive-mutable-globals-multi.wast"
+      ]
+    },
+    {
+      "sha": "f870c9e0558d0d058a903c3ab4ef170c1f9f1029",
+      "subject": "ConstraintAnalysis: Fix a hang with a tee in an increment (#9058)",
+      "paths": [
+        "src/passes/ConstraintAnalysis.cpp",
+        "test/lit/passes/constraint-analysis-loops.wast"
+      ]
+    },
+    {
+      "sha": "3a46a6c6f3aa49b3616aa6cb12f7aef5c678d170",
+      "subject": "[wasm-split] Don't use update_lit_checks.py for some tests (#9061)",
+      "paths": [
+        "test/lit/wasm-split/passive-deps.wast",
+        "test/lit/wasm-split/transitive-globals-multi.wast",
+        "test/lit/wasm-split/transitive-globals.wast"
+      ]
+    },
+    {
+      "sha": "39be64eccdf9069c8e26d28abc5c0c9932651924",
+      "subject": "Update to filecheck 1.0.5 (#9059)",
+      "paths": [
+        ".github/workflows/ci.yml",
+        "requirements-dev.txt"
+      ]
+    },
+    {
+      "sha": "8bad4db00f130a0d4f6d1abc7cb3d0731a501df4",
+      "subject": "Fast-math mode can ignore the difference between negative zero and zero (#9056)",
+      "paths": [
+        "CHANGELOG.md",
+        "src/tools/optimization-options.h",
+        "test/lit/help/wasm-metadce.test",
+        "test/lit/help/wasm-opt.test",
+        "test/lit/help/wasm2js.test"
+      ]
+    },
+    {
+      "sha": "23c19e240a816a2d1c9786e1d1b2cf0d26311b57",
+      "subject": "Update pinned filecheck version to 1.0.3 (#9054)",
+      "paths": [
+        ".github/workflows/ci.yml",
+        "requirements-dev.txt"
+      ]
+    },
+    {
+      "sha": "a30696f95e3834be039dc3a0d8b6052c28d4c0a6",
+      "subject": "Emit CHECK-EMPTY directives in test update scripts (#9053)",
+      "paths": [
+        "scripts/update_help_checks.py",
+        "scripts/update_lit_checks.py",
+        "test/lit/fuzz-types.test",
+        "test/lit/help/wasm-as.test",
+        "test/lit/help/wasm-ctor-eval.test",
+        "test/lit/help/wasm-dis.test",
+        "test/lit/help/wasm-emscripten-finalize.test",
+        "test/lit/help/wasm-fuzz-types.test",
+        "test/lit/help/wasm-merge.test",
+        "test/lit/help/wasm-metadce.test",
+        "test/lit/help/wasm-opt.test",
+        "test/lit/help/wasm-reduce.test",
+        "test/lit/help/wasm-shell.test",
+        "test/lit/help/wasm-split.test",
+        "test/lit/help/wasm2js.test",
+        "test/lit/merge/manifest-explicit-name.wat",
+        "test/lit/merge/manifest.wat"
+      ]
+    },
+    {
+      "sha": "cdfda07b3935ff22eb309cccbb53ea302d06f931",
+      "subject": "Do not emit trailing whitespace on blank lines (#9052)",
+      "paths": [
+        "src/passes/Print.cpp",
+        "src/support/command-line.cpp",
+        "src/tools/wasm-opt.cpp",
+        "src/tools/wasm-reduce/wasm-reduce.cpp",
+        "test/lit/passes/stack-ir-eh-legacy.wast"
+      ]
+    },
+    {
+      "sha": "0f38ce795e95ed4433ac4d4736ae0d6866e3d837",
+      "subject": "Enable ConstraintAnalysis pass (#9010)",
+      "paths": [
+        "src/passes/pass.cpp",
+        "test/passes/fannkuch3_manyopts_dwarf.bin.txt"
+      ]
+    },
+    {
+      "sha": "d03c25ea43d8f147fc222f9b88ff3bf641abe8da",
+      "subject": "Constraints: Do not optimize floats without fast-math (#9049)",
+      "paths": [
+        "src/ir/constraint.h",
+        "src/passes/ConstraintAnalysis.cpp",
+        "test/lit/passes/constraint-analysis-float.wast",
+        "test/lit/passes/constraint-analysis.wast"
+      ]
+    },
+    {
+      "sha": "ece5da21a818126ac459bad18fae5f7bccb1da1a",
+      "subject": "Do not fuzz gufa-waitqueue.wast (#9050)",
+      "paths": [
+        "scripts/test/fuzzing.py"
+      ]
+    },
+    {
+      "sha": "e258ff09487373732a2113a3d400c15ba02bb03e",
+      "subject": "Constraints: Propagate constants when proving (#9047)",
+      "paths": [
+        "src/ir/constraint.cpp",
+        "src/ir/constraint.h",
+        "src/passes/ConstraintAnalysis.cpp",
+        "test/lit/passes/constraint-analysis-loops.wast",
+        "test/lit/passes/constraint-analysis.wast"
+      ]
+    },
+    {
+      "sha": "cce27ed1900696338d0d1d41c8645c1f6c0d6bc9",
+      "subject": "Do not flatten trapping memory segments (#9048)",
+      "paths": [
+        "src/ir/memory-utils.cpp",
+        "src/support/stdckdint.h",
+        "test/lit/ctor-eval/flatten_oob.wast"
+      ]
+    },
+    {
+      "sha": "b7c050e026487aad6386d4ffb49bedf433e994f9",
+      "subject": "Fix depth map for waitqueues (#9040)",
+      "paths": [
+        "src/ir/subtypes.h",
+        "test/lit/passes/gufa-waitqueue.wast"
+      ]
+    },
+    {
+      "sha": "65e9a83095f789fd883d21748aca2828d69188f9",
+      "subject": "ConstraintAnalysis: Fix mixed signed/unsigned comparisons (#9045)",
+      "paths": [
+        "src/ir/constraint.cpp",
+        "src/ir/constraint.h",
+        "src/support/iu64.h",
+        "src/support/span.h",
+        "test/gtest/CMakeLists.txt",
+        "test/gtest/constraint.cpp",
+        "test/gtest/iu64.cpp",
+        "test/gtest/span.cpp",
+        "test/lit/passes/constraint-analysis.wast"
+      ]
+    },
+    {
+      "sha": "876015e45e4f61b96041a74b83d96c8d63661fa3",
+      "subject": "ConstraintAnalysis: Track local copies through fallthrough values (#9046)",
+      "paths": [
+        "src/passes/ConstraintAnalysis.cpp",
+        "test/lit/passes/constraint-analysis.wast"
+      ]
+    },
+    {
+      "sha": "0d962bcb6c1c81b6d42fdd7794b5514410f1a68c",
+      "subject": "Constraints: Fix float comparisons (#9041)",
+      "paths": [
+        "src/ir/constraint.cpp",
+        "src/literal.h",
+        "src/wasm/literal.cpp",
+        "test/gtest/constraint.cpp",
+        "test/lit/passes/constraint-analysis.wast"
+      ]
+    },
+    {
+      "sha": "ad982e2d20c531910c8b8c12bab532888c624c56",
+      "subject": "Validate natural alignment for atomic memory operations (#8966)",
+      "paths": [
+        "CHANGELOG.md",
+        "scripts/test/shared.py",
+        "src/parser/contexts.h",
+        "src/passes/DeAlign.cpp",
+        "src/wasm-ir-builder.h",
+        "src/wasm/wasm-binary.cpp",
+        "src/wasm/wasm-ir-builder.cpp",
+        "test/lit/basic/relaxed-atomics.wast",
+        "test/lit/passes/dealign-atomics.wast",
+        "test/lit/validation/atomic-alignment.wast",
+        "test/lit/validation/relaxed-atomics.wast"
+      ]
+    },
+    {
+      "sha": "7bed2be74d9bd2720cde9f7329ae210dedefa627",
+      "subject": "Validate remaining FP16 instruction features (#8979)",
+      "paths": [
+        "src/wasm/wasm-validator.cpp",
+        "test/lit/validation/fp16-memory.wast",
+        "test/lit/validation/fp16-unary.wast"
+      ]
+    },
+    {
+      "sha": "a048cb7f950c88610dc43666719a0a045fa23d43",
+      "subject": "Interpreter: factor out applyRMW helper for atomic and GC RMW operations (#9042)",
+      "paths": [
+        "src/wasm-interpreter.h"
+      ]
+    },
+    {
+      "sha": "67ac1ab072cdc7a60d34d9c142c0764855338f88",
+      "subject": "[JS API] fix: update `ExpressionIds` enum (#9044)",
+      "paths": [
+        "src/js/binaryen.js-post.js"
+      ]
+    },
+    {
+      "sha": "9d6a093095a780bbaed42fce6ff8f88699e9dc21",
+      "subject": "Add library API for waitqueue instructions (#9039)",
+      "paths": [
+        "src/binaryen-c.cpp",
+        "src/binaryen-c.h",
+        "src/js/binaryen.js-post.js",
+        "test/binaryen.js/expressions.js",
+        "test/binaryen.js/expressions.js.txt",
+        "test/example/c-api-kitchen-sink.c",
+        "test/example/c-api-kitchen-sink.txt"
+      ]
+    },
+    {
+      "sha": "c3c30bb9459aff7e723ced9074fe46a2b3179d5c",
+      "subject": "ConstraintAnalysis: Fix missing overflow checks in x++ (#9037)",
+      "paths": [
+        "src/ir/constraint.cpp",
+        "test/gtest/constraint.cpp",
+        "test/lit/passes/constraint-analysis-loops.wast"
+      ]
+    },
+    {
+      "sha": "3029fbb717390af5d49914ba635b5458dd1c6efa",
+      "subject": "Use Spans in cases where we can't infer them exactly (#9034)",
+      "paths": [
+        "src/ir/constraint.cpp",
+        "src/ir/constraint.h",
+        "test/gtest/constraint.cpp"
+      ]
+    },
+    {
+      "sha": "9af0edf4a78b531ce1e21b6325f09f4d9219466b",
+      "subject": "ConstraintAnalysis fuzz bug: Do not AND after a branch is not taken (#9035)",
+      "paths": [
+        "src/passes/ConstraintAnalysis.cpp",
+        "test/lit/passes/constraint-analysis-loops.wast"
+      ]
+    },
+    {
+      "sha": "bb0caa3fc547e1281391b1235c93f1ed84541c2e",
+      "subject": "[wasm2js] Support nontrapping float-to-int conversions directly in JS (#9019)",
+      "paths": [
+        "src/passes/LLVMNontrappingFPToIntLowering.cpp",
+        "src/wasm2js.h",
+        "test/wasm2js/conversions-emscripten-modified.2asm.js",
+        "test/wasm2js/conversions-emscripten-modified.2asm.js.opt"
+      ]
+    },
+    {
+      "sha": "f0fd89646afc4036ebb95cfd79f1036595b23fa4",
+      "subject": "Constraints: Don't store immediate contradictions (#9032)",
+      "paths": [
+        "src/ir/constraint.cpp"
+      ]
+    },
+    {
+      "sha": "b899ca2f4c4ba7484e690b44a5696cee513ec209",
+      "subject": "Revert binaryen wasm2c (#9033)",
+      "paths": [
+        ".gitignore",
+        ".gitmodules",
+        "CMakeLists.txt",
+        "check.py",
+        "scripts/clang-tidy-diff.sh",
+        "scripts/test/shared.py",
+        "scripts/test/wasm2c.py",
+        "src/tools/CMakeLists.txt",
+        "src/tools/wasm2c/CMakeLists.txt",
+        "src/tools/wasm2c/README.md",
+        "src/tools/wasm2c/assertion-emitter.cpp",
+        "src/tools/wasm2c/assertion-emitter.h",
+        "src/tools/wasm2c/c-printer.h",
+        "src/tools/wasm2c/prebuilt/wasm2c_atomicops_source_declarations.cpp",
+        "src/tools/wasm2c/prebuilt/wasm2c_header_bottom.cpp",
+        "src/tools/wasm2c/prebuilt/wasm2c_header_top.cpp",
+        "src/tools/wasm2c/prebuilt/wasm2c_simd_source_declarations.cpp",
+        "src/tools/wasm2c/prebuilt/wasm2c_source_declarations.cpp",
+        "src/tools/wasm2c/prebuilt/wasm2c_source_includes.cpp",
+        "src/tools/wasm2c/prebuilt/wasm2c_spec_top.cpp",
+        "src/tools/wasm2c/wasm-rt/wasm-rt-exceptions-impl.c",
+        "src/tools/wasm2c/wasm-rt/wasm-rt-exceptions.h",
+        "src/tools/wasm2c/wasm-rt/wasm-rt-impl-tableops.inc",
+        "src/tools/wasm2c/wasm-rt/wasm-rt-impl.c",
+        "src/tools/wasm2c/wasm-rt/wasm-rt-impl.h",
+        "src/tools/wasm2c/wasm-rt/wasm-rt-mem-impl-helper.inc",
+        "src/tools/wasm2c/wasm-rt/wasm-rt-mem-impl.c",
+        "src/tools/wasm2c/wasm-rt/wasm-rt.h",
+        "src/tools/wasm2c/wasm2c-builder.cpp",
+        "src/tools/wasm2c/wasm2c-builder.h",
+        "src/tools/wasm2c/wasm2c.cpp",
+        "test/lit/wasm2c/minimal.wast",
+        "third_party/picosha2",
+        "third_party/simde"
+      ]
+    },
+    {
+      "sha": "9b86340f97dd25f782bb127f4d318ebee30c74d0",
+      "subject": "Allow struct.wait on equality-comparable fields except floats (#8939)",
+      "paths": [
+        "src/ir/child-typer.h",
+        "src/ir/subtype-exprs.h",
+        "src/wasm-interpreter.h",
+        "src/wasm/wasm-ir-builder.cpp",
+        "src/wasm/wasm-validator.cpp",
+        "test/lit/validation/waitqueue.wast",
+        "test/spec/waitqueue.wast"
+      ]
+    },
+    {
+      "sha": "cafd9c30c96ae29e9632a1e38a32248dcd6d6ae4",
+      "subject": "ConstraintAnalysis: Fix parsing of i64 operations (#9029)",
+      "paths": [
+        "src/ir/constraint.cpp",
+        "test/lit/passes/constraint-analysis.wast"
+      ]
+    },
+    {
+      "sha": "293a351e4e3e57cc0a32678f12ad9879d453923a",
+      "subject": "Disallow descriptor \"L\" subtyping (#9011)",
+      "paths": [
+        "src/passes/Unsubtyping.cpp",
+        "src/tools/fuzzing/heap-types.cpp",
+        "src/wasm/wasm-type.cpp",
+        "test/lit/fuzz-types.test",
+        "test/lit/passes/gto-jsinterop.wast",
+        "test/lit/passes/gufa-desc.wast",
+        "test/lit/passes/type-merging-desc.wast",
+        "test/lit/passes/unsubtyping-desc.wast",
+        "test/lit/passes/unsubtyping-jsinterop.wast",
+        "test/passes/translate-to-fuzz_all-features_metrics_noprint.txt"
+      ]
+    },
+    {
+      "sha": "93c3dbf34215c5cedf4b4ad8b5bb662143d2cabe",
+      "subject": "[MakeSharedObjects] Fix casts of non-func types (#9031)",
+      "paths": [
+        "src/passes/MakeSharedObjects.cpp",
+        "test/lit/passes/make-shared-objects.wast"
+      ]
+    },
+    {
+      "sha": "3fe6a5fe0cc31a8a565356298bcd32fd95903abc",
+      "subject": "ConstraintAnalysis: Use spans to prove things (#9025)",
+      "paths": [
+        "src/ir/constraint.cpp",
+        "src/ir/constraint.h",
+        "test/gtest/constraint.cpp"
+      ]
+    },
+    {
+      "sha": "d3d84f5b9587afa0313a53c3f98c649eeda29821",
+      "subject": "Add ConstraintAnalysis widening and fuzz it (#9030)",
+      "paths": [
+        "CHANGELOG.md",
+        "scripts/fuzz_opt.py",
+        "src/passes/ConstraintAnalysis.cpp",
+        "src/passes/pass.cpp",
+        "test/lit/passes/constraint-analysis-loops.wast"
+      ]
+    },
+    {
+      "sha": "02cb86f52e946f9d21f8f5d2e8ac1e649b451c4d",
+      "subject": "Port simplify-locals test to lit (#9028)",
+      "paths": [
+        "test/lit/passes/simplify-locals.wast",
+        "test/passes/simplify-locals.txt",
+        "test/passes/simplify-locals.wast"
+      ]
+    },
+    {
+      "sha": "10eed9ae09ee33cd51955c5dd6e4dc83af737c16",
+      "subject": "Update `CHANGELOG.md` after #9023. NFC (#9027)",
+      "paths": [
+        "CHANGELOG.md"
+      ]
+    },
+    {
+      "sha": "e48e82c4ddf4331b4664018d670d4beef686b59b",
+      "subject": "Simplify WASM_UNREACHABLE. NFC (#8976)",
+      "paths": [
+        "src/support/utilities.h"
+      ]
+    },
+    {
+      "sha": "0af42fada13d92687f4890276da1a66b8af69483",
+      "subject": "[i64-to-i32-lowering] Lower nontrapping float-to-int conversions (#9017)",
+      "paths": [
+        "src/passes/I64ToI32Lowering.cpp",
+        "test/lit/passes/flatten_i64-to-i32-lowering.wast"
+      ]
+    },
+    {
+      "sha": "1dbc251239471dee31a5faba39fec1e5092f0695",
+      "subject": "[wasm-emscripten-finalize] Remove --no-legalize-javascript-ffi flag (#9016)",
+      "paths": [
+        "src/tools/wasm-emscripten-finalize.cpp",
+        "test/lit/help/wasm-emscripten-finalize.test"
+      ]
+    },
+    {
+      "sha": "7836ed6eb3a8a447c5c98ec0769a718b96eaa8af",
+      "subject": "Add IU64 and Span classes, to compute spans over all integers (#9021)",
+      "paths": [
+        "src/support/iu64.h",
+        "src/support/span.h",
+        "test/gtest/CMakeLists.txt",
+        "test/gtest/iu64.cpp",
+        "test/gtest/span.cpp"
+      ]
+    },
+    {
+      "sha": "8d546dc4aea1c3e81e77643f1ed0dea1a649d21d",
+      "subject": "[fuzzer] Allow sign-ext, bulk-memory, and nontrapping-float-to-int in Wasm2JS (#9024)",
+      "paths": [
+        "scripts/fuzz_opt.py"
+      ]
+    },
+    {
+      "sha": "8c9b91e6a7deb3bf5a9f739b44ea7fd07fedabc0",
+      "subject": "Replace `BINARYEN_ROOT` with `BINARYEN_BIN`. NFC (#9023)",
+      "paths": [
+        "scripts/test/shared.py",
+        "src/support/path.cpp",
+        "src/support/path.h"
+      ]
+    },
+    {
+      "sha": "89a81ef9b72ef1c677be6be89178d19598e5760f",
+      "subject": "I64ToI32Lowering: Document non-trapping float truncation behavior. NFC (#9022)",
+      "paths": [
+        "src/passes/I64ToI32Lowering.cpp"
+      ]
+    },
+    {
+      "sha": "8418a249782ecb14ecee03567ce673ffe00562c4",
+      "subject": "Fix alignment in acquire-release spec test (#9014)",
+      "paths": [
+        "scripts/test/generate_atomic_spec_test.py",
+        "test/spec/acquire-release-atomics/basic.wast"
+      ]
+    },
+    {
+      "sha": "daf26d2edc109a82d3ecc16cb06f9411e4c590aa",
+      "subject": "update param of `BinaryenRefNull` to take `BinaryenHeapType` (#8981)",
+      "paths": [
+        "src/binaryen-c.cpp",
+        "src/js/binaryen.js-post.js",
+        "test/binaryen.js/kitchen-sink.js",
+        "test/example/c-api-kitchen-sink.c"
+      ]
+    },
+    {
+      "sha": "b8c151259b349b25233ba6486b186d16feaf6d9f",
+      "subject": "[wasm-split] Deduplicate loops in shareImportableItems (NFC) (#8992)",
+      "paths": [
+        "src/ir/module-splitting.cpp"
+      ]
+    },
+    {
+      "sha": "9bb57b3a4c5bcefc0e2be3e6bb1d4d72fffd5060",
+      "subject": "[wasm-split] Remove module elements in bulk (NFC) (#8990)",
+      "paths": [
+        "src/ir/module-splitting.cpp"
+      ]
+    },
+    {
+      "sha": "7dd128dfcdef05357d2f0ae2dbb6f472ba76c3bd",
+      "subject": "[wasm-split] Precompute ownership info (NFC) (#8986)",
+      "paths": [
+        "src/ir/module-splitting.cpp"
+      ]
+    },
+    {
+      "sha": "07a6f35f8ae0e2f414b3b80e3ff324bb964fd6c0",
+      "subject": "[wasm-split] Don't use ParallelFunctionAnalysis in scanModule (#9007)",
+      "paths": [
+        "src/ir/module-splitting.cpp"
+      ]
+    },
+    {
+      "sha": "081f8cbb1a13fe1a407861ccf50a446deaf4160f",
+      "subject": "[CustomDescriptors] Ensure a non-nullable sent type for br_on_cast_desc_eq on null (#9009)",
+      "paths": [
+        "src/wasm/wasm.cpp",
+        "test/lit/passes/optimize-instructions-desc.wast",
+        "test/lit/passes/simplify-locals-desc.wast"
+      ]
+    },
+    {
+      "sha": "8d9412ef6431ce67f8738554c4d5f091c520b6b7",
+      "subject": "Add multi-threaded tests for acquire/release atomics (#8999)",
+      "paths": [
+        "scripts/test/acquire_release_atomics_execution_tests.py",
+        "scripts/test/generate_atomic_spec_test.py",
+        "scripts/test/relaxed_atomic_execution_tests.py",
+        "scripts/test/support.py",
+        "test/spec/acquire-release-atomics/basic.wast",
+        "test/spec/acquire-release-atomics/threaded.wast",
+        "test/spec/relaxed-atomics.wast"
+      ]
+    },
+    {
+      "sha": "dae272c71a468ba83084700a50f2992c7d508804",
+      "subject": "Generate tuple.extract of wide arithmetic in fuzzer (#9005)",
+      "paths": [
+        "src/tools/fuzzing.h",
+        "src/tools/fuzzing/fuzzing.cpp",
+        "test/passes/translate-to-fuzz_all-features_metrics_noprint.txt"
+      ]
+    },
+    {
+      "sha": "e06e0f2589519ed34df1a364a6160e972e733608",
+      "subject": "ConstraintAnalysis: Handle fallthrough values (#9000)",
+      "paths": [
+        "src/passes/ConstraintAnalysis.cpp",
+        "test/lit/passes/constraint-analysis.wast"
+      ]
+    },
+    {
+      "sha": "3444b9772f39606844026d93e488fe2a2718327d",
+      "subject": "[NFC] Add a nested loop test for ConstraintAnalysis (#9004)",
+      "paths": [
+        "src/passes/ConstraintAnalysis.cpp",
+        "test/lit/passes/constraint-analysis-loops.wast"
+      ]
+    },
+    {
+      "sha": "1bca181ef95a136bc9638324de846f2ece4a904d",
+      "subject": "ConstraintAnalysis: Optimize loop variables with non-constant bounds (#8996)",
+      "paths": [
+        "src/passes/ConstraintAnalysis.cpp",
+        "test/lit/passes/constraint-analysis-loops.wast"
+      ]
+    },
+    {
+      "sha": "64abb88029ff0d7010bd52c2fbc2f107a69ae02d",
+      "subject": "ConstraintAnalysis: Stop flowing in unreachable code (#9003)",
+      "paths": [
+        "src/passes/ConstraintAnalysis.cpp",
+        "test/lit/passes/constraint-analysis-propagation.wast"
+      ]
+    },
+    {
+      "sha": "8f1562688438b2746b9a38c9bef6dcab839c6f42",
+      "subject": "Fix handling of indirect return calls in DAE2 (#8994)",
+      "paths": [
+        "src/passes/DeadArgumentElimination2.cpp",
+        "test/lit/passes/dae2-results-open-world.wast"
+      ]
+    },
+    {
+      "sha": "fb7c6c2fa0d1a024cc945c97713f82e5df87eee4",
+      "subject": "ConstraintAnalysis: Handle tees (#8998)",
+      "paths": [
+        "src/ir/constraint.cpp",
+        "test/lit/passes/constraint-analysis.wast"
+      ]
+    }
+  ],
+  "oracle": {
+    "release_asset": "binaryen-version_133-x86_64-linux.tar.gz",
+    "reported_version": "wasm-opt version 133 (version_133)",
+    "wasm_opt_sha256": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b"
+  }
+}

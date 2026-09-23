@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-23
 sources:
+  - https://github.com/WebAssembly/binaryen/releases/tag/version_133
+  - https://github.com/WebAssembly/binaryen/compare/version_132...version_133
+  - version-133-upgrade.md
   - https://github.com/WebAssembly/binaryen/releases/tag/version_132
   - https://github.com/WebAssembly/binaryen/compare/version_131...version_132
   - version-132-upgrade.md
@@ -32,16 +35,21 @@ This page is the short policy reference for how the wiki should read Binaryen's 
 
 Use it when you need to answer a basic question like:
 
-- What is the newest public Binaryen tag we should treat as the stable baseline?
+- What is the newest public Binaryen tag, and which older tag is Starshine's comparison baseline?
 - Which source should we trust when the public tag and current trunk disagree?
 - When should a pass dossier stay anchored to an older tag on purpose?
 
-The current comparison baseline is **`version_132`**, published **2026-08-12**
+The newest public release is **`version_133`**, published **2026-09-21** at
+`fba5005a132d85d578be5bd010e0487ed8e2ce3e`. The repository's current
+comparison baseline remains **`version_132`**, published **2026-08-12**
 at `79dfe6b412a3c22bfdb190ed6a4d79adf734db5d`. New correctness and performance
 comparisons use a verified v132 binary. The [v132 upgrade](version-132-upgrade.md)
 records the reproduced 59-commit / 220-file delta, implementation boundaries and
 the released transform-shape catalog. Use that catalog when a v132 question is
 about the input pattern or output form rather than the public release date.
+The [v133 intake](version-133-upgrade.md) records its 107-commit source delta,
+released optimizer shapes, and local red corpus without changing that oracle
+policy.
 Version 131 remains the historical source of existing measurements and signoffs;
 none of those results is silently relabeled v132. Post-tag fixes remain a separate
 intake, including DAE2 #8994 and constraint correctness guardrails. The v132 tag
@@ -60,15 +68,17 @@ The v131 baseline is substantive. Its changelog names `@binaryen.inline`, acqrel
 - 2026-07-18: research note 1573 audited the complete v130-to-v131 range, confirmed the default pass order is unchanged, added the new pass to the tracker, and reopened the six affected Starshine implementation areas. This superseded v130 for release-horizon decisions at that time; v132 is the current baseline.
 
 - 2026-09-10: the verified v132 tag and exact v131-to-v132 inventory supersede v131 as the comparison baseline; historical pass signoffs retain their original oracle.
+- 2026-09-21: Binaryen published `version_133`; the 2026-09-23 intake records its optimizer shapes while Starshine's comparison policy remains v132.
 
 ## Source hierarchy
 
 | Layer | Preferred source | What it is good for |
 | --- | --- | --- |
-| Public release baseline | Official GitHub release page for `version_132` | The newest tagged public release horizon. |
+| Public release horizon | Official GitHub release page for `version_133` | The newest tagged public release. |
+| Starshine comparison oracle | Verified official `version_132` binary | The repository's current correctness and performance baseline. |
 | Oracle/security boundary | Official Binaryen commit `1251efb` | The `IRBuilder::makeBrOn` reachable-assertion fix; classify matching older-Binaryen crashes as tool/oracle failures unless a fixed-build replay proves otherwise. |
-| Durable local evidence | research note 1573 plus the official release/compare/changelog URLs below | The retained repo-authored summary, pass-impact classification, and reopening decisions for the historical v131 release; use the v132 upgrade for the current release. |
-| Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past `version_132` in a way that matters to the docs. |
+| Durable local evidence | The v133 intake, v132 upgrade, and historical research note 1573 | Release-specific summaries, pass-impact classification, and reopening decisions under their actual source versions. |
+| Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past `version_133` in a way that matters to the docs. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
 | Superseded correction | `docs/wiki/binaryen/release-horizon-and-oracles.md` | Provenance for the temporary `version_125` correction; not the current baseline after 0704. |
 | Historical bridge | 2026-06-01 capture (ingested and removed) | Earlier `version_130` bridge; its useful facts are retained by the stronger 2026-06-04 recheck. |
@@ -79,7 +89,7 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 ## How to read Binaryen pages
 
-1. **If the question is "what is the latest public Binaryen release?"** use `version_132` and this page.
+1. **If the question is "what is the latest public Binaryen release?"** use `version_133` and this page.
 2. **If the question is "did trunk drift after the latest tag?"** use the official `main` changelog first, then the Chromium mirror as corroboration.
 3. **If the question is "what does this pass actually do?"** use the pass-specific dossier and its raw research notes, not the release-horizon page.
 4. **If the question is "what should I update in the wiki when a new release lands?"** update this page, the top-level catalog, the pass catalog/tracker pages, and any dossier that explicitly names the newest public tag.
@@ -87,8 +97,9 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 ## Current state
 
-Version 132 is the comparison and research baseline. The current release inventory
-and source-derived work are in [version-132-upgrade.md](version-132-upgrade.md).
+Version 132 is the comparison baseline. Its implementation inventory is in
+[version-132-upgrade.md](version-132-upgrade.md); the newer public release's
+source-derived intake is in [version-133-upgrade.md](version-133-upgrade.md).
 Keep detailed pass dossiers anchored to their actually reviewed source tags until
 they are re-audited. A newer comparison target is not proof of new optimizer or
 proposal support, nor does it invalidate historical measured v131 results.

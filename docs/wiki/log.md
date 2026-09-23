@@ -1,3 +1,18 @@
+### 2026-09-23 — Binaryen 133 optimizer-shape intake
+
+- Audited the official `version_132...version_133` tag range: 107 commits, 292
+  changed paths, and a verified official v133 Linux `wasm-opt` oracle. The
+  [shape catalog](binaryen/version-133-upgrade.md) maps source and released
+  pass fixtures to focused Starshine tests; [raw inventory](raw/binaryen/2026-09-23-v132-v133-release-inventory.json)
+  retains every commit subject and changed path.
+- Added TDD red cases for constraint analysis and preset scheduling, tail calls,
+  publish/resume OI, shared-object conversion, GTO's descriptor placeholder,
+  i64 saturating lowering, intrinsic tail calls, atomic dealign, and empty
+  function exports. Atomic generativity and the unsigned constraint-loop check
+  are already green.
+  Remaining source-backed variants and prerequisite feature gaps stay open in
+  the catalog. The normal comparison target remains verified Binaryen v132.
+
 ### 2026-09-23 — Local CSE non-null cast result materialization
 
 - Exact prefix replay of retained seven-pass case 29 identified `local-cse` as

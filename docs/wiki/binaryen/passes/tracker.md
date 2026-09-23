@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-23
 sources:
   - ../release-horizon-and-oracles.md
+  - ../version-133-upgrade.md
   - ./asyncify/index.md
   - remove-exports/index.md
   - remove-imports/index.md
@@ -146,7 +147,7 @@ Use these files in this order:
 - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
   - source of truth for which passes matter for the canonical no-DWARF `-O` / `-Os` Binaryen parity path
 - `docs/wiki/binaryen/release-horizon-and-oracles.md`
-  - source of truth for the public Binaryen release baseline (`version_132`), the historical v125/v130 corrections, the v131 impact audit, and the live drift-watch handoff beyond that tag
+  - source of truth for the public Binaryen release horizon (`version_133`), Starshine's comparison baseline (`version_132`), historical corrections, and the live drift watch
 - `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`
   - source of truth for late-pipeline roster context, current package-surface caveats, and unimplemented passes observed as skipped in the saved generated-artifact `-O4z` replay
 - `docs/wiki/binaryen/passes/`
@@ -154,7 +155,7 @@ Use these files in this order:
 - `agent-todo.md`
   - source of truth for current backlog slice ids and implementation intent
 
-The current public Binaryen release baseline is `version_132`; use it for new upstream-tag lookups, but keep pass-contract pages anchored to their actually reviewed tags until a dedicated v132 reread exists. The historical [v130-to-v131 review](../release-horizon-and-oracles.md) records that interval’s scheduler and reopening decisions; the [v132 review](../version-132-upgrade.md) owns the current delta.
+The newest public Binaryen release is `version_133`; Starshine's comparison baseline remains verified `version_132`. Keep pass-contract pages anchored to their actually reviewed tags. The historical [v130-to-v131 review](../release-horizon-and-oracles.md) records that interval's scheduler and reopening decisions; the [v132 review](../version-132-upgrade.md) owns the current comparison upgrade, and the [v133 intake](../version-133-upgrade.md) maps the new `tail-call`, `remove-empty-function-exports`, and `make-shared-objects` passes plus changed existing-pass shapes to red tests and open follow-up.
 
 If these ever disagree, update this tracker in the same change. The 2026-05-06 audit note above records one such known temporary disagreement.
 
