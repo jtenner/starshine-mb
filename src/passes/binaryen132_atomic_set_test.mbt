@@ -136,7 +136,7 @@ test "Binaryen 132 DAE2 removes unused parameters in a function containing a fen
 }
 
 ///|
-test "heap store optimization folds every atomic order into a fresh struct allocation" {
+test "heap store optimization folds only relaxed atomic stores into fresh structs" {
   for shared in [false, true] {
     let fields = "(struct (field (mut i32)) (field (mut i32)))"
     let type_body = if shared { "(shared \{fields})" } else { fields }
@@ -155,25 +155,43 @@ test "heap store optimization folds every atomic order into a fresh struct alloc
         let source = "(module (type $S \{type_body}) (func (export \"run\") (result i32) (local (ref null $S)) \{prefix} (struct.atomic.set \{order} $S 1 \{receiver} (i32.const 7)) (struct.atomic.get \{order} $S 1 (local.get 0))))"
         let output = pass_test_run_pipeline(source, ["heap-store-optimization"]).unwrap()
         let hot = @ir.hot_lift_func(output, @lib.FuncIdx::new(0U))
-        let mut allocations = 0
+        let mut explicit_allocations = 0
+        let mut default_allocations = 0
+        let atomic_orders : Array[@lib.AtomicOrder] = []
         for node = 0; node < @ir.hot_node_count(hot); node = node + 1 {
           match @ir.hot_node_exact_instr(hot, node) {
-            Some(@lib.StructAtomicSet(_, _, _)) =>
-              fail(
-                "fresh allocation retains \{order} atomic store, shared=\{shared}, tee=\{tee}",
-              )
+            Some(@lib.StructAtomicSet(actual, _, _)) =>
+              atomic_orders.push(actual)
             Some(@lib.StructNew(_)) => {
-              allocations += 1
+              explicit_allocations += 1
               let value = @ir.hot_child_get(hot, node, 1)
               @debug.assert_eq(
                 @ir.hot_const_get(hot, @ir.hot_node_get(hot, value).imm0),
                 @ir.HotConstPayload::i32_const(@lib.I32(7)),
               )
             }
+            Some(@lib.StructNewDefault(_)) => default_allocations += 1
             _ => ()
           }
         }
-        assert_eq(allocations, 1)
+        let expected_order = match order {
+          "seqcst" => @lib.AtomicOrder::seq_cst()
+          "acq_rel" => @lib.AtomicOrder::acq_rel()
+          _ => @lib.AtomicOrder::relaxed()
+        }
+        let expected_atomic_orders : Array[@lib.AtomicOrder] = if order ==
+          "relaxed" {
+          []
+        } else {
+          [expected_order]
+        }
+        // Item 65 intentionally diverges from Binaryen v132 here. Constructor
+        // data preserves the stored value but cannot replace a release or
+        // sequentially consistent atomic event. A Relaxed store on the proven
+        // unescaped fresh object carries no such ordering edge and still folds.
+        @debug.assert_eq(atomic_orders, expected_atomic_orders)
+        assert_eq(explicit_allocations, if order == "relaxed" { 1 } else { 0 })
+        assert_eq(default_allocations, if order == "relaxed" { 0 } else { 1 })
         assert_true(@validate.validate_module(output) is Ok(_))
       }
     }
