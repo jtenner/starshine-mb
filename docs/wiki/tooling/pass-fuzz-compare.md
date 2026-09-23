@@ -272,6 +272,8 @@ Every run writes:
 
 After writing these artifacts and the aggregate counters, compare-pass exits nonzero by default when it observed any normalized mismatch, validation failure, generator failure, command failure, property failure, legacy runtime semantic mismatch, or `--max-failures` cutoff. This makes the default command suitable for CI and parity signoff while preserving the complete report for diagnosis. Setup and argument errors can still fail before report creation.
 
+`comparedCount` and the per-generator comparison counters require successful Starshine and Binaryen oracle outputs. When Binaryen or its canonicalization command fails, an original-versus-Starshine node-v2 semantic match is retained as diagnostic evidence, but the case remains `command-failure` and does not count as a comparison or match. On resume, older `match` records carrying `diagnosticFailureClass` are reconstructed under this command-failure accounting rule.
+
 Use `--report-only` only for an intentional diagnostic collection where the caller will inspect and classify `result.json` separately. That option keeps exit zero for observed outcomes, but it does not suppress setup errors or an unmet explicit `--min-compared` requirement. `result.json` records the selected `exitPolicy` as `fail-on-observed-failures` or `report-only`.
 
 Each semantic-v2 failure directory additionally includes `semantic-v2.json`, `semantic-fingerprint.json`, `semantic-fingerprint.sha256`, and, when requested, `pass-localization.json`. Fingerprints retain the exact policy, outcomes/traps, first difference, resource/offset or import-event prefix, invocation plan hash, pass sequence, and localized boundary.
@@ -293,7 +295,7 @@ The generator ledger records this as `[FZG]029`; see [`../fuzzing/generator-cove
 
 | Status | Meaning | Report as |
 | --- | --- | --- |
-| `match` | Starshine and Binaryen normalized WAT matched. | Green comparison evidence. |
+| `match` | Starshine and Binaryen normalized WAT matched after both oracle pipelines succeeded. | Green comparison evidence. |
 | `mismatch` | Both outputs were produced and normalized, but WAT differed. | Harness symptom only. The pass owner must make and record an agent judgment from the taxonomy above; absent a proven Starshine win, keep it as a parity gap. |
 | `validation-failure` | Starshine produced invalid wasm. | Correctness blocker for Starshine. |
 | `generator-failure` | The input generator failed or produced bytes that failed independent validation. | Tool/generator issue unless inspection says otherwise. |

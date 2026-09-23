@@ -3842,6 +3842,8 @@ function applyResumedCaseRecord(
   outDir: string,
 ): number {
   summary.resumedCaseCount += 1;
+  const legacyBinaryenDiagnosticFailure =
+    record.status === "match" && record.diagnosticFailureClass !== undefined;
   if (record.genValidSelectedProfile !== undefined) {
     noteGenValidSelectedProfileCount(summary, record.genValidSelectedProfile);
   }
@@ -3928,7 +3930,9 @@ function applyResumedCaseRecord(
   summary.starshineCanonicalEqualCount += sizes.starshineCanonicalEqualCount;
   summary.starshineCanonicalLargerCount += sizes.starshineCanonicalLargerCount;
 
-  const compared = record.status === "match" || record.status === "mismatch";
+  const compared =
+    (record.status === "match" || record.status === "mismatch") &&
+    !legacyBinaryenDiagnosticFailure;
   if (compared) {
     summary.comparedCount += 1;
     if (record.generator === "gen-valid") {
@@ -3941,6 +3945,7 @@ function applyResumedCaseRecord(
 
   switch (record.status) {
     case "match":
+      if (legacyBinaryenDiagnosticFailure) break;
       if (record.detail.startsWith("compare-normalized outputs matched")) {
         summary.cleanupNormalizedMatchCount += 1;
       } else if (!record.detail.startsWith("original-primary semantic match")) {
@@ -3979,7 +3984,8 @@ function applyResumedCaseRecord(
   } else if (record.status === "mismatch") {
     summary.mismatchArtifactsSuppressedCount += 1;
   }
-  return record.status === "command-failure" && !summary.commandFailuresCountTowardMaxFailures ? 0 : 1;
+  const commandFailure = record.status === "command-failure" || legacyBinaryenDiagnosticFailure;
+  return commandFailure && !summary.commandFailuresCountTowardMaxFailures ? 0 : 1;
 }
 
 export function passFuzzSizeCountersForTest(
@@ -6523,24 +6529,6 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             status: "property-failure",
             detail: semanticDetail,
             propertyFailureClass: "semantic-self-v2",
-            inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
-          });
-          return;
-        }
-        if (partialSemanticReport?.classification.primary === "semantic-match") {
-          summary.comparedCount += 1;
-          if (generator === "gen-valid") {
-            summary.generatorCounts.genValid += 1;
-            noteGenValidTransformCount(summary, transformId);
-          } else {
-            summary.generatorCounts.wasmSmith += 1;
-          }
-          recordCase({
-            caseIndex: caseNumber,
-            generator,
-            status: "match",
-            detail: `original-primary semantic match; Binaryen diagnostic unavailable: ${failureClass}`,
-            diagnosticFailureClass: failureClass,
             inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
           });
           return;
