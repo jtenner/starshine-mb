@@ -25668,3 +25668,94 @@ test "review2 vacuum retains dynamic effect and collapses constant branches" {
   assert_true(body[1] is @lib.If(_, [@lib.Call(_)], None))
   assert_true(body[2] == @lib.Instruction::call(@lib.FuncIdx::new(0U)))
 }
+
+///|
+fn pass_manager_wbtest_case437_typed_loop_module(
+  adjacent_read : Bool,
+) -> @lib.Module {
+  let bytes : Array[Byte] = [
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 10, 2, 96, 1, 127, 0, 96, 1, 127, 1, 127, 3,
+    2, 1, 1, 7, 7, 1, 3, 114, 117, 110, 0, 0, 10, 35, 1, 33, 1, 1, 127, 32, 0, 65,
+    16, 113, 33, 0, 65, 0, 3, 0, 33, 1, 32, 1, 65, 1, 106, 32, 0, 32, 1, 75, 13,
+    0, 26, 11, 32, 1, 11,
+  ]
+  if !adjacent_read {
+    // Keep the encoded width and stack type, but remove the only adjacent
+    // same-index read after `local.set 1`.
+    bytes[53] = 65
+    bytes[54] = 0
+  }
+  match @binary.decode_module(Bytes::from_array(bytes)) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      abort("expected saved case437 typed-loop decode success, got \{err}")
+  }
+}
+
+///|
+test "simplify-locals admits exact adjacent typed-loop set get as raw tee" {
+  let input = pass_manager_wbtest_case437_typed_loop_module(true)
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let trace : Array[String] = []
+  let output = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected case437 simplify-locals success, got \{err}")
+  }
+  assert_true(@validate.validate_module(output) is Ok(_))
+  let encoded = match @binary.encode_module(output) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected case437 output encode success, got \{err}")
+  }
+  @debug.assert_eq(encoded.length(), 68)
+  let pretty = output.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.tee (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=typed-loop-adjacent-set-get-tee",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("reason=typed-loop-param-control") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "simplify-locals keeps broad typed-loop skip without adjacent set get" {
+  let input = pass_manager_wbtest_case437_typed_loop_module(false)
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let trace : Array[String] = []
+  let output = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed-loop skip success, got \{err}")
+  }
+  assert_true(@validate.validate_module(output) is Ok(_))
+  let encoded = match @binary.encode_module(output) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected typed-loop skip encode success, got \{err}")
+  }
+  @debug.assert_eq(encoded.length(), 70)
+  assert_true(
+    trace.any(fn(line) { line.contains("reason=typed-loop-param-control") }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    output
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+    .contains("local.tee (Local 1)"),
+  )
+}

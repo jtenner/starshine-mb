@@ -22,6 +22,23 @@ related:
 
 # `simplify-locals` Raw Lane And Exact Writeback
 
+## Type-indexed loop adjacent tee exception
+
+Saved seven-pass case437 exposed a narrow raw-admission gap inside a type-indexed
+loop. The broad HOT path still skips these loops because their parameter stack
+flow needs path-sensitive proof. The full `simplify-locals` variant may now enter
+the raw lane when the existing recursive exact rewrite finds an adjacent,
+same-index `local.set X; local.get X` pair. Replacing that pair with
+`local.tee X` preserves the write and the stack value without moving either
+operation across another instruction. Other local-write shapes, `no-tee`, and
+`no-structure` remain on the existing type-indexed-loop boundary.
+
+The reduced saved module changes from raw/canonical `70/82` bytes to `68/80`;
+Binaryen 132 emits `81/81`. Node 26.10.0 returns `[0, 0, 16, 0, 16]` for inputs
+`[0, 1, -1, -2147483648, 2147483647]` from the original, Starshine candidate,
+and Binaryen output. Direct pass-manager and active command-dispatch regressions
+also require validation, the 68-byte raw output, and the exact `local.tee` shape.
+
 ## V131 cleanup additions
 
 The 2026-07-27 renewal keeps the raw lane narrow but adds four exact postconditions: erase discarded default struct allocation; erase pure `local.get; drop`; move inert `nop`s before dupable return values and delete unreachable root suffixes; and replace an inert-prefix structured-result `local.set/local.get` carrier with `nop` plus the direct result producer. Binary-path encoded-size regressions guard the two stackifier-sensitive families.

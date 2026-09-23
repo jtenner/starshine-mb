@@ -12480,6 +12480,26 @@ fn run_hot_pipeline_raw_simplify_locals(
   let allows_tee = descriptor.name != "simplify-locals-notee" &&
     descriptor.name != "simplify-locals-no-tee" &&
     descriptor.name != "simplify-locals-notee-nostructure"
+  // Type-indexed loops remain outside the broad HOT path because their
+  // parameter stack flow needs separate path-sensitive proof. When the outer
+  // gate admits a local-writing typed loop, keep its raw path exact as well:
+  // replace only same-index `local.set; local.get` pairs and return before any
+  // other raw rewrite or exact cleanup can run.
+  if descriptor.name == "simplify-locals" &&
+    run_hot_pipeline_lowered_func_has_typeidx_loop(original) &&
+    run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) {
+    let (adjacent_instrs, adjacent_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
+      instrs,
+    )
+    if adjacent_rewrites > 0 {
+      return Some({
+        reason: "typed-loop-adjacent-set-get-tee",
+        func: @lib.Func::new(locals, @lib.Expr::new(adjacent_instrs)),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
+  }
   if run_hot_pipeline_raw_try_table_catch_body_has_local_write(instrs) {
     return Some({
       reason: "try-table-local-write-simplify-locals-noop",
@@ -79828,7 +79848,7 @@ fn run_hot_pipeline_pass_should_skip_typeidx_loop_func(name : String) -> Bool {
 }
 
 ///|
-fn run_hot_pipeline_typeidx_loop_skip_can_try_raw_no_local_writes(
+fn run_hot_pipeline_typeidx_loop_skip_can_try_raw(
   name : String,
   func : @lib.Func,
 ) -> Bool {
@@ -79837,7 +79857,16 @@ fn run_hot_pipeline_typeidx_loop_skip_can_try_raw_no_local_writes(
     return false
   }
   let @lib.Func(_, @lib.Expr(body)) = func
-  !run_hot_pipeline_raw_simplify_locals_has_local_write(body)
+  if !run_hot_pipeline_raw_simplify_locals_has_local_write(body) {
+    return true
+  }
+  if name != "simplify-locals" {
+    return false
+  }
+  let (_, adjacent_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
+    body,
+  )
+  adjacent_rewrites > 0
 }
 
 ///|
@@ -80475,7 +80504,7 @@ fn run_hot_pipeline_apply_hot_pass(
         )
         if run_hot_pipeline_pass_should_skip_typeidx_loop_func(descriptor.name) &&
           run_hot_pipeline_lowered_func_has_typeidx_loop(defs[code_idx]) &&
-          !run_hot_pipeline_typeidx_loop_skip_can_try_raw_no_local_writes(
+          !run_hot_pipeline_typeidx_loop_skip_can_try_raw(
             descriptor.name,
             defs[code_idx],
           ) {
@@ -81416,7 +81445,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
               descriptor.name,
             ) &&
             run_hot_pipeline_lowered_func_has_typeidx_loop(defs[code_idx]) &&
-            !run_hot_pipeline_typeidx_loop_skip_can_try_raw_no_local_writes(
+            !run_hot_pipeline_typeidx_loop_skip_can_try_raw(
               descriptor.name,
               defs[code_idx],
             ) {
@@ -81701,7 +81730,7 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
         )
         if run_hot_pipeline_pass_should_skip_typeidx_loop_func(descriptor.name) &&
           run_hot_pipeline_lowered_func_has_typeidx_loop(defs[code_idx]) &&
-          !run_hot_pipeline_typeidx_loop_skip_can_try_raw_no_local_writes(
+          !run_hot_pipeline_typeidx_loop_skip_can_try_raw(
             descriptor.name,
             defs[code_idx],
           ) {

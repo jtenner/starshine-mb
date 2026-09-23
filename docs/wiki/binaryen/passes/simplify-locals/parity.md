@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-28
+last_reviewed: 2026-09-23
 sources:
   - ./index.md
   - ../../../../../agent-todo.md
@@ -30,6 +30,11 @@ related:
 
 ## What Is Green Today
 
+- Saved case437 closes the type-indexed-loop raw-admission gap for one exact
+  adjacent same-local `local.set; local.get` pair. Starshine emits the equivalent
+  `local.tee` at raw/canonical `68/80` bytes, improving on the old `70/82` and
+  Binaryen 132's `81/81`; all three outputs return `[0, 0, 16, 0, 16]` for the
+  five boundary inputs. The broader typed-loop HOT skip remains in force.
 - The Binaryen-v131 five-variant renewal closed on July 27–28, 2026. Focused work repaired discarded default-GC allocations, pure dropped local observations, encoded return-local spill reconstruction, direct branch-result local carriers, postorder structure formation, Hot IR ownership, payload-bearing `br_if` lowering, aggregate first-cycle deferral, explicit variant policy, transparent copy chains, and refined fallthrough equivalence. Integrated focused suites pass `75/75` main, `21/21` variants, `81/81` no-structure, and `19/19` simplify-locals whitebox.
 - The July 27 `10000`-case aggregate profiles had no Starshine failure and no canonical size loss: full `7298` exact + `2702` smaller; no-tee `2766` + `7234`; no-structure `7115` + `2885`; no-tee/no-structure `2766` + `7234`; nonesting `7684` + `2316`. Five idempotence lanes are each `1000/1000`. The expanded August 12 `simplify-locals-all` refresh remains failure-free at `10000/10000`, but it reopens one output-shape parity debt: `1875` generated `structure-result` cases are `2..4` canonical bytes larger from retained `nop` debris. The other `3125` residuals are fourteen-byte Starshine wins, so the net canonical delta remains `-38,135`; do not describe the larger family as an approved divergence.
 - Replaying all `2433` previously differing full random-all cases retires every positive size delta: `81` are newly exact, `2262` are smaller, and `90` are equal-size. There are zero validation, property, or command failures.
