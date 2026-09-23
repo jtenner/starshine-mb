@@ -1,5 +1,122 @@
 # Agent Tasks
 
+## v0.1.1 — September 22 optimizer correctness spree [IR2-CORRECTNESS-20260922]
+
+- **Goal / why:** close the eight-agent pass audit at `006c24f9` without silently
+  treating valid output, small output, or harness normalization as semantic
+  proof. The audit found reproduced wrong results, invalid intermediate modules,
+  a valid-input crash family, source-level hazards, and signoff blind spots.
+- **Deliverables / tasks:** work through the numbered checklist below with one
+  independently reviewable fix per atomic commit. For each behavior gap, add an
+  adjacent red regression and an active-dispatcher regression, observe failure,
+  implement the smallest sound correction, observe green, update relevant docs,
+  and record the commit here. For hypotheses, first construct a valid executable
+  reproducer or establish a source/spec proof; fix confirmed defects and record
+  the evidence when the hypothesis is disproved. No fuzz runs in this spree.
+- **Required APIs / invariants:** every supported transform preserves Wasm
+  results, traps, effects, imports/exports, proposal-specific control targets,
+  and valid encoding. Input modules stay immutable through rollback. Compiler
+  facts and name maps remain coherent. Binaryen 132 is the comparison target;
+  use the verified v132 oracle only for bounded reproductions.
+- **Dependencies / exit:** serialize Moon commands; use `moon info`, `moon fmt`,
+  and `moon test` for behavior changes. The user's no-fuzz instruction replaces
+  the skill's randomized signoff matrix for this spree, so do not claim final
+  fuzz/parity signoff. Close each item with its regression, source review,
+  validation result, and atomic commit hash; leave any unresolved item visible.
+- **Suggested tests:** reduced WAT/Core-AST fixtures, direct IR/byte assertions,
+  bounded runtime result/trap checks, host import/identity checks, validator
+  checks, and harness unit tests. Saved repros are under `.tmp/current-audit-*`.
+
+### Reproduced defects and urgent safety gaps
+
+1. [ ] OI → DCE multi-value loop returns `unreachable` instead of `[0, 2.5]`.
+2. [ ] Global Struct Inference substitutes an internal object for an imported GC reference.
+3. [ ] RUME leaves a stale type-name index after type compaction.
+4. [ ] RUME leaves stale label names after function-body nullification.
+5. [ ] OptimizeInstructions crashes on valid legacy-EH `delegate` inputs.
+6. [ ] Compare-pass exits zero despite configured correctness failures.
+7. [ ] DCE label-use index omits `try_table` catch destinations.
+8. [ ] DCE label-use index omits continuation handler destinations.
+9. [ ] Shared unreachable cleanup can rebind continuation handlers.
+10. [ ] Vacuum block flattening omits continuation-label rebasing.
+11. [ ] Flatten admits continuations without indexing their label targets.
+12. [ ] CodePushing ignores structured-region local effects.
+13. [ ] CodePushing dead-block flattening ignores nested branches.
+14. [ ] RemoveUnusedBrs omits continuation handler references.
+15. [ ] MergeBlocks omits `try`/`try_table` from carried-local safety scans.
+16. [ ] SimplifyLocals sinks a write across a continuation handler exit.
+17. [ ] SimplifyLocals moves a structure store after `Resume`.
+18. [ ] CoalesceLocals liveness omits resume-handler successors.
+19. [ ] Pattern-B partial inlining misses branch/catch/continuation escapes.
+20. [ ] DAE2 changes signatures reachable through exported abstract `funcref` tables.
+21. [ ] Shared identity atomic RMW loses its release write.
+22. [ ] Same-value shared `cmpxchg` loses its conditional release write.
+23. [ ] Nested Local CSE misses atomic struct/array mutation barriers.
+24. [ ] Nested Local CSE misses ordinary `ArrayStore` barriers.
+25. [ ] Local CSE treats suspend/resume/stack-switch execution as transparent.
+26. [ ] Caught-`try_table` safety scans omit legacy `Try` descendants.
+27. [ ] Once Reduction mutates nested arrays owned by its input module.
+
+### Host behavior, metadata, and registry contracts
+
+28. [ ] RUME removes imports whose host resolution is observable.
+29. [ ] ReorderGlobals changes observable imported-global getter order.
+30. [ ] Directize synthesizes labels without remapping label-name metadata.
+31. [ ] `no-inline*` annotation rebuild drops structured compiler facts.
+32. [ ] MergeSimilarFunctions introduces tail calls despite conflicting target-feature metadata.
+33. [ ] Decide and guard direct DFE's host-visible exported-function identity contract.
+34. [ ] Decide and guard direct DIE's repeated host import-lookup contract.
+35. [ ] DIE loses annotations on a removed import alias.
+36. [ ] MemoryPacking rebuilds unchanged modules after a reverted segment rewrite.
+37. [ ] MemoryPacking models `RefTestDesc` with the wrong operand count.
+38. [ ] Bare `no-inline*` registry entries advertise unsupported exact pass names.
+
+### Harness correctness and coverage
+
+39. [ ] `drop-consts` normalization erases trapping unsigned conversions.
+40. [ ] `unreachable-control-debris` normalization fails to root the start function.
+41. [ ] Canonicalization strips semantically important named type uses.
+42. [ ] Runtime-v2 discards definite observations when another surface is blocked.
+43. [ ] Runtime-v1 skips parameterized/missing exports and can count empty matrices.
+44. [ ] Resume fingerprints omit source and configuration identity.
+45. [ ] Binaryen command failure can still increment `comparedCount` as a match.
+46. [ ] Name/debug pass comparisons are erased by unconditional debug stripping.
+47. [ ] Add executable proposal observations for currently blocked families.
+48. [ ] Add multi-thread allowed-outcome checks for atomic transformations.
+49. [ ] Diversify runtime argument vectors with the recorded seed.
+50. [ ] Verify cached oracle artifacts by content hash.
+51. [ ] Do not persist transient Binaryen failures as stable cache results.
+52. [ ] Add hard subprocess timeouts to validator and optimizer workers.
+53. [ ] Require an independent validator in correctness signoff lanes.
+54. [ ] Fail a lane when a configured external validator is absent.
+55. [ ] Require determinism and codec idempotence in CI correctness lanes.
+56. [ ] Add a separately gated external wasm-smith generator lane.
+57. [ ] Ensure dedicated fuzz lanes are required and fail CI on findings.
+58. [ ] Add trigger-focused profiles for undersampled pass families.
+59. [ ] Add feature floors for descriptors, continuations, waitqueues, atomics, and array memory.
+60. [ ] Record compiler-fact context in replay case journals.
+
+### Hypotheses to prove or reject before changing behavior
+
+61. [ ] Check legacy raw SSA-no-merge continuation liveness on a valid fallback shape.
+62. [ ] Check direct public HOT Local CSE use on shared-memory functions.
+63. [ ] Check Local CSE waitqueue synchronization barriers.
+64. [ ] Check MemoryPacking passive-segment expansion under shared concurrency.
+65. [ ] Check fresh-object Heap Store Optimization atomic ordering at publication.
+66. [ ] Define the resource-exhaustion contract for erased Precompute allocations.
+67. [ ] Correct canonical two-operand `RefCastDescEq` coverage with effect preservation.
+68. [ ] Check OptimizeCasts abstract-heap lattice on validator-approved boundaries.
+69. [ ] Check Heap2Local's missing-field defensive branch against valid subtype layouts.
+
+### Open parity evidence from this audit
+
+- [ ] Classify the 557 structural mismatches in the saved seven-pass 1,000-case
+  campaign; preserve the two confirmed DCE wrong-code cases and treat the
+  runtime timeout separately. Do not infer semantic safety from size or
+  validation alone.
+- [ ] Reduce the 128 EH/Vacuum structural differences in the existing 256-case
+  campaign, alongside the dedicated Vacuum backlog slice below.
+
 ## v0.1.1 — EH Vacuum parity on new GenValid control shapes [IR2-PARITY]
 
 - **Goal / why:** the September 22 `campaign-eh-control` / `vacuum` comparison
