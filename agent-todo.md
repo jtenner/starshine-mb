@@ -404,6 +404,12 @@
     result. Nine saved EH cases have exactly this `M0 -> M1 -> M2` shape and
     are misclassified. Add a red projection-alias regression, require a sound
     confirmation before fixed-point status, and verify bounded property output.
+77. [ ] Saved GC case 1 reports `starshine-correctness-failure` after a
+    phase-unknown 2-second runtime worker timeout under parallel load, although
+    bounded replay compiles and executes the same raw module in under 85 ms
+    with the original result `12045`. Add a red deadline-classification test,
+    report this uncertainty as blocked rather than a proven semantic failure,
+    and retain explicit timeout evidence without a fuzz campaign.
 
 ### Open parity evidence from this audit
 
