@@ -183,6 +183,13 @@
     and imported memory64 resources. Keep this item open until each family has
     executable observations or an explicit unsupported boundary.
 48. [ ] Add multi-thread allowed-outcome checks for atomic transformations.
+    A bounded two-worker Node litmus now checks declared allowed outcomes for
+    sequentially consistent `i32.atomic.rmw.add` over shared memory
+    (`75fec2f14`); synthetic increment-by-two corruption is rejected, and
+    focused runtime suites passed 60/60. Remaining: wait/notify liveness,
+    weaker orders and fences, memory64/multi-memory, shared-GC atomics, and
+    broader schedule families. This is an opt-in replay primitive; general
+    node-v2 still runs single-threaded.
 49. [x] Runtime-v2 now adds two bounded finite scalar vectors derived from the
     recorded seed for each callable export; the invocation hash and semantic
     cache revision reflect the new observations. A focused test failed before
