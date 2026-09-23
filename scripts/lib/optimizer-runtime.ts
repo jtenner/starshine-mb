@@ -66,6 +66,7 @@ export type RuntimeInterfaceV1 = {
 export type TypedRuntimeValue =
   | { type: "i32"; signed: number; bits: string }
   | { type: "i64"; signed: string; bits: string }
+  | { type: "i31ref"; signed: number; bits: string }
   | { type: "f32" | "f64"; bits: string; class: "zero" | "subnormal" | "normal" | "infinity" | "nan"; sign: "+" | "-"; quiet?: boolean; payload?: string }
   | { type: "v128"; bits: string }
   | { type: "reference"; relation: string; wasmType: string };
@@ -219,6 +220,15 @@ function i64Value(value: bigint): TypedRuntimeValue {
   return { type: "i64", signed: signed.toString(), bits: `0x${BigInt.asUintN(64, signed).toString(16).padStart(16, "0")}` };
 }
 
+function i31Value(value: number): TypedRuntimeValue {
+  const signed = Number(BigInt.asIntN(31, BigInt(value)));
+  return {
+    type: "i31ref",
+    signed,
+    bits: `0x${BigInt.asUintN(31, BigInt(signed)).toString(16).padStart(8, "0")}`,
+  };
+}
+
 function floatValue(type: "f32" | "f64", bits: string): TypedRuntimeValue {
   const hex = bits.toLowerCase().replace(/^0x/, "").padStart(type === "f32" ? 8 : 16, "0");
   const raw = BigInt(`0x${hex}`);
@@ -266,6 +276,7 @@ function boundaryValues(type: WasmRuntimeValueType): TypedRuntimeValue[] {
   switch (type) {
     case "i32": return [0, 1, -1, -2147483648, 2147483647].map(i32Value);
     case "i64": return [0n, 1n, -1n, -(1n << 63n), (1n << 63n) - 1n].map(i64Value);
+    case "i31ref": return [0, 1, -1, -(2 ** 30), (2 ** 30) - 1].map(i31Value);
     case "f32": return ["00000000", "80000000", "3f800000", "bf800000", "00000001", "007fffff", "00800000", "7f800000", "ff800000", "7fc00001", "7fc01234"].map((bits) => floatValue("f32", bits));
     case "f64": return ["0000000000000000", "8000000000000000", "3ff0000000000000", "bff0000000000000", "0000000000000001", "000fffffffffffff", "0010000000000000", "7ff0000000000000", "fff0000000000000", "7ff8000000000001", "7ff8000000001234"].map((bits) => floatValue("f64", bits));
     case "v128": return [

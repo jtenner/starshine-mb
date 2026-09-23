@@ -297,6 +297,81 @@ describe("Node runtime observation v2", () => {
     });
   });
 
+  test("detects divergence on bounded non-null i31ref export arguments", async () => {
+    const original = compileWat(`(module
+      (func (export "echo") (param i31ref) (result i31ref)
+        local.get 0))`);
+    const wrong = compileWat(`(module
+      (func (export "echo") (param i31ref) (result i31ref)
+        local.get 0
+        ref.is_null
+        if (result i31ref)
+          ref.null i31
+        else
+          local.get 0
+          ref.as_non_null
+          i31.get_s
+          i32.const 1
+          i32.add
+          ref.i31
+        end))`);
+
+    const report = await runNodeThreeWaySemanticOracleV2(
+      original.wasmPath,
+      wrong.wasmPath,
+      null,
+      {
+        seed: 13n,
+        policy: "strict",
+        mode: "stateful",
+        timeoutMs: 1000,
+        memoryCapBytes: 1024,
+        tableEntryCap: 16,
+        binaryenDiagnostic: "tool-failure",
+      },
+    );
+
+    expect(report.runtimeInterface.exports[0].support).toBe("directly-constructible");
+    expect(report.plan.blockedExports).toEqual([]);
+    expect(report.plan.steps.some((step) => step.arguments[0]?.type === "i31ref")).toBe(true);
+    expect(report.originalVsStarshine.classification).toBe("semantic-mismatch");
+    expect(report.originalVsStarshine.firstDifferenceCategory).toBe("result-value");
+    expect(report.classification.primary).toBe("starshine-semantic-mismatch");
+  });
+
+  test("records exact non-null i31ref imported-function events", async () => {
+    const { wasmPath } = compileWat(`(module
+      (import "env" "echo" (func $echo (param i31ref) (result i31ref)))
+      (func (export "run") (result i32)
+        i32.const 17
+        ref.i31
+        call $echo
+        ref.as_non_null
+        i31.get_s))`);
+    const runtimeInterface = buildRuntimeInterfaceFromWasm(wasmPath);
+    expect(runtimeInterface.imports.functions[0].support).toBe("directly-constructible");
+    const plan = buildInvocationPlanV2(runtimeInterface, { seed: 14n });
+    const observation = await executeNodeObservationV2WithTimeout(wasmPath, runtimeInterface, plan, {
+      mode: "stateful",
+      timeoutMs: 1000,
+      memoryCapBytes: 1024,
+      tableEntryCap: 16,
+    });
+
+    expect(observation.completeness).toBe("complete");
+    expect(observation.blockedReasons).toEqual([]);
+    expect(observation.importTrace?.[0]).toMatchObject({
+      module: "env",
+      field: "echo",
+      arguments: [{ type: "i31ref", signed: 17, bits: "0x00000011" }],
+      results: [{ type: "i31ref", signed: 17, bits: "0x00000011" }],
+    });
+    expect(observation.steps.find((step) => step.exportName === "run")?.outcome).toMatchObject({
+      kind: "returned",
+      values: [{ type: "i32", signed: 17, bits: "0x00000011" }],
+    });
+  });
+
   test("constructs imported tags and observes thrown user exceptions", async () => {
     const { wasmPath } = compileWat(`(module
       (import "env" "event" (tag $event (param i32)))
