@@ -380,6 +380,50 @@ test "memory-packing dispatcher preserves structured compiler facts" {
 }
 
 ///|
+fn mp_test_segment_cap_rollback_module() -> @lib.Module {
+  let mode = @lib.DataMode::active(
+    @lib.MemIdx::new(0U),
+    @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+  )
+  let datas : Array[@lib.Data] = [
+    @lib.Data::new(
+      mode, b"ABC\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00DEF",
+    ),
+  ]
+  let empty = @lib.Data::new(mode, b"")
+  for idx = 0; idx < 99999; idx = idx + 1 {
+    ignore(idx)
+    datas.push(empty)
+  }
+  @lib.Module::new()
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  .with_data_sec(@lib.DataSec::new(datas))
+  .with_raw_name_sec_payload(b"\x00\x02\x01m")
+}
+
+///|
+#skip("100,000-segment threshold probe belongs in the dedicated perf lane")
+test "memory-packing segment-cap rollback leaves module and raw name bytes unchanged" {
+  let input = mp_test_segment_cap_rollback_module()
+  let direct = memory_packing_run_module_pass(input)
+  @debug.assert_eq(direct.data_sec, input.data_sec)
+  @debug.assert_eq(direct.raw_name_sec_payload, input.raw_name_sec_payload)
+  let dispatched = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(validate_final_module=false),
+      ["memory-packing"],
+    ) {
+    Ok(module_) => module_
+    Err(err) => fail("expected segment-cap dispatch, got \{err}")
+  }
+  @debug.assert_eq(dispatched.data_sec, input.data_sec)
+  @debug.assert_eq(dispatched.raw_name_sec_payload, input.raw_name_sec_payload)
+}
+
+///|
 test "memory-packing preserves trapping active segments by keeping the top byte" {
   let input =
     #| (module

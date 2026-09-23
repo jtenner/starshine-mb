@@ -2662,9 +2662,6 @@ pub fn memory_packing_run_module_pass(
         } else {
           mp_active_rewrite(mod_, mem_idx, expr, bytes, traps_never_happen)
         }
-        if next.length() != 1 || next[0] != data {
-          changed = true
-        }
         let remaining_original_count = datas.length() - idx - 1
         let next = if mp_data_segment_limit_exceeded(
             rewritten.length(),
@@ -2674,6 +2671,9 @@ pub fn memory_packing_run_module_pass(
           [data]
         } else {
           next
+        }
+        if next.length() != 1 || next[0] != data {
+          changed = true
         }
         let first_new_idx = rewritten.length()
         data_remap[idx] = if next.is_empty() { -1 } else { first_new_idx }

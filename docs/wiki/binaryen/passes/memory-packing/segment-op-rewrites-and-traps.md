@@ -381,6 +381,14 @@ and a profitable active zero-range rewrite, then assert the optimized segment
 and preserved facts. The facts are independent metadata and do not become
 invalid merely because data segments were packed.
 
+The 100,000-segment cap is a rollback boundary. A candidate active-segment
+split that would exceed the cap is replaced with its original segment before
+MemoryPacking decides whether the module changed. If all candidates roll back,
+the pass returns the original module, including its raw name-section payload.
+The dedicated `#skip` threshold regression in `memory_packing_test.mbt` runs
+with `--include-skipped`; it stays outside default `moon test` because it
+constructs 100,000 segments.
+
 ## Practical future-port checklist
 
 If a future Starshine port grows toward full Binaryen parity, keep this checklist handy:
