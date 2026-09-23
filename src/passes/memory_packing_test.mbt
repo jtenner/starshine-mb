@@ -1299,6 +1299,60 @@ test "memory-packing splits passive zero ranges and inserts memory.fill" {
 }
 
 ///|
+test "memory-packing shared passive split keeps increasing byte order" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ]),
+    )
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32(1U)))
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::passive(),
+          b"A\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00B",
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(34)),
+            @lib.Instruction::memory_init(
+              @lib.DataIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  mp_test_expect_valid(input, "shared passive split input")
+  let optimized = memory_packing_run_module_pass(input)
+  mp_test_expect_valid(optimized, "shared passive split output")
+  assert_true(mp_test_data_segments(optimized).length() > 1)
+  let writes : Array[String] = []
+  for instr in mp_test_first_func_body(optimized) {
+    match instr {
+      @lib.MemoryInit(_, _) => writes.push("copy")
+      @lib.MemoryFill(_) => writes.push("fill")
+      _ => ()
+    }
+  }
+  @debug.assert_eq(writes, ["copy", "fill", "copy"])
+}
+
+///|
 test "memory-packing allocates a temp local for dynamic passive memory.init destinations" {
   let input = @lib.Module::new()
     .with_type_sec(mp_test_i32_param_void_type_sec())

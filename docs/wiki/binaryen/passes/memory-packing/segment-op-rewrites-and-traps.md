@@ -1,11 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-12
+last_reviewed: 2026-09-22
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
   - index.md
+  - https://webassembly.github.io/threads/core/exec/instructions.html
+  - ../../../../../src/passes/memory_packing_test.mbt
+  - ../../../../../src/cmd/cmd.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -15,6 +18,25 @@ related:
 ---
 
 # `memory-packing`: segment-op rewrites and traps
+
+## Shared passive-segment byte order
+
+The [threads execution rules](https://webassembly.github.io/threads/core/exec/instructions.html)
+reduce both `memory.init` and `memory.fill` to increasing-address byte stores.
+Their complete destination bounds checks occur before the first store. For a
+constant valid source slice, MemoryPacking emits a complete destination
+preflight before its first replacement write, then visits retained and zero
+ranges in source order. Replacing a zero-byte run with `memory.fill` therefore
+keeps the same ordered byte values visible to a concurrent shared-memory
+observer. Original operand evaluation precedes the preflight. Passive segment
+lifetime is checked before writes, including fill-first replacements, as
+described below.
+
+Valid direct and active dispatcher regressions use a shared memory and a
+profitable passive zero run. Both validate the rewritten module and confirm
+that the split retains its `memory.fill`; both were green before any behavior
+change. They are bounded structural fixtures, so they do not constitute a
+randomized concurrent execution signoff.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

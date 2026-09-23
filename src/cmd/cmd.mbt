@@ -8492,6 +8492,30 @@ test "deep audit command precompute allocation resource boundary" {
 }
 
 ///|
+test "deep audit command memory packing shared passive split" {
+  let wat =
+    #| (module
+    #|   (memory 1 1 shared)
+    #|   (data "A\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00B")
+    #|   (func (export "run")
+    #|     i32.const 0 i32.const 0 i32.const 34 memory.init 0))
+    #|
+  let output = cmd_deep_audit_run(wat, "memory-packing")
+  match @validate.validate_module(output) {
+    Ok(_) => ()
+    Err(err) => fail("invalid shared passive split output: \{err}")
+  }
+  let @lib.DataSec(datas) = output.data_sec.unwrap()
+  assert_true(datas.length() > 1)
+  assert_true(
+    cmd_deep_audit_count(cmd_deep_audit_body(output), fn(i) {
+      i is @lib.MemoryFill(_)
+    }) >
+    0,
+  )
+}
+
+///|
 test "deep audit command memory packing preserves atomic bounds failure for imported active segment" {
   let input = @passes.pass_test_module_from_wat(
     (
