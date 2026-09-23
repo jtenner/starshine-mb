@@ -1853,6 +1853,16 @@ fn lcse_raw_instr_caches_child_for_replay(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn lcse_raw_instr_can_materialize_nondefault_result(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::RefCast(false, _, _) => true
+    _ => false
+  }
+}
+
+///|
 fn lcse_raw_replay_child_cache_type(child : LcseRawExpr) -> @lib.ValType {
   match child.ty {
     @lib.RefTypeValType(ref_type) =>
@@ -2451,6 +2461,7 @@ fn lcse_raw_rewrite_instrs(
   call_infos : Array[LcseRawCallInfo],
   subtypes : Array[@lib.SubType],
   has_shared_memory : Bool,
+  allow_nondefault_result_locals : Bool,
   env? : @validate.Env? = None,
 ) -> (Array[@lib.Instruction], Bool) {
   if instrs.length() > 16 {
@@ -2661,9 +2672,12 @@ fn lcse_raw_rewrite_instrs(
           _ => ()
         }
         let expr_id = exprs.length()
+        let materialize_nondefault_result = allow_nondefault_result_locals &&
+          lcse_raw_instr_can_materialize_nondefault_result(instr)
         let cache_child_for_replay = lcse_raw_instr_caches_child_for_replay(
-          instr,
-        )
+            instr,
+          ) &&
+          !materialize_nondefault_result
         let can_cache_child_for_replay = !cache_child_for_replay ||
           lcse_raw_can_cache_child_for_replay(exprs, children)
         // Replaying replaces the whole start..idx interval. Stack operands can
@@ -2686,7 +2700,9 @@ fn lcse_raw_rewrite_instrs(
             }
           _ => !reads_table_state && can_cache_child_for_replay
         }
-        let materializable_root = cache_child_for_replay || @lib.has_default(ty)
+        let materializable_root = cache_child_for_replay ||
+          @lib.has_default(ty) ||
+          materialize_nondefault_result
         let key_match_id = if reusable_root && size <= 32 {
           lcse_raw_find_active_match(exprs, active, instr, children)
         } else {
@@ -2829,6 +2845,7 @@ fn lcse_raw_rewrite_instrs(
           call_infos,
           subtypes,
           has_shared_memory,
+          false,
           env~,
         )
         if outer_body_changed || body_changed {
@@ -2844,6 +2861,7 @@ fn lcse_raw_rewrite_instrs(
           call_infos,
           subtypes,
           has_shared_memory,
+          false,
           env~,
         )
         if body_changed {
@@ -2862,6 +2880,7 @@ fn lcse_raw_rewrite_instrs(
           call_infos,
           subtypes,
           has_shared_memory,
+          false,
           env~,
         )
         let (next_else, else_changed) = match else_body {
@@ -2873,6 +2892,7 @@ fn lcse_raw_rewrite_instrs(
               call_infos,
               subtypes,
               has_shared_memory,
+              false,
               env~,
             )
             (Some(body2), changed2)
@@ -2895,6 +2915,7 @@ fn lcse_raw_rewrite_instrs(
           call_infos,
           subtypes,
           has_shared_memory,
+          false,
           env~,
         )
         if outer_body_changed || body_changed {
@@ -2953,6 +2974,7 @@ fn lcse_raw_rewrite_func(
       call_infos,
       subtypes,
       has_shared_memory,
+      true,
       env~,
     )
   } else {

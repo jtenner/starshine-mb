@@ -490,14 +490,18 @@
     both focused tests pass. Exact saved OI outputs now match v132 byte for
     byte at 63 bytes, and seven-pass outputs at 60 bytes. All outputs validate
     and the saved ten-call plan agrees; no fuzz ran.
-85. [ ] Saved retained case 29 is a complete exact three-way runtime match
-    under opt-in Node custom descriptors (`run()` returns `22289` with no
-    exported state), but Starshine emits 94 raw bytes versus v132's 93.
-    Binaryen reuses one exact subtype cast; Starshine repeats ordinary casts
-    from a nullable supertype local. The 91-versus-93 canonical projection
-    does not erase the emitted-size gap. Identify the first owning pass, then
-    either add red/green pass and dispatcher coverage for a trap-safe reuse
-    with exact replay or document the precise safety boundary; no fuzz.
+85. [x] Saved retained case 29 first diverges at `local-cse`: prefixes through
+    `vacuum` are 93 bytes in both tools, then Starshine/v132 become 98/95.
+    Direct and active-dispatch tests failed first because Starshine cached the
+    nullable base operand and repeated both ordinary casts. Outer-function
+    Local CSE now materializes the first non-null cast result with its full
+    nominal/exact result type; source writes remain barriers, the cast stays
+    before the tee, and nested control plus descriptor/ref-as/i31 families keep
+    operand replay. The focused pass suite passes 207/207. Exact seven-pass
+    replay validates and returns `22289`; Starshine is now 91 raw and 92
+    canonical bytes versus v132's 93/93, with Binaryen's leading `nop`
+    accounting for the residual win. A null-cast runtime probe still traps.
+    No fuzz ran.
 
 ### Open parity evidence from this audit
 
@@ -541,12 +545,10 @@
   return `[0, 1, -1, -2147483648, 2147483647]` from `run(i32) -> i32` for that
   same argument vector. This bounded two-file replay ran no aggregate or fuzz
   campaign and leaves the historical 557-case and 503/four/50 split unchanged.
-  Retained case 29 is now a complete three-way semantic match under opt-in Node
-  custom descriptors: every exact artifact returns i32 `22289`, with no state.
-  Its size classification remains mixed and visible: Starshine is 94 bytes raw
-  versus Binaryen's 93, but 91 canonical bytes versus 93. Binaryen reuses one
-  exact-cast result; Starshine repeats a provably successful ordinary cast and
-  wins only after canonical local regrouping.
+  Retained case 29 is now closed under item 85. Every exact artifact returns
+  i32 `22289`, with no state. Starshine's repaired Local CSE output is 91 raw
+  and 92 canonical bytes versus verified v132's 93/93; both use one exact cast
+  result local, while Binaryen retains a leading `nop`.
 - [ ] Reduce the 128 EH/Vacuum structural differences in the existing 256-case
   campaign, alongside the dedicated Vacuum backlog slice below. Layouts `1`
   and `7` account for 64 historical rows and are source-backed canonical

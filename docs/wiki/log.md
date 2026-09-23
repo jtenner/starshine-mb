@@ -1,3 +1,26 @@
+### 2026-09-23 — Local CSE non-null cast result materialization
+
+- Exact prefix replay of retained seven-pass case 29 identified `local-cse` as
+  the first owner: Starshine and verified Binaryen v132 are both 93 raw bytes
+  through `vacuum`, then become 98 and 95 bytes after `local-cse`.
+- Outer-function raw Local CSE now materializes repeated ordinary non-null
+  `ref.cast` results in a fresh local with the cast's full nominal/exact result
+  type. The original potentially failing cast remains before `local.tee`.
+  Existing local-write and effect barriers remain active, and recursive block,
+  loop, `if`, and `try_table` rewrites keep nullable operand replay. Descriptor
+  casts, `ref.as_non_null`, `ref.get_desc`, and `ref.i31` remain on their
+  existing paths.
+- Direct and active dispatcher fixtures were red on the former nullable-base
+  local shape. The repaired direct case, dispatcher case, trap order, exact
+  type, source-write barrier, and nested-control boundary tests pass; the full
+  focused Local CSE file passes 207/207.
+- Fresh native exact seven-pass replay validates and returns `22289` under
+  Node's custom-descriptor flag. Starshine now emits 91 raw bytes and 92 bytes
+  after the campaign's v132 projection, versus Binaryen's 93/93. Binaryen's
+  retained leading `nop` accounts for the remaining Starshine size win. A
+  separate optimized null-cast probe traps with `RuntimeError: illegal cast`.
+  No fuzz campaign ran.
+
 ### 2026-09-23 — Exact-reference Node runtime configuration
 
 - The Node v2 semantic worker now accepts the opt-in `STARSHINE_NODE_CUSTOM_DESCRIPTORS=1` setting and forwards `--experimental-wasm-custom-descriptors`. Selected Node arguments continue to enter the configured runtime identity, semantic cache key, and resume manifest; `0` or an unset variable keeps default Node behavior, and other values fail closed.

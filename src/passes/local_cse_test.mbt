@@ -111,6 +111,29 @@ fn lcse_test_count_ref_as_non_null(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
+fn lcse_test_count_ref_cast(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::RefCast(_, _, _) => count += 1
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += lcse_test_count_ref_cast(body)
+      @lib.Instruction::If(_, then_body, Some(else_body)) => {
+        count += lcse_test_count_ref_cast(then_body)
+        count += lcse_test_count_ref_cast(else_body)
+      }
+      @lib.Instruction::If(_, then_body, None) =>
+        count += lcse_test_count_ref_cast(then_body)
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += lcse_test_count_ref_cast(body)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
 fn lcse_test_count_ref_i31(instrs : Array[@lib.Instruction]) -> Int {
   let mut count = 0
   for instr in instrs {
@@ -2964,7 +2987,7 @@ test "local-cse reuses repeated nullable ref-cast roots" {
 }
 
 ///|
-test "local-cse reuses repeated non-null ref-cast roots by caching nullable operand" {
+test "local-cse keeps potentially failing non-null cast before result tee" {
   let ref_ty = @lib.ValType::ref_null(
     @lib.HeapType::abs(@lib.AbsHeapType::any()),
   )
@@ -3001,9 +3024,247 @@ test "local-cse reuses repeated non-null ref-cast roots by caching nullable oper
     optimized,
   )
   let temp = @lib.LocalIdx::new(1U)
-  @debug.assert_eq(locals, @lib.Locals::from_types([ref_ty]))
+  let result_ty = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([result_ty]))
+  @debug.assert_eq(lcse_test_count_ref_cast(instrs), 1)
   @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
   @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+  // A null or wrong-dynamic-type argument must still trap at the original
+  // cast, before the successful result can initialize the non-default local.
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::ref_cast(
+      false,
+      @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+    ),
+    @lib.Instruction::local_tee(temp),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(temp),
+    @lib.Instruction::drop(),
+  ])
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+}
+
+///|
+test "local-cse materializes case29 repeated nominal cast result" {
+  let base = @lib.TypeIdx::new(0U)
+  let subtype = @lib.TypeIdx::new(1U)
+  let function_type = @lib.TypeIdx::new(2U)
+  let field = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::var_(),
+  )
+  let nullable_base = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base)),
+  )
+  let nonnull_subtype = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(subtype)),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([field])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [base],
+            @lib.CompType::struct_([field, field]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([function_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([nullable_base]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(23955)),
+            @lib.Instruction::i32_const(@lib.I32(12715)),
+            @lib.Instruction::struct_new(subtype),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(false, @lib.HeapType::new(subtype)),
+            @lib.Instruction::i32_const(@lib.I32(22289)),
+            @lib.Instruction::struct_set(subtype, @lib.U32(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(false, @lib.HeapType::new(subtype)),
+            @lib.Instruction::struct_get(subtype, @lib.U32(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected initialized non-null result local: \{@validate.validation_error_message(err)}",
+      )
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([nullable_base, nonnull_subtype]),
+  )
+  @debug.assert_eq(lcse_test_count_ref_cast(instrs), 1)
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(1U)), 1)
+}
+
+///|
+test "local-cse preserves exact non-null cast result type in fresh local" {
+  let base = @lib.TypeIdx::new(0U)
+  let subtype = @lib.TypeIdx::new(1U)
+  let function_type = @lib.TypeIdx::new(2U)
+  let nullable_base = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base)),
+  )
+  let exact_subtype = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(subtype), exact=true),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([nullable_base], [])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([function_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast_exact(false, @lib.HeapType::new(subtype)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast_exact(false, @lib.HeapType::new(subtype)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([exact_subtype]))
+  @debug.assert_eq(lcse_test_count_ref_cast(instrs), 1)
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+}
+
+///|
+test "local-cse does not cache non-null cast results across source local writes" {
+  let ref_ty = @lib.ValType::anyref()
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([ref_ty], [])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(
+              false,
+              @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::none()),
+            ),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(
+              false,
+              @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::empty())
+  @debug.assert_eq(lcse_test_count_ref_cast(instrs), 2)
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
+test "local-cse keeps nested non-null cast result on operand replay path" {
+  let ref_ty = @lib.ValType::anyref()
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([ref_ty], [])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::ref_cast(
+                  false,
+                  @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+                ),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::ref_cast(
+                  false,
+                  @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+                ),
+                @lib.Instruction::drop(),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([ref_ty]))
+  @debug.assert_eq(lcse_test_count_ref_cast(instrs), 2)
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 1)
+  assert_true(@validate.validate_module(optimized) is Ok(_))
 }
 
 ///|

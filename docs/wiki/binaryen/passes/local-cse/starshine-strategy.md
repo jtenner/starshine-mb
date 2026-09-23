@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 sources:
   - ./index.md
   - https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md
@@ -68,6 +68,28 @@ notification/waiting as atomic synchronization, retaining only local-only
 candidates. Direct and active dispatcher fixtures keep both shared-struct
 reads across all three barriers.
 
+The 2026-09-23 retained case 29 replay identified `local-cse` as the first
+owner of the remaining cast-reuse difference. Prefixes through `vacuum` were
+93 bytes for both tools; adding `local-cse` produced 98 bytes in Starshine and
+95 in verified Binaryen v132. Binaryen's `Applier` creates a fresh local with
+the repeated expression's exact result type, so its first ordinary non-null
+`ref.cast` initializes a non-null exact-subtype local and later uses read that
+value. Starshine now applies that result-local form to ordinary non-null
+`ref.cast` roots in the outer function-body window. The original cast remains
+before `local.tee`, preserving a null or wrong-type trap, and full instruction
+identity plus existing local-write and effect barriers prove that a reachable
+repeat receives the same unchanged reference. The local type retains the
+cast's nullability, exact bit, and heap type. Recursive block, loop, `if`, and
+`try_table` scans keep operand replay so non-default locals are never introduced
+across a control merge or backedge. Non-null `ref.cast_desc_eq`,
+`ref.as_non_null`, `ref.get_desc`, and `ref.i31` retain their existing operand
+replay paths. The exact seven-pass replay now emits 91 raw bytes and 92 bytes
+after the campaign's v132 canonical projection, versus Binaryen's 93/93; the
+remaining two-byte raw win is Binaryen's retained leading `nop`. Both outputs
+validate, and the new Starshine artifact returns `22289` under Node's custom
+descriptor flag. A separate optimized null-cast probe still traps with
+`RuntimeError: illegal cast`.
+
 The relaxed-SIMD bullet is deliberately **Binaryen-oracle-scoped**. The feature's ordinary `v128` typing and codec support do not establish a generic evaluation-merging law: the current [proposal overview](https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md) permits host-dependent result sets for some relaxed operations while scoping them with a same-environment projection model. The existing all-20-opcode local-CSE slice remains supported by explicit Binaryen comparison/replay evidence, but any new relaxed-SIMD rewrite needs separate formal-semantics and oracle proof. See [`../../../wast/simd-authoring.md`](../../../wast/simd-authoring.md).
 
 The active local strategy is still deliberately slot-honest:
@@ -76,7 +98,7 @@ The active local strategy is still deliberately slot-honest:
 - schedule the proven late `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` cleanup neighborhood in public `optimize` / `shrink`
 - keep the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gated until `flatten` lands
 - grow the implementation from same-window temp-localizing reuse, including the implemented trap-sensitive scalar numeric roots, without recasting it as a whole-function GVN pass
-- keep `ref.test` predicate-root parity as an implemented scalar-`i32` result case, `any.convert_extern` / `extern.convert_any` parity as implemented defaultable nullable reference-result cases, `ref.cast` parity as implemented for nullable result locals plus non-null casts replayed from a cached defaultable nullable operand, `ref.as_non_null` parity as implemented by caching the nullable operand and replaying the non-null assertion, `ref.get_desc` descriptor-read parity as implemented by caching a defaultable operand and replaying the descriptor read, and `ref.cast_desc_eq` parity as implemented for nullable result locals plus non-null casts replayed from cached defaultable operands, while leaving obsolete/unsupported descriptor test roots, descriptor allocations, and broader descriptor reference reasoning as documented conservative deferrals unless a separate safe root model is approved
+- keep `ref.test` predicate-root parity as an implemented scalar-`i32` result case, `any.convert_extern` / `extern.convert_any` parity as implemented defaultable nullable reference-result cases, and ordinary `ref.cast` parity as direct result-local materialization for nullable results and outer-function-window non-null results; preserve the cast's exact result type and keep recursive structured-control scans on nullable operand replay. Keep `ref.as_non_null` parity as implemented by caching the nullable operand and replaying the non-null assertion, `ref.get_desc` descriptor-read parity as implemented by caching a defaultable operand and replaying the descriptor read, and `ref.cast_desc_eq` parity as implemented for nullable result locals plus non-null casts replayed from cached defaultable operands, while leaving obsolete/unsupported descriptor test roots, descriptor allocations, and broader descriptor reference reasoning as documented conservative deferrals unless a separate safe root model is approved
 - keep `i31.get_s` / `i31.get_u` as narrow scalar accessor roots and `ref.i31` parity as implemented by caching the `i32` operand and replaying the non-null-producing instruction instead of materializing a non-default `(ref i31)` result local
 - keep repeated `struct.get` / `array.get` / `array.len` roots, including packed signed/unsigned accessors, as implemented same-window heap-read parity when result locals are defaultable, with heap-write invalidation and a non-default-result local guard; do not extend that into arbitrary heap GVN, atomic/shared-GC reasoning, or call reasoning without a separate state model
 - keep local-only reuse across linear atomic operations, including load width variants, store width variants, RMW op/width variants, wait/notify/fence, cmpxchg roots, and cmpxchg width variants, plus `struct.atomic.get*`, implemented; still keep atomic roots and atomic-root-dependent expressions non-reusable rather than adding atomic, shared-GC, or memory GVN

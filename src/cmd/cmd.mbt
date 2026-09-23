@@ -9307,6 +9307,92 @@ test "deep audit command heap2local intentionally keeps missing subtype field tr
 }
 
 ///|
+test "deep audit command local cse materializes repeated nominal cast result" {
+  let base = @lib.TypeIdx::new(0U)
+  let subtype = @lib.TypeIdx::new(1U)
+  let function_type = @lib.TypeIdx::new(2U)
+  let field = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::var_(),
+  )
+  let nullable_base = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base)),
+  )
+  let nonnull_subtype = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(subtype)),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([field])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [base],
+            @lib.CompType::struct_([field, field]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([function_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([nullable_base]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(23955)),
+            @lib.Instruction::i32_const(@lib.I32(12715)),
+            @lib.Instruction::struct_new(subtype),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(false, @lib.HeapType::new(subtype)),
+            @lib.Instruction::i32_const(@lib.I32(22289)),
+            @lib.Instruction::struct_set(subtype, @lib.U32(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(false, @lib.HeapType::new(subtype)),
+            @lib.Instruction::struct_get(subtype, @lib.U32(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let output = cmd_deep_audit_run_module(input, "local-cse")
+  let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([nullable_base, nonnull_subtype]),
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(body, fn(instr) {
+      match instr {
+        @lib.RefCast(false, false, target) =>
+          target == @lib.HeapType::new(subtype)
+        _ => false
+      }
+    }),
+    1,
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(body, fn(instr) {
+      instr is @lib.LocalTee(@lib.LocalIdx(1U))
+    }),
+    1,
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(body, fn(instr) {
+      instr is @lib.LocalGet(@lib.LocalIdx(1U))
+    }),
+    1,
+  )
+}
+
+///|
 fn cmd_deep_audit_run(wat : String, pass : String) -> @lib.Module raise {
   let input = match @wast.wast_to_binary_module(wat, filename="audit.wat") {
     Ok(value) => value
