@@ -20,7 +20,7 @@ sources:
 
 ## Current preservation use
 
-The profile remains useful as a shape corpus. Current Starshine applies direct DIE to every leaf and requires exact input preservation; it no longer compares positive leaves to Binaryen's import-removing output. No new fuzz lane was run for the 2026-09-22 host-resolution repair.
+The profile remains useful as a shape corpus. Current Starshine applies default direct DIE to every leaf and requires exact input preservation. The explicit stable-binding variant retains the import-removing planner, but no new fuzz lane was run for the 2026-09-22 host-resolution repair or capability-preserving registry addition.
 
 ## Historical closeout profile
 

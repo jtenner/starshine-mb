@@ -327,6 +327,10 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "coalesce-locals-cfg", "Coalesce compatible loop locals with CFG liveness and validated rollback.",
     ),
     pass_registry_entry_module("duplicate-import-elimination", die_summary()),
+    pass_registry_entry_module(
+      "duplicate-import-elimination-assume-stable-bindings",
+      die_assume_stable_bindings_summary(),
+    ),
     pass_registry_entry_module("strip-debug", strip_debug_summary()),
     pass_registry_entry_module(
       "simplify-globals-optimizing",

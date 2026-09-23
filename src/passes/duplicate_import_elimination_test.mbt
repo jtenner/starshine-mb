@@ -117,6 +117,42 @@ test "duplicate-import-elimination dispatcher preserves repeated host lookups" {
 }
 
 ///|
+test "duplicate-import-elimination closed world does not assume stable bindings" {
+  let input = pass_test_module_from_wat(die_test_host_lookup_source())
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(closed_world=true), [
+      "duplicate-import-elimination",
+    ]) {
+    Ok(next) => next
+    Err(err) => fail("expected closed-world default DIE success, got \{err}")
+  }
+  @debug.assert_eq(optimized, input)
+  @debug.assert_eq(try! die_test_two_call_targets(optimized), (0U, 1U))
+}
+
+///|
+test "duplicate-import-elimination stable bindings directly retains merging" {
+  let optimized = die_run_module_pass_assume_stable_bindings(
+    pass_test_module_from_wat(die_test_host_lookup_source()),
+  )
+  @debug.assert_eq(die_test_imported_func_count(optimized), 1)
+  @debug.assert_eq(try! die_test_two_call_targets(optimized), (0U, 0U))
+}
+
+///|
+test "duplicate-import-elimination stable bindings dispatcher retains merging" {
+  let optimized = match
+    pass_test_run_pipeline(die_test_host_lookup_source(), [
+      "duplicate-import-elimination-assume-stable-bindings",
+    ]) {
+    Ok(next) => next
+    Err(err) => fail("expected stable-binding DIE success, got \{err}")
+  }
+  @debug.assert_eq(die_test_imported_func_count(optimized), 1)
+  @debug.assert_eq(try! die_test_two_call_targets(optimized), (0U, 0U))
+}
+
+///|
 test "duplicate-import-elimination preserves duplicate import slots and users" {
   let source =
     #|(module
@@ -269,7 +305,7 @@ test "duplicate-import-elimination preserves function annotation ownership" {
 }
 
 ///|
-test "duplicate-import-elimination preserves every generated v131 family" {
+test "duplicate-import-elimination preserves by default and merges trusted v131 families" {
   let profile_names = [
     "duplicate-import-elimination-functions", "duplicate-import-elimination-identity",
     "duplicate-import-elimination-module-code", "duplicate-import-elimination-legacy-eh",
@@ -318,6 +354,28 @@ test "duplicate-import-elimination preserves every generated v131 family" {
       @debug.assert_eq(die_test_import_count(optimized), before_imports)
       @debug.assert_eq(optimized, decoded)
       @debug.assert_eq(die_run_module_pass(optimized), optimized)
+
+      let trusted = die_run_module_pass_assume_stable_bindings(decoded)
+      match @validate.validate_module(trusted) {
+        Ok(_) => ()
+        Err(err) =>
+          fail(
+            "trusted profile \{profile_name} variant \{variant} produced invalid wasm: \{@validate.validation_error_message(err)}",
+          )
+      }
+      if profile_name == "duplicate-import-elimination-nonfunction" {
+        @debug.assert_eq(trusted, decoded)
+      } else {
+        assert_true(
+          die_test_imported_func_count(trusted) < before_funcs,
+          msg="trusted profile \{profile_name} variant \{variant} did not remove a duplicate function import",
+        )
+        assert_true(trusted != decoded)
+      }
+      @debug.assert_eq(
+        die_run_module_pass_assume_stable_bindings(trusted),
+        trusted,
+      )
     }
   }
 }

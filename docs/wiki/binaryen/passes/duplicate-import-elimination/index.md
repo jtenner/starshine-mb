@@ -38,6 +38,8 @@ related:
 
 The historical planner and the 2026-07-28 Binaryen-v131 parity evidence remain documented below. A 2026-09-22 safety guard now returns the original module when a function `(module, base)` lookup repeats, before type comparison, remapping, metadata invalidation, or import removal. Since those are the only Binaryen-style opportunities, direct Starshine DIE is a compatibility no-op for valid opportunities and intentionally diverges from Binaryen 132.
 
+Starshine retains the merge capability under the separate explicit pass `duplicate-import-elimination-assume-stable-bindings`. Selecting it is a caller contract that every repeated module/component lookup is side-effect-free **and** resolves, after embedding conversion, to the same WebAssembly function identity. Either condition alone is insufficient: a getter can produce an equivalent callable while still exposing its read count, and repeated conversion can create distinct function addresses. `--closed-world` does not imply either host-object property, so it never enables this variant automatically.
+
 Binaryen's canonical late neighborhood is:
 
 `duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements`
@@ -81,7 +83,7 @@ The current `duplicate-import-elimination` GenValid aggregate owns five leaves:
 
 The 10,000-case dedicated lane selected every leaf and all 13 case labels. Every case normalized exactly to Binaryen v131, with no validation, generator, property, command, or raw mismatch failures.
 
-Focused pass tests encode/decode every historical leaf and identity/EH variant, require every input to remain exactly unchanged, validate every output, and require idempotence. Direct and pipeline reduced repros preserve two calls at indices `0` and `1`; the active command-adapter regression preserves both declarations and the second call target.
+Focused pass tests encode/decode every historical leaf and identity/EH variant, require every default-pass input to remain exactly unchanged, validate every output, and require idempotence. Direct and pipeline reduced repros preserve two calls at indices `0` and `1`; the active command-adapter regression preserves both declarations and the second call target. Separate direct, pipeline, registry, and command-adapter tests prove that the explicit stable-binding spelling still merges the two slots and retargets both calls to index `0`.
 
 ## Closeout matrix
 
@@ -101,7 +103,7 @@ The random-all local-run family is a real one-byte Starshine size loss, but its 
 
 ## Performance
 
-These retained timings measure the historical merge implementation, before the host-safety guard made its valid merge opportunities unreachable:
+These retained timings measure the merge planner now exposed only by the explicit stable-binding variant:
 
 - import-heavy: `0.447 ms` versus `2.00646 ms` (`0.223x`);
 - user-heavy: `0.2835 ms` versus `0.946297 ms` (`0.300x`).
@@ -117,4 +119,4 @@ These retained timings measure the historical merge implementation, before the h
 
 ## Reopening criteria
 
-Reopen direct DIE if a host-independent proof makes two import entries interchangeable, an explicit closed-world import-binding contract is added, repeated imports are removed or reordered, any preservation fixture changes, or the unchanged path mutates bytes or metadata. Upstream merge changes remain historical comparison work and cannot override the host-resolution contract.
+Reopen default direct DIE if repeated imports are removed or reordered, any preservation fixture changes, or the unchanged path mutates bytes or metadata. Reopen the explicit stable-binding variant if it becomes preset-scheduled, `--closed-world` begins enabling it, either host guarantee is weakened, or its historical index/metadata rewrite coverage regresses. Upstream merge changes cannot override the default host-resolution contract.

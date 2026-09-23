@@ -256,7 +256,7 @@ The source-confirmed reality in `version_131` is smaller.
 
 ## Binaryen comparison checklist and Starshine override
 
-The bullets below describe the reviewed Binaryen merge and Starshine's retained historical planner. Current Starshine guards repeated `(module, base)` lookups before this logic because each import entry is independently resolved and may receive a distinct external function. Do not re-enable the merge for direct or preset use without an explicit closed-world binding contract.
+The bullets below describe the reviewed Binaryen merge and Starshine's retained planner. Default Starshine guards repeated `(module, base)` lookups before this logic because each import entry is independently resolved and may receive a distinct external function. The separate `duplicate-import-elimination-assume-stable-bindings` spelling reaches the planner only under an explicit caller guarantee that repeated lookup is side-effect-free and resolves to the same WebAssembly function identity after embedding conversion. `--closed-world` does not imply that contract.
 
 - Keep this a late module pass.
 - Keep duplicate imported-function elimination as the historical Binaryen `version_131` comparison scope.

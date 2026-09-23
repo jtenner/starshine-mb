@@ -39,6 +39,8 @@ related:
 
 `duplicate-import-elimination` is an active compatibility pass with a host-safety guard. Direct invocation preserves repeated function imports because each declaration is an independent host lookup and may resolve to a distinct function. This intentionally supersedes the older direct Binaryen-v131 parity contract.
 
+`duplicate-import-elimination-assume-stable-bindings` is the explicit capability-preserving variant. Its caller guarantees that repeated module/component resolution has no observable side effects and resolves, after embedding conversion, to the same WebAssembly function identity. The ordinary `--closed-world` option describes module-graph reasoning and does not satisfy this host binding contract.
+
 Historical merge-parity evidence remains useful for understanding Binaryen:
 
 - Binaryen v131's owner, `OptUtils::replaceFunctions` helper, and dedicated input fixture are byte-identical to the retained v130 versions.
@@ -62,15 +64,15 @@ Historical merge-parity evidence remains useful for understanding Binaryen:
 
 | Family | Binaryen v131 contract | Starshine implementation and evidence | Verdict |
 | --- | --- | --- | --- |
-| imported-function scope | iterate `ImportInfo.importedFunctions` only | scan function imports for a repeated `(module, base)` lookup and return the original module when found | host-safety divergence |
-| identity bucket | exact `(module, base)` strings | pair-valued keys preserve embedded-NUL identity; the first repeated key activates the guard regardless of type | conservative and source-order preserving |
-| exact type gate | compare current representative `Function::type` | never reached for a repeated lookup because different types still perform distinct observable property gets | host-safety divergence |
-| users and module code | retarget function references to the representative | preserve every `FuncIdx` in bodies, EH, module code, start, exports, and elements | exact input preservation |
-| names and annotations | update owners after removal | preserve structured and raw names plus annotation owners because no index shifts | exact input preservation |
-| duplicate removal | remove every later duplicate after retargeting | preserve every import entry and its original order | host-safety divergence |
-| idempotence | second run finds no later duplicate | every run returns the original module | exact fixed point |
+| imported-function scope | iterate `ImportInfo.importedFunctions` only | default returns the original module for a repeated lookup; explicit stable-binding mode reaches the function-only planner | safe default plus explicit contract |
+| identity bucket | exact `(module, base)` strings | pair-valued keys preserve embedded-NUL identity; the first repeated key activates the default guard regardless of type | conservative and source-order preserving |
+| exact type gate | compare current representative `Function::type` | default never reaches it for a repeated lookup; explicit stable-binding mode retains the historical gate | host-safety divergence with retained capability |
+| users and module code | retarget function references to the representative | default preserves every `FuncIdx`; explicit mode rewrites the full historical surface | policy dependent |
+| names and annotations | update owners after removal | default preserves all metadata; explicit mode remaps structured owners and clears stale raw names | policy dependent |
+| duplicate removal | remove every later duplicate after retargeting | default preserves every import; explicit mode removes type-compatible later entries | policy dependent |
+| idempotence | second run finds no later duplicate | both policies are fixed points | exact fixed point |
 
-Current Starshine intentionally keeps the input shape. This is a correctness policy based on observable import resolution, not a size or representation win.
+Default Starshine intentionally keeps the input shape. The explicit variant retains the old size transform only when its stronger embedding contract is true.
 
 ## Correctness invariants
 
@@ -101,7 +103,7 @@ These retained timings measure the historical merge implementation:
 - import-heavy: `0.447 ms` Starshine versus `2.00646 ms` Binaryen (`0.223x`)
 - user-heavy: `0.2835 ms` Starshine versus `0.946297 ms` Binaryen (`0.300x`)
 
-Re-run timing only if the guarded planner is made reachable through a future explicit closed-world contract.
+Re-run timing before making performance claims for the explicit stable-binding variant.
 
 ## Scheduler boundary
 
@@ -118,6 +120,8 @@ candidate selection from relying on the historical planner.
 The CLI's pure O4z size portfolio also omits DIE from automatic candidate
 rosters when the original module has imports or exports. Explicit requests now
 reach the active pass and preserve the module through the local guard.
+The stable-binding spelling is never preset-scheduled and is not enabled by
+`--closed-world`; callers must name it explicitly at each trusted boundary.
 
 Do not reopen direct DIE merely because a broader neighborhood has an independently owned shape difference.
 
@@ -128,4 +132,5 @@ Reopen direct DIE if:
 - a repeated import is removed, reordered, or retargeted;
 - direct, command-adapter, or Node getter evidence changes;
 - the unchanged path mutates bytes or metadata;
-- an explicit closed-world binding contract can prove two import entries resolve to the same external value.
+- the stable-binding variant is selected without both documented host guarantees;
+- a preset or `--closed-world` begins selecting the stable-binding variant.

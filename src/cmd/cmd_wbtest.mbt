@@ -7570,13 +7570,17 @@ test "run_cmd_with_adapter preserves repeated duplicate-import lookups" {
   )
   let summary = match
     run_cmd_with_adapter(
-      ["--duplicate-import-elimination", "--out", "out.wasm", "die.wasm"],
+      [
+        "--closed-world", "--duplicate-import-elimination", "--out", "out.wasm",
+        "die.wasm",
+      ],
       io,
     ) {
     Ok(v) => v
     Err(e) => fail("unexpected run failure: \{e}")
   }
   @debug.assert_eq(summary.resolved_passes, ["duplicate-import-elimination"])
+  assert_true(summary.closed_world)
   @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.import_sec {
@@ -7602,6 +7606,66 @@ test "run_cmd_with_adapter preserves repeated duplicate-import lookups" {
     other =>
       fail(
         "expected call to retain the second import slot, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "run_cmd_with_adapter applies stable-binding duplicate-import elimination" {
+  let source =
+    #|(module
+    #|  (type $v (func))
+    #|  (import "env" "waka" (func $foo (type $v)))
+    #|  (import "env" "waka" (func $bar (type $v)))
+    #|  (func (call $bar))
+    #|)
+    #|,
+  let wasm = encode_module_bytes(@passes.pass_test_module_from_wat(source))
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["die.wasm"] },
+    file_exists=fn(path) { path == "die.wasm" },
+    read_file=fn(path) {
+      if path == "die.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--duplicate-import-elimination-assume-stable-bindings", "--out", "out.wasm",
+        "die.wasm",
+      ],
+      io,
+    ) {
+    Ok(value) => value
+    Err(err) => fail("unexpected stable-binding DIE failure: \{err}")
+  }
+  @debug.assert_eq(summary.resolved_passes, [
+    "duplicate-import-elimination-assume-stable-bindings",
+  ])
+  @debug.assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.import_sec {
+    Some(ImportSec([Import(_, _, FuncExternType(_))])) => ()
+    other =>
+      fail(
+        "expected one trusted stable import binding, got \{@debug.to_string(other)}",
+      )
+  }
+  match optimized.code_sec {
+    Some(CodeSec([Func(_, Expr([Call(FuncIdx(target))]))])) =>
+      @debug.assert_eq(target, 0U)
+    other =>
+      fail(
+        "expected call to use the merged import slot, got \{@debug.to_string(other)}",
       )
   }
 }

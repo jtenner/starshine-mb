@@ -50,6 +50,8 @@ pub fn dfe_summary() -> String
 
 pub fn die_run_module_pass(@lib.Module) -> @lib.Module
 
+pub fn die_run_module_pass_assume_stable_bindings(@lib.Module) -> @lib.Module
+
 pub fn die_summary() -> String
 
 pub fn flatten_classify_hot(@ir.HotFunc) -> FlattenFlatnessReport

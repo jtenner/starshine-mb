@@ -17,7 +17,7 @@ related:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
-> **Current Starshine contract — September 22, 2026:** all repeated imported-function lookups remain distinct. The positive merge shapes below document Binaryen and the retained historical planner. Direct Starshine DIE leaves them unchanged because host property gets and returned function identities are observable.
+> **Current Starshine contract — September 22, 2026:** default direct DIE keeps all repeated imported-function lookups distinct because host property gets and returned function identities are observable. The positive merge shapes below document Binaryen and Starshine's explicit `duplicate-import-elimination-assume-stable-bindings` variant. That spelling is valid only when repeated resolution is side-effect-free and resolves to the same WebAssembly function identity after embedding conversion; `--closed-world` alone is insufficient.
 
 This page is the beginner-friendly shape catalog for the real Binaryen `version_131` `duplicate-import-elimination` pass. The [2026-07-28 v131 refresh](../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md) confirms that the owner, rewrite helper, and dedicated input fixture are byte-identical to the retained v130 hashes and that the mixed-type current-representative rule remains released behavior.
 

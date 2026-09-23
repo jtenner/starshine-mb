@@ -92,7 +92,11 @@ result for the full preset.
   demonstrated that the original module performs two reads and `run()` returns
   **3**, while the historical direct `--duplicate-import-elimination` result
   performed one read and returned **2**. The 2026-09-22 repair makes direct DIE
-  preserve both import slots and the original outcome. In contrast,
+  preserve both import slots and the original outcome. The separate
+  `--duplicate-import-elimination-assume-stable-bindings` spelling retains the
+  merge only when repeated resolution is side-effect-free and produces the same
+  WebAssembly function identity after embedding conversion; `--closed-world`
+  does not imply those host properties. In contrast,
   `--duplicate-function-elimination` changes two identical exported
   functions from distinct JS identities (`a === b` false) to one identity
   (true); that separate direct-pass contract remains item 35. Presets preserve
@@ -177,6 +181,10 @@ Direct `duplicate-import-elimination` now preserves the two import lookups and
 their returned identities. Direct `duplicate-function-elimination` still
 merges equal exported bodies; its distinct identity contract remains asserted
 separately in the same test file.
+
+The explicit `duplicate-import-elimination-assume-stable-bindings` pass keeps
+the earlier merge capability behind a stronger caller contract. Presets and
+`--closed-world` never select it implicitly.
 
 Public presets now retain their scheduled DFE/DIE slots but skip preset-origin
 DFE when the original or current module has imports or exports, and skip

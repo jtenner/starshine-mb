@@ -91933,6 +91933,8 @@ fn run_hot_pipeline_apply_module_pass(
     }
     "local-cse" => local_cse_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)
+    "duplicate-import-elimination-assume-stable-bindings" =>
+      die_run_module_pass_assume_stable_bindings(mod_)
     "strip-debug" => strip_debug_run_module_pass(mod_)
     "simplify-globals-optimizing" =>
       match run_hot_pipeline_apply_sgo_optimizing_module_pass(mod_, options) {

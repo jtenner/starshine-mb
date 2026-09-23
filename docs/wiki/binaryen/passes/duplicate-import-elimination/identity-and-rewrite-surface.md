@@ -28,7 +28,7 @@ The audited Binaryen `version_131` source answers both questions only for import
 
 ## Current Starshine safety contract
 
-Current Starshine does not treat two import declarations as the same external function request. The JavaScript API reads every import entry independently, including repeated `Get` operations for the same module and component names. A getter can return a different function on each access. Direct DIE therefore returns the original module as soon as a function `(module, base)` pair repeats, before the historical type gate or rewrite surface. The identity and rewrite rules below describe Binaryen and Starshine's retained unreachable planner, not a currently applied Starshine transform.
+Default Starshine does not treat two import declarations as the same external function request. The JavaScript API reads every import entry independently, including repeated `Get` operations for the same module and component names. A getter can return a different function on each access. Direct DIE therefore returns the original module as soon as a function `(module, base)` pair repeats, before the historical type gate or rewrite surface. The separately named `duplicate-import-elimination-assume-stable-bindings` variant applies the rules below only when the caller guarantees both side-effect-free repeated lookup and the same WebAssembly function identity after embedding conversion. `--closed-world` is not that guarantee.
 
 ## Identity key: what must match
 

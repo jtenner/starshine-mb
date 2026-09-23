@@ -4,6 +4,11 @@ pub fn die_summary() -> String {
 }
 
 ///|
+fn die_assume_stable_bindings_summary() -> String {
+  "Merge duplicate function imports when the caller guarantees side-effect-free stable host bindings."
+}
+
+///|
 priv struct DieSeenImport {
   func_idx : Int
   func_type : @lib.FuncType
@@ -482,7 +487,10 @@ fn die_plan_remap(
 }
 
 ///|
-pub fn die_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+fn die_run_module_pass_with_binding_policy(
+  mod_ : @lib.Module,
+  assume_stable_bindings : Bool,
+) -> @lib.Module {
   // Only function imports are deduplicated; a pair is necessary to change one.
   if die_imported_func_count(mod_) < 2 {
     return mod_
@@ -490,7 +498,7 @@ pub fn die_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   // The JS API reads every import entry independently. Repeated property gets
   // may invoke a getter more than once and may produce distinct functions, so
   // coalescing any repeated lookup key changes observable instantiation.
-  if die_has_repeated_function_import_lookup(mod_) {
+  if !assume_stable_bindings && die_has_repeated_function_import_lookup(mod_) {
     return mod_
   }
   let (func_remap, removed_funcs, duplicate_import_funcs, changed) = die_plan_remap(
@@ -663,4 +671,19 @@ pub fn die_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     name_sec=die_rewrite_name_sec(mod_.name_sec, func_remap, removed_funcs),
     raw_name_sec_payload=None,
   )
+}
+
+///|
+pub fn die_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  die_run_module_pass_with_binding_policy(mod_, false)
+}
+
+///|
+/// Merge repeated function imports only when the caller guarantees that every
+/// repeated module/component lookup is side-effect-free and resolves, after
+/// embedding conversion, to the same WebAssembly function identity.
+pub fn die_run_module_pass_assume_stable_bindings(
+  mod_ : @lib.Module,
+) -> @lib.Module {
+  die_run_module_pass_with_binding_policy(mod_, true)
 }

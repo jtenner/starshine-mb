@@ -22,7 +22,7 @@ This page is the compact source-confirmed map for how Binaryen `version_131` imp
 
 ## Current Starshine entry guard
 
-Starshine retains the planner described below for source provenance, but `die_run_module_pass(...)` first detects a repeated imported-function `(module, base)` pair and returns the original module. This follows the JavaScript API per-entry import loop and preserves lookup count, distinct returned function identities, every index, and all metadata. Because the historical planner only changes repeated pairs, no valid merge reaches it through the public pass.
+Starshine retains the planner described below. `die_run_module_pass(...)` first detects a repeated imported-function `(module, base)` pair and returns the original module. This follows the JavaScript API per-entry import loop and preserves lookup count, distinct returned function identities, every index, and all metadata. `die_run_module_pass_assume_stable_bindings(...)` reaches the same planner only for the separately registered `duplicate-import-elimination-assume-stable-bindings` pass. Its caller guarantees side-effect-free repeated resolution and the same WebAssembly function identity after embedding conversion; `--closed-world` does not provide that guarantee.
 
 ## Why this page exists
 
@@ -174,7 +174,7 @@ It does not:
 
 ## Historical Starshine raw-name invalidation path
 
-The retained planner can remap structured function names and clear `Module.raw_name_sec_payload` after an index change. The public guard makes that path unreachable for repeated lookups. Current focused coverage supplies structured and raw representations and proves both remain byte-for-byte unchanged.
+The retained planner can remap structured function names and clear `Module.raw_name_sec_payload` after an index change. The default public guard keeps that path unreachable for repeated lookups; the explicit stable-binding pass retains it. Default focused coverage supplies structured and raw representations and proves both remain byte-for-byte unchanged, while the historical generated families continue to exercise the planner's rewrite surface.
 
 The 2026-07-28 closeout rebuild and full explicit-v131 evidence matrix are recorded in [`fuzzing.md`](./fuzzing.md).
 
