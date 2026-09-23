@@ -395,6 +395,11 @@
     generator's variant branches untested. Add a bounded deterministic
     selection test, break the seed/profile parity correlation without changing
     replay identity, and verify both variant parities without a fuzz campaign.
+76. [ ] The convergence property reports a fixed point when raw `M0` and `M1`
+    have the same canonical hash even if optimizing `M1` changes the canonical
+    result. Nine saved EH cases have exactly this `M0 -> M1 -> M2` shape and
+    are misclassified. Add a red projection-alias regression, require a sound
+    confirmation before fixed-point status, and verify bounded property output.
 
 ### Open parity evidence from this audit
 
