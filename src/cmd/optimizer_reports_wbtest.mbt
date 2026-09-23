@@ -212,3 +212,21 @@ test "optimizer runtime interface report is derived from decoded module sections
   )
   assert_true(report.contains("\"hasStart\":true"))
 }
+
+///|
+test "optimizer runtime interface classifies proposal crossing boundaries" {
+  @debug.assert_eq(
+    cmd_optimizer_value_type_support("(ref type[0])"),
+    "retained-fixture",
+  )
+  @debug.assert_eq(cmd_optimizer_value_type_support("exnref"), "unsupported")
+  @debug.assert_eq(cmd_optimizer_value_type_support("contref"), "unsupported")
+  @debug.assert_eq(
+    cmd_optimizer_value_type_support("(ref null exn)"),
+    "unsupported",
+  )
+  @debug.assert_eq(
+    cmd_optimizer_value_type_support("(ref null cont)"),
+    "unsupported",
+  )
+}

@@ -109,22 +109,79 @@ function numericIndex(form: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
-function typeTokens(form: string, field: "param" | "result"): WasmRuntimeValueType[] {
+type NamedReferenceKind = "array" | "struct" | "function" | "continuation";
+
+function normalizeNamedReferenceType(
+  type: string,
+  namedReferenceKinds: Map<string, NamedReferenceKind>,
+): WasmRuntimeValueType {
+  const match = /^\(ref( null)? (\$[^\s()]+)\)$/.exec(type);
+  if (match === null || namedReferenceKinds.get(match[2]) !== "continuation") return type;
+  return `(ref${match[1] ?? ""} cont)`;
+}
+
+function typeTokens(
+  form: string,
+  field: "param" | "result",
+  namedReferenceKinds: Map<string, NamedReferenceKind> = new Map(),
+): WasmRuntimeValueType[] {
   const out: WasmRuntimeValueType[] = [];
-  const regex = new RegExp(`\\(${field}\\s+([^)]*)\\)`, "g");
-  for (const match of form.matchAll(regex)) {
-    const raw = match[1].trim();
-    if (raw.length === 0) continue;
-    for (const token of raw.split(/\s+/)) {
-      if (token.startsWith("$")) continue;
-      out.push(token);
+  const prefix = `(${field}`;
+  for (let start = form.indexOf(prefix); start >= 0; start = form.indexOf(prefix, start + prefix.length)) {
+    const boundary = form[start + prefix.length];
+    if (boundary !== undefined && !/\s|\)/.test(boundary)) continue;
+    let depth = 0;
+    let end = -1;
+    for (let index = start; index < form.length; index += 1) {
+      if (form[index] === "(") depth += 1;
+      else if (form[index] === ")") {
+        depth -= 1;
+        if (depth === 0) {
+          end = index;
+          break;
+        }
+      }
+    }
+    if (end < 0) continue;
+    const raw = form.slice(start + prefix.length, end).trim();
+    for (let index = 0; index < raw.length;) {
+      while (index < raw.length && /\s/.test(raw[index])) index += 1;
+      if (index >= raw.length) break;
+      const tokenStart = index;
+      if (raw[index] === "(") {
+        let nestedDepth = 0;
+        while (index < raw.length) {
+          if (raw[index] === "(") nestedDepth += 1;
+          else if (raw[index] === ")") {
+            nestedDepth -= 1;
+            if (nestedDepth === 0) {
+              index += 1;
+              break;
+            }
+          }
+          index += 1;
+        }
+      } else {
+        while (index < raw.length && !/\s/.test(raw[index])) index += 1;
+      }
+      const token = raw.slice(tokenStart, index);
+      if (!token.startsWith("$")) {
+        out.push(normalizeNamedReferenceType(token, namedReferenceKinds));
+      }
     }
   }
   return out;
 }
 
-function signatureFromForm(form: string, types: Map<number, RuntimeFunctionSignature>): RuntimeFunctionSignature {
-  const direct = { params: typeTokens(form, "param"), results: typeTokens(form, "result") };
+function signatureFromForm(
+  form: string,
+  types: Map<number, RuntimeFunctionSignature>,
+  namedReferenceKinds: Map<string, NamedReferenceKind>,
+): RuntimeFunctionSignature {
+  const direct = {
+    params: typeTokens(form, "param", namedReferenceKinds),
+    results: typeTokens(form, "result", namedReferenceKinds),
+  };
   if (direct.params.length > 0 || direct.results.length > 0) return direct;
   const typeUse = /\(type\s+(\d+)\)/.exec(form);
   return typeUse ? types.get(Number(typeUse[1])) ?? direct : direct;
@@ -142,9 +199,26 @@ function isReferenceType(type: WasmRuntimeValueType): boolean {
   return type.endsWith("ref") || type.includes("(ref") || type === "ref";
 }
 
+function isNonNullAggregateReferenceType(type: WasmRuntimeValueType): boolean {
+  if (!type.startsWith("(ref ") || type.startsWith("(ref null ")) return false;
+  const heapType = type.slice("(ref ".length, -1).trim();
+  return heapType === "any"
+    || heapType === "eq"
+    || heapType === "struct"
+    || heapType === "array"
+    || heapType.startsWith("type[")
+    || heapType.startsWith("rec[")
+    || heapType.startsWith("$")
+    || /^\d+$/.test(heapType);
+}
+
 function isUnsupportedReferenceType(type: WasmRuntimeValueType): boolean {
   if (!isReferenceType(type)) return false;
+  const normalized = type.toLowerCase();
+  if (normalized === "exnref" || normalized === "contref"
+    || /\bexn\b/.test(normalized) || /\bcont\b/.test(normalized)) return true;
   if (["funcref", "externref", "anyref", "eqref", "i31ref", "structref", "arrayref"].includes(type)) return false;
+  if (isNonNullAggregateReferenceType(type)) return false;
   return !type.includes("ref null");
 }
 
@@ -249,11 +323,26 @@ export function buildRuntimeInterfaceFromWasm(wasmPath: string, wasmToolsBin = "
   const bytes = fs.readFileSync(wasmPath);
   const text = printedWasm(wasmPath, wasmToolsBin);
   const forms = splitTopLevelForms(text);
+  const namedReferenceKinds = new Map<string, NamedReferenceKind>();
+  for (const form of forms) {
+    if (!form.startsWith("(type ")) continue;
+    const name = /^\(type\s+(\$[^\s()]+)/.exec(form)?.[1];
+    if (name === undefined) continue;
+    if (/\(array\b/.test(form)) namedReferenceKinds.set(name, "array");
+    else if (/\(struct\b/.test(form)) namedReferenceKinds.set(name, "struct");
+    else if (/\(cont\b/.test(form)) namedReferenceKinds.set(name, "continuation");
+    else if (/\(func\b/.test(form)) namedReferenceKinds.set(name, "function");
+  }
   const types = new Map<number, RuntimeFunctionSignature>();
   for (const form of forms) {
     if (!form.startsWith("(type ") || !form.includes("(func")) continue;
     const index = numericIndex(form);
-    if (index !== null) types.set(index, { params: typeTokens(form, "param"), results: typeTokens(form, "result") });
+    if (index !== null) {
+      types.set(index, {
+        params: typeTokens(form, "param", namedReferenceKinds),
+        results: typeTokens(form, "result", namedReferenceKinds),
+      });
+    }
   }
 
   const resources: ResourceTypeMaps = {
@@ -284,7 +373,7 @@ export function buildRuntimeInterfaceFromWasm(wasmPath: string, wasmToolsBin = "
       const module = decodedString(importMatch[1]);
       const field = decodedString(importMatch[2]);
       if (form.includes("(func ")) {
-        const signature = signatureFromForm(form, types);
+        const signature = signatureFromForm(form, types, namedReferenceKinds);
         resources.functions.set(index, signature);
         imports.functions.push({ module, field, index, signature, support: signatureSupport(signature) });
       } else if (form.includes("(global ")) {
@@ -300,14 +389,23 @@ export function buildRuntimeInterfaceFromWasm(wasmPath: string, wasmToolsBin = "
         resources.tables.set(index, table);
         imports.tables.push({ module, field, index, ...table, support: supportForTable(table) });
       } else if (form.includes("(tag ")) {
-        const signature = signatureFromForm(form.slice(form.indexOf("(tag ")), types);
+        const signature = signatureFromForm(
+          form.slice(form.indexOf("(tag ")),
+          types,
+          namedReferenceKinds,
+        );
         imports.tags?.push({ module, field, index, signature, support: signatureSupport(signature) });
       }
       continue;
     }
     const index = numericIndex(form);
     if (index === null) continue;
-    if (form.startsWith("(func ")) resources.functions.set(index, signatureFromForm(form, types));
+    if (form.startsWith("(func ")) {
+      resources.functions.set(
+        index,
+        signatureFromForm(form, types, namedReferenceKinds),
+      );
+    }
     else if (form.startsWith("(global ")) resources.globals.set(index, globalTypeFromForm(form));
     else if (form.startsWith("(memory ")) resources.memories.set(index, memoryTypeFromForm(form));
     else if (form.startsWith("(table ")) resources.tables.set(index, tableTypeFromForm(form));
@@ -453,6 +551,21 @@ function jsFromTyped(value: TypedRuntimeValue): unknown {
   }
   view.setBigUint64(0, BigInt(value.bits), false);
   return view.getFloat64(0, false);
+}
+
+function materializeJsArgument(
+  value: TypedRuntimeValue,
+  instance: WebAssembly.Instance,
+): unknown {
+  if (value.type !== "reference" || !value.relation.startsWith("fixture:export:")) {
+    return jsFromTyped(value);
+  }
+  const exportName = value.relation.slice("fixture:export:".length);
+  const factory = instance.exports[exportName];
+  if (typeof factory !== "function") {
+    throw new Error(`missing retained fixture export ${exportName}`);
+  }
+  return factory();
 }
 
 function zeroJsValue(type: WasmRuntimeValueType): unknown {
@@ -1090,7 +1203,9 @@ export async function executeNodeObservationV2(
     // using exact cross-optimization equality. Their allowed result sets need
     // an instruction-aware oracle, including values stored into memory.
     observation.completeness = "incomplete";
-    observation.blockedReasons.push("relaxed-simd-allowed-result-oracle-unavailable");
+    observation.blockedReasons.push(
+      "unsupported-relaxed-simd-general-allowed-outcome-oracle:instruction-and-state-contract-required",
+    );
   }
   let module: WebAssembly.Module;
   try {
@@ -1217,7 +1332,9 @@ export async function executeNodeObservationV2(
           const raw = adapter(...flattenAdapterArguments(planned.arguments));
           outcome = { kind: "returned", values: adapterResultValues(raw, planned.signature, relations) };
         } else {
-          const raw = exported(...planned.arguments.map(jsFromTyped));
+          const raw = exported(...planned.arguments.map((value) =>
+            materializeJsArgument(value, current.instance)
+          ));
           const values = planned.signature.results.length === 0 ? [] : planned.signature.results.length === 1 ? [raw] : raw as unknown[];
           outcome = { kind: "returned", values: values.map((value, resultIndex) => typedFromJs(value, planned.signature.results[resultIndex] ?? "unknown", relations)) };
         }

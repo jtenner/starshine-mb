@@ -1,3 +1,10 @@
+### 2026-09-23 — Proposal runtime observation boundaries
+
+- The Node semantic oracle now executes non-null nominal struct and array crossings when a zero-parameter export produces the exact required type. The invocation plan records the producer relation and the executor passes the retained opaque Wasm value directly to the consumer; a three-way regression detects corrupted struct and array readers.
+- Executable `exnref` and WasmFX `contref` fixtures establish an explicit JavaScript host boundary. Native and fallback interface extraction reject abstract, nullable, and nominal continuation crossings with family-specific reasons while still compiling and observing unrelated exports.
+- Relaxed-SIMD fixtures continue to run for diagnostics and now report a machine-readable general allowed-outcome boundary. Arbitrary relaxed operations still need instruction- and state-specific contracts before semantic signoff.
+- Focused validation: `bun test scripts/lib/optimizer-runtime.test.ts scripts/lib/optimizer-runtime-executor.test.ts` (**42 passed**) and `moon test src/cmd/optimizer_reports_wbtest.mbt` (**7 passed**). Imported memory64 observation is owned by a separate resource-adapter change.
+
 ### 2026-09-22 — HSO fresh shared-object publication ordering
 
 - [Heap Store Optimization](binaryen/passes/heap-store-optimization/index.md#2026-09-22-fresh-shared-object-publication-repair) no longer absorbs release or sequentially consistent `struct.atomic.set` operations into fresh shared-struct constructors. An exported-publication fixture failed before the fix because both ordered writes disappeared; direct and active-dispatcher tests now retain their exact orders while the proven-unescaped relaxed case still folds.

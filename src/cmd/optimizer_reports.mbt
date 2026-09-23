@@ -281,7 +281,12 @@ fn cmd_optimizer_value_type_support(value_type : String) -> String {
     | "structref"
     | "arrayref" => "retained-fixture"
     _ =>
-      if value_type.contains("ref null") {
+      if value_type.contains("exn") || value_type.contains("cont") {
+        "unsupported"
+      } else if value_type.contains("ref null") ||
+        value_type.starts_with("(ref type[") ||
+        value_type.starts_with("(ref rec[") ||
+        value_type == "(ref defined)" {
         "retained-fixture"
       } else {
         "unsupported"
@@ -290,17 +295,62 @@ fn cmd_optimizer_value_type_support(value_type : String) -> String {
 }
 
 ///|
+fn cmd_optimizer_typed_value_support(
+  env : @validate.Env,
+  value_type : @lib.ValType,
+) -> String {
+  match value_type {
+    @lib.RefTypeValType(@lib.AbsHeapTypeRefType(abs)) =>
+      match abs {
+        @lib.ExnAbsHeapType
+        | @lib.NoExnAbsHeapType
+        | @lib.ContAbsHeapType
+        | @lib.NoContAbsHeapType => "unsupported"
+        _ =>
+          cmd_optimizer_value_type_support(
+            cmd_optimizer_val_type_name(value_type),
+          )
+      }
+    @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, heap_type)) =>
+      match heap_type {
+        @lib.AbsHeapTypeHeapType(abs) | @lib.SharedAbsHeapTypeHeapType(abs) =>
+          match abs {
+            @lib.ExnAbsHeapType
+            | @lib.NoExnAbsHeapType
+            | @lib.ContAbsHeapType
+            | @lib.NoContAbsHeapType => "unsupported"
+            _ => "retained-fixture"
+          }
+        _ =>
+          match env.resolve_heaptype_subtype(heap_type) {
+            Some(subtype) =>
+              match subtype.get_comptype() {
+                @lib.ContCompType(_) => "unsupported"
+                _ => "retained-fixture"
+              }
+            None =>
+              cmd_optimizer_value_type_support(
+                cmd_optimizer_val_type_name(value_type),
+              )
+          }
+      }
+    _ =>
+      cmd_optimizer_value_type_support(cmd_optimizer_val_type_name(value_type))
+  }
+}
+
+///|
 fn cmd_optimizer_signature_support(
+  env : @validate.Env,
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
 ) -> String {
   let mut has_ref = false
   for value_type in params + results {
-    let name = cmd_optimizer_val_type_name(value_type)
-    if name == "v128" {
+    if value_type is @lib.VecTypeValType {
       return "scalar-adapter"
     }
-    let support = cmd_optimizer_value_type_support(name)
+    let support = cmd_optimizer_typed_value_support(env, value_type)
     if support == "unsupported" {
       return "unsupported"
     }
@@ -335,11 +385,12 @@ fn cmd_optimizer_signature_json(func_type : @lib.FuncType?) -> String {
 
 ///|
 fn cmd_optimizer_signature_support_for_type(
+  env : @validate.Env,
   func_type : @lib.FuncType?,
 ) -> String {
   match func_type {
     Some(@lib.FuncType(params, results)) =>
-      cmd_optimizer_signature_support(params, results)
+      cmd_optimizer_signature_support(env, params, results)
     None => "unsupported"
   }
 }
@@ -430,7 +481,7 @@ fn cmd_optimizer_runtime_interface_report_json(mod_ : Module) -> String {
             function_types.push(type_idx)
             let func_type = env.resolve_functype(type_idx)
             import_functions.push(
-              "{\"module\":\{cmd_optimizer_json_string(module_name)},\"field\":\{cmd_optimizer_json_string(field_name)},\"kind\":\"function\",\"index\":\{index},\"signature\":\{cmd_optimizer_signature_json(func_type)},\"support\":\{cmd_optimizer_json_string(cmd_optimizer_signature_support_for_type(func_type))}}",
+              "{\"module\":\{cmd_optimizer_json_string(module_name)},\"field\":\{cmd_optimizer_json_string(field_name)},\"kind\":\"function\",\"index\":\{index},\"signature\":\{cmd_optimizer_signature_json(func_type)},\"support\":\{cmd_optimizer_json_string(cmd_optimizer_signature_support_for_type(env, func_type))}}",
             )
           }
           @lib.GlobalExternType(global_type) => {
@@ -439,7 +490,7 @@ fn cmd_optimizer_runtime_interface_report_json(mod_ : Module) -> String {
             let @lib.GlobalType(value_type, mutable) = global_type
             let value_name = cmd_optimizer_val_type_name(value_type)
             import_globals.push(
-              "{\"module\":\{cmd_optimizer_json_string(module_name)},\"field\":\{cmd_optimizer_json_string(field_name)},\"kind\":\"global\",\"index\":\{index},\"valueType\":\{cmd_optimizer_json_string(value_name)},\"mutable\":\{mutable},\"support\":\{cmd_optimizer_json_string(cmd_optimizer_value_type_support(value_name))}}",
+              "{\"module\":\{cmd_optimizer_json_string(module_name)},\"field\":\{cmd_optimizer_json_string(field_name)},\"kind\":\"global\",\"index\":\{index},\"valueType\":\{cmd_optimizer_json_string(value_name)},\"mutable\":\{mutable},\"support\":\{cmd_optimizer_json_string(cmd_optimizer_typed_value_support(env, value_type))}}",
             )
           }
           @lib.MemExternType(memory_type) => {
@@ -517,13 +568,13 @@ fn cmd_optimizer_runtime_interface_report_json(mod_ : Module) -> String {
             } else {
               None
             }
-            "{\"name\":\{cmd_optimizer_json_string(name)},\"kind\":\"function\",\"index\":\{index},\"signature\":\{cmd_optimizer_signature_json(func_type)},\"support\":\{cmd_optimizer_json_string(cmd_optimizer_signature_support_for_type(func_type))}}"
+            "{\"name\":\{cmd_optimizer_json_string(name)},\"kind\":\"function\",\"index\":\{index},\"signature\":\{cmd_optimizer_signature_json(func_type)},\"support\":\{cmd_optimizer_json_string(cmd_optimizer_signature_support_for_type(env, func_type))}}"
           }
           @lib.GlobalExternIdx(@lib.GlobalIdx(index)) =>
             if index.to_int() < global_types.length() {
               let @lib.GlobalType(value_type, mutable) = global_types[index.to_int()]
               let value_name = cmd_optimizer_val_type_name(value_type)
-              "{\"name\":\{cmd_optimizer_json_string(name)},\"kind\":\"global\",\"index\":\{index},\"globalType\":{\"valueType\":\{cmd_optimizer_json_string(value_name)},\"mutable\":\{mutable}},\"support\":\{cmd_optimizer_json_string(cmd_optimizer_value_type_support(value_name))}}"
+              "{\"name\":\{cmd_optimizer_json_string(name)},\"kind\":\"global\",\"index\":\{index},\"globalType\":{\"valueType\":\{cmd_optimizer_json_string(value_name)},\"mutable\":\{mutable}},\"support\":\{cmd_optimizer_json_string(cmd_optimizer_typed_value_support(env, value_type))}}"
             } else {
               "{\"name\":\{cmd_optimizer_json_string(name)},\"kind\":\"global\",\"index\":\{index},\"support\":\"unsupported\"}"
             }

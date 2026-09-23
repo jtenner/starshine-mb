@@ -272,6 +272,58 @@ function defaultValue(type: WasmRuntimeValueType): TypedRuntimeValue | null {
   }
 }
 
+function isNonNullAggregateReference(type: WasmRuntimeValueType): boolean {
+  if (["anyref", "eqref", "structref", "arrayref"].includes(type)) return false;
+  if (!type.startsWith("(ref ") || type.startsWith("(ref null ")) return false;
+  const heapType = type.slice("(ref ".length, -1).trim();
+  return heapType === "any"
+    || heapType === "eq"
+    || heapType === "struct"
+    || heapType === "array"
+    || heapType.startsWith("type[")
+    || heapType.startsWith("rec[")
+    || heapType.startsWith("$")
+    || /^\d+$/.test(heapType);
+}
+
+function javascriptReferenceCrossingBoundary(
+  type: WasmRuntimeValueType,
+): string | null {
+  const normalized = type.toLowerCase();
+  if (normalized === "exnref" || /\bexn\b/.test(normalized)) {
+    return "unsupported JavaScript reference crossing: exnref";
+  }
+  if (normalized === "contref" || /\bcont\b/.test(normalized)) {
+    return "unsupported JavaScript reference crossing: contref";
+  }
+  return null;
+}
+
+function retainedFactoryValues(
+  runtimeInterface: RuntimeInterfaceV1,
+): Map<WasmRuntimeValueType, TypedRuntimeValue> {
+  const values = new Map<WasmRuntimeValueType, TypedRuntimeValue>();
+  for (const exported of runtimeInterface.exports) {
+    if (exported.kind !== "function"
+      || exported.signature === undefined
+      || exported.support === "unsupported"
+      || exported.signature.params.length !== 0
+      || exported.signature.results.length !== 1) continue;
+    const resultType = exported.signature.results[0];
+    if (!isNonNullAggregateReference(resultType) || values.has(resultType)) continue;
+    values.set(resultType, {
+      type: "reference",
+      relation: `fixture:export:${exported.name}`,
+      wasmType: resultType,
+    });
+  }
+  return values;
+}
+
+function resultTypeIsObservable(type: WasmRuntimeValueType): boolean {
+  return defaultValue(type) !== null || isNonNullAggregateReference(type);
+}
+
 function boundaryValues(type: WasmRuntimeValueType): TypedRuntimeValue[] {
   switch (type) {
     case "i32": return [0, 1, -1, -2147483648, 2147483647].map(i32Value);
@@ -322,16 +374,30 @@ export function buildInvocationPlanV2(
   const steps: InvocationPlanStepV2[] = [];
   const blockedExports: InvocationPlanV2["blockedExports"] = [];
   const maxPairwise = Math.max(0, options.maxPairwise ?? 4);
+  const retainedFactories = retainedFactoryValues(runtimeInterface);
   for (const exported of runtimeInterface.exports) {
     if (exported.kind !== "function" || exported.signature === undefined) continue;
     const signature = exported.signature;
-    const unsupported = signature.params.find((type) => defaultValue(type) === null)
-      ?? signature.results.find((type) => type !== "v128" && defaultValue(type) === null);
-    if (exported.support === "unsupported" || unsupported !== undefined) {
-      blockedExports.push({ exportName: exported.name, reason: `unsupported direct JavaScript signature type: ${unsupported ?? "interface-classification"}` });
+    const crossingBoundary = [...signature.params, ...signature.results]
+      .map(javascriptReferenceCrossingBoundary)
+      .find((reason) => reason !== null) ?? null;
+    const defaults = signature.params.map((type) =>
+      defaultValue(type) ?? retainedFactories.get(type) ?? null
+    );
+    const unsupported = signature.params.find((_type, index) => defaults[index] === null)
+      ?? signature.results.find((type) => !resultTypeIsObservable(type));
+    if (crossingBoundary !== null || exported.support === "unsupported" || unsupported !== undefined) {
+      const boundary = unsupported === undefined
+        ? null
+        : javascriptReferenceCrossingBoundary(unsupported);
+      blockedExports.push({
+        exportName: exported.name,
+        reason: crossingBoundary
+          ?? boundary
+          ?? `unsupported direct JavaScript signature type: ${unsupported ?? "interface-classification"}`,
+      });
       continue;
     }
-    const defaults = signature.params.map(defaultValue);
     if (defaults.some((value) => value === null)) {
       blockedExports.push({ exportName: exported.name, reason: "unsupported non-null reference fixture" });
       continue;

@@ -196,6 +196,58 @@ describe("three-way Node semantic oracle v2", () => {
     expect(report.classification.pattern).toBe("binaryen-discrepancy");
     expect(report.classification.binaryenDiagnostic).toBe("tool-failure");
   });
+
+  test("observes non-null struct and array references through retained exports", async () => {
+    const original = compileWat(`(module
+      (type $s (struct (field i32)))
+      (type $a (array (mut i32)))
+      (func (export "make_s") (result (ref $s))
+        i32.const 7 struct.new $s)
+      (func (export "read_s") (param (ref $s)) (result i32)
+        local.get 0 struct.get $s 0)
+      (func (export "make_a") (result (ref $a))
+        i32.const 9 i32.const 1 array.new $a)
+      (func (export "read_a") (param (ref $a)) (result i32)
+        local.get 0 i32.const 0 array.get $a))`);
+    const corrupted = compileWat(`(module
+      (type $s (struct (field i32)))
+      (type $a (array (mut i32)))
+      (func (export "make_s") (result (ref $s))
+        i32.const 7 struct.new $s)
+      (func (export "read_s") (param (ref $s)) (result i32)
+        i32.const 0)
+      (func (export "make_a") (result (ref $a))
+        i32.const 9 i32.const 1 array.new $a)
+      (func (export "read_a") (param (ref $a)) (result i32)
+        i32.const 0))`);
+
+    const report = await runNodeThreeWaySemanticOracleV2(
+      original.wasmPath,
+      corrupted.wasmPath,
+      null,
+      {
+        seed: 0x5eedn,
+        policy: "strict",
+        mode: "independent",
+        timeoutMs: 2000,
+        memoryCapBytes: 1024,
+        tableEntryCap: 16,
+      },
+    );
+
+    expect(report.runtimeInterface.exports.filter((entry) =>
+      entry.name.startsWith("make_") || entry.name.startsWith("read_")
+    ).every((entry) => entry.support === "retained-fixture")).toBe(true);
+    expect(report.plan.blockedExports).toEqual([]);
+    expect(report.plan.steps.find((step) => step.exportName === "read_s")?.arguments[0])
+      .toMatchObject({ relation: "fixture:export:make_s" });
+    expect(report.plan.steps.find((step) => step.exportName === "read_a")?.arguments[0])
+      .toMatchObject({ relation: "fixture:export:make_a" });
+    expect(report.original.blockedReasons).toEqual([]);
+    expect(report.starshine.blockedReasons).toEqual([]);
+    expect(report.originalVsStarshine.classification).toBe("semantic-mismatch");
+  });
+
 });
 
 describe("Node runtime observation v2", () => {
@@ -648,7 +700,7 @@ describe("Node observation process lifetime", () => {
   });
 });
 
-test("relaxed SIMD inference requires an allowed-result oracle before semantic signoff", async () => {
+test("relaxed SIMD execution reports the explicit general allowed-outcome boundary", async () => {
   const { wasmPath } = compileWat(`(module (func (export "run") (result i32)
     v128.const i32x4 0 0 0 0
     v128.const i32x4 0 0 0 0
@@ -666,7 +718,9 @@ test("relaxed SIMD inference requires an allowed-result oracle before semantic s
   expect(observation.compilation.status).toBe("succeeded");
   expect(observation.steps.length).toBeGreaterThan(0);
   expect(observation.completeness).toBe("incomplete");
-  expect(observation.blockedReasons).toContain("relaxed-simd-allowed-result-oracle-unavailable");
+  expect(observation.blockedReasons).toContain(
+    "unsupported-relaxed-simd-general-allowed-outcome-oracle:instruction-and-state-contract-required",
+  );
 });
 
 describe("Binaryen call.without.effects runtime contract", () => {
@@ -765,6 +819,55 @@ test("configured Node supports a continuation type in a terminating module", asy
     expect(observation.runtime.identity).toContain(":config:");
     expect(observation.steps.find((step) => step.exportName === "run")?.outcome)
       .toMatchObject({ kind: "returned", values: [{ type: "i32", signed: 42 }] });
+  } finally {
+    if (previous === undefined) delete process.env.STARSHINE_NODE_WASMFX;
+    else process.env.STARSHINE_NODE_WASMFX = previous;
+  }
+});
+
+test("exnref exports compile but report the explicit JavaScript crossing boundary", async () => {
+  const { wasmPath } = compileWat(`(module
+    (func (export "take") (param exnref)))`);
+  const runtimeInterface = buildRuntimeInterfaceFromWasm(wasmPath);
+  const plan = buildInvocationPlanV2(runtimeInterface, { seed: 1n, maxPairwise: 0 });
+  expect(runtimeInterface.exports[0].support).toBe("unsupported");
+  expect(plan.blockedExports).toEqual([{
+    exportName: "take",
+    reason: "unsupported JavaScript reference crossing: exnref",
+  }]);
+
+  const observation = await executeNodeObservationV2WithTimeout(wasmPath, runtimeInterface, plan, {
+    mode: "independent", timeoutMs: 1000, memoryCapBytes: 1024, tableEntryCap: 16,
+  });
+  expect(observation.compilation).toEqual({ status: "succeeded" });
+  expect(observation.blockedReasons).toContain(
+    "blocked-export:take:unsupported JavaScript reference crossing: exnref",
+  );
+});
+
+test("contref exports compile but report the explicit JavaScript crossing boundary", async () => {
+  const { wasmPath } = compileWat(`(module
+    (type $target (func))
+    (type $continuation (cont $target))
+    (func (export "take") (param (ref $continuation))))`);
+  const runtimeInterface = buildRuntimeInterfaceFromWasm(wasmPath);
+  const plan = buildInvocationPlanV2(runtimeInterface, { seed: 1n, maxPairwise: 0 });
+  expect(runtimeInterface.exports[0].support).toBe("unsupported");
+  expect(plan.blockedExports).toEqual([{
+    exportName: "take",
+    reason: "unsupported JavaScript reference crossing: contref",
+  }]);
+
+  const previous = process.env.STARSHINE_NODE_WASMFX;
+  try {
+    process.env.STARSHINE_NODE_WASMFX = "1";
+    const observation = await executeNodeObservationV2WithTimeout(wasmPath, runtimeInterface, plan, {
+      mode: "independent", timeoutMs: 1000, memoryCapBytes: 1024, tableEntryCap: 16,
+    });
+    expect(observation.compilation).toEqual({ status: "succeeded" });
+    expect(observation.blockedReasons).toContain(
+      "blocked-export:take:unsupported JavaScript reference crossing: contref",
+    );
   } finally {
     if (previous === undefined) delete process.env.STARSHINE_NODE_WASMFX;
     else process.env.STARSHINE_NODE_WASMFX = previous;

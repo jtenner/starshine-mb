@@ -220,7 +220,45 @@ describe("invocation plan v2", () => {
     iface.exports[0].signature = { params: ["exnref"], results: [] };
     iface.exports[0].support = "unsupported";
     const blocked = buildInvocationPlanV2(iface, { seed: 1n });
-    expect(blocked.blockedExports[0].reason).toContain("exnref");
+    expect(blocked.blockedExports[0].reason).toBe(
+      "unsupported JavaScript reference crossing: exnref",
+    );
+
+    iface.exports[0].signature = { params: ["contref"], results: [] };
+    const blockedContinuation = buildInvocationPlanV2(iface, { seed: 1n });
+    expect(blockedContinuation.blockedExports[0].reason).toBe(
+      "unsupported JavaScript reference crossing: contref",
+    );
+  });
+
+  test("plans non-null aggregate GC arguments from matching retained exports", () => {
+    const iface = structuredClone(runtimeInterface);
+    iface.exports = [
+      {
+        name: "make_struct",
+        kind: "function",
+        index: 0,
+        signature: { params: [], results: ["(ref type[0])"] },
+        support: "retained-fixture",
+      },
+      {
+        name: "read_struct",
+        kind: "function",
+        index: 1,
+        signature: { params: ["(ref type[0])"], results: ["i32"] },
+        support: "retained-fixture",
+      },
+    ];
+
+    const plan = buildInvocationPlanV2(iface, { seed: 1n });
+
+    expect(plan.blockedExports).toEqual([]);
+    expect(plan.steps.find((step) => step.exportName === "read_struct")?.arguments)
+      .toEqual([{
+        type: "reference",
+        relation: "fixture:export:make_struct",
+        wasmType: "(ref type[0])",
+      }]);
   });
 
   test("plans v128 calls through a lossless two-lane scalar adapter", () => {
