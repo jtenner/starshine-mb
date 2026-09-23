@@ -511,6 +511,14 @@
   one RemoveUnusedBrs multi-function, and one constraint-loop case. Targeted
   bounded replays are active for the size-losing families. Do not infer
   semantic safety from size, validation, or instantiation-only observations.
+  The six historical SIMD shape-10 rows are now closed by bounded exact-input
+  replays after the OptimizeInstructions result-if repair: case 50 and siblings
+  258, 410, 634, 682, and 826 are each 103 Starshine versus 112 Binaryen bytes
+  in raw and canonical form. All outputs validate, and input/Starshine/Binaryen
+  Node results agree for `[0, 1, -1, 42]`; the per-case vectors are recorded in
+  the [OptimizeInstructions dossier](docs/wiki/binaryen/passes/optimize-instructions/fuzzing.md#2026-09-23-saved-simd-result-if-parity).
+  This exact replay did not run a fuzz or aggregate campaign, so the historical
+  557-case and 503/four/50 size split above remains unchanged.
   Retained case 29 is now a complete three-way semantic match under opt-in Node
   custom descriptors: every exact artifact returns i32 `22289`, with no state.
   Its size classification remains mixed and visible: Starshine is 94 bytes raw

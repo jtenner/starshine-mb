@@ -2,7 +2,7 @@
 
 The saved seven-pass `campaign-simd-numeric` ledger contained six shape-10
 rows, cases 50, 258, 410, 634, 682, and 826, at 117 Starshine versus 112
-Binaryen canonical bytes. A bounded replay used only exact case 50 and the
+Binaryen canonical bytes. A bounded first replay used exact case 50 and the
 recorded verified Binaryen 132 executable, SHA-256
 `500201b4d13ccc3a61fa5254073e75a138bc57be198bd6c18c5a9562c081ad18`.
 The first owner was OptimizeInstructions: Binaryen hoisted the matching
@@ -22,8 +22,30 @@ no constant evaluation, selected arm, or condition changes. The complete
 seven-pass case is 103 Starshine versus 112 Binaryen bytes, both outputs
 validate, and `run(0)`, `run(1)`, `run(-1)`, and `run(42)` return identical
 values for the input and both outputs. This is a measured nine-byte Starshine
-win for the replayed case. No fuzz campaign or sibling-case replay was run;
-the other five saved rows retain only their original ledger evidence.
+win for the replayed case.
+
+A bounded follow-up replayed only exact saved siblings 258, 410, 634, 682,
+and 826 with the already-built repaired native binary, SHA-256
+`aa2472b01c3ecf1f80a7cf29e59ce8b889004f5e9cf50633a86b35ff042ceb5e`.
+Every sibling starts at 113 bytes and finishes at 103 Starshine versus 112
+Binaryen bytes in both raw and canonical form. WABT 1.0.42
+`wasm-validate --enable-all` accepts all 20 sibling outputs: Starshine and
+Binaryen raw and canonical artifacts for all five cases. Node execution of
+the input and all four output forms agrees exactly for arguments
+`[0, 1, -1, 42]`:
+
+| Saved case | Result vector |
+| ---: | --- |
+| 258 | `[911979908, 1609522084, 1609522084, 1609522084]` |
+| 410 | `[570425612, 1392574884, 1392574884, 1392574884]` |
+| 634 | `[1094579372, 1403878565, 1403878565, 1403878565]` |
+| 682 | `[1663317852, 1126512485, 1126512485, 1126512485]` |
+| 826 | `[1226761068, 1539136493, 1539136493, 1539136493]` |
+
+All six historical shape-10 rows therefore become measured nine-byte
+Starshine wins after the repair. This follow-up did not run a fuzz or aggregate
+campaign; it classifies only the five exact saved siblings and does not revise
+the historical campaign counts.
 
 ## 2026-09-14 v132 correctness verification and narrow size reopening
 
