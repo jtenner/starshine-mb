@@ -54,9 +54,17 @@ function recordOpcodeHazard(facts: EffectTrapFacts, opcode: number, offset: numb
   if (opcode === 0x00) {
     noteHazard(facts, offset, opcode, "explicit-unreachable");
     noteTrapCategory(facts, "explicit-unreachable");
-  } else if (opcode === 0x10 || opcode === 0x12 || opcode === 0x11 || opcode === 0x13) {
+  } else if (
+    opcode === 0x10 ||
+    opcode === 0x11 ||
+    opcode === 0x12 ||
+    opcode === 0x13 ||
+    opcode === 0x14 ||
+    opcode === 0x15
+  ) {
     noteHazard(facts, offset, opcode, "import-or-local-call");
     if (opcode === 0x11 || opcode === 0x13) noteTrapCategory(facts, "indirect-call-type-mismatch");
+    if (opcode === 0x14 || opcode === 0x15) noteTrapCategory(facts, "null-reference");
   } else if (opcode === 0x24) {
     noteHazard(facts, offset, opcode, "global-write");
   } else if (opcode === 0x25) {
@@ -104,6 +112,17 @@ function readUleb(bytes: Uint8Array, offset: number): { value: number; next: num
   return { value, next: index };
 }
 
+function skipValueType(bytes: Uint8Array, offset: number): number {
+  const type = bytes[offset];
+  if (type !== 0x63 && type !== 0x64) {
+    return Math.min(bytes.length, offset + 1);
+  }
+  let heapTypeOffset = offset + 1;
+  if (bytes[heapTypeOffset] === 0x62) heapTypeOffset += 1; // exact
+  if (bytes[heapTypeOffset] === 0x65) heapTypeOffset += 1; // shared
+  return readUleb(bytes, heapTypeOffset).next;
+}
+
 function codeBodyRanges(bytes: Uint8Array): { start: number; end: number }[] | null {
   if (bytes.length < 8) {
     return null;
@@ -144,14 +163,14 @@ function codeBodyRanges(bytes: Uint8Array): { start: number; end: number }[] | n
       offset = localGroupCount.next;
       for (let localGroup = 0; localGroup < localGroupCount.value && offset < bodyEnd; localGroup += 1) {
         const localCount = readUleb(bytes, offset);
-        offset = localCount.next + 1; // value type byte
+        offset = skipValueType(bytes, localCount.next);
       }
       ranges.push({ start: offset, end: bodyEnd });
       offset = bodyEnd;
     }
     return ranges;
   }
-  return null;
+  return [];
 }
 
 function skipUlebOperands(bytes: Uint8Array, offset: number, count: number): number {
@@ -162,7 +181,63 @@ function skipUlebOperands(bytes: Uint8Array, offset: number, count: number): num
   return next;
 }
 
-function scanOpcode(opcode: number, bytes: Uint8Array, offset: number, end: number, facts: EffectTrapFacts): number {
+function skipMemArg(bytes: Uint8Array, offset: number): number {
+  const align = readUleb(bytes, offset);
+  let next = align.next;
+  if ((align.value & 0x40) !== 0) {
+    next = readUleb(bytes, next).next;
+  }
+  return readUleb(bytes, next).next;
+}
+
+function scanSimdOpcode(
+  bytes: Uint8Array,
+  offset: number,
+  end: number,
+  facts: EffectTrapFacts,
+  opcodeOffset: number,
+): number {
+  const sub = readUleb(bytes, offset);
+  const subopcode = sub.value;
+  if ((subopcode >= 0 && subopcode <= 10) || subopcode === 92 || subopcode === 93) {
+    noteHazard(facts, opcodeOffset, 0xfd, "memory-read");
+    noteTrapCategory(facts, "out-of-bounds-memory-access");
+    markTrap(facts);
+    return skipMemArg(bytes, sub.next);
+  }
+  if (subopcode === 11) {
+    noteHazard(facts, opcodeOffset, 0xfd, "memory-write");
+    noteTrapCategory(facts, "out-of-bounds-memory-access");
+    facts.mutatesMemory = true;
+    markTrap(facts);
+    return skipMemArg(bytes, sub.next);
+  }
+  if (subopcode === 12 || subopcode === 13) {
+    return Math.min(end, sub.next + 16);
+  }
+  if (subopcode >= 21 && subopcode <= 34) {
+    return Math.min(end, sub.next + 1);
+  }
+  if (subopcode >= 84 && subopcode <= 91) {
+    const afterMemArg = skipMemArg(bytes, sub.next);
+    const store = subopcode >= 88;
+    noteHazard(facts, opcodeOffset, 0xfd, store ? "memory-write" : "memory-read");
+    noteTrapCategory(facts, "out-of-bounds-memory-access");
+    if (store) facts.mutatesMemory = true;
+    markTrap(facts);
+    return Math.min(end, afterMemArg + 1);
+  }
+  return sub.next;
+}
+
+function scanOpcode(
+  opcode: number,
+  bytes: Uint8Array,
+  offset: number,
+  end: number,
+  facts: EffectTrapFacts,
+  opcodeOffset: number,
+): number {
   switch (opcode) {
     case 0x00: // unreachable
       facts.hasUnreachable = true;
@@ -196,6 +271,11 @@ function scanOpcode(opcode: number, bytes: Uint8Array, offset: number, end: numb
       facts.hasCall = true;
       markTrap(facts);
       return skipUlebOperands(bytes, offset, 2);
+    case 0x14: // call_ref
+    case 0x15: // return_call_ref
+      facts.hasCall = true;
+      markTrap(facts);
+      return skipUlebOperands(bytes, offset, 1);
     case 0x20: // local.get
     case 0x21: // local.set
     case 0x22: // local.tee
@@ -240,6 +320,10 @@ function scanOpcode(opcode: number, bytes: Uint8Array, offset: number, end: numb
     // integer div/rem can trap on zero divisor or signed overflow.
     markTrap(facts);
     return offset;
+  }
+
+  if (opcode === 0xfd) {
+    return scanSimdOpcode(bytes, offset, end, facts, opcodeOffset);
   }
 
   if (opcode === 0xfc || opcode === 0xfe) {
@@ -300,7 +384,7 @@ export function scanEffectTrapFactsFromWasmBytes(input: Uint8Array): EffectTrapF
       const opcodeOffset = offset;
       const opcode = input[offset];
       recordOpcodeHazard(facts, opcode, opcodeOffset);
-      offset = scanOpcode(opcode, input, offset + 1, end, facts) - 1;
+      offset = scanOpcode(opcode, input, offset + 1, end, facts, opcodeOffset) - 1;
     }
   }
   return facts;

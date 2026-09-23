@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-25
+last_reviewed: 2026-09-23
 sources:
   - https://webassembly.github.io/spec/core/exec/runtime.html#syntax-trap
   - https://webassembly.github.io/spec/core/exec/instructions.html
@@ -19,6 +19,7 @@ sources:
   - ../../../src/cmd/fuzz_harness.mbt
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/lib/effect-trap-scanner.ts
+  - ../../../scripts/test/effect-trap-scanner.ts
 related:
   - ./stack-polymorphism-and-bottom.md
   - ./module-validation-phases.md
@@ -130,7 +131,7 @@ The secondary Binaryen runtime lane is intentionally narrow:
 2. Equal normalized traps are useful evidence that both versions failed under that invocation.
 3. Equal traps are **not** sufficient to call a transform semantically safe if the programs could trap at different times, after different effects, or for different reasons. The self-semantic observation record therefore also compares final exported global, memory, table, and deterministic import-trace evidence where available.
 4. A trap/value difference is a semantic mismatch unless the pass contract explicitly permits changing trap behavior under a named assumption such as `traps-never-happen`.
-5. `inputEffectTrapFacts` from [`scripts/lib/effect-trap-scanner.ts`](../../../scripts/lib/effect-trap-scanner.ts) are triage metadata. They do not replace reduced replay or pass-specific semantic reasoning.
+5. `inputEffectTrapFacts` from [`scripts/lib/effect-trap-scanner.ts`](../../../scripts/lib/effect-trap-scanner.ts) are triage metadata. The scanner restricts instruction scanning to function bodies in the code section, treats a valid module without code as having no executable instructions, and consumes supported local declarations and instruction immediates. Focused coverage includes typed-reference locals, `call_ref` / `return_call_ref`, SIMD constants, shuffles, lane operands, and memory arguments so their payload bytes are not reinterpreted as unrelated effects or traps. Controls in [`scripts/test/effect-trap-scanner.ts`](../../../scripts/test/effect-trap-scanner.ts) keep real scalar and SIMD memory operations, direct and reference calls, and atomics visible. These facts do not replace reduced replay or pass-specific semantic reasoning.
 
 The legacy runtime-v1 export matrix uses typed zero arguments for scalar parameters, including `0n` for `i64`. It takes the union of function exports from both candidates: a missing required export or a changed function signature is a definite semantic mismatch, while an unsupported parameter type or invocation-cap omission is blocked evidence. Its persisted summary separates observed rows from blocked rows. Zero rows classify as blocked and do not increment the runtime checked counter.
 
@@ -165,7 +166,7 @@ When a pass, generator, or investigation touches trap-sensitive behavior:
 | Trap-mode command/config routing | [`src/cli/cli.mbt`](../../../src/cli/cli.mbt), [`src/cli/cli_test.mbt`](../../../src/cli/cli_test.mbt), [`src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt) | Accepts `--trap-mode` / `--traps-never-happen`, keeps those flags out of the pass list, merges CLI/env/config values, and records the resolved value in summaries/repro hints. |
 | Runtime comparison structs | [`src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt) | Records `Trap(...)`, `EqualTrap`, and trap/value mismatch classifications for command-level runtime matrices. |
 | Compare-pass runtime lane | [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md) | Optional Node export invocation smoke lane and result persistence. |
-| Effect/trap scanner | [`scripts/lib/effect-trap-scanner.ts`](../../../scripts/lib/effect-trap-scanner.ts) | Conservative input metadata for calls, mutations, exceptions, atomics, unreachable, and may-trap facts. |
+| Effect/trap scanner | [`scripts/lib/effect-trap-scanner.ts`](../../../scripts/lib/effect-trap-scanner.ts), [`scripts/test/effect-trap-scanner.ts`](../../../scripts/test/effect-trap-scanner.ts) | Conservative input metadata for calls, mutations, exceptions, atomics, unreachable, and may-trap facts; focused valid modules guard instruction-immediate boundaries and true opcode controls. |
 | Debug-artifact trap example | [`../tooling/o4z-debug-startup-trap.md`](../tooling/o4z-debug-startup-trap.md) | Example of classifying `RuntimeError: unreachable` as a wasm trap symptom before assigning a Starshine owner. |
 
 ## Sources
