@@ -58,8 +58,8 @@ Late placement is deliberate. `strip-debug` is non-semantic, but earlier passes,
 - Focused tests prove structured/raw names are removed while unrelated custom sections survive.
 - Public preset tests prove both `optimize` and `shrink` end in `strip-debug` and preserve non-name custom metadata.
 - Registry tests keep the preset expansion on active pass names.
-- A 1,000-case direct semantic-section compare completed with `1000/1000` normalized matches and no mismatches or failures.
-- The ordinary compare harness strips debug during canonicalization, so it is only a semantic-section smoke; custom/name-section behavior requires focused module tests and explicit custom-section inspection.
+- A historical 1,000-case direct semantic-section compare completed with `1000/1000` normalized matches and no mismatches or failures; that lane predated name-preserving comparison and proves only the stripped semantic projection.
+- Current compare-pass lanes containing `strip-debug` preserve names during canonicalization and printing, so retained printable names produce mismatches. Focused module tests and explicit custom-section inspection still own unrelated custom-section preservation and nonprinted debug payloads.
 
 ## Maintenance boundaries
 

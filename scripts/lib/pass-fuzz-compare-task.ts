@@ -421,6 +421,7 @@ export type PassFuzzCompareSummary = {
   passFlags: string[];
   optimizerFlags: OptimizerModeFlag[];
   binaryenPassFlags: string[];
+  comparisonDebugPolicy: "strip" | "preserve";
   requiredBinaryenVersion: string | null;
   binaryenTool: VerifiedBinaryenToolIdentity;
   normalizers: CompareNormalizer[];
@@ -1523,13 +1524,25 @@ async function normalizePrintWat(
   wasmPath: string,
   watPath: string,
   repoRoot: string,
+  passFlags: string[],
 ): Promise<string> {
   await runOrThrowAsync(
     wasmOptBin,
-    [wasmPath, "--all-features", "--strip-debug", "-S", "-o", watPath],
+    [wasmPath, ...comparisonProjectionFlags(passFlags), "-S", "-o", watPath],
     { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot) },
   );
   return fs.readFileSync(watPath, "utf8");
+}
+
+function comparisonPreservesDebug(passFlags: string[]): boolean {
+  return passFlags.includes("--strip-debug");
+}
+
+function comparisonProjectionFlags(passFlags: string[]): string[] {
+  return [
+    "--all-features",
+    ...(comparisonPreservesDebug(passFlags) ? [] : ["--strip-debug"]),
+  ];
 }
 
 async function canonicalizeWasm(
@@ -1537,10 +1550,11 @@ async function canonicalizeWasm(
   inputPath: string,
   outputPath: string,
   repoRoot: string,
+  passFlags: string[],
 ): Promise<void> {
   await runOrThrowAsync(
     wasmOptBin,
-    [inputPath, "--all-features", "--strip-debug", "-o", outputPath],
+    [inputPath, ...comparisonProjectionFlags(passFlags), "-o", outputPath],
     { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot) },
   );
 }
@@ -2840,6 +2854,7 @@ type BinaryenCacheIdentity = {
   wasmOpt: string;
   passFlags: string[];
   passFlagsHash: string;
+  preserveDebug: boolean;
 };
 
 type BinaryenOracleResult =
@@ -2883,7 +2898,7 @@ function makeBinaryenCacheDir(
   return path.join(
     cacheDir,
     "binaryen",
-    `schema-v1`,
+    identity.preserveDebug ? "schema-v2-debug-preserving" : "schema-v1",
     `wasm-opt-${toolHash}`,
     `passes-${identity.passFlagsHash.slice(0, 16)}`,
     `input-${inputHash}`,
@@ -2931,12 +2946,19 @@ async function runBinaryenOracleWithCache(
       [inputPath, "--all-features", ...binaryenIdentity.passFlags, "-o", binaryenRawPath],
       { cwd: repoRoot, env: repoTmpEnv },
     );
-    await canonicalizeWasm(options.wasmOptBin, binaryenRawPath, binaryenPath, repoRoot);
+    await canonicalizeWasm(
+      options.wasmOptBin,
+      binaryenRawPath,
+      binaryenPath,
+      repoRoot,
+      options.passFlags,
+    );
     const wat = await normalizePrintWat(
       options.wasmOptBin,
       binaryenPath,
       binaryenWatPath,
       repoRoot,
+      options.passFlags,
     );
     if (cacheDir !== null) {
       const stagingDir = `${cacheDir}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -3499,8 +3521,14 @@ function normalizePrintWatSync(
   watPath: string,
   repoRoot: string,
   env: NodeJS.ProcessEnv,
+  passFlags: string[],
 ): string | null {
-  if (!runSyncOk(wasmOptBin, [wasmPath, "--all-features", "--strip-debug", "-S", "-o", watPath], repoRoot, env)) {
+  if (!runSyncOk(
+    wasmOptBin,
+    [wasmPath, ...comparisonProjectionFlags(passFlags), "-S", "-o", watPath],
+    repoRoot,
+    env,
+  )) {
     return null;
   }
   return fs.readFileSync(watPath, "utf8");
@@ -3512,8 +3540,14 @@ function canonicalizeWasmSync(
   outputPath: string,
   repoRoot: string,
   env: NodeJS.ProcessEnv,
+  passFlags: string[],
 ): boolean {
-  return runSyncOk(wasmOptBin, [inputPath, "--all-features", "--strip-debug", "-o", outputPath], repoRoot, env);
+  return runSyncOk(
+    wasmOptBin,
+    [inputPath, ...comparisonProjectionFlags(passFlags), "-o", outputPath],
+    repoRoot,
+    env,
+  );
 }
 
 function candidateStillHasPassFuzzMismatch(
@@ -3555,17 +3589,45 @@ function candidateStillHasPassFuzzMismatch(
     if (!runSyncOk(options.wasmOptBin, [inputPath, "--all-features", ...binaryenPassFlags, "-o", binaryenRawPath], repoRoot, repoTmpEnv)) {
       return false;
     }
-    if (!canonicalizeWasmSync(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot, repoTmpEnv)) {
+    if (!canonicalizeWasmSync(
+      options.wasmOptBin,
+      starshineRawPath,
+      starshinePath,
+      repoRoot,
+      repoTmpEnv,
+      options.passFlags,
+    )) {
       return false;
     }
-    if (!canonicalizeWasmSync(options.wasmOptBin, binaryenRawPath, binaryenPath, repoRoot, repoTmpEnv)) {
+    if (!canonicalizeWasmSync(
+      options.wasmOptBin,
+      binaryenRawPath,
+      binaryenPath,
+      repoRoot,
+      repoTmpEnv,
+      options.passFlags,
+    )) {
       return false;
     }
-    const starshineWat = normalizePrintWatSync(options.wasmOptBin, starshinePath, starshineWatPath, repoRoot, repoTmpEnv);
+    const starshineWat = normalizePrintWatSync(
+      options.wasmOptBin,
+      starshinePath,
+      starshineWatPath,
+      repoRoot,
+      repoTmpEnv,
+      options.passFlags,
+    );
     if (starshineWat === null) {
       return false;
     }
-    const binaryenWat = normalizePrintWatSync(options.wasmOptBin, binaryenPath, binaryenWatPath, repoRoot, repoTmpEnv);
+    const binaryenWat = normalizePrintWatSync(
+      options.wasmOptBin,
+      binaryenPath,
+      binaryenWatPath,
+      repoRoot,
+      repoTmpEnv,
+      options.passFlags,
+    );
     if (binaryenWat === null) {
       return false;
     }
@@ -4833,6 +4895,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     wasmOpt: JSON.stringify(verifiedBinaryenTool),
     passFlags: binaryenPassFlags,
     passFlagsHash: sha256Hex(JSON.stringify(binaryenPassFlags)),
+    preserveDebug: comparisonPreservesDebug(options.passFlags),
   };
   const resumeIdentity = buildResumeIdentity(
     options,
@@ -5123,6 +5186,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     passFlags: options.passFlags,
     optimizerFlags: options.optimizerFlags,
     binaryenPassFlags,
+    comparisonDebugPolicy: comparisonPreservesDebug(options.passFlags) ? "preserve" : "strip",
     requiredBinaryenVersion: options.requiredBinaryenVersion,
     binaryenTool: verifiedBinaryenTool,
     normalizers: options.normalizers,
@@ -5435,7 +5499,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         hash: async (modulePath) => {
           canonicalization += 1;
           const canonicalPath = path.join(workDir, `localization.canonical-${String(canonicalization).padStart(2, "0")}.wasm`);
-          await canonicalizeWasm(options.wasmOptBin, modulePath, canonicalPath, repoRoot);
+          await canonicalizeWasm(
+            options.wasmOptBin,
+            modulePath,
+            canonicalPath,
+            repoRoot,
+            options.passFlags,
+          );
           return `sha256:${sha256Hex(fs.readFileSync(canonicalPath))}`;
         },
         size: async (modulePath) => fs.statSync(modulePath).size,
@@ -5790,8 +5860,20 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             fs.readFileSync(determinismRawPath),
           );
           if (classification === "optimizer-nondeterminism") {
-            await canonicalizeWasm(options.wasmOptBin, starshineRawPath, determinismLeftCanonicalPath, repoRoot);
-            await canonicalizeWasm(options.wasmOptBin, determinismRawPath, determinismRightCanonicalPath, repoRoot);
+            await canonicalizeWasm(
+              options.wasmOptBin,
+              starshineRawPath,
+              determinismLeftCanonicalPath,
+              repoRoot,
+              options.passFlags,
+            );
+            await canonicalizeWasm(
+              options.wasmOptBin,
+              determinismRawPath,
+              determinismRightCanonicalPath,
+              repoRoot,
+              options.passFlags,
+            );
             classification = classifyOptimizerDeterminism(
               fs.readFileSync(starshineRawPath),
               fs.readFileSync(determinismRawPath),
@@ -6007,7 +6089,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             canonicalization += 1;
             const canonicalPath = path.join(workDir, `${kind}.canonical-${String(canonicalization).padStart(2, "0")}.wasm`);
             try {
-              await canonicalizeWasm(options.wasmOptBin, modulePath, canonicalPath, repoRoot);
+              await canonicalizeWasm(
+                options.wasmOptBin,
+                modulePath,
+                canonicalPath,
+                repoRoot,
+                options.passFlags,
+              );
               return `canonical-sha256:${sha256Hex(fs.readFileSync(canonicalPath))}`;
             } catch {
               return `raw-sha256:${sha256Hex(fs.readFileSync(modulePath))}`;
@@ -6253,19 +6341,33 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           if (!idempotenceValidation.ok) {
             throw new Error(`second Starshine output failed validation: ${idempotenceValidation.stderr || "unknown error"}`);
           }
-          await canonicalizeWasm(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot);
-          await canonicalizeWasm(options.wasmOptBin, idempotenceRawPath, idempotencePath, repoRoot);
+          await canonicalizeWasm(
+            options.wasmOptBin,
+            starshineRawPath,
+            starshinePath,
+            repoRoot,
+            options.passFlags,
+          );
+          await canonicalizeWasm(
+            options.wasmOptBin,
+            idempotenceRawPath,
+            idempotencePath,
+            repoRoot,
+            options.passFlags,
+          );
           const firstWat = await normalizePrintWat(
             options.wasmOptBin,
             starshinePath,
             starshineWatPath,
             repoRoot,
+            options.passFlags,
           );
           const secondWat = await normalizePrintWat(
             options.wasmOptBin,
             idempotencePath,
             idempotenceWatPath,
             repoRoot,
+            options.passFlags,
           );
           if (firstWat === secondWat) {
             summary.idempotenceMatchCount += 1;
@@ -6365,19 +6467,33 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             }
             compositionInputPath = finalCompositionRawPath;
           }
-          await canonicalizeWasm(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot);
-          await canonicalizeWasm(options.wasmOptBin, finalCompositionRawPath, compositionPath, repoRoot);
+          await canonicalizeWasm(
+            options.wasmOptBin,
+            starshineRawPath,
+            starshinePath,
+            repoRoot,
+            options.passFlags,
+          );
+          await canonicalizeWasm(
+            options.wasmOptBin,
+            finalCompositionRawPath,
+            compositionPath,
+            repoRoot,
+            options.passFlags,
+          );
           const combinedWat = await normalizePrintWat(
             options.wasmOptBin,
             starshinePath,
             starshineWatPath,
             repoRoot,
+            options.passFlags,
           );
           const sequentialWat = await normalizePrintWat(
             options.wasmOptBin,
             compositionPath,
             compositionWatPath,
             repoRoot,
+            options.passFlags,
           );
           if (combinedWat === sequentialWat) {
             summary.compositionMatchCount += 1;
@@ -6565,12 +6681,19 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       }
 
       try {
-        await canonicalizeWasm(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot);
+        await canonicalizeWasm(
+          options.wasmOptBin,
+          starshineRawPath,
+          starshinePath,
+          repoRoot,
+          options.passFlags,
+        );
         starshineWat = await normalizePrintWat(
           options.wasmOptBin,
           starshinePath,
           starshineWatPath,
           repoRoot,
+          options.passFlags,
         );
       } catch (error) {
         summary.commandFailureCount += 1;

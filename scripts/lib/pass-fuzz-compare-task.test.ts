@@ -1604,6 +1604,7 @@ describe("pass fuzz summary coverage report", () => {
       passFlags: ["--dae-optimizing"],
       optimizerFlags: ["--traps-never-happen"],
       binaryenPassFlags: ["--traps-never-happen", "--dae-optimizing"],
+      comparisonDebugPolicy: "strip",
       normalizers: ["drop-consts"],
       failureDirs: ["failures/case-1", "failures/case-2"],
     });
