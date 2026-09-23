@@ -216,8 +216,11 @@
     nonzero-memory `i32.atomic.rmw.add` fixture now catches an optimizer that
     redirects memory 1 to memory 0 (`6c862b7f3`); focused Red/Green tests
     passed 6/6. Remaining: general wait/notify liveness, weaker orders and
-    fences, memory64, broader multi-memory operations, shared-GC atomics, and
-    broader schedule families. This is an opt-in replay primitive; general
+    fences, memory64, broader multi-memory operations, and broader schedule
+    families. A validated shared-GC `struct.atomic.rmw.add seq_cst` probe
+    reports a tested Node v26 unsupported boundary without counting a semantic
+    match (`82cb893b3`); executable shared-GC outcome proof remains pending a
+    runtime with shared function support. This is an opt-in replay primitive; general
     node-v2 still runs single-threaded.
 49. [x] Runtime-v2 now adds two bounded finite scalar vectors derived from the
     recorded seed for each callable export; the invocation hash and semantic
