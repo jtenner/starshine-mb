@@ -46,8 +46,14 @@
    red before the fix and green afterward.
 6. [x] Compare-pass exits zero despite configured correctness failures
    (`2bb42a77c`); explicit `--report-only` retains diagnostic collection.
-7. [ ] DCE label-use index omits `try_table` catch destinations.
-8. [ ] DCE label-use index omits continuation handler destinations.
+7. [x] DCE label-use index omits `try_table` catch destinations
+   (`fdfae1e2e`); all catch-arm labels now enter the incoming-label bitset.
+   Direct and dispatcher fixtures failed before the fix and passed after.
+8. [x] DCE label-use index omits continuation handler destinations
+   (`647323046`); all represented continuation targets now enter the same
+   bitset. Direct and dispatcher fixtures failed before the fix and passed
+   after. Combined label tests passed 2/2 adjacent and 2/2 dispatcher;
+   `moon fmt` and `moon info` passed. No fuzzing was run.
 9. [x] Shared unreachable cleanup can rebind continuation handlers
    (`b6a775e51`); the helper and once-reduction dispatcher regressions are green.
 10. [x] Vacuum block flattening omits continuation-label rebasing
