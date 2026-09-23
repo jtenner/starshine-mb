@@ -44,6 +44,10 @@ These have `ModulePass` category and are runnable through the same pass request 
 
 The registry currently has 36 module entries: `local-cse`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `merge-similar-functions`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `global-struct-inference-desc-cast`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `coalesce-locals-cfg`, `duplicate-import-elimination`, `strip-debug`, `simplify-globals-optimizing`, `propagate-globals-globally`, `dead-argument-elimination`, `dae`, `dae-optimizing`, `dae2`, `dae2-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inline-main`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, `apply-compiler-facts`, `directize`.
 
+The three `no-inline` registry bases require a nonempty `=PATTERN` suffix when
+requested as passes. Bare bases are rejected during library expansion and CLI
+parsing before module dispatch.
+
 ### Active presets
 
 `optimize` and `shrink` are wall-time-first scheduler entry points outside O4z. O1/O2 expand to `duplicate-function-elimination -> strip-debug`; O3/O4/Os/Oz expand to `duplicate-function-elimination -> vacuum -> reorder-locals -> strip-debug`. `--optimize` resolves to O2, while `--shrink` and literal `-Oz` resolve to `(2, 2)`; literal `-Os` resolves to `(2, 1)`. Direct passes remain runnable independently.

@@ -549,6 +549,21 @@ test "run_hot_pipeline rejects removed registry names" {
 }
 
 ///|
+test "run_hot_pipeline requires a pattern for no-inline policy passes" {
+  let input = pass_test_module_from_wat("(module (func))")
+  for name in ["no-inline", "no-full-inline", "no-partial-inline"] {
+    match run_hot_pipeline(input, HotPipelineOptions::new(), [name]) {
+      Ok(_) => fail("expected \{name} without a pattern to reject")
+      Err(err) =>
+        assert_true(
+          err.contains("requires a nonempty =PATTERN"),
+          msg="expected a pattern-required error for \{name}, got \{err}",
+        )
+    }
+  }
+}
+
+///|
 test "run_hot_pipeline dispatches flatten through the public registry" {
   let input = pass_test_module_from_wat(
     "(module (func (result i32) i32.const 1 i32.const 2 i32.add))",

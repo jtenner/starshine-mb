@@ -4564,6 +4564,16 @@ test "run_cmd_with_adapter rejects unknown pass flags once the hot pass registry
 }
 
 ///|
+test "CLI rejects bare no-inline policy names before pass dispatch" {
+  for name in ["no-inline", "no-full-inline", "no-partial-inline"] {
+    match cmd_resolve_pipeline_steps([name]) {
+      Ok(_) => fail("expected bare \{name} to reject")
+      Err(err) => @debug.assert_eq(err, CmdError::unknown_pass_flag(name))
+    }
+  }
+}
+
+///|
 test "run_cmd_with_adapter applies full ssa to non-merge wasm inputs" {
   let wasm = encode_module_bytes(
     @passes.pass_test_module_from_wat(

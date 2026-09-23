@@ -1179,6 +1179,11 @@ fn run_hot_pipeline_expand_passes(
 ) -> Result[Array[(HotPassRegistryEntry, Bool)], String] {
   let expanded : Array[(HotPassRegistryEntry, Bool)] = []
   for name in requested_passes {
+    if name == "no-inline" ||
+      name == "no-full-inline" ||
+      name == "no-partial-inline" {
+      return Err("pass flag \{name} requires a nonempty =PATTERN")
+    }
     let lookup_name = match no_inline_pass_pattern(name) {
       Some((base, _)) => base
       None => name

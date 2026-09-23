@@ -2290,6 +2290,11 @@ fn cmd_resolve_pipeline_steps(
 ) -> Result[Array[CmdPipelineStep], CmdError] {
   let out : Array[CmdPipelineStep] = []
   for flag in pass_flags {
+    if flag == "no-inline" ||
+      flag == "no-full-inline" ||
+      flag == "no-partial-inline" {
+      return Err(CmdError::unknown_pass_flag(flag))
+    }
     if flag == "validate" {
       out.push(CmdPipelineStep::Validate)
       continue
