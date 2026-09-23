@@ -53,11 +53,37 @@ original executable, not signoff for the current source.
 Of the 557 structural mismatches, Starshine was canonically smaller in 503,
 equal-sized in four, and larger in 50. Only 20 output pairs were retained;
 the other 537 pairs were suppressed by the artifact cap. Size and validation
-alone do not clear them. Inspected smaller pairs include inert Binaryen `nop`
-debris, dead local traffic, and zero-length `memory.init` operations; their
-specific transformations have direct semantic arguments or complete executed
-observations. Other smaller GC exact-cast and nested control shapes remain
-unknown where the selected Node runtime or missing artifacts block proof.
+alone do not clear them. A bounded recheck of the 14 retained pairs where
+Starshine was no larger raw and smaller canonically measured the following
+saved artifacts. `Δ` is Starshine minus Binaryen bytes.
+
+| Case | Raw Starshine / v132 (`Δ`) | Canonical Starshine / v132 (`Δ`) | Exact WAT difference and pair-scoped judgment |
+| ---: | ---: | ---: | --- |
+| 2 | 219 / 235 (`-16`) | 215 / 235 (`-20`) | **Proven win:** removes two `memory.init` calls whose destination, source, and length are all zero. One follows `data.drop`; the dropped segment is empty, so source zero plus length zero remains in bounds. Neither call can mutate memory or trap. |
+| 6 | 112 / 112 (`0`) | 106 / 112 (`-6`) | **Proven canonical win:** removes six inert `nop` instructions. |
+| 7 | 66 / 67 (`-1`) | 66 / 67 (`-1`) | **Proven win:** removes one inert `nop`. |
+| 8 | 24 / 29 (`-5`) | 24 / 29 (`-5`) | **Proven win:** removes three unread local declarations and one inert `nop` from a private function in a module with no start or exports. |
+| 9 | 43 / 44 (`-1`) | 43 / 44 (`-1`) | **Proven win:** removes one inert `nop`. |
+| 12 | 43 / 44 (`-1`) | 43 / 44 (`-1`) | **Proven win:** removes one inert `nop`. |
+| 13 | 43 / 44 (`-1`) | 43 / 44 (`-1`) | **Proven win:** removes one inert `nop`. |
+| 16 | 66 / 69 (`-3`) | 66 / 69 (`-3`) | **Proven win:** removes three inert `nop` instructions ahead of the unchanged SIMD value tree. |
+| 20 | 39 / 40 (`-1`) | 39 / 40 (`-1`) | **Proven win:** removes one inert `nop`. |
+| 23 | 44 / 45 (`-1`) | 44 / 45 (`-1`) | **Proven win:** removes one inert `nop`. |
+| 24 | 160 / 177 (`-17`) | 180 / 198 (`-18`) | **Proven win:** preserves the input's branch predicates, tuple values, `call 0` before `call 1`, and all three executed global writes while forwarding copy-only tuple/local shuttles. The saved `run` observation also returns normally and changes exported `effects` from `0` to `2` on all three modules. |
+| 26 | 26 / 27 (`-1`) | 26 / 27 (`-1`) | **Proven win:** removes one inert `nop` from a private function in a module with no start or exports. |
+| 27 | 66 / 68 (`-2`) | 66 / 68 (`-2`) | **Proven win:** removes two inert `nop` instructions before the unchanged call. |
+| 30 | 44 / 45 (`-1`) | 44 / 45 (`-1`) | **Proven win:** removes one inert `nop`. |
+
+The 14 pairs save 51 raw bytes and 62 canonical bytes in total. The recheck
+validated all 56 saved raw and canonical modules with wasm-tools `1.251.0` and
+Node `v26.10.0`. Every saved `semantic-v2.json` is complete for its declared
+interface, has no blocked export, and reports original / Starshine / Binaryen
+semantic equality. Cases 8 and 26 have no exported call, so that runtime record
+covers instantiation only; their exact diffs are nevertheless statically inert.
+These judgments close the **exact retained pairs**, not their generator profile
+families. The 537 unretained pairs and smaller GC exact-cast or nested-control
+families remain unknown where missing artifacts or runtime boundaries block an
+equivalent instruction-level proof.
 
 The 50 larger cases split into 27 EH-control, 13 legacy-EH local cleanup, six
 SIMD shape-10, two RemoveUnusedBrs switch, one RemoveUnusedBrs multi-function,
