@@ -1,3 +1,9 @@
+### 2026-09-23 — Mixed-width atomic target observation
+
+- The bounded two-worker lane now has an executable mixed memory32/memory64 target-selection fixture. Two sequentially consistent `i32.atomic.rmw.add` operations select imported memory64 at index `1`; observations require memory32 to remain `0`, memory64 to become `2`, and returned old values to be `(0, 1)` or `(1, 0)` in either worker order.
+- A valid corrupt module redirects the operation to memory32 with the required `i32` address. It reaches memory32 `2` and memory64 `0`, so the declared Threads execution-contract outcome set classifies it as a semantic mismatch.
+- The test-first probe passed on the existing Node worker, so no runtime implementation changed. Focused validation: `bun test scripts/lib/optimizer-atomic-runtime.test.ts` (**13 passed, 0 failed**). No fuzz campaign or broad suite was run.
+
 ### 2026-09-23 — Atomic weaker-order runtime boundary
 
 - [Bounded atomic observations](fuzzing/semantic-optimizer-campaigns.md#bounded-atomic-litmus-observations) now test exact Starshine binaries for acquire-release and relaxed stores and fences through the two-worker Node entrypoint. The configured runtime rejects the stores as invalid alignments and the fences as invalid atomic operands, so all four are explicitly `blocked` on the original side rather than counted as semantic evidence.

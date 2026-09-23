@@ -132,6 +132,38 @@ const MEMORY64_RMW_SPEC: AtomicLitmusSpecV1 = {
   ],
 };
 
+// Threads execution defines atomic.rmw.add as one indivisible read-modify-write
+// that returns the old value. Two seq_cst additions of one from zero therefore
+// permit only the two worker orders below, with memory32 untouched and the
+// selected memory64 ending at two.
+const MIXED_WIDTH_MEMORY_RMW_SPEC: AtomicLitmusSpecV1 = {
+  schema: "starshine.optimizer-atomic-litmus.v1",
+  id: "i32-rmw-add-selected-memory64-beside-memory32",
+  workerCount: 2,
+  exportName: "run",
+  workerArguments: [[], []],
+  memoryImport: {
+    module: "env",
+    field: "memory32",
+    initial: 1,
+    maximum: 1,
+  },
+  additionalMemoryImports: [{
+    module: "env",
+    field: "memory64",
+    initial: 1,
+    maximum: 1,
+    address: "i64",
+  }],
+  observedI32Offsets: [0],
+  additionalObservedI32Locations: [{ memoryImportIndex: 1, offset: 0 }],
+  trials: 2,
+  allowedOutcomes: [
+    { threadResults: [0, 1], memoryI32: [0, 2] },
+    { threadResults: [1, 0], memoryI32: [0, 2] },
+  ],
+};
+
 const MULTI_MEMORY_CMPXCHG_SPEC: AtomicLitmusSpecV1 = {
   schema: "starshine.optimizer-atomic-litmus.v1",
   id: "i32-cmpxchg-selected-second-memory",
@@ -528,6 +560,40 @@ describe("atomic allowed-outcome comparison", () => {
     expect(report.candidate.status).toBe("complete");
     expect(report.comparison.classification).toBe("semantic-mismatch");
     expect(report.comparison.firstDisallowedOutcome?.memoryI32).toEqual([4]);
+  });
+
+  test("observes mixed memory32 and memory64 atomic target selection", async () => {
+    const original = compileWat(`(module
+      (import "env" "memory32" (memory $memory32 1 1 shared))
+      (import "env" "memory64" (memory $memory64 i64 1 1 shared))
+      (func (export "run") (result i32)
+        i64.const 0
+        i32.const 1
+        i32.atomic.rmw.add $memory64))`);
+    const wrong = compileWat(`(module
+      (import "env" "memory32" (memory $memory32 1 1 shared))
+      (import "env" "memory64" (memory $memory64 i64 1 1 shared))
+      (func (export "run") (result i32)
+        i32.const 0
+        i32.const 1
+        i32.atomic.rmw.add $memory32))`);
+    const report = await runNodeAtomicLitmusComparisonV1(
+      original,
+      wrong,
+      MIXED_WIDTH_MEMORY_RMW_SPEC,
+      { timeoutMs: 3000 },
+    );
+
+    expect(report.original.status).toBe("complete");
+    expect(report.original.observations).toHaveLength(2);
+    expect(report.original.observations.every((outcome) => (
+      outcome.memoryI32[0] === 0 && outcome.memoryI32[1] === 2 &&
+      (outcome.threadResults[0] === 0 && outcome.threadResults[1] === 1 ||
+        outcome.threadResults[0] === 1 && outcome.threadResults[1] === 0)
+    ))).toBe(true);
+    expect(report.candidate.status).toBe("complete");
+    expect(report.comparison.classification).toBe("semantic-mismatch");
+    expect(report.comparison.firstDisallowedOutcome?.memoryI32).toEqual([2, 0]);
   });
 
   test("observes compare-exchange on a nonzero imported shared memory", async () => {
