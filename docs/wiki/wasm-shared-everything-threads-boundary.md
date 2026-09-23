@@ -52,27 +52,28 @@ The active proposals tracker and Shared-Everything Threads overview remain propo
 
 [`optimizer-shared-gc-atomic-runtime.ts`](../../scripts/lib/optimizer-shared-gc-atomic-runtime.ts)
 contains a killable capability probe for the minimum topology needed to observe
-one shared aggregate from two host workers. The fixture has a shared struct with
-one mutable `i32` field, one shared global holding its instance, and one exported
-shared function that performs `struct.atomic.rmw.add seq_cst` by one. If the
-topology executes, the complete allowed set is worker old values `(0, 1)` or
-`(1, 0)`, followed by a main-thread observation of old value `2`.
+one shared aggregate from two host workers. The executable fixture exports an
+ordinary `make` function that creates a shared struct with one mutable `i32`
+field and an ordinary `add` function that performs
+`struct.atomic.rmw.add seq_cst` by one on a supplied shared reference. The main
+thread compiles the module once, creates one shared struct, and transfers both
+the module and reference to two workers. Each worker instantiates the same
+module independently and calls `add` after a host barrier.
 
-The focused boundary test first compiles that fixture with `wasm-tools parse`,
-so a text or binary tooling rejection cannot be mistaken for a Node result.
-With `wasm-tools 1.251.0`, the fixture parses and validates. Node `v26.10.0`
-with `--experimental-wasm-shared` rejects it during compilation with
-`shared functions/continuations are not supported yet`. The probe therefore
-reports `blocked` with no observation. This is an intentional unsupported
-boundary, not an allowed-outcome match.
+The complete allowed set is worker old values `(0, 1)` or `(1, 0)`, followed by
+a main-thread `add` returning old value `2`. The focused test first compiles and
+validates the fixture with `wasm-tools`, then Node `v26.10.0` with
+`--experimental-wasm-shared` reaches that set. A comparison fixture changing
+the addend from one to two produces worker old values `(0, 2)` or `(2, 0)` and
+main-thread old value `4`, so it is classified as a semantic mismatch.
 
-The existing linear-memory two-worker executor cannot stand in for this test.
-It instantiates the module separately in each worker and shares only an imported
-`WebAssembly.Memory`; module-local GC globals in those instances denote distinct
-objects. Reopen this boundary when the selected Node runtime can transfer or
-invoke the required shared function/global topology across workers. At that
-point the same probe must reach the declared two-outcome set before optimizer
-comparisons can cite shared-GC aggregate atomic execution.
+This is one bounded observation of a deterministic two-RMW contract, not broad
+schedule exploration or complete Shared-Everything conformance. The existing
+shared-function fixture remains a separate tested boundary: Node rejects its
+shared function type during compilation with
+`shared functions/continuations are not supported yet`. The executable
+instance-per-worker topology avoids transferring a function or module-local GC
+global; it transfers the shared aggregate itself.
 
 ## Current Starshine Aggregate-Atomic Slice
 

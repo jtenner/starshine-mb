@@ -143,6 +143,16 @@ The bounds fixture moves that RMW to the last valid aligned word, `i64.const 655
 
 This lane is a library/replay primitive and is not inferred automatically for arbitrary GenValid modules. Its required wake is a bounded fixture acceptance witness, not a proof of general wakeup liveness or fairness. Acquire/release and relaxed orders, fences, broader memory64 schedules, shared-GC atomics, and arbitrary-program schedule exploration remain outside version 1.
 
+A separate bounded shared-GC probe transfers one shared struct reference and
+one compiled module to two Node workers. Each worker creates its own instance
+and performs `struct.atomic.rmw.add seq_cst` through an ordinary exported
+function. The allowed old-value pairs are `(0, 1)` and `(1, 0)`, and a final
+main-thread RMW must return `2`. A candidate adding two instead produces old
+values `0` and `2` plus final old value `4` and is rejected as a semantic
+mismatch. The shared-function variant remains blocked by Node, and this focused
+RMW witness does not establish general shared-GC schedule or proposal
+conformance.
+
 Weaker-order and ordered-fence execution is runtime specific. The independent
 `wasm-tools 1.251.0` WAT parser rejects the active-proposal `acq_rel` and
 `relaxed` operand spellings. Exact valid binaries emitted by Starshine bypass

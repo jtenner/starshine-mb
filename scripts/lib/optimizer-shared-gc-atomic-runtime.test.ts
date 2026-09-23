@@ -5,7 +5,10 @@ import { spawnSync } from "node:child_process";
 
 import { expect, test } from "bun:test";
 
-import { probeNodeSharedGcAtomicRuntimeV1 } from "./optimizer-shared-gc-atomic-runtime";
+import {
+  probeNodeSharedGcAtomicRuntimeV1,
+  runNodeSharedGcAtomicComparisonV1,
+} from "./optimizer-shared-gc-atomic-runtime";
 
 function compileWat(wat: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-shared-gc-atomic-"));
@@ -43,4 +46,41 @@ test("records the intentional Node shared-GC cross-worker unsupported boundary",
   expect(capability.status).toBe("blocked");
   expect(capability.observation).toBeNull();
   expect(capability.detail).toContain("shared functions/continuations are not supported yet");
+});
+
+function compileSharedGcRmw(addend: number): string {
+  return compileWat(`(module
+    (type $S (shared (struct (field (mut i32)))))
+    (func (export "make") (result (ref $S))
+      (struct.new $S (i32.const 0)))
+    (func (export "add") (param (ref $S)) (result i32)
+      (struct.atomic.rmw.add seq_cst $S 0
+        (local.get 0)
+        (i32.const ${addend}))))`);
+}
+
+test("executes shared-GC RMW through per-worker instances and one transferred shared ref", async () => {
+  const capability = await probeNodeSharedGcAtomicRuntimeV1(compileSharedGcRmw(1), {
+    timeoutMs: 3000,
+  });
+
+  expect(capability.status).toBe("complete");
+  expect(capability.detail).toBeNull();
+  expect(capability.observation?.threadResults.toSorted()).toEqual([0, 1]);
+  expect(capability.observation?.finalOldValue).toBe(2);
+});
+
+test("rejects a shared-GC RMW candidate that adds two", async () => {
+  const report = await runNodeSharedGcAtomicComparisonV1(
+    compileSharedGcRmw(1),
+    compileSharedGcRmw(2),
+    { timeoutMs: 3000 },
+  );
+
+  expect(report.original.status).toBe("complete");
+  expect(report.candidate.status).toBe("complete");
+  expect(report.candidate.observation?.threadResults.toSorted()).toEqual([0, 2]);
+  expect(report.candidate.observation?.finalOldValue).toBe(4);
+  expect(report.comparison.classification).toBe("semantic-mismatch");
+  expect(report.comparison.failingSide).toBe("candidate");
 });

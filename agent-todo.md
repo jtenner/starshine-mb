@@ -239,15 +239,15 @@
     memory64 to memory32 (`501cf2281`). Memory64 last-word/first-out-of-bounds
     RMW fixtures now observe normalized per-thread bounds traps and reject a
     corrupt address while unrelated worker traps remain blocked (`ede701b63`).
-    A validated shared-GC
-    `struct.atomic.rmw.add seq_cst` probe
-    reports a tested Node v26 unsupported boundary without counting a semantic
-    match (`82cb893b3`); executable shared-GC outcome proof remains pending a
-    runtime with shared function support. This is an opt-in replay primitive;
-    general node-v2 still runs single-threaded. The bounded harness goal is
-    met; unsupported orders, shared GC, general wait/notify liveness, addresses
-    above 4 GiB, wider opcode coverage, and arbitrary schedules remain tracked
-    as separate conformance work below. No fuzz campaign ran.
+    The original shared-function shared-GC probe remains a tested Node v26
+    unsupported boundary (`82cb893b3`). An instance-per-worker topology now
+    transfers one shared struct reference, observes allowed
+    `struct.atomic.rmw.add seq_cst` old values `(0, 1)` / `(1, 0)` and final old
+    value `2`, and rejects an add-by-two candidate. This is an opt-in replay
+    primitive; general node-v2 still runs single-threaded. The bounded harness
+    goal is met; unsupported orders, broader shared-GC families, general
+    wait/notify liveness, addresses above 4 GiB, wider opcode coverage, and
+    arbitrary schedules remain tracked below. No fuzz campaign ran.
 49. [x] Runtime-v2 now adds two bounded finite scalar vectors derived from the
     recorded seed for each callable export; the invocation hash and semantic
     cache revision reflect the new observations. A focused test failed before
@@ -441,14 +441,17 @@
 ### Open parity evidence from this audit
 
 - [ ] Extend atomic conformance beyond the bounded two-worker litmus: find an
-  independent runtime accepting the verified v132 AcqRel/Relaxed and shared-GC
-  encodings; cover general wait/notify liveness, memory64 addresses above
-  4 GiB, broader atomic opcodes and mixed-memory layouts, and schedule families.
+  independent runtime accepting the verified v132 Relaxed encoding; cover
+  concurrent AcqRel behavior, general wait/notify liveness, memory64 addresses
+  above 4 GiB, broader atomic opcodes, shared-GC families, mixed-memory layouts,
+  and schedule families.
   Opt-in Chromium now executes the exact AcqRel store and fence once and
   observes the store write; this is capability evidence without a concurrent
   schedule claim. Node still rejects both weaker orders, and Relaxed order 2
-  remains unsupported by every tested runtime. Shared-function types remain a
-  separate explicit Node boundary rather than a match.
+  remains unsupported by every tested runtime. Node now executes one bounded
+  shared-GC struct RMW topology with transferred shared references, while
+  shared-function types remain a separate explicit boundary rather than a
+  match.
 - [ ] Classify the 557 structural mismatches in the saved seven-pass 1,000-case
   campaign; the two confirmed DCE wrong-code cases are fixed under item 73,
   while the GC runtime timeout remains separate under item 77. The historical

@@ -13,22 +13,41 @@ export type SharedGcAtomicRuntimeCapabilityV1 = {
   detail: string | null;
 };
 
+export type SharedGcAtomicComparisonV1 = {
+  classification: "allowed-outcome-match" | "semantic-mismatch" | "blocked";
+  failingSide: "original" | "candidate" | null;
+  detail: string | null;
+};
+
+export type SharedGcAtomicComparisonReportV1 = {
+  schema: "starshine.optimizer-shared-gc-atomic-comparison.v1";
+  runtime: string;
+  original: SharedGcAtomicRuntimeCapabilityV1;
+  candidate: SharedGcAtomicRuntimeCapabilityV1;
+  comparison: SharedGcAtomicComparisonV1;
+};
+
 const THREAD_SOURCE = String.raw`
   const { parentPort, workerData } = require("node:worker_threads");
-  try {
-    parentPort.postMessage({ kind: "ready", workerIndex: workerData.workerIndex });
-    const gate = new Int32Array(workerData.gate);
-    while (Atomics.load(gate, 0) === 0) Atomics.wait(gate, 0, 0);
-    const raw = workerData.run();
-    if (typeof raw !== "number" || !Number.isInteger(raw)) {
-      throw new Error("shared-GC litmus function must return one i32 result");
+  (async () => {
+    try {
+      const instance = await WebAssembly.instantiate(workerData.module);
+      const add = instance.exports.add;
+      if (typeof add !== "function") throw new Error("missing shared-GC i32 export add");
+      parentPort.postMessage({ kind: "ready", workerIndex: workerData.workerIndex });
+      const gate = new Int32Array(workerData.gate);
+      while (Atomics.load(gate, 0) === 0) Atomics.wait(gate, 0, 0);
+      const raw = add(workerData.sharedRef);
+      if (typeof raw !== "number" || !Number.isInteger(raw)) {
+        throw new Error("shared-GC litmus add export must return one i32 result");
+      }
+      parentPort.postMessage({ kind: "result", workerIndex: workerData.workerIndex, result: raw | 0 });
+    } catch (error) {
+      parentPort.postMessage({ kind: "error", workerIndex: workerData.workerIndex, detail: error instanceof Error ? error.message : String(error) });
+    } finally {
+      parentPort.close();
     }
-    parentPort.postMessage({ kind: "result", workerIndex: workerData.workerIndex, result: raw | 0 });
-  } catch (error) {
-    parentPort.postMessage({ kind: "error", workerIndex: workerData.workerIndex, detail: error instanceof Error ? error.message : String(error) });
-  } finally {
-    parentPort.close();
-  }
+  })();
 `;
 
 const PROBE_SOURCE = String.raw`
@@ -40,8 +59,14 @@ const PROBE_SOURCE = String.raw`
   (async () => {
     const module = await WebAssembly.compile(fs.readFileSync(process.argv[1]));
     const instance = await WebAssembly.instantiate(module);
-    const run = instance.exports.run;
-    if (typeof run !== "function") throw new Error("missing shared i32 function export run");
+    const make = instance.exports.make;
+    const add = instance.exports.add;
+    if (typeof make !== "function") throw new Error("missing shared-GC reference export make");
+    if (typeof add !== "function") throw new Error("missing shared-GC i32 export add");
+    const sharedRef = make();
+    if (sharedRef === null || typeof sharedRef !== "object") {
+      throw new Error("shared-GC make export must return one non-null reference");
+    }
 
     const gate = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
     const gateView = new Int32Array(gate);
@@ -60,7 +85,7 @@ const PROBE_SOURCE = String.raw`
         for (let workerIndex = 0; workerIndex < 2; workerIndex += 1) {
           const worker = new Worker(THREAD_SOURCE, {
             eval: true,
-            workerData: { run, gate, workerIndex },
+            workerData: { module, sharedRef, gate, workerIndex },
           });
           workers.push(worker);
           worker.on("message", (message) => {
@@ -95,7 +120,7 @@ const PROBE_SOURCE = String.raw`
 
     const observation = {
       threadResults: results,
-      finalOldValue: run() | 0,
+      finalOldValue: add(sharedRef) | 0,
     };
     process.stdout.write(JSON.stringify({ ok: true, runtime, observation }));
   })().catch((error) => {
@@ -124,7 +149,7 @@ function isAllowedObservation(observation: SharedGcAtomicObservationV1): boolean
   );
 }
 
-export async function probeNodeSharedGcAtomicRuntimeV1(
+async function executeNodeSharedGcAtomicRuntimeV1(
   wasmPath: string,
   options: { timeoutMs: number },
 ): Promise<SharedGcAtomicRuntimeCapabilityV1> {
@@ -171,9 +196,6 @@ export async function probeNodeSharedGcAtomicRuntimeV1(
         if (!message.ok || message.observation === undefined) {
           return resolve(blocked(runtime, `runtime-unsupported:${message.detail ?? "Node returned no observation"}`));
         }
-        if (!isAllowedObservation(message.observation)) {
-          return resolve(blocked(runtime, `runtime-invalid-outcome:${JSON.stringify(message.observation)}`));
-        }
         resolve({
           schema: "starshine.optimizer-shared-gc-atomic-runtime-capability.v1",
           runtime,
@@ -186,4 +208,56 @@ export async function probeNodeSharedGcAtomicRuntimeV1(
       }
     });
   });
+}
+
+export async function probeNodeSharedGcAtomicRuntimeV1(
+  wasmPath: string,
+  options: { timeoutMs: number },
+): Promise<SharedGcAtomicRuntimeCapabilityV1> {
+  const execution = await executeNodeSharedGcAtomicRuntimeV1(wasmPath, options);
+  if (execution.status === "complete" && !isAllowedObservation(execution.observation!)) {
+    return blocked(execution.runtime, `runtime-invalid-outcome:${JSON.stringify(execution.observation)}`);
+  }
+  return execution;
+}
+
+export async function runNodeSharedGcAtomicComparisonV1(
+  originalWasmPath: string,
+  candidateWasmPath: string,
+  options: { timeoutMs: number },
+): Promise<SharedGcAtomicComparisonReportV1> {
+  const original = await executeNodeSharedGcAtomicRuntimeV1(originalWasmPath, options);
+  let candidate: SharedGcAtomicRuntimeCapabilityV1;
+  let comparison: SharedGcAtomicComparisonV1;
+  if (original.status === "blocked") {
+    candidate = blocked(original.runtime, "not-run:original-blocked");
+    comparison = { classification: "blocked", failingSide: "original", detail: original.detail };
+  } else if (!isAllowedObservation(original.observation!)) {
+    candidate = blocked(original.runtime, "not-run:original-outside-allowed-set");
+    comparison = {
+      classification: "blocked",
+      failingSide: "original",
+      detail: `original-outside-allowed-set:${JSON.stringify(original.observation)}`,
+    };
+  } else {
+    candidate = await executeNodeSharedGcAtomicRuntimeV1(candidateWasmPath, options);
+    if (candidate.status === "blocked") {
+      comparison = { classification: "blocked", failingSide: "candidate", detail: candidate.detail };
+    } else if (!isAllowedObservation(candidate.observation!)) {
+      comparison = {
+        classification: "semantic-mismatch",
+        failingSide: "candidate",
+        detail: `candidate-outside-allowed-set:${JSON.stringify(candidate.observation)}`,
+      };
+    } else {
+      comparison = { classification: "allowed-outcome-match", failingSide: null, detail: null };
+    }
+  }
+  return {
+    schema: "starshine.optimizer-shared-gc-atomic-comparison.v1",
+    runtime: original.runtime,
+    original,
+    candidate,
+    comparison,
+  };
 }
