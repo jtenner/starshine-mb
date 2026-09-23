@@ -1634,14 +1634,6 @@ function isUnreachableControlDebrisBlock(text: string): boolean {
   return true;
 }
 
-function stripFunctionTypeIds(wat: string): string {
-  return wat
-    .split("\n")
-    .filter((line) => !/^\s*\(type\s+\$/.test(line))
-    .map((line) => line.replace(/\s+\(type\s+\$[A-Za-z0-9_.$-]+\)/g, ""))
-    .join("\n");
-}
-
 function isVoidBranchUnreachableBlockDebris(text: string): boolean {
   const labelMatch = text.match(/^\s*\(block\s+(\$[A-Za-z0-9_.$-]+)\s*\n/);
   if (!labelMatch) return false;
@@ -1928,14 +1920,12 @@ function normalizeDropUnreachableBeforeUnreachable(wat: string): string {
 }
 
 function normalizeUnreachableControlDebris(wat: string): string {
-  return stripFunctionTypeIds(
-    normalizeDropUnreachableBeforeUnreachable(
-      normalizeUnusedUnreachableFunctions(
-        normalizeUnreachableAfterInfiniteSelfLoop(
-          normalizeConstantSelfBranchControlDebris(
-            normalizeVoidBranchUnreachableBlockDebris(
-              normalizeLocalUnreachableControlDebris(wat),
-            ),
+  return normalizeDropUnreachableBeforeUnreachable(
+    normalizeUnusedUnreachableFunctions(
+      normalizeUnreachableAfterInfiniteSelfLoop(
+        normalizeConstantSelfBranchControlDebris(
+          normalizeVoidBranchUnreachableBlockDebris(
+            normalizeLocalUnreachableControlDebris(wat),
           ),
         ),
       ),

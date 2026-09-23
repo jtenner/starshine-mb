@@ -965,6 +965,27 @@ describe("pass-fuzz compare normalizers", () => {
     expect(normalized).toContain("i32.trunc_f32_u");
   });
 
+  test("unreachable-control-debris preserves named function type differences", () => {
+    const i32Wat = `(module
+ (type $sig (func (param i32)))
+ (func $0 (type $sig)
+  (unreachable)
+ )
+)
+`;
+    const i64Wat = `(module
+ (type $sig (func (param i64)))
+ (func $0 (type $sig)
+  (unreachable)
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(i32Wat, ["unreachable-control-debris"])).not.toBe(
+      applyCompareNormalizersForTest(i64Wat, ["unreachable-control-debris"]),
+    );
+  });
+
   test("drop-consts erases exponent float constants before local nop cleanup", () => {
     const binaryenWat = `(module
  (func $0 (result f64)
