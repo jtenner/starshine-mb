@@ -471,6 +471,14 @@
     modules are 1 and 5 bytes larger. Add red direct and dispatcher tests,
     preserve names and other index-bearing metadata, align or prove a better
     emitted shape, and replay both exact saved modules without fuzzing.
+84. [x] Saved seven-pass case 767 had equal-size but unordered pure `i32.or`
+    comparison children. Verified v132 orders same-class scalar compares by
+    its opcode rank; Starshine had no equal-class tie-break and no measured
+    benefit from its output shape. Direct and dispatcher tests failed first.
+    `4306ae2eb` adds the tie-break behind existing effect/use-def guards;
+    both focused tests pass. Exact saved OI outputs now match v132 byte for
+    byte at 63 bytes, and seven-pass outputs at 60 bytes. All outputs validate
+    and the saved ten-call plan agrees; no fuzz ran.
 
 ### Open parity evidence from this audit
 
