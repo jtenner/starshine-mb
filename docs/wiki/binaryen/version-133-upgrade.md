@@ -35,10 +35,11 @@ check; its binary reports `wasm-opt version 133 (version_133)` and hashes to
 
 **Repository comparison policy remains v132.** The v133 oracle supplied the
 new input shapes, while the repository's ordinary compare-pass baseline remains
-v132. The red-first corpus is now green: all 61 named v133 focused tests and
-the 12,334-test default wasm-gc suite pass. These focused checks establish the
-listed behavior, not broad pass parity. Dedicated pass fuzzing follows the
-green-phase commit and must be recorded separately.
+v132. The initial red-first corpus reached 61 green focused tests and
+12,334/12,334 default wasm-gc tests in `00ba1836a`. Four fuzz follow-up tests
+bring the focused corpus to 65 cases; the refreshed default suite passes
+12,338/12,338. These checks establish the listed behavior, not broad pass
+parity; dedicated pass results are below.
 
 ## Released optimizer opportunities
 
@@ -167,9 +168,70 @@ is the source for exact classification of any omitted non-optimizer file.
 
 The initial green phase adds `ref.i31_shared`, shared-object boundary wrappers,
 type remapping, four saturating i64 conversions, and the registered pass
-implementations described above. The `i64-to-i32-lowering` implementation is
-currently scoped to the four new saturating conversions; it is not a complete
-wasm2js i64 lowering port. The GTO descriptor-field rewrite and shared-object
-lowering use validation rollback where the current representation cannot prove
-a safe rewrite. The 10,000-case compare-pass campaigns and any fixes they expose
-belong to the follow-up fuzz phase; the focused v133 cases are not pass signoff.
+implementations described above. It was committed as `00ba1836a` **before**
+the fuzz phase. The i64 implementation covers the four new conversions, not
+the complete wasm2js i64 pass. GTO and shared-object lowering retain validation
+rollback where current representation does not prove a safe rewrite.
+
+## Post-commit fuzz investigation
+
+All rows below used the official v133 `wasm-opt` SHA-256
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`,
+the explicit native release Starshine executable, eight subprocesses, and
+deterministic GenValid seed `0x5eed`. The separate CA v132 row used the
+checksum-verified official v132 binary SHA-256
+`1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
+The ordinary comparison target remains v132. The table describes the first
+post-commit run; a mismatch is an **open parity difference** until semantic and
+size evidence supports a more specific judgment.
+
+| Pass and generator profile | Compared / normalized match | Mismatch | Validation / oracle command failure | Finding |
+| --- | ---: | ---: | ---: | --- |
+| CA, `constraint-analysis`, v132 | 10,000 / 4,254 | 5,746 | 0 / 0 | Every differing Starshine canonical module was smaller. |
+| CA, `constraint-analysis`, v133 | 10,000 / 7,368 | 2,632 | 0 / 0 | v133 matches more closely than v132; remaining differences need semantic classification. |
+| OI, `pass-oi-all` | 10,000 / 8,920 | 1,080 | 0 / 0 | All differences had smaller Starshine canonical modules; sample includes shorter local-copy chains. |
+| `tail-call`, random-all-profiles | 10,000 / 9,614 | 386 | 0 / 0 | 11 cases were one byte larger; the others were equal or smaller. |
+| `remove-empty-function-exports`, random-all-profiles | 10,000 / 9,906 | 94 | 0 / 0 | 11 cases were one byte larger, including preexisting block-flattening drift in unchanged function bodies. |
+| `intrinsic-lowering`, random-all-profiles | 10,000 / 9,851 | 149 | 0 / 0 | A 55-case `dae2-intrinsics` family exposed missing non-tail directization; red regression and fix followed. |
+| `global-effects`, random-all-profiles | 10,000 / 9,906 | 94 | 0 / 0 | Differences matched generic representation families; no generated fresh-resume case failed validation. |
+| `global-type-optimization --closed-world`, random-all-profiles | 10,000 / 8,747 | 1,253 | 0 / 0 | 935 cases were larger. The focused v133 descriptor placeholder is green, but full older GTO field/type pruning remains a substantial parity gap. |
+| `dealign`, random-all-profiles | 10,000 / 9,824 | 176 | 0 / 0 | No invalid output; 11 larger generic control cases remain open. |
+| `make-shared-objects`, random-all-profiles | 9,834 / 7,683 | 2,151 | 55 / 111 | Binaryen primary validation was required because wasm-tools does not yet decode `ref.i31_shared`. All 55 Starshine validation failures were the `call.without.effects` intrinsic signature; Binaryen v133 also emitted invalid output for a replay of that family. All 111 oracle command failures were `try_table` catch sent-type errors from Binaryen. A red-first intrinsic boundary guard and a red-first table/element remap fix followed. |
+
+After the non-tail intrinsic fix, a fresh 10,000-case `intrinsic-lowering`
+run had **9,906 normalized matches, 94 mismatches, and no validation or
+command failures**. Its 55 `dae2-intrinsics` mismatches disappeared; the
+remaining 94 were the same generic control/representation profiles seen by
+passes that do no rewrite on those inputs. A 256-case three-way Node replay
+checked CA on all 256 modules with 256 equal outcomes and no blocked or
+different results. OI checked 231 of 256 with 231 equal outcomes; 25 cases
+were blocked by the runtime adapter's unsupported proposal shapes. This
+samples semantics but does not prove every output-shape difference safe.
+
+After the intrinsic boundary and table/element fixes, a fresh
+`make-shared-objects` run requested 10,300 generated cases to obtain **10,133
+completed comparisons**: 7,917 normalized matches, 2,216 mismatches, **zero
+Starshine validation failures**, and 167 Binaryen command failures. The
+oracle failures were 112 `try_table` sent-type cases and 55
+`call.without.effects` intrinsic cases; a saved intrinsic case also fails when
+run directly through the official v133 binary. The remaining mismatches include
+86 Starshine canonical size losses and require further pass-local analysis.
+
+The `i64-to-i32-lowering` compare-pass lane cannot provide ordinary parity
+evidence with random GenValid modules: the released Binaryen pass expects
+flattened input and lowers all i64 values, while this intake only implements
+the four new saturating conversions. A deterministic runtime probe compiled
+one module exporting those four operations, then compared the original and
+Starshine-lowered exports on 10,000 randomized and boundary bit patterns per
+operation (40,000 calls total): zero result or trap differences. This is
+focused conversion evidence, not full-pass parity.
+
+The shared-object failure prompted an intentionally unsupported boundary:
+Starshine now leaves a module with `binaryen-intrinsics` / `call.without.effects`
+unchanged rather than change its required funcref parameter into shared i31.
+The original module remains valid. Binaryen v133's own transformed output for
+the same saved case fails its validator. The shared-object table and passive
+element regression now keeps function indices consistent with the rewritten
+shared i31 references. Broader differences in function-index numbering,
+boundary wrappers, and older GTO pruning remain open pending direct semantic
+and size analysis; validation alone is not acceptance evidence.

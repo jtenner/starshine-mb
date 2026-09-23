@@ -1,3 +1,20 @@
+### 2026-09-23 — Binaryen 133 post-commit optimizer fuzz
+
+- The v133 focused corpus was green and committed as `00ba1836a` before
+  pass-targeted fuzzing. The [v133 investigation](binaryen/version-133-upgrade.md#post-commit-fuzz-investigation)
+  records the verified v132/v133 oracle hashes, 10,000-case pass comparisons,
+  residual mismatch families, and 40,000-call i64 conversion runtime probe.
+- Fuzzing exposed a missing non-tail `call.without.effects` rewrite; red-first
+  direct and dynamic fixtures now pass, and its 55 intrinsic-specific comparison
+  differences disappeared. Shared-object table/element remapping has a
+  red-first regression. A separate red-first guard preserves the intrinsic's
+  required funcref parameter: a fresh 10,133-comparison shared-object lane had
+  zero Starshine validation failures. The official v133 oracle still fails on
+  112 `try_table` and 55 intrinsic inputs in that lane.
+- Full older GTO pruning, shared-object output shape and size, and remaining
+  generic representation differences remain open parity work; focused green
+  tests and validation do not establish broad parity.
+
 ### 2026-09-23 — Binaryen 133 red corpus turned green
 
 - The source-backed v133 corpus now runs green: 61 focused pass tests and the

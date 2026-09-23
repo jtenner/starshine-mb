@@ -209,6 +209,62 @@ fn mso_rewrite_locals(
 }
 
 ///|
+fn mso_rewrite_ref_type(
+  ref_type : @lib.RefType,
+  types : Array[@lib.SubType],
+) -> @lib.RefType {
+  @lib.RefType::new(
+    ref_type.is_nullable(),
+    mso_rewrite_heap_type(ref_type.get_heap_type(), types),
+    exact=ref_type.is_exact(),
+  )
+}
+
+///|
+fn mso_rewrite_elem(elem : @lib.Elem, types : Array[@lib.SubType]) -> @lib.Elem {
+  let @lib.Elem(mode, kind) = elem
+  let next_mode = match mode {
+    @lib.Active(table_idx, offset) =>
+      @lib.ElemMode::active(table_idx, mso_rewrite_expr(offset, types))
+    _ => mode
+  }
+  let next_kind = match kind {
+    @lib.FuncsElemKind(indices) => {
+      let values : Array[@lib.Expr] = []
+      for @lib.FuncIdx(raw) in indices {
+        values.push(
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(raw.to_int())),
+            @lib.Instruction::ref_i31_shared(),
+          ]),
+        )
+      }
+      @lib.ElemKind::typed_exprs(
+        @lib.RefType::new(
+          true,
+          @lib.HeapType::shared_abs(@lib.AbsHeapType::i31()),
+        ),
+        values,
+      )
+    }
+    @lib.FuncExprsElemKind(values) =>
+      @lib.ElemKind::typed_exprs(
+        @lib.RefType::new(
+          true,
+          @lib.HeapType::shared_abs(@lib.AbsHeapType::i31()),
+        ),
+        values.map(fn(value) { mso_rewrite_expr(value, types) }),
+      )
+    @lib.TypedExprsElemKind(ref_type, values) =>
+      @lib.ElemKind::typed_exprs(
+        mso_rewrite_ref_type(ref_type, types),
+        values.map(fn(value) { mso_rewrite_expr(value, types) }),
+      )
+  }
+  @lib.Elem::new(next_mode, next_kind)
+}
+
+///|
 fn mso_is_extern(vt : @lib.ValType) -> Bool {
   match vt {
     @lib.RefTypeValType(ref_type) =>
@@ -530,6 +586,21 @@ fn mso_rewrite_conversions(
 
 ///|
 fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  // This intrinsic requires its last argument to remain a function reference.
+  // Replacing it with a shared i31 makes the module invalid under Binaryen 133.
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(module_name, field_name, @lib.FuncExternType(_)) if module_name ==
+            @lib.Name::from_string("binaryen-intrinsics") &&
+            field_name == @lib.Name::from_string("call.without.effects") =>
+            return mod_
+          _ => ()
+        }
+      }
+    None => ()
+  }
   let rec_types = match mod_.type_sec {
     Some(@lib.TypeSec(types)) => types
     None => return mod_
@@ -716,16 +787,38 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     )
   }
   let mut candidate = mod_.with_type_sec(@lib.TypeSec::new(rewritten_types))
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) => {
+      let next_tables : Array[@lib.Table] = []
+      for @lib.Table(@lib.TableType(ref_type, limits), init) in tables {
+        next_tables.push(
+          @lib.Table::new(
+            @lib.TableType::new(mso_rewrite_ref_type(ref_type, types), limits),
+            init.map(fn(expr) { mso_rewrite_expr(expr, types) }),
+          ),
+        )
+      }
+      candidate = candidate.with_table_sec(@lib.TableSec::new(next_tables))
+    }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      candidate = candidate.with_elem_sec(
+        @lib.ElemSec::new(elems.map(fn(elem) { mso_rewrite_elem(elem, types) })),
+      )
+    None => ()
+  }
   if !import_specs.is_empty() ||
     !export_specs.is_empty() ||
     needs_any_to_extern[0] ||
     needs_extern_to_any[0] {
-    let table_idx = match mod_.table_sec {
+    let table_idx = match candidate.table_sec {
       Some(@lib.TableSec(tables)) =>
         @lib.TableIdx::new(tables.length().to_uint())
       None => @lib.TableIdx::new(0U)
     }
-    let tables = match mod_.table_sec {
+    let tables = match candidate.table_sec {
       Some(@lib.TableSec(tables)) => tables.copy()
       None => []
     }

@@ -81,7 +81,7 @@ fn il_rewrite_expr(
         }
         out.push(@lib.Instruction::if_(block_type, next_then, next_else))
       }
-      @lib.ReturnCall(target) => {
+      @lib.Call(target) | @lib.ReturnCall(target) => {
         let @lib.FuncIdx(raw) = target
         let index = raw.to_int()
         if index < 0 ||
@@ -94,13 +94,21 @@ fn il_rewrite_expr(
         match out[out.length() - 1] {
           @lib.RefFunc(callee) => {
             ignore(out.pop())
-            out.push(@lib.Instruction::return_call(callee))
+            if instr is @lib.ReturnCall(_) {
+              out.push(@lib.Instruction::return_call(callee))
+            } else {
+              out.push(@lib.Instruction::call(callee))
+            }
             changed[0] = true
           }
           @lib.LocalGet(local) =>
             match il_local_target_type(params, local) {
               Some(type_idx) => {
-                out.push(@lib.Instruction::return_call_ref(type_idx))
+                if instr is @lib.ReturnCall(_) {
+                  out.push(@lib.Instruction::return_call_ref(type_idx))
+                } else {
+                  out.push(@lib.Instruction::call_ref(type_idx))
+                }
                 changed[0] = true
               }
               None => out.push(instr)

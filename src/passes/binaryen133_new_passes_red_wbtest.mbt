@@ -22,6 +22,23 @@ fn binaryen133_export_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
+test "Binaryen 133 shared-objects intentionally leaves call-without-effects intrinsics unsupported" {
+  // Rewriting the intrinsic parameter to a shared i31 makes this valid input
+  // invalid: its final parameter must remain a function reference.
+  let output = binaryen133_run_new_pass(
+    "(module (import \"binaryen-intrinsics\" \"call.without.effects\" (func $cwe (param funcref) (result i32))) (func $target (result i32) (i32.const 7)) (elem declare func $target) (func (export \"run\") (result i32) (call $cwe (ref.func $target))))",
+    "make-shared-objects",
+  )
+  let signatures = msf_build_type_signature_cache(output)
+  let type_idx = match output.import_sec.unwrap().0[0] {
+    @lib.Import(_, _, @lib.FuncExternType(type_idx)) => type_idx
+    _ => fail("expected call.without.effects function import")
+  }
+  let @lib.FuncType(params, _) = msf_cached_signature(signatures, type_idx).unwrap()
+  assert_eq(params[0], @lib.ValType::funcref())
+}
+
+///|
 test "Binaryen 133 tail-call converts a final direct void call" {
   let output = binaryen133_run_new_pass(
     "(module (func $callee) (func (export \"run\") (call $callee)))", "tail-call",
@@ -425,6 +442,32 @@ test "Binaryen 133 shared-objects remaps a function reference stored in a struct
         )
       ),
       @lib.Const
+    ),
+  )
+}
+
+///|
+test "Binaryen 133 shared-objects remaps function table and passive elements" {
+  let output = binaryen133_run_new_pass(
+    "(module (type $f (func)) (table 1 funcref) (func $f (type $f)) (elem func $f) (func (export \"run\") (i32.const 0) (i32.const 0) (i32.const 1) (table.init 0)))",
+    "make-shared-objects",
+  )
+  let @lib.TableSec(tables) = output.table_sec.unwrap()
+  let @lib.Table(table_type, _) = tables[0]
+  let @lib.TableType(ref_type, _) = table_type
+  assert_true(
+    ref_type.get_heap_type()
+    is @lib.SharedAbsHeapTypeHeapType(@lib.I31AbsHeapType),
+  )
+  let @lib.ElemSec(elems) = output.elem_sec.unwrap()
+  assert_true(
+    elems[0]
+    is @lib.Elem(
+      _,
+      @lib.TypedExprsElemKind(
+        _,
+        [@lib.Expr([@lib.I32Const(_), @lib.RefI31Shared])]
+      )
     ),
   )
 }
