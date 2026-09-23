@@ -449,6 +449,14 @@
     post-region `unreachable` control precede the narrow decoder in
     `c9a39aa48`. Saved EH cases 1, 40, and 256 now retain real exception and
     throw facts while losing false catch-immediate hazards; no fuzz ran.
+81. [x] Verified v132 rewrites signed `x < MAX` and `x > MIN` to inequality
+    against the same endpoint for i32 and i64; Starshine kept the relational
+    spelling in saved cases 447 and 673 with no measured size win. Direct tests
+    failed first on both endpoint families, and the public command test failed
+    on i32 MAX. The guarded rewrite in `4db5b41a3` retains the original lhs,
+    including calls and traps. Focused direct plus command tests are green;
+    `3d0a2e9d7` covers all four command variants. Verified v132 SHA-256 is
+    `500201b4d13ccc3a61fa5254073e75a138bc57be198bd6c18c5a9562c081ad18`.
 
 ### Open parity evidence from this audit
 
