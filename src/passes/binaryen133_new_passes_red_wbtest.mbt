@@ -370,3 +370,61 @@ test "Binaryen 133 shared-objects lowers anyref to shared anyref" {
     ),
   )
 }
+
+///|
+test "Binaryen 133 shared-objects remaps recursive function self references" {
+  let output = binaryen133_run_new_pass(
+    "(module (type $f (func (param (ref $f)) (result (ref $f)))) (func $run (type $f) (local.get 0)))",
+    "make-shared-objects",
+  )
+  let subtype = match output.type_sec.unwrap().0[0] {
+    @lib.SingleRecType(subtype) => subtype
+    _ => fail("expected a recursive function type")
+  }
+  let params = match subtype.get_comptype() {
+    @lib.FuncCompType(params, _) => params
+    _ => fail("expected a function signature")
+  }
+  assert_true(
+    params[0]
+    is @lib.RefTypeValType(
+      @lib.HeapTypeRefType(
+        _,
+        _,
+        @lib.SharedAbsHeapTypeHeapType(@lib.I31AbsHeapType)
+      )
+    ),
+  )
+}
+
+///|
+test "Binaryen 133 shared-objects remaps a function reference stored in a struct field" {
+  let output = binaryen133_run_new_pass(
+    "(module (type $f (func)) (type $s (struct (field (ref $f)) (field i32))) (func $f (type $f)) (elem declare func $f) (func (export \"run\") (result (ref $s)) (struct.new $s (ref.func $f) (i32.const 1))))",
+    "make-shared-objects",
+  )
+  let subtype = match output.type_sec.unwrap().0[0] {
+    @lib.SingleRecType(subtype) => subtype
+    _ => fail("expected a struct type")
+  }
+  let fields = match subtype.get_comptype() {
+    @lib.StructCompType(fields) => fields
+    _ => fail("expected struct fields")
+  }
+  assert_true(subtype.metadata().is_shared())
+  assert_true(
+    fields[0]
+    is @lib.FieldType(
+      @lib.ValTypeStorageType(
+        @lib.RefTypeValType(
+          @lib.HeapTypeRefType(
+            _,
+            _,
+            @lib.SharedAbsHeapTypeHeapType(@lib.I31AbsHeapType)
+          )
+        )
+      ),
+      @lib.Const
+    ),
+  )
+}
