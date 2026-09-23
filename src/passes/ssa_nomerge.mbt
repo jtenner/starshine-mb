@@ -706,10 +706,12 @@ fn ssa_nomerge_has_nested_cfg_sensitive_control(func : @ir.HotFunc) -> Bool {
 
 ///|
 fn ssa_nomerge_has_exceptional_flow(func : @ir.HotFunc) -> Bool {
-  // SSA v1 is normal-flow-only. The CFG records `ExceptionalEdge` for try/try_table
-  // and throw-family ops, but liveness, dominators, phi placement, rename, and destroy
-  // ignore exceptional predecessors. Fail closed here (not feature support): rewriting
-  // locals while skipping those edges can drop writes that must reach catch continuations.
+  // SSA v1 is normal-flow-only. The CFG records `ExceptionalEdge` for
+  // try/try_table and throw-family ops, while continuation handlers add their
+  // own non-local label exits. Liveness, dominators, phi placement, rename, and
+  // destroy ignore those predecessors. Fail closed here (not feature support):
+  // rewriting locals while skipping those edges can drop writes that must reach
+  // catch or continuation-handler destinations.
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -722,7 +724,8 @@ fn ssa_nomerge_has_exceptional_flow(func : @ir.HotFunc) -> Bool {
       | @ir.HotOp::Rethrow
       | @ir.HotOp::Delegate
       | @ir.HotOp::Catch
-      | @ir.HotOp::CatchAll => return true
+      | @ir.HotOp::CatchAll
+      | @ir.HotOp::Continuation => return true
       _ => ()
     }
   }

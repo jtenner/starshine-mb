@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-09-11
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
 related:
@@ -14,12 +14,14 @@ related:
   - ../../../../../src/ir/hot_lift_test.mbt
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/passes/ssa_nomerge_test.mbt
+  - ../../../../../src/passes/ssa_nomerge_continuation_wbtest.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../../src/validate/gen_valid_ssa_wbtest.mbt
   - ../../../../../src/fuzz/main_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/cmd/ssa_nomerge_continuation_wbtest.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 ---
 
@@ -120,6 +122,18 @@ pipeline faults.
 
 ## Durable Conclusions
 
+- Continuation and stack-switching instructions are a fail-closed boundary for
+  both raw and lifted `ssa-nomerge`. Their handler destinations are non-local
+  control edges that the legacy alias rewrite and HOT SSA v1 liveness,
+  dominance, rename, and destruction do not model. The recursive raw guard now
+  rejects `suspend`, every `resume` form, and `stack.switch` before LocalGraph or
+  legacy structured rewriting; the lifted guard rejects `HotOp::Continuation`.
+  A valid reduced fixture writes `7` before `resume ... on_label`, writes `9`
+  only on normal continuation, and reads the local after the handler-targeted
+  result block. The direct regression was red because the legacy helper
+  returned `Some`; the active dispatcher was red with
+  `skip-raw reason=structured-localgraph-plan`. Both now take the unchanged HOT
+  fallback, validate, and preserve the original code section.
 - The 17 `precompute-propagate-local-facts` residuals from the shortened 2026-07-21 random-all lane were one repeated parity-gap family, not a Starshine win. A branch-free value block used as a `local.set` operand hid its nested `local.tee` write from `HotLocalGraph`; the later legacy structured alias rewrite then reused a defaulted local, replaced a subsequent empty-callee argument, and compacted/renumbered fresh locals. LocalGraph now transfers branch-free nested block operands while rejecting branching, exceptional, and terminating children; the post-default path flattens the label-free tee carrier into its consumer and returns the LocalGraph-planned result before legacy alias rewriting. All 17 saved outputs are valid and raw-byte identical to Binaryen v131, and a targeted `10000/10000` profile is normalized-exact.
 - The 2026-07-21 command-robustness reopen is repaired: all raw LocalGraph admission lifts are non-aborting, unsupported HOT instructions preserve the original function, and deferred batch writeback validates the complete candidate module before commit. Three independent `atomic.fence` regressions cover loop-backedge, one-arm, and multisource admissions; all 15 saved valid generated inputs that formerly exited 134 now exit 0 and validate with official Binaryen v131.
 - Direct `ssa-nomerge` closeout is published as of 2026-06-18 for Binaryen `SSAify(false)` behavior: the final broad direct mixed-generator lane and dedicated `ssa-nomerge-all` GenValid aggregate lane have zero mismatches at the requested closeout scales, and remaining command failures are Binaryen/oracle tool boundaries rather than Starshine transform failures.
@@ -862,4 +876,3 @@ The 2026-06-11 threshold slices raised the branch-bearing structured raw instruc
 - Pass manager guard: `[../../../../../src/passes/pass_manager.mbt](../../../../../src/passes/pass_manager.mbt)`
 - CLI artifact test surface: `[../../../../../src/cmd/cmd_wbtest.mbt](../../../../../src/cmd/cmd_wbtest.mbt)`
 - Random compare harness: `[../../../../../scripts/lib/pass-fuzz-compare-task.ts](../../../../../scripts/lib/pass-fuzz-compare-task.ts)`
-

@@ -1,3 +1,17 @@
+### 2026-09-22 — SSA no-merge continuation liveness boundary
+
+- `ssa-nomerge` now rejects stack-switching instructions before raw LocalGraph
+  planning and legacy structured alias rewriting, then rejects the shared
+  `HotOp::Continuation` family in the lifted normal-flow-only SSA guard.
+  Continuation handler destinations can bypass later writes, but neither path
+  modeled those predecessors for local liveness and merge decisions.
+- A valid reduced result-block fixture writes `7` before a handler-bearing
+  `resume`, overwrites it with `9` only after normal continuation, and reads the
+  local at the handler target. The direct test failed because the legacy helper
+  accepted the shape; the active dispatcher failed with
+  `skip-raw reason=structured-localgraph-plan`. Both focused tests now preserve
+  the original code section, validate, and pass through the guarded fallback.
+
 ### 2026-09-22 — Flatten continuation target repair
 
 - Flatten now records every HOT continuation handler label in its immutable per-label user index. Result and loop routing reject those implicit-payload edges rather than voiding their target control type.

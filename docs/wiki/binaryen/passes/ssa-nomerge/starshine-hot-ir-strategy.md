@@ -1,17 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-16
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/passes/ssa_nomerge_test.mbt
+  - ../../../../../src/passes/ssa_nomerge_continuation_wbtest.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/ir/local_graph.mbt
   - ../../../../../src/ir/local_graph_test.mbt
   - ../../../../../src/ir/ssa_destroy.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/cmd/ssa_nomerge_continuation_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -28,6 +30,27 @@ related:
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
 This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `SSAify(false)` contract.
+
+## 2026-09-22 continuation-flow boundary
+
+Continuation handlers can branch to surrounding labels while bypassing later
+instructions. The legacy raw alias rewrite does not record those handler exits,
+and HOT SSA v1 does not include continuation handler predecessors in liveness,
+dominance, phi placement, rename, or destruction. Freshening a write across
+that edge can therefore disconnect the handler path from the canonical local.
+
+The raw dispatcher now recursively detects `suspend`, `resume`,
+`resume_throw`, `resume_throw_ref`, and `stack.switch` before LocalGraph
+planning. The legacy structured helper has the same guard. If reached through
+the lifted fallback, `HotOp::Continuation` joins the existing exceptional-flow
+fail-closed set. This is a no-mutation safety boundary until continuation edges
+participate in all SSA analyses.
+
+The reduced direct and dispatcher tests use a valid result block whose handler
+path observes a local write of `7`, while normal continuation overwrites it with
+`9`. Before the repair, the direct legacy helper accepted the function and the
+active dispatcher selected `structured-localgraph-plan`. Both tests now pass
+through the unchanged lifted fallback and validate the preserved module.
 
 ## 2026-08-16 O4z post-canonical size candidate
 
