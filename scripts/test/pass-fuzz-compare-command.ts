@@ -610,6 +610,9 @@ if (args[0] === "smith") {
   fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
   fs.writeFileSync(args[outIndex + 1], Buffer.from("${wasmBase64}", "base64"));
 }
+if (args[0] === "print") {
+  process.stdout.write('(module\\n (type (;0;) (func (param i32 i32) (result i32)))\\n (export "foo" (func 0))\\n (func (;0;) (type 0) (param i32 i32) (result i32) local.get 0 local.get 1 i32.add)\\n)\\n');
+}
 process.exit(0);
 `,
   );
@@ -698,6 +701,13 @@ export function runPassFuzzCompareListPassesCommandTest(): void {
   assert(result.stdout.includes("code-pushing"), `expected code-pushing in list output:\n${result.stdout}`);
   assert(result.stdout.includes("tuple-optimization"), `expected tuple-optimization in list output:\n${result.stdout}`);
   assert(result.stdout.includes("dae-optimizing"), `expected dae-optimizing in list output:\n${result.stdout}`);
+  for (const pass of [
+    "tail-call", "remove-empty-function-exports", "intrinsic-lowering",
+    "global-effects", "global-type-optimization", "i64-to-i32-lowering",
+    "dealign", "make-shared-objects",
+  ]) {
+    assert(result.stdout.split("\n").includes(pass), `expected ${pass} in list output:\n${result.stdout}`);
+  }
   assert(result.stdout.split("\n").includes("dae2"), `expected the Binaryen 132 DAE2 pass in list output:\n${result.stdout}`);
   assert(result.stdout.split("\n").includes("constraint-analysis"), `expected the Binaryen 132 constraint pass in list output:\n${result.stdout}`);
   assert(result.stdout.includes("simplify-globals-optimizing"), `expected simplify-globals-optimizing in list output:\n${result.stdout}`);

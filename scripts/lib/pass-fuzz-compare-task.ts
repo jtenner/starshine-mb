@@ -521,6 +521,14 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--remove-unused-brs",
   "--vacuum",
   "--optimize-instructions",
+  "--tail-call",
+  "--remove-empty-function-exports",
+  "--intrinsic-lowering",
+  "--global-effects",
+  "--global-type-optimization",
+  "--i64-to-i32-lowering",
+  "--dealign",
+  "--make-shared-objects",
   "--heap-store-optimization",
   "--heap2local",
   "--optimize-casts",
@@ -577,6 +585,7 @@ const BINARYEN_FLAG_ALIASES = new Map<string, string>([
   ["--dead-argument-elimination", "--dae"],
   ["--global-struct-inference", "--gsi"],
   ["--global-struct-inference-desc-cast", "--gsi-desc-cast"],
+  ["--global-type-optimization", "--gto"],
   ["--redundant-set-elimination", "--rse"],
   ["--simplify-locals-no-tee", "--simplify-locals-notee"],
   ["--simplify-locals-no-nesting", "--simplify-locals-nonesting"],
@@ -796,6 +805,7 @@ function normalizeBinaryenPassFlag(flag: string): string[] {
   // v132 registers dae2 only. Starshine's explicitly named optimizing variant
   // is compared against the same upstream DAE2 plus cleanup sequence.
   if (flag === "--dae2-optimizing") return ["--dae2", "--simplify-locals", "--vacuum"];
+  if (flag === "--global-effects") return ["--generate-global-effects"];
   return [BINARYEN_FLAG_ALIASES.get(flag) ?? flag];
 }
 
