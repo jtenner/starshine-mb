@@ -182,7 +182,7 @@ These rules reduce the canonical module-pass median from `3,939.555ms` to `81.03
 - imported-parent retention policy is explicit instead of accidental
 - no-op start-section dropping is local, visible, test-backed, and cross-linked to the shared [`start-section`](../../../validate/start-section.md) validator contract
 - broad surviving-index rewrite coverage is centralized in one file
-- dead imported functions and dead type entries are cleaned up together
+- imports and their descriptor types remain live because host resolution is observable
 - CLI coverage exists in addition to direct module-pass tests
 
 ## Current local boundaries
@@ -203,9 +203,9 @@ Focused local pass tests live in `src/passes/remove_unused_module_elements_test.
 - `:910-965`
   - imported-parent active segment retention
 - `:967-1096`
-  - unused imported module-element drop plus survivor remap
+  - mixed-kind import preservation plus stable imported index prefixes
 - `:1098-1184`
-  - imported-function drop plus dead function-type cleanup
+  - imported-function and descriptor-type retention while dead defined functions are removed
 - `:1186-1349`
   - Binaryen-style no-op start-section handling families
 - `:1352-1447`

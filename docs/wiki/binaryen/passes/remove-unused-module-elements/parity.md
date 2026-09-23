@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-22
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
@@ -36,6 +36,8 @@ The implementation now routes ordinary and tail direct calls through one helper,
 
 The renewed explicit-v131 matrix is green for all RUME-owned behavior. A 2026-08-21 review follow-up additionally repaired nested `ref.func` liveness in composite typed elem expressions: runtime-used payloads recursively reference embedded functions, and declaration-only composite expressions keep all indices in the same indivisible expression while still pruning independent entries. The focused file is now `56/56`; both exact fixtures externally validate, and the executable passive-elem case returns 42 before/after RUME. The same historical random-all local-run family and wasm-smith memory64 case remain classified outside parity failure: the former is a one-byte decoder/encoder size gap with no RUME mutation, and the latter is the existing full-u64 Starshine correctness/size win. The sibling `remove-unused-nonfunction-module-elements` still shares the graph engine while preserving function declarations, and the optimize/shrink rosters still contain all three intended RUME positions.
 
+A 2026-09-22 correctness repair makes every import a public-pass liveness root. WebAssembly instantiation resolves the complete import roster in source order, so deleting an unused import can skip a host getter, reorder side effects, or turn an expected missing-import failure into successful instantiation. Starshine therefore preserves function, table, memory, global, and tag imports and their index prefixes in both RUME variants while continuing to remove unreachable defined declarations. Binaryen v131's unused-import deletion remains historical oracle behavior and is an intentional host-observability divergence. Direct and active-dispatch host-getter-order regressions failed `0/2` before the repair and pass `2/2` after it; the focused file passes `59/59`.
+
 ## Transform-family audit
 
 | Family | Starshine v131 behavior | Evidence |
@@ -44,7 +46,8 @@ The renewed explicit-v131 matrix is green for all RUME-owned behavior. A 2026-08
 | Strong versus reference-only functions | direct calls are strong; `ref.func` can remain declaration-only; closed-world mode can nullify an uncalled referenced body | `closed world empties uncalled ref.func targets` |
 | `call_ref` | compatible referenced function types become callable in closed-world mode | `closed world call_ref keeps compatible targets callable` |
 | Imported call conventions | ordinary and tail direct calls share `binaryen.js.called`, `binaryen-intrinsics/call.without.effects`, and stack-exact `wasm:js-prototypes/configureAll` handling | red-first focused regressions plus exact singleton/dedicated GenValid lanes |
-| Functions | unused imports/definitions are removed, reference-only bodies can become `unreachable`, and surviving indices/types are repaired | focused function/import/remap tests |
+| Imports | all import kinds remain in source order because host resolution is observable; imported index prefixes and descriptor types remain stable | direct and dispatcher host-getter-order regressions plus mixed-kind index/name coverage |
+| Functions | unused defined functions are removed, reference-only bodies can become `unreachable`, and surviving indices/types are repaired | focused function/import/remap tests |
 | Globals | strong instruction/export/init uses retain globals; dead globals are removed; potentially descriptor-trapping initializers are retained unless TNH | descriptor initializer fixture |
 | Tables | imports/definitions, defaults, active parents, indirect calls, mutation, growth, and table index rewrites are tracked | table-default/overlap suite |
 | Memories | loads/stores/atomics/SIMD/memory ops and active data startup traps retain memories; full-u64 memory64 bounds avoid Binaryen's truncation bug | focused data tests and wasm-smith `004700` |

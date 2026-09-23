@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-14
+last_reviewed: 2026-09-22
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
@@ -26,6 +26,8 @@ related:
 
 ## Imported-Parent Retention Rules
 
+- Public RUME and its non-function sibling preserve every import declaration in source order. Instantiation resolves the complete import roster, so even an IR-unused import can invoke a host getter or cause a missing-import failure.
+- Preserving imports also preserves each imported prefix in the function, table, memory, global, and tag index spaces. Defined survivors are compacted only after those prefixes.
 - Active element segments can keep imported tables alive.
 - Active data segments can keep imported memories alive.
 - Zero-byte active data should not keep a memory alive by itself.
@@ -67,7 +69,7 @@ The 2026-08-28 implementation fuses direct type-use marking into the existing li
   - `rume_compact_type_sec(...)` in the same file
   - `dfe_rewrite_module_type_idxs(...)` reused underneath to repair surviving type-index carriers
 - This matters because local RUME correctness is not only about value/index carriers like `call`, `memory.init`, or exports.
-- Once dead imported functions and dead defined functions disappear, their now-unused function types can disappear too, and every surviving type-bearing surface must stay coherent.
+- Once dead defined functions disappear, their now-unused function types can disappear too. Types used by preserved imported functions or tags remain live, and every surviving type-bearing surface must stay coherent.
 
 ## Practical Rule
 

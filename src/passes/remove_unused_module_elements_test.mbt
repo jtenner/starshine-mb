@@ -430,6 +430,93 @@ fn rume_test_imported_func_remap_fixture() -> @lib.Module {
 }
 
 ///|
+fn rume_test_host_observable_import_fixture() -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(rume_test_type_sec())
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::from_string("host"),
+        @lib.Name::from_string("first_getter"),
+        @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Import::new(
+        @lib.Name::from_string("host"),
+        @lib.Name::from_string("second_getter"),
+        @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("run"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn rume_test_assert_host_import_getter_order_preserved(
+  optimized : @lib.Module,
+) -> Unit raise {
+  match optimized.import_sec {
+    Some(
+      @lib.ImportSec(
+        [
+          @lib.Import(first_mod, first_name, @lib.FuncExternType(_)),
+          @lib.Import(second_mod, second_name, @lib.FuncExternType(_)),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(first_mod, @lib.Name::from_string("host"))
+      @debug.assert_eq(first_name, @lib.Name::from_string("first_getter"))
+      @debug.assert_eq(second_mod, @lib.Name::from_string("host"))
+      @debug.assert_eq(second_name, @lib.Name::from_string("second_getter"))
+    }
+    _ => fail("expected host import getter roster and order to be preserved")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec([@lib.TypeIdx(type_idx)])) =>
+      @debug.assert_eq(type_idx, 0U)
+    _ => fail("expected the dead defined function to be removed")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.Nop]))])) => ()
+    _ => fail("expected only the exported defined function body")
+  }
+  match optimized.export_sec {
+    Some(
+      @lib.ExportSec(
+        [@lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(export_idx)))]
+      )
+    ) => @debug.assert_eq(export_idx, 2U)
+    _ => fail("expected the exported function after both host imports")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected host-import preservation fixture to validate: \{err}")
+  }
+}
+
+///|
 fn rume_test_start_noop_export_fixture(locals : @lib.Locals) -> @lib.Module {
   @lib.Module::new()
   .with_type_sec(rume_test_type_sec())
@@ -1087,7 +1174,7 @@ test "remove-unused-nonfunction-module-elements drops empty const-offset active 
 }
 
 ///|
-test "remove-unused-nonfunction-module-elements removes unused imported functions" {
+test "remove-unused-nonfunction-module-elements preserves unused imported functions" {
   let input =
     #|(module
     #|  (type $t (func))
@@ -1102,7 +1189,17 @@ test "remove-unused-nonfunction-module-elements removes unused imported function
       )
   }
 
-  @debug.assert_eq(optimized.import_sec, None)
+  match optimized.import_sec {
+    Some(
+      @lib.ImportSec(
+        [@lib.Import(module_name, import_name, @lib.FuncExternType(_))]
+      )
+    ) => {
+      @debug.assert_eq(module_name, @lib.Name::from_string("env"))
+      @debug.assert_eq(import_name, @lib.Name::from_string("unused"))
+    }
+    _ => fail("expected the host-observable function import to remain")
+  }
   match optimized.func_sec {
     Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
     None => fail("expected defined function to remain")
@@ -1333,7 +1430,7 @@ test "remove-unused-module-elements keeps active segments that initialize import
 }
 
 ///|
-test "remove-unused-module-elements drops unused imported module elements and remaps survivors" {
+test "remove-unused-module-elements preserves imported module elements and their indices" {
   let optimized = match
     run_hot_pipeline(
       rume_test_import_remap_fixture(),
@@ -1351,19 +1448,27 @@ test "remove-unused-module-elements drops unused imported module elements and re
     Some(
       @lib.ImportSec(
         [
+          @lib.Import(_, dead_table, @lib.TableExternType(_)),
           @lib.Import(_, live_table, @lib.TableExternType(_)),
+          @lib.Import(_, dead_mem, @lib.MemExternType(_)),
           @lib.Import(_, live_mem, @lib.MemExternType(_)),
+          @lib.Import(_, dead_global, @lib.GlobalExternType(_)),
           @lib.Import(_, live_global, @lib.GlobalExternType(_)),
+          @lib.Import(_, dead_tag, @lib.TagExternType(_)),
           @lib.Import(_, live_tag, @lib.TagExternType(_)),
         ]
       )
     ) => {
+      @debug.assert_eq(dead_table, @lib.Name::from_string("dead_table"))
       @debug.assert_eq(live_table, @lib.Name::from_string("live_table"))
+      @debug.assert_eq(dead_mem, @lib.Name::from_string("dead_mem"))
       @debug.assert_eq(live_mem, @lib.Name::from_string("live_mem"))
+      @debug.assert_eq(dead_global, @lib.Name::from_string("dead_global"))
       @debug.assert_eq(live_global, @lib.Name::from_string("live_global"))
+      @debug.assert_eq(dead_tag, @lib.Name::from_string("dead_tag"))
       @debug.assert_eq(live_tag, @lib.Name::from_string("live_tag"))
     }
-    _ => fail("expected only live imported table/mem/global/tag entries")
+    _ => fail("expected the imported table/mem/global/tag roster to remain")
   }
 
   match optimized.export_sec {
@@ -1387,17 +1492,16 @@ test "remove-unused-module-elements drops unused imported module elements and re
         ]
       )
     ) => {
-      @debug.assert_eq(table_import_idx, 0U)
-      @debug.assert_eq(table_defined_idx, 1U)
-      @debug.assert_eq(mem_import_idx, 0U)
-      @debug.assert_eq(mem_defined_idx, 1U)
-      @debug.assert_eq(global_import_idx, 0U)
-      @debug.assert_eq(global_defined_idx, 1U)
-      @debug.assert_eq(tag_import_idx, 0U)
-      @debug.assert_eq(tag_defined_idx, 1U)
+      @debug.assert_eq(table_import_idx, 1U)
+      @debug.assert_eq(table_defined_idx, 2U)
+      @debug.assert_eq(mem_import_idx, 1U)
+      @debug.assert_eq(mem_defined_idx, 2U)
+      @debug.assert_eq(global_import_idx, 1U)
+      @debug.assert_eq(global_defined_idx, 2U)
+      @debug.assert_eq(tag_import_idx, 1U)
+      @debug.assert_eq(tag_defined_idx, 2U)
     }
-    _ =>
-      fail("expected rewritten export indices after imported-element removal")
+    _ => fail("expected exports to retain the imported index prefixes")
   }
 
   match optimized.name_sec {
@@ -1406,9 +1510,14 @@ test "remove-unused-module-elements drops unused imported module elements and re
       match table_names {
         Some(
           @lib.NameMap(
-            [@lib.NameAssoc(0U, table_live), @lib.NameAssoc(1U, table_defined)]
+            [
+              @lib.NameAssoc(0U, table_dead),
+              @lib.NameAssoc(1U, table_live),
+              @lib.NameAssoc(2U, table_defined),
+            ]
           )
         ) => {
+          @debug.assert_eq(table_dead, @lib.Name::from_string("dead_table"))
           @debug.assert_eq(table_live, @lib.Name::from_string("live_table"))
           @debug.assert_eq(
             table_defined,
@@ -1420,9 +1529,14 @@ test "remove-unused-module-elements drops unused imported module elements and re
       match memory_names {
         Some(
           @lib.NameMap(
-            [@lib.NameAssoc(0U, mem_live), @lib.NameAssoc(1U, mem_defined)]
+            [
+              @lib.NameAssoc(0U, mem_dead),
+              @lib.NameAssoc(1U, mem_live),
+              @lib.NameAssoc(2U, mem_defined),
+            ]
           )
         ) => {
+          @debug.assert_eq(mem_dead, @lib.Name::from_string("dead_mem"))
           @debug.assert_eq(mem_live, @lib.Name::from_string("live_mem"))
           @debug.assert_eq(mem_defined, @lib.Name::from_string("defined_mem"))
         }
@@ -1432,11 +1546,13 @@ test "remove-unused-module-elements drops unused imported module elements and re
         Some(
           @lib.NameMap(
             [
-              @lib.NameAssoc(0U, global_live),
-              @lib.NameAssoc(1U, global_defined),
+              @lib.NameAssoc(0U, global_dead),
+              @lib.NameAssoc(1U, global_live),
+              @lib.NameAssoc(2U, global_defined),
             ]
           )
         ) => {
+          @debug.assert_eq(global_dead, @lib.Name::from_string("dead_global"))
           @debug.assert_eq(global_live, @lib.Name::from_string("live_global"))
           @debug.assert_eq(
             global_defined,
@@ -1448,9 +1564,14 @@ test "remove-unused-module-elements drops unused imported module elements and re
       match tag_names {
         Some(
           @lib.NameMap(
-            [@lib.NameAssoc(0U, tag_live), @lib.NameAssoc(1U, tag_defined)]
+            [
+              @lib.NameAssoc(0U, tag_dead),
+              @lib.NameAssoc(1U, tag_live),
+              @lib.NameAssoc(2U, tag_defined),
+            ]
           )
         ) => {
+          @debug.assert_eq(tag_dead, @lib.Name::from_string("dead_tag"))
           @debug.assert_eq(tag_live, @lib.Name::from_string("live_tag"))
           @debug.assert_eq(tag_defined, @lib.Name::from_string("defined_tag"))
         }
@@ -1470,7 +1591,32 @@ test "remove-unused-module-elements drops unused imported module elements and re
 }
 
 ///|
-test "remove-unused-module-elements drops unused imported functions and dead function types" {
+test "remove-unused-module-elements preserves host import getter order directly" {
+  let optimized = rume_run_module_pass(
+    rume_test_host_observable_import_fixture(),
+  )
+  rume_test_assert_host_import_getter_order_preserved(optimized)
+}
+
+///|
+test "remove-unused-module-elements dispatcher preserves host import getter order" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_host_observable_import_fixture(),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected host-import remove-unused-module-elements success, got \{err}",
+      )
+  }
+  rume_test_assert_host_import_getter_order_preserved(optimized)
+}
+
+///|
+test "remove-unused-module-elements preserves imported functions and their types" {
   let optimized = match
     run_hot_pipeline(
       rume_test_imported_func_remap_fixture(),
@@ -1484,14 +1630,44 @@ test "remove-unused-module-elements drops unused imported functions and dead fun
       )
   }
 
-  @debug.assert_eq(optimized.import_sec, None)
+  match optimized.import_sec {
+    Some(
+      @lib.ImportSec(
+        [
+          @lib.Import(
+            _,
+            import_name,
+            @lib.FuncExternType(@lib.TypeIdx(type_idx))
+          ),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(import_name, @lib.Name::from_string("dead_import"))
+      @debug.assert_eq(type_idx, 1U)
+    }
+    _ => fail("expected the host-observable function import to remain")
+  }
   match optimized.type_sec {
     Some(
       @lib.TypeSec(
-        [@lib.SingleRecType(@lib.CompTypeSubType(_, @lib.FuncCompType([], [])))]
+        [
+          @lib.SingleRecType(@lib.CompTypeSubType(_, @lib.FuncCompType([], []))),
+          @lib.SingleRecType(
+            @lib.CompTypeSubType(
+              _,
+              @lib.FuncCompType(
+                [
+                  @lib.NumTypeValType(@lib.I32NumType),
+                  @lib.NumTypeValType(@lib.F32NumType),
+                ],
+                [@lib.NumTypeValType(@lib.I32NumType)]
+              )
+            )
+          ),
+        ]
       )
     ) => ()
-    _ => fail("expected dead imported-function type to be removed")
+    _ => fail("expected the imported function type to remain")
   }
   match optimized.func_sec {
     Some(@lib.FuncSec([@lib.TypeIdx(type_idx)])) =>
@@ -1512,7 +1688,7 @@ test "remove-unused-module-elements drops unused imported functions and dead fun
         ]
       )
     ) => {
-      @debug.assert_eq(main_idx, 0U)
+      @debug.assert_eq(main_idx, 1U)
       @debug.assert_eq(table_idx, 0U)
     }
     _ => fail("expected rewritten exported function and table indices")
@@ -1530,7 +1706,7 @@ test "remove-unused-module-elements drops unused imported functions and dead fun
       )
     ) => {
       @debug.assert_eq(table_idx, 0U)
-      @debug.assert_eq(elem_func_idx, 0U)
+      @debug.assert_eq(elem_func_idx, 1U)
     }
     _ => fail("expected rewritten active elem segment function index")
   }
@@ -1538,11 +1714,17 @@ test "remove-unused-module-elements drops unused imported functions and dead fun
     Some(sec) => {
       let { func_names, .. } = sec
       match func_names {
-        Some(@lib.NameMap([@lib.NameAssoc(0U, func_name)])) =>
+        Some(
+          @lib.NameMap(
+            [@lib.NameAssoc(0U, import_name), @lib.NameAssoc(1U, func_name)]
+          )
+        ) => {
+          @debug.assert_eq(import_name, @lib.Name::from_string("dead_import"))
           @debug.assert_eq(func_name, @lib.Name::from_string("main_func"))
+        }
         _ =>
           fail(
-            "expected imported function names to be dropped and live name remapped",
+            "expected imported and live function names to retain their indices",
           )
       }
     }
@@ -1573,7 +1755,23 @@ test "remove-unused-module-elements drops no-op start sections while keeping oth
       )
   }
 
-  @debug.assert_eq(optimized.import_sec, None)
+  match optimized.import_sec {
+    Some(
+      @lib.ImportSec(
+        [
+          @lib.Import(
+            _,
+            import_name,
+            @lib.FuncExternType(@lib.TypeIdx(type_idx))
+          ),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(import_name, @lib.Name::from_string("dead_import"))
+      @debug.assert_eq(type_idx, 0U)
+    }
+    _ => fail("expected the host-observable function import to remain")
+  }
   match optimized.export_sec {
     Some(
       @lib.ExportSec(
@@ -1583,7 +1781,7 @@ test "remove-unused-module-elements drops no-op start sections while keeping oth
         ]
       )
     ) => {
-      @debug.assert_eq(main_idx, 0U)
+      @debug.assert_eq(main_idx, 1U)
       @debug.assert_eq(table_idx, 0U)
     }
     _ => fail("expected rewritten exports for the live no-op start fixture")
@@ -1601,7 +1799,7 @@ test "remove-unused-module-elements drops no-op start sections while keeping oth
       )
     ) => {
       @debug.assert_eq(table_idx, 0U)
-      @debug.assert_eq(elem_func_idx, 0U)
+      @debug.assert_eq(elem_func_idx, 1U)
     }
     _ =>
       fail(
@@ -1684,9 +1882,26 @@ test "remove-unused-module-elements keeps empty-body start sections" {
       )
   }
 
+  match optimized.import_sec {
+    Some(
+      @lib.ImportSec(
+        [
+          @lib.Import(
+            _,
+            import_name,
+            @lib.FuncExternType(@lib.TypeIdx(type_idx))
+          ),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(import_name, @lib.Name::from_string("dead_import"))
+      @debug.assert_eq(type_idx, 0U)
+    }
+    _ => fail("expected the host-observable function import to remain")
+  }
   match optimized.start_sec {
     Some(@lib.StartSec(@lib.FuncIdx(start_idx))) =>
-      @debug.assert_eq(start_idx, 0U)
+      @debug.assert_eq(start_idx, 1U)
     _ => fail("expected empty-body start section to remain")
   }
   match @validate.validate_module(optimized) {

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-22
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
@@ -57,11 +57,9 @@ Beginner takeaway:
 
 - `$dead` is not kept just because it exists in the section
 
-## 2. Dead imported elements too, when nothing meaningful still points at them
+## 2. Imports remain observable even without IR uses
 
-Imported items are not magically sticky.
-If the pass can prove they are unneeded, they can disappear too.
-That includes the imported-function and no-op-start cleanup families already recorded in the repo's focused RUME notes.
+Binaryen v131 removes imports when its module graph finds no use. Current Starshine deliberately preserves them because WebAssembly instantiation resolves every import in source order. A host getter can have side effects, and a missing unused import must still make instantiation fail.
 
 ```wat
 (module
@@ -73,7 +71,8 @@ That includes the imported-function and no-op-start cleanup families already rec
 
 Beginner takeaway:
 
-- imports are still module elements, not sacred roots
+- public RUME keeps every import kind and its source order
+- dead defined module elements remain removal candidates behind the stable imported index prefixes
 
 ## 3. Zero-byte active data does not keep a memory alive by itself
 

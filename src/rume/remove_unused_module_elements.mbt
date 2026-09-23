@@ -3125,6 +3125,7 @@ fn rume_collect_liveness_with_import_parent_policy(
   mod_ : @lib.Module,
   keep_import_parent_segments : Bool,
   keep_all_funcs? : Bool = false,
+  keep_all_imports? : Bool = false,
   traps_never_happen? : Bool = false,
   closed_world? : Bool = false,
   indirect_candidate_visits? : Array[Int]? = None,
@@ -3307,6 +3308,34 @@ fn rume_collect_liveness_with_import_parent_policy(
     cursor += 1
   }
 
+  if keep_all_imports {
+    let mut import_idx = 0
+    while import_idx < func_imports {
+      used_funcs[import_idx] = true
+      import_idx += 1
+    }
+    import_idx = 0
+    while import_idx < table_imports {
+      used_tables[import_idx] = true
+      import_idx += 1
+    }
+    import_idx = 0
+    while import_idx < mem_imports {
+      used_mems[import_idx] = true
+      import_idx += 1
+    }
+    import_idx = 0
+    while import_idx < global_imports {
+      used_globals[import_idx] = true
+      import_idx += 1
+    }
+    import_idx = 0
+    while import_idx < tag_imports {
+      used_tags[import_idx] = true
+      import_idx += 1
+    }
+  }
+
   (
     used_funcs,
     analysis.referenced_funcs,
@@ -3341,6 +3370,7 @@ fn rume_collect_liveness(
   rume_collect_liveness_with_import_parent_policy(
     mod_,
     true,
+    keep_all_imports=true,
     traps_never_happen~,
     closed_world~,
   )
@@ -6508,6 +6538,7 @@ pub fn rume_run_nonfunction_module_pass(
     mod_,
     true,
     keep_all_funcs=true,
+    keep_all_imports=true,
     traps_never_happen~,
     closed_world~,
   )
