@@ -1151,6 +1151,15 @@ Removing a block around one self `br_if` requires proving that no other instruct
 
 The raw legacy code-pushing path checks reads and writes against the complete original function before moving a constant assignment below a conditional branch. Region-only counts miss reads after an enclosing block. `code_pushing_audit_test.mbt` retains the assignment needed on that exit path.
 
+### Code-pushing dead-block branch ownership
+
+Code-pushing may flatten a dead block beside an unreachable parent only when its
+recursive HOT child graph contains no branch. Structured regions remain part of
+that graph: block and loop bodies are direct children, while if, legacy-try, and
+try-table regions are child holders whose roots are recursively reachable. The
+focused pass and active dispatcher regressions retain an outer block targeted by
+`br 1` from a nested if arm and preserve that exact lowered label depth.
+
 ### Vacuum legacy exception owners
 
 Raw vacuum scans legacy try bodies and catches for owner-label references and rebases ordinary nested branches when an unused wrapper is removed. Delegate/rethrow regions conservatively retain wrappers pending a dedicated exception-depth proof. `vacuum_audit_test.mbt` covers a nested legacy branch that must exit its result block, not the function.

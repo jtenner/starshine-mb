@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - ../../../../../src/passes/code_pushing.mbt
@@ -69,6 +69,7 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - The bridge moves only an `i32.const` SFA set through one fully caught `try`/`catch_all` and past a later conditional branch when all local uses are in the suffix. Calls, nested EH, throw/ref/rethrow hazards, local interference, and non-caught forms remain barriers.
 6. **Starshine-local typed/dead-block flattening near unreachable context**
    - A block next to an `unreachable` parent context can be flattened when branch and multivalue guards prove the splice safe.
+   - The branch guard follows the complete HOT child graph. Block and loop bodies are direct owner children; `if`, legacy `try`, and `try_table` regions are child region holders whose roots are recursively reachable. A branch in a nested `if` arm that targets the candidate block therefore retains that owner and its lexical target.
    - This is local cleanup bundled in the current pass, not a source-confirmed upstream Binaryen `code-pushing` family.
 
 The pass is in the public `optimize` and `shrink` presets in the focused Binaryen-shaped neighborhood `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`. [`0907`](./index.md) records the ordered-neighborhood proof and focused tests; broader preset parity remains governed by the repo-wide preset audit rules. [`0910`](./index.md) is the explicit user-approved CP closeout marker after the reopened IIT, intrinsic, refinalization, and preset blockers were closed.
@@ -305,6 +306,11 @@ The helper `code_pushing_try_flatten_dead_block_before_unreachable(...)` handles
 - the block body has exactly one `unreachable` at the beginning or end;
 - moved non-unreachable roots are not branch-bearing and not multivalue;
 - the block body can be spliced safely into the parent region.
+
+The branch-bearing check already traverses structured regions because HOT keeps
+their holders and roots in the ordinary child graph. The focused pass regression
+checks the branch's exact outer-block owner, and the active dispatcher regression
+checks the lowered `br 1` depth after binary encode/decode.
 
 This family helps current artifact and validation hygiene, but the wiki should keep it separate from upstream Binaryen `CodePushing.cpp`.
 

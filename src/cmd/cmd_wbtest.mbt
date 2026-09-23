@@ -7267,6 +7267,73 @@ test "run_cmd_with_adapter accepts code-pushing" {
 }
 
 ///|
+test "code-pushing CLI retains dead block targeted from a nested if arm" {
+  let input_mod = @passes.pass_test_module_from_wat(
+    "(module (func (export \"run\") (param i32) (block local.get 0 if br 1 end unreachable) unreachable))",
+  )
+  let input_wasm = encode_module_bytes(input_mod)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(input_wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(["--code-pushing", "--out", "out.wasm", "a.wasm"], io) {
+    Ok(summary) => summary
+    Err(err) => fail("expected nested-branch code-pushing success, got \{err}")
+  }
+  @debug.assert_eq(summary.resolved_passes, ["code-pushing"])
+  @debug.assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested-branch code-pushing output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [
+                      @lib.LocalGet(@lib.LocalIdx(0U)),
+                      @lib.If(_, [@lib.Br(@lib.LabelIdx(1U))], None),
+                      @lib.Unreachable,
+                    ]
+                  )
+                ),
+                @lib.Unreachable,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected nested branch owner to survive code-pushing, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "run_cmd_with_adapter accepts redundant-set-elimination" {
   let input_mod = @passes.pass_test_module_from_wat(
     "(module (func (local i32) i32.const 1 local.set 0 i32.const 1 local.set 0))",

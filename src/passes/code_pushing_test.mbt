@@ -345,6 +345,11 @@ fn code_pushing_expect_op(
         @ir.HotOp::BrIf => ()
         _ => abort("expected br_if")
       }
+    "br" =>
+      match op {
+        @ir.HotOp::Br => ()
+        _ => abort("expected br")
+      }
     "br_on_null" =>
       match op {
         @ir.HotOp::BrOnNull => ()
@@ -5771,6 +5776,35 @@ test "code-pushing keeps dead block with branch before unreachable" {
 
   @debug.assert_eq(@ir.hot_root_count(func), 2)
   code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "block")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "unreachable")
+}
+
+///|
+test "code-pushing keeps dead block targeted from a nested if arm" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (block local.get 0 if br 1 end unreachable) unreachable))",
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  let outer_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, outer_id, "block")
+  let outer_body = @ir.hot_region_body_ref(func, outer_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, outer_body), 2)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, outer_body, 0), "if")
+  let if_id = @ir.hot_region_get(func, outer_body, 0)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 1)
+  let branch_id = @ir.hot_region_get(func, then_ref, 0)
+  code_pushing_expect_op(func, branch_id, "br")
+  @debug.assert_eq(
+    @ir.hot_label_owner(func, @ir.hot_node_get(func, branch_id).imm0),
+    outer_id,
+  )
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, outer_body, 1),
+    "unreachable",
+  )
   code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "unreachable")
 }
 
