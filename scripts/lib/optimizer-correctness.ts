@@ -845,6 +845,8 @@ export {
   type AtomicLitmusOutcomeComparisonV1,
   type AtomicLitmusOutcomeV1,
   type AtomicLitmusSpecV1,
+  type AtomicLitmusThreadResultV1,
+  type AtomicLitmusTrapV1,
 } from "./optimizer-atomic-runtime";
 
 export function runOptionalWasmReduce(options: {

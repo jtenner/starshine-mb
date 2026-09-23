@@ -5,6 +5,7 @@ import type {
   AtomicLitmusExecutionV1,
   AtomicLitmusObservationV1,
   AtomicLitmusSpecV1,
+  AtomicLitmusThreadResultV1,
 } from "./optimizer-atomic-runtime.ts";
 import { optimizerRuntimeIdentity } from "./optimizer-runtime.ts";
 
@@ -23,11 +24,25 @@ const THREAD_SOURCE = String.raw`
       parentPort.postMessage({ kind: "ready", workerIndex: workerData.workerIndex });
       const gate = new Int32Array(workerData.gate);
       while (Atomics.load(gate, 0) === 0) Atomics.wait(gate, 0, 0);
-      const raw = run(...workerData.arguments);
-      if (typeof raw !== "number" || !Number.isInteger(raw)) {
-        throw new Error("litmus function must return one i32 result");
+      let result;
+      try {
+        const raw = run(...workerData.arguments);
+        if (typeof raw !== "number" || !Number.isInteger(raw)) {
+          throw new Error("litmus function must return one i32 result");
+        }
+        result = raw | 0;
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        if (
+          error instanceof WebAssembly.RuntimeError &&
+          (/memory access out of bounds/i.test(detail) || /out of bounds memory access/i.test(detail))
+        ) {
+          result = { trap: "memory-out-of-bounds" };
+        } else {
+          throw error;
+        }
       }
-      parentPort.postMessage({ kind: "result", workerIndex: workerData.workerIndex, result: raw | 0 });
+      parentPort.postMessage({ kind: "result", workerIndex: workerData.workerIndex, result });
     } catch (error) {
       parentPort.postMessage({ kind: "error", workerIndex: workerData.workerIndex, detail: error instanceof Error ? error.message : String(error) });
     } finally {
@@ -57,7 +72,7 @@ async function executeTrial(
   const gate = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
   const gateView = new Int32Array(gate);
   const workers: Worker[] = [];
-  const results = new Array<number>(spec.workerCount);
+  const results = new Array<AtomicLitmusThreadResultV1>(spec.workerCount);
   let ready = 0;
   let completed = 0;
   try {
@@ -85,7 +100,12 @@ async function executeTrial(
           },
         });
         workers.push(worker);
-        worker.on("message", (message: { kind: string; workerIndex: number; result?: number; detail?: string }) => {
+        worker.on("message", (message: {
+          kind: string;
+          workerIndex: number;
+          result?: AtomicLitmusThreadResultV1;
+          detail?: string;
+        }) => {
           if (message.kind === "ready") {
             ready += 1;
             if (ready === spec.workerCount) {
@@ -93,7 +113,7 @@ async function executeTrial(
               Atomics.notify(gateView, 0, spec.workerCount);
             }
           } else if (message.kind === "result") {
-            results[message.workerIndex] = message.result as number;
+            results[message.workerIndex] = message.result as AtomicLitmusThreadResultV1;
             completed += 1;
             if (completed === spec.workerCount && !settled) {
               settled = true;

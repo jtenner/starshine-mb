@@ -6,8 +6,14 @@ import {
   nodeObservationRuntimeIdentity,
 } from "./optimizer-runtime-executor.ts";
 
+export type AtomicLitmusTrapV1 = {
+  trap: "memory-out-of-bounds";
+};
+
+export type AtomicLitmusThreadResultV1 = number | AtomicLitmusTrapV1;
+
 export type AtomicLitmusOutcomeV1 = {
-  threadResults: number[];
+  threadResults: AtomicLitmusThreadResultV1[];
   memoryI32: number[];
 };
 
@@ -81,6 +87,11 @@ function isI32(value: number): boolean {
   return Number.isInteger(value) && value >= -2147483648 && value <= 2147483647;
 }
 
+function isAtomicLitmusThreadResultV1(value: AtomicLitmusThreadResultV1): boolean {
+  if (typeof value === "number") return isI32(value);
+  return value !== null && value.trap === "memory-out-of-bounds" && Object.keys(value).length === 1;
+}
+
 function observedI32LocationCount(spec: AtomicLitmusSpecV1): number {
   return spec.observedI32Offsets.length + (spec.additionalObservedI32Locations?.length ?? 0);
 }
@@ -93,8 +104,11 @@ function validateOutcomeShape(spec: AtomicLitmusSpecV1, outcome: AtomicLitmusOut
   if (outcome.memoryI32.length !== memoryValueCount) {
     throw new Error(`${label} must contain ${memoryValueCount} memory values`);
   }
-  if (![...outcome.threadResults, ...outcome.memoryI32].every(isI32)) {
-    throw new Error(`${label} values must be signed i32 integers`);
+  if (!outcome.threadResults.every(isAtomicLitmusThreadResultV1)) {
+    throw new Error(`${label} thread results must be signed i32 integers or supported traps`);
+  }
+  if (!outcome.memoryI32.every(isI32)) {
+    throw new Error(`${label} memory values must be signed i32 integers`);
   }
 }
 
