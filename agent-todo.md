@@ -519,6 +519,17 @@
   the [OptimizeInstructions dossier](docs/wiki/binaryen/passes/optimize-instructions/fuzzing.md#2026-09-23-saved-simd-result-if-parity).
   This exact replay did not run a fuzz or aggregate campaign, so the historical
   557-case and 503/four/50 size split above remains unchanged.
+  Retained legacy-EH cases 17 and 21 are byte-identical inputs (SHA-256
+  `a39f36092c69354642168a59f50b8dbea6d716e4f349465c4cc84534263ac88e`),
+  not two distinct residual families. Exact replay after the SimplifyLocals
+  legacy-catch routing repair produces 55 raw and 55 canonical bytes for both
+  Starshine and verified Binaryen 132. The raw outputs differ only in function
+  type order; the canonical outputs are byte-identical with SHA-256
+  `97e045e447bb651e96b3e90cce3642420e615b00d2aff68d68fa770e8b308390`.
+  All raw and canonical files validate, and original/Starshine/Binaryen each
+  return `[0, 1, -1, -2147483648, 2147483647]` from `run(i32) -> i32` for that
+  same argument vector. This bounded two-file replay ran no aggregate or fuzz
+  campaign and leaves the historical 557-case and 503/four/50 split unchanged.
   Retained case 29 is now a complete three-way semantic match under opt-in Node
   custom descriptors: every exact artifact returns i32 `22289`, with no state.
   Its size classification remains mixed and visible: Starshine is 94 bytes raw

@@ -107,6 +107,25 @@ passes the same expected output in both Node and Wago after SimplifyLocals.
 - The adjacent pass test locks the routing decision and exact catch body. The
   active dispatcher test locks the original seven-pass sequence.
 
+Exact saved-input replay later showed that retained cases 17 and 21 are the
+same module byte for byte: both inputs have SHA-256
+`a39f36092c69354642168a59f50b8dbea6d716e4f349465c4cc84534263ac88e`.
+A fresh native build from integrated main `d1b9d5ec0` (SHA-256
+`a2103618fb9f96cf66008b01bc1d8926cc748768af0cf689df726be0a98fd50c`)
+produced 55 raw and 55 canonical bytes for each case, matching verified
+Binaryen 132 (SHA-256
+`500201b4d13ccc3a61fa5254073e75a138bc57be198bd6c18c5a9562c081ad18`) at
+55/55 bytes.
+All raw and canonical outputs pass `wasm-tools validate --features all`.
+Starshine's raw output preserves the input's function-type order while
+Binaryen orders the empty tag type first; the harness projection canonicalizes
+both to identical bytes with SHA-256
+`97e045e447bb651e96b3e90cce3642420e615b00d2aff68d68fa770e8b308390`.
+On Node 26.10.0, the original, Starshine, and Binaryen `run(i32) -> i32`
+exports all return `[0, 1, -1, -2147483648, 2147483647]` for the same argument
+vector. This was a bounded replay of those two saved files; no aggregate or
+fuzz campaign ran, so it does not change the historical campaign totals.
+
 ### 3. Exact Writeback Cleanup
 
 - After exact lowering, Starshine can still remove a very small set of dead temporary patterns without broad shape drift.
