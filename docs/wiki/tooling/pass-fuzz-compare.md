@@ -146,6 +146,8 @@ there is no automatic fallback or success-on-unsupported path.
 
 Compare-pass lanes are intentionally split by generator. The default is a GenValid-only lane; run wasm-smith only by passing `--wasm-smith` for a separate external-generator lane. The legacy `--generator wasm-smith|gen-valid` spelling remains accepted, but the harness no longer has a mixed alternating generator mode.
 
+The `Fuzz Suites` workflow has a separate `external-generator-smoke` job gated to manual `workflow_dispatch`. It pins wasm-tools and Binaryen 132, builds a fresh native optimizer, then compares 16 explicit `--wasm-smith` Vacuum cases with independent validation, determinism, codec stability, and strict failure exit behavior. It is separate from the automatic GenValid profile matrix. This source change defines the lane; no external-generator campaign was run as part of the September 2026 correctness spree.
+
 | Generator mode | How to select it | What it does | Best use | Caveats |
 | --- | --- | --- | --- | --- |
 | `gen-valid` | Default, or `--generator gen-valid` | Runs `--emit-gen-valid-batch ... --manifest <out>/inputs/gen-valid/manifest.json` through `--gen-valid-bin <path>` when supplied, otherwise falls back to `moon run --target native --release src/fuzz --`. | Starshine coverage-forced portable modules and focused regression lanes after FZG widening. | Long/sharded campaigns should build `src/fuzz` once and pass `_build/native/release/build/fuzz/fuzz.exe`; the fallback may pay a cold native-release compile before generation. |

@@ -214,7 +214,11 @@
 55. [x] Both CI compare-pass correctness lanes now require `--determinism`
     and `--codec-idempotence`; a workflow-contract test failed before the flags
     were added and passed afterward. No CI fuzz campaign was run locally.
-56. [ ] Add a separately gated external wasm-smith generator lane.
+56. [x] A separate `workflow_dispatch` job now runs a bounded explicit
+    `--wasm-smith` lane with pinned Binaryen 132, independent validation,
+    determinism, codec stability, and strict failure exit. Its workflow
+    contract test failed before the job and passed afterward. The lane was
+    not executed during this no-fuzz repair spree.
 57. [ ] Ensure dedicated fuzz lanes are required and fail CI on findings.
 58. [ ] Add trigger-focused profiles for undersampled pass families.
 59. [ ] Add feature floors for descriptors, continuations, waitqueues, atomics, and array memory.

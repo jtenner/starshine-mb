@@ -162,6 +162,64 @@ jobs:
             --require-binaryen-version 132 \
             --out-dir .tmp/semantic-optimizer-ci
 
+  external-generator-smoke:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve MoonBit registry dependencies
+        run: moon update
+
+      - name: Install pinned Wasm tools and Binaryen
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          cargo install wasm-tools --locked --version "$WASM_TOOLS_VERSION"
+          mkdir -p .tmp
+          curl -fsSL \
+            "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz" \
+            -o .tmp/binaryen.tar.gz
+          tar -xzf .tmp/binaryen.tar.gz -C .tmp
+          wasm-tools --version
+          "$BINARYEN_DIR/bin/wasm-opt" --version
+
+      - name: Build fresh native optimizer
+        run: moon build --target native --release src/cmd
+
+      - name: Compare bounded external wasm-smith inputs
+        run: |
+          bun fuzz compare-pass \
+            --count 16 \
+            --seed 0x5eed \
+            --wasm-smith \
+            --pass vacuum \
+            --normalize local-cleanup-debris \
+            --determinism \
+            --codec-idempotence \
+            --require-independent-validator \
+            --jobs auto \
+            --max-subprocesses 4 \
+            --max-failures 1 \
+            --no-reduce-mismatches \
+            --starshine-bin _build/native/release/build/cmd/cmd.exe \
+            --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" \
+            --require-binaryen-version 132 \
+            --out-dir .tmp/external-smith-vacuum
+
   fuzz-stress-native:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
