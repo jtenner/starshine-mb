@@ -217,7 +217,7 @@
     `memory.size` is detected (`ab1ef3225`). Focused Bun and Moon suites passed.
     Arbitrary relaxed-SIMD outcome contracts and GC arguments without an exact
     producer remain explicit unsupported boundaries. No fuzz campaign ran.
-48. [ ] Add multi-thread allowed-outcome checks for atomic transformations.
+48. [x] Add bounded multi-thread allowed-outcome checks for atomic transforms.
     A bounded two-worker Node litmus now checks declared allowed outcomes for
     sequentially consistent `i32.atomic.rmw.add` over shared memory
     (`75fec2f14`); synthetic increment-by-two corruption is rejected, and
@@ -239,15 +239,15 @@
     memory64 to memory32 (`501cf2281`). Memory64 last-word/first-out-of-bounds
     RMW fixtures now observe normalized per-thread bounds traps and reject a
     corrupt address while unrelated worker traps remain blocked (`ede701b63`).
-    Remaining: general wait/notify liveness, weaker-order and fence semantics,
-    memory64 addresses above 4 GiB and other trap/wait families, broader
-    multi-memory operations, and
-    broader schedule families. A validated shared-GC
+    A validated shared-GC
     `struct.atomic.rmw.add seq_cst` probe
     reports a tested Node v26 unsupported boundary without counting a semantic
     match (`82cb893b3`); executable shared-GC outcome proof remains pending a
     runtime with shared function support. This is an opt-in replay primitive;
-    general node-v2 still runs single-threaded.
+    general node-v2 still runs single-threaded. The bounded harness goal is
+    met; unsupported orders, shared GC, general wait/notify liveness, addresses
+    above 4 GiB, wider opcode coverage, and arbitrary schedules remain tracked
+    as separate conformance work below. No fuzz campaign ran.
 49. [x] Runtime-v2 now adds two bounded finite scalar vectors derived from the
     recorded seed for each callable export; the invocation hash and semantic
     cache revision reflect the new observations. A focused test failed before
@@ -381,6 +381,12 @@
 
 ### Open parity evidence from this audit
 
+- [ ] Extend atomic conformance beyond the bounded two-worker litmus: find an
+  independent runtime accepting the verified v132 AcqRel/Relaxed and shared-GC
+  encodings; cover general wait/notify liveness, memory64 addresses above
+  4 GiB, broader atomic opcodes and mixed-memory layouts, and schedule families.
+  The current Node runtime rejects weaker-order binaries and shared function
+  types, so these are explicit unsupported boundaries rather than matches.
 - [ ] Classify the 557 structural mismatches in the saved seven-pass 1,000-case
   campaign; preserve the two confirmed DCE wrong-code cases and treat the
   runtime timeout separately. Do not infer semantic safety from size or
