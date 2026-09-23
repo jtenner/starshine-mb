@@ -33,6 +33,7 @@ export type AtomicLitmusSpecV1 = {
   observedI32Offsets: number[];
   trials: number;
   allowedOutcomes: AtomicLitmusOutcomeV1[];
+  requiredObservedOutcomes?: AtomicLitmusOutcomeV1[];
 };
 
 export type AtomicLitmusExecutionV1 = {
@@ -48,6 +49,8 @@ export type AtomicLitmusOutcomeComparisonV1 = {
   failingSide: "original" | "candidate" | null;
   firstDisallowedOutcome: AtomicLitmusObservationV1 | null;
   allowedOutcomeKeys: string[];
+  requiredObservedOutcomeKeys: string[];
+  firstMissingRequiredOutcome: AtomicLitmusOutcomeV1 | null;
   detail: string | null;
 };
 
@@ -124,6 +127,20 @@ export function validateAtomicLitmusSpecV1(spec: AtomicLitmusSpecV1): void {
   if (new Set(spec.allowedOutcomes.map(outcomeKey)).size !== spec.allowedOutcomes.length) {
     throw new Error("atomic litmus allowed outcomes must be unique");
   }
+  const allowed = new Set(spec.allowedOutcomes.map(outcomeKey));
+  const required = spec.requiredObservedOutcomes ?? [];
+  if (required.length > spec.allowedOutcomes.length) {
+    throw new Error("atomic litmus cannot require more observed outcomes than it allows");
+  }
+  for (const [index, outcome] of required.entries()) {
+    validateOutcomeShape(spec, outcome, `required observed outcome ${index}`);
+  }
+  if (new Set(required.map(outcomeKey)).size !== required.length) {
+    throw new Error("atomic litmus required observed outcomes must be unique");
+  }
+  if (required.some((outcome) => !allowed.has(outcomeKey(outcome)))) {
+    throw new Error("atomic litmus required observed outcomes must be allowed outcomes");
+  }
 }
 
 export function compareAtomicLitmusObservationSetsV1(
@@ -133,6 +150,8 @@ export function compareAtomicLitmusObservationSetsV1(
 ): AtomicLitmusOutcomeComparisonV1 {
   validateAtomicLitmusSpecV1(spec);
   const allowedOutcomeKeys = spec.allowedOutcomes.map(outcomeKey).sort();
+  const requiredObservedOutcomes = spec.requiredObservedOutcomes ?? [];
+  const requiredObservedOutcomeKeys = requiredObservedOutcomes.map(outcomeKey).sort();
   const allowed = new Set(allowedOutcomeKeys);
   if (original.length === 0) {
     return {
@@ -140,6 +159,8 @@ export function compareAtomicLitmusObservationSetsV1(
       failingSide: "original",
       firstDisallowedOutcome: null,
       allowedOutcomeKeys,
+      requiredObservedOutcomeKeys,
+      firstMissingRequiredOutcome: null,
       detail: "original produced no completed observations",
     };
   }
@@ -150,7 +171,22 @@ export function compareAtomicLitmusObservationSetsV1(
       failingSide: "original",
       firstDisallowedOutcome: originalDisallowed,
       allowedOutcomeKeys,
+      requiredObservedOutcomeKeys,
+      firstMissingRequiredOutcome: null,
       detail: "original produced an outcome outside the declared oracle set",
+    };
+  }
+  const originalKeys = new Set(original.map(outcomeKey));
+  const originalMissingRequired = requiredObservedOutcomes.find((outcome) => !originalKeys.has(outcomeKey(outcome)));
+  if (originalMissingRequired !== undefined) {
+    return {
+      classification: "blocked",
+      failingSide: "original",
+      firstDisallowedOutcome: null,
+      allowedOutcomeKeys,
+      requiredObservedOutcomeKeys,
+      firstMissingRequiredOutcome: originalMissingRequired,
+      detail: "original did not produce a declared required observation",
     };
   }
   if (candidate.length === 0) {
@@ -159,6 +195,8 @@ export function compareAtomicLitmusObservationSetsV1(
       failingSide: "candidate",
       firstDisallowedOutcome: null,
       allowedOutcomeKeys,
+      requiredObservedOutcomeKeys,
+      firstMissingRequiredOutcome: null,
       detail: "candidate produced no completed observations",
     };
   }
@@ -169,7 +207,22 @@ export function compareAtomicLitmusObservationSetsV1(
       failingSide: "candidate",
       firstDisallowedOutcome: candidateDisallowed,
       allowedOutcomeKeys,
+      requiredObservedOutcomeKeys,
+      firstMissingRequiredOutcome: null,
       detail: "candidate produced an outcome outside the declared oracle set",
+    };
+  }
+  const candidateKeys = new Set(candidate.map(outcomeKey));
+  const candidateMissingRequired = requiredObservedOutcomes.find((outcome) => !candidateKeys.has(outcomeKey(outcome)));
+  if (candidateMissingRequired !== undefined) {
+    return {
+      classification: "blocked",
+      failingSide: "candidate",
+      firstDisallowedOutcome: null,
+      allowedOutcomeKeys,
+      requiredObservedOutcomeKeys,
+      firstMissingRequiredOutcome: candidateMissingRequired,
+      detail: "candidate did not produce a declared required observation",
     };
   }
   return {
@@ -177,6 +230,8 @@ export function compareAtomicLitmusObservationSetsV1(
     failingSide: null,
     firstDisallowedOutcome: null,
     allowedOutcomeKeys,
+    requiredObservedOutcomeKeys,
+    firstMissingRequiredOutcome: null,
     detail: null,
   };
 }
@@ -256,6 +311,8 @@ export async function runNodeAtomicLitmusComparisonV1(
       failingSide: "original",
       firstDisallowedOutcome: null,
       allowedOutcomeKeys: spec.allowedOutcomes.map(outcomeKey).sort(),
+      requiredObservedOutcomeKeys: (spec.requiredObservedOutcomes ?? []).map(outcomeKey).sort(),
+      firstMissingRequiredOutcome: null,
       detail: original.detail,
     };
   } else if (candidate.status === "blocked") {
@@ -264,6 +321,8 @@ export async function runNodeAtomicLitmusComparisonV1(
       failingSide: "candidate",
       firstDisallowedOutcome: null,
       allowedOutcomeKeys: spec.allowedOutcomes.map(outcomeKey).sort(),
+      requiredObservedOutcomeKeys: (spec.requiredObservedOutcomes ?? []).map(outcomeKey).sort(),
+      firstMissingRequiredOutcome: null,
       detail: candidate.detail,
     };
   } else {

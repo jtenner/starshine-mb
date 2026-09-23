@@ -53,6 +53,24 @@ const WAIT_NOTIFY_SPEC: AtomicLitmusSpecV1 = {
   ],
 };
 
+const WAIT_NOTIFY_LIVENESS_SPEC: AtomicLitmusSpecV1 = {
+  schema: "starshine.optimizer-atomic-litmus.v1",
+  id: "wait-notify-required-wake",
+  workerCount: 2,
+  exportName: "run",
+  workerArguments: [[0], [1]],
+  memoryImport: { module: "env", field: "memory", initial: 1, maximum: 1 },
+  observedI32Offsets: [0, 4],
+  trials: 2,
+  allowedOutcomes: [
+    { threadResults: [0, 1], memoryI32: [0, 1] },
+    { threadResults: [2, -1], memoryI32: [0, 1] },
+  ],
+  requiredObservedOutcomes: [
+    { threadResults: [0, 1], memoryI32: [0, 1] },
+  ],
+};
+
 const CMPXCHG_SPEC: AtomicLitmusSpecV1 = {
   schema: "starshine.optimizer-atomic-litmus.v1",
   id: "i32-cmpxchg-two-workers",
@@ -106,6 +124,12 @@ describe("atomic allowed-outcome comparison", () => {
       ...RMW_ADD_SPEC,
       additionalMemoryImports: [{ ...RMW_ADD_SPEC.memoryImport }],
     })).toThrow("must be unique");
+    expect(() => validateAtomicLitmusSpecV1({
+      ...RMW_ADD_SPEC,
+      requiredObservedOutcomes: [
+        { threadResults: [0, 0], memoryI32: [2] },
+      ],
+    })).toThrow("must be allowed outcomes");
   });
 
   test("accepts different allowed schedules without requiring exact replay", () => {
@@ -118,6 +142,19 @@ describe("atomic allowed-outcome comparison", () => {
     expect(comparison.classification).toBe("allowed-outcome-match");
     expect(comparison.failingSide).toBeNull();
     expect(comparison.firstDisallowedOutcome).toBeNull();
+  });
+
+  test("blocks when the original misses a declared required observation", () => {
+    const required = RMW_ADD_SPEC.allowedOutcomes[0];
+    const comparison = compareAtomicLitmusObservationSetsV1(
+      { ...RMW_ADD_SPEC, requiredObservedOutcomes: [required] },
+      [{ trial: 0, ...RMW_ADD_SPEC.allowedOutcomes[1] }],
+      [{ trial: 0, ...required }],
+    );
+
+    expect(comparison.classification).toBe("blocked");
+    expect(comparison.failingSide).toBe("original");
+    expect(comparison.firstMissingRequiredOutcome).toEqual(required);
   });
 
   test("rejects a transformed module that leaves the declared outcome set", async () => {
@@ -192,6 +229,113 @@ describe("atomic allowed-outcome comparison", () => {
     expect(report.candidate.status).toBe("complete");
     expect(report.comparison.classification).toBe("semantic-mismatch");
     expect(report.comparison.firstDisallowedOutcome?.memoryI32).toEqual([2]);
+  });
+
+  test("requires an actual bounded wait/notify wake outcome", async () => {
+    const original = compileWat(`(module
+      (import "env" "memory" (memory 1 1 shared))
+      (func (export "run") (param $role i32) (result i32)
+        (local $tries i32)
+        local.get $role
+        if (result i32)
+          block $done (result i32)
+            loop $retry (result i32)
+              i32.const 0
+              i32.const 1
+              memory.atomic.notify
+              i32.const 1
+              i32.eq
+              if
+                i32.const 1
+                br $done
+              end
+              local.get $tries
+              i32.const 1
+              i32.add
+              local.tee $tries
+              i32.const 256
+              i32.lt_u
+              if
+                i32.const 8
+                i32.const 0
+                i64.const 1000000
+                memory.atomic.wait32
+                drop
+                br $retry
+              end
+              i32.const -1
+            end
+          end
+        else
+          i32.const 4
+          i32.const 1
+          i32.atomic.store
+          i32.const 0
+          i32.const 0
+          i64.const 500000000
+          memory.atomic.wait32
+        end))`);
+    const wrong = compileWat(`(module
+      (import "env" "memory" (memory 1 1 shared))
+      (func (export "run") (param $role i32) (result i32)
+        (local $tries i32)
+        local.get $role
+        if (result i32)
+          block $done (result i32)
+            loop $retry (result i32)
+              i32.const 8
+              i32.const 1
+              memory.atomic.notify
+              i32.const 1
+              i32.eq
+              if
+                i32.const 1
+                br $done
+              end
+              local.get $tries
+              i32.const 1
+              i32.add
+              local.tee $tries
+              i32.const 256
+              i32.lt_u
+              if
+                i32.const 8
+                i32.const 0
+                i64.const 1000000
+                memory.atomic.wait32
+                drop
+                br $retry
+              end
+              i32.const -1
+            end
+          end
+        else
+          i32.const 4
+          i32.const 1
+          i32.atomic.store
+          i32.const 0
+          i32.const 0
+          i64.const 500000000
+          memory.atomic.wait32
+        end))`);
+
+    const report = await runNodeAtomicLitmusComparisonV1(
+      original,
+      wrong,
+      WAIT_NOTIFY_LIVENESS_SPEC,
+      { timeoutMs: 3000 },
+    );
+
+    expect(report.original.status).toBe("complete");
+    expect(report.original.observations.some((outcome) => outcome.threadResults[0] === 0 && outcome.threadResults[1] === 1)).toBe(true);
+    expect(report.candidate.status).toBe("complete");
+    expect(report.candidate.observations.every((outcome) => outcome.threadResults[0] === 2 && outcome.threadResults[1] === -1)).toBe(true);
+    expect(report.comparison.classification).toBe("blocked");
+    expect(report.comparison.failingSide).toBe("candidate");
+    expect(report.comparison.firstMissingRequiredOutcome).toEqual({
+      threadResults: [0, 1],
+      memoryI32: [0, 1],
+    });
   });
 
   test("observes compare-exchange winner identity across two workers", async () => {
