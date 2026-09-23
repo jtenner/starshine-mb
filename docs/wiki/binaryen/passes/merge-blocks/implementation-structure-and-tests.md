@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-22
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ./index.md
   - ../../../../../src/ir/effects.mbt
   - ../../../../../src/ir/effects_test.mbt
+  - ../../../../../src/ir/hot_builders.mbt
   - ../../../../../src/passes/pass_common.mbt
   - ../../../../../src/passes/pass_common_wbtest.mbt
   - ../../../../../src/passes/merge_blocks.mbt
@@ -86,6 +87,16 @@ Primary owner:
 | pass-manager raw admission | Repair flat call/drop prefixes, the exact v131 ordered-atomic call fixture, and dropped literal multivalue blocks before HOT lifting. |
 | pass-manager preclean | Recursively normalize direct and nested dropped self-branch payloads plus unused reference-catch payloads before lifting. |
 | pass-manager lowered cleanup | Refinalize all-null reference blocks, flatten scalar spill blocks, compact unused appended locals, and preserve valid stack order. |
+
+The September 2026 carried-local EH audit hypothesis did not reproduce.
+`merge_blocks_collect_local_write_sites` and
+`merge_blocks_collect_min_local_get_node_ids` both recurse through generic
+HOT children after their special cases (`merge_blocks.mbt:370-377,443-450`).
+The HOT `Try` and `TryTable` builders each attach body and catch regions as
+children (`hot_builders.mbt:938-983`), so those scans reach protected writes
+and reads. Valid legacy `try` and `try_table` adjacent and command-dispatch
+fixtures passed against unmodified production code; no behavior patch was
+needed for this audit item.
 
 ## Shared-context complexity regression
 

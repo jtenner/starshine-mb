@@ -29,7 +29,9 @@
 
 ### Reproduced defects and urgent safety gaps
 
-1. [ ] OI → DCE multi-value loop returns `unreachable` instead of `[0, 2.5]`.
+1. [x] OI → DCE multi-value loop returns `unreachable` instead of `[0, 2.5]`
+   (`acb68f4a2`); source-ordered value roots survive DCE, with adjacent and
+   active OI→DCE dispatcher regressions red then green.
 2. [x] Global Struct Inference substitutes an internal object for an imported
    GC reference (`936d7f4d3`, `cb1f2ea08`); imported origins and exported
    function parameters now poison compatible singleton facts, with direct
@@ -53,7 +55,11 @@
 12. [ ] CodePushing ignores structured-region local effects.
 13. [ ] CodePushing dead-block flattening ignores nested branches.
 14. [ ] RemoveUnusedBrs omits continuation handler references.
-15. [ ] MergeBlocks omits `try`/`try_table` from carried-local safety scans.
+15. [x] MergeBlocks `try`/`try_table` carried-local scan concern was
+    disproved: both collectors recurse through generic HOT children in
+    `src/passes/merge_blocks.mbt`, and the HOT builders give each EH node two
+    region-holder children. Valid adjacent and dispatcher EH fixtures passed
+    before any production change; no behavior fix was warranted.
 16. [ ] SimplifyLocals sinks a write across a continuation handler exit.
 17. [ ] SimplifyLocals moves a structure store after `Resume`.
 18. [ ] CoalesceLocals liveness omits resume-handler successors.
@@ -74,7 +80,9 @@
 ### Host behavior, metadata, and registry contracts
 
 28. [ ] RUME removes imports whose host resolution is observable.
-29. [ ] ReorderGlobals changes observable imported-global getter order.
+29. [x] ReorderGlobals changes observable imported-global getter order
+    (`e73420e80`); the import section keeps source order while defined globals
+    still reorder and remap, with focused dispatcher and whitebox regressions.
 30. [ ] Directize synthesizes labels without remapping label-name metadata.
 31. [x] `no-inline*` annotation rebuild drops structured compiler facts.
     Both policy dispatch and clone annotation copying now preserve the
