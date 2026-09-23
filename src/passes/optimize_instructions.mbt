@@ -23304,13 +23304,14 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
   if @ir.hot_child_count(func, node_id) != 3 {
     return false
   }
-  // A shared sequentially consistent RMW can synchronize even when it
-  // stores the old value. Other shared RMWs may only lose an identity write.
+  // A successful shared cmpxchg contributes a write event even when expected
+  // and replacement are equal. AcqRel success also contributes release
+  // behavior, so same-value simplification is restricted to unshared structs.
   let unshared = optimize_instructions_struct_is_unshared(
     ctx,
     field_fact.type_idx,
   )
-  if !unshared && order == @lib.AtomicOrder::seq_cst() {
+  if !unshared {
     return false
   }
   let receiver_id = @ir.hot_child_get(func, node_id, 0)
@@ -23338,9 +23339,6 @@ fn optimize_instructions_try_rewrite_struct_atomic_cmpxchg(
       )
     }
     None => ()
-  }
-  if !unshared {
-    return false
   }
   let receiver_fact = match
     OiStructAtomicReceiverFact::from_expr(func, receiver_id) {

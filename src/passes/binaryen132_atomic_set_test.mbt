@@ -207,7 +207,7 @@ test "optimize instructions relaxes only acquire release stores to unshared stru
 }
 
 ///|
-test "optimize instructions preserves shared RMW writes and seqcst identity cmpxchg writes" {
+test "optimize instructions preserves all shared atomic RMW and cmpxchg writes" {
   for order in ["seqcst", "acq_rel", "relaxed"] {
     for cmpxchg in [false, true] {
       for identity in [false, true] {
@@ -250,9 +250,8 @@ test "optimize instructions preserves shared RMW writes and seqcst identity cmpx
             _ => ()
           }
         }
-        let read_only = cmpxchg && identity && order != "seqcst"
-        assert_eq(updates, if read_only { 0 } else { 1 })
-        assert_eq(reads, if read_only { 1 } else { 0 })
+        assert_eq(updates, 1)
+        assert_eq(reads, 0)
         assert_true(@validate.validate_module(output) is Ok(_))
       }
     }
