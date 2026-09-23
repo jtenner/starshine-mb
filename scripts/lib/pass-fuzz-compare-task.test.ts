@@ -97,6 +97,9 @@ describe("pass-fuzz persistent cache options", () => {
     expect(() => parsePassFuzzCompareArgs([
       "--pass", "vacuum", "--subprocess-timeout-ms", "0",
     ])).toThrow();
+    expect(() => parsePassFuzzCompareArgs([
+      "--pass", "vacuum", "--subprocess-timeout-ms", "2147483648",
+    ])).toThrow();
   });
 
   test("defaults to Binaryen 132 and permits explicit historical replay", () => {

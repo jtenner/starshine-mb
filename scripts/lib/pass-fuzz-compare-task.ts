@@ -965,6 +965,15 @@ type ProcessResult = {
 };
 
 const DEFAULT_SUBPROCESS_TIMEOUT_MS = 300_000;
+const MAX_SUBPROCESS_TIMEOUT_MS = 2_147_483_647;
+
+function parseSubprocessTimeoutMs(raw: string): number {
+  const timeoutMs = parsePositiveInt("subprocess-timeout-ms", raw);
+  if (timeoutMs > MAX_SUBPROCESS_TIMEOUT_MS) {
+    fail(`subprocess-timeout-ms must be at most ${MAX_SUBPROCESS_TIMEOUT_MS}`);
+  }
+  return timeoutMs;
+}
 
 function runProcess(
   command: string,
@@ -4501,7 +4510,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         i += 2;
         break;
       case "--subprocess-timeout-ms":
-        subprocessTimeoutMs = parsePositiveInt("subprocess-timeout-ms", argv[i + 1] ?? fail("missing value for --subprocess-timeout-ms"));
+        subprocessTimeoutMs = parseSubprocessTimeoutMs(argv[i + 1] ?? fail("missing value for --subprocess-timeout-ms"));
         i += 2;
         break;
       case "--localize-first-divergence":
@@ -4709,7 +4718,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
           break;
         }
         if (token.startsWith("--subprocess-timeout-ms=")) {
-          subprocessTimeoutMs = parsePositiveInt("subprocess-timeout-ms", token.substring("--subprocess-timeout-ms=".length));
+          subprocessTimeoutMs = parseSubprocessTimeoutMs(token.substring("--subprocess-timeout-ms=".length));
           i += 1;
           break;
         }
