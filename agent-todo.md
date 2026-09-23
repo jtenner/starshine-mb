@@ -418,13 +418,19 @@
     suites passed 24/24, 27/27, and 78/78. Known candidate failures retain
     correctness-failure status, and cache identity advanced to v10. No fuzz
     campaign ran.
-78. [ ] Saved seven-pass case 907 needs repeated OptimizeInstructions and
+78. [x] Saved seven-pass case 907 needs repeated OptimizeInstructions and
     Precompute passes before a pure local/conditional expression reaches
     `i32.const 1`; verified Binaryen 132 rewrites it sooner. The first OI pass
     sinks local sets but does not revisit the exposed `if`; current output
     changes across four generations despite complete 10-call semantic equality.
     Add red direct and dispatcher convergence tests, fix bounded revisit
     scheduling, and replay the exact saved input without a fuzz campaign.
+    Fixed in `781602ab3` with a one-node condition revisit after the
+    same-local sink and a bounded raw bridge. Red direct and dispatcher tests
+    required one-run OI convergence; green OI1/OI2 are byte-identical at 55
+    bytes. The exact saved ten-call plan returns `1` for original, Starshine,
+    and verified v132; seven-pass outputs reach a validated 40-byte fixed
+    point. No fuzz campaign ran.
 79. [x] The bounded effect/trap scanner still misreads signed result blocktype
     `0x7f` as an executable arithmetic hazard and stops long signed LEB
     immediates after 35 bits, then misreads their trailing bytes as opcodes.
