@@ -254,7 +254,12 @@
     metadata, then counts both emitted loads. It passed before any behavior
     change. The regression guards future HOT key changes; no fuzzing was run.
 63. [ ] Check Local CSE waitqueue synchronization barriers.
-64. [ ] Check MemoryPacking passive-segment expansion under shared concurrency.
+64. [x] Shared-memory passive-split concern was not reproduced (`7072ec82d`).
+    The threads execution rules reduce `memory.init` and `memory.fill` to
+    increasing-address byte stores, and the pass preflights complete bounds
+    and segment lifetime before writes. Valid direct and active-dispatcher
+    fixtures kept ordered copy/fill/copy output and validation; both were green
+    before any behavior change. No concurrent fuzzing or litmus sweep ran.
 65. [ ] Check fresh-object Heap Store Optimization atomic ordering at publication.
 66. [x] Precompute allocation resource boundary is documented and guarded
     (`113dd13f1`). Verified Binaryen v132 erases a finite fresh allocation
