@@ -2156,6 +2156,11 @@ fn lcse_raw_instr_clears_nested_window(instr : @lib.Instruction) -> Bool {
     | @lib.Instruction::ReturnCallRef(_)
     | @lib.Instruction::Throw(_)
     | @lib.Instruction::ThrowRef
+    | @lib.Instruction::Suspend(_)
+    | @lib.Instruction::Resume(_, _)
+    | @lib.Instruction::ResumeThrow(_, _, _)
+    | @lib.Instruction::ResumeThrowRef(_, _)
+    | @lib.Instruction::StackSwitch(_, _)
     | @lib.Instruction::Unreachable => true
     _ => lcse_instr_is_store(instr)
   }
