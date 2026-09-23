@@ -45,7 +45,7 @@ A malicious module can forge `producer = "dewdrop"` and every semantic assertion
 | `HintsOnly` | Profitability hints may be used; semantic assertions may not change transformations. |
 | `TrustAssertions` | Structurally valid assertions may be used as optimizer axioms in a controlled frontend pipeline. |
 
-CLI spelling is `--compiler-facts=ignore`, `--compiler-facts=hints`, or `--compiler-facts=trust`. Optimization level and trust are independent. Producer name, section presence, filename, and `-O4`/`-O4z` never imply trust.
+CLI spelling is `--compiler-facts=ignore`, `--compiler-facts=hints`, or `--compiler-facts=trust`. Optimization level and trust are independent. Producer name, section presence, filename, and `-O4`/`-O4z` never imply trust. Compare-pass accepts the same policy, forwards it only to Starshine, binds it into resume identity, and defaults explicitly to `ignore`. Each input-backed `cases.jsonl` row records the effective policy plus exact raw section presence, count, combined encoded length, and SHA-256; legacy rows without this optional context remain resumable.
 
 ## Primitive Wire Rules
 

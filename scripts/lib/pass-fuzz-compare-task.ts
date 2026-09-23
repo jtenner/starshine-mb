@@ -69,6 +69,7 @@ type CaseStatus = "match" | "mismatch" | "validation-failure" | "generator-failu
 type ExternalValidatorKind = "wasm-tools" | "binaryen" | "wabt";
 type RuntimeExecutionMode = "off" | "node";
 type SemanticOracleMode = "off" | "node-v2";
+type CompilerFactsPolicy = "ignore" | "hints" | "trust";
 export type RuntimeInvocationOutcome =
   | { kind: "result"; value: unknown }
   | { kind: "trap"; detail: string }
@@ -183,6 +184,7 @@ type PassFuzzCompareOptions = {
   jobs: number | null;
   passFlags: string[];
   optimizerFlags: OptimizerModeFlag[];
+  compilerFactsPolicy: CompilerFactsPolicy;
   cacheDir: string | null;
   replayFailuresFrom: string | null;
   failureStatus: CaseStatus | null;
@@ -248,6 +250,16 @@ type CaseEffectTrapFacts = Pick<
   | "mayTrap"
 >;
 
+type CompilerFactsCaseContext = {
+  present: boolean;
+  sectionCount: number;
+  rawSectionsByteLength: number;
+  rawSectionsSha256: string | null;
+  scanStatus: "complete" | "malformed";
+  effectivePolicy: CompilerFactsPolicy;
+  detail?: string;
+};
+
 type CaseRecord = {
   caseIndex: number;
   generator: GeneratorKind;
@@ -260,6 +272,7 @@ type CaseRecord = {
   genValidSelectedProfile?: string;
   genValidProfileCaseLabel?: string;
   inputEffectTrapFacts?: CaseEffectTrapFacts;
+  compilerFactsContext?: CompilerFactsCaseContext;
   semanticSelfOutcome?: SemanticSelfOutcome;
   determinismOutcome?: DeterminismOutcome;
   codecIdempotenceOutcome?: CodecIdempotenceOutcome;
@@ -429,6 +442,7 @@ export type PassFuzzCompareSummary = {
   requiredBinaryenVersion: string | null;
   binaryenTool: VerifiedBinaryenToolIdentity;
   normalizers: CompareNormalizer[];
+  compilerFactsPolicy: CompilerFactsPolicy;
   cache: {
     dir: string | null;
     wasmSmithHits: number;
@@ -455,6 +469,7 @@ const RESERVED_OPTIONS = new Set([
   "--wasm-tools-bin",
   "--primary-validator",
   "--require-independent-validator",
+  "--compiler-facts",
   "--binaryen-validate-bin",
   "--wabt-validate-bin",
   "--external-validator",
@@ -587,6 +602,8 @@ const HELP_TEXT = [
   "                       Required validity oracle: wasm-tools (default) | binaryen; Binaryen is not independent validation.",
   "  --require-independent-validator",
   "                       Require wasm-tools as the primary validator for correctness signoff",
+  "  --compiler-facts <ignore|hints|trust>",
+  "                       Forward the effective compiler.facts policy to Starshine and record it per case. Default: ignore",
   "  --external-validator <id>",
   "                       Optional skip-clean output validator: wasm-tools | binaryen | wabt. May repeat",
   "  --runtime-execution <mode>",
@@ -931,10 +948,22 @@ function normalizeCommandFailureClass(raw: string): CommandFailureClass {
   }
 }
 
+function normalizeCompilerFactsPolicy(raw: string): CompilerFactsPolicy {
+  switch (raw.trim()) {
+    case "ignore":
+    case "hints":
+    case "trust":
+      return raw.trim();
+    default:
+      fail("compiler-facts must be ignore, hints, or trust");
+  }
+}
+
 function starshineExecutionFlags(options: PassFuzzCompareOptions): string[] {
   return [
     ...(options.serialPasses ? ["--debug-serial-passes"] : []),
     ...options.optimizerFlags,
+    `--compiler-facts=${options.compilerFactsPolicy}`,
   ];
 }
 
@@ -2611,6 +2640,79 @@ function sha256Hex(bytes: string | Buffer | Uint8Array): string {
   return crypto.createHash("sha256").update(bytes).digest("hex");
 }
 
+function compilerFactsCaseContext(
+  bytes: Uint8Array,
+  effectivePolicy: CompilerFactsPolicy,
+): CompilerFactsCaseContext {
+  const rawSections: Buffer[] = [];
+  let rawSectionsByteLength = 0;
+  const result = (
+    scanStatus: "complete" | "malformed",
+    detail?: string,
+  ): CompilerFactsCaseContext => ({
+    present: rawSections.length > 0,
+    sectionCount: rawSections.length,
+    rawSectionsByteLength,
+    rawSectionsSha256: rawSections.length === 0
+      ? null
+      : `sha256:${sha256Hex(Buffer.concat(rawSections))}`,
+    scanStatus,
+    effectivePolicy,
+    ...(detail === undefined ? {} : { detail }),
+  });
+  const malformed = (detail: string): CompilerFactsCaseContext => result("malformed", detail);
+  if (
+    bytes.length < 8 ||
+    bytes[0] !== 0x00 || bytes[1] !== 0x61 || bytes[2] !== 0x73 || bytes[3] !== 0x6d ||
+    bytes[4] !== 0x01 || bytes[5] !== 0x00 || bytes[6] !== 0x00 || bytes[7] !== 0x00
+  ) {
+    return malformed("missing Wasm v1 header");
+  }
+
+  const readVarUint32 = (
+    offset: number,
+    limit: number,
+    label: string,
+  ): { value: number; nextOffset: number } | { detail: string } => {
+    let value = 0;
+    for (let byteIndex = 0; byteIndex < 5; byteIndex += 1) {
+      if (offset >= limit) return { detail: `truncated ${label}` };
+      const byte = bytes[offset];
+      offset += 1;
+      if (byteIndex === 4 && (byte & 0xf0) !== 0) return { detail: `overflowing ${label}` };
+      value += (byte & 0x7f) * (2 ** (byteIndex * 7));
+      if ((byte & 0x80) === 0) return { value, nextOffset: offset };
+    }
+    return { detail: `overlong ${label}` };
+  };
+  const compilerFactsName = Buffer.from("compiler.facts", "utf8");
+  let offset = 8;
+  while (offset < bytes.length) {
+    const sectionStart = offset;
+    const sectionId = bytes[offset];
+    offset += 1;
+    const sectionSize = readVarUint32(offset, bytes.length, "section size");
+    if ("detail" in sectionSize) return malformed(sectionSize.detail);
+    offset = sectionSize.nextOffset;
+    const sectionEnd = offset + sectionSize.value;
+    if (sectionEnd > bytes.length) return malformed("section extends past end of module");
+    if (sectionId === 0) {
+      const nameLength = readVarUint32(offset, sectionEnd, "custom section name length");
+      if ("detail" in nameLength) return malformed(nameLength.detail);
+      const nameEnd = nameLength.nextOffset + nameLength.value;
+      if (nameEnd > sectionEnd) return malformed("custom section name extends past section end");
+      const name = bytes.subarray(nameLength.nextOffset, nameEnd);
+      if (name.length === compilerFactsName.length && name.every((byte, index) => byte === compilerFactsName[index])) {
+        const rawSection = Buffer.from(bytes.subarray(sectionStart, sectionEnd));
+        rawSections.push(rawSection);
+        rawSectionsByteLength += rawSection.byteLength;
+      }
+    }
+    offset = sectionEnd;
+  }
+  return result("complete");
+}
+
 function executableResumeIdentity(command: string, repoRoot: string): ResumeExecutableIdentity {
   const resolvedPath = resolveExecutablePath(command, repoRoot);
   return {
@@ -2712,6 +2814,7 @@ function buildResumeIdentity(
     emitMetamorphicPairs: options.emitMetamorphicPairs,
     passFlags: options.passFlags,
     optimizerFlags: options.optimizerFlags,
+    compilerFactsPolicy: options.compilerFactsPolicy,
     binaryenPassFlags,
     normalizers: options.normalizers,
     primaryValidator: options.primaryValidator,
@@ -4324,6 +4427,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let wasmToolsBin = process.env.WASM_TOOLS_BIN || "wasm-tools";
   let primaryValidator: "wasm-tools" | "binaryen" = "wasm-tools";
   let requireIndependentValidator = false;
+  let compilerFactsPolicy: CompilerFactsPolicy = "ignore";
   let binaryenValidateBin = process.env.BINARYEN_WASM_VALIDATE_BIN || "wasm-validate";
   let wabtValidateBin = process.env.WABT_WASM_VALIDATE_BIN || "wasm-validate";
   const externalValidators: ExternalValidatorKind[] = [];
@@ -4444,6 +4548,12 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       case "--require-independent-validator":
         requireIndependentValidator = true;
         i += 1;
+        break;
+      case "--compiler-facts":
+        compilerFactsPolicy = normalizeCompilerFactsPolicy(
+          argv[i + 1] ?? fail("missing value for --compiler-facts"),
+        );
+        i += 2;
         break;
       case "--wasm-tools-bin":
         wasmToolsBin = argv[i + 1] ?? fail("missing value for --wasm-tools-bin");
@@ -4729,6 +4839,13 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
           i += 1;
           break;
         }
+        if (token.startsWith("--compiler-facts=")) {
+          compilerFactsPolicy = normalizeCompilerFactsPolicy(
+            token.substring("--compiler-facts=".length),
+          );
+          i += 1;
+          break;
+        }
         if (token.startsWith("--binaryen-validate-bin=")) {
           binaryenValidateBin = token.substring("--binaryen-validate-bin=".length);
           i += 1;
@@ -4908,6 +5025,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       jobs,
       passFlags,
       optimizerFlags,
+      compilerFactsPolicy,
       cacheDir,
       replayFailuresFrom,
       failureStatus,
@@ -4974,6 +5092,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     schema: "starshine.optimizer-toolchain.v1",
     primaryValidator: options.primaryValidator,
     requireIndependentValidator: options.requireIndependentValidator,
+    compilerFactsPolicy: options.compilerFactsPolicy,
     requiredBinaryenVersion: options.requiredBinaryenVersion,
     binaryen: verifiedBinaryenTool,
     semanticOracle: options.semanticOracle,
@@ -5254,6 +5373,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     inputEffectTrapCounts: emptyEffectTrapCounts(),
     passFlags: options.passFlags,
     optimizerFlags: options.optimizerFlags,
+    compilerFactsPolicy: options.compilerFactsPolicy,
     binaryenPassFlags,
     comparisonDebugPolicy: comparisonPreservesDebug(options.passFlags) ? "preserve" : "strip",
     requiredBinaryenVersion: options.requiredBinaryenVersion,
@@ -5282,6 +5402,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const caseTransformIds = new Map<number, string>();
   const caseGenValidSelectedProfiles = new Map<number, string>();
   const caseGenValidProfileCaseLabels = new Map<number, string>();
+  const caseCompilerFactsContexts = new Map<number, CompilerFactsCaseContext>();
   const caseCorrectnessOutcomes = new Map<
     number,
     Pick<
@@ -5317,6 +5438,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const transformId = caseTransformIds.get(record.caseIndex);
     const genValidSelectedProfile = caseGenValidSelectedProfiles.get(record.caseIndex);
     const genValidProfileCaseLabel = caseGenValidProfileCaseLabels.get(record.caseIndex);
+    const compilerFactsContext = caseCompilerFactsContexts.get(record.caseIndex);
     const correctnessOutcomes = caseCorrectnessOutcomes.get(record.caseIndex);
     const optimizerEvidence = caseOptimizerEvidence.get(record.caseIndex);
     const sizeComparison = caseSizeComparisons.get(record.caseIndex);
@@ -5333,6 +5455,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         : {}),
       ...(record.genValidProfileCaseLabel === undefined && genValidProfileCaseLabel !== undefined
         ? { genValidProfileCaseLabel }
+        : {}),
+      ...(record.compilerFactsContext === undefined && compilerFactsContext !== undefined
+        ? { compilerFactsContext }
         : {}),
       ...(record.semanticSelfOutcome === undefined &&
       correctnessOutcomes?.semanticSelfOutcome !== undefined
@@ -5727,7 +5852,12 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         }
       }
 
-      inputEffectTrapFacts = scanEffectTrapFactsFromWasmBytes(fs.readFileSync(inputPath));
+      const inputBytes = fs.readFileSync(inputPath);
+      inputEffectTrapFacts = scanEffectTrapFactsFromWasmBytes(inputBytes);
+      caseCompilerFactsContexts.set(
+        caseNumber,
+        compilerFactsCaseContext(inputBytes, options.compilerFactsPolicy),
+      );
       noteInputEffectTrapFacts(summary, inputEffectTrapFacts);
 
       const baselineValidation = await runValidateAsync(options, inputPath, repoRoot);

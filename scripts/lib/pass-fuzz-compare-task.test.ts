@@ -28,6 +28,18 @@ import {
 } from "./pass-fuzz-compare-task";
 
 describe("pass-fuzz persistent cache options", () => {
+  test("accepts an explicit compiler facts policy independently from Binaryen pass flags", () => {
+    const defaults = parsePassFuzzCompareArgs(["--pass", "vacuum"]);
+    const trust = parsePassFuzzCompareArgs(["--pass", "vacuum", "--compiler-facts", "trust"]);
+    const hints = parsePassFuzzCompareArgs(["--pass", "vacuum", "--compiler-facts=hints"]);
+    if (defaults.kind === "run") expect(defaults.options.compilerFactsPolicy).toBe("ignore");
+    if (trust.kind === "run") expect(trust.options.compilerFactsPolicy).toBe("trust");
+    if (hints.kind === "run") expect(hints.options.compilerFactsPolicy).toBe("hints");
+    expect(() => parsePassFuzzCompareArgs([
+      "--pass", "vacuum", "--compiler-facts", "producer-name",
+    ])).toThrow("compiler-facts must be ignore, hints, or trust");
+  });
+
   test("fails on every observed failure class unless report-only is explicit", () => {
     const defaults = parsePassFuzzCompareArgs(["--pass", "vacuum"]);
     const reportOnly = parsePassFuzzCompareArgs(["--pass", "vacuum", "--report-only"]);
@@ -1997,6 +2009,7 @@ describe("resume source and configuration identity", () => {
         ["--gen-valid-profile", "pass-cleanup"],
         ["--normalize", "drop-consts"],
         ["--self-semantic"],
+        ["--compiler-facts", "trust"],
       ];
       for (const changed of changedConfigurations) {
         const resumed = runZeroCase(root, tools, ["--resume", ...changed]);
