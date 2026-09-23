@@ -23970,6 +23970,13 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 
 ### 2026-09-22 — Red/green optimizer safety repairs and v132 signoff
 
+- DCE now preserves source-ordered multivalue roots stored after a nonfallthrough
+  HOT root. Random-all-profiles cases 259 and 367 showed `optimize-instructions`
+  followed by DCE collapsing a reachable typed loop to `unreachable`; the saved
+  input returned `(0, 2.5)` for `run(0)` while the optimized module trapped.
+  Red-first adjacent-pass and active-dispatcher regressions cover the post-OI and
+  composed shapes. See the
+  [Starshine DCE strategy](binaryen/passes/dead-code-elimination/starshine-hot-ir-strategy.md#4-source-ordered-roots-before-nonfallthrough-storage-roots).
 - [IR2 audit follow-up](ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit) records red-first repairs for Precompute SIMD local aliasing, direct and nested Local CSE shared-memory reuse, RUME memory64 endpoint overflow, Memory Packing caller-array mutation, and mixed explicit/O4Z4 pass suppression. The final default `moon test` passed `12,053/12,053`; `moon info` and `moon fmt` passed, and no `.mbti` changed.
 - Seven pass-targeted GenValid lanes used fresh native SHA-256 `1b354cea5152439252c7f2ba8c5349fdd62a03cebd74407541ff40f292c7a97f`, eight workers, independent `wasm-tools` validation, and verified Binaryen 132. Precompute compared `10,123` valid cases, and Local CSE, both RUME names, Memory Packing, DAE optimizing, and SGO each compared `10,000`. There were no optimized-output validation or command failures. Memory Packing's `2,712` previously runtime-backed residuals and smaller DAE/SGO cleanup families are classified in the audit table; direct Precompute, Local CSE, and both RUME lanes had zero residual mismatches after their documented normalizers. `bun validate full --profile ci --target wasm-gc` passed 12,050 target tests and 14 CI fuzz suites / 100,766 attempts.
 - The active backlog retains the host-visible duplicate-import/function identity policy and 477 independently invalid generated atomic cases in the Precompute aggregate. The latter did not enter comparison; oversampling met the 10,000-valid-case gate.

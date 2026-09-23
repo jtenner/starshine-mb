@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - ../../../../../src/passes/dead_code_elimination.mbt
@@ -12,6 +12,7 @@ sources:
   - ../../../../../src/passes/dead_code_elimination_live_repro_test.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes_perf_long/dead_code_elimination_perf_test.mbt
+  - ../../../../../src/cmd/dce_oi_loop_regression_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
   - ./index.md
@@ -146,7 +147,31 @@ Examples include:
 
 These helpers should be taught as **local lowering-survival logic**, not as the semantic definition of Binaryen `dce`.
 
-### 4. Explicit final-tail repair
+### 4. Source-ordered roots before nonfallthrough storage roots
+
+HOT region storage order is not always execution order. A later stored result
+root can retain an earlier source position, and lowering emits that dependency
+before an earlier stored terminator. DCE must therefore check source order before
+deleting every root after the first nonfallthrough storage root.
+
+Random-all-profiles semantic-idempotence cases 259 and 367 exposed the concrete
+failure. `optimize-instructions` left a typed `(result i32 f64)` loop with two
+dropped result lanes and an explicit `unreachable`. HOT represented the loop body
+as `unreachable, if, if`: the duplicated `if` roots were stored after the trap but
+lowered before it. DCE treated them as an unreachable suffix, removed both live
+roots, then replaced the now-literal-unreachable loop with the trap. The original
+`run(0)` returned `(0, 2.5)` while the composed output trapped.
+
+`dead_code_elimination_region_has_source_preceding_tail_root(...)` now blocks
+that suffix deletion when any later live value root has a nonnegative, equal or
+earlier source order. Equal order covers repeated lanes of one multivalue
+producer. The focused
+post-OI regression lives beside the pass in
+`src/passes/dead_code_elimination_test.mbt`; the active dispatcher composition
+regression lives in `src/cmd/dce_oi_loop_regression_wbtest.mbt` and runs
+`optimize-instructions` followed by `dead-code-elimination`.
+
+### 5. Explicit final-tail repair
 
 The owner file has a clear final-root repair story:
 

@@ -741,6 +741,35 @@ fn dead_code_elimination_region_has_terminal_last_live_root(
 }
 
 ///|
+fn dead_code_elimination_region_has_source_preceding_tail_root(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  node_id : Int,
+) -> Bool {
+  // Lifted result roots can be stored after a terminator even though lowering
+  // schedules them before it. Equal orders are repeated lanes of one
+  // multivalue producer. Those roots are live dependencies, not a dead suffix.
+  let node_order = @ir.hot_node_get(func, node_id).order
+  if node_order < 0 {
+    return false
+  }
+  for tail_idx = idx + 1
+      tail_idx < @ir.hot_region_root_count(func, region_ref)
+      tail_idx = tail_idx + 1 {
+    let tail_id = @ir.hot_region_get(func, region_ref, tail_idx)
+    if tail_id >= 0 &&
+      @ir.hot_node_is_live(func, tail_id) &&
+      @ir.hot_node_result_arity(func, tail_id) > 0 &&
+      @ir.hot_node_get(func, tail_id).order >= 0 &&
+      @ir.hot_node_get(func, tail_id).order <= node_order {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn dead_code_elimination_node_may_fallthrough(
   func : @ir.HotFunc,
   branch_user_cache : DeadCodeEliminationBranchUserCache,
@@ -3129,7 +3158,10 @@ fn dead_code_elimination_visit_region(
       continue
     }
 
-    if !node_may_fallthrough {
+    if !node_may_fallthrough &&
+      !dead_code_elimination_region_has_source_preceding_tail_root(
+        func, region_ref, idx, node_id,
+      ) {
       let keep_unreachable_tail = needs_unreachable_tail &&
         dead_code_elimination_has_explicit_unreachable_tail(
           func, region_ref, idx,

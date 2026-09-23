@@ -2155,3 +2155,68 @@ test "dead-code-elimination lowering avoids nested unreachable tails for typed l
     msg=pretty,
   )
 }
+
+///|
+test "dead-code-elimination preserves post-OI multivalue loop returns and backedge" {
+  // Reduced from random-all-profiles semantic-idempotence case 259. The
+  // optimize-instructions predecessor leaves the typed loop with split drops
+  // and an explicit unreachable tail, while every reachable arm returns or
+  // branches back to the loop.
+  let input =
+    #|(module
+    #|  (type $pair (func (result i32 f64)))
+    #|  (func (param i32) (result i32 f64) (local i32 i32)
+    #|    loop (type $pair)
+    #|      local.get 0
+    #|      local.tee 2
+    #|      i32.const -1223595061
+    #|      i32.eq
+    #|      if (type $pair)
+    #|        local.get 2
+    #|        f64.const 1.25
+    #|        return
+    #|      else
+    #|        local.get 1
+    #|        i32.const 7
+    #|        i32.lt_u
+    #|        if (result i32)
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.set 1
+    #|          i32.const 1
+    #|        else
+    #|          i32.const 0
+    #|        end
+    #|        if (type $pair)
+    #|          br 2
+    #|        else
+    #|          local.get 2
+    #|          f64.const 2.5
+    #|          return
+    #|        end
+    #|      end
+    #|      drop
+    #|      drop
+    #|      unreachable
+    #|    end))
+  let optimized = match
+    pass_test_run_pipeline(input, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected post-OI typed-loop DCE success, got \{err}")
+  }
+
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
+  match body {
+    [@lib.Unreachable] =>
+      fail(
+        "DCE replaced the reachable typed loop with unconditional unreachable",
+      )
+    _ => ()
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("loop"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("(br "), msg=pretty)
+  assert_true(pretty.contains("F64(2.5)"), msg=pretty)
+}
