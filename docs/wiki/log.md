@@ -1,3 +1,8 @@
+### 2026-09-22 — Precompute allocation resource contract
+
+- [Precompute](binaryen/passes/precompute/index.md#allocation-resource-exhaustion-contract) may erase a successfully interpreted fresh GC allocation when only its computed Wasm result remains. Ordinary host allocation failure is outside the observable Wasm contract; defined traps and effects remain mandatory.
+- A valid two-function fixture was checked with `wasm-opt version 132`: `ref.is_null(array.new_default $a (i32.const 16))` folds to `i32.const 0`, while literal length `-1` retains `array.new_default` and `ref.is_null`. Direct and active-dispatcher regressions cover both public Precompute names and validate the output. The hypothesis did not reproduce as a semantic defect, so no pass implementation changed.
+
 ### 2026-09-22 — Flatten continuation target repair
 
 - Flatten now records every HOT continuation handler label in its immutable per-label user index. Result and loop routing reject those implicit-payload edges rather than voiding their target control type.

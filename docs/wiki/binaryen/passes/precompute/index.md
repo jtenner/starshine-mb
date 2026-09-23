@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-22
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/Precompute.cpp
+  - https://webassembly.github.io/gc/core/exec/instructions.html
   - binaryen-strategy.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_test.mbt
@@ -59,6 +60,38 @@ immutable array/struct reads including packed forms, and effect-preserving
 folds of constant-valued `local.tee` parents. The v130/v131 matrices and
 correctness boundaries remain historical; current renewal is owned by the v132
 upgrade record and the current fuzzing page.
+
+## Allocation resource-exhaustion contract
+
+Precompute may erase a fresh GC allocation after bounded interpretation proves
+the enclosing expression's Wasm result. Ordinary host allocation failure or
+process resource exhaustion is outside this optimizer equivalence contract: it
+is not a catchable result modeled by the Wasm GC allocation instructions, and
+Binaryen's v132 constant runner represents successful `StructNew`, `ArrayNew`,
+and `ArrayNewFixed` allocations as interpreter heap values before replacement.
+The [tagged v132 owner](https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/Precompute.cpp#L141-L190)
+contains those allocation visitors and only emits a replacement after the
+interpreter has rejected modeled effects, traps, and exceptions in the
+[replacement gate](https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/Precompute.cpp#L414-L475).
+
+This boundary does not permit erasing Wasm-defined traps or observable operand
+effects. Nullable descriptor construction, out-of-bounds data or element
+access, calls and writes in operands, atomic or synchronization effects, and
+other interpreter-visible failures remain part of correctness. An `i32` length
+with bit pattern `-1` denotes the unsigned length `2^32 - 1`; it is not a
+separate spec-defined negative-length trap. Binaryen and Starshine conservatively
+retain that expression when their bounded interpreters decline the enormous
+allocation. In particular, the verified `wasm-opt version 132` oracle for
+`ref.is_null(array.new_default $a (i32.const 16))` emits `i32.const 0`, while
+the same expression with literal length `-1` retains `array.new_default` and
+`ref.is_null`. The command used `--enable-reference-types --enable-gc
+--precompute --print` on one valid module containing both functions.
+
+Adjacent and active-dispatcher tests lock that exact finite-versus-negative
+boundary for both `precompute` and `precompute-propagate`. The investigation
+therefore found no semantic defect and made no pass implementation change;
+resource exhaustion cannot supply a stable runtime red test for a behavior the
+Wasm abstract execution and the v132 oracle do not expose.
 
 ## Role
 

@@ -4025,3 +4025,72 @@ test "HOT roundtrip preserves rust fannkuch loop-carried multiplication" {
     msg=@debug.to_string(body),
   )
 }
+
+///|
+test "precompute allocation resource boundary matches Binaryen 132" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let func_type = @lib.TypeIdx::new(1U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type, func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(16)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    )
+  for pass in ["precompute", "precompute-propagate"] {
+    let output = audit_run_module(input, pass)
+    match @validate.validate_module(output) {
+      Ok(_) => ()
+      Err(err) => fail("invalid allocation resource boundary output: \{err}")
+    }
+    let finite = audit_body(output)
+    let oversized = audit_body(output, index=1)
+    // Binaryen 132 erases a successfully interpreted finite allocation. Host
+    // resource exhaustion is outside the Wasm semantic result being preserved.
+    assert_eq(
+      audit_count(finite, fn(i) {
+        i is @lib.ArrayNewDefault(_) || i is @lib.RefIsNull
+      }),
+      0,
+    )
+    assert_eq(audit_count(finite, fn(i) { i is @lib.I32Const(@lib.I32(0)) }), 1)
+    // The -1 bit pattern denotes the enormous unsigned length 2^32 - 1. The
+    // bounded evaluator declines it, matching Binaryen 132's retained shape.
+    assert_eq(audit_count(oversized, fn(i) { i is @lib.ArrayNewDefault(_) }), 1)
+    assert_eq(audit_count(oversized, fn(i) { i is @lib.RefIsNull }), 1)
+  }
+}
