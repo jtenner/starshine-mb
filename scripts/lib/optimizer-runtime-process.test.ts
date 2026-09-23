@@ -9,7 +9,7 @@ import {
   compareRuntimeObservationsV2,
   type RuntimeInterfaceV1,
 } from "./optimizer-runtime";
-import { executeNodeObservationV2WithTimeout } from "./optimizer-runtime-executor";
+import { executeNodeObservationV2WithTimeout, nodeObservationArguments } from "./optimizer-runtime-executor";
 
 const runtimeInterface: RuntimeInterfaceV1 = {
   schema: "starshine.optimizer-runtime-interface.v1",
@@ -114,5 +114,25 @@ test("stack-switching configuration reaches Node and changes observation identit
   } finally {
     if (previous === undefined) delete process.env.STARSHINE_NODE_WASMFX;
     else process.env.STARSHINE_NODE_WASMFX = previous;
+  }
+});
+
+test("custom-descriptor configuration composes with stack switching and rejects other values", () => {
+  const previousWasmfx = process.env.STARSHINE_NODE_WASMFX;
+  const previousCustomDescriptors = process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS;
+  try {
+    process.env.STARSHINE_NODE_WASMFX = "1";
+    process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS = "1";
+    expect(nodeObservationArguments()).toEqual([
+      "--experimental-wasm-wasmfx",
+      "--experimental-wasm-custom-descriptors",
+    ]);
+    process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS = "enabled";
+    expect(() => nodeObservationArguments()).toThrow("STARSHINE_NODE_CUSTOM_DESCRIPTORS must be 0 or 1");
+  } finally {
+    if (previousWasmfx === undefined) delete process.env.STARSHINE_NODE_WASMFX;
+    else process.env.STARSHINE_NODE_WASMFX = previousWasmfx;
+    if (previousCustomDescriptors === undefined) delete process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS;
+    else process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS = previousCustomDescriptors;
   }
 });

@@ -868,6 +868,33 @@ test("configured Node supports a continuation type in a terminating module", asy
   }
 });
 
+test("configured Node executes the saved exact-reference Binaryen output", async () => {
+  const original = compileWat(`(module (func (export "run") (result i32) i32.const 22289))`);
+  const exactOutputPath = path.join(original.dir, "binaryen-exact-ref.wasm");
+  fs.writeFileSync(exactOutputPath, Buffer.from(
+    "0061736d0100000001170450005f017f015001005f027f017f016000017f5e7f01030201020707010372756e00000a2d012b03016300016303016401014193bb0141abe300fb0001fb16620122024191ae01fb0501012002fb0201010b",
+    "hex",
+  ));
+  const runtimeInterface = buildRuntimeInterfaceFromWasm(original.wasmPath);
+  const plan = buildInvocationPlanV2(runtimeInterface, { seed: 0x5f0an, maxPairwise: 0 });
+  const previous = process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS;
+  try {
+    process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS = "1";
+    const observation = await executeNodeObservationV2WithTimeout(exactOutputPath, runtimeInterface, plan, {
+      mode: "independent", timeoutMs: 1000, memoryCapBytes: 1024, tableEntryCap: 16,
+    });
+    expect(observation.compilation).toEqual({ status: "succeeded" });
+    expect(observation.instantiation).toEqual({ status: "succeeded" });
+    expect(observation.completeness).toBe("complete");
+    expect(observation.runtime.identity).toContain(":config:");
+    expect(observation.steps.find((step) => step.exportName === "run")?.outcome)
+      .toMatchObject({ kind: "returned", values: [{ type: "i32", signed: 22289, bits: "0x00005711" }] });
+  } finally {
+    if (previous === undefined) delete process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS;
+    else process.env.STARSHINE_NODE_CUSTOM_DESCRIPTORS = previous;
+  }
+});
+
 test("exnref exports compile but report the explicit JavaScript crossing boundary", async () => {
   const { wasmPath } = compileWat(`(module
     (func (export "take") (param exnref)))`);

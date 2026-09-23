@@ -1,3 +1,9 @@
+### 2026-09-23 — Exact-reference Node runtime configuration
+
+- The Node v2 semantic worker now accepts the opt-in `STARSHINE_NODE_CUSTOM_DESCRIPTORS=1` setting and forwards `--experimental-wasm-custom-descriptors`. Selected Node arguments continue to enter the configured runtime identity, semantic cache key, and resume manifest; `0` or an unset variable keeps default Node behavior, and other values fail closed.
+- A red-first regression embeds the exact 93-byte verified Binaryen v132 artifact from retained seven-pass case 29. Default Node v26.10.0 rejected its exact heap type; the configured worker now compiles and instantiates it and observes `run()` returning i32 `22289` (`0x00005711`). Exact replay of the saved original and both optimizer outputs is complete and `all-equal`, with no imported or exported state.
+- The structural result is mixed: Starshine emits 94 raw bytes against Binaryen's 93, while canonical local regrouping reduces Starshine to 91 bytes and leaves Binaryen at 93. Binaryen keeps one exact cast in a non-null subtype local and reuses it; Starshine uses a nullable supertype local and repeats the ordinary cast. The fresh-allocation provenance makes both casts succeed in this fixture, but the one-byte emitted-size gap remains visible rather than being hidden by the two-byte canonical advantage.
+
 ### 2026-09-23 — Mixed-width atomic target observation
 
 - The bounded two-worker lane now has an executable mixed memory32/memory64 target-selection fixture. Two sequentially consistent `i32.atomic.rmw.add` operations select imported memory64 at index `1`; observations require memory32 to remain `0`, memory64 to become `2`, and returned old values to be `(0, 1)` or `(1, 0)` in either worker order.

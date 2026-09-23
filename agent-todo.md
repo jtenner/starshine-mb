@@ -503,6 +503,12 @@
   one RemoveUnusedBrs multi-function, and one constraint-loop case. Targeted
   bounded replays are active for the size-losing families. Do not infer
   semantic safety from size, validation, or instantiation-only observations.
+  Retained case 29 is now a complete three-way semantic match under opt-in Node
+  custom descriptors: every exact artifact returns i32 `22289`, with no state.
+  Its size classification remains mixed and visible: Starshine is 94 bytes raw
+  versus Binaryen's 93, but 91 canonical bytes versus 93. Binaryen reuses one
+  exact-cast result; Starshine repeats a provably successful ordinary cast and
+  wins only after canonical local regrouping.
 - [ ] Reduce the 128 EH/Vacuum structural differences in the existing 256-case
   campaign, alongside the dedicated Vacuum backlog slice below.
 

@@ -3267,7 +3267,7 @@ contract is `node-v2-named-globals-v4`; red/green evidence is in
 `named-global-red.log` and `named-global-green.log`. This changes the fallback
 interface extractor, not optimizer behavior or the native interface emitter.
 
-#### Explicit Node stack-switching configuration
+#### Explicit Node proposal configuration
 
 Set `STARSHINE_NODE_WASMFX=1` for the Node v2 observation worker to receive
 `--experimental-wasm-wasmfx`; unset it or use `0` for the default configuration.
@@ -3287,6 +3287,21 @@ All 102 selected harness tests pass. Logs: `node-config-red.log`,
 missing configuration path; it does not claim that all continuation operations
 or the five saved blocked observations have passed. Engine capability and
 per-case outcomes remain separate from configuration support.
+
+Set `STARSHINE_NODE_CUSTOM_DESCRIPTORS=1` to pass
+`--experimental-wasm-custom-descriptors` to the same worker; unset it or use
+`0` to retain Node's default feature set. The two proposal flags compose, and
+the custom-descriptor setting follows the same strict `0`/`1` validation and
+configured-runtime identity hashing. This path is opt-in because custom
+descriptors remain an active proposal and runtime availability can change.
+
+The executable regression embeds the exact 93-byte Binaryen v132 output from
+saved seven-pass case 29. Default Node v26.10.0 rejects its exact `ref.cast`;
+the configured worker compiles and instantiates it, calls the zero-parameter
+`run` export once, and returns i32 `22289` (`0x00005711`). Replaying the saved
+original, 94-byte raw Starshine output, and 93-byte raw Binaryen output produces
+a complete three-way `all-equal` observation with no exported state. This is
+evidence for that exact fixture, not broad custom-descriptor conformance.
 
 #### Definite outcomes beside blocked observation surfaces
 
