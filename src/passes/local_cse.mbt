@@ -985,7 +985,16 @@ fn lcse_raw_instr_is_atomic(instr : @lib.Instruction) -> Bool {
     | @lib.Instruction::AtomicCmpxchg(_, _, _)
     | @lib.Instruction::StructAtomicGet(_, _, _)
     | @lib.Instruction::StructAtomicGetS(_, _, _)
-    | @lib.Instruction::StructAtomicGetU(_, _, _) => true
+    | @lib.Instruction::StructAtomicGetU(_, _, _)
+    | @lib.Instruction::StructAtomicSet(_, _, _)
+    | @lib.Instruction::StructAtomicRmw(_, _, _, _)
+    | @lib.Instruction::StructAtomicCmpxchg(_, _, _)
+    | @lib.Instruction::ArrayAtomicGet(_, _)
+    | @lib.Instruction::ArrayAtomicGetS(_, _)
+    | @lib.Instruction::ArrayAtomicGetU(_, _)
+    | @lib.Instruction::ArrayAtomicSet(_, _)
+    | @lib.Instruction::ArrayAtomicRmw(_, _, _)
+    | @lib.Instruction::ArrayAtomicCmpxchg(_, _) => true
     _ => false
   }
 }
@@ -2204,6 +2213,7 @@ fn lcse_raw_scan_nested_repeats(
         lcse_raw_filter_active_without_memory(exprs, active)
       @lib.StructSet(_, _)
       | @lib.ArraySet(_)
+      | @lib.ArrayStore(_, _, _)
       | @lib.ArrayFill(_)
       | @lib.ArrayCopy(_, _)
       | @lib.ArrayInitData(_, _)
@@ -2518,6 +2528,7 @@ fn lcse_raw_rewrite_instrs(
         lcse_raw_filter_active_without_memory(exprs, active)
       @lib.Instruction::StructSet(_, _)
       | @lib.Instruction::ArraySet(_)
+      | @lib.Instruction::ArrayStore(_, _, _)
       | @lib.Instruction::ArrayFill(_)
       | @lib.Instruction::ArrayCopy(_, _)
       | @lib.Instruction::ArrayInitData(_, _)
