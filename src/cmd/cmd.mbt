@@ -3330,6 +3330,63 @@ test "explicit vacuum dispatches residual parity cleanup through cmd" {
 }
 
 ///|
+test "explicit vacuum dispatch removes null throw_ref try_table wrappers" {
+  let wat =
+    #|(module
+    #|  (func
+    #|    block (result exnref)
+    #|      try_table (result exnref) (catch_all_ref 0)
+    #|        ref.null exn
+    #|        throw_ref
+    #|      end
+    #|    end
+    #|    drop)
+    #|  (func
+    #|    block
+    #|      try_table (catch_all 0)
+    #|        ref.null exn
+    #|        throw_ref
+    #|      end
+    #|    end))
+    #|
+  let input = match
+    @wast.wast_to_binary_module(wat, filename="vacuum-null-throw-ref-cmd.wat") {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected cmd null throw_ref fixture parse success, got \{err}")
+  }
+  let optimized = match
+    optimize_module_with_pass_flags(input, ["vacuum"], OptimizeOptions::new()) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected explicit cmd null throw_ref vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected cmd null throw_ref output to validate: \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(_, @lib.Expr([@lib.RefNull(_), @lib.ThrowRef])),
+          @lib.Func(_, @lib.Expr([@lib.RefNull(_), @lib.ThrowRef])),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected cmd vacuum to expose both bare null throw_ref traps, got \{@debug.to_string(other)}",
+      )
+  }
+  let encoded = match @binary.encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected cmd null throw_ref output to encode: \{err}")
+  }
+  assert_eq(encoded.length(), 34)
+}
+
+///|
 test "Binaryen 132 dae2 dispatch removes a result forwarded to an unused parameter" {
   let source =
     #|(module

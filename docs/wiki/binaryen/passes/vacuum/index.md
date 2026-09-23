@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-23
 sources:
   - binaryen-strategy.md
   - ../../../../../src/passes/optimize.mbt
@@ -58,6 +58,23 @@ parity closure or runtime proof from this generated lane. The compare took
 
 This is a narrow encoding-correctness fix. It does not close the separate Dewdrop
 runtime failures in SimplifyLocals, OptimizeCasts, or Heap2Local.
+
+## Static-null `throw_ref` EH cleanup
+
+A bounded 256-case Binaryen 132 EH campaign exposed two repeated size-losing
+families. Starshine retained result and void owner blocks around `try_table`
+regions whose entire protected body was `ref.null exn; throw_ref`. The null
+operand always traps and cannot reach any exception catch, so Vacuum now keeps
+the two opcodes in order while removing the unobservable catch and block wrappers.
+The rule is exact: a dynamically nullable operand remains protected because a
+nonnull value can throw a catchable exception.
+
+Saved cases `000003` and `000006` each move from 48 versus 38 canonical bytes to
+byte-identical 38-byte outputs under the verified v132 oracle. The same campaign's
+other mismatch layouts remain documented size wins: one byte from retaining a
+valid nullable owner result type and three bytes from deleting a pure dropped
+multivalue dispatch. See the [fuzzing dossier](fuzzing.md) for the complete
+classification and oracle hashes.
 
 ## Role
 

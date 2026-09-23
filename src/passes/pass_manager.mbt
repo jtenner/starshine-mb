@@ -62429,6 +62429,18 @@ fn run_hot_pipeline_raw_vacuum_body_can_flatten_no_throw_exception_region(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_body_is_static_null_throw_ref_trap(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  // A null throw_ref traps before it can raise a catchable exception, so an
+  // enclosing try_table and transparent block cannot observe this exact body.
+  match body {
+    [@lib.RefNull(_), @lib.ThrowRef] => true
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_try_table_catches_all_target_owner(
   catches : Array[@lib.Catch],
 ) -> Bool {
@@ -62476,7 +62488,8 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region
           return true
         }
       @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
+        if run_hot_pipeline_raw_vacuum_body_is_static_null_throw_ref_trap(body) ||
+          run_hot_pipeline_raw_vacuum_instrs_have_flattenable_no_throw_exception_region(
             body,
           ) {
           return true
@@ -64330,6 +64343,14 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             changed = true
             idx = idx + 1
           }
+          _ if run_hot_pipeline_raw_vacuum_body_is_static_null_throw_ref_trap(
+              next_body,
+            ) => {
+            for next_instr in next_body {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
           _ =>
             rewritten.push(
               @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
@@ -64407,13 +64428,22 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           body, module_ctx,
         )
         changed = changed || body_changed
-        rewritten.push(
-          @lib.Instruction::try_table(
-            block_type,
-            catches,
-            @lib.Expr::new(next_body),
-          ),
-        )
+        if run_hot_pipeline_raw_vacuum_body_is_static_null_throw_ref_trap(
+            next_body,
+          ) {
+          for next_instr in next_body {
+            rewritten.push(next_instr)
+          }
+          changed = true
+        } else {
+          rewritten.push(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            ),
+          )
+        }
       }
       @lib.If(block_type, then_body, else_body) => {
         let (next_then, then_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
@@ -64689,6 +64719,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         | @lib.Return
         | @lib.ReturnCall(_)
         | @lib.ReturnCallRef(_)
+        | @lib.ThrowRef
         | @lib.Br(_)
         | @lib.BrTable(_, _) => false
         _ => true

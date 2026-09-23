@@ -942,6 +942,88 @@ test "vacuum flattens owner-targeted try tables whose bodies cannot throw" {
 }
 
 ///|
+test "vacuum removes try_table wrappers around statically null throw_ref traps" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func
+        #|    block (result exnref)
+        #|      try_table (result exnref) (catch_all_ref 0)
+        #|        ref.null exn
+        #|        throw_ref
+        #|      end
+        #|    end
+        #|    drop)
+        #|  (func
+        #|    block
+        #|      try_table (catch_all 0)
+        #|        ref.null exn
+        #|        throw_ref
+        #|      end
+        #|    end))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected null throw_ref vacuum cleanup success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected null throw_ref vacuum output to validate: \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(_, @lib.Expr([@lib.RefNull(_), @lib.ThrowRef])),
+          @lib.Func(_, @lib.Expr([@lib.RefNull(_), @lib.ThrowRef])),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected both null throw_ref traps without block or try_table wrappers, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum retains try_table around dynamically nullable throw_ref" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param exnref)
+        #|    block
+        #|      try_table (catch_all 0)
+        #|        local.get 0
+        #|        throw_ref
+        #|      end
+        #|    end))
+        #|,
+      ),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dynamic throw_ref vacuum boundary success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected dynamic throw_ref vacuum output to validate: \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("throw_ref"), msg=pretty)
+}
+
+///|
 test "vacuum cleans legacy catch bodies without flattening throwing tries" {
   let optimized = match
     pass_test_run_pipeline(

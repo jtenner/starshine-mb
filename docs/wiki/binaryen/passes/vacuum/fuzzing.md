@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-23
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -10,6 +10,37 @@ sources:
 # `vacuum` Fuzzing Profile
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 23 Binaryen 132 EH structural campaign
+
+The saved, bounded `campaign-eh-control` run in
+`.tmp/pass-fuzz-campaign-eh-control-vacuum-256/` contains 256 cases: 128
+canonical matches and 128 structural mismatches. The mismatches repeat as 32
+instances each at case indices modulo eight `1`, `3`, `6`, and `7`. No new fuzz
+run was needed for this classification. The oracle is `wasm-opt version 132
+(version_132-100-gfbf2e5aa2)`, SHA-256
+`500201b4d13ccc3a61fa5254073e75a138bc57be198bd6c18c5a9562c081ad18`.
+
+Layouts `1` and `7` are measured Starshine wins. Layout `1` keeps the nullable
+`exnref` result type on a `catch_ref` owner block where Binaryen refines it to
+non-null `(ref exn)`; Starshine is one canonical byte smaller. Layout `7`
+deletes a pure multivalue `br_table` computation whose results are both dropped,
+while Binaryen retains three locals and a `nop`; Starshine is three canonical
+bytes smaller.
+
+Layouts `3` and `6` were size-losing parity gaps. Both protected bodies reduce
+to exact `ref.null exn; throw_ref`. A null `throw_ref` traps before it can raise a
+catchable exception, so neither `catch_all_ref` nor `catch_all` can run. Vacuum
+now unwraps only this exact two-instruction body, removes its transparent
+`try_table` and owner block, and preserves the two trapping opcodes in order.
+A dynamically nullable `local.get; throw_ref` remains wrapped because a non-null
+operand can raise a catchable exception. Before the fix each saved representative
+was 48 canonical bytes versus Binaryen's 38. After the fix, direct replay of cases
+`000003` and `000006` canonicalizes to 38 bytes and SHA-256
+`874aa7272053b3faf46b5e3deb19937f841333326e8348559a189d911608b4b9`, byte-identical
+to the saved v132 outputs. Both fixed outputs validate with wasm-tools and
+Binaryen. Adjacent pass and active command-dispatch tests lock the exact IR and
+the 34-byte combined two-function fixture.
 
 ## September 11 Binaryen 132 continuation renewal
 
