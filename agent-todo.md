@@ -282,7 +282,13 @@
     and segment lifetime before writes. Valid direct and active-dispatcher
     fixtures kept ordered copy/fill/copy output and validation; both were green
     before any behavior change. No concurrent fuzzing or litmus sweep ran.
-65. [ ] Check fresh-object Heap Store Optimization atomic ordering at publication.
+65. [x] Heap Store Optimization now folds only `Relaxed` stores into fresh
+    shared-object constructors and retains `AcqRel`/`SeqCst` atomic stores
+    (`702852330`). Their release/SC event may synchronize after publication;
+    constructor data preserves the value but not that event. Valid direct and
+    dispatcher fixtures were red then green; Relaxed still folds. Verified
+    Binaryen v132 deletes the ordered store, so this is a documented Starshine
+    correctness win. `moon fmt` and `moon info` passed; no fuzzing ran.
 66. [x] Precompute allocation resource boundary is documented and guarded
     (`113dd13f1`). Verified Binaryen v132 erases a finite fresh allocation
     whose ordinary result is known, while retaining an enormous unsigned
