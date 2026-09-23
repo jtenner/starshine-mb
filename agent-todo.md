@@ -385,11 +385,15 @@
     68/68. Exact saved cases 259 and 367 now validate and return `[0, 2.5]`
     for `run(0)`, matching their original modules instead of trapping. Prior
     typed-control voidification tests remain green. No fuzz campaign ran.
-74. [ ] Saved seven-pass SIMD case 16 has false positive call, atomic, and
-    memory-effect coverage facts despite a pure SIMD/numeric input. The
-    feature scanner appears to interpret opcode-like immediate bytes as
-    instructions. Add a valid-byte red regression with true-opcode controls,
-    correct the scan, and verify the reported facts without a fuzz campaign.
+74. [x] The effect/trap scanner now skips valid modules without code, decodes
+    typed-reference locals and reference calls, and consumes SIMD immediates
+    before classifying executable opcodes (`b483df078`). Valid-byte tests
+    failed first for saved SIMD, data-only, typed-local, and call-ref shapes,
+    then passed. Saved case 16 now has empty facts; all 38 data-only overlap
+    inputs have empty facts; all 28 call-topology inputs report calls without
+    false unreachable facts. Focused compare-task tests passed 78/78. The
+    scanner remains a bounded triage decoder, not a full Wasm validator; no
+    fuzz campaign ran.
 75. [ ] The saved random-all campaign selected GC/ref/subtypes only with odd
     case seeds and segment-state only with even seeds, leaving half of each
     generator's variant branches untested. Add a bounded deterministic
