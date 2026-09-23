@@ -215,7 +215,18 @@ Starshine validation failures**, and 167 Binaryen command failures. The
 oracle failures were 112 `try_table` sent-type cases and 55
 `call.without.effects` intrinsic cases; a saved intrinsic case also fails when
 run directly through the official v133 binary. The remaining mismatches include
-86 Starshine canonical size losses and require further pass-local analysis.
+86 Starshine canonical size losses. Every one of those 86 came from a
+`remove-unused-brs-*` GenValid profile; a saved example differs in a
+preexisting block/local representation with no shared-object rewrite. The
+shared-object-specific output differences still require semantic and size
+analysis.
+
+Three more 256-case Node-v2 replays checked tail-call, closed-world GTO, and
+intrinsic lowering. Each had 246 equal three-way outcomes, 10 runtime-blocked
+cases, and zero observed semantic mismatches. The same 10 unsupported cases
+arose from the shared random-all-profiles generator mix. These samples do not
+settle GTO's broad field/type-pruning parity gap or the shared-object
+representation differences.
 
 The `i64-to-i32-lowering` compare-pass lane cannot provide ordinary parity
 evidence with random GenValid modules: the released Binaryen pass expects
