@@ -12,11 +12,11 @@ const THREAD_SOURCE = String.raw`
   const { parentPort, workerData } = require("node:worker_threads");
   (async () => {
     try {
-      const imports = {
-        [workerData.memoryModule]: {
-          [workerData.memoryField]: workerData.memory,
-        },
-      };
+      const imports = {};
+      for (const entry of workerData.memoryImports) {
+        imports[entry.module] ??= {};
+        imports[entry.module][entry.field] = entry.memory;
+      }
       const instance = await WebAssembly.instantiate(workerData.module, imports);
       const run = instance.exports[workerData.exportName];
       if (typeof run !== "function") throw new Error("missing i32 litmus function export " + workerData.exportName);
@@ -41,11 +41,12 @@ async function executeTrial(
   spec: AtomicLitmusSpecV1,
   trial: number,
 ): Promise<AtomicLitmusObservationV1> {
-  const memory = new WebAssembly.Memory({
-    initial: spec.memoryImport.initial,
-    maximum: spec.memoryImport.maximum,
+  const memoryImports = [spec.memoryImport, ...(spec.additionalMemoryImports ?? [])];
+  const memories = memoryImports.map((memoryImport) => new WebAssembly.Memory({
+    initial: memoryImport.initial,
+    maximum: memoryImport.maximum,
     shared: true,
-  });
+  }));
   const gate = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
   const gateView = new Int32Array(gate);
   const workers: Worker[] = [];
@@ -65,13 +66,15 @@ async function executeTrial(
           eval: true,
           workerData: {
             module,
-            memory,
+            memoryImports: memoryImports.map((memoryImport, index) => ({
+              module: memoryImport.module,
+              field: memoryImport.field,
+              memory: memories[index],
+            })),
             gate,
             workerIndex,
             exportName: spec.exportName,
             arguments: spec.workerArguments[workerIndex],
-            memoryModule: spec.memoryImport.module,
-            memoryField: spec.memoryImport.field,
           },
         });
         workers.push(worker);
@@ -99,7 +102,7 @@ async function executeTrial(
         });
       }
     });
-    const memoryView = new Int32Array(memory.buffer);
+    const memoryView = new Int32Array(memories[0].buffer);
     return {
       trial,
       threadResults: results,

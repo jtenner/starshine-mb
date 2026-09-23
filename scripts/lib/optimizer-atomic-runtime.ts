@@ -15,18 +15,21 @@ export type AtomicLitmusObservationV1 = AtomicLitmusOutcomeV1 & {
   trial: number;
 };
 
+export type AtomicLitmusMemoryImportV1 = {
+  module: string;
+  field: string;
+  initial: number;
+  maximum: number;
+};
+
 export type AtomicLitmusSpecV1 = {
   schema: "starshine.optimizer-atomic-litmus.v1";
   id: string;
   workerCount: 2;
   exportName: string;
   workerArguments: [number[], number[]];
-  memoryImport: {
-    module: string;
-    field: string;
-    initial: number;
-    maximum: number;
-  };
+  memoryImport: AtomicLitmusMemoryImportV1;
+  additionalMemoryImports?: AtomicLitmusMemoryImportV1[];
   observedI32Offsets: number[];
   trials: number;
   allowedOutcomes: AtomicLitmusOutcomeV1[];
@@ -88,17 +91,26 @@ export function validateAtomicLitmusSpecV1(spec: AtomicLitmusSpecV1): void {
   if (spec.workerArguments.length !== spec.workerCount || spec.workerArguments.some((args) => args.length > 8 || !args.every(isI32))) {
     throw new Error("atomic litmus worker arguments must be bounded signed i32 vectors");
   }
-  const memory = spec.memoryImport;
-  if (
-    !Number.isInteger(memory.initial) || !Number.isInteger(memory.maximum) ||
-    memory.initial < 1 || memory.maximum < memory.initial || memory.maximum > 16
-  ) {
-    throw new Error("atomic litmus shared memory requires valid limits of at most 16 pages");
+  const memories = [spec.memoryImport, ...(spec.additionalMemoryImports ?? [])];
+  if (memories.length > 4) {
+    throw new Error("atomic litmus supports at most four shared memory imports");
+  }
+  for (const memory of memories) {
+    if (
+      memory.module.length === 0 || memory.field.length === 0 ||
+      !Number.isInteger(memory.initial) || !Number.isInteger(memory.maximum) ||
+      memory.initial < 1 || memory.maximum < memory.initial || memory.maximum > 16
+    ) {
+      throw new Error("atomic litmus shared memory imports require names and valid limits of at most 16 pages");
+    }
+  }
+  if (new Set(memories.map((memory) => `${memory.module}\0${memory.field}`)).size !== memories.length) {
+    throw new Error("atomic litmus shared memory import names must be unique");
   }
   if (spec.observedI32Offsets.length < 1 || spec.observedI32Offsets.length > 16) {
     throw new Error("atomic litmus must observe between 1 and 16 i32 locations");
   }
-  const byteLength = memory.initial * 64 * 1024;
+  const byteLength = spec.memoryImport.initial * 64 * 1024;
   if (spec.observedI32Offsets.some((offset) => !Number.isInteger(offset) || offset < 0 || offset % 4 !== 0 || offset + 4 > byteLength)) {
     throw new Error("atomic litmus i32 observation offsets must be aligned and inside the initial memory");
   }

@@ -68,6 +68,24 @@ const CMPXCHG_SPEC: AtomicLitmusSpecV1 = {
   ],
 };
 
+const MULTI_MEMORY_RMW_SPEC: AtomicLitmusSpecV1 = {
+  schema: "starshine.optimizer-atomic-litmus.v1",
+  id: "i32-rmw-add-selected-second-memory",
+  workerCount: 2,
+  exportName: "run",
+  workerArguments: [[0], [1]],
+  memoryImport: { module: "env", field: "memory0", initial: 1, maximum: 1 },
+  additionalMemoryImports: [
+    { module: "env", field: "memory1", initial: 1, maximum: 1 },
+  ],
+  observedI32Offsets: [0],
+  trials: 2,
+  allowedOutcomes: [
+    { threadResults: [0, 1], memoryI32: [0] },
+    { threadResults: [1, 0], memoryI32: [0] },
+  ],
+};
+
 describe("atomic allowed-outcome comparison", () => {
   test("rejects unbounded trial and shared-memory specifications", () => {
     expect(() => validateAtomicLitmusSpecV1({ ...RMW_ADD_SPEC, trials: 9 })).toThrow("between 1 and 8");
@@ -75,6 +93,19 @@ describe("atomic allowed-outcome comparison", () => {
       ...RMW_ADD_SPEC,
       memoryImport: { ...RMW_ADD_SPEC.memoryImport, maximum: 17 },
     })).toThrow("at most 16 pages");
+    expect(() => validateAtomicLitmusSpecV1({
+      ...RMW_ADD_SPEC,
+      additionalMemoryImports: Array.from({ length: 4 }, (_, index) => ({
+        module: "env",
+        field: `memory${index + 1}`,
+        initial: 1,
+        maximum: 1,
+      })),
+    })).toThrow("at most four");
+    expect(() => validateAtomicLitmusSpecV1({
+      ...RMW_ADD_SPEC,
+      additionalMemoryImports: [{ ...RMW_ADD_SPEC.memoryImport }],
+    })).toThrow("must be unique");
   });
 
   test("accepts different allowed schedules without requiring exact replay", () => {
@@ -185,5 +216,36 @@ describe("atomic allowed-outcome comparison", () => {
     expect(report.candidate.status).toBe("complete");
     expect(report.comparison.classification).toBe("semantic-mismatch");
     expect(report.comparison.firstDisallowedOutcome?.memoryI32).toEqual([3]);
+  });
+
+  test("observes atomic selection of a nonzero imported shared memory", async () => {
+    const original = compileWat(`(module
+      (import "env" "memory0" (memory $memory0 1 1 shared))
+      (import "env" "memory1" (memory $memory1 1 1 shared))
+      (func (export "run") (param i32) (result i32)
+        i32.const 0
+        i32.const 1
+        i32.atomic.rmw.add $memory1))`);
+    const wrong = compileWat(`(module
+      (import "env" "memory0" (memory $memory0 1 1 shared))
+      (import "env" "memory1" (memory $memory1 1 1 shared))
+      (func (export "run") (param i32) (result i32)
+        i32.const 0
+        i32.const 1
+        i32.atomic.rmw.add $memory0))`);
+
+    const report = await runNodeAtomicLitmusComparisonV1(
+      original,
+      wrong,
+      MULTI_MEMORY_RMW_SPEC,
+      { timeoutMs: 3000 },
+    );
+
+    expect(report.original.status).toBe("complete");
+    expect(report.original.observations).toHaveLength(2);
+    expect(report.original.observations.every((outcome) => outcome.memoryI32[0] === 0)).toBe(true);
+    expect(report.candidate.status).toBe("complete");
+    expect(report.comparison.classification).toBe("semantic-mismatch");
+    expect(report.comparison.firstDisallowedOutcome?.memoryI32).toEqual([2]);
   });
 });

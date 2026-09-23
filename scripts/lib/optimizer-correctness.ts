@@ -839,6 +839,7 @@ export {
   validateAtomicLitmusSpecV1,
   type AtomicLitmusComparisonReportV1,
   type AtomicLitmusExecutionV1,
+  type AtomicLitmusMemoryImportV1,
   type AtomicLitmusObservationV1,
   type AtomicLitmusOutcomeComparisonV1,
   type AtomicLitmusOutcomeV1,
