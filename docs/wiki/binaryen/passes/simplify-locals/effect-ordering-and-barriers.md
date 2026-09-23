@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-19
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
   - ../../../../../src/passes/simplify_locals_dew_conditional_order_test.mbt
+  - ../../../../../src/passes/simplify_locals_continuation_handler_test.mbt
+  - ../../../../../src/cmd/simplify_locals_continuation_handler_wbtest.mbt
   - ../../../../../src/ir/hot_builders.mbt
 related:
   - ./index.md
@@ -113,6 +115,7 @@ generated gates and whole-pipeline speed selection remain open.
   - early terminators
   - nonlinear control merges
   - structured barriers on the raw lane
+- Continuation `resume` handlers with `on_label` targets are exits too. Structure-result lifting must keep a preceding local write before a handler that can leave the rewritten region; otherwise the handler path skips the rehomed write and observes the local's old value. The HOT legality checks use stable targets from `hot_continuation_targets`, including targets that are outside the candidate subtree.
 
 ### 6. Sibling Evaluation Order
 

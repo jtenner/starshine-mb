@@ -1948,6 +1948,11 @@ fn simplify_locals_subtree_can_exit_before_fallthrough(
         return true
       }
     }
+    for label in @ir.hot_continuation_targets(func, node_id) {
+      if !labels.contains(label) {
+        return true
+      }
+    }
     let label = if @ir.hot_node_kind_is_control(func, node_id) {
       @ir.hot_control_node_label(func, node_id)
     } else {
@@ -2614,6 +2619,8 @@ fn simplify_locals_node_targets_label(
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
+    @ir.HotOp::Continuation =>
+      @ir.hot_continuation_targets(func, node_id).contains(label_id)
     @ir.HotOp::BrTable =>
       if @ir.hot_branch_table_default_target(func, node.imm0) == label_id {
         true
