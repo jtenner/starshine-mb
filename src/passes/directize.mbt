@@ -50,6 +50,8 @@ priv struct DirectizeFuncContext {
   base_local_count : Int
   locals : @lib.Locals
   extra_locals : Array[@lib.ValType]
+  original_label_count : Array[Int]
+  inserted_label_before : Array[Int]
 }
 
 ///|
@@ -1368,6 +1370,7 @@ fn directize_apply_select_rewrite(
   } else {
     directize_blocktype_for_results(rewrite.results, ctx.info)
   }
+  ctx.inserted_label_before.push(ctx.original_label_count[0])
   out.push(
     @lib.Instruction::if_(
       block_type,
@@ -1575,6 +1578,15 @@ fn directize_rewrite_instrs(
   let mut scan_start = 0
   let mut reset_scan_after_drop = false
   for instr in instrs {
+    match instr {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _) =>
+        ctx.original_label_count[0] = ctx.original_label_count[0] + 1
+      _ => ()
+    }
     let (current, nested_changed) = directize_rewrite_nested_instr(instr, ctx)
     if nested_changed {
       changed = true
@@ -1637,6 +1649,8 @@ fn directize_context_for_func(
             base_local_count: all_locals.length(),
             locals: all_locals,
             extra_locals: [],
+            original_label_count: [0],
+            inserted_label_before: [],
           }
         }
         Err(_) =>
@@ -1645,6 +1659,8 @@ fn directize_context_for_func(
             base_local_count: locals.length(),
             locals: locals.copy(),
             extra_locals: [],
+            original_label_count: [0],
+            inserted_label_before: [],
           }
       }
     None =>
@@ -1653,6 +1669,8 @@ fn directize_context_for_func(
         base_local_count: locals.length(),
         locals: locals.copy(),
         extra_locals: [],
+        original_label_count: [0],
+        inserted_label_before: [],
       }
   }
 }
@@ -1673,6 +1691,67 @@ fn directize_append_block_types(
     rec_types.push(rec_type)
   }
   mod_.with_type_sec(@lib.TypeSec::new(rec_types))
+}
+
+///|
+fn directize_remap_label_names(
+  mod_ : @lib.Module,
+  imported_funcs : Int,
+  insertions : Array[Array[Int]?],
+) -> @lib.Module {
+  let names = match mod_.name_sec {
+    Some(names) => names
+    None => return mod_
+  }
+  let label_names = match names.label_names {
+    Some(@lib.IndirectNameMap(entries)) => entries
+    None => return mod_
+  }
+  let rewritten : Array[@lib.IndirectNameAssoc] = []
+  let mut changed = false
+  for entry in label_names {
+    let @lib.IndirectNameAssoc(func_idx, @lib.NameMap(labels)) = entry
+    let code_idx = func_idx.reinterpret_as_int() - imported_funcs
+    match insertions.get(code_idx) {
+      Some(Some(positions)) if positions.length() > 0 => {
+        let remapped : Array[@lib.NameAssoc] = []
+        for label in labels {
+          let @lib.NameAssoc(old_idx, name) = label
+          let mut new_idx = old_idx
+          for position in positions {
+            if position <= old_idx.reinterpret_as_int() {
+              new_idx = new_idx + 1U
+            }
+          }
+          remapped.push(@lib.NameAssoc::new(new_idx, name))
+        }
+        rewritten.push(
+          @lib.IndirectNameAssoc::new(func_idx, @lib.NameMap::new(remapped)),
+        )
+        changed = true
+      }
+      _ => rewritten.push(entry)
+    }
+  }
+  if !changed {
+    return mod_
+  }
+  mod_.with_name_sec(
+    @lib.NameSec::new(
+      module_name=names.module_name,
+      func_names=names.func_names,
+      local_names=names.local_names,
+      label_names=Some(@lib.IndirectNameMap::new(rewritten)),
+      type_names=names.type_names,
+      table_names=names.table_names,
+      memory_names=names.memory_names,
+      global_names=names.global_names,
+      elem_names=names.elem_names,
+      data_names=names.data_names,
+      field_names=names.field_names,
+      tag_names=names.tag_names,
+    ),
+  )
 }
 
 ///|
@@ -1727,6 +1806,7 @@ fn directize_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   }
   let imported_funcs = directize_imported_func_count(mod_)
   let rewritten : Array[@lib.Func] = []
+  let label_insertions : Array[Array[Int]?] = Array::make(funcs.length(), None)
   let mut changed = false
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     let func = funcs[code_idx]
@@ -1743,6 +1823,9 @@ fn directize_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     let (next_body, func_changed) = directize_rewrite_instrs(body, ctx)
     if func_changed {
       changed = true
+      if ctx.inserted_label_before.length() > 0 {
+        label_insertions[code_idx] = Some(ctx.inserted_label_before)
+      }
       let next_locals = locals.copy()
       next_locals.append_types(ctx.extra_locals)
       rewritten.push(@lib.Func::new(next_locals, @lib.Expr::new(next_body)))
@@ -1751,10 +1834,11 @@ fn directize_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
   }
   if changed {
-    directize_append_block_types(
+    let next = directize_append_block_types(
       mod_.with_code_sec(@lib.CodeSec::new(rewritten)),
       info.extra_block_types,
     )
+    directize_remap_label_names(next, imported_funcs, label_insertions)
   } else {
     mod_
   }

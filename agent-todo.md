@@ -90,7 +90,10 @@
 29. [x] ReorderGlobals changes observable imported-global getter order
     (`e73420e80`); the import section keeps source order while defined globals
     still reorder and remap, with focused dispatcher and whitebox regressions.
-30. [ ] Directize synthesizes labels without remapping label-name metadata.
+30. [x] Directize synthesizes labels without remapping label-name metadata;
+    synthetic `if` insertions now shift later function-wide label-name indices.
+    Direct and dispatcher regressions failed before the fix and passed after;
+    both Directize test files, `moon fmt`, and `moon info` passed.
 31. [x] `no-inline*` annotation rebuild drops structured compiler facts.
     Both policy dispatch and clone annotation copying now preserve the
     compiler-fact custom section; adjacent focused tests were red then green

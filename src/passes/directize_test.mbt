@@ -92,6 +92,57 @@ test "directize lowers select of known targets to direct-call branches" {
 }
 
 ///|
+test "directize dispatcher remaps labels after synthetic select if" {
+  let wat =
+    #|(module
+    #|  (type (func (param i32) (result i32)))
+    #|  (table 2 funcref)
+    #|  (func $a (type 0) (param i32) (result i32) local.get 0)
+    #|  (func $b (type 0) (param i32) (result i32) local.get 0)
+    #|  (elem (i32.const 0) $a $b)
+    #|  (func (export "run") (param i32 i32) (result i32)
+    #|    block nop end
+    #|    local.get 0
+    #|    i32.const 0
+    #|    i32.const 1
+    #|    local.get 1
+    #|    select
+    #|    call_indirect (type 0)
+    #|    drop
+    #|    block (result i32) i32.const 5 end))
+  let input = pass_test_module_from_wat(wat).with_name_sec(
+    @lib.NameSec::new(
+      label_names=Some(
+        @lib.IndirectNameMap::new([
+          @lib.IndirectNameAssoc::new(
+            2U,
+            @lib.NameMap::new([
+              @lib.NameAssoc::new(0U, @lib.Name::from_string("before")),
+              @lib.NameAssoc::new(1U, @lib.Name::from_string("after")),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  )
+  let output = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["directize"]) {
+    Ok(module_) => module_
+    Err(err) => fail("expected directize dispatch, got \{err}")
+  }
+  match output.name_sec.unwrap().label_names {
+    Some(
+      @lib.IndirectNameMap([@lib.IndirectNameAssoc(_, @lib.NameMap(entries))])
+    ) => {
+      @debug.assert_eq(entries[0].0, 0U)
+      @debug.assert_eq(entries[1].0, 2U)
+    }
+    _ => fail("expected two named labels")
+  }
+  assert_true(@validate.validate_module(output) is Ok(_))
+}
+
+///|
 test "directize discovers long select argument and condition producers in one scan" {
   let depth = 128
   let source = StringBuilder::new()
