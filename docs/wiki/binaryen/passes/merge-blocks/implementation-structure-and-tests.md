@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ./index.md
@@ -12,6 +12,7 @@ sources:
   - ../../../../../src/passes/pass_common_wbtest.mbt
   - ../../../../../src/passes/merge_blocks.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
+  - ../../../../../src/cmd/merge_blocks_eh_carried_locals_wbtest.mbt
   - ../../../../../src/passes_perf_long/merge_blocks_perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -88,15 +89,28 @@ Primary owner:
 | pass-manager preclean | Recursively normalize direct and nested dropped self-branch payloads plus unused reference-catch payloads before lifting. |
 | pass-manager lowered cleanup | Refinalize all-null reference blocks, flatten scalar spill blocks, compact unused appended locals, and preserve valid stack order. |
 
-The September 2026 carried-local EH audit hypothesis did not reproduce.
-`merge_blocks_collect_local_write_sites` and
-`merge_blocks_collect_min_local_get_node_ids` both recurse through generic
-HOT children after their special cases (`merge_blocks.mbt:370-377,443-450`).
-The HOT `Try` and `TryTable` builders each attach body and catch regions as
-children (`hot_builders.mbt:938-983`), so those scans reach protected writes
-and reads. Valid legacy `try` and `try_table` adjacent and command-dispatch
-fixtures passed against unmodified production code; no behavior patch was
-needed for this audit item.
+The September 2026 carried-local EH audit hypothesis did not reproduce against
+the production collectors. `merge_blocks_collect_local_write_sites` and
+`merge_blocks_collect_min_local_get_node_ids` recurse through generic HOT
+children after their special cases (`merge_blocks.mbt:370-377,443-450`). The
+HOT `Try` and `TryTable` builders attach body and catch regions through region
+holder children (`hot_builders.mbt:938-983`), so those scans reach both forms.
+
+The durable fixtures keep a source-old `local.get` on the operand stack across
+an EH node that overwrites the same local, then consume the old value with
+`drop`. The legacy `try` fixture throws a valid zero-parameter tag and performs
+the write in its reached `catch_all`; the catchless `try_table` fixture performs
+the write in its protected body. Direct descriptor dispatch in
+`merge_blocks_test.mbt` and active command dispatch in
+`merge_blocks_eh_carried_locals_wbtest.mbt` both require the carrier block to
+remain and independently validate the input and output modules. A focused
+mutation that stopped both dependency collectors at `Try` and `TryTable`
+removed the carrier and made both layers fail their fail-closed shape check.
+The lowered mutation output still emitted `local.get` before the EH write in
+these reduced fixtures, so this is direct evidence that the tests reach the
+exact collector path rather than an independent runtime-corruption
+reproduction. Reverting the mutation makes both layers pass without a
+production behavior change.
 
 ## Shared-context complexity regression
 
@@ -115,6 +129,7 @@ Primary proof file:
 | Structural roots | Nested blocks, branch-free multi-root loops, loop/live-label negatives, typed carriers, multivalue/reference results, and unreachable suffixes. |
 | Dropped branches | Pure scalar and reference payloads, nested wrappers, dropped literal multivalue blocks, and effectful-value negative guards. |
 | Expression/effect order | `drop`, `if`, store, throw, direct calls, pure/disjoint predecessors, load/division, two trapping loads, table/division, atomic/division, local/global dependencies, and repeated candidates. |
+| EH carried locals | Valid reached legacy `catch_all` and catchless `try_table` writes crossed by a source-old stack-carried `local.get`; mutation-sensitive direct descriptor coverage. |
 | Official v131 fixtures | Checked-in main and atomic binaries plus direct EH-focused regressions; the atomic fixture is byte-identical. |
 | Lowered/writeback cleanup | Bottom-reference block results, scalar and type-indexed spill blocks, local compaction, and stack-safe multi-parameter calls. |
 | Ordered neighborhood | O4z post-`code-folding` block-exit cleanup and unused `catch_ref` / `catch_all_ref` payload removal. |
@@ -146,6 +161,7 @@ General atomic-order reasoning remains conservative in HOT. The exact official v
 | `src/passes/registry_test.mbt:64`, `189-190`, `206-207`, `214-215` | Active category, descriptor, and preset tests. |
 | `src/passes/optimize_test.mbt:382-403`, `407-428`, `469-512` | Repeated slot and `simplify-locals` handoff coverage. |
 | `src/cmd/cmd_wbtest.mbt:1959-1993` | Direct `--merge-blocks` CLI coverage. |
+| `src/cmd/merge_blocks_eh_carried_locals_wbtest.mbt` | Active command dispatcher preserves valid legacy `try` and `try_table` carried-local blocks. |
 
 ## Binaryen–Starshine boundary
 

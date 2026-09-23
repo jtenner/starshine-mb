@@ -2872,6 +2872,123 @@ test "merge-blocks lifts flat stack call operand prefixes reconstructed as block
 }
 
 ///|
+fn merge_blocks_eh_carried_local_fixture(kind : String) -> @lib.Module {
+  let protected_body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  ])
+  let eh = match kind {
+    "try" =>
+      @lib.Instruction::try_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([@lib.Instruction::throw_(@lib.TagIdx::new(0U))]),
+        [@lib.LegacyCatch::all(protected_body)],
+        delegate=None,
+      )
+    "try-table" =>
+      @lib.Instruction::try_table(@lib.BlockType::void_(), [], protected_body)
+    _ => abort("unknown merge-blocks EH fixture kind: \{kind}")
+  }
+  let carried = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      eh,
+      @lib.Instruction::drop(),
+    ]),
+  )
+  pass_test_module_from_wat("(module (func (local i32)))")
+  .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        @lib.Expr::new([carried]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn merge_blocks_assert_eh_carried_local_block(
+  output : @lib.Module,
+  kind : String,
+) -> Unit raise {
+  let body = match output.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => body
+    _ => abort("expected one merge-blocks EH fixture body")
+  }
+  match (kind, body) {
+    (
+      "try",
+      [
+        @lib.Block(
+          _,
+          @lib.Expr(
+            [@lib.LocalGet(@lib.LocalIdx(0U)), @lib.Try(_, _, _, _), @lib.Drop]
+          )
+        ),
+      ],
+    ) => ()
+    (
+      "try-table",
+      [
+        @lib.Block(
+          _,
+          @lib.Expr(
+            [
+              @lib.LocalGet(@lib.LocalIdx(0U)),
+              @lib.TryTable(_, [], _),
+              @lib.Drop,
+            ]
+          )
+        ),
+      ],
+    ) => ()
+    _ =>
+      fail(
+        "expected source-old local.get to stay inside its \{kind} write carrier block, got \{body}",
+      )
+  }
+}
+
+///|
+test "merge-blocks direct pass sees carried-local writes inside try and try-table" {
+  for kind in ["try", "try-table"] {
+    let input = merge_blocks_eh_carried_local_fixture(kind)
+    match @validate.validate_module(input) {
+      Ok(_) => ()
+      Err(err) => fail("expected valid \{kind} fixture, got \{err}")
+    }
+    let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+    let ctx = HotPassContext::new(
+      merge_blocks_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      HotPipelineVerifyPolicy::after_each_pass(),
+      false,
+      fn(_) { () },
+      module_ctx=Some(@ir.hot_module_context_from_module(input)),
+    )
+    match hot_pass_run(ctx, func) {
+      Ok(_) => ()
+      Err(err) => fail("expected direct \{kind} pass success, got \{err}")
+    }
+    match @ir.hot_verify_core(func) {
+      Ok(_) => ()
+      Err(err) => fail("expected valid \{kind} HOT output, got \{err}")
+    }
+    let output = input.with_code_sec(
+      @lib.CodeSec::new([@ir.hot_lower_func(func)]),
+    )
+    match @validate.validate_module(output) {
+      Ok(_) => ()
+      Err(err) => fail("expected valid lowered \{kind} output, got \{err}")
+    }
+    merge_blocks_assert_eh_carried_local_block(output, kind)
+  }
+}
+
+///|
 test "merge-blocks moves global writes across disjoint earlier memory effects like Binaryen" {
   let optimized = match
     pass_test_run_pipeline(
