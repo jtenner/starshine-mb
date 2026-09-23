@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-29
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - ../../../../../src/passes/reorder_globals.mbt
@@ -44,6 +44,7 @@ Use it as the quick answer to:
 - Owner SHA-256: `4b15caef4d7436e67efd1da90d1a53201e2acf029a686349f1dfd360d1a10194`.
 - Dedicated fixture SHA-256 values: `11703272b84aface8143a98544b9877be72062e5028cac79417f859445dc7c7d` for `reorder-globals.wast` and `52d0cfb47d008487f52fe1630eeb3e4484780dfc3a850948f92913d6ec63a70b` for `reorder-globals-real.wast`.
 - The 2026-07-29 source audit confirmed that Binaryen's global vector includes imports. Imports stay before definitions, but imported globals can reorder among themselves; this was the missing Starshine behavior.
+- The 2026-09-22 host-observability correction supersedes that behavior in Starshine: imported globals retain declaration order because host import resolution can run observable getters in that order. Imported globals still occupy the absolute index prefix and participate in traffic and dependency accounting, while eligible defined globals still reorder after the prefix.
 
 ## Upstream owner and helper map
 
@@ -149,9 +150,9 @@ Starshine now has a direct public-pass owner file for `reorder-globals`.
 
 | Local source | Current role |
 | --- | --- |
-| `src/passes/reorder_globals.mbt` | Active module-pass implementation: public `<128` cutoff, complete imported-plus-defined traffic counts, adjacency-list initializer dependencies, max-heap ready selection, dependency-free original-versus-greedy fast path, Binaryen-shaped candidate ordering, exact `0.095` exponential scoring, true ULEB-size selection, import/global declaration reorder, and numeric `GlobalIdx` remapping. |
-| `src/passes/reorder_globals_test.mbt` | Focused direct coverage for registry status, public cutoff, imported-only and mixed-import sorting, preservation of non-global import positions, 129-global reorder, dependency preservation, export/global-name remapping, and stale raw-name clearing. |
-| `src/passes/reorder_globals_wbtest.mbt` | White-box proof for ready-heap import/count/tie priority, zero/raw/summed/exponential candidate vectors, true-cost winner selection, and candidate tie stability. |
+| `src/passes/reorder_globals.mbt` | Active module-pass implementation: public `<128` cutoff, complete imported-plus-defined traffic counts, adjacency-list initializer dependencies, max-heap ready selection, dependency-free original-versus-greedy fast path, Binaryen-shaped candidate ordering for definitions, exact `0.095` exponential scoring, true ULEB-size selection, stable import declarations, defined-global reorder, and numeric `GlobalIdx` remapping. |
+| `src/passes/reorder_globals_test.mbt` | Focused direct and active-dispatcher coverage for registry status, public cutoff, stable imported-only and mixed-import order, simultaneous stable imports and eligible defined reorder, 129-global reorder, dependency preservation, export/global-name remapping, and stale raw-name clearing. |
+| `src/passes/reorder_globals_wbtest.mbt` | White-box proof for frozen import-prefix heap priority, zero/raw/summed/exponential candidate vectors, true-cost winner selection, and candidate tie stability. |
 | `src/passes_perf_long/reorder_globals_perf_test.mbt` | Skipped native-release guard for 2,000 imported globals and a 2,000-global initializer chain, each with 20,000 hot uses and a 20 ms median ceiling. |
 | `src/passes/legacy_eh_audit_wbtest.mbt` | Protected-body, typed-catch, catch-all, and delegate-preserving traffic/rewrite proof. |
 | `src/validate/gen_valid_reorder_globals.mbt` | Seven pass-owned GenValid leaves covering function traffic, candidate search, imported globals, module code, legacy EH, metadata, and threshold boundaries. |
@@ -181,7 +182,7 @@ The active direct Starshine port includes these pieces:
    - count module-level expression code that can contain globals,
    - keep static counts, not runtime profile assumptions.
 2. **Initializer dependency graph**
-   - keep every imported global before every defined global while allowing imported globals to reorder within the prefix,
+   - keep every imported global in declaration order before every defined global,
    - preserve `global.get` dependencies among global initializers,
    - validate against Starshine's const-expression rules.
 3. **Binaryen-compatible ordering policy**
@@ -192,19 +193,19 @@ The active direct Starshine port includes these pieces:
    - one original-versus-greedy sort when no dependency edges exist,
    - reuse of the zero-count topological order for summed and exponential propagation.
 4. **Numeric `GlobalIdx` remapper**
-   - the global-import subsequence while preserving non-global import positions,
-   - defined global declarations,
+   - defined-global declarations after the fixed import prefix,
    - exports of globals,
    - function-body `global.get` / `global.set`,
    - module-code global references,
    - global-initializer dependencies,
    - binary encode/decode and validation-sensitive order.
 5. **Direct and late-tail proof**
+   - the 2026-09-22 active-dispatcher regression keeps a hot second import in place while moving an eligible hot definition into the first defined slot,
    - the inner `string-gathering -> reorder-globals -> directize` neighborhood remains replayed and regression-covered,
-   - the final explicit-v131 matrix is regular `100000/100000` exact and dedicated `10000/10000` exact,
+   - the historical 2026-07-29 explicit-v131 matrix was regular `100000/100000` exact and dedicated `10000/10000` exact before the intentional imported-global divergence,
    - random-all has only 625 pass-independent canonical `-8`-byte wins on no-global inputs,
    - wasm-smith covers all 9956 comparable cases after one established unreachable-debris normalization, with 44 Binaryen/tool failures and zero Starshine failures,
-   - the synthetic 2,000-import / 20,000-use fixture is byte-identical and externally valid; Starshine's nine-run pass-local median improved from `70.079 ms` to `0.742 ms` versus Binaryen's `1.68593 ms`,
+   - the historical synthetic 2,000-import / 20,000-use fixture was byte-identical and externally valid; Starshine's nine-run pass-local median improved from `70.079 ms` to `0.742 ms` versus Binaryen's `1.68593 ms`,
    - the 2,000-global dependency chain is also byte-identical at `0.762 ms` versus Binaryen's `1.49234 ms`,
    - the skipped in-process native-release lane reports `1,174 us` imported and `1,083 us` dependency-heavy medians under a `20 ms` guard.
 

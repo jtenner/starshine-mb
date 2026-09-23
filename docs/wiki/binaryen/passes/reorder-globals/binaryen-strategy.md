@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
 related:
@@ -22,6 +22,7 @@ related:
 - Use official Binaryen `version_132` as the current release oracle for new checks. The `version_131` tag commit `1f903c14babf829745b421b92ff0f286e93e4209` remains the historical source-review anchor for the material below.
 - The 2026-07-29 audit re-read the owner and both dedicated lit fixtures and recorded their exact SHA-256 values in [`./fuzzing.md`](./fuzzing.md).
 - The audit also corrected one important local interpretation: Binaryen's `module->globals` vector includes imported globals. The comparator keeps imports before definitions, but imported globals are still sorted among themselves.
+- Starshine intentionally stopped copying that within-prefix sort on 2026-09-22. Host import resolution can invoke observable getters in declaration order, so the local pass freezes imported globals while retaining Binaryen-shaped ordering for definitions.
 - The core implementation lives in `src/passes/ReorderGlobals.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - Pass construction is declared in `src/passes/passes.h`.

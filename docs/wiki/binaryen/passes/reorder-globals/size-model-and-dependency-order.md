@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-29
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - index.md
@@ -206,6 +206,8 @@ That means there are two separate hard ordering rules before profitability start
 - initializer dependency ordering
 
 Only after those rules are satisfied does heat choose among legal positions. The 2026-07-29 parity probe made this concrete: in a module with 129 imported globals and traffic only on imported global 128, Binaryen moves that import to global index 0.
+
+Starshine intentionally diverges at this boundary as of 2026-09-22. Its legal-order set freezes imported globals in declaration order because host import resolution can invoke observable getters in that order; heat still orders definitions after the fixed prefix.
 
 ## Original order is also the tie-break inside each candidate sort
 

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-29
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
 related:
@@ -289,7 +289,9 @@ Why:
 
 - imports must stay before definitions, but imported globals are still compared by count
 - Binaryen's global vector includes both imported and defined globals
-- non-global imports keep their section positions in Starshine while the global-import subsequence is reordered
+- the historical Starshine parity implementation kept non-global import positions while reordering the global-import subsequence
+
+Starshine no longer emits this shape as of 2026-09-22. It preserves the original import declaration order because a host can observe import getter evaluation order, while still reordering eligible definitions after the fixed prefix.
 
 This is the family that exposed the 2026-07-29 Starshine parity gap.
 

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: strong
-last_reviewed: 2026-07-29
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -55,7 +55,9 @@ The 2026-07-29 closeout used:
 - default persistent cache: `.tmp/pass-fuzz-cache`
 - `--jobs auto`, which resolved to 16 workers
 
-The source audit found a real parity gap: Binaryen's `module->globals` order includes imported globals, so a hot imported global can move within the import prefix. Starshine previously ordered only defined globals. The repaired implementation now uses the complete absolute global index space, keeps all imported globals before definitions, permits imported globals to reorder among themselves, rewrites the global-import subsequence without moving non-global imports, and remaps every represented numeric global-index surface.
+The source audit found a real shape-parity gap: Binaryen's `module->globals` order includes imported globals, so a hot imported global can move within the import prefix. The 2026-07-29 implementation copied that behavior and produced the historical exact results below.
+
+The 2026-09-22 host-observability correction supersedes imported-global shape parity. Starshine now keeps the import section in declaration order because reordering imports changes the order in which hosts can resolve side-effecting getters. Traffic and dependencies still use the complete absolute global index space, eligible defined globals still reorder, and every moved defined-global index is remapped. The historical imported-global exactness and performance output hashes below remain provenance for the earlier behavior; they are not current signoff for the corrected import-order contract.
 
 ## Full four-lane matrix
 
@@ -81,7 +83,7 @@ Every leaf and label appeared in the 10,000-case aggregate:
 - metadata remap `1183`
 - threshold `561`: 127 globals `181`, 128 globals `189`, 129 globals `191`
 
-Agent classification: every pass-owned family is an exact Binaryen-v131 normalized match. There is no retained Starshine-only representation difference for a `reorder-globals` opportunity or boundary.
+For the recorded 2026-07-29 implementation, every pass-owned family was an exact Binaryen-v131 normalized match. The current stable-import contract intentionally changes the imported-global family and requires fresh evidence before any new whole-pass exact-parity claim.
 
 ## Residual classifications
 
@@ -123,10 +125,10 @@ Reopen performance work if either retained fixture exceeds `2x` Binaryen pass-lo
 
 ## Closeout verdict and reopening criteria
 
-Direct Binaryen-v131 behavior parity is closed. Reopen if:
+The recorded Binaryen-v131 behavior-parity matrix is historical after the 2026-09-22 imported-global safety correction. Reopen non-import families if:
 
 - Binaryen changes the public threshold, candidate family, exponential factor, true-cost model, or tie policy;
-- imported globals no longer remain globally sortable within the import prefix, or non-global import positions move;
+- imported declaration order changes, or eligible defined globals stop reordering after the fixed import prefix;
 - any dedicated family stops generating its intended opportunity or boundary;
 - a pass-owned family develops a non-exact normalized result;
 - protected-body, typed-catch, catch-all, delegate, or `try_table` traffic/remapping regresses;

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-29
+last_reviewed: 2026-09-22
 sources:
   - ../../../../../src/passes/reorder_globals.mbt
   - ../../../../../src/passes/reorder_globals_test.mbt
@@ -98,8 +98,8 @@ That is much closer to the real pass than either:
 - The current Starshine pass registry now splits the family explicitly:
   - `reorder-globals` is an active direct module pass implemented in `src/passes/reorder_globals.mbt`
   - `reorder-globals-always` remains a boundary-only tracked name
-- The active pass implements the public production policy, including the `<128` total-global no-op, absolute imported-plus-defined dependency ordering, all four candidate families, true ULEB-size scoring, imported-global reordering within a fixed import prefix, preservation of non-global import positions, and numeric `GlobalIdx` remapping across module/code/name surfaces.
-- The 2026-07-29 performance-final native SHA-256 `d09b0100360cb83d87545fb1ca92e98f01780882d1649acf2aa96293d364aadc` is exact against explicit official Binaryen v131 for regular `100000/100000` and dedicated `reorder-globals-all` `10000/10000`. Random-all retains only 625 pass-independent `-8`-byte multivalue codec wins, and wasm-smith matches all 9956 comparable cases after the established unreachable-debris normalization, with 44 Binaryen/tool failures and zero Starshine failures. The ready-heap follow-up reduces the 2,000-import median from `70.079 ms` to `0.742 ms`, about `2.27x` faster than Binaryen; the 2,000-global dependency chain is about `1.96x` faster. See [`./fuzzing.md`](./fuzzing.md).
+- The active pass implements the public production policy, including the `<128` total-global no-op, absolute imported-plus-defined dependency ordering, all four candidate families, true ULEB-size scoring, stable imported-global declaration order, defined-global reordering, and numeric `GlobalIdx` remapping across module/code/name surfaces. Starshine intentionally freezes the import prefix because changing import declaration order changes the order in which hosts can resolve observable import getters.
+- The historical 2026-07-29 performance-final native SHA-256 `d09b0100360cb83d87545fb1ca92e98f01780882d1649acf2aa96293d364aadc` was exact against explicit official Binaryen v131 for regular `100000/100000` and dedicated `reorder-globals-all` `10000/10000`. Random-all retained only 625 pass-independent `-8`-byte multivalue codec wins, and wasm-smith matched all 9956 comparable cases after the established unreachable-debris normalization, with 44 Binaryen/tool failures and zero Starshine failures. The ready-heap follow-up reduced the 2,000-import median from `70.079 ms` to `0.742 ms`, about `2.27x` faster than Binaryen; the 2,000-global dependency chain was about `1.96x` faster. The imported-global exactness predates the intentional host-order correction. See [`./fuzzing.md`](./fuzzing.md).
 - The public optimize/shrink presets now schedule the accepted late-tail suffix. The inner `string-gathering -> reorder-globals -> directize` triple has explicit regression coverage plus a current-head debug-artifact replay at research note 0549. The broader `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` neighborhood is directly oracle-proven with standard 10k ordered-neighborhood fuzz and same-input RUME isolation; the remaining artifact frontier is inherited SGO representation/function-layout drift, not a late string/reorder/directize mismatch. See [research note 0571](../late-pipeline-dispatch.md) and [research note 0572](../late-pipeline-dispatch.md).
 
 Keep preserving the distinction between the public pass and the `always` helper instead of collapsing them accidentally.

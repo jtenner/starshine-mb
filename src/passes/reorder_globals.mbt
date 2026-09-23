@@ -1,6 +1,6 @@
 ///|
 pub fn reorder_globals_summary() -> String {
-  "Reorder imported and defined globals by Binaryen's public size policy and remap numeric global indices."
+  "Preserve imported-global order, reorder defined globals by the public size policy, and remap numeric global indices."
 }
 
 ///|
@@ -267,6 +267,9 @@ fn rg_candidate_is_better(
   let best_imported = best < imported_globals
   if candidate_imported != best_imported {
     return candidate_imported
+  }
+  if candidate_imported {
+    return candidate < best
   }
   custom_counts[candidate] > custom_counts[best] ||
   (custom_counts[candidate] == custom_counts[best] && candidate < best)
@@ -684,44 +687,6 @@ fn rg_rewrite_table_sec(
 }
 
 ///|
-fn rg_rewrite_import_sec(
-  import_sec : @lib.ImportSec?,
-  order : Array[Int],
-  imported_globals : Int,
-) -> @lib.ImportSec? {
-  match import_sec {
-    Some(@lib.ImportSec(imports)) => {
-      let global_imports : Array[@lib.Import] = Array::new(
-        capacity=imported_globals,
-      )
-      for import_ in imports {
-        if import_ is @lib.Import(_, _, @lib.GlobalExternType(_)) {
-          global_imports.push(import_)
-        }
-      }
-      let reordered : Array[@lib.Import] = Array::new(capacity=imported_globals)
-      for old_global in order {
-        if old_global < imported_globals {
-          reordered.push(global_imports[old_global])
-        }
-      }
-      let out : Array[@lib.Import] = Array::new(capacity=imports.length())
-      let mut next_global = 0
-      for import_ in imports {
-        if import_ is @lib.Import(_, _, @lib.GlobalExternType(_)) {
-          out.push(reordered[next_global])
-          next_global += 1
-        } else {
-          out.push(import_)
-        }
-      }
-      Some(@lib.ImportSec::new(out))
-    }
-    None => None
-  }
-}
-
-///|
 fn rg_rewrite_globals(
   globals : Array[@lib.Global],
   order : Array[Int],
@@ -962,10 +927,6 @@ fn reorder_globals_run_module_pass_with_threshold(
   }
   let remap = rg_old_abs_to_new_abs(order)
   let mut out = mod_
-  match rg_rewrite_import_sec(mod_.import_sec, order, imported_globals) {
-    Some(sec) => out = out.with_import_sec(sec)
-    None => ()
-  }
   if globals.length() > 0 {
     out = out.with_global_sec(
       @lib.GlobalSec::new(

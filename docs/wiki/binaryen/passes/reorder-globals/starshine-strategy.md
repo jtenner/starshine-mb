@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-29
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - index.md
@@ -53,7 +53,7 @@ The current local strategy is direct public-pass support plus explicit late-tail
 - keep `reorder-globals-always` boundary-only so the sibling policy is not collapsed into the production pass
 - preserve Binaryen's public `<128` total-global no-op
 - count whole-module global traffic and initializer dependencies over the complete imported-plus-defined index space
-- reorder imported globals within the fixed import prefix as well as defined globals, preserve non-global import positions, and apply Starshine-specific numeric `GlobalIdx` remapping
+- preserve the complete import declaration order because host import getters can be observable, reorder eligible defined globals after that fixed prefix, and apply Starshine-specific numeric `GlobalIdx` remapping
 - keep the accepted public late-tail suffix documented alongside the no-DWARF order, with any broader widening beyond it still gated on fresh evidence
 - keep the final explicit-v131 regular `100000`, dedicated `10000`, random-all `10000`, and wasm-smith `10000` evidence recorded, alongside the inner `string-gathering -> reorder-globals -> directize` replay
 
@@ -115,8 +115,8 @@ The implementation:
 - builds initializer dependency edges from defined-global initializer `global.get`s
 - tries the zero/raw/summed-dependent/exponential-dependent candidate families
 - scores candidates using true observed counts and estimated ULEB global-index byte widths; the shared binary byte-layer caveat is [`../../../binary/leb128-and-integer-encoding.md`](../../../binary/leb128-and-integer-encoding.md), while this pass uses encoder-size thresholds for profitability
-- keeps imported globals before defined globals while sorting the imported-global subsequence by the same candidate policy
-- rewrites global imports without moving non-global imports, reorders defined `global_sec` entries, and remaps numeric global references across module/code/name surfaces
+- keeps imported globals in their original order before defined globals
+- leaves the import section untouched, reorders defined `global_sec` entries, and remaps numeric global references across module/code/name surfaces
 
 ### 2. The `always` sibling still rejects honestly
 
@@ -125,7 +125,7 @@ The implementation:
 ### 3. The remaining work is planned as a real parity slice, not an orphan idea
 
 The old dedicated `RG` replay blocker is closed, and the post-legacy-EH v131 renewal is complete.
-The 2026-07-29 audit also repaired the previously missing imported-global family. The delivered work covers:
+The 2026-07-29 audit added imported-global sorting for Binaryen shape parity. The 2026-09-22 host-observability correction supersedes that local behavior because import declaration order controls observable host getter order. The delivered work now covers:
 
 - Binaryen-shaped reordering criteria
 - safe remap after string gathering and other late global cleanup
@@ -151,7 +151,7 @@ So the local strategy should be thought of as:
 
 1. keep the direct module pass focused on whole-module global traffic and initializer dependencies
 2. choose a dependency-safe final declaration order with the reviewed Binaryen candidate families
-3. apply imported-global and defined-global declaration reorders plus Starshine-specific numeric remapping
+3. freeze imported-global declarations, apply defined-global declaration reorders, and perform Starshine-specific numeric remapping
 4. keep reduced export/name/dependency coverage green
 5. validate string users, startup/global-initializer correctness, and final artifact parity in the real late-tail neighborhood once surrounding passes exist
 

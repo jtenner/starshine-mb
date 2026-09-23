@@ -1,15 +1,15 @@
 ///|
-test "reorder-globals ready heap preserves imports counts and original-order ties" {
+test "reorder-globals ready heap freezes imported-global order" {
   let counts = [1.0, 100.0, 5.0, 5.0]
   let heap : Array[Int] = []
   for candidate in [3, 1, 2, 0] {
-    rg_ready_heap_push(heap, candidate, counts, 1)
+    rg_ready_heap_push(heap, candidate, counts, 2)
   }
-  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 1), Some(0))
-  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 1), Some(1))
-  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 1), Some(2))
-  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 1), Some(3))
-  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 1), None)
+  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 2), Some(0))
+  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 2), Some(1))
+  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 2), Some(2))
+  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 2), Some(3))
+  @debug.assert_eq(rg_ready_heap_pop(heap, counts, 2), None)
 }
 
 ///|
