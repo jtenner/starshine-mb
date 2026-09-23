@@ -157,7 +157,11 @@
     (`26ef7d52e`). Default direct and preset modes keep host getter effects;
     Red/Green direct, dispatcher, and Node host identity tests passed.
     `moon info` records the intentional public `.mbti` entrypoint. No fuzzing ran.
-35. [ ] DIE loses annotations on a removed import alias.
+35. [x] DIE preserves annotations on a removed import alias (`5ec8e0ac4`).
+    The trusted stable-binding variant unions annotations by final function
+    index in source order, deduplicates identical name/argument pairs, and
+    retains annotations on shifted defined functions. Direct and dispatcher
+    regressions were red 0/2 then green 2/2; adjacent DIE tests passed 15/15.
 36. [x] MemoryPacking rebuilds unchanged modules after a reverted segment
     rewrite (`7876e64af`). The post-cap change check returns the input module;
     a dedicated skipped 100,000-segment regression was red then green and
@@ -208,9 +212,11 @@
     focused runtime suites passed 60/60. A second bounded `wait32`/`notify`
     fixture observes completed calls and rejects an incorrect atomic store;
     a third fixture checks `i32.atomic.rmw.cmpxchg` winner identity and rejects
-    a wrong replacement value; focused Bun tests passed 5/5. Remaining:
-    general wait/notify liveness,
-    weaker orders and fences, memory64/multi-memory, shared-GC atomics, and
+    a wrong replacement value; focused Bun tests passed 5/5. A bounded
+    nonzero-memory `i32.atomic.rmw.add` fixture now catches an optimizer that
+    redirects memory 1 to memory 0 (`6c862b7f3`); focused Red/Green tests
+    passed 6/6. Remaining: general wait/notify liveness, weaker orders and
+    fences, memory64, broader multi-memory operations, shared-GC atomics, and
     broader schedule families. This is an opt-in replay primitive; general
     node-v2 still runs single-threaded.
 49. [x] Runtime-v2 now adds two bounded finite scalar vectors derived from the
