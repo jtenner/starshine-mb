@@ -210,3 +210,77 @@ test "RUME remaps a kept subtype after an unused sibling" {
     _ => fail("expected one remapped kept subtype")
   }
 }
+
+///|
+test "RUME type compaction remaps retained type and field names" {
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_name_sec(
+      @lib.NameSec::new(
+        type_names=Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("dead")),
+            @lib.NameAssoc::new(2U, @lib.Name::from_string("live")),
+          ]),
+        ),
+        field_names=Some(
+          @lib.IndirectNameMap::new([
+            @lib.IndirectNameAssoc::new(
+              2U,
+              @lib.NameMap::new([
+                @lib.NameAssoc::new(0U, @lib.Name::from_string("value")),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    )
+  let used_types = @bitset.BitSet::new(3)
+  used_types[1] = true
+  used_types[2] = true
+  let compacted = rume_compact_type_sec(
+    module_,
+    precomputed_used_types=Some(used_types),
+  )
+  match @validate.validate_module(compacted) {
+    Ok(_) => ()
+    Err(err) => fail("expected compacted named types to validate, got \{err}")
+  }
+  let names = compacted.name_sec.unwrap()
+  @debug.assert_eq(
+    names.type_names,
+    Some(
+      @lib.NameMap::new([
+        @lib.NameAssoc::new(1U, @lib.Name::from_string("live")),
+      ]),
+    ),
+  )
+  @debug.assert_eq(
+    names.field_names,
+    Some(
+      @lib.IndirectNameMap::new([
+        @lib.IndirectNameAssoc::new(
+          1U,
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("value")),
+          ]),
+        ),
+      ]),
+    ),
+  )
+}

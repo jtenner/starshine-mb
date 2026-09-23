@@ -5149,6 +5149,82 @@ fn rume_rebuild_type_sec(
 }
 
 ///|
+fn rume_rewrite_type_name_map(
+  names : @lib.NameMap?,
+  remap : Map[UInt, UInt],
+) -> @lib.NameMap? {
+  match names {
+    Some(@lib.NameMap(entries)) => {
+      let rewritten : Array[@lib.NameAssoc] = []
+      for @lib.NameAssoc(old, name) in entries {
+        match remap.get(old) {
+          Some(next) => rewritten.push(@lib.NameAssoc::new(next, name))
+          None => ()
+        }
+      }
+      if rewritten.is_empty() {
+        None
+      } else {
+        Some(@lib.NameMap::new(rewritten))
+      }
+    }
+    None => None
+  }
+}
+
+///|
+fn rume_rewrite_field_name_map(
+  names : @lib.IndirectNameMap?,
+  remap : Map[UInt, UInt],
+) -> @lib.IndirectNameMap? {
+  match names {
+    Some(@lib.IndirectNameMap(entries)) => {
+      let rewritten : Array[@lib.IndirectNameAssoc] = []
+      for @lib.IndirectNameAssoc(old, fields) in entries {
+        match remap.get(old) {
+          Some(next) =>
+            rewritten.push(@lib.IndirectNameAssoc::new(next, fields))
+          None => ()
+        }
+      }
+      if rewritten.is_empty() {
+        None
+      } else {
+        Some(@lib.IndirectNameMap::new(rewritten))
+      }
+    }
+    None => None
+  }
+}
+
+///|
+fn rume_rewrite_type_and_field_names(
+  mod_ : @lib.Module,
+  remap : Map[UInt, UInt],
+) -> @lib.Module {
+  match mod_.name_sec {
+    Some(names) =>
+      mod_.with_name_sec(
+        @lib.NameSec::new(
+          module_name=names.module_name,
+          func_names=names.func_names,
+          local_names=names.local_names,
+          label_names=names.label_names,
+          type_names=rume_rewrite_type_name_map(names.type_names, remap),
+          table_names=names.table_names,
+          memory_names=names.memory_names,
+          global_names=names.global_names,
+          elem_names=names.elem_names,
+          data_names=names.data_names,
+          field_names=rume_rewrite_field_name_map(names.field_names, remap),
+          tag_names=names.tag_names,
+        ),
+      )
+    None => mod_
+  }
+}
+
+///|
 fn rume_set_type_sec(
   mod_ : @lib.Module,
   type_sec : @lib.TypeSec?,
@@ -5231,8 +5307,13 @@ fn rume_compact_type_sec(
   let rewritten = dfe_rewrite_module_type_idxs(mod_, type_remap)
   // Rebuild from the rewritten types. The original types still use old indices.
   match rewritten.type_sec {
-    Some(type_sec) =>
-      rume_set_type_sec(rewritten, rume_rebuild_type_sec(type_sec, used_types))
+    Some(type_sec) => {
+      let compacted = rume_set_type_sec(
+        rewritten,
+        rume_rebuild_type_sec(type_sec, used_types),
+      )
+      rume_rewrite_type_and_field_names(compacted, type_remap)
+    }
     None => rewritten
   }
 }

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-22
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast
@@ -9,6 +9,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ./index.md
   - ../../../../../src/rume/remove_unused_module_elements_wbtest.mbt
+  - ../../../../../src/passes/remove_unused_module_elements_test.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/element-utils.h
@@ -215,6 +216,8 @@ Keep `version_129` as historical provenance for the original graph algorithm, bu
 - a 64-entry transitive type dependency chain closes with one queue visit per type.
 
 The focused pass regression additionally requires standalone `rume_run_module_pass(...)` to produce the same unreachable-GC-type compaction as the public pipeline. This prevents the removed quadratic dispatcher wrapper from silently becoming necessary again.
+
+Type compaction also has a metadata invariant: each retained `type_names` entry and each outer `field_names` type index must follow the same dense old-to-new type map as executable type references, while names for deleted types must be removed. White-box and public-dispatcher regressions cover a dead type before a retained named struct and validate the transformed module.
 
 ## Most important implementation takeaway
 

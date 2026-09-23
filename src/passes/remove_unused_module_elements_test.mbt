@@ -3508,3 +3508,50 @@ test "remove-unused-module-elements prunes unreachable simple GC type families" 
     Err(err) => fail("expected pruned GC type module to validate, got \{err}")
   }
 }
+
+///|
+test "remove-unused-module-elements dispatcher remaps type and field names" {
+  let input = pass_test_module_from_wat(
+    "(module (type (struct)) (type (func)) (type (struct (field i32))) (func (export \"run\") (type 1) struct.new_default 2 drop))",
+  ).with_name_sec(
+    @lib.NameSec::new(
+      type_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("dead")),
+          @lib.NameAssoc::new(2U, @lib.Name::from_string("live")),
+        ]),
+      ),
+      field_names=Some(
+        @lib.IndirectNameMap::new([
+          @lib.IndirectNameAssoc::new(
+            2U,
+            @lib.NameMap::new([
+              @lib.NameAssoc::new(0U, @lib.Name::from_string("value")),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "remove-unused-module-elements",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected named type compaction success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected compacted named types to validate, got \{err}")
+  }
+  let names = optimized.name_sec.unwrap()
+  @debug.assert_eq(
+    names.type_names,
+    Some(
+      @lib.NameMap::new([
+        @lib.NameAssoc::new(1U, @lib.Name::from_string("live")),
+      ]),
+    ),
+  )
+  @debug.assert_eq(names.field_names.unwrap().0[0].0, 1U)
+}
