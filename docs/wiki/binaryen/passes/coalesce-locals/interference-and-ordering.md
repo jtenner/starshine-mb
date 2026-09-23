@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 sources:
   - ./index.md
   - ../../../../../src/passes/coalesce_locals.mbt
   - ../../../../../src/passes/coalesce_locals_resume_handler_test.mbt
+  - ../../../../../src/passes/simplify_locals_resume_throw_handler_test.mbt
   - ../../../../../src/cmd/coalesce_locals_resume_handler_wbtest.mbt
+  - ../../../../../src/cmd/simplify_locals_resume_throw_handler_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -317,6 +319,10 @@ fallthrough write of `9`, was classified dead even when the target block's
 continuation read the local. Cleanup replaced the first write with a `drop`, so
 the handled path observed the local's default `0`. Valid Core AST regressions
 now retain both writes through the direct pass and active command dispatcher.
+The coverage includes `resume`, `resume_throw`, and `resume_throw_ref`.
+The two throwing forms were baseline-green after the shared continuation-target
+repair, confirming that their `HotOp::Continuation` target tables reach the
+same liveness-successor logic without a form-specific source change.
 
 The native CoalesceLocals suite passes 116 tests (47.012 seconds); the IR suite
 passes 380 (8.519 seconds). The reduced tests cover captured stack values,
