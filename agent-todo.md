@@ -409,12 +409,15 @@
     canonical shape, then passed after the fix; unknown raw identity stays
     bounded nonconvergence. Focused property tests passed 14/14 and adjacent
     compare-task tests passed 92/92. No fuzz campaign ran.
-77. [ ] Saved GC case 1 reports `starshine-correctness-failure` after a
-    phase-unknown 2-second runtime worker timeout under parallel load, although
-    bounded replay compiles and executes the same raw module in under 85 ms
-    with the original result `12045`. Add a red deadline-classification test,
-    report this uncertainty as blocked rather than a proven semantic failure,
-    and retain explicit timeout evidence without a fuzz campaign.
+77. [x] A phase-unknown worker deadline now reports
+    `blocked-starshine-runtime` with its timeout diagnostic, rather than a
+    proven Starshine correctness failure (`e8402cb13`). Saved GC case 1's
+    identical raw output compiles and returns `12045` in bounded replay; the
+    historical 2-second failure was a worker wall-clock timeout under parallel
+    load. Red runtime and resumed-counter tests became green; adjacent focused
+    suites passed 24/24, 27/27, and 78/78. Known candidate failures retain
+    correctness-failure status, and cache identity advanced to v10. No fuzz
+    campaign ran.
 
 ### Open parity evidence from this audit
 
