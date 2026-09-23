@@ -202,6 +202,90 @@ test "level-zero vacuum removes nested unbranched result blocks" {
 }
 
 ///|
+test "level-zero vacuum rebases resume handlers when flattening result blocks" {
+  let input = pass_test_module_from_wat(
+    "(module (type $sig (func (param i32) (result i32))) (type $cont (func (param i64))) (type $tag (func (result i32))) (tag (type $tag)) (func (export \"run\") (param (ref null $cont)) (result (ref null $cont)) unreachable))",
+  )
+  let types = input.type_sec.unwrap().0.copy()
+  types[1] = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::cont(@lib.TypeIdx::new(0U))),
+  )
+  let cont_heap = @lib.HeapType::new(@lib.TypeIdx::new(1U))
+  let funcs = input.code_sec.unwrap().0.copy()
+  funcs[0] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::ref_null(cont_heap)),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::resume_(@lib.TypeIdx::new(1U), [
+            @lib.ResumeHandler::on_label(
+              @lib.TagIdx::new(0U),
+              @lib.LabelIdx::new(1U),
+            ),
+          ]),
+          @lib.Instruction::drop(),
+          @lib.Instruction::ref_null(cont_heap),
+        ]),
+      ),
+    ]),
+  )
+  let candidate = input
+    .with_type_sec(@lib.TypeSec::new(types))
+    .with_code_sec(@lib.CodeSec::new(funcs))
+  match @validate.validate_module(candidate) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected continuation vacuum input to validate, got \{err}")
+  }
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      candidate,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["vacuum"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected continuation vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected continuation vacuum output to validate, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("skip-invalid-lower") }),
+    msg=trace.join("\n"),
+  )
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.I32Const(_),
+                @lib.LocalGet(_),
+                @lib.Resume(_, [@lib.ResumeOnLabel(_, @lib.LabelIdx(0U))]),
+                @lib.Drop,
+                @lib.RefNull(_),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected flattened result block with rebased resume handler, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum flattens lowered rotate blocks ending in a direct owner branch at O4z" {
   let optimized = match
     pass_test_run_pipeline(

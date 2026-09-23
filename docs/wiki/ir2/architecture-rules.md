@@ -1155,6 +1155,16 @@ The raw legacy code-pushing path checks reads and writes against the complete or
 
 Raw vacuum scans legacy try bodies and catches for owner-label references and rebases ordinary nested branches when an unused wrapper is removed. Delegate/rethrow regions conservatively retain wrappers pending a dedicated exception-depth proof. `vacuum_audit_test.mbt` covers a nested legacy branch that must exit its result block, not the function.
 
+### Vacuum continuation handler labels
+
+Raw vacuum treats `ResumeOnLabel` handlers on `resume`, `resume_throw`, and
+`resume_throw_ref` as lexical label uses. A handler targeting a candidate block
+keeps that owner; a handler targeting an outer owner has its depth decremented
+when the block is flattened. `ResumeOnSwitch` has no lexical label and remains
+unchanged. `binaryen132_control_labels_wbtest.mbt` covers all three instruction
+variants, and `optimize_test.mbt` verifies that public level-zero vacuum flattens
+a validated result block without invoking invalid-writeback rollback.
+
 Legacy `delegate` names an exception handler, not an ordinary value branch. Its
 HOT node carries zero result operands even when the destination `try` has a
 result type. `hot_verify_test.mbt` and `optimize_instructions_test.mbt` cover a

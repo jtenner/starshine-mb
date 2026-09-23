@@ -133,3 +133,52 @@ test "descriptor branches rebase outer targets when an unused wrapper disappears
     ])
   }
 }
+
+///|
+test "vacuum block flattening retains and rebases continuation handler labels" {
+  let type_idx = @lib.TypeIdx::new(0U)
+  let tag_idx = @lib.TagIdx::new(0U)
+  let owner_handlers = [
+    @lib.ResumeHandler::on_label(tag_idx, @lib.LabelIdx::new(0U)),
+  ]
+  let outer_handlers = [
+    @lib.ResumeHandler::on_label(tag_idx, @lib.LabelIdx::new(1U)),
+  ]
+  for
+    case in [
+      (
+        @lib.Instruction::resume_(type_idx, owner_handlers),
+        @lib.Instruction::resume_(type_idx, outer_handlers),
+        @lib.Instruction::resume_(type_idx, owner_handlers),
+      ),
+      (
+        @lib.Instruction::resume_throw(type_idx, tag_idx, owner_handlers),
+        @lib.Instruction::resume_throw(type_idx, tag_idx, outer_handlers),
+        @lib.Instruction::resume_throw(type_idx, tag_idx, owner_handlers),
+      ),
+      (
+        @lib.Instruction::resume_throw_ref(type_idx, owner_handlers),
+        @lib.Instruction::resume_throw_ref(type_idx, outer_handlers),
+        @lib.Instruction::resume_throw_ref(type_idx, owner_handlers),
+      ),
+    ] {
+    let (owner_resume, outer_resume, expected_rebased) = case
+    let owner_body = [owner_resume]
+    assert_true(run_hot_pipeline_raw_vacuum_body_targets_owner(owner_body, 0))
+    let input = [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new(owner_body),
+      ),
+    ]
+    let (output, changed) = run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
+      input, false, false,
+    )
+    assert_false(changed)
+    @debug.assert_eq(output, input)
+    @debug.assert_eq(
+      run_hot_pipeline_raw_vacuum_rebase_outer_body([outer_resume], 0),
+      [expected_rebased],
+    )
+  }
+}

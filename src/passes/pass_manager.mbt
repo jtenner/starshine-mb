@@ -46574,6 +46574,23 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_catch(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_resume_handlers_target_owner(
+  handlers : Array[@lib.ResumeHandler],
+  owner_depth : Int,
+) -> Bool {
+  for handler in handlers {
+    match handler {
+      @lib.ResumeOnLabel(_, label) =>
+        if run_hot_pipeline_raw_vacuum_label_targets_owner(label, owner_depth) {
+          return true
+        }
+      @lib.ResumeOnSwitch(_) => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_instr_targets_owner(
   instr : @lib.Instruction,
   owner_depth : Int,
@@ -46650,6 +46667,12 @@ fn run_hot_pipeline_raw_vacuum_instr_targets_owner(
       false
     }
     @lib.Rethrow(_) => true
+    @lib.Resume(_, handlers)
+    | @lib.ResumeThrow(_, _, handlers)
+    | @lib.ResumeThrowRef(_, handlers) =>
+      run_hot_pipeline_raw_vacuum_resume_handlers_target_owner(
+        handlers, owner_depth,
+      )
     _ => false
   }
 }
@@ -46665,6 +46688,23 @@ fn run_hot_pipeline_raw_vacuum_body_targets_owner(
     }
   }
   false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_rebase_outer_resume_handlers(
+  handlers : Array[@lib.ResumeHandler],
+  owner_depth : Int,
+) -> Array[@lib.ResumeHandler] {
+  handlers.map(fn(handler) {
+    match handler {
+      @lib.ResumeOnLabel(tag, label) =>
+        @lib.ResumeHandler::on_label(
+          tag,
+          run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+        )
+      @lib.ResumeOnSwitch(tag) => @lib.ResumeHandler::on_switch(tag)
+    }
+  })
 }
 
 ///|
@@ -46823,6 +46863,28 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
         delegate~,
       )
     }
+    @lib.Resume(type_idx, handlers) =>
+      @lib.Instruction::resume_(
+        type_idx,
+        run_hot_pipeline_raw_vacuum_rebase_outer_resume_handlers(
+          handlers, owner_depth,
+        ),
+      )
+    @lib.ResumeThrow(type_idx, tag, handlers) =>
+      @lib.Instruction::resume_throw(
+        type_idx,
+        tag,
+        run_hot_pipeline_raw_vacuum_rebase_outer_resume_handlers(
+          handlers, owner_depth,
+        ),
+      )
+    @lib.ResumeThrowRef(type_idx, handlers) =>
+      @lib.Instruction::resume_throw_ref(
+        type_idx,
+        run_hot_pipeline_raw_vacuum_rebase_outer_resume_handlers(
+          handlers, owner_depth,
+        ),
+      )
     _ => instr
   }
 }
