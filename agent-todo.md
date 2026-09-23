@@ -63,7 +63,9 @@
 16. [ ] SimplifyLocals sinks a write across a continuation handler exit.
 17. [ ] SimplifyLocals moves a structure store after `Resume`.
 18. [ ] CoalesceLocals liveness omits resume-handler successors.
-19. [ ] Pattern-B partial inlining misses branch/catch/continuation escapes.
+19. [x] Pattern-B partial inlining misses branch/catch/continuation escapes
+    (`980043a5d`); the escape scanner covers all represented branch, catch,
+    and resume-handler targets, with invalid-helper repros red then green.
 20. [ ] DAE2 changes signatures reachable through exported abstract `funcref` tables.
 21. [x] Shared identity atomic RMW loses its release write (`b12664835`);
     focused pass and command regressions are green.
@@ -73,7 +75,9 @@
     (`4cfbbeb99`); direct and command regressions are green.
 24. [x] Nested Local CSE misses ordinary `ArrayStore` barriers
     (`4cfbbeb99`); direct and command regressions are green.
-25. [ ] Local CSE treats suspend/resume/stack-switch execution as transparent.
+25. [x] Local CSE treats suspend/resume/stack-switch execution as transparent
+    (`d7219b783`); nested-window scans now stop at switching operations,
+    with valid direct and command-dispatch regressions red then green.
 26. [x] Caught-`try_table` safety scans omit legacy `Try` descendants
     (`3c74e420d`); pass-manager, remove-unused-brs, and CLI scanners now
     recurse through protected and catch regions, with focused O4z and CLI
@@ -95,8 +99,12 @@
 33. [ ] Decide and guard direct DFE's host-visible exported-function identity contract.
 34. [ ] Decide and guard direct DIE's repeated host import-lookup contract.
 35. [ ] DIE loses annotations on a removed import alias.
-36. [ ] MemoryPacking rebuilds unchanged modules after a reverted segment rewrite.
-37. [x] MemoryPacking models `RefTestDesc` with the wrong operand count.
+36. [x] MemoryPacking rebuilds unchanged modules after a reverted segment
+    rewrite (`7876e64af`). The post-cap change check returns the input module;
+    a dedicated skipped 100,000-segment regression was red then green and
+    verifies raw name bytes survive direct and dispatcher execution.
+37. [x] MemoryPacking models `RefTestDesc` with the wrong operand count
+    (`4dc7ebcad`).
     The scanner now consumes one reference; its whitebox assertion and a
     validated active dispatcher fixture failed before the fix and pass after.
 38. [x] Bare `no-inline*` registry entries advertise unsupported exact pass
@@ -116,8 +124,12 @@
 43. [x] Runtime-v1 skips parameterized/missing exports and can count empty
     matrices (`e87f95d36`); required exports, typed parameters, blocked rows,
     and empty-matrix accounting have focused harness regressions.
-44. [ ] Resume fingerprints omit source and configuration identity.
-45. [ ] Binaryen command failure can still increment `comparedCount` as a match.
+44. [x] Resume fingerprints omit source and configuration identity
+    (`c1b713091`); versioned SHA-256 records bind resume journals to tool,
+    source, and normalized run settings, with count-zero red/green harness tests.
+45. [x] Binaryen command failure can still increment `comparedCount` as a
+    match (`115b20297`); fresh and resumed failure records stay out of
+    comparison counts, with synthetic red/green oracle-command coverage.
 46. [ ] Name/debug pass comparisons are erased by unconditional debug stripping.
 47. [ ] Add executable proposal observations for currently blocked families.
 48. [ ] Add multi-thread allowed-outcome checks for atomic transformations.
@@ -149,8 +161,9 @@
 ### Defects discovered during this repair spree
 
 70. [x] MemoryPacking drops structured compiler facts whenever it rebuilds a
-    module after a successful data-segment rewrite. Direct and dispatcher
-    zero-range fixtures were red before the metadata carry and green after.
+    module after a successful data-segment rewrite (`4381795de`). Direct and
+    dispatcher zero-range fixtures were red before the metadata carry and
+    green after.
 
 ### Open parity evidence from this audit
 
