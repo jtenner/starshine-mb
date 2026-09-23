@@ -590,6 +590,13 @@ fn flatten_build_pre_mutation_node_index(
       | @ir.HotOp::BrOnNonNull
       | @ir.HotOp::BrOnCast
       | @ir.HotOp::BrOnCastFail => record(node.imm0, node_id)
+      // Resume handlers transfer an implicit tag payload to their label. Keep
+      // those edges in the same frozen index so result routing cannot erase or
+      // retarget the owning control shell.
+      @ir.HotOp::Continuation =>
+        for label_id in @ir.hot_continuation_targets(func, node_id) {
+          record(label_id, node_id)
+        }
       @ir.HotOp::Delegate => {
         record(node.imm0, node_id)
         eh_repair_requirement.needs_exceptional_transfer_repair = true
@@ -1835,6 +1842,10 @@ fn flatten_label_uses_are_routed_scalar_brs(
           return false
         }
       }
+      @ir.HotOp::Continuation =>
+        if @ir.hot_continuation_targets(func, node_id).contains(label_id) {
+          return false
+        }
       _ => ()
     }
   }
@@ -4101,6 +4112,7 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
       | @ir.HotOp::BrOnCast
       | @ir.HotOp::BrOnCastFail
       | @ir.HotOp::Delegate if node.imm0 == label_id => return false
+      @ir.HotOp::Continuation => return false
       @ir.HotOp::BrTable if flatten_br_table_targets_label(
           func,
           node.imm0,
@@ -5141,6 +5153,7 @@ fn flatten_loop_backedges_are_supported(
       | @ir.HotOp::BrOnCast
       | @ir.HotOp::BrOnCastFail
       | @ir.HotOp::Delegate if node.imm0 == label_id => return false
+      @ir.HotOp::Continuation => return false
       _ => ()
     }
   }
@@ -6940,6 +6953,7 @@ fn flatten_target_can_route_scalar_branches(
       | @ir.HotOp::BrOnCast
       | @ir.HotOp::BrOnCastFail
       | @ir.HotOp::Delegate if branch.imm0 == label_id => return false
+      @ir.HotOp::Continuation => return false
       @ir.HotOp::BrTable if flatten_br_table_targets_label(
           func,
           branch.imm0,
@@ -8037,6 +8051,7 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
       | @ir.HotOp::BrOnCast
       | @ir.HotOp::BrOnCastFail
       | @ir.HotOp::Delegate if branch.imm0 == label_id => return false
+      @ir.HotOp::Continuation => return false
       @ir.HotOp::BrTable if flatten_br_table_targets_label(
           func,
           branch.imm0,

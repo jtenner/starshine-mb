@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-31
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
@@ -149,6 +149,8 @@ The implementation follows Binaryen v130's postorder, owner-specific strategy:
 - terminal transfer operands preserve source evaluation order;
 - legacy EH pop placement, rethrows, and admitted delegates are repaired before lowering;
 - unsupported upstream-hard or unproven families fail before mutation.
+
+Continuation resume handlers participate in the immutable pre-mutation label index. A handler's `on_label` edge carries an implicit tag payload, so scalar, multivalue, legacy-try, and inputful-loop result routing reject that target instead of treating it as an ordinary explicit branch. This keeps the owning control shell and its original label arity intact while still allowing unrelated flattening in the function.
 
 A generic spill-every-value experiment was rejected because it regressed established structured-control behavior. The retained owner-specific implementation mirrors Binaryen's specialized control handlers.
 

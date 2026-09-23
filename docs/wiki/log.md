@@ -1,3 +1,8 @@
+### 2026-09-22 — Flatten continuation target repair
+
+- Flatten now records every HOT continuation handler label in its immutable per-label user index. Result and loop routing reject those implicit-payload edges rather than voiding their target control type.
+- A valid mixed-use fixture combines a direct branch and `resume ... on_label` edge to the same result block. Before the repair, direct and active-dispatcher runs changed the block to `void` and failed final validation with a resume-handler label arity mismatch. The adjacent and dispatcher regressions now preserve the target block and continuation and validate.
+
 ### 2026-09-19 — Optimizer legacy-EH and global-storage correctness
 
 - [RSE loop summaries](binaryen/passes/rse/cfg-and-value-tracking.md#legacy-eh-loop-write-summaries) now visit legacy protected bodies and all handler bodies. Five runtime regressions (protected body, tagged catch, catch-all, backedge, delegate) returned `1` instead of `0` before the repair; all now return `0`. Existing EH control-flow invalidation and HOT RSE remain unchanged.
