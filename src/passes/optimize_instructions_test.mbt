@@ -26620,19 +26620,71 @@ test "optimize-instructions preserves atomic localtee addresses" {
       ]),
     )
   let optimized = optimize_instructions_test_run_module(input)
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(@validate.validate_module(optimized).is_ok())
+  let @lib.Func(locals, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
+  // OI's module cleanup groups the two i32 locals before the i64 local, so the
+  // atomic address local moves from 2 to 1 and the i64 result local moves from
+  // 1 to 2. Check the remapped IR instead of freezing the old printed indices.
   @debug.assert_eq(
-    optimize_instructions_test_count_substring(pretty, "local.tee"),
-    4,
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+    ]),
   )
-  optimize_instructions_assert_strings_in_order(pretty, [
-    "I32(255)", "I32(63)", "i32.and", "i32.store8", "I32(63)", "i32.store8",
+  let address_tees : Array[@lib.LocalIdx] = []
+  let atomic_kinds : Array[Int] = []
+  for index = 0; index < body.length(); index = index + 1 {
+    match body[index] {
+      @lib.I32AtomicLoad(_, _) => {
+        match body[index - 1] {
+          @lib.LocalTee(local_idx) => address_tees.push(local_idx)
+          other => fail("expected i32 atomic load address tee, got \{other}")
+        }
+        atomic_kinds.push(0)
+      }
+      @lib.AtomicRmw(_, @lib.I32AtomicRmwAndOp, _) => {
+        match body[index - 2] {
+          @lib.LocalTee(local_idx) => address_tees.push(local_idx)
+          other => fail("expected i32 atomic RMW address tee, got \{other}")
+        }
+        atomic_kinds.push(1)
+      }
+      @lib.I64AtomicLoad(_, _) => {
+        match body[index - 1] {
+          @lib.LocalTee(local_idx) => address_tees.push(local_idx)
+          other => fail("expected i64 atomic load address tee, got \{other}")
+        }
+        atomic_kinds.push(2)
+      }
+      @lib.AtomicRmw(_, @lib.I64AtomicRmwAndOp, _) => {
+        match body[index - 2] {
+          @lib.LocalTee(local_idx) => address_tees.push(local_idx)
+          other => fail("expected i64 atomic RMW address tee, got \{other}")
+        }
+        atomic_kinds.push(3)
+      }
+      _ => ()
+    }
+  }
+  @debug.assert_eq(address_tees, [
+    @lib.LocalIdx::new(1U),
+    @lib.LocalIdx::new(1U),
+    @lib.LocalIdx::new(1U),
+    @lib.LocalIdx::new(1U),
   ])
-  optimize_instructions_assert_strings_in_order(pretty, [
-    "local.tee", "i32.atomic.load", "local.tee", "I32AtomicRmwAndOp", "local.tee",
-    "i64.atomic.load", "local.tee", "I64AtomicRmwAndOp", "(local.get (Local 1))",
-    "(local.get (Local 0))", "i64.extend_i32u", "i64.xor",
-  ])
+  @debug.assert_eq(atomic_kinds, [0, 1, 2, 3])
+  match body {
+    [
+      ..,
+      @lib.LocalGet(@lib.LocalIdx(2U)),
+      @lib.LocalGet(@lib.LocalIdx(0U)),
+      @lib.I64ExtendI32U,
+      @lib.I64Xor,
+    ] => ()
+    other => fail("expected remapped i64 xor tail, got \{other}")
+  }
 }
 
 ///|
