@@ -91,11 +91,22 @@ Safety checks include:
 
 - simple conditions only;
 - no else arms;
-- no escaping branches;
+- no escaping control targets: ordinary branches and `br_table`, the complete
+  `br_on_*` family, `try_table` catch destinations, and label-based
+  `resume`/`resume_throw`/`resume_throw_ref` handlers are checked at their
+  structured-control depth;
 - none-typed bodies without returns, or terminal-unreachable bodies;
 - no later condition, arm body (including nested control), or final-value read
   of a local written by an earlier outlined arm;
 - configured maximum guard count.
+
+An escaping target would be rebound when the arm is copied into its helper.
+Pattern B therefore rejects the whole split instead of emitting a branch to a
+different enclosing construct or to the new helper function label. The scanner
+contract is covered in `src/passes/inlining_wbtest.mbt`; the valid
+`br_on_null` module regression and command-dispatch counterpart live in
+`src/passes/inlining_test.mbt` and
+`src/cmd/inlining_partial_fourth_audit_wbtest.mbt`.
 
 Result-producing terminal arms may end through return, tail call, trap, throw, or another represented terminal-unreachable instruction.
 

@@ -584,6 +584,90 @@ test "inlining function-label escape scanner distinguishes local and caller targ
 }
 
 ///|
+test "partial inlining Pattern B escape scanner covers structured branch families" {
+  let label = @lib.LabelIdx::new(0U)
+  let tag = @lib.TagIdx::new(0U)
+  let type_ = @lib.TypeIdx::new(0U)
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let nullable_any = @lib.RefType::new(true, any_heap)
+  let nullable_eq = @lib.RefType::new(true, eq_heap)
+  let branch_ops : Array[@lib.Instruction] = [
+    @lib.Instruction::br_on_null(label),
+    @lib.Instruction::br_on_non_null(label),
+    @lib.Instruction::br_on_cast(label, true, any_heap, true, eq_heap),
+    @lib.Instruction::br_on_cast_fail(label, true, any_heap, true, eq_heap),
+    @lib.Instruction::br_on_cast_desc_eq(label, nullable_any, nullable_eq),
+    @lib.Instruction::br_on_cast_desc_eq_fail(label, nullable_any, nullable_eq),
+  ]
+  for instr in branch_ops {
+    assert_true(inl_partial_instr_has_escaping_branch(instr, 0))
+    assert_false(
+      inl_partial_instr_has_escaping_branch(
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([instr]),
+        ),
+        0,
+      ),
+    )
+    assert_false(
+      inl_partial_instr_has_escaping_branch(
+        @lib.Instruction::if_(@lib.BlockType::void_(), [instr], None),
+        0,
+      ),
+    )
+  }
+  let catches = [
+    @lib.Catch::new(tag, label),
+    @lib.Catch::ref_(tag, label),
+    @lib.Catch::all(label),
+    @lib.Catch::all_ref(label),
+  ]
+  for catch_ in catches {
+    let try_table = @lib.Instruction::try_table(
+      @lib.BlockType::void_(),
+      [catch_],
+      @lib.Expr::new([@lib.Instruction::nop()]),
+    )
+    assert_true(inl_partial_instr_has_escaping_branch(try_table, 0))
+    assert_false(
+      inl_partial_instr_has_escaping_branch(
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([try_table]),
+        ),
+        0,
+      ),
+    )
+  }
+  let handlers = [@lib.ResumeHandler::on_label(tag, label)]
+  let resume_ops : Array[@lib.Instruction] = [
+    @lib.Instruction::resume_(type_, handlers),
+    @lib.Instruction::resume_throw(type_, tag, handlers),
+    @lib.Instruction::resume_throw_ref(type_, handlers),
+  ]
+  for instr in resume_ops {
+    assert_true(inl_partial_instr_has_escaping_branch(instr, 0))
+    assert_false(
+      inl_partial_instr_has_escaping_branch(
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([instr]),
+        ),
+        0,
+      ),
+    )
+  }
+  assert_false(
+    inl_partial_instr_has_escaping_branch(
+      @lib.Instruction::resume_(type_, [@lib.ResumeHandler::on_switch(tag)]),
+      0,
+    ),
+  )
+}
+
+///|
 test "inlining appended-local entry liveness scans legacy try bodies and catches" {
   let local_idx = @lib.LocalIdx::new(0U)
   assert_true(

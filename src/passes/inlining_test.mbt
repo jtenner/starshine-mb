@@ -4050,6 +4050,89 @@ test "inlining partially splits multiple leading guards with Pattern B" {
 }
 
 ///|
+test "inlining Pattern B rejects a br_on_null escape from the outlined arm" {
+  let source =
+    #|(module
+    #|  (func $guarded (param i32 externref externref) (result externref)
+    #|    local.get 0
+    #|    if
+    #|      block
+    #|        local.get 1
+    #|        br_on_null 1
+    #|        drop
+    #|      end
+    #|      i32.const 3
+    #|      drop
+    #|      i32.const 4
+    #|      drop
+    #|      i32.const 5
+    #|      drop
+    #|      i32.const 6
+    #|      drop
+    #|      i32.const 7
+    #|      drop
+    #|      i32.const 8
+    #|      drop
+    #|      local.get 1
+    #|      return
+    #|    end
+    #|    local.get 2)
+    #|  (func $left (export "left") (param i32 externref externref) (result externref)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $guarded)
+    #|  (func $right (export "right") (param i32 externref externref) (result externref)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    call $guarded))
+  let input = match
+    @wast.wast_to_binary_module(source, filename="inlining-br-on-null.wat") {
+    Ok(input) => input
+    Err(err) => fail("expected br_on_null fixture to parse: \{err}")
+  }
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected br_on_null fixture to validate: \{err}")
+  }
+  // In the source, label 1 exits the containing if and reaches local.get 2.
+  // Copying the arm would rebind it to the helper's function label.
+  let input = input.with_name_sec(
+    @lib.NameSec::new(
+      func_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("guarded")),
+          @lib.NameAssoc::new(1U, @lib.Name::from_string("left")),
+          @lib.NameAssoc::new(2U, @lib.Name::from_string("right")),
+        ]),
+      ),
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(
+        optimize_level=3,
+        shrink_level=0,
+        inlining_always_inline_max_size=0,
+        inlining_one_caller_inline_max_size=0,
+        inlining_flexible_inline_max_size=0,
+        inlining_partial_inlining_ifs=1,
+      ),
+      ["no-full-inline=guarded", "inlining"],
+    ) {
+    Ok(optimized) => optimized
+    Err(err) => fail("expected inlining pipeline success: \{err}")
+  }
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+  @debug.assert_eq(
+    inl_test_count_named_func(optimized, "byn-split-outlined-B$guarded"),
+    0,
+  )
+}
+
+///|
 test "inlining Pattern B treats trapping result arms as terminal exits" {
   let source =
     #|(module

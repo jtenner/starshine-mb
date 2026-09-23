@@ -75,3 +75,60 @@ test "fourth audit command inlining partial body local" {
   )
   @debug.assert_eq(output.code_sec.unwrap().0.length(), 3)
 }
+
+///|
+test "command inlining rejects Pattern B br_on_null outlined-arm escape" {
+  let output = cmd_fourth_partial_run(
+    (
+      #|(module
+      #|  (func $guarded (param i32 externref externref) (result externref)
+      #|    local.get 0
+      #|    if
+      #|      block
+      #|        local.get 1
+      #|        br_on_null 1
+      #|        drop
+      #|      end
+      #|      i32.const 3
+      #|      drop
+      #|      i32.const 4
+      #|      drop
+      #|      i32.const 5
+      #|      drop
+      #|      i32.const 6
+      #|      drop
+      #|      i32.const 7
+      #|      drop
+      #|      i32.const 8
+      #|      drop
+      #|      local.get 1
+      #|      return
+      #|    end
+      #|    local.get 2)
+      #|  (func $left (export "left") (param i32 externref externref) (result externref)
+      #|    local.get 0
+      #|    local.get 1
+      #|    local.get 2
+      #|    call $guarded)
+      #|  (func $right (export "right") (param i32 externref externref) (result externref)
+      #|    local.get 0
+      #|    local.get 1
+      #|    local.get 2
+      #|    call $guarded))
+    ),
+    [(0U, "guarded"), (1U, "left"), (2U, "right")],
+    ["no-full-inline=guarded", "inlining"],
+    OptimizeOptions::new(
+      optimize_level=3,
+      shrink_level=0,
+      inlining=InliningOptions::new(
+        always_inline_max_size=0,
+        one_caller_inline_max_size=0,
+        flexible_inline_max_size=0,
+        partial_inlining_ifs=1,
+      ),
+    ),
+  )
+  assert_true(@validate.validate_module(output) is Ok(_))
+  @debug.assert_eq(output.code_sec.unwrap().0.length(), 3)
+}

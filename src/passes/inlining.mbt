@@ -1468,7 +1468,28 @@ fn inl_partial_instr_has_escaping_branch(
   depth : Int,
 ) -> Bool {
   match instr {
-    @lib.Br(label) | @lib.BrIf(label) => inl_label_idx_slot(label) >= depth
+    @lib.Br(label)
+    | @lib.BrIf(label)
+    | @lib.BrOnNull(label)
+    | @lib.BrOnNonNull(label)
+    | @lib.BrOnCast(label, _, _, _)
+    | @lib.BrOnCastFail(label, _, _, _)
+    | @lib.BrOnCastDescEq(label, _, _)
+    | @lib.BrOnCastDescEqFail(label, _, _) => inl_label_idx_slot(label) >= depth
+    @lib.Resume(_, handlers)
+    | @lib.ResumeThrow(_, _, handlers)
+    | @lib.ResumeThrowRef(_, handlers) => {
+      for handler in handlers {
+        match handler {
+          @lib.ResumeOnLabel(_, label) =>
+            if inl_label_idx_slot(label) >= depth {
+              return true
+            }
+          @lib.ResumeOnSwitch(_) => ()
+        }
+      }
+      false
+    }
     @lib.BrTable(labels, default) => {
       if inl_label_idx_slot(default) >= depth {
         return true
@@ -1480,15 +1501,27 @@ fn inl_partial_instr_has_escaping_branch(
       }
       false
     }
-    @lib.Block(_, @lib.Expr(body))
-    | @lib.Loop(_, @lib.Expr(body))
-    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
       inl_partial_instrs_have_escaping_branch(body, depth + 1)
+    @lib.TryTable(_, catches, @lib.Expr(body)) => {
+      for catch_ in catches {
+        let label = match catch_ {
+          @lib.Catch(_, label)
+          | @lib.CatchRef(_, label)
+          | @lib.CatchAll(label)
+          | @lib.CatchAllRef(label) => label
+        }
+        if inl_label_idx_slot(label) >= depth {
+          return true
+        }
+      }
+      inl_partial_instrs_have_escaping_branch(body, depth + 1)
+    }
     @lib.If(_, then_body, Some(else_body)) =>
-      inl_partial_instrs_have_escaping_branch(then_body, depth) ||
-      inl_partial_instrs_have_escaping_branch(else_body, depth)
+      inl_partial_instrs_have_escaping_branch(then_body, depth + 1) ||
+      inl_partial_instrs_have_escaping_branch(else_body, depth + 1)
     @lib.If(_, then_body, None) =>
-      inl_partial_instrs_have_escaping_branch(then_body, depth)
+      inl_partial_instrs_have_escaping_branch(then_body, depth + 1)
     _ => false
   }
 }
