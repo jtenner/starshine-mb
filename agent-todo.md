@@ -378,6 +378,13 @@
     determines compatible function types. Valid direct and dispatcher cases
     failed before the fix and passed afterward; focused tests, `moon info`,
     and `moon fmt` passed without fuzzing.
+73. [ ] Saved seven-pass cases 259 and 367 still lose reachable result-loop
+    paths when DCE runs after OI, Precompute, Vacuum, Local CSE,
+    SimplifyLocals, and RemoveUnusedBrs. Current native replay leaves a valid
+    loop beginning with `unreachable`; prefixes through pass 6 preserve the
+    reachable body. Strengthen direct and dispatcher assertions to inspect the
+    loop body, observe red, fix the minimal DCE reachability error, then replay
+    both exact saved modules. No fuzz campaign is required for this blocker.
 
 ### Open parity evidence from this audit
 
