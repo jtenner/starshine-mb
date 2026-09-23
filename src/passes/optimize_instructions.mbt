@@ -15589,6 +15589,25 @@ fn optimize_instructions_try_sink_same_local_set_if(
 }
 
 ///|
+fn optimize_instructions_try_sink_same_local_set_if_then_revisit_condition(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  if !optimize_instructions_try_sink_same_local_set_if(ctx, func, dead, node_id) {
+    return false
+  }
+  // Sinking keeps this exact If node alive but changes its arms and result
+  // type. Give the later condition canonicalizer its one normal opportunity on
+  // that new shape instead of requiring another whole pass invocation.
+  ignore(
+    optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id),
+  )
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_constant_if_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -41637,7 +41656,9 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_sink_same_global_set_if(
         ctx, func, dead, node_id,
       ) ||
-      optimize_instructions_try_sink_same_local_set_if(ctx, func, dead, node_id) ||
+      optimize_instructions_try_sink_same_local_set_if_then_revisit_condition(
+        ctx, func, dead, node_id,
+      ) ||
       optimize_instructions_try_fold_constant_if_condition(
         ctx, func, dead, node_id,
       ) ||

@@ -7939,6 +7939,48 @@ test "Binaryen 132 instruction command folds a constant tee zero comparison" {
 }
 
 ///|
+test "Binaryen 132 instruction command converges saved constraint joins case 907 in one run" {
+  let source =
+    #|(module
+    #|  (type (func (param i32 i32) (result i32)))
+    #|  (export "run" (func 0))
+    #|  (func (type 0) (param i32 i32) (result i32)
+    #|    (local i32)
+    #|    local.get 0
+    #|    i32.eqz
+    #|    if
+    #|      i32.const 3
+    #|      local.set 2
+    #|    else
+    #|      i32.const 5
+    #|      local.set 2
+    #|    end
+    #|    local.get 2
+    #|    i32.const 0
+    #|    i32.ne))
+  let input = @wast.wast_to_binary_module(source).unwrap()
+  let once = optimize_module_with_pass_flags(
+    input,
+    ["optimize-instructions"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  let twice = optimize_module_with_pass_flags(
+    once,
+    ["optimize-instructions"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(once).unwrap()
+  @validate.validate_module(twice).unwrap()
+  @debug.assert_eq(once, twice)
+  @debug.assert_eq(
+    cmd_deep_audit_count(cmd_deep_audit_body(once), fn(instr) {
+      instr is @lib.I32Eqz
+    }),
+    0,
+  )
+}
+
+///|
 test "Binaryen 132 constraint analysis command dispatch folds an implied predicate" {
   let source =
     #|(module (func (export "run") (param i32) (result i32)

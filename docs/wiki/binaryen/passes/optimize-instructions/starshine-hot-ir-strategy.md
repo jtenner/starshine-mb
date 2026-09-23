@@ -241,6 +241,10 @@ It can:
 - fold narrow exact i32 boolean-arm `select`s over direct compare conditions by keeping the compare or using a direct inverse compare, including direct integer equality `i32/i64.eq` and `i32/i64.ne` conditions, and over direct `i64.eqz` plus direct `i64.eq` / `i64.ne` zero-compare conditions to Binaryen-shaped `i64.eqz` or `i64.ne(x, 0)` results while keeping non-boolean value selects bounded
 - fold direct `i32.eq` / `i32.ne` compares between `i32.eqz` and exact boolean constants to either `i32.eqz(x)` or `i32.ne(x, 0)`
 - collapse duplicate then-branch `if`s into a direct branch
+- revisit the same `if` condition once after sinking matching local writes into
+  `local.set(if (result T) ...)`; the public raw bridge mirrors that bounded
+  step only when its newly emitted value `if` is immediately preceded by
+  `i32.eqz`, removing the `eqz` and swapping the arms in the same pass run
 
 This is one area where the local code is more explicit than the upstream `visitIf()` teaching surface because several helpers exist mainly to preserve local HOT/writeback behavior.
 

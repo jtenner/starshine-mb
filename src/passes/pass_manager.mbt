@@ -36617,6 +36617,41 @@ fn RawOiSameLocalConstIfSinkFact::from_arms(
 }
 
 ///|
+priv struct RawOiSameLocalConstIfEqzRevisitFact {
+  value_if : @lib.Instruction
+  local_set : @lib.Instruction
+}
+
+///|
+fn RawOiSameLocalConstIfEqzRevisitFact::from_rewrite(
+  prefix : Array[@lib.Instruction],
+  expanded : Array[@lib.Instruction],
+) -> RawOiSameLocalConstIfEqzRevisitFact? {
+  if prefix.length() == 0 ||
+    prefix[prefix.length() - 1] != @lib.Instruction::i32_eqz() {
+    return None
+  }
+  match expanded {
+    [@lib.If(block_type, then_body, Some(else_body)), @lib.LocalSet(local_idx)] =>
+      Some({
+        value_if: @lib.Instruction::if_(block_type, else_body, Some(then_body)),
+        local_set: @lib.Instruction::local_set(local_idx),
+      })
+    _ => None
+  }
+}
+
+///|
+fn RawOiSameLocalConstIfEqzRevisitFact::append_rewrite(
+  self : RawOiSameLocalConstIfEqzRevisitFact,
+  rewritten : Array[@lib.Instruction],
+) -> Unit {
+  ignore(rewritten.pop())
+  rewritten.push(self.value_if)
+  rewritten.push(self.local_set)
+}
+
+///|
 // Accepted raw OI-D/F/G/J bridge boundary. This function is only the recursive
 // control-body traversal for the effectful-sibling raw lane; the same-global
 // `if` rewrite decision is delegated to `RawOiSameGlobalIfSinkFact`, and all
@@ -42917,6 +42952,19 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       instrs[i],
       module_ctx,
     )
+    match
+      RawOiSameLocalConstIfEqzRevisitFact::from_rewrite(rewritten, expanded) {
+      Some(fact) if instr_changed => {
+        // The raw same-local sink just kept this exact If alive with value
+        // arms. Consume its immediately preceding eqz and swap those arms in
+        // the same bounded rewrite, matching the HOT same-node revisit.
+        fact.append_rewrite(rewritten)
+        changed = true
+        i = i + 1
+        continue
+      }
+      _ => ()
+    }
     let erase_exposed_local_condition = instr_changed &&
       expanded.length() > 0 &&
       expanded[0] == @lib.Instruction::drop() &&

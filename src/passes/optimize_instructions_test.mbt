@@ -25692,6 +25692,58 @@ test "optimize-instructions sinks same-local if set arms to one set of value if"
 }
 
 ///|
+test "optimize-instructions revisits an eqz if after sinking same-local sets" {
+  // Saved constraint-joins case 907 exposed a pass-local scheduling gap: the
+  // same-local-set rewrite kept the `if` node alive, but its successful rewrite
+  // short-circuited the later condition canonicalizer until a second pass run.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (local i32) local.get 0 i32.eqz if i32.const 3 local.set 2 else i32.const 5 local.set 2 end local.get 2 i32.const 0 i32.ne))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let set_id = match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => {
+      let body = @ir.hot_region_body_ref(func, root)
+      @ir.hot_region_get(func, body, 0)
+    }
+    _ => root
+  }
+  match @ir.hot_node_get(func, set_id).op {
+    @ir.HotOp::LocalSet => ()
+    other => fail("expected sunk local.set root, got \{other}")
+  }
+  let value_if = @ir.hot_child_get(func, set_id, 0)
+  match @ir.hot_node_get(func, value_if).op {
+    @ir.HotOp::If => ()
+    other =>
+      fail("expected sunk local.set payload to remain an if, got \{other}")
+  }
+  let condition = @ir.hot_child_get(func, value_if, 0)
+  match @ir.hot_node_get(func, condition).op {
+    @ir.HotOp::LocalGet => ()
+    other => fail("expected same-pass eqz removal, got condition \{other}")
+  }
+  @debug.assert_eq(@ir.hot_node_get(func, condition).imm0, 0)
+  let then_region = @ir.hot_region_then_ref(func, value_if)
+  let else_region = @ir.hot_region_else_ref(func, value_if).unwrap()
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_region), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, else_region), 1)
+  let then_value = @ir.hot_region_get(func, then_region, 0)
+  let else_value = @ir.hot_region_get(func, else_region, 0)
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, then_value).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(5)),
+  )
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, else_value).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(3)),
+  )
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected revisited same-local if to verify, got \{err}")
+  }
+}
+
+///|
 test "optimize-instructions sinks nested same-local if without a wrapper block" {
   // The first random replay exposed that demoting the `if` to a block leaves an
   // extra nested wrapper under an existing block. Reusing the current control
