@@ -1,12 +1,13 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-22
 sources:
   - ../../release-horizon-and-oracles.md
   - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
+  - ../../../../../src/passes/remove_unused_brs_continuation_wbtest.mbt
   - ../../../../../src/ir/hot_lower.mbt
   - ../../../../../src/ir/hot_lower_wbtest.mbt
   - ../../../../../src/ir/hot_labels_wbtest.mbt
@@ -14,6 +15,7 @@ sources:
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/cmd/remove_unused_brs_continuation_wbtest.mbt
   - ../../../../../agent-todo.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedBrs.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp
@@ -43,6 +45,20 @@ related:
 # `remove-unused-brs`
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## 2026-09-22 continuation handler target repair
+
+RUB's cycle scan now counts continuation `on_label` destinations as incoming
+label references. Single-result block refinalization also rejects blocks with a
+continuation handler user because the handler's continuation reference is an
+additional result path that normal fallthrough alone cannot characterize.
+
+The reduced regression has a block returning `(ref null cont)` through its
+handler and `(ref null no_cont)` on normal fallthrough. The old pass saw no
+label user, narrowed the block to `no_cont`, and produced an invalid handler
+destination. The direct HOT test verifies that the concrete continuation type
+survives lowering; the active dispatcher test verifies that RUB completes
+without `skip-invalid-lower` rollback.
 
 ## 2026-08-31 Moon benchmark and HOT lower follow-up
 

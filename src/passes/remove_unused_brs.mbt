@@ -965,6 +965,12 @@ fn remove_unused_brs_compute_cycle_scan(
           }
         }
       }
+      @ir.HotOp::Continuation =>
+        for label_id in @ir.hot_continuation_targets(func, node_id) {
+          if label_id >= 0 && label_id < label_refs.length() {
+            label_refs[label_id] = label_refs[label_id] + 1
+          }
+        }
       _ => ()
     }
     let payload_slots = match node.op {
@@ -9963,6 +9969,12 @@ fn remove_unused_brs_try_refinalize_single_result_block(
             }
           }
         }
+        @ir.HotOp::Continuation =>
+          for target in @ir.hot_continuation_targets(func, node_id) {
+            if target == label_id {
+              return false
+            }
+          }
         _ => ()
       }
     }

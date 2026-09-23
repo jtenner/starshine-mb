@@ -23995,6 +23995,12 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   reached `skip-invalid-lower` after validation reported a resume-handler label
   arity mismatch. Both regressions now preserve the typed owner and complete
   without validation rollback.
+- RemoveUnusedBrs now counts continuation handler destinations in its label-use
+  index and rejects fallthrough-only result refinalization for handler-targeted
+  blocks. A valid block with a `(ref null cont)` handler result and a
+  `(ref null no_cont)` fallthrough previously narrowed to `no_cont`, causing
+  active dispatch to reach `skip-invalid-lower`. Direct HOT and traced
+  dispatcher regressions preserve the concrete continuation type and validate.
 - [IR2 audit follow-up](ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit) records red-first repairs for Precompute SIMD local aliasing, direct and nested Local CSE shared-memory reuse, RUME memory64 endpoint overflow, Memory Packing caller-array mutation, and mixed explicit/O4Z4 pass suppression. The final default `moon test` passed `12,053/12,053`; `moon info` and `moon fmt` passed, and no `.mbti` changed.
 - Seven pass-targeted GenValid lanes used fresh native SHA-256 `1b354cea5152439252c7f2ba8c5349fdd62a03cebd74407541ff40f292c7a97f`, eight workers, independent `wasm-tools` validation, and verified Binaryen 132. Precompute compared `10,123` valid cases, and Local CSE, both RUME names, Memory Packing, DAE optimizing, and SGO each compared `10,000`. There were no optimized-output validation or command failures. Memory Packing's `2,712` previously runtime-backed residuals and smaller DAE/SGO cleanup families are classified in the audit table; direct Precompute, Local CSE, and both RUME lanes had zero residual mismatches after their documented normalizers. `bun validate full --profile ci --target wasm-gc` passed 12,050 target tests and 14 CI fuzz suites / 100,766 attempts.
 - The active backlog retains the host-visible duplicate-import/function identity policy and 477 independently invalid generated atomic cases in the Precompute aggregate. The latter did not enter comparison; oversampling met the 10,000-valid-case gate.
