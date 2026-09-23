@@ -467,6 +467,12 @@ fn dead_code_elimination_build_has_incoming_branches_by_label(
     }
     let node = @ir.hot_node_get(func, branch_id)
     match node.op {
+      @ir.HotOp::Continuation =>
+        for target in @ir.hot_continuation_targets(func, branch_id) {
+          dead_code_elimination_record_incoming_branch_target(
+            has_incoming_by_label, target,
+          )
+        }
       @ir.HotOp::TryTable => {
         let info = @ir.hot_catch_info_get(func, node.imm1)
         for catch_ in info.catches {
@@ -519,6 +525,7 @@ fn dead_code_elimination_require_has_any_branch(
           continue
         }
         if @ir.hot_node_has_flag(func, node_id, @ir.HOT_FLAG_BRANCH) ||
+          @ir.hot_node_get(func, node_id).op is @ir.HotOp::Continuation ||
           @ir.hot_node_get(func, node_id).op is @ir.HotOp::TryTable {
           has_any_branch = true
           break

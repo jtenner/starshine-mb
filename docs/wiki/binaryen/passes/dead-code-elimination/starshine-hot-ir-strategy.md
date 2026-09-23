@@ -126,15 +126,17 @@ Instead it rebuilds HOT-oriented facts as needed:
 
 That broader cache stack is the clearest sign that current Starshine is not a direct line-by-line Binaryen port.
 
-The incoming-label bitset must include exceptional transfers encoded outside
-ordinary branch nodes. In particular, each `try_table` catch arm keeps its
+The incoming-label bitset must include transfers encoded outside ordinary
+branch nodes. Each `try_table` catch arm and continuation handler keeps its
 destination label live. The branch-user array remains narrower because its
-entries are rewritten as ordinary branch payload users; catch metadata is an
-owner-preservation fact, not a branch-payload rewrite candidate. The direct HOT
-and active dispatcher regressions in
+entries are rewritten as ordinary branch payload users; catch and handler
+metadata are owner-preservation facts, not branch-payload rewrite candidates.
+The direct HOT and active dispatcher regressions in
 `src/passes/dead_code_elimination_label_targets_wbtest.mbt` and
 `src/cmd/dce_label_targets_wbtest.mbt` cover the root-block flattening case that
-previously left a catch destination without an enclosing label.
+previously left a catch destination without an enclosing label and the typed
+block voidification case that previously broke a continuation handler's result
+arity.
 
 ### 2. Region-local dead-result cleanup
 
