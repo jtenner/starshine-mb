@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 sources:
   - ./index.md
   - ../../../../../src/passes/dead_code_elimination.mbt
@@ -169,21 +169,27 @@ before an earlier stored terminator. DCE must therefore check source order befor
 deleting every root after the first nonfallthrough storage root.
 
 Random-all-profiles semantic-idempotence cases 259 and 367 exposed the concrete
-failure. `optimize-instructions` left a typed `(result i32 f64)` loop with two
-dropped result lanes and an explicit `unreachable`. HOT represented the loop body
-as `unreachable, if, if`: the duplicated `if` roots were stored after the trap but
-lowered before it. DCE treated them as an unreachable suffix, removed both live
-roots, then replaced the now-literal-unreachable loop with the trap. The original
-`run(0)` returned `(0, 2.5)` while the composed output trapped.
+failure. The six-pass prefix left a typed `(result i32 f64)` loop with split
+result drops and an explicit `unreachable` tail. HOT represented its
+nonfallthrough body as `unreachable, if, if`: the duplicated `if` roots were
+stored after the trap but had earlier source order and therefore executed before
+it. Final-root voidification could change those repeated roots to void without
+changing their source order. A revisit could then treat them as an unreachable
+suffix, remove both live controls, and replace the now-literal-unreachable loop
+with the trap. The original `run(0)` returned `(0, 2.5)` while the composed
+output trapped.
 
-`dead_code_elimination_region_has_source_preceding_tail_root(...)` now blocks
-that suffix deletion when any later live value root has a nonnegative, equal or
-earlier source order. Equal order covers repeated lanes of one multivalue
-producer. The focused
-post-OI regression lives beside the pass in
-`src/passes/dead_code_elimination_test.mbt`; the active dispatcher composition
-regression lives in `src/cmd/dce_oi_loop_regression_wbtest.mbt` and runs
-`optimize-instructions` followed by `dead-code-elimination`.
+`dead_code_elimination_try_restore_source_order_before_terminator(...)` now
+rotates a stored terminator behind contiguous live result or control roots that
+have equal or earlier source order. The existing tail-pruning guard then keeps
+the same source-order rule during later rewrites. A control root need not still
+produce a value: a void control can retain returns, backedges, traps, or effects
+after result voidification. Equal order covers repeated lanes of one multivalue
+producer. The focused clean-loop
+regression lives beside the pass in `src/passes/dead_code_elimination_test.mbt`;
+the active dispatcher composition regression lives in
+`src/cmd/dce_oi_loop_regression_wbtest.mbt` and runs the saved campaign's full
+seven-pass sequence through `dead-code-elimination`.
 
 ### 5. Explicit final-tail repair
 

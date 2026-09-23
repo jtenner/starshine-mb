@@ -1,8 +1,8 @@
 ///|
-test "dispatcher preserves case 259 and 367 multivalue loop after OI then DCE" {
+test "dispatcher preserves case 259 and 367 multivalue loop through seven passes" {
   // Cases 259 and 367 reduce to this shape; only the sentinel and loop bound
-  // differ. optimize-instructions turns the tee/drop increment into a set and
-  // materializes the typed loop's unreachable tail before DCE runs.
+  // differ. The six-pass prefix leaves split result drops and an explicit
+  // unreachable tail on the typed loop before DCE runs.
   let wat =
     #|(module
     #|  (type $pair (func (result i32 f64)))
@@ -42,7 +42,10 @@ test "dispatcher preserves case 259 and 367 multivalue loop after OI then DCE" {
   let input = @passes.pass_test_module_from_wat(wat)
   let optimized = optimize_module_with_pass_flags(
     input,
-    ["optimize-instructions", "dead-code-elimination"],
+    [
+      "optimize-instructions", "precompute", "vacuum", "local-cse", "simplify-locals",
+      "remove-unused-brs", "dead-code-elimination",
+    ],
     OptimizeOptions::new(),
   ).unwrap()
 
@@ -51,6 +54,10 @@ test "dispatcher preserves case 259 and 367 multivalue loop after OI then DCE" {
     [@lib.Unreachable] =>
       fail(
         "OI then DCE replaced the reachable typed loop with unconditional unreachable",
+      )
+    [@lib.Loop(_, @lib.Expr([@lib.Unreachable, ..]))] =>
+      fail(
+        "OI then DCE moved the unreachable tail before the reachable typed loop body",
       )
     _ => ()
   }

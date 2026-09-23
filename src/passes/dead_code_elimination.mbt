@@ -788,13 +788,74 @@ fn dead_code_elimination_region_has_source_preceding_tail_root(
     let tail_id = @ir.hot_region_get(func, region_ref, tail_idx)
     if tail_id >= 0 &&
       @ir.hot_node_is_live(func, tail_id) &&
-      @ir.hot_node_result_arity(func, tail_id) > 0 &&
+      (
+        @ir.hot_node_result_arity(func, tail_id) > 0 ||
+        @ir.hot_is_control_node(func, tail_id)
+      ) &&
       @ir.hot_node_get(func, tail_id).order >= 0 &&
       @ir.hot_node_get(func, tail_id).order <= node_order {
       return true
     }
   }
   false
+}
+
+///|
+fn dead_code_elimination_try_restore_source_order_before_terminator(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  node_id : Int,
+) -> Bool {
+  if !@ir.hot_is_terminator_node(func, node_id) {
+    return false
+  }
+  let node_order = @ir.hot_node_get(func, node_id).order
+  if node_order < 0 {
+    return false
+  }
+  // Lifting can append result lanes after a source-later terminator, and
+  // voidification can turn such a result root into structured control while
+  // retaining its source order. Rotate only the contiguous represented lanes
+  // or controls, so no unrelated root crosses the terminator. Plain void roots
+  // are ordinary dead suffixes and must remain available for tail pruning.
+  let mut tail_end = idx
+  for tail_idx = idx + 1
+      tail_idx < @ir.hot_region_root_count(func, region_ref)
+      tail_idx = tail_idx + 1 {
+    let tail_id = @ir.hot_region_get(func, region_ref, tail_idx)
+    if tail_id < 0 ||
+      !@ir.hot_node_is_live(func, tail_id) ||
+      (
+        @ir.hot_node_result_arity(func, tail_id) == 0 &&
+        !@ir.hot_is_control_node(func, tail_id)
+      ) ||
+      @ir.hot_node_get(func, tail_id).order < 0 ||
+      @ir.hot_node_get(func, tail_id).order > node_order {
+      break
+    }
+    tail_end = tail_idx
+  }
+  if tail_end == idx {
+    return false
+  }
+  let replacement : Array[Int] = []
+  for tail_idx = idx + 1; tail_idx <= tail_end; tail_idx = tail_idx + 1 {
+    replacement.push(@ir.hot_region_get(func, region_ref, tail_idx))
+  }
+  replacement.push(node_id)
+  ignore(
+    pass_splice_region(
+      ctx,
+      func,
+      region_ref,
+      idx,
+      tail_end - idx + 1,
+      replacement,
+    ),
+  )
+  true
 }
 
 ///|
@@ -3004,6 +3065,13 @@ fn dead_code_elimination_visit_region(
         node_id,
       ) ||
       changed
+
+    if dead_code_elimination_try_restore_source_order_before_terminator(
+        ctx, func, region_ref, idx, node_id,
+      ) {
+      changed = true
+      continue
+    }
 
     if dead_code_elimination_try_flatten_untargeted_void_block_root(
         ctx, func, branch_user_cache, node_use_cache, region_ref, idx, node_id,

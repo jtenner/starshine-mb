@@ -2212,6 +2212,10 @@ test "dead-code-elimination preserves post-OI multivalue loop returns and backed
       fail(
         "DCE replaced the reachable typed loop with unconditional unreachable",
       )
+    [@lib.Loop(_, @lib.Expr([@lib.Unreachable, ..]))] =>
+      fail(
+        "DCE moved the unreachable tail before the reachable typed loop body",
+      )
     _ => ()
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
@@ -2219,4 +2223,113 @@ test "dead-code-elimination preserves post-OI multivalue loop returns and backed
   assert_true(pretty.contains("return"), msg=pretty)
   assert_true(pretty.contains("(br "), msg=pretty)
   assert_true(pretty.contains("F64(2.5)"), msg=pretty)
+}
+
+///|
+fn dead_code_elimination_test_instrs_any(
+  instrs : Array[@lib.Instruction],
+  predicate : (@lib.Instruction) -> Bool,
+) -> Bool {
+  for instr in instrs {
+    if predicate(instr) {
+      return true
+    }
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if dead_code_elimination_test_instrs_any(body, predicate) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if dead_code_elimination_test_instrs_any(then_body, predicate) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if dead_code_elimination_test_instrs_any(body, predicate) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+test "dead-code-elimination preserves final multivalue loop region results" {
+  // Exact saved-M0 control shape from random-all-profiles
+  // semantic-idempotence cases 259 and 367: the typed loop is the function's
+  // only root, and every reachable arm returns or branches back to the
+  // zero-arity loop label.
+  let input =
+    #|(module
+    #|  (type $pair (func (result i32 f64)))
+    #|  (func (param i32) (result i32 f64) (local i32 i32)
+    #|    loop (type $pair)
+    #|      local.get 0
+    #|      local.tee 2
+    #|      i32.const -1223595061
+    #|      i32.eq
+    #|      if (type $pair)
+    #|        local.get 2
+    #|        f64.const 1.25
+    #|        return
+    #|      else
+    #|        local.get 1
+    #|        i32.const 7
+    #|        i32.lt_u
+    #|        if (result i32)
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.set 1
+    #|          i32.const 1
+    #|        else
+    #|          i32.const 0
+    #|        end
+    #|        if (type $pair)
+    #|          br 2
+    #|        else
+    #|          local.get 2
+    #|          f64.const 2.5
+    #|          return
+    #|        end
+    #|      end
+    #|    end))
+  let optimized = match
+    pass_test_run_pipeline(input, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected final multivalue loop DCE success, got \{err}")
+  }
+
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
+  match body {
+    [@lib.Unreachable] =>
+      fail("DCE replaced the reachable multivalue loop with unreachable")
+    [@lib.Loop(_, @lib.Expr([@lib.Unreachable, ..]))] =>
+      fail("DCE moved unreachable before the reachable multivalue loop body")
+    _ => ()
+  }
+  assert_true(
+    dead_code_elimination_test_instrs_any(body, fn(instr) {
+      instr is @lib.Return
+    }),
+    msg="DCE removed every return from the multivalue loop",
+  )
+  assert_true(
+    dead_code_elimination_test_instrs_any(body, fn(instr) {
+      instr is @lib.Br(_)
+    }),
+    msg="DCE removed the loop backedge",
+  )
+  match body {
+    [@lib.Loop(_, @lib.Expr(loop_body))] =>
+      assert_true(
+        loop_body.any(fn(instr) { instr is @lib.LocalGet(_) }),
+        msg="DCE removed the reachable loop prefix",
+      )
+    _ => fail("expected DCE to preserve the final multivalue loop root")
+  }
 }
