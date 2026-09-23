@@ -503,6 +503,22 @@
     accounting for the residual win. A null-cast runtime probe still traps.
     No fuzz ran.
 
+86. [ ] Repair the optimizer-instruction atomic tee fixture after local-index
+    regrouping. Replace the stale rendered-module comparison with direct IR
+    assertions for the address tees, operation order, and remapped locals;
+    require the captured full-suite failure to turn green.
+87. [ ] Repair 19 global-struct-inference fixtures that claim closed-world
+    parameter origins while exporting their functions. Keep the explicit
+    exported-parameter no-fold guard; require the captured failures to turn
+    green without weakening the closed-world assertions.
+88. [ ] Repair the atomic-set fixture to assert Relaxed folding and ordered
+    AcqRel/SeqCst retention with direct IR checks; require the captured
+    full-suite failure to turn green.
+89. [ ] Repair the DFE fixture count after the exported-function identity
+    guard, and assert the two exported functions remain distinct while their
+    internal transitive callees merge; require the captured failure to turn
+    green.
+
 ### Open parity evidence from this audit
 
 - [ ] Extend atomic conformance beyond the bounded two-worker litmus: find an
