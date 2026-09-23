@@ -168,11 +168,12 @@ fn hot_verify_branch_target(
     !hot_verify_label_id_is_valid(func, target) {
     return Err(HotVerifyError::InvalidBranchTarget(node_id, target))
   }
-  let expected_arity = if target == HOT_IMPLICIT_FUNCTION_LABEL {
-    match hot_node_get(func, node_id).op {
-      HotOp::Delegate => 0
-      _ => hot_type_result_arity(func, hot_body_result_type(func))
-    }
+  let expected_arity = if hot_node_get(func, node_id).op == HotOp::Delegate {
+    // A legacy delegate transfers an exception to the enclosing handler.
+    // It does not branch with the target label's ordinary result values.
+    0
+  } else if target == HOT_IMPLICIT_FUNCTION_LABEL {
+    hot_type_result_arity(func, hot_body_result_type(func))
   } else {
     hot_label_branch_arity(func, target)
   }

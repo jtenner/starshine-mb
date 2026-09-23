@@ -137,6 +137,24 @@ test "hot verify accepts branches to the implicit function label" {
 }
 
 ///|
+test "hot verify accepts a legacy delegate to a result-typed try handler" {
+  let module_ = hot_lift_test_legacy_try_module(false, true)
+  let func = match
+    hot_lift_func_with_context_result(
+      module_,
+      @lib.FuncIdx::new(0U),
+      hot_module_context_from_module(module_),
+    ) {
+    Ok(func) => func
+    Err(err) => fail("expected valid legacy delegate to lift, got \{err}")
+  }
+  match hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid legacy delegate to verify, got \{err}")
+  }
+}
+
+///|
 test "hot verify requires typed catch payloads as an ordered catch-region prefix" {
   let valid = HotFunc::new()
   let payload = hot_build_catch_payload(

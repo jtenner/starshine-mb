@@ -1155,6 +1155,12 @@ The raw legacy code-pushing path checks reads and writes against the complete or
 
 Raw vacuum scans legacy try bodies and catches for owner-label references and rebases ordinary nested branches when an unused wrapper is removed. Delegate/rethrow regions conservatively retain wrappers pending a dedicated exception-depth proof. `vacuum_audit_test.mbt` covers a nested legacy branch that must exit its result block, not the function.
 
+Legacy `delegate` names an exception handler, not an ordinary value branch. Its
+HOT node carries zero result operands even when the destination `try` has a
+result type. `hot_verify_test.mbt` and `optimize_instructions_test.mbt` cover a
+validated result-typed delegate that previously failed HOT verification before
+the optimizer could run.
+
 ### Inlining continuation handler labels
 
 Resume, resume-throw, and resume-throw-ref handler labels participate in implicit function-exit detection and outer-label rebasing. `inlining_audit_wbtest.mbt` covers all three opcodes. Handler-on-switch entries remain unchanged because they have no lexical label.

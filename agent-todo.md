@@ -33,7 +33,10 @@
 2. [ ] Global Struct Inference substitutes an internal object for an imported GC reference.
 3. [ ] RUME leaves a stale type-name index after type compaction.
 4. [ ] RUME leaves stale label names after function-body nullification.
-5. [ ] OptimizeInstructions crashes on valid legacy-EH `delegate` inputs.
+5. [x] OptimizeInstructions crashes on valid legacy-EH `delegate` inputs. The
+   HOT verifier now checks exception-transfer arity independently of the
+   target try's ordinary result arity; focused IR and dispatcher tests were
+   red before the fix and green afterward.
 6. [ ] Compare-pass exits zero despite configured correctness failures.
 7. [ ] DCE label-use index omits `try_table` catch destinations.
 8. [ ] DCE label-use index omits continuation handler destinations.

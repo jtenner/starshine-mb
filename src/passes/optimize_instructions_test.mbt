@@ -120,6 +120,66 @@ fn optimize_instructions_test_run_module(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
+test "optimize-instructions accepts a valid legacy delegate to typed try" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(1U))]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::try_(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::try_(
+                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                  ]),
+                  [],
+                  delegate=Some(@lib.LabelIdx::new(0U)),
+                ),
+              ]),
+              [
+                @lib.LegacyCatch::tagged(
+                  @lib.TagIdx::new(0U),
+                  @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+                ),
+              ],
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid legacy delegate fixture, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["optimize-instructions"]) {
+    Ok(module_) => module_
+    Err(err) => fail("expected valid legacy delegate optimization, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid optimized legacy delegate, got \{err}")
+  }
+}
+
+///|
 fn optimize_instructions_assert_skip_reason(
   text : String,
   reason : String,
