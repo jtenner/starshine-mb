@@ -435,8 +435,14 @@
     structured result blocktypes, full-width signed constants, and multi-byte
     legacy `try` type indices while retaining true unreachable, division, and
     exception hazards. Exact saved-byte cases 447, 673, and 767 now have no
-    false trap or hazard facts. `try_table` catch-vector decoding remains a
-    separate unsupported scanner boundary pending exact fixture coverage.
+    false trap or hazard facts. The separate `try_table` catch-vector boundary
+    is closed under item 80.
+80. [x] The effect/trap scanner walked valid `try_table` blocktype and catch
+    vector bytes as executable opcodes, adding false `unreachable` hazards and
+    missing the exception region. Red valid-byte coverage and a real
+    post-region `unreachable` control precede the narrow decoder in
+    `c9a39aa48`. Saved EH cases 1, 40, and 256 now retain real exception and
+    throw facts while losing false catch-immediate hazards; no fuzz ran.
 
 ### Open parity evidence from this audit
 
