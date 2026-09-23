@@ -164,7 +164,10 @@
     canonical Wasm, and WAT artifacts; missing, legacy, or corrupt entries
     regenerate. A synthetic tamper regression failed before the fix and passed
     after; nearby harness tests passed 77/77. No fuzzing was run.
-51. [ ] Do not persist transient Binaryen failures as stable cache results.
+51. [x] Binaryen/canonicalization command failures are no longer cached as
+    stable oracle results; old `failure.json` entries are ignored and a later
+    lane retries the command. A fail-then-recover synthetic regression failed
+    before the fix and passed afterward; nearby harness tests passed 77/77.
 52. [ ] Add hard subprocess timeouts to validator and optimizer workers.
 53. [ ] Require an independent validator in correctness signoff lanes.
 54. [ ] Fail a lane when a configured external validator is absent.

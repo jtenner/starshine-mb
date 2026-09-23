@@ -2930,7 +2930,6 @@ async function runBinaryenOracleWithCache(
   const cacheRoot = options.cacheDir === null ? null : resolveRepoPath(repoRoot, options.cacheDir);
   const cacheDir = cacheRoot === null ? null : makeBinaryenCacheDir(cacheRoot, binaryenIdentity, inputBytes);
   const cacheDonePath = cacheDir === null ? null : path.join(cacheDir, "done.json");
-  const cacheFailurePath = cacheDir === null ? null : path.join(cacheDir, "failure.json");
   if (cacheDir !== null && cacheDonePath !== null && binaryenSuccessCacheIsComplete(cacheDir)) {
     fs.copyFileSync(path.join(cacheDir, "binaryen.raw.wasm"), binaryenRawPath);
     fs.copyFileSync(path.join(cacheDir, "binaryen.wasm"), binaryenPath);
@@ -2938,19 +2937,6 @@ async function runBinaryenOracleWithCache(
     fs.writeFileSync(binaryenWatPath, wat);
     return { ok: true, wat, cacheHit: true };
   }
-  if (cacheDir !== null && cacheFailurePath !== null && fs.existsSync(cacheFailurePath)) {
-    try {
-      const cached = JSON.parse(fs.readFileSync(cacheFailurePath, "utf8")) as { detail?: unknown };
-      return {
-        ok: false,
-        detail: typeof cached.detail === "string" ? cached.detail : "cached Binaryen/canonicalization command failed",
-        cacheHit: true,
-      };
-    } catch {
-      // Corrupt cache entries are ignored and overwritten on a fresh miss.
-    }
-  }
-
   if (cacheDir !== null && fs.existsSync(cacheDir)) {
     fs.rmSync(cacheDir, { recursive: true, force: true });
   }
@@ -2993,12 +2979,6 @@ async function runBinaryenOracleWithCache(
     return { ok: true, wat, cacheHit: false };
   } catch (error) {
     const detail = commandFailureDetail(error);
-    if (cacheDir !== null) {
-      const stagingDir = `${cacheDir}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      fs.mkdirSync(stagingDir, { recursive: true });
-      fs.writeFileSync(path.join(stagingDir, "failure.json"), JSON.stringify({ ok: false, schema: 1, detail }, null, 2) + "\n");
-      publishCacheDir(stagingDir, cacheDir);
-    }
     return { ok: false, detail, cacheHit: false };
   }
 }

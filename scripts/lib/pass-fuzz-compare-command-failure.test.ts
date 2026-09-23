@@ -49,9 +49,20 @@ fs.mkdirSync(require("node:path").dirname(out), { recursive: true });
 fs.copyFileSync(args[args.length - 1], out);
 `);
       const binaryen = executable(path.join(root, "wasm-opt"), `
+const fs = require("node:fs");
+const cp = require("node:child_process");
 const args = process.argv.slice(2);
 if (args.includes("--version")) {
   console.log("wasm-opt version 132 (version_132)");
+  process.exit(0);
+}
+if (process.env.RECOVER_BINARYEN === "1") {
+  const output = args[args.indexOf("-o") + 1];
+  if (args.includes("-S")) {
+    const printed = cp.spawnSync(process.env.REAL_WASM_TOOLS, ["print", args[0], "-o", output], { stdio: "inherit" });
+    process.exit(printed.status ?? 1);
+  }
+  fs.copyFileSync(args[0], output);
   process.exit(0);
 }
 console.error("synthetic Binaryen optimizer failure");
@@ -70,13 +81,14 @@ const result = cp.spawnSync(process.env.REAL_WASM_TOOLS, args, { stdio: "inherit
 process.exit(result.status ?? 1);
 `);
       const outDir = path.join(root, "out");
+      const cacheDir = path.join(root, "cache");
       const commandArgs = [
         path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
         "--count", "1",
         "--wasm-smith",
         "--out-dir", outDir,
         "--report-only",
-        "--no-cache",
+        "--cache-dir", cacheDir,
         "--jobs", "1",
         "--pass", "vacuum",
         "--starshine-bin", starshine,
@@ -138,6 +150,23 @@ process.exit(result.status ?? 1);
       expect(resumedSummary.commandFailureClasses).toEqual({ "binaryen-command-failed": 1 });
       expect(resumedSummary.comparedCount).toBe(0);
       expect(resumedSummary.generatorCounts).toEqual({ wasmSmith: 0, genValid: 0 });
+
+      const recoveredOutDir = path.join(root, "out-recovered");
+      const recovered = spawnSync("bun", commandArgs.map((arg) => arg === outDir ? recoveredOutDir : arg), {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          FIXTURE_WASM: inputWasm,
+          REAL_WASM_TOOLS: realWasmTools,
+          RECOVER_BINARYEN: "1",
+        },
+        encoding: "utf8",
+        timeout: 30_000,
+      });
+      expect(recovered.status, `${recovered.stdout}\n${recovered.stderr}`).toBe(0);
+      const recoveredSummary = JSON.parse(fs.readFileSync(path.join(recoveredOutDir, "result.json"), "utf8"));
+      expect(recoveredSummary.comparedCount).toBe(1);
+      expect(recoveredSummary.cache.binaryenFailureHits).toBe(0);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
