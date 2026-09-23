@@ -41,6 +41,39 @@ test "run_hot_pipeline applies once-reduction to repeated once calls" {
 }
 
 ///|
+test "once-reduction does not mutate nested arrays owned by its input" {
+  let wat =
+    #| (module
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (func $once
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g)
+    #|   (func (export "run")
+    #|     call $once
+    #|     block
+    #|       call $once
+    #|     end))
+    #|
+  let input = pass_test_module_from_wat(wat)
+  let before = @binary.encode_module(input).unwrap()
+  let optimized = once_reduction_run_module_pass(input)
+
+  @debug.assert_eq(@binary.encode_module(input).unwrap(), before)
+  assert_true(@binary.encode_module(optimized).unwrap() != before)
+  match (try! or_test_defined_func_instrs(optimized, 1)) {
+    [@lib.Call(_), @lib.Block(_, @lib.Expr([@lib.Nop]))] => ()
+    other =>
+      fail(
+        "expected nested repeated call to be removed, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "once-reduction keeps globals that are externally visible" {
   let wat =
     #| (module

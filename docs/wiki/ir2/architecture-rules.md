@@ -1205,6 +1205,15 @@ An already-executed once function's `return_call` becomes `return`, preserving t
 
 Both once analysis and rewriting push an if-label scope and retain local branch exits when deciding reachability. Their outermost scope represents the implicit function label and contributes to normal-return summaries. The audit's block-exit and implicit-function-return tests prevent facts from a skipped once call from leaking onto another path.
 
+### Once-reduction input ownership
+
+Once-reduction deep-copies block, loop, if, legacy try, and try-table bodies
+before its in-place dataflow rewrite. Direct pass calls therefore leave their
+input module's nested instruction arrays unchanged, and an O4z caught-try-table
+rollback can safely return the original module. `once_reduction_test.mbt`
+checks encoded input bytes around a nested rewrite; `optimize_test.mbt` checks
+the same invariant through the active transactional dispatcher.
+
 ### Once wrapper eligibility
 
 Once-body simplification requires an active once slot, not just a syntactically recognized guard. A guard read by ordinary code makes its writes observable. The inactive-wrapper audit regression retains that global write even when another unrelated once function activates the pass.

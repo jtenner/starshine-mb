@@ -1988,6 +1988,56 @@ test "O4z rolls back caught try-table nested in legacy try" {
 }
 
 ///|
+test "O4z rollback leaves once-reduction input ownership unchanged" {
+  let wat =
+    #| (module
+    #|   (tag $e)
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (func $once
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g)
+    #|   (func (export "run")
+    #|     call $once
+    #|     block
+    #|       call $once
+    #|     end
+    #|     block $caught
+    #|       try_table (catch_all $caught)
+    #|         throw $e
+    #|       end
+    #|     end))
+    #|
+  let input = pass_test_module_from_wat(wat)
+  let before = @binary.encode_module(input).unwrap()
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["optimize"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected once-reduction rollback success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pipeline:o4z-transaction:rollback reason=caught-try-table")
+    }),
+    msg=trace.join("\n"),
+  )
+  @debug.assert_eq(@binary.encode_module(input).unwrap(), before)
+  @debug.assert_eq(@binary.encode_module(optimized).unwrap(), before)
+}
+
+///|
 test "O4z caught try-table rollback preserves explicit passes around preset" {
   let input = pass_test_module_from_wat(
     "(module (tag $e) (func (block $handler (try_table (catch_all $handler) (throw $e)))))",

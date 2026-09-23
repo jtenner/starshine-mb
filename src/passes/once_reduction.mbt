@@ -865,6 +865,70 @@ fn or_rewrite_instrs(
 }
 
 ///|
+fn or_deep_copy_instrs(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  for instr in instrs {
+    out.push(
+      match instr {
+        @lib.Block(block_type, @lib.Expr(body)) =>
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(or_deep_copy_instrs(body)),
+          )
+        @lib.Loop(block_type, @lib.Expr(body)) =>
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(or_deep_copy_instrs(body)),
+          )
+        @lib.If(block_type, then_body, else_body) =>
+          @lib.Instruction::if_(
+            block_type,
+            or_deep_copy_instrs(then_body),
+            match else_body {
+              Some(body) => Some(or_deep_copy_instrs(body))
+              None => None
+            },
+          )
+        @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+          let next_catches : Array[@lib.LegacyCatch] = []
+          for catch_ in catches {
+            next_catches.push(
+              match catch_ {
+                @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) =>
+                  @lib.LegacyCatch::tagged(
+                    tag_idx,
+                    @lib.Expr::new(or_deep_copy_instrs(catch_body)),
+                  )
+                @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+                  @lib.LegacyCatch::all(
+                    @lib.Expr::new(or_deep_copy_instrs(catch_body)),
+                  )
+              },
+            )
+          }
+          @lib.Instruction::try_(
+            block_type,
+            @lib.Expr::new(or_deep_copy_instrs(body)),
+            next_catches,
+            delegate~,
+          )
+        }
+        @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(or_deep_copy_instrs(body)),
+          )
+        _ => instr
+      },
+    )
+  }
+  out
+}
+
+///|
 fn or_remove_tail_call_debris(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
@@ -1203,10 +1267,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     if tail_changed {
       changed = true
     }
-    let next_instrs : Array[@lib.Instruction] = []
-    for instr in without_tail_debris {
-      next_instrs.push(instr)
-    }
+    let next_instrs = or_deep_copy_instrs(without_tail_debris)
     ignore(
       or_rewrite_instrs(
         next_instrs,
