@@ -19215,6 +19215,26 @@ fn optimize_instructions_try_canonicalize_compare_const(
       )
       true
     }
+    (@lib.Instruction::I32GtS, Some(@lib.I32(raw))) if raw == -2147483648 => {
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_ne(),
+        [lhs_id, rhs_id],
+      )
+      true
+    }
+    (@lib.Instruction::I32LtS, Some(@lib.I32(raw))) if raw == 2147483647 => {
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_ne(),
+        [lhs_id, rhs_id],
+      )
+      true
+    }
     (@lib.Instruction::I32GtS, Some(@lib.I32(raw))) if raw == 2147483646 => {
       optimize_instructions_rewrite_exact_with_children(
         ctx,
@@ -19322,6 +19342,28 @@ fn optimize_instructions_try_canonicalize_compare_const(
               lhs_id,
               @ir.hot_build_const_i64(func, @lib.I64(-9223372036854775808L)),
             ],
+          )
+          true
+        }
+        (@lib.Instruction::I64GtS, Some(@lib.I64(raw))) if raw ==
+          -9223372036854775808L => {
+          optimize_instructions_rewrite_exact_with_children(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_ne(),
+            [lhs_id, rhs_id],
+          )
+          true
+        }
+        (@lib.Instruction::I64LtS, Some(@lib.I64(raw))) if raw ==
+          9223372036854775807L => {
+          optimize_instructions_rewrite_exact_with_children(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_ne(),
+            [lhs_id, rhs_id],
           )
           true
         }

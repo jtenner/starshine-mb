@@ -66,6 +66,8 @@ Related families:
 - signed compare to `-1` or `1` becomes a compare to `0`
 - unsigned compare to `1` may become `eq` / `ne` against `0`
 - some compare-to-near-min or near-max cases become exact compare-to-min/max
+- signed `x < MAX` and `x > MIN` become `x != MAX` and `x != MIN` for both
+  integer widths; the left operand still runs, including calls and traps
 
 Why Binaryen likes this:
 
