@@ -23987,3 +23987,12 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 - Red-first Node regressions now show that `--optimize`, `--shrink`, and their O4z forms preserve separate imported-function getter reads and distinct exported-function identities. Preset DFE/DIE guards and O4z candidate filtering close the implicit merge paths; explicitly named direct passes keep their existing contracts. The [identity policy](ir2/architecture-rules.md#host-visible-identity-preset-policy) and [backlog](../../agent-todo.md) record the conservative gate and future escape-analysis work. The twelve host runtime checks pass.
 - The Precompute aggregate no longer emits the independently unsupported Relaxed aggregate atomic read. All 10,000 generated inputs passed independent validation, and the fresh verified-v132 [dedicated comparison](binaryen/passes/precompute/fuzzing.md#binaryen-132-refresh) compared 10,000/10,000 with zero mismatches or failures (3,238 direct and 6,762 cleanup-normalized matches). The earlier 477 validator rejections remain historical evidence; the active atomic backlog item is closed.
 - Verified-v132 Vacuum sweeps compared 256/256 cases for each of the six campaigns. Memory64, GC/ref, SIMD/numeric, call topology, and the final segment profile had zero mismatches or failures. The first segment layout exposed a Binaryen parser limit with interleaved element indices; passive-first ordering kept the segment modes and restored full oracle coverage. EH/control retains 128 output differences, including 64 canonical size losses; the [active parity item](../../agent-todo.md) requires red-first reduction and semantic/size evidence before closure.
+
+### 2026-09-22 — MergeSimilarFunctions target-feature repair
+
+- MergeSimilarFunctions now parses preserved `target_features` metadata before
+  choosing thunk opcodes. A canonical `-tail-call` entry selects ordinary
+  `call`, while malformed named payloads fail closed to the same shape; the
+  custom section remains byte-identical. Red-first adjacent and active command
+  regressions showed the previous pass introducing `return_call` despite the
+  disallowing metadata.

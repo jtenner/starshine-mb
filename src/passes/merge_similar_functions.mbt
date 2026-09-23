@@ -4,6 +4,56 @@ pub fn merge_similar_functions_summary() -> String {
 }
 
 ///|
+fn msf_target_features_disallow_tail_call(payload : Bytes) -> Bool {
+  let count_result : Result[(@lib.U32, Int), @binary.BinaryDecodeError] = @binary.Decode::decode(
+    payload, 0,
+  )
+  let (@lib.U32(raw_count), initial_cursor) = match count_result {
+    Ok(value) => value
+    Err(_) => return true
+  }
+  let mut cursor = initial_cursor
+  let count = raw_count.reinterpret_as_int()
+  if count < 0 {
+    return true
+  }
+  for feature_idx = 0; feature_idx < count; feature_idx = feature_idx + 1 {
+    if cursor >= payload.length() {
+      return true
+    }
+    let prefix = payload[cursor]
+    cursor += 1
+    if prefix != b'\x2b' && prefix != b'\x2d' {
+      return true
+    }
+    let name_result : Result[(@lib.Name, Int), @binary.BinaryDecodeError] = @binary.Decode::decode(
+      payload, cursor,
+    )
+    let (@lib.Name(name), next) = match name_result {
+      Ok(value) => value
+      Err(_) => return true
+    }
+    cursor = next
+    if prefix == b'\x2d' && name == "tail-call" {
+      return true
+    }
+  }
+  cursor != payload.length()
+}
+
+///|
+fn msf_module_allows_tail_call_thunks(mod_ : @lib.Module) -> Bool {
+  for custom in mod_.custom_secs {
+    let @lib.CustomSec(@lib.Name(name), payload) = custom
+    if name == "target_features" &&
+      msf_target_features_disallow_tail_call(payload) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 priv struct MsfSite {
   value : @lib.Instruction
   value_type : @lib.ValType
@@ -1190,7 +1240,7 @@ fn msf_run_module_pass_with_perf(
   let next_funcs = funcs.copy()
   let imported_count = run_hot_pipeline_imported_func_count(mod_)
   let base_type_count = signatures.length()
-  let use_tail_call = true
+  let use_tail_call = msf_module_allows_tail_call_thunks(mod_)
   let ref_targets : Array[@lib.FuncIdx] = []
   let mut merged_count = 0
   for class_ in classes {

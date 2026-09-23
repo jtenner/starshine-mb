@@ -7,6 +7,30 @@ fn msf_test_run(source : String) -> @lib.Module raise {
 }
 
 ///|
+fn msf_test_tail_call_disabled_module() -> @lib.Module {
+  pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (result i32)
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    i32.const 42)
+      #|  (func (result i32)
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    i32.const 43))
+      #|
+    ),
+  ).with_custom_secs([
+    @lib.CustomSec::new(
+      @lib.Name::new("target_features"),
+      Bytes::from_array([
+        2, 0x2b, 4, 0x73, 0x69, 0x6d, 0x64, 0x2d, 9, 0x74, 0x61, 0x69, 0x6c, 0x2d,
+        0x63, 0x61, 0x6c, 0x6c,
+      ]),
+    ),
+  ])
+}
+
+///|
 test "merge-similar-functions shares large literal-only siblings" {
   let optimized = try! msf_test_run(
     (
@@ -53,6 +77,30 @@ test "merge-similar-functions shares large literal-only siblings" {
       fail(
         "expected valid merged module, got \{@validate.validation_error_message(err)}",
       )
+  }
+}
+
+///|
+test "merge-similar-functions honors disabled tail-call target metadata" {
+  let input = msf_test_tail_call_disabled_module()
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let optimized = merge_similar_functions_run_module_pass(input)
+  @debug.assert_eq(optimized.custom_secs, input.custom_secs)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([first, second, _])) =>
+      for func in [first, second] {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        assert_true(body.last() is Some(@lib.Call(_)), msg=body.to_string())
+        assert_false(
+          body.any(fn(instr) { instr is @lib.ReturnCall(_) }),
+          msg=body.to_string(),
+        )
+      }
+    other => fail("expected two thunks and one helper, got \{other}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid metadata-compatible merge, got \{err}")
   }
 }
 

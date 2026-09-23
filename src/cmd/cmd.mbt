@@ -8461,6 +8461,53 @@ test "deep audit command optimize instructions preserves shared same value cmpxc
 }
 
 ///|
+test "deep audit command merge-similar-functions honors disabled tail-call metadata" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (result i32)
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    i32.const 42)
+      #|  (func (result i32)
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    i32.const 43))
+      #|
+    ),
+  ).with_custom_secs([
+    @lib.CustomSec::new(
+      @lib.Name::new("target_features"),
+      Bytes::from_array([
+        1, 0x2d, 9, 0x74, 0x61, 0x69, 0x6c, 0x2d, 0x63, 0x61, 0x6c, 0x6c,
+      ]),
+    ),
+  ])
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let output = match
+    optimize_module_with_pass_flags(
+      input,
+      ["merge-similar-functions"],
+      OptimizeOptions::new(),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected metadata-compatible MSF dispatch: \{err}")
+  }
+  @debug.assert_eq(output.custom_secs, input.custom_secs)
+  assert_true(@validate.validate_module(output) is Ok(_))
+  match output.code_sec {
+    Some(@lib.CodeSec([first, second, _])) =>
+      for func in [first, second] {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        assert_true(body.last() is Some(@lib.Call(_)), msg=body.to_string())
+        assert_false(
+          body.any(fn(instr) { instr is @lib.ReturnCall(_) }),
+          msg=body.to_string(),
+        )
+      }
+    other => fail("expected dispatched MSF helper, got \{other}")
+  }
+}
+
+///|
 test "deep audit command remove-unused-module-elements retains active global reference closed false" {
   let input = cmd_deep_audit_rume_input("active")
   assert_true(@validate.validate_module(input) is Ok(_))

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-29
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - ../../../../../src/passes/merge_similar_functions.mbt
@@ -45,7 +45,8 @@ The local pass follows the Binaryen 131 contract:
 6. enforce the 255-parameter limit and Binaryen's weighted profitability rule
 7. append a shared helper type and function
 8. shift original non-parameter local indices after synthetic parameters
-9. replace originals with tail-call thunks
+9. replace originals with tail-call thunks when target metadata permits them,
+   otherwise use ordinary calls
 10. lower differing direct callees through `ref.func` and `call_ref` / `return_call_ref`
 11. append declarative function references and validate the complete candidate transactionally
 
@@ -63,6 +64,9 @@ The pass also preserves Binaryen-observable details found during fuzzing:
 - differing direct callees must use the same exact function type index before function-reference parameterization
 - accessed local indices must have compatible types across the class
 - helper and thunk insertion preserves every original function index, export, start reference, and call target
+- a canonical `target_features` entry that disallows `tail-call` keeps thunks
+  on ordinary `call`; malformed named payloads also fail closed to ordinary
+  calls because the pass preserves the opaque metadata unchanged
 - a candidate is discarded unless an append-only proof preserves every untouched section and existing type/function/element prefix, rebuilds the complete validation environment, and validates every changed or appended function
 - name metadata is stripped after a successful rewrite because helper insertion and local clearing invalidate local/debug names
 
