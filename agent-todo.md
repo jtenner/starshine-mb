@@ -457,6 +457,13 @@
     including calls and traps. Focused direct plus command tests are green;
     `3d0a2e9d7` covers all four command variants. Verified v132 SHA-256 is
     `500201b4d13ccc3a61fa5254073e75a138bc57be198bd6c18c5a9562c081ad18`.
+82. [ ] Saved seven-pass case 31 exposes a raw-size Vacuum parity gap:
+    after removing the now-dead body, Starshine retains an unused struct type
+    and emits 50 bytes while verified v132 prunes the type and emits 45.
+    External canonicalization later hides the gap (44 vs 45), so the raw
+    `+5` regression must stay visible. Add red direct and dispatcher type-use
+    tests, perform only source-proven dead-type cleanup, and replay the exact
+    saved module without a fuzz run.
 
 ### Open parity evidence from this audit
 
