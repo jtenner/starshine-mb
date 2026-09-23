@@ -82,11 +82,16 @@
     (`3c74e420d`); pass-manager, remove-unused-brs, and CLI scanners now
     recurse through protected and catch regions, with focused O4z and CLI
     regressions red then green.
-27. [ ] Once Reduction mutates nested arrays owned by its input module.
+27. [x] Once Reduction mutates nested arrays owned by its input module
+    (`d9d8e0b9a`); direct input-byte and O4z rollback regressions failed before
+    deep copying and passed afterward (45/45 adjacent, 140/140 dispatcher).
 
 ### Host behavior, metadata, and registry contracts
 
-28. [ ] RUME removes imports whose host resolution is observable.
+28. [x] RUME removes imports whose host resolution is observable
+    (`432e01596`); public variants retain all source-order imports after
+    semantic reachability, with direct and dispatcher host-roster regressions
+    red then green (59/59 adjacent, 4/4 whitebox).
 29. [x] ReorderGlobals changes observable imported-global getter order
     (`e73420e80`); the import section keeps source order while defined globals
     still reorder and remap, with focused dispatcher and whitebox regressions.
@@ -98,7 +103,10 @@
     Both policy dispatch and clone annotation copying now preserve the
     compiler-fact custom section; adjacent focused tests were red then green
     (`3ffc943ca`).
-32. [ ] MergeSimilarFunctions introduces tail calls despite conflicting target-feature metadata.
+32. [x] MergeSimilarFunctions introduces tail calls despite conflicting
+    target-feature metadata (`3db11a408`); canonical `-tail-call` metadata
+    selects ordinary calls, with adjacent and dispatcher regressions red then
+    green (15/15 adjacent, 1/1 dispatcher).
 33. [ ] Decide and guard direct DFE's host-visible exported-function identity contract.
 34. [ ] Decide and guard direct DIE's repeated host import-lookup contract.
 35. [ ] DIE loses annotations on a removed import alias.
