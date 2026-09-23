@@ -143,6 +143,12 @@
 68. [ ] Check OptimizeCasts abstract-heap lattice on validator-approved boundaries.
 69. [ ] Check Heap2Local's missing-field defensive branch against valid subtype layouts.
 
+### Defects discovered during this repair spree
+
+70. [x] MemoryPacking drops structured compiler facts whenever it rebuilds a
+    module after a successful data-segment rewrite. Direct and dispatcher
+    zero-range fixtures were red before the metadata carry and green after.
+
 ### Open parity evidence from this audit
 
 - [ ] Classify the 557 structural mismatches in the saved seven-pass 1,000-case

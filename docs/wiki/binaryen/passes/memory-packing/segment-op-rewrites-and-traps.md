@@ -374,6 +374,13 @@ stack value into the destination expression or decline a valid rewrite. The
 white-box count and active dispatcher regression now cover a valid one-operand
 descriptor test before `memory.init`.
 
+When MemoryPacking emits a changed data section, its module rebuild carries
+`compiler_fact_custom_section` forward unchanged. The direct pass and active
+dispatcher regressions in `memory_packing_test.mbt` start with structured facts
+and a profitable active zero-range rewrite, then assert the optimized segment
+and preserved facts. The facts are independent metadata and do not become
+invalid merely because data segments were packed.
+
 ## Practical future-port checklist
 
 If a future Starshine port grows toward full Binaryen parity, keep this checklist handy:

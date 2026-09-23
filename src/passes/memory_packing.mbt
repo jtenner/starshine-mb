@@ -2843,6 +2843,7 @@ pub fn memory_packing_run_module_pass(
   let next_name_sec = mp_rewrite_name_sec(mod_.name_sec, data_name_entries)
   @lib.Module::new(
     custom_secs=mod_.custom_secs,
+    compiler_fact_custom_section=mod_.compiler_fact_custom_section,
     type_sec=mod_.type_sec,
     import_sec=mod_.import_sec,
     func_annotation_sec=mod_.func_annotation_sec,

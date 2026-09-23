@@ -348,6 +348,38 @@ test "run_hot_pipeline applies memory-packing to profitable active zero ranges" 
 }
 
 ///|
+test "memory-packing direct rewrite preserves structured compiler facts" {
+  let facts = @representation.CompilerFactCustomSection::new(
+    @representation.OptimizationFactsSec::new(),
+  )
+  let input = pass_test_module_from_wat(
+    "(module (memory 1) (data (i32.const 0) \"\\00\\00\\00\\00\\00\\00\\00\\00\\00ABC\"))",
+  ).with_compiler_fact_custom_section(facts)
+  let output = memory_packing_run_module_pass(input)
+  let (_, offset, _) = mp_test_active_data_segments(output)[0]
+  @debug.assert_eq(offset, 9)
+  @debug.assert_eq(output.compiler_fact_custom_section, Some(facts))
+}
+
+///|
+test "memory-packing dispatcher preserves structured compiler facts" {
+  let facts = @representation.CompilerFactCustomSection::new(
+    @representation.OptimizationFactsSec::new(),
+  )
+  let input = pass_test_module_from_wat(
+    "(module (memory 1) (data (i32.const 0) \"\\00\\00\\00\\00\\00\\00\\00\\00\\00ABC\"))",
+  ).with_compiler_fact_custom_section(facts)
+  let output = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
+    Ok(module_) => module_
+    Err(err) => fail("expected memory-packing dispatch, got \{err}")
+  }
+  let (_, offset, _) = mp_test_active_data_segments(output)[0]
+  @debug.assert_eq(offset, 9)
+  @debug.assert_eq(output.compiler_fact_custom_section, Some(facts))
+}
+
+///|
 test "memory-packing preserves trapping active segments by keeping the top byte" {
   let input =
     #| (module
