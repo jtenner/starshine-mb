@@ -42,11 +42,18 @@ async function executeTrial(
   trial: number,
 ): Promise<AtomicLitmusObservationV1> {
   const memoryImports = [spec.memoryImport, ...(spec.additionalMemoryImports ?? [])];
-  const memories = memoryImports.map((memoryImport) => new WebAssembly.Memory({
-    initial: memoryImport.initial,
-    maximum: memoryImport.maximum,
-    shared: true,
-  }));
+  const memories = memoryImports.map((memoryImport) => memoryImport.address === "i64"
+    ? new WebAssembly.Memory({
+      address: "i64",
+      initial: BigInt(memoryImport.initial),
+      maximum: BigInt(memoryImport.maximum),
+      shared: true,
+    })
+    : new WebAssembly.Memory({
+      initial: memoryImport.initial,
+      maximum: memoryImport.maximum,
+      shared: true,
+    }));
   const gate = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
   const gateView = new Int32Array(gate);
   const workers: Worker[] = [];

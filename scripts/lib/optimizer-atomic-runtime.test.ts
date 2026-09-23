@@ -104,6 +104,27 @@ const MULTI_MEMORY_RMW_SPEC: AtomicLitmusSpecV1 = {
   ],
 };
 
+const MEMORY64_RMW_SPEC: AtomicLitmusSpecV1 = {
+  schema: "starshine.optimizer-atomic-litmus.v1",
+  id: "i32-rmw-add-shared-memory64",
+  workerCount: 2,
+  exportName: "run",
+  workerArguments: [[], []],
+  memoryImport: {
+    module: "env",
+    field: "memory",
+    initial: 1,
+    maximum: 1,
+    address: "i64",
+  },
+  observedI32Offsets: [0],
+  trials: 2,
+  allowedOutcomes: [
+    { threadResults: [0, 1], memoryI32: [2] },
+    { threadResults: [1, 0], memoryI32: [2] },
+  ],
+};
+
 describe("atomic allowed-outcome comparison", () => {
   test("rejects unbounded trial and shared-memory specifications", () => {
     expect(() => validateAtomicLitmusSpecV1({ ...RMW_ADD_SPEC, trials: 9 })).toThrow("between 1 and 8");
@@ -130,6 +151,10 @@ describe("atomic allowed-outcome comparison", () => {
         { threadResults: [0, 0], memoryI32: [2] },
       ],
     })).toThrow("must be allowed outcomes");
+    expect(() => validateAtomicLitmusSpecV1({
+      ...RMW_ADD_SPEC,
+      memoryImport: { ...RMW_ADD_SPEC.memoryImport, address: "i128" as "i64" },
+    })).toThrow("address must be i32 or i64");
   });
 
   test("accepts different allowed schedules without requiring exact replay", () => {
@@ -391,5 +416,38 @@ describe("atomic allowed-outcome comparison", () => {
     expect(report.candidate.status).toBe("complete");
     expect(report.comparison.classification).toBe("semantic-mismatch");
     expect(report.comparison.firstDisallowedOutcome?.memoryI32).toEqual([2]);
+  });
+
+  test("observes bounded shared memory64 atomic outcomes across two workers", async () => {
+    const original = compileWat(`(module
+      (import "env" "memory" (memory i64 1 1 shared))
+      (func (export "run") (result i32)
+        i64.const 0
+        i32.const 1
+        i32.atomic.rmw.add))`);
+    const wrong = compileWat(`(module
+      (import "env" "memory" (memory i64 1 1 shared))
+      (func (export "run") (result i32)
+        i64.const 0
+        i32.const 2
+        i32.atomic.rmw.add))`);
+
+    const report = await runNodeAtomicLitmusComparisonV1(
+      original,
+      wrong,
+      MEMORY64_RMW_SPEC,
+      { timeoutMs: 3000 },
+    );
+
+    expect(report.original.status).toBe("complete");
+    expect(report.original.observations).toHaveLength(2);
+    expect(report.original.observations.every((outcome) => (
+      outcome.memoryI32[0] === 2 &&
+      (outcome.threadResults[0] === 0 && outcome.threadResults[1] === 1 ||
+        outcome.threadResults[0] === 1 && outcome.threadResults[1] === 0)
+    ))).toBe(true);
+    expect(report.candidate.status).toBe("complete");
+    expect(report.comparison.classification).toBe("semantic-mismatch");
+    expect(report.comparison.firstDisallowedOutcome?.memoryI32).toEqual([4]);
   });
 });

@@ -20,6 +20,7 @@ export type AtomicLitmusMemoryImportV1 = {
   field: string;
   initial: number;
   maximum: number;
+  address?: "i32" | "i64";
 };
 
 export type AtomicLitmusSpecV1 = {
@@ -99,6 +100,9 @@ export function validateAtomicLitmusSpecV1(spec: AtomicLitmusSpecV1): void {
     throw new Error("atomic litmus supports at most four shared memory imports");
   }
   for (const memory of memories) {
+    if (memory.address !== undefined && memory.address !== "i32" && memory.address !== "i64") {
+      throw new Error("atomic litmus shared memory address must be i32 or i64");
+    }
     if (
       memory.module.length === 0 || memory.field.length === 0 ||
       !Number.isInteger(memory.initial) || !Number.isInteger(memory.maximum) ||
