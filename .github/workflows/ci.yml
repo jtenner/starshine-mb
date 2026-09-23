@@ -206,6 +206,8 @@ jobs:
             --pass dead-argument-elimination \
             --normalize drop-consts \
             --normalize unreachable-control-debris \
+            --determinism \
+            --codec-idempotence \
             --out-dir .tmp/ci-dae-genvalid \
             --jobs auto \
             --starshine-bin _build/native/release/build/cmd/cmd.exe \

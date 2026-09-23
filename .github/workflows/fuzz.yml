@@ -143,6 +143,8 @@ jobs:
             --require-feature resource_observation:1 \
             --semantic-oracle node-v2 \
             --observation-mode stateful \
+            --determinism \
+            --codec-idempotence \
             --property semantic-idempotence \
             --property convergence \
             --commutator-left vacuum \

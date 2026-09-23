@@ -193,7 +193,9 @@
 54. [x] A missing configured external validator now fails the case instead of
     silently passing; the skipped-tool counter remains diagnostic. A synthetic
     red/green missing-WABT regression and nearby harness tests passed 77/77.
-55. [ ] Require determinism and codec idempotence in CI correctness lanes.
+55. [x] Both CI compare-pass correctness lanes now require `--determinism`
+    and `--codec-idempotence`; a workflow-contract test failed before the flags
+    were added and passed afterward. No CI fuzz campaign was run locally.
 56. [ ] Add a separately gated external wasm-smith generator lane.
 57. [ ] Ensure dedicated fuzz lanes are required and fail CI on findings.
 58. [ ] Add trigger-focused profiles for undersampled pass families.
