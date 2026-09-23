@@ -222,8 +222,13 @@
     passed 6/6. A required-wake fixture now blocks acceptance when a bounded
     notify run produces no actual wake witness (`8579496ae`); absence is not
     mislabeled a semantic mismatch. A two-worker shared-memory64 RMW at
-    address zero rejects add-by-two corruption (`9b734a133`). Remaining:
-    general wait/notify liveness, weaker orders and fences, memory64 higher
+    address zero rejects add-by-two corruption (`9b734a133`). A second
+    nonzero-memory `cmpxchg` fixture observes both memories and rejects a
+    redirected target (`239f2ec58`). Exact AcqRel and Relaxed store/fence
+    binaries are `blocked` by Node v26 before execution (`7ec41eb9c`), so
+    they supply an explicit unsupported boundary, not outcome evidence.
+    Remaining: general wait/notify liveness, weaker-order and fence semantics,
+    memory64 higher
     addresses and trap/wait families, broader multi-memory operations, and
     broader schedule families. A validated shared-GC
     `struct.atomic.rmw.add seq_cst` probe
