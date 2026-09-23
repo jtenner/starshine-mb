@@ -76,6 +76,17 @@ describe("pass-fuzz persistent cache options", () => {
     expect(() => parsePassFuzzCompareArgs(["--primary-validator", "unknown"])).toThrow();
   });
 
+  test("sets a positive hard subprocess deadline for optimizer and validator work", () => {
+    const parsed = parsePassFuzzCompareArgs([
+      "--pass", "vacuum", "--subprocess-timeout-ms", "100",
+    ]);
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") expect(parsed.options.subprocessTimeoutMs).toBe(100);
+    expect(() => parsePassFuzzCompareArgs([
+      "--pass", "vacuum", "--subprocess-timeout-ms", "0",
+    ])).toThrow();
+  });
+
   test("defaults to Binaryen 132 and permits explicit historical replay", () => {
     const defaults = parsePassFuzzCompareArgs(["--pass", "vacuum"]);
     const required = parsePassFuzzCompareArgs([

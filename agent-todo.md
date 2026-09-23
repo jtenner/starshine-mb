@@ -188,7 +188,7 @@
     stable oracle results; old `failure.json` entries are ignored and a later
     lane retries the command. A fail-then-recover synthetic regression failed
     before the fix and passed afterward; nearby harness tests passed 77/77.
-52. [ ] Add hard subprocess timeouts to validator and optimizer workers.
+52. [x] Add hard subprocess timeouts to validator and optimizer workers. Async optimizer, validator, and generator subprocesses now have a hard default deadline; the main Starshine/Binaryen/validator path accepts `--subprocess-timeout-ms`, and synchronous reduction/artifact probes are bounded. A one-case synthetic hanging Binaryen fixture proves timeout reporting without a fuzz campaign.
 53. [ ] Require an independent validator in correctness signoff lanes.
 54. [x] A missing configured external validator now fails the case instead of
     silently passing; the skipped-tool counter remains diagnostic. A synthetic

@@ -160,6 +160,7 @@ type PassFuzzCompareOptions = {
   observationMemoryCapBytes: number;
   observationTableEntryCap: number;
   runtimeTimeoutMs: number;
+  subprocessTimeoutMs: number;
   localizeFirstDivergence: boolean;
   determinism: boolean;
   codecIdempotence: boolean;
@@ -354,6 +355,7 @@ export type PassFuzzCompareSummary = {
   observationMemoryCapBytes: number;
   observationTableEntryCap: number;
   runtimeTimeoutMs: number;
+  subprocessTimeoutMs: number;
   semanticV2CheckedCount: number;
   semanticV2MatchCount: number;
   semanticV2BlockedCount: number;
@@ -464,6 +466,7 @@ const RESERVED_OPTIONS = new Set([
   "--observation-memory-cap-bytes",
   "--observation-table-entry-cap",
   "--runtime-timeout-ms",
+  "--subprocess-timeout-ms",
   "--localize-first-divergence",
   "--generator",
   "--wasm-smith",
@@ -596,6 +599,8 @@ const HELP_TEXT = [
   "                       Maximum entries observed per table; larger resources are blocked. Default: 1024",
   "  --runtime-timeout-ms <n>",
   "                       Per-module worker timeout for semantic execution. Default: 1000",
+  "  --subprocess-timeout-ms <n>",
+  "                       Hard timeout for optimizer and validator processes. Default: 300000",
   "  --localize-first-divergence",
   "                       On semantic failure, evaluate prefix zero and every pass boundary and replay the boundary pass alone",
   "  --determinism        Optimize two fresh decodes of the same input and require deterministic output",
@@ -954,6 +959,8 @@ type ProcessResult = {
   stderr: string;
 };
 
+const DEFAULT_SUBPROCESS_TIMEOUT_MS = 300_000;
+
 function runProcess(
   command: string,
   args: string[],
@@ -962,11 +969,13 @@ function runProcess(
     env = process.env,
     input = null,
     maxBuffer = 128 * 1024 * 1024,
+    timeoutMs = DEFAULT_SUBPROCESS_TIMEOUT_MS,
   }: {
     cwd?: string;
     env?: NodeJS.ProcessEnv;
     input?: Buffer | string | null;
     maxBuffer?: number;
+    timeoutMs?: number;
   } = {},
 ): Promise<ProcessResult> {
   return new Promise((resolve, reject) => {
@@ -977,26 +986,38 @@ function runProcess(
     });
     let stdout = "";
     let stderr = "";
+    let settled = false;
+    const finish = (error?: Error, status?: number | null): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      if (error) reject(error);
+      else resolve({ status: status ?? null, stdout, stderr });
+    };
+    const deadline = setTimeout(() => {
+      child.kill("SIGKILL");
+      finish(new Error(`command timed out after ${timeoutMs} ms: ${command} ${args.join(" ")}`));
+    }, timeoutMs);
 
     child.stdout?.setEncoding("utf8");
     child.stderr?.setEncoding("utf8");
     child.stdout?.on("data", (chunk: string) => {
       stdout += chunk;
       if (stdout.length > maxBuffer) {
-        child.kill();
-        reject(new Error(`stdout exceeded maxBuffer for command: ${command} ${args.join(" ")}`));
+        child.kill("SIGKILL");
+        finish(new Error(`stdout exceeded maxBuffer for command: ${command} ${args.join(" ")}`));
       }
     });
     child.stderr?.on("data", (chunk: string) => {
       stderr += chunk;
       if (stderr.length > maxBuffer) {
-        child.kill();
-        reject(new Error(`stderr exceeded maxBuffer for command: ${command} ${args.join(" ")}`));
+        child.kill("SIGKILL");
+        finish(new Error(`stderr exceeded maxBuffer for command: ${command} ${args.join(" ")}`));
       }
     });
-    child.on("error", reject);
+    child.on("error", (error) => finish(error));
     child.on("close", (status) => {
-      resolve({ status, stdout, stderr });
+      finish(undefined, status);
     });
     if (input !== null) {
       child.stdin?.end(input);
@@ -1011,13 +1032,15 @@ async function runOrThrowAsync(
     cwd = process.cwd(),
     env = process.env,
     maxBuffer = 128 * 1024 * 1024,
+    timeoutMs = DEFAULT_SUBPROCESS_TIMEOUT_MS,
   }: {
     cwd?: string;
     env?: NodeJS.ProcessEnv;
     maxBuffer?: number;
+    timeoutMs?: number;
   } = {},
 ): Promise<{ stdout: string; stderr: string }> {
-  const result = await runProcess(command, args, { cwd, env, maxBuffer });
+  const result = await runProcess(command, args, { cwd, env, maxBuffer, timeoutMs });
   if (result.status !== 0) {
     const stderr = result.stderr.trim();
     const suffix = stderr ? `\n${stderr}` : "";
@@ -1030,7 +1053,7 @@ async function runOrThrowAsync(
 }
 
 async function runValidateAsync(
-  options: Pick<PassFuzzCompareOptions, "primaryValidator" | "wasmOptBin" | "wasmToolsBin">,
+  options: Pick<PassFuzzCompareOptions, "primaryValidator" | "wasmOptBin" | "wasmToolsBin" | "subprocessTimeoutMs">,
   wasmPath: string,
   repoRoot: string,
 ): Promise<{ ok: boolean; stderr: string }> {
@@ -1040,6 +1063,7 @@ async function runValidateAsync(
   const result = await runProcess(command, args, {
     cwd: repoRoot,
     env: makeRepoTmpEnv(repoRoot),
+    timeoutMs: options.subprocessTimeoutMs,
   });
   return {
     ok: result.status === 0,
@@ -1062,7 +1086,7 @@ async function runExternalValidatorAsync(
         : options.wabtValidateBin;
   const args = kind === "wasm-tools" ? ["validate", "--features", "all", wasmPath] : [wasmPath];
   try {
-    const result = await runProcess(command, args, { cwd: repoRoot, env });
+    const result = await runProcess(command, args, { cwd: repoRoot, env, timeoutMs: options.subprocessTimeoutMs });
     return { ok: result.status === 0, skipped: false, stderr: result.stderr.trim() };
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
@@ -1443,6 +1467,7 @@ async function runStarshineWithRetry(
   starshineRawPath: string,
   repoRoot: string,
   repoTmpEnv: NodeJS.ProcessEnv,
+  timeoutMs = DEFAULT_SUBPROCESS_TIMEOUT_MS,
 ): Promise<void> {
   const maxAttempts = starshineInvocation.retryMissingOutput ? 3 : 1;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -1450,6 +1475,7 @@ async function runStarshineWithRetry(
     await runOrThrowAsync(starshineInvocation.command, starshineArgs, {
       cwd: repoRoot,
       env: repoTmpEnv,
+      timeoutMs,
     });
     if (hasNonEmptyFile(starshineRawPath)) {
       return;
@@ -2684,6 +2710,7 @@ function buildResumeIdentity(
     observationMemoryCapBytes: options.observationMemoryCapBytes,
     observationTableEntryCap: options.observationTableEntryCap,
     runtimeTimeoutMs: options.runtimeTimeoutMs,
+    subprocessTimeoutMs: options.subprocessTimeoutMs,
     propertyModes: options.propertyModes,
     convergenceMax: options.convergenceMax,
     commutatorLeft: options.commutatorLeft,
@@ -2945,7 +2972,7 @@ async function runBinaryenOracleWithCache(
     await runOrThrowAsync(
       options.wasmOptBin,
       [inputPath, "--all-features", ...binaryenIdentity.passFlags, "-o", binaryenRawPath],
-      { cwd: repoRoot, env: repoTmpEnv },
+      { cwd: repoRoot, env: repoTmpEnv, timeoutMs: options.subprocessTimeoutMs },
     );
     await canonicalizeWasm(
       options.wasmOptBin,
@@ -3446,6 +3473,7 @@ function persistFailureArtifacts(
     const result = spawnSync(wasmToolsBin, ["print", inputPath], {
       cwd: repoRoot,
       encoding: "utf8",
+      timeout: DEFAULT_SUBPROCESS_TIMEOUT_MS,
     });
     if (result.error) {
       throw result.error;
@@ -3506,12 +3534,14 @@ function runSyncOk(
   args: string[],
   repoRoot: string,
   env: NodeJS.ProcessEnv,
+  timeoutMs = DEFAULT_SUBPROCESS_TIMEOUT_MS,
 ): boolean {
   const result = spawnSync(command, args, {
     cwd: repoRoot,
     env,
     encoding: "utf8",
     maxBuffer: 128 * 1024 * 1024,
+    timeout: timeoutMs,
   });
   return !result.error && result.status === 0;
 }
@@ -4303,6 +4333,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let observationMemoryCapBytes = 1024 * 1024;
   let observationTableEntryCap = 1024;
   let runtimeTimeoutMs = 1000;
+  let subprocessTimeoutMs = DEFAULT_SUBPROCESS_TIMEOUT_MS;
   let localizeFirstDivergence = false;
   let determinism = false;
   let codecIdempotence = false;
@@ -4456,6 +4487,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         break;
       case "--runtime-timeout-ms":
         runtimeTimeoutMs = parsePositiveInt("runtime-timeout-ms", argv[i + 1] ?? fail("missing value for --runtime-timeout-ms"));
+        i += 2;
+        break;
+      case "--subprocess-timeout-ms":
+        subprocessTimeoutMs = parsePositiveInt("subprocess-timeout-ms", argv[i + 1] ?? fail("missing value for --subprocess-timeout-ms"));
         i += 2;
         break;
       case "--localize-first-divergence":
@@ -4662,6 +4697,11 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
           i += 1;
           break;
         }
+        if (token.startsWith("--subprocess-timeout-ms=")) {
+          subprocessTimeoutMs = parsePositiveInt("subprocess-timeout-ms", token.substring("--subprocess-timeout-ms=".length));
+          i += 1;
+          break;
+        }
         if (token.startsWith("--require-binaryen-version=")) {
           const value = token.substring("--require-binaryen-version=".length);
           if (!/^\d+$/.test(value)) fail("require-binaryen-version must be a decimal release number");
@@ -4822,6 +4862,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       observationMemoryCapBytes,
       observationTableEntryCap,
       runtimeTimeoutMs,
+      subprocessTimeoutMs,
       localizeFirstDivergence,
       determinism,
       codecIdempotence,
@@ -5116,6 +5157,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     observationMemoryCapBytes: options.observationMemoryCapBytes,
     observationTableEntryCap: options.observationTableEntryCap,
     runtimeTimeoutMs: options.runtimeTimeoutMs,
+    subprocessTimeoutMs: options.subprocessTimeoutMs,
     semanticV2CheckedCount: 0,
     semanticV2MatchCount: 0,
     semanticV2BlockedCount: 0,
@@ -5707,6 +5749,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           starshineRawPath,
           repoRoot,
           repoTmpEnv,
+          options.subprocessTimeoutMs,
         );
       } catch (error) {
         summary.commandFailureCount += 1;

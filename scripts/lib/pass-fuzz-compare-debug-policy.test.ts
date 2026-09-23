@@ -58,6 +58,9 @@ if (args.includes("--version")) {
   process.exit(0);
 }
 fs.appendFileSync(process.env.INVOCATION_LOG, JSON.stringify(args) + "\\n");
+if (process.env.HANG_BINARYEN === "1" && args.includes("--strip-debug") && args.includes("-o") && args[args.indexOf("-o") + 1].endsWith("binaryen.raw.wasm")) {
+  setInterval(() => {}, 1000);
+}
 const input = args[0];
 const output = args[args.indexOf("-o") + 1];
 const source = args.includes("--strip-debug") ? process.env.STRIPPED_WASM : input;
@@ -183,6 +186,33 @@ fs.copyFileSync(source, output);
       expect(missingValidator.status, `${missingValidator.stdout}\n${missingValidator.stderr}`).toBe(0);
       const missingSummary = JSON.parse(fs.readFileSync(path.join(missingValidatorOutDir, "result.json"), "utf8"));
       expect(missingSummary.validationFailureCount).toBe(1);
+
+      const timeoutOutDir = path.join(root, "out-timeout");
+      const timed = spawnSync("bun", [
+        path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+        "--count", "1", "--wasm-smith", "--out-dir", timeoutOutDir,
+        "--report-only", "--no-cache", "--jobs", "1", "--pass", "strip-debug",
+        "--starshine-bin", starshine, "--wasm-opt-bin", wasmOpt,
+        "--wasm-tools-bin", wasmTools, "--subprocess-timeout-ms", "100",
+      ], {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          HANG_BINARYEN: "1",
+          INVOCATION_LOG: invocationLog,
+          NAMED_WASM: namedWasm,
+          STRIPPED_WASM: strippedWasm,
+          REAL_WASM_TOOLS: realWasmTools,
+        },
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+      expect(timed.error, String(timed.error)).toBeUndefined();
+      expect(timed.status, `${timed.stdout}\n${timed.stderr}`).toBe(0);
+      const timedSummary = JSON.parse(fs.readFileSync(path.join(timeoutOutDir, "result.json"), "utf8"));
+      expect(timedSummary.subprocessTimeoutMs).toBe(100);
+      expect(timedSummary.commandFailureCount).toBe(1);
+      expect(fs.readFileSync(path.join(timeoutOutDir, "cases.jsonl"), "utf8")).toContain("timed out after 100 ms");
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
