@@ -74,7 +74,10 @@
 24. [x] Nested Local CSE misses ordinary `ArrayStore` barriers
     (`4cfbbeb99`); direct and command regressions are green.
 25. [ ] Local CSE treats suspend/resume/stack-switch execution as transparent.
-26. [ ] Caught-`try_table` safety scans omit legacy `Try` descendants.
+26. [x] Caught-`try_table` safety scans omit legacy `Try` descendants
+    (`3c74e420d`); pass-manager, remove-unused-brs, and CLI scanners now
+    recurse through protected and catch regions, with focused O4z and CLI
+    regressions red then green.
 27. [ ] Once Reduction mutates nested arrays owned by its input module.
 
 ### Host behavior, metadata, and registry contracts
