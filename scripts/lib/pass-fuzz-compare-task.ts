@@ -622,7 +622,7 @@ const HELP_TEXT = [
   "  --runtime-timeout-ms <n>",
   "                       Per-module worker timeout for semantic execution. Default: 1000",
   "  --subprocess-timeout-ms <n>",
-  "                       Hard timeout for optimizer and validator processes. Default: 300000",
+  "                       Hard timeout for main optimizer, validator, and generator processes. Default: 300000",
   "  --localize-first-divergence",
   "                       On semantic failure, evaluate prefix zero and every pass boundary and replay the boundary pass alone",
   "  --determinism        Optimize two fresh decodes of the same input and require deterministic output",
@@ -2624,11 +2624,13 @@ async function runSmith(
   outputPath: string,
   seedBytes: Buffer,
   repoRoot: string,
+  timeoutMs = DEFAULT_SUBPROCESS_TIMEOUT_MS,
 ): Promise<{ ok: boolean; stderr: string }> {
   const result = await runProcess(wasmToolsBin, ["smith", "-o", outputPath], {
     cwd: repoRoot,
     env: makeRepoTmpEnv(repoRoot),
     input: seedBytes,
+    timeoutMs,
   });
   return {
     ok: result.status === 0,
@@ -2962,15 +2964,19 @@ function verifyBinaryenToolIdentity(
   command: string,
   requiredVersion: string | null,
   repoRoot: string,
+  timeoutMs = 5000,
 ): VerifiedBinaryenToolIdentity {
   const resolvedPath = resolveExecutablePath(command, repoRoot);
   const result = spawnSync(command, ["--version"], {
     cwd: repoRoot,
     env: makeRepoTmpEnv(repoRoot),
     encoding: "utf8",
-    timeout: 5000,
+    timeout: timeoutMs,
   });
   if (result.error !== undefined && requiredVersion !== null) {
+    if ((result.error as NodeJS.ErrnoException).code === "ETIMEDOUT") {
+      fail(`Binaryen version probe timed out after ${timeoutMs} ms: ${command} --version`);
+    }
     fail(`failed to execute Binaryen version probe ${command}: ${result.error.message}`);
   }
   if (result.status !== 0 && requiredVersion !== null) {
@@ -5074,6 +5080,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     options.wasmOptBin,
     options.requiredBinaryenVersion,
     repoRoot,
+    Math.min(options.subprocessTimeoutMs, 5000),
   );
   const binaryenIdentity: BinaryenCacheIdentity = {
     wasmOpt: JSON.stringify(verifiedBinaryenTool),
@@ -5203,13 +5210,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       runOrThrow(
         options.moonBin,
         ["run", "--target", "native", "--release", "src/fuzz", "--", ...genValidArgs],
-        { cwd: repoRoot, env: repoTmpEnv, stdio: "pipe" },
+        { cwd: repoRoot, env: repoTmpEnv, stdio: "pipe", timeoutMs: options.subprocessTimeoutMs },
       );
     } else {
       runOrThrow(
         options.genValidBin,
         genValidArgs,
-        { cwd: repoRoot, env: repoTmpEnv, stdio: "pipe" },
+        { cwd: repoRoot, env: repoTmpEnv, stdio: "pipe", timeoutMs: options.subprocessTimeoutMs },
       );
     }
   }
@@ -5813,6 +5820,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             inputPath,
             makeSmithSeedBytes(options.seed + BigInt(replayIndex)),
             repoRoot,
+            options.subprocessTimeoutMs,
           );
           if (smith.ok && smithCachePath !== null) {
             fs.mkdirSync(path.dirname(smithCachePath), { recursive: true });

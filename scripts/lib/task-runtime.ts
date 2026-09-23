@@ -65,11 +65,13 @@ export function runOrThrow(
     env = process.env,
     stdio = "inherit",
     maxBuffer = 128 * 1024 * 1024,
+    timeoutMs,
   }: {
     cwd?: string;
     env?: NodeJS.ProcessEnv;
     stdio?: "inherit" | "pipe";
     maxBuffer?: number;
+    timeoutMs?: number;
   } = {},
 ): { stdout: string; stderr: string } {
   const result = spawnSync(command, args, {
@@ -78,8 +80,12 @@ export function runOrThrow(
     stdio,
     encoding: "utf8",
     maxBuffer,
+    timeout: timeoutMs,
   });
   if (result.error) {
+    if ((result.error as NodeJS.ErrnoException).code === "ETIMEDOUT" && timeoutMs !== undefined) {
+      fail(`command timed out after ${timeoutMs} ms: ${command} ${args.join(" ")}`);
+    }
     throw result.error;
   }
   if (result.status !== 0) {
