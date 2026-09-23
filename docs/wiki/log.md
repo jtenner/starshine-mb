@@ -3,6 +3,20 @@
 - [Precompute](binaryen/passes/precompute/index.md#allocation-resource-exhaustion-contract) may erase a successfully interpreted fresh GC allocation when only its computed Wasm result remains. Ordinary host allocation failure is outside the observable Wasm contract; defined traps and effects remain mandatory.
 - A valid two-function fixture was checked with `wasm-opt version 132`: `ref.is_null(array.new_default $a (i32.const 16))` folds to `i32.const 0`, while literal length `-1` retains `array.new_default` and `ref.is_null`. Direct and active-dispatcher regressions cover both public Precompute names and validate the output. The hypothesis did not reproduce as a semantic defect, so no pass implementation changed.
 
+### 2026-09-22 — SSA no-merge continuation liveness boundary
+
+- `ssa-nomerge` now rejects stack-switching instructions before raw LocalGraph
+  planning and legacy structured alias rewriting, then rejects the shared
+  `HotOp::Continuation` family in the lifted normal-flow-only SSA guard.
+  Continuation handler destinations can bypass later writes, but neither path
+  modeled those predecessors for local liveness and merge decisions.
+- A valid reduced result-block fixture writes `7` before a handler-bearing
+  `resume`, overwrites it with `9` only after normal continuation, and reads the
+  local at the handler target. The direct test failed because the legacy helper
+  accepted the shape; the active dispatcher failed with
+  `skip-raw reason=structured-localgraph-plan`. Both focused tests now preserve
+  the original code section, validate, and pass through the guarded fallback.
+
 ### 2026-09-22 — Flatten continuation target repair
 
 - Flatten now records every HOT continuation handler label in its immutable per-label user index. Result and loop routing reject those implicit-payload edges rather than voiding their target control type.

@@ -25745,12 +25745,67 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_continuation_flow(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Suspend(_)
+      | @lib.Resume(_, _)
+      | @lib.ResumeThrow(_, _, _)
+      | @lib.ResumeThrowRef(_, _)
+      | @lib.StackSwitch(_, _) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_continuation_flow(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_continuation_flow(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_continuation_flow(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_continuation_flow(body) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(body))
+            | @lib.LegacyCatchAll(@lib.Expr(body)) => body
+          }
+          if run_hot_pipeline_raw_ssa_nomerge_has_continuation_flow(catch_body) {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_structured(
   func : @lib.Func,
   module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
 ) -> @lib.Func? {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
+  // Continuation handlers add non-local exits that this legacy alias rewrite
+  // does not include in its label-exit liveness. Leave them to the guarded HOT
+  // fallback until those edges participate in alias merging.
+  if run_hot_pipeline_raw_ssa_nomerge_has_continuation_flow(instrs) {
+    return None
+  }
   let base_local_count = params.length() + locals.length()
   let local_aliases = run_hot_pipeline_raw_canonical_aliases(base_local_count)
   let canonical_aliases = local_aliases.copy()
@@ -30774,6 +30829,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     return None
   }
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  // Raw LocalGraph planning and the legacy structured alias rewrite both model
+  // ordinary branches only. A continuation handler may reach a surrounding
+  // label while bypassing later writes, so route this function to the guarded
+  // HOT fallback before either raw rewrite can freshen locals.
+  if descriptor.name == "ssa-nomerge" &&
+    run_hot_pipeline_raw_ssa_nomerge_has_continuation_flow(instrs) {
+    return None
+  }
   let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
     instrs,
   )
