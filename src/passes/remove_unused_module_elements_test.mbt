@@ -3262,6 +3262,39 @@ test "remove-unused-module-elements closed world empties uncalled ref.func targe
 }
 
 ///|
+test "remove-unused-module-elements dispatcher drops nullified body label names" {
+  let input = pass_test_module_from_wat(
+    "(module (type (func)) (func (type 0) block nop end) (elem declare func 0) (func (export \"root\") (type 0) ref.func 0 drop))",
+  ).with_name_sec(
+    @lib.NameSec::new(
+      label_names=Some(
+        @lib.IndirectNameMap::new([
+          @lib.IndirectNameAssoc::new(
+            0U,
+            @lib.NameMap::new([
+              @lib.NameAssoc::new(0U, @lib.Name::from_string("stale")),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(closed_world=true), [
+      "remove-unused-module-elements",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected named reference-only RUME success, got \{err}")
+  }
+  @debug.assert_eq(optimized.name_sec, None)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nullified named function to validate, got \{err}")
+  }
+}
+
+///|
 test "remove-unused-module-elements closed world keeps composite elem ref.func targets callable" {
   let input = match
     @binary.decode_module(

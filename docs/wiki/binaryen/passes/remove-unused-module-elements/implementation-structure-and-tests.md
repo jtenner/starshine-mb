@@ -219,9 +219,11 @@ The focused pass regression additionally requires standalone `rume_run_module_pa
 
 Type compaction also has a metadata invariant: each retained `type_names` entry and each outer `field_names` type index must follow the same dense old-to-new type map as executable type references, while names for deleted types must be removed. White-box and public-dispatcher regressions cover a dead type before a retained named struct and validate the transformed module.
 
+Closed-world reference-only function nullification has a parallel label-metadata rule. Replacing a retained function body with the single `unreachable` instruction removes every structured `label_names` entry for that function because the replacement has no labels; label maps for other retained functions still follow the function-index remap. White-box and public-dispatcher regressions require the nullified named fixture to validate.
+
 ## Most important implementation takeaway
 
-Starshine now has 52 passing focused cases, including nine tail-call/configureAll/generated-liveness regressions. The dedicated weighted `rume-all` aggregate expands from three to seven leaves: `dead-graph`, `table-trap`, `legacy-eh`, `special-imports`, `callable-references`, `continuations-descriptors`, and `index-remap-stress`. The renewed aggregate is `10000/10000` exact, all four new singleton profiles are independently `10000/10000` exact, and the full required matrix is classified and closed in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
+Starshine now has 59 passing focused cases, including nine tail-call/configureAll/generated-liveness regressions. The dedicated weighted `rume-all` aggregate expands from three to seven leaves: `dead-graph`, `table-trap`, `legacy-eh`, `special-imports`, `callable-references`, `continuations-descriptors`, and `index-remap-stress`. The renewed aggregate is `10000/10000` exact, all four new singleton profiles are independently `10000/10000` exact, and the full required matrix is classified and closed in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
 
 The upstream implementation is not hard to understand because it is huge.
 It is hard to understand because several different edge sources all feed the same graph:

@@ -284,3 +284,85 @@ test "RUME type compaction remaps retained type and field names" {
     ),
   )
 }
+
+///|
+fn rume_named_reference_only_func_fixture() -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("root"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::declarative(),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([@lib.Instruction::nop()]),
+          ),
+        ]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+  .with_name_sec(
+    @lib.NameSec::new(
+      label_names=Some(
+        @lib.IndirectNameMap::new([
+          @lib.IndirectNameAssoc::new(
+            0U,
+            @lib.NameMap::new([
+              @lib.NameAssoc::new(0U, @lib.Name::from_string("stale")),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  )
+}
+
+///|
+test "RUME drops label names when reference-only bodies are nullified" {
+  let optimized = rume_run_module_pass(
+    rume_named_reference_only_func_fixture(),
+    closed_world=true,
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, body), _])) =>
+      @debug.assert_eq(body, @lib.Expr::new([@lib.Instruction::unreachable_()]))
+    _ => fail("expected reference-only callee plus exported root")
+  }
+  @debug.assert_eq(optimized.name_sec, None)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nullified named function to validate, got \{err}")
+  }
+}

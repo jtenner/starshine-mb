@@ -4249,6 +4249,42 @@ fn rume_rewrite_indirect_name_map(
 }
 
 ///|
+fn rume_rewrite_label_name_map(
+  names : @lib.IndirectNameMap?,
+  remap : Array[Int],
+  nullified_funcs : @bitset.BitSet?,
+) -> @lib.IndirectNameMap? {
+  match names {
+    Some(@lib.IndirectNameMap(entries)) => {
+      let rewritten : Array[@lib.IndirectNameAssoc] = []
+      for entry in entries {
+        let @lib.IndirectNameAssoc(idx, inner) = entry
+        let slot = idx.reinterpret_as_int()
+        let nullified = match nullified_funcs {
+          Some(flags) => slot >= 0 && slot < flags.length() && flags[slot]
+          None => false
+        }
+        if !nullified && slot >= 0 && slot < remap.length() && remap[slot] >= 0 {
+          rewritten.push(
+            @lib.IndirectNameAssoc::new(
+              remap[slot].reinterpret_as_uint(),
+              inner,
+            ),
+          )
+        }
+      }
+      if rewritten.is_empty() {
+        None
+      } else {
+        rume_sort_indirect_name_assocs(rewritten)
+        Some(@lib.IndirectNameMap::new(rewritten))
+      }
+    }
+    None => None
+  }
+}
+
+///|
 fn rume_rewrite_name_sec(
   name_sec : @lib.NameSec?,
   func_remap : Array[Int],
@@ -4258,6 +4294,7 @@ fn rume_rewrite_name_sec(
   elem_remap : Array[Int],
   data_remap : Array[Int],
   tag_remap : Array[Int],
+  nullified_funcs? : @bitset.BitSet? = None,
 ) -> @lib.NameSec? {
   match name_sec {
     Some(sec) => {
@@ -4279,7 +4316,9 @@ fn rume_rewrite_name_sec(
         module_name~,
         func_names=rume_rewrite_name_map(func_names, func_remap),
         local_names=rume_rewrite_indirect_name_map(local_names, func_remap),
-        label_names=rume_rewrite_indirect_name_map(label_names, func_remap),
+        label_names=rume_rewrite_label_name_map(
+          label_names, func_remap, nullified_funcs,
+        ),
         type_names~,
         table_names=rume_rewrite_name_map(table_names, table_remap),
         memory_names=rume_rewrite_name_map(memory_names, mem_remap),
@@ -5372,10 +5411,12 @@ fn rume_apply_module_rewrite(
   let elem_remap_is_identity = rume_remap_is_identity(elem_remap)
   let data_remap_is_identity = rume_remap_is_identity(data_remap)
   let mut has_reference_only_func = false
+  let nullified_funcs = @bitset.BitSet::new(keep_funcs.length())
   let mut ref_idx = 0
   while ref_idx < referenced_funcs.length() {
     if rume_func_needs_unreachable_body(used_funcs, referenced_funcs, ref_idx) {
       has_reference_only_func = true
+      nullified_funcs[ref_idx] = true
     }
     ref_idx += 1
   }
@@ -5756,6 +5797,7 @@ fn rume_apply_module_rewrite(
         elem_remap,
         data_remap,
         tag_remap,
+        nullified_funcs=Some(nullified_funcs),
       ),
     ),
     precomputed_used_types=used_types,
