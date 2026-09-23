@@ -17,12 +17,20 @@ recorded in the [safety audit](../../../ir2/architecture-rules.md#september-22-e
 The directed shared-memory tests cover concurrency-sensitive observations
 that this regular profile does not generate.
 
-Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
+Recommended smoke lane: run the dedicated GenValid profile for this pass:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --gen-valid-profile local-cse --out-dir .tmp/pass-fuzz-local-cse --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-Dedicated GenValid profile: none documented for this pass yet.
+The bounded `local-cse` profile emits one validating function with two identical
+local-fed `i32.add`, `i32.sub`, or `i32.xor` trees. Every generated case therefore
+reaches the pass's core repeated-expression candidate path. The selected case is
+recorded as `local-cse:repeated-{add,sub,xor}` in `profile_case_label`, and the
+profile participates in `random-all-profiles`.
 
-If a future audit adds a pass-specific GenValid profile, update this page with the profile name, intended smoke/closeout count, any required `--require-feature` floors or `--normalize` flags, and the manifest fields needed for replay triage.
+This scalar trigger profile does not replace the directed shared-memory, GC,
+descriptor, SIMD, exception, or continuation tests. Those proposal families
+still need their own feature floors or wider trigger leaves before a dedicated
+lane can claim representative proposal coverage. No fuzz campaign was run when
+this profile was added.

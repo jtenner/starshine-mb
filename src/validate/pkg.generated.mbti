@@ -171,6 +171,8 @@ pub fn gen_valid_tfunc(GenValidContext, Array[@lib.ValType], Array[@lib.ValType]
 
 pub fn gen_valid_tuple_optimization_trigger_profile_case_label(GenValidProfile, UInt64) -> String?
 
+pub fn gen_valid_undersampled_pass_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_valtype(GenValidContext) -> @lib.ValType
 
 pub fn gen_valid_valtype_with_extra_refs(GenValidContext, Array[@lib.ValType]) -> @lib.ValType
@@ -1549,6 +1551,8 @@ pub enum GenValidProfile {
   DuplicateImportEliminationLegacyEhProfile
   DuplicateImportEliminationNonfunctionProfile
   DuplicateImportEliminationAllProfile
+  LocalCseTriggerProfile
+  DuplicateFunctionEliminationTriggerProfile
   MergeSimilarFunctionsLiteralsProfile
   MergeSimilarFunctionsRepeatedDiffProfile
   MergeSimilarFunctionsExactDuplicatesProfile

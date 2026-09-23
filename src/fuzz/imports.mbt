@@ -41,6 +41,7 @@ using @validate {
   gen_valid_msf_profile_case_label,
   gen_valid_oi_trigger_profile_case_label,
   gen_valid_tuple_optimization_trigger_profile_case_label,
+  gen_valid_undersampled_pass_profile_case_label,
   gen_valid_profile_by_name,
   gen_valid_profile_is_composite,
   gen_valid_profile_leaf_for_case,

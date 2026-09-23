@@ -978,6 +978,8 @@ pub enum GenValidProfile {
   DuplicateImportEliminationLegacyEhProfile
   DuplicateImportEliminationNonfunctionProfile
   DuplicateImportEliminationAllProfile
+  LocalCseTriggerProfile
+  DuplicateFunctionEliminationTriggerProfile
   MergeSimilarFunctionsLiteralsProfile
   MergeSimilarFunctionsRepeatedDiffProfile
   MergeSimilarFunctionsExactDuplicatesProfile
@@ -1518,6 +1520,9 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     DuplicateImportEliminationNonfunctionProfile =>
       "duplicate-import-elimination-nonfunction"
     DuplicateImportEliminationAllProfile => "duplicate-import-elimination"
+    LocalCseTriggerProfile => "local-cse"
+    DuplicateFunctionEliminationTriggerProfile =>
+      "duplicate-function-elimination"
     MergeSimilarFunctionsLiteralsProfile => "merge-similar-functions-literals"
     MergeSimilarFunctionsRepeatedDiffProfile =>
       "merge-similar-functions-repeated-diff"
@@ -2281,6 +2286,11 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(MergeLocalsAllProfile, 1),
         GenValidProfileMember::new(RemoveUnusedBrsAllProfile, 1),
         GenValidProfileMember::new(DuplicateImportEliminationAllProfile, 1),
+        GenValidProfileMember::new(LocalCseTriggerProfile, 1),
+        GenValidProfileMember::new(
+          DuplicateFunctionEliminationTriggerProfile,
+          1,
+        ),
         GenValidProfileMember::new(MergeSimilarFunctionsAllProfile, 1),
         GenValidProfileMember::new(DirectizeAllProfile, 1),
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 1),
@@ -2740,6 +2750,8 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     DuplicateImportEliminationLegacyEhProfile,
     DuplicateImportEliminationNonfunctionProfile,
     DuplicateImportEliminationAllProfile,
+    LocalCseTriggerProfile,
+    DuplicateFunctionEliminationTriggerProfile,
     MergeSimilarFunctionsLiteralsProfile,
     MergeSimilarFunctionsRepeatedDiffProfile,
     MergeSimilarFunctionsExactDuplicatesProfile,
@@ -6187,6 +6199,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_duplicate_import_elimination_profile_config(
         DuplicateImportEliminationFunctionsProfile,
       )
+    LocalCseTriggerProfile | DuplicateFunctionEliminationTriggerProfile =>
+      gen_valid_undersampled_pass_profile_config(profile)
     MergeSimilarFunctionsLiteralsProfile
     | MergeSimilarFunctionsRepeatedDiffProfile
     | MergeSimilarFunctionsExactDuplicatesProfile
@@ -34621,6 +34635,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_dae2_profile_config(config) {
     return gen_valid_dae2_profile_module(ctx)
+  }
+  if gen_valid_is_undersampled_pass_profile_config(config) {
+    return gen_valid_undersampled_pass_profile_module(ctx)
   }
   if gen_valid_is_msf_profile_config(config) {
     return gen_valid_msf_profile_module(ctx)

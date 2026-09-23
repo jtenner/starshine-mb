@@ -2354,6 +2354,38 @@ test "gen-valid batch manifest labels every duplicate-import-elimination family"
 }
 
 ///|
+test "emit gen-valid undersampled pass profiles record owned trigger labels" {
+  for
+    (profile, label_prefix) in [
+      ("local-cse", "local-cse:"),
+      ("duplicate-function-elimination", "duplicate-function-elimination:"),
+    ] {
+    let args = EmitGenValidBatchArgs::new(
+      4,
+      0x5eedUL,
+      "tmp/gen-valid-undersampled-pass",
+      profile~,
+      max_attempts=4,
+    )
+    let selection = match emit_gen_valid_batch_selection(args) {
+      Ok(value) => value
+      Err(msg) => fail(msg)
+    }
+    @debug.assert_eq(selection.selected, 4)
+    for item in selection.manifest {
+      @debug.assert_eq(item.selected_profile, profile)
+      match item.profile_case_label {
+        Some(label) => assert_true(label.starts_with(label_prefix), msg=label)
+        None => fail("missing trigger label for \{profile}")
+      }
+    }
+    let manifest = format_gen_valid_batch_manifest_json(args, selection)
+    assert_true(manifest.contains("\"selected_profile\":\"\{profile}\""))
+    assert_true(manifest.contains("\"profile_case_label\":\"\{label_prefix}"))
+  }
+}
+
+///|
 test "emit gen-valid dae-optimizing aggregate records every cleanup family" {
   let args = EmitGenValidBatchArgs::new(
     256,

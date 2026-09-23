@@ -413,6 +413,29 @@ test "local-cse reuses repeated same-window arithmetic trees" {
 }
 
 ///|
+test "local-cse GenValid trigger profile mutates every scalar variant" {
+  let profile = @validate.gen_valid_profile_by_name("local-cse").unwrap()
+  for ordinal = 0; ordinal < 4; ordinal = ordinal + 1 {
+    let generated = @validate.gen_valid_module_result_from_seed(
+      0x5eedUL + ordinal.to_uint64(),
+      @validate.GenValidConfig::for_profile(profile),
+    ).unwrap()
+    let optimized = match
+      run_hot_pipeline(generated.wasm_module, HotPipelineOptions::new(), [
+        "local-cse",
+      ]) {
+      Ok(value) => value
+      Err(err) => fail(err)
+    }
+    match optimized.code_sec {
+      Some(@lib.CodeSec([@lib.Func(locals, _)])) =>
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+      _ => fail("expected one local-cse trigger function with one temp local")
+    }
+  }
+}
+
+///|
 test "local-cse reuses local-only expression across integer comparison" {
   let input =
     #| (module

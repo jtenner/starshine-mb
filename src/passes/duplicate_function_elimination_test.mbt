@@ -250,6 +250,27 @@ test "duplicate-function-elimination reaches fixed point when callee dedup unloc
 }
 
 ///|
+test "duplicate-function-elimination GenValid profile triggers direct and fixed-point merges" {
+  let profile = @validate.gen_valid_profile_by_name(
+    "duplicate-function-elimination",
+  ).unwrap()
+  for seed in [0x5eedUL, 0x5eeeUL] {
+    let generated = @validate.gen_valid_module_result_from_seed(
+      seed,
+      @validate.GenValidConfig::for_profile(profile),
+    ).unwrap()
+    let before = match generated.wasm_module.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs.length()
+      None => fail("expected DFE trigger functions")
+    }
+    let optimized = try! dfe_test_run(generated.wasm_module)
+    let after = try! dfe_test_defined_func_count(optimized)
+    assert_true(after < before, msg="DFE profile did not merge seed {seed}")
+    @debug.assert_eq(after, 2)
+  }
+}
+
+///|
 test "duplicate-function-elimination canonicalizes duplicate simple type indices after merging" {
   let block_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-13
+last_reviewed: 2026-09-22
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -11,13 +11,23 @@ sources:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
-Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
+Recommended smoke lane: run the dedicated GenValid profile for this pass:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-function-elimination --out-dir .tmp/pass-fuzz-duplicate-function-elimination --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-function-elimination --gen-valid-profile duplicate-function-elimination --out-dir .tmp/pass-fuzz-duplicate-function-elimination --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-Dedicated GenValid profile: none documented for this pass yet.
+The bounded `duplicate-function-elimination` profile alternates between an exact
+duplicate function pair and a fixed-point family where merging duplicate leaf
+callees makes their callers identical. Every generated case contains an owned
+DFE trigger. Manifests record either
+`duplicate-function-elimination:exact-pair` or
+`duplicate-function-elimination:fixed-point-callers` in `profile_case_label`,
+and the profile participates in `random-all-profiles`.
+
+This initial trigger profile does not cover transitive indexed type/reference
+remapping, annotations, exported identity boundaries, or proposal features. No
+fuzz campaign was run when it was added.
 
 ## 2026-08-21 final16 transitive type-remap development lane
 
@@ -40,7 +50,9 @@ Results:
 
 All 58 raw mismatch inputs replay as raw mismatches with the exact final14-era baseline binary in `.tmp/dfe-transitive-type-remap-final14-mismatch-replay-20260821/`. They therefore predate the transitive kept-type repair. This replay classifies only introduction provenance; the current raw residual families remain open until inspected and must not be called semantically safe merely because both outputs validate.
 
-The lane is development evidence, not a fresh full four-lane DFE closeout. DFE still has no dedicated pass-owned GenValid profile for transitive duplicate-type/reference chains.
+The lane is development evidence, not a fresh full four-lane DFE closeout. The
+current pass-owned trigger profile still does not cover transitive
+duplicate-type/reference chains.
 
 ## 2026-08-26 fixed-partition performance checkpoint
 
@@ -69,7 +81,9 @@ The runtime-callable self-semantic lane used the same seed and explicit subproce
 - validation, property, generator, and command failures: 0
 - canonical sizes: exactly equal on all 100 cases
 
-DFE still has no dedicated pass-owned GenValid profile. If a future audit adds one, update this page with the profile name, intended smoke/closeout count, required features or normalizers, and the manifest fields needed for replay triage.
+The later pass-owned profile covers exact pairs and one fixed-point caller
+family. The ordinary lane remains the broader evidence for type compaction and
+other shapes until dedicated leaves are added.
 
 ## September 13 legacy exception type traversal
 
