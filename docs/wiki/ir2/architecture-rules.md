@@ -1210,6 +1210,8 @@ A global excluded from singleton candidates still contributes allocations, inclu
 
 Table and element initializers also contribute allocations before any early return for absent globals. Two additional validated raw fixtures in `global_struct_inference_audit_wbtest.mbt` failed on missing poison facts, then passed after including these initializer roots.
 
+Imported GC references are unknown origins even in the pass's closed-world mode. Global-struct inference poisons every compatible nominal struct type exposed by an imported global or table, imported function result, or imported tag payload before propagating subtype facts. The adjacent and active-dispatch regressions keep an imported nominal global flowing through a parameter from being replaced by an unrelated internal singleton allocation.
+
 ### Global reference joins
 
 Global-refining candidate collection preserves sharedness in abstract and concrete shape supertypes. A failed join rejects the entire observation slot permanently instead of retaining an earlier narrow fact. `global_refining_audit_wbtest.mbt` checks distinct shared struct/array observations and explicitly incompatible observation families, including a later observation that must not restart inference.

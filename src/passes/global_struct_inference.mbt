@@ -411,6 +411,73 @@ fn gsi_exact_single_candidate_globals(
 }
 
 ///|
+fn gsi_mark_external_struct_origins(
+  env : @validate.Env,
+  value_type : @lib.ValType,
+  poisoned_type_slots : Array[Bool],
+) -> Unit {
+  let external_type = match value_type {
+    @lib.RefTypeValType(_) => value_type
+    _ => return
+  }
+  let type_count = poisoned_type_slots.length()
+  for slot = 0; slot < type_count; slot = slot + 1 {
+    let type_idx = gsi_type_idx_from_slot(slot)
+    if env.resolve_struct_fields(type_idx) is Err(_) {
+      continue
+    }
+    let exact_value_type = @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+    )
+    if @validate.Match::matches(exact_value_type, external_type, env) {
+      poisoned_type_slots[slot] = true
+    }
+  }
+}
+
+///|
+fn gsi_mark_imported_struct_origins(
+  env : @validate.Env,
+  mod_ : @lib.Module,
+  poisoned_type_slots : Array[Bool],
+) -> Unit {
+  let imports = match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) => imports
+    None => return
+  }
+  for import_ in imports {
+    let @lib.Import(_, _, external_type) = import_
+    match external_type {
+      @lib.GlobalExternType(@lib.GlobalType(value_type, _)) =>
+        gsi_mark_external_struct_origins(env, value_type, poisoned_type_slots)
+      @lib.TableExternType(@lib.TableType(ref_type, _)) =>
+        gsi_mark_external_struct_origins(
+          env,
+          @lib.ValType::ref_type(ref_type),
+          poisoned_type_slots,
+        )
+      @lib.FuncExternType(type_idx) =>
+        match env.resolve_functype(type_idx) {
+          Some(@lib.FuncType(_, results)) =>
+            for result in results {
+              gsi_mark_external_struct_origins(env, result, poisoned_type_slots)
+            }
+          None => ()
+        }
+      @lib.TagExternType(@lib.TagType(type_idx)) =>
+        match env.resolve_functype(type_idx) {
+          Some(@lib.FuncType(params, _)) =>
+            for param in params {
+              gsi_mark_external_struct_origins(env, param, poisoned_type_slots)
+            }
+          None => ()
+        }
+      @lib.MemExternType(_) => ()
+    }
+  }
+}
+
+///|
 fn gsi_build_closed_world_facts(
   env : @validate.Env,
   mod_ : @lib.Module,
@@ -422,6 +489,7 @@ fn gsi_build_closed_world_facts(
     ignore(slot)
     candidate_globals_by_type_slot.push([])
   }
+  gsi_mark_imported_struct_origins(env, mod_, poisoned_type_slots)
 
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
