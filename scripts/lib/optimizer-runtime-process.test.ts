@@ -2,7 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import { buildInvocationPlanV2, type RuntimeInterfaceV1 } from "./optimizer-runtime";
+import {
+  buildInvocationPlanV2,
+  classifyStarshineRuntimeDiagnostic,
+  classifyThreeWaySemanticComparison,
+  compareRuntimeObservationsV2,
+  type RuntimeInterfaceV1,
+} from "./optimizer-runtime";
 import { executeNodeObservationV2WithTimeout } from "./optimizer-runtime-executor";
 
 const runtimeInterface: RuntimeInterfaceV1 = {
@@ -39,6 +45,27 @@ describe("observation worker failure attribution", () => {
     expect(result.steps).toEqual([]);
     expect(result.completeness).toBe("incomplete");
     expect(result.blockedReasons).toEqual(["timeout:10ms"]);
+
+    const original = {
+      ...result,
+      compilation: { status: "succeeded" as const },
+      instantiation: { status: "succeeded" as const },
+      completeness: "complete" as const,
+      blockedReasons: [],
+    };
+    const comparison = compareRuntimeObservationsV2(original, result, "strict");
+    expect(comparison.classification).toBe("blocked");
+    expect(comparison.diagnostics).toEqual(["timeout:10ms"]);
+    const starshineDiagnostic = classifyStarshineRuntimeDiagnostic(result);
+    const classificationInput = {
+      originalVsStarshine: "blocked" as const,
+      originalVsBinaryen: "unknown" as const,
+      starshineVsBinaryen: "unknown" as const,
+      starshineDiagnostic,
+    };
+    const classification = classifyThreeWaySemanticComparison(classificationInput);
+    expect(classification.primary).toBe("blocked-starshine-runtime");
+    expect(classification.pattern).toBe("starshine-tool-resource-uncertainty");
   });
 
   test("worker exit without observation does not invent an instantiation failure", async () => {

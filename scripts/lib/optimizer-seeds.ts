@@ -220,7 +220,10 @@ export async function runOptimizerSeedCorpus(options: OptimizerSeedRunOptions): 
           cases.push({ id: seed.id, status: "failed", detail: `semantic:v2 ${report.classification.primary} ${report.classification.pattern}` });
           continue;
         }
-        if (report.classification.primary === "blocked-original-runtime") {
+        if (
+          report.classification.primary === "blocked-original-runtime" ||
+          report.classification.primary === "blocked-starshine-runtime"
+        ) {
           cases.push({ id: seed.id, status: "blocked", detail: `semantic:v2 ${report.classification.pattern}` });
           continue;
         }

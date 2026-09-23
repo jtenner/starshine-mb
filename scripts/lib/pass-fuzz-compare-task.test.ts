@@ -526,26 +526,40 @@ describe("pass-fuzz persistent cache options", () => {
   });
 
   test("resume reconstructs semantic property localization and cache counters", () => {
-    const counters = passFuzzResumedOptimizerCountersForTest([{
-      caseIndex: 1,
-      generator: "gen-valid",
-      status: "match",
-      detail: "normalized outputs matched",
-      semanticV2Outcome: { primary: "semantic-match", pattern: "all-equal" },
-      semanticPropertyOutcomes: [
-        { kind: "semantic-idempotence", status: "pass", classification: "semantic-fixed-point" },
-        { kind: "convergence", status: "pass", classification: "fixed-point" },
-        { kind: "commutator", status: "pass", classification: "semantic-orders-structurally-equal" },
-        { kind: "metamorphic-equivalence", status: "blocked", classification: "input-relation-blocked" },
-      ],
-      localizationOutcome: { classification: "reproduced", recoveryCount: 2 },
-      idempotenceOutcome: "pass",
-      compositionOutcome: "fail",
-      binaryenCacheOutcome: "hit",
-      semanticCacheOutcome: "miss",
-    }]);
-    expect(counters.semanticV2CheckedCount).toBe(1);
+    const counters = passFuzzResumedOptimizerCountersForTest([
+      {
+        caseIndex: 1,
+        generator: "gen-valid",
+        status: "match",
+        detail: "normalized outputs matched",
+        semanticV2Outcome: { primary: "semantic-match", pattern: "all-equal" },
+        semanticPropertyOutcomes: [
+          { kind: "semantic-idempotence", status: "pass", classification: "semantic-fixed-point" },
+          { kind: "convergence", status: "pass", classification: "fixed-point" },
+          { kind: "commutator", status: "pass", classification: "semantic-orders-structurally-equal" },
+          { kind: "metamorphic-equivalence", status: "blocked", classification: "input-relation-blocked" },
+        ],
+        localizationOutcome: { classification: "reproduced", recoveryCount: 2 },
+        idempotenceOutcome: "pass",
+        compositionOutcome: "fail",
+        binaryenCacheOutcome: "hit",
+        semanticCacheOutcome: "miss",
+      },
+      {
+        caseIndex: 2,
+        generator: "gen-valid",
+        status: "match",
+        detail: "runtime worker exceeded its wall-clock deadline",
+        semanticV2Outcome: {
+          primary: "blocked-starshine-runtime",
+          pattern: "starshine-tool-resource-uncertainty",
+        },
+      },
+    ]);
+    expect(counters.semanticV2CheckedCount).toBe(2);
     expect(counters.semanticV2MatchCount).toBe(1);
+    expect(counters.semanticV2BlockedCount).toBe(1);
+    expect(counters.semanticV2MismatchCount).toBe(0);
     expect(counters.semanticIdempotenceMatchCount).toBe(1);
     expect(counters.convergenceFixedPointCount).toBe(1);
     expect(counters.commutatorMatchCount).toBe(1);

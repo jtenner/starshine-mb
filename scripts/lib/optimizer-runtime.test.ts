@@ -322,4 +322,14 @@ describe("three-way semantic classification", () => {
     });
     expect(result.primary).toBe("blocked-original-runtime");
   });
+
+  test("keeps known Starshine runtime failures distinct from worker resource uncertainty", () => {
+    const result = classifyThreeWaySemanticComparison({
+      originalVsStarshine: "blocked",
+      originalVsBinaryen: "unknown",
+      starshineVsBinaryen: "unknown",
+    });
+    expect(result.primary).toBe("starshine-correctness-failure");
+    expect(result.pattern).toBe("starshine-runtime-or-interface-failure");
+  });
 });

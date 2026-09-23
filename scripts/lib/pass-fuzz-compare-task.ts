@@ -3281,7 +3281,10 @@ function noteSemanticV2Report(
   summary.semanticV2CheckedCount += 1;
   const primary = report.classification.primary;
   if (primary === "semantic-match") summary.semanticV2MatchCount += 1;
-  else if (primary === "blocked-original-runtime") summary.semanticV2BlockedCount += 1;
+  else if (
+    primary === "blocked-original-runtime" ||
+    primary === "blocked-starshine-runtime"
+  ) summary.semanticV2BlockedCount += 1;
   else summary.semanticV2MismatchCount += 1;
   const pattern = report.classification.pattern;
   summary.semanticV2ThreeWayPatterns[pattern] = (summary.semanticV2ThreeWayPatterns[pattern] ?? 0) + 1;
@@ -4363,7 +4366,10 @@ export function passFuzzResumedOptimizerCountersForTest(records: CaseRecord[]) {
       counters.semanticV2CheckedCount += 1;
       const primary = record.semanticV2Outcome.primary;
       if (primary === "semantic-match") counters.semanticV2MatchCount += 1;
-      else if (primary === "blocked-original-runtime") counters.semanticV2BlockedCount += 1;
+      else if (
+        primary === "blocked-original-runtime" ||
+        primary === "blocked-starshine-runtime"
+      ) counters.semanticV2BlockedCount += 1;
       else counters.semanticV2MismatchCount += 1;
       increment(counters.semanticV2ThreeWayPatterns, record.semanticV2Outcome.pattern);
     }

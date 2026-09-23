@@ -695,26 +695,44 @@ export function compareRuntimeObservationsV2(before: RuntimeObservationV2, after
 }
 
 export type ThreeWayRelation = "equal" | "different" | "blocked" | "blocked-original" | "unknown";
+export type StarshineRuntimeDiagnostic = "ok" | "tool-resource-uncertainty";
+
+export function classifyStarshineRuntimeDiagnostic(
+  observation: RuntimeObservationV2,
+): StarshineRuntimeDiagnostic {
+  return observation.compilation.status === "unknown" &&
+      observation.instantiation.status === "unknown" &&
+      observation.steps.length === 0 &&
+      observation.blockedReasons.some((reason) => reason.startsWith("timeout:"))
+    ? "tool-resource-uncertainty"
+    : "ok";
+}
 
 export function classifyThreeWaySemanticComparison(input: {
   originalVsStarshine: ThreeWayRelation;
   originalVsBinaryen: ThreeWayRelation;
   starshineVsBinaryen: ThreeWayRelation;
+  starshineDiagnostic?: StarshineRuntimeDiagnostic;
   binaryenDiagnostic?: "ok" | "tool-failure" | "timeout" | "unsupported";
 }): {
   schema: "starshine.optimizer-three-way-semantic.v1";
-  primary: "semantic-match" | "starshine-semantic-mismatch" | "blocked-original-runtime" | "starshine-correctness-failure";
+  primary: "semantic-match" | "starshine-semantic-mismatch" | "blocked-original-runtime" | "blocked-starshine-runtime" | "starshine-correctness-failure";
   pattern: string;
   binaryenDiagnostic: string;
 } {
-  let primary: "semantic-match" | "starshine-semantic-mismatch" | "blocked-original-runtime" | "starshine-correctness-failure";
+  let primary: "semantic-match" | "starshine-semantic-mismatch" | "blocked-original-runtime" | "blocked-starshine-runtime" | "starshine-correctness-failure";
   let pattern: string;
   if (input.originalVsStarshine === "blocked-original") {
     primary = "blocked-original-runtime";
     pattern = "original-runtime-blocked";
   } else if (input.originalVsStarshine === "blocked") {
-    primary = "starshine-correctness-failure";
-    pattern = "starshine-runtime-or-interface-failure";
+    if (input.starshineDiagnostic === "tool-resource-uncertainty") {
+      primary = "blocked-starshine-runtime";
+      pattern = "starshine-tool-resource-uncertainty";
+    } else {
+      primary = "starshine-correctness-failure";
+      pattern = "starshine-runtime-or-interface-failure";
+    }
   } else if (input.originalVsStarshine === "equal") {
     primary = "semantic-match";
     pattern = input.originalVsBinaryen === "equal" ? "all-equal" : "binaryen-discrepancy";

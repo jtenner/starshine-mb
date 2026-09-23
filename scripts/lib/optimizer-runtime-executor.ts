@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   buildInvocationPlanV2,
+  classifyStarshineRuntimeDiagnostic,
   optimizerRuntimeIdentity,
   classifyThreeWaySemanticComparison,
   compareRuntimeObservationsV2,
@@ -1470,6 +1471,7 @@ export async function runNodeThreeWaySemanticOracleV2(
       ? "blocked-original"
       : originalVsBinaryenRelation,
     starshineVsBinaryen: threeWayRelation(starshineVsBinaryen),
+    starshineDiagnostic: classifyStarshineRuntimeDiagnostic(starshine),
     binaryenDiagnostic: options.binaryenDiagnostic ?? (binaryen === null ? "tool-failure" : "ok"),
   });
   const comparisonMs = performance.now() - stageStarted;
