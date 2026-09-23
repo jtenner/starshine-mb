@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-01
+last_reviewed: 2026-09-22
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/heap_store_optimization.mbt
@@ -13,6 +13,8 @@ sources:
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
   - ../late-pipeline-dispatch.md
+  - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/HeapStoreOptimization.cpp
+  - https://github.com/WebAssembly/shared-everything-threads/blob/main/proposals/shared-everything-threads/Overview.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/HeapStoreOptimization.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/heap-store-optimization.wast
@@ -47,6 +49,34 @@ related:
 # `heap-store-optimization`
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## 2026-09-22 fresh shared-object publication repair
+
+HSO no longer folds release or sequentially consistent `struct.atomic.set`
+instructions into constructor operands. The constructor preserves the stored
+value, but deleting the explicit atomic write deletes its synchronization
+event. Once an exported function returns the fresh shared object, another
+thread can acquire the same field; the release write and its prior operations
+must remain available to synchronize with that read. Sequentially consistent
+writes additionally participate in the global sequential order.
+
+The reduced valid fixture constructs a shared struct with field value `0`,
+stores `42` with `acqrel` or `seqcst`, then returns the object from exported
+`publish`. Before the repair, both the direct pass and active dispatcher
+replaced the constructor value with `42` and removed the atomic set. Candidate
+admission now accepts ordinary `struct.set` and `relaxed` atomic set only.
+Relaxed folding remains valid because the chain proof establishes that the
+fresh object cannot escape before the write, and relaxed carries no release or
+sequentially consistent ordering edge.
+
+Verified `wasm-opt version 132` reproduces the ordered-store deletion on the
+same exported fixture. The tagged owner treats every `StructSet` as an action
+and [`optimizeSubsequentStructSet`](https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/HeapStoreOptimization.cpp#L211-L302)
+does not inspect `StructSet::order`. Starshine intentionally diverges here for
+correctness, following the proposal rule that `acqrel` writes are release
+writes and the optimizer invariant that synchronization-sensitive effects
+survive deletion. Focused tests preserve both ordered forms, retain relaxed
+folding, and validate the result through the direct and command-dispatch paths.
 
 ## 2026-09-01 parity closure and ordered fail-closed benchmark
 

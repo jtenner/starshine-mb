@@ -22384,6 +22384,44 @@ fn hso_shared_atomic_order_test_run(
 }
 
 ///|
+fn hso_shared_atomic_publication_test_run(
+  body : Array[@lib.Instruction],
+) -> Result[@lib.Module, String] {
+  let shared_struct = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_struct_fields(2)),
+      metadata=@lib.TypeMetadata::new(shared=true),
+    ),
+  )
+  let shared_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let publish_func = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [shared_ref])),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([shared_struct, publish_func]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::new("publish"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([shared_ref]),
+          @lib.Expr::new(body),
+        ),
+      ]),
+    )
+  hso_test_run_module(mod_)
+}
+
+///|
 fn hso_shared_struct_seed_other() -> Array[@lib.Instruction] {
   [
     @lib.Instruction::i32_const(@lib.I32(7)),
@@ -22516,4 +22554,56 @@ test "heap-store-optimization respects acquire direction while swapping roots" {
     @lib.FuncIdx::new(0U),
   )
   assert_true(blocked_pretty.contains("struct.set"), msg=blocked_pretty)
+}
+
+///|
+test "heap-store-optimization preserves ordered atomic stores on fresh shared structs" {
+  for
+    order in [
+      @lib.AtomicOrder::acq_rel(),
+      @lib.AtomicOrder::seq_cst(),
+      @lib.AtomicOrder::relaxed(),
+    ] {
+    let body = [
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::i32_const(@lib.I32(42)),
+      @lib.Instruction::struct_atomic_set(
+        order,
+        @lib.TypeIdx::new(0U),
+        @lib.U32(0U),
+      ),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::struct_atomic_get(
+        @lib.AtomicOrder::relaxed(),
+        @lib.TypeIdx::new(0U),
+        @lib.U32(0U),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    ]
+    let optimized = match hso_shared_atomic_publication_test_run(body) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected fresh atomic-store HSO success, got \{err}")
+    }
+    let count = audit_count(audit_body(optimized), fn(instr) {
+      match instr {
+        @lib.StructAtomicSet(actual, _, _) => actual == order
+        _ => false
+      }
+    })
+    if order == @lib.AtomicOrder::relaxed() {
+      // The object cannot escape before this store. Relaxed carries no
+      // publication ordering, so its value may become constructor data.
+      assert_eq(count, 0)
+    } else {
+      // A later thread may acquire this field after the returned object is
+      // published.
+      // Constructor initialization cannot replace the release or seq-cst edge.
+      assert_eq(count, 1)
+    }
+  }
 }

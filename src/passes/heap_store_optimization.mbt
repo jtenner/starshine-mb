@@ -3255,7 +3255,7 @@ fn hso_struct_set_parts(
   }
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::StructSet(type_idx, field_idx))
-    | Some(@lib.Instruction::StructAtomicSet(_, type_idx, field_idx)) => {
+    | Some(@lib.Instruction::StructAtomicSet(@lib.Relaxed, type_idx, field_idx)) => {
       let @lib.U32(raw_field_idx) = field_idx
       Some(
         (
@@ -3266,6 +3266,11 @@ fn hso_struct_set_parts(
         ),
       )
     }
+    // A release or sequentially-consistent store to a fresh object can
+    // synchronize with a later acquire after another thread receives the
+    // object. Constructor initialization preserves the value but not that
+    // atomic ordering event. Relaxed stores carry no such ordering edge and
+    // remain foldable while the object is proven not to have escaped.
     _ => None
   }
 }

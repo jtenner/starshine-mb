@@ -8606,6 +8606,87 @@ test "deep audit command optimize instructions preserves shared same value cmpxc
 }
 
 ///|
+test "deep audit command HSO preserves fresh shared struct publication stores" {
+  let shared_struct = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+      metadata=@lib.TypeMetadata::new(shared=true),
+    ),
+  )
+  let shared_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let publish_func = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [shared_ref])),
+  )
+  for
+    order in [
+      @lib.AtomicOrder::acq_rel(),
+      @lib.AtomicOrder::seq_cst(),
+      @lib.AtomicOrder::relaxed(),
+    ] {
+    let input = @lib.Module::new()
+      .with_type_sec(@lib.TypeSec::new([shared_struct, publish_func]))
+      .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+      .with_export_sec(
+        @lib.ExportSec::new([
+          @lib.Export::new(
+            @lib.Name::new("publish"),
+            @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+          ),
+        ]),
+      )
+      .with_code_sec(
+        @lib.CodeSec::new([
+          @lib.Func::new(
+            @lib.Locals::from_types([shared_ref]),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+              @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::i32_const(@lib.I32(42)),
+              @lib.Instruction::struct_atomic_set(
+                order,
+                @lib.TypeIdx::new(0U),
+                @lib.U32(0U),
+              ),
+              @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::struct_atomic_get(
+                @lib.AtomicOrder::relaxed(),
+                @lib.TypeIdx::new(0U),
+                @lib.U32(0U),
+              ),
+              @lib.Instruction::drop(),
+              @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            ]),
+          ),
+        ]),
+      )
+    let output = cmd_deep_audit_run_module(input, "heap-store-optimization")
+    @debug.assert_eq(
+      cmd_deep_audit_count(cmd_deep_audit_body(output), fn(instr) {
+        match instr {
+          @lib.StructAtomicSet(actual, _, _) => actual == order
+          _ => false
+        }
+      }),
+      if order == @lib.AtomicOrder::relaxed() {
+        0
+      } else {
+        1
+      },
+    )
+    assert_true(@validate.validate_module(output) is Ok(_))
+  }
+}
+
+///|
 test "deep audit command merge-similar-functions honors disabled tail-call metadata" {
   let input = @passes.pass_test_module_from_wat(
     (

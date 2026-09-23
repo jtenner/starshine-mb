@@ -1,3 +1,8 @@
+### 2026-09-22 — HSO fresh shared-object publication ordering
+
+- [Heap Store Optimization](binaryen/passes/heap-store-optimization/index.md#2026-09-22-fresh-shared-object-publication-repair) no longer absorbs release or sequentially consistent `struct.atomic.set` operations into fresh shared-struct constructors. An exported-publication fixture failed before the fix because both ordered writes disappeared; direct and active-dispatcher tests now retain their exact orders while the proven-unescaped relaxed case still folds.
+- `wasm-opt version 132` reproduces the ordered-store deletion, so this is an intentional correctness divergence. Constructor initialization preserves the field value but cannot replace the removed atomic synchronization event that a later acquire may observe after the returned object is shared.
+
 ### 2026-09-22 — Precompute allocation resource contract
 
 - [Precompute](binaryen/passes/precompute/index.md#allocation-resource-exhaustion-contract) may erase a successfully interpreted fresh GC allocation when only its computed Wasm result remains. Ordinary host allocation failure is outside the observable Wasm contract; defined traps and effects remain mandatory.

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-22
 sources:
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/shared-everything-threads/blob/main/proposals/shared-everything-threads/Overview.md
@@ -45,16 +45,18 @@ The active proposals tracker and Shared-Everything Threads overview remain propo
 | Shared linear memories | [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md) | `MemType(Limits, shared)` plus validation that shared memories have a maximum. | Shared heap objects or GC aggregate atomics. |
 | Ordered linear-memory atomics | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md) | Core/binary/validator/HOT instructions carry `SeqCst`, `AcqRel` or `Relaxed` on loads, stores, RMW, cmpxchg, and fence. | `pause` or complete external runtime support. |
 | Shared heap-type representation | This page plus [`wasm-gc-core-boundary.md`](wasm-gc-core-boundary.md) | `TypeMetadata.shared`, shared abstract heap types, sharedness queries, and binary shared-type encoding are present. | Complete proposal subtype/runtime semantics or broad shared-type WAST authoring. |
-| Shared-GC aggregate atomics | This page plus [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) | Struct atomic get/RMW/cmpxchg and array atomic get/RMW/cmpxchg are represented, encoded/decoded, validated, lifted/lowered through HOT, and effect-classified. | A distinct aggregate atomic `set` or complete engine/runtime support. |
-| WAST aggregate-atomic text | [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) | `struct.atomic.get*`, struct RMW/cmpxchg, and array RMW/cmpxchg have parser/lowerer/printer coverage. | Every core-carried array get variant, explicit order spelling on every WAST aggregate form, or full proposal text syntax. |
+| Shared-GC aggregate atomics | This page plus [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) | Struct and array atomic set/get/RMW/cmpxchg are represented, encoded/decoded, validated, lifted/lowered through HOT, and effect-classified. | Complete engine/runtime support. |
+| WAST aggregate-atomic text | [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) | `struct.atomic.get*`, struct/array atomic set, and aggregate RMW/cmpxchg have parser/lowerer/printer coverage. | Every core-carried array get variant, explicit order spelling on every aggregate form, or full proposal text syntax. |
 
 ## Current Starshine Aggregate-Atomic Slice
 
 The core instruction model includes:
 
 - `StructAtomicGet`, `StructAtomicGetS`, and `StructAtomicGetU`;
+- `StructAtomicSet`;
 - `StructAtomicRmw` and `StructAtomicCmpxchg`;
 - `ArrayAtomicGet`, `ArrayAtomicGetS`, and `ArrayAtomicGetU`;
+- `ArrayAtomicSet`;
 - `ArrayAtomicRmw` and `ArrayAtomicCmpxchg`.
 
 The local WAST surface is narrower. It includes the three ordered struct-read forms and aggregate RMW/cmpxchg spellings such as:
@@ -74,7 +76,10 @@ The local WAST surface is narrower. It includes the three ordered struct-read fo
       (local.get 2))))
 ```
 
-`struct.atomic.get*` accepts and preserves `seq_cst` / `acq_rel` / `relaxed`; `acqrel` remains a compatibility alias. Do not generalize those exact text-order rules to every aggregate instruction without checking the parser and lowerer.
+`struct.atomic.get*`, `struct.atomic.set`, and `array.atomic.set` accept and
+preserve canonical `seq_cst` / `acq_rel` / `relaxed`; released `seqcst` and
+`acqrel` remain accepted aliases. Do not generalize those exact text-order
+rules to every aggregate instruction without checking the parser and lowerer.
 
 ## Binaryen 132 waitqueue revision
 
@@ -109,7 +114,7 @@ Sources: [core/codec tests](../../src/binary/binaryen132_waitqueue_wbtest.mbt),
 | Layer | Current owner files | Contract |
 | --- | --- | --- |
 | Core type model | [`src/lib/types.mbt`](../../src/lib/types.mbt) | Defines `TypeMetadata.shared`, shared abstract heap types, `HeapType::is_shared`, `AtomicOrder::{SeqCst, AcqRel, Relaxed}`, ordered linear atomics, and struct/array aggregate atomic instruction carriers. |
-| WAST text | [`src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../src/wast/parser.mbt), [`src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`src/wast/struct_atomic_get_surface_test.mbt`](../../src/wast/struct_atomic_get_surface_test.mbt) | Covers `struct.atomic.get*`, struct RMW/cmpxchg, and array RMW/cmpxchg. Shared type declarations and shared abstract heap references also parse and roundtrip. The remaining aggregate forms still require separate text coverage. |
+| WAST text | [`src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../src/wast/parser.mbt), [`src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`src/wast/struct_atomic_get_surface_test.mbt`](../../src/wast/struct_atomic_get_surface_test.mbt) | Covers `struct.atomic.get*`, struct/array atomic set, and aggregate RMW/cmpxchg. Shared type declarations and shared abstract heap references also parse and roundtrip. The remaining aggregate forms still require separate text coverage. |
 | Binary codec | [`src/binary/decode.mbt`](../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../src/binary/encode.mbt), [`src/binary/tests_wbtest.mbt`](../../src/binary/tests_wbtest.mbt) | Encodes/decodes shared type markers, ordered linear atomics, and the represented struct/array aggregate atomic families with their required immediates. |
 | Validation | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../src/validate/validate.mbt) | Typechecks aggregate receiver/index/value shapes, mutable fields/elements, signedness, and result types; shared-type graph and proposal-wide runtime completeness remain separate questions. |
 | Generator facts | [`src/validate/validate.mbt`](../../src/validate/validate.mbt), [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt) | Recognizes aggregate atomic families and shared/atomic feature facts, but does not by itself prove a complete Shared-Everything proposal generator mode. |
@@ -123,19 +128,20 @@ Sources: [core/codec tests](../../src/binary/binaryen132_waitqueue_wbtest.mbt),
 - **Effectful/trap-sensitive by default.** A dropped atomic result can still preserve a trap, write, synchronization edge, or returned old value. Validation success alone does not justify deletion, movement, or duplication.
 - **Packed signedness matters.** Plain atomic gets are not interchangeable with signed/unsigned packed reads.
 - **Shared type representation exists but is not a completeness claim.** `TypeMetadata.shared` and shared heap variants are real IR/binary state. Proposal-wide subtype restrictions, WAST declaration coverage, host/runtime threading, and engine execution still need exact layer-specific evidence.
-- **The represented aggregate family still has gaps.** There is no distinct aggregate atomic `set` instruction carrier. The v132 waitqueue family is represented as described below. Array atomic gets are core/binary/validator/HOT-visible even where the high-level WAST surface remains narrower.
+- **The represented aggregate family still has gaps.** Atomic set now has distinct struct and array carriers. The v132 waitqueue family is represented as described below. Array atomic gets are core/binary/validator/HOT-visible even where the high-level WAST surface remains narrower.
+- **Fresh-object folding is order-sensitive.** HSO may fold a relaxed atomic field store while its fresh object is proven unescaped. It preserves release and sequentially consistent stores because a later acquire after publication can observe their synchronization event.
 - **`pause` remains absent.** Ordered atomic fields do not imply the entire Relaxed Atomics proposal is implemented.
 
 ## Examples Of Correct Claims
 
 - “Starshine represents shared heap-type metadata and broad struct/array aggregate atomic families, but does not claim complete Shared-Everything runtime or proposal support.”
 - “Starshine linear-memory atomics now carry `SeqCst` / `AcqRel` / `Relaxed`; independent order gates are present, while `pause` remains unsupported.”
-- “Struct and array aggregate RMW/cmpxchg are core/binary/validator/HOT-supported, while aggregate WAST coverage is narrower and a distinct aggregate `set` remains a gap.”
+- “Struct and array aggregate set/RMW/cmpxchg are core/binary/validator/HOT-supported, while aggregate WAST and runtime coverage remain narrower than full proposal support.”
 - “An optimizer moving an aggregate atomic must cite order-direction, alias/effect, and trap proofs; module validation is not enough.”
 
 ## Future Implementation Checklist
 
-1. **Representation gaps:** add only still-missing proposal entities, including any distinct aggregate `set` required by the selected proposal revision.
+1. **Representation gaps:** add only proposal entities still missing after the v132 aggregate atomic-set and waitqueue work.
 2. **Binary codec:** keep exact shared markers, opcodes, reserved immediates, and order bytes round-trip-tested, including malformed cases.
 3. **WAST:** widen shared-type declarations and currently core-only aggregate forms deliberately; keep order spelling compatibility explicit.
 4. **Validation:** finish proposal-specific shared/unshared domain, subtype graph, mutability, packed-field, and ordering legality rules rather than inferring them from carrier presence.
