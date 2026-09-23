@@ -6523,6 +6523,19 @@ fn run_hot_pipeline_raw_simplify_locals_has_local_write(
           None => ()
         }
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_simplify_locals_has_local_write(body) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          if run_hot_pipeline_raw_simplify_locals_has_local_write(catch_body) {
+            return true
+          }
+        }
+      }
       _ => ()
     }
   }
@@ -6860,6 +6873,16 @@ fn run_hot_pipeline_raw_simplify_locals_scan_shape(
       @lib.TryTable(_, _, @lib.Expr(body)) => {
         shape.block_count = shape.block_count + 1
         run_hot_pipeline_raw_simplify_locals_scan_shape(body, shape)
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        shape.block_count = shape.block_count + 1
+        run_hot_pipeline_raw_simplify_locals_scan_shape(body, shape)
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          run_hot_pipeline_raw_simplify_locals_scan_shape(catch_body, shape)
+        }
       }
       @lib.LocalSet(_) => shape.local_set_count = shape.local_set_count + 1
       @lib.LocalTee(_) => shape.local_tee_count = shape.local_tee_count + 1

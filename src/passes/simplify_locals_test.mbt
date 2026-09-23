@@ -3288,6 +3288,58 @@ test "simplify-locals canonicalizes equivalent copies across adjacent blocks" {
 }
 
 ///|
+test "simplify-locals removes a single-use copy inside a legacy catch" {
+  // Reduced from saved seven-pass random-all-profiles case 17 after Vacuum.
+  // The catch-local copy has one read and no intervening instruction, so the
+  // source parameter can replace that read and the copy set becomes dead.
+  let input =
+    #|(module
+    #|  (type $empty (func))
+    #|  (tag $e (type $empty))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    (try (result i32)
+    #|      (do (throw $e))
+    #|      (catch $e
+    #|        (local.set 1 (local.get 0))
+    #|        (local.get 1)))))
+  let trace = pass_test_capture_trace(input, ["simplify-locals"]).unwrap()
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[simplify-locals]:skip-raw reason=no-local-writes")
+    }),
+    msg=trace.to_string(),
+  )
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected legacy-catch copy simplify-locals success, got \{err}")
+  }
+
+  let catch_body = match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [@lib.Try(_, _, [@lib.LegacyCatch(_, @lib.Expr(catch_body))], _)]
+            )
+          ),
+        ]
+      )
+    ) => catch_body
+    other =>
+      fail(
+        "expected one legacy try/catch function, got \{@debug.to_string(other)}",
+      )
+  }
+  @debug.assert_eq(catch_body, [
+    @lib.Instruction::nop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ])
+}
+
+///|
 test "simplify-locals collapses drop of a sunk tee back into a set" {
   let optimized = match
     pass_test_run_pipeline(

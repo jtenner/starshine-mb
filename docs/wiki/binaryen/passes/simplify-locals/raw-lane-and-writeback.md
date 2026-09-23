@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-09-23
 sources:
   - ./index.md
   - ../../../../../src/passes/pass_manager.mbt
@@ -78,6 +78,17 @@ passes the same expected output in both Node and Wago after SimplifyLocals.
 
 - These are families where tracing showed Starshine and Binaryen were already equal enough that hot lift was pure cost.
 - The pass-manager now recognizes several artifact-shaped no-op families and returns a skip reason instead of lifting.
+
+#### Legacy EH must participate in routing
+
+- Candidate statistics and the local-write precheck recurse through both the
+  body and every catch of legacy `try`; a write in either region must prevent
+  the `no-local-writes` shortcut.
+- Saved seven-pass case 17 exposed this boundary: the missed catch write kept
+  `local.set 1(local.get 0); local.get 1`, while Binaryen v132 and the existing
+  HOT SimplifyLocals transform produce `nop; local.get 0`.
+- The adjacent pass test locks the routing decision and exact catch body. The
+  active dispatcher test locks the original seven-pass sequence.
 
 ### 3. Exact Writeback Cleanup
 
