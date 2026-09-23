@@ -21,12 +21,37 @@ run was needed for this classification. The oracle is `wasm-opt version 132
 (version_132-100-gfbf2e5aa2)`, SHA-256
 `500201b4d13ccc3a61fa5254073e75a138bc57be198bd6c18c5a9562c081ad18`.
 
-Layouts `1` and `7` are measured Starshine wins. Layout `1` keeps the nullable
-`exnref` result type on a `catch_ref` owner block where Binaryen refines it to
-non-null `(ref exn)`; Starshine is one canonical byte smaller. Layout `7`
-deletes a pure multivalue `br_table` computation whose results are both dropped,
-while Binaryen retains three locals and a `nop`; Starshine is three canonical
-bytes smaller.
+Layouts `1` and `7` are measured canonical-projection wins. Binaryen has the
+smaller raw output in both layouts.
+Layout `1` keeps the nullable `exnref` result type on a `catch_ref` owner block
+where Binaryen refines it to non-null `(ref exn)`; Starshine is one byte smaller
+after the common Binaryen canonical projection (`49` versus `50`). Its raw
+output is the unchanged `55`- or `58`-byte input, while Binaryen's raw output is
+`50` bytes. Layout `7` deletes a pure multivalue `br_table` computation whose
+results are both dropped, while Binaryen retains three locals and a `nop`;
+Starshine is three canonical bytes smaller (`35` versus `38`). Starshine's raw
+output is `40` bytes versus Binaryen's `38` because the raw output retains an
+unused function type that the common projection strips.
+
+A bounded follow-up inspected every persisted artifact for these layouts: six
+layout-`1` cases (`1`, `9`, `17`, `25`, `33`, and `41`) and four layout-`7`
+cases (`7`, `15`, `23`, and `31`). Input, Starshine raw/canonical, and Binaryen
+raw/canonical variants all validate with wasm-tools and Binaryen v132. Audit-only
+copies exporting the existing function produced the same successful void return
+for all `10 * 5 = 50` variants under Node v26.10.0 with
+`--experimental-wasm-exnref` and under Wasmtime 49. Layout `1` transfers the
+non-null exception reference produced by `catch_ref` into a nullable owner
+result before dropping it. Layout `7` drops two pure constants after either
+`br_table` target, so deleting the full computation preserves the empty function.
+The artifact cap retained exact modules for only these ten representatives; the
+other 54 layout-`1`/`7` cases retain size and status rows in `cases.jsonl` but
+cannot receive artifact-level replay from this saved directory.
+
+The saved effect facts for these cases predate complete immediate decoding and
+must not be used as trap evidence. In particular, layout `7` falsely recorded
+`unreachable` from zero-valued `br_table` label immediates even though its WAT
+contains no `unreachable`. The scanner now skips `br`, `br_if`, and `br_table`
+label immediates and reports no hazards for the saved layout-`7` inputs.
 
 Layouts `3` and `6` were size-losing parity gaps. Both protected bodies reduce
 to exact `ref.null exn; throw_ref`. A null `throw_ref` traps before it can raise a

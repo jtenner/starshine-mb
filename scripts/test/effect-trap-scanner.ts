@@ -318,6 +318,59 @@ export function runEffectTrapScannerTest(): void {
     "only the real unreachable after try_table should be reported",
   );
 
+  // The saved EH Vacuum layout-7 family uses zero-valued branch labels. These
+  // bytes are immediates, not unreachable opcodes.
+  const branchImmediateModules = [
+    validModuleWithSingleBody([
+      0x00, // no locals
+      0x02, 0x40, // block
+      0x0c, 0x00, // br 0
+      0x0b, // end block
+      0x0b, // end function
+    ]),
+    validModuleWithSingleBody([
+      0x00, // no locals
+      0x02, 0x40, // block
+      0x41, 0x00, // i32.const 0
+      0x0d, 0x00, // br_if 0
+      0x0b, // end block
+      0x0b, // end function
+    ]),
+    validModuleWithSingleBody([
+      0x00, // no locals
+      0x02, 0x40, // block
+      0x41, 0x00, // i32.const 0
+      0x0e, 0x01, 0x00, 0x00, // br_table [0] 0
+      0x0b, // end block
+      0x0b, // end function
+    ]),
+  ];
+  for (const [index, branchModule] of branchImmediateModules.entries()) {
+    assert(WebAssembly.validate(branchModule), `branch immediate module ${index} should validate`);
+    const branchFacts = scanEffectTrapFactsFromWasmBytes(branchModule);
+    assert(!branchFacts.hasUnreachable, `branch label immediates must not report unreachable for module ${index}`);
+    assert(!branchFacts.mayTrap, `pure branch control must not report traps for module ${index}`);
+    assert(branchFacts.hazards.length === 0, `pure branch control must not report hazards for module ${index}`);
+  }
+
+  const trueUnreachableAfterBrTable = validModuleWithSingleBody([
+    0x00, // no locals
+    0x02, 0x40, // block
+    0x41, 0x00, // i32.const 0
+    0x0e, 0x01, 0x00, 0x00, // br_table [0] 0
+    0x0b, // end block
+    0x00, // unreachable
+    0x0b, // end function
+  ]);
+  assert(WebAssembly.validate(trueUnreachableAfterBrTable), "true unreachable after br_table should validate");
+  const trueUnreachableAfterBrTableFacts = scanEffectTrapFactsFromWasmBytes(trueUnreachableAfterBrTable);
+  assert(trueUnreachableAfterBrTableFacts.hasUnreachable, "real unreachable after br_table should be reported");
+  assert(trueUnreachableAfterBrTableFacts.mayTrap, "real unreachable after br_table should report a trap");
+  assert(
+    trueUnreachableAfterBrTableFacts.hazards.filter((hazard) => hazard.kind === "explicit-unreachable").length === 1,
+    "only the real unreachable after br_table should be reported",
+  );
+
   for (const [opcode, name] of [[0x14, "call_ref"], [0x15, "return_call_ref"]] as const) {
     const referenceCall = validModuleWithSingleBody([
       0x00, // no locals

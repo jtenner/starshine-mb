@@ -169,6 +169,17 @@ function skipTryTableImmediate(bytes: Uint8Array, offset: number, end: number): 
   return Math.min(end, next);
 }
 
+function skipBrTableImmediate(bytes: Uint8Array, offset: number, end: number): number {
+  const targetCount = readUleb(bytes, offset);
+  let next = targetCount.next;
+  // One label follows for every vector entry, then one default label. Keep
+  // malformed or truncated inputs bounded by the containing function body.
+  for (let index = 0; index <= targetCount.value && next < end; index += 1) {
+    next = readUleb(bytes, next).next;
+  }
+  return Math.min(end, next);
+}
+
 function codeBodyRanges(bytes: Uint8Array): { start: number; end: number }[] | null {
   if (bytes.length < 8) {
     return null;
@@ -309,6 +320,11 @@ function scanOpcode(
       facts.hasException = true;
       markTrap(facts);
       return offset;
+    case 0x0c: // br
+    case 0x0d: // br_if
+      return skipUlebOperands(bytes, offset, 1);
+    case 0x0e: // br_table
+      return skipBrTableImmediate(bytes, offset, end);
     case 0x19: // catch_all
       facts.hasException = true;
       return offset;
