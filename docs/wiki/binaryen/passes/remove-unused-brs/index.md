@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 sources:
   - ../../release-horizon-and-oracles.md
   - ../late-pipeline-dispatch.md
@@ -45,6 +45,27 @@ related:
 # `remove-unused-brs`
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## 2026-09-23 caught `try_table` outer-exit cleanup
+
+After exact caught-throw rewriting, a void `try_table` can contain only a
+childless branch to its enclosing ordinary block while an `unreachable` filler
+remains after the table. RemoveUnusedBrs now turns that exact shape into normal
+fallthrough: it removes the branch and any unreachable filler together. The
+matcher requires one exact non-reference catch, a void table, an exact one-root
+childless branch body, and a tail chain of void ordinary blocks leading to the
+catch target. Every intervening suffix must be empty or contain only nops and
+`unreachable`. Live suffix effects and result-carrying exits remain outside the
+transform.
+
+The branch and the replacement reach the same enclosing-block continuation.
+The table body has no operand, side effect, or possible exception after the
+caught throw has become the branch, so the catch is dormant on both paths.
+Deleting any unreachable filler in the same mutation prevents the replacement
+fallthrough from trapping. On saved campaign case 40, the seven-pass output is
+now `48` raw bytes and `45` bytes after the campaign's v132 strip-debug
+projection, versus Binaryen's `46` / `46`. Starshine's empty table body is the
+one-byte canonical win over Binaryen's explicit `nop`.
 
 ## 2026-09-22 continuation handler target repair
 

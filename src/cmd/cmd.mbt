@@ -3387,6 +3387,82 @@ test "explicit vacuum dispatch removes null throw_ref try_table wrappers" {
 }
 
 ///|
+test "explicit remove-unused-brs dispatch folds caught throw through empty block" {
+  let wat =
+    #|(module
+    #|  (type $empty (func))
+    #|  (type $unused (func (param i32)))
+    #|  (tag $e (type $empty))
+    #|  (tag $unused_e (type $unused))
+    #|  (func
+    #|    (block $outer
+    #|      (block
+    #|        (try_table (catch $e $outer)
+    #|          (throw $e))
+    #|        (unreachable)))))
+    #|
+  let input = match
+    @wast.wast_to_binary_module(wat, filename="rub-caught-throw-exit-cmd.wat") {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected cmd caught throw exit fixture parse success, got \{err}")
+  }
+  let optimized = match
+    optimize_module_with_pass_flags(
+      input,
+      ["remove-unused-brs"],
+      OptimizeOptions::new(),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected explicit cmd caught throw exit success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected cmd caught throw exit output to validate: \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [
+                      @lib.Block(
+                        _,
+                        @lib.Expr(
+                          [
+                            @lib.TryTable(
+                              _,
+                              [@lib.Catch(_, @lib.LabelIdx(1U))],
+                              @lib.Expr([])
+                            ),
+                          ]
+                        )
+                      ),
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected cmd caught try_table to fall through nested void blocks, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "Binaryen 132 dae2 dispatch removes a result forwarded to an unused parameter" {
   let source =
     #|(module

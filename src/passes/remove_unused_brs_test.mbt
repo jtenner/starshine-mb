@@ -1414,6 +1414,101 @@ test "remove-unused-brs rewrites exact caught throws to payload branches" {
 }
 
 ///|
+test "remove-unused-brs folds caught throw through empty block before unreachable" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $empty (func))
+        #|  (type $unused (func (param i32)))
+        #|  (tag $e (type $empty))
+        #|  (tag $unused_e (type $unused))
+        #|  (func
+        #|    (block $outer
+        #|      (block
+        #|        (try_table (catch $e $outer)
+        #|          (throw $e))
+        #|        (unreachable)))))
+        #|,
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected caught throw exit cleanup success, got \{err}")
+  }
+
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected caught throw exit output to validate: \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [
+                      @lib.Block(
+                        _,
+                        @lib.Expr(
+                          [
+                            @lib.TryTable(
+                              _,
+                              [@lib.Catch(_, @lib.LabelIdx(1U))],
+                              @lib.Expr([])
+                            ),
+                          ]
+                        )
+                      ),
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected empty caught try_table falling through nested void blocks, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "remove-unused-brs keeps caught throw exit when a live suffix follows" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e)
+        #|  (global $g (mut i32) (i32.const 0))
+        #|  (func
+        #|    (block $outer
+        #|      (try_table (catch $e $outer)
+        #|        (throw $e))
+        #|      (global.set $g (i32.const 1)))))
+        #|,
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected live caught throw suffix boundary success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs keeps tag-mismatched caught throws" {
   let optimized = match
     pass_test_run_pipeline(

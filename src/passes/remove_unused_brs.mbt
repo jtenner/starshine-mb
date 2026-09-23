@@ -8158,6 +8158,156 @@ fn remove_unused_brs_region_suffix_is_unreachable_only(
 }
 
 ///|
+fn remove_unused_brs_region_suffix_is_fallthrough_debris(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  start_idx : Int,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if start_idx < 0 || start_idx > root_count {
+    return false
+  }
+  for idx = start_idx; idx < root_count; idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Nop | @ir.HotOp::Unreachable => ()
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn remove_unused_brs_try_fallthrough_caught_try_table_outer_exit(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if idx < 0 || idx >= root_count {
+    return false
+  }
+  let try_table_id = @ir.hot_region_get(func, region_ref, idx)
+  if try_table_id < 0 ||
+    !@ir.hot_node_is_live(func, try_table_id) ||
+    @ir.hot_node_result_arity(func, try_table_id) != 0 {
+    return false
+  }
+  let try_table = @ir.hot_node_get(func, try_table_id)
+  match try_table.op {
+    @ir.HotOp::TryTable => ()
+    _ => return false
+  }
+  let catch_info = @ir.hot_catch_info_get(func, try_table.imm1)
+  let catch_label = match catch_info.catches {
+    [@ir.HotCatchArm::CatchArm(_, catch_label)] => catch_label
+    _ => return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_table_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return false
+  }
+  let branch_id = @ir.hot_region_get(func, body_ref, 0)
+  if branch_id < 0 || !@ir.hot_node_is_live(func, branch_id) {
+    return false
+  }
+  let branch = @ir.hot_node_get(func, branch_id)
+  match branch.op {
+    @ir.HotOp::Br if branch.child_count == 0 => ()
+    _ => return false
+  }
+  if @ir.hot_branch_target(func, branch_id) != Some(catch_label) {
+    return false
+  }
+
+  let use_def = pass_require_use_def(ctx, func)
+  let debris_regions : Array[@ir.HotRegionRef] = []
+  let debris_starts : Array[Int] = []
+  let mut exit_region = region_ref
+  let mut exit_root_idx = idx
+  let mut reached_target = false
+  for _hop = 0; _hop < 64; _hop = _hop + 1 {
+    let exit_root_count = @ir.hot_region_root_count(func, exit_region)
+    if exit_root_idx < 0 ||
+      exit_root_idx >= exit_root_count ||
+      !remove_unused_brs_region_suffix_is_fallthrough_debris(
+        func,
+        exit_region,
+        exit_root_idx + 1,
+      ) {
+      return false
+    }
+    if exit_root_idx + 1 < exit_root_count {
+      debris_regions.push(exit_region)
+      debris_starts.push(exit_root_idx + 1)
+    }
+    let holder = match @ir.hot_region_holder_block_root(func, exit_region) {
+      Some(holder) => holder
+      None => return false
+    }
+    if @ir.hot_node_result_arity(func, holder) != 0 {
+      return false
+    }
+    if @ir.hot_control_node_label(func, holder) == catch_label {
+      reached_target = true
+      break
+    }
+    if @ir.node_use_count(use_def, holder) != 1 {
+      return false
+    }
+    let sites = @ir.node_use_sites_borrowed(use_def, holder)
+    if sites.length() != 1 {
+      return false
+    }
+    let site = sites[0]
+    if site.user < 0 {
+      return false
+    }
+    let parent_region = match site.kind {
+      @ir.HotUseSlotKind::RootUseSlot =>
+        remove_unused_brs_root_use_region_ref(
+          func,
+          holder,
+          site.user,
+          site.slot,
+        )
+      @ir.HotUseSlotKind::ChildUseSlot => None
+    }
+    exit_region = match parent_region {
+      Some(parent_region) => parent_region
+      None => return false
+    }
+    exit_root_idx = site.slot
+  }
+  if !reached_target {
+    return false
+  }
+
+  let removed_body = pass_splice_region(ctx, func, body_ref, 0, 1, [])
+  remove_unused_brs_delete_unused_nodes(ctx, func, removed_body)
+  for debris_idx = 0
+      debris_idx < debris_regions.length()
+      debris_idx = debris_idx + 1 {
+    let debris_region = debris_regions[debris_idx]
+    let debris_start = debris_starts[debris_idx]
+    let removed_suffix = pass_splice_region(
+      ctx,
+      func,
+      debris_region,
+      debris_start,
+      @ir.hot_region_root_count(func, debris_region) - debris_start,
+      [],
+    )
+    remove_unused_brs_delete_unused_nodes(ctx, func, removed_suffix)
+  }
+  true
+}
+
+///|
 fn remove_unused_brs_try_voidify_if_block_exit_unreachable_suffix(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -10666,6 +10816,11 @@ fn remove_unused_brs_visit_region(
     )
     if current_idx < 0 {
       continue
+    }
+    if remove_unused_brs_try_fallthrough_caught_try_table_outer_exit(
+        ctx, func, region_ref, current_idx,
+      ) {
+      return true
     }
     if remove_unused_brs_try_rewrite_gc_br_on_root(
         ctx, func, region_ref, current_idx,

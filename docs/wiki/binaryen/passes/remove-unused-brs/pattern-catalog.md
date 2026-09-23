@@ -278,11 +278,13 @@ Detailed page:
   - `remove-unused-brs forwards same-target br_table v128 payload through dead shell`
   - `remove-unused-brs boundary keeps result suffix after void return block`
   - `remove-unused-brs prunes suffix after br-table then unreachable block`
-- `remove_unused_brs_try_rewrite_caught_throws_in_region(...)` / `remove_unused_brs_try_rewrite_caught_throw_root(...)`
-  Mirror the safe `try_table` subset of Binaryen `visitThrow(...)`: exact caught tags become payload-preserving `br` roots, and `catch_all` without ref drops the thrown payload children before branching to the catch destination. The matcher walks innermost-to-outermost `try_table` catchers, respects catch order, and remains conservative for `catch_ref`, `catch_all_ref`, tag mismatches, and any HOT `Try` mixed-control boundary.
+- `remove_unused_brs_try_rewrite_caught_throws_in_region(...)` / `remove_unused_brs_try_rewrite_caught_throw_root(...)` / `remove_unused_brs_try_fallthrough_caught_try_table_outer_exit(...)`
+  Mirror the safe `try_table` subset of Binaryen `visitThrow(...)`: exact caught tags become payload-preserving `br` roots, and `catch_all` without ref drops the thrown payload children before branching to the catch destination. The matcher walks innermost-to-outermost `try_table` catchers, respects catch order, and remains conservative for `catch_ref`, `catch_all_ref`, tag mismatches, and any HOT `Try` mixed-control boundary. When this exposes a void `try_table (catch tag outer) { br outer }` at the tail of one or more void ordinary blocks, the follow-up removes the childless branch and any nop/unreachable-only suffixes on that tail path so the table falls through to the same outer continuation. A live suffix or result-carrying block remains unchanged.
   Covered by:
   - `remove-unused-brs rewrites catch_all throws to branches and drops payloads`
   - `remove-unused-brs rewrites exact caught throws to payload branches`
+  - `remove-unused-brs folds caught throw through empty block before unreachable`
+  - `remove-unused-brs keeps caught throw exit when a live suffix follows`
   - `remove-unused-brs keeps tag-mismatched caught throws`
   - `remove-unused-brs keeps catch_ref caught throws as exnref transport`
   - `remove-unused-brs keeps catch_all_ref caught throws as exnref transport`

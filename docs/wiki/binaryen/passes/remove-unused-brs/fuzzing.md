@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-23
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -15,6 +15,32 @@ sources:
 # `remove-unused-brs` Fuzzing Profile
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## 2026-09-23 saved seven-pass EH campaign reduction
+
+Read-only inspection of
+`.tmp/current-audit-seven-pass-random-all-1000` found 18 identical
+`campaign-eh-control` residuals at indices `40`, `76`, `164`, `212`, `228`,
+`304`, `328`, `360`, `372`, `388`, `448`, `468`, `588`, `632`, `720`, `748`,
+`776`, and `972`. Each saved record is Starshine `51` raw / `48` canonical
+bytes versus Binaryen `46` / `46`, with semantic-v2 `all-equal` and fixed-point
+semantic idempotence and convergence. The campaign canonicalizer is the same
+verified Binaryen v132 strip-debug writer used for both outputs.
+
+Case 40 reduces to an exact caught `throw` in a void `try_table` targeting its
+enclosing block, followed by unreachable filler. The first five Starshine and
+Binaryen stages reach equivalent caught-throw inputs; the owned residual appears
+when `remove-unused-brs` rewrites the throw to the outer branch but retains the
+filler. Verified oracle: `wasm-opt version 132
+(version_132-100-gfbf2e5aa2)`, SHA-256
+`500201b4d13ccc3a61fa5254073e75a138bc57be198bd6c18c5a9562c081ad18`.
+The focused correction removes the branch and filler together under exact void,
+catch-target, tail-wrapper, and no-effect guards. The fixed native replay of
+saved case 40 is `48` raw bytes and `45` bytes after the same v132 strip-debug
+projection; both outputs validate with `wasm-tools --features all`. The oracle
+remains `46` / `46`. Starshine's valid empty `try_table` encoding is one byte
+smaller than the oracle's explicit-nop body, converting the former two-byte
+canonical loss into a measured one-byte Starshine win.
 
 ## 2026-08-31 shared HOT lower performance renewal
 
