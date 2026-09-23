@@ -259,7 +259,14 @@
     (`a2ef38904`). Both join random-all and batch manifest labeling. Missing
     constructors made the new tests red; focused validate, manifest, owner,
     and dispatcher tests passed after implementation. No fuzz campaign ran.
-59. [ ] Add feature floors for descriptors, continuations, waitqueues, atomics, and array memory.
+59. [x] GenValid now has exact whole-module feature floors for descriptors,
+    continuations, waitqueues, atomics, and array memory (`ba6781d95`).
+    Aggregate struct/array atomics count toward atomics while the shared
+    linear-memory floor remains specific to linear atomic instructions.
+    Manifest facts and counters expose the new families; required-feature
+    JSON retains its legacy key and adds a lowercase label. Three red
+    regressions preceded the fix; bounded validate/fuzz suites passed 2507/2507.
+    No fuzz campaign ran. The public `.mbti` gained additive facts and keys.
 60. [x] Compare-pass now journals exact raw `compiler.facts` section presence,
     count, encoded length, SHA-256, scan status, and effective trust policy
     (`30ffd4ad1`). Explicit policy is Starshine-only and resume-bound; legacy
