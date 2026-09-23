@@ -248,7 +248,11 @@
     enforces both commands; GitHub master protection listed `dae-differential`
     among required statuses on 2026-09-22. The semantic lane was not run during
     this no-fuzz repair spree, so its green CI result remains to be observed.
-58. [ ] Add trigger-focused profiles for undersampled pass families.
+58. [x] GenValid now has deterministic trigger profiles for `local-cse`
+    repeated arithmetic trees and DFE exact duplicate/fixed-point callers
+    (`a2ef38904`). Both join random-all and batch manifest labeling. Missing
+    constructors made the new tests red; focused validate, manifest, owner,
+    and dispatcher tests passed after implementation. No fuzz campaign ran.
 59. [ ] Add feature floors for descriptors, continuations, waitqueues, atomics, and array memory.
 60. [x] Compare-pass now journals exact raw `compiler.facts` section presence,
     count, encoded length, SHA-256, scan status, and effective trust policy
@@ -295,7 +299,12 @@
     bottom edges and rejects unrelated `func`/`extern -> any` shortcuts
     (`d4cafc8ba`). Adjacent four-edge and active-dispatch fixtures failed
     before the fix and passed afterward; `moon fmt` and `moon info` passed.
-69. [ ] Check Heap2Local's missing-field defensive branch against valid subtype layouts.
+69. [x] Heap2Local's missing subtype suffix-field branch is intentional
+    (`91a8bfe0f`). A valid dynamic base/subtype selection retains two
+    allocations, the cast, and the field read because a base path must trap;
+    the later nontrapping proof rejects scalarization. The constant subtype
+    selection still scalarizes. Direct and dispatcher boundary fixtures passed
+    before any behavior change, as did `moon fmt` and `moon info`; no fuzzing.
 
 ### Defects discovered during this repair spree
 
