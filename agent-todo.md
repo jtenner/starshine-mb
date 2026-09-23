@@ -62,7 +62,10 @@
     fix and passed afterward (4/4 and 140/140); `moon fmt` and `moon info`
     passed. No fuzzing was run.
 11. [ ] Flatten admits continuations without indexing their label targets.
-12. [ ] CodePushing ignores structured-region local effects.
+12. [x] CodePushing structured-region local-effect concern was disproved
+    (`5ffb679d2`). Recursive whole-function and suffix counts reject intervening
+    structured reads and writes before movement. Valid direct and dispatcher
+    fixtures passed before any production change; no behavior fix was warranted.
 13. [ ] CodePushing dead-block flattening ignores nested branches.
 14. [ ] RemoveUnusedBrs omits continuation handler references.
 15. [x] MergeBlocks `try`/`try_table` carried-local scan concern was
