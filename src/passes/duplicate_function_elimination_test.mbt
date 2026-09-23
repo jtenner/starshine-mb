@@ -96,7 +96,7 @@ fn dfe_test_select_ref_type_idx(
 }
 
 ///|
-test "run_hot_pipeline applies duplicate-function-elimination and rewrites function references" {
+test "run_hot_pipeline preserves exported duplicate function references" {
   let input = @lib.Module::new()
     .with_type_sec(dfe_test_type_sec())
     .with_import_sec(
@@ -165,29 +165,29 @@ test "run_hot_pipeline applies duplicate-function-elimination and rewrites funct
   }
 
   match optimized.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 3)
     None => fail("expected func section")
   }
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 2)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 3)
     None => fail("expected code section")
   }
-  @debug.assert_eq(try! dfe_test_call_target(optimized, 0), 2U)
-  @debug.assert_eq(try! dfe_test_ref_func_target(optimized, 0), 2U)
+  @debug.assert_eq(try! dfe_test_call_target(optimized, 0), 3U)
+  @debug.assert_eq(try! dfe_test_ref_func_target(optimized, 0), 3U)
   match optimized.export_sec {
     Some(
       @lib.ExportSec([@lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(target)))])
-    ) => @debug.assert_eq(target, 2U)
+    ) => @debug.assert_eq(target, 3U)
     _ => fail("expected rewritten function export")
   }
   match optimized.start_sec {
-    Some(@lib.StartSec(@lib.FuncIdx(target))) => @debug.assert_eq(target, 2U)
+    Some(@lib.StartSec(@lib.FuncIdx(target))) => @debug.assert_eq(target, 3U)
     _ => fail("expected rewritten start section")
   }
   match optimized.elem_sec {
     Some(
       @lib.ElemSec([@lib.Elem(_, @lib.FuncsElemKind([@lib.FuncIdx(target)]))])
-    ) => @debug.assert_eq(target, 2U)
+    ) => @debug.assert_eq(target, 3U)
     _ => fail("expected rewritten elem section")
   }
 }
@@ -1025,6 +1025,18 @@ test "duplicate-function-elimination never treats imported functions as removabl
 }
 
 ///|
+test "duplicate-function-elimination preserves distinct exported function identities" {
+  let input = pass_test_module_from_wat(
+    "(module (func (export \"a\") (result i32) i32.const 7) (func (export \"b\") (result i32) i32.const 7))",
+  )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 2)
+  @debug.assert_eq(try! dfe_test_export_func_target(optimized, 0), 0U)
+  @debug.assert_eq(try! dfe_test_export_func_target(optimized, 1), 1U)
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+}
+
+///|
 test "duplicate-function-elimination keeps identical bodies distinct when function types differ" {
   let input = @lib.Module::new()
     .with_type_sec(
@@ -1149,7 +1161,7 @@ test "duplicate-function-elimination keeps different semantic annotations distin
 }
 
 ///|
-test "duplicate-function-elimination keeps the earliest survivor across a duplicate bucket" {
+test "duplicate-function-elimination keeps exported identities across a duplicate bucket" {
   let input = @lib.Module::new()
     .with_type_sec(dfe_test_type_sec())
     .with_func_sec(
@@ -1202,10 +1214,10 @@ test "duplicate-function-elimination keeps the earliest survivor across a duplic
       ]),
     )
   let optimized = try! dfe_test_run(input)
-  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 2)
-  @debug.assert_eq(try! dfe_test_call_target(optimized, 0), 1U)
-  @debug.assert_eq(try! dfe_test_export_func_target(optimized, 0), 1U)
-  @debug.assert_eq(try! dfe_test_export_func_target(optimized, 1), 1U)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 4)
+  @debug.assert_eq(try! dfe_test_call_target(optimized, 0), 3U)
+  @debug.assert_eq(try! dfe_test_export_func_target(optimized, 0), 2U)
+  @debug.assert_eq(try! dfe_test_export_func_target(optimized, 1), 3U)
 }
 
 ///|

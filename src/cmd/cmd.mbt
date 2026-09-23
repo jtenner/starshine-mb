@@ -8740,3 +8740,31 @@ fn cmd_deep_audit_rume_input(kind : String) -> @lib.Module {
     base
   }
 }
+
+///|
+test "direct DFE preserves distinct host-exported function identities" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (export \"a\") (result i32) i32.const 7) (func (export \"b\") (result i32) i32.const 7))",
+  )
+  let optimized = match
+    optimize_module_with_pass_flags(
+      input,
+      ["duplicate-function-elimination"],
+      OptimizeOptions::new(),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("direct DFE dispatch failed: \{err}")
+  }
+  match optimized.export_sec {
+    Some(
+      @lib.ExportSec(
+        [
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(first))),
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(second))),
+        ]
+      )
+    ) => assert_true(first != second)
+    _ => fail("expected two distinct exported functions")
+  }
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+}

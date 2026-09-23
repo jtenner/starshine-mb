@@ -11,6 +11,7 @@ sources:
   - ../../../../../src/passes/duplicate_function_elimination_test.mbt
   - ../../../../../src/passes/duplicate_function_elimination_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
+  - https://webassembly.github.io/spec/js-api/#exported-functions
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -103,8 +104,11 @@ DFE when the original or current module has any imports or exports. Such a
 boundary can expose a function reference through exports, tables, globals, or
 imported callbacks; merging equal bodies would then collapse distinct host
 identities. Closed modules still run the scheduled DFE slot. Direct
-`--duplicate-function-elimination` remains an explicit opt-in merge and retains
-the pass's Binaryen comparison contract. The [Node host regression](../../../../../tests/optimizer/regressions/host-identity.test.ts)
+`--duplicate-function-elimination` now keeps each exported defined function
+outside duplicate groups, even when bodies match. The JavaScript API caches
+exported function objects by function address, so merging two exports changes
+observable `===` identity. This is a correctness improvement over the earlier
+direct-pass contract and can differ from Binaryen's output shape. The [Node host regression](../../../../../tests/optimizer/regressions/host-identity.test.ts)
 asserts these behaviors; narrowing the broad preset gate requires a sound
 escape analysis and measured size/performance evidence.
 The CLI's pure O4z size portfolio filters DFE from its automatic candidate

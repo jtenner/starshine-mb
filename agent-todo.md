@@ -111,7 +111,11 @@
     target-feature metadata (`3db11a408`); canonical `-tail-call` metadata
     selects ordinary calls, with adjacent and dispatcher regressions red then
     green (15/15 adjacent, 1/1 dispatcher).
-33. [ ] Decide and guard direct DFE's host-visible exported-function identity contract.
+33. [x] Direct DFE now preserves every exported function address, including
+    equal-body exports; the JavaScript API caches function objects by address.
+    Direct and dispatcher tests failed before the guard and passed afterward;
+    the full adjacent DFE file passed 31/31. Item 71 tracks remaining
+    address-taken internal identity risk.
 34. [ ] Decide and guard direct DIE's repeated host import-lookup contract.
 35. [ ] DIE loses annotations on a removed import alias.
 36. [x] MemoryPacking rebuilds unchanged modules after a reverted segment
@@ -179,6 +183,10 @@
     module after a successful data-segment rewrite (`4381795de`). Direct and
     dispatcher zero-range fixtures were red before the metadata carry and
     green after.
+71. [ ] Prove and guard DFE identity for non-exported functions observed through
+    `ref.func`, tables, globals, or `ref.eq`. Distinct function addresses can
+    remain observable even when neither function is directly exported; add a
+    valid reduced behavioral fixture before changing deduplication.
 
 ### Open parity evidence from this audit
 
@@ -218,8 +226,9 @@
   showed that direct duplicate-import and duplicate-function elimination alter
   JS-visible import lookup count and exported function identity. Presets now
   conservatively skip DFE on modules with imports or exports and skip DIE on
-  modules with function imports. Direct passes retain their explicit merge
-  contracts. This broad gate can forgo useful internal-function merges.
+  modules with function imports. Direct DFE now protects exported functions;
+  address-taken internal identities remain under investigation in item 71.
+  This broad gate can forgo useful internal-function merges.
 - **Deliverables / tasks:** measure the preset size/performance cost and design
   protected-function escape analysis so presets can merge internal functions
   while preserving identities that reach exports, tables, globals, imported
@@ -227,7 +236,8 @@
   runtime regressions in `tests/optimizer/regressions/host-identity.test.ts`.
 - **Required APIs / invariants:** no implicit preset may collapse distinct
   host-observable function references or same-name imported function lookups;
-  direct DFE/DIE remain opt-in and keep Binaryen 132 pass parity.
+  direct DFE/DIE must preserve host semantics even where Binaryen 132 merges
+  observable identities; record any remaining output-shape parity gaps.
 - **Dependencies / exit:** focused runtime and Moon tests, explicit v132
   comparison of changed preset output, measured size/performance deltas, and a
   sound exposure proof for any narrowed guard.

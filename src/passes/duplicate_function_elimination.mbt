@@ -4038,6 +4038,22 @@ fn dfe_eliminate_duplicate_functions(
       }
       dfe_perf_stop_timer_opt(perf, "type-canon", type_canon_timer)
       let imported_count = dfe_imported_func_count(mod_)
+      let exported : Array[Bool] = Array::make(funcs.length(), false)
+      match mod_.export_sec {
+        Some(@lib.ExportSec(exports)) =>
+          for export_ in exports {
+            match export_ {
+              @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(raw))) => {
+                let local_idx = raw.reinterpret_as_int() - imported_count
+                if local_idx >= 0 && local_idx < exported.length() {
+                  exported[local_idx] = true
+                }
+              }
+              _ => ()
+            }
+          }
+        None => ()
+      }
       let annotations_by_abs_idx = dfe_func_annotation_map(mod_)
       let has_annotations = annotations_by_abs_idx.length() > 0
       let normalized_funcs : Array[@lib.Func?] = Array::make(
@@ -4174,6 +4190,11 @@ fn dfe_eliminate_duplicate_functions(
             while j < live_indices.length() {
               let second = live_indices[j]
               if replacements[second] >= 0 {
+                j += 1
+                continue
+              }
+              // An exported function has a host-visible address identity.
+              if exported[first] || exported[second] {
                 j += 1
                 continue
               }

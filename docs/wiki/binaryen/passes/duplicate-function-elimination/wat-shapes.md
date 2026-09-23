@@ -145,6 +145,11 @@ This is the best beginner example of “module code rewrite matters too.”
 
 ## Positive family 5: exports, start, and element users follow the survivor
 
+This is a historical Binaryen output shape. Starshine's direct pass now keeps
+distinct exported function addresses: the JavaScript API exposes their
+identity through cached Exported Function objects. Start and element references
+still follow a survivor when a non-exported function is safely removed.
+
 Before, conceptually:
 
 ```wat
