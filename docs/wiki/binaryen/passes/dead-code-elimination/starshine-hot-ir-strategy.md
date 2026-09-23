@@ -9,10 +9,12 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_code_elimination_test.mbt
   - ../../../../../src/passes/dead_code_elimination_wbtest.mbt
+  - ../../../../../src/passes/dead_code_elimination_label_targets_wbtest.mbt
   - ../../../../../src/passes/dead_code_elimination_live_repro_test.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes_perf_long/dead_code_elimination_perf_test.mbt
   - ../../../../../src/cmd/dce_oi_loop_regression_wbtest.mbt
+  - ../../../../../src/cmd/dce_label_targets_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
   - ./index.md
@@ -123,6 +125,16 @@ Instead it rebuilds HOT-oriented facts as needed:
 - purity caches for dead dropped-value cleanup
 
 That broader cache stack is the clearest sign that current Starshine is not a direct line-by-line Binaryen port.
+
+The incoming-label bitset must include exceptional transfers encoded outside
+ordinary branch nodes. In particular, each `try_table` catch arm keeps its
+destination label live. The branch-user array remains narrower because its
+entries are rewritten as ordinary branch payload users; catch metadata is an
+owner-preservation fact, not a branch-payload rewrite candidate. The direct HOT
+and active dispatcher regressions in
+`src/passes/dead_code_elimination_label_targets_wbtest.mbt` and
+`src/cmd/dce_label_targets_wbtest.mbt` cover the root-block flattening case that
+previously left a catch destination without an enclosing label.
 
 ### 2. Region-local dead-result cleanup
 

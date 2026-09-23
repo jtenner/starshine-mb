@@ -465,6 +465,24 @@ fn dead_code_elimination_build_has_incoming_branches_by_label(
         has_incoming_by_label, target,
       )
     }
+    let node = @ir.hot_node_get(func, branch_id)
+    match node.op {
+      @ir.HotOp::TryTable => {
+        let info = @ir.hot_catch_info_get(func, node.imm1)
+        for catch_ in info.catches {
+          let target = match catch_ {
+            @ir.HotCatchArm::CatchArm(_, label_id)
+            | @ir.HotCatchArm::CatchRefArm(_, label_id)
+            | @ir.HotCatchArm::CatchAllArm(label_id)
+            | @ir.HotCatchArm::CatchAllRefArm(label_id) => label_id
+          }
+          dead_code_elimination_record_incoming_branch_target(
+            has_incoming_by_label, target,
+          )
+        }
+      }
+      _ => ()
+    }
   }
   has_incoming_by_label
 }
@@ -497,8 +515,11 @@ fn dead_code_elimination_require_has_any_branch(
     None => {
       let mut has_any_branch = false
       for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-        if @ir.hot_node_is_live(func, node_id) &&
-          @ir.hot_node_has_flag(func, node_id, @ir.HOT_FLAG_BRANCH) {
+        if !@ir.hot_node_is_live(func, node_id) {
+          continue
+        }
+        if @ir.hot_node_has_flag(func, node_id, @ir.HOT_FLAG_BRANCH) ||
+          @ir.hot_node_get(func, node_id).op is @ir.HotOp::TryTable {
           has_any_branch = true
           break
         }
