@@ -232,9 +232,13 @@
     redirected target (`239f2ec58`). Exact AcqRel and Relaxed store/fence
     binaries are `blocked` by Node v26 before execution (`7ec41eb9c`), so
     they supply an explicit unsupported boundary, not outcome evidence.
+    A mixed memory32/memory64 two-worker fixture rejects redirection from
+    memory64 to memory32 (`501cf2281`). Memory64 last-word/first-out-of-bounds
+    RMW fixtures now observe normalized per-thread bounds traps and reject a
+    corrupt address while unrelated worker traps remain blocked (`ede701b63`).
     Remaining: general wait/notify liveness, weaker-order and fence semantics,
-    memory64 higher
-    addresses and trap/wait families, broader multi-memory operations, and
+    memory64 addresses above 4 GiB and other trap/wait families, broader
+    multi-memory operations, and
     broader schedule families. A validated shared-GC
     `struct.atomic.rmw.add seq_cst` probe
     reports a tested Node v26 unsupported boundary without counting a semantic
