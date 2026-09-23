@@ -526,7 +526,16 @@
   exact-cast result; Starshine repeats a provably successful ordinary cast and
   wins only after canonical local regrouping.
 - [ ] Reduce the 128 EH/Vacuum structural differences in the existing 256-case
-  campaign, alongside the dedicated Vacuum backlog slice below.
+  campaign, alongside the dedicated Vacuum backlog slice below. Layouts `1`
+  and `7` account for 64 historical rows and are source-backed canonical
+  projection wins, while Binaryen remains smaller in raw bytes. Ten retained
+  exact modules (50 input/output variants) validate and execute identically
+  under Node and Wasmtime; the other 54 have only saved size/status rows.
+  Layouts `3` and `6` account for the other 64 rows; the two retained
+  representatives now match verified v132 canonical bytes after
+  null-`throw_ref` wrapper cleanup. Keep the aggregate open because no new
+  256-case comparison was run under the no-fuzz constraint. See the
+  [Vacuum dossier](docs/wiki/binaryen/passes/vacuum/fuzzing.md#september-23-binaryen-132-eh-structural-campaign).
 
 ## v0.1.1 — EH Vacuum parity on new GenValid control shapes [IR2-PARITY]
 

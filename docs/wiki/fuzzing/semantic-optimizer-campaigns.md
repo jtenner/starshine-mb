@@ -90,6 +90,16 @@ validated 40-byte fixed point after bounded instruction revisits. These are
 individual exact replays; unretained output pairs and unreplayed siblings
 remain unclassified.
 
+In the separate 256-case [EH/Vacuum campaign](../binaryen/passes/vacuum/fuzzing.md),
+layouts `1` and `7` account for 64 historical mismatches that are source-backed
+canonical projection wins, although Binaryen's raw encodings are smaller.
+All ten retained exact inputs and their 40 optimizer output variants validate
+and execute with the same void result under Node and Wasmtime. The remaining 54
+layout instances have only saved size and status rows. Layouts `3` and `6`
+account for the other 64 mismatches; two retained representatives now match
+v132 canonically after null-`throw_ref` wrapper cleanup. No new 256-case
+campaign was run.
+
 Two property failures, saved cases 259 and 367, were genuine DCE wrong-code:
 a reachable typed loop became an unconditional trap. The source-order repair
 has [direct](../../../src/passes/dead_code_elimination_test.mbt) and
