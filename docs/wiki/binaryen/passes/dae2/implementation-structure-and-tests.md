@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-09-13
+last_reviewed: 2026-09-22
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
@@ -96,3 +96,14 @@ checks in `tests/optimizer/regressions/round2-correctness.test.ts` cover both
 directions, including recursive groups. See the
 [second audit](../../../ir2/architecture-rules.md#september-12-second-correctness-audit)
 for final evidence and limitations.
+
+## Host-visible abstract function tables
+
+Closed-world analysis does not make an imported or exported abstract `funcref`
+table private. `dead_argument_elimination2_types.mbt` builds a table-index mask
+for those boundaries, retains type families for materialized function references
+that can flow into them, and retains the type operands of indirect and indirect
+tail calls through them. The pass and command regressions use an exported table
+with an active element plus a separately retained direct sibling; before the fix,
+that independent rewrite opportunity changed the active target from
+`(i32) -> i32` to `() -> ()` while leaving the host-visible table intact.

@@ -455,6 +455,61 @@ test "dae2 closed world pins a signature reachable from an exported typed table"
 }
 
 ///|
+test "dae2 closed world pins a signature stored in an exported abstract table" {
+  let source =
+    #|(module
+    #|  (type $sig (func (param i32) (result i32)))
+    #|  (table (export "callbacks") 1 funcref)
+    #|  (elem (i32.const 0) $target)
+    #|  (func $target (type $sig) (param i32) (result i32) (local.get 0))
+    #|  (func $direct (type $sig) (param i32) (result i32) (local.get 0))
+    #|  (func (export "run") (result i32)
+    #|    (drop (call_indirect (type $sig) (i32.const 42) (i32.const 0)))
+    #|    (drop (call_ref (type $sig) (i32.const 43) (ref.func $target)))
+    #|    (call $direct (i32.const 9))))
+  let input = pass_test_module_from_wat(source)
+  for pass in ["dae2", "dae2-optimizing"] {
+    let output = match
+      run_hot_pipeline(input, HotPipelineOptions::new(closed_world=true), [pass]) {
+      Ok(output) => output
+      Err(err) => fail("expected exported-table DAE2 success: \{err}")
+    }
+    assert_true(@validate.validate_module(output) is Ok(_), msg=pass)
+    @debug.assert_eq(
+      dae2_test_signature(output, 0),
+      @lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()]),
+      msg=pass,
+    )
+    assert_true(
+      output.export_sec
+      is Some(
+        @lib.ExportSec(
+          [
+            @lib.Export(_, @lib.TableExternIdx(@lib.TableIdx(0U))),
+            @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(2U))),
+          ]
+        )
+      ),
+      msg=pass,
+    )
+    assert_true(
+      output.elem_sec
+      is Some(
+        @lib.ElemSec(
+          [
+            @lib.Elem(
+              @lib.Active(@lib.TableIdx(0U), _),
+              @lib.FuncsElemKind([@lib.FuncIdx(0U)])
+            ),
+          ]
+        )
+      ),
+      msg=pass,
+    )
+  }
+}
+
+///|
 test "dae2 remaps retained local names and removes names for pruned parameters" {
   let source =
     #|(module

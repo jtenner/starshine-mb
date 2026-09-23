@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-09-10
+last_reviewed: 2026-09-22
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
@@ -39,6 +39,15 @@ metadata and continuation signatures. An unknown external caller is not evidence
 of an unused signature. Continuations and `call.without.effects` retain their
 conservative restrictions. In an open world, an unchangeable indirect tail call
 also pins caller results (#8994).
+
+Imported and exported abstract `funcref` tables are host-visible callable
+boundaries even in closed-world mode. DAE2 therefore keeps the signatures of
+materialized function references that may enter such a table, including active
+and passive element targets and `ref.func` values, and keeps the declared type of
+each `call_indirect` or `return_call_indirect` that addresses one. Otherwise the
+host could observe an active target with a changed signature, or install a
+function satisfying the source call type only for the optimized module to test a
+different runtime type.
 
 Analysis and mutation are separate. Preserve old block/loop signatures when a
 function type used as a control signature changes. Keep recursive groups and

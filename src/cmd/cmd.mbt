@@ -8048,6 +8048,53 @@ test "Binaryen 132 command DAE2 prunes declaration-only signatures" {
 }
 
 ///|
+test "command DAE2 preserves signatures in exported abstract tables" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $sig (func (param i32) (result i32)))
+      #|  (table (export "callbacks") 1 funcref)
+      #|  (elem (i32.const 0) $target)
+      #|  (func $target (type $sig) (param i32) (result i32) (local.get 0))
+      #|  (func $direct (type $sig) (param i32) (result i32) (local.get 0))
+      #|  (func (export "run") (result i32)
+      #|    (drop (call_indirect (type $sig) (i32.const 42) (i32.const 0)))
+      #|    (drop (call_ref (type $sig) (i32.const 43) (ref.func $target)))
+      #|    (call $direct (i32.const 9))))
+    ),
+  )
+  let output = match
+    optimize_module_with_pass_flags(
+      input,
+      ["dae2"],
+      OptimizeOptions::new(closed_world=true),
+    ) {
+    Ok(output) => output
+    Err(err) => fail("expected exported-table command success: \{err}")
+  }
+  assert_true(@validate.validate_module(output) is Ok(_))
+  @debug.assert_eq(
+    @validate.Env::new()
+    .with_module(output)
+    .get_functype_by_funcidx(@lib.FuncIdx::new(0U)),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+  )
+  assert_true(
+    output.elem_sec
+    is Some(
+      @lib.ElemSec(
+        [
+          @lib.Elem(
+            @lib.Active(@lib.TableIdx(0U), _),
+            @lib.FuncsElemKind([@lib.FuncIdx(0U)])
+          ),
+        ]
+      )
+    ),
+  )
+}
+
+///|
 test "Binaryen 132 optimizing command keeps a later tee after conditional calls" {
   let source =
     #|(module

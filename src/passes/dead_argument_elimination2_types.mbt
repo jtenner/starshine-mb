@@ -62,6 +62,114 @@ fn dae2_type_slot(index : @lib.TypeIdx, base : Int) -> Int {
 }
 
 ///|
+fn dae2_table_slot(index : @lib.TableIdx) -> Int {
+  match index {
+    @lib.TableIdx(raw) => raw.reinterpret_as_int()
+  }
+}
+
+///|
+fn dae2_is_abstract_funcref_table(table_type : @lib.TableType) -> Bool {
+  let @lib.TableType(ref_type, _) = table_type
+  ref_type.get_heap_type() == @lib.HeapType::abs(@lib.AbsHeapType::func())
+}
+
+///|
+fn dae2_host_abstract_funcref_tables(
+  mod_ : @lib.Module,
+  context : @ir.HotModuleContext,
+) -> Array[Bool] {
+  let visible = Array::make(context.tables.length(), false)
+  let mut table_import = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.TableExternType(table_type)) => {
+            if table_import < visible.length() &&
+              dae2_is_abstract_funcref_table(table_type) {
+              visible[table_import] = true
+            }
+            table_import += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.TableExternIdx(table_idx)) => {
+            let slot = dae2_table_slot(table_idx)
+            if slot >= 0 &&
+              slot < visible.length() &&
+              dae2_is_abstract_funcref_table(context.tables[slot]) {
+              visible[slot] = true
+            }
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  visible
+}
+
+///|
+fn dae2_function_reference_may_reach_table(
+  exposure : DaeFunctionExposure,
+) -> Bool {
+  exposure.ref_func_body ||
+  exposure.ref_func_module ||
+  exposure.active_element ||
+  exposure.passive_element
+}
+
+///|
+fn dae2_mark_host_table_call_types(
+  instrs : Array[@lib.Instruction],
+  host_tables : Array[Bool],
+  exposed : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae2_mark_host_table_call_types(body, host_tables, exposed)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        dae2_mark_host_table_call_types(body, host_tables, exposed)
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+              catch_body
+          }
+          dae2_mark_host_table_call_types(catch_body, host_tables, exposed)
+        }
+      }
+      @lib.If(_, then_body, else_body) => {
+        dae2_mark_host_table_call_types(then_body, host_tables, exposed)
+        match else_body {
+          Some(body) =>
+            dae2_mark_host_table_call_types(body, host_tables, exposed)
+          None => ()
+        }
+      }
+      @lib.CallIndirect(type_idx, table_idx)
+      | @lib.ReturnCallIndirect(type_idx, table_idx) => {
+        let slot = dae2_table_slot(table_idx)
+        if slot >= 0 && slot < host_tables.length() && host_tables[slot] {
+          dae_mark_used_type_idx(type_idx, exposed)
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
 fn dae2_type_ref_edges(
   graph : Dae2Graph,
   owner : Int,
@@ -202,6 +310,8 @@ fn dae2_prepare_type_locations(
       }
     }
   }
+  let host_abstract_tables = dae2_host_abstract_funcref_tables(mod_, context)
+  let has_host_abstract_table = host_abstract_tables.any(fn(visible) { visible })
   for index = 0; index < exposure.length(); index = index + 1 {
     let e = exposure[index]
     let type_index = dae2_type_slot(context.func_type_idxs[index], 0)
@@ -220,7 +330,10 @@ fn dae2_prepare_type_locations(
       }
       graph.edge(info.result_location, type_info.result_location)
       graph.edge(type_info.result_location, info.result_location)
-      if !closed_world || e.imported || e.exported {
+      if !closed_world ||
+        e.imported ||
+        e.exported ||
+        (has_host_abstract_table && dae2_function_reference_may_reach_table(e)) {
         public_types.observe(type_index)
       }
     }
@@ -264,6 +377,16 @@ fn dae2_prepare_type_locations(
   for tag in context.tags {
     let @lib.TagType(index) = tag
     dae_mark_used_type_idx(index, exposed)
+  }
+  if has_host_abstract_table {
+    match mod_.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        for func in funcs {
+          let @lib.Func(_, @lib.Expr(body)) = func
+          dae2_mark_host_table_call_types(body, host_abstract_tables, exposed)
+        }
+      None => ()
+    }
   }
   for index = 0; index < total; index = index + 1 {
     if exposed[index] || !closed_world {
