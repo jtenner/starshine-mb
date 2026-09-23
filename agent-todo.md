@@ -399,11 +399,13 @@
     generator's variant branches untested. Add a bounded deterministic
     selection test, break the seed/profile parity correlation without changing
     replay identity, and verify both variant parities without a fuzz campaign.
-76. [ ] The convergence property reports a fixed point when raw `M0` and `M1`
-    have the same canonical hash even if optimizing `M1` changes the canonical
-    result. Nine saved EH cases have exactly this `M0 -> M1 -> M2` shape and
-    are misclassified. Add a red projection-alias regression, require a sound
-    confirmation before fixed-point status, and verify bounded property output.
+76. [x] Convergence now requires identical consecutive raw module hashes for
+    fixed points and repeated exact raw hashes for cycles (`ec0dcf9c4`);
+    canonical hashes remain diagnostics. Nine saved EH cases exposed the old
+    projection-alias false fixed point. A red three-alias chain later changed
+    canonical shape, then passed after the fix; unknown raw identity stays
+    bounded nonconvergence. Focused property tests passed 14/14 and adjacent
+    compare-task tests passed 92/92. No fuzz campaign ran.
 77. [ ] Saved GC case 1 reports `starshine-correctness-failure` after a
     phase-unknown 2-second runtime worker timeout under parallel load, although
     bounded replay compiles and executes the same raw module in under 85 ms
