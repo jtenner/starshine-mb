@@ -83,6 +83,69 @@ fn heap2local_pretty_text(text : String) -> String {
 }
 
 ///|
+fn heap2local_dynamic_missing_subtype_field_module() -> @lib.Module {
+  let base = @lib.TypeIdx::new(0U)
+  let sub = @lib.TypeIdx::new(1U)
+  let owner = @lib.LocalIdx::new(1U)
+  pass_test_module_from_wat(
+    "(module (type $base (sub (struct (field i32)))) (type $sub (sub $base (struct (field i32) (field i32)))) (func (param i32) (result i32) unreachable))",
+  ).with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([
+          @lib.ValType::ref_type(
+            @lib.RefType::new(true, @lib.HeapType::new(base)),
+          ),
+        ]),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::if_(
+            @lib.BlockType::val_type(
+              @lib.ValType::ref_type(
+                @lib.RefType::new(false, @lib.HeapType::new(base)),
+              ),
+            ),
+            [
+              @lib.Instruction::i32_const(@lib.I32(11)),
+              @lib.Instruction::i32_const(@lib.I32(22)),
+              @lib.Instruction::struct_new(sub),
+            ],
+            Some([
+              @lib.Instruction::i32_const(@lib.I32(33)),
+              @lib.Instruction::struct_new(base),
+            ]),
+          ),
+          @lib.Instruction::local_set(owner),
+          @lib.Instruction::local_get(owner),
+          @lib.Instruction::ref_cast(false, @lib.HeapType::new(sub)),
+          @lib.Instruction::struct_get(sub, @lib.U32(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "heap2local intentionally retains dynamic subtype cast for missing variant field" {
+  // The base branch has no field 1, so its valid execution must trap at ref.cast.
+  let output = heap2local_run_module(
+    heap2local_dynamic_missing_subtype_field_module(),
+  )
+  assert_eq(
+    audit_count(audit_body(output), fn(i) { i is @lib.StructNew(_) }),
+    2,
+  )
+  assert_eq(
+    audit_count(audit_body(output), fn(i) { i is @lib.RefCast(_, _, _) }),
+    1,
+  )
+  assert_eq(
+    audit_count(audit_body(output), fn(i) { i is @lib.StructGet(_, _) }),
+    1,
+  )
+}
+
+///|
 test "heap2local rewrites a non-escaping struct local into scalar locals" {
   let pair = @lib.TypeIdx::new(0U)
   let owner_local = @lib.LocalIdx::new(0U)

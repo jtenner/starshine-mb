@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-14
+last_reviewed: 2026-09-22
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Heap2Local.cpp
@@ -221,6 +221,20 @@ That is a small validation-safety clarification.
 
 A successful scalarization can add locals and replace parent/flow edges. V131 therefore rebuilds `LazyLocalGraph`, `Parents`, and branch targets before analyzing the next allocation. `heap2local-rmw.wast` directly covers the former out-of-bounds/stale-graph risk around cmpxchg scratch locals, while `heap2local.wast` adds unreachable-flow coverage.
 
+### 5. Variant suffix fields require a reachability proof
+
+A nominal struct subtype can append fields to its parent's field prefix. In a
+branch-selected variant, a base allocation can therefore lack a suffix field
+read through the subtype. Starshine's field compatibility check deliberately
+allows that missing slot only in combination with the later per-path cast proof.
+
+When the branch condition is statically known to select the subtype allocation,
+the base allocation is unreachable at the suffix-field read and scalarization is
+valid. When the condition is dynamic, selecting the base allocation must trap at
+the subtype `ref.cast`; Heap2Local retains the allocations, cast, and read. The
+focused direct and command-dispatch regressions use a valid base/subtype layout
+and assert those three opcode families remain present.
+
 ## What a future port must preserve
 
 A future Starshine port should preserve all of these special-case rules honestly:
@@ -232,6 +246,7 @@ A future Starshine port should preserve all of these special-case rules honestly
 - packed access semantics must survive scalarization exactly
 - atomic/RMW/cmpxchg and descriptor families are part of the source-level contract even when dedicated test coverage is uneven
 - v131's per-allocation analysis reset is part of correctness; the 2026-07-19 renewal covers representable sequential candidates, while shared reference-valued ordered cmpxchg remains a validator/atomic-semantics blocker
+- a missing subtype suffix field is admissible only when the existing path proof excludes the shorter allocation; dynamic selection retains the trapping cast and heap traffic
 
 ## Sequential initializer reads
 

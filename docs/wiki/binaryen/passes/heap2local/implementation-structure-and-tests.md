@@ -167,8 +167,10 @@ Current Starshine implements a meaningful but narrower HOT/use-def subset.
 
 ## Current Starshine test map
 
-- `src/passes/heap2local_test.mbt:86-453`
-  - focused direct pass tests for struct owners, copy chains, tee owners, block flow, `ref.as_non_null`, successful `ref.cast`, direct `ref.eq`, descriptor-bearing `ref.get_desc`, array lowering, array `ref.test`, and parameter-backed bailout.
+- `src/passes/heap2local_test.mbt:86-1210`
+  - focused direct pass tests for struct owners, copy chains, tee owners, block flow, `ref.as_non_null`, successful `ref.cast`, dynamic subtype suffix-field trap preservation, direct `ref.eq`, descriptor-bearing `ref.get_desc`, array lowering, array `ref.test`, and parameter-backed bailout.
+- `src/cmd/cmd.mbt`
+  - active dispatcher coverage retains allocations, the subtype cast, and the suffix-field read when a dynamically selected base allocation must trap.
 - `src/passes/heap2local_primary_test.mbt:158-568`
   - broader Binaryen-aligned primary suite covering positives plus call escape, mixed provenance, nonconstant array size, and loop-carried provenance bailouts.
 - `src/passes/optimize_test.mbt:398-403`

@@ -2728,8 +2728,12 @@ fn h2l_variant_alloc_supports_fields(
     None => return false
   }
   for field in fields {
-    if field.index < alloc_fields.length() &&
-      alloc_fields[field.index].unpack() != field.type_ {
+    if field.index >= alloc_fields.length() {
+      // A base allocation may lack a subtype suffix field only when the cast
+      // path checks below prove that allocation unreachable at every such use.
+      continue
+    }
+    if alloc_fields[field.index].unpack() != field.type_ {
       return false
     }
   }

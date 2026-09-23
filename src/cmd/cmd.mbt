@@ -8899,6 +8899,68 @@ test "deep audit command global struct inference keeps exported table callable p
 }
 
 ///|
+test "deep audit command heap2local intentionally keeps missing subtype field trap" {
+  let base = @lib.TypeIdx::new(0U)
+  let sub = @lib.TypeIdx::new(1U)
+  let owner = @lib.LocalIdx::new(1U)
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $base (sub (struct (field i32)))) (type $sub (sub $base (struct (field i32) (field i32)))) (func (param i32) (result i32) unreachable))",
+  ).with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([
+          @lib.ValType::ref_type(
+            @lib.RefType::new(true, @lib.HeapType::new(base)),
+          ),
+        ]),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::if_(
+            @lib.BlockType::val_type(
+              @lib.ValType::ref_type(
+                @lib.RefType::new(false, @lib.HeapType::new(base)),
+              ),
+            ),
+            [
+              @lib.Instruction::i32_const(@lib.I32(11)),
+              @lib.Instruction::i32_const(@lib.I32(22)),
+              @lib.Instruction::struct_new(sub),
+            ],
+            Some([
+              @lib.Instruction::i32_const(@lib.I32(33)),
+              @lib.Instruction::struct_new(base),
+            ]),
+          ),
+          @lib.Instruction::local_set(owner),
+          @lib.Instruction::local_get(owner),
+          @lib.Instruction::ref_cast(false, @lib.HeapType::new(sub)),
+          @lib.Instruction::struct_get(sub, @lib.U32(1U)),
+        ]),
+      ),
+    ]),
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["heap2local"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  assert_true(@validate.validate_module(output) is Ok(_))
+  let body = cmd_deep_audit_body(output)
+  @debug.assert_eq(
+    cmd_deep_audit_count(body, fn(i) { i is @lib.StructNew(_) }),
+    2,
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(body, fn(i) { i is @lib.RefCast(_, _, _) }),
+    1,
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(body, fn(i) { i is @lib.StructGet(_, _) }),
+    1,
+  )
+}
+
+///|
 fn cmd_deep_audit_run(wat : String, pass : String) -> @lib.Module raise {
   let input = match @wast.wast_to_binary_module(wat, filename="audit.wat") {
     Ok(value) => value
