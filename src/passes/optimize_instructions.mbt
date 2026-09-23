@@ -23183,13 +23183,14 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
   if @ir.hot_child_count(func, node_id) != 2 {
     return false
   }
-  // A shared sequentially consistent RMW can synchronize even when it
-  // stores the old value. Other shared RMWs may only lose an identity write.
+  // Every shared RMW contributes a write event even when it stores the old
+  // value. AcqRel writes also contribute release behavior, so identity
+  // simplification is restricted to unshared structs.
   let unshared = optimize_instructions_struct_is_unshared(
     ctx,
     field_fact.type_idx,
   )
-  if !unshared && order == @lib.AtomicOrder::seq_cst() {
+  if !unshared {
     return false
   }
   let receiver_id = @ir.hot_child_get(func, node_id, 0)
@@ -23216,9 +23217,6 @@ fn optimize_instructions_try_rewrite_struct_atomic_rmw(
       )
     }
     None => ()
-  }
-  if !unshared {
-    return false
   }
   let lowering_op = match OiStructAtomicRmwLoweringOpFact::from_op(op) {
     Some(fact) => fact

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-22
 sources:
   - ../../release-horizon-and-oracles.md
   - binaryen-strategy.md
@@ -514,4 +514,4 @@ OptimizeInstructions shared the Winch multivalue function-exit `br_table` failur
 
 ### 2026-07-03 OI-L final implementation note
 
-OI-L is no longer a pure representation blocker or a global-receiver HOT blocker for the current sampled probe surface. Starshine decodes/encodes/validates current aggregate atomic get/RMW/cmpxchg binaries, including the reserved-zero aggregate immediate, HOT-lifts/lowers aggregate atomic result bodies without trailing `unreachable` collapse, and `optimize-instructions` rewrites unshared struct RMW/xchg/cmpxchg for local and Binaryen-shaped global receivers. Identity RMW and same-value cmpxchg become `struct.atomic.get` plus dropped operands; non-identity struct RMW/xchg/cmpxchg become `struct.get`/`struct.set`/`select` shapes returning the old value. Sampled array aggregate atomics remain a Binaryen-backed no-rewrite boundary and preserve `array.atomic.*`. Future OI-L reopening should be driven by a dedicated `pass-oi-gc-atomics` profile, changed proposal binaries, new Binaryen array rewrites, or true shared/concurrent runtime evidence.
+OI-L is no longer a pure representation blocker or a global-receiver HOT blocker for the current sampled probe surface. Starshine decodes/encodes/validates current aggregate atomic get/RMW/cmpxchg binaries, including the reserved-zero aggregate immediate, HOT-lifts/lowers aggregate atomic result bodies without trailing `unreachable` collapse, and `optimize-instructions` rewrites unshared struct RMW/xchg/cmpxchg for local and Binaryen-shaped global receivers. Unshared identity RMW and same-value cmpxchg become `struct.atomic.get` plus dropped operands; non-identity unshared struct RMW/xchg/cmpxchg become `struct.get`/`struct.set`/`select` shapes returning the old value. Shared struct RMWs retain their atomic update opcode and order even for identity operands, preserving the write event and any release behavior. Sampled array aggregate atomics remain a Binaryen-backed no-rewrite boundary and preserve `array.atomic.*`. Future OI-L reopening should be driven by a dedicated `pass-oi-gc-atomics` profile, changed proposal binaries, new Binaryen array rewrites, or true shared/concurrent runtime evidence.

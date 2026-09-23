@@ -8398,6 +8398,31 @@ test "deep audit command optimize instructions retains copies using distinct sha
 }
 
 ///|
+test "deep audit command optimize instructions preserves shared identity atomic RMW order" {
+  for order in ["acq_rel", "relaxed"] {
+    let output = cmd_deep_audit_run(
+      "(module (type $S (shared (struct (field (mut i32))))) (func (param (ref null $S)) (result i32) (struct.atomic.rmw.add \{order} \{order} $S 0 (local.get 0) (i32.const 0))))",
+      "optimize-instructions",
+    )
+    let expected = if order == "acq_rel" {
+      @lib.AtomicOrder::acq_rel()
+    } else {
+      @lib.AtomicOrder::relaxed()
+    }
+    @debug.assert_eq(
+      cmd_deep_audit_count(cmd_deep_audit_body(output), fn(instr) {
+        match instr {
+          @lib.StructAtomicRmw(actual, @lib.AggregateAtomicRmwAdd, _, _) =>
+            actual == expected
+          _ => false
+        }
+      }),
+      1,
+    )
+  }
+}
+
+///|
 test "deep audit command remove-unused-module-elements retains active global reference closed false" {
   let input = cmd_deep_audit_rume_input("active")
   assert_true(@validate.validate_module(input) is Ok(_))
