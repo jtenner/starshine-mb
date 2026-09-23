@@ -373,6 +373,84 @@ fn oc_replace_with_child(
 }
 
 ///|
+fn oc_is_known_null_value(
+  func : @ir.HotFunc,
+  node_id : Int,
+  depth : Int,
+) -> Bool {
+  if depth <= 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::RefNull => true
+    @ir.HotOp::Block => {
+      if !oc_block_is_plain_fallthrough(func, node_id) {
+        return false
+      }
+      let body = @ir.hot_region_body_ref(func, node_id)
+      let root_count = @ir.hot_region_root_count(func, body)
+      if root_count == 0 {
+        return false
+      }
+      oc_is_known_null_value(
+        func,
+        @ir.hot_region_get(func, body, root_count - 1),
+        depth - 1,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
+fn oc_replace_nullable_known_null_desc_eq(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  target_ref : @lib.RefType,
+) -> Bool {
+  if !target_ref.is_nullable() || @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let source_id = @ir.hot_child_get(func, node_id, 0)
+  if !oc_is_known_null_value(func, source_id, 64) {
+    return false
+  }
+  let descriptor_id = @ir.hot_child_get(func, node_id, 1)
+  let descriptor_eval = match oc_ref_type_from_node(func, descriptor_id) {
+    Some(descriptor_ref) if descriptor_ref.is_nullable() => {
+      let checked_ref = @lib.RefType::new(
+        false,
+        descriptor_ref.get_heap_type(),
+        exact=descriptor_ref.is_exact(),
+      )
+      @ir.hot_build_heap(
+        func,
+        [@lib.ValType::ref_type(checked_ref)],
+        @lib.Instruction::ref_as_non_null(),
+        [descriptor_id],
+      )
+    }
+    Some(_) => descriptor_id
+    None => return false
+  }
+  let typed_null = @ir.hot_build_ref_null(func, target_ref)
+  let temp = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::ref_type(target_ref)),
+    [
+      @ir.hot_build_drop(func, source_id),
+      @ir.hot_build_drop(func, descriptor_eval),
+      typed_null,
+    ],
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  pass_replace_node(ctx, func, node_id, replacement)
+  true
+}
+
+///|
 fn oc_replace_with_const_i32(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2211,8 +2289,7 @@ fn oc_rewrite_node(
     return false
   }
   match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefCast(nullable, exact, heap_type))
-    | Some(@lib.Instruction::RefCastDescEq(nullable, exact, heap_type)) => {
+    Some(@lib.Instruction::RefCast(nullable, exact, heap_type)) => {
       if @ir.hot_child_count(func, node_id) != 1 {
         return false
       }
@@ -2225,6 +2302,27 @@ fn oc_rewrite_node(
             return true
           }
         }
+        None => ()
+      }
+      false
+    }
+    Some(@lib.Instruction::RefCastDescEq(nullable, exact, heap_type)) => {
+      let target_ref = oc_target_ref_type(nullable, exact, heap_type)
+      if @ir.hot_child_count(func, node_id) == 2 {
+        return oc_replace_nullable_known_null_desc_eq(
+          ctx, func, node_id, target_ref,
+        )
+      }
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return false
+      }
+      let child_id = @ir.hot_child_get(func, node_id, 0)
+      match oc_ref_type_from_node(func, child_id) {
+        Some(source_ref) =>
+          if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
+            oc_replace_with_child(ctx, func, node_id)
+            return true
+          }
         None => ()
       }
       false

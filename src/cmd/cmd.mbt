@@ -8508,6 +8508,45 @@ test "deep audit command merge-similar-functions honors disabled tail-call metad
 }
 
 ///|
+test "deep audit command optimize casts folds canonical nullable-null descriptor cast" {
+  let output = cmd_deep_audit_run(
+    (
+      #|(module
+      #| (rec
+      #|  (type $s (descriptor $d) (struct))
+      #|  (type $d (describes $s) (struct)))
+      #| (import "env" "source" (func $source))
+      #| (import "env" "descriptor" (func $descriptor (result (ref $d))))
+      #| (func (result (ref null $s))
+      #|  (block (result (ref null $s))
+      #|   call $source
+      #|   ref.null $s)
+      #|  call $descriptor
+      #|  ref.cast_desc_eq_null $s))
+    ),
+    "optimize-casts",
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(cmd_deep_audit_body(output), fn(i) {
+      i is @lib.RefCastDescEq(_, _, _)
+    }),
+    0,
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(cmd_deep_audit_body(output), fn(i) {
+      i == @lib.Instruction::call(@lib.FuncIdx::new(0U))
+    }),
+    1,
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(cmd_deep_audit_body(output), fn(i) {
+      i == @lib.Instruction::call(@lib.FuncIdx::new(1U))
+    }),
+    1,
+  )
+}
+
+///|
 test "deep audit command remove-unused-module-elements retains active global reference closed false" {
   let input = cmd_deep_audit_rume_input("active")
   assert_true(@validate.validate_module(input) is Ok(_))

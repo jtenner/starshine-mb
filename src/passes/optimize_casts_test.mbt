@@ -341,6 +341,58 @@ test "optimize-casts removes ref.cast_desc_eq when source already has the target
 }
 
 ///|
+test "optimize-casts folds canonical nullable-null ref.cast_desc_eq and preserves descriptor trap" {
+  let source =
+    #|(module
+    #| (rec
+    #|  (type $s (descriptor $d) (struct))
+    #|  (type $d (describes $s) (struct)))
+    #| (import "env" "source" (func $source))
+    #| (import "env" "descriptor" (func $descriptor (result (ref $d))))
+    #| (func (result (ref null $s))
+    #|  (block (result (ref null $s))
+    #|   call $source
+    #|   ref.null $s)
+    #|  call $descriptor
+    #|  ref.cast_desc_eq_null $s))
+  let optimized = match pass_test_run_pipeline(source, ["optimize-casts"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("canonical descriptor cast pipeline failed: \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("invalid canonical descriptor cast output: \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+  assert_true(pretty.contains("(call (Func 0))"), msg=pretty)
+  assert_true(pretty.contains("(call (Func 1))"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "optimize-casts keeps canonical descriptor equality checks for nonnull values" {
+  // A matching static reference type does not prove that the runtime descriptor
+  // value equals the descriptor attached to the object.
+  let source =
+    #|(module
+    #| (rec
+    #|  (type $s (descriptor $d) (struct))
+    #|  (type $d (describes $s) (struct)))
+    #| (func (param (ref $s)) (param (ref $d)) (result (ref $s))
+    #|  local.get 0
+    #|  local.get 1
+    #|  ref.cast_desc_eq $s))
+  let optimized = match pass_test_run_pipeline(source, ["optimize-casts"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("canonical descriptor identity pipeline failed: \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+}
+
+///|
 test "optimize-casts folds ref.test_desc that is guaranteed true" {
   let child_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
