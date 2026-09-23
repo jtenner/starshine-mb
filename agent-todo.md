@@ -81,8 +81,11 @@
 15. [x] MergeBlocks `try`/`try_table` carried-local scan concern was
     disproved: both collectors recurse through generic HOT children in
     `src/passes/merge_blocks.mbt`, and the HOT builders give each EH node two
-    region-holder children. Valid adjacent and dispatcher EH fixtures passed
-    before any production change; no behavior fix was warranted.
+    region-holder children. Valid legacy `Try` catch and catchless `TryTable`
+    carried-local fixtures now pass directly and through the active dispatcher
+    (`39291ee50`). Exact scanner-omission mutations failed both tests;
+    restored production passed. This proves conservative scan ownership and
+    shape preservation, not a standalone runtime corruption reproduction.
 16. [x] SimplifyLocals now treats continuation handler labels as exits before
     sinking local writes (`cab7b8aa3`). Valid direct and dispatcher fixtures
     failed before the fix and passed afterward; `moon fmt` and `moon info`
