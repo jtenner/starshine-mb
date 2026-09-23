@@ -134,7 +134,7 @@ function signatureSupport(signature: RuntimeFunctionSignature): RuntimeSupportCl
   const all = [...signature.params, ...signature.results];
   if (all.some((type) => type === "v128")) return "scalar-adapter";
   if (all.some((type) => isUnsupportedReferenceType(type))) return "unsupported";
-  if (all.some((type) => isReferenceType(type))) return "retained-fixture";
+  if (all.some((type) => isReferenceType(type) && type !== "i31ref")) return "retained-fixture";
   return "directly-constructible";
 }
 
@@ -379,6 +379,15 @@ function typedI64(value: bigint): TypedRuntimeValue {
   return { type: "i64", signed: signed.toString(), bits: `0x${BigInt.asUintN(64, signed).toString(16).padStart(16, "0")}` };
 }
 
+function typedI31(value: number): TypedRuntimeValue {
+  const signed = Number(BigInt.asIntN(31, BigInt(value)));
+  return {
+    type: "i31ref",
+    signed,
+    bits: `0x${BigInt.asUintN(31, BigInt(signed)).toString(16).padStart(8, "0")}`,
+  };
+}
+
 function typedFloat(type: "f32" | "f64", value: number): TypedRuntimeValue {
   const buffer = new ArrayBuffer(type === "f32" ? 4 : 8);
   const view = new DataView(buffer);
@@ -424,6 +433,7 @@ function typedFromJs(value: unknown, wasmType: WasmRuntimeValueType, relations: 
   switch (wasmType) {
     case "i32": return typedI32(Number(value));
     case "i64": return typedI64(BigInt(value as bigint));
+    case "i31ref": return value === null ? typedReference(value, wasmType, relations) : typedI31(Number(value));
     case "f32": return typedFloat("f32", Number(value));
     case "f64": return typedFloat("f64", Number(value));
     default: return typedReference(value, wasmType, relations);
@@ -433,6 +443,7 @@ function typedFromJs(value: unknown, wasmType: WasmRuntimeValueType, relations: 
 function jsFromTyped(value: TypedRuntimeValue): unknown {
   if (value.type === "i32") return value.signed;
   if (value.type === "i64") return BigInt(value.signed);
+  if (value.type === "i31ref") return value.signed;
   if (value.type === "reference") return value.relation === "null" ? null : { relation: value.relation };
   const buffer = new ArrayBuffer(value.type === "f32" ? 4 : 8);
   const view = new DataView(buffer);
@@ -446,7 +457,7 @@ function jsFromTyped(value: TypedRuntimeValue): unknown {
 
 function zeroJsValue(type: WasmRuntimeValueType): unknown {
   if (type === "i64") return 0n;
-  if (type === "i32" || type === "f32" || type === "f64") return 0;
+  if (type === "i32" || type === "f32" || type === "f64" || type === "i31ref") return 0;
   return null;
 }
 

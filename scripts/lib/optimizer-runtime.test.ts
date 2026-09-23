@@ -235,6 +235,23 @@ describe("invocation plan v2", () => {
       bits: "0x00000000000000000000000000000000",
     });
   });
+
+  test("plans bounded non-null i31ref function arguments", () => {
+    const iface = structuredClone(runtimeInterface);
+    iface.exports[0].signature = { params: ["i31ref"], results: ["i31ref"] };
+    iface.exports[0].support = "directly-constructible";
+    const plan = buildInvocationPlanV2(iface, { seed: 1n });
+
+    expect(plan.blockedExports).toEqual([]);
+    expect(plan.steps.map((step) => step.arguments[0])).toEqual([
+      { type: "reference", relation: "null", wasmType: "i31ref" },
+      { type: "i31ref", signed: 0, bits: "0x00000000" },
+      { type: "i31ref", signed: 1, bits: "0x00000001" },
+      { type: "i31ref", signed: -1, bits: "0x7fffffff" },
+      { type: "i31ref", signed: -1073741824, bits: "0x40000000" },
+      { type: "i31ref", signed: 1073741823, bits: "0x3fffffff" },
+    ]);
+  });
 });
 
 describe("three-way semantic classification", () => {
