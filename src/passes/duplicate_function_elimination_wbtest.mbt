@@ -41,9 +41,23 @@ test "duplicate-function-elimination hashes transitive candidates once" {
   assert_true(result.changed)
   @debug.assert_eq(hash_visits[0], 70)
   @debug.assert_eq(normalization_visits[0], 6)
+  // The leaf and mid pairs merge transitively. The top pair stays distinct:
+  // both functions are exported, so merging them would collapse two
+  // host-observable function identities.
   match result.mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 67)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 68)
     None => fail("expected compacted code section")
+  }
+  match result.mod_.export_sec {
+    Some(
+      @lib.ExportSec(
+        [
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(first))),
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(second))),
+        ]
+      )
+    ) => assert_true(first != second)
+    _ => fail("expected two distinct exported transitive tops")
   }
 }
 
