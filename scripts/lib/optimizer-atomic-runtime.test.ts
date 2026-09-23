@@ -11,6 +11,7 @@ import {
   validateAtomicLitmusSpecV1,
   type AtomicLitmusSpecV1,
 } from "./optimizer-atomic-runtime";
+import { probeChromiumAcquireReleaseAtomicRuntimeV1 } from "./optimizer-chromium-atomic-runtime";
 
 function compileWat(wat: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-atomic-litmus-"));
@@ -747,4 +748,39 @@ describe("atomic allowed-outcome comparison", () => {
       expect(report.comparison.failingSide).toBe("original");
     }
   });
+
+  test("reports an unavailable opt-in Chromium runtime as blocked", async () => {
+    const wasm = writeWasmHex(ACQREL_FENCE_WASM);
+    const capability = await probeChromiumAcquireReleaseAtomicRuntimeV1(wasm, {
+      chromiumBin: path.join(os.tmpdir(), "starshine-missing-chromium"),
+      timeoutMs: 3000,
+    });
+
+    expect(capability.status).toBe("blocked");
+    expect(capability.observation).toBeNull();
+    expect(capability.detail).toContain("spawn");
+  });
+
+  const chromiumBin = process.env.STARSHINE_CHROMIUM_BIN;
+  (chromiumBin === undefined ? test.skip : test)(
+    "executes exact AcqRel store and fence fixtures in opt-in Chromium",
+    async () => {
+      const store = await probeChromiumAcquireReleaseAtomicRuntimeV1(
+        writeWasmHex(ACQREL_STORE_WASM),
+        { chromiumBin: chromiumBin!, timeoutMs: 5000 },
+      );
+      const fence = await probeChromiumAcquireReleaseAtomicRuntimeV1(
+        writeWasmHex(ACQREL_FENCE_WASM),
+        { chromiumBin: chromiumBin!, timeoutMs: 5000 },
+      );
+
+      expect(store.status).toBe("complete");
+      expect(store.runtime).toContain("Chrome/");
+      expect(store.observation).toEqual({ returnI32: 0, memoryI32: 1 });
+      expect(store.detail).toBeNull();
+      expect(fence.status).toBe("complete");
+      expect(fence.observation).toEqual({ returnI32: 0, memoryI32: 0 });
+      expect(fence.detail).toBeNull();
+    },
+  );
 });

@@ -59,7 +59,7 @@ ordering-sensitive load/store and Precompute eligibility rules:
 | `pause` | Spin-wait hint with no stack operands/results. | Unsupported: there is no `Pause` instruction, WAST spelling, codec arm, validator rule, or generator gate. |
 | Ordering-bearing binary forms | Atomic encodings preserve an order value in addition to the memory argument or fence opcode. | Supported for the currently represented `SeqCst` / `AcqRel` / `Relaxed` slice; malformed and future-order values remain codec/validation boundaries. |
 | High-level WAST text | Human-authored ordered linear atomics such as ordered loads/stores. | Supported for all 66 linear atomic operations and fence, with order-aware parsing and printing. |
-| Dedicated proposal generation/runtime signoff | Generate and execute proposal-specific modules under an explicit feature mode. | The `binaryen132-atomic-orders` profile varies orders, linear/GC heaps, sharing, fences and RMW patterns. Exact acquire-release and relaxed store/fence binaries are rejected at compilation by the configured Node runtime, so independent execution remains blocked for those draft forms. |
+| Dedicated proposal generation/runtime signoff | Generate and execute proposal-specific modules under an explicit feature mode. | The `binaryen132-atomic-orders` profile varies orders, linear/GC heaps, sharing, fences and RMW patterns. Opt-in Chromium executes the exact acquire-release store and fence fixtures; Node still rejects them, and every tested runtime rejects the separate Relaxed order. |
 
 Because the proposal is active Phase 2, future widening should recheck the proposal source before assuming the current local order bytes, spelling, or instruction set are complete.
 
@@ -110,20 +110,20 @@ Runtime concurrency validation remains separate from these structural checks.
 
 ## Executable runtime boundary
 
-The bounded two-worker optimizer lane executes ordinary sequentially
-consistent atomic modules. It cannot currently execute the represented weaker
-orders or ordered fences. `wasm-tools 1.251.0` rejects the active-proposal
+The bounded two-worker Node optimizer lane executes ordinary sequentially
+consistent atomic modules. `wasm-tools 1.251.0` rejects the active-proposal
 `acq_rel` and `relaxed` text operands. When exact binaries emitted by Starshine
-bypass that parser, the configured Node runtime rejects acquire-release and
-relaxed stores as invalid alignments and both corresponding fences as invalid
-atomic operands.
+bypass that parser, Node still rejects acquire-release and relaxed stores as
+invalid alignments and both corresponding fences as invalid atomic operands.
 
-Focused fail-closed tests retain all four binaries and require the atomic
-comparison report to classify the original as `blocked`, rather than treating
-a runtime that never compiled the module as semantic evidence. This boundary
-is about independent execution only; Starshine's parser, codec, validation,
-HOT, and pass-preservation tests continue to cover the represented order
-fields.
+An explicit `STARSHINE_CHROMIUM_BIN` test lane separately starts Chromium with
+its acquire-release feature flag and executes the same exact acquire-release
+store and fence binaries once. The store returns zero and changes the observed
+word from zero to one; the fence returns zero and leaves it unchanged. This is
+a capability and single-invocation witness. It does not sample concurrent
+schedules. The exact Relaxed order-2 binaries remain unsupported, while the
+Node tests keep all four binaries fail closed instead of treating a runtime
+that never compiled the module as semantic evidence.
 
 ## Optimizer Invariants
 
@@ -138,7 +138,7 @@ fields.
 1. Recheck the active proposal before adding more order values, flags, or opcode forms.
 2. Add `pause` representation, codec, validation, WAST, generator, and effect coverage if that proposal slice is selected.
 3. Expand malformed/reserved order tests and external-tool adapters for the exact supported draft revision.
-4. Add runtime and optimizer signoff for relaxed/acquire/release/fence behavior after an independent runtime accepts the selected draft encoding; retain the current exact-binary blocked tests until then.
+4. Add concurrent acquire-release optimizer signoff and find an independent runtime for Relaxed order 2; retain runtime-specific blocked tests rather than generalizing Chromium's bounded single-call witness.
 5. Keep this page, the feature-status router, linear Threads page, atomic authoring guide, index, and log synchronized.
 
 ## Signoff Guidance

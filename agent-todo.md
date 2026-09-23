@@ -444,8 +444,11 @@
   independent runtime accepting the verified v132 AcqRel/Relaxed and shared-GC
   encodings; cover general wait/notify liveness, memory64 addresses above
   4 GiB, broader atomic opcodes and mixed-memory layouts, and schedule families.
-  The current Node runtime rejects weaker-order binaries and shared function
-  types, so these are explicit unsupported boundaries rather than matches.
+  Opt-in Chromium now executes the exact AcqRel store and fence once and
+  observes the store write; this is capability evidence without a concurrent
+  schedule claim. Node still rejects both weaker orders, and Relaxed order 2
+  remains unsupported by every tested runtime. Shared-function types remain a
+  separate explicit Node boundary rather than a match.
 - [ ] Classify the 557 structural mismatches in the saved seven-pass 1,000-case
   campaign; the two confirmed DCE wrong-code cases are fixed under item 73,
   while the GC runtime timeout remains separate under item 77. The historical

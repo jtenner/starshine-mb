@@ -143,16 +143,21 @@ The bounds fixture moves that RMW to the last valid aligned word, `i64.const 655
 
 This lane is a library/replay primitive and is not inferred automatically for arbitrary GenValid modules. Its required wake is a bounded fixture acceptance witness, not a proof of general wakeup liveness or fairness. Acquire/release and relaxed orders, fences, broader memory64 schedules, shared-GC atomics, and arbitrary-program schedule exploration remain outside version 1.
 
-Weaker-order and ordered-fence execution has a tested fail-closed boundary. The
-independent `wasm-tools 1.251.0` WAT parser rejects the active-proposal
-`acq_rel` and `relaxed` operand spellings. Exact valid binaries emitted by
-Starshine bypass that text parser, but the configured Node runtime rejects
-both weaker store encodings at compilation as invalid alignments and both
-weaker fence encodings as invalid atomic operands. Focused runtime tests feed
-all four exact binaries through the two-worker comparison entrypoint and
-require `blocked` on the original side. Therefore the lane cannot yet provide
-weaker-order or fence allowed-outcome evidence; sequentially consistent
-fixtures remain executable.
+Weaker-order and ordered-fence execution is runtime specific. The independent
+`wasm-tools 1.251.0` WAT parser rejects the active-proposal `acq_rel` and
+`relaxed` operand spellings. Exact valid binaries emitted by Starshine bypass
+that text parser, but Node rejects both weaker store encodings at compilation
+as invalid alignments and both weaker fence encodings as invalid atomic
+operands. Focused Node tests keep all four exact binaries blocked.
+
+An opt-in Chromium capability probe, enabled by setting
+`STARSHINE_CHROMIUM_BIN`, runs with the engine's acquire-release flag and
+executes the exact AcqRel store and fence once. It observes the store changing
+the first shared-memory word to one and the fence leaving it at zero. The probe
+has an isolated browser profile, a bounded deadline, and explicit unavailable
+runtime classification. It is a single-invocation capability witness, not a
+concurrent allowed-outcome or scheduler claim. The exact Relaxed order-2 store
+and fence remain explicitly unsupported.
 
 ## Properties
 
