@@ -1,9 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-11
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
+  - ../../../../../src/passes/coalesce_locals.mbt
+  - ../../../../../src/passes/coalesce_locals_resume_handler_test.mbt
+  - ../../../../../src/cmd/coalesce_locals_resume_handler_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -300,6 +303,20 @@ own edges before the consuming store. Operand actions belong only to the block
 that evaluates the operand; consumers do not replay those actions. Without
 these edges, the liveness scan missed a read inside a result conditional and
 could overwrite a saved parameter before that read.
+
+## Resume handlers are liveness successors
+
+A resume handler that targets a label can bypass the instructions after the
+`resume`, `resume_throw`, or `resume_throw_ref`. Structured backward liveness
+therefore unions every `on_label` target's live set at the resume instruction,
+alongside the existing fallthrough and exceptional live sets. An `on_switch`
+handler has no local label successor and does not add one.
+
+Without this edge, an early write of `7`, followed by a handled resume and a
+fallthrough write of `9`, was classified dead even when the target block's
+continuation read the local. Cleanup replaced the first write with a `drop`, so
+the handled path observed the local's default `0`. Valid Core AST regressions
+now retain both writes through the direct pass and active command dispatcher.
 
 The native CoalesceLocals suite passes 116 tests (47.012 seconds); the IR suite
 passes 380 (8.519 seconds). The reduced tests cover captured stack values,

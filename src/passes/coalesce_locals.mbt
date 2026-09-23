@@ -2331,6 +2331,24 @@ fn cl_live_for_br_table(
 }
 
 ///|
+fn cl_union_resume_handler_lives(
+  live : Array[Bool],
+  label_lives : Array[Array[Bool]],
+  handlers : Array[@lib.ResumeHandler],
+) -> Unit {
+  for handler in handlers {
+    match handler {
+      @lib.ResumeOnLabel(_, label) =>
+        cl_union_live_in_place(
+          live,
+          cl_live_for_label(label_lives, label, live.length()),
+        )
+      @lib.ResumeOnSwitch(_) => ()
+    }
+  }
+}
+
+///|
 fn cl_mark_structured_liveness_backward(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
@@ -2510,11 +2528,14 @@ fn cl_mark_structured_liveness_backward(
       @lib.Call(_)
       | @lib.CallIndirect(_, _)
       | @lib.CallRef(_)
-      | @lib.Resume(_, _)
-      | @lib.ResumeThrow(_, _, _)
-      | @lib.ResumeThrowRef(_, _)
       | @lib.Suspend(_)
       | @lib.StackSwitch(_, _) => cl_union_live_in_place(live, exception_live)
+      @lib.Resume(_, handlers)
+      | @lib.ResumeThrow(_, _, handlers)
+      | @lib.ResumeThrowRef(_, handlers) => {
+        cl_union_live_in_place(live, exception_live)
+        cl_union_resume_handler_lives(live, label_lives, handlers)
+      }
       instr => if cl_instr_is_terminal(instr) { cl_clear_live(live) }
     }
     idx -= 1

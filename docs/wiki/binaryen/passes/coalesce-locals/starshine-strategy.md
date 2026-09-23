@@ -1,9 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
+  - ../../../../../src/passes/coalesce_locals.mbt
+  - ../../../../../src/passes/coalesce_locals_resume_handler_test.mbt
+  - ../../../../../src/cmd/coalesce_locals_resume_handler_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/reorder_locals.mbt
@@ -40,6 +43,8 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 `coalesce-locals` is now an active Starshine module pass with owner file [`../../../../../src/passes/coalesce_locals.mbt`](../../../../../src/passes/coalesce_locals.mbt).
 
 The 2026-07-18 DAEO Func-`41` audit adds one exact structured cleanup family: after branch-aware dead-write rewriting, a void block whose direct tail is `unreachable` may be flattened only when no nested or direct branch targets that block label. Dead tails are truncated only when such a flatten actually occurs. The reduced 625-byte fixture now matches Binaryen v130 byte-for-byte without changing branch-targeted or non-`unreachable` terminal blocks.
+
+The 2026-09-22 correctness audit adds resume-handler targets to structured liveness. `resume`, `resume_throw`, and `resume_throw_ref` now union every `on_label` successor before effective-write cleanup and interference construction, preventing a later fallthrough write from making a handler-observed earlier value appear dead. Valid direct and active-dispatch Core AST fixtures retain both writes around a handled resume.
 
 The current local strategy is direct-pass parity plus exact-slot proof:
 
