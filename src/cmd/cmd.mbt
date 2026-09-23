@@ -8670,6 +8670,45 @@ test "deep audit command global struct inference keeps exported nominal params" 
 }
 
 ///|
+test "deep audit command optimize casts follows validator abstract heap lattice" {
+  let source_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::none())),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([source_ref], [@lib.ValType::i32()]),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let output = cmd_deep_audit_run_module(input, "optimize-casts")
+  let body = cmd_deep_audit_body(output)
+  @debug.assert_eq(
+    cmd_deep_audit_count(body, fn(i) { i is @lib.RefTest(_, _, _) }),
+    0,
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(body, fn(i) { i is @lib.I32Const(@lib.I32(1)) }),
+    1,
+  )
+}
+
+///|
 fn cmd_deep_audit_run(wat : String, pass : String) -> @lib.Module raise {
   let input = match @wast.wast_to_binary_module(wat, filename="audit.wat") {
     Ok(value) => value

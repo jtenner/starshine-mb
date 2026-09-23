@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -204,11 +204,12 @@ See [`./wat-shapes.md`](./wat-shapes.md) for beginner-friendly before/after exam
 Starshine has an active source-reviewed HOT `optimize-casts` implementation. The exact current local status is:
 
 - `src/passes/optimize_casts.mbt`
-  - active owner file for redundant GC cast removal, statically known `ref.test` folds, and the proven-null canonical two-operand descriptor cast fold with ordered operand preservation
+- `src/passes/optimize_casts.mbt`
+  - active owner for redundant GC casts, statically known `ref.test` folds with validator-aligned abstract heap subtyping, and the proven-null canonical two-operand descriptor cast fold with ordered operand preservation
 - `src/passes/optimize_casts_test.mbt`
-  - focused fixtures for redundant `ref.cast`, guaranteed-true `ref.test`, nullable-to-nonnull trap preservation, canonical descriptor operand order and traps, the non-null descriptor identity negative, and the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood order
+  - focused fixtures for nullable-to-nonnull trap preservation, canonical descriptor operand order and traps, non-null descriptor identity, and validator-approved `none -> i31`, `none -> string`, `nocont -> cont`, and shared `nowaitqueue -> waitqueue` bottom edges
 - `src/cmd/cmd.mbt`
-  - active dispatcher regression for the canonical two-operand descriptor cast fold, including both imported operand calls
+  - active dispatcher regressions for canonical descriptor casts with both imported operands and the `none -> i31` abstract heap fold
 - `src/passes/optimize.mbt`
   - active registry coverage for `"optimize-casts"` plus the public `optimize` / `shrink` slot immediately after `heap2local`
 - `src/passes/pass_manager.mbt`

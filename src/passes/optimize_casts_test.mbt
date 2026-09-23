@@ -324,6 +324,42 @@ test "optimize-casts folds ref.test that is guaranteed true" {
 }
 
 ///|
+test "optimize-casts follows validator abstract heap bottom subtyping" {
+  let cases = [
+    (
+      @lib.HeapType::abs(@lib.AbsHeapType::none()),
+      @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+    ),
+    (
+      @lib.HeapType::abs(@lib.AbsHeapType::none()),
+      @lib.HeapType::abs(@lib.AbsHeapType::string_()),
+    ),
+    (
+      @lib.HeapType::abs(@lib.AbsHeapType::no_cont()),
+      @lib.HeapType::abs(@lib.AbsHeapType::cont()),
+    ),
+    (
+      @lib.HeapType::shared_abs(@lib.AbsHeapType::no_waitqueue()),
+      @lib.HeapType::shared_abs(@lib.AbsHeapType::waitqueue()),
+    ),
+  ]
+  for case in cases {
+    let (source_heap, target_heap) = case
+    let source_ref = @lib.ValType::ref_type(
+      @lib.RefType::new(true, source_heap),
+    )
+    let pretty = optimize_casts_run_pretty(
+      optimize_casts_module(source_ref, @lib.ValType::i32(), [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::ref_test(true, target_heap),
+      ]),
+    )
+    assert_false(pretty.contains("ref.test"), msg=pretty)
+    assert_true(pretty.contains("i32.const"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-casts removes ref.cast_desc_eq when source already has the target type" {
   let base_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
