@@ -390,6 +390,11 @@
     feature scanner appears to interpret opcode-like immediate bytes as
     instructions. Add a valid-byte red regression with true-opcode controls,
     correct the scan, and verify the reported facts without a fuzz campaign.
+75. [ ] The saved random-all campaign selected GC/ref/subtypes only with odd
+    case seeds and segment-state only with even seeds, leaving half of each
+    generator's variant branches untested. Add a bounded deterministic
+    selection test, break the seed/profile parity correlation without changing
+    replay identity, and verify both variant parities without a fuzz campaign.
 
 ### Open parity evidence from this audit
 
