@@ -50,7 +50,11 @@
 8. [ ] DCE label-use index omits continuation handler destinations.
 9. [x] Shared unreachable cleanup can rebind continuation handlers
    (`b6a775e51`); the helper and once-reduction dispatcher regressions are green.
-10. [ ] Vacuum block flattening omits continuation-label rebasing.
+10. [x] Vacuum block flattening omits continuation-label rebasing
+    (`20f58fa2b`); raw owner scans and outer-label rebasing now cover all
+    three resume forms. Direct and public dispatcher tests failed before the
+    fix and passed afterward (4/4 and 140/140); `moon fmt` and `moon info`
+    passed. No fuzzing was run.
 11. [ ] Flatten admits continuations without indexing their label targets.
 12. [ ] CodePushing ignores structured-region local effects.
 13. [ ] CodePushing dead-block flattening ignores nested branches.
