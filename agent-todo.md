@@ -149,7 +149,11 @@
 45. [x] Binaryen command failure can still increment `comparedCount` as a
     match (`115b20297`); fresh and resumed failure records stay out of
     comparison counts, with synthetic red/green oracle-command coverage.
-46. [ ] Name/debug pass comparisons are erased by unconditional debug stripping.
+46. [x] Name/debug pass comparisons are erased by unconditional debug stripping
+    (`68d82071a`); `strip-debug` lanes now preserve printable names through
+    canonicalization, reduction, and diagnostics, with isolated cache entries.
+    Synthetic red/green harness tests passed 77/77; arbitrary custom sections
+    and nonprinted DWARF remain outside this specific comparison projection.
 47. [ ] Add executable proposal observations for currently blocked families.
 48. [ ] Add multi-thread allowed-outcome checks for atomic transformations.
 49. [ ] Diversify runtime argument vectors with the recorded seed.
@@ -173,7 +177,11 @@
 64. [ ] Check MemoryPacking passive-segment expansion under shared concurrency.
 65. [ ] Check fresh-object Heap Store Optimization atomic ordering at publication.
 66. [ ] Define the resource-exhaustion contract for erased Precompute allocations.
-67. [ ] Correct canonical two-operand `RefCastDescEq` coverage with effect preservation.
+67. [x] Canonical two-operand `RefCastDescEq` nullable-null folding preserves
+    source/descriptor evaluation, nullable-descriptor traps, and typed results
+    (`6a0b692b4`); adjacent and dispatcher tests failed before the fix and
+    passed after, with `moon fmt` and `moon info` green. Non-null canonical
+    descriptor casts remain intact pending value-identity proof.
 68. [ ] Check OptimizeCasts abstract-heap lattice on validator-approved boundaries.
 69. [ ] Check Heap2Local's missing-field defensive branch against valid subtype layouts.
 
