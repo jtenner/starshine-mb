@@ -1,9 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-14
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
+  - ../../../../../src/passes/code_pushing.mbt
+  - ../../../../../src/passes/code_pushing_structured_local_effects_test.mbt
+  - ../../../../../src/cmd/code_pushing_structured_local_effects_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -56,6 +59,23 @@ defined global, with valid and different indices. Two imports and missing
 context remain potentially aliased. All movement and diagnostic callers forward
 that context; pure-node movement and proven defined-global disjointness remain
 available. The existing nested-write proof also observes potential import aliases.
+
+### Structured-region local-effect audit
+
+The September 22 correctness audit did not reproduce the suspected omission.
+The decoded legacy-EH bridge has a shallow forward search for its later
+`br_if`, but movement eligibility is also guarded by recursive whole-function
+and suffix local-access counts. A write in an intervening `block`, `loop`,
+`if`, legacy `try`, or `try_table` makes the candidate fail its exactly-one-write
+requirement. A read before the branch makes the recursively counted suffix gets
+differ from the whole-function gets. The HOT path's generic child traversal also
+reaches structured body children and region-holder children.
+
+A valid legacy-EH regression makes the skipped-read concern observable through
+an exported mutable global. Both the direct pass and active command dispatcher
+kept the initialization before the nested block before any source change, so no
+production correction was warranted. The regressions preserve the combined
+guards against a future refactor that relies on the shallow search alone.
 
 ## Corrected framing
 

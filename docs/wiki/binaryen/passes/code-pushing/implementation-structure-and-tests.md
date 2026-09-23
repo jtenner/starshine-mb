@@ -1,9 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
+  - ../../../../../src/passes/code_pushing.mbt
+  - ../../../../../src/passes/code_pushing_structured_local_effects_test.mbt
+  - ../../../../../src/cmd/code_pushing_structured_local_effects_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -82,9 +85,11 @@ Official `version_130` test URLs:
 | --- | --- |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) | Accepted direct HOT subset plus the narrow decoded legacy-`try` raw bridge: safe single-arm `local.set` sinking, bounded segment movement after ordinary/dropped `if`, no-branch-value and branch-value `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, guarded `global.get` / local-copy / non-null `struct.get` movement, `ignore_implicit_traps`-only memory-load movement, and local dead-block flattening |
 | [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | V131 legacy-EH movement/barrier cases, final-`if` unused-copy protection, different-arm consecutive-set order, return-condition coverage, O4z execution, then/else positives, pure-value/global/local-copy movement positives, into-if dependency-chain and independent source-order positives, `br_if` branch-value single-/multi-set positives and payload-read boundary, dropped `br_on_null`, one-result-block `br_on_non_null`, dropped `br_on_cast`, and dropped `br_on_cast_fail` single-/multi-set positives plus guard-read boundaries, both-arm and later-use negatives, nested-later-use negative, default trap guard, TNH exact-div into-if positive, ignore-implicit-traps memory-load positive and store/call boundary negatives, dead-block flattening guards |
+| [`src/passes/code_pushing_structured_local_effects_test.mbt`](../../../../../src/passes/code_pushing_structured_local_effects_test.mbt) | Valid legacy-EH regression proving recursive whole-function and suffix accounting keeps a set before an intervening nested local read |
 | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | Active registry entry, public `optimize` / `shrink` preset placement, and tuple exact-slot neighborhood helpers |
 | [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Registry classification plus active-name preset expansion coverage |
 | [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) | Command-surface coverage for direct pass use |
+| [`src/cmd/code_pushing_structured_local_effects_wbtest.mbt`](../../../../../src/cmd/code_pushing_structured_local_effects_wbtest.mbt) | Active command-dispatch coverage for the same structured local-read barrier |
 
 ## Explicit stale claims
 
