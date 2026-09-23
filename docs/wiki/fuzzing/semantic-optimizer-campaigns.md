@@ -122,6 +122,13 @@ raw and canonical bytes versus verified v132's 45 / 45; Binaryen retains a
 trailing `nop`. The previous Starshine raw output was 50 bytes, so this closes
 the emitted-size regression as a measured one-byte win.
 
+[OptimizeInstructions cases 15 and 28](../binaryen/passes/optimize-instructions/index.md)
+now group scalar local declarations with remapped live indices and decoded
+local names. Exact public CLI seven-pass replay validates at 42 / 42 and 43 /
+43 raw / canonical bytes, respectively, versus verified v132's 43 / 43 and
+44 / 44. Both are now one-byte emitted and canonical wins; the pre-fix public
+outputs were 44 and 49 raw bytes. Six saved Node invocation vectors agree.
+
 In the separate 256-case [EH/Vacuum campaign](../binaryen/passes/vacuum/fuzzing.md),
 layouts `1` and `7` account for 64 historical mismatches that are source-backed
 canonical projection wins, although Binaryen's raw encodings are smaller.

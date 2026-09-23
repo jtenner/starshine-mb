@@ -469,13 +469,19 @@
     metadata, and existing positive Precompute tests pass. Exact saved replay
     validates at 44 raw / 44 canonical bytes versus verified v132's 45 / 45;
     Starshine omits Binaryen's trailing `nop`. No fuzz campaign ran.
-83. [ ] Saved retained cases 15 and 28 have an OptimizeInstructions
-    local-declaration grouping gap: Starshine preserves split equal-type
-    groups where verified v132 packs them with a matching local-index remap.
-    Their final canonical outputs are each one byte smaller, but emitted raw
-    modules are 1 and 5 bytes larger. Add red direct and dispatcher tests,
-    preserve names and other index-bearing metadata, align or prove a better
-    emitted shape, and replay both exact saved modules without fuzzing.
+83. [x] Saved retained cases 15 and 28 had an OptimizeInstructions
+    local-declaration grouping gap: Starshine preserved split equal-type
+    groups where verified v132 packed them with a matching local-index remap.
+    Their original final canonical outputs were each one byte smaller, but
+    emitted raw modules were 1 and 5 bytes larger. Fixed in `f8ff746af`:
+    red direct tests exposed the run count, and the guarded post-lowering
+    regrouping remaps local operands and decoded names. It fails closed for
+    legacy `try`, opaque names, and code-offset metadata, uses a fair
+    compiler-facts size baseline, and requires a smaller validated encoding.
+    Green direct, active dispatcher, and shared DFE tests pass 9/9, 2/2, and
+    2/2. Exact public CLI seven-pass replay is 42/42 bytes for case 15 versus
+    v132's 43/43, and 43/43 for case 28 versus v132's 44/44; all six Node
+    vectors agree. No fuzz campaign ran.
 84. [x] Saved seven-pass case 767 had equal-size but unordered pure `i32.or`
     comparison children. Verified v132 orders same-class scalar compares by
     its opcode rank; Starshine had no equal-class tie-break and no measured
