@@ -68,7 +68,7 @@ Historical merge-parity evidence remains useful for understanding Binaryen:
 | identity bucket | exact `(module, base)` strings | pair-valued keys preserve embedded-NUL identity; the first repeated key activates the default guard regardless of type | conservative and source-order preserving |
 | exact type gate | compare current representative `Function::type` | default never reaches it for a repeated lookup; explicit stable-binding mode retains the historical gate | host-safety divergence with retained capability |
 | users and module code | retarget function references to the representative | default preserves every `FuncIdx`; explicit mode rewrites the full historical surface | policy dependent |
-| names and annotations | update owners after removal | default preserves all metadata; explicit mode remaps structured owners and clears stale raw names | policy dependent |
+| names and annotations | update owners after removal | default preserves all metadata; explicit mode remaps structured owners, unions removed-alias annotations with exact deduplication, and clears stale raw names | policy dependent |
 | duplicate removal | remove every later duplicate after retargeting | default preserves every import; explicit mode removes type-compatible later entries | policy dependent |
 | idempotence | second run finds no later duplicate | both policies are fixed points | exact fixed point |
 
@@ -83,6 +83,8 @@ The pass must preserve:
 - every body, module-code, start, export, and element `FuncIdx`;
 - structured names, raw name bytes, and function-annotation ownership;
 - exact module equality on the guarded path.
+
+On the explicit stable-binding path, merging function identities also merges their optimizer metadata. Annotation union preserves first-seen order, drops only exact `{ name, args }` duplicates, and retains same-name entries whose arguments differ.
 
 ## Historical profile and matrix result
 

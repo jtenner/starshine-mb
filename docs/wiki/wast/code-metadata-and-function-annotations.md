@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-22
 sources:
   - ../binaryen/release-horizon-and-oracles.md
   - https://webassembly.github.io/spec/core/appendix/custom.html
@@ -133,7 +133,7 @@ Any pass that deletes, merges, duplicates, imports, or reorders functions must r
 
 Current examples:
 
-- [`duplicate_import_elimination`](../../../src/passes/duplicate_import_elimination.mbt) remaps annotations when duplicate imported functions collapse.
+- [`duplicate_import_elimination`](../../../src/passes/duplicate_import_elimination.mbt) keeps annotations unchanged in the default host-safe mode. Its explicit stable-binding mode unions every removed alias's annotations onto the surviving imported function, removes exact duplicates, preserves first-seen order, and keeps same-name annotations with different arguments.
 - [`remove_unused_module_elements`](../../../src/passes/remove_unused_module_elements.mbt) drops annotations for removed functions and rewrites retained entries.
 - [`inlining`](../../../src/passes/inlining.mbt) remaps annotations after helper compaction and deduplicates merged annotation arrays.
 - [`duplicate_function_elimination`](../../../src/passes/duplicate_function_elimination.mbt) treats function annotations as part of the function-equivalence key where they can affect optimizer behavior, then rewrites survivors.
@@ -166,7 +166,7 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 
 - Parser/printer changes belong in [`src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), and their focused tests.
 - Lowering changes should add WAST-to-core tests in [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) and assert exact `FuncAnnotationSec` entries.
-- Function-remapping passes should add tests that annotations follow surviving functions, removed functions lose annotations, and repeated remaps do not duplicate markers.
+- Function-remapping passes should add tests that annotations follow surviving functions, removed functions lose annotations unless their identity is merged into a survivor, and repeated remaps do not duplicate exact markers.
 - No-inline policy changes should update [`src/passes/no_inline.mbt`](../../../src/passes/no_inline.mbt), [`src/passes/inlining.mbt`](../../../src/passes/inlining.mbt), the inlining dossier, and CLI/registry docs if command-facing behavior changes.
 - Official `@name` / `@custom` text work should start in the WAST parser/lowerer/printer and binary custom/name docs, with tests proving `NameSec` or `CustomSec` effects rather than `FuncAnnotationSec` effects.
 - Expression-level code-metadata, branch-hint, or Compilation Hints work should start with a representation design and source-backed tests before updating pass pages that currently describe only Binaryen oracle behavior.

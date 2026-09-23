@@ -363,25 +363,63 @@ fn die_rewrite_name_sec(
 }
 
 ///|
+fn die_func_annotation_present(
+  annotations : Array[@lib.FuncAnnotation],
+  annotation : @lib.FuncAnnotation,
+) -> Bool {
+  for existing in annotations {
+    if existing == annotation {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn die_rewrite_func_annotation_sec(
   sec : @lib.FuncAnnotationSec?,
   remap : Array[Int],
-  removed_funcs : Array[Bool],
 ) -> @lib.FuncAnnotationSec? {
+  let mut final_total = 0
+  for next_idx in remap {
+    if next_idx >= final_total {
+      final_total = next_idx + 1
+    }
+  }
+  let by_func : Array[Array[@lib.FuncAnnotation]] = []
+  let mut idx = 0
+  while idx < final_total {
+    by_func.push([])
+    idx += 1
+  }
   match sec {
     Some(@lib.FuncAnnotationSec(entries)) => {
-      let rewritten : Array[@lib.FuncAnnotationAssoc] = []
       for entry in entries {
         let @lib.FuncAnnotationAssoc(idx, annotations) = entry
         let slot = idx.reinterpret_as_int()
-        if slot >= 0 && slot < remap.length() && !removed_funcs[slot] {
+        if slot >= 0 && slot < remap.length() {
+          let next_idx = remap[slot]
+          if next_idx >= 0 && next_idx < final_total {
+            for annotation in annotations {
+              if !die_func_annotation_present(by_func[next_idx], annotation) {
+                by_func[next_idx].push(annotation)
+              }
+            }
+          }
+        }
+      }
+      let rewritten : Array[@lib.FuncAnnotationAssoc] = []
+      idx = 0
+      while idx < by_func.length() {
+        if by_func[idx].length() > 0 {
           rewritten.push(
             @lib.FuncAnnotationAssoc::new(
-              remap[slot].reinterpret_as_uint(),
-              annotations,
+              idx.reinterpret_as_uint(),
+              by_func[idx],
             ),
           )
         }
+        idx += 1
       }
       if rewritten.is_empty() {
         None
@@ -654,7 +692,6 @@ fn die_run_module_pass_with_binding_policy(
     func_annotation_sec=die_rewrite_func_annotation_sec(
       mod_.func_annotation_sec,
       func_remap,
-      removed_funcs,
     ),
     func_sec=mod_.func_sec,
     table_sec=next_table_sec,

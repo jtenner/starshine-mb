@@ -176,6 +176,8 @@ It does not:
 
 The retained planner can remap structured function names and clear `Module.raw_name_sec_payload` after an index change. The default public guard keeps that path unreachable for repeated lookups; the explicit stable-binding pass retains it. Default focused coverage supplies structured and raw representations and proves both remain byte-for-byte unchanged, while the historical generated families continue to exercise the planner's rewrite surface.
 
+Function annotations need merge semantics rather than removal semantics on that explicit path. Every annotation array is remapped to the final function index, then unioned in source order. Exact `{ name, args }` duplicates are emitted once, while annotations with the same name and different arguments remain distinct. Focused direct and active-dispatch regressions cover annotations unique to the canonical import, unique to the removed alias, shared exactly by both, and owned by the shifted defined function.
+
 The 2026-07-28 closeout rebuild and full explicit-v131 evidence matrix are recorded in [`fuzzing.md`](./fuzzing.md).
 
 ## Important negative facts
@@ -258,7 +260,7 @@ It is another reason the earlier broad dossier needed correction.
 | `test/passes/duplicate-import-elimination.txt` | The expected canonicalized output for those shapes |
 | `src/validate/gen_valid.mbt` / `src/validate/gen_valid_wbtest.mbt` | Five dedicated GenValid leaves covering body/tail references, identity policy, module code, legacy EH/`try_table`, and all four non-function negative import kinds |
 | `src/fuzz/main.mbt` / `src/fuzz/main_wbtest.mbt` | Manifest `profile_case_label` metadata and coverage for all 13 DIE family labels |
-| `src/passes/duplicate_import_elimination_test.mbt` | Encode/decode/transform/validate/idempotence checks for every leaf and identity/EH variant, plus raw-name and annotation-owner repair regressions |
+| `src/passes/duplicate_import_elimination_test.mbt` | Encode/decode/transform/validate/idempotence checks for every leaf and identity/EH variant, plus raw-name and direct/dispatcher annotation-union regressions |
 
 ## Released-v131 drift check
 

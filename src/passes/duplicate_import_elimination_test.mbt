@@ -280,28 +280,81 @@ test "duplicate-import-elimination preserves raw names without function remap" {
 }
 
 ///|
-test "duplicate-import-elimination preserves function annotation ownership" {
+fn die_test_annotated_duplicate_imports() -> @lib.Module {
   let source =
     #|(module
     #|  (type $v (func))
     #|  (import "env" "f" (func $first (type $v)))
     #|  (import "env" "f" (func $duplicate (type $v)))
     #|  (func $caller))
-  let input = pass_test_module_from_wat(source).with_func_annotation_sec(
+  pass_test_module_from_wat(source).with_func_annotation_sec(
     @lib.FuncAnnotationSec::new([
       @lib.FuncAnnotationAssoc::new(0U, [
-        @lib.FuncAnnotation::new("binaryen.idempotent"),
+        @lib.FuncAnnotation::new("binaryen.idempotent", args=["kept"]),
+        @lib.FuncAnnotation::new("starshine.shared", args=["same"]),
       ]),
       @lib.FuncAnnotationAssoc::new(1U, [
         @lib.FuncAnnotation::new("binaryen.removable.if.unused"),
+        @lib.FuncAnnotation::new("starshine.shared", args=["same"]),
+        @lib.FuncAnnotation::new("starshine.shared", args=["alias"]),
       ]),
       @lib.FuncAnnotationAssoc::new(2U, [
         @lib.FuncAnnotation::new("binaryen.js.called"),
       ]),
     ]),
   )
+}
+
+///|
+fn die_test_merged_func_annotations() -> @lib.FuncAnnotationSec {
+  @lib.FuncAnnotationSec::new([
+    @lib.FuncAnnotationAssoc::new(0U, [
+      @lib.FuncAnnotation::new("binaryen.idempotent", args=["kept"]),
+      @lib.FuncAnnotation::new("starshine.shared", args=["same"]),
+      @lib.FuncAnnotation::new("binaryen.removable.if.unused"),
+      @lib.FuncAnnotation::new("starshine.shared", args=["alias"]),
+    ]),
+    @lib.FuncAnnotationAssoc::new(1U, [
+      @lib.FuncAnnotation::new("binaryen.js.called"),
+    ]),
+  ])
+}
+
+///|
+test "duplicate-import-elimination preserves function annotation ownership" {
+  let input = die_test_annotated_duplicate_imports()
   let optimized = die_run_module_pass(input)
   @debug.assert_eq(optimized, input)
+}
+
+///|
+test "duplicate-import-elimination stable bindings merges alias annotations" {
+  let optimized = die_run_module_pass_assume_stable_bindings(
+    die_test_annotated_duplicate_imports(),
+  )
+  @debug.assert_eq(die_test_imported_func_count(optimized), 1)
+  @debug.assert_eq(
+    optimized.func_annotation_sec,
+    Some(die_test_merged_func_annotations()),
+  )
+}
+
+///|
+test "duplicate-import-elimination dispatcher merges alias annotations" {
+  let optimized = match
+    run_hot_pipeline(
+      die_test_annotated_duplicate_imports(),
+      HotPipelineOptions::new(),
+      ["duplicate-import-elimination-assume-stable-bindings"],
+    ) {
+    Ok(next) => next
+    Err(err) => fail("expected stable-binding DIE success, got \{err}")
+  }
+  @debug.assert_eq(die_test_imported_func_count(optimized), 1)
+  @debug.assert_eq(
+    optimized.func_annotation_sec,
+    Some(die_test_merged_func_annotations()),
+  )
 }
 
 ///|
