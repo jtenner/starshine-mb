@@ -736,7 +736,7 @@ test "global-struct-inference folds closed-world atomic local two-value reads" {
     #|   (type $box (sub (struct (field i32))))
     #|   (global $a (ref $box) (struct.new $box (i32.const 42)))
     #|   (global $b (ref $box) (struct.new $box (i32.const 1337)))
-    #|   (func (export "read") (param $x (ref $box)) (result i32)
+    #|   (func $read (param $x (ref $box)) (result i32)
     #|     local.get $x
     #|     struct.atomic.get acq_rel $box 0))
     #|
@@ -1654,7 +1654,7 @@ test "global-struct-inference refinalizes null-result local folds" {
     #|   (type $box (sub (struct (field (ref null $box)))))
     #|   (global $a (ref $box) (struct.new_default $box))
     #|   (global $b (ref $box) (struct.new_default $box))
-    #|   (func (export "read") (param (ref $box)) (result (ref $box))
+    #|   (func $read (param (ref $box)) (result (ref $box))
     #|     local.get 0
     #|     struct.get $box 0
     #|     ref.as_non_null)
@@ -1743,7 +1743,7 @@ test "global-struct-inference un-nests closed-world local select fields in modul
     #|     (struct.new $box
     #|       (i32.add (i32.const 40) (i32.const 2))))
     #|   (global $b (ref $box) (struct.new $box (i32.const 1337)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -1768,7 +1768,7 @@ test "global-struct-inference un-nests closed-world local select fields in modul
     #|   (global $b (ref $box) (struct.new $box (i32.const 1337)))
     #|   (func $dummy0)
     #|   (func $dummy1)
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -1889,7 +1889,7 @@ test "global-struct-inference un-nests closed-world select values" {
     #|     (struct.new $box
     #|       (i32.add (i32.const 40) (i32.const 2))))
     #|   (global $b (ref $box) (struct.new $box (i32.const 1337)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -1912,7 +1912,7 @@ test "global-struct-inference un-nests float literal closed-world select values"
     #|     (struct.new $box
     #|       (f32.const 3)))
     #|   (global $b (ref $box) (struct.new $box (f32.const 1)))
-    #|   (func (export "read") (param (ref null $box)) (result f32)
+    #|   (func $read (param (ref null $box)) (result f32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -1938,7 +1938,7 @@ test "global-struct-inference un-nests float literal closed-world select values"
     #|     (struct.new $box
     #|       (f64.const 2)))
     #|   (global $b (ref $box) (struct.new $box (f64.const 4)))
-    #|   (func (export "read") (param (ref null $box)) (result f64)
+    #|   (func $read (param (ref null $box)) (result f64)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -1969,7 +1969,7 @@ test "global-struct-inference un-nests integer subtraction closed-world select v
     #|     (struct.new $box
     #|       (i32.sub (i32.const 0) (i32.const 1))))
     #|   (global $b (ref $box) (struct.new $box (i32.const 7)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -1996,7 +1996,7 @@ test "global-struct-inference un-nests integer subtraction closed-world select v
     #|     (struct.new $box
     #|       (i64.sub (i64.const 0) (i64.const 1))))
     #|   (global $b (ref $box) (struct.new $box (i64.const 9)))
-    #|   (func (export "read") (param (ref null $box)) (result i64)
+    #|   (func $read (param (ref null $box)) (result i64)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -2026,7 +2026,7 @@ test "global-struct-inference un-nests packed closed-world select values" {
     #|     (struct.new $box
     #|       (i32.mul (i32.const 255) (i32.const 1))))
     #|   (global $b (ref $box) (struct.new $box (i32.const 1)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get_s $box 0))
     #|
@@ -2048,7 +2048,7 @@ test "global-struct-inference un-nests packed closed-world select values" {
     #|     (struct.new $box
     #|       (i32.add (i32.const 65535) (i32.const 0))))
     #|   (global $b (ref $box) (struct.new $box (i32.const 65537)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get_u $box 0))
     #|
@@ -2140,7 +2140,7 @@ test "global-struct-inference folds closed-world ref.get_desc local reads" {
     #|     (struct.new_desc $box
     #|       (i32.const 2)
     #|       (global.get $desc)))
-    #|   (func (export "read") (param (ref null $box)) (result (ref $box_desc))
+    #|   (func $read (param (ref null $box)) (result (ref $box_desc))
     #|     local.get 0
     #|     ref.get_desc $box))
     #|
@@ -2159,7 +2159,7 @@ test "global-struct-inference rewrites exact single-candidate param origins in c
     #|   (global $g (ref $box)
     #|     (struct.new $box
     #|       (i32.const 7)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -2254,7 +2254,7 @@ test "global-struct-inference rewrites exact single-candidate body locals in clo
     #|   (global $g (ref $box)
     #|     (struct.new $box
     #|       (i32.const 13)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     (local (ref null $box))
     #|     local.get 0
     #|     local.set 1
@@ -2275,7 +2275,7 @@ test "global-struct-inference synthesizes two-value singleton selects in closed 
     #|   (type $box (sub (struct (field i32))))
     #|   (global $a (ref $box) (struct.new $box (i32.const 7)))
     #|   (global $b (ref $box) (struct.new $box (i32.const 8)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -2294,7 +2294,7 @@ test "global-struct-inference synthesizes two-value singleton selects in closed 
     #|   (global $a (ref $box) (struct.new $box (i32.const 42)))
     #|   (global $b (ref $box) (struct.new $box (i32.const 1337)))
     #|   (global $c (ref $box) (struct.new $box (i32.const 1337)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -2320,7 +2320,7 @@ test "global-struct-inference rewrites subtype-propagated single-candidate paren
     #|   (global $child_g (ref $child)
     #|     (struct.new $child
     #|       (i32.mul (i32.const 7) (global.get $denom))))
-    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|   (func $read (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
@@ -2341,7 +2341,7 @@ test "global-struct-inference rewrites valid broad-global propagated origins" {
     #|   (global $child_g eqref
     #|     (struct.new $child
     #|       (i32.mul (i32.const 7) (global.get $denom))))
-    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|   (func $read (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
@@ -2359,7 +2359,7 @@ test "global-struct-inference folds subtype-propagated one-value parent reads" {
     #|   (type $child (sub $parent (struct (field i32))))
     #|   (global $child_a (ref $child) (struct.new $child (i32.const 7)))
     #|   (global $child_b (ref $child) (struct.new $child (i32.const 7)))
-    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|   (func $read (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
@@ -2376,7 +2376,7 @@ test "global-struct-inference folds subtype-propagated one-value parent reads" {
     #|   (type $child (sub $parent (struct (field i32))))
     #|   (global $child_g (ref $child) (struct.new $child (i32.const 11)))
     #|   (global $parent_g (ref $parent) (struct.new $parent (i32.const 11)))
-    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|   (func $read (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
@@ -2396,7 +2396,7 @@ test "global-struct-inference synthesizes subtype-propagated two-value parent se
     #|   (global $a (ref $child_a) (struct.new $child_a (i32.const 42)))
     #|   (global $b (ref $child_b) (struct.new $child_b (i32.const 1337)))
     #|   (global $c (ref $child_b) (struct.new $child_b (i32.const 1337)))
-    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|   (func $read (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
@@ -2416,7 +2416,7 @@ test "global-struct-inference synthesizes subtype-propagated two-value parent se
     #|   (global $child_g (ref $child) (struct.new $child (i32.const 5)))
     #|   (global $parent_a (ref $parent) (struct.new $parent (i32.const 9)))
     #|   (global $parent_b (ref $parent) (struct.new $parent (i32.const 9)))
-    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|   (func $read (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
@@ -2436,7 +2436,7 @@ test "global-struct-inference folds multi-candidate one-value local origins in c
     #|   (type $box (sub (struct (field i32))))
     #|   (global $a (ref $box) (struct.new $box (i32.const 7)))
     #|   (global $b (ref $box) (struct.new $box (i32.const 7)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -2452,7 +2452,7 @@ test "global-struct-inference folds multi-candidate one-value local origins in c
     #|   (type $box (sub (struct (field i32))))
     #|   (global $a (ref $box) (struct.new $box (i32.const 13)))
     #|   (global $b (ref $box) (struct.new $box (i32.const 13)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     (local (ref null $box))
     #|     local.get 0
     #|     local.set 1
@@ -2474,7 +2474,7 @@ test "global-struct-inference folds multi-candidate equal global-get and packed 
     #|   (type $box (sub (struct (field i32))))
     #|   (global $a (ref $box) (struct.new $box (global.get $value)))
     #|   (global $b (ref $box) (struct.new $box (global.get $value)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -2491,7 +2491,7 @@ test "global-struct-inference folds multi-candidate equal global-get and packed 
     #|   (type $box (sub (struct (field i8))))
     #|   (global $a (ref $box) (struct.new $box (i32.const 255)))
     #|   (global $b (ref $box) (struct.new $box (i32.const 255)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get_s $box 0))
     #|
@@ -2508,7 +2508,7 @@ test "global-struct-inference leaves multi-candidate select ambiguities unchange
     #|   (global $a (ref $box) (struct.new $box (i32.const 7)))
     #|   (global $b (ref $box) (struct.new $box (i32.const 8)))
     #|   (global $c (ref $box) (struct.new $box (i32.const 9)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -2524,7 +2524,7 @@ test "global-struct-inference leaves multi-candidate select ambiguities unchange
     #|   (global $b (ref $box) (struct.new $box (i32.const 7)))
     #|   (global $c (ref $box) (struct.new $box (i32.const 8)))
     #|   (global $d (ref $box) (struct.new $box (i32.const 8)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -2559,7 +2559,7 @@ test "global-struct-inference leaves unsafe multi-candidate one-value locals unc
     #|   (global $b (ref $box)
     #|     (struct.new $box
     #|       (i32.mul (i32.const 7) (global.get $denom))))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -2580,7 +2580,7 @@ test "global-struct-inference leaves unsafe multi-candidate one-value locals unc
     #|   (global $parent_a (ref $parent) (struct.new $parent (i32.const 7)))
     #|   (global $parent_b (ref $parent) (struct.new $parent (i32.const 8)))
     #|   (global $child_g (ref $child) (struct.new $child (i32.const 13)))
-    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|   (func $read (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
@@ -2602,7 +2602,7 @@ test "global-struct-inference leaves unsafe multi-candidate one-value locals unc
     #|   (global $parent_b (ref $parent) (struct.new $parent (i32.const 7)))
     #|   (global $child_a (ref $child) (struct.new $child (i32.const 13)))
     #|   (global $child_b (ref $child) (struct.new $child (i32.const 13)))
-    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|   (func $read (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
@@ -2623,7 +2623,7 @@ test "global-struct-inference leaves poisoned exact and parent local origins unc
     #| (module
     #|   (type $box (sub (struct (field i32))))
     #|   (global $g (ref $box) (struct.new $box (i32.const 7)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0)
     #|   (func
@@ -2640,7 +2640,7 @@ test "global-struct-inference leaves poisoned exact and parent local origins unc
     #|   (type $parent (sub (struct (field i32))))
     #|   (type $child (sub $parent (struct (field i32))))
     #|   (global $child_g (ref $child) (struct.new $child (i32.const 7)))
-    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|   (func $read (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0)
     #|   (func
@@ -2666,7 +2666,7 @@ test "global-struct-inference leaves poisoned exact and parent local origins unc
     #|   (global $outer_g (ref $outer)
     #|     (struct.new $outer
     #|       (struct.new $child (i32.const 7))))
-    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|   (func $read (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
@@ -2687,7 +2687,7 @@ test "global-struct-inference leaves unsafe local origins unchanged in closed wo
     #| (module
     #|   (type $box (sub (struct (field (mut i32)))))
     #|   (global $g (ref $box) (struct.new $box (i32.const 7)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -2705,7 +2705,7 @@ test "global-struct-inference leaves unsafe local origins unchanged in closed wo
     #| (module
     #|   (type $box (sub (struct (field i32))))
     #|   (global $g (mut (ref $box)) (struct.new $box (i32.const 7)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
@@ -2723,7 +2723,7 @@ test "global-struct-inference leaves unsafe local origins unchanged in closed wo
     #| (module
     #|   (type $box (sub (struct (field i32))))
     #|   (global $g anyref (struct.new $box (i32.const 7)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|   (func $read (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))
     #|
