@@ -28,6 +28,7 @@ import {
 } from "./optimizer-correctness";
 import { replayOptimizerFailure } from "./optimizer-replay";
 import {
+  buildRuntimeInterfaceFromWasm,
   runNodeThreeWaySemanticOracleV2,
   nodeObservationRuntimeIdentity,
   type NodeThreeWaySemanticOracleV2Report,
@@ -71,6 +72,8 @@ type SemanticOracleMode = "off" | "node-v2";
 export type RuntimeInvocationOutcome =
   | { kind: "result"; value: unknown }
   | { kind: "trap"; detail: string }
+  | { kind: "missing-export"; detail: string }
+  | { kind: "signature-mismatch"; detail: string }
   | { kind: "unsupported"; detail: string }
   | { kind: "nondeterministic-import"; detail: string };
 export type RuntimeInvocationClassification =
@@ -88,6 +91,8 @@ export type RuntimeExportInvocationReport = {
 };
 export type RuntimeExportInvocationMatrixSummary = {
   total: number;
+  observed: number;
+  blocked: number;
   equalResults: number;
   equalTraps: number;
   unsupportedRuntimes: number;
@@ -1080,6 +1085,8 @@ export function classifyRuntimeInvocationPair(
   actual: RuntimeInvocationOutcome,
   expected: RuntimeInvocationOutcome,
 ): RuntimeInvocationClassification {
+  if (actual.kind === "missing-export" || expected.kind === "missing-export") return "semantic-mismatch";
+  if (actual.kind === "signature-mismatch" || expected.kind === "signature-mismatch") return "semantic-mismatch";
   if (actual.kind === "unsupported" || expected.kind === "unsupported") return "unsupported-runtime";
   if (actual.kind === "nondeterministic-import" || expected.kind === "nondeterministic-import") {
     return "nondeterministic-import";
@@ -1100,9 +1107,31 @@ export function deterministicExportArgumentVector(func: Function): unknown[] {
   return args;
 }
 
+function deterministicTypedExportArgumentVector(parameterTypes: string[]): unknown[] | null {
+  if (parameterTypes.length > 8) return null;
+  const args: unknown[] = [];
+  for (const type of parameterTypes) {
+    switch (type) {
+      case "i32":
+      case "f32":
+      case "f64":
+        args.push(0);
+        break;
+      case "i64":
+        args.push(0n);
+        break;
+      default:
+        return null;
+    }
+  }
+  return args;
+}
+
 export function emptyRuntimeExportInvocationMatrixSummary(): RuntimeExportInvocationMatrixSummary {
   return {
     total: 0,
+    observed: 0,
+    blocked: 0,
     equalResults: 0,
     equalTraps: 0,
     unsupportedRuntimes: 0,
@@ -1119,18 +1148,23 @@ export function summarizeRuntimeExportInvocationMatrix(
     summary.total += 1;
     switch (report.classification) {
       case "equal-result":
+        summary.observed += 1;
         summary.equalResults += 1;
         break;
       case "equal-trap":
+        summary.observed += 1;
         summary.equalTraps += 1;
         break;
       case "unsupported-runtime":
+        summary.blocked += 1;
         summary.unsupportedRuntimes += 1;
         break;
       case "nondeterministic-import":
+        summary.blocked += 1;
         summary.nondeterministicImports += 1;
         break;
       case "semantic-mismatch":
+        summary.observed += 1;
         summary.semanticMismatches += 1;
         break;
     }
@@ -1141,7 +1175,7 @@ export function summarizeRuntimeExportInvocationMatrix(
 export function classifyRuntimeExportInvocationMatrix(
   summary: RuntimeExportInvocationMatrixSummary,
 ): RuntimeExportInvocationMatrixOutcome {
-  if (summary.total === 0) return "empty";
+  if (summary.total === 0) return "blocked";
   if (summary.semanticMismatches > 0) return "semantic-mismatch";
   if (summary.unsupportedRuntimes > 0 || summary.nondeterministicImports > 0) return "blocked";
   return "all-equal";
@@ -1215,7 +1249,10 @@ export async function runNodeExportInvocationMatrix(
   leftWasmPath: string,
   rightWasmPath: string,
   maxInvocations = 8,
+  wasmToolsBin = "wasm-tools",
 ): Promise<RuntimeExportInvocationReport[]> {
+  const leftInterface = buildRuntimeInterfaceFromWasm(leftWasmPath, wasmToolsBin);
+  const rightInterface = buildRuntimeInterfaceFromWasm(rightWasmPath, wasmToolsBin);
   const left = await instantiateNodeRuntime(leftWasmPath);
   const right = await instantiateNodeRuntime(rightWasmPath);
   if ("unsupported" in left || "unsupported" in right) {
@@ -1237,11 +1274,69 @@ export async function runNodeExportInvocationMatrix(
   }
 
   const reports: RuntimeExportInvocationReport[] = [];
-  for (const [exportName, leftValue] of Object.entries(left.instance.exports)) {
-    if (typeof leftValue !== "function") continue;
+  const leftSignatures = new Map(
+    leftInterface.exports
+      .filter((entry) => entry.kind === "function" && entry.signature != null)
+      .map((entry) => [entry.name, entry.signature!] as const),
+  );
+  const rightSignatures = new Map(
+    rightInterface.exports
+      .filter((entry) => entry.kind === "function" && entry.signature != null)
+      .map((entry) => [entry.name, entry.signature!] as const),
+  );
+  const requiredExportNames = new Set<string>([
+    ...leftSignatures.keys(),
+    ...rightSignatures.keys(),
+    ...Object.entries(left.instance.exports).filter(([, value]) => typeof value === "function").map(([name]) => name),
+    ...Object.entries(right.instance.exports).filter(([, value]) => typeof value === "function").map(([name]) => name),
+  ]);
+  let invoked = 0;
+  for (const exportName of requiredExportNames) {
+    const leftValue = left.instance.exports[exportName];
     const rightValue = right.instance.exports[exportName];
-    if (typeof rightValue !== "function") continue;
-    const args = deterministicExportArgumentVector(leftValue);
+    if (typeof leftValue !== "function" || typeof rightValue !== "function") {
+      const missingSide = typeof leftValue !== "function" ? "left" : "right";
+      const detail = `missing required function export ${exportName}`;
+      const presentResult: RuntimeInvocationOutcome = { kind: "result", value: "function export present" };
+      const missingResult: RuntimeInvocationOutcome = { kind: "missing-export", detail };
+      const leftResult = missingSide === "left" ? missingResult : presentResult;
+      const rightResult = missingSide === "right" ? missingResult : presentResult;
+      reports.push({
+        exportName,
+        args: [],
+        leftResult,
+        rightResult,
+        classification: classifyRuntimeInvocationPair(leftResult, rightResult),
+      });
+      continue;
+    }
+    if (invoked >= Math.max(0, maxInvocations)) {
+      const blocked = { kind: "unsupported" as const, detail: `runtime invocation cap omitted required function export ${exportName}` };
+      reports.push({ exportName, args: [], leftResult: blocked, rightResult: blocked, classification: "unsupported-runtime" });
+      continue;
+    }
+    const leftSignature = leftSignatures.get(exportName);
+    const rightSignature = rightSignatures.get(exportName);
+    if (leftSignature == null || rightSignature == null) {
+      const blocked = { kind: "unsupported" as const, detail: `missing runtime signature for required function export ${exportName}` };
+      reports.push({ exportName, args: [], leftResult: blocked, rightResult: blocked, classification: "unsupported-runtime" });
+      continue;
+    }
+    const leftSignatureKey = `${leftSignature.params.join(",")}->${leftSignature.results.join(",")}`;
+    const rightSignatureKey = `${rightSignature.params.join(",")}->${rightSignature.results.join(",")}`;
+    if (leftSignatureKey !== rightSignatureKey) {
+      const leftResult = { kind: "signature-mismatch" as const, detail: `left signature ${leftSignatureKey}` };
+      const rightResult = { kind: "signature-mismatch" as const, detail: `right signature ${rightSignatureKey}` };
+      reports.push({ exportName, args: [], leftResult, rightResult, classification: "semantic-mismatch" });
+      continue;
+    }
+    const args = deterministicTypedExportArgumentVector(leftSignature.params);
+    if (args == null) {
+      const blocked = { kind: "unsupported" as const, detail: `unsupported parameter signature ${leftSignature.params.join(",")}` };
+      reports.push({ exportName, args: [], leftResult: blocked, rightResult: blocked, classification: "unsupported-runtime" });
+      continue;
+    }
+    invoked += 1;
     const leftResult = invokeNodeExport(leftValue, args);
     const rightResult = invokeNodeExport(rightValue, args);
     reports.push({
@@ -1251,7 +1346,6 @@ export async function runNodeExportInvocationMatrix(
       rightResult,
       classification: classifyRuntimeInvocationPair(leftResult, rightResult),
     });
-    if (reports.length >= maxInvocations) break;
   }
   return reports;
 }
@@ -2869,6 +2963,8 @@ function noteRuntimeExportInvocationMatrix(
 ): void {
   const caseSummary = summarizeRuntimeExportInvocationMatrix(reports);
   summary.runtimeExecutionMatrix.summary.total += caseSummary.total;
+  summary.runtimeExecutionMatrix.summary.observed += caseSummary.observed;
+  summary.runtimeExecutionMatrix.summary.blocked += caseSummary.blocked;
   summary.runtimeExecutionMatrix.summary.equalResults += caseSummary.equalResults;
   summary.runtimeExecutionMatrix.summary.equalTraps += caseSummary.equalTraps;
   summary.runtimeExecutionMatrix.summary.unsupportedRuntimes += caseSummary.unsupportedRuntimes;
@@ -6367,17 +6463,27 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       }
 
       if (options.runtimeExecution === "node") {
-        const runtimeReports = await runNodeExportInvocationMatrix(starshineRawPath, binaryenRawPath);
+        const runtimeReports = await runNodeExportInvocationMatrix(
+          starshineRawPath,
+          binaryenRawPath,
+          8,
+          options.wasmToolsBin,
+        );
         runtimeInvocationReports = runtimeReports;
         noteRuntimeExportInvocationMatrix(summary, runtimeReports);
-        if (runtimeReports.length === 0) {
-          summary.runtimeExecutionCounts.checked += 1;
-        } else if (runtimeReports.some((report) => report.classification === "semantic-mismatch")) {
-          summary.runtimeExecutionCounts.failed += 1;
-        } else if (runtimeReports.some((report) => report.classification === "unsupported-runtime" || report.classification === "nondeterministic-import")) {
-          summary.runtimeExecutionCounts.unsupported += 1;
-        } else {
-          summary.runtimeExecutionCounts.checked += 1;
+        switch (classifyRuntimeExportInvocationMatrix(summarizeRuntimeExportInvocationMatrix(runtimeReports))) {
+          case "semantic-mismatch":
+            summary.runtimeExecutionCounts.failed += 1;
+            break;
+          case "blocked":
+          case "empty":
+            summary.runtimeExecutionCounts.unsupported += 1;
+            break;
+          case "all-equal":
+            summary.runtimeExecutionCounts.checked += 1;
+            break;
+          case "not-run":
+            break;
         }
       }
 

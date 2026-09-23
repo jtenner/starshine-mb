@@ -1578,6 +1578,8 @@ describe("pass fuzz summary coverage report", () => {
       runtimeExecutionMatrix: {
         summary: {
           total: 3,
+          observed: 2,
+          blocked: 1,
           equalResults: 1,
           equalTraps: 0,
           unsupportedRuntimes: 1,
@@ -1688,6 +1690,8 @@ describe("runtime result classification", () => {
 
     expect(summary).toEqual({
       total: 3,
+      observed: 2,
+      blocked: 1,
       equalResults: 1,
       equalTraps: 0,
       unsupportedRuntimes: 1,
@@ -1696,6 +1700,14 @@ describe("runtime result classification", () => {
     });
     expect(classifyRuntimeExportInvocationMatrix(summary)).toBe("semantic-mismatch");
     expect(runtimeSemanticMismatchSamples(reports, 1)).toEqual([reports[2]]);
+  });
+
+  test("classifies an empty observation matrix as blocked evidence", () => {
+    const summary = summarizeRuntimeExportInvocationMatrix([]);
+
+    expect(summary.observed).toBe(0);
+    expect(summary.blocked).toBe(0);
+    expect(classifyRuntimeExportInvocationMatrix(summary)).toBe("blocked");
   });
 });
 
@@ -1767,6 +1779,56 @@ describe("runtime export invocation", () => {
         classification: "semantic-mismatch",
       },
     ]);
+  });
+
+  test("invokes i64-parameter exports with typed arguments instead of accepting equal host-boundary traps", async () => {
+    const leftPath = wasmFromWat(`
+      (module
+        (func (export "read") (param i64) (result i64)
+          local.get 0))
+    `);
+    const rightPath = wasmFromWat(`
+      (module
+        (func (export "read") (param i64) (result i64)
+          local.get 0
+          i64.const 1
+          i64.add))
+    `);
+
+    const reports = await runNodeExportInvocationMatrix(leftPath, rightPath);
+
+    expect(reports).toMatchObject([
+      {
+        exportName: "read",
+        args: ["bigint:0"],
+        leftResult: { kind: "result", value: 0n },
+        rightResult: { kind: "result", value: 1n },
+        classification: "semantic-mismatch",
+      },
+    ]);
+    expect(summarizeRuntimeExportInvocationMatrix(reports)).toMatchObject({ observed: 1, blocked: 0 });
+  });
+
+  test("records a required function export missing from either module as a semantic mismatch", async () => {
+    const exportedPath = wasmFromWat(`(module (func (export "required") (result i32) i32.const 1))`);
+    const emptyPath = wasmFromWat(`(module)`);
+
+    const missingRight = await runNodeExportInvocationMatrix(exportedPath, emptyPath);
+    const missingLeft = await runNodeExportInvocationMatrix(emptyPath, exportedPath);
+
+    expect(missingRight).toHaveLength(1);
+    expect(missingRight[0]).toMatchObject({
+      exportName: "required",
+      classification: "semantic-mismatch",
+      rightResult: { kind: "missing-export", detail: "missing required function export required" },
+    });
+    expect(missingLeft).toHaveLength(1);
+    expect(missingLeft[0]).toMatchObject({
+      exportName: "required",
+      classification: "semantic-mismatch",
+      leftResult: { kind: "missing-export", detail: "missing required function export required" },
+    });
+    expect(summarizeRuntimeExportInvocationMatrix(missingLeft)).toMatchObject({ observed: 1, blocked: 0 });
   });
 });
 

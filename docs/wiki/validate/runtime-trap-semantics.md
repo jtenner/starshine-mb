@@ -132,6 +132,8 @@ The secondary Binaryen runtime lane is intentionally narrow:
 4. A trap/value difference is a semantic mismatch unless the pass contract explicitly permits changing trap behavior under a named assumption such as `traps-never-happen`.
 5. `inputEffectTrapFacts` from [`scripts/lib/effect-trap-scanner.ts`](../../../scripts/lib/effect-trap-scanner.ts) are triage metadata. They do not replace reduced replay or pass-specific semantic reasoning.
 
+The legacy runtime-v1 export matrix uses typed zero arguments for scalar parameters, including `0n` for `i64`. It takes the union of function exports from both candidates: a missing required export or a changed function signature is a definite semantic mismatch, while an unsupported parameter type or invocation-cap omission is blocked evidence. Its persisted summary separates observed rows from blocked rows. Zero rows classify as blocked and do not increment the runtime checked counter.
+
 When reporting compare-pass results, combine runtime smoke with canonical normalized output comparison, validation, effect facts, reduced repros, and pass-specific source contracts. The focused workflow lives in [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md).
 
 ## Static WAST Harness Boundary
