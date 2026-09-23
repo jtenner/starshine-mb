@@ -210,11 +210,7 @@ test "memory-packing dispatch accepts a valid descriptor test before active memo
     Err(err) => fail("expected descriptor input to validate, got \{err}")
   }
   let output = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(),
-      ["memory-packing"],
-    ) {
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
     Ok(module_) => module_
     Err(err) => fail("expected memory-packing dispatch, got \{err}")
   }
