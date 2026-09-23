@@ -166,6 +166,47 @@ export function runEffectTrapScannerTest(): void {
   assert(!typedLocalFacts.mayTrap, "typed-reference local declaration should not report traps");
   assert(typedLocalFacts.hazards.length === 0, "typed-reference local declaration should not report hazard offsets");
 
+  const resultBlockTypes = validModuleWithSingleBody([
+    0x00, // no locals
+    0x02, 0x7f, // block (result i32)
+    0x41, 0x01, // i32.const 1
+    0x0b, // end block
+    0x1a, // drop i32 result
+    0x03, 0x7e, // loop (result i64)
+    0x42, 0x01, // i64.const 1
+    0x0b, // end loop
+    0x1a, // drop i64 result
+    0x41, 0x01, // i32.const 1 condition
+    0x04, 0x7f, // if (result i32)
+    0x41, 0x02, // i32.const 2
+    0x05, // else
+    0x41, 0x03, // i32.const 3
+    0x0b, // end if
+    0x1a, // drop i32 result
+    0x0b,
+  ]);
+  assert(WebAssembly.validate(resultBlockTypes), "result blocktype regression module should validate");
+  const resultBlockTypeFacts = scanEffectTrapFactsFromWasmBytes(resultBlockTypes);
+  assert(!resultBlockTypeFacts.hasUnreachable, "result blocktypes should not report unreachable");
+  assert(!resultBlockTypeFacts.mayTrap, "result blocktypes should not report integer division traps");
+  assert(resultBlockTypeFacts.hazards.length === 0, "result blocktypes should not report hazard offsets");
+
+  const trueI64DivS = validModuleWithSingleBody([
+    0x00, // no locals
+    0x42, 0x06, // i64.const 6
+    0x42, 0x02, // i64.const 2
+    0x7f, // i64.div_s
+    0x1a, // drop
+    0x0b,
+  ]);
+  assert(WebAssembly.validate(trueI64DivS), "true i64.div_s control module should validate");
+  const trueI64DivSFacts = scanEffectTrapFactsFromWasmBytes(trueI64DivS);
+  assert(trueI64DivSFacts.mayTrap, "real i64.div_s should report a possible trap");
+  assert(
+    trueI64DivSFacts.hazards.some((hazard) => hazard.offset > 0 && hazard.opcode === 0x7f && hazard.kind === "possible-trap"),
+    "real i64.div_s hazard should remain visible",
+  );
+
   for (const [opcode, name] of [[0x14, "call_ref"], [0x15, "return_call_ref"]] as const) {
     const referenceCall = validModuleWithSingleBody([
       0x00, // no locals

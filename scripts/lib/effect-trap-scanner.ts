@@ -123,6 +123,18 @@ function skipValueType(bytes: Uint8Array, offset: number): number {
   return readUleb(bytes, heapTypeOffset).next;
 }
 
+function skipBlockType(bytes: Uint8Array, offset: number): number {
+  if (offset >= bytes.length) return bytes.length;
+  const first = bytes[offset];
+  if (first === 0x63 || first === 0x64) {
+    return skipValueType(bytes, offset);
+  }
+  if ((first & 0x80) === 0) {
+    return offset + 1;
+  }
+  return readUleb(bytes, offset).next;
+}
+
 function codeBodyRanges(bytes: Uint8Array): { start: number; end: number }[] | null {
   if (bytes.length < 8) {
     return null;
@@ -243,6 +255,10 @@ function scanOpcode(
       facts.hasUnreachable = true;
       markTrap(facts);
       return offset;
+    case 0x02: // block
+    case 0x03: // loop
+    case 0x04: // if
+      return skipBlockType(bytes, offset);
     case 0x06: // try
       facts.hasException = true;
       return Math.min(end, offset + 1);
