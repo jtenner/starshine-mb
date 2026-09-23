@@ -33,11 +33,12 @@
 2. [ ] Global Struct Inference substitutes an internal object for an imported GC reference.
 3. [ ] RUME leaves a stale type-name index after type compaction.
 4. [ ] RUME leaves stale label names after function-body nullification.
-5. [x] OptimizeInstructions crashes on valid legacy-EH `delegate` inputs. The
-   HOT verifier now checks exception-transfer arity independently of the
+5. [x] OptimizeInstructions crashes on valid legacy-EH `delegate` inputs
+   (`e32869055`). The HOT verifier checks exception-transfer arity independently of the
    target try's ordinary result arity; focused IR and dispatcher tests were
    red before the fix and green afterward.
-6. [ ] Compare-pass exits zero despite configured correctness failures.
+6. [x] Compare-pass exits zero despite configured correctness failures
+   (`2bb42a77c`); explicit `--report-only` retains diagnostic collection.
 7. [ ] DCE label-use index omits `try_table` catch destinations.
 8. [ ] DCE label-use index omits continuation handler destinations.
 9. [ ] Shared unreachable cleanup can rebind continuation handlers.
@@ -76,9 +77,12 @@
 
 ### Harness correctness and coverage
 
-39. [ ] `drop-consts` normalization erases trapping unsigned conversions.
-40. [ ] `unreachable-control-debris` normalization fails to root the start function.
-41. [ ] Canonicalization strips semantically important named type uses.
+39. [x] `drop-consts` normalization erases trapping unsigned conversions
+    (`761806225`).
+40. [x] `unreachable-control-debris` normalization fails to root the start
+    function (`05a1bac63`).
+41. [x] Canonicalization strips semantically important named type uses
+    (`d54717072`); previously hidden type-shape mismatches may reopen.
 42. [ ] Runtime-v2 discards definite observations when another surface is blocked.
 43. [ ] Runtime-v1 skips parameterized/missing exports and can count empty matrices.
 44. [ ] Resume fingerprints omit source and configuration identity.
