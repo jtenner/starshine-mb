@@ -274,8 +274,8 @@ function supportForGlobal(valueType: WasmRuntimeValueType): RuntimeSupportClassi
   return ["i32", "i64", "f32", "f64"].includes(valueType) ? "directly-constructible" : "unsupported";
 }
 
-function supportForMemory(memory: { memory64: boolean }): RuntimeSupportClassification {
-  return memory.memory64 ? "unsupported" : "directly-constructible";
+function supportForMemory(_memory: { memory64: boolean }): RuntimeSupportClassification {
+  return "directly-constructible";
 }
 
 function supportForTable(table: { elementType: WasmRuntimeValueType }): RuntimeSupportClassification {
@@ -1029,13 +1029,22 @@ async function instantiateRuntime(
     globals.set(imported.index, global);
   }
   for (const imported of runtimeInterface.imports.memories) {
-    if (imported.memory64) throw new Error(`unsupported imported memory64 ${imported.module}.${imported.field}`);
     const namespace = (imports[imported.module] ??= {});
-    const memory = new WebAssembly.Memory({
-      initial: Number(imported.minimum),
-      ...(imported.maximum === null ? {} : { maximum: Number(imported.maximum) }),
-      ...(imported.shared ? { shared: true } : {}),
-    });
+    const descriptor = imported.memory64
+      ? {
+          address: "i64",
+          initial: BigInt(imported.minimum),
+          ...(imported.maximum === null ? {} : { maximum: BigInt(imported.maximum) }),
+          ...(imported.shared ? { shared: true } : {}),
+        }
+      : {
+          initial: Number(imported.minimum),
+          ...(imported.maximum === null ? {} : { maximum: Number(imported.maximum) }),
+          ...(imported.shared ? { shared: true } : {}),
+        };
+    const memory = new WebAssembly.Memory(
+      descriptor as unknown as WebAssembly.MemoryDescriptor,
+    );
     namespace[imported.field] = memory;
     memories.set(imported.index, memory);
   }

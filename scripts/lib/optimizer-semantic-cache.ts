@@ -4,7 +4,7 @@ import path from "node:path";
 import { optimizerRuntimeIdentity } from "./optimizer-runtime";
 
 // Shared by cache keys and resumable run manifests.
-export const SEMANTIC_EXECUTION_CONTRACT = "node-v2-seeded-invocation-v8";
+export const SEMANTIC_EXECUTION_CONTRACT = "node-v2-imported-memory64-v9";
 
 export type SemanticCacheKeyInput = {
   original: Uint8Array;
@@ -37,7 +37,9 @@ export function buildSemanticCacheKey(input: SemanticCacheKeyInput): string {
     // pre-132 intrinsic reports used ordinary import stubs instead of invoking
     // the function reference, and v5 discarded definite scalar/trap mismatches
     // whenever an unrelated observation surface was blocked. v7 adds seeded
-    // scalar invocation vectors, so earlier cached reports lack observations.
+    // scalar invocation vectors. v8 adds proposal reference fixtures and exact
+    // unsupported boundaries. v9 directly constructs and observes imported
+    // memory64, so earlier cached reports record that resource as blocked.
     executionContract: SEMANTIC_EXECUTION_CONTRACT,
     originalSha256: sha256(input.original),
     starshineSha256: sha256(input.starshine),

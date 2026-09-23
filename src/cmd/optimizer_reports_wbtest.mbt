@@ -230,3 +230,65 @@ test "optimizer runtime interface classifies proposal crossing boundaries" {
     "unsupported",
   )
 }
+
+///|
+test "optimizer runtime interface command reports imported memory64 support" {
+  let memory_type = @lib.MemType::new(
+    @lib.Limits::i64(1UL, Some(2UL)),
+    shared=false,
+  )
+  let mod_ = Module::new()
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::new("env"),
+          @lib.Name::new("memory64"),
+          @lib.ExternType::mem(memory_type),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::new("memory"),
+          @lib.ExternIdx::mem(@lib.MemIdx::new(0U)),
+        ),
+      ]),
+    )
+  let wasm = match encode_module(mod_) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected imported memory64 encoding, got \{err}")
+  }
+  let writes : Array[String] = []
+  let io = CmdIO::new(
+    read_file=fn(path) {
+      if path == "memory64.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing")
+      }
+    },
+    write_stdout=fn(bytes) {
+      writes.push(bytes_to_string_lossy(bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(["--emit-runtime-interface-json", "memory64.wasm"], io) {
+    Ok(_) => ()
+    Err(err) => fail("expected memory64 runtime interface report, got \{err}")
+  }
+  @debug.assert_eq(writes.length(), 1)
+  assert_true(
+    writes[0].contains(
+      "\"module\":\"env\",\"field\":\"memory64\",\"kind\":\"memory\",\"index\":0,\"indexType\":\"i64\",\"minimum\":\"1\",\"maximum\":\"2\",\"shared\":false,\"memory64\":true,\"support\":\"directly-constructible\"",
+    ),
+    msg=writes[0],
+  )
+  assert_true(
+    writes[0].contains(
+      "\"name\":\"memory\",\"kind\":\"memory\",\"index\":0,\"support\":\"directly-constructible\"",
+    ),
+    msg=writes[0],
+  )
+}

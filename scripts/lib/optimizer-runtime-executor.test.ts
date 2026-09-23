@@ -248,6 +248,49 @@ describe("three-way Node semantic oracle v2", () => {
     expect(report.originalVsStarshine.classification).toBe("semantic-mismatch");
   });
 
+  test("constructs and observes imported memory64 resources", async () => {
+    const original = compileWat(`(module
+      (import "env" "mem" (memory i64 1 2))
+      (export "memory" (memory 0))
+      (func (export "size") (result i64) memory.size))`);
+    const corrupted = compileWat(`(module
+      (import "env" "mem" (memory i64 1 2))
+      (export "memory" (memory 0))
+      (func (export "size") (result i64) i64.const 0))`);
+
+    const report = await runNodeThreeWaySemanticOracleV2(
+      original.wasmPath,
+      corrupted.wasmPath,
+      null,
+      {
+        seed: 0x5eedn,
+        policy: "strict",
+        mode: "independent",
+        timeoutMs: 2000,
+        memoryCapBytes: 65536,
+        tableEntryCap: 16,
+      },
+    );
+
+    expect(report.runtimeInterface.imports.memories[0]).toMatchObject({
+      indexType: "i64",
+      minimum: "1",
+      maximum: "2",
+      memory64: true,
+      support: "directly-constructible",
+    });
+    expect(report.original.runtime.identity).toMatch(/^node:v26\./);
+    expect(report.original.instantiation.status).toBe("succeeded");
+    expect(report.original.blockedReasons).toEqual([]);
+    expect(report.starshine.blockedReasons).toEqual([]);
+    expect(report.original.resources.memories[0]).toMatchObject({
+      byteLength: 65536,
+      complete: true,
+    });
+    expect(report.originalVsStarshine.classification).toBe("semantic-mismatch");
+    expect(report.originalVsStarshine.firstDifferencePath).toContain("outcome");
+  });
+
 });
 
 describe("Node runtime observation v2", () => {

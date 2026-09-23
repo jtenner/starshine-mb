@@ -434,7 +434,7 @@ fn cmd_optimizer_memory_json(
   let (index_type, minimum, maximum, memory64) = cmd_optimizer_limits_parts(
     limits,
   )
-  let support = if memory64 { "unsupported" } else { "directly-constructible" }
+  let support = "directly-constructible"
   "{\"module\":\{cmd_optimizer_json_string(module_name)},\"field\":\{cmd_optimizer_json_string(field_name)},\"kind\":\"memory\",\"index\":\{index},\"indexType\":\{cmd_optimizer_json_string(index_type)},\"minimum\":\{cmd_optimizer_json_string(minimum)},\"maximum\":\{maximum},\"shared\":\{shared},\"memory64\":\{memory64},\"support\":\{cmd_optimizer_json_string(support)}}"
 }
 
@@ -580,13 +580,7 @@ fn cmd_optimizer_runtime_interface_report_json(mod_ : Module) -> String {
             }
           @lib.MemExternIdx(@lib.MemIdx(index)) => {
             let support = if index.to_int() < memory_types.length() {
-              let @lib.MemType(limits, _) = memory_types[index.to_int()]
-              let (_, _, _, memory64) = cmd_optimizer_limits_parts(limits)
-              if memory64 {
-                "unsupported"
-              } else {
-                "directly-constructible"
-              }
+              "directly-constructible"
             } else {
               "unsupported"
             }
