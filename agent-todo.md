@@ -30,7 +30,10 @@
 ### Reproduced defects and urgent safety gaps
 
 1. [ ] OI → DCE multi-value loop returns `unreachable` instead of `[0, 2.5]`.
-2. [ ] Global Struct Inference substitutes an internal object for an imported GC reference.
+2. [x] Global Struct Inference substitutes an internal object for an imported
+   GC reference (`936d7f4d3`, `cb1f2ea08`); imported origins and exported
+   function parameters now poison compatible singleton facts, with direct
+   and command-dispatch regressions.
 3. [x] RUME leaves a stale type-name index after type compaction
    (`0ecbc09e1`); direct and dispatcher metadata regressions are green.
 4. [x] RUME leaves stale label names after function-body nullification
@@ -97,7 +100,9 @@
     (`d54717072`); previously hidden type-shape mismatches may reopen.
 42. [x] Runtime-v2 discards definite observations when another surface is
     blocked (`1fdabfd0f`); focused runtime harness regressions are green.
-43. [ ] Runtime-v1 skips parameterized/missing exports and can count empty matrices.
+43. [x] Runtime-v1 skips parameterized/missing exports and can count empty
+    matrices (`e87f95d36`); required exports, typed parameters, blocked rows,
+    and empty-matrix accounting have focused harness regressions.
 44. [ ] Resume fingerprints omit source and configuration identity.
 45. [ ] Binaryen command failure can still increment `comparedCount` as a match.
 46. [ ] Name/debug pass comparisons are erased by unconditional debug stripping.
