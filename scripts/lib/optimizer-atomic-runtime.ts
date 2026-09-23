@@ -23,6 +23,11 @@ export type AtomicLitmusMemoryImportV1 = {
   address?: "i32" | "i64";
 };
 
+export type AtomicLitmusI32ObservationLocationV1 = {
+  memoryImportIndex: number;
+  offset: number;
+};
+
 export type AtomicLitmusSpecV1 = {
   schema: "starshine.optimizer-atomic-litmus.v1";
   id: string;
@@ -32,6 +37,7 @@ export type AtomicLitmusSpecV1 = {
   memoryImport: AtomicLitmusMemoryImportV1;
   additionalMemoryImports?: AtomicLitmusMemoryImportV1[];
   observedI32Offsets: number[];
+  additionalObservedI32Locations?: AtomicLitmusI32ObservationLocationV1[];
   trials: number;
   allowedOutcomes: AtomicLitmusOutcomeV1[];
   requiredObservedOutcomes?: AtomicLitmusOutcomeV1[];
@@ -75,12 +81,17 @@ function isI32(value: number): boolean {
   return Number.isInteger(value) && value >= -2147483648 && value <= 2147483647;
 }
 
+function observedI32LocationCount(spec: AtomicLitmusSpecV1): number {
+  return spec.observedI32Offsets.length + (spec.additionalObservedI32Locations?.length ?? 0);
+}
+
 function validateOutcomeShape(spec: AtomicLitmusSpecV1, outcome: AtomicLitmusOutcomeV1, label: string): void {
   if (outcome.threadResults.length !== spec.workerCount) {
     throw new Error(`${label} must contain ${spec.workerCount} thread results`);
   }
-  if (outcome.memoryI32.length !== spec.observedI32Offsets.length) {
-    throw new Error(`${label} must contain ${spec.observedI32Offsets.length} memory values`);
+  const memoryValueCount = observedI32LocationCount(spec);
+  if (outcome.memoryI32.length !== memoryValueCount) {
+    throw new Error(`${label} must contain ${memoryValueCount} memory values`);
   }
   if (![...outcome.threadResults, ...outcome.memoryI32].every(isI32)) {
     throw new Error(`${label} values must be signed i32 integers`);
@@ -114,7 +125,8 @@ export function validateAtomicLitmusSpecV1(spec: AtomicLitmusSpecV1): void {
   if (new Set(memories.map((memory) => `${memory.module}\0${memory.field}`)).size !== memories.length) {
     throw new Error("atomic litmus shared memory import names must be unique");
   }
-  if (spec.observedI32Offsets.length < 1 || spec.observedI32Offsets.length > 16) {
+  const additionalObserved = spec.additionalObservedI32Locations ?? [];
+  if (spec.observedI32Offsets.length < 1 || observedI32LocationCount(spec) > 16) {
     throw new Error("atomic litmus must observe between 1 and 16 i32 locations");
   }
   const byteLength = spec.memoryImport.initial * 64 * 1024;
@@ -123,6 +135,27 @@ export function validateAtomicLitmusSpecV1(spec: AtomicLitmusSpecV1): void {
   }
   if (new Set(spec.observedI32Offsets).size !== spec.observedI32Offsets.length) {
     throw new Error("atomic litmus i32 observation offsets must be unique");
+  }
+  for (const location of additionalObserved) {
+    if (
+      !Number.isInteger(location.memoryImportIndex) ||
+      location.memoryImportIndex < 1 || location.memoryImportIndex >= memories.length
+    ) {
+      throw new Error("atomic litmus additional i32 observations must select an additional memory import");
+    }
+    const selectedByteLength = memories[location.memoryImportIndex].initial * 64 * 1024;
+    if (
+      !Number.isInteger(location.offset) || location.offset < 0 ||
+      location.offset % 4 !== 0 || location.offset + 4 > selectedByteLength
+    ) {
+      throw new Error("atomic litmus additional i32 observation offsets must be aligned and inside the selected memory");
+    }
+  }
+  if (
+    new Set(additionalObserved.map((location) => `${location.memoryImportIndex}\0${location.offset}`)).size !==
+    additionalObserved.length
+  ) {
+    throw new Error("atomic litmus additional i32 observation locations must be unique");
   }
   if (spec.allowedOutcomes.length < 1 || spec.allowedOutcomes.length > 32) {
     throw new Error("atomic litmus must declare between 1 and 32 allowed outcomes");

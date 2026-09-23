@@ -125,6 +125,27 @@ const MEMORY64_RMW_SPEC: AtomicLitmusSpecV1 = {
   ],
 };
 
+const MULTI_MEMORY_CMPXCHG_SPEC: AtomicLitmusSpecV1 = {
+  schema: "starshine.optimizer-atomic-litmus.v1",
+  id: "i32-cmpxchg-selected-second-memory",
+  workerCount: 2,
+  exportName: "run",
+  workerArguments: [[1], [2]],
+  memoryImport: { module: "env", field: "memory0", initial: 1, maximum: 1 },
+  additionalMemoryImports: [
+    { module: "env", field: "memory1", initial: 1, maximum: 1 },
+  ],
+  observedI32Offsets: [0],
+  additionalObservedI32Locations: [
+    { memoryImportIndex: 1, offset: 0 },
+  ],
+  trials: 2,
+  allowedOutcomes: [
+    { threadResults: [0, 1], memoryI32: [0, 1] },
+    { threadResults: [2, 0], memoryI32: [0, 2] },
+  ],
+};
+
 describe("atomic allowed-outcome comparison", () => {
   test("rejects unbounded trial and shared-memory specifications", () => {
     expect(() => validateAtomicLitmusSpecV1({ ...RMW_ADD_SPEC, trials: 9 })).toThrow("between 1 and 8");
@@ -155,6 +176,18 @@ describe("atomic allowed-outcome comparison", () => {
       ...RMW_ADD_SPEC,
       memoryImport: { ...RMW_ADD_SPEC.memoryImport, address: "i128" as "i64" },
     })).toThrow("address must be i32 or i64");
+    expect(() => validateAtomicLitmusSpecV1({
+      ...MULTI_MEMORY_RMW_SPEC,
+      additionalObservedI32Locations: [
+        { memoryImportIndex: 2, offset: 0 },
+      ],
+    })).toThrow("must select an additional memory import");
+    expect(() => validateAtomicLitmusSpecV1({
+      ...MULTI_MEMORY_RMW_SPEC,
+      additionalObservedI32Locations: [
+        { memoryImportIndex: 1, offset: 2 },
+      ],
+    })).toThrow("must be aligned");
   });
 
   test("accepts different allowed schedules without requiring exact replay", () => {
@@ -431,7 +464,6 @@ describe("atomic allowed-outcome comparison", () => {
         i64.const 0
         i32.const 2
         i32.atomic.rmw.add))`);
-
     const report = await runNodeAtomicLitmusComparisonV1(
       original,
       wrong,
@@ -449,5 +481,38 @@ describe("atomic allowed-outcome comparison", () => {
     expect(report.candidate.status).toBe("complete");
     expect(report.comparison.classification).toBe("semantic-mismatch");
     expect(report.comparison.firstDisallowedOutcome?.memoryI32).toEqual([4]);
+  });
+
+  test("observes compare-exchange on a nonzero imported shared memory", async () => {
+    const original = compileWat(`(module
+      (import "env" "memory0" (memory $memory0 1 1 shared))
+      (import "env" "memory1" (memory $memory1 1 1 shared))
+      (func (export "run") (param i32) (result i32)
+        i32.const 0
+        i32.const 0
+        local.get 0
+        i32.atomic.rmw.cmpxchg $memory1))`);
+    const wrong = compileWat(`(module
+      (import "env" "memory0" (memory $memory0 1 1 shared))
+      (import "env" "memory1" (memory $memory1 1 1 shared))
+      (func (export "run") (param i32) (result i32)
+        i32.const 0
+        i32.const 0
+        local.get 0
+        i32.atomic.rmw.cmpxchg $memory0))`);
+
+    const report = await runNodeAtomicLitmusComparisonV1(
+      original,
+      wrong,
+      MULTI_MEMORY_CMPXCHG_SPEC,
+      { timeoutMs: 3000 },
+    );
+
+    expect(report.original.status).toBe("complete");
+    expect(report.original.observations).toHaveLength(2);
+    expect(report.candidate.status).toBe("complete");
+    expect(report.comparison.classification).toBe("semantic-mismatch");
+    expect(report.comparison.firstDisallowedOutcome?.memoryI32[1]).toBe(0);
+    expect([1, 2]).toContain(report.comparison.firstDisallowedOutcome?.memoryI32[0]);
   });
 });

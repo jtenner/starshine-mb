@@ -109,11 +109,18 @@ async function executeTrial(
         });
       }
     });
-    const memoryView = new Int32Array(memories[0].buffer);
+    const primaryMemoryView = new Int32Array(memories[0].buffer);
+    const additionalMemoryValues = (spec.additionalObservedI32Locations ?? []).map((location) => {
+      const selectedMemoryView = new Int32Array(memories[location.memoryImportIndex].buffer);
+      return Atomics.load(selectedMemoryView, location.offset / 4);
+    });
     return {
       trial,
       threadResults: results,
-      memoryI32: spec.observedI32Offsets.map((offset) => Atomics.load(memoryView, offset / 4)),
+      memoryI32: [
+        ...spec.observedI32Offsets.map((offset) => Atomics.load(primaryMemoryView, offset / 4)),
+        ...additionalMemoryValues,
+      ],
     };
   } finally {
     await Promise.allSettled(workers.map((worker) => worker.terminate()));
