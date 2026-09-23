@@ -512,6 +512,96 @@ fn gsi_mark_exported_param_struct_origins(
 }
 
 ///|
+fn gsi_func_ref_matches_table(
+  env : @validate.Env,
+  func_idx : @lib.FuncIdx,
+  table_ref_type : @lib.RefType,
+) -> Bool {
+  let type_idx = match env.get_functypeidx_by_funcidx(func_idx) {
+    Some(type_idx) => type_idx
+    None => return false
+  }
+  for exact in [false, true] {
+    let func_ref_type = @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact~),
+    )
+    if @validate.Match::matches(
+        func_ref_type,
+        @lib.ValType::ref_type(table_ref_type),
+        env,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn gsi_mark_external_table_callable_param_struct_origins(
+  env : @validate.Env,
+  mod_ : @lib.Module,
+  poisoned_type_slots : Array[Bool],
+) -> Unit {
+  let external_table_types : Array[@lib.RefType] = []
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.TableExternType(@lib.TableType(ref_type, _))) =>
+            external_table_types.push(ref_type)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        let table_idx = match export_ {
+          @lib.Export(_, @lib.TableExternIdx(table_idx)) => table_idx
+          _ => continue
+        }
+        match env.get_table_type(table_idx) {
+          Some(@lib.TableType(ref_type, _)) =>
+            external_table_types.push(ref_type)
+          None => ()
+        }
+      }
+    None => ()
+  }
+  if external_table_types.is_empty() {
+    return
+  }
+  let defined_func_count = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.length()
+    None => 0
+  }
+  let first_defined_func = env.funcs.length() - defined_func_count
+  for raw_idx = first_defined_func
+      raw_idx < env.funcs.length()
+      raw_idx = raw_idx + 1 {
+    let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
+    let mut callable = false
+    for table_ref_type in external_table_types {
+      if gsi_func_ref_matches_table(env, func_idx, table_ref_type) {
+        callable = true
+        break
+      }
+    }
+    if !callable {
+      continue
+    }
+    match env.get_functype_by_funcidx(func_idx) {
+      Some(@lib.FuncType(params, _)) =>
+        for param in params {
+          gsi_mark_external_struct_origins(env, param, poisoned_type_slots)
+        }
+      None => ()
+    }
+  }
+}
+
+///|
 fn gsi_build_closed_world_facts(
   env : @validate.Env,
   mod_ : @lib.Module,
@@ -525,6 +615,9 @@ fn gsi_build_closed_world_facts(
   }
   gsi_mark_imported_struct_origins(env, mod_, poisoned_type_slots)
   gsi_mark_exported_param_struct_origins(env, mod_, poisoned_type_slots)
+  gsi_mark_external_table_callable_param_struct_origins(
+    env, mod_, poisoned_type_slots,
+  )
 
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>

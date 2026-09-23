@@ -152,19 +152,19 @@ Both entries receive `closed_world`. Plain GSI no longer gates open-world folds 
 
 - `src/passes/global_struct_inference.mbt:2`
   - summary string: folds immutable struct field reads from direct immutable global instances.
-- `src/passes/global_struct_inference.mbt:20-615`
-  - `GsiClosedWorldFacts`, struct-allocation scanners, imported and exported-parameter reference-origin poisoning, equality-comparable global declaration filtering, subtype propagation helpers, exact direct candidate extraction, exact direct single-candidate extraction, and `gsi_build_closed_world_facts(...)`.
-- `src/passes/global_struct_inference.mbt:616-1370`
+- `src/passes/global_struct_inference.mbt:20-712`
+  - `GsiClosedWorldFacts`, struct-allocation scanners, imported, directly exported, and externally accessible table-callable parameter reference-origin poisoning, equality-comparable global declaration filtering, subtype propagation helpers, exact direct candidate extraction, exact direct single-candidate extraction, and `gsi_build_closed_world_facts(...)`.
+- `src/passes/global_struct_inference.mbt:713-1467`
   - guarded small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-binary/float-rounding-sqrt/sign-extension un-nesting request collection, fresh-global synthesis, initializer repair, dynamic packed signed/unsigned repair for fresh-global payloads, and forced reorder-globals repair.
-- `src/passes/global_struct_inference.mbt:1371-1558`
+- `src/passes/global_struct_inference.mbt:1468-1655`
   - default-value materialization, simple one-instruction result typing, accepted field-value materialization, candidate field-value harvesting from trusted global initializers, and accepted top-level global initializer constructors.
-- `src/passes/global_struct_inference.mbt:1559-2421`
+- `src/passes/global_struct_inference.mbt:1656-2656`
   - exact and subtype-propagated local/param origin helpers, exact/subtype-aware one-value local fold helpers, exact/subtype-aware two-value singleton-group select helpers, candidate-created-type subtype checks, packed signed and unsigned value repair, then maps trusted globals plus one `struct.get*` into replacement expressions.
-- `src/passes/global_struct_inference.mbt:2560-2893`
+- `src/passes/global_struct_inference.mbt:2657-2990`
   - recursive body rewrite; immediate `global.get` + `struct.get*` pairs, closed-world exact and subtype-propagated single-candidate `local.get` + `struct.get*` origin pairs, closed-world exact/subtype-propagated one-value local folds, and closed-world exact/subtype-propagated two-value singleton-group selects are replaced.
-- `src/passes/global_struct_inference.mbt:2894-3229`
+- `src/passes/global_struct_inference.mbt:2991-3326`
   - cheap pre-scan to skip functions with no possible direct, exact/subtype-propagated local-origin, one-value, or two-value select pair rewrite.
-- `src/passes/global_struct_inference.mbt:3257-3441`
+- `src/passes/global_struct_inference.mbt:3327-3538`
   - public pass entrypoint; builds closed-world exact single-candidate and propagated candidate facts when requested, runs the direct-global candidate table, rewrites changed functions, and returns the original module when no change is found.
 
 ## Starshine test surface
@@ -183,7 +183,7 @@ Current focused public-pipeline tests prove the local rewrite subset:
 - read-gated small-module non-constant un-nesting for arithmetic, integer bitwise, integer shift/rotate, unary numeric, float div/min/max/copysign, float square-root, and float rounding field operands, including packed signed/unsigned direct-global and closed-world local/param reads whose fresh-global payloads need dynamic repair
 - exact and subtype-propagated multi-candidate one-value local/param folds in closed world, including equal literals, immutable `global.get`s, body locals, packed-field repair, child-only parent reads, and mixed parent/child candidate order
 - exact and subtype-propagated multi-candidate two-value local/param selects in closed world, including two-global, three-global singleton-group, child-only parent, and mixed parent/child positives
-- open-world, imported nominal-reference origin, exported nominal-parameter origin, more-than-two-value, two-equal-pair, non-materializable, poisoned child/exact type, mutable-field, mutable-global, and too-broad/`anyref` local-origin negatives
+- open-world, imported nominal-reference origin, directly exported nominal-parameter origin, imported- and exported-table-callable nominal-parameter origins, more-than-two-value, two-equal-pair, non-materializable, poisoned child/exact type, mutable-field, mutable-global, and too-broad/`anyref` local-origin negatives
 
 ### `src/passes/global_struct_inference_wbtest.mbt`
 
@@ -204,7 +204,7 @@ These tests now cover the direct-global O4z audit surfaces, the subtype-aware cl
 | --- | --- | --- |
 | GC gate | yes | implicit via supported syntax and pass inputs; no full Binaryen feature gate mirror |
 | Open-world direct-global read | yes | yes for immediate `global.get` + `struct.get*` |
-| Closed-world candidate map by heap type | yes | direct-type plus subtype-propagated candidates and poison facts; imported globals, tables, function results, tag payloads, and exported defined-function parameters poison compatible nominal struct origins before the facts are consumed for local/param rewrites |
+| Closed-world candidate map by heap type | yes | direct-type plus subtype-propagated candidates and poison facts; imported globals, tables, function results, tag payloads, directly exported defined-function parameters, and parameters of defined functions type-compatible with imported or exported function tables poison compatible nominal struct origins before the facts are consumed for local/param rewrites |
 | Direct immutable-global fold | yes | yes, immediate-pair-only |
 | Local/param/supertype-origin rewrite | yes | exact and subtype-propagated one-global origin rewrites, guarded by candidate global reference typing, plus exact/subtype-propagated one-value and two-value local/param rewrites |
 | Function-local and nested-global poisoning | yes | yes, with poison propagated upward to parent types in the facts and consumed by local/param guards |
