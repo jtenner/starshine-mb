@@ -202,13 +202,18 @@
     canonicalization, reduction, and diagnostics, with isolated cache entries.
     Synthetic red/green harness tests passed 77/77; arbitrary custom sections
     and nonprinted DWARF remain outside this specific comparison projection.
-47. [ ] Add executable proposal observations for currently blocked families.
+47. [x] Add executable proposal observations for currently blocked families.
     Non-null `i31ref` function arguments/results and imported-function events
     are now observed with bounded signed 31-bit vectors (`8d485d476`); focused
-    runtime tests passed 41/41 after integration. Remaining: non-null aggregate
-    GC references, `exnref`/`contref` crossings, relaxed-SIMD allowed outcomes,
-    and imported memory64 resources. Keep this item open until each family has
-    executable observations or an explicit unsupported boundary.
+    runtime tests passed 41/41 after integration. Exact-type retained exports
+    now supply executable non-null struct and array references; `exnref` and
+    abstract/nullable/nominal `contref` crossings return explicit JavaScript
+    unsupported reasons, and relaxed-SIMD diagnostics carry a machine-readable
+    general allowed-outcome boundary (`389865173`). Imported memory64 uses a
+    BigInt-limit Node adapter and a full in-cap snapshot; a corrupt
+    `memory.size` is detected (`ab1ef3225`). Focused Bun and Moon suites passed.
+    Arbitrary relaxed-SIMD outcome contracts and GC arguments without an exact
+    producer remain explicit unsupported boundaries. No fuzz campaign ran.
 48. [ ] Add multi-thread allowed-outcome checks for atomic transformations.
     A bounded two-worker Node litmus now checks declared allowed outcomes for
     sequentially consistent `i32.atomic.rmw.add` over shared memory
@@ -248,7 +253,13 @@
     stable oracle results; old `failure.json` entries are ignored and a later
     lane retries the command. A fail-then-recover synthetic regression failed
     before the fix and passed afterward; nearby harness tests passed 77/77.
-52. [x] Add hard subprocess timeouts to validator and optimizer workers. Async optimizer, validator, and generator subprocesses now have a hard default deadline; the main Starshine/Binaryen/validator path accepts `--subprocess-timeout-ms`, and synchronous reduction/artifact probes are bounded. A one-case synthetic hanging Binaryen fixture proves timeout reporting without a fuzz campaign.
+52. [x] Optimizer, validator, generator, and auxiliary subprocesses have hard
+    deadlines. The configurable timeout now reaches wasm-smith, GenValid, and
+    the Binaryen version probe (`7e127706a`); the latter retains a 5-second
+    maximum. Synthetic hangs for Starshine, an external validator, both
+    generators, and the version probe exposed the missing deadlines before the
+    fix and passed afterward (compare-pass tests 86/86). Auxiliary probes keep
+    documented fixed deadlines. No fuzz campaign ran.
 53. [x] Correctness signoff lanes now require independent `wasm-tools`
     validation through `--require-independent-validator`; Binaryen-only
     primary validation is rejected before running, while diagnostic lanes
