@@ -3330,6 +3330,53 @@ test "explicit vacuum dispatches residual parity cleanup through cmd" {
 }
 
 ///|
+test "explicit vacuum prunes a GC type made unused by body cleanup" {
+  let wat =
+    #|(module
+    #|  (type (func))
+    #|  (type (struct (field (mut i32)) (field eqref)))
+    #|  (func (export "main") (type 0)
+    #|    (local i32 (ref null 0) anyref)
+    #|    struct.new_default 1
+    #|    local.set 2
+    #|    local.get 2
+    #|    drop
+    #|    return
+    #|    local.get 2
+    #|    drop)
+    #|  (start 0))
+    #|
+  let input = match
+    @wast.wast_to_binary_module(wat, filename="vacuum-dead-gc-type-cmd.wat") {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dead GC type fixture parse success, got \{err}")
+  }
+  let optimized = match
+    optimize_module_with_pass_flags(input, ["vacuum"], OptimizeOptions::new()) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected explicit Vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected dead GC type output to validate: \{err}")
+  }
+  match optimized.type_sec {
+    Some(@lib.TypeSec([@lib.SingleRecType(subtype)])) =>
+      assert_true(subtype.get_comptype() is @lib.FuncCompType(_, _))
+    other =>
+      fail(
+        "expected command Vacuum to keep only the function type, got \{@debug.to_string(other)}",
+      )
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec([type_idx])) =>
+      @debug.assert_eq(type_idx, @lib.TypeIdx::new(0U))
+    other =>
+      fail("expected one remapped function, got \{@debug.to_string(other)}")
+  }
+}
+
+///|
 test "explicit vacuum dispatch removes null throw_ref try_table wrappers" {
   let wat =
     #|(module

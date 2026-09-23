@@ -47,6 +47,18 @@ passing. Fresh execution also returns equal `177` for case 816 and equal void
 for case 980. These former size-losing gaps are now measured Starshine wins of
 2, 6, and 4 canonical bytes.
 
+## September 23 shared type-cleanup metadata boundary
+
+Precompute and Vacuum share an optional whole-module cleanup for standalone GC
+types made unused by code rewriting. The simple-type remapper now refuses every
+ordinary opaque custom section. Payloads such as `metadata.code.branch_hint`,
+DWARF sections, and `reloc.CODE` may contain type indices or section-relative
+offsets that it cannot update. Structured name maps remain supported and are
+remapped; compiler facts are cleared by section mutation as before. Focused
+Precompute and Vacuum boundary tests preserve the opaque payload and retain the
+otherwise dead type. This fail-closed guard does not claim to repair opaque
+code metadata for other body rewrites.
+
 ## September 22 SIMD alias repair signoff
 
 After the red-first three-pair alias regression and CLI test, fresh native

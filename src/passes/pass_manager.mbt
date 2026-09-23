@@ -69055,6 +69055,20 @@ fn vacuum_remove_unused_declarations(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
+// Vacuum can remove the last instruction that mentions a GC type. Reuse the
+// fail-closed type cleanup only after declaration cleanup and writeback repair,
+// so every surviving type-index surface is remapped together.
+fn vacuum_cleanup_unused_declarations_and_gc_types(
+  original : @lib.Module,
+  mod_ : @lib.Module,
+) -> @lib.Module {
+  precompute_cleanup_unused_gc_types(
+    original,
+    vacuum_remove_unused_declarations(mod_),
+  )
+}
+
+///|
 fn o4z_canonicalize_final_size_strip_type_only_empty_module(
   mod_ : @lib.Module,
 ) -> @lib.Module {
@@ -81142,7 +81156,9 @@ fn run_hot_pipeline_apply_hot_pass(
           "guard:vacuum-writeback-batch",
           batch_guard_start_us,
         )
-        return Ok(vacuum_remove_unused_declarations(repaired_mod))
+        return Ok(
+          vacuum_cleanup_unused_declarations_and_gc_types(mod_, repaired_mod),
+        )
       }
       None => {
         perf_stop_timer_opt(
@@ -81268,7 +81284,7 @@ fn run_hot_pipeline_apply_hot_pass(
   }
   Ok(
     if descriptor.name == "vacuum" {
-      vacuum_remove_unused_declarations(next_mod)
+      vacuum_cleanup_unused_declarations_and_gc_types(mod_, next_mod)
     } else if descriptor.name == "precompute" ||
       descriptor.name == "precompute-propagate" {
       precompute_cleanup_unused_gc_types(mod_, next_mod)
@@ -81480,7 +81496,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
     None => current_mod
   }
   let output = if descriptors.any(fn(d) { d.name == "vacuum" }) {
-    vacuum_remove_unused_declarations(output)
+    vacuum_cleanup_unused_declarations_and_gc_types(mod_, output)
   } else {
     output
   }

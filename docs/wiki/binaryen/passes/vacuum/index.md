@@ -76,6 +76,24 @@ valid nullable owner result type and three bytes from deleting a pure dropped
 multivalue dispatch. See the [fuzzing dossier](fuzzing.md) for the complete
 classification and oracle hashes.
 
+## Dead GC types exposed by body cleanup
+
+Vacuum can remove the final instruction that mentions a standalone struct or
+array type. Its module finalizer now reuses the validated simple-type cleanup
+after repaired writeback: the cleanup requires supported type-index surfaces, a
+real code-byte change, a smaller encoded module, and successful validation.
+Unsupported recursion groups, subtype metadata, descriptors, shared types, and
+reference surfaces continue to fail closed. Opaque custom sections such as
+branch hints, DWARF, and `reloc.CODE` also block pruning because the remapper
+cannot safely rewrite embedded indices or section-relative offsets. The same
+guard protects Precompute's shared type-cleanup caller.
+
+On saved seven-pass case `000031`, the retained dead struct made the old
+Starshine output 50 raw bytes versus Binaryen v132 at 45. Exact replay is now 44
+raw and canonical bytes versus Binaryen's 45/45; the sole remaining difference
+is Starshine's smaller empty function body versus Binaryen's `nop`. See the
+[fuzzing dossier](fuzzing.md) for the verified oracle and artifact evidence.
+
 ## Role
 
 - `vacuum` is an active implemented **hot pass** in Starshine.

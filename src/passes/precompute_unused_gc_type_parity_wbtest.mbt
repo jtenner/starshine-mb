@@ -77,3 +77,19 @@ test "Precompute type cleanup intentionally excludes unhandled nested proposals 
   )
   assert_false(precompute_type_cleanup_supported(grouped))
 }
+
+///|
+test "Precompute type cleanup intentionally excludes opaque custom metadata" {
+  // Boundary/fail-closed: ordinary custom-section payloads may contain type
+  // indices or section-relative offsets that the shared remapper cannot update.
+  let input = precompute_unused_gc_type_parity_fixture().with_custom_secs([
+    @lib.CustomSec::new(@lib.Name::new("reloc.CODE"), b"\x00"),
+  ])
+  let output = run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute"]).unwrap()
+  assert_true(@validate.validate_module(output) is Ok(_))
+  assert_eq(output.custom_secs, input.custom_secs)
+  assert_eq(
+    output.type_sec.unwrap().0.length(),
+    input.type_sec.unwrap().0.length(),
+  )
+}

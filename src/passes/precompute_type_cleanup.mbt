@@ -75,6 +75,12 @@ fn precompute_type_cleanup_instrs_supported(
 
 ///|
 fn precompute_type_cleanup_supported(mod_ : @lib.Module) -> Bool {
+  // Ordinary custom sections are opaque here. They may encode type indices or
+  // section-relative offsets (for example branch hints, DWARF, or reloc.CODE),
+  // and the simple-type remapper cannot update those payloads.
+  if !mod_.custom_secs.is_empty() {
+    return false
+  }
   let types = match mod_.type_sec {
     Some(@lib.TypeSec(types)) => types
     None => return false

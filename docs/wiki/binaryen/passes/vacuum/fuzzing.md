@@ -11,6 +11,34 @@ sources:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
+## September 23 saved seven-pass dead GC type cleanup
+
+Saved case `000031` from
+`.tmp/current-audit-seven-pass-random-all-1000/failures/` first diverges at
+the third pass, `vacuum`. Body cleanup removes the only allocation and local
+traffic that mention a standalone struct type, but Starshine formerly retained
+that now-dead type. The saved Starshine output was 50 raw bytes and 44 canonical
+bytes versus Binaryen v132 at 45 raw and canonical bytes.
+
+Vacuum now runs the existing fail-closed simple-type cleanup after repaired
+writeback and declaration cleanup. It acts only when Vacuum changed code bytes,
+all type definitions and type-index reference surfaces are supported, pruning
+makes the encoded module smaller, and the pruned module validates. Recursion
+groups, supertypes, descriptors, shared types, and unhandled reference surfaces
+remain excluded. Ordinary opaque custom sections are also excluded because
+branch hints, DWARF, relocations, or another payload may contain type indices or
+section-relative offsets that this remapper cannot update. This shared guard
+also applies to Precompute type cleanup.
+
+Exact seven-pass native replay produces a validating 44-byte raw and canonical
+Starshine module versus the verified v132 oracle's 45-byte raw and canonical
+module. The only WAT difference is Binaryen's retained `nop`; Starshine emits an
+empty body, a measured one-byte raw and canonical win. The oracle is `wasm-opt
+version 132 (version_132-100-gfbf2e5aa2)`, SHA-256
+`500201b4d13ccc3a61fa5254073e75a138bc57be198bd6c18c5a9562c081ad18`.
+Adjacent pass and active command-dispatch tests cover pruning and function-type
+index preservation.
+
 ## September 23 Binaryen 132 EH structural campaign
 
 The saved, bounded `campaign-eh-control` run in
