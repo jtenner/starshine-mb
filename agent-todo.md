@@ -457,13 +457,18 @@
     including calls and traps. Focused direct plus command tests are green;
     `3d0a2e9d7` covers all four command variants. Verified v132 SHA-256 is
     `500201b4d13ccc3a61fa5254073e75a138bc57be198bd6c18c5a9562c081ad18`.
-82. [ ] Saved seven-pass case 31 exposes a raw-size Vacuum parity gap:
-    after removing the now-dead body, Starshine retains an unused struct type
-    and emits 50 bytes while verified v132 prunes the type and emits 45.
-    External canonicalization later hides the gap (44 vs 45), so the raw
-    `+5` regression must stay visible. Add red direct and dispatcher type-use
-    tests, perform only source-proven dead-type cleanup, and replay the exact
-    saved module without a fuzz run.
+82. [x] Saved seven-pass case 31 exposed a raw-size Vacuum parity gap:
+    after removing the now-dead body, Starshine retained an unused struct type
+    and emitted 50 bytes while verified v132 pruned the type and emitted 45.
+    External canonicalization later hid the gap (44 vs 45), so the raw
+    `+5` regression had to stay visible. Fixed in `59d4d55e9`: Red adjacent
+    and dispatcher tests retained the dead type, and a metadata-boundary test
+    exposed unsafe pruning. Vacuum now reuses validated simple-type cleanup
+    after changed code and repaired writeback; the shared helper refuses opaque
+    custom sections. Green adjacent, dispatcher, Vacuum metadata, Precompute
+    metadata, and existing positive Precompute tests pass. Exact saved replay
+    validates at 44 raw / 44 canonical bytes versus verified v132's 45 / 45;
+    Starshine omits Binaryen's trailing `nop`. No fuzz campaign ran.
 83. [ ] Saved retained cases 15 and 28 have an OptimizeInstructions
     local-declaration grouping gap: Starshine preserves split equal-type
     groups where verified v132 packs them with a matching local-index remap.

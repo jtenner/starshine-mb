@@ -90,6 +90,12 @@ validated 40-byte fixed point after bounded instruction revisits. These are
 individual exact replays; unretained output pairs and unreplayed siblings
 remain unclassified.
 
+[Vacuum case 31](../binaryen/passes/vacuum/fuzzing.md) now prunes the standalone
+struct type made dead by body cleanup. Its exact saved replay validates at 44
+raw and canonical bytes versus verified v132's 45 / 45; Binaryen retains a
+trailing `nop`. The previous Starshine raw output was 50 bytes, so this closes
+the emitted-size regression as a measured one-byte win.
+
 In the separate 256-case [EH/Vacuum campaign](../binaryen/passes/vacuum/fuzzing.md),
 layouts `1` and `7` account for 64 historical mismatches that are source-backed
 canonical projection wins, although Binaryen's raw encodings are smaller.
