@@ -2875,6 +2875,164 @@ fn dfe_rewrite_func_idx(
 }
 
 ///|
+fn dfe_mark_identity_visible_func(
+  func_idx : @lib.FuncIdx,
+  imported_count : Int,
+  identity_visible : Array[Bool],
+) -> Unit {
+  let @lib.FuncIdx(raw) = func_idx
+  let local_idx = raw.reinterpret_as_int() - imported_count
+  if local_idx >= 0 && local_idx < identity_visible.length() {
+    identity_visible[local_idx] = true
+  }
+}
+
+///|
+fn dfe_mark_ref_func_identities_in_instruction(
+  instr : @lib.Instruction,
+  imported_count : Int,
+  identity_visible : Array[Bool],
+) -> Unit {
+  match instr {
+    @lib.Block(_, expr) | @lib.Loop(_, expr) | @lib.TryTable(_, _, expr) =>
+      dfe_mark_ref_func_identities_in_expr(
+        expr, imported_count, identity_visible,
+      )
+    @lib.If(_, then_body, else_body) => {
+      dfe_mark_ref_func_identities_in_instructions(
+        then_body, imported_count, identity_visible,
+      )
+      match else_body {
+        Some(body) =>
+          dfe_mark_ref_func_identities_in_instructions(
+            body, imported_count, identity_visible,
+          )
+        None => ()
+      }
+    }
+    @lib.RefFunc(func_idx) =>
+      dfe_mark_identity_visible_func(func_idx, imported_count, identity_visible)
+    _ => ()
+  }
+}
+
+///|
+fn dfe_mark_ref_func_identities_in_instructions(
+  instrs : Array[@lib.Instruction],
+  imported_count : Int,
+  identity_visible : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    dfe_mark_ref_func_identities_in_instruction(
+      instr, imported_count, identity_visible,
+    )
+  }
+}
+
+///|
+fn dfe_mark_ref_func_identities_in_expr(
+  expr : @lib.Expr,
+  imported_count : Int,
+  identity_visible : Array[Bool],
+) -> Unit {
+  let @lib.Expr(instrs) = expr
+  dfe_mark_ref_func_identities_in_instructions(
+    instrs, imported_count, identity_visible,
+  )
+}
+
+///|
+fn dfe_mark_elem_kind_identities(
+  kind : @lib.ElemKind,
+  imported_count : Int,
+  identity_visible : Array[Bool],
+) -> Unit {
+  match kind {
+    @lib.FuncsElemKind(funcs) =>
+      for func_idx in funcs {
+        dfe_mark_identity_visible_func(
+          func_idx, imported_count, identity_visible,
+        )
+      }
+    @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+      for expr in exprs {
+        dfe_mark_ref_func_identities_in_expr(
+          expr, imported_count, identity_visible,
+        )
+      }
+  }
+}
+
+///|
+fn dfe_identity_visible_defined_funcs(
+  mod_ : @lib.Module,
+  imported_count : Int,
+  defined_count : Int,
+) -> Array[Bool] {
+  let identity_visible = Array::make(defined_count, false)
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.FuncExternIdx(func_idx)) =>
+            dfe_mark_identity_visible_func(
+              func_idx, imported_count, identity_visible,
+            )
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      for elem in elems {
+        let @lib.Elem(mode, kind) = elem
+        // Declarative segments only declare ref.func operands for validation;
+        // they never instantiate function references at runtime.
+        if !(mode is @lib.Declarative) {
+          dfe_mark_elem_kind_identities(kind, imported_count, identity_visible)
+        }
+      }
+    None => ()
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for table in tables {
+        let @lib.Table(_, init) = table
+        match init {
+          Some(expr) =>
+            dfe_mark_ref_func_identities_in_expr(
+              expr, imported_count, identity_visible,
+            )
+          None => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for global in globals {
+        let @lib.Global(_, init) = global
+        dfe_mark_ref_func_identities_in_expr(
+          init, imported_count, identity_visible,
+        )
+      }
+    None => ()
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, body) = func
+        dfe_mark_ref_func_identities_in_expr(
+          body, imported_count, identity_visible,
+        )
+      }
+    None => ()
+  }
+  identity_visible
+}
+
+///|
 fn dfe_rewrite_instruction_func_idxs(
   instr : @lib.Instruction,
   remap : Array[UInt],
@@ -4038,22 +4196,11 @@ fn dfe_eliminate_duplicate_functions(
       }
       dfe_perf_stop_timer_opt(perf, "type-canon", type_canon_timer)
       let imported_count = dfe_imported_func_count(mod_)
-      let exported : Array[Bool] = Array::make(funcs.length(), false)
-      match mod_.export_sec {
-        Some(@lib.ExportSec(exports)) =>
-          for export_ in exports {
-            match export_ {
-              @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(raw))) => {
-                let local_idx = raw.reinterpret_as_int() - imported_count
-                if local_idx >= 0 && local_idx < exported.length() {
-                  exported[local_idx] = true
-                }
-              }
-              _ => ()
-            }
-          }
-        None => ()
-      }
+      let identity_visible = dfe_identity_visible_defined_funcs(
+        mod_,
+        imported_count,
+        funcs.length(),
+      )
       let annotations_by_abs_idx = dfe_func_annotation_map(mod_)
       let has_annotations = annotations_by_abs_idx.length() > 0
       let normalized_funcs : Array[@lib.Func?] = Array::make(
@@ -4193,8 +4340,9 @@ fn dfe_eliminate_duplicate_functions(
                 j += 1
                 continue
               }
-              // An exported function has a host-visible address identity.
-              if exported[first] || exported[second] {
+              // Exported and address-materialized functions have observable
+              // identities, including through host-visible tables and globals.
+              if identity_visible[first] || identity_visible[second] {
                 j += 1
                 continue
               }

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-22
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateFunctionElimination.cpp
   - ./index.md
@@ -93,6 +93,11 @@ This is the most basic rewrite surface.
 
 ## Positive family 3: `ref.func` keeps the duplicate live until it is rewritten
 
+This is the historical Binaryen shape. Starshine's direct pass now treats any
+defined function named by a runtime `ref.func` as identity-visible and keeps it
+distinct, because that reference can escape through a table, global, return, or
+imported callback.
+
 Before:
 
 ```wat
@@ -115,6 +120,10 @@ After, conceptually:
 The all-features test exists to prove that DFE does not accidentally delete a still-referenced function.
 
 ## Positive family 4: global `ref.func` plus later `call_ref`
+
+This is also a historical Binaryen rewrite shape. Starshine preserves `$b` and
+the global initializer target because an exported global can expose that
+function address to the host.
 
 Before:
 
@@ -145,10 +154,11 @@ This is the best beginner example of “module code rewrite matters too.”
 
 ## Positive family 5: exports, start, and element users follow the survivor
 
-This is a historical Binaryen output shape. Starshine's direct pass now keeps
-distinct exported function addresses: the JavaScript API exposes their
-identity through cached Exported Function objects. Start and element references
-still follow a survivor when a non-exported function is safely removed.
+This is a historical Binaryen output shape. Starshine's direct pass keeps
+distinct exported function addresses and functions materialized by active or
+passive elements: the JavaScript API exposes their identity through cached
+Exported Function objects. A `start` reference alone can still follow a
+survivor because it invokes the function without exposing its address.
 
 Before, conceptually:
 

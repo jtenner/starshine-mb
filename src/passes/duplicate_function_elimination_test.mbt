@@ -703,7 +703,7 @@ test "duplicate-function-elimination keeps annotated duplicates distinct" {
 }
 
 ///|
-test "duplicate-function-elimination rewrites return_call and module ref.func initializers" {
+test "duplicate-function-elimination preserves module ref.func initializer identities" {
   let func_ref_type = @lib.RefType::new(
     true,
     @lib.HeapType::abs(@lib.AbsHeapType::func()),
@@ -768,24 +768,24 @@ test "duplicate-function-elimination rewrites return_call and module ref.func in
       @lib.CodeSec(
         [@lib.Func(_, @lib.Expr([@lib.ReturnCall(@lib.FuncIdx(target))])), ..]
       )
-    ) => @debug.assert_eq(target, 1U)
-    _ => fail("expected rewritten return_call target")
+    ) => @debug.assert_eq(target, 2U)
+    _ => fail("expected preserved return_call target")
   }
   match optimized.table_sec {
     Some(
       @lib.TableSec(
         [@lib.Table(_, Some(@lib.Expr([@lib.RefFunc(@lib.FuncIdx(target))])))]
       )
-    ) => @debug.assert_eq(target, 1U)
-    _ => fail("expected rewritten table initializer ref.func")
+    ) => @debug.assert_eq(target, 2U)
+    _ => fail("expected preserved table initializer ref.func")
   }
   match optimized.global_sec {
     Some(
       @lib.GlobalSec(
         [@lib.Global(_, @lib.Expr([@lib.RefFunc(@lib.FuncIdx(target))]))]
       )
-    ) => @debug.assert_eq(target, 1U)
-    _ => fail("expected rewritten global initializer ref.func")
+    ) => @debug.assert_eq(target, 2U)
+    _ => fail("expected preserved global initializer ref.func")
   }
 }
 
@@ -1037,6 +1037,46 @@ test "duplicate-function-elimination preserves distinct exported function identi
 }
 
 ///|
+test "duplicate-function-elimination preserves address-taken internal function identities" {
+  let wat =
+    #|(module
+    #|  (func $first (result i32) (i32.const 7))
+    #|  (func $second (result i32) (i32.const 7))
+    #|  (table (export "refs") 2 funcref)
+    #|  (elem (i32.const 0) func $first $second)
+    #|  (global (export "first_ref") funcref (ref.func $first))
+    #|  (global (export "second_ref") funcref (ref.func $second)))
+  let input = pass_test_module_from_wat(wat)
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 2)
+  assert_true(
+    optimized.elem_sec
+    is Some(
+      @lib.ElemSec(
+        [
+          @lib.Elem(
+            @lib.Active(@lib.TableIdx(0U), _),
+            @lib.FuncsElemKind([@lib.FuncIdx(0U), @lib.FuncIdx(1U)])
+          ),
+        ]
+      )
+    ),
+  )
+  assert_true(
+    optimized.global_sec
+    is Some(
+      @lib.GlobalSec(
+        [
+          @lib.Global(_, @lib.Expr([@lib.RefFunc(@lib.FuncIdx(0U))])),
+          @lib.Global(_, @lib.Expr([@lib.RefFunc(@lib.FuncIdx(1U))])),
+        ]
+      )
+    ),
+  )
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+}
+
+///|
 test "duplicate-function-elimination keeps identical bodies distinct when function types differ" {
   let input = @lib.Module::new()
     .with_type_sec(
@@ -1264,7 +1304,7 @@ fn dfe_test_expr_references_func_idx(expr : @lib.Expr, target : UInt) -> Bool {
 }
 
 ///|
-test "duplicate-function-elimination rewrites nested call and ref.func instruction carriers" {
+test "duplicate-function-elimination preserves nested ref.func identities" {
   let input = @lib.Module::new()
     .with_type_sec(dfe_test_type_sec())
     .with_func_sec(
@@ -1322,15 +1362,15 @@ test "duplicate-function-elimination rewrites nested call and ref.func instructi
   let optimized = try! dfe_test_run(input)
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, body), ..])) => {
-      assert_false(dfe_test_expr_references_func_idx(body, 2U))
-      assert_true(dfe_test_expr_references_func_idx(body, 1U))
+      assert_true(dfe_test_expr_references_func_idx(body, 2U))
+      assert_false(dfe_test_expr_references_func_idx(body, 1U))
     }
     _ => fail("expected rewritten first function body")
   }
 }
 
 ///|
-test "duplicate-function-elimination rewrites passive typed function element expressions" {
+test "duplicate-function-elimination preserves passive element function identities" {
   let input = @lib.Module::new()
     .with_type_sec(dfe_test_type_sec())
     .with_func_sec(
@@ -1368,7 +1408,7 @@ test "duplicate-function-elimination rewrites passive typed function element exp
   match optimized.elem_sec {
     Some(
       @lib.ElemSec([@lib.Elem(_, @lib.FuncsElemKind([@lib.FuncIdx(target)]))])
-    ) => @debug.assert_eq(target, 0U)
+    ) => @debug.assert_eq(target, 1U)
     _ => fail("expected compacted typed function element expression")
   }
 }

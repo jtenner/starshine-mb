@@ -8956,3 +8956,39 @@ test "direct DFE preserves distinct host-exported function identities" {
   }
   assert_true(@validate.validate_module(optimized) is Ok(_))
 }
+
+///|
+test "direct DFE preserves address-taken internal function identities" {
+  let wat =
+    #|(module
+    #|  (func $first (result i32) (i32.const 7))
+    #|  (func $second (result i32) (i32.const 7))
+    #|  (table (export "refs") 2 funcref)
+    #|  (elem (i32.const 0) func $first $second)
+    #|  (global (export "first_ref") funcref (ref.func $first))
+    #|  (global (export "second_ref") funcref (ref.func $second)))
+  let input = @passes.pass_test_module_from_wat(wat)
+  let optimized = match
+    optimize_module_with_pass_flags(
+      input,
+      ["duplicate-function-elimination"],
+      OptimizeOptions::new(),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("direct DFE dispatch failed: \{err}")
+  }
+  assert_true(
+    optimized.elem_sec
+    is Some(
+      @lib.ElemSec(
+        [
+          @lib.Elem(
+            @lib.Active(@lib.TableIdx(0U), _),
+            @lib.FuncsElemKind([@lib.FuncIdx(0U), @lib.FuncIdx(1U)])
+          ),
+        ]
+      )
+    ),
+  )
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+}

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-26
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateFunctionElimination.cpp
@@ -12,6 +12,8 @@ sources:
   - ../../../../../src/passes/duplicate_function_elimination_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - https://webassembly.github.io/spec/js-api/#exported-functions
+  - https://webassembly.github.io/spec/js-api/#dom-table-get
+  - https://webassembly.github.io/spec/core/valid/instructions.html#valid-ref.eq
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -104,13 +106,25 @@ DFE when the original or current module has any imports or exports. Such a
 boundary can expose a function reference through exports, tables, globals, or
 imported callbacks; merging equal bodies would then collapse distinct host
 identities. Closed modules still run the scheduled DFE slot. Direct
-`--duplicate-function-elimination` now keeps each exported defined function
-outside duplicate groups, even when bodies match. The JavaScript API caches
-exported function objects by function address, so merging two exports changes
-observable `===` identity. This is a correctness improvement over the earlier
-direct-pass contract and can differ from Binaryen's output shape. The [Node host regression](../../../../../tests/optimizer/regressions/host-identity.test.ts)
-asserts these behaviors; narrowing the broad preset gate requires a sound
-escape analysis and measured size/performance evidence.
+`--duplicate-function-elimination` now keeps each exported or
+address-materialized defined function outside duplicate groups, even when
+bodies match. The conservative address scan covers `ref.func` in function
+bodies, table initializers, and global initializers, plus active and passive
+element entries. Declarative-only element entries do not instantiate a runtime
+reference. Direct calls and `start` remain rewriteable because they invoke a
+function without materializing its address.
+
+The JavaScript API converts a WebAssembly function address to a cached Exported
+Function object when `Table.get` or an exported global exposes it. Merging two
+functions stored in an exported `funcref` table or globals therefore changes
+observable JavaScript `===` identity even when both bodies return the same
+value. Core WebAssembly `ref.eq` cannot provide the equivalent in-module test:
+its validation rule requires `(ref null eq)` operands, and function references
+are outside that hierarchy. The [Node host regression](../../../../../tests/optimizer/regressions/host-identity.test.ts)
+checks table and global identity plus the alias relationship between them. This
+guard is a correctness improvement over the earlier direct-pass contract and
+can differ from Binaryen's output shape; narrowing the broad preset gate still
+requires sound escape analysis and measured size/performance evidence.
 The CLI's pure O4z size portfolio filters DFE from its automatic candidate
 rosters on the same host-boundary condition, so a shorter candidate cannot
 bypass the preset-origin guard. Mixed explicitly named passes do not use that
@@ -124,9 +138,11 @@ The function-index rewrite engine lives in `src/passes/duplicate_function_elimin
 
 The highest-value owner functions are:
 
-- `dfe_rewrite_func_idx(...)` at `:2523-2535`
-- `dfe_rewrite_instruction_func_idxs(...)` at `:2537-2588`
-- `dfe_rewrite_module_func_idxs(...)` at `:2712-2827`
+- `dfe_mark_identity_visible_func(...)`
+- `dfe_identity_visible_defined_funcs(...)`
+- `dfe_rewrite_func_idx(...)`
+- `dfe_rewrite_instruction_func_idxs(...)`
+- `dfe_rewrite_module_func_idxs(...)`
 
 This is where the current local pass rewrites the survivor mapping through module surfaces such as:
 
@@ -231,7 +247,9 @@ That two-way split is the main parity rule for this folder.
 Focused local pass tests live in `src/passes/duplicate_function_elimination_test.mbt`:
 
 - early focused tests
-  - rewrite function references through call / `ref.func` / export / start / elem surfaces, plus 2026-06-03 coverage for `return_call`, table initializers, and global initializer `ref.func`
+  - rewrite direct call / export / start surfaces and preserve identities
+    materialized by body `ref.func`, table/global initializers, and
+    active/passive elements
 - white-box hash coverage
   - locks whole-body hash prefilter behavior so sparse same-sample functions do not share one collision bucket
 - transitive-unlock coverage

@@ -14,6 +14,13 @@ const duplicateImports = `(module
 const duplicateExports = `(module
   (func $first (export "first") (result i32) (i32.const 7))
   (func $second (export "second") (result i32) (i32.const 7)))`;
+const addressTakenInternals = `(module
+  (func $first (result i32) (i32.const 7))
+  (func $second (result i32) (i32.const 7))
+  (table (export "refs") 2 funcref)
+  (elem (i32.const 0) func $first $second)
+  (global (export "first_ref") funcref (ref.func $first))
+  (global (export "second_ref") funcref (ref.func $second)))`;
 const observeImports = `const fs = require('node:fs');
 let reads = 0;
 const env = Object.defineProperty({}, 'f', {
@@ -27,6 +34,20 @@ const instance = new WebAssembly.Instance(
   new WebAssembly.Module(fs.readFileSync(process.argv[1])));
 console.log(JSON.stringify({same: instance.exports.first === instance.exports.second,
   first: instance.exports.first(), second: instance.exports.second()}));`;
+const observeAddressTakenInternals = `const fs = require('node:fs');
+const instance = new WebAssembly.Instance(
+  new WebAssembly.Module(fs.readFileSync(process.argv[1])));
+const tableFirst = instance.exports.refs.get(0);
+const tableSecond = instance.exports.refs.get(1);
+const globalFirst = instance.exports.first_ref.value;
+const globalSecond = instance.exports.second_ref.value;
+console.log(JSON.stringify({
+  tableSame: tableFirst === tableSecond,
+  globalSame: globalFirst === globalSecond,
+  firstAliases: tableFirst === globalFirst,
+  secondAliases: tableSecond === globalSecond,
+  first: tableFirst(), second: tableSecond(),
+}));`;
 
 function checkHostIdentity(
   name: string,
@@ -73,18 +94,34 @@ for (const flags of [["--optimize"], ["--shrink"], ["-O4z", "--optimize"], ["-O4
   );
 }
 
-// These are the direct passes' existing opt-in merge contracts. Keep their
-// observable effects explicit while presets gain a conservative host policy.
+// Keep the direct passes' observable identity contracts explicit alongside the
+// preset policy.
 checkHostIdentity(
   "direct duplicate-import-elimination merges same-name import resolution",
   duplicateImports, ["--duplicate-import-elimination"], observeImports,
   {reads: 2, result: 3}, {reads: 1, result: 2},
 );
 checkHostIdentity(
-  "direct duplicate-function-elimination merges exported identities",
+  "direct duplicate-function-elimination preserves exported identities",
   duplicateExports, ["--duplicate-function-elimination"], observeExports,
   {same: false, first: 7, second: 7},
-  {same: true, first: 7, second: 7},
+  {same: false, first: 7, second: 7},
+);
+checkHostIdentity(
+  "direct duplicate-function-elimination preserves address-taken internal identities",
+  addressTakenInternals,
+  ["--duplicate-function-elimination"],
+  observeAddressTakenInternals,
+  {
+    tableSame: false, globalSame: false,
+    firstAliases: true, secondAliases: true,
+    first: 7, second: 7,
+  },
+  {
+    tableSame: false, globalSame: false,
+    firstAliases: true, secondAliases: true,
+    first: 7, second: 7,
+  },
 );
 checkHostIdentity(
   "explicit duplicate-import-elimination still runs after optimize",
@@ -92,8 +129,8 @@ checkHostIdentity(
   {reads: 2, result: 3}, {reads: 1, result: 2},
 );
 checkHostIdentity(
-  "explicit duplicate-function-elimination still runs after optimize",
+  "explicit duplicate-function-elimination after optimize preserves exported identities",
   duplicateExports, ["--optimize", "--duplicate-function-elimination"], observeExports,
   {same: false, first: 7, second: 7},
-  {same: true, first: 7, second: 7},
+  {same: false, first: 7, second: 7},
 );
