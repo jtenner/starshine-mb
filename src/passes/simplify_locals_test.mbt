@@ -2529,6 +2529,45 @@ test "simplify-locals sinks split SIMD rotate temporaries in guarded large funct
 }
 
 ///|
+test "simplify-locals revisits SIMD writes exposed by result if cleanup" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local v128 v128 v128)
+    #|    v128.const i32x4 1 2 3 4
+    #|    local.set 1
+    #|    v128.const i32x4 9 9 9 9
+    #|    local.set 2
+    #|    v128.const i32x4 -1 0 -1 0
+    #|    local.set 3
+    #|    local.get 2
+    #|    local.get 1
+    #|    local.get 3
+    #|    v128.bitselect
+    #|    local.set 1
+    #|    local.get 0
+    #|    if (result v128)
+    #|      local.get 1
+    #|    else
+    #|      local.get 2
+    #|    end
+    #|    i32x4.extract_lane 3))
+  let optimized = match pass_test_run_pipeline(source, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected SIMD result-if simplification, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 3)"), msg=pretty)
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
+  assert_true(
+    body.contains(@lib.Instruction::local_tee(@lib.LocalIdx::new(2U))),
+    msg=pretty,
+  )
+  assert_true(pretty.contains("i32x4.extract_lane"), msg=pretty)
+}
+
+///|
 test "simplify-locals forwards guarded commutative SIMD carrier chains" {
   let source =
     #|(module

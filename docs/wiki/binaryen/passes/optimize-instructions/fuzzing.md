@@ -1,3 +1,30 @@
+## 2026-09-23 saved SIMD result-if parity
+
+The saved seven-pass `campaign-simd-numeric` ledger contained six shape-10
+rows, cases 50, 258, 410, 634, 682, and 826, at 117 Starshine versus 112
+Binaryen canonical bytes. A bounded replay used only exact case 50 and the
+recorded verified Binaryen 132 executable, SHA-256
+`500201b4d13ccc3a61fa5254073e75a138bc57be198bd6c18c5a9562c081ad18`.
+The first owner was OptimizeInstructions: Binaryen hoisted the matching
+`i32x4.extract_lane 3` shell above a value `if`, while Starshine left one
+extract in each arm. Starshine now applies the existing matching-unary-arm
+proof to `i32x4.extract_lane` only when the complete instructions, including
+their lane immediates, are equal. Different lanes remain in their arms.
+
+Case 50 is exact through the first four prefixes after this repair: 110/110
+bytes after OptimizeInstructions and 120/120 after Precompute, Vacuum, and
+LocalCSE. SimplifyLocals then lowers the result `if` to a flat `select`; its
+post-lowering cleanup now moves only adjacent `v128.const; local.set` pairs to
+their first read when the flat body ends in the exact
+`v128.bitselect -> select -> i32x4.extract_lane` shape. One-use writes become
+the constant itself and a multi-use write becomes `v128.const; local.tee`, so
+no constant evaluation, selected arm, or condition changes. The complete
+seven-pass case is 103 Starshine versus 112 Binaryen bytes, both outputs
+validate, and `run(0)`, `run(1)`, `run(-1)`, and `run(42)` return identical
+values for the input and both outputs. This is a measured nine-byte Starshine
+win for the replayed case. No fuzz campaign or sibling-case replay was run;
+the other five saved rows retain only their original ledger evidence.
+
 ## 2026-09-14 v132 correctness verification and narrow size reopening
 
 The [fourth optimizer audit](../../../ir2/architecture-rules.md#september-14-fourth-correctness-audit)

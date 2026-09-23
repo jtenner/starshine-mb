@@ -72612,6 +72612,109 @@ fn run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
 }
 
 ///|
+fn run_hot_pipeline_simplify_locals_lowered_is_simd_result_select(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 3 ||
+    !(body[body.length() - 2] is @lib.Select(_)) ||
+    !(body[body.length() - 1] is @lib.I32x4ExtractLane(_)) {
+    return false
+  }
+  body.any(fn(instr) { instr == @lib.Instruction::v128_bitselect() })
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_sink_v128_const_set_once(
+  body : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  if !run_hot_pipeline_simplify_locals_lowered_is_simd_result_select(body) {
+    return (body, false)
+  }
+  let max_local_idx = run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
+    body,
+  )
+  let get_counts = Array::make(max_local_idx + 1, 0)
+  run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
+    body, get_counts,
+  )
+  for set_idx = 1; set_idx < body.length(); set_idx = set_idx + 1 {
+    match (body[set_idx - 1], body[set_idx]) {
+      (@lib.V128Const(_) as producer, @lib.LocalSet(@lib.LocalIdx(target_raw))) => {
+        let target = target_raw.reinterpret_as_int()
+        if target < 0 ||
+          target >= get_counts.length() ||
+          get_counts[target] == 0 {
+          continue
+        }
+        let mut read_idx = set_idx + 1
+        let mut found_read = false
+        while read_idx < body.length() {
+          match body[read_idx] {
+            @lib.LocalGet(@lib.LocalIdx(raw)) if raw == target_raw => {
+              found_read = true
+              break
+            }
+            @lib.LocalSet(@lib.LocalIdx(raw))
+            | @lib.LocalTee(@lib.LocalIdx(raw)) if raw == target_raw => break
+            @lib.V128Const(_)
+            | @lib.LocalGet(_)
+            | @lib.LocalSet(_)
+            | @lib.LocalTee(_) => read_idx = read_idx + 1
+            _ => break
+          }
+        }
+        if !found_read {
+          continue
+        }
+        let rewritten : Array[@lib.Instruction] = []
+        for idx = 0; idx < body.length(); idx = idx + 1 {
+          if idx == set_idx - 1 || idx == set_idx {
+            continue
+          }
+          if idx == read_idx {
+            rewritten.push(producer)
+            if get_counts[target] > 1 {
+              rewritten.push(
+                @lib.Instruction::local_tee(@lib.LocalIdx::new(target_raw)),
+              )
+            }
+          } else {
+            rewritten.push(body[idx])
+          }
+        }
+        return (rewritten, true)
+      }
+      _ => ()
+    }
+  }
+  (body, false)
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_sink_v128_const_sets(
+  func : @lib.Func,
+) -> @lib.Func {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let mut current = body
+  let mut changed = false
+  for iteration = 0; iteration < 3; iteration = iteration + 1 {
+    let (rewritten, rewritten_once) = run_hot_pipeline_simplify_locals_lowered_sink_v128_const_set_once(
+      current,
+    )
+    if !rewritten_once {
+      break
+    }
+    current = rewritten
+    changed = true
+  }
+  if changed {
+    @lib.Func::new(locals, @lib.Expr::new(current))
+  } else {
+    func
+  }
+}
+
+///|
 fn run_hot_pipeline_simplify_locals_lowered_split_wrapper_middle_is_safe(
   body : Array[@lib.Instruction],
   start : Int,
@@ -74900,6 +75003,13 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
   let dead_set_cleaned = run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_func(
     func,
   )
+  let lowered_simd_cleaned = if descriptor_name == "simplify-locals" {
+    run_hot_pipeline_simplify_locals_lowered_sink_v128_const_sets(
+      dead_set_cleaned,
+    )
+  } else {
+    dead_set_cleaned
+  }
   if descriptor_name == "simplify-locals-notee" ||
     descriptor_name == "simplify-locals-no-tee" ||
     descriptor_name == "simplify-locals-notee-nostructure" {
@@ -74910,18 +75020,18 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
       dead_set_cleaned, descriptor_name, refinalization_context, mod_,
     )
   }
-  let @lib.Func(_, @lib.Expr(body)) = dead_set_cleaned
+  let @lib.Func(_, @lib.Expr(body)) = lowered_simd_cleaned
   if run_hot_pipeline_simplify_locals_lowered_should_skip_stack_hazard(
       descriptor_name, body,
     ) {
     return run_hot_pipeline_simplify_locals_finalize_lowered_root(
       run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
-        dead_set_cleaned, descriptor_name, refinalization_context, mod_,
+        lowered_simd_cleaned, descriptor_name, refinalization_context, mod_,
       ),
     )
   }
   let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
-    dead_set_cleaned,
+    lowered_simd_cleaned,
   )
   run_hot_pipeline_simplify_locals_finalize_lowered_root(
     run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
@@ -78562,22 +78672,32 @@ fn run_hot_pipeline_func(
       mod_, func_idx, module_state, descriptor, options,
     ) {
     Some(result) => {
-      let (folded, capture_changed) = if descriptor.name == "simplify-locals" &&
-        !result.unchanged_original {
-        run_hot_pipeline_simplify_locals_fold_adjacent_captures_func(
+      let simd_cleaned = if descriptor.name == "simplify-locals" {
+        run_hot_pipeline_simplify_locals_lowered_sink_v128_const_sets(
           result.func,
         )
       } else {
-        (result.func, false)
+        result.func
+      }
+      let simd_changed = simd_cleaned != result.func
+      let (folded, capture_changed) = if descriptor.name == "simplify-locals" &&
+        (!result.unchanged_original || simd_changed) {
+        run_hot_pipeline_simplify_locals_fold_adjacent_captures_func(
+          simd_cleaned,
+        )
+      } else {
+        (simd_cleaned, false)
       }
       let (finalized, finalized_changed) = run_hot_pipeline_simplify_locals_finalize_lowered_root_with_changed(
         folded,
       )
-      if !finalized_changed && !capture_changed {
+      if !finalized_changed && !capture_changed && !simd_changed {
         return Ok(result)
       }
       return Ok({
-        reason: if finalized_changed {
+        reason: if simd_changed {
+          "\{result.reason}-simd-result-select"
+        } else if finalized_changed {
           "\{result.reason}-root-finalized"
         } else {
           "\{result.reason}-adjacent-capture"

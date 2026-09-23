@@ -28545,6 +28545,7 @@ priv enum OiMatchingUnarySelectShellKind {
   MatchingSelectI64TruncSatF32U
   MatchingSelectI64TruncSatF64S
   MatchingSelectI64TruncSatF64U
+  MatchingSelectI32x4ExtractLane
 }
 
 ///|
@@ -28934,6 +28935,13 @@ fn OiMatchingUnarySelectArmFact::from_node(
         @lib.ValType::i64(),
         @lib.ValType::f64(),
       )
+    Some(@lib.Instruction::I32x4ExtractLane(lane)) =>
+      (
+        MatchingSelectI32x4ExtractLane,
+        @lib.Instruction::i32x4_extract_lane(lane),
+        @lib.ValType::i32(),
+        @lib.ValType::v128(),
+      )
     _ => return None
   }
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
@@ -29023,9 +29031,11 @@ fn OiMatchingUnarySelectArmPairFact::from_arms(
     (MatchingSelectI64TruncSatF32U, MatchingSelectI64TruncSatF32U) => ()
     (MatchingSelectI64TruncSatF64S, MatchingSelectI64TruncSatF64S) => ()
     (MatchingSelectI64TruncSatF64U, MatchingSelectI64TruncSatF64U) => ()
+    (MatchingSelectI32x4ExtractLane, MatchingSelectI32x4ExtractLane) => ()
     _ => return None
   }
-  if true_fact.child_type != false_fact.child_type ||
+  if true_fact.instr != false_fact.instr ||
+    true_fact.child_type != false_fact.child_type ||
     true_fact.result_type != false_fact.result_type {
     return None
   }

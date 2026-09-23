@@ -17397,6 +17397,25 @@ test "lowered simplify-locals cleanup hoists nops ahead of dupable value runs" {
 }
 
 ///|
+test "lowered simplify-locals sinks SIMD result-select constants" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) (local v128 v128 v128) v128.const i32x4 1 2 3 4 local.set 1 v128.const i32x4 9 9 9 9 local.set 2 v128.const i32x4 -1 0 -1 0 local.set 3 local.get 2 local.get 1 local.get 3 v128.bitselect local.get 2 local.get 0 select i32x4.extract_lane 3))",
+  )
+  let func = input.code_sec.unwrap().0[0]
+  let rewritten = run_hot_pipeline_simplify_locals_lowered_sink_v128_const_sets(
+    func,
+  )
+  let text = rewritten.pretty_print(@lib.PrettyPrintContext::new())
+  assert_false(text.contains("local.set (Local 1)"), msg=text)
+  assert_false(text.contains("local.set (Local 3)"), msg=text)
+  let @lib.Func(_, @lib.Expr(body)) = rewritten
+  assert_true(
+    body.contains(@lib.Instruction::local_tee(@lib.LocalIdx::new(2U))),
+    msg=text,
+  )
+}
+
+///|
 test "raw simplify-locals inlines typed control carriers into following structured reads" {
   let target = @lib.LocalIdx::new(2U)
   let instrs = [

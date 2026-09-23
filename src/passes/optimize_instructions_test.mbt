@@ -24496,6 +24496,38 @@ test "optimize-instructions hoists matching unary if arm chains" {
 }
 
 ///|
+test "optimize-instructions hoists matching SIMD lane extract if arms" {
+  let lane = @lib.LaneIdx::new(b'\x03')
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 v128 v128) (result i32) local.get 0 if (result i32) local.get 1 i32x4.extract_lane 3 else local.get 2 i32x4.extract_lane 3 end))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32x4_extract_lane(lane)),
+  )
+  let inner_if = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, inner_if).op {
+    @ir.HotOp::If => ()
+    other => fail("expected matching SIMD extracts to hoist, got \{other}")
+  }
+  @debug.assert_eq(
+    @ir.hot_type_results(func, @ir.hot_node_type(func, inner_if)),
+    [@lib.ValType::v128()],
+  )
+
+  let different_lanes = optimize_instructions_test_run_hot(
+    "(module (func (param i32 v128 v128) (result i32) local.get 0 if (result i32) local.get 1 i32x4.extract_lane 2 else local.get 2 i32x4.extract_lane 3 end))",
+  )
+  match
+    @ir.hot_node_get(different_lanes, @ir.hot_root_get(different_lanes, 0)).op {
+    @ir.HotOp::If => ()
+    other =>
+      fail("expected mismatched SIMD lanes to stay in their arms, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions hoists matching ref.is_null select arm shells" {
   // Red-first OI-F ternary parity slice: Binaryen v130's generic shallow-equal
   // one-child loop hoists matching side-effect-free ref.is_null shells over a
