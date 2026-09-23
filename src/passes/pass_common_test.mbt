@@ -157,6 +157,41 @@ test "raw block cleanup retains every try_table catch target" {
 }
 
 ///|
+test "raw block cleanup retains every resume handler label" {
+  let tag = @lib.TagIdx::new(0U)
+  let type_ = @lib.TypeIdx::new(0U)
+  let label = @lib.LabelIdx::new(0U)
+  let label_handlers = [@lib.ResumeHandler::on_label(tag, label)]
+  for
+    resume_instr in [
+      @lib.Instruction::resume_(type_, label_handlers),
+      @lib.Instruction::resume_throw(type_, tag, label_handlers),
+      @lib.Instruction::resume_throw_ref(type_, label_handlers),
+    ] {
+    assert_true(pass_raw_instr_is_branch_control(resume_instr))
+    let block = @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([resume_instr]),
+    )
+    assert_false(pass_raw_void_block_can_inline_before_unreachable(block))
+    let input = [block, @lib.Instruction::unreachable_()]
+    let (output, changed) = pass_raw_remove_dropped_unreachable_debris(input)
+    assert_false(changed)
+    @debug.assert_eq(output, input)
+  }
+
+  let switch_handlers = [@lib.ResumeHandler::on_switch(tag)]
+  for
+    resume_instr in [
+      @lib.Instruction::resume_(type_, switch_handlers),
+      @lib.Instruction::resume_throw(type_, tag, switch_handlers),
+      @lib.Instruction::resume_throw_ref(type_, switch_handlers),
+    ] {
+    assert_false(pass_raw_instr_is_branch_control(resume_instr))
+  }
+}
+
+///|
 test "label-use scan handles label-free implicit returns and mixed labels" {
   let flat = pass_test_lift_first_func(
     "(module (func (result i32) i32.const 7 return))",

@@ -214,6 +214,19 @@ pub fn pass_rewrite_structured_instr(
 }
 
 ///|
+fn pass_raw_resume_handlers_have_label(
+  handlers : Array[@lib.ResumeHandler],
+) -> Bool {
+  for handler in handlers {
+    match handler {
+      @lib.ResumeOnLabel(_, _) => return true
+      @lib.ResumeOnSwitch(_) => ()
+    }
+  }
+  false
+}
+
+///|
 pub fn pass_raw_instr_is_branch_control(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Instruction::Br(_)
@@ -229,6 +242,10 @@ pub fn pass_raw_instr_is_branch_control(instr : @lib.Instruction) -> Bool {
     | @lib.Instruction::ReturnCall(_)
     | @lib.Instruction::ReturnCallIndirect(_, _)
     | @lib.Instruction::ReturnCallRef(_) => true
+    @lib.Instruction::Resume(_, handlers)
+    | @lib.Instruction::ResumeThrow(_, _, handlers)
+    | @lib.Instruction::ResumeThrowRef(_, handlers) =>
+      pass_raw_resume_handlers_have_label(handlers)
     _ => false
   }
 }

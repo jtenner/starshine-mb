@@ -95,3 +95,50 @@ test "deep audit once reduction preserves call skipped by resume handler" {
     2,
   )
 }
+
+///|
+test "deep audit once reduction retains block owning resume handler label" {
+  let input = pass_test_module_from_wat(
+    "(module (type $sig (func (param i32) (result i32))) (type $cont (func (param i64))) (type $tag (func (result i32))) (tag (type $tag)) (func (export \"run\") (param (ref null $cont)) (result i32) unreachable))",
+  )
+  let types = input.type_sec.unwrap().0.copy()
+  types[1] = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::cont(@lib.TypeIdx::new(0U))),
+  )
+  let funcs = input.code_sec.unwrap().0.copy()
+  funcs[0] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(
+          @lib.ValType::ref_null(@lib.HeapType::new(@lib.TypeIdx::new(1U))),
+        ),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::resume_(@lib.TypeIdx::new(1U), [
+            @lib.ResumeHandler::on_label(
+              @lib.TagIdx::new(0U),
+              @lib.LabelIdx::new(0U),
+            ),
+          ]),
+          @lib.Instruction::drop(),
+          @lib.Instruction::ref_null(@lib.HeapType::new(@lib.TypeIdx::new(1U))),
+        ]),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::unreachable_(),
+    ]),
+  )
+  let output = audit_run_module(
+    input
+    .with_type_sec(@lib.TypeSec::new(types))
+    .with_code_sec(@lib.CodeSec::new(funcs)),
+    "once-reduction",
+  )
+  let body = audit_body(output)
+  assert_eq(body.length(), 3)
+  assert_true(body[0] is @lib.Block(_, _))
+  assert_true(body[1] is @lib.Drop)
+  assert_true(body[2] is @lib.Unreachable)
+}

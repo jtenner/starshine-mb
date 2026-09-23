@@ -1167,6 +1167,17 @@ Resume, resume-throw, and resume-throw-ref handler labels participate in implici
 
 Resume instructions can return normally, so inlining must retain their reachable suffix. They are not unconditional sequence terminators. The three resume variants share a bounded regression in `inlining_audit_wbtest.mbt`; stack-switch remains a separate terminating operation.
 
+### Unreachable cleanup and continuation handler labels
+
+Raw unreachable cleanup retains a block when `resume`, `resume_throw`, or
+`resume_throw_ref` has a handler targeting that block. Flattening the block
+without rebasing `ResumeOnLabel` depths would redirect the handler to another
+owner while still allowing some outputs to validate. `ResumeOnSwitch` has no
+lexical label and does not by itself prevent cleanup. `pass_common_test.mbt`
+covers all three raw instruction variants, and
+`once_reduction_deep_audit_test.mbt` covers the active once-reduction dispatcher
+with a validated continuation module.
+
 ### Name removal and continuation owners
 
 Direct HOT name removal includes continuation handler labels in owner-use checks and retargets them when merging controls. `remove_unused_names_audit_wbtest.mbt` checks both operations on a validated continuation fixture. The dispatcher's existing stack-switching admission restriction remains separate from this helper correctness requirement.
