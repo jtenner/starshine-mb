@@ -425,12 +425,18 @@
     changes across four generations despite complete 10-call semantic equality.
     Add red direct and dispatcher convergence tests, fix bounded revisit
     scheduling, and replay the exact saved input without a fuzz campaign.
-79. [ ] The bounded effect/trap scanner still misreads signed result blocktype
+79. [x] The bounded effect/trap scanner still misreads signed result blocktype
     `0x7f` as an executable arithmetic hazard and stops long signed LEB
     immediates after 35 bits, then misreads their trailing bytes as opcodes.
     Saved pure cases 447, 673, and 767 therefore have false trap/unreachable
     facts despite item 74's other scanner repairs. Add valid-byte red tests,
     correct these operand boundaries, and replay their facts without fuzzing.
+    Fixed in `ddfea4f36` and `ef3b71e79`: focused valid-byte tests cover
+    structured result blocktypes, full-width signed constants, and multi-byte
+    legacy `try` type indices while retaining true unreachable, division, and
+    exception hazards. Exact saved-byte cases 447, 673, and 767 now have no
+    false trap or hazard facts. `try_table` catch-vector decoding remains a
+    separate unsupported scanner boundary pending exact fixture coverage.
 
 ### Open parity evidence from this audit
 
