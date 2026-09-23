@@ -252,7 +252,13 @@
 63. [ ] Check Local CSE waitqueue synchronization barriers.
 64. [ ] Check MemoryPacking passive-segment expansion under shared concurrency.
 65. [ ] Check fresh-object Heap Store Optimization atomic ordering at publication.
-66. [ ] Define the resource-exhaustion contract for erased Precompute allocations.
+66. [x] Precompute allocation resource boundary is documented and guarded
+    (`113dd13f1`). Verified Binaryen v132 erases a finite fresh allocation
+    whose ordinary result is known, while retaining an enormous unsigned
+    `2^32-1` allocation in its bounded evaluator. Host OOM is outside Wasm
+    observable semantics; defined traps and effects remain required. Valid
+    direct and dispatcher fixtures for both Precompute variants passed before
+    any behavior change, as did `moon info` and `moon fmt`. No fuzzing ran.
 67. [x] Canonical two-operand `RefCastDescEq` nullable-null folding preserves
     source/descriptor evaluation, nullable-descriptor traps, and typed results
     (`6a0b692b4`); adjacent and dispatcher tests failed before the fix and
