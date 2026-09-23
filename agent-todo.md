@@ -146,7 +146,13 @@
     Direct and dispatcher tests failed before the guard and passed afterward;
     the full adjacent DFE file passed 31/31. Item 71 tracks remaining
     address-taken internal identity risk.
-34. [ ] Decide and guard direct DIE's repeated host import-lookup contract.
+34. [x] Direct DIE now preserves independently resolved repeated imports
+    (`d53b6f1d1`), and an explicit `duplicate-import-elimination-assume-stable-bindings`
+    variant retains merging only under a caller guarantee of side-effect-free
+    repeated lookup and identical converted Wasm function identity
+    (`26ef7d52e`). Default direct and preset modes keep host getter effects;
+    Red/Green direct, dispatcher, and Node host identity tests passed.
+    `moon info` records the intentional public `.mbti` entrypoint. No fuzzing ran.
 35. [ ] DIE loses annotations on a removed import alias.
 36. [x] MemoryPacking rebuilds unchanged modules after a reverted segment
     rewrite (`7876e64af`). The post-cap change check returns the input module;
