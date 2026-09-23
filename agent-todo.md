@@ -86,17 +86,21 @@
 16. [x] SimplifyLocals now treats continuation handler labels as exits before
     sinking local writes (`cab7b8aa3`). Valid direct and dispatcher fixtures
     failed before the fix and passed afterward; `moon fmt` and `moon info`
-    passed. ResumeThrow variants share the target path but lack separate cases.
+    passed. Valid `ResumeThrow` and `ResumeThrowRef` direct and dispatcher
+    fixtures now cover the same pre-operation exit path (`b1cf20d89`).
 17. [x] SimplifyLocals now clears block fallthrough facts when a continuation
     has an on-label exit (`100c7e537`). A later `local.set 9` does not dominate
     the handler path that still observes `1`; before the fix the final get was
     incorrectly replaced with `i32.const 9`. Valid direct and dispatcher tests
     were red then green; `moon fmt` and `moon info` passed without fuzzing.
+    Both throwing resume forms now have valid direct and dispatcher
+    post-operation fallthrough regressions (`b1cf20d89`).
 18. [x] CoalesceLocals liveness omits resume-handler successors
     (`323893154`); `ResumeOnLabel` targets now contribute to backward
     liveness for all three resume forms. Valid direct and dispatcher fixtures
     failed before the fix and passed afterward; `moon fmt` and `moon info`
-    passed. Separate `resume_throw` fixture coverage remains desirable.
+    passed. Valid direct and dispatcher fixtures now cover `ResumeThrow` and
+    `ResumeThrowRef` on-label successors (`b1cf20d89`).
 19. [x] Pattern-B partial inlining misses branch/catch/continuation escapes
     (`980043a5d`); the escape scanner covers all represented branch, catch,
     and resume-handler targets, with invalid-helper repros red then green.
@@ -215,13 +219,18 @@
     a wrong replacement value; focused Bun tests passed 5/5. A bounded
     nonzero-memory `i32.atomic.rmw.add` fixture now catches an optimizer that
     redirects memory 1 to memory 0 (`6c862b7f3`); focused Red/Green tests
-    passed 6/6. Remaining: general wait/notify liveness, weaker orders and
-    fences, memory64, broader multi-memory operations, and broader schedule
-    families. A validated shared-GC `struct.atomic.rmw.add seq_cst` probe
+    passed 6/6. A required-wake fixture now blocks acceptance when a bounded
+    notify run produces no actual wake witness (`8579496ae`); absence is not
+    mislabeled a semantic mismatch. A two-worker shared-memory64 RMW at
+    address zero rejects add-by-two corruption (`9b734a133`). Remaining:
+    general wait/notify liveness, weaker orders and fences, memory64 higher
+    addresses and trap/wait families, broader multi-memory operations, and
+    broader schedule families. A validated shared-GC
+    `struct.atomic.rmw.add seq_cst` probe
     reports a tested Node v26 unsupported boundary without counting a semantic
     match (`82cb893b3`); executable shared-GC outcome proof remains pending a
-    runtime with shared function support. This is an opt-in replay primitive; general
-    node-v2 still runs single-threaded.
+    runtime with shared function support. This is an opt-in replay primitive;
+    general node-v2 still runs single-threaded.
 49. [x] Runtime-v2 now adds two bounded finite scalar vectors derived from the
     recorded seed for each callable export; the invocation hash and semantic
     cache revision reflect the new observations. A focused test failed before
