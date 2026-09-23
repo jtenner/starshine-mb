@@ -75,7 +75,7 @@ export type InvocationPlanStepV2 = {
   exportName: string;
   signature: RuntimeFunctionSignature;
   arguments: TypedRuntimeValue[];
-  source: "default" | "boundary" | "pairwise" | "targeted";
+  source: "default" | "boundary" | "pairwise" | "seeded" | "targeted";
 };
 
 export type InvocationPlanV2 = {
@@ -281,6 +281,29 @@ function boundaryValues(type: WasmRuntimeValueType): TypedRuntimeValue[] {
   }
 }
 
+function nextInvocationSeed(state: bigint): bigint {
+  let value = BigInt.asUintN(64, state + 0x9e3779b97f4a7c15n);
+  value = BigInt.asUintN(64, (value ^ (value >> 30n)) * 0xbf58476d1ce4e5b9n);
+  value = BigInt.asUintN(64, (value ^ (value >> 27n)) * 0x94d049bb133111ebn);
+  return BigInt.asUintN(64, value ^ (value >> 31n));
+}
+
+function seededScalarValue(type: WasmRuntimeValueType, bits: bigint): TypedRuntimeValue | null {
+  switch (type) {
+    case "i32": return i32Value(Number(BigInt.asIntN(32, bits)));
+    case "i64": return i64Value(BigInt.asIntN(64, bits));
+    case "f32": {
+      const raw = 0x3f800000n | (bits & 0x7fffffn) | ((bits >> 23n & 1n) << 31n);
+      return floatValue("f32", raw.toString(16));
+    }
+    case "f64": {
+      const raw = 0x3ff0000000000000n | (bits & 0xfffffffffffffn) | ((bits >> 52n & 1n) << 63n);
+      return floatValue("f64", raw.toString(16));
+    }
+    default: return null;
+  }
+}
+
 export function buildInvocationPlanV2(
   runtimeInterface: RuntimeInterfaceV1,
   options: { seed: bigint; targetedVectors?: Record<string, TypedRuntimeValue[][]>; maxPairwise?: number } = { seed: 0x5eedn },
@@ -324,6 +347,20 @@ export function buildInvocationPlanV2(
         vectors.push({ arguments: args, source: "pairwise" });
         pairwise += 1;
       }
+    }
+    let seedState = BigInt.asUintN(64, options.seed ^ BigInt(exported.index));
+    for (let sample = 0; sample < 2; sample += 1) {
+      const args = (defaults as TypedRuntimeValue[]).slice();
+      let changed = false;
+      for (let parameterIndex = 0; parameterIndex < signature.params.length; parameterIndex += 1) {
+        seedState = nextInvocationSeed(seedState);
+        const value = seededScalarValue(signature.params[parameterIndex], seedState);
+        if (value !== null) {
+          args[parameterIndex] = value;
+          changed = true;
+        }
+      }
+      if (changed) vectors.push({ arguments: args, source: "seeded" });
     }
     for (const arguments_ of options.targetedVectors?.[exported.name] ?? []) {
       if (arguments_.length === signature.params.length) vectors.push({ arguments: arguments_, source: "targeted" });

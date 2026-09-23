@@ -4,7 +4,7 @@ import path from "node:path";
 import { optimizerRuntimeIdentity } from "./optimizer-runtime";
 
 // Shared by cache keys and resumable run manifests.
-export const SEMANTIC_EXECUTION_CONTRACT = "node-v2-definite-partial-outcomes-v6";
+export const SEMANTIC_EXECUTION_CONTRACT = "node-v2-seeded-invocation-v7";
 
 export type SemanticCacheKeyInput = {
   original: Uint8Array;
@@ -36,7 +36,8 @@ export function buildSemanticCacheKey(input: SemanticCacheKeyInput): string {
     // Bump when the adapter's observable semantics change. In particular,
     // pre-132 intrinsic reports used ordinary import stubs instead of invoking
     // the function reference, and v5 discarded definite scalar/trap mismatches
-    // whenever an unrelated observation surface was blocked.
+    // whenever an unrelated observation surface was blocked. v7 adds seeded
+    // scalar invocation vectors, so earlier cached reports lack observations.
     executionContract: SEMANTIC_EXECUTION_CONTRACT,
     originalSha256: sha256(input.original),
     starshineSha256: sha256(input.starshine),

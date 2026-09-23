@@ -192,6 +192,19 @@ describe("invocation plan v2", () => {
     expect(first.steps[0].arguments).toEqual([i32(0), { type: "f64", bits: "0x0000000000000000", class: "zero", sign: "+" }]);
   });
 
+  test("uses the recorded seed to diversify non-boundary scalar arguments", () => {
+    const first = buildInvocationPlanV2(runtimeInterface, { seed: 0x5eedn });
+    const again = buildInvocationPlanV2(runtimeInterface, { seed: 0x5eedn });
+    const different = buildInvocationPlanV2(runtimeInterface, { seed: 0x5eeen });
+    const seeded = (plan: ReturnType<typeof buildInvocationPlanV2>) =>
+      plan.steps.filter((step) => (step.source as string) === "seeded").map((step) => step.arguments);
+    expect(seeded(first)).toEqual(seeded(again));
+    expect(seeded(first).length).toBe(2);
+    expect(seeded(first)).not.toEqual(seeded(different));
+    const i32Boundaries = new Set([0, 1, -1, -2147483648, 2147483647]);
+    expect(seeded(first).some((args) => args[0].type === "i32" && !i32Boundaries.has(args[0].signed))).toBe(true);
+  });
+
   test("plans nullable GC references with retained null fixtures", () => {
     const iface = structuredClone(runtimeInterface);
     iface.exports[0].signature = { params: ["anyref", "structref", "arrayref"], results: ["i32"] };

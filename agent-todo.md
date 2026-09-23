@@ -156,7 +156,10 @@
     and nonprinted DWARF remain outside this specific comparison projection.
 47. [ ] Add executable proposal observations for currently blocked families.
 48. [ ] Add multi-thread allowed-outcome checks for atomic transformations.
-49. [ ] Diversify runtime argument vectors with the recorded seed.
+49. [x] Runtime-v2 now adds two bounded finite scalar vectors derived from the
+    recorded seed for each callable export; the invocation hash and semantic
+    cache revision reflect the new observations. A focused test failed before
+    the change and passed afterward; runtime/cache unit files passed 16/16.
 50. [ ] Verify cached oracle artifacts by content hash.
 51. [ ] Do not persist transient Binaryen failures as stable cache results.
 52. [ ] Add hard subprocess timeouts to validator and optimizer workers.
