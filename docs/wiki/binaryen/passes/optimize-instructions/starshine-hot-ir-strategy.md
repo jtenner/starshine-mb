@@ -202,6 +202,13 @@ That matches the *strategy* of upstream Binaryen — canonicalize first so later
 
 Note: the *general* commutative canonicalizer (`optimize_instructions_try_canonicalize_commutative`) is now live for ranked HOT value nodes, including `HotOp::Call`, `HotOp::CallIndirect`, and `HotOp::CallRef`, and is gated by the same `optimize_instructions_subtrees_can_swap` Binaryen-style reorder proof used by the leading `(0 - x) + y -> y - x` rewrite (see section 3). Calls rank before locals/constants to match Binaryen's call-first commutative spelling, but they still swap only when the proof finds no memory/table/global/local conflict and no may-trap-past-side-effect hazard. The public/raw layer now lets the simplest straight-line no-param direct-call plus pure local/constant commutative integer binop forms reach this HOT canonicalizer; broader stack-style call-operand fixtures can still be skipped earlier by `stack-carried-effect-optimize-instructions-noop` until the raw gate/localization layer is narrowed further.
 
+For equal `HotOp::Compare` children, the final tie-break follows the scalar
+comparison order in Binaryen v132's `BinaryOp` enum. This specifically puts
+`le` before `gt` and `ge`, even though Starshine's instruction declaration has
+a different order. SIMD and unsupported comparison spellings receive no
+ordinal. The tie-break still passes through the existing subtree effect,
+use-def, local-write, and trap-order proof before operands may exchange places.
+
 ## 3. Add / sub / mul / shift rewrites
 
 The in-tree HOT pass includes helpers for:

@@ -1059,3 +1059,22 @@ saving 9,939 bytes across identical inputs. Canonical sizes are unchanged;
 failures, and no canonical size losses.
 Current binary hashes, per-lane cache/profile counts and scoped judgments are
 in the [size follow-up report](../../../ir2/architecture-rules.md#september-16-further-oi-size-reductions).
+
+### September 23 saved constraint-logical case 767
+
+Saved seven-pass case 767 exposed an equal-size OI parity gap: Starshine kept
+`i32.ge_u` before `i32.le_u` under `i32.or`, while verified Binaryen v132
+ordered the compare children by its `BinaryOp` enum. The exact v132 source
+commit `fbf2e5aa2` places `LeUInt32` before `GeUInt32`; Starshine now uses that
+scalar compare order only as an equal-class commutative tie-break and retains
+the existing effect/use-def reorder proof.
+
+The direct HOT and public command regressions failed before the repair and pass
+after it. On the exact saved 65-byte input, one-pass OI output is byte-identical
+to v132 at 63 bytes, and the original seven-pass sequence is byte-identical at
+60 raw and 60 canonical bytes (SHA-256
+`fdc36fcc227417509047e0cd29f439bc7a69897d809e9da406c2dbf3db949889`).
+All four one-pass/seven-pass outputs validate with all features. The saved
+ten-call plan returns `[0, 1, 1, 1, 1, 0, 0, 0, 0, 1]` for the original,
+Starshine, and v132 modules. This is exact saved-case replay; no fuzz campaign
+was run for this repair.

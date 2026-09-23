@@ -7981,6 +7981,49 @@ test "Binaryen 132 instruction command converges saved constraint joins case 907
 }
 
 ///|
+test "Binaryen 132 instruction command orders saved constraint logical case 767" {
+  let source =
+    #|(module
+    #|  (type (func (param i32 i32) (result i32)))
+    #|  (export "run" (func 0))
+    #|  (func (type 0) (param i32 i32) (result i32)
+    #|    (local i32)
+    #|    local.get 0
+    #|    i32.const 10
+    #|    i32.ge_u
+    #|    local.get 0
+    #|    i32.const 20
+    #|    i32.le_u
+    #|    i32.or
+    #|    i32.eqz
+    #|    i32.eqz
+    #|    if (result i32)
+    #|      local.get 0
+    #|      i32.const 0
+    #|      i32.ne
+    #|    else
+    #|      local.get 0
+    #|      i32.const 30
+    #|      i32.lt_u
+    #|    end))
+  let input = @wast.wast_to_binary_module(source).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["optimize-instructions"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let body = cmd_deep_audit_body(output)
+  @debug.assert_eq(body[0], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  @debug.assert_eq(body[1], @lib.Instruction::i32_const(@lib.I32(20)))
+  @debug.assert_eq(body[2], @lib.Instruction::i32_le_u())
+  @debug.assert_eq(body[3], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  @debug.assert_eq(body[4], @lib.Instruction::i32_const(@lib.I32(10)))
+  @debug.assert_eq(body[5], @lib.Instruction::i32_ge_u())
+  @debug.assert_eq(body[6], @lib.Instruction::i32_or())
+}
+
+///|
 test "Binaryen 132 constraint analysis command dispatch folds an implied predicate" {
   let source =
     #|(module (func (export "run") (param i32) (result i32)

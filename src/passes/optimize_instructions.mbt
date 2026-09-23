@@ -16721,6 +16721,52 @@ priv enum OiCommutativeOperandClassKind {
 priv struct OiCommutativeOperandClassFact {
   kind : OiCommutativeOperandClassKind
   local_index : Int?
+  binaryen_compare_order : Int?
+}
+
+///|
+fn optimize_instructions_binaryen_v132_scalar_compare_order(
+  instr : @lib.Instruction,
+) -> Int? {
+  // Binaryen's BinaryOp enum supplies the final canonicalization tie-break
+  // when two commutative operands have the same expression node kind. Keep
+  // the supported scalar comparison subset explicit because Starshine's
+  // instruction declaration order differs for gt/le.
+  match instr {
+    @lib.I32Eq => Some(0)
+    @lib.I32Ne => Some(1)
+    @lib.I32LtS => Some(2)
+    @lib.I32LtU => Some(3)
+    @lib.I32LeS => Some(4)
+    @lib.I32LeU => Some(5)
+    @lib.I32GtS => Some(6)
+    @lib.I32GtU => Some(7)
+    @lib.I32GeS => Some(8)
+    @lib.I32GeU => Some(9)
+    @lib.I64Eq => Some(10)
+    @lib.I64Ne => Some(11)
+    @lib.I64LtS => Some(12)
+    @lib.I64LtU => Some(13)
+    @lib.I64LeS => Some(14)
+    @lib.I64LeU => Some(15)
+    @lib.I64GtS => Some(16)
+    @lib.I64GtU => Some(17)
+    @lib.I64GeS => Some(18)
+    @lib.I64GeU => Some(19)
+    @lib.F32Eq => Some(20)
+    @lib.F32Ne => Some(21)
+    @lib.F32Lt => Some(22)
+    @lib.F32Le => Some(23)
+    @lib.F32Gt => Some(24)
+    @lib.F32Ge => Some(25)
+    @lib.F64Eq => Some(26)
+    @lib.F64Ne => Some(27)
+    @lib.F64Lt => Some(28)
+    @lib.F64Le => Some(29)
+    @lib.F64Gt => Some(30)
+    @lib.F64Ge => Some(31)
+    _ => None
+  }
 }
 
 ///|
@@ -16732,7 +16778,7 @@ fn OiCommutativeOperandClassFact::from_node(
   // before applying rewrites. Keep Starshine's represented HOT subset as an
   // explicit operand-class fact instead of a nullable rank table with a call
   // sentinel. The later swap fact consumes only these named classes plus the
-  // local.get tie-break payload.
+  // local.get and scalar-comparison tie-break payloads.
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
   } else {
@@ -16740,23 +16786,69 @@ fn OiCommutativeOperandClassFact::from_node(
   }
   match node.op {
     @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
-      { kind: OiCommutativeOperandCallLike, local_index: None, }
+      {
+        kind: OiCommutativeOperandCallLike,
+        local_index: None,
+        binaryen_compare_order: None,
+      }
     @ir.HotOp::LocalGet =>
-      { kind: OiCommutativeOperandLocalGet, local_index: Some(node.imm0), }
+      {
+        kind: OiCommutativeOperandLocalGet,
+        local_index: Some(node.imm0),
+        binaryen_compare_order: None,
+      }
     @ir.HotOp::LocalTee =>
-      { kind: OiCommutativeOperandLocalTee, local_index: None, }
+      {
+        kind: OiCommutativeOperandLocalTee,
+        local_index: None,
+        binaryen_compare_order: None,
+      }
     @ir.HotOp::GlobalGet =>
-      { kind: OiCommutativeOperandGlobalGet, local_index: None, }
-    @ir.HotOp::Load => { kind: OiCommutativeOperandLoad, local_index: None, }
+      {
+        kind: OiCommutativeOperandGlobalGet,
+        local_index: None,
+        binaryen_compare_order: None,
+      }
+    @ir.HotOp::Load =>
+      {
+        kind: OiCommutativeOperandLoad,
+        local_index: None,
+        binaryen_compare_order: None,
+      }
     @ir.HotOp::Const | @ir.HotOp::RefNull | @ir.HotOp::RefFunc =>
-      { kind: OiCommutativeOperandLeafLiteral, local_index: None, }
+      {
+        kind: OiCommutativeOperandLeafLiteral,
+        local_index: None,
+        binaryen_compare_order: None,
+      }
     @ir.HotOp::Unary | @ir.HotOp::Convert =>
-      { kind: OiCommutativeOperandUnaryLike, local_index: None, }
+      {
+        kind: OiCommutativeOperandUnaryLike,
+        local_index: None,
+        binaryen_compare_order: None,
+      }
     @ir.HotOp::Binary =>
-      { kind: OiCommutativeOperandBinary, local_index: None, }
+      {
+        kind: OiCommutativeOperandBinary,
+        local_index: None,
+        binaryen_compare_order: None,
+      }
     @ir.HotOp::Compare =>
-      { kind: OiCommutativeOperandCompare, local_index: None, }
-    _ => { kind: OiCommutativeOperandUnsupported, local_index: None, }
+      {
+        kind: OiCommutativeOperandCompare,
+        local_index: None,
+        binaryen_compare_order: match @ir.hot_node_exact_instr(func, node_id) {
+          Some(instr) =>
+            optimize_instructions_binaryen_v132_scalar_compare_order(instr)
+          None => None
+        },
+      }
+    _ =>
+      {
+        kind: OiCommutativeOperandUnsupported,
+        local_index: None,
+        binaryen_compare_order: None,
+      }
   }
 }
 
@@ -16784,6 +16876,7 @@ priv enum OiCommutativeOperandSwapKind {
   OiCommutativeOperandAlreadyCanonical
   OiCommutativeOperandSwapByClassOrder
   OiCommutativeOperandSwapByLocalGetIndex
+  OiCommutativeOperandSwapByCompareOrder
 }
 
 ///|
@@ -16814,7 +16907,13 @@ fn OiCommutativeOperandSwapFact::from_operands(
         match (lhs_fact.local_index, rhs_fact.local_index) {
           (Some(lhs_local), Some(rhs_local)) if lhs_local > rhs_local =>
             { kind: OiCommutativeOperandSwapByLocalGetIndex, }
-          _ => { kind: OiCommutativeOperandAlreadyCanonical, }
+          _ =>
+            match
+              (lhs_fact.binaryen_compare_order, rhs_fact.binaryen_compare_order) {
+              (Some(lhs_compare), Some(rhs_compare)) if lhs_compare >
+                rhs_compare => { kind: OiCommutativeOperandSwapByCompareOrder, }
+              _ => { kind: OiCommutativeOperandAlreadyCanonical, }
+            }
         }
       }
     _ => { kind: OiCommutativeOperandSwapUnsupported, }
@@ -16828,6 +16927,7 @@ fn OiCommutativeOperandSwapFact::proves_should_swap(
   match self.kind {
     OiCommutativeOperandSwapByClassOrder => true
     OiCommutativeOperandSwapByLocalGetIndex => true
+    OiCommutativeOperandSwapByCompareOrder => true
     OiCommutativeOperandSwapUnsupported
     | OiCommutativeOperandAlreadyCanonical => false
   }

@@ -81382,6 +81382,34 @@ test "optimize-instructions canonicalizes commutative local get pair order" {
 }
 
 ///|
+test "optimize-instructions orders scalar compare children by Binaryen opcode" {
+  // Saved constraint-logical case 767 has two pure i32 comparisons under a
+  // commutative `i32.or`. Binaryen v132 orders the lower compare opcode first.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 10 i32.ge_u local.get 0 i32.const 20 i32.le_u i32.or))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_or()),
+  )
+  let lhs = @ir.hot_child_get(func, root, 0)
+  let rhs = @ir.hot_child_get(func, root, 1)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, lhs),
+    Some(@lib.Instruction::i32_le_u()),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, rhs),
+    Some(@lib.Instruction::i32_ge_u()),
+  )
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected compare-ordered i32.or to verify, got \{err}")
+  }
+}
+
+///|
 test "optimize-instructions canonicalizes relational local gets after calls when crossing is safe" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32 i32) (result i32) local.get 2 local.get 0 local.get 1 local.get 2 call 0 i32.lt_s))",
