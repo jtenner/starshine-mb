@@ -478,6 +478,40 @@ fn gsi_mark_imported_struct_origins(
 }
 
 ///|
+fn gsi_mark_exported_param_struct_origins(
+  env : @validate.Env,
+  mod_ : @lib.Module,
+  poisoned_type_slots : Array[Bool],
+) -> Unit {
+  let exports = match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) => exports
+    None => return
+  }
+  let defined_func_count = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.length()
+    None => 0
+  }
+  let first_defined_func = env.funcs.length() - defined_func_count
+  for export_ in exports {
+    let func_idx = match export_ {
+      @lib.Export(_, @lib.FuncExternIdx(func_idx)) => func_idx
+      _ => continue
+    }
+    let @lib.FuncIdx(raw_idx) = func_idx
+    if raw_idx.reinterpret_as_int() < first_defined_func {
+      continue
+    }
+    match env.get_functype_by_funcidx(func_idx) {
+      Some(@lib.FuncType(params, _)) =>
+        for param in params {
+          gsi_mark_external_struct_origins(env, param, poisoned_type_slots)
+        }
+      None => ()
+    }
+  }
+}
+
+///|
 fn gsi_build_closed_world_facts(
   env : @validate.Env,
   mod_ : @lib.Module,
@@ -490,6 +524,7 @@ fn gsi_build_closed_world_facts(
     candidate_globals_by_type_slot.push([])
   }
   gsi_mark_imported_struct_origins(env, mod_, poisoned_type_slots)
+  gsi_mark_exported_param_struct_origins(env, mod_, poisoned_type_slots)
 
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>

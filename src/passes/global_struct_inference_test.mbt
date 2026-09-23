@@ -2192,6 +2192,23 @@ test "global-struct-inference keeps imported nominal global param origins in clo
 }
 
 ///|
+test "global-struct-inference keeps exported nominal param origins in closed world" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $internal (ref $box)
+    #|     (struct.new $box
+    #|       (i32.const 7)))
+    #|   (func (export "read") (param (ref $box)) (result i32)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let pretty = gsi_test_pretty(input, true)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
 test "global-struct-inference rewrites exact single-candidate body locals in closed world" {
   let input =
     #| (module

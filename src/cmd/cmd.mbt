@@ -8496,6 +8496,33 @@ test "deep audit command global struct inference keeps imported nominal origins"
 }
 
 ///|
+test "deep audit command global struct inference keeps exported nominal params" {
+  let wat =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $internal (ref $box) (struct.new $box (i32.const 7)))
+    #|   (func (export "read") (param (ref $box)) (result i32)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let input = @passes.pass_test_module_from_wat(wat)
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["global-struct-inference"],
+    OptimizeOptions::new(closed_world=true),
+  ).unwrap()
+  let read = cmd_deep_audit_body(output)
+  @debug.assert_eq(
+    cmd_deep_audit_count(read, fn(i) { i is @lib.LocalGet(@lib.LocalIdx(0U)) }),
+    1,
+  )
+  @debug.assert_eq(
+    cmd_deep_audit_count(read, fn(i) { i is @lib.GlobalGet(_) }),
+    0,
+  )
+}
+
+///|
 fn cmd_deep_audit_run(wat : String, pass : String) -> @lib.Module raise {
   let input = match @wast.wast_to_binary_module(wat, filename="audit.wat") {
     Ok(value) => value

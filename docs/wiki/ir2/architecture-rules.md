@@ -1210,7 +1210,7 @@ A global excluded from singleton candidates still contributes allocations, inclu
 
 Table and element initializers also contribute allocations before any early return for absent globals. Two additional validated raw fixtures in `global_struct_inference_audit_wbtest.mbt` failed on missing poison facts, then passed after including these initializer roots.
 
-Imported GC references are unknown origins even in the pass's closed-world mode. Global-struct inference poisons every compatible nominal struct type exposed by an imported global or table, imported function result, or imported tag payload before propagating subtype facts. The adjacent and active-dispatch regressions keep an imported nominal global flowing through a parameter from being replaced by an unrelated internal singleton allocation.
+GC references that cross an external module boundary are unknown origins even in the pass's closed-world mode. The core specification's [invocation rule](https://webassembly.github.io/spec/core/exec/modules.html#invocation) allows an exported function to be called with any argument values that fit its function type. Global-struct inference therefore poisons every compatible nominal struct type exposed by an imported global or table, imported function result, imported tag payload, or parameter of an exported defined function before propagating subtype facts. Adjacent and active-dispatch regressions keep both imported nominal globals and externally supplied exported-function parameters from being replaced by unrelated internal singleton allocations.
 
 ### Global reference joins
 
