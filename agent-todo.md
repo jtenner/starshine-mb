@@ -163,6 +163,12 @@
     Synthetic red/green harness tests passed 77/77; arbitrary custom sections
     and nonprinted DWARF remain outside this specific comparison projection.
 47. [ ] Add executable proposal observations for currently blocked families.
+    Non-null `i31ref` function arguments/results and imported-function events
+    are now observed with bounded signed 31-bit vectors (`8d485d476`); focused
+    runtime tests passed 41/41 after integration. Remaining: non-null aggregate
+    GC references, `exnref`/`contref` crossings, relaxed-SIMD allowed outcomes,
+    and imported memory64 resources. Keep this item open until each family has
+    executable observations or an explicit unsupported boundary.
 48. [ ] Add multi-thread allowed-outcome checks for atomic transformations.
 49. [x] Runtime-v2 now adds two bounded finite scalar vectors derived from the
     recorded seed for each callable export; the invocation hash and semantic
