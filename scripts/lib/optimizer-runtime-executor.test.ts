@@ -364,6 +364,34 @@ describe("Node runtime observation v2", () => {
     expect(observation.resources.memories[0].complete).toBe(false);
   });
 
+  test("reports a definite scalar mismatch despite an unrelated over-cap memory", async () => {
+    const original = compileWat(`(module
+      (memory (export "memory") 2)
+      (func (export "run") (result i32) i32.const 1))`);
+    const wrong = compileWat(`(module
+      (memory (export "memory") 2)
+      (func (export "run") (result i32) i32.const 2))`);
+
+    const report = await runNodeThreeWaySemanticOracleV2(
+      original.wasmPath,
+      wrong.wasmPath,
+      original.wasmPath,
+      {
+        seed: 0x5eedn,
+        policy: "strict",
+        mode: "independent",
+        timeoutMs: 1000,
+        memoryCapBytes: 64 * 1024,
+        tableEntryCap: 16,
+      },
+    );
+
+    expect(report.original.completeness).toBe("incomplete");
+    expect(report.originalVsStarshine.classification).toBe("semantic-mismatch");
+    expect(report.originalVsStarshine.firstDifferenceCategory).toBe("result-value");
+    expect(report.classification.primary).toBe("starshine-semantic-mismatch");
+  });
+
   test("freshly instantiates each independent call while stateful calls accumulate", async () => {
     const { wasmPath } = compileWat(`(module
       (global $g (export "g") (mut i32) (i32.const 0))

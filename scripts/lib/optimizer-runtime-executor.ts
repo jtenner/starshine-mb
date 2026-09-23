@@ -1323,13 +1323,15 @@ export async function runNodeThreeWaySemanticOracleV2(
     ? null
     : compareRuntimeObservationsV2(starshine, binaryen, options.policy);
   const originalBlocked = original.completeness === "incomplete" || original.blockedReasons.length > 0;
+  const originalVsStarshineRelation = threeWayRelation(originalVsStarshine);
+  const originalVsBinaryenRelation = threeWayRelation(originalVsBinaryen);
   const classification = classifyThreeWaySemanticComparison({
-    originalVsStarshine: originalBlocked
+    originalVsStarshine: originalBlocked && originalVsStarshineRelation !== "different"
       ? "blocked-original"
-      : threeWayRelation(originalVsStarshine),
-    originalVsBinaryen: originalBlocked
+      : originalVsStarshineRelation,
+    originalVsBinaryen: originalBlocked && originalVsBinaryenRelation !== "different"
       ? "blocked-original"
-      : threeWayRelation(originalVsBinaryen),
+      : originalVsBinaryenRelation,
     starshineVsBinaryen: threeWayRelation(starshineVsBinaryen),
     binaryenDiagnostic: options.binaryenDiagnostic ?? (binaryen === null ? "tool-failure" : "ok"),
   });

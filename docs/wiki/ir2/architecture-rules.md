@@ -3228,7 +3228,8 @@ on the installed Node, so the worker needs the explicit command-line argument.
 The selected Node arguments and inherited `NODE_OPTIONS` enter a hashed runtime
 identity. Observation results, semantic cache keys and resume manifests use
 that configured Node identity, including when Bun hosts the comparison CLI.
-The execution contract is `node-v2-runtime-config-v5`.
+This configuration path entered the execution contract as
+`node-v2-runtime-config-v5`.
 
 A controlled-worker test first failed on the missing argument, then verifies
 argument forwarding and identity separation/restoration. A terminating module
@@ -3238,6 +3239,22 @@ All 102 selected harness tests pass. Logs: `node-config-red.log`,
 missing configuration path; it does not claim that all continuation operations
 or the five saved blocked observations have passed. Engine capability and
 per-case outcomes remain separate from configuration support.
+
+#### Definite outcomes beside blocked observation surfaces
+
+Runtime-v2 now retains an aligned scalar-result, return-versus-trap, or
+normalized trap-class disagreement when an unrelated export, over-cap
+resource, or cross-table identity surface is blocked. The comparison remains
+`incomplete`, preserves every blocking diagnostic, and never promotes equal
+partial observations to semantic matches. Reference-valued results, relaxed
+SIMD without an allowed-result oracle, timeouts, unsupported outcomes, and
+unknown incomplete surfaces still fail closed as blocked.
+
+The execution contract is `node-v2-definite-partial-outcomes-v6`; semantic
+cache entries and resume manifests from v5 cannot suppress fresh comparison.
+Focused unit and executor tests cover the former blocked scalar mismatch,
+three-way Starshine-failure propagation, equal-partial blocking, and the
+relaxed-SIMD boundary.
 
 #### OI multivalue wrapper size repair
 

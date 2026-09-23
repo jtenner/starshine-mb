@@ -56,6 +56,49 @@ describe("optimizer runtime observation v2", () => {
     expect(comparison.firstDifferencePath).toBe("steps[0].outcome.values[0]");
   });
 
+  test("keeps definite result and trap mismatches visible when unrelated surfaces are blocked", () => {
+    const original = returned(i32(1));
+    original.completeness = "incomplete";
+    original.blockedReasons = ["memory-over-cap: memory[0]"];
+    const wrongResult = returned(i32(2));
+    wrongResult.completeness = "incomplete";
+    wrongResult.blockedReasons = ["memory-over-cap: memory[0]"];
+
+    const resultComparison = compareRuntimeObservationsV2(original, wrongResult, "strict");
+    expect(resultComparison.classification).toBe("semantic-mismatch");
+    expect(resultComparison.completeness).toBe("incomplete");
+    expect(resultComparison.firstDifferencePath).toBe("steps[0].outcome.values[0]");
+    expect(resultComparison.diagnostics).toContain("memory-over-cap: memory[0]");
+    expect(compareRuntimeObservationsV2(original, structuredClone(original), "strict").classification).toBe("blocked");
+
+    const relaxedResult = returned(i32(2));
+    relaxedResult.completeness = "incomplete";
+    relaxedResult.blockedReasons = ["relaxed-simd-allowed-result-oracle-unavailable"];
+    expect(compareRuntimeObservationsV2(original, relaxedResult, "strict").classification).toBe("blocked");
+
+    const trapped = returned(i32(1));
+    trapped.completeness = "incomplete";
+    trapped.blockedReasons = ["blocked-export:unobserved:unsupported direct JavaScript signature type: contref"];
+    trapped.steps[0].outcome = {
+      kind: "trapped",
+      trapClass: "explicit-unreachable",
+      rawText: "unreachable",
+    };
+    const trapComparison = compareRuntimeObservationsV2(original, trapped, "strict");
+    expect(trapComparison.classification).toBe("semantic-mismatch");
+    expect(trapComparison.firstDifferenceCategory).toBe("outcome-kind");
+    expect(trapComparison.originalOutcomeKind).toBe("returned");
+    expect(trapComparison.candidateOutcomeKind).toBe("trapped");
+
+    const differentTrap = structuredClone(trapped);
+    if (differentTrap.steps[0].outcome.kind === "trapped") {
+      differentTrap.steps[0].outcome.trapClass = "integer-divide-by-zero";
+    }
+    const trapClassComparison = compareRuntimeObservationsV2(trapped, differentTrap, "strict");
+    expect(trapClassComparison.classification).toBe("semantic-mismatch");
+    expect(trapClassComparison.firstDifferenceCategory).toBe("trap-class");
+  });
+
   test("preserves signed zero and canonical NaN policy", () => {
     const plusZero = returned({ type: "f64", bits: "0x0000000000000000", class: "zero", sign: "+" });
     const minusZero = returned({ type: "f64", bits: "0x8000000000000000", class: "zero", sign: "-" });

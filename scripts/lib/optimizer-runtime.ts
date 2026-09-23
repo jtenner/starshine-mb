@@ -415,11 +415,115 @@ function setDifference(report: SemanticComparisonV2, category: string, path: str
   return report;
 }
 
+function blockedReasonsAllowDefiniteOutcomeComparison(reasons: string[]): boolean {
+  const unrelatedPrefixes = [
+    "blocked-export:",
+    "memory-over-cap:",
+    "table-over-cap:",
+    "cross-table-reference-identity-unavailable:",
+  ];
+  return reasons.length > 0 && reasons.every((reason) =>
+    unrelatedPrefixes.some((prefix) => reason.startsWith(prefix))
+  );
+}
+
+function isScalarRuntimeValue(value: TypedRuntimeValue): boolean {
+  return value.type !== "reference";
+}
+
+function stepObservationKey(step: RuntimeObservationStepV2): string {
+  return `${step.stepIndex}:${step.phase}:${step.exportName ?? ""}`;
+}
+
+function definiteOutcomeDifference(
+  report: SemanticComparisonV2,
+  before: RuntimeObservationV2,
+  after: RuntimeObservationV2,
+  policy: SemanticPolicy,
+): SemanticComparisonV2 | null {
+  if (!blockedReasonsAllowDefiniteOutcomeComparison([
+    ...before.blockedReasons,
+    ...after.blockedReasons,
+  ])) {
+    return null;
+  }
+  const afterSteps = new Map(
+    after.steps.map((step) => [stepObservationKey(step), step] as const),
+  );
+  for (let beforeIndex = 0; beforeIndex < before.steps.length; beforeIndex += 1) {
+    const left = before.steps[beforeIndex];
+    const paired = afterSteps.get(stepObservationKey(left));
+    if (paired === undefined) continue;
+    const right = paired;
+    const leftComparable = left.outcome.kind === "returned" || left.outcome.kind === "trapped";
+    const rightComparable = right.outcome.kind === "returned" || right.outcome.kind === "trapped";
+    if (left.outcome.kind !== right.outcome.kind) {
+      if (!leftComparable || !rightComparable) continue;
+      report.originalOutcomeKind = left.outcome.kind;
+      report.candidateOutcomeKind = right.outcome.kind;
+      return setDifference(
+        report,
+        "outcome-kind",
+        `steps[${beforeIndex}].outcome.kind`,
+        left.outcome.kind,
+        right.outcome.kind,
+      );
+    }
+    if (
+      left.outcome.kind === "trapped" &&
+      right.outcome.kind === "trapped" &&
+      left.outcome.trapClass !== right.outcome.trapClass
+    ) {
+      report.originalOutcomeKind = left.outcome.kind;
+      report.candidateOutcomeKind = right.outcome.kind;
+      report.originalTrapClass = left.outcome.trapClass;
+      report.candidateTrapClass = right.outcome.trapClass;
+      return setDifference(
+        report,
+        "trap-class",
+        `steps[${beforeIndex}].outcome.trapClass`,
+        left.outcome.trapClass,
+        right.outcome.trapClass,
+      );
+    }
+    if (
+      left.outcome.kind === "returned" &&
+      right.outcome.kind === "returned" &&
+      left.outcome.values.every(isScalarRuntimeValue) &&
+      right.outcome.values.every(isScalarRuntimeValue)
+    ) {
+      if (left.outcome.values.length !== right.outcome.values.length) {
+        return setDifference(
+          report,
+          "result-count",
+          `steps[${beforeIndex}].outcome.values.length`,
+          left.outcome.values.length,
+          right.outcome.values.length,
+        );
+      }
+      for (let valueIndex = 0; valueIndex < left.outcome.values.length; valueIndex += 1) {
+        if (!typedValuesEqual(left.outcome.values[valueIndex], right.outcome.values[valueIndex], policy)) {
+          return setDifference(
+            report,
+            "result-value",
+            `steps[${beforeIndex}].outcome.values[${valueIndex}]`,
+            left.outcome.values[valueIndex],
+            right.outcome.values[valueIndex],
+          );
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export function compareRuntimeObservationsV2(before: RuntimeObservationV2, after: RuntimeObservationV2, policy: SemanticPolicy): SemanticComparisonV2 {
   const report = emptyComparison(policy, before, after);
   if (report.completeness === "incomplete" || before.blockedReasons.length > 0 || after.blockedReasons.length > 0) {
-    report.classification = "blocked";
     report.diagnostics = [...before.blockedReasons, ...after.blockedReasons];
+    const definiteDifference = definiteOutcomeDifference(report, before, after, policy);
+    if (definiteDifference !== null) return definiteDifference;
+    report.classification = "blocked";
     return report;
   }
   const beforeEvents = before.importTrace ?? [];

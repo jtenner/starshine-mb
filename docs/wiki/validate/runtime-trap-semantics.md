@@ -122,7 +122,7 @@ The self-semantic comparison policy is explicit:
 - `canonical-nan`: the strict policy except that two NaN results of the same float width compare equal regardless of payload;
 - `trap-aware`: exact deterministic results plus normalized trap-class equality, intended for ordinary optimizer fuzzing.
 
-A return/trap difference or different normalized trap class is a trap mismatch. Unsupported JS boundary types, unsupported imports/features, non-comparable proposal behavior, and runtime worker timeouts are blocked evidence rather than passes. Relaxed SIMD and other surfaces without a sound current Node comparison fail closed as unsupported/non-comparable.
+A return/trap difference or different normalized trap class is a trap mismatch. The node-v2 comparison keeps that definite executed-step mismatch visible even when a separate export, over-cap resource, or cross-table identity surface is blocked; its report remains incomplete and retains the blocking reasons. Equal observed outcomes in such a partial report are still blocked rather than a semantic match. Unsupported JS boundary types, unsupported imports/features, non-comparable proposal behavior, reference-valued results without stable identity, and runtime worker timeouts are blocked evidence rather than passes. Relaxed SIMD and other surfaces without a sound current Node comparison fail closed as unsupported/non-comparable.
 
 The secondary Binaryen runtime lane is intentionally narrow:
 
