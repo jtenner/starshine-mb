@@ -50,6 +50,26 @@ function validModuleWithSingleBody(body: number[]): Uint8Array {
   ]);
 }
 
+function validModuleWithMultiByteTryBlockType(): Uint8Array {
+  const types = Array.from({ length: 65 }, () => [0x60, 0x00, 0x00]).flat();
+  const body = [
+    0x00, // no locals
+    0x06, 0xc0, 0x00, // try type index 64, encoded as a two-byte signed LEB
+    0x01, // nop
+    0x19, // catch_all
+    0x01, // nop
+    0x0b, // end try
+    0x0b, // end function
+  ];
+  return Uint8Array.from([
+    0x00, 0x61, 0x73, 0x6d,
+    0x01, 0x00, 0x00, 0x00,
+    0x01, 0xc4, 0x01, 0x41, ...types, // 65 function types
+    0x03, 0x02, 0x01, 0x00, // one defined function of type 0
+    0x0a, 0x0b, 0x01, body.length, ...body,
+  ]);
+}
+
 export function runEffectTrapScannerTest(): void {
   const pure = scanEffectTrapFactsFromWasmBytes(moduleWithCodeBytes([0x41, 0x00, 0x1a]));
   assert(!pure.hasCall, "pure const/drop body should not report calls");
@@ -205,6 +225,49 @@ export function runEffectTrapScannerTest(): void {
   assert(
     trueI64DivSFacts.hazards.some((hazard) => hazard.offset > 0 && hazard.opcode === 0x7f && hazard.kind === "possible-trap"),
     "real i64.div_s hazard should remain visible",
+  );
+
+  const signedMaxI64Const = [
+    0x42, // i64.const
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00,
+  ];
+  const longSignedI64Immediate = validModuleWithSingleBody([
+    0x00, // no locals
+    ...signedMaxI64Const,
+    0x1a, // drop
+    0x0b,
+  ]);
+  assert(WebAssembly.validate(longSignedI64Immediate), "signed-max i64.const regression module should validate");
+  const longSignedI64Facts = scanEffectTrapFactsFromWasmBytes(longSignedI64Immediate);
+  assert(!longSignedI64Facts.hasUnreachable, "signed-max i64.const bytes should not report unreachable");
+  assert(!longSignedI64Facts.mayTrap, "signed-max i64.const bytes should not report traps");
+  assert(longSignedI64Facts.hazards.length === 0, "signed-max i64.const bytes should not report hazard offsets");
+
+  const trueUnreachableAfterLongI64 = validModuleWithSingleBody([
+    0x00, // no locals
+    ...signedMaxI64Const,
+    0x1a, // drop
+    0x00, // unreachable
+    0x0b,
+  ]);
+  assert(WebAssembly.validate(trueUnreachableAfterLongI64), "true unreachable after signed-max i64.const should validate");
+  const trueUnreachableAfterLongI64Facts = scanEffectTrapFactsFromWasmBytes(trueUnreachableAfterLongI64);
+  assert(trueUnreachableAfterLongI64Facts.hasUnreachable, "real unreachable after signed-max i64.const should be reported");
+  assert(trueUnreachableAfterLongI64Facts.mayTrap, "real unreachable after signed-max i64.const should report a trap");
+  assert(
+    trueUnreachableAfterLongI64Facts.hazards.filter((hazard) => hazard.kind === "explicit-unreachable").length === 1,
+    "only the real unreachable after signed-max i64.const should be reported",
+  );
+
+  const multiByteTryBlockType = validModuleWithMultiByteTryBlockType();
+  assert(WebAssembly.validate(multiByteTryBlockType), "multi-byte legacy try blocktype regression module should validate");
+  const multiByteTryFacts = scanEffectTrapFactsFromWasmBytes(multiByteTryBlockType);
+  assert(multiByteTryFacts.hasException, "legacy try and catch_all should report exception handling");
+  assert(!multiByteTryFacts.hasUnreachable, "multi-byte legacy try blocktype bytes should not report unreachable");
+  assert(!multiByteTryFacts.mayTrap, "multi-byte legacy try blocktype bytes should not report traps");
+  assert(
+    multiByteTryFacts.hazards.every((hazard) => hazard.kind === "exception"),
+    "multi-byte legacy try blocktype bytes should report only the real exception opcodes",
   );
 
   for (const [opcode, name] of [[0x14, "call_ref"], [0x15, "return_call_ref"]] as const) {

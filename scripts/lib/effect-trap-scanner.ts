@@ -112,6 +112,15 @@ function readUleb(bytes: Uint8Array, offset: number): { value: number; next: num
   return { value, next: index };
 }
 
+function skipSignedLeb(bytes: Uint8Array, offset: number, maxBytes: number): number {
+  let index = offset;
+  for (let count = 0; count < maxBytes && index < bytes.length; count += 1) {
+    const byte = bytes[index++];
+    if ((byte & 0x80) === 0) break;
+  }
+  return index;
+}
+
 function skipValueType(bytes: Uint8Array, offset: number): number {
   const type = bytes[offset];
   if (type !== 0x63 && type !== 0x64) {
@@ -261,7 +270,7 @@ function scanOpcode(
       return skipBlockType(bytes, offset);
     case 0x06: // try
       facts.hasException = true;
-      return Math.min(end, offset + 1);
+      return skipBlockType(bytes, offset);
     case 0x07: // catch
       facts.hasException = true;
       return skipUlebOperands(bytes, offset, 1);
@@ -308,8 +317,9 @@ function scanOpcode(
       markTrap(facts);
       return skipUlebOperands(bytes, offset, 1);
     case 0x41: // i32.const
+      return skipSignedLeb(bytes, offset, 5);
     case 0x42: // i64.const
-      return readUleb(bytes, offset).next;
+      return skipSignedLeb(bytes, offset, 10);
     case 0x43: // f32.const
       return Math.min(end, offset + 4);
     case 0x44: // f64.const
