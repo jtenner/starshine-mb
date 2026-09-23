@@ -48,6 +48,32 @@ The active proposals tracker and Shared-Everything Threads overview remain propo
 | Shared-GC aggregate atomics | This page plus [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) | Struct and array atomic set/get/RMW/cmpxchg are represented, encoded/decoded, validated, lifted/lowered through HOT, and effect-classified. | Complete engine/runtime support. |
 | WAST aggregate-atomic text | [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) | `struct.atomic.get*`, struct/array atomic set, and aggregate RMW/cmpxchg have parser/lowerer/printer coverage. | Every core-carried array get variant, explicit order spelling on every aggregate form, or full proposal text syntax. |
 
+## Cross-Worker Runtime Observation Boundary
+
+[`optimizer-shared-gc-atomic-runtime.ts`](../../scripts/lib/optimizer-shared-gc-atomic-runtime.ts)
+contains a killable capability probe for the minimum topology needed to observe
+one shared aggregate from two host workers. The fixture has a shared struct with
+one mutable `i32` field, one shared global holding its instance, and one exported
+shared function that performs `struct.atomic.rmw.add seq_cst` by one. If the
+topology executes, the complete allowed set is worker old values `(0, 1)` or
+`(1, 0)`, followed by a main-thread observation of old value `2`.
+
+The focused boundary test first compiles that fixture with `wasm-tools parse`,
+so a text or binary tooling rejection cannot be mistaken for a Node result.
+With `wasm-tools 1.251.0`, the fixture parses and validates. Node `v26.10.0`
+with `--experimental-wasm-shared` rejects it during compilation with
+`shared functions/continuations are not supported yet`. The probe therefore
+reports `blocked` with no observation. This is an intentional unsupported
+boundary, not an allowed-outcome match.
+
+The existing linear-memory two-worker executor cannot stand in for this test.
+It instantiates the module separately in each worker and shares only an imported
+`WebAssembly.Memory`; module-local GC globals in those instances denote distinct
+objects. Reopen this boundary when the selected Node runtime can transfer or
+invoke the required shared function/global topology across workers. At that
+point the same probe must reach the declared two-outcome set before optimizer
+comparisons can cite shared-GC aggregate atomic execution.
+
 ## Current Starshine Aggregate-Atomic Slice
 
 The core instruction model includes:
@@ -147,7 +173,7 @@ Sources: [core/codec tests](../../src/binary/binaryen132_waitqueue_wbtest.mbt),
 4. **Validation:** finish proposal-specific shared/unshared domain, subtype graph, mutability, packed-field, and ordering legality rules rather than inferring them from carrier presence.
 5. **Effects/HOT:** preserve directional acquire/release/seq-cst behavior across every lift, lower, remap, and rewrite.
 6. **Generators/fuzzing:** add a dedicated full-proposal gate only when generated modules are both Starshine-valid and externally classifiable.
-7. **Runtime:** separately prove host/engine shared-object execution; codec, validator, and optimizer coverage are not runtime conformance.
+7. **Runtime:** separately prove host/engine shared-object execution; the focused Node probe is currently blocked at shared-function compilation, and codec, validator, and optimizer coverage are not runtime conformance.
 8. **Docs:** keep this page, the feature-status router, linear/relaxed atomic pages, WAST guides, index, and log synchronized whenever a layer widens.
 
 ## Source Map
