@@ -524,8 +524,16 @@
   output pairs were retained. The larger families are 27 EH-control, 13
   legacy-EH local cleanup, six SIMD shape-10, two RemoveUnusedBrs switch,
   one RemoveUnusedBrs multi-function, and one constraint-loop case. Targeted
-  bounded replays are active for the size-losing families. Do not infer
-  semantic safety from size, validation, or instantiation-only observations.
+  bounded replays addressed retained representatives; unretained siblings
+  remain open. Do not infer semantic safety from size, validation, or
+  instantiation-only observations.
+  All 20 retained output pairs now have pair-scoped classifications: 14
+  source-backed smaller wins are listed in the
+  [campaign dossier](docs/wiki/fuzzing/semantic-optimizer-campaigns.md), while
+  exact cases 15, 17, 21, 28, 29, and 31 have targeted fixes and replays
+  recorded in this list and the linked pass dossiers.
+  This does not classify the other 537 pairs suppressed by the artifact cap or
+  sign off their generator families.
   The six historical SIMD shape-10 rows are now closed by bounded exact-input
   replays after the OptimizeInstructions result-if repair: case 50 and siblings
   258, 410, 634, 682, and 826 are each 103 Starshine versus 112 Binaryen bytes

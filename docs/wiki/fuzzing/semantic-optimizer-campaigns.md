@@ -129,6 +129,20 @@ local names. Exact public CLI seven-pass replay validates at 42 / 42 and 43 /
 44 / 44. Both are now one-byte emitted and canonical wins; the pre-fix public
 outputs were 44 and 49 raw bytes. Six saved Node invocation vectors agree.
 
+[LocalCSE case 29](../binaryen/passes/local-cse/starshine-strategy.md) now
+materializes the successful ordinary non-null cast result once in a typed
+local and reuses it within the same function-body window. Exact saved
+seven-pass replay validates at 91 raw / 92 canonical bytes versus verified
+v132's 93 / 93. The original and both outputs return `22289` under Node's
+custom-descriptor flag; a separate optimized null-cast input still traps.
+The previous Starshine raw output was 94 bytes, so the emitted-size gap is
+closed as a two-byte raw win.
+
+Together, the 14 pair-scoped wins in the table and the targeted replays of
+cases 15, 17, 21, 28, 29, and 31 account for all 20 retained output pairs.
+This does not classify the 537 suppressed pairs or establish a new aggregate
+comparison result.
+
 In the separate 256-case [EH/Vacuum campaign](../binaryen/passes/vacuum/fuzzing.md),
 layouts `1` and `7` account for 64 historical mismatches that are source-backed
 canonical projection wins, although Binaryen's raw encodings are smaller.
