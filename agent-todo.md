@@ -503,21 +503,24 @@
     accounting for the residual win. A null-cast runtime probe still traps.
     No fuzz ran.
 
-86. [ ] Repair the optimizer-instruction atomic tee fixture after local-index
-    regrouping. Replace the stale rendered-module comparison with direct IR
-    assertions for the address tees, operation order, and remapped locals;
-    require the captured full-suite failure to turn green.
-87. [ ] Repair 19 global-struct-inference fixtures that claim closed-world
-    parameter origins while exporting their functions. Keep the explicit
-    exported-parameter no-fold guard; require the captured failures to turn
-    green without weakening the closed-world assertions.
-88. [ ] Repair the atomic-set fixture to assert Relaxed folding and ordered
-    AcqRel/SeqCst retention with direct IR checks; require the captured
-    full-suite failure to turn green.
-89. [ ] Repair the DFE fixture count after the exported-function identity
-    guard, and assert the two exported functions remain distinct while their
-    internal transitive callees merge; require the captured failure to turn
-    green.
+86. [x] `845555827` replaces the stale atomic-tee rendered string with direct
+    IR checks for grouped locals, four remapped address tees, ordered atomic
+    operations, the xor tail, and module validation. Focused 1/1 and full
+    suite 12,237/12,237 pass.
+87. [x] `0e4f00ed2` restores 37 genuinely internal closed-world GSI reader
+    fixtures, including the 19 that failed after correct exported-parameter
+    poisoning. Explicit exported-parameter and dispatcher guards remain.
+    Focused 74/74 and full suite 12,237/12,237 pass. The internal readers are
+    uncalled; their direct IR assertions prove optimizer shape, while a future
+    exported wrapper would strengthen runtime evidence for negative guards.
+88. [x] `09a455802` asserts Relaxed fresh-object store folding and preserves
+    AcqRel/SeqCst atomic events with exact constructor and store IR checks.
+    Focused atomic matrix 9/9, direct/dispatcher publication guards 1/1 each,
+    and full suite 12,237/12,237 pass.
+89. [x] `76b465697` updates the DFE survivor count to 68 and asserts the two
+    exported top function identities remain distinct while their internal
+    transitive callees merge. Focused hashing 1/1, exported identity 2/2,
+    and full suite 12,237/12,237 pass.
 
 ### Open parity evidence from this audit
 
