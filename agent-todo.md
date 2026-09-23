@@ -418,6 +418,13 @@
     suites passed 24/24, 27/27, and 78/78. Known candidate failures retain
     correctness-failure status, and cache identity advanced to v10. No fuzz
     campaign ran.
+78. [ ] Saved seven-pass case 907 needs repeated OptimizeInstructions and
+    Precompute passes before a pure local/conditional expression reaches
+    `i32.const 1`; verified Binaryen 132 rewrites it sooner. The first OI pass
+    sinks local sets but does not revisit the exposed `if`; current output
+    changes across four generations despite complete 10-call semantic equality.
+    Add red direct and dispatcher convergence tests, fix bounded revisit
+    scheduling, and replay the exact saved input without a fuzz campaign.
 
 ### Open parity evidence from this audit
 
