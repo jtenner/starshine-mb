@@ -190,7 +190,9 @@
     before the fix and passed afterward; nearby harness tests passed 77/77.
 52. [ ] Add hard subprocess timeouts to validator and optimizer workers.
 53. [ ] Require an independent validator in correctness signoff lanes.
-54. [ ] Fail a lane when a configured external validator is absent.
+54. [x] A missing configured external validator now fails the case instead of
+    silently passing; the skipped-tool counter remains diagnostic. A synthetic
+    red/green missing-WABT regression and nearby harness tests passed 77/77.
 55. [ ] Require determinism and codec idempotence in CI correctness lanes.
 56. [ ] Add a separately gated external wasm-smith generator lane.
 57. [ ] Ensure dedicated fuzz lanes are required and fail CI on findings.

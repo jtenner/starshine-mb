@@ -1412,7 +1412,7 @@ async function runExternalValidatorsAsync(
     const result = await runExternalValidatorAsync(kind, options, wasmPath, repoRoot);
     if (result.skipped) {
       summary.externalValidatorSkipped[kind] = (summary.externalValidatorSkipped[kind] ?? 0) + 1;
-      continue;
+      return { ok: false, stderr: result.stderr };
     }
     if (!result.ok) {
       return { ok: false, stderr: `${kind}: ${result.stderr}` };

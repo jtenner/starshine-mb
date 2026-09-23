@@ -158,6 +158,31 @@ fs.copyFileSync(source, output);
       const secondSummary = JSON.parse(fs.readFileSync(path.join(secondOutDir, "result.json"), "utf8"));
       expect(secondSummary.cache.binaryenMisses).toBe(1);
       expect(secondSummary.cache.binaryenHits).toBe(0);
+
+      const missingValidatorOutDir = path.join(root, "out-missing-validator");
+      const missingValidator = spawnSync("bun", [
+        path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+        "--count", "1", "--wasm-smith", "--out-dir", missingValidatorOutDir,
+        "--report-only", "--cache-dir", cacheDir, "--jobs", "1",
+        "--pass", "strip-debug", "--starshine-bin", starshine,
+        "--wasm-opt-bin", wasmOpt, "--wasm-tools-bin", wasmTools,
+        "--external-validator", "wabt",
+        "--wabt-validate-bin", path.join(root, "missing-wabt-validator"),
+      ], {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          INVOCATION_LOG: invocationLog,
+          NAMED_WASM: namedWasm,
+          STRIPPED_WASM: strippedWasm,
+          REAL_WASM_TOOLS: realWasmTools,
+        },
+        encoding: "utf8",
+        timeout: 30_000,
+      });
+      expect(missingValidator.status, `${missingValidator.stdout}\n${missingValidator.stderr}`).toBe(0);
+      const missingSummary = JSON.parse(fs.readFileSync(path.join(missingValidatorOutDir, "result.json"), "utf8"));
+      expect(missingSummary.validationFailureCount).toBe(1);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
