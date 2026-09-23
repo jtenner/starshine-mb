@@ -119,6 +119,45 @@ fs.copyFileSync(source, output);
       for (const args of comparisonProjectionInvocations) {
         expect(args).not.toContain("--strip-debug");
       }
+
+      const findDone = (directory: string): string | null => {
+        for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+          const candidate = path.join(directory, entry.name);
+          if (entry.isDirectory()) {
+            const nested = findDone(candidate);
+            if (nested !== null) return nested;
+          } else if (entry.name === "done.json") {
+            return candidate;
+          }
+        }
+        return null;
+      };
+      const done = findDone(cacheDir);
+      expect(done).not.toBeNull();
+      fs.writeFileSync(path.join(path.dirname(done!), "binaryen.wasm"), "corrupt canonical output");
+      const secondOutDir = path.join(root, "out-after-corruption");
+      const second = spawnSync("bun", [
+        path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+        "--count", "1", "--wasm-smith", "--out-dir", secondOutDir,
+        "--report-only", "--cache-dir", cacheDir, "--jobs", "1",
+        "--pass", "strip-debug", "--starshine-bin", starshine,
+        "--wasm-opt-bin", wasmOpt, "--wasm-tools-bin", wasmTools,
+      ], {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          INVOCATION_LOG: invocationLog,
+          NAMED_WASM: namedWasm,
+          STRIPPED_WASM: strippedWasm,
+          REAL_WASM_TOOLS: realWasmTools,
+        },
+        encoding: "utf8",
+        timeout: 30_000,
+      });
+      expect(second.status, `${second.stdout}\n${second.stderr}`).toBe(0);
+      const secondSummary = JSON.parse(fs.readFileSync(path.join(secondOutDir, "result.json"), "utf8"));
+      expect(secondSummary.cache.binaryenMisses).toBe(1);
+      expect(secondSummary.cache.binaryenHits).toBe(0);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

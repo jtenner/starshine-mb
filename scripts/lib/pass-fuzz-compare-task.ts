@@ -2862,10 +2862,21 @@ type BinaryenOracleResult =
   | { ok: false; detail: string; cacheHit: boolean };
 
 function binaryenSuccessCacheIsComplete(cacheDir: string): boolean {
-  return fs.existsSync(path.join(cacheDir, "done.json")) &&
-    fs.existsSync(path.join(cacheDir, "binaryen.raw.wasm")) &&
-    fs.existsSync(path.join(cacheDir, "binaryen.wasm")) &&
-    fs.existsSync(path.join(cacheDir, "binaryen.wat"));
+  try {
+    const done = JSON.parse(fs.readFileSync(path.join(cacheDir, "done.json"), "utf8")) as {
+      ok?: unknown;
+      schema?: unknown;
+      rawSha256?: unknown;
+      canonicalSha256?: unknown;
+      watSha256?: unknown;
+    };
+    return done.ok === true && done.schema === 2 &&
+      done.rawSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.raw.wasm"))) &&
+      done.canonicalSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.wasm"))) &&
+      done.watSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.wat")));
+  } catch {
+    return false;
+  }
 }
 
 function publishCacheDir(stagingDir: string, finalDir: string): void {
@@ -2940,6 +2951,10 @@ async function runBinaryenOracleWithCache(
     }
   }
 
+  if (cacheDir !== null && fs.existsSync(cacheDir)) {
+    fs.rmSync(cacheDir, { recursive: true, force: true });
+  }
+
   try {
     await runOrThrowAsync(
       options.wasmOptBin,
@@ -2966,7 +2981,13 @@ async function runBinaryenOracleWithCache(
       fs.copyFileSync(binaryenRawPath, path.join(stagingDir, "binaryen.raw.wasm"));
       fs.copyFileSync(binaryenPath, path.join(stagingDir, "binaryen.wasm"));
       fs.writeFileSync(path.join(stagingDir, "binaryen.wat"), wat);
-      fs.writeFileSync(path.join(stagingDir, "done.json"), JSON.stringify({ ok: true, schema: 1 }, null, 2) + "\n");
+      fs.writeFileSync(path.join(stagingDir, "done.json"), JSON.stringify({
+        ok: true,
+        schema: 2,
+        rawSha256: sha256Hex(fs.readFileSync(binaryenRawPath)),
+        canonicalSha256: sha256Hex(fs.readFileSync(binaryenPath)),
+        watSha256: sha256Hex(wat),
+      }, null, 2) + "\n");
       publishCacheDir(stagingDir, cacheDir);
     }
     return { ok: true, wat, cacheHit: false };

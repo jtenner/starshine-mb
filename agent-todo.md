@@ -160,7 +160,10 @@
     recorded seed for each callable export; the invocation hash and semantic
     cache revision reflect the new observations. A focused test failed before
     the change and passed afterward; runtime/cache unit files passed 16/16.
-50. [ ] Verify cached oracle artifacts by content hash.
+50. [x] Binaryen success-cache hits now verify SHA-256 hashes of raw Wasm,
+    canonical Wasm, and WAT artifacts; missing, legacy, or corrupt entries
+    regenerate. A synthetic tamper regression failed before the fix and passed
+    after; nearby harness tests passed 77/77. No fuzzing was run.
 51. [ ] Do not persist transient Binaryen failures as stable cache results.
 52. [ ] Add hard subprocess timeouts to validator and optimizer workers.
 53. [ ] Require an independent validator in correctness signoff lanes.
