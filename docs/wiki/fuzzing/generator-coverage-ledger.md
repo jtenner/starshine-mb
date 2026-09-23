@@ -98,6 +98,19 @@ for all 1,536 outputs. The first EH batch exposed two invalid `try_table`
 fallthrough shapes, which were corrected before this clean rerun. These
 generator checks do not establish optimizer semantic equivalence.
 
+`random-all-profiles` avalanches its leaf-selection roll before reducing it by
+the aggregate weight. The unavalanched selector and `case_seed` previously
+shared the same XOR/product low bits, so selecting a particular campaign leaf
+also fixed those bits in its generator seed. A saved 1,000-case batch therefore
+selected only odd GC/ref and call-topology variants, only even segment-state
+rotations, and only the three-memory memory64 branch. The bounded 128-case
+regression in `gen_valid_wbtest.mbt` now covers all eight GC/ref variants, both
+call-route parities, all four segment rotations and probe branches, and both
+two- and three-memory shapes through the aggregate scheduler. The recorded
+`case_seed` derivation and singleton profile generation remain unchanged, so a
+manifest's selected profile plus case seed retains its replay identity; only
+future aggregate leaf scheduling uses the independent mixed roll.
+
 The first verified-v132, eight-worker `vacuum` comparison used 256 cases per
 campaign. Memory64, GC/ref, SIMD/numeric, call topology, and the final segment
 profile each compared **256/256** with zero mismatches or command/validation

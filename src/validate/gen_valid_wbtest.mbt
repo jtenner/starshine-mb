@@ -17672,6 +17672,50 @@ test "random all-profiles composite samples stable profile leaves" {
 }
 
 ///|
+test "random all-profiles selection leaves campaign variant bits reachable" {
+  let memory_counts = Array::make(2, false)
+  let gc_variants = Array::make(8, false)
+  let call_route_parities = Array::make(2, false)
+  let segment_rotations = Array::make(4, false)
+  let root_seed = 0x74f0UL
+  @debug.assert_eq(gen_valid_case_seed(root_seed, 1), 0xb4fcUL)
+  @debug.assert_eq(gen_valid_case_seed(root_seed, 128), 0x858ba506da74c269UL)
+  for index = 1; index <= 128; index = index + 1 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      RandomAllProfilesProfile,
+      root_seed,
+      index,
+    )
+    let case_seed = gen_valid_case_seed(root_seed, index)
+    if leaf == CampaignMemory64MultiMemoryProfile {
+      memory_counts[(case_seed % 2UL).to_int()] = true
+    } else if leaf == CampaignGcRefSubtypesProfile {
+      gc_variants[(case_seed % 8UL).to_int()] = true
+    } else if leaf == CampaignCallTopologyProfile {
+      call_route_parities[(case_seed % 2UL).to_int()] = true
+    } else if leaf == CampaignSegmentStateProfile {
+      segment_rotations[(case_seed % 4UL).to_int()] = true
+    }
+  }
+  assert_true(
+    memory_counts.iter().all(fn(seen) { seen }),
+    msg="random-all selection pinned memory64/multimemory cases to one memory-count branch: \{memory_counts}",
+  )
+  assert_true(
+    gc_variants.iter().all(fn(seen) { seen }),
+    msg="random-all selection pinned GC/ref/subtype cases to only half of their seed variants: \{gc_variants}",
+  )
+  assert_true(
+    call_route_parities.iter().all(fn(seen) { seen }),
+    msg="random-all selection pinned call-topology cases to only odd route variants: \{call_route_parities}",
+  )
+  assert_true(
+    segment_rotations.iter().all(fn(seen) { seen }),
+    msg="random-all selection pinned segment-state cases to only half of their data rotations and probe branches: \{segment_rotations}",
+  )
+}
+
+///|
 test "composite gen-valid profile sampling is deterministic and replayable" {
   let first = gen_valid_profile_leaf_for_case(SsaNomergeAllProfile, 0x5eedUL, 1)
   let replayed = gen_valid_profile_leaf_for_case(

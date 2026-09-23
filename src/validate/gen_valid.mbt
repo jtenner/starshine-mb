@@ -2361,11 +2361,14 @@ pub fn gen_valid_profile_leaf_for_case(
     return profile
   }
   let selector = gen_valid_profile_case_roll(seed, case_index)
-  // These new aggregates use seed bits inside each leaf to choose important
-  // semantic variants. Avalanche the independent selector so a leaf index
-  // cannot fix those body bits (for example, selecting OR but never AND).
-  // Keep existing aggregate sequences and singleton case seeds replayable.
-  let selector = if profile == ConstraintAllProfile || profile == Dae2AllProfile {
+  // These aggregates use seed bits inside each leaf to choose important
+  // semantic variants. Avalanche the independent selector so selecting a leaf
+  // cannot fix those same bits (for example, selecting only odd campaign
+  // variants). Keep singleton case seeds replayable; only leaf scheduling is
+  // mixed here.
+  let selector = if profile == ConstraintAllProfile ||
+    profile == Dae2AllProfile ||
+    profile == RandomAllProfilesProfile {
     @splitmix.new(seed=selector).next_uint64()
   } else {
     selector
