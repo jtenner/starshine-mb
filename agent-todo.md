@@ -394,11 +394,14 @@
     false unreachable facts. Focused compare-task tests passed 78/78. The
     scanner remains a bounded triage decoder, not a full Wasm validator; no
     fuzz campaign ran.
-75. [ ] The saved random-all campaign selected GC/ref/subtypes only with odd
-    case seeds and segment-state only with even seeds, leaving half of each
-    generator's variant branches untested. Add a bounded deterministic
-    selection test, break the seed/profile parity correlation without changing
-    replay identity, and verify both variant parities without a fuzz campaign.
+75. [x] Random-all profile selection now avalanches its leaf selector before
+    scheduling, breaking the low-bit correlation with case seeds (`ae91f7b87`).
+    The old saved campaign selected only odd GC/call routes, even segment
+    routes, and three-memory memory64 cases. A bounded 128-case test failed
+    before the fix, then covered both memory counts, all eight GC variants,
+    both call-route parities, and all four segment rotations. Case seed goldens
+    and singleton generation remain unchanged; grouped random-all tests passed
+    3/3, `moon fmt` and `moon info` passed. No fuzz campaign ran.
 76. [x] Convergence now requires identical consecutive raw module hashes for
     fixed points and repeated exact raw hashes for cycles (`ec0dcf9c4`);
     canonical hashes remain diagnostics. Nine saved EH cases exposed the old
