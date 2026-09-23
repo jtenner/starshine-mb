@@ -208,6 +208,7 @@ jobs:
             --normalize unreachable-control-debris \
             --determinism \
             --codec-idempotence \
+            --require-independent-validator \
             --out-dir .tmp/ci-dae-genvalid \
             --jobs auto \
             --starshine-bin _build/native/release/build/cmd/cmd.exe \

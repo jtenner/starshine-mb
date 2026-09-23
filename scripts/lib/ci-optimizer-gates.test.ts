@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 describe("CI optimizer correctness lanes", () => {
-  test("require deterministic output and stable codec bytes", () => {
+  test("require independent validation, deterministic output, and stable codec bytes", () => {
     const repoRoot = path.resolve(import.meta.dir, "..", "..");
     const workflows = ["ci.yml", "fuzz.yml"];
     let commands = 0;
@@ -21,6 +21,7 @@ describe("CI optimizer correctness lanes", () => {
         commands += 1;
         expect(command.join(" "), workflow).toContain("--determinism");
         expect(command.join(" "), workflow).toContain("--codec-idempotence");
+        expect(command.join(" "), workflow).toContain("--require-independent-validator");
       }
     }
     expect(commands).toBeGreaterThanOrEqual(2);

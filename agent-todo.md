@@ -196,7 +196,11 @@
     lane retries the command. A fail-then-recover synthetic regression failed
     before the fix and passed afterward; nearby harness tests passed 77/77.
 52. [x] Add hard subprocess timeouts to validator and optimizer workers. Async optimizer, validator, and generator subprocesses now have a hard default deadline; the main Starshine/Binaryen/validator path accepts `--subprocess-timeout-ms`, and synchronous reduction/artifact probes are bounded. A one-case synthetic hanging Binaryen fixture proves timeout reporting without a fuzz campaign.
-53. [ ] Require an independent validator in correctness signoff lanes.
+53. [x] Correctness signoff lanes now require independent `wasm-tools`
+    validation through `--require-independent-validator`; Binaryen-only
+    primary validation is rejected before running, while diagnostic lanes
+    remain available. Both CI compare-pass commands carry the flag; parser
+    and workflow-contract tests failed before the fix and passed afterward.
 54. [x] A missing configured external validator now fails the case instead of
     silently passing; the skipped-tool counter remains diagnostic. A synthetic
     red/green missing-WABT regression and nearby harness tests passed 77/77.

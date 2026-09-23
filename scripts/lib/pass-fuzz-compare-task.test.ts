@@ -76,6 +76,18 @@ describe("pass-fuzz persistent cache options", () => {
     expect(() => parsePassFuzzCompareArgs(["--primary-validator", "unknown"])).toThrow();
   });
 
+  test("requires an independent primary validator in correctness signoff mode", () => {
+    const checked = parsePassFuzzCompareArgs([
+      "--pass", "vacuum", "--require-independent-validator",
+    ]);
+    expect(checked.kind).toBe("run");
+    if (checked.kind === "run") expect(checked.options.requireIndependentValidator).toBeTrue();
+    expect(() => parsePassFuzzCompareArgs([
+      "--pass", "vacuum", "--require-independent-validator",
+      "--primary-validator", "binaryen",
+    ])).toThrow("independent primary validator");
+  });
+
   test("sets a positive hard subprocess deadline for optimizer and validator work", () => {
     const parsed = parsePassFuzzCompareArgs([
       "--pass", "vacuum", "--subprocess-timeout-ms", "100",

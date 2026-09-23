@@ -145,6 +145,7 @@ jobs:
             --observation-mode stateful \
             --determinism \
             --codec-idempotence \
+            --require-independent-validator \
             --property semantic-idempotence \
             --property convergence \
             --commutator-left vacuum \

@@ -147,6 +147,7 @@ type PassFuzzCompareOptions = {
   wabtValidateBin: string;
   externalValidators: ExternalValidatorKind[];
   primaryValidator: "wasm-tools" | "binaryen";
+  requireIndependentValidator: boolean;
   runtimeExecution: RuntimeExecutionMode;
   propertyMode: PropertyMode;
   propertyModes: Exclude<PropertyMode, "none">[];
@@ -342,6 +343,7 @@ export type PassFuzzCompareSummary = {
   genValidProfileCaseCounts?: GenValidProfileCaseCounts;
   externalValidators: ExternalValidatorKind[];
   primaryValidator: "wasm-tools" | "binaryen";
+  requireIndependentValidator: boolean;
   runtimeExecution: RuntimeExecutionMode;
   propertyMode: PropertyMode;
   propertyModes: Exclude<PropertyMode, "none">[];
@@ -452,6 +454,7 @@ const RESERVED_OPTIONS = new Set([
   "--require-binaryen-version",
   "--wasm-tools-bin",
   "--primary-validator",
+  "--require-independent-validator",
   "--binaryen-validate-bin",
   "--wabt-validate-bin",
   "--external-validator",
@@ -582,6 +585,8 @@ const HELP_TEXT = [
   "  --resume              Continue an interrupted run in --out-dir by skipping completed case indices",
   "  --primary-validator <id>",
   "                       Required validity oracle: wasm-tools (default) | binaryen; Binaryen is not independent validation.",
+  "  --require-independent-validator",
+  "                       Require wasm-tools as the primary validator for correctness signoff",
   "  --external-validator <id>",
   "                       Optional skip-clean output validator: wasm-tools | binaryen | wabt. May repeat",
   "  --runtime-execution <mode>",
@@ -2701,6 +2706,7 @@ function buildResumeIdentity(
     binaryenPassFlags,
     normalizers: options.normalizers,
     primaryValidator: options.primaryValidator,
+    requireIndependentValidator: options.requireIndependentValidator,
     externalValidators: options.externalValidators,
     runtimeExecution: options.runtimeExecution,
     selfSemantic: options.selfSemantic,
@@ -4308,6 +4314,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let requiredBinaryenVersion: string | null = "132";
   let wasmToolsBin = process.env.WASM_TOOLS_BIN || "wasm-tools";
   let primaryValidator: "wasm-tools" | "binaryen" = "wasm-tools";
+  let requireIndependentValidator = false;
   let binaryenValidateBin = process.env.BINARYEN_WASM_VALIDATE_BIN || "wasm-validate";
   let wabtValidateBin = process.env.WABT_WASM_VALIDATE_BIN || "wasm-validate";
   const externalValidators: ExternalValidatorKind[] = [];
@@ -4425,6 +4432,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         i += 2;
         break;
       }
+      case "--require-independent-validator":
+        requireIndependentValidator = true;
+        i += 1;
+        break;
       case "--wasm-tools-bin":
         wasmToolsBin = argv[i + 1] ?? fail("missing value for --wasm-tools-bin");
         i += 2;
@@ -4832,6 +4843,9 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   if (resume && externalValidators.length > 0) {
     fail("--resume does not yet support --external-validator because interrupted skip counts are not persisted per case");
   }
+  if (requireIndependentValidator && primaryValidator !== "wasm-tools") {
+    fail("correctness signoff requires an independent primary validator (wasm-tools)");
+  }
 
   return {
     kind: "run",
@@ -4846,6 +4860,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       requiredBinaryenVersion,
       wasmToolsBin,
       primaryValidator,
+      requireIndependentValidator,
       binaryenValidateBin,
       wabtValidateBin,
       externalValidators,
@@ -4949,6 +4964,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const toolchainRecord = {
     schema: "starshine.optimizer-toolchain.v1",
     primaryValidator: options.primaryValidator,
+    requireIndependentValidator: options.requireIndependentValidator,
     requiredBinaryenVersion: options.requiredBinaryenVersion,
     binaryen: verifiedBinaryenTool,
     semanticOracle: options.semanticOracle,
@@ -5144,6 +5160,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     genValidProfileCaseCounts: {},
     externalValidators: options.externalValidators,
     primaryValidator: options.primaryValidator,
+    requireIndependentValidator: options.requireIndependentValidator,
     runtimeExecution: options.runtimeExecution,
     propertyMode: options.propertyMode,
     propertyModes: options.propertyModes,

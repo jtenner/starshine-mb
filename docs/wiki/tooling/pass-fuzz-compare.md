@@ -73,6 +73,7 @@ bun fuzz compare-pass \
   [--require-feature <feature>] [--exclude-feature <feature>] \
   [--gen-valid-metamorphic-transform <id>] [--emit-metamorphic-pairs] \
   [--external-validator wasm-tools|binaryen|wabt] \
+  [--require-independent-validator] \
   [--runtime-execution off|node] \
   [--self-semantic] \
   [--semantic-oracle off|node-v2] \
@@ -316,6 +317,8 @@ When `binaryen-command-failed` contains a BrOn-family assertion such as `Type::g
 `--jobs auto` requests host parallelism; `--jobs <n>` fixes the requested worker count. The effective worker count is additionally capped by `--max-subprocesses <n>`, default `8`, so process-heavy Starshine/Binaryen/wasm-tools/Node combinations cannot exhaust host process or Rayon thread limits. Documentation and signoff commands should include `--jobs auto`, an explicit subprocess cap when host limits are known, and `--starshine-bin _build/native/release/build/cmd/cmd.exe` together. Any effective worker count above `1` requires `--starshine-bin`.
 
 Optimizer, validator, generator, reduction, and artifact-print subprocesses have a hard default deadline of 300000 ms. `--subprocess-timeout-ms <positive integer>` sets the main Starshine, Binaryen pass, and validator deadline separately from the semantic Node worker's `--runtime-timeout-ms`; the chosen value is recorded in `result.json` and the resume identity. A timed-out optimizer is a command failure, not a semantic match.
+
+Correctness signoff lanes use `--require-independent-validator`, which requires `wasm-tools` as the primary validator and rejects Binaryen-only validation at option parsing. Binaryen remains an available primary validator for diagnostic proposal lanes without that flag. The signoff choice is recorded in `result.json`, the toolchain record, and the resume identity. Both CI compare-pass commands carry the signoff flag.
 
 Reason: without a prebuilt Starshine binary, the harness invokes Starshine through `moon run --target native --release src/cmd -- ...`. Parallel `moon run` calls can contend on `_build/.moon-lock`, so the harness refuses that shape. Build `src/cmd` once and pass its native binary path for parallel lanes. The implementation also treats omitted `--jobs` with `--starshine-bin` as auto, but documented commands should keep both flags visible so copied signoff lanes are unambiguous. If a local `target/native/...` binary exists, treat it as an old compatibility artifact unless its timestamp/hash proves it matches the current `_build/native/...` output.
 
