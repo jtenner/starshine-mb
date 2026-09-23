@@ -85,7 +85,16 @@ function recordOpcodeHazard(facts: EffectTrapFacts, opcode: number, offset: numb
   } else if (opcode === 0xfe) {
     noteHazard(facts, offset, opcode, "atomic");
     noteTrapCategory(facts, "atomic-memory-access");
-  } else if (opcode === 0x06 || opcode === 0x07 || opcode === 0x08 || opcode === 0x09 || opcode === 0x0a || opcode === 0x18 || opcode === 0x19) {
+  } else if (
+    opcode === 0x06 ||
+    opcode === 0x07 ||
+    opcode === 0x08 ||
+    opcode === 0x09 ||
+    opcode === 0x0a ||
+    opcode === 0x18 ||
+    opcode === 0x19 ||
+    opcode === 0x1f
+  ) {
     noteHazard(facts, offset, opcode, "exception");
   }
 }
@@ -142,6 +151,22 @@ function skipBlockType(bytes: Uint8Array, offset: number): number {
     return offset + 1;
   }
   return readUleb(bytes, offset).next;
+}
+
+function skipTryTableImmediate(bytes: Uint8Array, offset: number, end: number): number {
+  const catchCount = readUleb(bytes, skipBlockType(bytes, offset));
+  let next = catchCount.next;
+  for (let index = 0; index < catchCount.value && next < end; index += 1) {
+    const kind = bytes[next++];
+    if (kind === 0x00 || kind === 0x01) {
+      next = skipUlebOperands(bytes, next, 2); // tag index, label index
+    } else if (kind === 0x02 || kind === 0x03) {
+      next = skipUlebOperands(bytes, next, 1); // label index
+    } else {
+      break;
+    }
+  }
+  return Math.min(end, next);
 }
 
 function codeBodyRanges(bytes: Uint8Array): { start: number; end: number }[] | null {
@@ -287,6 +312,9 @@ function scanOpcode(
     case 0x19: // catch_all
       facts.hasException = true;
       return offset;
+    case 0x1f: // try_table
+      facts.hasException = true;
+      return skipTryTableImmediate(bytes, offset, end);
     case 0x10: // call
     case 0x12: // return_call
       facts.hasCall = true;

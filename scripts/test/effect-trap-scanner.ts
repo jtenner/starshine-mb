@@ -70,6 +70,30 @@ function validModuleWithMultiByteTryBlockType(): Uint8Array {
   ]);
 }
 
+function validModuleWithTryTable(includeUnreachable: boolean): Uint8Array {
+  const body = [
+    0x00, // no locals
+    0x02, 0x40, // block $catch
+    0x1f, 0x40, // try_table with an empty blocktype
+    0x02, // two catch clauses
+    0x00, 0x00, 0x00, // catch tag 0 and branch to label 0
+    0x02, 0x00, // catch_all and branch to label 0
+    0x01, // nop
+    0x0b, // end try_table
+    0x0b, // end block
+    ...(includeUnreachable ? [0x00] : []),
+    0x0b, // end function
+  ];
+  return Uint8Array.from([
+    0x00, 0x61, 0x73, 0x6d,
+    0x01, 0x00, 0x00, 0x00,
+    0x01, 0x04, 0x01, 0x60, 0x00, 0x00, // one [] -> [] function type
+    0x03, 0x02, 0x01, 0x00, // one defined function of type 0
+    0x0d, 0x03, 0x01, 0x00, 0x00, // one tag of type 0
+    0x0a, body.length + 2, 0x01, body.length, ...body,
+  ]);
+}
+
 export function runEffectTrapScannerTest(): void {
   const pure = scanEffectTrapFactsFromWasmBytes(moduleWithCodeBytes([0x41, 0x00, 0x1a]));
   assert(!pure.hasCall, "pure const/drop body should not report calls");
@@ -268,6 +292,30 @@ export function runEffectTrapScannerTest(): void {
   assert(
     multiByteTryFacts.hazards.every((hazard) => hazard.kind === "exception"),
     "multi-byte legacy try blocktype bytes should report only the real exception opcodes",
+  );
+
+  const tryTable = validModuleWithTryTable(false);
+  assert(WebAssembly.validate(tryTable), "try_table catch-vector regression module should validate");
+  const tryTableFacts = scanEffectTrapFactsFromWasmBytes(tryTable);
+  assert(tryTableFacts.hasException, "try_table should report exception handling");
+  assert(!tryTableFacts.hasUnreachable, "try_table catch-vector indices should not report unreachable");
+  assert(!tryTableFacts.mayTrap, "try_table catch-vector indices should not report traps");
+  assert(
+    tryTableFacts.hazards.length === 1 &&
+      tryTableFacts.hazards[0].opcode === 0x1f &&
+      tryTableFacts.hazards[0].kind === "exception",
+    "try_table should report only its real exception opcode",
+  );
+
+  const trueUnreachableAfterTryTable = validModuleWithTryTable(true);
+  assert(WebAssembly.validate(trueUnreachableAfterTryTable), "true unreachable after try_table should validate");
+  const trueUnreachableAfterTryTableFacts = scanEffectTrapFactsFromWasmBytes(trueUnreachableAfterTryTable);
+  assert(trueUnreachableAfterTryTableFacts.hasException, "try_table control should report exception handling");
+  assert(trueUnreachableAfterTryTableFacts.hasUnreachable, "real unreachable after try_table should be reported");
+  assert(trueUnreachableAfterTryTableFacts.mayTrap, "real unreachable after try_table should report a trap");
+  assert(
+    trueUnreachableAfterTryTableFacts.hazards.filter((hazard) => hazard.kind === "explicit-unreachable").length === 1,
+    "only the real unreachable after try_table should be reported",
   );
 
   for (const [opcode, name] of [[0x14, "call_ref"], [0x15, "return_call_ref"]] as const) {
