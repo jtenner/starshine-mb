@@ -71,6 +71,25 @@ static-null `throw_ref` cleanup that removes two repeated +10-byte families;
 the full seven-pass 557-case run was not repeated under the user's no-fuzz
 constraint.
 
+Targeted saved-input replays have since closed specific representatives without
+changing the historical aggregate. [EH-control case 40](../binaryen/passes/remove-unused-brs/fuzzing.md)
+now removes a caught `try_table` void wrapper (48 raw / 45 canonical bytes
+versus v132's 46 / 46); legacy-EH
+[case 17](../binaryen/passes/simplify-locals/raw-lane-and-writeback.md) now
+matches v132's 55 canonical bytes after safe local-copy admission.
+[Typed-loop case 437](../binaryen/passes/simplify-locals/fuzzing.md) emits 68 raw
+/ 80 canonical bytes versus v132's 81 / 81, and
+[SIMD shape-10 case 50](../binaryen/passes/optimize-instructions/fuzzing.md)
+emits 103 raw and canonical bytes versus v132's 112.
+[Precompute/RemoveUnusedBrs cases 144, 816, and 980](../binaryen/passes/precompute/fuzzing.md)
+have smaller validated canonical outputs (39 / 65 / 62 bytes versus 41 / 71 /
+66). [OptimizeInstructions case 767](../binaryen/passes/optimize-instructions/fuzzing.md)
+now matches v132's 63-byte pass result and 60-byte seven-pass result byte for
+byte. [Case 907](../binaryen/passes/optimize-instructions/fuzzing.md) reaches a
+validated 40-byte fixed point after bounded instruction revisits. These are
+individual exact replays; unretained output pairs and unreplayed siblings
+remain unclassified.
+
 Two property failures, saved cases 259 and 367, were genuine DCE wrong-code:
 a reachable typed loop became an unconditional trap. The source-order repair
 has [direct](../../../src/passes/dead_code_elimination_test.mbt) and
