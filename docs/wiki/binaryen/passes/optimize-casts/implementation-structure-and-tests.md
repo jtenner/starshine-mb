@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-22
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -204,9 +204,9 @@ See [`./wat-shapes.md`](./wat-shapes.md) for beginner-friendly before/after exam
 Starshine has an active source-reviewed HOT `optimize-casts` implementation. The exact current local status is:
 
 - `src/passes/optimize_casts.mbt`
-  - active owner file for redundant GC cast removal and statically known `ref.test` folds
+  - active owner file for redundant GC cast removal and statically known `ref.test` folds, with abstract heap subtype facts aligned to the validator
 - `src/passes/optimize_casts_test.mbt`
-  - focused fixtures for redundant `ref.cast`, guaranteed-true `ref.test`, nullable-to-nonnull trap preservation, and the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood order
+  - focused fixtures for redundant `ref.cast`, guaranteed-true `ref.test`, validator-approved `none -> i31`, `none -> string`, `nocont -> cont`, and shared `nowaitqueue -> waitqueue` bottom edges, nullable-to-nonnull trap preservation, and the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood order
 - `src/passes/optimize.mbt`
   - active registry coverage for `"optimize-casts"` plus the public `optimize` / `shrink` slot immediately after `heap2local`
 - `src/passes/pass_manager.mbt`

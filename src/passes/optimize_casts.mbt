@@ -27,10 +27,13 @@ fn oc_abs_heap_matches(
   match (source, target) {
     (@lib.NoneAbsHeapType, @lib.StructAbsHeapType)
     | (@lib.NoneAbsHeapType, @lib.ArrayAbsHeapType)
+    | (@lib.NoneAbsHeapType, @lib.I31AbsHeapType)
     | (@lib.NoneAbsHeapType, @lib.EqAbsHeapType)
     | (@lib.NoneAbsHeapType, @lib.AnyAbsHeapType)
+    | (@lib.NoneAbsHeapType, @lib.StringAbsHeapType)
     | (@lib.NoFuncAbsHeapType, @lib.FuncAbsHeapType)
-    | (@lib.NoFuncAbsHeapType, @lib.AnyAbsHeapType)
+    | (@lib.NoContAbsHeapType, @lib.ContAbsHeapType)
+    | (@lib.NoWaitqueueAbsHeapType, @lib.WaitqueueAbsHeapType)
     | (@lib.StringAbsHeapType, @lib.ExternAbsHeapType)
     | (@lib.NoExternAbsHeapType, @lib.ExternAbsHeapType)
     | (@lib.NoExnAbsHeapType, @lib.ExnAbsHeapType)
@@ -40,9 +43,7 @@ fn oc_abs_heap_matches(
     | (@lib.StructAbsHeapType, @lib.AnyAbsHeapType)
     | (@lib.ArrayAbsHeapType, @lib.EqAbsHeapType)
     | (@lib.ArrayAbsHeapType, @lib.AnyAbsHeapType)
-    | (@lib.EqAbsHeapType, @lib.AnyAbsHeapType)
-    | (@lib.FuncAbsHeapType, @lib.AnyAbsHeapType)
-    | (@lib.ExternAbsHeapType, @lib.AnyAbsHeapType) => true
+    | (@lib.EqAbsHeapType, @lib.AnyAbsHeapType) => true
     _ => false
   }
 }
