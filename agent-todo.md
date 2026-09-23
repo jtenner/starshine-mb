@@ -385,6 +385,11 @@
     reachable body. Strengthen direct and dispatcher assertions to inspect the
     loop body, observe red, fix the minimal DCE reachability error, then replay
     both exact saved modules. No fuzz campaign is required for this blocker.
+74. [ ] Saved seven-pass SIMD case 16 has false positive call, atomic, and
+    memory-effect coverage facts despite a pure SIMD/numeric input. The
+    feature scanner appears to interpret opcode-like immediate bytes as
+    instructions. Add a valid-byte red regression with true-opcode controls,
+    correct the scan, and verify the reported facts without a fuzz campaign.
 
 ### Open parity evidence from this audit
 
