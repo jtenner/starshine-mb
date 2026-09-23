@@ -195,7 +195,9 @@
     A bounded two-worker Node litmus now checks declared allowed outcomes for
     sequentially consistent `i32.atomic.rmw.add` over shared memory
     (`75fec2f14`); synthetic increment-by-two corruption is rejected, and
-    focused runtime suites passed 60/60. Remaining: wait/notify liveness,
+    focused runtime suites passed 60/60. A second bounded `wait32`/`notify`
+    fixture observes completed calls and rejects an incorrect atomic store;
+    focused Bun tests passed 4/4. Remaining: general wait/notify liveness,
     weaker orders and fences, memory64/multi-memory, shared-GC atomics, and
     broader schedule families. This is an opt-in replay primitive; general
     node-v2 still runs single-threaded.

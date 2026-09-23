@@ -38,6 +38,21 @@ const RMW_ADD_SPEC: AtomicLitmusSpecV1 = {
   ],
 };
 
+const WAIT_NOTIFY_SPEC: AtomicLitmusSpecV1 = {
+  schema: "starshine.optimizer-atomic-litmus.v1",
+  id: "wait-notify-two-workers",
+  workerCount: 2,
+  exportName: "run",
+  workerArguments: [[0], [1]],
+  memoryImport: { module: "env", field: "memory", initial: 1, maximum: 1 },
+  observedI32Offsets: [0],
+  trials: 2,
+  allowedOutcomes: [
+    { threadResults: [0, 1], memoryI32: [1] },
+    { threadResults: [1, 0], memoryI32: [1] },
+  ],
+};
+
 describe("atomic allowed-outcome comparison", () => {
   test("rejects unbounded trial and shared-memory specifications", () => {
     expect(() => validateAtomicLitmusSpecV1({ ...RMW_ADD_SPEC, trials: 9 })).toThrow("between 1 and 8");
@@ -86,5 +101,50 @@ describe("atomic allowed-outcome comparison", () => {
     expect(report.comparison.firstDisallowedOutcome).toMatchObject({
       memoryI32: [4],
     });
+  });
+
+  test("observes bounded wait/notify outcomes across two workers", async () => {
+    const original = compileWat(`(module
+      (import "env" "memory" (memory 1 1 shared))
+      (func (export "run") (param i32) (result i32)
+        local.get 0
+        if (result i32)
+          i32.const 0
+          i32.const 1
+          i32.atomic.store
+          i32.const 0
+          i32.const 1
+          memory.atomic.notify
+        else
+          i32.const 0
+          i32.const 0
+          i64.const 5000000000
+          memory.atomic.wait32
+        end))`);
+    const wrong = compileWat(`(module
+      (import "env" "memory" (memory 1 1 shared))
+      (func (export "run") (param i32) (result i32)
+        local.get 0
+        if (result i32)
+          i32.const 0
+          i32.const 2
+          i32.atomic.store
+          i32.const 0
+          i32.const 1
+          memory.atomic.notify
+        else
+          i32.const 0
+          i32.const 0
+          i64.const 5000000000
+          memory.atomic.wait32
+        end))`);
+    const report = await runNodeAtomicLitmusComparisonV1(original, wrong, WAIT_NOTIFY_SPEC, {
+      timeoutMs: 3000,
+    });
+    expect(report.original.status).toBe("complete");
+    expect(report.original.observations).toHaveLength(2);
+    expect(report.candidate.status).toBe("complete");
+    expect(report.comparison.classification).toBe("semantic-mismatch");
+    expect(report.comparison.firstDisallowedOutcome?.memoryI32).toEqual([2]);
   });
 });
