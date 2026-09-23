@@ -3505,7 +3505,11 @@ pub enum ValidateValidFeatureKey {
   SimdPhase1
   SimdPhase2
   SimdPhase3
+  Descriptors
+  Continuations
+  Waitqueues
   Atomics
+  ArrayMemory
   SubtypingTopology
   RichGcFieldPlans
   ImportExportTopology
@@ -3623,7 +3627,11 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
     SimdPhase1 => logger.write_string("SimdPhase1")
     SimdPhase2 => logger.write_string("SimdPhase2")
     SimdPhase3 => logger.write_string("SimdPhase3")
+    Descriptors => logger.write_string("Descriptors")
+    Continuations => logger.write_string("Continuations")
+    Waitqueues => logger.write_string("Waitqueues")
     Atomics => logger.write_string("Atomics")
+    ArrayMemory => logger.write_string("ArrayMemory")
     SubtypingTopology => logger.write_string("SubtypingTopology")
     RichGcFieldPlans => logger.write_string("RichGcFieldPlans")
     ImportExportTopology => logger.write_string("ImportExportTopology")
@@ -3871,7 +3879,11 @@ pub fn validate_valid_feature_actual_count(
     SimdPhase1 => stats.simd_phase1
     SimdPhase2 => stats.simd_phase2
     SimdPhase3 => stats.simd_phase3
+    Descriptors => stats.descriptors
+    Continuations => stats.continuations
+    Waitqueues => stats.waitqueues
     Atomics => stats.atomics
+    ArrayMemory => stats.array_memory
     SubtypingTopology => stats.subtyping_topology
     RichGcFieldPlans => stats.rich_gc_field_plans
     ImportExportTopology => stats.import_export_topology
@@ -4000,7 +4012,11 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     SimdPhase1,
     SimdPhase2,
     SimdPhase3,
+    Descriptors,
+    Continuations,
+    Waitqueues,
     Atomics,
+    ArrayMemory,
     SubtypingTopology,
     RichGcFieldPlans,
     ImportExportTopology,
@@ -4178,7 +4194,11 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     SimdPhase1 => "simd_phase1"
     SimdPhase2 => "simd_phase2"
     SimdPhase3 => "simd_phase3"
+    Descriptors => "descriptors"
+    Continuations => "continuations"
+    Waitqueues => "waitqueues"
     Atomics => "atomics"
+    ArrayMemory => "array_memory"
     SubtypingTopology => "subtyping_topology"
     RichGcFieldPlans => "rich_gc_field_plans"
     ImportExportTopology => "import_export_topology"
@@ -4305,7 +4325,11 @@ fn validate_valid_feature_key_from_label(
     "simd_phase1" => Some(SimdPhase1)
     "simd_phase2" => Some(SimdPhase2)
     "simd_phase3" => Some(SimdPhase3)
+    "descriptors" => Some(Descriptors)
+    "continuations" => Some(Continuations)
+    "waitqueues" => Some(Waitqueues)
     "atomics" => Some(Atomics)
+    "array_memory" => Some(ArrayMemory)
     "subtyping_topology" => Some(SubtypingTopology)
     "rich_gc_field_plans" => Some(RichGcFieldPlans)
     "import_export_topology" => Some(ImportExportTopology)

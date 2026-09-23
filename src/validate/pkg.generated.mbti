@@ -950,7 +950,11 @@ pub struct GenValidFeatureFacts {
   has_simd_phase1 : Bool
   has_simd_phase2 : Bool
   has_simd_phase3 : Bool
+  has_descriptors : Bool
+  has_continuations : Bool
+  has_waitqueues : Bool
   has_atomics : Bool
+  has_array_memory : Bool
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
@@ -1074,7 +1078,11 @@ pub struct GenValidFeatureStats {
   simd_phase1 : Int
   simd_phase2 : Int
   simd_phase3 : Int
+  descriptors : Int
+  continuations : Int
+  waitqueues : Int
   atomics : Int
+  array_memory : Int
   gc_constructors : Int
   gc_accessors : Int
   string_ops : Int
@@ -2217,7 +2225,11 @@ pub enum ValidateValidFeatureKey {
   SimdPhase1
   SimdPhase2
   SimdPhase3
+  Descriptors
+  Continuations
+  Waitqueues
   Atomics
+  ArrayMemory
   SubtypingTopology
   RichGcFieldPlans
   ImportExportTopology

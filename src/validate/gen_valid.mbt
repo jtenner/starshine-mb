@@ -10837,7 +10837,11 @@ pub struct GenValidFeatureFacts {
   has_simd_phase1 : Bool
   has_simd_phase2 : Bool
   has_simd_phase3 : Bool
+  has_descriptors : Bool
+  has_continuations : Bool
+  has_waitqueues : Bool
   has_atomics : Bool
+  has_array_memory : Bool
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
@@ -11022,7 +11026,11 @@ pub struct GenValidFeatureStats {
   simd_phase1 : Int
   simd_phase2 : Int
   simd_phase3 : Int
+  descriptors : Int
+  continuations : Int
+  waitqueues : Int
   atomics : Int
+  array_memory : Int
   gc_constructors : Int
   gc_accessors : Int
   string_ops : Int
@@ -11195,8 +11203,16 @@ pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   self.simd_phase2.output(logger)
   logger.write_string(", simd_phase3: ")
   self.simd_phase3.output(logger)
+  logger.write_string(", descriptors: ")
+  self.descriptors.output(logger)
+  logger.write_string(", continuations: ")
+  self.continuations.output(logger)
+  logger.write_string(", waitqueues: ")
+  self.waitqueues.output(logger)
   logger.write_string(", atomics: ")
   self.atomics.output(logger)
+  logger.write_string(", array_memory: ")
+  self.array_memory.output(logger)
   logger.write_string(", gc_constructors: ")
   self.gc_constructors.output(logger)
   logger.write_string(", gc_accessors: ")
@@ -11387,7 +11403,11 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     simd_phase1: 0,
     simd_phase2: 0,
     simd_phase3: 0,
+    descriptors: 0,
+    continuations: 0,
+    waitqueues: 0,
     atomics: 0,
+    array_memory: 0,
     gc_constructors: 0,
     gc_accessors: 0,
     string_ops: 0,
@@ -11542,7 +11562,13 @@ pub fn GenValidFeatureStats::record(
     simd_phase1: self.simd_phase1 + gen_valid_bool_count(facts.has_simd_phase1),
     simd_phase2: self.simd_phase2 + gen_valid_bool_count(facts.has_simd_phase2),
     simd_phase3: self.simd_phase3 + gen_valid_bool_count(facts.has_simd_phase3),
+    descriptors: self.descriptors + gen_valid_bool_count(facts.has_descriptors),
+    continuations: self.continuations +
+    gen_valid_bool_count(facts.has_continuations),
+    waitqueues: self.waitqueues + gen_valid_bool_count(facts.has_waitqueues),
     atomics: self.atomics + gen_valid_bool_count(facts.has_atomics),
+    array_memory: self.array_memory +
+    gen_valid_bool_count(facts.has_array_memory),
     gc_constructors: self.gc_constructors +
     gen_valid_bool_count(facts.has_gc_constructors),
     gc_accessors: self.gc_accessors +
@@ -38043,7 +38069,19 @@ fn gen_valid_instr_is_atomic(instr : Instruction) -> Bool {
     | I64AtomicStore16(_, _)
     | I64AtomicStore32(_, _)
     | AtomicRmw(_, _, _)
-    | AtomicCmpxchg(_, _, _) => true
+    | AtomicCmpxchg(_, _, _)
+    | StructAtomicGet(_, _, _)
+    | StructAtomicGetS(_, _, _)
+    | StructAtomicGetU(_, _, _)
+    | StructAtomicRmw(_, _, _, _)
+    | StructAtomicCmpxchg(_, _, _)
+    | StructAtomicSet(_, _, _)
+    | ArrayAtomicGet(_, _)
+    | ArrayAtomicGetS(_, _)
+    | ArrayAtomicGetU(_, _)
+    | ArrayAtomicSet(_, _)
+    | ArrayAtomicRmw(_, _, _)
+    | ArrayAtomicCmpxchg(_, _) => true
     _ => false
   }
 }
@@ -38922,6 +38960,7 @@ pub fn gen_valid_feature_facts(
   mod : Module,
   mode : GenValidMode,
 ) -> GenValidFeatureFacts {
+  let proposal_floor_facts = gen_valid_proposal_floor_facts(mod)
   let mut has_imports = false
   let mut has_func_exports = false
   let mut has_table_exports = false
@@ -39661,7 +39700,11 @@ pub fn gen_valid_feature_facts(
     has_simd_phase1,
     has_simd_phase2,
     has_simd_phase3,
+    has_descriptors: proposal_floor_facts.has_descriptors,
+    has_continuations: proposal_floor_facts.has_continuations,
+    has_waitqueues: proposal_floor_facts.has_waitqueues,
     has_atomics,
+    has_array_memory: proposal_floor_facts.has_array_memory,
     has_gc_constructors,
     has_gc_accessors,
     has_string_ops,
@@ -39674,7 +39717,8 @@ pub fn gen_valid_feature_facts(
     has_name_custom_sections,
     has_gc_exception_combo: has_gc_feature && has_exception_try_table_matrix,
     has_gc_tail_call_combo: has_gc_feature && has_tail_calls,
-    has_shared_memory_atomics: has_shared_memories && has_atomics,
+    has_shared_memory_atomics: has_shared_memories &&
+    proposal_floor_facts.has_linear_atomics,
     has_imports_start_exports: has_imports && has_start && has_any_export,
     has_semantic_effects: has_call ||
     has_mems ||

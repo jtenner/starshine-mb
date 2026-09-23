@@ -3478,6 +3478,79 @@ test "emit_gen_valid_batch_to_dir writes opt-in manifest for selected modules" {
 }
 
 ///|
+test "proposal feature floors use stable manifest facts and counters" {
+  let fixtures = [
+    ("rume-continuations-descriptors", 0x52554D45UL),
+    ("binaryen132-waitqueue", 0UL),
+    ("binaryen132-array-memory", 0UL),
+    ("binaryen132-atomic-orders", 1UL),
+  ]
+  let first_profile = match gen_valid_profile_by_name(fixtures[0].0) {
+    Ok(value) => value
+    Err(message) => fail(message)
+  }
+  let mut stats = GenValidFeatureStats::empty(
+    GenValidConfig::for_profile(first_profile).mode,
+  )
+  let facts_json = StringBuilder::new()
+  for fixture in fixtures {
+    let profile = match gen_valid_profile_by_name(fixture.0) {
+      Ok(value) => value
+      Err(message) => fail(message)
+    }
+    let generated = match
+      gen_valid_module_result_from_seed(
+        fixture.1,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(value) => value
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    stats = stats.record(generated.facts)
+    facts_json.write_string(
+      format_gen_valid_batch_feature_facts_json(generated.facts),
+    )
+  }
+  let facts_output = facts_json.to_string()
+  assert_true(facts_output.contains("\"descriptors\":true"))
+  assert_true(facts_output.contains("\"continuations\":true"))
+  assert_true(facts_output.contains("\"waitqueues\":true"))
+  assert_true(facts_output.contains("\"array_memory\":true"))
+  assert_true(facts_output.contains("\"atomics\":true"))
+  let stats_output = format_gen_valid_feature_stats_json(stats)
+  assert_true(stats_output.contains("\"descriptors\":1"))
+  assert_true(stats_output.contains("\"continuations\":1"))
+  assert_true(stats_output.contains("\"waitqueues\":1"))
+  assert_true(stats_output.contains("\"array_memory\":1"))
+  assert_true(stats_output.contains("\"atomics\":1"))
+  let floors : Array[ValidateValidFeatureFloor] = []
+  for
+    label in [
+      "descriptors", "continuations", "waitqueues", "atomics", "array_memory",
+    ] {
+    match @validate.validate_valid_feature_floor_by_label(label, 1) {
+      Ok(floor) => floors.push(floor)
+      Err(message) => fail(message)
+    }
+  }
+  let floors_output = format_validate_valid_feature_floors_json(floors)
+  for
+    pair in [
+      ("Descriptors", "descriptors"),
+      ("Continuations", "continuations"),
+      ("Waitqueues", "waitqueues"),
+      ("Atomics", "atomics"),
+      ("ArrayMemory", "array_memory"),
+    ] {
+    assert_true(
+      floors_output.contains(
+        "\"key\":\"" + pair.0 + "\",\"label\":\"" + pair.1 + "\"",
+      ),
+    )
+  }
+}
+
+///|
 test "golden seed catalog schema records deterministic coverage contract" {
   let schema = golden_seed_catalog_schema_json()
   assert_true(
