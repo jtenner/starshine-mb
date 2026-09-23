@@ -263,7 +263,11 @@
     module context; the test checks both HOT load nodes and their result/effect
     metadata, then counts both emitted loads. It passed before any behavior
     change. The regression guards future HOT key changes; no fuzzing was run.
-63. [ ] Check Local CSE waitqueue synchronization barriers.
+63. [x] Local CSE's nested raw scanner now treats `waitqueue.new` as an
+    allocation barrier and `waitqueue.notify`/`struct.wait` as atomic barriers
+    (`561250f47`). Valid direct and dispatcher fixtures changed incorrectly
+    from three pairs of shared-struct reads to three single reads before the
+    fix; both now retain `[2,2,2]`. `moon fmt` and `moon info` passed; no fuzzing.
 64. [x] Shared-memory passive-split concern was not reproduced (`7072ec82d`).
     The threads execution rules reduce `memory.init` and `memory.fill` to
     increasing-address byte stores, and the pass preflights complete bounds
