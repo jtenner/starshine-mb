@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-22
 sources:
   - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - ./index.md
@@ -254,12 +254,12 @@ Because the pass uses only `replaceFunctions(...)`, the real rewrite surface is 
 `duplicate-import-elimination` sounds like it handles every import kind.
 The source-confirmed reality in `version_131` is smaller.
 
-## Starshine parity checklist
+## Binaryen comparison checklist and Starshine override
 
-Starshine now has an active module-pass implementation, so read this as the ongoing parity/maintenance checklist rather than future-port scaffolding.
+The bullets below describe the reviewed Binaryen merge and Starshine's retained historical planner. Current Starshine guards repeated `(module, base)` lookups before this logic because each import entry is independently resolved and may receive a distinct external function. Do not re-enable the merge for direct or preset use without an explicit closed-world binding contract.
 
 - Keep this a late module pass.
-- Keep duplicate imported-function elimination as the Binaryen `version_131` parity scope.
+- Keep duplicate imported-function elimination as the historical Binaryen `version_131` comparison scope.
 - Bucket candidates by `(module, base)`.
 - Require exact function-type equality before merging.
 - Preserve current-representative canonicalization; all-same-type buckets are first-import-wins, while type mismatches reset the representative.

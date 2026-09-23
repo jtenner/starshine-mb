@@ -94,12 +94,12 @@ for (const flags of [["--optimize"], ["--shrink"], ["-O4z", "--optimize"], ["-O4
   );
 }
 
-// Keep the direct passes' observable identity contracts explicit alongside the
-// preset policy.
+// Direct duplicate import elimination preserves independently resolved import
+// slots; duplicate function elimination preserves materialized identities.
 checkHostIdentity(
-  "direct duplicate-import-elimination merges same-name import resolution",
+  "direct duplicate-import-elimination preserves same-name import resolution",
   duplicateImports, ["--duplicate-import-elimination"], observeImports,
-  {reads: 2, result: 3}, {reads: 1, result: 2},
+  {reads: 2, result: 3}, {reads: 2, result: 3},
 );
 checkHostIdentity(
   "direct duplicate-function-elimination preserves exported identities",
@@ -124,9 +124,9 @@ checkHostIdentity(
   },
 );
 checkHostIdentity(
-  "explicit duplicate-import-elimination still runs after optimize",
+  "explicit duplicate-import-elimination preserves imports after optimize",
   duplicateImports, ["--optimize", "--duplicate-import-elimination"], observeImports,
-  {reads: 2, result: 3}, {reads: 1, result: 2},
+  {reads: 2, result: 3}, {reads: 2, result: 3},
 );
 checkHostIdentity(
   "explicit duplicate-function-elimination after optimize preserves exported identities",

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-28
+last_reviewed: 2026-09-22
 sources:
+  - https://webassembly.github.io/spec/js-api/#read-the-imports
   - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - ./index.md
 related:
@@ -24,6 +25,10 @@ This page focuses on the two most important implementation questions for Binarye
 
 The source-confirmed answer is smaller than the earlier dossier taught.
 The audited Binaryen `version_131` source answers both questions only for imported **functions**.
+
+## Current Starshine safety contract
+
+Current Starshine does not treat two import declarations as the same external function request. The JavaScript API reads every import entry independently, including repeated `Get` operations for the same module and component names. A getter can return a different function on each access. Direct DIE therefore returns the original module as soon as a function `(module, base)` pair repeats, before the historical type gate or rewrite surface. The identity and rewrite rules below describe Binaryen and Starshine's retained unreachable planner, not a currently applied Starshine transform.
 
 ## Identity key: what must match
 
@@ -57,10 +62,10 @@ The audit regression preserves both imports and distinct call targets for
 ### Concrete function types
 
 Matching parameter/result lists alone does not establish interchangeable function
-references. Starshine requires mutual reference-type matching before merging;
-this preserves concrete subtype requirements of globals and other `ref.func`
-users while allowing equivalent function types. The parent/child regression in
-`duplicate_import_elimination_audit_test.mbt` verifies final-module validity.
+references. The retained historical planner requires mutual reference-type
+matching, while the public pass now guards earlier and preserves both declarations.
+The parent/child regression in `duplicate_import_elimination_audit_test.mbt`
+verifies final-module validity.
 
 ## First-import-wins canonicalization
 

@@ -2,12 +2,15 @@
 kind: entity
 status: strong
 starshine_status: active
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-22
 sources:
+  - https://webassembly.github.io/spec/js-api/#read-the-imports
   - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/DuplicateImportElimination.cpp
   - ../../../../../src/passes/duplicate_import_elimination.mbt
   - ../../../../../src/passes/duplicate_import_elimination_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../tests/optimizer/regressions/host-identity.test.ts
   - ../../../../../src/validate/gen_valid.mbt
   - ./fuzzing.md
   - ../late-pipeline-dispatch.md
@@ -31,7 +34,9 @@ related:
 
 ## Role and status
 
-`duplicate-import-elimination` is a late module pass that collapses duplicate imported **functions**. Starshine exposes it as an active direct pass, and the 2026-07-28 Binaryen-v131 renewal closes its behavior parity after the legacy-EH and raw-name repairs.
+`duplicate-import-elimination` remains a registered late module pass, but current Starshine preserves repeated imported-function slots. The WebAssembly JavaScript API's [read-the-imports algorithm](https://webassembly.github.io/spec/js-api/#read-the-imports) iterates every module import, performs `Get(importObject, moduleName)` and `Get(moduleObject, componentName)` for each entry, and appends each resolved external value independently. A repeated property getter can therefore return different functions. Collapsing two same-name/type imports changes lookup count, function identity, and execution.
+
+The historical planner and the 2026-07-28 Binaryen-v131 parity evidence remain documented below. A 2026-09-22 safety guard now returns the original module when a function `(module, base)` lookup repeats, before type comparison, remapping, metadata invalidation, or import removal. Since those are the only Binaryen-style opportunities, direct Starshine DIE is a compatibility no-op for valid opportunities and intentionally diverges from Binaryen 132.
 
 Binaryen's canonical late neighborhood is:
 
@@ -62,7 +67,7 @@ Binaryen's helper covers:
 - `start`;
 - function exports.
 
-Starshine's numeric-index IR must additionally shift every later defined `FuncIdx` and repair structured function-name, local-name, label-name, and function-annotation ownership. It clears `raw_name_sec_payload` on the changed path so stale absolute function indices cannot be re-emitted.
+The historical Starshine numeric-index planner additionally had to shift every later defined `FuncIdx` and repair structured function-name, local-name, label-name, and function-annotation ownership. It cleared `raw_name_sec_payload` on the changed path so stale absolute function indices could not be re-emitted.
 
 ## Full family coverage
 
@@ -76,7 +81,7 @@ The current `duplicate-import-elimination` GenValid aggregate owns five leaves:
 
 The 10,000-case dedicated lane selected every leaf and all 13 case labels. Every case normalized exactly to Binaryen v131, with no validation, generator, property, command, or raw mismatch failures.
 
-Focused pass tests also encode/decode every leaf and every identity/EH variant, require positive leaves to remove a duplicate function import, require the negative leaf to remain exactly unchanged, validate every output, and require idempotence.
+Focused pass tests encode/decode every historical leaf and identity/EH variant, require every input to remain exactly unchanged, validate every output, and require idempotence. Direct and pipeline reduced repros preserve two calls at indices `0` and `1`; the active command-adapter regression preserves both declarations and the second call target.
 
 ## Closeout matrix
 
@@ -90,13 +95,13 @@ See [`fuzzing.md`](./fuzzing.md) for exact commands, out dirs, cache counters, s
 
 ## Representation verdict
 
-All DIE-owned transform families match Binaryen's normalized representation. No Starshine-only output shape is retained as a claimed win. Starshine-specific metadata/index repair exists only to preserve Binaryen-equivalent behavior in Starshine's numeric-index module representation.
+The historical v131 matrix below established the old merge implementation's Binaryen parity. It no longer describes current Starshine output on repeated imports. Current preservation is a semantic safety divergence backed by the JS API algorithm and executable Node evidence: the fixture's getter runs twice and `run()` returns `3` before and after direct DIE. The old merge performed one lookup and returned `2`.
 
 The random-all local-run family is a real one-byte Starshine size loss, but its inputs have no imports and both DIE implementations are no-ops. It remains owned by decoder/encoder local-run canonicalization rather than this pass.
 
 ## Performance
 
-The pass implementation did not change during this renewal. Retained direct fixtures remain faster than Binaryen:
+These retained timings measure the historical merge implementation, before the host-safety guard made its valid merge opportunities unreachable:
 
 - import-heavy: `0.447 ms` versus `2.00646 ms` (`0.223x`);
 - user-heavy: `0.2835 ms` versus `0.946297 ms` (`0.300x`).
@@ -112,4 +117,4 @@ The pass implementation did not change during this renewal. Retained direct fixt
 
 ## Reopening criteria
 
-Reopen direct DIE if upstream widens scope or changes identity policy, a dedicated family stops matching exactly, a duplicate-import case fails validation, metadata/index/EH/module-code repair regresses, the unchanged path mutates, or direct pass-local timing exceeds Binaryen under the retained method.
+Reopen direct DIE if a host-independent proof makes two import entries interchangeable, an explicit closed-world import-binding contract is added, repeated imports are removed or reordered, any preservation fixture changes, or the unchanged path mutates bytes or metadata. Upstream merge changes remain historical comparison work and cannot override the host-resolution contract.

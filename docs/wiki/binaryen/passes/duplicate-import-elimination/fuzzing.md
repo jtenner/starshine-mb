@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: strong
-last_reviewed: 2026-07-28
+last_reviewed: 2026-09-22
 sources:
   - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - ./index.md
@@ -18,7 +18,11 @@ sources:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
-## Current closeout profile
+## Current preservation use
+
+The profile remains useful as a shape corpus. Current Starshine applies direct DIE to every leaf and requires exact input preservation; it no longer compares positive leaves to Binaryen's import-removing output. No new fuzz lane was run for the 2026-09-22 host-resolution repair.
+
+## Historical closeout profile
 
 Use `--gen-valid-profile duplicate-import-elimination`. The aggregate has five leaves:
 
@@ -30,7 +34,7 @@ Use `--gen-valid-profile duplicate-import-elimination`. The aggregate has five l
 | `duplicate-import-elimination-legacy-eh` | 4 | protected body, typed catch, catch-all, delegate-bearing nested legacy `try`, and `try_table` protected body |
 | `duplicate-import-elimination-nonfunction` | 2 | duplicate globals, tables, memories, and tags remain untouched |
 
-Every positive leaf contains at least one duplicate function import. The non-function leaf is an intentional scope-boundary negative. `src/passes/duplicate_import_elimination_test.mbt` encodes, decodes, transforms, validates, and reruns every leaf and every identity/EH variant; positives must remove a function import, the negative must remain exactly unchanged, and every result must be idempotent.
+Every positive leaf contains at least one duplicate function import. The non-function leaf is an intentional scope-boundary negative. The historical v131 run required positive leaves to remove a function import. Current `src/passes/duplicate_import_elimination_test.mbt` encodes, decodes, runs, validates, and reruns every leaf and requires every result to equal its input.
 
 Manifest metadata records the selected leaf and one of these family labels:
 
@@ -134,12 +138,9 @@ Both satisfy the stricter 1x target and the repository 2x acceptance bound. Re-r
 
 ## Closeout verdict and reopening criteria
 
-Direct Binaryen-v131 behavior parity is closed. Reopen if:
+The matrix above closes the historical merge implementation's Binaryen-v131 parity. It does not describe current Starshine output. Reopen the current safety contract if:
 
-- Binaryen widens the pass beyond imported functions;
-- any dedicated family stops producing its intended opportunity or boundary;
-- a dedicated family develops a non-exact normalized result;
+- any dedicated family is no longer preserved exactly;
 - Starshine produces a validation, generator, property, or command failure;
-- a residual contains a duplicate function-import opportunity and cannot be attributed away from DIE by inspected input and output evidence;
-- raw-name, structured-name, annotation, defined-function index, legacy-EH, start/export, or module-code remapping regresses;
-- pass-local timing exceeds Binaryen under the retained fixture method.
+- raw names, structured names, annotations, function indices, EH, start/export, or module code change;
+- executable host lookup count or returned function identity changes.

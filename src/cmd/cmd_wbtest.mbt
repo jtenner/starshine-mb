@@ -7542,7 +7542,7 @@ test "run_cmd_with_adapter applies duplicate-function-elimination to wasm inputs
 }
 
 ///|
-test "run_cmd_with_adapter applies duplicate-import-elimination to wasm inputs" {
+test "run_cmd_with_adapter preserves repeated duplicate-import lookups" {
   let source =
     #|(module
     #|  (type $v (func))
@@ -7580,10 +7580,28 @@ test "run_cmd_with_adapter applies duplicate-import-elimination to wasm inputs" 
   @debug.assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.import_sec {
-    Some(ImportSec([Import(_, _, FuncExternType(_))])) => ()
+    Some(
+      ImportSec(
+        [
+          Import(_, first_name, FuncExternType(_)),
+          Import(_, second_name, FuncExternType(_)),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(first_name, @lib.Name::from_string("waka"))
+      @debug.assert_eq(second_name, @lib.Name::from_string("waka"))
+    }
     other =>
       fail(
-        "expected one surviving function import, got \{@debug.to_string(other)}",
+        "expected both host-visible function imports, got \{@debug.to_string(other)}",
+      )
+  }
+  match optimized.code_sec {
+    Some(CodeSec([Func(_, Expr([Call(FuncIdx(target))]))])) =>
+      @debug.assert_eq(target, 1U)
+    other =>
+      fail(
+        "expected call to retain the second import slot, got \{@debug.to_string(other)}",
       )
   }
 }

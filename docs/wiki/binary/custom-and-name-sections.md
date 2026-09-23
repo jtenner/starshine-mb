@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-30
+last_reviewed: 2026-09-22
 sources:
   - https://webassembly.github.io/spec/core/appendix/custom.html
   - https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md
@@ -172,7 +172,7 @@ Passes that remove or reorder index spaces must rewrite or clear affected name m
 
 - [`reorder-locals`](../binaryen/passes/reorder-locals/index.md) rewrites local-name maps for changed functions and clears `raw_name_sec_payload`; its tests assert the raw payload is gone after structured local renumbering.
 - [`remove-unused-module-elements`](../binaryen/passes/remove-unused-module-elements/index.md) rewrites retained table, memory, global, tag, function, element, and data name maps as module entities are pruned or remapped.
-- [`duplicate-import-elimination`](../binaryen/passes/duplicate-import-elimination/index.md) remaps structured function names and clears `raw_name_sec_payload` when duplicate function-import removal shifts absolute `FuncIdx` values; its focused regression supplies both structured names and raw bytes so encode cannot silently reuse stale indices.
+- [`duplicate-import-elimination`](../binaryen/passes/duplicate-import-elimination/index.md) now preserves repeated function-import slots, structured function names, and `raw_name_sec_payload`; its focused regression supplies both structured names and raw bytes and requires exact module preservation. Its historical unreachable planner still contains the required remap/invalidation logic if a future closed-world mode makes import merging legal.
 - `duplicate-function-elimination`, `reorder-globals`, and `string-gathering` tests also exercise the rule that stale function/global names must not survive an index-changing module pass unchanged.
 
 ### CLI print utility consumers

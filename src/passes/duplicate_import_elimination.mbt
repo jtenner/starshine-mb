@@ -1,6 +1,6 @@
 ///|
 pub fn die_summary() -> String {
-  "Collapse duplicate imported function aliases and rewrite surviving function references."
+  "Preserve independently resolved imported function slots."
 }
 
 ///|
@@ -38,6 +38,30 @@ fn die_imported_func_count(mod_ : @lib.Module) -> Int {
     None => ()
   }
   count
+}
+
+///|
+fn die_has_repeated_function_import_lookup(mod_ : @lib.Module) -> Bool {
+  let seen : @hashmap.HashMap[(String, String), Bool] = @hashmap.new(
+    capacity=die_imported_func_count(mod_) * 2 + 1,
+  )
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(module_name, base_name, @lib.FuncExternType(_)) => {
+            let key = die_import_key(module_name, base_name)
+            match seen.get(key) {
+              Some(_) => return true
+              None => seen.set(key, true)
+            }
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
 }
 
 ///|
@@ -461,6 +485,12 @@ fn die_plan_remap(
 pub fn die_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   // Only function imports are deduplicated; a pair is necessary to change one.
   if die_imported_func_count(mod_) < 2 {
+    return mod_
+  }
+  // The JS API reads every import entry independently. Repeated property gets
+  // may invoke a getter more than once and may produce distinct functions, so
+  // coalescing any repeated lookup key changes observable instantiation.
+  if die_has_repeated_function_import_lookup(mod_) {
     return mod_
   }
   let (func_remap, removed_funcs, duplicate_import_funcs, changed) = die_plan_remap(

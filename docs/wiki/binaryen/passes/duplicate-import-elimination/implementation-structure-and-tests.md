@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: strong
-last_reviewed: 2026-07-28
+last_reviewed: 2026-09-22
 sources:
+  - https://webassembly.github.io/spec/js-api/#read-the-imports
   - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - ./index.md
 related:
@@ -18,6 +19,10 @@ related:
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
 This page is the compact source-confirmed map for how Binaryen `version_131` implements `duplicate-import-elimination` and where the shipped tests pin that behavior down. The v131 owner, rewrite helper, and dedicated input fixture are byte-identical to the retained v130 hashes.
+
+## Current Starshine entry guard
+
+Starshine retains the planner described below for source provenance, but `die_run_module_pass(...)` first detects a repeated imported-function `(module, base)` pair and returns the original module. This follows the JavaScript API per-entry import loop and preserves lookup count, distinct returned function identities, every index, and all metadata. Because the historical planner only changes repeated pairs, no valid merge reaches it through the public pass.
 
 ## Why this page exists
 
@@ -167,9 +172,9 @@ It does not:
 - keep aliases around as dead declarations,
 - or perform a second cleanup pass.
 
-## Starshine raw-name invalidation contract
+## Historical Starshine raw-name invalidation path
 
-Starshine's changed path also owns the binary name-section cache boundary. Removing a duplicate imported function changes the absolute function-index space, so the pass remaps structured function names and clears `Module.raw_name_sec_payload`. Keeping the raw bytes would let encode prefer the stale payload over the rewritten `NameSec`. The focused regression in `src/passes/duplicate_import_elimination_test.mbt` supplies both representations and proves the changed path clears the cache; the unchanged path remains byte-preserving.
+The retained planner can remap structured function names and clear `Module.raw_name_sec_payload` after an index change. The public guard makes that path unreachable for repeated lookups. Current focused coverage supplies structured and raw representations and proves both remain byte-for-byte unchanged.
 
 The 2026-07-28 closeout rebuild and full explicit-v131 evidence matrix are recorded in [`fuzzing.md`](./fuzzing.md).
 

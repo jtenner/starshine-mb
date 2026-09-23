@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: strong
-last_reviewed: 2026-07-28
+last_reviewed: 2026-09-22
 sources:
+  - https://webassembly.github.io/spec/js-api/#read-the-imports
   - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - ./index.md
   - ./fuzzing.md
   - ../../../../../src/passes/duplicate_import_elimination.mbt
   - ../../../../../src/passes/duplicate_import_elimination_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../tests/optimizer/regressions/host-identity.test.ts
   - ../../../../../src/passes/legacy_eh_audit_wbtest.mbt
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_wbtest.mbt
@@ -34,9 +37,9 @@ related:
 
 ## Status
 
-`duplicate-import-elimination` is an active Starshine module pass and is closed for direct Binaryen `version_131` behavior parity. The 2026-07-28 renewal was required after legacy-`try` decoding and raw-name invalidation repairs; it found no remaining pass-owned mismatch.
+`duplicate-import-elimination` is an active compatibility pass with a host-safety guard. Direct invocation preserves repeated function imports because each declaration is an independent host lookup and may resolve to a distinct function. This intentionally supersedes the older direct Binaryen-v131 parity contract.
 
-Current source evidence is especially strong:
+Historical merge-parity evidence remains useful for understanding Binaryen:
 
 - Binaryen v131's owner, `OptUtils::replaceFunctions` helper, and dedicated input fixture are byte-identical to the retained v130 versions.
 - Starshine's refreshed five-leaf GenValid aggregate covers every released detection, rewrite, removal, EH, module-code, metadata, and non-function boundary family.
@@ -59,42 +62,29 @@ Current source evidence is especially strong:
 
 | Family | Binaryen v131 contract | Starshine implementation and evidence | Verdict |
 | --- | --- | --- | --- |
-| imported-function scope | iterate `ImportInfo.importedFunctions` only | scan only `FuncExternType` imports; duplicate globals/tables/memories/tags aggregate leaf remains byte-for-byte unchanged | exact match |
-| identity bucket | exact `(module, base)` strings | NUL-delimited exact string key; different-module and different-base variants preserve imports | exact match |
-| exact type gate | compare current representative `Function::type` | resolve each `TypeIdx` to `FuncType`; equal structural types under distinct type indices merge | exact match |
-| representative reset | type mismatch replaces the current bucket representative | mixed `(i32), (), ()` family keeps the first two and merges the third into the second | exact match |
-| direct body references | rewrite `Call.target` and `RefFunc.func` | rewrites `call`, `return_call`, and `ref.func` recursively through root, block, loop, and both `if` arms | exact match; `return_call` is the numeric-IR counterpart of Binaryen's direct-call family |
-| legacy EH | Binaryen walker reaches decoded expression children | recursively rewrites protected bodies, typed catches, catch-all bodies, and delegate-bearing nested `try` while preserving tags, catch order, catch-all form, block type, and delegate target | exact match in every dedicated EH label |
-| `try_table` | walker reaches the protected body; catch descriptors contain no function names | rewrites the body and preserves all catch descriptors | exact match |
-| module code | `runOnModuleCode` rewrites `call`/`ref.func` expression trees | rewrites global/table initializers, element expressions, function-index element payloads, and active offset expressions where function refs are representable | exact match in the module-code leaf |
-| start and exports | rewrite `module.start` and function exports | remap numeric `FuncIdx` targets; preserve external export names | exact match |
-| duplicate removal | remove every later duplicate after retargeting | remove duplicate function imports and shift all later defined function indices | exact match |
-| names | Binaryen updates internal names through its named IR | remap structured function/local/label name owners and clear stale raw name bytes on the changed path | representation-preserving Starshine requirement; no size regression retained |
-| function annotations | Binaryen stores annotations on named functions | drop removed alias entries and shift surviving defined-function annotation owners | representation-preserving Starshine requirement |
-| unchanged path | no replacement map means no mutation | return the original module directly, preserving raw bytes and metadata | exact no-op behavior |
-| idempotence | second run finds no later duplicate | generated-family test requires second Starshine run to equal the first result | exact fixed point |
+| imported-function scope | iterate `ImportInfo.importedFunctions` only | scan function imports for a repeated `(module, base)` lookup and return the original module when found | host-safety divergence |
+| identity bucket | exact `(module, base)` strings | pair-valued keys preserve embedded-NUL identity; the first repeated key activates the guard regardless of type | conservative and source-order preserving |
+| exact type gate | compare current representative `Function::type` | never reached for a repeated lookup because different types still perform distinct observable property gets | host-safety divergence |
+| users and module code | retarget function references to the representative | preserve every `FuncIdx` in bodies, EH, module code, start, exports, and elements | exact input preservation |
+| names and annotations | update owners after removal | preserve structured and raw names plus annotation owners because no index shifts | exact input preservation |
+| duplicate removal | remove every later duplicate after retargeting | preserve every import entry and its original order | host-safety divergence |
+| idempotence | second run finds no later duplicate | every run returns the original module | exact fixed point |
 
-No pass-owned family is classified as a Starshine-only representation win. Matching Binaryen's output shape is preferred here because the upstream transform is already small and canonical. Starshine-specific work is limited to preserving the same semantics in a numeric-index IR and maintaining metadata that Binaryen's named in-memory IR does not expose in the same form.
+Current Starshine intentionally keeps the input shape. This is a correctness policy based on observable import resolution, not a size or representation win.
 
 ## Correctness invariants
 
 The pass must preserve:
 
-- import order for every surviving declaration;
-- current-representative semantics after a type mismatch;
-- exact function signatures;
-- defined-function declaration/code alignment;
-- every absolute `FuncIdx` after imported-prefix shrinkage;
-- start target and function export targets;
-- element order, mode, reference type, and payload shape;
-- legacy protected/catch structure, tag order, catch-all form, delegate target, and block type;
-- `try_table` catch descriptors;
-- structured name and function-annotation ownership;
-- unchanged-path raw binary reuse.
+- every import declaration, lookup count, and source order;
+- distinct imported function indices even for equal names and signatures;
+- every body, module-code, start, export, and element `FuncIdx`;
+- structured names, raw name bytes, and function-annotation ownership;
+- exact module equality on the guarded path.
 
-## Profile and matrix result
+## Historical profile and matrix result
 
-The refreshed aggregate has leaves for body references, identity, module code, legacy EH, and non-function negatives. The 10,000-case dedicated lane selected every leaf and every case label and normalized `10000/10000` with zero failures.
+The refreshed aggregate has leaves for body references, identity, module code, legacy EH, and non-function negatives. Before the safety divergence, the 10,000-case dedicated lane selected every leaf and every case label and normalized `10000/10000` with zero failures. Current focused tests reuse those generated shapes and require exact input preservation.
 
 The complete matrix is in [`fuzzing.md`](./fuzzing.md). Its only raw residuals are pass-independent:
 
@@ -102,34 +92,32 @@ The complete matrix is in [`fuzzing.md`](./fuzzing.md). Its only raw residuals a
 - one wasm-smith module with no function imports and unreachable-control debris, confirmed by the existing normalizer;
 - 44 Binaryen/tool command failures, with zero Starshine command or validation failures.
 
-These residuals do not justify a DIE representation divergence and do not hide a DIE opportunity.
+These results are retained as provenance for the historical planner and do not establish the current direct contract.
 
 ## Performance
 
-The implementation owner did not change during this renewal. Retained direct timing fixtures remain faster than Binaryen:
+These retained timings measure the historical merge implementation:
 
 - import-heavy: `0.447 ms` Starshine versus `2.00646 ms` Binaryen (`0.223x`)
 - user-heavy: `0.2835 ms` Starshine versus `0.946297 ms` Binaryen (`0.300x`)
 
-Re-run timing if the planner, recursive rewrite, or metadata repair complexity changes.
+Re-run timing only if the guarded planner is made reachable through a future explicit closed-world contract.
 
 ## Scheduler boundary
 
-Direct behavior is closed. Exact O4z late-preset reconciliation remains owned by `[O4Z-PRESET]001`, not by this pass. The canonical neighborhood remains:
+The canonical neighborhood remains:
 
 `duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements`
 
-The slot remains queued, but preset-origin DIE skips a module with function
-imports. JavaScript import lookup may invoke a getter independently for each
-same-name function import and return a different function each time; merging
-the imports changes that host-visible behavior. Direct
-`--duplicate-import-elimination` remains an explicit opt-in merge with the
-same Binaryen 132 pass contract. The [Node host regression](../../../../../tests/optimizer/regressions/host-identity.test.ts)
-asserts both cases. The broad preset skip is a deliberate host-correctness
-choice, not a direct-pass parity result.
+The slot remains queued, and preset-origin DIE still skips modules with function
+imports. Direct `--duplicate-import-elimination` now enforces the same semantic
+contract locally by preserving every repeated lookup slot. The [Node host regression](../../../../../tests/optimizer/regressions/host-identity.test.ts)
+asserts two getter reads and result `3` for direct, preset, and mixed explicit
+requests. The preset gate remains useful defense in depth and keeps automatic
+candidate selection from relying on the historical planner.
 The CLI's pure O4z size portfolio also omits DIE from automatic candidate
-rosters when the original module has imports or exports. This closes the
-candidate-selection bypass while leaving explicit requests unchanged.
+rosters when the original module has imports or exports. Explicit requests now
+reach the active pass and preserve the module through the local guard.
 
 Do not reopen direct DIE merely because a broader neighborhood has an independently owned shape difference.
 
@@ -137,10 +125,7 @@ Do not reopen direct DIE merely because a broader neighborhood has an independen
 
 Reopen direct DIE if:
 
-- Binaryen begins deduplicating a non-function import kind;
-- upstream changes the bucket/type/representative rule;
-- any pass-owned dedicated family stops normalizing exactly;
-- a duplicate function-import case fails validation or retains an unclassified shape difference;
-- legacy EH, `try_table`, module-code, metadata, start/export, or defined-index remapping regresses;
+- a repeated import is removed, reordered, or retargeted;
+- direct, command-adapter, or Node getter evidence changes;
 - the unchanged path mutates bytes or metadata;
-- pass-local performance exceeds Binaryen under the retained fixture method.
+- an explicit closed-world binding contract can prove two import entries resolve to the same external value.

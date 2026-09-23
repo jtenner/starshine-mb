@@ -65,7 +65,59 @@ fn die_test_run(text : String) -> @lib.Module raise {
 }
 
 ///|
-test "duplicate-import-elimination collapses duplicate imported functions and rewrites users" {
+fn die_test_host_lookup_source() -> String {
+  let source =
+    #|(module
+    #|  (import "env" "f" (func $first (result i32)))
+    #|  (import "env" "f" (func $second (result i32)))
+    #|  (func (export "run") (result i32)
+    #|    (i32.add (call $first) (call $second))))
+  source
+}
+
+///|
+fn die_test_two_call_targets(mod_ : @lib.Module) -> (UInt, UInt) raise {
+  match mod_.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Call(@lib.FuncIdx(first)),
+                @lib.Call(@lib.FuncIdx(second)),
+                @lib.I32Add,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => (first, second)
+    _ => fail("expected two imported function calls")
+  }
+}
+
+///|
+test "duplicate-import-elimination directly preserves repeated host lookups" {
+  let input = pass_test_module_from_wat(die_test_host_lookup_source())
+  let optimized = die_run_module_pass(input)
+  @debug.assert_eq(optimized, input)
+  @debug.assert_eq(die_test_imported_func_count(optimized), 2)
+  @debug.assert_eq(try! die_test_two_call_targets(optimized), (0U, 1U))
+}
+
+///|
+test "duplicate-import-elimination dispatcher preserves repeated host lookups" {
+  let input = pass_test_module_from_wat(die_test_host_lookup_source())
+  let optimized = try! die_test_run(die_test_host_lookup_source())
+  @debug.assert_eq(optimized, input)
+  @debug.assert_eq(die_test_imported_func_count(optimized), 2)
+  @debug.assert_eq(try! die_test_two_call_targets(optimized), (0U, 1U))
+}
+
+///|
+test "duplicate-import-elimination preserves duplicate import slots and users" {
   let source =
     #|(module
     #|  (type $v (func))
@@ -81,32 +133,13 @@ test "duplicate-import-elimination collapses duplicate imported functions and re
     #|  )
     #|)
     #|,
+  let input = pass_test_module_from_wat(source)
   let optimized = try! die_test_run(source)
 
-  @debug.assert_eq(die_test_imported_func_count(optimized), 1)
-  @debug.assert_eq(try! die_test_first_call_target(optimized, 0), 0U)
-  @debug.assert_eq(try! die_test_ref_func_target(optimized, 0), 0U)
-  match optimized.export_sec {
-    Some(
-      @lib.ExportSec([@lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(target)))])
-    ) => @debug.assert_eq(target, 0U)
-    _ => fail("expected rewritten function export")
-  }
-  match optimized.start_sec {
-    Some(@lib.StartSec(@lib.FuncIdx(target))) => @debug.assert_eq(target, 0U)
-    _ => fail("expected rewritten start")
-  }
-  match optimized.elem_sec {
-    Some(
-      @lib.ElemSec(
-        [@lib.Elem(_, @lib.FuncsElemKind([@lib.FuncIdx(a), @lib.FuncIdx(b)]))]
-      )
-    ) => {
-      @debug.assert_eq(a, 0U)
-      @debug.assert_eq(b, 0U)
-    }
-    _ => fail("expected rewritten function element segment")
-  }
+  @debug.assert_eq(optimized, input)
+  @debug.assert_eq(die_test_imported_func_count(optimized), 2)
+  @debug.assert_eq(try! die_test_first_call_target(optimized, 0), 1U)
+  @debug.assert_eq(try! die_test_ref_func_target(optimized, 0), 1U)
 }
 
 ///|
@@ -128,18 +161,20 @@ test "duplicate-import-elimination preserves non-function and different-signatur
     #|  )
     #|)
     #|,
+  let input = pass_test_module_from_wat(source)
   let optimized = try! die_test_run(source)
 
-  @debug.assert_eq(die_test_imported_func_count(optimized), 2)
+  @debug.assert_eq(optimized, input)
+  @debug.assert_eq(die_test_imported_func_count(optimized), 3)
   match optimized.import_sec {
-    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 4)
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 5)
     None => fail("expected imports")
   }
-  @debug.assert_eq(try! die_test_first_call_target(optimized, 0), 0U)
+  @debug.assert_eq(try! die_test_first_call_target(optimized, 0), 1U)
 }
 
 ///|
-test "duplicate-import-elimination resets the bucket representative after a type mismatch" {
+test "duplicate-import-elimination preserves repeated lookups across type mismatch" {
   let source =
     #|(module
     #|  (type $i (func (param i32)))
@@ -149,13 +184,15 @@ test "duplicate-import-elimination resets the bucket representative after a type
     #|  (import "env" "waka" (func $third (type $v)))
     #|)
     #|,
+  let input = pass_test_module_from_wat(source)
   let optimized = try! die_test_run(source)
 
-  @debug.assert_eq(die_test_imported_func_count(optimized), 2)
+  @debug.assert_eq(optimized, input)
+  @debug.assert_eq(die_test_imported_func_count(optimized), 3)
 }
 
 ///|
-test "duplicate-import-elimination remaps function references in legacy try regions" {
+test "duplicate-import-elimination preserves function references in legacy try regions" {
   let source =
     #|(module
     #|  (type $v (func))
@@ -168,35 +205,10 @@ test "duplicate-import-elimination remaps function references in legacy try regi
     #|        call $duplicate)
     #|      (catch $e
     #|        call $duplicate))))
+  let input = pass_test_module_from_wat(source)
   let optimized = try! die_test_run(source)
-  @debug.assert_eq(die_test_imported_func_count(optimized), 1)
-  match optimized.code_sec {
-    Some(
-      @lib.CodeSec(
-        [
-          @lib.Func(
-            _,
-            @lib.Expr(
-              [
-                @lib.Try(
-                  _,
-                  @lib.Expr([@lib.Call(@lib.FuncIdx(0U))]),
-                  [
-                    @lib.LegacyCatch(
-                      _,
-                      @lib.Expr([@lib.Call(@lib.FuncIdx(0U))])
-                    ),
-                  ],
-                  None
-                ),
-              ]
-            )
-          ),
-        ]
-      )
-    ) => ()
-    other => fail("expected remapped legacy try references, got \{other}")
-  }
+  @debug.assert_eq(optimized, input)
+  @debug.assert_eq(die_test_imported_func_count(optimized), 2)
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
@@ -205,7 +217,7 @@ test "duplicate-import-elimination remaps function references in legacy try regi
 }
 
 ///|
-test "duplicate-import-elimination clears stale raw names after function remap" {
+test "duplicate-import-elimination preserves raw names without function remap" {
   let source =
     #|(module
     #|  (type $v (func))
@@ -222,13 +234,17 @@ test "duplicate-import-elimination clears stale raw names after function remap" 
 
   let optimized = die_run_module_pass(input)
 
-  @debug.assert_eq(die_test_imported_func_count(optimized), 1)
-  @debug.assert_eq(optimized.raw_name_sec_payload, None)
+  @debug.assert_eq(optimized, input)
+  @debug.assert_eq(die_test_imported_func_count(optimized), 2)
+  @debug.assert_eq(
+    optimized.raw_name_sec_payload,
+    Some(b"stale-function-index-name-payload"),
+  )
   assert_true(optimized.name_sec is Some(_))
 }
 
 ///|
-test "duplicate-import-elimination remaps defined-function annotations and drops removed aliases" {
+test "duplicate-import-elimination preserves function annotation ownership" {
   let source =
     #|(module
     #|  (type $v (func))
@@ -249,23 +265,11 @@ test "duplicate-import-elimination remaps defined-function annotations and drops
     ]),
   )
   let optimized = die_run_module_pass(input)
-  @debug.assert_eq(
-    optimized.func_annotation_sec,
-    Some(
-      @lib.FuncAnnotationSec::new([
-        @lib.FuncAnnotationAssoc::new(0U, [
-          @lib.FuncAnnotation::new("binaryen.idempotent"),
-        ]),
-        @lib.FuncAnnotationAssoc::new(1U, [
-          @lib.FuncAnnotation::new("binaryen.js.called"),
-        ]),
-      ]),
-    ),
-  )
+  @debug.assert_eq(optimized, input)
 }
 
 ///|
-test "duplicate-import-elimination GenValid leaves cover every v131 family" {
+test "duplicate-import-elimination preserves every generated v131 family" {
   let profile_names = [
     "duplicate-import-elimination-functions", "duplicate-import-elimination-identity",
     "duplicate-import-elimination-module-code", "duplicate-import-elimination-legacy-eh",
@@ -310,18 +314,9 @@ test "duplicate-import-elimination GenValid leaves cover every v131 family" {
             "profile \{profile_name} variant \{variant} produced invalid wasm: \{@validate.validation_error_message(err)}",
           )
       }
-      if profile_name == "duplicate-import-elimination-nonfunction" {
-        @debug.assert_eq(before_funcs, 0)
-        @debug.assert_eq(die_test_imported_func_count(optimized), 0)
-        @debug.assert_eq(die_test_import_count(optimized), before_imports)
-        @debug.assert_eq(optimized, decoded)
-      } else {
-        assert_true(
-          die_test_imported_func_count(optimized) < before_funcs,
-          msg="profile \{profile_name} variant \{variant} did not remove a duplicate function import",
-        )
-        assert_true(optimized != decoded)
-      }
+      @debug.assert_eq(die_test_imported_func_count(optimized), before_funcs)
+      @debug.assert_eq(die_test_import_count(optimized), before_imports)
+      @debug.assert_eq(optimized, decoded)
       @debug.assert_eq(die_run_module_pass(optimized), optimized)
     }
   }

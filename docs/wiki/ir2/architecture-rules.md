@@ -88,18 +88,15 @@ result for the full preset.
 
 ### Host contracts and other observed gaps
 
-- `--duplicate-import-elimination` merges equal-name/type imports. In a Node
-  host with a getter returning a different function for each `env.f` lookup,
-  the original module resolves two imports and `run()` returns **2**; the
-  optimized module resolves one and returns **1**. This is an embedding contract
-  question because the existing pass intentionally merges duplicate imports.
-  Likewise, `--duplicate-function-elimination` changes two identical exported
+- A Node host getter returning a different function for each `env.f` lookup
+  demonstrated that the original module performs two reads and `run()` returns
+  **3**, while the historical direct `--duplicate-import-elimination` result
+  performed one read and returned **2**. The 2026-09-22 repair makes direct DIE
+  preserve both import slots and the original outcome. In contrast,
+  `--duplicate-function-elimination` changes two identical exported
   functions from distinct JS identities (`a === b` false) to one identity
-  (true); its existing test expects that merge. On these exact fixtures,
-  `--optimize` also merges the exported identities but preserves the two
-  independently resolved imports. Users requiring independent import slots or
-  exported function identities must review direct-pass and preset selection
-  until an explicit preservation mode or precondition exists.
+  (true); that separate direct-pass contract remains item 35. Presets preserve
+  both independently resolved imports and exported identities on these fixtures.
 - Source inspection found that `memory_packing_run_module_pass` passes the
   input module's data array into `mp_zero_out_trampled_data`, which overwrites
   array entries. This is an input-object mutation risk for library callers;
@@ -137,8 +134,9 @@ skip policy and passed after the repair. The fixes are:
   preset transaction rolls back.
 
 The host-visible duplicate import/function identity policy was still open at
-this safety-repair signoff. The subsequent preset policy is recorded below;
-the direct-pass merge contracts remain explicit.
+this earlier safety-repair signoff. The preset policy below followed first;
+the 2026-09-22 direct DIE guard later resolved the import half. Direct DFE
+identity remains a separate follow-up.
 
 Final validation after the nested-route repair: `moon info`, `moon fmt`, and
 the default `moon test` passed **12,053/12,053** with no `.mbti` diff. The
@@ -175,9 +173,10 @@ The later Node regression
 made both embedding observations executable. Two same-name function imports
 resolve a JavaScript getter twice and can receive different functions. Two
 equal-body functions exported separately have distinct JavaScript identities.
-The direct `duplicate-import-elimination` and
-`duplicate-function-elimination` passes intentionally merge these identities;
-their opt-in contracts are asserted separately in the same test file.
+Direct `duplicate-import-elimination` now preserves the two import lookups and
+their returned identities. Direct `duplicate-function-elimination` still
+merges equal exported bodies; its distinct identity contract remains asserted
+separately in the same test file.
 
 Public presets now retain their scheduled DFE/DIE slots but skip preset-origin
 DFE when the original or current module has imports or exports, and skip
@@ -190,9 +189,9 @@ literal DFE/DIE pass names. Those rosters now omit both merges for an original
 module with imports or exports; a closed module keeps them, and a mixed request
 with an explicitly named merge pass does not enter the pure-preset portfolio.
 This is a host-correctness divergence from Binaryen 132's merge behavior,
-not a claim of output-shape parity. Narrowing the guard requires escape
-analysis and measured size/performance evidence; that work remains in
-[`agent-todo.md`](../../../agent-todo.md).
+not a claim of output-shape parity. Direct DIE now enforces the same
+preservation contract even when explicitly requested. DFE policy remains
+separate because it concerns identities of module-defined functions.
 
 ## Overview
 
