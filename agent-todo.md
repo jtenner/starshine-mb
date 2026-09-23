@@ -31,8 +31,10 @@
 
 1. [ ] OI → DCE multi-value loop returns `unreachable` instead of `[0, 2.5]`.
 2. [ ] Global Struct Inference substitutes an internal object for an imported GC reference.
-3. [ ] RUME leaves a stale type-name index after type compaction.
-4. [ ] RUME leaves stale label names after function-body nullification.
+3. [x] RUME leaves a stale type-name index after type compaction
+   (`0ecbc09e1`); direct and dispatcher metadata regressions are green.
+4. [x] RUME leaves stale label names after function-body nullification
+   (`fd44305d5`); direct and dispatcher validation regressions are green.
 5. [x] OptimizeInstructions crashes on valid legacy-EH `delegate` inputs
    (`e32869055`). The HOT verifier checks exception-transfer arity independently of the
    target try's ordinary result arity; focused IR and dispatcher tests were
@@ -41,7 +43,8 @@
    (`2bb42a77c`); explicit `--report-only` retains diagnostic collection.
 7. [ ] DCE label-use index omits `try_table` catch destinations.
 8. [ ] DCE label-use index omits continuation handler destinations.
-9. [ ] Shared unreachable cleanup can rebind continuation handlers.
+9. [x] Shared unreachable cleanup can rebind continuation handlers
+   (`b6a775e51`); the helper and once-reduction dispatcher regressions are green.
 10. [ ] Vacuum block flattening omits continuation-label rebasing.
 11. [ ] Flatten admits continuations without indexing their label targets.
 12. [ ] CodePushing ignores structured-region local effects.
@@ -53,10 +56,14 @@
 18. [ ] CoalesceLocals liveness omits resume-handler successors.
 19. [ ] Pattern-B partial inlining misses branch/catch/continuation escapes.
 20. [ ] DAE2 changes signatures reachable through exported abstract `funcref` tables.
-21. [ ] Shared identity atomic RMW loses its release write.
-22. [ ] Same-value shared `cmpxchg` loses its conditional release write.
-23. [ ] Nested Local CSE misses atomic struct/array mutation barriers.
-24. [ ] Nested Local CSE misses ordinary `ArrayStore` barriers.
+21. [x] Shared identity atomic RMW loses its release write (`b12664835`);
+    focused pass and command regressions are green.
+22. [x] Same-value shared `cmpxchg` loses its conditional release write
+    (`b41f7d36a`); focused pass and command regressions are green.
+23. [x] Nested Local CSE misses atomic struct/array mutation barriers
+    (`4cfbbeb99`); direct and command regressions are green.
+24. [x] Nested Local CSE misses ordinary `ArrayStore` barriers
+    (`4cfbbeb99`); direct and command regressions are green.
 25. [ ] Local CSE treats suspend/resume/stack-switch execution as transparent.
 26. [ ] Caught-`try_table` safety scans omit legacy `Try` descendants.
 27. [ ] Once Reduction mutates nested arrays owned by its input module.
@@ -68,7 +75,8 @@
 30. [ ] Directize synthesizes labels without remapping label-name metadata.
 31. [x] `no-inline*` annotation rebuild drops structured compiler facts.
     Both policy dispatch and clone annotation copying now preserve the
-    compiler-fact custom section; adjacent focused tests were red then green.
+    compiler-fact custom section; adjacent focused tests were red then green
+    (`3ffc943ca`).
 32. [ ] MergeSimilarFunctions introduces tail calls despite conflicting target-feature metadata.
 33. [ ] Decide and guard direct DFE's host-visible exported-function identity contract.
 34. [ ] Decide and guard direct DIE's repeated host import-lookup contract.
@@ -87,7 +95,8 @@
     function (`05a1bac63`).
 41. [x] Canonicalization strips semantically important named type uses
     (`d54717072`); previously hidden type-shape mismatches may reopen.
-42. [ ] Runtime-v2 discards definite observations when another surface is blocked.
+42. [x] Runtime-v2 discards definite observations when another surface is
+    blocked (`1fdabfd0f`); focused runtime harness regressions are green.
 43. [ ] Runtime-v1 skips parameterized/missing exports and can count empty matrices.
 44. [ ] Resume fingerprints omit source and configuration identity.
 45. [ ] Binaryen command failure can still increment `comparedCount` as a match.
