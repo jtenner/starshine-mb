@@ -14,6 +14,7 @@ import {
   smokeExecuteNodeRuntime,
   summarizeRuntimeExportInvocationMatrix,
   passFuzzReductionLogTextForTest,
+  passFuzzObservedFailureExitReasonsForTest,
   passFuzzSummaryCoverageReport,
   applyCompareNormalizersForTest,
   boundedEffectTrapFactsForCase,
@@ -27,6 +28,33 @@ import {
 } from "./pass-fuzz-compare-task";
 
 describe("pass-fuzz persistent cache options", () => {
+  test("fails on every observed failure class unless report-only is explicit", () => {
+    const defaults = parsePassFuzzCompareArgs(["--pass", "vacuum"]);
+    const reportOnly = parsePassFuzzCompareArgs(["--pass", "vacuum", "--report-only"]);
+    expect(defaults.kind).toBe("run");
+    expect(reportOnly.kind).toBe("run");
+    if (defaults.kind === "run") expect(defaults.options.reportOnly).toBeFalse();
+    if (reportOnly.kind === "run") expect(reportOnly.options.reportOnly).toBeTrue();
+
+    expect(passFuzzObservedFailureExitReasonsForTest({
+      mismatchCount: 1,
+      validationFailureCount: 2,
+      generatorFailureCount: 3,
+      commandFailureCount: 4,
+      propertyFailureCount: 5,
+      runtimeExecutionCounts: { checked: 0, unsupported: 0, failed: 6 },
+      maxFailuresHit: true,
+    })).toEqual([
+      "mismatches=1",
+      "validation-failures=2",
+      "generator-failures=3",
+      "command-failures=4",
+      "property-failures=5",
+      "runtime-failures=6",
+      "max-failures-hit=true",
+    ]);
+  });
+
   test("accepts the dedicated constraint analysis GenValid aggregate", () => {
     const parsed = parsePassFuzzCompareArgs(["--pass", "constraint-analysis", "--gen-valid-profile", "constraint-analysis"]);
     expect(parsed.kind).toBe("run");

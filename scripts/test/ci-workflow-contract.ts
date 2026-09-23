@@ -63,6 +63,9 @@ export function runCiWorkflowContractTest(): void {
   for (const [fragment, label] of requiredFragments) {
     requireText(workflow, fragment, label);
   }
+  if (workflow.includes("--report-only")) {
+    fail("required CI workflow must keep compare-pass fail-on-observed-failures semantics");
+  }
   const moonUpdateCount = workflow.split("moon update").length - 1;
   if (moonUpdateCount < 3) {
     fail(`required CI workflow must resolve MoonBit registry dependencies in every job; found ${moonUpdateCount} moon update step(s)`);
@@ -87,6 +90,9 @@ export function runCiWorkflowContractTest(): void {
     ['--no-reduce-mismatches', "bounded semantic CI without structural reduction"],
   ] as Array<[string, string]>) {
     requireText(fuzzWorkflow, fragment, label);
+  }
+  if (fuzzWorkflow.includes("--report-only")) {
+    fail("semantic optimizer CI must keep compare-pass fail-on-observed-failures semantics");
   }
 
   const nodeWorkflow = fs.readFileSync(path.join(workflowDir, "node-wasm-tests.yml"), "utf8");

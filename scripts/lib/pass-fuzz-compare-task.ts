@@ -170,6 +170,7 @@ type PassFuzzCompareOptions = {
   maxMismatchArtifacts: number;
   maxSubprocesses: number;
   keepGoingAfterCommandFailures: boolean;
+  reportOnly: boolean;
   reduceMismatches: boolean;
   semanticReductionRelaxFamily: boolean;
   jobs: number | null;
@@ -290,6 +291,7 @@ export type PassFuzzCompareSummary = {
   commandFailureCount: number;
   commandFailureClasses: Partial<Record<CommandFailureClass, number>>;
   commandFailuresCountTowardMaxFailures: boolean;
+  exitPolicy: "fail-on-observed-failures" | "report-only";
   maxFailuresHit: boolean;
   maxMismatchArtifacts: number;
   mismatchArtifactsPersistedCount: number;
@@ -446,6 +448,7 @@ const RESERVED_OPTIONS = new Set([
   "--max-mismatch-artifacts",
   "--max-subprocesses",
   "--keep-going-after-command-failures",
+  "--report-only",
   "--normalize",
   "--jobs",
   "--pass",
@@ -604,6 +607,8 @@ const HELP_TEXT = [
   "                       Cap concurrent case workers that launch child tools. Default: 8",
   "  --keep-going-after-command-failures",
   "                       Record command failures without counting them toward --max-failures",
+  "  --report-only        Write all artifacts and exit zero despite observed mismatches or failures",
+  "                       Setup errors and an unmet --min-compared requirement still fail",
   "  --no-reduce-mismatches",
   "                       Persist mismatch artifacts without running the GenValid byte-slice reducer",
   "  --semantic-reduction-relax-family",
@@ -2898,6 +2903,29 @@ function addCounter(target: Record<string, number>, key: string, value: number):
   }
 }
 
+export function passFuzzObservedFailureExitReasonsForTest(
+  summary: Pick<
+    PassFuzzCompareSummary,
+    | "mismatchCount"
+    | "validationFailureCount"
+    | "generatorFailureCount"
+    | "commandFailureCount"
+    | "propertyFailureCount"
+    | "runtimeExecutionCounts"
+    | "maxFailuresHit"
+  >,
+): string[] {
+  const reasons: string[] = [];
+  if (summary.mismatchCount > 0) reasons.push(`mismatches=${summary.mismatchCount}`);
+  if (summary.validationFailureCount > 0) reasons.push(`validation-failures=${summary.validationFailureCount}`);
+  if (summary.generatorFailureCount > 0) reasons.push(`generator-failures=${summary.generatorFailureCount}`);
+  if (summary.commandFailureCount > 0) reasons.push(`command-failures=${summary.commandFailureCount}`);
+  if (summary.propertyFailureCount > 0) reasons.push(`property-failures=${summary.propertyFailureCount}`);
+  if (summary.runtimeExecutionCounts.failed > 0) reasons.push(`runtime-failures=${summary.runtimeExecutionCounts.failed}`);
+  if (summary.maxFailuresHit) reasons.push("max-failures-hit=true");
+  return reasons;
+}
+
 function sanitizeCounterKey(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
 }
@@ -3925,6 +3953,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let maxMismatchArtifacts = 20;
   let maxSubprocesses = 8;
   let keepGoingAfterCommandFailures = false;
+  let reportOnly = false;
   let reduceMismatches = true;
   let semanticReductionRelaxFamily = false;
   let jobs: number | null = null;
@@ -4146,6 +4175,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         break;
       case "--keep-going-after-command-failures":
         keepGoingAfterCommandFailures = true;
+        i += 1;
+        break;
+      case "--report-only":
+        reportOnly = true;
         i += 1;
         break;
       case "--no-reduce-mismatches":
@@ -4439,6 +4472,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       maxMismatchArtifacts,
       maxSubprocesses,
       keepGoingAfterCommandFailures,
+      reportOnly,
       reduceMismatches,
       semanticReductionRelaxFamily,
       jobs,
@@ -4663,6 +4697,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     commandFailureCount: 0,
     commandFailureClasses: {},
     commandFailuresCountTowardMaxFailures: !options.keepGoingAfterCommandFailures,
+    exitPolicy: options.reportOnly ? "report-only" : "fail-on-observed-failures",
     maxFailuresHit: false,
     maxMismatchArtifacts: options.maxMismatchArtifacts,
     mismatchArtifactsPersistedCount: 0,
@@ -6530,11 +6565,6 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   );
   fs.writeFileSync(resultPath, JSON.stringify(summary, null, 2) + "\n");
   fs.writeFileSync(summaryPath, formatFuzzSummaryReport(passFuzzSummaryCoverageReport(summary)));
-  if (options.minCompared !== null && summary.comparedCount < options.minCompared) {
-    fail(
-      `pass-fuzz-compare compared ${summary.comparedCount} cases, below required minimum ${options.minCompared}`,
-    );
-  }
   process.stdout.write(`Wrote pass fuzz compare artifacts to ${outDir}\n`);
   process.stdout.write(`Jobs: ${summary.jobs}\n`);
   process.stdout.write(`Primary validator: ${summary.primaryValidator}${summary.primaryValidator === "binaryen" ? " (comparison oracle; not independent validation)" : ""}\n`);
@@ -6559,6 +6589,17 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   process.stdout.write(
     `Mismatch artifacts: persisted ${summary.mismatchArtifactsPersistedCount}; suppressed ${summary.mismatchArtifactsSuppressedCount}; cap ${summary.maxMismatchArtifacts}\n`,
   );
+  if (options.minCompared !== null && summary.comparedCount < options.minCompared) {
+    fail(
+      `pass-fuzz-compare compared ${summary.comparedCount} cases, below required minimum ${options.minCompared}`,
+    );
+  }
+  const observedFailures = passFuzzObservedFailureExitReasonsForTest(summary);
+  if (!options.reportOnly && observedFailures.length > 0) {
+    fail(
+      `pass-fuzz-compare observed failing outcomes: ${observedFailures.join(", ")}; rerun with --report-only only when a zero-exit diagnostic collection is intended`,
+    );
+  }
 }
 
 export async function main(argv: string[]): Promise<void> {

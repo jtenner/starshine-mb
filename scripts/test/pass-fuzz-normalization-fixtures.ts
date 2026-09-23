@@ -89,6 +89,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--count",
       "1",
       "--generator",
@@ -99,6 +100,8 @@ process.exit(0);
       fakeStarshine,
       "--wasm-opt-bin",
       fakeWasmOpt,
+      "--require-binaryen-version",
+      "130",
       "--wasm-tools-bin",
       fakeWasmTools,
       "--remove-unused-brs",

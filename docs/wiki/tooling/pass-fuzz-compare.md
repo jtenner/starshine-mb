@@ -270,6 +270,10 @@ Every run writes:
 - `localizations/` and `localization-artifacts/` - all-prefix localization reports and persisted divergent/predecessor/standalone modules when requested.
 - `failures/case-<index>-<generator>/` or `failures/case-<index>-gen-valid-transform-<id>/` - copied per-case workdir files for generator failures, validation failures, command failures, and normalized mismatches.
 
+After writing these artifacts and the aggregate counters, compare-pass exits nonzero by default when it observed any normalized mismatch, validation failure, generator failure, command failure, property failure, legacy runtime semantic mismatch, or `--max-failures` cutoff. This makes the default command suitable for CI and parity signoff while preserving the complete report for diagnosis. Setup and argument errors can still fail before report creation.
+
+Use `--report-only` only for an intentional diagnostic collection where the caller will inspect and classify `result.json` separately. That option keeps exit zero for observed outcomes, but it does not suppress setup errors or an unmet explicit `--min-compared` requirement. `result.json` records the selected `exitPolicy` as `fail-on-observed-failures` or `report-only`.
+
 Each semantic-v2 failure directory additionally includes `semantic-v2.json`, `semantic-fingerprint.json`, `semantic-fingerprint.sha256`, and, when requested, `pass-localization.json`. Fingerprints retain the exact policy, outcomes/traps, first difference, resource/offset or import-event prefix, invocation plan hash, pass sequence, and localized boundary.
 
 Each failure directory includes:
@@ -298,7 +302,7 @@ The generator ledger records this as `[FZG]029`; see [`../fuzzing/generator-cove
 
 Replay defaults to historical command-failure behavior for backward compatibility. Use `--failure-status mismatch`, `--failure-status validation-failure`, `--failure-status generator-failure`, or `--failure-status property-failure` to replay other persisted failure kinds; combine with `--case-index <n>` to pick one saved case. `--failure-class <id>` is only meaningful for `command-failure` records.
 
-Command failures may or may not count toward `--max-failures`. By default they do; `--keep-going-after-command-failures` records them without spending the failure budget. That mode is useful when a known tool class, such as a Binaryen parser gap, would otherwise prevent collecting enough comparable cases.
+Command failures may or may not count toward `--max-failures`. By default they do; `--keep-going-after-command-failures` records them without spending the failure budget. That mode is useful when a known tool class, such as a Binaryen parser gap, would otherwise prevent collecting enough comparable cases. It does not change the final exit policy: add `--report-only` for diagnostic collection, or expect the recorded command failures to make the command fail.
 
 Known command-failure classes are intentionally concrete and replayable: `starshine-command-failed`, `starshine-invalid-limits`, `starshine-invalid-range-for-limits`, `binaryen-invalid-type-index`, `binaryen-invalid-tag-index`, `binaryen-rec-group-zero`, `binaryen-invalid-wasm-type-neg64`, `binaryen-initializer-expression-not-constant`, `binaryen-table-index-out-of-range`, `binaryen-bad-section-size`, and `binaryen-command-failed`.
 
@@ -318,7 +322,7 @@ For a direct pass signoff:
 2. Run a small default GenValid `--count <small>` smoke lane while iterating.
 3. Build `src/cmd` once with `moon build --target native --release src/cmd`.
 4. Run the repo-standard direct lane, usually `--count 10000 --seed 0x5eed`, with a stable `--out-dir`, explicit `--jobs auto`, and explicit `--starshine-bin _build/native/release/build/cmd/cmd.exe`.
-5. If command failures dominate, rerun with `--keep-going-after-command-failures` and use `--min-compared` so the run still proves enough comparable cases.
+5. If command failures dominate during diagnostic collection, rerun with `--keep-going-after-command-failures --report-only` and use `--min-compared` so the run still proves enough comparable cases. Record and classify every skipped oracle case; report-only is not signoff by itself.
 6. Record the harness status **and** an agent classification for every residual in the pass dossier. A Starshine win needs a transform contract, inspected/reduced repro or equivalent semantic reasoning, and a measured benefit; otherwise keep the drift as a parity gap. Do not use validation success, smaller bytes alone, normalizer use, or equal smoke traps as semantic proof.
 7. For DAE / generator-debris lanes, include `--normalize drop-consts --normalize unreachable-control-debris` so cleanup-normalized matches are counted separately from exact normalized matches.
 8. Preserve the run directory locally and cite durable aggregate facts in the affected pass page, tracker, or research note.

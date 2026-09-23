@@ -119,6 +119,7 @@ fs.mkdirSync(path.dirname(out), { recursive: true }); fs.copyFileSync(process.en
   const wrongOutDir = path.join(tmpdir, "wrong-out");
   const wrongResult = spawnSync("bun", [
     path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+    "--report-only",
     "--count", "1", "--wasm-smith", "--no-cache", "--out-dir", wrongOutDir,
     "--starshine-bin", wrongStarshine, "--wasm-tools-bin", wasmToolsWrapper,
     "--semantic-oracle", "node-v2", "--semantic-policy", "strict",
@@ -153,6 +154,7 @@ const hasBoundary = args.includes("--remove-unused-brs"); fs.copyFileSync(hasBou
   const localizedOutDir = path.join(tmpdir, "localized-out");
   const localizedResult = spawnSync("bun", [
     path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+    "--report-only",
     "--count", "1", "--wasm-smith", "--no-cache", "--out-dir", localizedOutDir,
     "--starshine-bin", localizedStarshine, "--wasm-tools-bin", wasmToolsWrapper,
     "--semantic-oracle", "node-v2", "--semantic-policy", "strict",

@@ -125,7 +125,8 @@ process.exit(0);
   const result = spawnSync(
     "bun",
     [
-      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      path.join(repoRoot, "scripts", "fuzz.ts"),
+      "compare-pass",
       "--count",
       "4",
       "--seed",
@@ -1164,7 +1165,8 @@ process.exit(0);
   const result = spawnSync(
     "bun",
     [
-      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      path.join(repoRoot, "scripts", "fuzz.ts"),
+      "compare-pass",
       "--count",
       "10",
       "--generator",
@@ -1199,21 +1201,25 @@ process.exit(0);
   if (result.error) {
     throw result.error;
   }
-  if (result.status !== 0) {
-    fail(`pass-fuzz-compare command-failure accumulation failed:\n${result.stderr}`);
-  }
+  assert(result.status !== 0, "expected recorded command failures to fail the compare-pass command");
+  assert(
+    result.stderr.includes("command-failures=3"),
+    `expected command failure count in exit diagnostic, got:\n${result.stderr}`,
+  );
 
   const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
     requestedCount: number;
     comparedCount: number;
     commandFailureCount: number;
     commandFailureClasses: Record<string, number>;
+    exitPolicy: string;
     maxFailuresHit: boolean;
     failureDirs: string[];
   };
   assert(summary.requestedCount === 10, `unexpected requested count ${summary.requestedCount}`);
   assert(summary.comparedCount === 0, `expected 0 compared cases, got ${summary.comparedCount}`);
   assert(summary.commandFailureCount === 3, `expected 3 command failures, got ${summary.commandFailureCount}`);
+  assert(summary.exitPolicy === "fail-on-observed-failures", `unexpected exit policy ${summary.exitPolicy}`);
   assert(summary.commandFailureClasses["starshine-command-failed"] === 3, `expected 3 Starshine command failures, got ${JSON.stringify(summary.commandFailureClasses)}`);
   assert(summary.maxFailuresHit, "expected maxFailuresHit for repeated command failures");
   assert(summary.failureDirs.length === 3, `expected 3 failure dirs, got ${summary.failureDirs.length}`);
@@ -1326,6 +1332,7 @@ process.exit(0);
       "--max-failures",
       "1",
       "--keep-going-after-command-failures",
+      "--report-only",
       "--out-dir",
       outDir,
       "--moon",
@@ -1364,12 +1371,14 @@ process.exit(0);
     commandFailureCount: number;
     commandFailureClasses: Record<string, number>;
     commandFailuresCountTowardMaxFailures: boolean;
+    exitPolicy: string;
     maxFailuresHit: boolean;
     failureDirs: string[];
   };
   assert(summary.requestedCount === 3, `unexpected requested count ${summary.requestedCount}`);
   assert(summary.comparedCount === 0, `expected 0 compared cases, got ${summary.comparedCount}`);
   assert(summary.commandFailureCount === 3, `expected 3 command failures, got ${summary.commandFailureCount}`);
+  assert(summary.exitPolicy === "report-only", `unexpected exit policy ${summary.exitPolicy}`);
   assert(summary.commandFailureClasses["binaryen-invalid-type-index"] === 3, `expected 3 invalid-type-index failures, got ${JSON.stringify(summary.commandFailureClasses)}`);
   assert(!summary.commandFailuresCountTowardMaxFailures, "expected command failures to be excluded from max-failures cutoff");
   assert(!summary.maxFailuresHit, "did not expect maxFailuresHit when only command failures were recorded");
@@ -1443,6 +1452,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--count",
       "1",
       "--generator",
@@ -1545,6 +1555,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--count",
       "1",
       "--generator",
@@ -1670,6 +1681,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--out-dir",
       outDir,
       "--moon",
@@ -1790,6 +1802,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--count",
       "1",
       "--generator",
@@ -1915,6 +1928,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--out-dir",
       outDir,
       "--moon",
@@ -2035,6 +2049,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--count",
       "1",
       "--generator",
@@ -2160,6 +2175,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--out-dir",
       outDir,
       "--moon",
@@ -2280,6 +2296,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--count",
       "1",
       "--generator",
@@ -2405,6 +2422,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--out-dir",
       outDir,
       "--moon",
@@ -2525,6 +2543,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--count",
       "1",
       "--generator",
@@ -2667,6 +2686,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--out-dir",
       outDir,
       "--moon",
@@ -2814,6 +2834,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--out-dir",
       outDir,
       "--moon",
@@ -2943,6 +2964,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--count",
       "1",
       "--generator",
@@ -3056,6 +3078,7 @@ process.exit(0);
     "bun",
     [
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--report-only",
       "--out-dir",
       outDir,
       "--starshine-bin",
