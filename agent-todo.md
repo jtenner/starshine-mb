@@ -71,7 +71,10 @@
     structured reads and writes before movement. Valid direct and dispatcher
     fixtures passed before any production change; no behavior fix was warranted.
 13. [ ] CodePushing dead-block flattening ignores nested branches.
-14. [ ] RemoveUnusedBrs omits continuation handler references.
+14. [x] RemoveUnusedBrs now counts continuation handler labels and preserves
+    their result type during block refinalization (`6216b1a7d`). Valid direct
+    and dispatcher fixtures failed before the fix; both passed afterward,
+    with `moon fmt` and `moon info` green. No fuzzing was run.
 15. [x] MergeBlocks `try`/`try_table` carried-local scan concern was
     disproved: both collectors recurse through generic HOT children in
     `src/passes/merge_blocks.mbt`, and the HOT builders give each EH node two
