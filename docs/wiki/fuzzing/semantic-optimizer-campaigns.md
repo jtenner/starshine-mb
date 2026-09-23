@@ -44,6 +44,9 @@ The reusable TypeScript component layer defines:
 - `starshine.optimizer-semantic-comparison.v2`
 - `starshine.optimizer-three-way-semantic.v1`
 - `starshine.optimizer-three-way-runtime-report.v1`
+- `starshine.optimizer-atomic-litmus.v1`
+- `starshine.optimizer-atomic-litmus-execution.v1`
+- `starshine.optimizer-atomic-litmus-comparison.v1`
 - `starshine.optimizer-property-result.v1`
 - `starshine.optimizer-semantic-fingerprint.v1`
 - `starshine.optimizer-fingerprint-reduction.v1`
@@ -70,6 +73,14 @@ The comparison report stops at the first deterministic difference and records it
 Invocation plans are deterministic, hashed, and bounded. They include a default vector, one-parameter boundary vectors, bounded pairwise vectors, and optional targeted vectors without constructing a Cartesian product. `v128` arguments/results use generated Wasm-side two-`i64` scalar adapters so SIMD values never cross JavaScript. Imported v128 functions use the inverse adapter and retain exact import-event arguments/results. The configured Node engine exposes `i31ref` function parameters and results as signed JavaScript integers, so the planner exercises null plus `0`, `1`, `-1`, `-2^30`, and `2^30 - 1`; observations retain both the signed value and exact 31-bit pattern, including imported-function events. Nullable `anyref`, `eqref`, `structref`, and `arrayref` retain null fixtures. Non-null aggregate GC references, `exnref`/`contref` crossings, relaxed-SIMD allowed-result sets, and imported memory64 resources still require proposal-specific adapters or oracles and remain blocked.
 
 The executor constructs typed deterministic imports, including `WebAssembly.Tag`, isolates execution in a killable worker, distinguishes independent and stateful invocation modes, records start/import events, snapshots imported and exported globals/memories/tables, hashes every observed memory byte, and blocks over-cap resources instead of sampling them as equivalent. Immutable active element segments provide exact `funcidx:<n>` identity across tables; modules with runtime table mutation still block cross-table identity. Every three-way report records runtime-interface, invocation-plan, original observation, Starshine observation, Binaryen observation, comparison, and total milliseconds; the semantic cache runtime identity is versioned so older untimed reports cannot be reused as timed evidence. Focused tests cover wrong scalar results, scalar and trap mismatches beside unrelated blocked resources, signed zero, strict versus canonical NaN, exact event prefixes at traps, full-memory changes beyond 64 KiB, over-cap blocking, static cross-table aliases, imported exceptions, v128 imports/exports, non-null exported and imported-function `i31ref` observations, nullable references, trap normalization, deterministic plans, stage timings, and three-way classifications.
+
+## Bounded atomic litmus observations
+
+[`optimizer-atomic-runtime.ts`](../../../scripts/lib/optimizer-atomic-runtime.ts) provides an opt-in two-worker Node lane for reviewed atomic transformation fixtures. Version 1 accepts one imported shared memory capped at sixteen pages, one exported function with bounded `i32` arguments and one `i32` result, one to eight fresh-memory trials, and one to sixteen aligned `i32` memory observations. Both workers instantiate the same module and shared memory, wait at a host barrier, and invoke the export concurrently. The subprocess timeout is capped at sixty seconds and remains fail-closed.
+
+Each fixture declares the complete allowed outcome set from the instruction contract. The comparator checks original and candidate observations for membership in that set; it never treats the bounded original sample as the oracle. Different allowed schedules may appear on the two sides. An original outcome outside the set blocks the fixture as an oracle/runtime conflict, while a candidate outcome outside the set is a semantic mismatch. Seeing only allowed outcomes is bounded evidence and does not prove that every execution or allowed behavior was preserved.
+
+The first deterministic fixture covers two sequentially consistent `i32.atomic.rmw.add` operations from zero. The only allowed observations are old values `(0, 1)` or `(1, 0)` with final memory `2`; a transformed fixture that increments by two reliably produces final memory `4` and is rejected. This lane is a library/replay primitive and is not inferred automatically for arbitrary GenValid modules. Wait/notify and liveness, acquire/release and relaxed orders, fences, memory64 and multi-memory, shared-GC atomics, and general arbitrary-program schedule exploration remain outside version 1.
 
 ## Properties
 

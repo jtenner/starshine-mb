@@ -1372,7 +1372,7 @@ export async function runNodeThreeWaySemanticOracleV2(
 
 const installedNodeIdentities = new Map<string, string>();
 
-function nodeObservationArguments(): string[] {
+export function nodeObservationArguments(): string[] {
   const wasmfx = process.env.STARSHINE_NODE_WASMFX;
   if (wasmfx !== undefined && wasmfx !== "0" && wasmfx !== "1") {
     throw new Error("STARSHINE_NODE_WASMFX must be 0 or 1");

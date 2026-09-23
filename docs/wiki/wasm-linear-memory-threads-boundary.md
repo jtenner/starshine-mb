@@ -131,6 +131,7 @@ Treat shared memory and atomics as semantic constraints, not as incidental synta
 
 - a pass that remaps, deletes, or reorders memories must repair every `MemArg` carrier, including atomic `MemArg`s;
 - a pass that removes or moves atomic operations must have a memory-ordering proof, not just stack-type preservation; this remains true for atomics on unshared memories;
+- reviewed two-worker `i32.atomic.rmw.add` transformations can use the bounded allowed-outcome executor in [`fuzzing/semantic-optimizer-campaigns.md`](fuzzing/semantic-optimizer-campaigns.md#bounded-atomic-litmus-observations); the allowed set comes from the instruction contract, not from sampled original executions;
 - `atomic.fence` has no memory index to repair, but it is still an ordering barrier and must not be treated as a harmless `nop`;
 - shared-memory maxima and memory64/table64 address-width facts belong in resource/validator evidence, not in WAST declaration examples unless the WAST text path has been widened; and
 - external validators may accept a different proposal revision or feature default, so classify disagreements through [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md) before filing a Starshine bug.
@@ -138,6 +139,7 @@ Treat shared memory and atomics as semantic constraints, not as incidental synta
 ## What This Page Does Not Prove
 
 - It does not prove full Threads proposal support. Threads is an active proposal row; current Starshine has a documented local subset.
+- The first multi-thread litmus proves only bounded sequentially consistent `i32.atomic.rmw.add` outcome checking. It does not cover wait/notify liveness, weaker orders, fences, memory64/multi-memory, shared-GC atomics, or arbitrary schedules.
 - It does not prove high-level WAST support for linear-memory atomic text.
 - It does not prove complete Relaxed Atomics support. Starshine carries `SeqCst` / `AcqRel` on linear atomics and fence, but `pause`, full proposal gating, high-level text, and runtime conformance route through [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md).
 - It does not prove full Shared-Everything Threads support. Starshine's shared type and struct/array aggregate atomic representation is substantial but still layer-specific; route exact gaps through [`wasm-shared-everything-threads-boundary.md`](wasm-shared-everything-threads-boundary.md) and [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md).
@@ -154,6 +156,7 @@ When touching shared memory or ordinary atomics:
 5. **Generator coverage:** keep `[FZG]006` shared-memory/resource coverage and `[FZG]017` ordinary atomics scoped to their current shared-memory generation topology; neither is a validator sharedness requirement.
 6. **WAST claims:** say “core/binary/validator/generator evidence” unless `src/wast/keywords.mbt`, `src/wast/parser.mbt`, lowering, printing, and WAST tests have actually been widened.
 7. **Feature-status wording:** cite this page for ordinary Threads/shared-memory claims, [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md) for relaxed ordering / `pause`, and [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) for active-vs-finished proposal vocabulary.
+8. **Concurrent runtime evidence:** for a reviewed ordinary atomic transform, declare the full allowed outcome set and run the bounded two-worker litmus on original and candidate. Treat any candidate observation outside the set as a semantic mismatch; treat only-in-set observations as bounded evidence rather than exhaustive proof.
 
 ## Sources
 

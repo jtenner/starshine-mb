@@ -833,6 +833,18 @@ export {
   type PropertyHarness,
 } from "./optimizer-properties";
 
+export {
+  compareAtomicLitmusObservationSetsV1,
+  runNodeAtomicLitmusComparisonV1,
+  validateAtomicLitmusSpecV1,
+  type AtomicLitmusComparisonReportV1,
+  type AtomicLitmusExecutionV1,
+  type AtomicLitmusObservationV1,
+  type AtomicLitmusOutcomeComparisonV1,
+  type AtomicLitmusOutcomeV1,
+  type AtomicLitmusSpecV1,
+} from "./optimizer-atomic-runtime";
+
 export function runOptionalWasmReduce(options: {
   wasmReduceBin: string;
   inputPath: string;
