@@ -66,7 +66,9 @@
 28. [ ] RUME removes imports whose host resolution is observable.
 29. [ ] ReorderGlobals changes observable imported-global getter order.
 30. [ ] Directize synthesizes labels without remapping label-name metadata.
-31. [ ] `no-inline*` annotation rebuild drops structured compiler facts.
+31. [x] `no-inline*` annotation rebuild drops structured compiler facts.
+    Both policy dispatch and clone annotation copying now preserve the
+    compiler-fact custom section; adjacent focused tests were red then green.
 32. [ ] MergeSimilarFunctions introduces tail calls despite conflicting target-feature metadata.
 33. [ ] Decide and guard direct DFE's host-visible exported-function identity contract.
 34. [ ] Decide and guard direct DIE's repeated host import-lookup contract.

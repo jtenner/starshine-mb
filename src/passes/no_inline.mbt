@@ -272,6 +272,7 @@ fn no_inline_run_module_pass(
   }
   @lib.Module::new(
     custom_secs=mod_.custom_secs,
+    compiler_fact_custom_section=mod_.compiler_fact_custom_section,
     type_sec=mod_.type_sec,
     import_sec=mod_.import_sec,
     func_annotation_sec=no_inline_build_annotation_sec(by_func),
@@ -327,6 +328,7 @@ pub fn no_inline_copy_policy_annotations(
   }
   @lib.Module::new(
     custom_secs=mod_.custom_secs,
+    compiler_fact_custom_section=mod_.compiler_fact_custom_section,
     type_sec=mod_.type_sec,
     import_sec=mod_.import_sec,
     func_annotation_sec=no_inline_build_annotation_sec(by_func),

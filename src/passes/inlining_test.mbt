@@ -947,6 +947,45 @@ test "no-inline clone-survival helper copies policy markers to appended clones" 
 }
 
 ///|
+test "no-inline policy dispatch preserves structured compiler facts" {
+  let facts = @representation.CompilerFactCustomSection::new(
+    @representation.OptimizationFactsSec::new(),
+  )
+  let input = pass_test_module_from_wat(
+    "(module (func $protected (result i32) i32.const 7))",
+  ).with_compiler_fact_custom_section(facts)
+  let output = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["no-inline=protected"]) {
+    Ok(module_) => module_
+    Err(err) => fail("expected no-inline policy pass, got \{err}")
+  }
+  @debug.assert_eq(output.compiler_fact_custom_section, Some(facts))
+  assert_true(output.func_annotation_sec is Some(_))
+}
+
+///|
+test "no-inline clone annotation copy preserves structured compiler facts" {
+  let facts = @representation.CompilerFactCustomSection::new(
+    @representation.OptimizationFactsSec::new(),
+  )
+  let input = pass_test_module_from_wat(
+    "(module (func $source (result i32) i32.const 7) (func $clone (result i32) i32.const 7))",
+  )
+  let marked = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["no-inline=source"]) {
+    Ok(module_) => module_
+    Err(err) => fail("expected no-inline policy pass, got \{err}")
+  }
+  let marked_with_facts = marked.with_compiler_fact_custom_section(facts)
+  let copied = no_inline_copy_policy_annotations(marked_with_facts, 0U, 1U)
+  @debug.assert_eq(copied.compiler_fact_custom_section, Some(facts))
+  @debug.assert_eq(
+    inl_test_count_func_annotation(copied, 1U, "starshine.no-full-inline"),
+    1,
+  )
+}
+
+///|
 test "no-inline repeated wildcard policy deduplicates full and partial markers" {
   let source =
     #|(module

@@ -149,6 +149,13 @@ That is exactly the split you would expect from the two booleans in `Function`.
 
 ## 5. Clone survival is source-confirmed, not just a pipeline accident
 
+Starshine's `no-inline*` policy annotation rebuild and clone annotation copy
+must also carry `compiler_fact_custom_section` through module reconstruction.
+The focused dispatcher and clone-helper regressions in
+`src/passes/inlining_test.mbt` preserve structured optimization facts while
+adding policy annotations. These facts are independent of function annotation
+metadata and remain present even when no-inline changes that section.
+
 The existing dossier already noted that `test/lit/passes/no-inline-monomorphize-inlining.wast` proves no-inline intent survives through monomorphization.
 This page closes the source-confirmation gap for why. A 2026-06-02 current-main recheck still shows the same flag-copy split in `Inlining.cpp`, `NoInline.cpp`, and `module-utils.cpp`.
 
