@@ -5,6 +5,7 @@ export type PropertyHarness<Module> = {
   validate(module: Module): Promise<boolean>;
   semanticCompare(original: Module, candidate: Module): Promise<SemanticRelation>;
   structuralHash(module: Module): Promise<string>;
+  rawHash(module: Module): Promise<string | null>;
   encodedSize(module: Module): Promise<number>;
   persist(name: string, module: Module): Promise<unknown>;
 };
@@ -107,6 +108,7 @@ export async function runSemanticIdempotenceProperty<Module>(
 export type ConvergenceGeneration = {
   generation: number;
   hash: string;
+  rawHash: string | null;
   size: number;
   valid: boolean;
   semantic: SemanticRelation;
@@ -116,7 +118,7 @@ export type ConvergencePropertyResult = OptimizerPropertyResult & {
   classification: "fixed-point" | "structural-cycle" | "persistent-growth" | "nonconvergence" | "late-validation-failure" | "late-semantic-divergence" | "blocked";
   generations: ConvergenceGeneration[];
   fixedPointGeneration: number | null;
-  cycle: { startGeneration: number; endGeneration: number; hashes: string[] } | null;
+  cycle: { startGeneration: number; endGeneration: number; hashes: string[]; rawHashes: Array<string | null> } | null;
 };
 
 export async function runConvergenceProperty<Module>(
@@ -136,9 +138,10 @@ export async function runConvergenceProperty<Module>(
   const modules: Module[] = [input];
   const seen = new Map<string, number>();
   const initialHash = await harness.structuralHash(input);
+  const initialRawHash = await harness.rawHash(input);
   const initialSize = await harness.encodedSize(input);
-  result.generations.push({ generation: 0, hash: initialHash, size: initialSize, valid: true, semantic: "equal" });
-  seen.set(initialHash, 0);
+  result.generations.push({ generation: 0, hash: initialHash, rawHash: initialRawHash, size: initialSize, valid: true, semantic: "equal" });
+  if (initialRawHash !== null) seen.set(initialRawHash, 0);
   await persist(result, harness, "M0", input);
   for (let generation = 1; generation <= maxGenerations; generation += 1) {
     current = await harness.apply(current, passes);
@@ -147,9 +150,10 @@ export async function runConvergenceProperty<Module>(
     const valid = await harness.validate(current);
     result.validationResults.push({ generation, artifact: `M${generation}`, valid });
     const hash = await harness.structuralHash(current);
+    const rawHash = await harness.rawHash(current);
     const size = await harness.encodedSize(current);
     if (!valid) {
-      result.generations.push({ generation, hash, size, valid: false, semantic: "blocked" });
+      result.generations.push({ generation, hash, rawHash, size, valid: false, semantic: "blocked" });
       result.status = "fail";
       result.classification = "late-validation-failure";
       result.firstFailure = { generation, stage: "validation", detail: "optimizer generation is invalid" };
@@ -157,7 +161,7 @@ export async function runConvergenceProperty<Module>(
     }
     const semantic = await harness.semanticCompare(input, current);
     result.semanticComparisons.push({ left: "M0", right: `M${generation}`, relation: semantic });
-    result.generations.push({ generation, hash, size, valid: true, semantic });
+    result.generations.push({ generation, hash, rawHash, size, valid: true, semantic });
     if (semantic === "blocked") {
       result.status = "blocked";
       result.classification = "blocked";
@@ -170,15 +174,15 @@ export async function runConvergenceProperty<Module>(
       result.firstFailure = { generation, stage: "semantic-comparison", detail: "generation differs from original" };
       return result;
     }
-    const previousHash = result.generations[generation - 1].hash;
-    if (hash === previousHash) {
+    const previousRawHash = result.generations[generation - 1].rawHash;
+    if (rawHash !== null && rawHash === previousRawHash) {
       result.status = "pass";
       result.classification = "fixed-point";
       result.fixedPointGeneration = generation;
-      result.structuralDiagnostics = { fixedPointHash: hash };
+      result.structuralDiagnostics = { fixedPointHash: hash, fixedPointRawHash: rawHash };
       return result;
     }
-    const earlier = seen.get(hash);
+    const earlier = rawHash === null ? undefined : seen.get(rawHash);
     if (earlier !== undefined) {
       result.status = "fail";
       result.classification = "structural-cycle";
@@ -186,18 +190,24 @@ export async function runConvergenceProperty<Module>(
         startGeneration: earlier,
         endGeneration: generation,
         hashes: result.generations.slice(earlier, generation + 1).map((entry) => entry.hash),
+        rawHashes: result.generations.slice(earlier, generation + 1).map((entry) => entry.rawHash),
       };
-      result.firstFailure = { generation, stage: "convergence", detail: `canonical structure returned to generation ${earlier}` };
+      result.firstFailure = { generation, stage: "convergence", detail: `raw module returned to generation ${earlier}` };
       return result;
     }
-    seen.set(hash, generation);
+    if (rawHash !== null) seen.set(rawHash, generation);
   }
   result.status = "fail";
   const sizes = result.generations.map((entry) => entry.size);
   const persistentGrowth = sizes.every((size, index) => index === 0 || size > sizes[index - 1]);
-  result.classification = persistentGrowth ? "persistent-growth" : "nonconvergence";
+  const hasUnknownRawHash = result.generations.some((entry) => entry.rawHash === null);
+  result.classification = !hasUnknownRawHash && persistentGrowth ? "persistent-growth" : "nonconvergence";
   result.firstFailure = { generation: maxGenerations, stage: "convergence", detail: `no fixed point by generation ${maxGenerations}` };
-  result.structuralDiagnostics = { sizes, hashes: result.generations.map((entry) => entry.hash) };
+  result.structuralDiagnostics = {
+    sizes,
+    hashes: result.generations.map((entry) => entry.hash),
+    rawHashes: result.generations.map((entry) => entry.rawHash),
+  };
   return result;
 }
 

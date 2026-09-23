@@ -6309,6 +6309,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
               return `raw-sha256:${sha256Hex(fs.readFileSync(modulePath))}`;
             }
           },
+          rawHash: async (modulePath) => `raw-sha256:${sha256Hex(fs.readFileSync(modulePath))}`,
           encodedSize: async (modulePath) => fs.statSync(modulePath).size,
           persist: async (name, modulePath) => {
             const target = path.join(artifactDir, `${safeArtifactNameSegment(name)}.wasm`);

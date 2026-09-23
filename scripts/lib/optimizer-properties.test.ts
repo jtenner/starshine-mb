@@ -13,12 +13,14 @@ function harness(options: {
   invalid?: Set<string>;
   semanticClass?: (original: string, candidate: string) => "equal" | "different" | "blocked";
   structural?: (module: string) => string;
+  raw?: (module: string) => string | null;
 }): PropertyHarness<string> {
   return {
     apply: async (module, passes) => options.apply(module, passes),
     validate: async (module) => !options.invalid?.has(module),
     semanticCompare: async (original, candidate) => options.semanticClass?.(original, candidate) ?? (original.split("|")[0] === candidate.split("|")[0] ? "equal" : "different"),
     structuralHash: async (module) => options.structural?.(module) ?? module,
+    rawHash: async (module) => options.raw === undefined ? module : options.raw(module),
     encodedSize: async (module) => module.length,
     persist: async (_name, module) => ({ module }),
   };
@@ -56,6 +58,55 @@ describe("convergence", () => {
     expect(result.fixedPointGeneration).toBe(2);
   });
 
+  test("confirms an input projection alias with a second optimizer application", async () => {
+    const result = await runConvergenceProperty("M0", ["p"], harness({
+      apply: (module) => module === "M0" ? "M1" : module === "M1" ? "M2" : "M2",
+      semanticClass: () => "equal",
+      structural: (module) => module === "M0" || module === "M1" ? "projection-a" : "projection-b",
+    }), { maxGenerations: 4 });
+    expect(result.status).toBe("pass");
+    expect(result.classification).toBe("fixed-point");
+    expect(result.fixedPointGeneration).toBe(3);
+    expect(result.generations.map((entry) => entry.hash)).toEqual([
+      "projection-a",
+      "projection-a",
+      "projection-b",
+      "projection-b",
+    ]);
+  });
+
+  test("does not treat three distinct raw aliases as a canonical fixed point", async () => {
+    const result = await runConvergenceProperty("M0", ["p"], harness({
+      apply: (module) =>
+        module === "M0" ? "M1" : module === "M1" ? "M2" : module === "M2" ? "M3" : "M3",
+      semanticClass: () => "equal",
+      structural: (module) => module === "M3" ? "projection-b" : "projection-a",
+    }), { maxGenerations: 5 });
+    expect(result.status).toBe("pass");
+    expect(result.classification).toBe("fixed-point");
+    expect(result.fixedPointGeneration).toBe(4);
+    expect(result.generations.map((entry) => entry.hash)).toEqual([
+      "projection-a",
+      "projection-a",
+      "projection-a",
+      "projection-b",
+      "projection-b",
+    ]);
+  });
+
+  test("stays bounded nonconvergence when exact raw identity is unavailable", async () => {
+    const result = await runConvergenceProperty("M", ["p"], harness({
+      apply: () => "M",
+      semanticClass: () => "equal",
+      structural: () => "projection",
+      raw: () => null,
+    }), { maxGenerations: 2 });
+    expect(result.status).toBe("fail");
+    expect(result.classification).toBe("nonconvergence");
+    expect(result.fixedPointGeneration).toBeNull();
+    expect(result.generations.map((entry) => entry.rawHash)).toEqual([null, null, null]);
+  });
+
   test("detects a two-state cycle and records the full cycle", async () => {
     const result = await runConvergenceProperty("A", ["p"], harness({
       apply: (module) => module === "A" ? "B" : "A",
@@ -64,6 +115,7 @@ describe("convergence", () => {
     expect(result.status).toBe("fail");
     expect(result.classification).toBe("structural-cycle");
     expect(result.cycle?.hashes).toEqual(["A", "B", "A"]);
+    expect(result.cycle?.rawHashes).toEqual(["A", "B", "A"]);
   });
 
   test("detects late validation and semantic failures", async () => {
