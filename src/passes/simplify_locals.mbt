@@ -3612,6 +3612,12 @@ fn simplify_locals_node_has_any_branch(
     | @ir.HotOp::BrOnCast
     | @ir.HotOp::BrOnCastFail
     | @ir.HotOp::Delegate => return true
+    // An on-label handler can leave the current linear fallthrough before a
+    // later write, so facts learned after the resume do not dominate the exit.
+    @ir.HotOp::Continuation =>
+      if !@ir.hot_continuation_targets(func, node_id).is_empty() {
+        return true
+      }
     @ir.HotOp::Block | @ir.HotOp::Loop =>
       if simplify_locals_region_has_any_branch(
           func,

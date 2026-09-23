@@ -8,7 +8,9 @@ sources:
   - ../../../../../src/passes/simplify_locals_test.mbt
   - ../../../../../src/passes/simplify_locals_dew_conditional_order_test.mbt
   - ../../../../../src/passes/simplify_locals_continuation_handler_test.mbt
+  - ../../../../../src/passes/simplify_locals_resume_store_test.mbt
   - ../../../../../src/cmd/simplify_locals_continuation_handler_wbtest.mbt
+  - ../../../../../src/cmd/simplify_locals_resume_store_wbtest.mbt
   - ../../../../../src/ir/hot_builders.mbt
 related:
   - ./index.md
@@ -116,6 +118,7 @@ generated gates and whole-pipeline speed selection remain open.
   - nonlinear control merges
   - structured barriers on the raw lane
 - Continuation `resume` handlers with `on_label` targets are exits too. Structure-result lifting must keep a preceding local write before a handler that can leave the rewritten region; otherwise the handler path skips the rehomed write and observes the local's old value. The HOT legality checks use stable targets from `hot_continuation_targets`, including targets that are outside the candidate subtree.
+- The same handler edge also prevents a write after `resume` from becoming a fact after the enclosing block. That write only executes on normal fallthrough; an `on_label` exit skips it. `simplify_locals_node_has_any_branch` therefore treats a continuation with stable label targets as branching and clears fallthrough-only sinkable and equivalent-local state at the structure boundary. This is separate from the preceding structure-result check: that check protects writes originally before `resume`, while the branch-state check protects writes originally after it.
 
 ### 6. Sibling Evaluation Order
 
