@@ -83,7 +83,10 @@
     `src/passes/merge_blocks.mbt`, and the HOT builders give each EH node two
     region-holder children. Valid adjacent and dispatcher EH fixtures passed
     before any production change; no behavior fix was warranted.
-16. [ ] SimplifyLocals sinks a write across a continuation handler exit.
+16. [x] SimplifyLocals now treats continuation handler labels as exits before
+    sinking local writes (`cab7b8aa3`). Valid direct and dispatcher fixtures
+    failed before the fix and passed afterward; `moon fmt` and `moon info`
+    passed. ResumeThrow variants share the target path but lack separate cases.
 17. [ ] SimplifyLocals moves a structure store after `Resume`.
 18. [x] CoalesceLocals liveness omits resume-handler successors
     (`323893154`); `ResumeOnLabel` targets now contribute to backward
@@ -241,7 +244,11 @@
 ### Hypotheses to prove or reject before changing behavior
 
 61. [ ] Check legacy raw SSA-no-merge continuation liveness on a valid fallback shape.
-62. [ ] Check direct public HOT Local CSE use on shared-memory functions.
+62. [x] Direct public HOT Local CSE shared-load hypothesis was not reproduced.
+    A valid lifted shared-memory function retains two matching loads without
+    module context; the test checks both HOT load nodes and their result/effect
+    metadata, then counts both emitted loads. It passed before any behavior
+    change. The regression guards future HOT key changes; no fuzzing was run.
 63. [ ] Check Local CSE waitqueue synchronization barriers.
 64. [ ] Check MemoryPacking passive-segment expansion under shared concurrency.
 65. [ ] Check fresh-object Heap Store Optimization atomic ordering at publication.
@@ -263,15 +270,18 @@
     module after a successful data-segment rewrite (`4381795de`). Direct and
     dispatcher zero-range fixtures were red before the metadata carry and
     green after.
-71. [ ] Prove and guard DFE identity for non-exported functions observed through
-    `ref.func`, tables, globals, or `ref.eq`. Distinct function addresses can
-    remain observable even when neither function is directly exported; add a
-    valid reduced behavioral fixture before changing deduplication.
-72. [ ] GSI must treat functions reachable through exported tables as host-callable.
-    A host can fetch a `ref.func` from an exported table and invoke it with an
-    external nominal struct; the current exported-parameter origin scan covers
-    only directly exported functions. Guard this boundary with valid direct and
-    active-dispatch fixtures before allowing singleton field substitution.
+71. [x] DFE now preserves internal function identities materialized by
+    `ref.func`, global/table initializers, and active/passive elements
+    (`4afe11d59`). Direct and dispatcher regressions were red before and green
+    after; Node host identity checks distinguish table/global function values.
+    Direct `ref.eq` on function refs is invalid Wasm, so the host API supplies
+    the behavioral proof. Focused tests, native build, `moon info` and `moon fmt`
+    passed; no fuzzing ran.
+72. [x] GSI now treats functions callable through exported or imported tables
+    as external parameter sources (`7db63d412`). Validator nominal subtyping
+    determines compatible function types. Valid direct and dispatcher cases
+    failed before the fix and passed afterward; focused tests, `moon info`,
+    and `moon fmt` passed without fuzzing.
 
 ### Open parity evidence from this audit
 
