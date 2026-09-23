@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-23
 sources:
   - https://webassembly.github.io/threads/core/valid/instructions.html
   - https://webassembly.github.io/threads/core/exec/instructions.html
@@ -17,6 +17,7 @@ sources:
   - ../../src/validate/validate.mbt
   - ../../src/validate/typecheck.mbt
   - ../../src/validate/gen_valid.mbt
+  - ../../scripts/lib/optimizer-atomic-runtime.test.ts
 related:
   - wasm-feature-status-and-proposal-boundaries.md
   - wasm-relaxed-atomics-boundary.md
@@ -139,7 +140,7 @@ Treat shared memory and atomics as semantic constraints, not as incidental synta
 ## What This Page Does Not Prove
 
 - It does not prove full Threads proposal support. Threads is an active proposal row; current Starshine has a documented local subset.
-- The bounded multi-thread fixtures check sequentially consistent `i32.atomic.rmw.add` on memory32 and one-page shared memory64 at address zero, `i32.atomic.rmw.cmpxchg` winner identity, one completed `memory.atomic.wait32`/`memory.atomic.notify` pairing, a fail-closed required wake witness under bounded retry, and preservation of nonzero imported-memory targets for RMW-add and compare-exchange. The wake witness blocks acceptance when absent; it does not prove general wait/notify liveness or scheduler fairness. These fixtures do not prove weaker orders, fences, memory64 addresses above 4 GiB, memory64 bounds traps or wait/notify, mixed-width multi-memory programs, shared-GC atomics, or arbitrary schedules.
+- The bounded multi-thread fixtures check sequentially consistent `i32.atomic.rmw.add` on memory32 and one-page shared memory64 at address zero, `i32.atomic.rmw.cmpxchg` winner identity, one completed `memory.atomic.wait32`/`memory.atomic.notify` pairing, a fail-closed required wake witness under bounded retry, and preservation of nonzero imported-memory targets for RMW-add and compare-exchange. The wake witness blocks acceptance when absent; it does not prove general wait/notify liveness or scheduler fairness. Exact acquire-release and relaxed store/fence binaries are tested as `blocked` because Node rejects them during compilation. These fixtures do not prove weaker-order or fence semantics, memory64 addresses above 4 GiB, memory64 bounds traps or wait/notify, mixed-width multi-memory programs, shared-GC atomics, or arbitrary schedules.
 - It does not prove high-level WAST support for linear-memory atomic text.
 - It does not prove complete Relaxed Atomics support. Starshine carries `SeqCst` / `AcqRel` on linear atomics and fence, but `pause`, full proposal gating, high-level text, and runtime conformance route through [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md).
 - It does not prove full Shared-Everything Threads support. Starshine's shared type and struct/array aggregate atomic representation is substantial but still layer-specific; route exact gaps through [`wasm-shared-everything-threads-boundary.md`](wasm-shared-everything-threads-boundary.md) and [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md).

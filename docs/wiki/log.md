@@ -1,3 +1,8 @@
+### 2026-09-23 — Atomic weaker-order runtime boundary
+
+- [Bounded atomic observations](fuzzing/semantic-optimizer-campaigns.md#bounded-atomic-litmus-observations) now test exact Starshine binaries for acquire-release and relaxed stores and fences through the two-worker Node entrypoint. The configured runtime rejects the stores as invalid alignments and the fences as invalid atomic operands, so all four are explicitly `blocked` on the original side rather than counted as semantic evidence.
+- `wasm-tools 1.251.0` also rejects both active-proposal WAT operands. Sequentially consistent fixtures remain executable; weaker-order and fence allowed-outcome signoff remains blocked until an independent runtime accepts the selected draft encoding.
+
 ### 2026-09-23 — Proposal runtime observation boundaries
 
 - The Node semantic oracle now executes non-null nominal struct and array crossings when a zero-parameter export produces the exact required type. The invocation plan records the producer relation and the executor passes the retained opaque Wasm value directly to the consumer; a three-way regression detects corrupted struct and array readers.

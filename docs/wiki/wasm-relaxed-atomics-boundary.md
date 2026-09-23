@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-23
 sources:
   - wasm-linear-memory-threads-boundary.md
   - https://github.com/WebAssembly/proposals
@@ -15,6 +15,7 @@ sources:
   - ../../src/binary/encode.mbt
   - ../../src/validate/typecheck.mbt
   - ../../src/ir/effects.mbt
+  - ../../scripts/lib/optimizer-atomic-runtime.test.ts
 related:
   - wasm-feature-status-and-proposal-boundaries.md
   - wast/atomic-memory-instruction-authoring.md
@@ -58,7 +59,7 @@ ordering-sensitive load/store and Precompute eligibility rules:
 | `pause` | Spin-wait hint with no stack operands/results. | Unsupported: there is no `Pause` instruction, WAST spelling, codec arm, validator rule, or generator gate. |
 | Ordering-bearing binary forms | Atomic encodings preserve an order value in addition to the memory argument or fence opcode. | Supported for the currently represented `SeqCst` / `AcqRel` / `Relaxed` slice; malformed and future-order values remain codec/validation boundaries. |
 | High-level WAST text | Human-authored ordered linear atomics such as ordered loads/stores. | Supported for all 66 linear atomic operations and fence, with order-aware parsing and printing. |
-| Dedicated proposal generation/runtime signoff | Generate and execute proposal-specific modules under an explicit feature mode. | The `binaryen132-atomic-orders` profile varies orders, linear/GC heaps, sharing, fences and RMW patterns. Independent execution remains unavailable for some draft forms. |
+| Dedicated proposal generation/runtime signoff | Generate and execute proposal-specific modules under an explicit feature mode. | The `binaryen132-atomic-orders` profile varies orders, linear/GC heaps, sharing, fences and RMW patterns. Exact acquire-release and relaxed store/fence binaries are rejected at compilation by the configured Node runtime, so independent execution remains blocked for those draft forms. |
 
 Because the proposal is active Phase 2, future widening should recheck the proposal source before assuming the current local order bytes, spelling, or instruction set are complete.
 
@@ -107,6 +108,23 @@ Evidence: [binary fixtures](../../src/binary/binaryen132_atomic_wbtest.mbt),
 [Precompute behavior](../../src/passes/binaryen132_precompute_test.mbt).
 Runtime concurrency validation remains separate from these structural checks.
 
+## Executable runtime boundary
+
+The bounded two-worker optimizer lane executes ordinary sequentially
+consistent atomic modules. It cannot currently execute the represented weaker
+orders or ordered fences. `wasm-tools 1.251.0` rejects the active-proposal
+`acq_rel` and `relaxed` text operands. When exact binaries emitted by Starshine
+bypass that parser, the configured Node runtime rejects acquire-release and
+relaxed stores as invalid alignments and both corresponding fences as invalid
+atomic operands.
+
+Focused fail-closed tests retain all four binaries and require the atomic
+comparison report to classify the original as `blocked`, rather than treating
+a runtime that never compiled the module as semantic evidence. This boundary
+is about independent execution only; Starshine's parser, codec, validation,
+HOT, and pass-preservation tests continue to cover the represented order
+fields.
+
 ## Optimizer Invariants
 
 - Acquire behavior is attached to reads; release behavior is attached to writes; RMW/cmpxchg can carry both directions.
@@ -120,7 +138,7 @@ Runtime concurrency validation remains separate from these structural checks.
 1. Recheck the active proposal before adding more order values, flags, or opcode forms.
 2. Add `pause` representation, codec, validation, WAST, generator, and effect coverage if that proposal slice is selected.
 3. Expand malformed/reserved order tests and external-tool adapters for the exact supported draft revision.
-4. Add runtime and optimizer signoff that proves relaxed/acquire/release/seq-cst behavior, not merely module validity.
+4. Add runtime and optimizer signoff for relaxed/acquire/release/fence behavior after an independent runtime accepts the selected draft encoding; retain the current exact-binary blocked tests until then.
 5. Keep this page, the feature-status router, linear Threads page, atomic authoring guide, index, and log synchronized.
 
 ## Signoff Guidance

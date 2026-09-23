@@ -23,6 +23,13 @@ function compileWat(wat: string): string {
   return wasmPath;
 }
 
+function writeWasmHex(hex: string): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-atomic-litmus-"));
+  const wasmPath = path.join(dir, "module.wasm");
+  fs.writeFileSync(wasmPath, Buffer.from(hex, "hex"));
+  return wasmPath;
+}
+
 const RMW_ADD_SPEC: AtomicLitmusSpecV1 = {
   schema: "starshine.optimizer-atomic-litmus.v1",
   id: "i32-rmw-add-two-workers",
@@ -145,6 +152,46 @@ const MULTI_MEMORY_CMPXCHG_SPEC: AtomicLitmusSpecV1 = {
     { threadResults: [2, 0], memoryI32: [0, 2] },
   ],
 };
+
+const ORDERED_STORE_BOUNDARY_SPEC: AtomicLitmusSpecV1 = {
+  schema: "starshine.optimizer-atomic-litmus.v1",
+  id: "ordered-store-runtime-boundary",
+  workerCount: 2,
+  exportName: "run",
+  workerArguments: [[], []],
+  memoryImport: { module: "env", field: "memory", initial: 1, maximum: 1 },
+  observedI32Offsets: [0],
+  trials: 1,
+  allowedOutcomes: [
+    { threadResults: [0, 0], memoryI32: [1] },
+  ],
+};
+
+const ORDERED_FENCE_BOUNDARY_SPEC: AtomicLitmusSpecV1 = {
+  ...ORDERED_STORE_BOUNDARY_SPEC,
+  id: "ordered-fence-runtime-boundary",
+  allowedOutcomes: [
+    { threadResults: [0, 0], memoryI32: [0] },
+  ],
+};
+
+// Exact binaries emitted by Starshine from minimal valid modules containing
+// `(i32.atomic.store <order> (i32.const 0) (i32.const 1))` or
+// `(atomic.fence <order>)`, followed by `i32.const 0`. These fixtures
+// intentionally bypass `wasm-tools`, whose current WAT parser rejects the
+// active-proposal order spellings before a runtime can see them.
+const ACQREL_STORE_WASM =
+  "0061736d010000000105016000017f02100103656e76066d656d6f727902030101" +
+  "030201000707010372756e00000a0f010d0041004101fe1712010041000b";
+const RELAXED_STORE_WASM =
+  "0061736d010000000105016000017f02100103656e76066d656d6f727902030101" +
+  "030201000707010372756e00000a0f010d0041004101fe1712020041000b";
+const ACQREL_FENCE_WASM =
+  "0061736d010000000105016000017f02100103656e76066d656d6f727902030101" +
+  "030201000707010372756e00000a09010700fe030141000b";
+const RELAXED_FENCE_WASM =
+  "0061736d010000000105016000017f02100103656e76066d656d6f727902030101" +
+  "030201000707010372756e00000a09010700fe030241000b";
 
 describe("atomic allowed-outcome comparison", () => {
   test("rejects unbounded trial and shared-memory specifications", () => {
@@ -514,5 +561,43 @@ describe("atomic allowed-outcome comparison", () => {
     expect(report.comparison.classification).toBe("semantic-mismatch");
     expect(report.comparison.firstDisallowedOutcome?.memoryI32[1]).toBe(0);
     expect([1, 2]).toContain(report.comparison.firstDisallowedOutcome?.memoryI32[0]);
+  });
+
+  test("reports weaker-order stores as unsupported by the Node runtime", async () => {
+    for (const hex of [ACQREL_STORE_WASM, RELAXED_STORE_WASM]) {
+      const wasm = writeWasmHex(hex);
+      const report = await runNodeAtomicLitmusComparisonV1(
+        wasm,
+        wasm,
+        ORDERED_STORE_BOUNDARY_SPEC,
+        { timeoutMs: 3000 },
+      );
+
+      expect(report.original.status).toBe("blocked");
+      expect(report.original.observations).toHaveLength(0);
+      expect(report.original.detail).toContain("invalid alignment");
+      expect(report.candidate.status).toBe("blocked");
+      expect(report.comparison.classification).toBe("blocked");
+      expect(report.comparison.failingSide).toBe("original");
+    }
+  });
+
+  test("reports weaker-order fences as unsupported by the Node runtime", async () => {
+    for (const hex of [ACQREL_FENCE_WASM, RELAXED_FENCE_WASM]) {
+      const wasm = writeWasmHex(hex);
+      const report = await runNodeAtomicLitmusComparisonV1(
+        wasm,
+        wasm,
+        ORDERED_FENCE_BOUNDARY_SPEC,
+        { timeoutMs: 3000 },
+      );
+
+      expect(report.original.status).toBe("blocked");
+      expect(report.original.observations).toHaveLength(0);
+      expect(report.original.detail).toContain("invalid atomic operand");
+      expect(report.candidate.status).toBe("blocked");
+      expect(report.comparison.classification).toBe("blocked");
+      expect(report.comparison.failingSide).toBe("original");
+    }
   });
 });

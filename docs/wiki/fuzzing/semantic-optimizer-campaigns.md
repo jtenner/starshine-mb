@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-23
 sources:
   - ../../../scripts/lib/optimizer-runtime.ts
   - ../../../scripts/lib/optimizer-runtime-executor.ts
@@ -18,6 +18,8 @@ sources:
   - ../../../scripts/lib/optimizer-neighborhood.ts
   - ../../../scripts/lib/optimizer-translation-validation.ts
   - ../../../scripts/lib/optimizer-correctness.ts
+  - ../../../scripts/lib/optimizer-atomic-runtime.ts
+  - ../../../scripts/lib/optimizer-atomic-runtime.test.ts
 related:
   - ../tooling/pass-fuzz-compare.md
   - ./reduction-backends.md
@@ -89,6 +91,17 @@ Version 1 also accepts up to three additional, uniquely named imported shared me
 The memory64 fixture imports a one-page shared memory64, performs two sequentially consistent `i32.atomic.rmw.add` operations at `i64.const 0`, and declares only old values `(0, 1)` or `(1, 0)` with final memory `2`. Node `v26.10.0` executes the fixture through a `WebAssembly.Memory` created with `address: "i64"`, `initial: 1n`, `maximum: 1n`, and `shared: true`. A candidate adding two produces final memory `4` and is rejected. This covers a low-address memory64 RMW and host import capability; it does not cover addresses above 4 GiB, memory64 bounds traps, wait/notify, mixed-width multi-memory, or every atomic opcode.
 
 This lane is a library/replay primitive and is not inferred automatically for arbitrary GenValid modules. Its required wake is a bounded fixture acceptance witness, not a proof of general wakeup liveness or fairness. Acquire/release and relaxed orders, fences, broader memory64 schedules, shared-GC atomics, and arbitrary-program schedule exploration remain outside version 1.
+
+Weaker-order and ordered-fence execution has a tested fail-closed boundary. The
+independent `wasm-tools 1.251.0` WAT parser rejects the active-proposal
+`acq_rel` and `relaxed` operand spellings. Exact valid binaries emitted by
+Starshine bypass that text parser, but the configured Node runtime rejects
+both weaker store encodings at compilation as invalid alignments and both
+weaker fence encodings as invalid atomic operands. Focused runtime tests feed
+all four exact binaries through the two-worker comparison entrypoint and
+require `blocked` on the original side. Therefore the lane cannot yet provide
+weaker-order or fence allowed-outcome evidence; sequentially consistent
+fixtures remain executable.
 
 ## Properties
 
