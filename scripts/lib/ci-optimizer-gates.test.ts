@@ -15,6 +15,18 @@ describe("CI optimizer correctness lanes", () => {
     expect(externalJob).not.toContain("--report-only");
   });
 
+  test("runs semantic GenValid checks inside the required differential job", () => {
+    const repoRoot = path.resolve(import.meta.dir, "..", "..");
+    const workflow = fs.readFileSync(path.join(repoRoot, ".github", "workflows", "ci.yml"), "utf8");
+    const requiredJob = workflow.split("  dae-differential:\n")[1]?.split(/\n  [a-z][a-z-]*:\n/)[0];
+    expect(requiredJob).toBeDefined();
+    expect(requiredJob).toContain("moon build --target native --release src/fuzz");
+    expect(requiredJob).toContain("--gen-valid-profile semantic-optimizer-all");
+    expect(requiredJob).toContain("--semantic-oracle node-v2");
+    expect(requiredJob).toContain("--require-independent-validator");
+    expect(requiredJob).not.toContain("--report-only");
+  });
+
   test("require independent validation, deterministic output, and stable codec bytes", () => {
     const repoRoot = path.resolve(import.meta.dir, "..", "..");
     const workflows = ["ci.yml", "fuzz.yml"];

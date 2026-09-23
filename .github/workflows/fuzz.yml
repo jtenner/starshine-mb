@@ -67,7 +67,8 @@ jobs:
             scripts/lib/optimizer-metamorphic.test.ts \
             scripts/lib/optimizer-thresholds.test.ts \
             scripts/lib/optimizer-neighborhood.test.ts \
-            scripts/lib/optimizer-translation-validation.test.ts
+            scripts/lib/optimizer-translation-validation.test.ts \
+            scripts/lib/ci-optimizer-gates.test.ts
 
   semantic-optimizer-smoke:
     runs-on: ubuntu-22.04

@@ -66,6 +66,19 @@ export function runCiWorkflowContractTest(): void {
   if (workflow.includes("--report-only")) {
     fail("required CI workflow must keep compare-pass fail-on-observed-failures semantics");
   }
+  const differentialJob = workflow.split("  dae-differential:\n")[1]?.split(/\n  [a-z][a-z-]*:\n/)[0];
+  if (differentialJob === undefined) fail("required CI is missing the DAE differential job body");
+  for (const [fragment, label] of [
+    ["moon build --target native --release src/fuzz", "fresh GenValid build"],
+    ["--gen-valid-profile semantic-optimizer-all", "required semantic profile"],
+    ["--semantic-oracle node-v2", "required runtime oracle"],
+    ["--require-independent-validator", "independent validator signoff"],
+  ] as Array<[string, string]>) {
+    requireText(differentialJob, fragment, label);
+  }
+  if ((differentialJob.match(/bun fuzz compare-pass/g) ?? []).length < 2) {
+    fail("required CI must run both DAE and semantic optimizer comparisons");
+  }
   const moonUpdateCount = workflow.split("moon update").length - 1;
   if (moonUpdateCount < 3) {
     fail(`required CI workflow must resolve MoonBit registry dependencies in every job; found ${moonUpdateCount} moon update step(s)`);

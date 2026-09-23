@@ -219,7 +219,12 @@
     determinism, codec stability, and strict failure exit. Its workflow
     contract test failed before the job and passed afterward. The lane was
     not executed during this no-fuzz repair spree.
-57. [ ] Ensure dedicated fuzz lanes are required and fail CI on findings.
+57. [x] The branch-required `dae-differential` status now contains both the
+    10,000-case DAE lane and a bounded semantic GenValid lane, each with strict
+    failure exits and independent validation. The required workflow self-check
+    enforces both commands; GitHub master protection listed `dae-differential`
+    among required statuses on 2026-09-22. The semantic lane was not run during
+    this no-fuzz repair spree, so its green CI result remains to be observed.
 58. [ ] Add trigger-focused profiles for undersampled pass families.
 59. [ ] Add feature floors for descriptors, continuations, waitqueues, atomics, and array memory.
 60. [ ] Record compiler-fact context in replay case journals.
