@@ -57,6 +57,7 @@ fn mp_wbtest_assert_active_memory_init_operand_rewrite(
         ),
       ]),
     )
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32(1U)))
     .with_code_sec(
       @lib.CodeSec::new([
         @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body)),
@@ -104,7 +105,7 @@ test "memory-packing operand scanner uses exact validator stack deltas" {
   )
   @debug.assert_eq(
     mp_instr_stack_counts(@lib.Instruction::ref_test_desc(false, heap)),
-    Some((2, 1)),
+    Some((1, 1)),
   )
   @debug.assert_eq(
     mp_instr_stack_counts(@lib.Instruction::ref_cast_desc_eq(false, heap)),
@@ -139,7 +140,6 @@ test "memory-packing public pipeline rewrites active memory.init across correcte
   mp_wbtest_assert_active_memory_init_operand_rewrite([
     @lib.Instruction::i32_const(@lib.I32(9)),
     @lib.Instruction::ref_null(heap),
-    @lib.Instruction::ref_null(heap),
     @lib.Instruction::ref_test_desc(false, heap),
     @lib.Instruction::drop(),
   ])
@@ -150,6 +150,82 @@ test "memory-packing public pipeline rewrites active memory.init across correcte
     @lib.Instruction::ref_cast_desc_eq(false, heap),
     @lib.Instruction::drop(),
   ])
+}
+
+///|
+test "memory-packing dispatch accepts a valid descriptor test before active memory.init" {
+  let described = @lib.SubType::comp_type(
+    @lib.CompType::struct_([]),
+    metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::rec(1))),
+  )
+  let descriptor = @lib.SubType::comp_type(
+    @lib.CompType::struct_([]),
+    metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::rec(0))),
+  )
+  let target = @lib.HeapType::new(@lib.TypeIdx::new(0U))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([described, descriptor]),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          ),
+          b"\x00\x00\x00\x00",
+        ),
+      ]),
+    )
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32(1U)))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::ref_null(target),
+            @lib.Instruction::ref_test_desc(true, target),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::memory_init(
+              @lib.DataIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected descriptor input to validate, got \{err}")
+  }
+  let output = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(),
+      ["memory-packing"],
+    ) {
+    Ok(module_) => module_
+    Err(err) => fail("expected memory-packing dispatch, got \{err}")
+  }
+  assert_false(
+    mp_wbtest_instrs_have_memory_init(mp_wbtest_first_func_body(output)),
+  )
+  match @validate.validate_module(output) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected rewritten descriptor output to validate, got \{err}")
+  }
 }
 
 ///|

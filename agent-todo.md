@@ -85,7 +85,9 @@
 34. [ ] Decide and guard direct DIE's repeated host import-lookup contract.
 35. [ ] DIE loses annotations on a removed import alias.
 36. [ ] MemoryPacking rebuilds unchanged modules after a reverted segment rewrite.
-37. [ ] MemoryPacking models `RefTestDesc` with the wrong operand count.
+37. [x] MemoryPacking models `RefTestDesc` with the wrong operand count.
+    The scanner now consumes one reference; its whitebox assertion and a
+    validated active dispatcher fixture failed before the fix and pass after.
 38. [x] Bare `no-inline*` registry entries advertise unsupported exact pass
     names. Library expansion now requires `=PATTERN`, and CLI parsing rejects
     each bare base before dispatch; registry and CLI tests were red then green.

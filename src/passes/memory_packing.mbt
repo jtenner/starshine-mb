@@ -1756,6 +1756,7 @@ fn mp_instr_stack_counts(instr : @lib.Instruction) -> (Int, Int)? {
     | @lib.I64Extend16S
     | @lib.I64Extend32S
     | @lib.RefTest(_, _, _)
+    | @lib.RefTestDesc(_, _)
     | @lib.RefCast(_, _, _)
     | @lib.I32TruncSatF32S
     | @lib.I32TruncSatF32U
@@ -1880,7 +1881,6 @@ fn mp_instr_stack_counts(instr : @lib.Instruction) -> (Int, Int)? {
     | @lib.F64Max
     | @lib.F64Copysign
     | @lib.RefEq
-    | @lib.RefTestDesc(_, _)
     | @lib.RefCastDescEq(_, _, _) => Some((2, 1))
     @lib.I32Store(_)
     | @lib.I64Store(_)

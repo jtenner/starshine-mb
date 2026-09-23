@@ -363,7 +363,16 @@ Why wrong:
 
 ## 2026-07-21 operand-boundary correction
 
-The passive-segment `memory.init` operand scanner now uses the validator's exact stack deltas for `table.set`, `array.copy`, `br_on_null`, `ref.test_desc`, and `ref.cast_desc_eq`. Incorrect deltas could make `mp_find_value_start` splice an enclosing pending stack value into the destination expression. White-box tests lock all five corrected counts.
+The passive-segment `memory.init` operand scanner uses the validator's stack
+deltas for `table.set`, `array.copy`, `br_on_null`, `ref.test_desc`, and
+`ref.cast_desc_eq`. `ref.test_desc` consumes one reference and produces one
+`i32`; the cast scanner models the current two-operand descriptor binary form
+while the validator also accepts older local one-operand cast fixtures. The earlier
+two-operand `ref.test_desc` scanner claim and white-box expectation were wrong.
+Incorrect deltas can make `mp_find_value_start` splice an enclosing pending
+stack value into the destination expression or decline a valid rewrite. The
+white-box count and active dispatcher regression now cover a valid one-operand
+descriptor test before `memory.init`.
 
 ## Practical future-port checklist
 
