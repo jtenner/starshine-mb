@@ -87,7 +87,11 @@
     sinking local writes (`cab7b8aa3`). Valid direct and dispatcher fixtures
     failed before the fix and passed afterward; `moon fmt` and `moon info`
     passed. ResumeThrow variants share the target path but lack separate cases.
-17. [ ] SimplifyLocals moves a structure store after `Resume`.
+17. [x] SimplifyLocals now clears block fallthrough facts when a continuation
+    has an on-label exit (`100c7e537`). A later `local.set 9` does not dominate
+    the handler path that still observes `1`; before the fix the final get was
+    incorrectly replaced with `i32.const 9`. Valid direct and dispatcher tests
+    were red then green; `moon fmt` and `moon info` passed without fuzzing.
 18. [x] CoalesceLocals liveness omits resume-handler successors
     (`323893154`); `ResumeOnLabel` targets now contribute to backward
     liveness for all three resume forms. Valid direct and dispatcher fixtures
