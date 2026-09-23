@@ -4494,6 +4494,20 @@ fn cmd_instrs_have_caught_try_table(instrs : Array[@lib.Instruction]) -> Bool {
           None => ()
         }
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if cmd_instrs_have_caught_try_table(body) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          if cmd_instrs_have_caught_try_table(catch_body) {
+            return true
+          }
+        }
+      }
       _ => ()
     }
   }

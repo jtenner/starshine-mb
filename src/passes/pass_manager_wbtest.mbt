@@ -25468,6 +25468,78 @@ test "remove-unused-names leaves legacy try delegates to HOT" {
 }
 
 ///|
+fn pass_manager_test_caught_try_table(
+  body : Array[@lib.Instruction],
+) -> @lib.Instruction {
+  @lib.Instruction::try_table(
+    @lib.BlockType::void_(),
+    [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+    @lib.Expr::new(body),
+  )
+}
+
+///|
+fn pass_manager_test_legacy_try_regions(
+  nested : @lib.Instruction,
+) -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::try_(@lib.BlockType::void_(), @lib.Expr::new([nested]), []),
+    @lib.Instruction::try_(@lib.BlockType::void_(), @lib.Expr::new([]), [
+      @lib.LegacyCatch::tagged(@lib.TagIdx::new(0U), @lib.Expr::new([nested])),
+    ]),
+    @lib.Instruction::try_(@lib.BlockType::void_(), @lib.Expr::new([]), [
+      @lib.LegacyCatch::all(@lib.Expr::new([nested])),
+    ]),
+  ]
+}
+
+///|
+test "caught try-table safety scans descend through every legacy try region" {
+  let caught_with_write = pass_manager_test_caught_try_table([
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  ])
+  for legacy_try in pass_manager_test_legacy_try_regions(caught_with_write) {
+    assert_true(run_hot_pipeline_raw_has_caught_try_table([legacy_try]))
+    assert_true(
+      run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch([legacy_try]),
+    )
+    assert_true(
+      run_hot_pipeline_raw_try_table_catch_body_has_local_write([legacy_try]),
+    )
+  }
+
+  let local_write = @lib.Instruction::local_set(@lib.LocalIdx::new(0U))
+  for legacy_try in pass_manager_test_legacy_try_regions(local_write) {
+    assert_true(
+      run_hot_pipeline_raw_try_table_catch_body_has_local_write([
+        pass_manager_test_caught_try_table([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          legacy_try,
+        ]),
+      ]),
+    )
+  }
+
+  let caught_shell = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([pass_manager_test_caught_try_table([])]),
+      ),
+    ]),
+  )
+  for legacy_try in pass_manager_test_legacy_try_regions(caught_shell) {
+    assert_true(
+      run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch_shell([
+        legacy_try,
+      ]),
+    )
+  }
+}
+
+///|
 test "heap2local raw admission retains every supported allocation family" {
   let type_idx = @lib.TypeIdx::new(0U)
   let families : Array[Array[@lib.Instruction]] = [

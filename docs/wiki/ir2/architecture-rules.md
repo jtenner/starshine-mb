@@ -1161,6 +1161,17 @@ result type. `hot_verify_test.mbt` and `optimize_instructions_test.mbt` cover a
 validated result-typed delegate that previously failed HOT verification before
 the optimizer could run.
 
+### Caught try-table safety scans across legacy exception regions
+
+Caught-`try_table` safety scans descend through the protected body and every
+tagged or catch-all region of a preserved legacy `Try`. This applies to the O4z
+transaction rollback, the CLI size-portfolio input boundary, and the
+simplify-locals, precompute, remove-unused-brs shell, and CFG coalescing guards.
+The catch-observed local-write predicate also traverses legacy regions nested
+inside a caught `try_table` body. `pass_manager_wbtest.mbt` covers both nesting
+directions and every legacy region, `optimize_test.mbt` covers public O4z
+rollback, and `cmd_wbtest.mbt` covers the CLI portfolio scanner.
+
 ### Inlining continuation handler labels
 
 Resume, resume-throw, and resume-throw-ref handler labels participate in implicit function-exit detection and outer-label rebasing. `inlining_audit_wbtest.mbt` covers all three opcodes. Handler-on-switch entries remain unchanged because they have no lexical label.

@@ -2973,6 +2973,22 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch(
           None => ()
         }
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch(body) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch(
+              catch_body,
+            ) {
+            return true
+          }
+        }
+      }
       _ => ()
     }
   }
@@ -3010,6 +3026,22 @@ fn run_hot_pipeline_raw_try_table_catch_body_has_local_write(
           None => ()
         }
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_try_table_catch_body_has_local_write(body) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          if run_hot_pipeline_raw_try_table_catch_body_has_local_write(
+              catch_body,
+            ) {
+            return true
+          }
+        }
+      }
       _ => ()
     }
   }
@@ -3041,6 +3073,20 @@ fn run_hot_pipeline_raw_has_caught_try_table(
               return true
             }
           None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_has_caught_try_table(body) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          if run_hot_pipeline_raw_has_caught_try_table(catch_body) {
+            return true
+          }
         }
       }
       _ => ()
@@ -3113,6 +3159,24 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch_shell(
           ) {
           return true
         }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch_shell(
+            body,
+          ) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch_shell(
+              catch_body,
+            ) {
+            return true
+          }
+        }
+      }
       _ => ()
     }
   }
@@ -70132,6 +70196,20 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_local_write(
               return true
             }
           None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_vacuum_instrs_have_local_write(body) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          if run_hot_pipeline_raw_vacuum_instrs_have_local_write(catch_body) {
+            return true
+          }
         }
       }
       _ => ()

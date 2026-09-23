@@ -1956,6 +1956,38 @@ test "O4z rolls back caught try-table throw modules" {
 }
 
 ///|
+test "O4z rolls back caught try-table nested in legacy try" {
+  let input = pass_test_module_from_wat(
+    "(module (tag $e) (func (block $exit (try (do (try_table (catch_all $exit) (throw $e))) (catch_all)))))",
+  )
+  let @lib.Func(_, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
+  assert_true(
+    audit_count(body, fn(instr) { instr is @lib.Try(_, _, _, _) }) > 0,
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["optimize"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested legacy EH O4z success, got \{err}")
+  }
+  @debug.assert_eq(optimized.code_sec, input.code_sec)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pipeline:o4z-transaction:rollback reason=caught-try-table")
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "O4z caught try-table rollback preserves explicit passes around preset" {
   let input = pass_test_module_from_wat(
     "(module (tag $e) (func (block $handler (try_table (catch_all $handler) (throw $e)))))",

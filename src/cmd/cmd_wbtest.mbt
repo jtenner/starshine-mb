@@ -2083,6 +2083,33 @@ test "O4z size portfolio is limited to Wasm shrink presets" {
 }
 
 ///|
+test "O4z size portfolio caught try-table scan descends legacy try regions" {
+  let caught = @lib.Instruction::try_table(
+    @lib.BlockType::void_(),
+    [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+    @lib.Expr::new([]),
+  )
+  let legacy_regions = [
+    @lib.Instruction::try_(@lib.BlockType::void_(), @lib.Expr::new([caught]), []),
+    @lib.Instruction::try_(@lib.BlockType::void_(), @lib.Expr::new([]), [
+      @lib.LegacyCatch::tagged(@lib.TagIdx::new(0U), @lib.Expr::new([caught])),
+    ]),
+    @lib.Instruction::try_(@lib.BlockType::void_(), @lib.Expr::new([]), [
+      @lib.LegacyCatch::all(@lib.Expr::new([caught])),
+    ]),
+  ]
+  for legacy_try in legacy_regions {
+    assert_true(cmd_instrs_have_caught_try_table([legacy_try]))
+  }
+  let mod_ = @lib.Module::new().with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([legacy_regions[0]])),
+    ]),
+  )
+  assert_true(cmd_module_has_caught_try_table(mod_))
+}
+
+///|
 test "O4z size portfolio bounds late cleanup on compressed and artifact-scale modules" {
   assert_false(cmd_o4z_late_cleanup_candidate_enabled(837, 118, 1))
   assert_true(cmd_o4z_late_cleanup_candidate_enabled(626, 420, 1))
