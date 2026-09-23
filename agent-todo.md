@@ -61,7 +61,11 @@
     three resume forms. Direct and public dispatcher tests failed before the
     fix and passed afterward (4/4 and 140/140); `moon fmt` and `moon info`
     passed. No fuzzing was run.
-11. [ ] Flatten admits continuations without indexing their label targets.
+11. [x] Flatten now indexes continuation handler label targets and rejects
+    unsupported implicit-payload routing (`ebb3618e9`). Valid adjacent and
+    dispatcher fixtures failed before the fix with a resume label-arity
+    validation error and passed afterward; the full adjacent file passed
+    294/294, and `moon fmt` passed.
 12. [x] CodePushing structured-region local-effect concern was disproved
     (`5ffb679d2`). Recursive whole-function and suffix counts reject intervening
     structured reads and writes before movement. Valid direct and dispatcher
@@ -234,6 +238,11 @@
     `ref.func`, tables, globals, or `ref.eq`. Distinct function addresses can
     remain observable even when neither function is directly exported; add a
     valid reduced behavioral fixture before changing deduplication.
+72. [ ] GSI must treat functions reachable through exported tables as host-callable.
+    A host can fetch a `ref.func` from an exported table and invoke it with an
+    external nominal struct; the current exported-parameter origin scan covers
+    only directly exported functions. Guard this boundary with valid direct and
+    active-dispatch fixtures before allowing singleton field substitution.
 
 ### Open parity evidence from this audit
 
