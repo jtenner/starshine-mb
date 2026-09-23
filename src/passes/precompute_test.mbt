@@ -1319,6 +1319,165 @@ test "precompute removes selector-only self-targeting br_table blocks" {
 }
 
 ///|
+test "precompute removes a constant selector from a single-result self br_table" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) block (result i32) i32.const 7 i32.const 1 br_table 0 0 end))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected single-result self br_table cleanup, got \{err}")
+  }
+
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, [@lib.Instruction::i32_const(@lib.I32(7))])
+    _ => fail("expected one optimized function body")
+  }
+}
+
+///|
+test "precompute flattens a nested same-target br_table value exit" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32)
+        #|    block (result i32)
+        #|      block
+        #|        i32.const 9
+        #|        i32.const 0
+        #|        br_table 1 1
+        #|      end
+        #|      unreachable
+        #|    end))
+        #|),
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested same-target br_table cleanup, got \{err}")
+  }
+
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, [@lib.Instruction::i32_const(@lib.I32(9))])
+    _ => fail("expected one optimized function body")
+  }
+}
+
+///|
+test "precompute preserves effects and traps before a folded self br_table" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global (mut i32) (i32.const 0))
+        #|  (func (param i32) (result i32)
+        #|    block (result i32)
+        #|      i32.const 11
+        #|      global.set 0
+        #|      i32.const 10
+        #|      local.get 0
+        #|      i32.div_s
+        #|      drop
+        #|      i32.const 7
+        #|      i32.const 1
+        #|      br_table 0 0
+        #|    end))
+        #|),
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ordered br_table prefix cleanup, got \{err}")
+  }
+
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      @debug.assert_eq(body, [
+        @lib.Instruction::i32_const(@lib.I32(11)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_div_s(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+      ])
+    _ => fail("expected one optimized function body")
+  }
+}
+
+///|
+test "precompute keeps effectful selectors and multivalue br_table payloads" {
+  let source =
+    #|(module
+    #|  (type $pair (func (result i32 i64)))
+    #|  (global $calls (mut i32) (i32.const 0))
+    #|  (func $selector (result i32)
+    #|    global.get $calls
+    #|    i32.const 1
+    #|    i32.add
+    #|    global.set $calls
+    #|    i32.const 0)
+    #|  (func (result i32 i64)
+    #|    block (type $pair)
+    #|      i32.const 3
+    #|      i64.const 4
+    #|      call $selector
+    #|      br_table 0 0
+    #|    end)
+    #|  (func (result i32 i64)
+    #|    block (type $pair)
+    #|      i32.const 5
+    #|      i64.const 6
+    #|      i32.const 0
+    #|      br_table 0 0
+    #|    end))
+    #|)
+  let optimized = match pass_test_run_pipeline(source, ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected guarded br_table cleanup boundary to validate, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[1]
+  match body {
+    [
+      @lib.Block(
+        @lib.TypeIdxBlockType(_),
+        @lib.Expr(
+          [
+            @lib.I32Const(@lib.I32(3)),
+            @lib.I64Const(@lib.I64(4L)),
+            @lib.Call(@lib.FuncIdx(0U)),
+            @lib.BrTable([@lib.LabelIdx(0U)], @lib.LabelIdx(0U)),
+          ]
+        )
+      ),
+    ] => ()
+    _ => fail("expected effectful multivalue br_table to remain: \{body}")
+  }
+  let @lib.Func(_, @lib.Expr(constant_body)) = optimized.code_sec.unwrap().0[2]
+  match constant_body {
+    [
+      @lib.Block(
+        @lib.TypeIdxBlockType(_),
+        @lib.Expr(
+          [
+            @lib.I32Const(@lib.I32(5)),
+            @lib.I64Const(@lib.I64(6L)),
+            @lib.I32Const(@lib.I32(0)),
+            @lib.BrTable([@lib.LabelIdx(0U)], @lib.LabelIdx(0U)),
+          ]
+        )
+      ),
+    ] => ()
+    _ =>
+      fail("expected constant multivalue br_table to remain: \{constant_body}")
+  }
+}
+
+///|
 test "precompute sign-extends positive packed array bit patterns" {
   let fixtures = [
     (@lib.PackType::i8(), @lib.I32(128), @lib.I32(-128)),

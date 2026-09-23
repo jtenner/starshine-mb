@@ -42,6 +42,18 @@ remains `46` / `46`. Starshine's valid empty `try_table` encoding is one byte
 smaller than the oracle's explicit-nop body, converting the former two-byte
 canonical loss into a measured one-byte Starshine win.
 
+## September 23 seven-pass residual ownership
+
+Bounded replay of saved multi-function case 144 and switch cases 816 and 980
+shows that their larger seven-pass outputs were first owned by `precompute`,
+before `remove-unused-brs` ran. The focused repair is documented in the
+[`precompute` dossier](../precompute/fuzzing.md#september-23-seven-pass-same-target-switch-cleanup).
+After that repair, the same exact inputs are valid and canonically smaller than
+verified Binaryen 132 by 2, 6, and 4 bytes. This closes those three named-profile
+size losses without changing the `remove-unused-brs` transform or reclassifying
+an unmeasured representation difference. No aggregate campaign was run for
+this bounded investigation.
+
 ## 2026-08-31 shared HOT lower performance renewal
 
 The explicit current native binary compared `10000/10000` regular GenValid cases with `--normalize local-cleanup-debris --normalize unreachable-control-debris`, `--jobs auto`, and `--max-subprocesses 8`: all `10000` are compare-normalized matches, with zero mismatches, validation failures, property failures, generator failures, or command failures. Starshine is canonically smaller in all `10000` cases: `41,528,182` versus Binaryen `42,007,429` bytes. Evidence: `.tmp/pass-fuzz-rub-hot-lower-20260831/`.

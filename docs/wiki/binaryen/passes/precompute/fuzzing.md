@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -14,6 +14,38 @@ sources:
 # `precompute` Fuzzing Profile
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 23 seven-pass same-target switch cleanup
+
+The saved seven-pass campaign at
+`.tmp/current-audit-seven-pass-random-all-1000` exposed three larger outputs in
+profiles named for `remove-unused-brs`: multi-function case 144 and switch
+cases 816 and 980. Deterministic prefix replay identifies `precompute`, the
+second pass, as the first capable owner. On the same post-`optimize-instructions`
+inputs, Starshine's pass-2 outputs were 168, 944, and 902 bytes; verified
+Binaryen 132 reduced those inputs to 50, 166, and 161 bytes. Starshine retained
+dropped single-result blocks ending in a same-target `br_table`, which also
+prevented its existing terminal-block cleanup from flattening nested exits.
+
+The raw tail fold now replaces only a literal selector plus a same-target
+`br_table` with the equivalent `br`. It requires a literal single-result
+payload and a resolved target arity of exactly one. The payload remains in
+place, every target must equal the fallback, and the existing terminal-prefix
+walker retains preceding writes and possible traps in source order. Effectful
+selectors and type-indexed multivalue targets stay unchanged. Direct tests
+cover both exclusions and preserve a `global.set` followed by a possibly
+trapping `i32.div_s`; the active dispatcher test uses the exact two-function
+case 144 reduction.
+
+Only the three saved inputs were replayed; no fuzz sweep ran. Both outputs for
+each case pass `wasm-tools validate`. Final canonical sizes are 39 versus 41
+bytes for case 144, 65 versus 71 for case 816, and 62 versus 66 for case 980.
+The remaining WAT differences are fewer unused locals and nops in Starshine.
+The saved journals classify all three original/Starshine/Binaryen observations
+as `semantic-match/all-equal`, with semantic idempotence and convergence
+passing. Fresh execution also returns equal `177` for case 816 and equal void
+for case 980. These former size-losing gaps are now measured Starshine wins of
+2, 6, and 4 canonical bytes.
 
 ## September 22 SIMD alias repair signoff
 

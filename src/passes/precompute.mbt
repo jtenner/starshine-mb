@@ -7316,6 +7316,60 @@ fn precompute_raw_is_literal_const(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn precompute_raw_is_single_result_branch_literal(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | @lib.RefNull(_)
+    | @lib.StringConst(_) => true
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_fold_same_target_br_table_tail(
+  out : Array[@lib.Instruction],
+  label_arities : Array[Int?],
+) -> Bool {
+  // Keep the payload in place and erase only an effect-free, nontrapping
+  // literal selector. Requiring a one-result target excludes type-indexed
+  // multivalue stacks, while equal table targets make the selected index
+  // irrelevant. The ordinary terminal-block flattener preserves any ordered
+  // effect or possible trap before this three-instruction suffix.
+  if out.length() < 3 ||
+    !precompute_raw_is_single_result_branch_literal(out[out.length() - 3]) {
+    return false
+  }
+  match out[out.length() - 2] {
+    @lib.I32Const(_) => ()
+    _ => return false
+  }
+  let (targets, fallback) = match out[out.length() - 1] {
+    @lib.BrTable(targets, fallback) => (targets, fallback)
+    _ => return false
+  }
+  let @lib.LabelIdx(fallback_depth) = fallback
+  if precompute_raw_branch_target_arity(label_arities, fallback_depth) !=
+    Some(1) {
+    return false
+  }
+  for target in targets {
+    if target != fallback {
+      return false
+    }
+  }
+  ignore(out.pop())
+  ignore(out.pop())
+  out.push(@lib.Instruction::br(fallback))
+  true
+}
+
+///|
 fn precompute_raw_effectful_block_const(
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
@@ -7580,6 +7634,9 @@ fn precompute_raw_fold_output_tail(
   module_ctx? : @ir.HotModuleContext? = None,
   label_arities? : Array[Int?] = [],
 ) -> Bool {
+  if precompute_raw_fold_same_target_br_table_tail(out, label_arities) {
+    return true
+  }
   if out.length() >= 4 {
     let base = out.length() - 4
     match (out[base], out[base + 1], out[base + 2], out[base + 3]) {
