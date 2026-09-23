@@ -62,7 +62,11 @@
     before any production change; no behavior fix was warranted.
 16. [ ] SimplifyLocals sinks a write across a continuation handler exit.
 17. [ ] SimplifyLocals moves a structure store after `Resume`.
-18. [ ] CoalesceLocals liveness omits resume-handler successors.
+18. [x] CoalesceLocals liveness omits resume-handler successors
+    (`323893154`); `ResumeOnLabel` targets now contribute to backward
+    liveness for all three resume forms. Valid direct and dispatcher fixtures
+    failed before the fix and passed afterward; `moon fmt` and `moon info`
+    passed. Separate `resume_throw` fixture coverage remains desirable.
 19. [x] Pattern-B partial inlining misses branch/catch/continuation escapes
     (`980043a5d`); the escape scanner covers all represented branch, catch,
     and resume-handler targets, with invalid-helper repros red then green.
