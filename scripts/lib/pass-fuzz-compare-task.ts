@@ -1855,6 +1855,9 @@ function normalizeLocalUnreachableControlDebris(wat: string): string {
 
 function normalizeUnusedUnreachableFunctions(wat: string): string {
   const referenced = new Set<string>();
+  for (const match of wat.matchAll(/\(start\s+(\$[A-Za-z0-9_.$-]+)\)/g)) {
+    referenced.add(match[1]);
+  }
   for (const match of wat.matchAll(/\(export\s+"[^"]+"\s+\(func\s+(\$[A-Za-z0-9_.$-]+)\)\)/g)) {
     referenced.add(match[1]);
   }

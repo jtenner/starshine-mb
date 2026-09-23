@@ -946,6 +946,25 @@ describe("pass-fuzz compare normalizers", () => {
     );
   });
 
+  test("unreachable-control-debris preserves start function prefixes", () => {
+    const wat = `(module
+ (start $init)
+ (func $init
+  (drop
+   (i32.trunc_f32_u
+    (f32.const -1)
+   )
+  )
+  (unreachable)
+ )
+)
+`;
+
+    const normalized = applyCompareNormalizersForTest(wat, ["unreachable-control-debris"]);
+    expect(normalized).toContain("(start $init)");
+    expect(normalized).toContain("i32.trunc_f32_u");
+  });
+
   test("drop-consts erases exponent float constants before local nop cleanup", () => {
     const binaryenWat = `(module
  (func $0 (result f64)
