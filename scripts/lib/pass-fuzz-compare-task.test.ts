@@ -1010,6 +1010,40 @@ describe("pass-fuzz compare normalizers", () => {
     expect(normalized).toContain("i32.trunc_f32_s");
   });
 
+  test("drop-consts preserves trapping unsigned truncations", () => {
+    const wat = `(module
+ (func $0
+  (drop
+   (i32.trunc_f32_u
+    (f32.const -1)
+   )
+  )
+  (drop
+   (i32.trunc_f64_u
+    (f64.const -1)
+   )
+  )
+  (drop
+   (i64.trunc_f32_u
+    (f32.const -1)
+   )
+  )
+  (drop
+   (i64.trunc_f64_u
+    (f64.const -1)
+   )
+  )
+ )
+)
+`;
+
+    const normalized = applyCompareNormalizersForTest(wat, ["drop-consts"]);
+    expect(normalized).toContain("i32.trunc_f32_u");
+    expect(normalized).toContain("i32.trunc_f64_u");
+    expect(normalized).toContain("i64.trunc_f32_u");
+    expect(normalized).toContain("i64.trunc_f64_u");
+  });
+
   test("ssa-local-allocation-debris normalizes equivalent fresh temp vs reused straight-line islands", () => {
     const binaryenWat = `(module
  (func $0
