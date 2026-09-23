@@ -365,3 +365,15 @@ fixtures; regression tests cover both typing and invalidation.
 See [implementation](../../../../../src/passes/local_cse.mbt),
 [tests](../../../../../src/passes/local_cse_audit_test.mbt), and the
 [runtime lane](../../../../../tests/optimizer/regressions/local-cse-global.test.ts).
+
+## Direct HOT entry point and shared memory
+
+The public `local_cse_run` entry point was checked separately from the raw
+module pass. A valid shared-memory function with two matching `i32.load`
+instructions, the first dropped and the second returned, retained both loads
+when lifted and passed directly to HOT Local CSE without module context. The
+test asserts the HOT nodes are loads with single-value results and that the
+first has a memory-read effect. This fixture was green before a production
+change, so the proposed direct-HOT corruption was not reproduced. The focused
+regression in `src/passes/local_cse_audit_test.mbt` protects this boundary if
+HOT expression matching changes later.

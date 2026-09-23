@@ -48,6 +48,38 @@ test "audit HOT local cse retains repeated effectful calls" {
 }
 
 ///|
+test "audit HOT local cse retains independent shared memory loads" {
+  let input = pass_test_module_from_wat(
+    "(module (memory 1 1 shared) (func (param i32) (result i32) local.get 0 i32.load drop local.get 0 i32.load))",
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let first = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  assert_true(@ir.hot_node_get(func, first).op is @ir.HotOp::Load)
+  assert_true(@ir.effects_reads_memory(@ir.effects_for_node(func, first)))
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  let second = @ir.hot_root_get(func, 1)
+  assert_true(@ir.hot_node_get(func, second).op is @ir.HotOp::Load)
+  @debug.assert_eq(
+    @ir.hot_type_results(func, @ir.hot_node_type(func, first)).length(),
+    1,
+  )
+  @debug.assert_eq(
+    @ir.hot_type_results(func, @ir.hot_node_type(func, second)).length(),
+    1,
+  )
+  let ctx = HotPassContext::new(
+    local_cse_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  ignore(local_cse_run(ctx, func))
+  let @lib.Func(_, @lib.Expr(body)) = @ir.hot_lower_func(func)
+  @debug.assert_eq(audit_count(body, fn(i) { i is @lib.I32Load(_) }), 2)
+}
+
+///|
 test "local cse invalidates transitive global reads on global set" {
   for
     expr in [
