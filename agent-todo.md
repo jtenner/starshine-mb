@@ -426,8 +426,13 @@
   types, so these are explicit unsupported boundaries rather than matches.
 - [ ] Classify the 557 structural mismatches in the saved seven-pass 1,000-case
   campaign; the two confirmed DCE wrong-code cases are fixed under item 73,
-  while the GC runtime timeout remains separate. Do not infer semantic safety
-  from size or validation alone.
+  while the GC runtime timeout remains separate under item 77. The historical
+  size split is 503 canonically smaller, four equal, and 50 larger; only 20
+  output pairs were retained. The larger families are 27 EH-control, 13
+  legacy-EH local cleanup, six SIMD shape-10, two RemoveUnusedBrs switch,
+  one RemoveUnusedBrs multi-function, and one constraint-loop case. Targeted
+  bounded replays are active for the size-losing families. Do not infer
+  semantic safety from size, validation, or instantiation-only observations.
 - [ ] Reduce the 128 EH/Vacuum structural differences in the existing 256-case
   campaign, alongside the dedicated Vacuum backlog slice below.
 

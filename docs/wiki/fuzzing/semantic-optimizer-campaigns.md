@@ -36,6 +36,55 @@ The original module is the primary semantic oracle. A Starshine output is correc
 
 Structural comparison is separate. Canonical structural drift can identify parity, size, or convergence issues, but structural inequality alone is not a semantic failure.
 
+## September 23 saved seven-pass correctness audit
+
+The historical local artifact `.tmp/current-audit-seven-pass-random-all-1000/`
+used verified Binaryen 132 (SHA-256
+`500201b4d13ccc3a61fa5254073e75a138bc57be198bd6c18c5a9562c081ad18`)
+and applied `optimize-instructions`, `precompute`, `vacuum`, `local-cse`,
+`simplify-locals`, `remove-unused-brs`, and `dead-code-elimination` in that
+order. Input profile names such as Directize or MemoryPacking describe generated
+shapes; those named passes were **not** part of this seven-pass queue. The saved
+run requested 1,000 cases, compared 982, and recorded 425 normalized matches,
+557 structural mismatches, 15 command failures, and three property failures.
+It found no invalid emitted modules. These are historical results from the
+original executable, not signoff for the current source.
+
+Of the 557 structural mismatches, Starshine was canonically smaller in 503,
+equal-sized in four, and larger in 50. Only 20 output pairs were retained;
+the other 537 pairs were suppressed by the artifact cap. Size and validation
+alone do not clear them. Inspected smaller pairs include inert Binaryen `nop`
+debris, dead local traffic, and zero-length `memory.init` operations; their
+specific transformations have direct semantic arguments or complete executed
+observations. Other smaller GC exact-cast and nested control shapes remain
+unknown where the selected Node runtime or missing artifacts block proof.
+
+The 50 larger cases split into 27 EH-control, 13 legacy-EH local cleanup, six
+SIMD shape-10, two RemoveUnusedBrs switch, one RemoveUnusedBrs multi-function,
+and one constraint-loop case. These remain parity gaps unless a targeted replay
+proves a measured Starshine benefit or aligns the output. The EH-control and
+legacy-EH clusters include modules whose only tested behavior was successful
+instantiation; the saved `all-equal` label did not execute their private bodies.
+The separate EH/Vacuum 256-case dossier in
+[Vacuum fuzzing](../binaryen/passes/vacuum/fuzzing.md) documents a narrow
+static-null `throw_ref` cleanup that removes two repeated +10-byte families;
+the full seven-pass 557-case run was not repeated under the user's no-fuzz
+constraint.
+
+Two property failures, saved cases 259 and 367, were genuine DCE wrong-code:
+a reachable typed loop became an unconditional trap. The source-order repair
+has [direct](../../../src/passes/dead_code_elimination_test.mbt) and
+[dispatcher](../../../src/cmd/dce_oi_loop_regression_wbtest.mbt) regressions
+and exact bounded replays returning `[0, 2.5]`. The third, GC case 1, was a
+phase-unknown two-second Node worker timeout under parallel load; the identical
+Starshine raw output later compiled and returned `12045` in bounded replay.
+Binaryen's exact-ref output required Node's custom-descriptor flag. All 15
+command failures were copies of one legacy `delegate` input run through a
+stale native binary; the current delegate-arity verifier fix passes that input.
+The audit checklist in [agent-todo.md](../../../agent-todo.md) records the
+individual fixes and remaining classifications. No new fuzz campaign was run
+for this review.
+
 ## Versioned component schemas
 
 The reusable TypeScript component layer defines:
