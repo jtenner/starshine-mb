@@ -218,7 +218,10 @@
     (`6a0b692b4`); adjacent and dispatcher tests failed before the fix and
     passed after, with `moon fmt` and `moon info` green. Non-null canonical
     descriptor casts remain intact pending value-identity proof.
-68. [ ] Check OptimizeCasts abstract-heap lattice on validator-approved boundaries.
+68. [x] OptimizeCasts abstract-heap matcher now follows validator-approved
+    bottom edges and rejects unrelated `func`/`extern -> any` shortcuts
+    (`d4cafc8ba`). Adjacent four-edge and active-dispatch fixtures failed
+    before the fix and passed afterward; `moon fmt` and `moon info` passed.
 69. [ ] Check Heap2Local's missing-field defensive branch against valid subtype layouts.
 
 ### Defects discovered during this repair spree
