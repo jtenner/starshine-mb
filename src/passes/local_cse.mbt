@@ -963,7 +963,9 @@ fn lcse_instr_is_store(instr : @lib.Instruction) -> Bool {
 ///|
 fn lcse_raw_instr_is_atomic(instr : @lib.Instruction) -> Bool {
   match instr {
-    @lib.Instruction::MemoryAtomicNotify(_)
+    @lib.Instruction::WaitqueueNotify
+    | @lib.Instruction::StructWait(_, _)
+    | @lib.Instruction::MemoryAtomicNotify(_)
     | @lib.Instruction::MemoryAtomicWait32(_)
     | @lib.Instruction::MemoryAtomicWait64(_)
     | @lib.Instruction::AtomicFence(_)
@@ -1111,6 +1113,7 @@ fn lcse_raw_instr_is_allocation_or_string_effect(
     | @lib.Instruction::StructNewDefault(_)
     | @lib.Instruction::StructNewDesc(_)
     | @lib.Instruction::StructNewDefaultDesc(_)
+    | @lib.Instruction::WaitqueueNew
     | @lib.Instruction::ArrayNew(_)
     | @lib.Instruction::ArrayNewDefault(_)
     | @lib.Instruction::ArrayNewFixed(_, _)

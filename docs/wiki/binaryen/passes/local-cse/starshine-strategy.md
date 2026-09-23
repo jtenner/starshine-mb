@@ -9,10 +9,12 @@ sources:
   - ../../../../../src/passes/local_cse.mbt
   - ../../../../../src/passes/local_cse_test.mbt
   - ../../../../../src/passes/local_cse_stack_switch_test.mbt
+  - ../../../../../src/passes/local_cse_waitqueue_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/cmd/local_cse_stack_switch_wbtest.mbt
+  - ../../../../../src/cmd/local_cse_waitqueue_wbtest.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -53,6 +55,18 @@ The 2026-06-04 audit found direct adjacent-window parity gaps and coverage-posit
 The 2026-09-22 correctness audit closed two raw nested-window gaps. Block and `try_table` body scanning now invalidates heap-read candidates at ordinary `ArrayStore` writes and treats the complete struct/array atomic get, set, RMW, and compare-exchange families as atomic boundaries. The atomic boundary retains only local candidates; nested aggregate writes can no longer replace a later heap read with a value captured before the write. Direct Core-AST fixtures and active command-dispatch fixtures cover struct atomic set, array atomic set, and `ArrayStore` cases.
 
 The same audit made stack-switching execution a full raw nested-window barrier. `suspend`, `resume`, both throwing resume forms, and `stack_switch` may execute state-changing code before a later instruction runs, so block and `try_table` scans no longer reuse an outer mutable-state expression after those operations. Valid Core AST and active dispatcher fixtures exercise the suspend, resume, and stack-switch paths.
+
+The audit also confirmed a narrower waitqueue defect. Top-level raw scanning
+already cleared availability because the waitqueue operands were not modeled,
+and HOT Local CSE already rejected the instructions through their memory,
+atomic, and sequence-consistency effect masks. The adjacent block/`try_table`
+scanner bypasses operand modeling, however, and its allocation/atomic
+classifiers omitted `waitqueue.new`, `waitqueue.notify`, and `struct.wait`.
+That path reduced two shared-struct reads around each operation to one stale
+read. The raw classifiers now treat queue creation as allocation and
+notification/waiting as atomic synchronization, retaining only local-only
+candidates. Direct and active dispatcher fixtures keep both shared-struct
+reads across all three barriers.
 
 The relaxed-SIMD bullet is deliberately **Binaryen-oracle-scoped**. The feature's ordinary `v128` typing and codec support do not establish a generic evaluation-merging law: the current [proposal overview](https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md) permits host-dependent result sets for some relaxed operations while scoping them with a same-environment projection model. The existing all-20-opcode local-CSE slice remains supported by explicit Binaryen comparison/replay evidence, but any new relaxed-SIMD rewrite needs separate formal-semantics and oracle proof. See [`../../../wast/simd-authoring.md`](../../../wast/simd-authoring.md).
 

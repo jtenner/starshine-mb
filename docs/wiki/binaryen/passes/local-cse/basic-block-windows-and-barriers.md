@@ -8,7 +8,9 @@ sources:
   - https://webassembly.github.io/threads/core/bikeshed/
   - ../../../../../src/passes/local_cse.mbt
   - ../../../../../src/passes/local_cse_stack_switch_test.mbt
+  - ../../../../../src/passes/local_cse_waitqueue_test.mbt
   - ../../../../../src/cmd/local_cse_stack_switch_wbtest.mbt
+  - ../../../../../src/cmd/local_cse_waitqueue_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -118,6 +120,18 @@ So `local-cse` is not a loop-aware global dataflow pass. Starshine has direct re
 Starshine now has focused coverage for plain `br`, switch-like `br_table`, `return`, `throw`, and top-level `unreachable` boundaries: expressions before those terminators are not materialized and reused in their unreachable continuations. A 2026-06-04 spot check showed that legacy `rethrow` follows this hard-boundary shape in Binaryen, but Starshine records it as a focused deferral because the current local raw instruction surface has no distinct `Rethrow` variant; valid WAST `rethrow` lowers to `unreachable` before `local-cse`. A simple straight-line named block is **not** one of these negatives in Binaryen: Binaryen can reuse a before-block expression inside such a block body. A later spot check showed the same for a straight-line `try_table` body with a catch target: the body can inherit the pre-`try_table` expression window. Other spot checks showed that `return_call`, `return_call_indirect`, `return_call_ref`, and `throw_ref` are operand-taking exceptions, and `br_on_null` / `br_on_non_null` / `br_on_cast` / `br_on_cast_fail` are reference-control continuation exceptions, not the same as plain `return` / `throw` / `br` boundaries: Binaryen can materialize an expression before these operations and reuse it in the continuation. Starshine now implements and tests those narrow positives while still treating loops, plain hard terminators, non-idempotent indirect-call roots, and throwing roots conservatively, including an `unreachable` inside a `try_table` body that clears borrowed outer reuse before later body code. That is why a faithful port needs the same window model, not just a vague “scan expressions in order” loop.
 
 Continuation execution is also a hard nested-window boundary. `suspend`, `resume`, `resume_throw`, `resume_throw_ref`, and `stack_switch` can transfer execution to code that changes observable module state before control reaches a later expression. The raw block and `try_table` scanner therefore clears every borrowed candidate at these opcodes. Valid Core AST and active command-dispatch regressions cover mutable-global reads around `suspend`, `resume`, and `stack_switch`; all resume variants share the same barrier classification.
+
+Waitqueue operations are state barriers in that same adjacent-window scanner.
+`waitqueue.new` follows the allocation boundary, while `waitqueue.notify` and
+`struct.wait` follow the atomic synchronization boundary; each keeps only
+local-only candidates. Before the repair, the scanner could borrow a
+shared-struct read from before a block and replace the same read after one of
+these operations. This was a real raw nested-window defect: all three valid
+fixtures produced one `struct.get` instead of two. Top-level raw scanning was
+already conservative because it clears availability for their unmodeled stack
+shapes, and HOT scanning was already conservative because the effect analysis
+marks queue allocation as memory-effecting and notify/wait as atomic,
+sequence-consistent operations.
 
 ## Whole-tree equality is a barrier too
 
