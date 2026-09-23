@@ -167,7 +167,7 @@ Observation-v2 reports use a separate `semantic-v2` cache keyed by raw original/
 
 Pass `--resume` with the original `--out-dir` and `--count` to continue a run that was interrupted before `result.json` and `summary.json` were finalized. The harness reads the existing `cases.jsonl`, preserves those records and failure artifacts, and schedules only missing case indices. It does not merely use the line count: parallel workers can finish out of order, so resume computes the exact completed-index set and fills any holes. For GenValid lanes it reuses the already emitted `inputs/gen-valid/` batch and manifest rather than regenerating the batch.
 
-Repeat the original seed, generator/profile, feature filters, pass flags, optimizer flags, normalizers, tool paths, and output directory. `--count` remains the total requested run size, not the number of remaining cases. A resumed result reconstructs aggregate comparison/failure/effect/profile counters from persisted case records, reports `resumedCaseCount`, and then adds newly completed cases. Case records persist observation-v2 primary/pattern outcomes, semantic property status/classification, localization state, structural idempotence/composition outcomes, Binaryen/semantic cache states, legacy correctness outcomes, and raw/canonical sizes. Full generated facts stay in the manifest and artifact-scale hazard arrays are excluded, keeping long journals bounded. Resume reconstructs semantic-idempotence, convergence, commutator, paired metamorphic, localization, cache, and legacy counters.
+Repeat the original count, seed, generator/profile, feature filters and transforms, pass flags, optimizer flags, normalizers, correctness/property modes, resource budgets, scheduling/failure policy, tool paths, cache selection, Starshine environment/config overlay, and output directory. `--count` remains the total requested run size, not the number of remaining cases. `toolchain.json` records a SHA-256 configuration identity over those normalized options, the names and hashed values of `STARSHINE_*` variables, and the selected Starshine config file content. It also records a source identity over the compare harness, Bun host, wasm-tools, Starshine and GenValid executables, and their resolved paths; node-v2 runs include the Node executable. Moon fallback commands additionally hash the Moon executable and the workspace `moon.mod`, `moon.pkg.json`, and `src/` contents. Binaryen keeps its separate verified version and executable-content check. A missing, obsolete, or changed identity requires a new output directory before any journal row or generated input is reused. A resumed result reconstructs aggregate comparison/failure/effect/profile counters from persisted case records, reports `resumedCaseCount`, and then adds newly completed cases. Case records persist observation-v2 primary/pattern outcomes, semantic property status/classification, localization state, structural idempotence/composition outcomes, Binaryen/semantic cache states, legacy correctness outcomes, and raw/canonical sizes. Full generated facts stay in the manifest and artifact-scale hazard arrays are excluded, keeping long journals bounded. Resume reconstructs semantic-idempotence, convergence, commutator, paired metamorphic, localization, cache, and legacy counters.
 
 Resume fails closed on a missing `cases.jsonl`, duplicate or out-of-range case indices, an incomplete saved GenValid input batch, or combinations with replay mode. Legacy `--runtime-execution` and optional external-validator aggregates remain rejected because their detailed per-case matrices are not yet persisted.
 
@@ -384,6 +384,13 @@ require a fresh output directory. This check runs before generation or reuse of
 completed journal rows. See
 [`optimizer-semantic-cache.ts`](../../../scripts/lib/optimizer-semantic-cache.ts)
 and [`the resume regression`](../../../scripts/lib/pass-fuzz-compare-task.test.ts).
+
+The general resume identity applies whether semantic-v2 is enabled or not. It
+separately fingerprints normalized run configuration and local source/tool
+content, so changing a seed, pass/profile/policy, harness source, candidate
+binary, generator binary, wasm-tools binary, or Moon workspace source fails
+closed. Historical `toolchain.json` files without
+`starshine.optimizer-resume-identity.v1` cannot be resumed under this contract.
 
 Use `--runtime-timeout-ms 10000` for the new DAE2, constraint and proposal
 campaigns. Preserve timed-out observations as incomplete evidence. Changing the

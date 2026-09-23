@@ -1925,3 +1925,110 @@ describe("semantic execution contract resume guard", () => {
     }
   });
 });
+
+describe("resume source and configuration identity", () => {
+  function writeExecutable(pathname: string, source: string): void {
+    fs.writeFileSync(pathname, source, { mode: 0o755 });
+  }
+
+  function runZeroCase(root: string, tools: { oracle: string; starshine: string; generator: string }, extra: string[] = []) {
+    return spawnSync("bun", [
+      path.resolve(import.meta.dir, "..", "pass-fuzz-compare.ts"),
+      "--count", "0", "--out-dir", root,
+      "--pass", "vacuum",
+      "--wasm-opt-bin", tools.oracle,
+      "--wasm-tools-bin", tools.oracle,
+      "--starshine-bin", tools.starshine,
+      "--gen-valid-bin", tools.generator,
+      "--require-binaryen-version", "132",
+      ...extra,
+    ], { encoding: "utf8", timeout: 15000 });
+  }
+
+  function resumeTools(root: string) {
+    const tools = {
+      oracle: path.join(root, "wasm-opt"),
+      starshine: path.join(root, "starshine"),
+      generator: path.join(root, "gen-valid"),
+    };
+    writeExecutable(tools.oracle, "#!/usr/bin/env node\nprocess.stdout.write('wasm-opt version 132 (version_132)\\n');\n");
+    writeExecutable(tools.starshine, "#!/usr/bin/env node\nprocess.exit(0);\n");
+    writeExecutable(tools.generator, "#!/usr/bin/env node\nprocess.exit(0);\n");
+    return tools;
+  }
+
+  test("rejects changed generation, comparison, and correctness configuration", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-resume-config-"));
+    try {
+      const tools = resumeTools(root);
+      expect(runZeroCase(root, tools).status).toBe(0);
+      expect(runZeroCase(root, tools, ["--resume"]).status).toBe(0);
+
+      const changedConfigurations = [
+        ["--seed", "0x1234"],
+        ["--pass", "remove-unused-brs"],
+        ["--gen-valid-profile", "pass-cleanup"],
+        ["--normalize", "drop-consts"],
+        ["--self-semantic"],
+      ];
+      for (const changed of changedConfigurations) {
+        const resumed = runZeroCase(root, tools, ["--resume", ...changed]);
+        expect(resumed.status).not.toBe(0);
+        expect(resumed.stderr).toContain("--resume configuration identity differs");
+      }
+      const previousTrapMode = process.env.STARSHINE_TRAP_MODE;
+      try {
+        process.env.STARSHINE_TRAP_MODE = previousTrapMode === "never" ? "may" : "never";
+        const changedEnvironment = runZeroCase(root, tools, ["--resume"]);
+        expect(changedEnvironment.status).not.toBe(0);
+        expect(changedEnvironment.stderr).toContain("--resume configuration identity differs");
+      } finally {
+        if (previousTrapMode === undefined) delete process.env.STARSHINE_TRAP_MODE;
+        else process.env.STARSHINE_TRAP_MODE = previousTrapMode;
+      }
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects changed Starshine and GenValid executable contents", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-resume-source-"));
+    try {
+      const tools = resumeTools(root);
+      const starshineSource = fs.readFileSync(tools.starshine, "utf8");
+      expect(runZeroCase(root, tools).status).toBe(0);
+
+      writeExecutable(tools.starshine, `${starshineSource}// changed candidate\n`);
+      const changedStarshine = runZeroCase(root, tools, ["--resume"]);
+      expect(changedStarshine.status).not.toBe(0);
+      expect(changedStarshine.stderr).toContain("--resume source identity differs");
+
+      writeExecutable(tools.starshine, starshineSource);
+      writeExecutable(tools.generator, "#!/usr/bin/env node\n// changed generator\nprocess.exit(0);\n");
+      const changedGenerator = runZeroCase(root, tools, ["--resume"]);
+      expect(changedGenerator.status).not.toBe(0);
+      expect(changedGenerator.stderr).toContain("--resume source identity differs");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects a historical toolchain record without a resume identity", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-resume-obsolete-"));
+    try {
+      const tools = resumeTools(root);
+      expect(runZeroCase(root, tools).status).toBe(0);
+      const toolchainPath = path.join(root, "toolchain.json");
+      const toolchain = JSON.parse(fs.readFileSync(toolchainPath, "utf8")) as { resumeIdentity?: unknown };
+      delete toolchain.resumeIdentity;
+      fs.writeFileSync(toolchainPath, JSON.stringify(toolchain));
+
+      const resumed = runZeroCase(root, tools, ["--resume"]);
+
+      expect(resumed.status).not.toBe(0);
+      expect(resumed.stderr).toContain("--resume identity is missing or obsolete");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

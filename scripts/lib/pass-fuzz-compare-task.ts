@@ -202,6 +202,29 @@ type StarshineInvocation = {
   retryMissingOutput: boolean;
 };
 
+type ResumeExecutableIdentity = {
+  command: string;
+  resolvedPath: string;
+  sha256: string;
+};
+
+type ResumeProgramSourceIdentity =
+  | { kind: "prebuilt"; executable: ResumeExecutableIdentity }
+  | {
+      kind: "moon-source";
+      executable: ResumeExecutableIdentity;
+      argsPrefix: string[];
+      workspaceSourceSha256: string;
+    };
+
+type ResumeIdentityRecord = {
+  schema: "starshine.optimizer-resume-identity.v1";
+  configurationSha256: string;
+  sourceSha256: string;
+  configuration: Record<string, unknown>;
+  sources: Record<string, unknown>;
+};
+
 type EffectTrapCounts = Record<keyof EffectTrapFacts, number>;
 type GenValidTransformCounts = Record<string, number>;
 type GenValidSelectedProfileCounts = Record<string, number>;
@@ -2534,6 +2557,183 @@ function sha256Hex(bytes: string | Buffer | Uint8Array): string {
   return crypto.createHash("sha256").update(bytes).digest("hex");
 }
 
+function executableResumeIdentity(command: string, repoRoot: string): ResumeExecutableIdentity {
+  const resolvedPath = resolveExecutablePath(command, repoRoot);
+  return {
+    command,
+    resolvedPath,
+    sha256: sha256Hex(fs.readFileSync(resolvedPath)),
+  };
+}
+
+function sourceTreeSha256(repoRoot: string, roots: string[]): string {
+  const files: string[] = [];
+  const visit = (relativePath: string): void => {
+    const absolutePath = path.join(repoRoot, relativePath);
+    const stat = fs.statSync(absolutePath);
+    if (stat.isFile()) {
+      files.push(relativePath.split(path.sep).join("/"));
+      return;
+    }
+    if (!stat.isDirectory()) return;
+    for (const entry of fs.readdirSync(absolutePath).sort()) {
+      visit(path.join(relativePath, entry));
+    }
+  };
+  for (const root of roots) {
+    if (fs.existsSync(path.join(repoRoot, root))) visit(root);
+  }
+  const hash = crypto.createHash("sha256");
+  for (const relativePath of files.sort()) {
+    hash.update(relativePath);
+    hash.update("\0");
+    hash.update(fs.readFileSync(path.join(repoRoot, relativePath)));
+    hash.update("\0");
+  }
+  return hash.digest("hex");
+}
+
+function workspaceSourceSha256(repoRoot: string): string {
+  return sourceTreeSha256(repoRoot, ["moon.mod", "moon.pkg.json", "src"]);
+}
+
+function starshineAmbientConfigurationIdentity(repoRoot: string): Record<string, unknown> {
+  const environmentEntries = Object.entries(process.env)
+    .filter(([name, value]) => name.startsWith("STARSHINE_") && value !== undefined)
+    .sort(([left], [right]) => left.localeCompare(right));
+  const configuredPath = process.env.STARSHINE_CONFIG?.trim();
+  const configPath = configuredPath && configuredPath.length > 0
+    ? (path.isAbsolute(configuredPath) ? configuredPath : path.resolve(repoRoot, configuredPath))
+    : path.join(repoRoot, "starshine.config.json");
+  let configFile: Record<string, unknown> | null = null;
+  try {
+    const resolvedPath = fs.realpathSync(configPath);
+    configFile = {
+      path: configPath,
+      resolvedPath,
+      sha256: sha256Hex(fs.readFileSync(resolvedPath)),
+    };
+  } catch {
+    if (configuredPath && configuredPath.length > 0) configFile = { path: configPath, missing: true };
+  }
+  return {
+    environmentKeys: environmentEntries.map(([name]) => name),
+    environmentSha256: sha256Hex(JSON.stringify(environmentEntries)),
+    configFile,
+  };
+}
+
+function programSourceIdentity(
+  command: string,
+  argsPrefix: string[],
+  repoRoot: string,
+  workspaceHash?: string,
+): ResumeProgramSourceIdentity {
+  const executable = executableResumeIdentity(command, repoRoot);
+  if (argsPrefix.length === 0) return { kind: "prebuilt", executable };
+  return {
+    kind: "moon-source",
+    executable,
+    argsPrefix,
+    workspaceSourceSha256: workspaceHash ?? workspaceSourceSha256(repoRoot),
+  };
+}
+
+function buildResumeIdentity(
+  options: PassFuzzCompareOptions,
+  binaryenPassFlags: string[],
+  resolvedCacheDir: string | null,
+  starshineInvocation: StarshineInvocation,
+  repoRoot: string,
+): ResumeIdentityRecord {
+  const configuration: Record<string, unknown> = {
+    count: options.count,
+    minCompared: options.minCompared,
+    seed: seedHex(options.seed),
+    generator: options.generator,
+    genValidProfile: options.genValidProfile,
+    genValidRequiredFeatures: options.genValidRequiredFeatures,
+    genValidExcludedFeatures: options.genValidExcludedFeatures,
+    genValidMetamorphicTransforms: options.genValidMetamorphicTransforms,
+    emitMetamorphicPairs: options.emitMetamorphicPairs,
+    passFlags: options.passFlags,
+    optimizerFlags: options.optimizerFlags,
+    binaryenPassFlags,
+    normalizers: options.normalizers,
+    primaryValidator: options.primaryValidator,
+    externalValidators: options.externalValidators,
+    runtimeExecution: options.runtimeExecution,
+    selfSemantic: options.selfSemantic,
+    semanticOracle: options.semanticOracle,
+    semanticPolicy: options.semanticPolicy,
+    observationMode: options.observationMode,
+    observationMemoryCapBytes: options.observationMemoryCapBytes,
+    observationTableEntryCap: options.observationTableEntryCap,
+    runtimeTimeoutMs: options.runtimeTimeoutMs,
+    propertyModes: options.propertyModes,
+    convergenceMax: options.convergenceMax,
+    commutatorLeft: options.commutatorLeft,
+    commutatorRight: options.commutatorRight,
+    localizeFirstDivergence: options.localizeFirstDivergence,
+    determinism: options.determinism,
+    codecIdempotence: options.codecIdempotence,
+    serialPasses: options.serialPasses,
+    maxFailures: options.maxFailures,
+    maxMismatchArtifacts: options.maxMismatchArtifacts,
+    maxSubprocesses: options.maxSubprocesses,
+    keepGoingAfterCommandFailures: options.keepGoingAfterCommandFailures,
+    reportOnly: options.reportOnly,
+    reduceMismatches: options.reduceMismatches,
+    semanticReductionRelaxFamily: options.semanticReductionRelaxFamily,
+    jobs: options.jobs,
+    cacheDir: resolvedCacheDir,
+    starshineAmbientConfiguration: starshineAmbientConfigurationIdentity(repoRoot),
+  };
+  const needsWorkspaceHash = options.starshineBin === null ||
+    (options.generator === "gen-valid" && options.genValidBin === null);
+  const workspaceHash = needsWorkspaceHash ? workspaceSourceSha256(repoRoot) : undefined;
+  const moonSource = () => programSourceIdentity(
+    options.moonBin,
+    ["run", "--target", "native", "--release", "src/fuzz", "--"],
+    repoRoot,
+    workspaceHash,
+  );
+  const sources: Record<string, unknown> = {
+    harnessSourceSha256: sourceTreeSha256(repoRoot, ["package.json", "scripts"]),
+    harnessRuntime: {
+      executable: executableResumeIdentity(process.execPath, repoRoot),
+      bunVersion: typeof Bun === "undefined" ? null : Bun.version,
+      nodeCompatibilityVersion: process.versions.node,
+      v8Version: process.versions.v8,
+    },
+    starshine: programSourceIdentity(
+      starshineInvocation.command,
+      starshineInvocation.argsPrefix,
+      repoRoot,
+      workspaceHash,
+    ),
+    generator: options.generator === "wasm-smith"
+      ? {
+          kind: "wasm-tools-smith",
+          executable: executableResumeIdentity(options.wasmToolsBin, repoRoot),
+        }
+      : options.genValidBin === null
+        ? moonSource()
+        : programSourceIdentity(options.genValidBin, [], repoRoot),
+    wasmTools: executableResumeIdentity(options.wasmToolsBin, repoRoot),
+    nodeRuntime: options.semanticOracle === "node-v2"
+      ? executableResumeIdentity("node", repoRoot)
+      : null,
+  };
+  return {
+    schema: "starshine.optimizer-resume-identity.v1",
+    configurationSha256: sha256Hex(JSON.stringify(configuration)),
+    sourceSha256: sha256Hex(JSON.stringify(sources)),
+    configuration,
+    sources,
+  };
+}
+
 function safeCacheComponent(text: string): string {
   return text.replace(/[^A-Za-z0-9._=-]+/g, "_").slice(0, 120) || "empty";
 }
@@ -4616,6 +4816,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     ...options.passFlags.flatMap(normalizeBinaryenPassFlag),
   ];
   const resolvedCacheDir = options.cacheDir === null ? null : resolveRepoPath(repoRoot, options.cacheDir);
+  const starshineInvocation = resolveStarshineInvocation(repoRoot, options.starshineBin, options.moonBin);
   const wasmToolsIdentity = readToolIdentity(options.wasmToolsBin, ["--version"], repoRoot);
   const verifiedBinaryenTool = verifyBinaryenToolIdentity(
     options.wasmOptBin,
@@ -4627,6 +4828,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     passFlags: binaryenPassFlags,
     passFlagsHash: sha256Hex(JSON.stringify(binaryenPassFlags)),
   };
+  const resumeIdentity = buildResumeIdentity(
+    options,
+    binaryenPassFlags,
+    resolvedCacheDir,
+    starshineInvocation,
+    repoRoot,
+  );
   const toolchainRecord = {
     schema: "starshine.optimizer-toolchain.v1",
     primaryValidator: options.primaryValidator,
@@ -4635,12 +4843,11 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     semanticOracle: options.semanticOracle,
     semanticExecutionContract: options.semanticOracle === "node-v2" ? SEMANTIC_EXECUTION_CONTRACT : null,
     semanticRuntimeIdentity: options.semanticOracle === "node-v2" ? nodeObservationRuntimeIdentity() : null,
+    resumeIdentity,
   };
   if (options.resume) {
     if (!fs.existsSync(toolchainPath)) {
-      if (options.requiredBinaryenVersion !== null) {
-        fail(`--resume with --require-binaryen-version requires ${toolchainPath}`);
-      }
+      fail(`--resume requires ${toolchainPath}`);
     } else {
       let saved: typeof toolchainRecord;
       try {
@@ -4666,6 +4873,15 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             saved.semanticRuntimeIdentity !== toolchainRecord.semanticRuntimeIdentity))
       ) {
         fail(`--resume semantic execution contract differs from ${toolchainPath}; start a new output directory`);
+      }
+      if (saved.resumeIdentity?.schema !== resumeIdentity.schema) {
+        fail(`--resume identity is missing or obsolete in ${toolchainPath}; start a new output directory`);
+      }
+      if (saved.resumeIdentity.configurationSha256 !== resumeIdentity.configurationSha256) {
+        fail(`--resume configuration identity differs from ${toolchainPath}; start a new output directory`);
+      }
+      if (saved.resumeIdentity.sourceSha256 !== resumeIdentity.sourceSha256) {
+        fail(`--resume source identity differs from ${toolchainPath}; start a new output directory`);
       }
     }
   }
@@ -4769,7 +4985,6 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     }
   }
 
-  const starshineInvocation = resolveStarshineInvocation(repoRoot, options.starshineBin, options.moonBin);
   const summary: PassFuzzCompareSummary = {
     requestedCount,
     resumedCaseCount: 0,
