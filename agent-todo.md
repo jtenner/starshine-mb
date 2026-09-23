@@ -70,7 +70,10 @@
     (`5ffb679d2`). Recursive whole-function and suffix counts reject intervening
     structured reads and writes before movement. Valid direct and dispatcher
     fixtures passed before any production change; no behavior fix was warranted.
-13. [ ] CodePushing dead-block flattening ignores nested branches.
+13. [x] CodePushing nested-branch concern was disproved (`bc2419f9b`).
+    The HOT child graph already reaches nested region roots. Direct ownership
+    and dispatcher encode/decode fixtures stayed green; mutation of the recursive
+    guard made both fixtures fail. No behavior change or fuzzing was needed.
 14. [x] RemoveUnusedBrs now counts continuation handler labels and preserves
     their result type during block refinalization (`6216b1a7d`). Valid direct
     and dispatcher fixtures failed before the fix; both passed afterward,
@@ -230,7 +233,10 @@
     this no-fuzz repair spree, so its green CI result remains to be observed.
 58. [ ] Add trigger-focused profiles for undersampled pass families.
 59. [ ] Add feature floors for descriptors, continuations, waitqueues, atomics, and array memory.
-60. [ ] Record compiler-fact context in replay case journals.
+60. [x] Compare-pass now journals exact raw `compiler.facts` section presence,
+    count, encoded length, SHA-256, scan status, and effective trust policy
+    (`30ffd4ad1`). Explicit policy is Starshine-only and resume-bound; legacy
+    rows remain resumable. Red/Green focused Bun tests passed without fuzzing.
 
 ### Hypotheses to prove or reject before changing behavior
 
