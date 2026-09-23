@@ -378,13 +378,13 @@
     determines compatible function types. Valid direct and dispatcher cases
     failed before the fix and passed afterward; focused tests, `moon info`,
     and `moon fmt` passed without fuzzing.
-73. [ ] Saved seven-pass cases 259 and 367 still lose reachable result-loop
-    paths when DCE runs after OI, Precompute, Vacuum, Local CSE,
-    SimplifyLocals, and RemoveUnusedBrs. Current native replay leaves a valid
-    loop beginning with `unreachable`; prefixes through pass 6 preserve the
-    reachable body. Strengthen direct and dispatcher assertions to inspect the
-    loop body, observe red, fix the minimal DCE reachability error, then replay
-    both exact saved modules. No fuzz campaign is required for this blocker.
+73. [x] DCE now preserves source order when a lifted terminator is stored before
+    live result or control roots that execute earlier (`df10bc0b8`). A clean
+    typed-loop direct regression and the full seven-pass dispatcher regression
+    were red before the fix and green after; the adjacent DCE file passed
+    68/68. Exact saved cases 259 and 367 now validate and return `[0, 2.5]`
+    for `run(0)`, matching their original modules instead of trapping. Prior
+    typed-control voidification tests remain green. No fuzz campaign ran.
 74. [ ] Saved seven-pass SIMD case 16 has false positive call, atomic, and
     memory-effect coverage facts despite a pure SIMD/numeric input. The
     feature scanner appears to interpret opcode-like immediate bytes as
@@ -410,9 +410,9 @@
   The current Node runtime rejects weaker-order binaries and shared function
   types, so these are explicit unsupported boundaries rather than matches.
 - [ ] Classify the 557 structural mismatches in the saved seven-pass 1,000-case
-  campaign; preserve the two confirmed DCE wrong-code cases and treat the
-  runtime timeout separately. Do not infer semantic safety from size or
-  validation alone.
+  campaign; the two confirmed DCE wrong-code cases are fixed under item 73,
+  while the GC runtime timeout remains separate. Do not infer semantic safety
+  from size or validation alone.
 - [ ] Reduce the 128 EH/Vacuum structural differences in the existing 256-case
   campaign, alongside the dedicated Vacuum backlog slice below.
 
