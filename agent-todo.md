@@ -70,7 +70,11 @@
 19. [x] Pattern-B partial inlining misses branch/catch/continuation escapes
     (`980043a5d`); the escape scanner covers all represented branch, catch,
     and resume-handler targets, with invalid-helper repros red then green.
-20. [ ] DAE2 changes signatures reachable through exported abstract `funcref` tables.
+20. [x] DAE2 changes signatures reachable through exported abstract `funcref`
+    tables (`04a3c15ae`); host-visible table references and indirect-call
+    types retain their signatures. Direct and dispatcher fixtures were red
+    before the fix and green afterward; neighboring private-table pruning and
+    `moon fmt` passed. No broad suite or fuzzing was run.
 21. [x] Shared identity atomic RMW loses its release write (`b12664835`);
     focused pass and command regressions are green.
 22. [x] Same-value shared `cmpxchg` loses its conditional release write
