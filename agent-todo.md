@@ -479,6 +479,14 @@
     both focused tests pass. Exact saved OI outputs now match v132 byte for
     byte at 63 bytes, and seven-pass outputs at 60 bytes. All outputs validate
     and the saved ten-call plan agrees; no fuzz ran.
+85. [ ] Saved retained case 29 is a complete exact three-way runtime match
+    under opt-in Node custom descriptors (`run()` returns `22289` with no
+    exported state), but Starshine emits 94 raw bytes versus v132's 93.
+    Binaryen reuses one exact subtype cast; Starshine repeats ordinary casts
+    from a nullable supertype local. The 91-versus-93 canonical projection
+    does not erase the emitted-size gap. Identify the first owning pass, then
+    either add red/green pass and dispatcher coverage for a trap-safe reuse
+    with exact replay or document the precise safety boundary; no fuzz.
 
 ### Open parity evidence from this audit
 
