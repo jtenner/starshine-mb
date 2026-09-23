@@ -464,6 +464,13 @@
     `+5` regression must stay visible. Add red direct and dispatcher type-use
     tests, perform only source-proven dead-type cleanup, and replay the exact
     saved module without a fuzz run.
+83. [ ] Saved retained cases 15 and 28 have an OptimizeInstructions
+    local-declaration grouping gap: Starshine preserves split equal-type
+    groups where verified v132 packs them with a matching local-index remap.
+    Their final canonical outputs are each one byte smaller, but emitted raw
+    modules are 1 and 5 bytes larger. Add red direct and dispatcher tests,
+    preserve names and other index-bearing metadata, align or prove a better
+    emitted shape, and replay both exact saved modules without fuzzing.
 
 ### Open parity evidence from this audit
 
