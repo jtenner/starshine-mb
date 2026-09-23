@@ -139,7 +139,7 @@ Treat shared memory and atomics as semantic constraints, not as incidental synta
 ## What This Page Does Not Prove
 
 - It does not prove full Threads proposal support. Threads is an active proposal row; current Starshine has a documented local subset.
-- The bounded multi-thread fixtures check sequentially consistent `i32.atomic.rmw.add` outcomes and one completed `memory.atomic.wait32`/`memory.atomic.notify` pairing. They do not prove general wait/notify liveness, weaker orders, fences, memory64/multi-memory, shared-GC atomics, or arbitrary schedules.
+- The bounded multi-thread fixtures check sequentially consistent `i32.atomic.rmw.add`, `i32.atomic.rmw.cmpxchg` winner identity, and one completed `memory.atomic.wait32`/`memory.atomic.notify` pairing. They do not prove general wait/notify liveness, weaker orders, fences, memory64/multi-memory, shared-GC atomics, or arbitrary schedules.
 - It does not prove high-level WAST support for linear-memory atomic text.
 - It does not prove complete Relaxed Atomics support. Starshine carries `SeqCst` / `AcqRel` on linear atomics and fence, but `pause`, full proposal gating, high-level text, and runtime conformance route through [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md).
 - It does not prove full Shared-Everything Threads support. Starshine's shared type and struct/array aggregate atomic representation is substantial but still layer-specific; route exact gaps through [`wasm-shared-everything-threads-boundary.md`](wasm-shared-everything-threads-boundary.md) and [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md).
