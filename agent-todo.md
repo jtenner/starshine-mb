@@ -243,7 +243,11 @@
 
 ### Hypotheses to prove or reject before changing behavior
 
-61. [ ] Check legacy raw SSA-no-merge continuation liveness on a valid fallback shape.
+61. [x] SSA-no-merge now rejects continuation flow before raw LocalGraph and
+    legacy alias rewriting, and guards the lifted normal-flow-only SSA path
+    (`06de60fca`). A valid handler-bearing `resume` fixture made direct and
+    dispatcher tests fail before the fix; both passed after. `moon fmt` and
+    `moon info` passed with no API change or fuzzing.
 62. [x] Direct public HOT Local CSE shared-load hypothesis was not reproduced.
     A valid lifted shared-memory function retains two matching loads without
     module context; the test checks both HOT load nodes and their result/effect
