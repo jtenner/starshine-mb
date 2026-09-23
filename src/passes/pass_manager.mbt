@@ -17755,9 +17755,6 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_func(
       buckets.push(ty)
     }
   }
-  if buckets.length() <= 1 {
-    return (func, None)
-  }
   let param_count = params.length()
   let total_local_count = param_count + locals.length()
   let local_remap : Array[Int] = []
@@ -17780,12 +17777,13 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_func(
       }
     }
   }
-  if !changed {
+  let grouped_locals = @lib.Locals::from_types(grouped_local_types)
+  if !changed && grouped_locals == locals {
     return (func, None)
   }
   (
     @lib.Func::new(
-      @lib.Locals::from_types(grouped_local_types),
+      grouped_locals,
       @lib.Expr::new(
         run_hot_pipeline_raw_compact_rewrite_local_refs(instrs, local_remap),
       ),
@@ -17797,6 +17795,7 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_func(
 ///|
 fn run_hot_pipeline_raw_group_body_locals_by_type_module(
   mod_ : @lib.Module,
+  touched? : Array[Bool]? = None,
 ) -> @lib.Module {
   // Opaque name bytes cannot be safely permuted without decoding them.
   if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
@@ -17810,6 +17809,12 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_module(
       let remaps : Array[Array[Int]?] = []
       let mut changed = false
       for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+        if touched is Some(selected) &&
+          (code_idx >= selected.length() || !selected[code_idx]) {
+          next_funcs.push(funcs[code_idx])
+          remaps.push(None)
+          continue
+        }
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
         )
@@ -17828,6 +17833,7 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_module(
         let candidate = mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
         match rl_rewrite_name_sec(mod_.name_sec, imported_func_count, remaps) {
           Some(names) => candidate.with_name_sec(names)
+          None if mod_.name_sec is Some(_) => candidate.without_name_sec()
           None => candidate
         }
       } else {

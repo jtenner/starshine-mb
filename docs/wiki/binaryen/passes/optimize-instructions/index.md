@@ -8,8 +8,10 @@ sources:
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
+  - ../../../../../src/passes/oi_local_group_parity_wbtest.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/cmd/oi_local_group_parity_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -35,6 +37,37 @@ related:
 # `optimize-instructions`
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 2026 scalar local declaration grouping
+
+Seven-pass saved cases 15 and 28 isolated a raw-size gap in the first
+`optimize-instructions` prefix: Starshine preserved fragmented scalar local
+declaration groups after the bodies were otherwise canonical, while Binaryen
+v132 grouped equal types and remapped local indices. Starshine now reuses the
+shared local-index and decoded local-name remapper at OI cleanup. The rewrite
+is limited to numeric params and locals, respects touched-function selection,
+declines legacy `try` and opaque undecoded name payloads, and commits only when
+the complete encoded module is smaller and validates. It also fails closed for
+opaque code-position metadata in `metadata.code.*`, `.debug_*`, and
+`reloc.CODE`; ordinary custom sections and function annotations remain
+unchanged. A committed code rewrite clears stale compiler facts, while the
+size comparison uses a baseline with the same facts removed so metadata bytes
+cannot falsely justify a code-size loss.
+
+The direct regression keeps a live `local.set` / `local.get` pair and decoded
+local names across an `i32, f64, i32` permutation. It failed first with three
+declaration runs and now validates with two runs, remapped body index `2 -> 1`,
+and matching name indices. Active-dispatcher tests replay the exact saved input
+bytes through `optimize-instructions`, `precompute`, `vacuum`, `local-cse`,
+`simplify-locals`, `remove-unused-brs`, and `dead-code-elimination`. Before the
+fix the active CLI encoded cases 15 and 28 as 44 and 49 bytes, versus Binaryen
+v132's 43 and 44 bytes. It now emits stable raw and v132-canonical outputs of
+42 and 43 bytes. Those outputs match the previously measured canonical
+Starshine shapes and are each one byte smaller than Binaryen because Starshine
+does not add Binaryen's empty-body `nop`. Fresh Node v26.10 execution agrees
+across the input, fixed Starshine output, and Binaryen output: case 15 returns
+normally for its single no-argument call, and case 28 returns normally for all
+five i64 boundary vectors (`0`, `1`, `-1`, minimum, and maximum).
 
 ## September 2026 raw-stack operand repair
 
