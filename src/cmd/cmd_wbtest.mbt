@@ -8173,6 +8173,7 @@ test "config and optimize option construction preserve Binaryen inlining tuning"
     false,
     false,
     false,
+    false,
     1024UL,
     false,
     @passes.CompilerFactUsePolicy::ignore(),

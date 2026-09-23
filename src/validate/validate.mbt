@@ -1055,7 +1055,8 @@ fn validate_const_instr(env : Env, ins : Instruction) -> Result[Unit, String] {
     | I64Mul
     | AnyConvertExtern
     | ExternConvertAny
-    | RefI31 => Ok(())
+    | RefI31
+    | RefI31Shared => Ok(())
     _ => Err("initializer expression is not constant")
   }
 }

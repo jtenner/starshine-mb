@@ -140,6 +140,7 @@ fn keyword_from_heap_type_ref(ht : HeapTypeRef) -> String {
     I31 => "i31"
     None_ => "none"
     NoFunc => "nofunc"
+    Func => "func"
     NoExtern => "noextern"
     NoExn => "noexn"
     Waitqueue => "waitqueue"
@@ -479,12 +480,20 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     StructGet(idx, field_idx) => "struct.get \{index_text(idx)} \{field_idx}"
     StructGetS(idx, field_idx) => "struct.get_s \{index_text(idx)} \{field_idx}"
     StructGetU(idx, field_idx) => "struct.get_u \{index_text(idx)} \{field_idx}"
+    ArrayNew(idx) => "array.new \{index_text(idx)}"
+    ArrayNewDefault(idx) => "array.new_default \{index_text(idx)}"
+    ArrayNewFixed(idx, len) => "array.new_fixed \{index_text(idx)} \{len}"
+    ArrayNewData(idx, data_idx) =>
+      "array.new_data \{index_text(idx)} \{index_text(data_idx)}"
+    ArrayNewElem(idx, elem_idx) =>
+      "array.new_elem \{index_text(idx)} \{index_text(elem_idx)}"
     MemoryAtomic(op, order, memory, ma) =>
       render_memory_atomic(op, order, memory, ma)
     AtomicFence(order) => "atomic.fence \{atomic_order_text(order)}"
     WaitqueueNew => "waitqueue.new"
     WaitqueueNotify => "waitqueue.notify"
     StructWait(idx, field_idx) => "struct.wait \{index_text(idx)} \{field_idx}"
+    Publish => "publish"
     StructAtomicSet(order, idx, field_idx) =>
       "struct.atomic.set \{atomic_order_text(order)} \{index_text(idx)} \{field_idx}"
     ArrayAtomicSet(order, idx) =>

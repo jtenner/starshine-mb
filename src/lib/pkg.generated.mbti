@@ -1038,6 +1038,7 @@ pub enum Instruction {
   WaitqueueNew
   WaitqueueNotify
   StructWait(TypeIdx, U32)
+  Publish
   ContNew(TypeIdx)
   ContBind(TypeIdx, TypeIdx)
   Suspend(TagIdx)
@@ -1303,6 +1304,7 @@ pub enum Instruction {
   AnyConvertExtern
   ExternConvertAny
   RefI31
+  RefI31Shared
   I31GetS
   I31GetU
   I32TruncSatF32S
@@ -2046,6 +2048,7 @@ pub fn Instruction::memory_grow(MemIdx) -> Self
 pub fn Instruction::memory_init(DataIdx, MemIdx) -> Self
 pub fn Instruction::memory_size(MemIdx) -> Self
 pub fn Instruction::nop() -> Self
+pub fn Instruction::publish() -> Self
 pub fn Instruction::ref_as_non_null() -> Self
 pub fn Instruction::ref_cast(Bool, HeapType) -> Self
 pub fn Instruction::ref_cast_desc_eq(Bool, HeapType) -> Self
@@ -2056,6 +2059,7 @@ pub fn Instruction::ref_eq() -> Self
 pub fn Instruction::ref_func(FuncIdx) -> Self
 pub fn Instruction::ref_get_desc(TypeIdx) -> Self
 pub fn Instruction::ref_i31() -> Self
+pub fn Instruction::ref_i31_shared() -> Self
 pub fn Instruction::ref_is_null() -> Self
 pub fn Instruction::ref_null(HeapType) -> Self
 pub fn Instruction::ref_null_type(RefType) -> Self

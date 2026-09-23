@@ -459,7 +459,8 @@ test "public non-O4z presets keep only measured fast-payoff passes" {
   @debug.assert_eq(o1, fast_default)
   @debug.assert_eq(o2, fast_default)
   let fast_size_or_aggressive = [
-    "duplicate-function-elimination", "vacuum", "reorder-locals", "strip-debug",
+    "duplicate-function-elimination", "constraint-analysis", "vacuum", "reorder-locals",
+    "strip-debug",
   ]
   @debug.assert_eq(o3, fast_size_or_aggressive)
   @debug.assert_eq(o4, fast_size_or_aggressive)

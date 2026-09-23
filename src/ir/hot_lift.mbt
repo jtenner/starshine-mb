@@ -766,6 +766,7 @@ fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
         | Instruction::AnyConvertExtern
         | Instruction::ExternConvertAny
         | Instruction::RefI31
+        | Instruction::RefI31Shared
         | Instruction::I31GetS
         | Instruction::I31GetU
         | Instruction::ContNew(_) => Some(1)
@@ -1022,6 +1023,7 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     | Instruction::AnyConvertExtern
     | Instruction::ExternConvertAny
     | Instruction::RefI31
+    | Instruction::RefI31Shared
     | Instruction::I31GetS
     | Instruction::I31GetU => Some(HotOp::Heap)
     Instruction::I32Eqz

@@ -131,6 +131,8 @@ fn ca_test_opcode_count(mod_ : @lib.Module, opcode : @lib.Instruction) -> Int {
       let matches = match opcode {
         @lib.Instruction::Call(@lib.FuncIdx(index)) =>
           data.op is @ir.Call && data.imm0 == index.to_int()
+        @lib.Instruction::ReturnCall(@lib.FuncIdx(index)) =>
+          data.op is @ir.ReturnCall && data.imm0 == index.to_int()
         @lib.Instruction::RefIsNull => data.op is @ir.RefIsNull
         @lib.Instruction::LocalTee(@lib.LocalIdx(index)) =>
           data.op is @ir.LocalTee && data.imm0 == index.to_int()

@@ -2137,6 +2137,10 @@ fn encode_leaf_instruction(
       buf.write_byte(0xfe)
       buf.write_byte(0x06)
     }
+    Publish => {
+      buf.write_byte(0xfe)
+      buf.write_byte(0x0f)
+    }
     StructWait(type_idx, field) => {
       buf.write_byte(0xfe)
       buf.write_byte(0x05)
@@ -3442,6 +3446,12 @@ fn encode_leaf_instruction(
     RefI31 => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(28), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    RefI31Shared => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(31), buf) is Err(t) {
         return Err(t)
       }
     }

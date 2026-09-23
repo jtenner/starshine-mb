@@ -454,6 +454,7 @@ pub struct OptimizeOptions {
   monomorphize_min_benefit : Int
   closed_world : Bool
   zero_filled_memory : Bool
+  fast_math : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
   traps_never_happen : Bool
@@ -462,7 +463,7 @@ pub struct OptimizeOptions {
   validation_policy : OptimizeValidationPolicy
   stack_function_passes : Bool
 } derive(Eq, @debug.Debug)
-pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, closed_world? : Bool, zero_filled_memory? : Bool, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool, ignore_implicit_traps? : Bool, compiler_fact_policy? : @passes.CompilerFactUsePolicy, validation_policy? : OptimizeValidationPolicy, stack_function_passes? : Bool) -> Self
+pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, closed_world? : Bool, zero_filled_memory? : Bool, fast_math? : Bool, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool, ignore_implicit_traps? : Bool, compiler_fact_policy? : @passes.CompilerFactUsePolicy, validation_policy? : OptimizeValidationPolicy, stack_function_passes? : Bool) -> Self
 pub impl Show for OptimizeOptions
 
 pub enum OptimizeTracingLevel {

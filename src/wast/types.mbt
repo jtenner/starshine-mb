@@ -119,6 +119,7 @@ pub enum HeapTypeRef {
   Array
   None_
   NoFunc
+  Func
   NoExtern
   NoExn
   Waitqueue
@@ -157,6 +158,7 @@ pub impl Show for HeapTypeRef with fn output(self, logger) {
     Array => logger.write_string("Array")
     None_ => logger.write_string("None_")
     NoFunc => logger.write_string("NoFunc")
+    Func => logger.write_string("Func")
     NoExtern => logger.write_string("NoExtern")
     NoExn => logger.write_string("NoExn")
     Waitqueue => logger.write_string("Waitqueue")
@@ -264,16 +266,23 @@ pub enum Opcode {
   AnyConvertExtern
   ExternConvertAny
   RefI31
+  RefI31Shared
   I31GetS
   I31GetU
   StructNew
   StructNewDefault
+  ArrayNew
+  ArrayNewDefault
+  ArrayNewFixed
+  ArrayNewData
+  ArrayNewElem
   StructGet
   StructGetS
   StructGetU
   WaitqueueNew
   WaitqueueNotify
   StructWait
+  Publish
   StructAtomicSet
   ArrayAtomicSet
   StructAtomicGet
@@ -835,6 +844,7 @@ pub impl Show for Opcode with fn output(self, logger) {
     AnyConvertExtern => logger.write_string("AnyConvertExtern")
     ExternConvertAny => logger.write_string("ExternConvertAny")
     RefI31 => logger.write_string("RefI31")
+    RefI31Shared => logger.write_string("RefI31Shared")
     I31GetS => logger.write_string("I31GetS")
     I31GetU => logger.write_string("I31GetU")
     StructNew => logger.write_string("StructNew")
@@ -845,6 +855,12 @@ pub impl Show for Opcode with fn output(self, logger) {
     WaitqueueNew => logger.write_string("WaitqueueNew")
     WaitqueueNotify => logger.write_string("WaitqueueNotify")
     StructWait => logger.write_string("StructWait")
+    ArrayNew => logger.write_string("ArrayNew")
+    ArrayNewDefault => logger.write_string("ArrayNewDefault")
+    ArrayNewFixed => logger.write_string("ArrayNewFixed")
+    ArrayNewData => logger.write_string("ArrayNewData")
+    ArrayNewElem => logger.write_string("ArrayNewElem")
+    Publish => logger.write_string("Publish")
     StructAtomicSet => logger.write_string("StructAtomicSet")
     ArrayAtomicSet => logger.write_string("ArrayAtomicSet")
     StructAtomicGet => logger.write_string("StructAtomicGet")

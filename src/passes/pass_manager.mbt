@@ -27,6 +27,7 @@ pub struct HotPipelineOptions {
   traps_never_happen : Bool
   ignore_implicit_traps : Bool
   zero_filled_memory : Bool
+  fast_math : Bool
   compiler_fact_policy : CompilerFactUsePolicy
   optimize_level : Int
   shrink_level : Int
@@ -50,6 +51,7 @@ pub fn HotPipelineOptions::new(
   traps_never_happen? : Bool = false,
   ignore_implicit_traps? : Bool = false,
   zero_filled_memory? : Bool = false,
+  fast_math? : Bool = false,
   compiler_fact_policy? : CompilerFactUsePolicy = CompilerFactUsePolicy::ignore(),
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
@@ -70,6 +72,7 @@ pub fn HotPipelineOptions::new(
     traps_never_happen,
     ignore_implicit_traps,
     zero_filled_memory,
+    fast_math,
     compiler_fact_policy,
     optimize_level,
     shrink_level,
@@ -169,6 +172,7 @@ pub struct HotPassContext {
   closed_world : Bool
   traps_never_happen : Bool
   ignore_implicit_traps : Bool
+  fast_math : Bool
   optimize_level : Int
   shrink_level : Int
   trace : (String) -> Unit
@@ -185,6 +189,7 @@ pub fn HotPassContext::new(
   trace : (String) -> Unit,
   traps_never_happen? : Bool = false,
   ignore_implicit_traps? : Bool = false,
+  fast_math? : Bool = false,
   perf? : HotPerfSession? = None,
   module_ctx? : @ir.HotModuleContext? = None,
   optimize_level? : Int = 0,
@@ -197,6 +202,7 @@ pub fn HotPassContext::new(
     closed_world,
     traps_never_happen,
     ignore_implicit_traps,
+    fast_math,
     optimize_level,
     shrink_level,
     trace,
@@ -79005,6 +79011,16 @@ fn run_hot_pipeline_func(
       )
       if descriptor.name == "optimize-instructions" {
         let original = run_hot_pipeline_original_func(mod_, func_idx)
+        match oi_publish_rewrite_func(mod_, func_idx, original) {
+          Some(next) =>
+            return Ok({
+              reason: "publish-fresh-raw",
+              func: next,
+              unchanged_original: false,
+              trace_skip_raw: true,
+            })
+          None => ()
+        }
         let @lib.Func(locals, @lib.Expr(body)) = original
         let descriptor_graph = RawOiDescriptorCallValueGraphFact::from_module_body(
           body, module_ctx,
@@ -79193,6 +79209,7 @@ fn run_hot_pipeline_func(
     options.trace,
     traps_never_happen=options.traps_never_happen,
     ignore_implicit_traps=options.ignore_implicit_traps,
+    fast_math=options.fast_math,
     perf=options.perf,
     module_ctx=Some(module_ctx),
     optimize_level=options.optimize_level,
@@ -80615,6 +80632,7 @@ fn run_hot_pipeline_apply_hot_pass(
           traps_never_happen: options.traps_never_happen,
           ignore_implicit_traps: options.ignore_implicit_traps,
           zero_filled_memory: options.zero_filled_memory,
+          fast_math: options.fast_math,
           compiler_fact_policy: options.compiler_fact_policy,
           optimize_level: options.optimize_level,
           shrink_level: options.shrink_level,
@@ -81393,6 +81411,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
             options.trace,
             traps_never_happen=options.traps_never_happen,
             ignore_implicit_traps=options.ignore_implicit_traps,
+            fast_math=options.fast_math,
             perf=options.perf,
             module_ctx=Some(module_ctx),
             optimize_level=options.optimize_level,
@@ -81639,6 +81658,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
             options.trace,
             traps_never_happen=options.traps_never_happen,
             ignore_implicit_traps=options.ignore_implicit_traps,
+            fast_math=options.fast_math,
             perf=options.perf,
             module_ctx=Some(module_ctx),
             optimize_level=options.optimize_level,
@@ -92119,6 +92139,7 @@ fn run_hot_pipeline_apply_module_pass(
   let next = match entry.name {
     "avoid-reinterprets" => avoid_reinterprets_run_module_pass(mod_)
     "untee" => untee_run_module_pass(mod_)
+    "make-shared-objects" => make_shared_objects_run_module_pass(mod_)
     "duplicate-function-elimination" =>
       dfe_run_module_pass_with_perf(mod_, options.perf)
     "merge-similar-functions" =>
@@ -92129,6 +92150,13 @@ fn run_hot_pipeline_apply_module_pass(
         traps_never_happen=options.traps_never_happen,
         closed_world=options.closed_world,
       )
+    "remove-empty-function-exports" =>
+      remove_empty_function_exports_run_module_pass(mod_)
+    "intrinsic-lowering" => intrinsic_lowering_run_module_pass(mod_)
+    "global-effects" => global_effects_run_module_pass(mod_)
+    "global-type-optimization" =>
+      global_type_optimization_run_module_pass(mod_, options.closed_world)
+    "i64-to-i32-lowering" => i64_to_i32_lowering_run_module_pass(mod_)
     "remove-unused-nonfunction-module-elements" =>
       rume_run_nonfunction_module_pass(
         mod_,
@@ -92141,6 +92169,8 @@ fn run_hot_pipeline_apply_module_pass(
         traps_never_happen=options.traps_never_happen,
         zero_filled_memory=options.zero_filled_memory,
       )
+    "dealign" => dealign_run_module_pass(mod_)
+    "tail-call" => tail_call_run_module_pass(mod_)
     "once-reduction" => once_reduction_run_module_pass(mod_)
     "global-refining" =>
       global_refining_run_module_pass(mod_, closed_world=options.closed_world)

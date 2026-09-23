@@ -1,3 +1,15 @@
+### 2026-09-23 — Binaryen 133 red corpus turned green
+
+- The source-backed v133 corpus now runs green: 61 focused pass tests and the
+  full default wasm-gc suite at 12,334/12,334. Implementations cover constraint
+  spans/loops and fast-math scheduling, tail calls, publish and fresh resume,
+  empty exports, intrinsic tail calls, dealign, GTO descriptor placeholders,
+  four saturating i64 conversions, and shared-object types and boundary wrappers.
+  The shared i31 opcode now parses, validates, and encodes. The
+  [v133 shape catalog](binaryen/version-133-upgrade.md) records scope and open
+  cases. Pass-targeted fuzzing follows the green-phase commit; these focused
+  tests do not claim broad parity.
+
 ### 2026-09-23 — Binaryen 133 optimizer-shape intake
 
 - Audited the official `version_132...version_133` tag range: 107 commits, 292

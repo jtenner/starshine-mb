@@ -3847,6 +3847,7 @@ fn decode_instruction_with_depth(
         Ok((U32(26), i)) => Ok((Instruction::any_convert_extern(), i))
         Ok((U32(27), i)) => Ok((Instruction::extern_convert_any(), i))
         Ok((U32(28), i)) => Ok((Instruction::ref_i31(), i))
+        Ok((U32(31), i)) => Ok((Instruction::ref_i31_shared(), i))
         Ok((U32(29), i)) => Ok((Instruction::i31_get_s(), i))
         Ok((U32(30), i)) => Ok((Instruction::i31_get_u(), i))
         Ok((U32(34), i)) =>
@@ -4000,6 +4001,7 @@ fn decode_instruction_with_depth(
           }
         Ok((@lib.U32(6), i)) => Ok((Instruction::waitqueue_notify(), i))
         Ok((@lib.U32(7), i)) => Ok((Instruction::waitqueue_new(), i))
+        Ok((@lib.U32(15), i)) => Ok((Instruction::publish(), i))
         Ok((@lib.U32(16), i)) =>
           match decode_atomic_memarg(bytes, i, false) {
             Ok((order, m, i)) =>

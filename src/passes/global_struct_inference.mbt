@@ -854,6 +854,7 @@ fn gsi_unnestable_stack_operand_count(
     | @lib.F64Trunc
     | @lib.F64Nearest
     | @lib.F64Sqrt => Some(1)
+    @lib.ExternConvertAny | @lib.AnyConvertExtern => Some(1)
     @lib.StructNew(type_idx) =>
       match env.resolve_struct_fields(type_idx) {
         Ok(fields) => Some(fields.length())

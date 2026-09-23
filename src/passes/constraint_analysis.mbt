@@ -297,6 +297,39 @@ fn ca_refine_value(
 }
 
 ///|
+fn ca_relation_range_from_range(
+  bits : Int,
+  relation : Int,
+  signed : Bool,
+  other : CaRange,
+) -> CaRange {
+  let sign = if signed { 1UL << (bits - 1) } else { 0UL }
+  let ranked = ca_add(other, sign)
+  let mut result = ca_range(bits, [])
+  for span in ranked.spans {
+    if (relation & 1) != 0 {
+      result = ca_union(
+        result,
+        ca_relation_range(bits, 1, signed, span.hi ^ sign),
+      )
+    }
+    if (relation & 2) != 0 {
+      result = ca_union(
+        result,
+        ca_add(ca_range(bits, [{ lo: span.lo, hi: span.hi, }]), sign),
+      )
+    }
+    if (relation & 4) != 0 {
+      result = ca_union(
+        result,
+        ca_relation_range(bits, 4, signed, span.lo ^ sign),
+      )
+    }
+  }
+  result
+}
+
+///|
 fn ca_assume_comparison(
   state : CaState,
   left : CaEval,
@@ -306,30 +339,22 @@ fn ca_assume_comparison(
   signed : Bool,
 ) -> Unit {
   match right.value.range {
-    Some(range) =>
-      match ca_single(range) {
-        Some(value) =>
-          ca_refine_value(
-            state,
-            left,
-            ca_relation_range(bits, relation, signed, value),
-          )
-        None => ()
-      }
-    None => ()
+    Some(range) if range.bits == bits =>
+      ca_refine_value(
+        state,
+        left,
+        ca_relation_range_from_range(bits, relation, signed, range),
+      )
+    _ => ()
   }
   match left.value.range {
-    Some(range) =>
-      match ca_single(range) {
-        Some(value) =>
-          ca_refine_value(
-            state,
-            right,
-            ca_relation_range(bits, ca_flip(relation), signed, value),
-          )
-        None => ()
-      }
-    None => ()
+    Some(range) if range.bits == bits =>
+      ca_refine_value(
+        state,
+        right,
+        ca_relation_range_from_range(bits, ca_flip(relation), signed, range),
+      )
+    _ => ()
   }
   let l = ca_live_binding(state, left)
   let r = ca_live_binding(state, right)
@@ -492,6 +517,7 @@ fn ca_node_type_value(func : @ir.HotFunc, node : Int) -> CaValue {
 ///|
 priv struct CaBlockEval {
   state : CaState
+  fast_math : Bool
   expression_blocks : Array[Int]
   loop_plan : CaLoopPlan
   values : Array[CaEval?]
@@ -548,6 +574,18 @@ fn ca_eval_node(
     return value
   }
   if @ir.hot_is_control_node(func, node) {
+    if data.op is @ir.Block && @ir.hot_node_result_arity(func, node) == 1 {
+      let body = @ir.hot_region_body_ref(func, node)
+      if @ir.hot_region_root_count(func, body) == 1 {
+        let source = @ir.hot_region_get(func, body, 0)
+        if @ir.hot_node_get(func, source).op is @ir.LocalGet {
+          let value = ca_eval_node(func, cfg, block, eval, source, depth + 1)
+          eval.touched.push(node)
+          eval.values[node] = Some(value)
+          return value
+        }
+      }
+    }
     if data.op is @ir.Loop {
       let slots = eval.loop_plan.loop_slots[node]
       let initial = Array::makei(slots.length(), fn(index) {
@@ -684,6 +722,16 @@ fn ca_eval_node(
     _ => ()
   }
   match instr {
+    Some(@lib.Instruction::F32Eq) | Some(@lib.Instruction::F64Eq) =>
+      if eval.fast_math && children.length() == 2 {
+        let left = @ir.hot_node_get(func, children[0])
+        let right = @ir.hot_node_get(func, children[1])
+        if left.op is @ir.LocalGet &&
+          right.op is @ir.LocalGet &&
+          left.imm0 == right.imm0 {
+          value = ca_evaluated(ca_boolean(true))
+        }
+      }
     Some(@lib.Instruction::RefEq) =>
       if args.length() == 2 {
         value = ca_evaluated(
@@ -769,6 +817,13 @@ fn ca_eval_node(
     _ => ()
   }
   let predicate = ca_comparison(instr) is Some(_) ||
+    (
+      eval.fast_math &&
+      (
+        instr is Some(@lib.Instruction::F32Eq) ||
+        instr is Some(@lib.Instruction::F64Eq)
+      )
+    ) ||
     data.op is @ir.RefIsNull ||
     instr is Some(@lib.Instruction::RefEq) ||
     instr is Some(@lib.Instruction::I32Eqz) ||
@@ -801,6 +856,7 @@ fn ca_evaluate_block(
   loop_plan : CaLoopPlan,
   values : Array[CaEval?],
   touched : Array[Int],
+  fast_math : Bool,
 ) -> CaBlockEval {
   // Only these entries belong to the preceding block evaluation. Clearing the
   // sparse frontier avoids allocating a whole-function table for every edge
@@ -810,6 +866,7 @@ fn ca_evaluate_block(
   }
   let eval : CaBlockEval = {
     state: input.copy(),
+    fast_math,
     expression_blocks,
     loop_plan,
     values,
@@ -978,7 +1035,15 @@ fn constraint_analysis_run(
     }
     visits[block] += 1
     let eval = ca_evaluate_block(
-      func, cfg, block, input, expression_blocks, loop_plan, values, touched,
+      func,
+      cfg,
+      block,
+      input,
+      expression_blocks,
+      loop_plan,
+      values,
+      touched,
+      ctx.fast_math,
     )
     if eval.exhausted {
       return HotPassResult::unchanged()
@@ -1033,7 +1098,7 @@ fn constraint_analysis_run(
         Some(previous) => ca_state_join(previous, output)
         None => output
       }
-      if visits[edge.block] > 1 {
+      if visits[edge.block] > 1 && edge.block <= block {
         match old {
           Some(previous) =>
             for index = 0; index < next.locals.length(); index = index + 1 {
@@ -1063,7 +1128,15 @@ fn constraint_analysis_run(
     match states[block] {
       Some(state) if state.reachable => {
         let eval = ca_evaluate_block(
-          func, cfg, block, state, expression_blocks, loop_plan, values, touched,
+          func,
+          cfg,
+          block,
+          state,
+          expression_blocks,
+          loop_plan,
+          values,
+          touched,
+          ctx.fast_math,
         )
         if eval.exhausted {
           return HotPassResult::unchanged()

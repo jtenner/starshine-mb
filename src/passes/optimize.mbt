@@ -128,10 +128,9 @@ fn pass_registry_boundary_only_names() -> Array[String] {
   [
     "abstract-type-refining", "alignment-lowering", "constant-field-propagation",
     "constant-field-null-test-folding", "signature-pruning", "signature-refining",
-    "global-type-optimization", "simplify-globals", "global-effects", "type-refining",
-    "type-generalizing", "type-finalizing", "type-un-finalizing", "unsubtyping",
-    "minimize-rec-groups", "type-merging", "monomorphize", "monomorphize-always",
-    "gufa", "gufa-optimizing", "gufa-cast-all", "i64-to-i32-lowering", "reorder-types",
+    "simplify-globals", "type-refining", "type-generalizing", "type-finalizing",
+    "type-un-finalizing", "unsubtyping", "minimize-rec-groups", "type-merging", "monomorphize",
+    "monomorphize-always", "gufa", "gufa-optimizing", "gufa-cast-all", "reorder-types",
     "reorder-globals-always", "reorder-functions", "reorder-functions-by-name", "remove-unused-types",
     "remove-unused",
   ]
@@ -299,6 +298,9 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       avoid_reinterprets_summary(),
     ),
     pass_registry_entry_module("untee", untee_summary()),
+    pass_registry_entry_module(
+      "make-shared-objects", "Make aggregate objects shared and lower function and extern references to shared handles.",
+    ),
     pass_registry_entry_module("duplicate-function-elimination", dfe_summary()),
     pass_registry_entry_module(
       "merge-similar-functions",
@@ -306,10 +308,31 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     ),
     pass_registry_entry_module("remove-unused-module-elements", rume_summary()),
     pass_registry_entry_module(
+      "remove-empty-function-exports", "Remove exports of defined functions whose bodies are empty, leaving the functions intact.",
+    ),
+    pass_registry_entry_module(
+      "intrinsic-lowering", "Lower Binaryen call.without.effects intrinsic calls.",
+    ),
+    pass_registry_entry_module(
+      "global-effects", "Analyze suspension and fold fresh resumes of non-suspending functions.",
+    ),
+    pass_registry_entry_module(
+      "global-type-optimization", "Preserve JS descriptor prototype layout while optimizing fields.",
+    ),
+    pass_registry_entry_module(
+      "i64-to-i32-lowering", "Lower saturating float-to-i64 conversions through guarded operations.",
+    ),
+    pass_registry_entry_module(
       "remove-unused-nonfunction-module-elements",
       rume_nonfunction_summary(),
     ),
     pass_registry_entry_module("memory-packing", memory_packing_summary()),
+    pass_registry_entry_module(
+      "dealign", "Set non-atomic scalar, SIMD, and array memory access alignment to one.",
+    ),
+    pass_registry_entry_module(
+      "tail-call", "Convert calls on verified function-exit paths to return calls.",
+    ),
     pass_registry_entry_module("once-reduction", once_reduction_summary()),
     pass_registry_entry_module("global-refining", global_refining_summary()),
     pass_registry_entry_module(
@@ -1065,7 +1088,7 @@ fn hot_pipeline_fast_preset_passes(
   let shrink_level = options.shrink_level
   let passes = ["duplicate-function-elimination"]
   if optimize_level >= 3 || shrink_level >= 1 {
-    passes.append(["vacuum", "reorder-locals"])
+    passes.append(["constraint-analysis", "vacuum", "reorder-locals"])
   }
   passes.push("strip-debug")
   passes

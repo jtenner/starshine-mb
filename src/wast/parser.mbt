@@ -472,12 +472,18 @@ pub enum Instruction {
   StringEncodeWtf8Array
   StructNew(Index)
   StructNewDefault(Index)
+  ArrayNew(Index)
+  ArrayNewDefault(Index)
+  ArrayNewFixed(Index, UInt)
+  ArrayNewData(Index, Index)
+  ArrayNewElem(Index, Index)
   StructGet(Index, UInt)
   StructGetS(Index, UInt)
   StructGetU(Index, UInt)
   WaitqueueNew
   WaitqueueNotify
   StructWait(Index, UInt)
+  Publish
   StructAtomicSet(AtomicOrder, Index, UInt)
   ArrayAtomicSet(AtomicOrder, Index)
   StructAtomicGet(AtomicOrder, Index, UInt)
@@ -1096,6 +1102,7 @@ fn heap_type_ref_from_reserved_keyword(text : String) -> HeapTypeRef? {
     "i31" => Some(HeapTypeRef::I31)
     "none" => Some(HeapTypeRef::None_)
     "nofunc" => Some(HeapTypeRef::NoFunc)
+    "func" => Some(HeapTypeRef::Func)
     "noextern" => Some(HeapTypeRef::NoExtern)
     "noexn" => Some(HeapTypeRef::NoExn)
     "waitqueue" => Some(HeapTypeRef::Waitqueue)
@@ -1160,6 +1167,10 @@ fn WastParser::parse_heap_type_ref(
   self : WastParser,
 ) -> HeapTypeRef raise ParserError {
   match self.current.token_type {
+    Func => {
+      let _ = self.advance()
+      HeapTypeRef::Func
+    }
     Var | Nat => {
       let idx = self.parse_index()
       heap_type_ref_from_index(idx)
@@ -1167,7 +1178,7 @@ fn WastParser::parse_heap_type_ref(
     Reserved => {
       let token = self.advance()
       let text = self.get_text(token)
-      if text == "func" || text == "extern" || text == "exn" {
+      if text == "extern" || text == "exn" {
         raise UnexpectedToken(token, "expected heap type")
       }
       match heap_type_ref_from_reserved_keyword(text) {
@@ -2032,12 +2043,30 @@ fn WastParser::parse_opcode_instruction(
       StructGetU(type_idx, field_idx)
     }
     WaitqueueNew => WaitqueueNew
+    ArrayNew => ArrayNew(self.parse_index())
+    ArrayNewDefault => ArrayNewDefault(self.parse_index())
+    ArrayNewFixed => {
+      let type_idx = self.parse_index()
+      let length = self.parse_nat("expected array.new_fixed length")
+      ArrayNewFixed(type_idx, length)
+    }
+    ArrayNewData => {
+      let type_idx = self.parse_index()
+      let data_idx = self.parse_index()
+      ArrayNewData(type_idx, data_idx)
+    }
+    ArrayNewElem => {
+      let type_idx = self.parse_index()
+      let elem_idx = self.parse_index()
+      ArrayNewElem(type_idx, elem_idx)
+    }
     WaitqueueNotify => WaitqueueNotify
     StructWait => {
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected field index")
       StructWait(type_idx, field_idx)
     }
+    Publish => Publish
     StructAtomicSet => {
       let order = self.try_parse_atomic_order().unwrap_or(SeqCst)
       let type_idx = self.parse_index()
@@ -2345,6 +2374,7 @@ fn WastParser::parse_opcode_instruction(
     | I64Extend32S
     | RefAsNonNull
     | RefI31
+    | RefI31Shared
     | I31GetS
     | I31GetU => Unary(op)
 

@@ -194,6 +194,7 @@ pub enum HeapTypeRef {
   Array
   None_
   NoFunc
+  Func
   NoExtern
   NoExn
   Waitqueue
@@ -317,12 +318,18 @@ pub enum Instruction {
   StringEncodeWtf8Array
   StructNew(Index)
   StructNewDefault(Index)
+  ArrayNew(Index)
+  ArrayNewDefault(Index)
+  ArrayNewFixed(Index, UInt)
+  ArrayNewData(Index, Index)
+  ArrayNewElem(Index, Index)
   StructGet(Index, UInt)
   StructGetS(Index, UInt)
   StructGetU(Index, UInt)
   WaitqueueNew
   WaitqueueNotify
   StructWait(Index, UInt)
+  Publish
   StructAtomicSet(AtomicOrder, Index, UInt)
   ArrayAtomicSet(AtomicOrder, Index)
   StructAtomicGet(AtomicOrder, Index, UInt)
@@ -632,16 +639,23 @@ pub enum Opcode {
   AnyConvertExtern
   ExternConvertAny
   RefI31
+  RefI31Shared
   I31GetS
   I31GetU
   StructNew
   StructNewDefault
+  ArrayNew
+  ArrayNewDefault
+  ArrayNewFixed
+  ArrayNewData
+  ArrayNewElem
   StructGet
   StructGetS
   StructGetU
   WaitqueueNew
   WaitqueueNotify
   StructWait
+  Publish
   StructAtomicSet
   ArrayAtomicSet
   StructAtomicGet

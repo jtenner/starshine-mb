@@ -306,6 +306,7 @@ pub struct OptimizeOptions {
   monomorphize_min_benefit : Int
   closed_world : Bool
   zero_filled_memory : Bool
+  fast_math : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
   traps_never_happen : Bool
@@ -328,6 +329,7 @@ pub fn OptimizeOptions::new(
   monomorphize_min_benefit? : Int = 5,
   closed_world? : Bool = false,
   zero_filled_memory? : Bool = false,
+  fast_math? : Bool = false,
   low_memory_unused? : Bool = false,
   low_memory_bound? : UInt64 = 1024UL,
   traps_never_happen? : Bool = false,
@@ -343,6 +345,7 @@ pub fn OptimizeOptions::new(
     monomorphize_min_benefit,
     closed_world,
     zero_filled_memory,
+    fast_math,
     low_memory_unused,
     low_memory_bound,
     traps_never_happen,
@@ -2010,6 +2013,7 @@ fn make_optimize_options(
   inlining_partial_inlining_ifs : Int,
   closed_world : Bool,
   zero_filled_memory : Bool,
+  fast_math : Bool,
   low_memory_unused : Bool,
   low_memory_bound : UInt64,
   debug_serial_passes : Bool,
@@ -2029,6 +2033,7 @@ fn make_optimize_options(
     monomorphize_min_benefit~,
     closed_world~,
     zero_filled_memory~,
+    fast_math~,
     low_memory_unused~,
     low_memory_bound~,
     traps_never_happen~,
@@ -2059,6 +2064,7 @@ fn optimize_options_to_hot_pipeline_options(
     traps_never_happen=options.traps_never_happen,
     ignore_implicit_traps=options.ignore_implicit_traps,
     zero_filled_memory=options.zero_filled_memory,
+    fast_math=options.fast_math,
     compiler_fact_policy=options.compiler_fact_policy,
     optimize_level=options.optimize_level,
     shrink_level=options.shrink_level,
@@ -3823,6 +3829,9 @@ fn cmd_build_help_text() -> String {
     out, "--zero-filled-memory", "Treat imported memory as initially zero-filled for eligible memory-packing rewrites.",
   )
   append_help_line(
+    out, "--fast-math", "Allow floating-point rewrites that assume NaNs are irrelevant.",
+  )
+  append_help_line(
     out, "--no-closed-world", "Disable closed-world-only optimizations.",
   )
   append_help_line(
@@ -5082,6 +5091,7 @@ fn optimize_options_with_levels(
     monomorphize_min_benefit=options.monomorphize_min_benefit,
     closed_world=options.closed_world,
     zero_filled_memory=options.zero_filled_memory,
+    fast_math=options.fast_math,
     low_memory_unused=options.low_memory_unused,
     low_memory_bound=options.low_memory_bound,
     traps_never_happen=options.traps_never_happen,
@@ -5493,9 +5503,12 @@ pub fn run_cmd_with_adapter(
   )
   let pass_flags : Array[String] = []
   let mut zero_filled_memory = false
+  let mut fast_math = false
   for flag in requested_pass_flags {
     if flag == "zero-filled-memory" {
       zero_filled_memory = true
+    } else if flag == "fast-math" {
+      fast_math = true
     } else {
       pass_flags.push(flag)
     }
@@ -5577,6 +5590,7 @@ pub fn run_cmd_with_adapter(
     inlining_partial_inlining_ifs,
     closed_world,
     zero_filled_memory,
+    fast_math,
     low_memory_unused,
     low_memory_bound,
     merged.debug_serial_passes,

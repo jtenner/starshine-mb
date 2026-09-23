@@ -977,6 +977,7 @@ pub impl Show for Instruction with fn output(self, logger) {
       field.output(logger)
       logger.write_char(')')
     }
+    Publish => logger.write_string("(publish)")
     ContNew(t) => {
       logger.write_string("(cont.new ")
       Show::output(t, logger)
@@ -1882,6 +1883,7 @@ pub impl Show for Instruction with fn output(self, logger) {
     AnyConvertExtern => logger.write_string("any.convert_extern")
     ExternConvertAny => logger.write_string("extern.convert_any")
     RefI31 => logger.write_string("ref.i31")
+    RefI31Shared => logger.write_string("ref.i31_shared")
     I31GetS => logger.write_string("i31.get_s")
     I31GetU => logger.write_string("i31.get_u")
     I32TruncSatF32S => logger.write_string("i32.trunc_sat_f32s")

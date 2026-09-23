@@ -173,6 +173,8 @@ fn proposal_instruction(
     | WaitqueueNew
     | WaitqueueNotify
     | StructWait(_, _) => proposal_note(out, SharedEverything)
+    Publish => proposal_note(out, SharedEverything)
+    RefI31Shared => proposal_note(out, SharedEverything)
     ArrayLoad(_, _, _) | ArrayStore(_, _, _) => proposal_note(out, Multibyte)
     I8x16RelaxedSwizzle
     | I32x4RelaxedTruncF32x4S

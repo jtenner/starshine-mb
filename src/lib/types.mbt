@@ -642,6 +642,7 @@ pub enum Instruction {
   WaitqueueNew
   WaitqueueNotify
   StructWait(TypeIdx, U32)
+  Publish
   ContNew(TypeIdx)
   ContBind(TypeIdx, TypeIdx)
   Suspend(TagIdx)
@@ -907,6 +908,7 @@ pub enum Instruction {
   AnyConvertExtern
   ExternConvertAny
   RefI31
+  RefI31Shared
   I31GetS
   I31GetU
   I32TruncSatF32S
@@ -4716,6 +4718,11 @@ pub fn Instruction::extern_convert_any() -> Instruction {
 ///|
 pub fn Instruction::ref_i31() -> Instruction {
   RefI31
+}
+
+///|
+pub fn Instruction::ref_i31_shared() -> Instruction {
+  RefI31Shared
 }
 
 ///|
@@ -8995,6 +9002,11 @@ pub fn Instruction::waitqueue_notify() -> Instruction {
 ///|
 pub fn Instruction::struct_wait(type_idx : TypeIdx, field : U32) -> Instruction {
   StructWait(type_idx, field)
+}
+
+///|
+pub fn Instruction::publish() -> Instruction {
+  Publish
 }
 
 ///|

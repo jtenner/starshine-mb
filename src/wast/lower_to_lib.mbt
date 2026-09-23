@@ -67,6 +67,7 @@ fn wt_resolve_heap_type_ref(
     I31 => Ok((@lib.HeapType::abs(@lib.AbsHeapType::i31()), false))
     None_ => Ok((@lib.HeapType::abs(@lib.AbsHeapType::none()), false))
     NoFunc => Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_func()), false))
+    Func => Ok((@lib.HeapType::abs(@lib.AbsHeapType::func()), false))
     NoExtern => Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_extern()), false))
     NoExn => Ok((@lib.HeapType::abs(@lib.AbsHeapType::no_exn()), false))
     Waitqueue => Ok((@lib.HeapType::abs(@lib.AbsHeapType::waitqueue()), false))
@@ -1182,6 +1183,7 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
     AnyConvertExtern => Ok(@lib.Instruction::any_convert_extern())
     ExternConvertAny => Ok(@lib.Instruction::extern_convert_any())
     RefI31 => Ok(@lib.Instruction::ref_i31())
+    RefI31Shared => Ok(@lib.Instruction::ref_i31_shared())
     I31GetS => Ok(@lib.Instruction::i31_get_s())
     I31GetU => Ok(@lib.Instruction::i31_get_u())
     V128Not => Ok(@lib.Instruction::v128_not())
@@ -2377,7 +2379,66 @@ fn wt_instr_to_lib(
       }
     }
     WaitqueueNew => Ok(@lib.Instruction::waitqueue_new())
+    ArrayNew(idx)
+    | ArrayNewDefault(idx)
+    | ArrayNewFixed(idx, _)
+    | ArrayNewData(idx, _)
+    | ArrayNewElem(idx, _) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(value) => value
+        Err(err) => return Err(err)
+      }
+      let type_idx = @lib.TypeIdx::new(ti)
+      match instr {
+        ArrayNew(_) => Ok(@lib.Instruction::array_new(type_idx))
+        ArrayNewDefault(_) => Ok(@lib.Instruction::array_new_default(type_idx))
+        ArrayNewFixed(_, length) =>
+          Ok(@lib.Instruction::array_new_fixed(type_idx, @lib.U32(length)))
+        ArrayNewData(_, data_idx) =>
+          match
+            wt_resolve_named_or_num_index(
+              data_idx,
+              ctx.data_ids,
+              ctx.next_data_idx,
+              "data",
+            ) {
+            Ok(value) =>
+              Ok(
+                @lib.Instruction::array_new_data(
+                  type_idx,
+                  @lib.DataIdx::new(value),
+                ),
+              )
+            Err(err) => Err(err)
+          }
+        ArrayNewElem(_, elem_idx) =>
+          match
+            wt_resolve_named_or_num_index(
+              elem_idx,
+              ctx.elem_ids,
+              ctx.next_elem_idx,
+              "elem",
+            ) {
+            Ok(value) =>
+              Ok(
+                @lib.Instruction::array_new_elem(
+                  type_idx,
+                  @lib.ElemIdx::new(value),
+                ),
+              )
+            Err(err) => Err(err)
+          }
+        _ => Err("internal error: unexpected array allocation instruction")
+      }
+    }
     WaitqueueNotify => Ok(@lib.Instruction::waitqueue_notify())
+    Publish => Ok(@lib.Instruction::publish())
     StructWait(idx, field_idx) =>
       match
         wt_resolve_named_or_num_index(

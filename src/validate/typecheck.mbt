@@ -1039,7 +1039,7 @@ fn require_return_results(
   match st.env.return_type {
     None => Err("return_call used with no function return type in context")
     Some(rt) =>
-      if equals(results, rt) {
+      if Match::matches(results, rt, st.env) {
         Ok(())
       } else {
         Err("tail call result mismatch")
@@ -3212,12 +3212,37 @@ fn typecheck_ref_i31(st : TcState) -> TcResult {
 }
 
 ///|
-fn typecheck_i31_get(st : TcState) -> TcResult {
-  let st1 = match st.pop_expect(ValType::i31ref_nullable()) {
+fn typecheck_ref_i31_shared(st : TcState) -> TcResult {
+  let st1 = match st.pop_expect(ValType::i32()) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  Ok(st1.push1(ValType::i32()))
+  Ok(
+    st1.push1(
+      ValType::ref_type(
+        RefType::new(false, HeapType::shared_abs(AbsHeapType::i31())),
+      ),
+    ),
+  )
+}
+
+///|
+fn typecheck_i31_get(st : TcState) -> TcResult {
+  let (st1, actual) = match st.pop1() {
+    Err(e) => return Err(e)
+    Ok(pair) => pair
+  }
+  match actual {
+    @lib.RefTypeValType(ref_type) =>
+      match ref_type.get_heap_type() {
+        @lib.AbsHeapTypeHeapType(@lib.I31AbsHeapType)
+        | @lib.SharedAbsHeapTypeHeapType(@lib.I31AbsHeapType) =>
+          Ok(st1.push1(ValType::i32()))
+        _ => Err("i31.get requires an i31 reference")
+      }
+    @lib.BotValType => Ok(st1.push1(ValType::i32()))
+    _ => Err("i31.get requires an i31 reference")
+  }
 }
 
 ///|
@@ -4582,6 +4607,14 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
       )
     WaitqueueNotify => typecheck_waitqueue_notify(st)
     StructWait(type_idx, field) => typecheck_struct_wait(st, type_idx, field)
+    Publish =>
+      match st.pop1() {
+        Ok((next, RefTypeValType(ref_type))) =>
+          Ok(next.push1(ValType::ref_type(ref_type)))
+        Ok((next, BotValType)) => Ok(next.push1(ValType::bottom()))
+        Ok(_) => Err("publish expects a reference")
+        Err(err) => Err(err)
+      }
     ContNew(type_idx) => typecheck_cont_new(st, type_idx)
     ContBind(source_type, target_type) =>
       typecheck_cont_bind(st, source_type, target_type)
@@ -4656,6 +4689,7 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     AnyConvertExtern => typecheck_any_convert_extern(st)
     ExternConvertAny => typecheck_extern_convert_any(st)
     RefI31 => typecheck_ref_i31(st)
+    RefI31Shared => typecheck_ref_i31_shared(st)
     I31GetS => typecheck_i31_get(st)
     I31GetU => typecheck_i31_get(st)
     StructNew(x) => typecheck_struct_new(st, x)

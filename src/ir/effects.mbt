@@ -270,7 +270,8 @@ fn effects_mask_for_heap_exact(instr : Instruction?) -> EffectMask {
     Some(Instruction::RefEq)
     | Some(Instruction::AnyConvertExtern)
     | Some(Instruction::ExternConvertAny)
-    | Some(Instruction::RefI31) => 0U
+    | Some(Instruction::RefI31)
+    | Some(Instruction::RefI31Shared) => 0U
     _ => EFFECT_MASK_TRAP
   }
 }

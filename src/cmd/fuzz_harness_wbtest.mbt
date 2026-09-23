@@ -1425,9 +1425,7 @@ test "run_cmd_fuzz_harness reports explicit hot pass names on optimize failure" 
     run_cmd_fuzz_harness(
       1,
       seed=0x5eedUL,
-      optimize_passes=[
-        "vacuum", "global-type-optimization", "remove-unused-brs",
-      ],
+      optimize_passes=["vacuum", "gufa", "remove-unused-brs"],
       on_failure=Some(fn(report) {
         reports.push(report)
         Ok(())
@@ -1436,16 +1434,16 @@ test "run_cmd_fuzz_harness reports explicit hot pass names on optimize failure" 
     Ok(stats) =>
       fail("expected optimize failure for boundary-only pass, got \{stats}")
     Err(msg) => {
-      assert_true(msg.contains("global-type-optimization"))
+      assert_true(msg.contains("gufa"))
       assert_true(msg.contains("boundary-only"))
     }
   }
   @debug.assert_eq(reports.length(), 1)
   @debug.assert_eq(reports[0].stage, "optimize")
   @debug.assert_eq(reports[0].optimize_passes, [
-    "vacuum", "global-type-optimization", "remove-unused-brs",
+    "vacuum", "gufa", "remove-unused-brs",
   ])
-  @debug.assert_eq(reports[0].minimized_passes, ["global-type-optimization"])
+  @debug.assert_eq(reports[0].minimized_passes, ["gufa"])
 }
 
 ///|
