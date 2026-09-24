@@ -1,11 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-23
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/GlobalTypeOptimization.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_132/test/lit/passes/gto-removals.wast
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/global_type_optimization.mbt
   - ../tracker.md
   - ../index.md
   - ../global-refining/binaryen-strategy.md
@@ -18,6 +19,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../tracker.md
   - ../index.md
   - ../global-refining/index.md
@@ -30,7 +32,7 @@ related:
 ## Role
 
 - `global-type-optimization` is an upstream Binaryen **module pass**.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt); follow the exact local status in [`./starshine-strategy.md`](./starshine-strategy.md).
+- Starshine now has a **partial closed-world implementation** in [`global_type_optimization.mbt`](../../../../../src/passes/global_type_optimization.mbt). It covers the Binaryen 133 descriptor placeholder cases and an isolated unread private struct. The older boundary-only descriptions in this dossier predate the v133 corpus; [current fuzzing status](./fuzzing.md) records the open parity gap.
 - Upstream Binaryen `pass.cpp` registers the short CLI name:
   - `gto`
 - The local tracker and registry use the fuller descriptive name:

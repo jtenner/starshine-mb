@@ -9627,3 +9627,28 @@ test "direct DFE preserves address-taken internal function identities" {
   )
   assert_true(@validate.validate_module(optimized) is Ok(_))
 }
+
+///|
+test "Binaryen 133 command GTO removes an unread private struct field" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $t (struct (field (mut i32)))) (func (export \"run\") (result i32) (drop (struct.new $t (i32.const 1))) (i32.const 7)))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["global-type-optimization"],
+    OptimizeOptions::new(closed_world=true),
+  ).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  let @lib.TypeSec(types) = output.type_sec.unwrap()
+  let fields = match types[0] {
+    @lib.SingleRecType(subtype) =>
+      match subtype.get_comptype() {
+        @lib.StructCompType(fields) => fields
+        _ => fail("expected a struct type")
+      }
+    _ => fail("expected a single struct type")
+  }
+  assert_eq(fields.length(), 0)
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_true(body.any(fn(instr) { instr is @lib.StructNewDefault(_) }))
+}

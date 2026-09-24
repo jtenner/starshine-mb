@@ -1,3 +1,30 @@
+### 2026-09-23 — Binaryen 133 full-signoff attempt and private GTO fields
+
+- A clean worktree merged remote `origin/master` at `2d66d47a2` with the local
+  v133 corpus. The final full CI gate passed **12,304/12,304** Moon tests,
+  5,000 valid-validator cases, 86,820 binary roundtrips, 4,096 command-harness
+  cases, and the other CI fuzz suites. README/API sync passed. The official
+  v132 and v133 archives were checksum verified, preserving v132 as the
+  ordinary comparison target.
+- Official v133 GTO removes an unread field from a private struct and retains
+  effects of its constructor operand. Two adjacent tests were red on the
+  prior implementation, then green after a conservative rewrite; a command
+  dispatcher test covers the same active path. The rewrite is restricted to
+  one isolated struct type, removes pure literal operands, and validates the
+  candidate module before return. A named-field boundary test confirms that
+  stale field-name metadata makes the candidate roll back. The final native
+  CLI preserved an effectful constructor's observable global write: Node
+  returned `9` before and after the pass.
+- Full v133 signoff remains open: fresh 10,000-case GTO random-all lanes
+  against verified v132 and v133 each have 1,201 output mismatches and 864
+  canonical size losses. The rewrite closed 52 previous mismatch indices and
+  introduced none. A separate 10,000-case GC-subtype lane against v132 has
+  10,000 mismatches and 6,250 canonical size losses, with saved examples of
+  missing hierarchy-aware field removal. Shared objects, constraint analysis,
+  and optimize instructions also have large unclassified parity families. See the
+  [v133 investigation](binaryen/version-133-upgrade.md#post-commit-fuzz-investigation)
+  and [GTO status](binaryen/passes/global-type-optimization/fuzzing.md).
+
 ### 2026-09-23 — Binaryen 133 post-commit optimizer fuzz
 
 - The v133 focused corpus was green and committed as `00ba1836a` before

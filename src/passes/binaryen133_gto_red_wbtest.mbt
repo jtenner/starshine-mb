@@ -13,6 +13,75 @@ fn binaryen133_run_gto(source : String) -> @lib.Module raise {
 }
 
 ///|
+test "Binaryen 133 GTO removes an unread private struct field" {
+  let output = binaryen133_run_gto(
+    "(module (type $t (struct (field (mut i32)))) (func (export \"run\") (result i32) (drop (struct.new $t (i32.const 1))) (i32.const 7)))",
+  )
+  let mut field_count = -1
+  for subtype in cl_module_subtypes(output) {
+    match subtype.get_comptype() {
+      @lib.StructCompType(fields) => field_count = fields.length()
+      _ => ()
+    }
+  }
+  assert_eq(field_count, 0)
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_true(body.any(fn(instr) { instr is @lib.StructNewDefault(_) }))
+  assert_true(body[0] is @lib.StructNewDefault(_))
+}
+
+///|
+test "Binaryen 133 GTO keeps effects of an unread constructor field" {
+  let output = binaryen133_run_gto(
+    "(module (type $t (struct (field (mut i32)))) (global $g (mut i32) (i32.const 0)) (func $effect (result i32) (global.set $g (i32.const 9)) (i32.const 1)) (func (export \"run\") (result i32) (drop (struct.new $t (call $effect))) (global.get $g)))",
+  )
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+  assert_true(body.any(fn(instr) { instr is @lib.StructNewDefault(_) }))
+  assert_eq(
+    ca_test_opcode_count(output, @lib.Instruction::call(@lib.FuncIdx::new(0U))),
+    1,
+  )
+}
+
+///|
+test "Binaryen 133 GTO intentionally keeps named fields until name map repair" {
+  let input = pass_test_module_from_wat(
+    "(module (type $t (struct (field (mut i32)))) (func (export \"run\") (result i32) (drop (struct.new $t (i32.const 1))) (i32.const 7)))",
+  ).with_name_sec(
+    @lib.NameSec::new(
+      field_names=Some(
+        @lib.IndirectNameMap::new([
+          @lib.IndirectNameAssoc::new(
+            0U,
+            @lib.NameMap::new([
+              @lib.NameAssoc::new(0U, @lib.Name::from_string("value")),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  )
+  assert_true(input.name_sec.unwrap().field_names is Some(_))
+  let output = match
+    run_hot_pipeline(input, HotPipelineOptions::new(closed_world=true), [
+      "global-type-optimization",
+    ]) {
+    Ok(output) => output
+    Err(err) => fail("named-field GTO boundary failed: \{err}")
+  }
+  let @lib.TypeSec(types) = output.type_sec.unwrap()
+  let fields = match types[0] {
+    @lib.SingleRecType(subtype) =>
+      match subtype.get_comptype() {
+        @lib.StructCompType(fields) => fields
+        _ => fail("expected a struct type")
+      }
+    _ => fail("expected a single struct type")
+  }
+  assert_eq(fields.length(), 1)
+}
+
+///|
 test "Binaryen 133 GTO keeps a non-prototype descriptor field at index zero" {
   let output = binaryen133_run_gto(
     "(module (rec (type $s (sub (descriptor $d) (struct))) (type $d (sub (describes $s) (struct (field (ref null noextern)) (field externref))))) (import \"env\" \"ext\" (global $ext externref)) (func (export \"run\") (result externref) (extern.convert_any (struct.new_default_desc $s (struct.new $d (ref.null noextern) (global.get $ext))))) (func $use (param (ref $d)) (result externref) (struct.get $d 1 (local.get 0))))",
