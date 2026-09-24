@@ -1,7 +1,7 @@
 ---
 kind: workflow
-status: supported
-last_reviewed: 2026-08-02
+status: working
+last_reviewed: 2026-09-23
 sources:
   - ./index.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
@@ -10,16 +10,44 @@ sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../scripts/test/pass-fuzz-normalization-fixtures.ts
   - ../../../../../src/validate/gen_valid.mbt
+  - https://github.com/WebAssembly/binaryen/issues/8325
 related:
   - ./index.md
   - ./starshine-strategy.md
   - ./implementation-structure-and-tests.md
   - ../../../tooling/pass-fuzz-compare.md
+  - ../../../fuzzing/engine-profile-deep-dive.md
 ---
 
 # `flatten` Fuzzing Status
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 23 Binaryen-132 `try_table` oracle failure
+
+The four-profile exact-cycle matrix confirms that result-typed `try_table`
+remains unusable as a Binaryen Flatten oracle in the pinned v132 executable.
+Four valid `engine-proposal-matrix` inputs select
+`engine-state-exceptions` (case 1), `engine-state-exception-unwind` (cases 5
+and 6), and `campaign-eh-control` (case 19). Each aborts
+`wasm-opt --all-features --flatten` with `unexpected expr type` at
+`Flatten.cpp:231`. Starshine Flatten succeeds on all four and its outputs pass
+independent validation.
+
+The reduced 83-byte module contains one i32 tag, a result-i32 block targeted by
+`catch`, a `try_table` that throws an i32 payload, an unreachable fallthrough,
+and a final drop. `wasm-tools validate --features all` accepts it while the
+pinned Binaryen v132 command exits 134. This is an external oracle failure, not
+a Starshine mismatch. It matches the family already reported in upstream
+[Binaryen issue #8325](https://github.com/WebAssembly/binaryen/issues/8325),
+which was opened against older releases; the new result shows it still present
+in this v132 build.
+
+The exact WAT, tool hashes, four case identities, and replay command are in the
+[engine-profile deep-dive incident record](../../../fuzzing/engine-profile-deep-dive.md#epd-bin-001-binaryen-flatten-abort).
+The broader matrix still reports 142 strict Flatten differences among 151
+comparable cases. Those differences are not classified because the broad run
+retained no mismatch artifacts.
 
 ## September runtime renewal remains open
 

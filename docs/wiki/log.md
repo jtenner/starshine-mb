@@ -69,6 +69,42 @@
   Remaining source-backed variants and prerequisite feature gaps stay open in
   the catalog. The normal comparison target remains verified Binaryen v132.
 
+### 2026-09-23 — Engine-profile optimizer deep dive and incident ledger
+
+- Ran one exact weighted cycle from each of `engine-compile-shapes`,
+  `engine-proposal-matrix`, `engine-state-core`, and `engine-tiering-stress`
+  through all 59 direct comparison passes with verified Binaryen 132. The 236
+  cells requested 9,145 cases and compared 9,141: 7,157 strict normalized
+  matches, 1,984 unclassified structural differences, and four Binaryen
+  Flatten assertions. All 9,145 determinism and codec checks were stable, with
+  zero Starshine validation or generator failures.
+- Stateful Node comparison found 9,086 original-vs-Starshine semantic matches,
+  zero observed semantic mismatches, and 59 expected original-runtime blocks
+  from the intentional `ssa-loop` leaf. The 6,255 `binaryen-discrepancy`
+  patterns include a dominant inspected Compact Import Section/Node capability
+  boundary; they are not all individually classified.
+- Reduced the external Binaryen failure to an independently valid 83-byte
+  result-typed `try_table` module. Pinned v132 still aborts in
+  `Flatten.cpp:231`, matching upstream issue #8325; Starshine succeeds.
+- Opened `[FZG036]` for the actual Starshine findings: recurring
+  OptimizeInstructions one-pass idempotence failures on three compile-shape
+  leaves and targeted classification of the 1,984 structural differences.
+  The completed scaled lane requested 2,480 cases and found 48 property
+  failures, exactly 16 per affected leaf, plus 657 unclassified strict
+  differences. All 2,480 determinism and codec checks were stable; semantic
+  idempotence and convergence passed 2,464 and were blocked only by 16
+  intentional infinite loops. One additional direct semantic observation hit
+  the one-second Starshine worker limit on a byte-identical 56-byte output and
+  remains classified as tool-resource uncertainty pending isolated replay.
+  The [central incident record](fuzzing/engine-profile-deep-dive.md) also owns
+  the full toolchain, runtime boundary, intentional timeout, `/tmp` exhaustion,
+  fresh-output-directory contract, local artifact map, and replay guidance.
+
+Subsequent commits `7fe999fcc`, `204114e05`, and `373c4fbc7` added red-first
+pass/dispatcher coverage for the three OptimizeInstructions profile cases and
+repaired their one-invocation fixed points. The scaled aggregate still needs a
+fresh run; the 1,984 plus 657 strict differences remain unclassified.
+
 ### 2026-09-23 — Engine-oriented GenValid profile matrices
 
 - Added `engine-compile-shapes`, `engine-proposal-matrix`, `engine-state-core`, and `engine-tiering-stress` as seed-rotated exact weighted aggregates. Their cycles contain 48 structural compiler leaves, 24 proposal/multi-proposal slots, 64 successful portable engine-state slots, and 19 tiering slots across eight focused leaves.

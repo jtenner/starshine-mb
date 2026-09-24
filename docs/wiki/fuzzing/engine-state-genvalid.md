@@ -17,6 +17,7 @@ sources:
   - ../../../scripts/lib/optimizer-runtime-executor.ts
   - ../../../scripts/lib/optimizer-runtime-executor.test.ts
 related:
+  - ./engine-profile-deep-dive.md
   - ./generator-coverage-ledger.md
   - ./semantic-optimizer-campaigns.md
   - ../tooling/fuzz-runner.md
@@ -217,6 +218,32 @@ The current identity uses:
 Node is the reference executor in this repository. Wago/Railshot consumes the
 same FFI case and emits the same value and resource vocabulary without
 engine-specific object or pointer identities.
+
+## September 23 optimizer deep dive
+
+One exact cycle of each engine-oriented aggregate was compared against every
+one of the 59 direct passes exposed by the harness with verified Binaryen 132,
+independent validation, determinism, codec idempotence, and a separate stateful
+Node semantic lane. Across 9,145 requested cases, Starshine had zero validation,
+generator, determinism, codec, or observed semantic failures. Fifty-nine
+semantic checks were blocked by the intentionally nonterminating `ssa-loop`
+leaf, once per pass.
+
+The matrix is evidence that these profiles reach useful pass and tool
+boundaries, not parity signoff. It found 1,984 strict structural differences
+across all 236 pass/profile cells; their artifacts were suppressed in the broad
+run and the families remain unclassified. It also found four Binaryen Flatten
+assertions on valid exception inputs and a Node compact-import capability
+boundary. A scaled OptimizeInstructions property lane exposed a separate
+one-invocation fixed-point gap on `flatten-ifs`, `flatten-loops`, and
+`ssa-merge-explicit`. Across 16 exact cycles per profile, the scaled lane
+requested 2,480 cases and reproduced 48 structural-idempotence failures: each
+of the three leaves failed once per compile-shapes cycle, while semantic
+idempotence remained green and every failure converged at generation 3.
+
+The full counts, classifications, minimal Binaryen repro, operational hazards,
+local artifact map, and replay command are maintained in the
+[engine-profile optimizer deep dive](engine-profile-deep-dive.md).
 
 ## Commands
 

@@ -588,6 +588,39 @@
   256-case comparison was run under the no-fuzz constraint. See the
   [Vacuum dossier](docs/wiki/binaryen/passes/vacuum/fuzzing.md#september-23-binaryen-132-eh-structural-campaign).
 
+## v0.1.1 — engine-profile fuzz follow-up [FZG036]
+
+- **Goal / why:** resolve the actionable Starshine findings from the September
+  23 [engine-profile deep dive](docs/wiki/fuzzing/engine-profile-deep-dive.md)
+  without treating validation or sampled semantic agreement as parity proof.
+  The exact 59-pass/four-profile matrix leaves 1,984 unclassified structural
+  differences. The original scaled OptimizeInstructions property lane found
+  48 one-invocation fixed-point failures across three leaves; focused pass and
+  dispatcher tests and repairs landed in `7fe999fcc`, `204114e05`, and
+  `373c4fbc7`. The scaled aggregate has not been rerun. Its other 657 strict
+  differences are unclassified because the broad lane suppressed artifacts.
+- **Deliverables / tasks:** rerun the scaled OptimizeInstructions property lane
+  on the repaired build, then rerun targeted pass/profile cells with retained
+  mismatch artifacts. Group the 1,984 historical structural rows by
+  fingerprint, and either align each family or document a measured Starshine
+  size/performance/downstream win with semantic proof.
+- **Required APIs / invariants:** all outputs validate and preserve results,
+  traps, effects, imports/exports, and state. Semantic equality does not close
+  structural parity. Binaryen's `try_table` Flatten assertion, Node compact-
+  import rejection, and the intentional `ssa-loop` timeout remain separately
+  classified external/workload boundaries rather than Starshine failures.
+- **Dependencies / exit:** local evidence is under
+  `.tmp/engine-profile-deep-dive/`. Exit the OptimizeInstructions slice with
+  structural and semantic idempotence plus convergence on a renewed scaled
+  aggregate. Exit the parity slice only when every retained fingerprint is
+  fixed or has a source-,
+  runtime-, size-, and downstream-backed classification; finish with the
+  repository's required verified-v132 10,000-case lanes for changed passes.
+- **Suggested tests:** exact `flatten:if-results`, loop, and SSA merge IR/byte
+  fixtures; one-pass-versus-two-pass canonical equality; Node result/state
+  replay; independent validation; targeted compare-pass lanes with
+  `--max-mismatch-artifacts 20` and no automatic reduction.
+
 ## v0.1.1 — EH Vacuum parity on new GenValid control shapes [IR2-PARITY]
 
 - **Goal / why:** the September 22 `campaign-eh-control` / `vacuum` comparison

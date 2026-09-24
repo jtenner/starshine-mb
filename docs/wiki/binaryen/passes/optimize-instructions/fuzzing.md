@@ -1,3 +1,53 @@
+## 2026-09-23 engine-profile fixed-point reopening
+
+The four new engine-oriented aggregate profiles reopen one narrow
+OptimizeInstructions property and a broader output-parity inventory. A scaled
+seed-`0xdecafbad` lane ran 16 exact cycles per profile with verified Binaryen
+132, independent validation, stateful Node v2, determinism, codec idempotence,
+structural idempotence, semantic idempotence, and convergence capped at eight
+applications:
+
+| Profile | Requested | Compared | Strict mismatches | Property failures |
+| --- | ---: | ---: | ---: | ---: |
+| `engine-compile-shapes` | 768 | 720 | 80 | 48 |
+| `engine-proposal-matrix` | 384 | 384 | 96 | 0 |
+| `engine-state-core` | 1,024 | 1,024 | 273 | 0 |
+| `engine-tiering-stress` | 304 | 304 | 208 | 0 |
+| **Total** | **2,480** | **2,432** | **657** | **48** |
+
+All 48 failures are one-pass structural-idempotence failures, exactly 16 each
+from `flatten-ifs` / `flatten:if-results`, `flatten-loops` /
+`flatten:loop-entry-and-results`, and `ssa-merge-explicit` /
+`ssa:merge-explicit-writes`. In every retained failure, the first and second
+OptimizeInstructions results have different canonical hashes, all generated
+versions validate, and `M0`, `M1`, and `M2` are semantically equal. Convergence
+reaches a fixed point at generation 3 (`M3 == M2`) for all 48. This was a
+one-invocation completeness/scheduling defect, not observed wrong-code.
+
+The representative `flatten-ifs` case first changes a constant signed compare
+to unsigned form and folds its two arms to `21` and `-1`; only the second
+invocation selects `21` and drops the condition. Subsequent commits
+`7fe999fcc`, `204114e05`, and `373c4fbc7` added adjacent and active-dispatcher
+regressions for all three profiles and repaired their one-invocation fixed
+points. The scaled aggregate has not yet been rerun after the repair; `[FZG036]`
+tracks that renewal and the remaining structural parity inventory.
+
+The remaining 2,432 cases have 657 strict Starshine/Binaryen differences. The
+campaign suppressed mismatch artifacts, so those rows remain unclassified
+parity gaps. All 2,480 determinism and codec checks are stable; semantic
+idempotence and convergence pass 2,464 and are blocked for the 16 intentionally
+nonterminating `ssa-loop` inputs. Direct original-vs-Starshine comparison has
+2,415 semantic matches and 17 blocked cases: the same 16 loops plus one
+`ssa-fresh-set` Starshine observation worker that crossed the one-second limit
+under concurrent load. That 56-byte case is structurally identical to
+Binaryen, and every non-runtime property passes, so it remains tool-resource
+uncertainty pending an isolated higher-budget replay. There are zero generator,
+validation, command, or observed semantic-mismatch failures.
+
+Full tool hashes, exact-matrix context, incident classifications, and the
+artifact/replay map are in the
+[engine-profile optimizer deep dive](../../../fuzzing/engine-profile-deep-dive.md).
+
 ## 2026-09-23 saved SIMD result-if parity
 
 The saved seven-pass `campaign-simd-numeric` ledger contained six shape-10
