@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import {
+  canonicalizeWasm,
   classifyRuntimeExportInvocationMatrix,
   classifyRuntimeInvocationPair,
   deterministicExportArgumentVector,
@@ -2081,6 +2082,26 @@ describe("resume source and configuration identity", () => {
 
       expect(resumed.status).not.toBe(0);
       expect(resumed.stderr).toContain("--resume identity is missing or obsolete");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("Binaryen comparison projection", () => {
+  test("multivalue legalization reaches stable bytes before comparison", async () => {
+    // Reduced remove-unused-brs-multivalue-drop case. Binaryen's binary writer
+    // introduces locals that need another read/write to reach a stable form.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-projection-"));
+    try {
+      const input = path.join(root, "input.wasm");
+      const first = path.join(root, "first.wasm");
+      const second = path.join(root, "second.wasm");
+      fs.writeFileSync(input, Buffer.from("0061736d010000000109026000006000027f7e030201000a0d010b000201410b420d0b1a1a0b", "hex"));
+      const oracle = process.env.WASM_OPT_BIN ?? "wasm-opt";
+      await canonicalizeWasm(oracle, input, first, process.cwd(), []);
+      await canonicalizeWasm(oracle, first, second, process.cwd(), []);
+      expect(fs.readFileSync(first).equals(fs.readFileSync(second))).toBeTrue();
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

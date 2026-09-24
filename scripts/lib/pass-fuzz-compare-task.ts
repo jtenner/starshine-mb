@@ -1624,18 +1624,36 @@ function comparisonProjectionFlags(passFlags: string[]): string[] {
   ];
 }
 
-async function canonicalizeWasm(
+export async function canonicalizeWasm(
   wasmOptBin: string,
   inputPath: string,
   outputPath: string,
   repoRoot: string,
   passFlags: string[],
 ): Promise<void> {
-  await runOrThrowAsync(
-    wasmOptBin,
-    [inputPath, ...comparisonProjectionFlags(passFlags), "-o", outputPath],
-    { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot) },
-  );
+  // Binaryen's writer legalizes multivalue expressions using new locals.
+  // A single projection can therefore depend on how many encodings preceded
+  // it. Compare only after the read/write representation has stabilized.
+  const scratch = `${outputPath}.projection-input`;
+  let source = inputPath;
+  let previous = fs.readFileSync(source);
+  try {
+    for (let round = 0; round < 8; round += 1) {
+      await runOrThrowAsync(
+        wasmOptBin,
+        [source, ...comparisonProjectionFlags(passFlags), "-o", outputPath],
+        { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot) },
+      );
+      const next = fs.readFileSync(outputPath);
+      if (next.equals(previous)) return;
+      previous = next;
+      fs.copyFileSync(outputPath, scratch);
+      source = scratch;
+    }
+    throw new Error("Binaryen comparison projection did not stabilize after 8 encodings");
+  } finally {
+    fs.rmSync(scratch, { force: true });
+  }
 }
 
 function parenDelta(line: string): number {
@@ -3031,7 +3049,7 @@ function binaryenSuccessCacheIsComplete(cacheDir: string): boolean {
       canonicalSha256?: unknown;
       watSha256?: unknown;
     };
-    return done.ok === true && done.schema === 2 &&
+    return done.ok === true && done.schema === 3 &&
       done.rawSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.raw.wasm"))) &&
       done.canonicalSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.wasm"))) &&
       done.watSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.wat")));
@@ -3070,7 +3088,7 @@ function makeBinaryenCacheDir(
   return path.join(
     cacheDir,
     "binaryen",
-    identity.preserveDebug ? "schema-v2-debug-preserving" : "schema-v1",
+    identity.preserveDebug ? "schema-v3-stable-debug-preserving" : "schema-v3-stable",
     `wasm-opt-${toolHash}`,
     `passes-${identity.passFlagsHash.slice(0, 16)}`,
     `input-${inputHash}`,
@@ -3130,7 +3148,7 @@ async function runBinaryenOracleWithCache(
       fs.writeFileSync(path.join(stagingDir, "binaryen.wat"), wat);
       fs.writeFileSync(path.join(stagingDir, "done.json"), JSON.stringify({
         ok: true,
-        schema: 2,
+        schema: 3,
         rawSha256: sha256Hex(fs.readFileSync(binaryenRawPath)),
         canonicalSha256: sha256Hex(fs.readFileSync(binaryenPath)),
         watSha256: sha256Hex(wat),
@@ -3710,12 +3728,24 @@ function canonicalizeWasmSync(
   env: NodeJS.ProcessEnv,
   passFlags: string[],
 ): boolean {
-  return runSyncOk(
-    wasmOptBin,
-    [inputPath, ...comparisonProjectionFlags(passFlags), "-o", outputPath],
-    repoRoot,
-    env,
-  );
+  const scratch = `${outputPath}.projection-input`;
+  let source = inputPath;
+  let previous = fs.readFileSync(source);
+  try {
+    for (let round = 0; round < 8; round += 1) {
+      if (!runSyncOk(wasmOptBin,
+        [source, ...comparisonProjectionFlags(passFlags), "-o", outputPath],
+        repoRoot, env)) return false;
+      const next = fs.readFileSync(outputPath);
+      if (next.equals(previous)) return true;
+      previous = next;
+      fs.copyFileSync(outputPath, scratch);
+      source = scratch;
+    }
+    return false;
+  } finally {
+    fs.rmSync(scratch, { force: true });
+  }
 }
 
 function candidateStillHasPassFuzzMismatch(
