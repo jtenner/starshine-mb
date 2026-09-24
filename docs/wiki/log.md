@@ -24175,3 +24175,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — SSA-nomerge parameter-tee facts
 
 - The [SSA-nomerge implementation page](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md#september-24-2026-rewrite-plan-lookup-measurement) records native plan timing with 128 repeated parameter tees (`364.19 → 33.91 µs`) and 256 (`1.39 ms → 67.37 µs`). Planning and pass execution now share per-function branch/read facts instead of rescanning the live nodes for each tee. The fixture is validated and lifted before timing.
+
+### 2026-09-24 — TailCall label ancestry
+
+- [TailCall](../../src/passes/tail_call.mbt) now pushes and pops one shared label stack while visiting child blocks, loops, and if arms. The [native direct-pass benchmark](../../src/passes_perf_long/tail_call_ancestry_perf_test.mbt) uses call-free nested blocks: depth 256 improved `25.45 → 14.71 µs`, and depth 512 improved `50.64 → 28.82 µs`. A [white-box regression](../../src/passes/tail_call_ancestry_wbtest.mbt) checks ancestry restoration. The result measures allocation/traversal overhead on a synthetic pass-local fixture.

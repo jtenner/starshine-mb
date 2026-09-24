@@ -48,6 +48,23 @@ fn tail_call_transfer_after(
 }
 
 ///|
+fn tail_call_rewrite_with_label(
+  expr : @lib.Expr,
+  is_tail : Bool,
+  label_is_tail : Bool,
+  tail_labels : Array[Bool],
+  in_local_handler : Bool,
+  changed : Array[Bool],
+) -> @lib.Expr {
+  tail_labels.push(label_is_tail)
+  let rewritten = tail_call_rewrite_expr(
+    expr, is_tail, tail_labels, in_local_handler, changed,
+  )
+  ignore(tail_labels.pop())
+  rewritten
+}
+
+///|
 fn tail_call_rewrite_expr(
   expr : @lib.Expr,
   is_tail : Bool,
@@ -60,42 +77,36 @@ fn tail_call_rewrite_expr(
   for index, instr in instrs {
     let child_is_tail = is_tail && index + 1 == instrs.length()
     let next = match instr {
-      @lib.Block(block_type, body) => {
-        let labels = tail_labels.copy()
-        labels.push(child_is_tail)
+      @lib.Block(block_type, body) =>
         @lib.Instruction::block(
           block_type,
-          tail_call_rewrite_expr(
-            body, child_is_tail, labels, in_local_handler, changed,
+          tail_call_rewrite_with_label(
+            body, child_is_tail, child_is_tail, tail_labels, in_local_handler, changed,
           ),
         )
-      }
-      @lib.Loop(block_type, body) => {
-        let labels = tail_labels.copy()
-        labels.push(false)
+      @lib.Loop(block_type, body) =>
         @lib.Instruction::loop_(
           block_type,
-          tail_call_rewrite_expr(
-            body, child_is_tail, labels, in_local_handler, changed,
+          tail_call_rewrite_with_label(
+            body, child_is_tail, false, tail_labels, in_local_handler, changed,
           ),
         )
-      }
       @lib.If(block_type, then_body, else_body) => {
-        let labels = tail_labels.copy()
-        labels.push(child_is_tail)
-        let @lib.Expr(next_then) = tail_call_rewrite_expr(
+        let @lib.Expr(next_then) = tail_call_rewrite_with_label(
           @lib.Expr::new(then_body),
           child_is_tail,
-          labels,
+          child_is_tail,
+          tail_labels,
           in_local_handler,
           changed,
         )
         let next_else = match else_body {
           Some(body) => {
-            let @lib.Expr(next_body) = tail_call_rewrite_expr(
+            let @lib.Expr(next_body) = tail_call_rewrite_with_label(
               @lib.Expr::new(body),
               child_is_tail,
-              labels,
+              child_is_tail,
+              tail_labels,
               in_local_handler,
               changed,
             )
