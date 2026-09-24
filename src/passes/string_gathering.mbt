@@ -6,11 +6,13 @@ pub fn string_gathering_summary() -> String {
 ///|
 priv struct SgStringSet {
   strings : Array[Bytes]
+  mut indices : Map[Bytes, Int]
 }
 
 ///|
 priv struct SgRewritePlan {
   strings : Array[Bytes]
+  string_indices : Map[Bytes, Int]
   string_global_abs : Array[Int]
   old_defined_to_abs : Array[Int]
   entry_is_fresh : Array[Bool]
@@ -19,17 +21,12 @@ priv struct SgRewritePlan {
 
 ///|
 fn SgStringSet::new() -> SgStringSet {
-  { strings: [], }
+  { strings: [], indices: Map([]), }
 }
 
 ///|
 fn sg_string_index(set : SgStringSet, bytes : Bytes) -> Int? {
-  for idx = 0; idx < set.strings.length(); idx = idx + 1 {
-    if set.strings[idx] == bytes {
-      return Some(idx)
-    }
-  }
-  None
+  set.indices.get(bytes)
 }
 
 ///|
@@ -39,6 +36,7 @@ fn sg_intern_string(set : SgStringSet, bytes : Bytes) -> Int {
     None => {
       let idx = set.strings.length()
       set.strings.push(bytes)
+      set.indices[bytes] = idx
       idx
     }
   }
@@ -230,8 +228,7 @@ fn sg_remap_existing_global_idx(
 
 ///|
 fn sg_string_global_idx(plan : SgRewritePlan, bytes : Bytes) -> @lib.GlobalIdx {
-  let idx = match
-    sg_string_index(SgStringSet::{ strings: plan.strings, }, bytes) {
+  let idx = match plan.string_indices.get(bytes) {
     Some(idx) => idx
     None => abort("string-gathering rewrite saw uncollected string constant")
   }
@@ -282,17 +279,24 @@ fn sg_bytes_less_than(lhs : Bytes, rhs : Bytes) -> Bool {
 
 ///|
 fn sg_sort_strings(strings : Array[Bytes]) -> Unit {
-  let mut i = 1
-  while i < strings.length() {
-    let current = strings[i]
-    let mut j = i
-    while j > 0 && sg_bytes_less_than(current, strings[j - 1]) {
-      strings[j] = strings[j - 1]
-      j -= 1
+  strings.sort_by(fn(lhs, rhs) {
+    if sg_bytes_less_than(lhs, rhs) {
+      -1
+    } else if sg_bytes_less_than(rhs, lhs) {
+      1
+    } else {
+      0
     }
-    strings[j] = current
-    i += 1
+  })
+}
+
+///|
+fn sg_reindex_strings(set : SgStringSet) -> Unit {
+  let indices : Map[Bytes, Int] = Map([])
+  for idx = 0; idx < set.strings.length(); idx = idx + 1 {
+    indices[set.strings[idx]] = idx
   }
+  set.indices = indices
 }
 
 ///|
@@ -302,6 +306,7 @@ fn sg_make_rewrite_plan(
   imported_globals : Int,
 ) -> SgRewritePlan {
   sg_sort_strings(set.strings)
+  sg_reindex_strings(set)
   let globals = sg_defined_globals(mod_)
   let canonical_old = Array::make(set.strings.length(), -1)
   for old_idx = 0; old_idx < globals.length(); old_idx = old_idx + 1 {
@@ -362,6 +367,7 @@ fn sg_make_rewrite_plan(
 
   SgRewritePlan::{
     strings: set.strings,
+    string_indices: set.indices,
     string_global_abs,
     old_defined_to_abs,
     entry_is_fresh,
@@ -496,8 +502,7 @@ fn sg_rewrite_global_sec(
       let @lib.Global(global_type, init) = globals[value]
       let rewritten_init = match sg_direct_string_init(globals[value]) {
         Some(bytes) =>
-          match
-            sg_string_index(SgStringSet::{ strings: plan.strings, }, bytes) {
+          match plan.string_indices.get(bytes) {
             Some(string_idx) =>
               if plan.string_global_abs[string_idx] ==
                 imported_globals + entry_idx {

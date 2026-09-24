@@ -24163,3 +24163,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — RemoveUnusedNames HOT label inventory
 
 - The [RemoveUnusedNames page](binaryen/passes/remove-unused-names/index.md#september-24-2026-hot-loop-label-inventory) records fresh direct HOT timing at 256 nested loops: `1.01 ms → 180.61 µs` after collecting root-reachable label targets once. Two index tests, 27 direct tests, and the continuation audit pass on wasm-gc. The registry raw path is separately shortcut, so this is HOT visitor evidence.
+
+### 2026-09-24 — StringGathering indexed literals
+
+- The [StringGathering page](binaryen/passes/string-gathering/index.md#current-repo-caveat) records direct native pass timings at 256 distinct literals (`329.20 → 46.73 µs`) and 512 (`1.25 ms → 92.79 µs`). A byte-keyed index removes repeated linear searches during collection and rewrite; a library sort replaces insertion sorting. The benchmark fixture and expected output are outside the timed loop.

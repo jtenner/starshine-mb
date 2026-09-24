@@ -101,6 +101,15 @@ That is much closer to the real pass than either:
 
 ## Current repo caveat
 
+The 2026-09-24 pass-local native benchmark uses descending distinct fixed-width
+string literals and measures `string_gathering_run_module_pass` directly, with
+the fixture and expected result prepared outside the timed loop. Replacing
+linear byte-string searches and insertion sorting with an indexed lookup and
+library sort reduced 256-literal time from 329.20 to 46.73 µs (7.05×) and
+512-literal time from 1.25 ms to 92.79 µs (13.47×). The benchmark lives in
+`src/passes_perf_long/string_gathering_index_perf_test.mbt`; the sorted-index
+invariant is checked in `src/passes/string_gathering_index_wbtest.mbt`.
+
 - The direct pass is active in `src/passes/string_gathering.mbt`, registered in `src/passes/optimize.mbt`, dispatched from `src/passes/pass_manager.mbt`, and accepted by the compare harness.
 - On 2026-05-18, refreshed direct-pass signoff in `.tmp/pass-fuzz-string-gathering-order-20260518` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 - The direct pass now sorts fresh literal globals deterministically, reuses eligible existing immutable non-null direct `string.const` globals in module order, preserves the selected defining initializer, aliases later matching globals, and still creates fresh canonical globals when no reusable definition exists.
