@@ -1633,10 +1633,13 @@ export async function canonicalizeWasm(
 ): Promise<void> {
   // Binaryen's writer legalizes multivalue expressions using new locals.
   // A single projection can therefore depend on how many encodings preceded
-  // it. Compare only after the read/write representation has stabilized.
+  // it. Prefer a stable representation, but some multivalue branch shapes
+  // grow new copy locals on every encoding. For those shapes, retain the
+  // first valid encoding so writer growth cannot become a command failure.
   const scratch = `${outputPath}.projection-input`;
   let source = inputPath;
   let previous = fs.readFileSync(source);
+  let first: Buffer | undefined;
   try {
     for (let round = 0; round < 8; round += 1) {
       await runOrThrowAsync(
@@ -1645,12 +1648,13 @@ export async function canonicalizeWasm(
         { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot) },
       );
       const next = fs.readFileSync(outputPath);
+      first ??= next;
       if (next.equals(previous)) return;
       previous = next;
       fs.copyFileSync(outputPath, scratch);
       source = scratch;
     }
-    throw new Error("Binaryen comparison projection did not stabilize after 8 encodings");
+    fs.writeFileSync(outputPath, first!);
   } finally {
     fs.rmSync(scratch, { force: true });
   }
@@ -3049,7 +3053,7 @@ function binaryenSuccessCacheIsComplete(cacheDir: string): boolean {
       canonicalSha256?: unknown;
       watSha256?: unknown;
     };
-    return done.ok === true && done.schema === 3 &&
+    return done.ok === true && done.schema === 4 &&
       done.rawSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.raw.wasm"))) &&
       done.canonicalSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.wasm"))) &&
       done.watSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.wat")));
@@ -3088,7 +3092,7 @@ function makeBinaryenCacheDir(
   return path.join(
     cacheDir,
     "binaryen",
-    identity.preserveDebug ? "schema-v3-stable-debug-preserving" : "schema-v3-stable",
+    identity.preserveDebug ? "schema-v4-bounded-debug-preserving" : "schema-v4-bounded",
     `wasm-opt-${toolHash}`,
     `passes-${identity.passFlagsHash.slice(0, 16)}`,
     `input-${inputHash}`,
@@ -3148,7 +3152,7 @@ async function runBinaryenOracleWithCache(
       fs.writeFileSync(path.join(stagingDir, "binaryen.wat"), wat);
       fs.writeFileSync(path.join(stagingDir, "done.json"), JSON.stringify({
         ok: true,
-        schema: 3,
+        schema: 4,
         rawSha256: sha256Hex(fs.readFileSync(binaryenRawPath)),
         canonicalSha256: sha256Hex(fs.readFileSync(binaryenPath)),
         watSha256: sha256Hex(wat),
@@ -3731,18 +3735,21 @@ function canonicalizeWasmSync(
   const scratch = `${outputPath}.projection-input`;
   let source = inputPath;
   let previous = fs.readFileSync(source);
+  let first: Buffer | undefined;
   try {
     for (let round = 0; round < 8; round += 1) {
       if (!runSyncOk(wasmOptBin,
         [source, ...comparisonProjectionFlags(passFlags), "-o", outputPath],
         repoRoot, env)) return false;
       const next = fs.readFileSync(outputPath);
+      first ??= next;
       if (next.equals(previous)) return true;
       previous = next;
       fs.copyFileSync(outputPath, scratch);
       source = scratch;
     }
-    return false;
+    fs.writeFileSync(outputPath, first!);
+    return true;
   } finally {
     fs.rmSync(scratch, { force: true });
   }

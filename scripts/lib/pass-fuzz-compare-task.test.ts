@@ -2107,3 +2107,23 @@ describe("Binaryen comparison projection", () => {
     }
   });
 });
+
+describe("bounded comparison projection", () => {
+  test("keeps the first valid encoding when multivalue locals grow indefinitely", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-growing-projection-"));
+    try {
+      const input = path.join(root, "input.wasm");
+      const expected = path.join(root, "single.wasm");
+      const actual = path.join(root, "canonical.wasm");
+      fs.writeFileSync(input, Buffer.from("0061736d01000000010d0360000060017f006000027f7f030201000d0502000000010a1a0118000202020241d6d60341d60041010e020001010b0b1a1a0b", "hex"));
+      const oracle = process.env.WASM_OPT_BIN ?? "wasm-opt";
+      const once = spawnSync(oracle, [input, "--all-features", "--strip-debug", "-o", expected], { encoding: "utf8" });
+      expect(once.status, once.stderr).toBe(0);
+      await canonicalizeWasm(oracle, input, actual, process.cwd(), []);
+      expect(fs.readFileSync(actual).equals(fs.readFileSync(expected))).toBeTrue();
+      expect(fs.existsSync(`${actual}.projection-input`)).toBeFalse();
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
