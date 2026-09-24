@@ -104,7 +104,7 @@ fs.copyFileSync(source, output);
       expect(summary.normalizedMatchCount).toBe(0);
       expect(summary.mismatchCount).toBe(1);
       expect(summary.cache.binaryenMisses).toBe(1);
-      expect(fs.existsSync(path.join(cacheDir, "binaryen", "schema-v2-debug-preserving"))).toBeTrue();
+      expect(fs.existsSync(path.join(cacheDir, "binaryen", "schema-v3-stable-debug-preserving"))).toBeTrue();
       const record = JSON.parse(fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8"));
       expect(record).toMatchObject({ status: "mismatch", generator: "wasm-smith" });
 
