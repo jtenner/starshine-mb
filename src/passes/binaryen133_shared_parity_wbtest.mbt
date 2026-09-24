@@ -253,3 +253,56 @@ test "Binaryen 133 shared objects refinalizes null branches before unreachable d
     ),
   )
 }
+
+///|
+test "Binaryen 133 shared objects refines nested null branch exits" {
+  for branch in ["br 1", "i32.const 0 br_table 1 1", "i32.const 1 br_if 1 br 1"] {
+    let output = binaryen133_run_shared(
+      "(module (func (drop (block (result funcref) (block ref.null func \{branch} unreachable) unreachable))))",
+    )
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    let result = match body[0] {
+      @lib.Block(@lib.ValTypeBlockType(vt), _) => vt
+      _ => fail("expected reference block")
+    }
+    assert_eq(
+      result,
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          true,
+          @lib.HeapType::shared_abs(@lib.AbsHeapType::none()),
+        ),
+      ),
+    )
+  }
+}
+
+///|
+test "Binaryen 133 shared objects refines i31 if and branch results" {
+  let output = binaryen133_run_shared(
+    "(module (func (drop (if (result anyref) (i32.const 1) (then (ref.i31 (i32.const 3))) (else (ref.i31 (i32.const 5))))) (drop (block (result anyref) (br 0 (ref.i31 (i32.const 7)))))))",
+  )
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let results : Array[@lib.ValType] = []
+  for instr in body {
+    match instr {
+      @lib.If(@lib.ValTypeBlockType(vt), _, _)
+      | @lib.Block(@lib.ValTypeBlockType(vt), _) => results.push(vt)
+      _ => ()
+    }
+  }
+  assert_eq(results, [mso_shared_i31(false), mso_shared_i31(false)])
+}
+
+///|
+test "Binaryen 133 shared objects joins null and nonnull i31 control exits" {
+  let output = binaryen133_run_shared(
+    "(module (func (param i32) (drop (if (result anyref) (local.get 0) (then (ref.null none)) (else (ref.i31 (i32.const 5)))))))",
+  )
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let result = match body[1] {
+    @lib.If(@lib.ValTypeBlockType(vt), _, _) => vt
+    _ => fail("expected reference if")
+  }
+  assert_eq(result, mso_shared_i31(true))
+}

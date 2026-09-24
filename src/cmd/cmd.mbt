@@ -9732,3 +9732,30 @@ test "Binaryen 133 command GTO preserves canonical packed array identities" {
   assert_eq(groups.length(), 4)
   assert_true(groups.all(fn(g) { g is @lib.SingleRecType(_) }))
 }
+
+///|
+test "Binaryen 133 command shared objects refines nested null branch chains" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (drop (block (result funcref) (block ref.null func i32.const 1 br_if 1 br 1 unreachable) unreachable))))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["make-shared-objects"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let result = match body[0] {
+    @lib.Block(@lib.ValTypeBlockType(vt), _) => vt
+    _ => fail("expected reference block")
+  }
+  assert_eq(
+    result,
+    @lib.ValType::ref_type(
+      @lib.RefType::new(
+        true,
+        @lib.HeapType::shared_abs(@lib.AbsHeapType::none()),
+      ),
+    ),
+  )
+}
