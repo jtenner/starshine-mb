@@ -78,7 +78,7 @@ test "optimize-instructions reaches fixed point for ssa-merge-explicit" {
 }
 
 ///|
-test "optimize-instructions revisits a canonicalized HOT comparison" {
+test "optimize-instructions direct HOT constant comparison folds in one visit" {
   let func = pass_test_lift_first_func(
     "(module (func (result i32) i32.const 1 i32.const 2 i32.lt_s))",
   )
@@ -154,4 +154,30 @@ test "optimize-instructions constant if retains its chosen branch target" {
     other =>
       fail("expected a retained branch target and chosen value, got \{other}")
   }
+}
+
+///|
+test "optimize-instructions finishes value-if drop shells exposed by raw rewrites" {
+  // GenValid oi-boolean-select:value-if-drop-shell, case 35 at seed 0x5eed.
+  // Constant conditions select 55 and 5 without effects or traps. Finishing
+  // those folds saves 16 bytes against v132 and matches the old two-pass result.
+  let input = pass_test_module_from_wat(
+    "(module (func i32.const 0 if (result i32) i32.const 44 else i32.const 55 end drop i32.const 1 if i32.const 5 drop else i32.const 6 drop end))",
+  )
+  let once = run_hot_pipeline(input, HotPipelineOptions::new(), [
+    "optimize-instructions",
+  ]).unwrap()
+  let twice = run_hot_pipeline(once, HotPipelineOptions::new(), [
+    "optimize-instructions",
+  ]).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = once.code_sec.unwrap().0[0]
+  @debug.assert_eq(body, [
+    @lib.Instruction::i32_const(@lib.I32(55)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::drop(),
+  ])
+  assert_true(@validate.validate_module(once).is_ok())
+  @debug.assert_eq(@binary.encode_module(once).unwrap().length(), 30)
+  @debug.assert_eq(@binary.encode_module(once), @binary.encode_module(twice))
 }
