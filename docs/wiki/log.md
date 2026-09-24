@@ -24179,3 +24179,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — TailCall label ancestry
 
 - [TailCall](../../src/passes/tail_call.mbt) now pushes and pops one shared label stack while visiting child blocks, loops, and if arms. The [native direct-pass benchmark](../../src/passes_perf_long/tail_call_ancestry_perf_test.mbt) uses call-free nested blocks: depth 256 improved `25.45 → 14.71 µs`, and depth 512 improved `50.64 → 28.82 µs`. A [white-box regression](../../src/passes/tail_call_ancestry_wbtest.mbt) checks ancestry restoration. The result measures allocation/traversal overhead on a synthetic pass-local fixture.
+
+### 2026-09-24 — GlobalEffects target summaries
+
+- The [GlobalEffects page](binaryen/passes/global-effects/index.md) distinguishes the current direct resume rewrite from the historical upstream metadata producer. Caching a defined target's suspension summary per invocation reduced native direct-pass time from `26.42 → 15.83 µs` at 128 repeated resumes and `71.40 → 28.30 µs` at 256. The fixture and validation are outside timing; this is synthetic Starshine evidence.

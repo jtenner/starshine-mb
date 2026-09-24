@@ -1,8 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-24
 sources:
+  - ../../../../../src/passes/global_effects.mbt
+  - ../../../../../src/passes/global_effects_target_summary_wbtest.mbt
+  - ../../../../../src/passes_perf_long/global_effects_target_summary_perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../../../../src/ir/effects.mbt
@@ -29,10 +32,23 @@ related:
 
 # `global-effects` / upstream `generate-global-effects`
 
+## Current repository note — September 24, 2026
+
+The current Starshine registry dispatches `global-effects` to
+`src/passes/global_effects.mbt`, a direct module rewrite that replaces fresh
+resumes of non-suspending continuations with calls. It does **not** implement
+the historical Binaryen `generate-global-effects` metadata producer described
+in this dossier's older source review. The current rewrite caches each defined
+target's suspension summary for one invocation. A native direct-pass benchmark
+with 128 repeated resumes improved from 26.42 to 15.83 µs (`1.67×`), and 256
+resumes improved from 71.40 to 28.30 µs (`2.52×`). The benchmark constructs
+and validates its continuation module outside timing; it is synthetic
+Starshine pass-local evidence, not a Binaryen oracle comparison.
+
 ## Role
 
-- `global-effects` is the local Starshine registry name for the upstream Binaryen pass published as `generate-global-effects`.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- `global-effects` is the local Starshine registry name historically assigned to the upstream Binaryen pass published as `generate-global-effects`; its current implementation has a different direct resume-rewrite contract as noted above.
+- The upstream metadata producer remains **unimplemented** in Starshine.
 - It is a real public upstream pass in Binaryen `version_129`, but it is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` default top-level path.
 - Its job is to compute per-function global-effect summaries that later passes can consult across calls.
 - The retained current-main source bridges record the propagation refactor and make the stale upstream comment-vs-implementation wording explicit: the implementation writes per-function `Function.effects`, even though an owner-file header phrase still says `PassOptions`.
@@ -94,7 +110,7 @@ So the pass is best taught as:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `global-effects` / `generate-global-effects` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real module-level metadata pass for it; a no-rewrite analyzer is acceptable only when it exposes real summaries and validation hooks, not as a disguised no-op.
+- Keep the historical upstream metadata producer explicitly marked as **unimplemented** until Starshine grows a real module-level metadata pass for it; the current direct resume rewrite does not satisfy that contract.
 - Keep the naming split explicit:
   - local registry: `global-effects`
   - upstream public pass: `generate-global-effects`

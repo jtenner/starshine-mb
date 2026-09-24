@@ -38,9 +38,27 @@ fn ge_body_cannot_suspend(body : @lib.Expr) -> Bool {
 }
 
 ///|
+fn ge_target_cannot_suspend(
+  funcs : Array[@lib.Func],
+  defined_idx : Int,
+  summaries : Array[Bool?],
+) -> Bool {
+  match summaries[defined_idx] {
+    Some(result) => result
+    None => {
+      let @lib.Func(_, body) = funcs[defined_idx]
+      let result = ge_body_cannot_suspend(body)
+      summaries[defined_idx] = Some(result)
+      result
+    }
+  }
+}
+
+///|
 fn ge_rewrite_fresh_resumes(
   body : @lib.Expr,
   funcs : Array[@lib.Func],
+  summaries : Array[Bool?],
   imported_funcs : Int,
   changed : Array[Bool],
 ) -> @lib.Expr {
@@ -56,8 +74,7 @@ fn ge_rewrite_fresh_resumes(
             let @lib.FuncIdx(raw) = target
             let defined_idx = raw.to_int() - imported_funcs
             if defined_idx >= 0 && defined_idx < funcs.length() {
-              let @lib.Func(_, target_body) = funcs[defined_idx]
-              if ge_body_cannot_suspend(target_body) {
+              if ge_target_cannot_suspend(funcs, defined_idx, summaries) {
                 ignore(out.pop())
                 ignore(out.pop())
                 out.push(@lib.Instruction::call(target))
@@ -76,20 +93,25 @@ fn ge_rewrite_fresh_resumes(
         out.push(
           @lib.Instruction::block(
             block_type,
-            ge_rewrite_fresh_resumes(nested, funcs, imported_funcs, changed),
+            ge_rewrite_fresh_resumes(
+              nested, funcs, summaries, imported_funcs, changed,
+            ),
           ),
         )
       @lib.Loop(block_type, nested) =>
         out.push(
           @lib.Instruction::loop_(
             block_type,
-            ge_rewrite_fresh_resumes(nested, funcs, imported_funcs, changed),
+            ge_rewrite_fresh_resumes(
+              nested, funcs, summaries, imported_funcs, changed,
+            ),
           ),
         )
       @lib.If(block_type, then_body, else_body) => {
         let @lib.Expr(next_then) = ge_rewrite_fresh_resumes(
           @lib.Expr::new(then_body),
           funcs,
+          summaries,
           imported_funcs,
           changed,
         )
@@ -98,6 +120,7 @@ fn ge_rewrite_fresh_resumes(
             let @lib.Expr(next_body) = ge_rewrite_fresh_resumes(
               @lib.Expr::new(body),
               funcs,
+              summaries,
               imported_funcs,
               changed,
             )
@@ -130,13 +153,16 @@ fn global_effects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     None => ()
   }
   let changed = [false]
+  let summaries : Array[Bool?] = Array::make(funcs.length(), None)
   let rewritten : Array[@lib.Func] = []
   for func in funcs {
     let @lib.Func(locals, body) = func
     rewritten.push(
       @lib.Func::new(
         locals,
-        ge_rewrite_fresh_resumes(body, funcs, imported_funcs, changed),
+        ge_rewrite_fresh_resumes(
+          body, funcs, summaries, imported_funcs, changed,
+        ),
       ),
     )
   }
