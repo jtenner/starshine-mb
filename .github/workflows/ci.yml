@@ -150,6 +150,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Set up semantic Node runtime
+        uses: actions/setup-node@v5
+        with:
+          node-version: "26.10.0"
+
       - name: Set up MoonBit
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
