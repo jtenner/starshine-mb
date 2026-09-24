@@ -1078,7 +1078,7 @@ fn typecheck_return_call_indirect(
     Err(e) => return Err(e)
     Ok(_) => ()
   }
-  let TableType(elem_rt, _) = match st.env.get_table_type(t) {
+  let TableType(elem_rt, limits) = match st.env.get_table_type(t) {
     None => return Err("invalid table index")
     Some(tt) => tt
   }
@@ -1091,7 +1091,7 @@ fn typecheck_return_call_indirect(
       "return_call_indirect table element type is not funcref-compatible",
     )
   }
-  let st1 = match st.pop_expect(ValType::i32()) {
+  let st1 = match st.pop_expect(limits.addr_valtype()) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
