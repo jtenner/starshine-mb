@@ -2214,18 +2214,30 @@ fn typecheck_ref_as_non_null(st : TcState) -> TcResult {
 
 ///|
 fn typecheck_ref_eq(st : TcState) -> TcResult {
-  // pop second operand
-  let st1 = match st.pop_expect(ValType::eqref_null()) {
+  let (st1, right) = match st.pop1() {
+    Ok(p) => p
     Err(e) => return Err(e)
-    Ok(s) => s
   }
-
-  // pop first operand
-  let st2 = match st1.pop_expect(ValType::eqref_null()) {
+  let (st2, left) = match st1.pop1() {
+    Ok(p) => p
     Err(e) => return Err(e)
-    Ok(s) => s
   }
-  Ok(st2.push1(ValType::i32()))
+  let unshared = ValType::eqref_null()
+  let shared = ValType::ref_type(
+    RefType::new(true, HeapType::shared_abs(AbsHeapType::eq())),
+  )
+  if (
+      Match::matches(left, unshared, st.env) &&
+      Match::matches(right, unshared, st.env)
+    ) ||
+    (
+      Match::matches(left, shared, st.env) &&
+      Match::matches(right, shared, st.env)
+    ) {
+    Ok(st2.push1(ValType::i32()))
+  } else {
+    Err("ref.eq requires equality references with matching shareability")
+  }
 }
 
 ///|
@@ -3228,20 +3240,18 @@ fn typecheck_ref_i31_shared(st : TcState) -> TcResult {
 
 ///|
 fn typecheck_i31_get(st : TcState) -> TcResult {
-  let (st1, actual) = match st.pop1() {
+  let (next, actual) = match st.pop1() {
+    Ok(p) => p
     Err(e) => return Err(e)
-    Ok(pair) => pair
   }
-  match actual {
-    @lib.RefTypeValType(ref_type) =>
-      match ref_type.get_heap_type() {
-        @lib.AbsHeapTypeHeapType(@lib.I31AbsHeapType)
-        | @lib.SharedAbsHeapTypeHeapType(@lib.I31AbsHeapType) =>
-          Ok(st1.push1(ValType::i32()))
-        _ => Err("i31.get requires an i31 reference")
-      }
-    @lib.BotValType => Ok(st1.push1(ValType::i32()))
-    _ => Err("i31.get requires an i31 reference")
+  let shared = ValType::ref_type(
+    RefType::new(true, HeapType::shared_abs(AbsHeapType::i31())),
+  )
+  if Match::matches(actual, ValType::i31ref_nullable(), st.env) ||
+    Match::matches(actual, shared, st.env) {
+    Ok(next.push1(ValType::i32()))
+  } else {
+    Err("i31.get requires an i31 reference")
   }
 }
 
@@ -3485,14 +3495,22 @@ fn typecheck_array_atomic_cmpxchg(st : TcState, x : TypeIdx) -> TcResult {
 
 ///|
 fn typecheck_array_len(st : TcState) -> TcResult {
-  let want = ValType::ref_type(
+  let (next, actual) = match st.pop1() {
+    Ok(p) => p
+    Err(e) => return Err(e)
+  }
+  let unshared = ValType::ref_type(
     RefType::new(true, HeapType::abs(AbsHeapType::array())),
   )
-  let st1 = match st.pop_expect(want) {
-    Err(e) => return Err(e)
-    Ok(s) => s
+  let shared = ValType::ref_type(
+    RefType::new(true, HeapType::shared_abs(AbsHeapType::array())),
+  )
+  if Match::matches(actual, unshared, st.env) ||
+    Match::matches(actual, shared, st.env) {
+    Ok(next.push1(ValType::i32()))
+  } else {
+    Err("array.len requires an array reference")
   }
-  Ok(st1.push1(ValType::i32()))
 }
 
 ///|
