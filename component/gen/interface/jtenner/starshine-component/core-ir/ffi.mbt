@@ -51,13 +51,13 @@ pub fn wasmExportCustomSecDtor(handle : Int) -> Unit {
 }
 
 #doc(hidden)
-pub fn wasmExportDataDtor(handle : Int) -> Unit {
-      Data::dtor(handle)
+pub fn wasmExportDataCntSecDtor(handle : Int) -> Unit {
+      DataCntSec::dtor(handle)
 }
 
 #doc(hidden)
-pub fn wasmExportDataCntSecDtor(handle : Int) -> Unit {
-      DataCntSec::dtor(handle)
+pub fn wasmExportDataDtor(handle : Int) -> Unit {
+      Data::dtor(handle)
 }
 
 #doc(hidden)
@@ -73,6 +73,57 @@ pub fn wasmExportDataModeDtor(handle : Int) -> Unit {
 #doc(hidden)
 pub fn wasmExportDataSecDtor(handle : Int) -> Unit {
       DataSec::dtor(handle)
+}
+
+#doc(hidden)
+pub fn wasmExportDecodeModule(p0 : Int, p1 : Int) -> Int {
+
+      let result = mbt_ffi_ptr2bytes(p0, p1)
+
+      let (result0) : (Result[Module, Diagnostic]) = decode_module(result);
+      let return_area = mbt_ffi_malloc(20)
+
+      match result0 {
+            Ok(payload) => {
+                  mbt_ffi_store8((return_area) + 0, (0))
+
+                  let Module(handle) = payload
+                  mbt_ffi_store32((return_area) + 4, handle)
+
+                  ()
+            }
+            Err(payload1) => {
+                  mbt_ffi_store8((return_area) + 0, (1))
+
+                  let ptr = mbt_ffi_str2ptr((payload1).stage)
+                  mbt_ffi_store32((return_area) + 8, (payload1).stage.length())
+                  mbt_ffi_store32((return_area) + 4, ptr)
+
+                  let ptr2 = mbt_ffi_str2ptr((payload1).message)
+                  mbt_ffi_store32((return_area) + 16, (payload1).message.length())
+                  mbt_ffi_store32((return_area) + 12, ptr2)
+
+                  ()
+            }
+      }
+      let ret = return_area
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportDecodeModulePostReturn(p0 : Int) -> Unit {
+
+      match (mbt_ffi_load8_u((p0) + 0)) {
+            0 => ()
+            1 => {
+                  mbt_ffi_free(mbt_ffi_load32((p0) + 4))
+                  mbt_ffi_free(mbt_ffi_load32((p0) + 12))
+
+            }
+            _ => panic()
+      }
+
 }
 
 #doc(hidden)
@@ -103,6 +154,71 @@ pub fn wasmExportElemModeDtor(handle : Int) -> Unit {
 #doc(hidden)
 pub fn wasmExportElemSecDtor(handle : Int) -> Unit {
       ElemSec::dtor(handle)
+}
+
+#doc(hidden)
+pub fn wasmExportEmptyModule() -> Int {
+
+      let (result) : (Module) = empty_module();
+
+      let Module(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportEncodeModule(p0 : Int) -> Int {
+
+      let (result) : (Result[FixedArray[Byte], Diagnostic]) = encode_module(Module::Module(p0));
+      let return_area = mbt_ffi_malloc(20)
+
+      match result {
+            Ok(payload) => {
+                  mbt_ffi_store8((return_area) + 0, (0))
+
+                  let ptr = mbt_ffi_bytes2ptr(payload)
+
+                  mbt_ffi_store32((return_area) + 8, payload.length())
+                  mbt_ffi_store32((return_area) + 4, ptr)
+
+                  ()
+            }
+            Err(payload0) => {
+                  mbt_ffi_store8((return_area) + 0, (1))
+
+                  let ptr1 = mbt_ffi_str2ptr((payload0).stage)
+                  mbt_ffi_store32((return_area) + 8, (payload0).stage.length())
+                  mbt_ffi_store32((return_area) + 4, ptr1)
+
+                  let ptr2 = mbt_ffi_str2ptr((payload0).message)
+                  mbt_ffi_store32((return_area) + 16, (payload0).message.length())
+                  mbt_ffi_store32((return_area) + 12, ptr2)
+
+                  ()
+            }
+      }
+      let ret = return_area
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportEncodeModulePostReturn(p0 : Int) -> Unit {
+
+      match (mbt_ffi_load8_u((p0) + 0)) {
+            0 => {
+                  mbt_ffi_free(mbt_ffi_load32((p0) + 4))
+
+            }
+            1 => {
+                  mbt_ffi_free(mbt_ffi_load32((p0) + 4))
+                  mbt_ffi_free(mbt_ffi_load32((p0) + 12))
+
+            }
+            _ => panic()
+      }
+
 }
 
 #doc(hidden)
@@ -146,18 +262,13 @@ pub fn wasmExportFieldTypeDtor(handle : Int) -> Unit {
 }
 
 #doc(hidden)
-pub fn wasmExportFuncIrDtor(handle : Int) -> Unit {
-      FuncIr::dtor(handle)
+pub fn wasmExportFuncAnnotationAssocDtor(handle : Int) -> Unit {
+      FuncAnnotationAssoc::dtor(handle)
 }
 
 #doc(hidden)
 pub fn wasmExportFuncAnnotationDtor(handle : Int) -> Unit {
       FuncAnnotation::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportFuncAnnotationAssocDtor(handle : Int) -> Unit {
-      FuncAnnotationAssoc::dtor(handle)
 }
 
 #doc(hidden)
@@ -168,6 +279,11 @@ pub fn wasmExportFuncAnnotationSecDtor(handle : Int) -> Unit {
 #doc(hidden)
 pub fn wasmExportFuncIdxDtor(handle : Int) -> Unit {
       FuncIdx::dtor(handle)
+}
+
+#doc(hidden)
+pub fn wasmExportFuncIrDtor(handle : Int) -> Unit {
+      FuncIr::dtor(handle)
 }
 
 #doc(hidden)
@@ -306,13 +422,13 @@ pub fn wasmExportMutDtor(handle : Int) -> Unit {
 }
 
 #doc(hidden)
-pub fn wasmExportNameDtor(handle : Int) -> Unit {
-      Name::dtor(handle)
+pub fn wasmExportNameAssocDtor(handle : Int) -> Unit {
+      NameAssoc::dtor(handle)
 }
 
 #doc(hidden)
-pub fn wasmExportNameAssocDtor(handle : Int) -> Unit {
-      NameAssoc::dtor(handle)
+pub fn wasmExportNameDtor(handle : Int) -> Unit {
+      Name::dtor(handle)
 }
 
 #doc(hidden)
@@ -336,6 +452,57 @@ pub fn wasmExportPackTypeDtor(handle : Int) -> Unit {
 }
 
 #doc(hidden)
+pub fn wasmExportParseModule(p0 : Int, p1 : Int) -> Int {
+
+      let result = mbt_ffi_ptr2str(p0, p1)
+
+      let (result0) : (Result[Module, Diagnostic]) = parse_module(result);
+      let return_area = mbt_ffi_malloc(20)
+
+      match result0 {
+            Ok(payload) => {
+                  mbt_ffi_store8((return_area) + 0, (0))
+
+                  let Module(handle) = payload
+                  mbt_ffi_store32((return_area) + 4, handle)
+
+                  ()
+            }
+            Err(payload1) => {
+                  mbt_ffi_store8((return_area) + 0, (1))
+
+                  let ptr = mbt_ffi_str2ptr((payload1).stage)
+                  mbt_ffi_store32((return_area) + 8, (payload1).stage.length())
+                  mbt_ffi_store32((return_area) + 4, ptr)
+
+                  let ptr2 = mbt_ffi_str2ptr((payload1).message)
+                  mbt_ffi_store32((return_area) + 16, (payload1).message.length())
+                  mbt_ffi_store32((return_area) + 12, ptr2)
+
+                  ()
+            }
+      }
+      let ret = return_area
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportParseModulePostReturn(p0 : Int) -> Unit {
+
+      match (mbt_ffi_load8_u((p0) + 0)) {
+            0 => ()
+            1 => {
+                  mbt_ffi_free(mbt_ffi_load32((p0) + 4))
+                  mbt_ffi_free(mbt_ffi_load32((p0) + 12))
+
+            }
+            _ => panic()
+      }
+
+}
+
+#doc(hidden)
 pub fn wasmExportRecTypeDtor(handle : Int) -> Unit {
       RecType::dtor(handle)
 }
@@ -353,91 +520,6 @@ pub fn wasmExportResumeHandlerDtor(handle : Int) -> Unit {
 #doc(hidden)
 pub fn wasmExportStartSecDtor(handle : Int) -> Unit {
       StartSec::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportStorageTypeDtor(handle : Int) -> Unit {
-      StorageType::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportStoreOpDtor(handle : Int) -> Unit {
-      StoreOp::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportStringRefsSecDtor(handle : Int) -> Unit {
-      StringRefsSec::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportSubTypeDtor(handle : Int) -> Unit {
-      SubType::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportTableDtor(handle : Int) -> Unit {
-      Table::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportTableIdxDtor(handle : Int) -> Unit {
-      TableIdx::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportTableSecDtor(handle : Int) -> Unit {
-      TableSec::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportTableTypeDtor(handle : Int) -> Unit {
-      TableType::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportTagIdxDtor(handle : Int) -> Unit {
-      TagIdx::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportTagSecDtor(handle : Int) -> Unit {
-      TagSec::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportTagTypeDtor(handle : Int) -> Unit {
-      TagType::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportTypeIdxDtor(handle : Int) -> Unit {
-      TypeIdx::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportTypeMetadataDtor(handle : Int) -> Unit {
-      TypeMetadata::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportTypeSecDtor(handle : Int) -> Unit {
-      TypeSec::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportU32IrDtor(handle : Int) -> Unit {
-      U32Ir::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportU64IrDtor(handle : Int) -> Unit {
-      U64Ir::dtor(handle)
-}
-
-#doc(hidden)
-pub fn wasmExportValTypeDtor(handle : Int) -> Unit {
-      ValType::dtor(handle)
 }
 
 #doc(hidden)
@@ -1443,6 +1525,17 @@ pub fn wasmExportStaticCustomSecCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
 }
 
 #doc(hidden)
+pub fn wasmExportStaticDataCntSecCreate(p0 : Int) -> Int {
+
+      let (result) : (DataCntSec) = DataCntSec::create(U32Ir::U32Ir(p0));
+
+      let DataCntSec(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
 pub fn wasmExportStaticDataCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
 
       let result = mbt_ffi_ptr2bytes(p1, p2)
@@ -1450,17 +1543,6 @@ pub fn wasmExportStaticDataCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
       let (result0) : (Data) = Data::create(DataMode::DataMode(p0), result);
 
       let Data(handle) = result0
-      let ret = handle
-      return ret
-
-}
-
-#doc(hidden)
-pub fn wasmExportStaticDataCntSecCreate(p0 : Int) -> Int {
-
-      let (result) : (DataCntSec) = DataCntSec::create(U32Ir::U32Ir(p0));
-
-      let DataCntSec(handle) = result
       let ret = handle
       return ret
 
@@ -1853,11 +1935,19 @@ pub fn wasmExportStaticFieldTypeCreate(p0 : Int, p1 : Int) -> Int {
 }
 
 #doc(hidden)
-pub fn wasmExportStaticFuncIrCreate(p0 : Int, p1 : Int) -> Int {
+pub fn wasmExportStaticFuncAnnotationAssocCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
 
-      let (result) : (FuncIr) = FuncIr::create(Locals::Locals(p0), Expr::Expr(p1));
+      let array : Array[FuncAnnotation] = [];
+      for index = 0; index < (p2); index = index + 1 {
+            let iter_base = (p1) + (index * 4)
 
-      let FuncIr(handle) = result
+            array.push(FuncAnnotation::FuncAnnotation(mbt_ffi_load32((iter_base) + 0)))
+      }
+      mbt_ffi_free(p1)
+
+      let (result) : (FuncAnnotationAssoc) = FuncAnnotationAssoc::create((p0).reinterpret_as_uint(), array);
+
+      let FuncAnnotationAssoc(handle) = result
       let ret = handle
       return ret
 
@@ -1881,25 +1971,6 @@ pub fn wasmExportStaticFuncAnnotationCreate(p0 : Int, p1 : Int, p2 : Int, p3 : I
       let (result1) : (FuncAnnotation) = FuncAnnotation::create(result, array);
 
       let FuncAnnotation(handle) = result1
-      let ret = handle
-      return ret
-
-}
-
-#doc(hidden)
-pub fn wasmExportStaticFuncAnnotationAssocCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
-
-      let array : Array[FuncAnnotation] = [];
-      for index = 0; index < (p2); index = index + 1 {
-            let iter_base = (p1) + (index * 4)
-
-            array.push(FuncAnnotation::FuncAnnotation(mbt_ffi_load32((iter_base) + 0)))
-      }
-      mbt_ffi_free(p1)
-
-      let (result) : (FuncAnnotationAssoc) = FuncAnnotationAssoc::create((p0).reinterpret_as_uint(), array);
-
-      let FuncAnnotationAssoc(handle) = result
       let ret = handle
       return ret
 
@@ -1930,6 +2001,17 @@ pub fn wasmExportStaticFuncIdxCreate(p0 : Int) -> Int {
       let (result) : (FuncIdx) = FuncIdx::create((p0).reinterpret_as_uint());
 
       let FuncIdx(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportStaticFuncIrCreate(p0 : Int, p1 : Int) -> Int {
+
+      let (result) : (FuncIr) = FuncIr::create(Locals::Locals(p0), Expr::Expr(p1));
+
+      let FuncIr(handle) = result
       let ret = handle
       return ret
 
@@ -2029,9 +2111,9 @@ pub fn wasmExportStaticHeapTypeBottom() -> Int {
 }
 
 #doc(hidden)
-pub fn wasmExportStaticHeapTypeDefType(p0 : Int) -> Int {
+pub fn wasmExportStaticHeapTypeCreate(p0 : Int) -> Int {
 
-      let (result) : (HeapType) = HeapType::def_type(DefType::DefType(p0));
+      let (result) : (HeapType) = HeapType::create(TypeIdx::TypeIdx(p0));
 
       let HeapType(handle) = result
       let ret = handle
@@ -2040,9 +2122,9 @@ pub fn wasmExportStaticHeapTypeDefType(p0 : Int) -> Int {
 }
 
 #doc(hidden)
-pub fn wasmExportStaticHeapTypeCreate(p0 : Int) -> Int {
+pub fn wasmExportStaticHeapTypeDefType(p0 : Int) -> Int {
 
-      let (result) : (HeapType) = HeapType::create(TypeIdx::TypeIdx(p0));
+      let (result) : (HeapType) = HeapType::def_type(DefType::DefType(p0));
 
       let HeapType(handle) = result
       let ret = handle
@@ -7303,6 +7385,17 @@ pub fn wasmExportStaticInstructionNop() -> Int {
 }
 
 #doc(hidden)
+pub fn wasmExportStaticInstructionPublish() -> Int {
+
+      let (result) : (Instruction) = Instruction::publish();
+
+      let Instruction(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
 pub fn wasmExportStaticInstructionRefAsNonNull() -> Int {
 
       let (result) : (Instruction) = Instruction::ref_as_non_null();
@@ -7405,6 +7498,17 @@ pub fn wasmExportStaticInstructionRefGetDesc(p0 : Int) -> Int {
 pub fn wasmExportStaticInstructionRefI31() -> Int {
 
       let (result) : (Instruction) = Instruction::ref_i31();
+
+      let Instruction(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportStaticInstructionRefI31Shared() -> Int {
+
+      let (result) : (Instruction) = Instruction::ref_i31_shared();
 
       let Instruction(handle) = result
       let ret = handle
@@ -8984,6 +9088,25 @@ pub fn wasmExportStaticLocalsCopy(p0 : Int) -> Int {
 }
 
 #doc(hidden)
+pub fn wasmExportStaticLocalsCreate(p0 : Int, p1 : Int) -> Int {
+
+      let array : Array[LocalRun] = [];
+      for index = 0; index < (p1); index = index + 1 {
+            let iter_base = (p0) + (index * 4)
+
+            array.push(LocalRun::LocalRun(mbt_ffi_load32((iter_base) + 0)))
+      }
+      mbt_ffi_free(p0)
+
+      let (result) : (Locals) = Locals::create(array);
+
+      let Locals(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
 pub fn wasmExportStaticLocalsEmpty() -> Int {
 
       let (result) : (Locals) = Locals::empty();
@@ -9025,25 +9148,6 @@ pub fn wasmExportStaticLocalsFromTypes(p0 : Int, p1 : Int) -> Int {
       mbt_ffi_free(p0)
 
       let (result) : (Locals) = Locals::from_types(array);
-
-      let Locals(handle) = result
-      let ret = handle
-      return ret
-
-}
-
-#doc(hidden)
-pub fn wasmExportStaticLocalsCreate(p0 : Int, p1 : Int) -> Int {
-
-      let array : Array[LocalRun] = [];
-      for index = 0; index < (p1); index = index + 1 {
-            let iter_base = (p0) + (index * 4)
-
-            array.push(LocalRun::LocalRun(mbt_ffi_load32((iter_base) + 0)))
-      }
-      mbt_ffi_free(p0)
-
-      let (result) : (Locals) = Locals::create(array);
 
       let Locals(handle) = result
       let ret = handle
@@ -9562,6 +9666,17 @@ pub fn wasmExportStaticMutVar() -> Int {
 }
 
 #doc(hidden)
+pub fn wasmExportStaticNameAssocCreate(p0 : Int, p1 : Int) -> Int {
+
+      let (result) : (NameAssoc) = NameAssoc::create((p0).reinterpret_as_uint(), Name::Name(p1));
+
+      let NameAssoc(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
 pub fn wasmExportStaticNameFromString(p0 : Int, p1 : Int) -> Int {
 
       let result = mbt_ffi_ptr2str(p0, p1)
@@ -9569,17 +9684,6 @@ pub fn wasmExportStaticNameFromString(p0 : Int, p1 : Int) -> Int {
       let (result0) : (Name) = Name::from_string(result);
 
       let Name(handle) = result0
-      let ret = handle
-      return ret
-
-}
-
-#doc(hidden)
-pub fn wasmExportStaticNameAssocCreate(p0 : Int, p1 : Int) -> Int {
-
-      let (result) : (NameAssoc) = NameAssoc::create((p0).reinterpret_as_uint(), Name::Name(p1));
-
-      let NameAssoc(handle) = result
       let ret = handle
       return ret
 
@@ -9791,6 +9895,17 @@ pub fn wasmExportStaticPackTypeI8() -> Int {
 }
 
 #doc(hidden)
+pub fn wasmExportStaticRecTypeCreate(p0 : Int) -> Int {
+
+      let (result) : (RecType) = RecType::create(SubType::SubType(p0));
+
+      let RecType(handle) = result
+      let ret = handle
+      return ret
+
+}
+
+#doc(hidden)
 pub fn wasmExportStaticRecTypeGroup(p0 : Int, p1 : Int) -> Int {
 
       let array : Array[SubType] = [];
@@ -9810,17 +9925,6 @@ pub fn wasmExportStaticRecTypeGroup(p0 : Int, p1 : Int) -> Int {
 }
 
 #doc(hidden)
-pub fn wasmExportStaticRecTypeCreate(p0 : Int) -> Int {
-
-      let (result) : (RecType) = RecType::create(SubType::SubType(p0));
-
-      let RecType(handle) = result
-      let ret = handle
-      return ret
-
-}
-
-#doc(hidden)
 pub fn wasmExportStaticRefTypeAbs(p0 : Int) -> Int {
 
       let (result) : (RefType) = RefType::abs(AbsHeapType::AbsHeapType(p0));
@@ -9832,9 +9936,9 @@ pub fn wasmExportStaticRefTypeAbs(p0 : Int) -> Int {
 }
 
 #doc(hidden)
-pub fn wasmExportStaticRefTypeMakeNullable(p0 : Int) -> Int {
+pub fn wasmExportStaticRefTypeCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
 
-      let (result) : (RefType) = RefType::make_nullable(RefType::RefType(p0));
+      let (result) : (RefType) = RefType::create((p0 != 0), HeapType::HeapType(p1), (p2 != 0));
 
       let RefType(handle) = result
       let ret = handle
@@ -9843,9 +9947,9 @@ pub fn wasmExportStaticRefTypeMakeNullable(p0 : Int) -> Int {
 }
 
 #doc(hidden)
-pub fn wasmExportStaticRefTypeCreate(p0 : Int, p1 : Int, p2 : Int) -> Int {
+pub fn wasmExportStaticRefTypeMakeNullable(p0 : Int) -> Int {
 
-      let (result) : (RefType) = RefType::create((p0 != 0), HeapType::HeapType(p1), (p2 != 0));
+      let (result) : (RefType) = RefType::make_nullable(RefType::RefType(p0));
 
       let RefType(handle) = result
       let ret = handle
@@ -10583,170 +10687,88 @@ pub fn wasmExportStaticValTypeV128() -> Int {
 }
 
 #doc(hidden)
-pub fn wasmExportEmptyModule() -> Int {
-
-      let (result) : (Module) = empty_module();
-
-      let Module(handle) = result
-      let ret = handle
-      return ret
-
+pub fn wasmExportStorageTypeDtor(handle : Int) -> Unit {
+      StorageType::dtor(handle)
 }
 
 #doc(hidden)
-pub fn wasmExportDecodeModule(p0 : Int, p1 : Int) -> Int {
-
-      let result = mbt_ffi_ptr2bytes(p0, p1)
-
-      let (result0) : (Result[Module, Diagnostic]) = decode_module(result);
-      let return_area = mbt_ffi_malloc(20)
-
-      match result0 {
-            Ok(payload) => {
-                  mbt_ffi_store8((return_area) + 0, (0))
-
-                  let Module(handle) = payload
-                  mbt_ffi_store32((return_area) + 4, handle)
-
-                  ()
-            }
-            Err(payload1) => {
-                  mbt_ffi_store8((return_area) + 0, (1))
-
-                  let ptr = mbt_ffi_str2ptr((payload1).stage)
-                  mbt_ffi_store32((return_area) + 8, (payload1).stage.length())
-                  mbt_ffi_store32((return_area) + 4, ptr)
-
-                  let ptr2 = mbt_ffi_str2ptr((payload1).message)
-                  mbt_ffi_store32((return_area) + 16, (payload1).message.length())
-                  mbt_ffi_store32((return_area) + 12, ptr2)
-
-                  ()
-            }
-      }
-      let ret = return_area
-      return ret
-
+pub fn wasmExportStoreOpDtor(handle : Int) -> Unit {
+      StoreOp::dtor(handle)
 }
 
 #doc(hidden)
-pub fn wasmExportDecodeModulePostReturn(p0 : Int) -> Unit {
-
-      match (mbt_ffi_load8_u((p0) + 0)) {
-            0 => ()
-            1 => {
-                  mbt_ffi_free(mbt_ffi_load32((p0) + 4))
-                  mbt_ffi_free(mbt_ffi_load32((p0) + 12))
-
-            }
-            _ => panic()
-      }
-
+pub fn wasmExportStringRefsSecDtor(handle : Int) -> Unit {
+      StringRefsSec::dtor(handle)
 }
 
 #doc(hidden)
-pub fn wasmExportParseModule(p0 : Int, p1 : Int) -> Int {
-
-      let result = mbt_ffi_ptr2str(p0, p1)
-
-      let (result0) : (Result[Module, Diagnostic]) = parse_module(result);
-      let return_area = mbt_ffi_malloc(20)
-
-      match result0 {
-            Ok(payload) => {
-                  mbt_ffi_store8((return_area) + 0, (0))
-
-                  let Module(handle) = payload
-                  mbt_ffi_store32((return_area) + 4, handle)
-
-                  ()
-            }
-            Err(payload1) => {
-                  mbt_ffi_store8((return_area) + 0, (1))
-
-                  let ptr = mbt_ffi_str2ptr((payload1).stage)
-                  mbt_ffi_store32((return_area) + 8, (payload1).stage.length())
-                  mbt_ffi_store32((return_area) + 4, ptr)
-
-                  let ptr2 = mbt_ffi_str2ptr((payload1).message)
-                  mbt_ffi_store32((return_area) + 16, (payload1).message.length())
-                  mbt_ffi_store32((return_area) + 12, ptr2)
-
-                  ()
-            }
-      }
-      let ret = return_area
-      return ret
-
+pub fn wasmExportSubTypeDtor(handle : Int) -> Unit {
+      SubType::dtor(handle)
 }
 
 #doc(hidden)
-pub fn wasmExportParseModulePostReturn(p0 : Int) -> Unit {
-
-      match (mbt_ffi_load8_u((p0) + 0)) {
-            0 => ()
-            1 => {
-                  mbt_ffi_free(mbt_ffi_load32((p0) + 4))
-                  mbt_ffi_free(mbt_ffi_load32((p0) + 12))
-
-            }
-            _ => panic()
-      }
-
+pub fn wasmExportTableDtor(handle : Int) -> Unit {
+      Table::dtor(handle)
 }
 
 #doc(hidden)
-pub fn wasmExportEncodeModule(p0 : Int) -> Int {
-
-      let (result) : (Result[FixedArray[Byte], Diagnostic]) = encode_module(Module::Module(p0));
-      let return_area = mbt_ffi_malloc(20)
-
-      match result {
-            Ok(payload) => {
-                  mbt_ffi_store8((return_area) + 0, (0))
-
-                  let ptr = mbt_ffi_bytes2ptr(payload)
-
-                  mbt_ffi_store32((return_area) + 8, payload.length())
-                  mbt_ffi_store32((return_area) + 4, ptr)
-
-                  ()
-            }
-            Err(payload0) => {
-                  mbt_ffi_store8((return_area) + 0, (1))
-
-                  let ptr1 = mbt_ffi_str2ptr((payload0).stage)
-                  mbt_ffi_store32((return_area) + 8, (payload0).stage.length())
-                  mbt_ffi_store32((return_area) + 4, ptr1)
-
-                  let ptr2 = mbt_ffi_str2ptr((payload0).message)
-                  mbt_ffi_store32((return_area) + 16, (payload0).message.length())
-                  mbt_ffi_store32((return_area) + 12, ptr2)
-
-                  ()
-            }
-      }
-      let ret = return_area
-      return ret
-
+pub fn wasmExportTableIdxDtor(handle : Int) -> Unit {
+      TableIdx::dtor(handle)
 }
 
 #doc(hidden)
-pub fn wasmExportEncodeModulePostReturn(p0 : Int) -> Unit {
+pub fn wasmExportTableSecDtor(handle : Int) -> Unit {
+      TableSec::dtor(handle)
+}
 
-      match (mbt_ffi_load8_u((p0) + 0)) {
-            0 => {
-                  mbt_ffi_free(mbt_ffi_load32((p0) + 4))
+#doc(hidden)
+pub fn wasmExportTableTypeDtor(handle : Int) -> Unit {
+      TableType::dtor(handle)
+}
 
-            }
-            1 => {
-                  mbt_ffi_free(mbt_ffi_load32((p0) + 4))
-                  mbt_ffi_free(mbt_ffi_load32((p0) + 12))
+#doc(hidden)
+pub fn wasmExportTagIdxDtor(handle : Int) -> Unit {
+      TagIdx::dtor(handle)
+}
 
-            }
-            _ => panic()
-      }
+#doc(hidden)
+pub fn wasmExportTagSecDtor(handle : Int) -> Unit {
+      TagSec::dtor(handle)
+}
 
+#doc(hidden)
+pub fn wasmExportTagTypeDtor(handle : Int) -> Unit {
+      TagType::dtor(handle)
+}
+
+#doc(hidden)
+pub fn wasmExportTypeIdxDtor(handle : Int) -> Unit {
+      TypeIdx::dtor(handle)
+}
+
+#doc(hidden)
+pub fn wasmExportTypeMetadataDtor(handle : Int) -> Unit {
+      TypeMetadata::dtor(handle)
+}
+
+#doc(hidden)
+pub fn wasmExportTypeSecDtor(handle : Int) -> Unit {
+      TypeSec::dtor(handle)
+}
+
+#doc(hidden)
+pub fn wasmExportU32IrDtor(handle : Int) -> Unit {
+      U32Ir::dtor(handle)
+}
+
+#doc(hidden)
+pub fn wasmExportU64IrDtor(handle : Int) -> Unit {
+      U64Ir::dtor(handle)
+}
+
+#doc(hidden)
+pub fn wasmExportValTypeDtor(handle : Int) -> Unit {
+      ValType::dtor(handle)
 }
 
 #doc(hidden)
@@ -10796,6 +10818,30 @@ pub fn wasmExportValidateModulePostReturn(p0 : Int) -> Unit {
 }
 
 ///|
+#owned(bytes)
+extern "wasm" fn mbt_ffi_bytes2ptr(bytes : FixedArray[Byte]) -> Int =
+#|(func (param i32) (result i32) local.get 0)
+
+///|
+extern "wasm" fn mbt_ffi_free(position : Int) =
+#|(func (param i32) local.get 0 call $moonbit.decref)
+
+///|
+extern "wasm" fn mbt_ffi_load32(offset : Int) -> Int =
+#|(func (param i32) (result i32) local.get 0 i32.load)
+
+///|
+extern "wasm" fn mbt_ffi_load8_u(offset : Int) -> Int =
+#|(func (param i32) (result i32) local.get 0 i32.load8_u)
+
+///|
+extern "wasm" fn mbt_ffi_malloc(size : Int) -> Int =
+#|(func (param i32) (result i32) (local i32)
+#| local.get 0 i32.const 4 i32.add call $moonbit.gc.malloc
+#| local.tee 1 i32.const 0 call $moonbit.init_array8
+#| local.get 1)
+
+///|
 extern "wasm" fn mbt_ffi_ptr2bytes(ptr : Int, len : Int) -> FixedArray[Byte] =
 #|(func (param i32) (param i32) (result i32)
 #| local.get 0
@@ -10810,38 +10856,14 @@ extern "wasm" fn mbt_ffi_ptr2str(ptr : Int, len : Int) -> String =
 #| local.get 0)
 
 ///|
-#owned(str)
-extern "wasm" fn mbt_ffi_str2ptr(str : String) -> Int =
-#|(func (param i32) (result i32) local.get 0)
+extern "wasm" fn mbt_ffi_store32(offset : Int, value : Int) =
+#|(func (param i32) (param i32) local.get 0 local.get 1 i32.store)
 
 ///|
 extern "wasm" fn mbt_ffi_store8(offset : Int, value : Int) =
 #|(func (param i32) (param i32) local.get 0 local.get 1 i32.store8)
 
 ///|
-extern "wasm" fn mbt_ffi_load32(offset : Int) -> Int =
-#|(func (param i32) (result i32) local.get 0 i32.load)
-
-///|
-extern "wasm" fn mbt_ffi_store32(offset : Int, value : Int) =
-#|(func (param i32) (param i32) local.get 0 local.get 1 i32.store)
-
-///|
-extern "wasm" fn mbt_ffi_free(position : Int) =
-#|(func (param i32) local.get 0 call $moonbit.decref)
-
-///|
-#owned(bytes)
-extern "wasm" fn mbt_ffi_bytes2ptr(bytes : FixedArray[Byte]) -> Int =
+#owned(str)
+extern "wasm" fn mbt_ffi_str2ptr(str : String) -> Int =
 #|(func (param i32) (result i32) local.get 0)
-
-///|
-extern "wasm" fn mbt_ffi_malloc(size : Int) -> Int =
-#|(func (param i32) (result i32) (local i32)
-#| local.get 0 i32.const 4 i32.add call $moonbit.gc.malloc
-#| local.tee 1 i32.const 0 call $moonbit.init_array8
-#| local.get 1)
-
-///|
-extern "wasm" fn mbt_ffi_load8_u(offset : Int) -> Int =
-#|(func (param i32) (result i32) local.get 0 i32.load8_u)

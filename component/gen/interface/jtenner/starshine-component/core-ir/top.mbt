@@ -3418,6 +3418,8 @@ declare pub fn Instruction::memory_size(p0 : MemIdx) -> Instruction
 ///|
 declare pub fn Instruction::nop() -> Instruction
 ///|
+declare pub fn Instruction::publish() -> Instruction
+///|
 declare pub fn Instruction::ref_as_non_null() -> Instruction
 ///|
 declare pub fn Instruction::ref_cast(p0 : Bool, p1 : HeapType) -> Instruction
@@ -3437,6 +3439,8 @@ declare pub fn Instruction::ref_func(p0 : FuncIdx) -> Instruction
 declare pub fn Instruction::ref_get_desc(p0 : TypeIdx) -> Instruction
 ///|
 declare pub fn Instruction::ref_i31() -> Instruction
+///|
+declare pub fn Instruction::ref_i31_shared() -> Instruction
 ///|
 declare pub fn Instruction::ref_is_null() -> Instruction
 ///|

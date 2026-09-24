@@ -36,6 +36,47 @@ pub fn wasmExportAvailableGeneratorProfilesPostReturn(p0 : Int) -> Unit {
 }
 
 #doc(hidden)
+pub fn wasmExportAvailablePasses() -> Int {
+
+      let (result) : (Array[PassInfo]) = available_passes();
+      let return_area = mbt_ffi_malloc(8)
+
+      let address = mbt_ffi_malloc((result).length() * 20);
+      for index = 0; index < (result).length(); index = index + 1 {
+            let iter_elem : PassInfo = (result)[(index)]
+            let iter_base = address + (index * 20);
+
+            let ptr = mbt_ffi_str2ptr((iter_elem).name)
+            mbt_ffi_store32((iter_base) + 4, (iter_elem).name.length())
+            mbt_ffi_store32((iter_base) + 0, ptr)
+
+            let ptr0 = mbt_ffi_str2ptr((iter_elem).summary)
+            mbt_ffi_store32((iter_base) + 12, (iter_elem).summary.length())
+            mbt_ffi_store32((iter_base) + 8, ptr0)
+            mbt_ffi_store8((iter_base) + 16, (iter_elem).kind.ordinal())
+
+      }
+      mbt_ffi_store32((return_area) + 4, (result).length())
+      mbt_ffi_store32((return_area) + 0, address)
+      let ret = return_area
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportAvailablePassesPostReturn(p0 : Int) -> Unit {
+
+      for index = 0; index < (mbt_ffi_load32((p0) + 4)); index = index + 1 {
+            let iter_base = (mbt_ffi_load32((p0) + 0)) + (index * 20)
+            mbt_ffi_free(mbt_ffi_load32((iter_base) + 0))
+            mbt_ffi_free(mbt_ffi_load32((iter_base) + 8))
+
+      }
+      mbt_ffi_free(mbt_ffi_load32((p0) + 0))
+
+}
+
+#doc(hidden)
 pub fn wasmExportGenerateValidWasm(p0 : Int64, p1 : Int, p2 : Int) -> Int {
 
       let result = mbt_ffi_ptr2str(p1, p2)
@@ -82,195 +123,6 @@ pub fn wasmExportGenerateValidWasmPostReturn(p0 : Int) -> Unit {
             0 => {
                   mbt_ffi_free(mbt_ffi_load32((p0) + 4))
                   mbt_ffi_free(mbt_ffi_load32((p0) + 12))
-
-            }
-            1 => {
-                  mbt_ffi_free(mbt_ffi_load32((p0) + 8))
-
-            }
-            _ => panic()
-      }
-
-}
-
-#doc(hidden)
-pub fn wasmExportAvailablePasses() -> Int {
-
-      let (result) : (Array[PassInfo]) = available_passes();
-      let return_area = mbt_ffi_malloc(8)
-
-      let address = mbt_ffi_malloc((result).length() * 20);
-      for index = 0; index < (result).length(); index = index + 1 {
-            let iter_elem : PassInfo = (result)[(index)]
-            let iter_base = address + (index * 20);
-
-            let ptr = mbt_ffi_str2ptr((iter_elem).name)
-            mbt_ffi_store32((iter_base) + 4, (iter_elem).name.length())
-            mbt_ffi_store32((iter_base) + 0, ptr)
-
-            let ptr0 = mbt_ffi_str2ptr((iter_elem).summary)
-            mbt_ffi_store32((iter_base) + 12, (iter_elem).summary.length())
-            mbt_ffi_store32((iter_base) + 8, ptr0)
-            mbt_ffi_store8((iter_base) + 16, (iter_elem).kind.ordinal())
-
-      }
-      mbt_ffi_store32((return_area) + 4, (result).length())
-      mbt_ffi_store32((return_area) + 0, address)
-      let ret = return_area
-      return ret
-
-}
-
-#doc(hidden)
-pub fn wasmExportAvailablePassesPostReturn(p0 : Int) -> Unit {
-
-      for index = 0; index < (mbt_ffi_load32((p0) + 4)); index = index + 1 {
-            let iter_base = (mbt_ffi_load32((p0) + 0)) + (index * 20)
-            mbt_ffi_free(mbt_ffi_load32((iter_base) + 0))
-            mbt_ffi_free(mbt_ffi_load32((iter_base) + 8))
-
-      }
-      mbt_ffi_free(mbt_ffi_load32((p0) + 0))
-
-}
-
-#doc(hidden)
-pub fn wasmExportValidateWasm(p0 : Int, p1 : Int) -> Int {
-
-      let result = mbt_ffi_ptr2bytes(p0, p1)
-
-      let (result0) : (Result[Unit, Diagnostic]) = validate_wasm(result);
-      let return_area = mbt_ffi_malloc(16)
-
-      match result0 {
-            Ok(_payload) => {
-                  mbt_ffi_store8((return_area) + 0, (0))
-
-                  ()
-            }
-            Err(payload1) => {
-                  mbt_ffi_store8((return_area) + 0, (1))
-                  mbt_ffi_store8((return_area) + 4, (payload1).stage.ordinal())
-
-                  let ptr = mbt_ffi_str2ptr((payload1).message)
-                  mbt_ffi_store32((return_area) + 12, (payload1).message.length())
-                  mbt_ffi_store32((return_area) + 8, ptr)
-
-                  ()
-            }
-      }
-      let ret = return_area
-      return ret
-
-}
-
-#doc(hidden)
-pub fn wasmExportValidateWasmPostReturn(p0 : Int) -> Unit {
-
-      match (mbt_ffi_load8_u((p0) + 0)) {
-            0 => ()
-            1 => {
-                  mbt_ffi_free(mbt_ffi_load32((p0) + 8))
-
-            }
-            _ => panic()
-      }
-
-}
-
-#doc(hidden)
-pub fn wasmExportRoundtripWasm(p0 : Int, p1 : Int) -> Int {
-
-      let result = mbt_ffi_ptr2bytes(p0, p1)
-
-      let (result0) : (Result[FixedArray[Byte], Diagnostic]) = roundtrip_wasm(result);
-      let return_area = mbt_ffi_malloc(16)
-
-      match result0 {
-            Ok(payload) => {
-                  mbt_ffi_store8((return_area) + 0, (0))
-
-                  let ptr = mbt_ffi_bytes2ptr(payload)
-
-                  mbt_ffi_store32((return_area) + 8, payload.length())
-                  mbt_ffi_store32((return_area) + 4, ptr)
-
-                  ()
-            }
-            Err(payload1) => {
-                  mbt_ffi_store8((return_area) + 0, (1))
-                  mbt_ffi_store8((return_area) + 4, (payload1).stage.ordinal())
-
-                  let ptr2 = mbt_ffi_str2ptr((payload1).message)
-                  mbt_ffi_store32((return_area) + 12, (payload1).message.length())
-                  mbt_ffi_store32((return_area) + 8, ptr2)
-
-                  ()
-            }
-      }
-      let ret = return_area
-      return ret
-
-}
-
-#doc(hidden)
-pub fn wasmExportRoundtripWasmPostReturn(p0 : Int) -> Unit {
-
-      match (mbt_ffi_load8_u((p0) + 0)) {
-            0 => {
-                  mbt_ffi_free(mbt_ffi_load32((p0) + 4))
-
-            }
-            1 => {
-                  mbt_ffi_free(mbt_ffi_load32((p0) + 8))
-
-            }
-            _ => panic()
-      }
-
-}
-
-#doc(hidden)
-pub fn wasmExportWatToWasm(p0 : Int, p1 : Int) -> Int {
-
-      let result = mbt_ffi_ptr2str(p0, p1)
-
-      let (result0) : (Result[FixedArray[Byte], Diagnostic]) = wat_to_wasm(result);
-      let return_area = mbt_ffi_malloc(16)
-
-      match result0 {
-            Ok(payload) => {
-                  mbt_ffi_store8((return_area) + 0, (0))
-
-                  let ptr = mbt_ffi_bytes2ptr(payload)
-
-                  mbt_ffi_store32((return_area) + 8, payload.length())
-                  mbt_ffi_store32((return_area) + 4, ptr)
-
-                  ()
-            }
-            Err(payload1) => {
-                  mbt_ffi_store8((return_area) + 0, (1))
-                  mbt_ffi_store8((return_area) + 4, (payload1).stage.ordinal())
-
-                  let ptr2 = mbt_ffi_str2ptr((payload1).message)
-                  mbt_ffi_store32((return_area) + 12, (payload1).message.length())
-                  mbt_ffi_store32((return_area) + 8, ptr2)
-
-                  ()
-            }
-      }
-      let ret = return_area
-      return ret
-
-}
-
-#doc(hidden)
-pub fn wasmExportWatToWasmPostReturn(p0 : Int) -> Unit {
-
-      match (mbt_ffi_load8_u((p0) + 0)) {
-            0 => {
-                  mbt_ffi_free(mbt_ffi_load32((p0) + 4))
 
             }
             1 => {
@@ -344,40 +196,177 @@ pub fn wasmExportOptimizeWasmPostReturn(p0 : Int) -> Unit {
 
 }
 
+#doc(hidden)
+pub fn wasmExportRoundtripWasm(p0 : Int, p1 : Int) -> Int {
+
+      let result = mbt_ffi_ptr2bytes(p0, p1)
+
+      let (result0) : (Result[FixedArray[Byte], Diagnostic]) = roundtrip_wasm(result);
+      let return_area = mbt_ffi_malloc(16)
+
+      match result0 {
+            Ok(payload) => {
+                  mbt_ffi_store8((return_area) + 0, (0))
+
+                  let ptr = mbt_ffi_bytes2ptr(payload)
+
+                  mbt_ffi_store32((return_area) + 8, payload.length())
+                  mbt_ffi_store32((return_area) + 4, ptr)
+
+                  ()
+            }
+            Err(payload1) => {
+                  mbt_ffi_store8((return_area) + 0, (1))
+                  mbt_ffi_store8((return_area) + 4, (payload1).stage.ordinal())
+
+                  let ptr2 = mbt_ffi_str2ptr((payload1).message)
+                  mbt_ffi_store32((return_area) + 12, (payload1).message.length())
+                  mbt_ffi_store32((return_area) + 8, ptr2)
+
+                  ()
+            }
+      }
+      let ret = return_area
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportRoundtripWasmPostReturn(p0 : Int) -> Unit {
+
+      match (mbt_ffi_load8_u((p0) + 0)) {
+            0 => {
+                  mbt_ffi_free(mbt_ffi_load32((p0) + 4))
+
+            }
+            1 => {
+                  mbt_ffi_free(mbt_ffi_load32((p0) + 8))
+
+            }
+            _ => panic()
+      }
+
+}
+
+#doc(hidden)
+pub fn wasmExportValidateWasm(p0 : Int, p1 : Int) -> Int {
+
+      let result = mbt_ffi_ptr2bytes(p0, p1)
+
+      let (result0) : (Result[Unit, Diagnostic]) = validate_wasm(result);
+      let return_area = mbt_ffi_malloc(16)
+
+      match result0 {
+            Ok(_payload) => {
+                  mbt_ffi_store8((return_area) + 0, (0))
+
+                  ()
+            }
+            Err(payload1) => {
+                  mbt_ffi_store8((return_area) + 0, (1))
+                  mbt_ffi_store8((return_area) + 4, (payload1).stage.ordinal())
+
+                  let ptr = mbt_ffi_str2ptr((payload1).message)
+                  mbt_ffi_store32((return_area) + 12, (payload1).message.length())
+                  mbt_ffi_store32((return_area) + 8, ptr)
+
+                  ()
+            }
+      }
+      let ret = return_area
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportValidateWasmPostReturn(p0 : Int) -> Unit {
+
+      match (mbt_ffi_load8_u((p0) + 0)) {
+            0 => ()
+            1 => {
+                  mbt_ffi_free(mbt_ffi_load32((p0) + 8))
+
+            }
+            _ => panic()
+      }
+
+}
+
+#doc(hidden)
+pub fn wasmExportWatToWasm(p0 : Int, p1 : Int) -> Int {
+
+      let result = mbt_ffi_ptr2str(p0, p1)
+
+      let (result0) : (Result[FixedArray[Byte], Diagnostic]) = wat_to_wasm(result);
+      let return_area = mbt_ffi_malloc(16)
+
+      match result0 {
+            Ok(payload) => {
+                  mbt_ffi_store8((return_area) + 0, (0))
+
+                  let ptr = mbt_ffi_bytes2ptr(payload)
+
+                  mbt_ffi_store32((return_area) + 8, payload.length())
+                  mbt_ffi_store32((return_area) + 4, ptr)
+
+                  ()
+            }
+            Err(payload1) => {
+                  mbt_ffi_store8((return_area) + 0, (1))
+                  mbt_ffi_store8((return_area) + 4, (payload1).stage.ordinal())
+
+                  let ptr2 = mbt_ffi_str2ptr((payload1).message)
+                  mbt_ffi_store32((return_area) + 12, (payload1).message.length())
+                  mbt_ffi_store32((return_area) + 8, ptr2)
+
+                  ()
+            }
+      }
+      let ret = return_area
+      return ret
+
+}
+
+#doc(hidden)
+pub fn wasmExportWatToWasmPostReturn(p0 : Int) -> Unit {
+
+      match (mbt_ffi_load8_u((p0) + 0)) {
+            0 => {
+                  mbt_ffi_free(mbt_ffi_load32((p0) + 4))
+
+            }
+            1 => {
+                  mbt_ffi_free(mbt_ffi_load32((p0) + 8))
+
+            }
+            _ => panic()
+      }
+
+}
+
 ///|
-extern "wasm" fn mbt_ffi_malloc(size : Int) -> Int =
-#|(func (param i32) (result i32) (local i32)
-#| local.get 0 i32.const 4 i32.add call $moonbit.gc.malloc
-#| local.tee 1 i32.const 0 call $moonbit.init_array8
-#| local.get 1)
+#owned(bytes)
+extern "wasm" fn mbt_ffi_bytes2ptr(bytes : FixedArray[Byte]) -> Int =
+#|(func (param i32) (result i32) local.get 0)
 
 ///|
 extern "wasm" fn mbt_ffi_free(position : Int) =
 #|(func (param i32) local.get 0 call $moonbit.decref)
 
 ///|
+extern "wasm" fn mbt_ffi_load32(offset : Int) -> Int =
+#|(func (param i32) (result i32) local.get 0 i32.load)
+
+///|
 extern "wasm" fn mbt_ffi_load8_u(offset : Int) -> Int =
 #|(func (param i32) (result i32) local.get 0 i32.load8_u)
 
 ///|
-extern "wasm" fn mbt_ffi_store32(offset : Int, value : Int) =
-#|(func (param i32) (param i32) local.get 0 local.get 1 i32.store)
-
-///|
-extern "wasm" fn mbt_ffi_ptr2str(ptr : Int, len : Int) -> String =
-#|(func (param i32) (param i32) (result i32)
-#| local.get 0
-#| local.get 1 call $moonbit.init_array16
-#| local.get 0)
-
-///|
-extern "wasm" fn mbt_ffi_store8(offset : Int, value : Int) =
-#|(func (param i32) (param i32) local.get 0 local.get 1 i32.store8)
-
-///|
-#owned(bytes)
-extern "wasm" fn mbt_ffi_bytes2ptr(bytes : FixedArray[Byte]) -> Int =
-#|(func (param i32) (result i32) local.get 0)
+extern "wasm" fn mbt_ffi_malloc(size : Int) -> Int =
+#|(func (param i32) (result i32) (local i32)
+#| local.get 0 i32.const 4 i32.add call $moonbit.gc.malloc
+#| local.tee 1 i32.const 0 call $moonbit.init_array8
+#| local.get 1)
 
 ///|
 extern "wasm" fn mbt_ffi_ptr2bytes(ptr : Int, len : Int) -> FixedArray[Byte] =
@@ -387,10 +376,21 @@ extern "wasm" fn mbt_ffi_ptr2bytes(ptr : Int, len : Int) -> FixedArray[Byte] =
 #| local.get 0)
 
 ///|
+extern "wasm" fn mbt_ffi_ptr2str(ptr : Int, len : Int) -> String =
+#|(func (param i32) (param i32) (result i32)
+#| local.get 0
+#| local.get 1 call $moonbit.init_array16
+#| local.get 0)
+
+///|
+extern "wasm" fn mbt_ffi_store32(offset : Int, value : Int) =
+#|(func (param i32) (param i32) local.get 0 local.get 1 i32.store)
+
+///|
+extern "wasm" fn mbt_ffi_store8(offset : Int, value : Int) =
+#|(func (param i32) (param i32) local.get 0 local.get 1 i32.store8)
+
+///|
 #owned(str)
 extern "wasm" fn mbt_ffi_str2ptr(str : String) -> Int =
 #|(func (param i32) (result i32) local.get 0)
-
-///|
-extern "wasm" fn mbt_ffi_load32(offset : Int) -> Int =
-#|(func (param i32) (result i32) local.get 0 i32.load)
