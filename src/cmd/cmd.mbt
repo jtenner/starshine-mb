@@ -9694,3 +9694,19 @@ test "Binaryen 133 command GTO remaps inherited fields" {
   assert_true(body.any(fn(i) { i is @lib.StructGet(_, @lib.U32(0U)) }))
   assert_eq(body.filter(fn(i) { i is @lib.I32Const(_) }).length(), 1)
 }
+
+///|
+test "Binaryen 133 command tail-call lowers an indirect table64 exit" {
+  let input = @binary.decode_module(Bytes::from_array([
+    0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x04, 0x01, 0x60, 0x00,
+    0x00, 0x03, 0x03, 0x02, 0x00, 0x00, 0x04, 0x05, 0x01, 0x70, 0x05, 0x02, 0x02,
+    0x09, 0x0b, 0x01, 0x06, 0x00, 0x42, 0x01, 0x0b, 0x70, 0x01, 0xd2, 0x00, 0x0b,
+    0x0a, 0x0d, 0x02, 0x03, 0x00, 0x01, 0x0b, 0x07, 0x00, 0x42, 0x01, 0x11, 0x00,
+    0x00, 0x0b,
+  ])).unwrap()
+  assert_true(@validate.validate_module(input).is_ok())
+  let output = optimize_module_with_pass_flags(input, ["tail-call"], OptimizeOptions::new()).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+  assert_true(body.any(fn(i) { i is @lib.ReturnCallIndirect(_, _) }))
+}
