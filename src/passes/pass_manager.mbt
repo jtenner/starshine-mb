@@ -35725,6 +35725,59 @@ fn RawOiV131EffectfulSelectHotReplayFact::proves_hot_replay(
 }
 
 ///|
+// Partial scalar folds must not finish the pass before HOT visits their
+// expression trees. Retain raw-only identical-arm rewrites, as well as the
+// existing memory, call and proposal bridge boundaries.
+fn RawOiFunctionRevisionFactIndex::can_finish_scalar_rewrites_in_hot(
+  self : RawOiFunctionRevisionFactIndex,
+) -> Bool {
+  for region in self.regions {
+    for root in region.roots {
+      match root.instr {
+        @lib.If(_, then_body, Some(else_body)) =>
+          if RawOiIdenticalIfArmsFact::from_arms(then_body, else_body)
+            is Some(_) {
+            return false
+          }
+        @lib.Block(_, _)
+        | @lib.Loop(_, _)
+        | @lib.If(_, _, None)
+        | @lib.LocalGet(_)
+        | @lib.LocalSet(_)
+        | @lib.LocalTee(_)
+        | @lib.I32Const(_)
+        | @lib.I64Const(_)
+        | @lib.F32Const(_)
+        | @lib.F64Const(_)
+        | @lib.Drop
+        | @lib.Nop
+        | @lib.Unreachable
+        | @lib.Br(_)
+        | @lib.BrIf(_)
+        | @lib.BrTable(_, _)
+        | @lib.Return
+        | @lib.I32Eqz
+        | @lib.I64Eqz
+        | @lib.I32LtU
+        | @lib.I32LeU
+        | @lib.I32GtU
+        | @lib.I32GeU
+        | @lib.I64LtU
+        | @lib.I64LeU
+        | @lib.I64GtU
+        | @lib.I64GeU => ()
+        _ =>
+          match root.kind {
+            CommutativeIntegerBinop | ScalarNumericTerminal => ()
+            _ => return false
+          }
+      }
+    }
+  }
+  true
+}
+
+///|
 fn RawOiStackCarriedEffectUseFact::is_stack_carried(
   self : RawOiStackCarriedEffectUseFact,
 ) -> Bool {
@@ -44515,6 +44568,12 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
         trace_skip_raw: true,
       })
     _ => ()
+  }
+  if (const_fold_changed || effectful_sibling_changed) &&
+    oi_index.can_finish_scalar_rewrites_in_hot() {
+    // Let the normal HOT visit optimize the original tree once. Returning the
+    // partial raw result here deferred its dependent folds until another pass.
+    return None
   }
   if stats.ifs > 0 &&
     (
