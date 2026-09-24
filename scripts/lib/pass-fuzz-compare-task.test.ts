@@ -1027,6 +1027,35 @@ describe("pass-fuzz compare normalizers", () => {
     );
   });
 
+  test("unreachable-control-debris removes standalone nops while preserving live branch effects", () => {
+    const withNop = `(module
+ (import "env" "effect" (func $effect))
+ (func $run (export "run") (param $condition i32)
+  (if
+   (local.get $condition)
+   (then
+    (call $effect)
+   )
+   (else
+    (nop)
+   )
+  )
+ )
+)`;
+    const withoutNop = withNop.replace("    (nop)\n", "");
+    const withElseEffect = withNop.replace("(nop)", "(call $effect)");
+    const normalizers = ["unreachable-control-debris"];
+    expect(applyCompareNormalizersForTest(withNop, normalizers)).toBe(
+      applyCompareNormalizersForTest(withoutNop, normalizers),
+    );
+    expect(applyCompareNormalizersForTest(withElseEffect, normalizers)).not.toBe(
+      applyCompareNormalizersForTest(withoutNop, normalizers),
+    );
+    expect(applyCompareNormalizersForTest(withNop, [])).not.toBe(
+      applyCompareNormalizersForTest(withoutNop, []),
+    );
+  });
+
   test("unreachable-control-debris preserves start function prefixes", () => {
     const wat = `(module
  (start $init)

@@ -2162,7 +2162,7 @@ function normalizeUnreachableControlDebris(wat: string): string {
       normalizeUnreachableAfterInfiniteSelfLoop(
         normalizeConstantSelfBranchControlDebris(
           normalizeVoidBranchUnreachableBlockDebris(
-            normalizeLocalUnreachableControlDebris(wat),
+            normalizeLocalUnreachableControlDebris(normalizeStandaloneNops(wat)),
           ),
         ),
       ),
