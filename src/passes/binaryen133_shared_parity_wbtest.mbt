@@ -31,6 +31,110 @@ fn binaryen133_run_shared(
 }
 
 ///|
+test "Binaryen 133 shared objects lowers typed calls and tail calls through the same function table" {
+  for tail in [false, true] {
+    let input = pass_test_module_from_wat(
+      "(module (type $f (func (result i32))) (func $target (type $f) i32.const 41) (elem declare func $target) (func (result i32) i32.const 0))",
+    )
+    let functions = input.code_sec.unwrap().0.copy()
+    functions[1] = @lib.Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new([
+        @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+        if tail {
+          @lib.Instruction::return_call_ref(@lib.TypeIdx::new(0U))
+        } else {
+          @lib.Instruction::call_ref(@lib.TypeIdx::new(0U))
+        },
+      ]),
+    )
+    let input = input.with_code_sec(@lib.CodeSec::new(functions))
+    assert_true(@validate.validate_module(input).is_ok())
+    let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "make-shared-objects",
+    ]).unwrap()
+    assert_true(@validate.validate_module(output).is_ok())
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+    assert_eq(body.length(), 4)
+    assert_eq(body[0], @lib.Instruction::i32_const(@lib.I32(0)))
+    assert_eq(body[1], @lib.Instruction::ref_i31_shared())
+    assert_eq(body[2], @lib.Instruction::i31_get_u())
+    assert_eq(
+      body[3],
+      if tail {
+        @lib.Instruction::return_call_indirect(
+          @lib.TypeIdx::new(0U),
+          @lib.TableIdx::new(0U),
+        )
+      } else {
+        @lib.Instruction::call_indirect(
+          @lib.TypeIdx::new(0U),
+          @lib.TableIdx::new(0U),
+        )
+      },
+    )
+    assert_eq(output.table_sec.unwrap().0.length(), 1)
+    let decoded = @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap()
+    assert_true(@validate.validate_module(decoded).is_ok())
+    assert_eq(decoded.code_sec, output.code_sec)
+  }
+}
+
+///|
+test "Binaryen 133 shared objects preserves imported table indices for indirect tail calls" {
+  let output = binaryen133_run_shared(
+    "(module (type $f (func (result i32))) (import \"env\" \"memory\" (memory 1)) (import \"env\" \"table\" (table 1 funcref)) (func (result i32) (return_call_indirect (type $f) (i32.const 0))))",
+  )
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_eq(body, [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+    @lib.Instruction::i31_get_u(),
+    @lib.Instruction::return_call_indirect(
+      @lib.TypeIdx::new(0U),
+      @lib.TableIdx::new(1U),
+    ),
+  ])
+  assert_eq(output.table_sec.unwrap().0.length(), 1)
+  let imported = output.import_sec.unwrap().0[1]
+  assert_true(
+    imported is @lib.Import(_, _, @lib.TableExternType(@lib.TableType(rt, _))) &&
+    @lib.ValType::ref_type(rt) == mso_shared_i31(true),
+  )
+}
+
+///|
+test "Binaryen 133 shared objects preserves packed fields and subtype relationships" {
+  let output = binaryen133_run_shared(
+    "(module (type $base (sub (struct (field (mut i8))))) (type $child (sub $base (struct (field (mut i8)) (field i16)))))",
+  )
+  let types = cl_module_subtypes(output)
+  assert_eq(types.length(), 2)
+  assert_true(types.all(fn(t) { t.metadata().is_shared() }))
+  assert_eq(types[1].super_types(), [@lib.TypeIdx::new(0U)])
+  match types[1].get_comptype() {
+    @lib.StructCompType(fields) => {
+      assert_eq(fields.length(), 2)
+      assert_eq(
+        fields[0],
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i8()),
+          @lib.Mut::var_(),
+        ),
+      )
+      assert_eq(
+        fields[1],
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i16()),
+          @lib.Mut::const_(),
+        ),
+      )
+    }
+    _ => fail("expected shared struct fields")
+  }
+}
+
+///|
 test "Binaryen 133 shared objects rewrites array length modules" {
   let output = binaryen133_run_shared(
     "(module (type $a (array (mut i32))) (func (export \"run\") (result i32) (array.new_default $a (i32.const 3)) drop i32.const 0))",
