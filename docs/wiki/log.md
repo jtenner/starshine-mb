@@ -24135,3 +24135,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   custom section remains byte-identical. Red-first adjacent and active command
   regressions showed the previous pass introducing `return_call` despite the
   disallowing metadata.
+
+### 2026-09-24 — Code-pushing inventory performance
+
+- The [code-pushing validation page](binaryen/passes/code-pushing/starshine-port-readiness-and-validation.md#september-24-2026-inventory-measurement) records native direct HOT benchmark evidence for replacing one body traversal per local with one counting traversal. The two calibrated cases improved `2.98×` and `5.49×`; a focused count regression passed on wasm-gc. The measurements are pass-local synthetic evidence, not Binaryen parity timing.

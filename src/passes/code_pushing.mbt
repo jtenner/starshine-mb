@@ -1025,18 +1025,55 @@ priv struct CodePushingLocalInventory {
 }
 
 ///|
+fn code_pushing_inventory_count_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+  total_gets : Array[Int],
+  total_writes : Array[Int],
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet =>
+      if node.imm0 >= 0 &&
+        node.imm0 < total_gets.length() &&
+        total_gets[node.imm0] <= 1_000_000 {
+        total_gets[node.imm0] += 1
+      }
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      if node.imm0 >= 0 &&
+        node.imm0 < total_writes.length() &&
+        total_writes[node.imm0] <= 1_000_000 {
+        total_writes[node.imm0] += 1
+      }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    code_pushing_inventory_count_node(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      total_gets,
+      total_writes,
+    )
+  }
+}
+
+///|
 fn CodePushingLocalInventory::from_func(
   func : @ir.HotFunc,
 ) -> CodePushingLocalInventory {
   let local_count = @ir.hot_local_count(func)
   let total_gets = Array::make(local_count, 0)
   let total_writes = Array::make(local_count, 0)
-  for local_id = 0; local_id < local_count; local_id = local_id + 1 {
-    let (gets, writes) = code_pushing_count_total_local_gets_writes_bounded(
-      func, local_id, 1_000_000, 1_000_000,
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    code_pushing_inventory_count_node(
+      func,
+      @ir.hot_root_get(func, idx),
+      total_gets,
+      total_writes,
     )
-    total_gets[local_id] = gets
-    total_writes[local_id] = writes
   }
   {
     func,
@@ -1045,6 +1082,25 @@ fn CodePushingLocalInventory::from_func(
     unique_gets: Array::make(local_count, -1),
     unique_writes: Array::make(local_count, -1),
     scan_seen: Array::make(@ir.hot_node_count(func), false),
+  }
+}
+
+///|
+test "code-pushing inventory counts all local occurrences across control" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (local i32 i32) i32.const 1 local.set 1 local.get 0 if local.get 1 drop else i32.const 2 local.tee 2 drop end local.get 1 drop local.get 2 drop))",
+  )
+  let inventory = CodePushingLocalInventory::from_func(func)
+  assert_eq(inventory.total(0), (1, 0))
+  assert_eq(inventory.total(1), (2, 1))
+  assert_eq(inventory.total(2), (1, 1))
+  for local_id = 0; local_id < 3; local_id = local_id + 1 {
+    assert_eq(
+      inventory.total(local_id),
+      code_pushing_count_total_local_gets_writes_bounded(
+        func, local_id, 1_000_000, 1_000_000,
+      ),
+    )
   }
 }
 

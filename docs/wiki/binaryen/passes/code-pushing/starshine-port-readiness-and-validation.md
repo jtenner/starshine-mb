@@ -113,6 +113,10 @@ The `try_table` boundary in [`0858`](./index.md) extends that EH split: local Bi
 
 The accepted criteria are pass-wide: match Binaryen semantics, emit valid wasm after safe transforms, and stay at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`). The current debug-artifact timing, about 1658ms for Starshine versus about 1311ms for Binaryen, clears that floor.
 
+### September 24, 2026 inventory measurement
+
+The [dedicated native benchmark](../../../../../src/passes_perf_long/code_pushing_inventory_perf_test.mbt) isolates a candidate-free direct HOT pass with fixtures built and validated before timing. With 16 locals and 64 reads, the mean fell from `51.25 µs` to `17.20 µs` (`2.98×` faster); with 32 locals and 128 reads, it fell from `177.48 µs` to `32.32 µs` (`5.49×` faster). The old inventory traversed the body once per local on every pass round. The replacement counts all locals in one traversal while preserving occurrence counts and the existing per-local cap. A focused control-region count regression passed on wasm-gc. These are local microbenchmark results, not a new Binaryen comparison or a claim about whole-pipeline speed.
+
 Current Starshine code locations:
 
 | Location | Role |

@@ -7,6 +7,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
+  - ../../../../../src/passes_perf_long/code_pushing_inventory_perf_test.mbt
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../../src/passes/registry_test.mbt
