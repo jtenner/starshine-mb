@@ -15352,6 +15352,7 @@ priv struct HsoCandidateScanState {
 priv struct HotPipelineModuleState {
   mut module_ctx : @ir.HotModuleContext?
   mut validation_module_env : @validate.Env?
+  mut ssa_func_type_indices : Array[@lib.TypeIdx]?
   mut vacuum_raw_preclean_elapsed_us : UInt64
   mut vacuum_raw_preclean_count : Int
   mut vacuum_no_candidate_elapsed_us : UInt64
@@ -15371,6 +15372,7 @@ fn HotPipelineModuleState::new() -> HotPipelineModuleState {
   {
     module_ctx: None,
     validation_module_env: None,
+    ssa_func_type_indices: None,
     vacuum_raw_preclean_elapsed_us: 0UL,
     vacuum_raw_preclean_count: 0,
     vacuum_no_candidate_elapsed_us: 0UL,
@@ -15384,6 +15386,42 @@ fn HotPipelineModuleState::new() -> HotPipelineModuleState {
     dce_unchanged_lowering_known: @bitset.BitSet::new(0),
     dce_unchanged_lowering_required: @bitset.BitSet::new(0),
   }
+}
+
+///|
+fn run_hot_pipeline_ssa_func_type_indices(
+  mod_ : @lib.Module,
+  module_state : HotPipelineModuleState,
+) -> Array[@lib.TypeIdx] {
+  match module_state.ssa_func_type_indices {
+    Some(indices) => indices
+    None => {
+      let indices = dae_collect_func_type_indices(mod_)
+      module_state.ssa_func_type_indices = Some(indices)
+      indices
+    }
+  }
+}
+
+///|
+test "SSA function type table cache is scoped to one module state" {
+  let first = pass_test_module_from_wat(
+    "(module (type (func)) (func (type 0)))",
+  )
+  let second = pass_test_module_from_wat(
+    "(module (type (func)) (type (func (param i32))) (func (type 1) (param i32)))",
+  )
+  let first_state = HotPipelineModuleState::new()
+  let second_state = HotPipelineModuleState::new()
+  let first_indices = run_hot_pipeline_ssa_func_type_indices(first, first_state)
+  assert_eq(first_indices, [@lib.TypeIdx::new(0U)])
+  assert_eq(
+    run_hot_pipeline_ssa_func_type_indices(first, first_state),
+    first_indices,
+  )
+  assert_eq(run_hot_pipeline_ssa_func_type_indices(second, second_state), [
+    @lib.TypeIdx::new(1U),
+  ])
 }
 
 ///|
@@ -30939,7 +30977,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     run_hot_pipeline_raw_ssa_nomerge_has_stacked_call_results(
       instrs,
       mod_,
-      dae_collect_func_type_indices(mod_),
+      run_hot_pipeline_ssa_func_type_indices(mod_, module_state),
     ) {
     return Some({
       reason: "stacked-call-results-ssa-nomerge-noop",

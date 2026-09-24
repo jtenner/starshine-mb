@@ -24147,3 +24147,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — SSA rewrite-plan lookup indexing
 
 - The [SSA](binaryen/passes/ssa/implementation-structure-and-tests.md#september-24-2026-rewrite-plan-lookup-measurement) and [SSA-nomerge](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md#september-24-2026-rewrite-plan-lookup-measurement) pages record isolated native plan timing at 256 write/read pairs: `44.58 → 32.23 µs` and `69.12 → 53.33 µs`. Both use NodeId-indexed write targets, and 16 full-SSA plus 498 no-merge focused tests passed on wasm-gc.
+
+### 2026-09-24 — SSA-nomerge module type-table preflight
+
+- The [SSA-nomerge implementation page](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md#september-24-2026-rewrite-plan-lookup-measurement) records direct-pass native timing for 256 tiny functions: `412.64 → 262.58 µs` after caching the function-type table for the pass invocation. The result includes pass envelope work and is not a Binaryen comparison.

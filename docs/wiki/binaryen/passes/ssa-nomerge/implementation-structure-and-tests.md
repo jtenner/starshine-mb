@@ -10,6 +10,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/ssa_nomerge_test.mbt
   - ../../../../../src/passes_perf_long/ssa_plan_lookup_perf_test.mbt
+  - ../../../../../src/passes_perf_long/ssa_type_table_perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
   - ./index.md
@@ -26,6 +27,8 @@ related:
 ## September 24, 2026 rewrite-plan lookup measurement
 
 The [native plan benchmark](../../../../../src/passes_perf_long/ssa_plan_lookup_perf_test.mbt) constructs a validated straight-line fixture and HOT LocalGraph before timing. At 256 write/read pairs, `ssa-nomerge` planning fell from `69.12 µs` to `53.33 µs` (`1.30×` faster) after replacing per-get linear write-rewrite lookup with a NodeId-indexed fresh-local table; the 64-pair case fell from `14.48 µs` to `13.44 µs`. The raw occurrence plan indexes the first rewrite for each repeated write NodeId, retaining its prior lookup rule. This is plan-only synthetic timing, not a new Binaryen comparison.
+
+The [module preflight benchmark](../../../../../src/passes_perf_long/ssa_type_table_perf_test.mbt) validates a module of tiny functions before timing direct `ssa-nomerge`. At 256 functions, the mean fell from `412.64 µs` to `262.58 µs` (`1.57×` faster); at 64 functions, it fell from `79.40 µs` to `69.97 µs`. The raw stacked-call guard previously rebuilt the full function-type table per function. It now caches the table in the pass invocation's `HotPipelineModuleState`; a focused regression confirms separate module states retain distinct type tables. This result includes the rest of the direct pass envelope and does not establish a Binaryen comparison.
 
 ## Why this page exists
 
