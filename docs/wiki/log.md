@@ -24143,3 +24143,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — Traced timer indexing
 
 - The [late dispatcher page](binaryen/passes/late-pipeline-dispatch.md#2026-09-24-traced-timer-indexing) records a native timer bookkeeping benchmark: `381.65 µs` to `163.09 µs` for 512 distinct per-function names. The result concerns optional instrumentation overhead and does not supersede historical Binaryen timings.
+
+### 2026-09-24 — SSA rewrite-plan lookup indexing
+
+- The [SSA](binaryen/passes/ssa/implementation-structure-and-tests.md#september-24-2026-rewrite-plan-lookup-measurement) and [SSA-nomerge](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md#september-24-2026-rewrite-plan-lookup-measurement) pages record isolated native plan timing at 256 write/read pairs: `44.58 → 32.23 µs` and `69.12 → 53.33 µs`. Both use NodeId-indexed write targets, and 16 full-SSA plus 498 no-merge focused tests passed on wasm-gc.

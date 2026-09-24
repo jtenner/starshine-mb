@@ -68,20 +68,14 @@ pub(all) struct SsaFullRewritePlan {
 
 ///|
 fn ssa_full_write_target_local(
-  writes : Array[SsaFullWriteRewrite],
+  targets : Array[Int],
   write_id : @ir.NodeId,
 ) -> @ir.LocalId? {
-  for rewrite in writes {
-    if rewrite.write_id == write_id {
-      return Some(
-        match rewrite.decision {
-          SsaFullWriteDecision::Freshen(local_id) => local_id
-          SsaFullWriteDecision::KeepCanonical => rewrite.original_local
-        },
-      )
-    }
+  if write_id >= 0 && write_id < targets.length() && targets[write_id] >= 0 {
+    Some(targets[write_id])
+  } else {
+    None
   }
-  None
 }
 
 ///|
@@ -121,7 +115,7 @@ fn ssa_full_build_inputs_for_merge_get(
 ///|
 fn ssa_full_plan_single_get(
   graph : @ir.HotLocalGraph,
-  writes : Array[SsaFullWriteRewrite],
+  targets : Array[Int],
   get_id : @ir.NodeId,
 ) -> SsaFullGetDecision {
   let sources = @ir.local_graph_reaching_sources_for_get(graph, get_id)
@@ -130,7 +124,7 @@ fn ssa_full_plan_single_get(
   }
   match sources[0] {
     @ir.HotLocalGraphSource::SetSource(write_id) =>
-      match ssa_full_write_target_local(writes, write_id) {
+      match ssa_full_write_target_local(targets, write_id) {
         Some(local_id) => SsaFullGetDecision::Retarget(local_id)
         None => SsaFullGetDecision::KeepCanonical
       }
@@ -151,6 +145,7 @@ pub fn ssa_full_build_merge_rewrite_plan(
   graph : @ir.HotLocalGraph,
 ) -> SsaFullRewritePlan {
   let write_rewrites : Array[SsaFullWriteRewrite] = []
+  let target_by_write = Array::make(@ir.hot_node_count(func), -1)
   let mut next_local = @ir.hot_local_count(func)
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) ||
@@ -168,6 +163,10 @@ pub fn ssa_full_build_merge_rewrite_plan(
       SsaFullWriteDecision::Freshen(fresh_local)
     }
     write_rewrites.push({ write_id: node_id, original_local, decision, })
+    target_by_write[node_id] = match decision {
+      SsaFullWriteDecision::Freshen(local_id) => local_id
+      SsaFullWriteDecision::KeepCanonical => original_local
+    }
   }
 
   let get_rewrites : Array[SsaFullGetRewrite] = []
@@ -207,7 +206,7 @@ pub fn ssa_full_build_merge_rewrite_plan(
           get_rewrites.push({
             get_id: node_id,
             original_local: node.imm0,
-            decision: ssa_full_plan_single_get(graph, write_rewrites, node_id),
+            decision: ssa_full_plan_single_get(graph, target_by_write, node_id),
           })
         }
       }

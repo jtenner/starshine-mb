@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-24
 sources:
   - index.md
   - ./index.md
+  - ../../../../../src/passes_perf_long/ssa_plan_lookup_perf_test.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h
@@ -28,6 +29,10 @@ related:
 # `ssa` implementation structure and tests
 
 This page is the compact "show me the real source surface" companion for the full-`ssa` sibling. Its direct tagged `version_129` URLs below preserve the owner, helper, and lit provenance; for scoped current-main and local-admission freshness, use [`index.md`](index.md).
+
+## September 24, 2026 rewrite-plan lookup measurement
+
+The [native plan benchmark](../../../../../src/passes_perf_long/ssa_plan_lookup_perf_test.mbt) builds and validates one straight-line set/get fixture and constructs its HOT LocalGraph before timing. At 256 write/read pairs, full `ssa` plan construction fell from `44.58 µs` to `32.23 µs` (`1.38×` faster) after replacing the per-get linear write-rewrite search with a NodeId-indexed target table. The 64-pair case fell from `9.05 µs` to `8.32 µs`. This isolates planning only; it is not whole-pass or Binaryen parity timing.
 
 ## Upstream file map
 

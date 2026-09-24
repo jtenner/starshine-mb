@@ -10,6 +10,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/ssa.wast
   - ../../../../../src/passes/ssa.mbt
   - ../../../../../src/passes/ssa_test.mbt
+  - ../../../../../src/passes_perf_long/ssa_plan_lookup_perf_test.mbt
   - ../../../../../src/ir/local_graph.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt

@@ -6,6 +6,7 @@ sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/passes/ssa_nomerge_test.mbt
+  - ../../../../../src/passes_perf_long/ssa_plan_lookup_perf_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md

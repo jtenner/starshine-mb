@@ -57,24 +57,22 @@ pub(all) struct SsaNoMergeRewritePlan {
 
 ///|
 fn ssa_nomerge_fresh_local_for_write(
-  writes : Array[SsaNoMergeWriteRewrite],
+  fresh_by_write : Array[Int],
   write_id : @ir.NodeId,
 ) -> @ir.LocalId? {
-  for rewrite in writes {
-    if rewrite.write_id == write_id {
-      match rewrite.decision {
-        SsaNoMergeWriteDecision::Freshen(local_id) => return Some(local_id)
-        SsaNoMergeWriteDecision::KeepCanonical => return None
-      }
-    }
+  if write_id >= 0 &&
+    write_id < fresh_by_write.length() &&
+    fresh_by_write[write_id] >= 0 {
+    Some(fresh_by_write[write_id])
+  } else {
+    None
   }
-  None
 }
 
 ///|
 fn ssa_nomerge_plan_get_decision(
   graph : @ir.HotLocalGraph,
-  writes : Array[SsaNoMergeWriteRewrite],
+  fresh_by_write : Array[Int],
   get_id : @ir.NodeId,
 ) -> SsaNoMergeGetDecision {
   if @ir.local_graph_get_is_merge(graph, get_id) {
@@ -86,7 +84,7 @@ fn ssa_nomerge_plan_get_decision(
   }
   match sources[0] {
     @ir.HotLocalGraphSource::SetSource(write_id) =>
-      match ssa_nomerge_fresh_local_for_write(writes, write_id) {
+      match ssa_nomerge_fresh_local_for_write(fresh_by_write, write_id) {
         Some(local_id) => SsaNoMergeGetDecision::Retarget(local_id)
         None => SsaNoMergeGetDecision::KeepCanonical
       }
@@ -376,6 +374,7 @@ pub fn ssa_nomerge_build_rewrite_plan(
   graph : @ir.HotLocalGraph,
 ) -> SsaNoMergeRewritePlan {
   let writes : Array[SsaNoMergeWriteRewrite] = []
+  let fresh_by_write = Array::make(@ir.hot_node_count(func), -1)
   let loop_carried_canonical_writes = ssa_nomerge_loop_carried_canonical_writes(
     func,
   )
@@ -407,6 +406,11 @@ pub fn ssa_nomerge_build_rewrite_plan(
       influenced_gets: @ir.local_graph_influenced_gets_for_write(graph, node_id),
       decision,
     })
+    match decision {
+      SsaNoMergeWriteDecision::Freshen(local_id) =>
+        fresh_by_write[node_id] = local_id
+      SsaNoMergeWriteDecision::KeepCanonical => ()
+    }
   }
   let gets : Array[SsaNoMergeGetRewrite] = []
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
@@ -419,7 +423,9 @@ pub fn ssa_nomerge_build_rewrite_plan(
         gets.push({
           get_id: node_id,
           original_local: node.imm0,
-          decision: ssa_nomerge_plan_get_decision(graph, writes, node_id),
+          decision: ssa_nomerge_plan_get_decision(
+            graph, fresh_by_write, node_id,
+          ),
         })
       _ => ()
     }
@@ -445,6 +451,8 @@ fn ssa_nomerge_build_raw_rewrite_plan(
     decisions[write.write_id] = write.decision
   }
   let writes : Array[SsaNoMergeWriteRewrite] = []
+  let fresh_by_write = Array::make(@ir.hot_node_count(func), -1)
+  let seen_write_ids = Array::make(@ir.hot_node_count(func), false)
   let mut next_fresh = accesses.local_count
   for access in accesses.writes {
     let (original_local, write_id) = access
@@ -471,6 +479,14 @@ fn ssa_nomerge_build_raw_rewrite_plan(
         []
       },
     })
+    if write_id >= 0 && !seen_write_ids[write_id] {
+      seen_write_ids[write_id] = true
+      match decision {
+        SsaNoMergeWriteDecision::Freshen(local_id) =>
+          fresh_by_write[write_id] = local_id
+        SsaNoMergeWriteDecision::KeepCanonical => ()
+      }
+    }
   }
   let gets : Array[SsaNoMergeGetRewrite] = []
   for access in accesses.gets {
@@ -479,7 +495,7 @@ fn ssa_nomerge_build_raw_rewrite_plan(
       get_id,
       original_local,
       decision: if get_id >= 0 {
-        ssa_nomerge_plan_get_decision(graph, writes, get_id)
+        ssa_nomerge_plan_get_decision(graph, fresh_by_write, get_id)
       } else {
         SsaNoMergeGetDecision::KeepCanonical
       },

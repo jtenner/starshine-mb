@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-24
 sources:
   - ./index.md
   - ../../../../../src/passes/ssa_nomerge.mbt
@@ -9,6 +9,7 @@ sources:
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/ssa_nomerge_test.mbt
+  - ../../../../../src/passes_perf_long/ssa_plan_lookup_perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
   - ./index.md
@@ -21,6 +22,10 @@ related:
 ---
 
 # `ssa-nomerge` implementation structure and tests
+
+## September 24, 2026 rewrite-plan lookup measurement
+
+The [native plan benchmark](../../../../../src/passes_perf_long/ssa_plan_lookup_perf_test.mbt) constructs a validated straight-line fixture and HOT LocalGraph before timing. At 256 write/read pairs, `ssa-nomerge` planning fell from `69.12 µs` to `53.33 µs` (`1.30×` faster) after replacing per-get linear write-rewrite lookup with a NodeId-indexed fresh-local table; the 64-pair case fell from `14.48 µs` to `13.44 µs`. The raw occurrence plan indexes the first rewrite for each repeated write NodeId, retaining its prior lookup rule. This is plan-only synthetic timing, not a new Binaryen comparison.
 
 ## Why this page exists
 
