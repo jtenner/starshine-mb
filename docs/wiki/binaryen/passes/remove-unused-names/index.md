@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-24
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedNames.cpp
   - ../../../../../src/passes/remove_unused_names.mbt
@@ -34,6 +34,26 @@ related:
 ---
 
 # `remove-unused-names`
+
+## September 24, 2026 HOT loop-label inventory
+
+The HOT visitor formerly searched each loop's entire nested body for an
+incoming continue target. A root-reachable traversal now records referenced
+labels once before rewriting, including branch tables, catch targets, and
+continuation handlers. Block peeling retargets only block labels, and loop
+demotion preserves its label ID, so the loop-use snapshot stays valid during
+this pass. The [white-box regression](../../../../../src/passes/remove_unused_names_label_index_wbtest.mbt)
+checks nested outer and inner labels. Its two tests, 27 existing direct tests,
+and the continuation-target audit pass on wasm-gc.
+
+The [dedicated native benchmark](../../../../../src/passes_perf_long/remove_unused_names_loop_perf_test.mbt)
+validates nested branch-free loops outside timing and measures fresh direct
+HOT runs, including a fresh lift each iteration. Means fell from `68.26` to
+`38.36 µs` at depth 48 (`1.78×`), `187.32` to `71.41 µs` at depth 96
+(`2.62×`), and `1.01 ms` to `180.61 µs` at depth 256 (`5.59×`). The
+registry-dispatched raw path has its own linear shortcut; these synthetic
+numbers demonstrate a HOT visitor bottleneck, not a broad dispatcher or
+Binaryen timing claim.
 
 ## Role
 

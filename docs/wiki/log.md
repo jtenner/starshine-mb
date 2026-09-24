@@ -24159,3 +24159,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — RSE branch-free nested-loop probe
 
 - The [RSE validation page](binaryen/passes/rse/starshine-port-readiness-and-validation.md#september-24-2026-nested-loop-probe-measurement) records direct-pass native timing at eight nested loops: `303.52 → 10.01 µs` after skipping fallback body rewrites when no control transfer can revisit a loop entry. The branch scan regression and 43 existing RSE tests pass on wasm-gc; the result is synthetic and does not alter historical Binaryen evidence.
+
+### 2026-09-24 — RemoveUnusedNames HOT label inventory
+
+- The [RemoveUnusedNames page](binaryen/passes/remove-unused-names/index.md#september-24-2026-hot-loop-label-inventory) records fresh direct HOT timing at 256 nested loops: `1.01 ms → 180.61 µs` after collecting root-reachable label targets once. Two index tests, 27 direct tests, and the continuation audit pass on wasm-gc. The registry raw path is separately shortcut, so this is HOT visitor evidence.
