@@ -176,31 +176,44 @@ fn mso_refinalized_block_type(
     _ => return fallback
   }
   let body = expr.0
-  if body.length() < 2 || body.length() > 3 {
+  if body.length() < 2 {
     return fallback
   }
   let source = match body[0] {
     @lib.RefNull(r) => r
     _ => return fallback
   }
-  let only_null = if body.length() == 2 {
-    body[1] is @lib.Br(@lib.LabelIdx(0U))
-  } else {
+  let only_null = if body[1] is @lib.Br(@lib.LabelIdx(0U)) {
+    // Instructions after this unconditional branch cannot add another value.
+    true
+  } else if body.length() >= 3 {
     // A single leaf selector cannot consume or replace the null payload.
     let leaf = body[1] is @lib.I32Const(_) ||
       body[1] is @lib.LocalGet(_) ||
       body[1] is @lib.GlobalGet(_)
     leaf &&
     (match body[2] {
-      @lib.BrIf(@lib.LabelIdx(0U)) => true
+      @lib.BrIf(@lib.LabelIdx(0U)) => body.length() == 3
       @lib.BrTable(labels, fallback) =>
         run_hot_pipeline_merge_blocks_br_table_all_self(labels, fallback)
       _ => false
     })
+  } else {
+    false
   }
   if !only_null {
     return fallback
   }
+  @lib.BlockType::val_type(
+    @lib.ValType::ref_type(mso_null_ref_type(source, types)),
+  )
+}
+
+///|
+fn mso_null_ref_type(
+  source : @lib.RefType,
+  types : Array[@lib.SubType],
+) -> @lib.RefType {
   let bottom = match source.get_heap_type() {
     @lib.SharedAbsHeapTypeHeapType(abs) => {
       let unshared = @lib.RefType::new(true, @lib.HeapType::abs(abs))
@@ -208,12 +221,15 @@ fn mso_refinalized_block_type(
       match bottom.get_heap_type() {
         @lib.AbsHeapTypeHeapType(abs) =>
           @lib.RefType::new(true, @lib.HeapType::shared_abs(abs))
-        _ => return fallback
+        _ => return mso_rewrite_ref_type(source, types)
       }
     }
     @lib.HeapType(t) => {
       let heap = if mso_function_type(types, t) {
         @lib.AbsHeapType::no_func()
+      } else if t is @lib.TypeIdx(i) &&
+        types[i.to_int()].get_comptype() is @lib.ContCompType(_) {
+        @lib.AbsHeapType::no_cont()
       } else {
         @lib.AbsHeapType::none()
       }
@@ -222,12 +238,10 @@ fn mso_refinalized_block_type(
     _ =>
       match remove_unused_brs_null_bottom_ref_type(source) {
         Some(r) => r
-        None => return fallback
+        None => return mso_rewrite_ref_type(source, types)
       }
   }
-  @lib.BlockType::val_type(
-    @lib.ValType::ref_type(mso_rewrite_ref_type(bottom, types)),
-  )
+  mso_rewrite_ref_type(bottom, types)
 }
 
 ///|

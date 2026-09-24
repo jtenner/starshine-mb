@@ -243,7 +243,13 @@ test "Binaryen 133 shared objects refinalizes null branches before unreachable d
     @lib.Block(@lib.ValTypeBlockType(vt), _) => vt
     _ => fail("expected reference block")
   }
-  assert_eq(result, @lib.ValType::ref_type(@lib.RefType::new(
-    true, @lib.HeapType::shared_abs(@lib.AbsHeapType::none()),
-  )))
+  assert_eq(
+    result,
+    @lib.ValType::ref_type(
+      @lib.RefType::new(
+        true,
+        @lib.HeapType::shared_abs(@lib.AbsHeapType::none()),
+      ),
+    ),
+  )
 }

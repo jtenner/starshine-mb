@@ -137,13 +137,7 @@ fn mso_rewrite_expr(
       }
       @lib.RefNull(ref_type) =>
         out.push(
-          @lib.Instruction::ref_null_type(
-            @lib.RefType::new(
-              ref_type.is_nullable(),
-              mso_rewrite_heap_type(ref_type.get_heap_type(), types),
-              exact=ref_type.is_exact(),
-            ),
-          ),
+          @lib.Instruction::ref_null_type(mso_null_ref_type(ref_type, types)),
         )
       @lib.Block(block_type, body) =>
         out.push(
