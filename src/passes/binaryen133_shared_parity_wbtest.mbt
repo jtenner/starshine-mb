@@ -232,3 +232,18 @@ test "Binaryen 133 shared objects preserves export aliases when wrapping externr
   assert_eq(first, second)
   assert_eq(output.code_sec.unwrap().0.length(), 4)
 }
+
+///|
+test "Binaryen 133 shared objects refinalizes null branches before unreachable debris" {
+  let output = binaryen133_run_shared(
+    "(module (func (drop (block (result funcref) (ref.null func) (i32.const 0) (br_table 0 0) (unreachable)))))",
+  )
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let result = match body[0] {
+    @lib.Block(@lib.ValTypeBlockType(vt), _) => vt
+    _ => fail("expected reference block")
+  }
+  assert_eq(result, @lib.ValType::ref_type(@lib.RefType::new(
+    true, @lib.HeapType::shared_abs(@lib.AbsHeapType::none()),
+  )))
+}
