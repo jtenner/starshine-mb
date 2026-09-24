@@ -163,6 +163,7 @@ fn gto_canonicalize_types(mod_ : @lib.Module) -> @lib.Module {
 fn gto_regroup_private_types(
   mod_ : @lib.Module,
   public_ : Array[Bool],
+  type_order : Array[Int],
 ) -> @lib.Module {
   let recs = mod_.type_sec.unwrap().0
   let public_groups : Array[@lib.RecType] = []
@@ -204,39 +205,54 @@ fn gto_regroup_private_types(
   if private_types.is_empty() {
     return mod_
   }
-  // Match the reverse topological traversal used by GlobalTypeRewriter:
-  // later independent types precede earlier ones, while parents and described
-  // types always precede the types that depend on them.
+  // Reverse a queue-based topological order over child-to-parent edges.
+  // Start independent roots in IR first-use order, as GlobalTypeRewriter does.
   let slots : Map[Int, Int] = Map([])
   for i, old in private_old {
     slots[old] = i
   }
-  let visited = Array::make(private_types.length(), false)
-  let order : Array[Int] = []
-  for root = private_types.length() - 1; root >= 0; root = root - 1 {
-    let pending = [(root, false)]
-    while pending.pop() is Some((slot, ready)) {
-      if visited[slot] {
-        continue
+  let predecessors : Array[Array[Int]] = private_types.map(fn(t) {
+    let refs = t.super_types().copy()
+    if t.describes_type() is Some(d) {
+      refs.push(d)
+    }
+    let out : Array[Int] = []
+    for p in refs {
+      if slots.get(dae2_type_slot(p, 0)) is Some(slot) {
+        out.push(slot)
       }
-      if ready {
-        visited[slot] = true
-        order.push(slot)
-      } else {
-        pending.push((slot, true))
-        let t = private_types[slot]
-        let predecessors = t.super_types().copy()
-        if t.describes_type() is Some(d) {
-          predecessors.push(d)
-        }
-        for p in predecessors {
-          if slots.get(dae2_type_slot(p, 0)) is Some(parent) && !visited[parent] {
-            pending.push((parent, false))
-          }
-        }
+    }
+    out
+  })
+  let incoming = Array::make(private_types.length(), 0)
+  for ps in predecessors {
+    for p in ps {
+      incoming[p] += 1
+    }
+  }
+  let queued = Array::make(private_types.length(), false)
+  let queue : Array[Int] = []
+  for old in type_order + private_old {
+    if slots.get(old) is Some(i) && incoming[i] == 0 && !queued[i] {
+      queue.push(i)
+      queued[i] = true
+    }
+  }
+  let mut cursor = 0
+  while cursor < queue.length() {
+    let i = queue[cursor]
+    cursor += 1
+    for p in predecessors[i] {
+      incoming[p] -= 1
+      if incoming[p] == 0 {
+        queue.push(p)
       }
     }
   }
+  if queue.length() != private_types.length() {
+    return mod_
+  }
+  let order = queue.rev()
   let private_types = order.map(fn(i) { private_types[i] })
   let private_old = order.map(fn(i) { private_old[i] })
   for i, old in private_old {
