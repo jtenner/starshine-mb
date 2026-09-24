@@ -11,6 +11,8 @@ sources:
   - ../../../../src/cmd/cmd.mbt
   - ../../../../src/passes/optimize.mbt
   - ../../../../src/passes/pass_manager.mbt
+  - ../../../../src/passes/perf.mbt
+  - ../../../../src/passes_perf_long/perf_timer_index_perf_test.mbt
   - ../../../../src/passes/optimize_test.mbt
   - ../../../../src/passes/trace_golden_test.mbt
   - ../../../../src/cmd/cmd_wbtest.mbt
@@ -36,6 +38,10 @@ related:
 - `vacuum` is a registered hot pass in `src/passes/optimize.mbt` and runs through the hot-pass dispatcher in `src/passes/pass_manager.mbt`.
 - The corrected O4z early GC neighborhood is `global-refining -> remove-unused-module-elements -> global-struct-inference -> ssa-nomerge`. Registry tests assert all three RUME occurrences and the downstream slot indices.
 - Binaryen `version_132` leaves the 56-slot / 38-owner top-level scheduler unchanged from the v131 release; the v131 comparison remains historical scheduler evidence. Starshine preserves those first 56 slots exactly, then appends nineteen documented extensions: `strip-debug`, two `simplify-locals-nostructure -> coalesce-locals-cfg -> reorder-locals -> vacuum` waves, and two bounded `ssa-nomerge -> simplify-locals-nostructure -> coalesce-locals-cfg -> reorder-locals -> vacuum` cleanup waves. The CFG spelling is intentionally late-only: using it in the earlier compatibility slots perturbs inlining/simplification shape and increased the BLAKE3 SIMD artifact, while the current post-strip suffix and its local cleanup owners reduce validated BLAKE3 SIMD from 44,017 to 40,903 bytes (`-3,114`). `remove-unused-brs` still appears exactly three times at zero-based indices `13`, `24`, and `39`. The complete O4z expansion is now 75 entries.
+
+## 2026-09-24 traced timer indexing
+
+The September 24, 2026 timer-index microbenchmark isolates the optional traced per-function timer bookkeeping. With 128 distinct function names, a native run changed from `43.09 µs` to `41.28 µs`; with 512 names, it changed from `381.65 µs` to `163.09 µs` (`2.34×` faster). `HotPerfSession` now indexes timer names while retaining the ordered totals array and accumulation behavior. This synthetic instrumentation result does not revise the v131 artifact timings below or establish a Binaryen-v132 pass comparison. The [fixture](../../../../src/passes_perf_long/perf_timer_index_perf_test.mbt) creates names outside timing and uses a fresh session per timed run.
 
 ## 2026-08-27 direct wall-time inventory
 

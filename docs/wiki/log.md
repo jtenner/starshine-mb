@@ -24139,3 +24139,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — Code-pushing inventory performance
 
 - The [code-pushing validation page](binaryen/passes/code-pushing/starshine-port-readiness-and-validation.md#september-24-2026-inventory-measurement) records native direct HOT benchmark evidence for replacing one body traversal per local with one counting traversal. The two calibrated cases improved `2.98×` and `5.49×`; a focused count regression passed on wasm-gc. The measurements are pass-local synthetic evidence, not Binaryen parity timing.
+
+### 2026-09-24 — Traced timer indexing
+
+- The [late dispatcher page](binaryen/passes/late-pipeline-dispatch.md#2026-09-24-traced-timer-indexing) records a native timer bookkeeping benchmark: `381.65 µs` to `163.09 µs` for 512 distinct per-function names. The result concerns optional instrumentation overhead and does not supersede historical Binaryen timings.

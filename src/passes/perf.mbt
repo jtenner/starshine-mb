@@ -71,6 +71,7 @@ pub struct HotPerfSession {
   dump_options : HotPerfDumpOptions
   mut counters : HotPerfCounters
   timer_totals : Array[(String, UInt64)]
+  timer_indices : @hashmap.HashMap[String, Int]
 }
 
 ///|
@@ -91,6 +92,7 @@ pub fn HotPerfSession::new(
     dump_options,
     counters: HotPerfCounters::new(),
     timer_totals: [],
+    timer_indices: @hashmap.new(),
   }
 }
 
@@ -119,17 +121,28 @@ fn perf_timer_total_commit(
   name : String,
   elapsed_us : UInt64,
 ) -> UInt64 {
-  let mut i = 0
-  while i < session.timer_totals.length() {
-    if session.timer_totals[i].0 == name {
+  match session.timer_indices.get(name) {
+    Some(i) => {
       let total = session.timer_totals[i].1 + elapsed_us
       session.timer_totals[i] = (name, total)
       return total
     }
-    i += 1
+    None => ()
   }
+  session.timer_indices.set(name, session.timer_totals.length())
   session.timer_totals.push((name, elapsed_us))
   elapsed_us
+}
+
+///|
+test "perf timer index preserves first-seen order and accumulated totals" {
+  let session = HotPerfSession::new()
+  assert_eq(perf_timer_total_commit(session, "raw:func:1", 2UL), 2UL)
+  assert_eq(perf_timer_total_commit(session, "raw:func:2", 3UL), 3UL)
+  assert_eq(perf_timer_total_commit(session, "raw:func:1", 5UL), 7UL)
+  assert_eq(session.timer_totals.length(), 2)
+  assert_eq(session.timer_totals[0], ("raw:func:1", 7UL))
+  assert_eq(session.timer_totals[1], ("raw:func:2", 3UL))
 }
 
 ///|
