@@ -319,10 +319,27 @@ export function buildComponentCommandPlan(options: ComponentPlanOptions): Compon
   ];
 }
 
-export function normalizeGeneratedText(value: string): string {
+export function normalizeGeneratedText(value: string, moonBitFfi = false): string {
   const lines = value.replaceAll("\r\n", "\n").split("\n").map((line) => line.trimEnd());
   while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
-  return `${lines.join("\n")}\n`;
+  let text = `${lines.join("\n")}\n`;
+  if (moonBitFfi) {
+    // wit-bindgen 0.60 emits export forwarders and runtime helpers from hash
+    // collections. Sort only those complete function declarations, retaining
+    // each body and its annotations and leaving all other generated text alone.
+    const declarationGroups = [
+      /^#doc\(hidden\)\npub fn (wasmExport\w+)\([\s\S]*?^\}/gm,
+      /^\/\/\/\|\n(?:#[^\n]*\n)*extern "wasm" fn (mbt_ffi_\w+)\([^\n]*\)[^\n]* =\n#\|[^\n]*(?:\n#\|[^\n]*)*/gm,
+    ];
+    for (const pattern of declarationGroups) {
+      const declarations = [...text.matchAll(pattern)].sort((left, right) =>
+        left[1] < right[1] ? -1 : left[1] > right[1] ? 1 : 0,
+      );
+      let index = 0;
+      text = text.replace(pattern, () => declarations[index++][0]);
+    }
+  }
+  return text;
 }
 
 function normalizeGeneratedTextTree(root: string): void {
@@ -331,7 +348,10 @@ function normalizeGeneratedTextTree(root: string): void {
     if (entry.isDirectory()) {
       normalizeGeneratedTextTree(entryPath);
     } else if (/\.(?:json|mbt|md)$/.test(entry.name)) {
-      fs.writeFileSync(entryPath, normalizeGeneratedText(fs.readFileSync(entryPath, "utf8")));
+      fs.writeFileSync(entryPath, normalizeGeneratedText(
+        fs.readFileSync(entryPath, "utf8"),
+        entry.name === "ffi.mbt",
+      ));
     }
   }
 }
