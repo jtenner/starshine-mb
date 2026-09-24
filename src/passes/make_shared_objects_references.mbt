@@ -170,43 +170,7 @@ fn mso_refinalized_block_type(
   expr : @lib.Expr,
   types : Array[@lib.SubType],
 ) -> @lib.BlockType {
-  let fallback = mso_rewrite_block_type(block_type, types)
-  match block_type {
-    @lib.ValTypeBlockType(@lib.RefTypeValType(r)) if r.is_nullable() => ()
-    _ => return fallback
-  }
-  let body = expr.0
-  if body.length() < 2 {
-    return fallback
-  }
-  let source = match body[0] {
-    @lib.RefNull(r) => r
-    _ => return fallback
-  }
-  let only_null = if body[1] is @lib.Br(@lib.LabelIdx(0U)) {
-    // Instructions after this unconditional branch cannot add another value.
-    true
-  } else if body.length() >= 3 {
-    // A single leaf selector cannot consume or replace the null payload.
-    let leaf = body[1] is @lib.I32Const(_) ||
-      body[1] is @lib.LocalGet(_) ||
-      body[1] is @lib.GlobalGet(_)
-    leaf &&
-    (match body[2] {
-      @lib.BrIf(@lib.LabelIdx(0U)) => body.length() == 3
-      @lib.BrTable(labels, fallback) =>
-        run_hot_pipeline_merge_blocks_br_table_all_self(labels, fallback)
-      _ => false
-    })
-  } else {
-    false
-  }
-  if !only_null {
-    return fallback
-  }
-  @lib.BlockType::val_type(
-    @lib.ValType::ref_type(mso_null_ref_type(source, types)),
-  )
+  mso_refinalized_control_type(block_type, [expr], types)
 }
 
 ///|

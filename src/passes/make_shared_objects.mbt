@@ -176,7 +176,14 @@ fn mso_rewrite_expr(
         }
         out.push(
           @lib.Instruction::if_(
-            mso_rewrite_block_type(block_type, types),
+            mso_refinalized_control_type(
+              block_type,
+              [
+                @lib.Expr::new(then_body),
+                @lib.Expr::new(else_body.unwrap_or([])),
+              ],
+              types,
+            ),
             next_then,
             next_else,
           ),
