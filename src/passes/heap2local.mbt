@@ -903,6 +903,73 @@ fn h2l_root_slot_containing_node(func : @ir.HotFunc, node_id : Int) -> Int? {
 }
 
 ///|
+fn h2l_index_root_subtree(
+  func : @ir.HotFunc,
+  node_id : Int,
+  root_slot : Int,
+  slots : Array[Int],
+) -> Unit {
+  if slots[node_id] != -1 {
+    return
+  }
+  slots[node_id] = root_slot
+  if !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, body_ref)
+          idx = idx + 1 {
+        h2l_index_root_subtree(
+          func,
+          @ir.hot_region_get(func, body_ref, idx),
+          root_slot,
+          slots,
+        )
+      }
+      return
+    }
+    _ => ()
+  }
+  for child = 0; child < @ir.hot_child_count(func, node_id); child = child + 1 {
+    h2l_index_root_subtree(
+      func,
+      @ir.hot_child_get(func, node_id, child),
+      root_slot,
+      slots,
+    )
+  }
+}
+
+///|
+fn h2l_build_root_slot_index(func : @ir.HotFunc) -> Array[Int] {
+  let slots = Array::make(@ir.hot_node_count(func), -1)
+  let root_ref = @ir.HotRegionRef::root()
+  for root_slot = 0
+      root_slot < @ir.hot_region_root_count(func, root_ref)
+      root_slot = root_slot + 1 {
+    h2l_index_root_subtree(
+      func,
+      @ir.hot_region_get(func, root_ref, root_slot),
+      root_slot,
+      slots,
+    )
+  }
+  slots
+}
+
+///|
+fn h2l_root_slot_from_index(slots : Array[Int], node_id : Int) -> Int? {
+  if node_id < 0 || node_id >= slots.length() || slots[node_id] == -1 {
+    None
+  } else {
+    Some(slots[node_id])
+  }
+}
+
+///|
 fn h2l_self_copy_write_matches(
   func : @ir.HotFunc,
   write_node_id : Int,
@@ -1013,6 +1080,7 @@ fn h2l_find_sequential_candidates_for_local(
   module_ctx : @ir.HotModuleContext,
   use_def : @ir.HotUseDef,
   local_id : Int,
+  root_slots : Array[Int],
 ) -> Array[H2LCandidate] {
   let candidates : Array[H2LCandidate] = []
   if local_id < @ir.hot_param_count(func) {
@@ -1027,7 +1095,7 @@ fn h2l_find_sequential_candidates_for_local(
       !h2l_self_copy_write_matches(func, write_node_id, local_id) {
       return []
     }
-    match h2l_root_slot_containing_node(func, write_node_id) {
+    match h2l_root_slot_from_index(root_slots, write_node_id) {
       Some(root_slot) =>
         // Conditional/nested allocation writes do not define straight-line
         // epochs. A later read may observe either owner, not this candidate.
@@ -1061,7 +1129,7 @@ fn h2l_find_sequential_candidates_for_local(
     let use_sites : Array[H2LUseSite] = []
     let copy_sites : Array[H2LCopySite] = []
     for read_node_id in use_def.local_reads[local_id] {
-      let read_slot = match h2l_root_slot_containing_node(func, read_node_id) {
+      let read_slot = match h2l_root_slot_from_index(root_slots, read_node_id) {
         Some(read_slot) => read_slot
         None => return []
       }
@@ -1382,6 +1450,7 @@ fn h2l_array_allocation_write_type(
 fn h2l_has_repeated_array_allocation_writes(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
+  root_slots : Array[Int],
 ) -> Bool {
   for local_id = 0
       local_id < @ir.hot_local_count(func)
@@ -1390,7 +1459,7 @@ fn h2l_has_repeated_array_allocation_writes(
     for write_node_id in use_def.local_writes[local_id] {
       match h2l_array_allocation_write_type(func, write_node_id, local_id) {
         Some(_) =>
-          match h2l_root_slot_containing_node(func, write_node_id) {
+          match h2l_root_slot_from_index(root_slots, write_node_id) {
             Some(slot) => allocation_slots.push(slot)
             None => return true
           }
@@ -1406,7 +1475,7 @@ fn h2l_has_repeated_array_allocation_writes(
       let next_write_slot = allocation_slots[index + 1]
       let mut first_read_slot = 0x7fffffff
       for read_node_id in use_def.local_reads[local_id] {
-        match h2l_root_slot_containing_node(func, read_node_id) {
+        match h2l_root_slot_from_index(root_slots, read_node_id) {
           Some(read_slot) if read_slot >= write_slot &&
             read_slot < first_read_slot => first_read_slot = read_slot
           Some(_) => ()
@@ -1459,6 +1528,7 @@ fn h2l_find_sequential_array_candidates_for_local(
   module_ctx : @ir.HotModuleContext,
   use_def : @ir.HotUseDef,
   local_id : Int,
+  root_slots : Array[Int],
 ) -> Array[H2LArrayCandidate] {
   let candidates : Array[H2LArrayCandidate] = []
   if local_id < @ir.hot_param_count(func) {
@@ -1473,7 +1543,7 @@ fn h2l_find_sequential_array_candidates_for_local(
       !h2l_self_copy_write_matches(func, write_node_id, local_id) {
       return []
     }
-    match h2l_root_slot_containing_node(func, write_node_id) {
+    match h2l_root_slot_from_index(root_slots, write_node_id) {
       Some(root_slot) =>
         // Conditional/nested allocation writes do not define straight-line
         // epochs. A later read may observe either owner, not this candidate.
@@ -1507,7 +1577,7 @@ fn h2l_find_sequential_array_candidates_for_local(
     let use_sites : Array[H2LArrayUseSite] = []
     let copy_sites : Array[H2LCopySite] = []
     for read_node_id in use_def.local_reads[local_id] {
-      let read_slot = match h2l_root_slot_containing_node(func, read_node_id) {
+      let read_slot = match h2l_root_slot_from_index(root_slots, read_node_id) {
         Some(read_slot) => read_slot
         None => return []
       }
@@ -3357,7 +3427,8 @@ pub fn heap2local_run(
     None => return HotPassResult::unchanged()
   }
   let use_def = pass_require_use_def(ctx, func)
-  if h2l_has_repeated_array_allocation_writes(func, use_def) {
+  let root_slots = h2l_build_root_slot_index(func)
+  if h2l_has_repeated_array_allocation_writes(func, use_def, root_slots) {
     return HotPassResult::unchanged()
   }
   let cfg = @ir.cfg_build(func, expand_operand_control=true)
@@ -3416,7 +3487,7 @@ pub fn heap2local_run(
     }
     for
       candidate in h2l_find_sequential_candidates_for_local(
-        func, module_ctx, use_def, local_id,
+        func, module_ctx, use_def, local_id, root_slots,
       ) {
       candidates.push(candidate)
     }
@@ -3429,7 +3500,7 @@ pub fn heap2local_run(
     }
     for
       candidate in h2l_find_sequential_array_candidates_for_local(
-        func, module_ctx, use_def, local_id,
+        func, module_ctx, use_def, local_id, root_slots,
       ) {
       array_candidates.push(candidate)
     }

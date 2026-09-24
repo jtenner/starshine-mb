@@ -40,6 +40,24 @@ related:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
+## September 24, 2026 root-slot lookup measurement
+
+Sequential struct and array epochs formerly located each write and read by
+walking the entire HOT root tree. A pass-local NodeId-to-root-slot index now
+visits that tree once before candidate discovery; it preserves the first root
+slot selected by the old lookup, including nested block and loop bodies. The
+[white-box regression](../../../../../src/passes/heap2local_root_slot_wbtest.mbt)
+compares both lookups for every node in a structured fixture, and all 33
+existing `heap2local_test.mbt` tests pass on wasm-gc.
+
+The [dedicated native benchmark](../../../../../src/passes_perf_long/heap2local_root_slot_perf_test.mbt)
+validates a straight-line repeated-struct-owner fixture outside timing and
+measures a direct `heap2local` pipeline invocation with final validation
+disabled. At 16 allocation/read epochs, mean time fell from `467.67 µs` to
+`294.51 µs` (`1.59×`); at 32 epochs, from `1.78 ms` to `381.12 µs` (`4.67×`).
+These are synthetic pass-local measurements, not Binaryen timing or broad
+workload claims.
+
 ## September 2026 runtime repair
 
 Dewdrop's late Heap2Local order exposed a reference field initialized inside

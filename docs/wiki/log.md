@@ -24151,3 +24151,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — SSA-nomerge module type-table preflight
 
 - The [SSA-nomerge implementation page](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md#september-24-2026-rewrite-plan-lookup-measurement) records direct-pass native timing for 256 tiny functions: `412.64 → 262.58 µs` after caching the function-type table for the pass invocation. The result includes pass envelope work and is not a Binaryen comparison.
+
+### 2026-09-24 — Heap2Local root-slot indexing
+
+- The [Heap2Local page](binaryen/passes/heap2local/index.md#september-24-2026-root-slot-lookup-measurement) records direct-pass native timing for 32 repeated allocation/read epochs: `1.78 ms → 381.12 µs` after building one NodeId-to-root-slot index. The structured lookup regression and 33 existing Heap2Local tests pass on wasm-gc. The synthetic result does not establish Binaryen pass-local parity.
