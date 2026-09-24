@@ -97,6 +97,8 @@ pub fn gen_valid_engine_state_trap_commit_family(UInt64) -> String
 
 pub fn gen_valid_engine_state_trap_family(UInt64) -> String
 
+pub fn gen_valid_engine_tiering_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFacts
 
 pub fn gen_valid_flatten_profile_case_label(GenValidProfile, UInt64) -> String?
@@ -1386,6 +1388,18 @@ pub enum GenValidProfile {
   EngineStateRecursiveMultivalueProfile
   EngineStateSubtypeCastGraphProfile
   EngineStateAllProfile
+  EngineCompileShapesProfile
+  EngineProposalMatrixProfile
+  EngineStateCoreProfile
+  EngineTieringLoopProfile
+  EngineTieringLargeFunctionProfile
+  EngineTieringCallChainProfile
+  EngineTieringCallFanoutProfile
+  EngineTieringIndirectProfile
+  EngineTieringLocalsStackProfile
+  EngineTieringMemoryProfile
+  EngineTieringGcProfile
+  EngineTieringStressProfile
   SemanticEffectsProfile
   SemanticImportEventsProfile
   SemanticTrapFrontierProfile

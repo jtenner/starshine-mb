@@ -2954,6 +2954,27 @@ test "emit gen-valid flatten leaves record transform-family case labels" {
 }
 
 ///|
+test "emit gen-valid tiering leaves record scale and dispatch case labels" {
+  let entries = [
+    ("engine-tiering-loop", 2UL, "tiering:loop:trip-count=4096"),
+    ("engine-tiering-call-chain", 3UL, "tiering:call-chain:depth=64"),
+    (
+      "engine-tiering-indirect", 16UL, "tiering:indirect:polymorphic:trip-count=256",
+    ),
+  ]
+  for (profile_name, seed, expected_label) in entries {
+    let profile = match @validate.gen_valid_profile_by_name(profile_name) {
+      Ok(value) => value
+      Err(msg) => fail(msg)
+    }
+    @debug.assert_eq(
+      emit_gen_valid_batch_profile_case_label(profile, seed),
+      Some(expected_label),
+    )
+  }
+}
+
+///|
 #skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit gen-valid optimize-instructions aggregate records selected families" {
   let args = EmitGenValidBatchArgs::new(
