@@ -40,6 +40,7 @@ fn mso_rewrite_heap_type(
     @lib.HeapType(idx) if mso_function_type(types, idx) =>
       @lib.HeapType::shared_abs(@lib.AbsHeapType::i31())
     @lib.AbsHeapTypeHeapType(@lib.NoFuncAbsHeapType)
+    | @lib.SharedAbsHeapTypeHeapType(@lib.NoFuncAbsHeapType)
     | @lib.AbsHeapTypeHeapType(@lib.NoExternAbsHeapType) =>
       @lib.HeapType::shared_abs(@lib.AbsHeapType::none())
     @lib.AbsHeapTypeHeapType(abs) => @lib.HeapType::shared_abs(abs)
@@ -117,13 +118,21 @@ fn mso_rewrite_subtype(
 }
 
 ///|
-fn mso_rewrite_expr(expr : @lib.Expr, types : Array[@lib.SubType]) -> @lib.Expr {
+fn mso_rewrite_expr(
+  expr : @lib.Expr,
+  types : Array[@lib.SubType],
+  refs : MsoReferences,
+  function_table : @lib.TableIdx,
+  scratch? : (@lib.Locals, Int)? = None,
+) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
     match instr {
       @lib.RefFunc(@lib.FuncIdx(raw)) => {
-        out.push(@lib.Instruction::i32_const(@lib.I32(raw.to_int())))
+        out.push(
+          @lib.Instruction::i32_const(@lib.I32(refs.index(raw).to_int())),
+        )
         out.push(@lib.Instruction::ref_i31_shared())
       }
       @lib.RefNull(ref_type) =>
@@ -139,27 +148,33 @@ fn mso_rewrite_expr(expr : @lib.Expr, types : Array[@lib.SubType]) -> @lib.Expr 
       @lib.Block(block_type, body) =>
         out.push(
           @lib.Instruction::block(
-            mso_rewrite_block_type(block_type, types),
-            mso_rewrite_expr(body, types),
+            mso_refinalized_block_type(block_type, body, types),
+            mso_rewrite_expr(body, types, refs, function_table, scratch~),
           ),
         )
       @lib.Loop(block_type, body) =>
         out.push(
           @lib.Instruction::loop_(
             mso_rewrite_block_type(block_type, types),
-            mso_rewrite_expr(body, types),
+            mso_rewrite_expr(body, types, refs, function_table, scratch~),
           ),
         )
       @lib.If(block_type, then_body, else_body) => {
         let @lib.Expr(next_then) = mso_rewrite_expr(
           @lib.Expr::new(then_body),
           types,
+          refs,
+          function_table,
+          scratch~,
         )
         let next_else = match else_body {
           Some(body) => {
             let @lib.Expr(next_body) = mso_rewrite_expr(
               @lib.Expr::new(body),
               types,
+              refs,
+              function_table,
+              scratch~,
             )
             Some(next_body)
           }
@@ -170,6 +185,125 @@ fn mso_rewrite_expr(expr : @lib.Expr, types : Array[@lib.SubType]) -> @lib.Expr 
             mso_rewrite_block_type(block_type, types),
             next_then,
             next_else,
+          ),
+        )
+      }
+      @lib.RefI31 => out.push(@lib.Instruction::ref_i31_shared())
+      @lib.CallRef(t) => {
+        if mso_emit_null_call(out, types, t) {
+          continue
+        }
+        out.push(@lib.Instruction::i31_get_u())
+        out.push(@lib.Instruction::call_indirect(t, function_table))
+      }
+      @lib.ReturnCallRef(t) => {
+        if mso_emit_null_call(out, types, t) {
+          continue
+        }
+        out.push(@lib.Instruction::i31_get_u())
+        out.push(@lib.Instruction::return_call_indirect(t, function_table))
+      }
+      @lib.CallIndirect(t, table) => {
+        out.push(@lib.Instruction::table_get(table))
+        out.push(@lib.Instruction::i31_get_u())
+        out.push(@lib.Instruction::call_indirect(t, function_table))
+      }
+      @lib.ReturnCallIndirect(t, table) => {
+        out.push(@lib.Instruction::table_get(table))
+        out.push(@lib.Instruction::i31_get_u())
+        out.push(@lib.Instruction::return_call_indirect(t, function_table))
+      }
+      @lib.TryTable(bt, catches, body) =>
+        out.push(
+          @lib.Instruction::try_table(
+            mso_rewrite_block_type(bt, types),
+            catches,
+            mso_rewrite_expr(body, types, refs, function_table, scratch~),
+          ),
+        )
+      @lib.RefTest(nullable, exact, heap) =>
+        if heap is @lib.HeapType(t) && mso_function_type(types, t) {
+          mso_signature_cast(
+            out, instr, nullable, exact, heap, function_table, scratch, true,
+          )
+        } else {
+          out.push(
+            @lib.Instruction::ref_test_type(
+              @lib.RefType::new(
+                nullable,
+                mso_rewrite_heap_type(heap, types),
+                exact~,
+              ),
+            ),
+          )
+        }
+      @lib.RefCast(nullable, exact, heap) =>
+        if heap is @lib.HeapType(t) && mso_function_type(types, t) {
+          mso_signature_cast(
+            out, instr, nullable, exact, heap, function_table, scratch, false,
+          )
+        } else {
+          out.push(
+            @lib.Instruction::ref_cast_type(
+              @lib.RefType::new(
+                nullable,
+                mso_rewrite_heap_type(heap, types),
+                exact~,
+              ),
+            ),
+          )
+        }
+      @lib.Select(Some(values)) =>
+        out.push(
+          @lib.Instruction::select(
+            types=Some(values.map(fn(v) { mso_rewrite_val_type(v, types) })),
+          ),
+        )
+      @lib.BrOnCast(label, op, source, target) =>
+        out.push(
+          @lib.Instruction::br_on_cast(
+            label,
+            op.source_nullable(),
+            mso_rewrite_heap_type(source, types),
+            op.target_nullable(),
+            mso_rewrite_heap_type(target, types),
+            source_exact=op.source_exact(),
+            target_exact=op.target_exact(),
+          ),
+        )
+      @lib.BrOnCastFail(label, op, source, target) =>
+        out.push(
+          @lib.Instruction::br_on_cast_fail(
+            label,
+            op.source_nullable(),
+            mso_rewrite_heap_type(source, types),
+            op.target_nullable(),
+            mso_rewrite_heap_type(target, types),
+            source_exact=op.source_exact(),
+            target_exact=op.target_exact(),
+          ),
+        )
+      @lib.Try(bt, body, catches, delegate) => {
+        let body = mso_rewrite_expr(body, types, refs, function_table, scratch~)
+        let catches = catches.map(fn(c) {
+          match c {
+            @lib.LegacyCatch(tag, expr) =>
+              @lib.LegacyCatch::tagged(
+                tag,
+                mso_rewrite_expr(expr, types, refs, function_table, scratch~),
+              )
+            @lib.LegacyCatchAll(expr) =>
+              @lib.LegacyCatch::all(
+                mso_rewrite_expr(expr, types, refs, function_table, scratch~),
+              )
+          }
+        })
+        out.push(
+          @lib.Instruction::try_(
+            mso_rewrite_block_type(bt, types),
+            body,
+            catches,
+            delegate~,
           ),
         )
       }
@@ -221,11 +355,19 @@ fn mso_rewrite_ref_type(
 }
 
 ///|
-fn mso_rewrite_elem(elem : @lib.Elem, types : Array[@lib.SubType]) -> @lib.Elem {
+fn mso_rewrite_elem(
+  elem : @lib.Elem,
+  types : Array[@lib.SubType],
+  refs : MsoReferences,
+  function_table : @lib.TableIdx,
+) -> @lib.Elem {
   let @lib.Elem(mode, kind) = elem
   let next_mode = match mode {
     @lib.Active(table_idx, offset) =>
-      @lib.ElemMode::active(table_idx, mso_rewrite_expr(offset, types))
+      @lib.ElemMode::active(
+        table_idx,
+        mso_rewrite_expr(offset, types, refs, function_table),
+      )
     _ => mode
   }
   let next_kind = match kind {
@@ -234,7 +376,7 @@ fn mso_rewrite_elem(elem : @lib.Elem, types : Array[@lib.SubType]) -> @lib.Elem 
       for @lib.FuncIdx(raw) in indices {
         values.push(
           @lib.Expr::new([
-            @lib.Instruction::i32_const(@lib.I32(raw.to_int())),
+            @lib.Instruction::i32_const(@lib.I32(refs.index(raw).to_int())),
             @lib.Instruction::ref_i31_shared(),
           ]),
         )
@@ -253,12 +395,16 @@ fn mso_rewrite_elem(elem : @lib.Elem, types : Array[@lib.SubType]) -> @lib.Elem 
           true,
           @lib.HeapType::shared_abs(@lib.AbsHeapType::i31()),
         ),
-        values.map(fn(value) { mso_rewrite_expr(value, types) }),
+        values.map(fn(value) {
+          mso_rewrite_expr(value, types, refs, function_table)
+        }),
       )
     @lib.TypedExprsElemKind(ref_type, values) =>
       @lib.ElemKind::typed_exprs(
         mso_rewrite_ref_type(ref_type, types),
-        values.map(fn(value) { mso_rewrite_expr(value, types) }),
+        values.map(fn(value) {
+          mso_rewrite_expr(value, types, refs, function_table)
+        }),
       )
   }
   @lib.Elem::new(next_mode, next_kind)
@@ -606,6 +752,9 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     None => return mod_
   }
   let types = cl_module_subtypes(mod_)
+  let refs = mso_collect_references(mod_, types)
+  let original_table_count = @ir.hot_module_context_from_module(mod_).tables.length()
+  let function_table = @lib.TableIdx::new(original_table_count.to_uint())
   let rewritten_types : Array[@lib.RecType] = []
   for rec_type in rec_types {
     match rec_type {
@@ -661,14 +810,17 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   for type_idx in orig_func_types {
     all_func_types.push(type_idx)
   }
-  let export_specs : Array[(Int, UInt, @lib.TypeIdx)] = []
-  for i, export_ in orig_exports {
+  let export_specs : Array[(UInt, @lib.TypeIdx)] = []
+  let export_redirects : Map[UInt, UInt] = Map([])
+  for export_ in orig_exports {
     match export_ {
       @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(raw))) if raw.to_int() <
         all_func_types.length() => {
         let type_idx = all_func_types[raw.to_int()]
-        if mso_signature_has_extern(types, type_idx) {
-          export_specs.push((i, raw, type_idx))
+        if mso_signature_has_extern(types, type_idx) &&
+          !export_redirects.contains(raw) {
+          export_specs.push((raw, type_idx))
+          export_redirects[raw] = raw
         }
       }
       _ => ()
@@ -709,6 +861,34 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           ),
         )
       }
+      @lib.Import(
+        module_name,
+        field_name,
+        @lib.GlobalExternType(@lib.GlobalType(vt, mutable_))
+      ) =>
+        next_imports.push(
+          @lib.Import::new(
+            module_name,
+            field_name,
+            @lib.ExternType::global(
+              @lib.GlobalType::new(mso_rewrite_val_type(vt, types), mutable_),
+            ),
+          ),
+        )
+      @lib.Import(
+        module_name,
+        field_name,
+        @lib.TableExternType(@lib.TableType(rt, limits))
+      ) =>
+        next_imports.push(
+          @lib.Import::new(
+            module_name,
+            field_name,
+            @lib.ExternType::table(
+              @lib.TableType::new(mso_rewrite_ref_type(rt, types), limits),
+            ),
+          ),
+        )
       _ => next_imports.push(import_)
     }
   }
@@ -717,14 +897,20 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let next_funcs : Array[@lib.Func] = []
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
-      for func in funcs {
-        let @lib.Func(locals, body) = func
-        next_funcs.push(
-          @lib.Func::new(
-            mso_rewrite_locals(locals, types),
-            mso_rewrite_expr(body, types),
-          ),
+      for ordinal, @lib.Func(locals, body) in funcs {
+        let locals = mso_rewrite_locals(locals, types)
+        let (params, _) = mso_signature(
+          types,
+          all_func_types[import_count + ordinal],
+        ).unwrap()
+        let body = mso_rewrite_expr(
+          body,
+          types,
+          refs,
+          function_table,
+          scratch=Some((locals, params.length())),
         )
+        next_funcs.push(@lib.Func::new(locals, body))
       }
     None => ()
   }
@@ -755,7 +941,7 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     )
   }
   for ordinal, spec in export_specs {
-    let (export_pos, raw, type_idx) = spec
+    let (raw, type_idx) = spec
     let (params, results) = mso_signature(types, type_idx).unwrap()
     if results.length() > 1 {
       return mod_
@@ -778,15 +964,38 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
     next_func_types.push(boundary_idx)
     next_funcs.push(@lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body)))
-    let @lib.Export(name, _) = next_exports[export_pos]
-    next_exports[export_pos] = @lib.Export::new(
-      name,
-      @lib.ExternIdx::func(
-        @lib.FuncIdx::new((base + import_specs.length() + ordinal).to_uint()),
-      ),
-    )
+    export_redirects[raw] = (base + import_specs.length() + ordinal).to_uint()
+  }
+  for i, export_ in orig_exports {
+    match export_ {
+      @lib.Export(name, @lib.FuncExternIdx(@lib.FuncIdx(raw))) =>
+        match export_redirects.get(raw) {
+          Some(wrapper) =>
+            next_exports[i] = @lib.Export::new(
+              name,
+              @lib.ExternIdx::func(@lib.FuncIdx::new(wrapper)),
+            )
+          None => ()
+        }
+      _ => ()
+    }
   }
   let mut candidate = mod_.with_type_sec(@lib.TypeSec::new(rewritten_types))
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      candidate = candidate.with_global_sec(
+        @lib.GlobalSec::new(
+          globals.map(fn(g) {
+            let @lib.Global(@lib.GlobalType(vt, mutable_), init) = g
+            @lib.Global::new(
+              @lib.GlobalType::new(mso_rewrite_val_type(vt, types), mutable_),
+              mso_rewrite_expr(init, types, refs, function_table),
+            )
+          }),
+        ),
+      )
+    None => ()
+  }
   match mod_.table_sec {
     Some(@lib.TableSec(tables)) => {
       let next_tables : Array[@lib.Table] = []
@@ -794,7 +1003,9 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         next_tables.push(
           @lib.Table::new(
             @lib.TableType::new(mso_rewrite_ref_type(ref_type, types), limits),
-            init.map(fn(expr) { mso_rewrite_expr(expr, types) }),
+            init.map(fn(expr) {
+              mso_rewrite_expr(expr, types, refs, function_table)
+            }),
           ),
         )
       }
@@ -805,19 +1016,61 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   match mod_.elem_sec {
     Some(@lib.ElemSec(elems)) =>
       candidate = candidate.with_elem_sec(
-        @lib.ElemSec::new(elems.map(fn(elem) { mso_rewrite_elem(elem, types) })),
+        @lib.ElemSec::new(
+          elems.map(fn(elem) {
+            mso_rewrite_elem(elem, types, refs, function_table)
+          }),
+        ),
       )
     None => ()
+  }
+  if refs.needs_table[0] {
+    let tables = match candidate.table_sec {
+      Some(@lib.TableSec(ts)) => ts.copy()
+      None => []
+    }
+    tables.push(
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(
+            refs.functions.length().to_uint(),
+            Some(refs.functions.length().to_uint()),
+          ),
+        ),
+        None,
+      ),
+    )
+    candidate = candidate.with_table_sec(@lib.TableSec::new(tables))
+    if !refs.functions.is_empty() {
+      let elems = match candidate.elem_sec {
+        Some(@lib.ElemSec(es)) => es.copy()
+        None => []
+      }
+      elems.push(
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            function_table,
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          ),
+          @lib.ElemKind::funcs(
+            refs.functions.map(fn(f) {
+              let @lib.FuncIdx(raw) = f
+              @lib.FuncIdx::new(redirects.get(raw).unwrap_or(raw))
+            }),
+          ),
+        ),
+      )
+      candidate = candidate.with_elem_sec(@lib.ElemSec::new(elems))
+    }
   }
   if !import_specs.is_empty() ||
     !export_specs.is_empty() ||
     needs_any_to_extern[0] ||
     needs_extern_to_any[0] {
-    let table_idx = match candidate.table_sec {
-      Some(@lib.TableSec(tables)) =>
-        @lib.TableIdx::new(tables.length().to_uint())
-      None => @lib.TableIdx::new(0U)
-    }
+    let table_idx = @lib.TableIdx::new(
+      (original_table_count + (if refs.needs_table[0] { 1 } else { 0 })).to_uint(),
+    )
     let tables = match candidate.table_sec {
       Some(@lib.TableSec(tables)) => tables.copy()
       None => []

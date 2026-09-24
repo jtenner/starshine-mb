@@ -9664,6 +9664,22 @@ test "Binaryen 133 command GTO removes an unread private struct field" {
 }
 
 ///|
+test "Binaryen 133 command shared objects lowers indirect calls" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $f (func (result i32))) (table 1 funcref) (elem (i32.const 0) func $target) (func $target (type $f) (i32.const 7)) (func (export \"run\") (result i32) (call_indirect (type $f) (i32.const 0))))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["make-shared-objects"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  assert_eq(output.table_sec.unwrap().0.length(), 2)
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+  assert_true(body.any(fn(i) { i is @lib.CallIndirect(_, @lib.TableIdx(1U)) }))
+}
+
+///|
 test "Binaryen 133 command GTO remaps inherited fields" {
   let input = @passes.pass_test_module_from_wat(
     "(module (type $a (sub (struct (field (mut i32))))) (type $b (sub final $a (struct (field (mut i32)) (field (mut i32))))) (func (export \"run\") (result i32) (struct.get $b 1 (struct.new $b (i32.const 7) (i32.const 9)))))",
