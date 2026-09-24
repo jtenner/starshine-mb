@@ -1,13 +1,15 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-03
+last_reviewed: 2026-09-23
 sources:
   - ../../../ffi/README.md
   - ../../../src/ffi_bridge/ffi_bridge.mbt
   - ../../../src/ffi_bridge/ffi_bridge_test.mbt
   - ../../../src/validate/gen_valid.mbt
   - ../../../src/validate/gen_valid_engine_state.mbt
+  - ../../../src/validate/gen_valid_engine_tiering.mbt
+  - ../../../src/validate/gen_valid_engine_profiles_wbtest.mbt
   - ../../../src/validate/gen_valid_engine_state_wbtest.mbt
   - ../../../src/fuzz/main.mbt
   - ../../../src/fuzz/engine_state_manifest_wbtest.mbt
@@ -32,7 +34,7 @@ The intended cross-engine contract is:
 
 ## Profile family
 
-`engine-state-all` is a seed-rotated exact 128-case weighted cycle. Every contiguous 128 selected cases realizes the declared weights exactly, so every singleton leaf is present without probabilistic retry. The original 80 slots keep their prior weights. Forty-eight new slots force module shapes that ordinary instruction sampling rarely reaches:
+`engine-state-all` is a seed-rotated exact 136-case weighted cycle. Every contiguous 136 selected cases realizes the declared weights exactly, so every singleton leaf is present without probabilistic retry. Its 45 leaves force module shapes that ordinary instruction sampling rarely reaches:
 
 | Leaf | Weight | Executed focus |
 |---|---:|---|
@@ -81,6 +83,21 @@ The intended cross-engine contract is:
 | `engine-state-invalid-module` | 4 | Valid AST generation followed by one strict invalid magic, version, truncation, or section-length byte mutation. |
 
 Aliases `engine-state` and `engine-state-all-profiles` resolve to the aggregate.
+
+## Engine-oriented aggregate profiles
+
+Four aggregate profiles provide smaller, purpose-built alternatives to undirected module sampling. Each uses a seed-rotated exact weighted cycle: after one complete cycle every declared leaf has appeared exactly at its configured weight. Batch manifests record the selected singleton profile, and tiering leaves additionally record their scale or dispatch mode in `profile_case_label`.
+
+| Profile | Cycle | Use |
+|---|---:|---|
+| `engine-compile-shapes` | 48 | Compilation and optimizer-front-end diversity without depending on random section shape. It selects leaf profiles from flattening, block merging, DAE2, inlining, SSA, local coalescing/merging, memory packing, global reordering, segment state, and decoder/compiler boundaries. |
+| `engine-proposal-matrix` | 24 | Proposal acceptance and interaction coverage. Ten single-proposal slots cover SIMD, GC/reference subtyping, EH, memory64/multi-memory, call topology, tail calls, typed function references, memory64, exceptions, and GC. Seven pairwise or higher-order interaction leaves receive weight two: type/call, exception unwind, GC graph, table/reference, memory64/multi-memory, recursive multivalue, and subtype/cast graphs. |
+| `engine-state-core` | 64 | Successful, single-module, broadly supported runtime-state cases. It keeps scalar control, calls, memory/table/import state, initialization, topology/effects/resources, boundaries, optimizer/equivalence shapes, passive segments, stack/alias pressure, exhaustion results, decoder/LEB/compiler boundaries, and NaN classification. It intentionally excludes intended traps, invalid binaries, instantiation failures, proposal-only leaves, support-module graphs, and metamorphic twins. |
+| `engine-tiering-stress` | 19 | Runtime tiering and hot-path shapes across eight leaves: scaled hot loops, large functions, deep call chains, wide fanout, mono/poly indirect dispatch, locals versus operand-stack pressure, memory growth plus repeated bounds checks, and repeatable GC allocation graphs. |
+
+The tiering loop, indirect-call, and memory leaves rotate trip counts `256`, `1024`, `4096`, and `16384`. Call-chain and fanout leaves rotate widths `8`, `16`, `32`, and `64`; the large-function leaf rotates 32–128 locals and functions. Every workload is exported through the engine-state synthetic function-export convention as well as invoked by start. A runtime harness can therefore instantiate once and repeatedly invoke the focused export to cross its own tier-up thresholds. The GC leaf allocates a struct/array graph on each exported invocation.
+
+Use `engine-compile-shapes` for broad compiler-shape input, then add `engine-proposal-matrix` as a separate capability lane rather than conflating a proposal rejection with a core compiler failure. Use `engine-state-core` for cross-engine execution where expected failures and support graphs are unwanted. Use `engine-tiering-stress` when the harness will repeatedly call exports and collect tier-specific behavior or performance evidence.
 
 ## Scenario diversity
 
@@ -175,7 +192,7 @@ with profile version and generator build identity 4. They include:
 - hidden-state restrictions;
 - strict-bit NaN policy, or classification-plus-signed-zero policy for the NaN leaf, and disabled relaxed-operation policy.
 
-The top-level `acceptance_contract` records the required runtime floor keys. The generator self-checks deterministic leaf scheduling, singleton presence after one complete aggregate weighted cycle, transform absence, and the 4,096-instruction family hard limit before returning or writing a profile selection. The completeness threshold is computed from the current positive member weights—136 cases across 45 leaves today—so shorter partial batches are accepted without a false missing-leaf error. Runtime executors remain responsible for floors that require execution evidence, including distinct state hashes, complete observations, failure-family outcomes, support-graph identity, and twin equivalence.
+The top-level `acceptance_contract` records the required runtime floor keys. The generator self-checks deterministic leaf scheduling, singleton presence after one complete aggregate weighted cycle, transform absence, and the 4,096-instruction family hard limit before returning or writing a profile selection. The completeness threshold and manifest `weighted_cycle_cases` value are computed from the selected profile's current positive member weights—136 cases across 45 leaves for `engine-state-all`, and 64 cases across 20 leaves for `engine-state-core`. Shorter partial batches are accepted without a false missing-leaf error. Runtime executors remain responsible for floors that require execution evidence, including distinct state hashes, complete observations, failure-family outcomes, support-graph identity, and twin equivalence.
 
 ## Budgets
 
@@ -222,6 +239,24 @@ bun fuzz run --emit-gen-valid-batch \
   --manifest .tmp/engine-state/manifest.json \
   --gen-valid-profile engine-state-all \
   --max-attempts 136
+```
+
+The command above only generates and validates artifacts; it does not launch an engine or execute the start function.
+
+Emit one exact cycle of any new aggregate by changing the profile and count:
+
+```text
+# compiler/optimizer structural diversity
+--count 48 --gen-valid-profile engine-compile-shapes
+
+# proposal and proposal-interaction matrix
+--count 24 --gen-valid-profile engine-proposal-matrix
+
+# successful portable engine-state cases
+--count 64 --gen-valid-profile engine-state-core
+
+# tiering shapes; execution remains a separate harness step
+--count 19 --gen-valid-profile engine-tiering-stress
 ```
 
 Validate emitted modules independently:

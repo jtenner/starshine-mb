@@ -1,3 +1,9 @@
+### 2026-09-23 — Engine-oriented GenValid profile matrices
+
+- Added `engine-compile-shapes`, `engine-proposal-matrix`, `engine-state-core`, and `engine-tiering-stress` as seed-rotated exact weighted aggregates. Their cycles contain 48 structural compiler leaves, 24 proposal/multi-proposal slots, 64 successful portable engine-state slots, and 19 tiering slots across eight focused leaves.
+- Tiering generation now emits scaled 256–16,384-trip hot loops, 8–64-deep/wide call graphs, monomorphic or polymorphic indirect loops, large function/local boundaries, stack pressure, memory growth/bounds-check loops, and repeatable GC allocation graphs. Workloads execute from start and remain exported for harness-driven repeated invocation; manifests record scale and dispatch labels.
+- Red-first validate tests cover registration, exclusions, exact weights, deterministic valid generation, graph scaling, and case labels. Red-first fuzz tests make engine-state acceptance metadata derive cycle length from profile members, correcting the stale `128` value to `136` for `engine-state-all` and recording `64` for `engine-state-core`. No fuzz campaign or engine execution was run.
+
 ### 2026-09-23 — Local CSE non-null cast result materialization
 
 - Exact prefix replay of retained seven-pass case 29 identified `local-cse` as
