@@ -1,6 +1,18 @@
 ///|
 fn binaryen133_run_gto(source : String) -> @lib.Module raise {
-  let input = pass_test_module_from_wat(source)
+  let input = match @wast.wast_to_binary_module(source) {
+    Ok(m) => m
+    Err(e) => fail("parse: \{e}")
+  }
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(e) => fail("invalid: \{e}")
+  }
+  binaryen133_run_gto_module(input)
+}
+
+///|
+fn binaryen133_run_gto_module(input : @lib.Module) -> @lib.Module raise {
   let output = match
     run_hot_pipeline(input, HotPipelineOptions::new(closed_world=true), [
       "global-type-optimization",
@@ -44,7 +56,7 @@ test "Binaryen 133 GTO keeps effects of an unread constructor field" {
 }
 
 ///|
-test "Binaryen 133 GTO intentionally keeps named fields until name map repair" {
+test "Binaryen 133 GTO removes names belonging to deleted fields" {
   let input = pass_test_module_from_wat(
     "(module (type $t (struct (field (mut i32)))) (func (export \"run\") (result i32) (drop (struct.new $t (i32.const 1))) (i32.const 7)))",
   ).with_name_sec(
@@ -69,16 +81,14 @@ test "Binaryen 133 GTO intentionally keeps named fields until name map repair" {
     Ok(output) => output
     Err(err) => fail("named-field GTO boundary failed: \{err}")
   }
-  let @lib.TypeSec(types) = output.type_sec.unwrap()
-  let fields = match types[0] {
-    @lib.SingleRecType(subtype) =>
-      match subtype.get_comptype() {
-        @lib.StructCompType(fields) => fields
-        _ => fail("expected a struct type")
-      }
-    _ => fail("expected a single struct type")
+  let fields = cl_module_subtypes(output).filter(fn(t) {
+    t.get_comptype() is @lib.StructCompType(_)
+  })
+  let fields = match fields[0].get_comptype() {
+    @lib.StructCompType(f) => f
+    _ => fail("expected struct")
   }
-  assert_eq(fields.length(), 1)
+  assert_eq(fields.length(), 0)
 }
 
 ///|
@@ -127,4 +137,134 @@ test "Binaryen 133 GTO inserts inherited placeholders and remaps subtype field r
       instr is @lib.StructGet(@lib.TypeIdx(3U), @lib.U32(2U))
     }),
   )
+}
+
+///|
+test "Binaryen 133 GTO prunes inherited fields and makes surviving reads immutable" {
+  let output = binaryen133_run_gto(
+    "(module (type $base (sub (struct (field (mut i32))))) (type $mid (sub $base (struct (field (mut i32)) (field (mut i32))))) (type $leaf (sub final $mid (struct (field (mut i32)) (field (mut i32)) (field (mut i32))))) (func (export \"run\") (result i32) (struct.get $leaf 2 (struct.new $leaf (i32.const 1) (i32.const 2) (i32.const 3)))))",
+  )
+  let structs = cl_module_subtypes(output).filter(fn(t) {
+    t.get_comptype() is @lib.StructCompType(_)
+  })
+  assert_eq(structs.length(), 3)
+  for index, subtype in structs {
+    let fields = match subtype.get_comptype() {
+      @lib.StructCompType(fields) => fields
+      _ => fail("expected struct")
+    }
+    assert_eq(fields.length(), if index == 2 { 1 } else { 0 })
+    if index == 2 {
+      assert_true(fields[0] is @lib.FieldType(_, @lib.Const))
+    }
+  }
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_true(body.any(fn(i) { i is @lib.StructGet(_, @lib.U32(0U)) }))
+  assert_eq(body.filter(fn(i) { i is @lib.I32Const(_) }).length(), 1)
+}
+
+///|
+test "Binaryen 133 GTO removed writes preserve receiver null traps and value effects" {
+  let output = binaryen133_run_gto_write(
+    "(module (type $s (struct (field (mut i32)))) (global $g (mut i32) (i32.const 0)) (func $value (result i32) (global.set $g (i32.const 9)) (i32.const 1)) (func (export \"run\") ref.null $s call $value drop drop))",
+  )
+  let types = cl_module_subtypes(output)
+  match
+    types.filter(fn(t) { t.get_comptype() is @lib.StructCompType(_) })[0].get_comptype() {
+    @lib.StructCompType(fields) => assert_eq(fields.length(), 0)
+    _ => fail("expected struct")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+  assert_true(body.any(fn(i) { i is @lib.RefAsNonNull }))
+  assert_true(body.any(fn(i) { i is @lib.Call(_) }))
+  assert_false(body.any(fn(i) { i is @lib.StructSet(_, _) }))
+}
+
+///|
+test "Binaryen 133 GTO preserves mutable ancestor fields read by a subtype" {
+  let output = binaryen133_run_gto_write(
+    "(module (type $base (sub (struct (field (mut i32))))) (type $leaf (sub final $base (struct (field (mut i32))))) (func (export \"run\") (result i32) (local $r (ref null $leaf)) (local.set $r (struct.new $leaf (i32.const 1))) local.get $r i32.const 9 drop drop (struct.get $leaf 0 (local.get $r))))",
+  )
+  for subtype in cl_module_subtypes(output) {
+    match subtype.get_comptype() {
+      @lib.StructCompType(fields) => {
+        assert_eq(fields.length(), 1)
+        assert_true(fields[0] is @lib.FieldType(_, @lib.Var))
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn binaryen133_run_gto_write(source : String) -> @lib.Module raise {
+  let input = pass_test_module_from_wat(source)
+  let funcs = input.code_sec.unwrap().0.map(fn(f) {
+    let @lib.Func(locals, @lib.Expr(body)) = f
+    let out : Array[@lib.Instruction] = []
+    let mut i = 0
+    while i < body.length() {
+      if i + 1 < body.length() &&
+        body[i] is @lib.Drop &&
+        body[i + 1] is @lib.Drop {
+        out.push(
+          @lib.Instruction::struct_set(@lib.TypeIdx::new(0U), @lib.U32::new(0U)),
+        )
+        i += 2
+      } else {
+        out.push(body[i])
+        i += 1
+      }
+    }
+    @lib.Func::new(locals, @lib.Expr::new(out))
+  })
+  let input = input.with_code_sec(@lib.CodeSec::new(funcs))
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(e) => fail("invalid write fixture: \{e}")
+  }
+  binaryen133_run_gto_module(input)
+}
+
+///|
+test "Binaryen 133 GTO preserves distinct private struct identities after pruning" {
+  let input = pass_test_module_from_wat(
+    "(module (type $a (struct (field i32))) (type $b (struct (field i64))) (func (export \"run\") (result i32) (struct.new $a (i32.const 3)) drop i32.const 0))",
+  )
+  let @lib.Func(locals, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
+  ignore(body.pop())
+  ignore(body.pop())
+  body.push(
+    @lib.Instruction::ref_test(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let input = input.with_code_sec(
+    @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(body))]),
+  )
+  assert_true(@validate.validate_module(input).is_ok())
+  let output = binaryen133_run_gto_module(input)
+  let groups = output.type_sec.unwrap().0
+  assert_true(
+    groups.any(fn(g) {
+      match g {
+        @lib.GroupRecType(ts) =>
+          ts
+          .filter(fn(t) { t.get_comptype() is @lib.StructCompType([]) })
+          .length() ==
+          2
+        _ => false
+      }
+    }),
+  )
+}
+
+///|
+test "Binaryen 133 GTO removes unused types before regrouping private identities" {
+  let output = binaryen133_run_gto(
+    "(module (type $unused (struct (field i64))) (type $used (struct (field i32))) (func (export \"run\") (result i32) (drop (struct.new $used (i32.const 7))) (i32.const 9)))",
+  )
+  let structs = cl_module_subtypes(output).filter(fn(t) {
+    t.get_comptype() is @lib.StructCompType(_)
+  })
+  assert_eq(structs.length(), 1)
+  assert_true(structs[0].get_comptype() is @lib.StructCompType([]))
 }

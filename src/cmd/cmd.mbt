@@ -9640,15 +9640,41 @@ test "Binaryen 133 command GTO removes an unread private struct field" {
   ).unwrap()
   assert_true(@validate.validate_module(output).is_ok())
   let @lib.TypeSec(types) = output.type_sec.unwrap()
-  let fields = match types[0] {
-    @lib.SingleRecType(subtype) =>
+  let fields : Array[@lib.FieldType] = []
+  let found = [false]
+  for rec in types {
+    let group = match rec {
+      @lib.SingleRecType(t) => [t]
+      @lib.GroupRecType(g) => g
+    }
+    for subtype in group {
       match subtype.get_comptype() {
-        @lib.StructCompType(fields) => fields
-        _ => fail("expected a struct type")
+        @lib.StructCompType(fs) => {
+          fields.append(fs)
+          found[0] = true
+        }
+        _ => ()
       }
-    _ => fail("expected a single struct type")
+    }
   }
+  assert_true(found[0])
   assert_eq(fields.length(), 0)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   assert_true(body.any(fn(instr) { instr is @lib.StructNewDefault(_) }))
+}
+
+///|
+test "Binaryen 133 command GTO remaps inherited fields" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $a (sub (struct (field (mut i32))))) (type $b (sub final $a (struct (field (mut i32)) (field (mut i32))))) (func (export \"run\") (result i32) (struct.get $b 1 (struct.new $b (i32.const 7) (i32.const 9)))))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["global-type-optimization"],
+    OptimizeOptions::new(closed_world=true),
+  ).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_true(body.any(fn(i) { i is @lib.StructGet(_, @lib.U32(0U)) }))
+  assert_eq(body.filter(fn(i) { i is @lib.I32Const(_) }).length(), 1)
 }
