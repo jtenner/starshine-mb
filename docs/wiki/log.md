@@ -24167,3 +24167,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — StringGathering indexed literals
 
 - The [StringGathering page](binaryen/passes/string-gathering/index.md#current-repo-caveat) records direct native pass timings at 256 distinct literals (`329.20 → 46.73 µs`) and 512 (`1.25 ms → 92.79 µs`). A byte-keyed index removes repeated linear searches during collection and rewrite; a library sort replaces insertion sorting. The benchmark fixture and expected output are outside the timed loop.
+
+### 2026-09-24 — Directize blocked suffix search
+
+- The [Directize page](binaryen/passes/directize/index.md) records native direct-pass timing with a nonremovable computed argument before a known-trap indirect call: `191.49 → 17.43 µs` at 256 prefix instructions and `624.75 → 31.59 µs` at 512. The suffix search now stops before copying beyond that argument. This is a synthetic pass-local result.

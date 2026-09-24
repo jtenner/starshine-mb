@@ -2,14 +2,16 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-09-02
+last_reviewed: 2026-09-24
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/directize.mbt
   - ../../../../../src/passes/directize_test.mbt
   - ../../../../../src/passes/directize_wbtest.mbt
+  - ../../../../../src/passes/directize_suffix_boundary_wbtest.mbt
   - ../../../../../src/passes_perf_long/directize_perf_test.mbt
+  - ../../../../../src/passes_perf_long/directize_suffix_boundary_perf_test.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
   - ../late-pipeline-dispatch.md
@@ -111,6 +113,18 @@ That is much closer to the real pass than either:
 - The native benchmark file [`../../../../../src/passes_perf_long/directize_perf_test.mbt`](../../../../../src/passes_perf_long/directize_perf_test.mbt) retains the 256-call depth-64 trigger-bearing select lane, now `12.37ms +/- 137.51us`, and adds a fail-closed 2,048-function dynamic-target breadth lane. The latter constructs and validates the reusable fixture outside `it.bench(...)`, requires exact module equality plus preserved `call_indirect`, disables only repeated final-module validation, and measures `156.93us +/- 1.76us` on x86_64 AMD Ryzen 7 8845HS with MoonBit `0.1.20260713`.
 - `[P0-WALL-DIRECTIZE]` is closed on the canonical 4,977,401-byte artifact. All 2,261 indirect calls across 261 functions target table 1 through dynamic loads, so none can exercise the implemented constant/select rewrite. Clean HEAD entered the impossible-candidate rewrite path and exceeded 120 seconds; the final candidate measures `689.065ms` no-trace command and `49.177ms` pass-local versus Binaryen v131 `563.773ms` / `36.192ms` (`1.222x` / `1.359x`), clearing the fixed `<=1.106s` command target by `416.935ms`. Starshine raw output is unchanged at SHA-256 `4acd06537e4466bc372a73c2e37da46f1cd94c3baca1fd62c1aa5fe76b944721`; harness canonicalization is byte-identical to Binaryen's 5,300,041-byte output at SHA-256 `4a9c3279a6fb409fbf9eaf68f714141aacfd8d6d9ddacd098f29afe4bbefe583`.
 - The accepted public `optimize` / `shrink` late-tail suffix now includes `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` via [research note 0572](../late-pipeline-dispatch.md), and the direct five-pass neighborhood proof remains in [research note 0571](../late-pipeline-dispatch.md). The remaining caveat is the optional `directize-initial-contents-immutable` pass-arg behavior, which Starshine does not expose yet. The inner `string-gathering -> reorder-globals -> directize` triple itself still has a current-head replay recorded in [research note 0549](../reorder-globals/index.md).
+
+### September 24, 2026 — blocked argument suffix measurement
+
+The native direct-pass benchmark in
+`src/passes_perf_long/directize_suffix_boundary_perf_test.mbt` puts 256 or 512
+`nop` instructions before a computed call argument and a provably out-of-range
+table index. Fixture construction and validation stay outside the timed loop.
+The computed argument is nonremovable when replacing the known trap; the
+suffix search now stops there before copying longer prefixes. Direct-pass time
+fell from 191.49 to 17.43 µs at 256 prefixes (10.99×), and from 624.75 to
+31.59 µs at 512 (19.78×). This is a synthetic pass-local result, separate
+from historical Binaryen comparisons.
 
 ## Page map
 

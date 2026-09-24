@@ -668,10 +668,15 @@ fn directize_instr_is_removable_if_trapped(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn directize_instrs_are_removable_if_trapped(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  instrs.all(fn(instr) { directize_instr_is_removable_if_trapped(instr) })
+fn directize_removable_suffix_lower_bound(
+  out : Array[@lib.Instruction],
+  end : Int,
+) -> Int {
+  let mut lower = end
+  while lower > 0 && directize_instr_is_removable_if_trapped(out[lower - 1]) {
+    lower -= 1
+  }
+  lower
 }
 
 ///|
@@ -712,13 +717,13 @@ fn directize_find_removable_arg_suffix(
   info : DirectizeInfo,
 ) -> Int? {
   let end = out.length() - 1
-  for start = end; start >= 0; start = start - 1 {
+  let lower = directize_removable_suffix_lower_bound(out, end)
+  for start = end; start >= lower; start = start - 1 {
     let suffix : Array[@lib.Instruction] = []
     for idx = start; idx < end; idx = idx + 1 {
       suffix.push(out[idx])
     }
-    if directize_instrs_are_removable_if_trapped(suffix) &&
-      directize_suffix_produces_params(suffix, params, info) {
+    if directize_suffix_produces_params(suffix, params, info) {
       return Some(start)
     }
   }
