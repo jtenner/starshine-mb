@@ -64,7 +64,7 @@ fn gto_remap_type_names(
     let seen : Map[UInt, Bool] = Map([])
     let out : Array[@lib.IndirectNameAssoc] = []
     for @lib.IndirectNameAssoc(t, fields) in entries {
-      let next = remap.get(t).unwrap_or(t)
+      guard remap.get(t) is Some(next) else { continue }
       if seen.get(next) is None {
         out.push(@lib.IndirectNameAssoc::new(next, fields))
         seen[next] = true
@@ -166,6 +166,10 @@ fn gto_regroup_private_types(
   type_order : Array[Int],
 ) -> @lib.Module {
   let recs = mod_.type_sec.unwrap().0
+  let live : Map[Int, Bool] = Map([])
+  for i in gto_collect_type_order(mod_) {
+    live[i] = true
+  }
   let public_groups : Array[@lib.RecType] = []
   let private_types : Array[@lib.SubType] = []
   let private_old : Array[Int] = []
@@ -196,8 +200,10 @@ fn gto_regroup_private_types(
       new_base += group.length()
     } else {
       for i, t in absolute {
-        private_types.push(t)
-        private_old.push(old_base + i)
+        if live.get(old_base + i).unwrap_or(false) {
+          private_types.push(t)
+          private_old.push(old_base + i)
+        }
       }
     }
     old_base += group.length()

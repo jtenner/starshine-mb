@@ -302,3 +302,37 @@ test "Binaryen 133 GTO orders private subtype groups by IR use and dependencies"
     _ => fail("expected leaf struct")
   }
 }
+
+///|
+test "Binaryen 133 GTO preserves canonical packed array identities" {
+  let output = binaryen133_run_gto(
+    "(module (type $s (struct (field i32))) (type $a (array (mut i8))) (type $b (array (mut i16))) (func (export \"run\") (local (ref null $s) (ref null $a) (ref null $b))))",
+  )
+  let groups = output.type_sec.unwrap().0
+  assert_eq(groups.length(), 4)
+  assert_true(groups.all(fn(g) { g is @lib.SingleRecType(_) }))
+  let types = cl_module_subtypes(output)
+  assert_eq(
+    types.filter(fn(t) { t.get_comptype() is @lib.ArrayCompType(_) }).length(),
+    2,
+  )
+  assert_eq(
+    types.filter(fn(t) { t.get_comptype() is @lib.StructCompType([]) }).length(),
+    1,
+  )
+}
+
+///|
+test "Binaryen 133 GTO drops unused private recursion group members" {
+  let output = binaryen133_run_gto(
+    "(module (rec (type $unused (struct (field i64))) (type $used (struct (field i32)))) (func (export \"run\") (local (ref null $used))))",
+  )
+  let types = cl_module_subtypes(output)
+  assert_eq(
+    types.filter(fn(t) { t.get_comptype() is @lib.StructCompType(_) }).length(),
+    1,
+  )
+  assert_true(
+    output.type_sec.unwrap().0.all(fn(g) { g is @lib.SingleRecType(_) }),
+  )
+}

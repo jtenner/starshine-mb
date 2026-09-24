@@ -9716,3 +9716,19 @@ test "Binaryen 133 command tail-call lowers an indirect table64 exit" {
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
   assert_true(body.any(fn(i) { i is @lib.ReturnCallIndirect(_, _) }))
 }
+
+///|
+test "Binaryen 133 command GTO preserves canonical packed array identities" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $s (struct (field i32))) (type $a (array (mut i8))) (type $b (array (mut i16))) (func (export \"run\") (local (ref null $s) (ref null $a) (ref null $b))))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["global-type-optimization"],
+    OptimizeOptions::new(closed_world=true),
+  ).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  let groups = output.type_sec.unwrap().0
+  assert_eq(groups.length(), 4)
+  assert_true(groups.all(fn(g) { g is @lib.SingleRecType(_) }))
+}

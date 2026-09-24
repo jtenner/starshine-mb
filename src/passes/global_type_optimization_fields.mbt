@@ -167,6 +167,28 @@ fn gto_public_types(
     }
   }
   let exposed = Array::make(context.subtypes.length(), false)
+  // Binaryen's getIgnorablePublicTypes preserves the canonical mutable
+  // byte/UTF-16 arrays used for strings across Web host boundaries.
+  for i, subtype in context.subtypes {
+    let singleton = bases[i] == i &&
+      (i + 1 == bases.length() || bases[i + 1] != i)
+    if singleton &&
+      !subtype.metadata().is_shared() &&
+      subtype.super_types().is_empty() &&
+      subtype.descriptor_type() is None &&
+      subtype.describes_type() is None &&
+      (
+        subtype is @lib.SubType(true, _, _, _) ||
+        subtype is @lib.CompTypeSubType(_, _)
+      ) {
+      match subtype.get_comptype() {
+        @lib.ArrayCompType(
+          @lib.FieldType(@lib.PackTypeStorageType(_), @lib.Var)
+        ) => exposed[i] = true
+        _ => ()
+      }
+    }
+  }
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
       for @lib.Import(_, _, kind) in imports {
