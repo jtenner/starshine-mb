@@ -24171,3 +24171,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — Directize blocked suffix search
 
 - The [Directize page](binaryen/passes/directize/index.md) records native direct-pass timing with a nonremovable computed argument before a known-trap indirect call: `191.49 → 17.43 µs` at 256 prefix instructions and `624.75 → 31.59 µs` at 512. The suffix search now stops before copying beyond that argument. This is a synthetic pass-local result.
+
+### 2026-09-24 — SSA-nomerge parameter-tee facts
+
+- The [SSA-nomerge implementation page](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md#september-24-2026-rewrite-plan-lookup-measurement) records native plan timing with 128 repeated parameter tees (`364.19 → 33.91 µs`) and 256 (`1.39 ms → 67.37 µs`). Planning and pass execution now share per-function branch/read facts instead of rescanning the live nodes for each tee. The fixture is validated and lifted before timing.

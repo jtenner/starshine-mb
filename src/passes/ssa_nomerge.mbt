@@ -319,39 +319,36 @@ pub fn ssa_nomerge_loop_carried_canonical_writes(
 }
 
 ///|
-fn ssa_nomerge_func_has_plain_br(func : @ir.HotFunc) -> Bool {
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if @ir.hot_node_is_live(func, node_id) {
-      match @ir.hot_node_get(func, node_id).op {
-        @ir.HotOp::Br => return true
-        _ => ()
-      }
-    }
-  }
-  false
+priv struct SsaNoMergeParamTeeFacts {
+  has_plain_br : Bool
+  has_local_get : Array[Bool]
 }
 
 ///|
-fn ssa_nomerge_has_local_get(
-  func : @ir.HotFunc,
-  local_id : @ir.LocalId,
-) -> Bool {
+fn ssa_nomerge_param_tee_facts(func : @ir.HotFunc) -> SsaNoMergeParamTeeFacts {
+  let mut has_plain_br = false
+  let has_local_get = Array::make(@ir.hot_local_count(func), false)
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if @ir.hot_node_is_live(func, node_id) {
       let node = @ir.hot_node_get(func, node_id)
       match node.op {
-        @ir.HotOp::LocalGet => if node.imm0 == local_id { return true }
+        @ir.HotOp::Br => has_plain_br = true
+        @ir.HotOp::LocalGet =>
+          if node.imm0 >= 0 && node.imm0 < has_local_get.length() {
+            has_local_get[node.imm0] = true
+          }
         _ => ()
       }
     }
   }
-  false
+  SsaNoMergeParamTeeFacts::{ has_plain_br, has_local_get, }
 }
 
 ///|
 fn ssa_nomerge_write_is_branch_carried_param_tee(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
+  facts : SsaNoMergeParamTeeFacts,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -361,8 +358,8 @@ fn ssa_nomerge_write_is_branch_carried_param_tee(
     @ir.HotOp::LocalTee =>
       node.imm0 >= 0 &&
       node.imm0 < @ir.hot_param_count(func) &&
-      ssa_nomerge_func_has_plain_br(func) &&
-      ssa_nomerge_has_local_get(func, node.imm0)
+      facts.has_plain_br &&
+      facts.has_local_get[node.imm0]
     _ => false
   }
 }
@@ -378,6 +375,7 @@ pub fn ssa_nomerge_build_rewrite_plan(
   let loop_carried_canonical_writes = ssa_nomerge_loop_carried_canonical_writes(
     func,
   )
+  let param_tee_facts = ssa_nomerge_param_tee_facts(func)
   let mut next_fresh_local = @ir.hot_local_count(func)
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) ||
@@ -385,7 +383,7 @@ pub fn ssa_nomerge_build_rewrite_plan(
       continue
     }
     let decision = if ssa_nomerge_write_is_branch_carried_param_tee(
-        func, node_id,
+        func, node_id, param_tee_facts,
       ) ||
       (
         node_id < loop_carried_canonical_writes.length() &&
@@ -866,9 +864,12 @@ fn ssa_nomerge_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   }
   let before_revision = @ir.hot_revision_current(func)
   let loop_carried_writes = ssa_nomerge_loop_carried_canonical_writes(func)
+  let param_tee_facts = ssa_nomerge_param_tee_facts(func)
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if node_id < loop_carried_writes.length() &&
-      ssa_nomerge_write_is_branch_carried_param_tee(func, node_id) {
+      ssa_nomerge_write_is_branch_carried_param_tee(
+        func, node_id, param_tee_facts,
+      ) {
       loop_carried_writes[node_id] = true
     }
   }
