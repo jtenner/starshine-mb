@@ -1083,11 +1083,59 @@ fn rse_raw_probe_expr_scoped(
 }
 
 ///|
+fn rse_raw_expr_may_branch(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::Br(_)
+      | @lib.Instruction::BrIf(_)
+      | @lib.Instruction::BrTable(_, _)
+      | @lib.Instruction::BrOnNull(_)
+      | @lib.Instruction::BrOnNonNull(_)
+      | @lib.Instruction::BrOnCast(_, _, _, _)
+      | @lib.Instruction::BrOnCastFail(_, _, _, _)
+      | @lib.Instruction::BrOnCastDescEq(_, _, _)
+      | @lib.Instruction::BrOnCastDescEqFail(_, _, _)
+      | @lib.Instruction::Try(_, _, _, _)
+      | @lib.Instruction::TryTable(_, _, _)
+      | @lib.Instruction::Throw(_)
+      | @lib.Instruction::ThrowRef
+      | @lib.Instruction::Rethrow(_)
+      | @lib.Instruction::Suspend(_)
+      | @lib.Instruction::Resume(_, _)
+      | @lib.Instruction::ResumeThrow(_, _, _)
+      | @lib.Instruction::ResumeThrowRef(_, _)
+      | @lib.Instruction::StackSwitch(_, _) => return true
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        if rse_raw_expr_may_branch(body) {
+          return true
+        }
+      @lib.Instruction::If(_, then_body, else_body) => {
+        if rse_raw_expr_may_branch(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if rse_raw_expr_may_branch(body) { return true }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn rse_raw_loop_stable_entry_values(
   state : RseRawState,
   body : Array[@lib.Instruction],
 ) -> Array[Bool] {
   let stable = Array::make(state.local_values.length(), false)
+  // Without a branch, no path can revisit this loop's entry. The fallback
+  // below rewrites nested loops only to discover those backedges.
+  if !rse_raw_expr_may_branch(body) {
+    return stable
+  }
   let probe = RseRawState::clone_from(state)
   rse_raw_clear_stack(probe)
   let probe_scope = RseRawLabelScope::new(RseRawLabelKind::LoopLabel)

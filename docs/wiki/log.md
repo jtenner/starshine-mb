@@ -24155,3 +24155,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — Heap2Local root-slot indexing
 
 - The [Heap2Local page](binaryen/passes/heap2local/index.md#september-24-2026-root-slot-lookup-measurement) records direct-pass native timing for 32 repeated allocation/read epochs: `1.78 ms → 381.12 µs` after building one NodeId-to-root-slot index. The structured lookup regression and 33 existing Heap2Local tests pass on wasm-gc. The synthetic result does not establish Binaryen pass-local parity.
+
+### 2026-09-24 — RSE branch-free nested-loop probe
+
+- The [RSE validation page](binaryen/passes/rse/starshine-port-readiness-and-validation.md#september-24-2026-nested-loop-probe-measurement) records direct-pass native timing at eight nested loops: `303.52 → 10.01 µs` after skipping fallback body rewrites when no control transfer can revisit a loop entry. The branch scan regression and 43 existing RSE tests pass on wasm-gc; the result is synthetic and does not alter historical Binaryen evidence.

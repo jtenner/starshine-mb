@@ -28,6 +28,24 @@ related:
 
 # Starshine `rse` Port Readiness And Validation
 
+## September 24, 2026 nested-loop probe measurement
+
+The general raw loop path formerly rewrote a nested body solely to look for
+backedges when the shallow probe could not model a nested `loop`. Branch-free
+loop bodies cannot revisit their entry, so the stable-entry result is the
+existing all-false value without that fallback rewrite. A conservative
+recursive scan keeps probing when a branch, exception handler, or continuation
+handler could transfer control. The [white-box branch regression](../../../../../src/passes/rse_nested_loop_branch_wbtest.mbt)
+passed, as did all 43 focused `rse_test.mbt` tests on wasm-gc.
+
+The [dedicated native benchmark](../../../../../src/passes_perf_long/rse_nested_loop_perf_test.mbt)
+validates a nested reference-local fixture outside timing and measures direct
+`redundant-set-elimination` invocations without repeated final validation.
+At depth 6, mean time fell from `81.15 µs` to `8.32 µs` (`9.75×`); at depth 8,
+from `303.52 µs` to `10.01 µs` (`30.3×`). This is a synthetic, branch-free
+pass-local result. It does not supersede the July Binaryen comparison below
+or establish a speedup on loops with backedges.
+
 This page turns the corrected Binaryen source read into a future implementation checklist.
 It should be read after [`./binaryen-strategy.md`](./binaryen-strategy.md) and [`./cfg-and-value-tracking.md`](./cfg-and-value-tracking.md).
 The 2026-07-11 current-main reread keeps the same teaching split and supersedes the 2026-05-05 freshness claim. It found no behavior-bearing drift across the reviewed owner, registration, all-features, and GC/refinement surfaces.
