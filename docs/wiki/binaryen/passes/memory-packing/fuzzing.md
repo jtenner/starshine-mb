@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-25
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -11,7 +11,13 @@ sources:
 
 # `memory-packing` Fuzzing Profile
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — September 25, 2026:** new comparisons use [Binaryen 133](../../version-133-upgrade.md). Recorded v131 and v132 results below retain their historical versions.
+
+## September 25 shared segment-op preflight
+
+The current self-opt release Wasm has 12,904 defined functions and one active data segment. Its memory-packing pass scanned all code for data-index operations while constructing and merging a fresh preflight result for every nested body. A single mutable result now accumulates the same `rewritable` and `has_data_ops` facts across nested regions and exits on the same first unsupported operation. On the 6,253,030-byte input with only its malformed `name` custom section removed, initial native-release snapshots suggested a 124.622 ms to 107.436 ms pass-time gain, but Binaryen's control also sped up between those sessions. An interleaved same-session A/B run using separately built old and new binaries gives the stronger evidence: eight measured pairs have **123.533 ms** old versus **116.630 ms** new pass-local medians, a **5.6%** reduction, and the new pass was faster in all eight pairs. Whole-command medians were 931.693 ms old versus 925.550 ms new; the 0.7% wall difference is too small to distinguish reliably from command overhead. The raw Starshine output SHA-256 stayed `218db8314c8c0e0f15a65de28b4c16db9b2270fca62b12be20ee41a048076c24`. The pass remains slower than Binaryen on this input. Measurements are under `.tmp/self-opt-pass-times-20260925/v133-direct/`, `v133-mp-preflight-after/`, and `mp-ab/interleaved.json`.
+
+The verified v133 `memory-packing-all` aggregate compared `10,000/10,000` cases with `7,288` normalized matches, `2,712` residuals, and zero generator, command, property, or validation failures. Its residual counts and canonical byte deltas match the prior v132 classification: 1,382 smaller active zero-length correctness wins (−8,292 bytes total) and 1,330 dynamic Memory64 complete-preflight correctness wins with a size cost (+57,190 bytes total). These are repeated generated families, not 2,712 independent semantic proofs. Artifacts are under `.tmp/pass-fuzz-mp-preflight-v133-10000/`; the harness exited nonzero for raw mismatches.
 
 ## September 22 input-ownership repair signoff
 

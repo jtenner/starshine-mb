@@ -2099,8 +2099,8 @@ fn mp_find_value_start(out : Array[@lib.Instruction], end_ : Int) -> Int? {
 
 ///|
 priv struct MpSegmentOpPreflight {
-  rewritable : Bool
-  has_data_ops : Bool
+  mut rewritable : Bool
+  mut has_data_ops : Bool
 }
 
 ///|
@@ -2112,86 +2112,58 @@ fn MpSegmentOpPreflight::new(
 }
 
 ///|
-fn mp_segment_op_preflight_merge(
-  lhs : MpSegmentOpPreflight,
-  rhs : MpSegmentOpPreflight,
-) -> MpSegmentOpPreflight {
-  MpSegmentOpPreflight::new(
-    rewritable=lhs.rewritable && rhs.rewritable,
-    has_data_ops=lhs.has_data_ops || rhs.has_data_ops,
-  )
-}
-
-///|
 fn mp_segment_op_preflight_instrs(
   instrs : Array[@lib.Instruction],
-) -> MpSegmentOpPreflight {
-  let mut result = MpSegmentOpPreflight::new()
+  result : MpSegmentOpPreflight,
+) -> Unit {
   for i = 0; i < instrs.length(); i = i + 1 {
     match instrs[i] {
       @lib.MemoryInit(_, _) => {
-        result = MpSegmentOpPreflight::new(
-          rewritable=i >= 2 &&
-            mp_instr_i32_const_value(instrs[i - 2]) is Some(_) &&
-            mp_instr_i32_const_value(instrs[i - 1]) is Some(_) &&
-            mp_find_value_start(instrs, i - 2) is Some(_),
-          has_data_ops=true,
-        )
-        if !result.rewritable {
-          return result
+        result.has_data_ops = true
+        if i < 2 ||
+          mp_instr_i32_const_value(instrs[i - 2]) is None ||
+          mp_instr_i32_const_value(instrs[i - 1]) is None ||
+          mp_find_value_start(instrs, i - 2) is None {
+          result.rewritable = false
+          return
         }
       }
       @lib.DataDrop(_) | @lib.ArrayNewData(_, _) | @lib.ArrayInitData(_, _) =>
-        result = MpSegmentOpPreflight::new(has_data_ops=true)
+        result.has_data_ops = true
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) => {
-        result = mp_segment_op_preflight_merge(
-          result,
-          mp_segment_op_preflight_instrs(body),
-        )
+        mp_segment_op_preflight_instrs(body, result)
         if !result.rewritable {
-          return result
+          return
         }
       }
       @lib.Try(_, @lib.Expr(body), catches, _) => {
-        result = mp_segment_op_preflight_merge(
-          result,
-          mp_segment_op_preflight_instrs(body),
-        )
+        mp_segment_op_preflight_instrs(body, result)
         if !result.rewritable {
-          return result
+          return
         }
         for catch_ in catches {
           let catch_body = match catch_ {
             @lib.LegacyCatch(_, @lib.Expr(catch_body))
             | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
           }
-          result = mp_segment_op_preflight_merge(
-            result,
-            mp_segment_op_preflight_instrs(catch_body),
-          )
+          mp_segment_op_preflight_instrs(catch_body, result)
           if !result.rewritable {
-            return result
+            return
           }
         }
       }
       @lib.If(_, then_body, else_body) => {
-        result = mp_segment_op_preflight_merge(
-          result,
-          mp_segment_op_preflight_instrs(then_body),
-        )
+        mp_segment_op_preflight_instrs(then_body, result)
         if !result.rewritable {
-          return result
+          return
         }
         match else_body {
           Some(body) => {
-            result = mp_segment_op_preflight_merge(
-              result,
-              mp_segment_op_preflight_instrs(body),
-            )
+            mp_segment_op_preflight_instrs(body, result)
             if !result.rewritable {
-              return result
+              return
             }
           }
           None => ()
@@ -2200,20 +2172,16 @@ fn mp_segment_op_preflight_instrs(
       _ => ()
     }
   }
-  result
 }
 
 ///|
 fn mp_module_segment_op_preflight(mod_ : @lib.Module) -> MpSegmentOpPreflight {
-  let mut result = MpSegmentOpPreflight::new()
+  let result = MpSegmentOpPreflight::new()
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       for func_ in funcs {
         let @lib.Func(_, @lib.Expr(body)) = func_
-        result = mp_segment_op_preflight_merge(
-          result,
-          mp_segment_op_preflight_instrs(body),
-        )
+        mp_segment_op_preflight_instrs(body, result)
         if !result.rewritable {
           return result
         }
