@@ -5977,10 +5977,16 @@ fn sgo_rewrite_data_sec(
 }
 
 ///|
-fn sgo_runtime_trace_clear(facts : Array[@lib.Instruction?]) -> Unit {
-  for idx = 0; idx < facts.length(); idx = idx + 1 {
-    facts[idx] = None
+fn sgo_runtime_trace_clear(
+  facts : Array[@lib.Instruction?],
+  touched : Array[Int],
+  marked : Array[Bool],
+) -> Unit {
+  for slot in touched {
+    facts[slot] = None
+    marked[slot] = false
   }
+  touched.clear()
 }
 
 ///|
@@ -9451,6 +9457,28 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
   facts : Array[@lib.Instruction?],
   mutable_imports : Array[Int],
 ) -> (@lib.Expr, Bool, Bool) {
+  let marked = Array::make(facts.length(), false)
+  let touched : Array[Int] = []
+  for slot = 0; slot < facts.length(); slot = slot + 1 {
+    if facts[slot] is Some(_) {
+      marked[slot] = true
+      touched.push(slot)
+    }
+  }
+  sgo_rewrite_runtime_trace_expr_with_sparse_facts(
+    expr, infos, facts, mutable_imports, touched, marked,
+  )
+}
+
+///|
+fn sgo_rewrite_runtime_trace_expr_with_sparse_facts(
+  expr : @lib.Expr,
+  infos : Array[SgoGlobalInfo],
+  facts : Array[@lib.Instruction?],
+  mutable_imports : Array[Int],
+  touched : Array[Int],
+  marked : Array[Bool],
+) -> (@lib.Expr, Bool, Bool) {
   let @lib.Expr(instrs) = expr
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -9491,16 +9519,21 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
               }
             }
           }
-          facts[slot] = if pos > 0 {
+          let replacement = if pos > 0 {
             sgo_const_instr(instrs[pos - 1])
           } else {
             None
           }
+          if replacement is Some(_) && !marked[slot] {
+            marked[slot] = true
+            touched.push(slot)
+          }
+          facts[slot] = replacement
         }
       }
       @lib.Block(block_type, body) => {
-        let (next_body, body_changed, body_has_barrier) = sgo_rewrite_runtime_trace_expr_with_facts(
-          body, infos, facts, mutable_imports,
+        let (next_body, body_changed, body_has_barrier) = sgo_rewrite_runtime_trace_expr_with_sparse_facts(
+          body, infos, facts, mutable_imports, touched, marked,
         )
         has_barrier = has_barrier || body_has_barrier
         out.push(
@@ -9512,15 +9545,17 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         )
         changed = changed || body_changed
         if body_has_barrier {
-          sgo_runtime_trace_clear(facts)
+          sgo_runtime_trace_clear(facts, touched, marked)
         }
       }
       @lib.If(block_type, then_body, Some(else_body)) => {
-        let (next_then, then_changed, _) = sgo_rewrite_runtime_trace_expr_with_facts(
+        let (next_then, then_changed, _) = sgo_rewrite_runtime_trace_expr_with_sparse_facts(
           @lib.Expr::new(then_body),
           infos,
           facts,
           mutable_imports,
+          touched,
+          marked,
         )
         let @lib.Expr(next_then_body) = next_then
         out.push(
@@ -9532,14 +9567,16 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         )
         changed = changed || then_changed
         has_barrier = true
-        sgo_runtime_trace_clear(facts)
+        sgo_runtime_trace_clear(facts, touched, marked)
       }
       @lib.If(block_type, then_body, None) => {
-        let (next_then, then_changed, _) = sgo_rewrite_runtime_trace_expr_with_facts(
+        let (next_then, then_changed, _) = sgo_rewrite_runtime_trace_expr_with_sparse_facts(
           @lib.Expr::new(then_body),
           infos,
           facts,
           mutable_imports,
+          touched,
+          marked,
         )
         let @lib.Expr(next_then_body) = next_then
         out.push(
@@ -9551,13 +9588,13 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         )
         changed = changed || then_changed
         has_barrier = true
-        sgo_runtime_trace_clear(facts)
+        sgo_runtime_trace_clear(facts, touched, marked)
       }
       _ => {
         out.push(instr)
         if sgo_runtime_trace_barrier(instr) {
           has_barrier = true
-          sgo_runtime_trace_clear(facts)
+          sgo_runtime_trace_clear(facts, touched, marked)
         }
       }
     }

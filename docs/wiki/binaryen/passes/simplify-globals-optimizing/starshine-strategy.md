@@ -49,6 +49,10 @@ The runtime trace now passes the same fact array into plain blocks and then arms
 
 The imported-global write path now builds a list of mutable imported-global slots once per function and checks only that list for possible aliases. It retains the same type compatibility rule and still invalidates every possible host alias. The native-release full-pass fixture with 256 imported-global writes fell from **3.90 ms to 3.48 ms** with 512 defined globals (10.8%). The 256-defined-global case measured **3.41 ms to 3.27 ms**, with wider post-change variation; the larger case is the stronger evidence. A two-import alias test and all 336 existing SGO tests pass. This fixture is synthetic and does not establish production throughput.
 
+## September 25, 2026 sparse runtime-fact clears
+
+The runtime trace now records which global slots acquired constant facts since the last control-flow barrier and clears only those slots. A marked-slot array prevents duplicate entries when imported-global alias invalidation removes and then restores a fact. On a [native white-box benchmark](../../../../../src/passes/simplify_globals_optimizing_runtime_trace_perf_wbtest.mbt) with one tracked fact per call barrier, 256 globals and barriers improved **36.80 → 6.88 µs** (5.35×), and 512 of each improved **138.76 → 13.47 µs** (10.3×). The barrier-free nested-block controls measured `5.15 → 5.38 µs` at 128 blocks and `11.04 → 11.08 µs` at 256. The new call-barrier test and all 336 existing SGO tests pass. These are helper timings; full-pass impact remains unmeasured.
+
 ## Honest current status
 
 `simplify-globals-optimizing` is **implemented and audit-complete for the recorded Binaryen `version_130` / Starshine v0.1.0 scope**.

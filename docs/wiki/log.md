@@ -24482,3 +24482,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — DFE unused-signature bulk probe
 
 - The [DFE strategy page](binaryen/passes/duplicate-function-elimination/starshine-strategy.md#september-25-2026-unused-signature-bulk-probe) records native helper timing with 64 unused signatures at `428.03 → 14.57 µs` and 128 at `868.04 → 19.13 µs`. A single negative module-reference probe now avoids repeated full-body scans; positive probes retain exact per-type liveness. The focused regression and existing DFE tests pass.
+
+### 2026-09-25 — SGO sparse runtime-fact clears
+
+- The [SGO strategy page](binaryen/passes/simplify-globals-optimizing/starshine-strategy.md#september-25-2026-sparse-runtime-fact-clears) records native helper timing for 256 globals/barriers at `36.80 → 6.88 µs` and 512 at `138.76 → 13.47 µs`. Clearing only touched facts removes dense per-barrier work while preserving imported-alias invalidation. One focused call-barrier test and 336 existing SGO tests pass; full-pass impact remains unmeasured.
