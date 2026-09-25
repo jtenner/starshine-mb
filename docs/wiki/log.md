@@ -24323,3 +24323,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — GSI empty-candidate propagation
 
 - The [GSI closed-world page](binaryen/passes/global-struct-inference/closed-world-analysis-and-unnesting.md#september-25-2026-subtype-fact-propagation-measurement) records a native 32-type empty-candidate control improving from `1.34 µs` to `462 ns`. Poison facts now propagate before the helper allocates candidate maps, and it returns when no candidates exist; the 75 existing GSI tests pass. Candidate-heavy timings remained within noise.
+
+### 2026-09-25 — IntrinsicLowering no-target guard
+
+- [IntrinsicLowering](../../src/passes/intrinsic_lowering.mbt) now returns after import inspection when no `binaryen-intrinsics.call.without.effects` target exists. The [native direct-pass benchmark](../../src/passes/intrinsic_lowering_no_target_perf_wbtest.mbt) improved from `51.21 µs` to `20.73 ns` at 128 functions and from `102.44 µs` to `20.28 ns` at 256. A positive matching-import rewrite test passes. These are synthetic no-target pass-local timings; full-pipeline impact remains unmeasured.

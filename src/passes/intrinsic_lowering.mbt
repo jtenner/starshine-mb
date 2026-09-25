@@ -135,8 +135,11 @@ fn intrinsic_lowering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   if type_indices.length() != funcs.length() {
     return mod_
   }
-  let signatures = msf_build_type_signature_cache(mod_)
   let targets = il_import_targets(mod_)
+  if !targets.any(fn(target) { target }) {
+    return mod_
+  }
+  let signatures = msf_build_type_signature_cache(mod_)
   let changed = [false]
   let rewritten : Array[@lib.Func] = []
   for index, func in funcs {
