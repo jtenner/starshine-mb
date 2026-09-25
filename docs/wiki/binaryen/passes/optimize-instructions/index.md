@@ -1,13 +1,14 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-24
 sources:
   - ../../release-horizon-and-oracles.md
   - binaryen-strategy.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
+  - ../../../../../src/passes/optimize_instructions_try_state_perf_wbtest.mbt
   - ../../../../../src/passes/oi_local_group_parity_wbtest.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
@@ -35,6 +36,10 @@ related:
 ---
 
 # `optimize-instructions`
+
+## September 24, 2026 try-body state measurement
+
+The boolean-context try-body nonthrowing proof now keeps sparse per-query visit states keyed by HOT node ID. Previously each try query initialized an integer array sized to the entire function, even when its body visited only a constant and a small control wrapper. The [native white-box benchmark](../../../../../src/passes/optimize_instructions_try_state_perf_wbtest.mbt) invokes the proof for many independent small try bodies in one prebuilt HOT function: 256 queries fell from `120.66` to `41.40 µs` (2.91×), and 512 from `382.91` to `83.38 µs` (4.59×). All 1,421 existing OptimizeInstructions tests pass. The fixture measures query-local state allocation and proof traversal, not full-pass timing or Binaryen parity.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

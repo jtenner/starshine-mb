@@ -40199,7 +40199,7 @@ fn OiBooleanTryRegionThrowFact::proves_nonthrowing(
 fn OiBooleanTryRegionThrowFact::from_region(
   func : @ir.HotFunc,
   region : @ir.HotRegionRef,
-  states : Array[Int],
+  states : @hashmap.HashMap[Int, Int],
   depth : Int,
 ) -> OiBooleanTryRegionThrowFact? {
   if depth >= 64 {
@@ -40225,7 +40225,7 @@ fn OiBooleanTryRegionThrowFact::from_region(
 fn OiBooleanTryExpressionThrowFact::from_node(
   func : @ir.HotFunc,
   node_id : Int,
-  states : Array[Int],
+  states : @hashmap.HashMap[Int, Int],
   depth : Int,
 ) -> OiBooleanTryExpressionThrowFact? {
   // Binaryen v130 admits a Try fallthrough only when
@@ -40234,13 +40234,14 @@ fn OiBooleanTryExpressionThrowFact::from_node(
   // subtree summary. Ordinary expression children and nested block regions are
   // explicit facts; other structured controls remain fail-closed until their
   // owned regions are audited.
-  if depth >= 64 || node_id < 0 || node_id >= states.length() {
+  if depth >= 64 || node_id < 0 || node_id >= @ir.hot_node_count(func) {
     return None
   }
-  match states[node_id] {
-    2 => return Some({ kind: BooleanTryOrdinaryExpressionProvenNonThrowing, })
-    1 => return None
-    _ => states[node_id] = 1
+  match states.get(node_id) {
+    Some(2) =>
+      return Some({ kind: BooleanTryOrdinaryExpressionProvenNonThrowing, })
+    Some(1) => return None
+    _ => states.set(node_id, 1)
   }
   if @ir.hot_node_may_throw_exception(func, node_id) {
     return None
@@ -40278,7 +40279,7 @@ fn OiBooleanTryExpressionThrowFact::from_node(
       BooleanTryOrdinaryExpressionProvenNonThrowing
     }
   }
-  states[node_id] = 2
+  states.set(node_id, 2)
   Some({ kind, })
 }
 
@@ -40318,7 +40319,7 @@ fn OiBooleanTryBodyThrowFact::from_try_operand(
   if root_count == 0 {
     return None
   }
-  let states = Array::make(@ir.hot_node_count(func), 0)
+  let states : @hashmap.HashMap[Int, Int] = @hashmap.new()
   for slot = 0; slot < root_count; slot = slot + 1 {
     match
       OiBooleanTryExpressionThrowFact::from_node(

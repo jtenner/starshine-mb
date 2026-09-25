@@ -24203,3 +24203,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — TupleOptimization passthrough-chain resolution
 
 - The [TupleOptimization page](binaryen/passes/tuple-optimization/index.md#september-24-2026-passthrough-chain-measurement) records native white-box helper timing at 128 local tees (`6.20 → 1.18 µs`) and 256 (`13.05 → 2.22 µs`). One mutable chain array replaces repeated growing-array copies. A chain-order test and 61 existing white-box tests pass; full-pass impact remains unmeasured.
+
+### 2026-09-24 — OptimizeInstructions try-body state
+
+- The [OptimizeInstructions page](binaryen/passes/optimize-instructions/index.md#september-24-2026-try-body-state-measurement) records native white-box proof timing for 256 small try bodies (`120.66 → 41.40 µs`) and 512 (`382.91 → 83.38 µs`). Sparse visit states replace a whole-function array per query. All 1,421 existing OptimizeInstructions tests pass; full-pass impact remains unmeasured.
