@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-24
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateFunctionElimination.cpp
   - ./index.md
   - ../../../../../src/passes/duplicate_function_elimination.mbt
   - ../../../../../src/passes/duplicate_function_elimination_test.mbt
+  - ../../../../../src/passes/duplicate_function_type_prune_perf_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DuplicateFunctionElimination.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/function-utils.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h
@@ -275,6 +276,10 @@ Fresh final16 results:
 - No other stable-cohort artifact changes.
 
 The performance guard remains bounded: retained definitions are recursively rebuilt only when `dfe_rec_type_uses_remap(...)` proves that the definition references a remapped index. A 500-pair pass-local comparison measures 134.5 µs before versus 133.0 µs after.
+
+## September 24, 2026 simple-type liveness measurement
+
+The local `dfe_prune_unused_simple_types` helper now marks valid absolute function-section type references directly and probes the remaining type indices through the existing full-module scanner. This preserves the broad reference check for imports, code, globals, and other surfaces while avoiding a separate scan for each already-live function signature. The native release white-box benchmark in [`duplicate_function_type_prune_perf_wbtest.mbt`](../../../../../src/passes/duplicate_function_type_prune_perf_wbtest.mbt) measured 64 distinct live signatures at `12.38 µs → 111.71 ns` (111×), 128 at `40.17 µs → 201.95 ns` (199×), and 128 live plus one unused trailing signature at `158.46 → 135.66 µs` (1.17×). The pruning guard test and 39 existing DFE tests pass. This is a helper timing, not a full-pass or Binaryen-v132 parity result.
 
 ## Practical rule for future docs and code reviews
 

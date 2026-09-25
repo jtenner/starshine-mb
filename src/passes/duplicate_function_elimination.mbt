@@ -3919,14 +3919,36 @@ fn dfe_prune_unused_simple_types(mod_ : @lib.Module) -> @lib.Module {
         }
       }
       let live : Array[Bool] = Array::make(rec_types.length(), false)
+      // Function-section references are direct and common. Avoid probing the
+      // entire module separately for each already-live signature.
+      match mod_.func_sec {
+        Some(@lib.FuncSec(type_idxs)) =>
+          for entry in type_idxs {
+            match entry {
+              @lib.TypeIdx(raw_idx) => {
+                let type_idx = raw_idx.reinterpret_as_int()
+                if type_idx >= 0 && type_idx < live.length() {
+                  live[type_idx] = true
+                }
+              }
+              @lib.RecIdx(_) => ()
+            }
+          }
+        None => ()
+      }
+      if live.all(fn(is_live) { is_live }) {
+        return mod_
+      }
       let without_types = mod_.with_type_sec(@lib.TypeSec::new([]))
       let mut idx = 0
       while idx < rec_types.length() {
-        let probe : Map[UInt, UInt] = Map([])
-        let raw_idx = idx.reinterpret_as_uint()
-        probe[raw_idx] = rec_types.length().reinterpret_as_uint()
-        if dfe_module_type_refs_use_remap(without_types, probe) {
-          live[idx] = true
+        if !live[idx] {
+          let probe : Map[UInt, UInt] = Map([])
+          let raw_idx = idx.reinterpret_as_uint()
+          probe[raw_idx] = rec_types.length().reinterpret_as_uint()
+          if dfe_module_type_refs_use_remap(without_types, probe) {
+            live[idx] = true
+          }
         }
         idx += 1
       }

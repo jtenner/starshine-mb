@@ -24259,3 +24259,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — GlobalEffects no-resume allocation
 
 - The [GlobalEffects index](binaryen/passes/global-effects/index.md#current-repository-note--september-24-2026) records native direct-pass timing for 256 no-resume functions (`102.83 → 11.66 µs`) and 512 (`217.21 → 24.61 µs`). The resume-presence guard avoids rebuilding unchanged bodies; a positive rewrite moved `2.51 → 2.56 µs`. Four focused tests pass. Full-pipeline impact remains unmeasured.
+
+### 2026-09-24 — DFE simple-type liveness
+
+- The [DFE type-compaction page](binaryen/passes/duplicate-function-elimination/type-compaction-and-metadata.md#september-24-2026-simple-type-liveness-measurement) records native white-box helper timings for 64 live signatures (`12.38 µs → 111.71 ns`), 128 (`40.17 µs → 201.95 ns`), and 128 live plus one unused (`158.46 → 135.66 µs`). Direct function-section references bypass repeated module probes; one new and 39 existing tests pass. Full-pass impact remains unmeasured.
