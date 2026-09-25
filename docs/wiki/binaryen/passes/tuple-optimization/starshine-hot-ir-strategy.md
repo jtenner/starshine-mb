@@ -311,3 +311,14 @@ The local pass should still not be described as:
 - Keep this page focused on the local strategy and the most important exact code locations.
 - Put deeper owner-file inventories and test-lane maps in [`./implementation-map.md`](./implementation-map.md).
 - If a new parity fix changes the owning helper cluster, update this page, the implementation map, and either [`./reduced-repros-and-evidence.md`](./reduced-repros-and-evidence.md) or [`./parity.md`](./parity.md) in the same change.
+
+## September 25, 2026: child-only result-block analysis
+
+`tuple_optimization_collect_result_block_copy_group` now checks current
+use-def sites before locating a root slot. Analysis has not mutated the HOT
+graph, so a block with only child uses cannot be a root; the root-slot helper
+retains its fallback for rewrite callers with stale use-def data. The native
+collector benchmark in `src/passes/tuple_root_copy_analysis_perf_wbtest.mbt`
+measured 64 child-only scalar blocks at `21.77 → 2.44 µs` and 128 at
+`80.72 → 5.27 µs`. A real multivalue tuple group keeps the result-block
+analysis enabled. Full-pass impact remains unmeasured.

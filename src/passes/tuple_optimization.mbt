@@ -926,8 +926,22 @@ fn tuple_optimization_collect_result_block_copy_group(
   if @ir.hot_node_result_arity(func, carrier_id) != 1 {
     return None
   }
-  let (outer_def, outer_local) = match
-    tuple_optimization_find_root_slot_with_use_def(func, use_def, carrier_id, 0) {
+  let outer_sites = @ir.node_use_sites_borrowed(use_def, carrier_id)
+  let mut has_root_site = false
+  for site in outer_sites {
+    if site.kind is @ir.HotUseSlotKind::RootUseSlot {
+      has_root_site = true
+      break
+    }
+  }
+  // Analysis has not mutated the HOT graph since building use-def. A child-only
+  // block cannot acquire a root slot here, so avoid the whole-function fallback.
+  let root_slot = if has_root_site {
+    tuple_optimization_find_root_slot_with_use_def(func, use_def, carrier_id, 0)
+  } else {
+    None
+  }
+  let (outer_def, outer_local) = match root_slot {
     Some(root_slot) =>
       if root_slot.slot + 1 >=
         @ir.hot_region_root_count(func, root_slot.region_ref) {
@@ -946,7 +960,6 @@ fn tuple_optimization_collect_result_block_copy_group(
         }
       }
     None => {
-      let outer_sites = @ir.node_use_sites_borrowed(use_def, carrier_id)
       if outer_sites.length() != 1 {
         return None
       }

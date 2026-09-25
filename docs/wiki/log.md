@@ -24526,3 +24526,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Inlining dead-suffix target index
 
 - The [Inlining strategy page](binaryen/passes/inlining/starshine-strategy.md#september-25-2026-dead-suffix-target-collection) records paired native helper timing for 128 distinct dead-suffix targets at `4.04 → 2.63 µs` and 256 at `15.89 → 5.24 µs`. Lookup switches to a hash index after eight distinct targets; one-target controls remained stable at 128 calls `181.31 → 180.76 ns` and 256 `316.45 → 311.61 ns`. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — TupleOptimization child-only result-block lookup
+
+- The [TupleOptimization HOT strategy page](binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md#september-25-2026-child-only-result-block-analysis) records native collector timing for 64 child-only scalar blocks at `21.77 → 2.44 µs` and 128 at `80.72 → 5.27 µs`. Fresh use-def sites rule out a root slot during read-only analysis, while rewrite callers retain the stale-use-def fallback. Full-pass impact remains unmeasured.
