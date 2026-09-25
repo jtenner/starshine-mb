@@ -3355,6 +3355,7 @@ fn code_pushing_raw_instrs_have_legacy_try(
 fn code_pushing_raw_try_move_const_set_after_branch(
   instrs : Array[@lib.Instruction],
   function_body : Array[@lib.Instruction],
+  access_counts : @hashmap.HashMap[UInt, (Int, Int)],
 ) -> Bool {
   if instrs.length() < 7 {
     return false
@@ -3372,9 +3373,16 @@ fn code_pushing_raw_try_move_const_set_after_branch(
       value_idx += 1
       continue
     }
-    let (total_gets, total_writes) = code_pushing_raw_instrs_count_local_accesses(
-      function_body, local_id,
-    )
+    let (total_gets, total_writes) = match access_counts.get(local_id) {
+      Some(counts) => counts
+      None => {
+        let counts = code_pushing_raw_instrs_count_local_accesses(
+          function_body, local_id,
+        )
+        access_counts[local_id] = counts
+        counts
+      }
+    }
     if total_gets == 0 || total_writes != 1 {
       value_idx += 1
       continue
@@ -3442,9 +3450,10 @@ fn code_pushing_raw_try_move_const_set_after_branch(
 }
 
 ///|
-fn code_pushing_raw_rewrite_legacy_instrs(
+fn code_pushing_raw_rewrite_legacy_instrs_cached(
   instrs : Array[@lib.Instruction],
   function_body : Array[@lib.Instruction],
+  access_counts : @hashmap.HashMap[UInt, (Int, Int)],
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten = instrs.copy()
   let mut changed = false
@@ -3452,7 +3461,9 @@ fn code_pushing_raw_rewrite_legacy_instrs(
     let (next, nested_changed) = pass_rewrite_structured_instr(rewritten[idx], fn(
       body,
     ) {
-      code_pushing_raw_rewrite_legacy_instrs(body, function_body)
+      code_pushing_raw_rewrite_legacy_instrs_cached(
+        body, function_body, access_counts,
+      )
     })
     if nested_changed {
       rewritten[idx] = next
@@ -3460,11 +3471,22 @@ fn code_pushing_raw_rewrite_legacy_instrs(
     }
   }
   while code_pushing_raw_try_move_const_set_after_branch(
-          rewritten, function_body,
+          rewritten, function_body, access_counts,
         ) {
     changed = true
   }
   (rewritten, changed)
+}
+
+///|
+fn code_pushing_raw_rewrite_legacy_instrs(
+  instrs : Array[@lib.Instruction],
+  function_body : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let access_counts : @hashmap.HashMap[UInt, (Int, Int)] = @hashmap.new()
+  code_pushing_raw_rewrite_legacy_instrs_cached(
+    instrs, function_body, access_counts,
+  )
 }
 
 ///|

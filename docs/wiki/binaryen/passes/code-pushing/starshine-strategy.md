@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/passes/code_pushing_wbtest.mbt
+  - ../../../../../src/passes/code_pushing_legacy_restart_perf_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
@@ -27,6 +28,12 @@ related:
 ---
 
 # Starshine Strategy For `code-pushing`
+
+## September 25, 2026: legacy-Try restart access counts
+
+The raw legacy-Try movement helper restarts its candidate scan after each move. A rejected candidate before several movable sets used to recount its local accesses across the original whole function on every restart. The helper now caches each local's gets and writes for one invocation and shares that cache with nested region rewrites. These counts are based on the unchanged original function body; the move order and safety checks are unchanged.
+
+The native-release benchmark in `src/passes/code_pushing_legacy_restart_perf_wbtest.mbt` measured one eligible move at **1.48 → 1.27 µs**, 16 moves at **87.53 → 45.70 µs**, and 32 moves at **323.20 → 162.50 µs**. The restart loop still rescans candidate instruction lists, so this does not remove all quadratic work. Full-pass impact remains unmeasured.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

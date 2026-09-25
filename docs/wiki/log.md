@@ -24546,3 +24546,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — RemoveUnusedBrs subtree visited state
 
 - The [RemoveUnusedBrs HOT strategy page](binaryen/passes/remove-unused-brs/starshine-hot-ir-strategy.md#september-25-2026-sparse-visits-for-branch-to-trap-subtrees) records native helper timing for a one-node subtree in a 1,024-node function at `289.96 → 73.21 ns` and a 4,096-node function at `954.42 → 72.86 ns`. A 64-node control stayed at `67.37 → 64.76 ns`, and a broad 128-node subtree stayed near 12 µs. The dispatch keeps dense visits for small functions and broad blocks; full-pass impact remains unmeasured.
+
+### 2026-09-25 — CodePushing legacy-Try access-count cache
+
+- The [CodePushing strategy page](binaryen/passes/code-pushing/starshine-strategy.md#september-25-2026-legacy-try-restart-access-counts) records native raw-helper timing for one eligible move at `1.48 → 1.27 µs`, 16 moves at `87.53 → 45.70 µs`, and 32 moves at `323.20 → 162.50 µs`. Whole-function local-access counts are cached across legacy restart rounds while move order remains unchanged; full-pass impact remains unmeasured.
