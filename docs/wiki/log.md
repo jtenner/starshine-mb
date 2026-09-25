@@ -24399,3 +24399,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Heap2Local detached-node cleanup
 
 - The [Heap2Local strategy page](binaryen/passes/heap2local/starshine-hot-ir-strategy.md#september-25-2026-detached-node-cleanup) records native fixture timing from `634.05 → 608.03 µs` for 512 nodes and `2.39 → 2.29 ms` for 1,024 after removing a redundant quadratic seen-list scan. A separate primary-test failure in root-slot indexing reproduces at 21/22 on the pre-change source; full-pass impact remains unmeasured.
+
+### 2026-09-25 — Inlining top-level dead-suffix query
+
+- The [Inlining strategy page](binaryen/passes/inlining/starshine-strategy.md#september-25-2026-top-level-marked-dead-suffix-query) records native helper timing from `21.33 µs → 171.24 ns` for 128 marked targets and `83.38 µs → 329.25 ns` for 256. One top-level suffix walk replaces a body rescan per marked function; full-pass impact remains unmeasured.

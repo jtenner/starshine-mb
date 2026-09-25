@@ -7926,12 +7926,22 @@ fn inl_func_has_dead_suffix_call_to_marked(
   func : @lib.Func,
   marked : Array[Bool],
 ) -> Bool {
-  let mut abs = 0
-  while abs < marked.length() {
-    if marked[abs] && inl_func_has_dead_suffix_call_to(func, abs) {
-      return true
+  let @lib.Func(_, @lib.Expr(body)) = func
+  let mut seen_unreachable = false
+  for instr in body {
+    match instr {
+      @lib.Unreachable
+      | @lib.Block(@lib.VoidBlockType, @lib.Expr([@lib.Unreachable])) =>
+        seen_unreachable = true
+      @lib.Call(func_idx) | @lib.ReturnCall(func_idx) =>
+        if seen_unreachable {
+          let abs = inl_func_idx_slot(func_idx)
+          if abs >= 0 && abs < marked.length() && marked[abs] {
+            return true
+          }
+        }
+      _ => ()
     }
-    abs += 1
   }
   false
 }

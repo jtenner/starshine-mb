@@ -28,6 +28,10 @@ The dead-suffix preservation query now traverses the root suffix once and tests 
 
 In the [native helper benchmark](../../../../../src/passes/inlining_marked_suffix_perf_wbtest.mbt), 128 absent calls and 128 absent marked targets improved from `14.60 µs` to `183 ns`; 256 of each improved from `57.21 µs` to `354 ns`. Absent self-call queries on a 16-instruction body improved from `1.83 µs` to `21.14 ns` at function index 2048 and from `3.55 µs` to `21.50 ns` at index 4096. These synthetic negative queries isolate the helper; full-pass impact remains unmeasured.
 
+## September 25, 2026 top-level marked dead-suffix query
+
+The private-function collapse path has a separate query that recognizes only top-level calls after a top-level `unreachable` or one void block containing only `unreachable`. It now walks that body once and checks each call target against the marked array, rather than rescanning the body for every marked function. The [native helper benchmark](../../../../../src/passes/inlining_dead_suffix_marked_perf_wbtest.mbt) improved **21.33 µs → 171.24 ns** for 128 marked targets and 128 numeric pairs, and **83.38 µs → 329.25 ns** for 256 of each. Boundary tests preserve before/after-root, tail-call, nested-call, and invalid-index behavior; 30 existing Inlining white-box tests pass. Full-pass impact remains unmeasured.
+
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
 ## September 25, 2026 signature-key builder measurement
