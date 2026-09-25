@@ -6020,21 +6020,6 @@ fn sgo_runtime_trace_barrier(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn sgo_runtime_trace_copy_facts(
-  dst : Array[@lib.Instruction?],
-  src : Array[@lib.Instruction?],
-) -> Unit {
-  let limit = if dst.length() < src.length() {
-    dst.length()
-  } else {
-    src.length()
-  }
-  for idx = 0; idx < limit; idx = idx + 1 {
-    dst[idx] = src[idx]
-  }
-}
-
-///|
 fn sgo_runtime_trace_trackable(
   infos : Array[SgoGlobalInfo],
   slot : Int,
@@ -9507,9 +9492,8 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         }
       }
       @lib.Block(block_type, body) => {
-        let body_facts = facts.copy()
         let (next_body, body_changed, body_has_barrier) = sgo_rewrite_runtime_trace_expr_with_facts(
-          body, infos, body_facts,
+          body, infos, facts,
         )
         has_barrier = has_barrier || body_has_barrier
         out.push(
@@ -9522,16 +9506,13 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         changed = changed || body_changed
         if body_has_barrier {
           sgo_runtime_trace_clear(facts)
-        } else {
-          sgo_runtime_trace_copy_facts(facts, body_facts)
         }
       }
       @lib.If(block_type, then_body, Some(else_body)) => {
-        let then_facts = facts.copy()
         let (next_then, then_changed, _) = sgo_rewrite_runtime_trace_expr_with_facts(
           @lib.Expr::new(then_body),
           infos,
-          then_facts,
+          facts,
         )
         let @lib.Expr(next_then_body) = next_then
         out.push(
@@ -9546,11 +9527,10 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         sgo_runtime_trace_clear(facts)
       }
       @lib.If(block_type, then_body, None) => {
-        let then_facts = facts.copy()
         let (next_then, then_changed, _) = sgo_rewrite_runtime_trace_expr_with_facts(
           @lib.Expr::new(then_body),
           infos,
-          then_facts,
+          facts,
         )
         let @lib.Expr(next_then_body) = next_then
         out.push(

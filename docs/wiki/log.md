@@ -1,3 +1,12 @@
+### 2026-09-25 — SGO runtime-fact array reuse
+
+- Reused one fact array through plain blocks and then arms in SGO runtime
+  rewriting, retaining existing barrier clears. The native-release full-pass
+  benchmark improved from 3.45 to 3.29 ms with 256 globals and blocks and from
+  10.02 to 9.29 ms with 512 of each. All 336 existing SGO tests pass. The
+  fixture is synthetic; production throughput is unmeasured. See
+  [SGO strategy](binaryen/passes/simplify-globals-optimizing/starshine-strategy.md#september-25-2026-runtime-fact-copy-measurement).
+
 ### 2026-09-25 — MergeBlocks function-type table reuse
 
 - Reused the module-scoped function-type index table for the raw flat-call

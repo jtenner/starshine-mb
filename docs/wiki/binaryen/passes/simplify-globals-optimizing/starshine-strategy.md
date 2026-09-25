@@ -1,9 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
+  - ../../../../../src/passes/simplify_globals_optimizing.mbt
+  - ../../../../../src/passes/simplify_globals_optimizing_test.mbt
+  - ../../../../../src/passes_perf_long/sgo_runtime_fact_copy_perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/fuzz_harness_wbtest.mbt
@@ -34,7 +37,11 @@ The purpose here is to map the reviewed Binaryen contract to the exact current S
 
 ## September 25, 2026 runtime-trace barrier measurement
 
-The runtime-trace rewrite now returns whether the original subtree contained a barrier while recursively rewriting it. A parent block no longer separately rescans its entire child subtree before recursion. The [native white-box benchmark](../../../../../src/passes/simplify_globals_optimizing_runtime_trace_perf_wbtest.mbt) with 128 nested barrier-free blocks improved from `43.11` to `6.87 µs` (6.28×); 256 blocks improved from `165.48` to `13.85 µs` (11.95×). A new nested-block/call/if barrier test and 336 existing SGO tests pass. These are helper timings on synthetic input; full-pass impact remains unmeasured.
+The runtime-trace rewrite now returns whether the original subtree contained a barrier while recursively rewriting it. A parent block no longer separately rescans its entire child subtree before recursion. The [native white-box benchmark](../../../../../src/passes/simplify_globals_optimizing_runtime_trace_perf_wbtest.mbt) with 128 nested barrier-free blocks improved from `43.11` to `6.87 µs` (6.28×); 256 blocks improved from `165.48` to `13.85 µs` (11.95×). A new nested-block/call/if barrier test and 336 existing SGO tests pass. Those measurements are helper timings on synthetic input; the full-pass fixture below measures a separate fact-array change.
+
+## September 25, 2026 runtime-fact copy measurement
+
+The runtime trace now passes the same fact array into plain blocks and then arms. The existing barrier clears still invalidate it after uncertain control flow, and the block's writes are already available to its parent. This removes two array copies per plain block and one per then arm, plus the copy-back loop. The native-release full-pass fixture in `src/passes_perf_long/sgo_runtime_fact_copy_perf_test.mbt` uses exported mutable globals and repeated runtime blocks. At 256 globals and 256 blocks, its mean fell from **3.45 ms to 3.29 ms** (4.6%); at 512 of each, from **10.02 ms to 9.29 ms** (7.3%). All 336 existing SGO tests pass. These are synthetic full-pass timings; production-artifact throughput remains unmeasured.
 
 ## Honest current status
 
