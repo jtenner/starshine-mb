@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-24
+last_reviewed: 2026-09-25
 sources:
   - ../../release-horizon-and-oracles.md
   - binaryen-strategy.md
@@ -36,6 +36,14 @@ related:
 ---
 
 # `optimize-instructions`
+
+## September 25, 2026 self-opt module-context reuse
+
+On the 12,904-function self-opt input, the direct OptimizeInstructions command spent most of its time lowering functions. Lowered-function canonicalization rebuilt a whole-module HOT context for every admitted function, and multivalue wrapper cleanup could rebuild another. The direct path now passes the existing module-scoped context into both checks when lowering has not added a type. A fresh context remains the fallback when the type section changes or no context was supplied.
+
+Two interleaved native-release old/new pairs on the same 6,253,030-byte input (the current release Wasm with only its malformed `name` custom section removed) measured **25.974 and 26.077 seconds old**, versus **9.089 and 9.002 seconds new**. Both runs produced the same 5,926,468-byte raw output, SHA-256 `652f917b26fda6dc4aac341d0be1aafc97915f4bb3e73142f8a400f5336adfc6`. This removes about 65% of whole-command time on this input; Binaryen 133 still completes the command in roughly 0.8 seconds, so the pass remains a significant whole-command loser. The paired rows and outputs are under `.tmp/self-opt-pass-times-20260925/oi-context-ab*`. This is direct-pass performance evidence, not a full O4z self-opt timing.
+
+The focused `optimize_instructions_test.mbt` file passed **1,421/1,421** on wasm-gc. The verified v133 `pass-oi-all` aggregate compared **10,000/10,000** with **8,920** normalized matches, **1,080** residuals, and zero validation, generator, property, or command failures. All residuals select the existing `pass-oi-tuple` profile; no new residual profile appeared. They remain open for the tuple-family size and downstream parity review. The harness exits nonzero because it reports raw mismatches; its artifacts are under `.tmp/pass-fuzz-oi-canonical-ctx-v133-10000-full/`.
 
 ## September 24, 2026 try-body state measurement
 

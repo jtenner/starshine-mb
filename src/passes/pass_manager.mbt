@@ -77253,13 +77253,17 @@ fn run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
   func : @lib.Func,
   descriptor_name : String,
   mod_ : @lib.Module,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> @lib.Func {
   if descriptor_name != "optimize-instructions" {
     return func
   }
   match func {
     @lib.Func(locals, @lib.Expr(body)) => {
-      let module_ctx = @ir.hot_module_context_from_module(mod_)
+      let module_ctx = match module_ctx {
+        Some(ctx) => ctx
+        None => @ir.hot_module_context_from_module(mod_)
+      }
       let (rewritten, changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
         body, module_ctx,
       )
@@ -77783,6 +77787,7 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   original_func : @lib.Func?,
   func_idx : @lib.FuncIdx,
   mod_ : @lib.Module,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> @lib.Func {
   let func = if descriptor_name == "constraint-analysis" ||
     descriptor_name == "tuple-optimization" ||
@@ -77874,13 +77879,19 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
     cleaned
   }
   let cleaned = run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
-    cleaned, descriptor_name, mod_,
+    cleaned,
+    descriptor_name,
+    mod_,
+    module_ctx~,
   )
   let cleaned = if descriptor_name == "optimize-instructions" {
     // Preserve lane evaluation order while removing branchless wrappers that
     // obstruct downstream local cleanup after multivalue lowering.
     run_hot_pipeline_optimize_instructions_cleanup_tuple_wrappers(
-      cleaned, original_func, mod_,
+      cleaned,
+      original_func,
+      mod_,
+      module_ctx~,
     ).0
   } else {
     cleaned
@@ -79754,6 +79765,14 @@ fn run_hot_pipeline_func(
             Some(run_hot_pipeline_original_func(mod_, func_idx)),
             func_idx,
             mod_,
+            module_ctx=if descriptor.name == "optimize-instructions" &&
+              !lower_state.type_sec_changed {
+              Some(
+                run_hot_pipeline_require_module_ctx(mod_, module_state, options),
+              )
+            } else {
+              None
+            },
           )
           if descriptor.name == "vacuum" {
             run_hot_pipeline_record_vacuum_hot_timer(
@@ -79807,6 +79826,12 @@ fn run_hot_pipeline_func(
         Some(run_hot_pipeline_original_func(mod_, func_idx)),
         func_idx,
         mod_,
+        module_ctx=if descriptor.name == "optimize-instructions" &&
+          !lower_state.type_sec_changed {
+          Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
+        } else {
+          None
+        },
       )
       if descriptor.name == "vacuum" {
         run_hot_pipeline_record_vacuum_hot_timer(
