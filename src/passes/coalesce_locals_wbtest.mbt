@@ -504,6 +504,37 @@ test "coalesce-locals scans memory-size snapshots across parameter writes linear
 }
 
 ///|
+test "coalesce-locals snapshot preflight requires a memory-size instruction" {
+  let parameter = @lib.LocalIdx::new(0U)
+  let snapshot = @lib.LocalIdx::new(1U)
+  let no_memory = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(snapshot),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::local_set(parameter),
+      ]),
+    ),
+  ]
+  assert_false(cl_snapshot_guard_preflight(no_memory, 1))
+  let nested_memory = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+        @lib.Instruction::local_tee(snapshot),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::local_set(parameter),
+      ]),
+    ),
+  ]
+  assert_true(cl_snapshot_guard_preflight(nested_memory, 1))
+}
+
+///|
 test "coalesce-locals indexes only effective writers and observed readers for copied-destination hazards" {
   let instrs = [
     @lib.Instruction::i32_const(@lib.I32(7)),

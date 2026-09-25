@@ -7438,6 +7438,41 @@ fn cl_locals_have_dense_v128_carriers(locals : @lib.Locals) -> Bool {
 }
 
 ///|
+fn cl_snapshot_guard_preflight(
+  instrs : Array[@lib.Instruction],
+  parameter_count : Int,
+) -> Bool {
+  if parameter_count <= 0 {
+    return false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.MemorySize(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cl_snapshot_guard_preflight(body, parameter_count) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_snapshot_guard_preflight(then_body, parameter_count) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if cl_snapshot_guard_preflight(body, parameter_count) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn cl_instrs_have_local_snapshot_across_parameter_write(
   instrs : Array[@lib.Instruction],
   parameter_count : Int,
@@ -7687,10 +7722,14 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
           instrs,
           params.length(),
         )
-        let has_snapshot_parameter_write = cl_instrs_have_local_snapshot_across_parameter_write(
-          instrs,
-          params.length(),
-        )
+        let has_snapshot_parameter_write = cl_snapshot_guard_preflight(
+            instrs,
+            params.length(),
+          ) &&
+          cl_instrs_have_local_snapshot_across_parameter_write(
+            instrs,
+            params.length(),
+          )
         let has_observable_memory_mesh = observable_assemblyscript_memory &&
           cl_instrs_have_memory_size_tee_parameter_write(
             instrs,
