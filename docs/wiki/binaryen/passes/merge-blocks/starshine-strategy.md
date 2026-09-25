@@ -11,7 +11,9 @@ sources:
   - ../../../../../src/passes/pass_common_wbtest.mbt
   - ../../../../../src/passes/merge_blocks.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
+  - ../../../../../src/passes/merge_blocks_flat_call_prefix_wbtest.mbt
   - ../../../../../src/passes_perf_long/merge_blocks_perf_test.mbt
+  - ../../../../../src/passes_perf_long/merge_blocks_flat_call_prefix_perf_test.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -35,6 +37,12 @@ Current Starshine `merge-blocks` is primarily a HOT-region cleanup pass, supplem
 4. **lowered canonicalization** for all-null reference results, scalar spills, and unused appended locals.
 
 Expression-child lifting covers the `if` condition, `drop`, `i32.store`, and `throw` fixtures. Raw movement crosses only proved pure or disjoint predecessors; trapping and state-dependent cases remain ordered.
+
+## Flat call-prefix cost (September 25, 2026)
+
+The narrow raw flat-call-prefix repair in `src/passes/pass_manager.mbt` now copies the function instruction array at its first successful move, then rotates each later fixed-length prefix in that private array. Previously every move rebuilt the complete function body. The copy preserves the caller's original module while the rotation retains instruction order and indices.
+
+The native-release full-pass benchmark with repeated `arg0; value; global.set; arg1; call` groups fell from **472.80 µs to 35.62 µs** at 128 groups (92.5%) and from **1.83 ms to 64.73 µs** at 256 groups (96.5%). The fixture is synthetic and does not measure production-artifact throughput. The new output/input-immutability test, 78 existing MergeBlocks tests, and the audit test pass.
 
 ## Region-root flattening
 

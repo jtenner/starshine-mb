@@ -1,3 +1,13 @@
+### 2026-09-25 — MergeBlocks flat call-prefix rotation
+
+- Changed the raw flat-call-prefix repair to copy its instruction body once and
+  rotate each later prefix in place, preserving the original module. The
+  native-release full-pass benchmark improved from 472.80 to 35.62 µs for 128
+  groups and from 1.83 ms to 64.73 µs for 256 groups. A new output and input
+  immutability test plus 78 existing and one audit MergeBlocks tests pass.
+  Production-artifact throughput remains unmeasured. See
+  [MergeBlocks strategy](binaryen/passes/merge-blocks/starshine-strategy.md#flat-call-prefix-cost-september-25-2026).
+
 ### 2026-09-25 — ReorderGlobals dependency deduplication
 
 - Replaced per-read linear dependency lookup with a reusable seen array while

@@ -32882,19 +32882,16 @@ fn run_hot_pipeline_raw_merge_blocks_flat_call_prefix(
     if insertion < 0 || insertion >= prefix_start {
       continue
     }
-    let rewritten : Array[@lib.Instruction] = []
-    for idx = 0; idx < insertion; idx = idx + 1 {
-      rewritten.push(current[idx])
+    if !changed {
+      current = current.copy()
     }
-    rewritten.push(current[prefix_start])
-    rewritten.push(current[prefix_start + 1])
-    for idx = insertion; idx < prefix_start; idx = idx + 1 {
-      rewritten.push(current[idx])
+    let moved_value = current[prefix_start]
+    let moved_set = current[prefix_start + 1]
+    for idx = prefix_start + 1; idx >= insertion + 2; idx = idx - 1 {
+      current[idx] = current[idx - 2]
     }
-    for idx = tail_idx; idx < current.length(); idx = idx + 1 {
-      rewritten.push(current[idx])
-    }
-    current = rewritten
+    current[insertion] = moved_value
+    current[insertion + 1] = moved_set
     changed = true
   }
   if !changed {
