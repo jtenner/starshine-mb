@@ -10,6 +10,107 @@ fn dealign_memarg(ma : @lib.MemArg, changed : Array[Bool]) -> @lib.MemArg {
 }
 
 ///|
+fn dealign_expr_has_work(expr : @lib.Expr) -> Bool {
+  let @lib.Expr(instrs) = expr
+  for instr in instrs {
+    if dealign_instr_has_work(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn dealign_instr_has_work(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
+      dealign_expr_has_work(body)
+    @lib.If(_, then_body, else_body) => {
+      for nested in then_body {
+        if dealign_instr_has_work(nested) {
+          return true
+        }
+      }
+      match else_body {
+        Some(body) =>
+          for nested in body {
+            if dealign_instr_has_work(nested) {
+              return true
+            }
+          }
+        None => ()
+      }
+      false
+    }
+    @lib.Try(_, body, catches, _) => {
+      if dealign_expr_has_work(body) {
+        return true
+      }
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+            if dealign_expr_has_work(catch_body) {
+              return true
+            }
+        }
+      }
+      false
+    }
+    @lib.I32Load(ma)
+    | @lib.I64Load(ma)
+    | @lib.F32Load(ma)
+    | @lib.F64Load(ma)
+    | @lib.I32Load8S(ma)
+    | @lib.I32Load8U(ma)
+    | @lib.I32Load16S(ma)
+    | @lib.I32Load16U(ma)
+    | @lib.I64Load8S(ma)
+    | @lib.I64Load8U(ma)
+    | @lib.I64Load16S(ma)
+    | @lib.I64Load16U(ma)
+    | @lib.I64Load32S(ma)
+    | @lib.I64Load32U(ma)
+    | @lib.I32Store(ma)
+    | @lib.I64Store(ma)
+    | @lib.F32Store(ma)
+    | @lib.F64Store(ma)
+    | @lib.I32Store8(ma)
+    | @lib.I32Store16(ma)
+    | @lib.I64Store8(ma)
+    | @lib.I64Store16(ma)
+    | @lib.I64Store32(ma)
+    | @lib.V128Load(ma)
+    | @lib.V128Load8x8S(ma)
+    | @lib.V128Load8x8U(ma)
+    | @lib.V128Load16x4S(ma)
+    | @lib.V128Load16x4U(ma)
+    | @lib.V128Load32x2S(ma)
+    | @lib.V128Load32x2U(ma)
+    | @lib.V128Load8Splat(ma)
+    | @lib.V128Load16Splat(ma)
+    | @lib.V128Load32Splat(ma)
+    | @lib.V128Load64Splat(ma)
+    | @lib.V128Store(ma)
+    | @lib.V128Load32Zero(ma)
+    | @lib.V128Load64Zero(ma)
+    | @lib.V128Load8Lane(ma, _)
+    | @lib.V128Load16Lane(ma, _)
+    | @lib.V128Load32Lane(ma, _)
+    | @lib.V128Load64Lane(ma, _)
+    | @lib.V128Store8Lane(ma, _)
+    | @lib.V128Store16Lane(ma, _)
+    | @lib.V128Store32Lane(ma, _)
+    | @lib.V128Store64Lane(ma, _)
+    | @lib.ArrayLoad(_, _, ma)
+    | @lib.ArrayStore(_, _, ma) => {
+      let @lib.MemArg(align, _, _) = ma
+      align != @lib.U32(0U)
+    }
+    _ => false
+  }
+}
+
+///|
 fn dealign_rewrite_expr(expr : @lib.Expr, changed : Array[Bool]) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
   let rewritten : Array[@lib.Instruction] = []
@@ -184,15 +285,29 @@ fn dealign_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     Some(section) => section
     None => return mod_
   }
+  let mut rewritten : Array[@lib.Func]? = None
   let changed = [false]
-  let rewritten : Array[@lib.Func] = []
-  for func in funcs {
-    let @lib.Func(locals, body) = func
-    rewritten.push(@lib.Func::new(locals, dealign_rewrite_expr(body, changed)))
+  for idx = 0; idx < funcs.length(); idx = idx + 1 {
+    let @lib.Func(locals, body) = funcs[idx]
+    if !dealign_expr_has_work(body) {
+      continue
+    }
+    changed[0] = false
+    let next_body = dealign_rewrite_expr(body, changed)
+    if changed[0] {
+      let out = match rewritten {
+        Some(out) => out
+        None => {
+          let out = funcs.copy()
+          rewritten = Some(out)
+          out
+        }
+      }
+      out[idx] = @lib.Func::new(locals, next_body)
+    }
   }
-  if changed[0] {
-    mod_.with_code_sec(@lib.CodeSec::new(rewritten))
-  } else {
-    mod_
+  match rewritten {
+    Some(funcs) => mod_.with_code_sec(@lib.CodeSec::new(funcs))
+    None => mod_
   }
 }

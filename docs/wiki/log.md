@@ -24231,3 +24231,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — MergeSimilarFunctions target deduplication
 
 - The [MergeSimilarFunctions page](binaryen/passes/merge-similar-functions/index.md#september-24-2026-declarative-target-measurement) records native white-box helper timing for 1,024 distinct targets (`121.38 → 32.12 µs`) and 2,048 (`462.71 → 61.76 µs`). An indexed first-seen set replaces repeated array membership scans; one order test and 18 existing pass tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-24 — Dealign unchanged-code fast path
+
+- The [Dealign page](binaryen/passes/dealign/index.md#september-24-2026-unchanged-code-measurement) records native direct-pass timings for 64 unchanged instructions per function: 256 functions `107.55 → 36.29 µs`, and 512 `218.55 → 72.52 µs`; one changed function among 256 improved `94.77 → 28.49 µs`. Dense changed-code time was `153.80 → 154.76 µs`, within observed variation. A nested positive test and four existing Dealign tests pass.

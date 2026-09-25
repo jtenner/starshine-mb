@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-24
 sources:
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/dealign.mbt
+  - ../../../../../src/passes/dealign_noop_perf_wbtest.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../ir2/registry-map.md
@@ -24,6 +26,10 @@ supersedes:
 ---
 
 # `dealign`
+
+## September 24, 2026 unchanged-code measurement
+
+The pass now scans memory arguments without rebuilding expressions and rewrites only functions containing nonzero alignment fields. The scan covers all 45 scalar/SIMD memory-opcode cases in the rewrite plus array load/store, and descends through the same structured control bodies. The [native direct-pass benchmark](../../../../../src/passes/dealign_noop_perf_wbtest.mbt) uses 64 unchanged `nop` instructions per function: 256 functions fell from `107.55` to `36.29 µs` (2.96×), and 512 from `218.55` to `72.52 µs` (3.01×). With one affected function among 256, time fell from `94.77` to `28.49 µs` (3.33×). When all 256 functions contain loads needing rewrite, the result was `153.80 → 154.76 µs`, within the observed benchmark variation. A nested positive regression and four existing Dealign behavior tests pass. These are synthetic Starshine timings, not Binaryen pass-local parity evidence.
 
 ## Role
 
