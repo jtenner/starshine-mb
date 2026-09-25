@@ -6020,17 +6020,6 @@ fn sgo_runtime_trace_barrier(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn sgo_runtime_trace_expr_has_barrier(expr : @lib.Expr) -> Bool {
-  let @lib.Expr(instrs) = expr
-  instrs.any(fn(instr) {
-    match instr {
-      @lib.Block(_, body) => sgo_runtime_trace_expr_has_barrier(body)
-      _ => sgo_runtime_trace_barrier(instr)
-    }
-  })
-}
-
-///|
 fn sgo_runtime_trace_copy_facts(
   dst : Array[@lib.Instruction?],
   src : Array[@lib.Instruction?],
@@ -6059,7 +6048,10 @@ fn sgo_rewrite_runtime_trace_expr(
   infos : Array[SgoGlobalInfo],
 ) -> (@lib.Expr, Bool) {
   let facts = sgo_empty_const_array(infos.length())
-  sgo_rewrite_runtime_trace_expr_with_facts(expr, infos, facts)
+  let (rewritten, changed, _) = sgo_rewrite_runtime_trace_expr_with_facts(
+    expr, infos, facts,
+  )
+  (rewritten, changed)
 }
 
 ///|
@@ -9466,10 +9458,11 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
   expr : @lib.Expr,
   infos : Array[SgoGlobalInfo],
   facts : Array[@lib.Instruction?],
-) -> (@lib.Expr, Bool) {
+) -> (@lib.Expr, Bool, Bool) {
   let @lib.Expr(instrs) = expr
   let out : Array[@lib.Instruction] = []
   let mut changed = false
+  let mut has_barrier = false
   for pos = 0; pos < instrs.length(); pos = pos + 1 {
     let instr = instrs[pos]
     match instr {
@@ -9514,11 +9507,11 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         }
       }
       @lib.Block(block_type, body) => {
-        let body_has_barrier = sgo_runtime_trace_expr_has_barrier(body)
         let body_facts = facts.copy()
-        let (next_body, body_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
+        let (next_body, body_changed, body_has_barrier) = sgo_rewrite_runtime_trace_expr_with_facts(
           body, infos, body_facts,
         )
+        has_barrier = has_barrier || body_has_barrier
         out.push(
           if body_changed {
             @lib.Instruction::block(block_type, next_body)
@@ -9535,7 +9528,7 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
       }
       @lib.If(block_type, then_body, Some(else_body)) => {
         let then_facts = facts.copy()
-        let (next_then, then_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
+        let (next_then, then_changed, _) = sgo_rewrite_runtime_trace_expr_with_facts(
           @lib.Expr::new(then_body),
           infos,
           then_facts,
@@ -9549,11 +9542,12 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
           },
         )
         changed = changed || then_changed
+        has_barrier = true
         sgo_runtime_trace_clear(facts)
       }
       @lib.If(block_type, then_body, None) => {
         let then_facts = facts.copy()
-        let (next_then, then_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
+        let (next_then, then_changed, _) = sgo_rewrite_runtime_trace_expr_with_facts(
           @lib.Expr::new(then_body),
           infos,
           then_facts,
@@ -9567,17 +9561,19 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
           },
         )
         changed = changed || then_changed
+        has_barrier = true
         sgo_runtime_trace_clear(facts)
       }
       _ => {
         out.push(instr)
         if sgo_runtime_trace_barrier(instr) {
+          has_barrier = true
           sgo_runtime_trace_clear(facts)
         }
       }
     }
   }
-  (@lib.Expr::new(out), changed)
+  (@lib.Expr::new(out), changed, has_barrier)
 }
 
 ///|

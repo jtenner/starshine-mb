@@ -32,6 +32,10 @@ related:
 Use this page with the retained 2026-04-24 research inventory, direct tagged source URLs, and [research note 0376](./index.md).
 The purpose here is to map the reviewed Binaryen contract to the exact current Starshine status and the concrete local surfaces a future port should start from. The implementation-readiness and validation ladder now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
+## September 25, 2026 runtime-trace barrier measurement
+
+The runtime-trace rewrite now returns whether the original subtree contained a barrier while recursively rewriting it. A parent block no longer separately rescans its entire child subtree before recursion. The [native white-box benchmark](../../../../../src/passes/simplify_globals_optimizing_runtime_trace_perf_wbtest.mbt) with 128 nested barrier-free blocks improved from `43.11` to `6.87 µs` (6.28×); 256 blocks improved from `165.48` to `13.85 µs` (11.95×). A new nested-block/call/if barrier test and 336 existing SGO tests pass. These are helper timings on synthetic input; full-pass impact remains unmeasured.
+
 ## Honest current status
 
 `simplify-globals-optimizing` is **implemented and audit-complete for the recorded Binaryen `version_130` / Starshine v0.1.0 scope**.

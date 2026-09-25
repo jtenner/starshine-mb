@@ -24291,3 +24291,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — DFE shape-collision buckets
 
 - The [DFE strategy page](binaryen/passes/duplicate-function-elimination/starshine-strategy.md#september-24-2026-shape-collision-measurement) records native direct-pass timing for 128 distinct import wrappers (`119.31 → 20.45 µs`) and 256 (`456.71 → 39.99 µs`). Exact structural sub-buckets avoid pairwise comparisons; a sampled duplicate fast path keeps the identical-wrapper control within 3% (`19.09 → 19.67 µs`). Forty focused tests pass. Full-pipeline impact remains unmeasured.
+
+### 2026-09-25 — SGO runtime-trace barrier summary
+
+- The [SGO strategy page](binaryen/passes/simplify-globals-optimizing/starshine-strategy.md#september-25-2026-runtime-trace-barrier-measurement) records native helper timing for 128 nested barrier-free blocks (`43.11 → 6.87 µs`) and 256 (`165.48 → 13.85 µs`). The rewrite carries the original subtree barrier result upward and avoids repeated descendant scans; one new and 336 existing tests pass. Full-pass impact remains unmeasured.
