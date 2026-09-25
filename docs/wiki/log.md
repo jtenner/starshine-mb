@@ -24562,3 +24562,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — TupleOptimization split-local planning root membership
 
 - The [TupleOptimization HOT strategy page](binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md#september-25-2026-split-local-planning-root-membership) records native helper timing for 128 child-only hosts at `143.17 µs → 463.62 ns` and 256 at `619.57 µs → 920.97 ns`. Planning reads fresh use-def root sites directly; rewrite-time callers retain the stale-site fallback. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — Vacuum nested dropped unary parents
+
+- The [Vacuum HOT strategy page](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-25-2026-nested-dropped-unary-parents) records native HOT-lift-plus-helper timing for 64 nested unary wrappers at `48.32 → 19.97 µs`, 128 at `142.10 → 36.07 µs`, and 256 at `455.66 → 66.44 µs`. The fast path peels unary wrappers once and preserves one terminal effect. Full-pass impact remains unmeasured.

@@ -975,6 +975,37 @@ fn vacuum_dropped_parent_replacement(
     !vacuum_unused_value_parent_is_removable(ctx, func, node_id) {
     return None
   }
+  if @ir.hot_node_get(func, node_id).op is @ir.HotOp::Unary &&
+    @ir.hot_child_count(func, node_id) == 1 {
+    let detached : Array[@ir.NodeId] = []
+    let mut current = node_id
+    while @ir.hot_node_get(func, current).op is @ir.HotOp::Unary &&
+          @ir.hot_child_count(func, current) == 1 {
+      detached.push(current)
+      current = @ir.hot_child_get(func, current, 0)
+    }
+    let wrapper_count = detached.length()
+    let roots : Array[@ir.NodeId] = []
+    if vacuum_can_remove_dropped_node(func, current) {
+      detached.push(current)
+    } else {
+      match vacuum_dropped_parent_replacement(ctx, func, current) {
+        Some(nested) => {
+          roots.append(nested.roots)
+          detached.append(nested.detached)
+        }
+        None => roots.push(@ir.hot_build_drop(func, current))
+      }
+    }
+    if roots.length() > 1 {
+      for idx = 0; idx < wrapper_count; idx = idx + 1 {
+        if !vacuum_result_type_is_defaultable(func, detached[idx]) {
+          return None
+        }
+      }
+    }
+    return Some({ roots, detached, })
+  }
   let roots : Array[@ir.NodeId] = []
   let detached : Array[@ir.NodeId] = [node_id]
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {

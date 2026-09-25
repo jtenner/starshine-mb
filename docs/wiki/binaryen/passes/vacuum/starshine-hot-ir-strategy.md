@@ -412,3 +412,18 @@ are `218.38 → 202.61 µs` at 256 reads, `457.55 → 406.68 µs` at 512, and
 When dropped `local.get` roots are separated by surviving roots, the branchy fallback used to splice and check detached references for each drop. Regions with at least 32 roots now collect the interleaved drops in one scan when at least eight candidates are separated by survivors. One region-body replacement and exact batch deletion remove them before the normal recursive walk continues. Contiguous runs retain their existing fast path.
 
 The native-release benchmark in `src/passes/vacuum_interleaved_dropped_local_perf_wbtest.mbt`, including HOT lifting and a branchy observable survivor, measured 128 interleaved drops at **393.61 → 237.64 µs** and 256 at **1.12 ms → 469.17 µs**. The existing contiguous-run benchmark remained near its prior timings: 128 `109.34 → 107.96 µs`, 256 `202.61 → 206.96 µs`, 512 `406.68 → 403.08 µs`, and 1,024 `787.98 → 796.34 µs`. Full-pass impact remains unmeasured.
+
+## September 25, 2026: nested dropped unary parents
+
+The dropped-parent replacement used to run a recursive removability check at
+every level of a nested unary chain and copy the growing replacement arrays on
+each return. It now peels unary wrappers once, decomposes the terminal once,
+then appends the wrappers once. The terminal effect or trap remains exposed as
+one dropped root, and every peeled wrapper still passes the defaultable-result
+guard when multiple roots result. Other parent shapes retain the general path.
+
+The native benchmark in `src/passes/vacuum_nested_unary_perf_wbtest.mbt`
+includes HOT lifting and measured 64 nested `i32.clz` wrappers around an
+effectful call at `48.32 → 19.97 µs`, 128 at `142.10 → 36.07 µs`, and 256 at
+`455.66 → 66.44 µs`. Focused tests cover the retained call and removal of a
+pure constant terminal. Full-pass impact remains unmeasured.
