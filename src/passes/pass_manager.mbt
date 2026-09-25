@@ -6018,6 +6018,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_structured_partial_write_tee_lifetime(
   instrs : Array[@lib.Instruction],
   parameter_count : Int,
 ) -> Bool {
+  let mut next_if : Array[Int] = []
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
     let target = match (instrs[idx], instrs[idx + 1]) {
       (@lib.LocalTee(target), @lib.Call(_)) => target
@@ -6026,7 +6027,19 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_structured_partial_write_tee_lifetime(
     if target.0.reinterpret_as_int() < parameter_count {
       continue
     }
-    for scan = idx + 2; scan < instrs.length(); scan = scan + 1 {
+    if next_if.is_empty() {
+      next_if = Array::make(instrs.length() + 1, -1)
+      for reverse_idx = instrs.length() - 1
+          reverse_idx >= 0
+          reverse_idx = reverse_idx - 1 {
+        next_if[reverse_idx] = match instrs[reverse_idx] {
+          @lib.If(_, _, _) => reverse_idx
+          _ => next_if[reverse_idx + 1]
+        }
+      }
+    }
+    let scan = next_if[idx + 2]
+    if scan >= 0 {
       match instrs[scan] {
         @lib.If(_, then_body, else_body) => {
           let (then_reads, _) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
@@ -6052,7 +6065,6 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_structured_partial_write_tee_lifetime(
             }
             None => ()
           }
-          break
         }
         _ => ()
       }

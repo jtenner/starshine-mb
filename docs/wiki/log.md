@@ -24283,3 +24283,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — MemoryPacking full-cover overlap exit
 
 - The [MemoryPacking page](binaryen/passes/memory-packing/index.md#september-24-2026-full-cover-overlap-measurement) records native direct-pass timing for 16 fully overlapping active segments (`251.82 → 72.91 µs`) and 32 (`969.43 → 126.71 µs`). Full coverage now ends inspection of later segments for the already-zeroed payload; the helper benchmark improved 46.5× and 88.5×. Sixty-four focused tests pass. Partial-overlap pair searches and full-pipeline impact remain unmeasured.
+
+### 2026-09-24 — SSA-nomerge partial-write preflight
+
+- The [SSA-nomerge HOT strategy page](binaryen/passes/ssa-nomerge/starshine-hot-ir-strategy.md#september-24-2026-partial-write-preflight-measurement) records native helper timing for 256 `local.tee; call` pairs (`44.52 → 1.24 µs`) and 512 (`175.38 → 2.53 µs`). A suffix index replaces repeated scans to the next `if`; one new and 498 existing tests pass. Full-pass impact remains unmeasured.

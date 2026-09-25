@@ -31,6 +31,10 @@ related:
 
 This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `SSAify(false)` contract.
 
+## September 24, 2026 partial-write preflight measurement
+
+The raw structured partial-write tee preflight now builds a suffix index of the next `if` once per body. Repeated `local.tee; call` sites previously each scanned the rest of the body to find that `if`. In a [native white-box benchmark](../../../../../src/passes/ssa_nomerge_partial_write_preflight_perf_wbtest.mbt) with no later `if`, 256 pairs improved from `44.52` to `1.24 µs` (35.9×), and 512 from `175.38` to `2.53 µs` (69.3×). The focused first-`if`/parameter test and 498 existing SSA-nomerge tests pass. This is helper timing; full-pass impact and positive partial-write workload timing remain unmeasured.
+
 ## 2026-09-22 continuation-flow boundary
 
 Continuation handlers can branch to surrounding labels while bypassing later
