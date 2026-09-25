@@ -1,4 +1,42 @@
 ///|
+fn oi_control_cleanup_has_block(body : Array[@lib.Instruction]) -> Bool {
+  for instr in body {
+    match instr {
+      @lib.Block(_, _) => return true
+      @lib.Loop(_, @lib.Expr(child)) | @lib.TryTable(_, _, @lib.Expr(child)) =>
+        if oi_control_cleanup_has_block(child) {
+          return true
+        }
+      @lib.If(_, yes, no) => {
+        if oi_control_cleanup_has_block(yes) {
+          return true
+        }
+        match no {
+          Some(child) => if oi_control_cleanup_has_block(child) { return true }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(child), catches, _) => {
+        if oi_control_cleanup_has_block(child) {
+          return true
+        }
+        for catch_ in catches {
+          let child = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(child))
+            | @lib.LegacyCatchAll(@lib.Expr(child)) => child
+          }
+          if oi_control_cleanup_has_block(child) {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn oi_cleanup_control(
   mod_ : @lib.Module,
   touched? : Array[Bool]? = None,
@@ -21,6 +59,11 @@ fn oi_cleanup_control(
       return func
     }
     let @lib.Func(locals, @lib.Expr(body)) = func
+    if !oi_control_cleanup_has_block(body) &&
+      !body.any(fn(instr) { instr is @lib.Unreachable }) {
+      remaps.push(None)
+      return func
+    }
     // Only a root unreachable makes every following root instruction dead.
     let mut end = body.length()
     for i = 0; i < body.length(); i = i + 1 {
