@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../src/passes/tuple_optimization.mbt
@@ -32,6 +32,10 @@ related:
 ---
 
 # Starshine `tuple-optimization` strategy
+
+## September 25, 2026: cleanup-region deduplication
+
+The rewrite cleanup plan keeps the order of regions containing removable roots. It now records seen region holders in a bitset, with a separate flag for the root region, instead of scanning every prior region for each insertion. The [native white-box benchmark](../../../../../src/passes/tuple_optimization_cleanup_region_perf_wbtest.mbt) registers each of 128 or 256 distinct regions twice: `5.63 → 1.65 µs` and `19.36 → 3.22 µs`, respectively. Duplicate and root-region tests plus the existing 61-test tuple white-box suite pass. These timings isolate cleanup-plan registration; full-pass impact remains unmeasured.
 
 Use this page together with [`./binaryen-strategy.md`](./binaryen-strategy.md), [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), [`./wat-shapes.md`](./wat-shapes.md), [`./scheduler-and-gates.md`](./scheduler-and-gates.md), and [`./implementation-map.md`](./implementation-map.md). The upstream contract is still the small Binaryen tuple-local scalarization pass; this page shows how the in-tree Starshine port implements that contract and where to follow the exact code.
 

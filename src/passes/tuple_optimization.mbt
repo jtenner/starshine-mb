@@ -58,6 +58,8 @@ struct HotTupleOptimizationRootSlot {
 struct HotTupleOptimizationRewriteCleanupPlan {
   removable_root_defs : @bitset.BitSet
   removable_root_regions : Array[@ir.HotRegionRef]
+  removable_root_region_seen : @bitset.BitSet
+  mut removable_root_region_root_seen : Bool
   mut generated_nops : Bool
   mut had_preexisting_nops : Bool
   skip_drop_local_tee_cleanup : Bool
@@ -385,6 +387,8 @@ fn tuple_optimization_try_direct_simple_drop_only_root_elision_fast_path(
   let cleanup_plan : HotTupleOptimizationRewriteCleanupPlan = {
     removable_root_defs: @bitset.BitSet::new(@ir.hot_node_count(func)),
     removable_root_regions: [],
+    removable_root_region_seen: @bitset.BitSet::new(@ir.hot_node_count(func)),
+    removable_root_region_root_seen: false,
     generated_nops: false,
     had_preexisting_nops: false,
     skip_drop_local_tee_cleanup: true,
@@ -473,6 +477,8 @@ fn tuple_optimization_collect_seed_groups_with_simple_root_elision(
   let cleanup_plan : HotTupleOptimizationRewriteCleanupPlan = {
     removable_root_defs: @bitset.BitSet::new(@ir.hot_node_count(func)),
     removable_root_regions: [],
+    removable_root_region_seen: @bitset.BitSet::new(@ir.hot_node_count(func)),
+    removable_root_region_root_seen: false,
     generated_nops: false,
     had_preexisting_nops: tuple_optimization_has_live_nop(func),
     skip_drop_local_tee_cleanup: true,
@@ -6468,6 +6474,8 @@ fn tuple_optimization_rewrite_good_components(
   let cleanup_plan : HotTupleOptimizationRewriteCleanupPlan = {
     removable_root_defs: @bitset.BitSet::new(@ir.hot_node_count(func)),
     removable_root_regions: [],
+    removable_root_region_seen: @bitset.BitSet::new(@ir.hot_node_count(func)),
+    removable_root_region_root_seen: false,
     generated_nops: false,
     had_preexisting_nops: tuple_optimization_has_live_nop(func),
     skip_drop_local_tee_cleanup: !analysis.query_summary.has_local_tee_defs,
@@ -7088,10 +7096,21 @@ fn tuple_optimization_cleanup_plan_add_removable_root(
   region_ref : @ir.HotRegionRef,
 ) -> Unit {
   cleanup_plan.removable_root_defs[root_id] = true
-  for existing in cleanup_plan.removable_root_regions {
-    if existing == region_ref {
+  let holder = region_ref.holder
+  if holder < 0 {
+    if cleanup_plan.removable_root_region_root_seen {
       return
     }
+    cleanup_plan.removable_root_region_root_seen = true
+  } else {
+    let seen = cleanup_plan.removable_root_region_seen
+    if holder >= seen.length() {
+      seen.grow((holder + 1) * 2)
+    }
+    if seen[holder] {
+      return
+    }
+    seen[holder] = true
   }
   cleanup_plan.removable_root_regions.push(region_ref)
 }
