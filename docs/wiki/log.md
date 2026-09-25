@@ -24534,3 +24534,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — SSA result-If suffix preflight
 
 - The [SSA-nomerge HOT strategy page](binaryen/passes/ssa-nomerge/starshine-hot-ir-strategy.md#september-25-2026-result-if-suffix-preflight) records paired native helper timing for 256 local sets at `69.21 → 2.51 µs` and 512 at `261.87 → 4.74 µs`. Long bodies use one forward scan; a four-set control remained stable at `42.03 → 40.49 ns` through the bounded short path. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — Heap2Local same-block dominance order
+
+- The [Heap2Local HOT strategy page](binaryen/passes/heap2local/starshine-hot-ir-strategy.md#september-25-2026-repeated-same-block-dominance-queries) records native helper timing, including lazy cache construction, for a 512-operation pre-write prefix: 128 reads `56.15 → 3.39 µs` and 256 reads `112.18 → 5.35 µs`. A no-prefix 128-read control stayed at `1.24 → 1.23 µs`. Full-pass impact remains unmeasured.

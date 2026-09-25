@@ -10,6 +10,7 @@ sources:
   - ../../../../../src/passes/heap2local_test.mbt
   - ../../../../../src/passes/heap2local_primary_test.mbt
   - ../../../../../src/passes/heap2local_default_probe_perf_wbtest.mbt
+  - ../../../../../src/passes/heap2local_dominance_perf_wbtest.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -25,6 +26,12 @@ related:
 ---
 
 # Current Starshine `heap2local` strategy
+
+## September 25, 2026: repeated same-block dominance queries
+
+Heap2Local used to walk a CFG block from its start for every same-block write/read dominance query. An allocation after a long straight-line prefix could therefore rescan that prefix for every local read. The pass now builds a node-position array only after two same-block scans of at least 64 nodes. Queries with a write or read among the first four nodes return directly; cross-block queries still use the dominator tree. The array is shared across candidate discovery for one pass invocation and is not allocated for functions without repeated long scans.
+
+The native-release helper benchmark in `src/passes/heap2local_dominance_perf_wbtest.mbt` includes the lazy index build per iteration. With 512 operations before the write, 128 reads improved from **56.15 to 3.39 µs**, and 256 reads from **112.18 to 5.35 µs**. The 128-read case with no prefix stayed stable at **1.24 to 1.23 µs**. Same-block read-before-write behavior has a focused test. Full-pass impact and allocated bytes remain unmeasured.
 
 ## September 25, 2026: default-value eligibility probes
 

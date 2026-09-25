@@ -645,6 +645,7 @@ fn h2l_find_candidate_for_local(
   local_id : Int,
   cfg : @ir.HotCfg,
   dom : @ir.HotDominators,
+  order : H2LDominanceOrder,
 ) -> H2LCandidate? {
   if local_id < @ir.hot_param_count(func) {
     return None
@@ -718,7 +719,13 @@ fn h2l_find_candidate_for_local(
       return None
     }
     for read_node_id in reads {
-      if !h2l_write_dominates_read(cfg, dom, family_writes[0], read_node_id) {
+      if !h2l_write_dominates_read(
+          cfg,
+          dom,
+          order,
+          family_writes[0],
+          read_node_id,
+        ) {
         return None
       }
       if !h2l_collect_source_use(
@@ -1314,6 +1321,7 @@ fn h2l_find_array_candidate_for_local(
   local_id : Int,
   cfg : @ir.HotCfg,
   dom : @ir.HotDominators,
+  order : H2LDominanceOrder,
 ) -> H2LArrayCandidate? {
   if local_id < @ir.hot_param_count(func) {
     return None
@@ -1354,7 +1362,7 @@ fn h2l_find_array_candidate_for_local(
     return None
   }
   for read_node_id in use_def.local_reads[local_id] {
-    if !h2l_write_dominates_read(cfg, dom, write_node_id, read_node_id) {
+    if !h2l_write_dominates_read(cfg, dom, order, write_node_id, read_node_id) {
       return None
     }
     if !h2l_collect_array_use(
@@ -2873,6 +2881,7 @@ fn h2l_find_variant_candidate(
   producer_user_node_id : Int,
   cfg : @ir.HotCfg,
   dom : @ir.HotDominators,
+  order : H2LDominanceOrder,
 ) -> H2LVariantCandidate? {
   let producer_field = match
     h2l_variant_struct_get_field(func, module_ctx, producer_user_node_id) {
@@ -2933,7 +2942,7 @@ fn h2l_find_variant_candidate(
   }
   let uses : Array[H2LVariantUse] = []
   for read_node_id in use_def.local_reads[owner_local] {
-    if !h2l_write_dominates_read(cfg, dom, tee_node_id, read_node_id) {
+    if !h2l_write_dominates_read(cfg, dom, order, tee_node_id, read_node_id) {
       return None
     }
     let (user_node_id, source_path) = match
@@ -3056,6 +3065,7 @@ fn h2l_find_variant_local_candidate(
   owner_local : Int,
   cfg : @ir.HotCfg,
   dom : @ir.HotDominators,
+  order : H2LDominanceOrder,
 ) -> H2LVariantLocalCandidate? {
   if owner_local < @ir.hot_param_count(func) {
     return None
@@ -3075,7 +3085,7 @@ fn h2l_find_variant_local_candidate(
   let uses : Array[H2LVariantUse] = []
   for read_node_id in use_def.local_reads[owner_local] {
     if !writes.any(fn(write) {
-        h2l_write_dominates_read(cfg, dom, write, read_node_id)
+        h2l_write_dominates_read(cfg, dom, order, write, read_node_id)
       }) {
       return None
     }
@@ -3437,6 +3447,7 @@ pub fn heap2local_run(
   }
   let cfg = @ir.cfg_build(func, expand_operand_control=true)
   let dom = @ir.dom_build(cfg)
+  let order = H2LDominanceOrder::new(@ir.hot_node_count(func))
   let variant_candidates : Array[H2LVariantCandidate] = []
   let variant_local_candidates : Array[H2LVariantLocalCandidate] = []
   let variant_owner_locals : Array[Int] = []
@@ -3445,7 +3456,7 @@ pub fn heap2local_run(
       local_id = local_id + 1 {
     match
       h2l_find_variant_local_candidate(
-        func, module_ctx, use_def, local_id, cfg, dom,
+        func, module_ctx, use_def, local_id, cfg, dom, order,
       ) {
       Some(candidate) => {
         variant_local_candidates.push(candidate)
@@ -3457,7 +3468,9 @@ pub fn heap2local_run(
   let original_node_count = @ir.hot_node_count(func)
   for node_id = 0; node_id < original_node_count; node_id = node_id + 1 {
     match
-      h2l_find_variant_candidate(func, module_ctx, use_def, node_id, cfg, dom) {
+      h2l_find_variant_candidate(
+        func, module_ctx, use_def, node_id, cfg, dom, order,
+      ) {
       Some(candidate) if !variant_owner_locals.contains(candidate.owner_local) => {
         variant_candidates.push(candidate)
         variant_owner_locals.push(candidate.owner_local)
@@ -3477,7 +3490,7 @@ pub fn heap2local_run(
     }
     match
       h2l_find_candidate_for_local(
-        func, module_ctx, use_def, local_id, cfg, dom,
+        func, module_ctx, use_def, local_id, cfg, dom, order,
       ) {
       Some(candidate) => candidates.push(candidate)
       None => ()
@@ -3497,7 +3510,7 @@ pub fn heap2local_run(
     }
     match
       h2l_find_array_candidate_for_local(
-        func, module_ctx, use_def, local_id, cfg, dom,
+        func, module_ctx, use_def, local_id, cfg, dom, order,
       ) {
       Some(candidate) => array_candidates.push(candidate)
       None => ()
@@ -3579,9 +3592,22 @@ pub fn heap2local_run(
 }
 
 ///|
+struct H2LDominanceOrder {
+  node_count : Int
+  mut long_scans : Int
+  mut positions : Array[Int]?
+}
+
+///|
+fn H2LDominanceOrder::new(node_count : Int) -> H2LDominanceOrder {
+  { node_count, long_scans: 0, positions: None, }
+}
+
+///|
 fn h2l_write_dominates_read(
   cfg : @ir.HotCfg,
   dom : @ir.HotDominators,
+  order : H2LDominanceOrder,
   write_id : Int,
   read_id : Int,
 ) -> Bool {
@@ -3596,16 +3622,57 @@ fn h2l_write_dominates_read(
   if write_block != read_block {
     return @ir.dom_dominates(dom, write_block, read_block)
   }
-  // CFG block nodes are in operand-before-user execution order.
-  for node in @ir.cfg_block_get(cfg, read_block).nodes {
-    if node == read_id {
+  let nodes = @ir.cfg_block_get(cfg, read_block).nodes
+  for idx = 0; idx < nodes.length() && idx < 4; idx = idx + 1 {
+    if nodes[idx] == read_id {
       return false
     }
-    if node == write_id {
+    if nodes[idx] == write_id {
       return true
     }
   }
-  false
+  match order.positions {
+    Some(positions) =>
+      return positions[write_id] >= 0 &&
+        positions[write_id] < positions[read_id]
+    None => ()
+  }
+  // CFG block nodes are in operand-before-user execution order.
+  let mut scanned = 4
+  let mut write_before_read = false
+  for idx = 4; idx < nodes.length(); idx = idx + 1 {
+    let node = nodes[idx]
+    if node == read_id {
+      if scanned < 64 {
+        return false
+      }
+      break
+    }
+    if node == write_id {
+      if scanned < 64 {
+        return true
+      }
+      write_before_read = true
+      break
+    }
+    scanned += 1
+  }
+  if scanned >= 64 {
+    order.long_scans += 1
+    if order.long_scans == 2 {
+      let positions = Array::make(order.node_count, -1)
+      for block = 0; block < @ir.cfg_block_count(cfg); block = block + 1 {
+        let nodes = @ir.cfg_block_get(cfg, block).nodes
+        for idx = 0; idx < nodes.length(); idx = idx + 1 {
+          positions[nodes[idx]] = idx
+        }
+      }
+      order.positions = Some(positions)
+      return positions[write_id] >= 0 &&
+        positions[write_id] < positions[read_id]
+    }
+  }
+  write_before_read
 }
 
 ///|
