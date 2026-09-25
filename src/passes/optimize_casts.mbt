@@ -559,7 +559,6 @@ fn oc_retarget_local_gets(
   if !@ir.hot_node_is_live(func, node_id) {
     return 0
   }
-  let children = oc_node_children(func, node_id)
   let mut count = 0
   if oc_node_is_local_get(func, node_id, local_id) {
     let temp = @ir.hot_build_local_get(func, fresh_local)
@@ -568,7 +567,8 @@ fn oc_retarget_local_gets(
     pass_replace_node(ctx, func, node_id, replacement)
     count += 1
   }
-  for child_id in children {
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
     count += oc_retarget_local_gets(ctx, func, child_id, local_id, fresh_local)
   }
   count

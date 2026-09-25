@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-24
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize_casts.mbt
@@ -37,6 +37,10 @@ related:
 ---
 
 # Starshine Strategy For `optimize-casts`
+
+## September 25, 2026 retarget child-walk measurement
+
+`oc_retarget_local_gets` now walks child slots directly instead of allocating a child-ID array at every visited node. Its replacements change `LocalGet` leaves without changing ancestor child spans. In the [native white-box benchmark](../../../../../src/passes/optimize_casts_child_walk_perf_wbtest.mbt), a no-match traversal of 256 select nodes improved from `18.07` to `10.46 µs`; 512 nodes improved from `36.22` to `21.12 µs`. A successful rewrite test verifies all matching local reads move to the new local. The separate read-only child-count control stayed near baseline. These helper timings do not measure full-pass impact.
 
 Use this page together with the retained 2026-05-05 current-main recheck in [research note 0469](./index.md), the direct tagged source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md), and the dedicated port-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the concrete neighboring implementation areas future changes must preserve.

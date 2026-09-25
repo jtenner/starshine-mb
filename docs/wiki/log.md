@@ -24351,3 +24351,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Compiler-fact call-site index
 
 - The [compiler-facts specification](binary/compiler-facts-v1.md#september-25-2026-call-fact-lookup-measurement) records native lookup timing from `5.06 → 1.25 µs` for 128 sites and `17.88 → 2.50 µs` for 256. The selected body’s call facts now enter a first-match `CodeSite` map. Index construction and full-pass impact remain unmeasured.
+
+### 2026-09-25 — OptimizeCasts retarget child walk
+
+- The [OptimizeCasts strategy page](binaryen/passes/optimize-casts/starshine-strategy.md#september-25-2026-retarget-child-walk-measurement) records native no-match traversal timing from `18.07 → 10.46 µs` at 256 select nodes and `36.22 → 21.12 µs` at 512. Direct child-slot iteration removes one temporary array per visited node; a positive rewrite test passes. Full-pass impact remains unmeasured.
