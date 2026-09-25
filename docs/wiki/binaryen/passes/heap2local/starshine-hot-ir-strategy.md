@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-09-03
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../src/passes/heap2local.mbt
@@ -24,6 +24,10 @@ related:
 ---
 
 # Current Starshine `heap2local` strategy
+
+## September 25, 2026: detached-node cleanup
+
+Detached-node cleanup now relies on `hot_node_is_live` to ignore repeated IDs after deletion and no longer performs a linear `seen.contains` check for every node. The [native-release white-box benchmark](../../../../../src/passes/heap2local_detached_cleanup_perf_wbtest.mbt), including detached-node construction, measured **634.05 → 608.03 µs** for 512 nodes and **2.39 → 2.29 ms** for 1,024. The duplicate/already-dead edge-case test passes. `heap2local_primary_test.mbt` remains 21/22 both before and after this edit: the mixed-provenance case fails in `h2l_build_root_slot_index`, before detached cleanup runs. Full-pass impact and allocated bytes remain unmeasured.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

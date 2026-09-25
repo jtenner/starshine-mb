@@ -3405,12 +3405,7 @@ fn h2l_delete_detached_live_nodes(
   func : @ir.HotFunc,
   detached_nodes : Array[Int],
 ) -> Unit {
-  let seen : Array[Int] = []
   for node_id in detached_nodes {
-    if seen.contains(node_id) {
-      continue
-    }
-    seen.push(node_id)
     if @ir.hot_node_is_live(func, node_id) {
       @ir.hot_delete_node(func, node_id)
     }

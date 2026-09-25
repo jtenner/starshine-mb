@@ -24395,3 +24395,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — AvoidReinterprets unchanged-body allocation
 
 - The [AvoidReinterprets strategy page](binaryen/passes/avoid-reinterprets/starshine-strategy.md#september-25-2026-unchanged-body-allocation) records native direct-pass timing from `345.66 → 254.64 µs` with 128 ordinary functions and `678.40 → 495.35 µs` with 256. The recursive rewrite now allocates an output array only on its first actual change; full-pipeline impact remains unmeasured.
+
+### 2026-09-25 — Heap2Local detached-node cleanup
+
+- The [Heap2Local strategy page](binaryen/passes/heap2local/starshine-hot-ir-strategy.md#september-25-2026-detached-node-cleanup) records native fixture timing from `634.05 → 608.03 µs` for 512 nodes and `2.39 → 2.29 ms` for 1,024 after removing a redundant quadratic seen-list scan. A separate primary-test failure in root-slot indexing reproduces at 21/22 on the pre-change source; full-pass impact remains unmeasured.
