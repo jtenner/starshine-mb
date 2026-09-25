@@ -136,6 +136,10 @@ pub struct CompilerFactIndex {
     @representation.ValueSite,
     @representation.ValueFacts,
   ]
+  calls : @hashmap.HashMap[
+    @representation.CodeSite,
+    @representation.CallSiteFacts,
+  ]
   signatures : Array[@representation.SignatureFacts?]
   types : Array[@representation.TypeFacts?]
   globals : Array[@representation.GlobalFacts?]
@@ -165,6 +169,31 @@ fn compiler_fact_index_value_map(
     }
   }
   values
+}
+
+///|
+fn compiler_fact_index_call_map(
+  bodies : Array[@representation.FunctionBodyFacts?],
+) -> @hashmap.HashMap[@representation.CodeSite, @representation.CallSiteFacts] {
+  let calls : @hashmap.HashMap[
+    @representation.CodeSite,
+    @representation.CallSiteFacts,
+  ] = @hashmap.new()
+  for function_idx = 0
+      function_idx < bodies.length()
+      function_idx = function_idx + 1 {
+    match bodies[function_idx] {
+      Some(body) =>
+        for entry in body.calls {
+          if entry.site.function.reinterpret_as_int() == function_idx &&
+            calls.get(entry.site) is None {
+            calls.set(entry.site, entry)
+          }
+        }
+      None => ()
+    }
+  }
+  calls
 }
 
 ///|
@@ -237,6 +266,7 @@ pub fn CompilerFactIndex::new(
     facts,
     functions,
     values: compiler_fact_index_value_map(bodies),
+    calls: compiler_fact_index_call_map(bodies),
     bodies,
     signatures,
     types,
@@ -301,6 +331,7 @@ fn compiler_fact_index_bounded(
     facts,
     functions,
     values: compiler_fact_index_value_map(bodies),
+    calls: compiler_fact_index_call_map(bodies),
     bodies,
     signatures,
     types,
@@ -400,16 +431,7 @@ pub fn CompilerFactIndex::call_facts(
   self : CompilerFactIndex,
   site : @representation.CodeSite,
 ) -> @representation.CallSiteFacts? {
-  match self.bodies.get(site.function.reinterpret_as_int()) {
-    Some(Some(body)) =>
-      for value in body.calls {
-        if value.site == site {
-          return Some(value)
-        }
-      }
-    _ => ()
-  }
-  None
+  self.calls.get(site)
 }
 
 ///|

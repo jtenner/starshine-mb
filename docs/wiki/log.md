@@ -24347,3 +24347,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — CoalesceLocals copy-weight construction
 
 - The [CoalesceLocals strategy page](binaryen/passes/coalesce-locals/starshine-strategy.md#september-25-2026-sparse-copy-score-measurement) records native dense graph construction timing from `85.32 → 55.38 µs` at 64 locals and `546.67 → 221.60 µs` at 128. Rows gain lazy integer partner indexes after eight entries; the coloring control stayed near baseline. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — Compiler-fact call-site index
+
+- The [compiler-facts specification](binary/compiler-facts-v1.md#september-25-2026-call-fact-lookup-measurement) records native lookup timing from `5.06 → 1.25 µs` for 128 sites and `17.88 → 2.50 µs` for 256. The selected body’s call facts now enter a first-match `CodeSite` map. Index construction and full-pass impact remain unmeasured.

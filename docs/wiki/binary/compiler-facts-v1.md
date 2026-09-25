@@ -1,7 +1,7 @@
 ---
 kind: specification
 status: supported
-last_reviewed: 2026-09-24
+last_reviewed: 2026-09-25
 sources:
   - ../../../src/representation/compiler_facts.mbt
   - ../../../src/binary/compiler_facts_encode.mbt
@@ -12,6 +12,7 @@ sources:
   - ../../../src/passes/compiler_fact_query.mbt
   - ../../../src/passes/compiler_fact_site_lookup_perf_wbtest.mbt
   - ../../../src/passes/compiler_fact_value_lookup_perf_wbtest.mbt
+  - ../../../src/passes/compiler_fact_call_index_perf_wbtest.mbt
   - ../../../src/passes/directize.mbt
   - ../../../src/passes/optimize.mbt
   - ../../../src/passes/pass_manager.mbt
@@ -25,6 +26,10 @@ related:
 ---
 
 # `compiler.facts` Version 1
+
+## September 25, 2026 call-fact lookup measurement
+
+`CompilerFactIndex` now indexes the selected body’s call facts by `CodeSite`, retaining the first duplicate fact and rejecting a site whose function differs from the containing body. The [native white-box lookup benchmark](../../../src/passes/compiler_fact_call_index_perf_wbtest.mbt) queries each of 128 sites in `5.06 → 1.25 µs` and each of 256 sites in `17.88 → 2.50 µs`. The benchmark excludes index construction and the full compiler-fact rewrite; map memory grows with the number of selected call facts.
 
 ## September 24, 2026 opcode-site lookup measurement
 
