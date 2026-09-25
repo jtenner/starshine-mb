@@ -387,3 +387,15 @@ The same ordering applies to `hot_pass_vacuum_remove_empty_if`: both arms must
 be empty before a label-use scan is needed. The direct native benchmark in the
 same file measured 128 nonempty else arms at `484.68 → 12.43 µs` and 256 at
 `1.93 ms → 24.94 µs`. Matching empty Ifs still check the label before removal.
+
+## September 25, 2026: branchy dropped-local runs
+
+The branchy structured-write fallback in
+`hot_pass_vacuum_remove_dropped_local_gets_in_region` now removes consecutive
+dropped `local.get` roots with one region splice. Runs longer than four use the
+existing exact detached-node batch deletion, avoiding an individual
+whole-function reference check for each removed drop. A benchmark that includes
+HOT lifting, a branchy local write, and an observable global write measured
+128 dropped reads at `200.12 → 116.02 µs` and 256 at `560.44 → 227.04 µs`.
+The fixture lives in `src/passes/vacuum_dropped_local_run_perf_wbtest.mbt`.
+Other deletion patterns and full-pass timing remain unmeasured.

@@ -24510,3 +24510,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Vacuum nonempty-else guard
 
 - The [Vacuum strategy page](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-25-2026-rejected-result-if-sink-guard) records native helper timing for 128 nonempty else arms at `484.68 → 12.43 µs` and 256 at `1.93 ms → 24.94 µs`. Empty-If removal now checks both arms before scanning all node labels; matching candidates still check labels before mutation. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — Vacuum branchy dropped-local runs
+
+- The [Vacuum strategy page](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-25-2026-branchy-dropped-local-runs) records native HOT-lift-plus-cleanup timing for 128 dropped reads at `200.12 → 116.02 µs` and 256 at `560.44 → 227.04 µs`. Consecutive dropped reads are spliced once and, for runs longer than four, disposed with exact batch deletion. Other deletion patterns and full-pass impact remain unmeasured.

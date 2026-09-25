@@ -2129,8 +2129,30 @@ fn hot_pass_vacuum_remove_dropped_local_gets_in_region(
       @ir.hot_child_count(func, node_id) == 1 &&
       @ir.hot_node_get(func, @ir.hot_child_get(func, node_id, 0)).op
       is @ir.HotOp::LocalGet {
-      let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [])
-      vacuum_delete_detached_non_control_nodes(ctx, func, removed)
+      let mut run_end = idx + 1
+      while run_end < @ir.hot_region_root_count(func, region_ref) {
+        let next_id = @ir.hot_region_get(func, region_ref, run_end)
+        if !(@ir.hot_node_get(func, next_id).op is @ir.HotOp::Drop) ||
+          @ir.hot_child_count(func, next_id) != 1 ||
+          !(@ir.hot_node_get(func, @ir.hot_child_get(func, next_id, 0)).op
+          is @ir.HotOp::LocalGet) {
+          break
+        }
+        run_end += 1
+      }
+      let removed = pass_splice_region(
+        ctx,
+        func,
+        region_ref,
+        idx,
+        run_end - idx,
+        [],
+      )
+      if removed.length() > 4 {
+        vacuum_delete_known_detached_non_control_nodes_batch(ctx, func, removed)
+      } else {
+        vacuum_delete_detached_non_control_nodes(ctx, func, removed)
+      }
       changed = true
       continue
     }
