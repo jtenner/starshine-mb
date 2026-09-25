@@ -508,39 +508,35 @@ fn mp_active_spans_are_disjoint(spans : Array[MpSpan]) -> Bool {
 }
 
 ///|
-fn mp_zero_trampled_overlap(
+fn mp_trampled_overlap_range(
   earlier_start : UInt64,
-  earlier : Bytes,
+  earlier_size : Int,
   later_start : UInt64,
   later_size : Int,
-) -> Bytes {
-  let earlier_size_u = earlier.length().reinterpret_as_uint().to_uint64()
+) -> (Int, Int)? {
+  let earlier_size_u = earlier_size.reinterpret_as_uint().to_uint64()
   let later_size_u = later_size.reinterpret_as_uint().to_uint64()
   let (overlap_start_u, overlap_size_u) = if later_start >= earlier_start {
     let delta = later_start - earlier_start
     if delta >= earlier_size_u {
-      return earlier
+      return None
     }
     let available = earlier_size_u - delta
     (delta, if later_size_u < available { later_size_u } else { available })
   } else {
     let delta = earlier_start - later_start
     if delta >= later_size_u {
-      return earlier
+      return None
     }
     let available = later_size_u - delta
     (0UL, if earlier_size_u < available { earlier_size_u } else { available })
   }
   if overlap_size_u == 0UL {
-    return earlier
+    return None
   }
-  let bytes = earlier.to_array()
   let overlap_start = overlap_start_u.to_int()
   let overlap_end = overlap_start + overlap_size_u.to_int()
-  for idx = overlap_start; idx < overlap_end; idx = idx + 1 {
-    bytes[idx] = (0).to_byte()
-  }
-  Bytes::from_array(bytes)
+  Some((overlap_start, overlap_end))
 }
 
 ///|
@@ -561,7 +557,7 @@ fn mp_zero_out_trampled_data(datas : Array[@lib.Data]) -> Unit {
           _ => continue
         }
     }
-    let mut rewritten = original
+    let mut rewritten : Array[Byte]? = None
     for later_idx = earlier_idx + 1
         later_idx < datas.length()
         later_idx = later_idx + 1 {
@@ -571,17 +567,39 @@ fn mp_zero_out_trampled_data(datas : Array[@lib.Data]) -> Unit {
             Some(base) => base
             None => continue
           }
-          rewritten = mp_zero_trampled_overlap(
-            start,
-            rewritten,
-            mp_base_offset_u64(later_base),
-            later_bytes.length(),
-          )
+          match
+            mp_trampled_overlap_range(
+              start,
+              original.length(),
+              mp_base_offset_u64(later_base),
+              later_bytes.length(),
+            ) {
+            Some((overlap_start, overlap_end)) => {
+              let bytes = match rewritten {
+                Some(bytes) => bytes
+                None => {
+                  let bytes = original.to_array()
+                  rewritten = Some(bytes)
+                  bytes
+                }
+              }
+              for idx = overlap_start; idx < overlap_end; idx = idx + 1 {
+                bytes[idx] = (0).to_byte()
+              }
+            }
+            None => ()
+          }
         }
         _ => ()
       }
     }
-    datas[earlier_idx] = @lib.Data::new(mode, rewritten)
+    datas[earlier_idx] = @lib.Data::new(
+      mode,
+      match rewritten {
+        Some(bytes) => Bytes::from_array(bytes)
+        None => original
+      },
+    )
   }
 }
 

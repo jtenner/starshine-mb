@@ -24187,3 +24187,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — ReorderGlobals name-map sorting
 
 - The [ReorderGlobals page](binaryen/passes/reorder-globals/index.md) records native direct-pass timings for inverted remapped names: 1,024 entries `431.37 → 137.70 µs`, and 2,048 entries `1.54 ms → 305.10 µs`. An order-preserving O(n log n) sort replaces insertion sorting; a focused test retains duplicate-index order. This is synthetic pass-local evidence, not a new Binaryen comparison.
+
+### 2026-09-24 — MemoryPacking overlap copies
+
+- The [MemoryPacking page](binaryen/passes/memory-packing/index.md#september-24-2026-overlap-copy-measurement) records native direct-pass timing with overlapping 4,096-byte active segments: 16 segments `278.28 → 216.14 µs`, and 32 segments `1.04 ms → 787.01 µs`. Each affected segment buffer is copied once while overlap ranges are zeroed; pairwise overlap checks remain quadratic. One new range test and 48 existing MemoryPacking tests pass.

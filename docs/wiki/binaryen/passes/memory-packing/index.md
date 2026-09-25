@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-24
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/commit/db30c15
@@ -30,6 +30,12 @@ related:
 # `memory-packing`
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 24, 2026 overlap-copy measurement
+
+The active-segment overlap cleanup previously copied an earlier segment's entire byte buffer for every later segment that overlapped it. It now computes overlap ranges first, copies each affected earlier buffer once, and applies all zero ranges to that one copy. Pairwise overlap checks remain quadratic, but byte copying falls from repeated full-buffer copies to one per affected segment.
+
+The [native direct-pass benchmark](../../../../../src/passes_perf_long/memory_packing_overlap_copy_perf_test.mbt) uses 4,096-byte active segments at the same offset, with validation outside the timed loop. At 16 segments, mean time fell from `278.28` to `216.14 µs` (1.29×); at 32, from `1.04 ms` to `787.01 µs` (1.32×). The [overlap-range regression](../../../../../src/passes/memory_packing_overlap_range_wbtest.mbt) and 48 existing MemoryPacking tests pass. These are synthetic Starshine pass-local timings, not Binaryen comparison evidence.
 
 ## Binaryen v131 status
 
