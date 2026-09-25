@@ -276,7 +276,8 @@ fn dead_code_elimination_delete_unused_nodes(
     return
   }
   let node_count = @ir.hot_node_count(func)
-  let mut has_unowned_candidate = false
+  let mut first_candidate = node_count
+  let mut last_candidate = -1
   for node_id in node_ids {
     if node_id < 0 ||
       node_id >= node_count ||
@@ -289,19 +290,24 @@ fn dead_code_elimination_delete_unused_nodes(
       @ir.hot_label_owner(func, label_id) == node_id {
       continue
     }
-    has_unowned_candidate = true
-    break
+    if node_id < first_candidate {
+      first_candidate = node_id
+    }
+    if node_id > last_candidate {
+      last_candidate = node_id
+    }
   }
-  if !has_unowned_candidate {
+  if last_candidate < 0 {
     return
   }
+  let candidate_span = last_candidate - first_candidate + 1
   let candidates : Array[Int] = []
-  let in_candidate = @bitset.BitSet::new(node_count)
+  let in_candidate = @bitset.BitSet::new(candidate_span)
   for node_id in node_ids {
-    if node_id < 0 ||
-      node_id >= node_count ||
+    if node_id < first_candidate ||
+      node_id > last_candidate ||
       !@ir.hot_node_is_live(func, node_id) ||
-      in_candidate[node_id] {
+      in_candidate[node_id - first_candidate] {
       continue
     }
     let label_id = @ir.hot_control_node_label(func, node_id)
@@ -310,7 +316,7 @@ fn dead_code_elimination_delete_unused_nodes(
       @ir.hot_label_owner(func, label_id) == node_id {
       continue
     }
-    in_candidate[node_id] = true
+    in_candidate[node_id - first_candidate] = true
     candidates.push(node_id)
   }
   if candidates.is_empty() {
@@ -319,16 +325,22 @@ fn dead_code_elimination_delete_unused_nodes(
   // Count references to this small candidate set once. Detached nodes can
   // still be referenced by other live detached nodes, so reachable use-def
   // counts alone are insufficient here.
-  let references = Array::make(node_count, 0)
+  let references = Array::make(candidate_span, 0)
   for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
     let owner = @ir.hot_label_owner(func, label_id)
-    if owner >= 0 && owner < node_count && in_candidate[owner] {
-      references[owner] = references[owner] + 1
+    if owner >= first_candidate &&
+      owner <= last_candidate &&
+      in_candidate[owner - first_candidate] {
+      references[owner - first_candidate] =
+        references[owner - first_candidate] + 1
     }
   }
   for root_id in func.roots {
-    if root_id >= 0 && root_id < node_count && in_candidate[root_id] {
-      references[root_id] = references[root_id] + 1
+    if root_id >= first_candidate &&
+      root_id <= last_candidate &&
+      in_candidate[root_id - first_candidate] {
+      references[root_id - first_candidate] =
+        references[root_id - first_candidate] + 1
     }
   }
   for user_id = 0; user_id < node_count; user_id = user_id + 1 {
@@ -338,11 +350,12 @@ fn dead_code_elimination_delete_unused_nodes(
     }
     for slot = 0; slot < user.child_count; slot = slot + 1 {
       let child_id = func.children[user.child_base + slot]
-      if child_id >= 0 &&
-        child_id < node_count &&
+      if child_id >= first_candidate &&
+        child_id <= last_candidate &&
         child_id != user_id &&
-        in_candidate[child_id] {
-        references[child_id] = references[child_id] + 1
+        in_candidate[child_id - first_candidate] {
+        references[child_id - first_candidate] =
+          references[child_id - first_candidate] + 1
       }
     }
   }
@@ -351,21 +364,23 @@ fn dead_code_elimination_delete_unused_nodes(
   while progressed {
     progressed = false
     for node_id in candidates {
-      if !in_candidate[node_id] || references[node_id] != 0 {
+      if !in_candidate[node_id - first_candidate] ||
+        references[node_id - first_candidate] != 0 {
         continue
       }
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
         let child_id = @ir.hot_child_get(func, node_id, slot)
-        if child_id >= 0 &&
-          child_id < node_count &&
+        if child_id >= first_candidate &&
+          child_id <= last_candidate &&
           child_id != node_id &&
-          in_candidate[child_id] {
-          references[child_id] = references[child_id] - 1
+          in_candidate[child_id - first_candidate] {
+          references[child_id - first_candidate] =
+            references[child_id - first_candidate] - 1
         }
       }
       deleted.push(node_id)
       progressed = true
-      in_candidate[node_id] = false
+      in_candidate[node_id - first_candidate] = false
     }
   }
   if !deleted.is_empty() {

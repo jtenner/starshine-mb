@@ -396,3 +396,15 @@ span directly. The native helper benchmark measured 512 leaf live nodes at
 `52.26 → 47.65 µs`, and 1,024 at `101.38 → 92.62 µs`. Label-owned candidate
 controls stayed at about 19 and 36 µs. A focused test retains a candidate
 referenced by a live non-leaf root. Full-pass impact remains unmeasured.
+
+## September 25, 2026: span-sized small-candidate state
+
+For batches of at most 32 detached nodes, DCE previously allocated candidate
+membership and reference counts for every HOT node. It now bounds those arrays
+to the minimum and maximum eligible candidate IDs, while checking the bounds
+before indexing them. Sparse candidate sets still retain exact references from
+live roots and detached users. The native helper benchmark improved 512 live
+leaf nodes from `21.40 → 20.12 µs`, 1,024 from `39.56 → 37.82 µs`, 512
+non-leaf nodes from `47.65 → 45.88 µs`, and 1,024 from `92.62 → 89.95 µs`.
+Label-owned controls stayed near 19 and 36 µs. A focused sparse-ID regression
+checks a referenced middle candidate. Full-pass impact remains unmeasured.

@@ -24566,3 +24566,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Vacuum nested dropped unary parents
 
 - The [Vacuum HOT strategy page](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-25-2026-nested-dropped-unary-parents) records native HOT-lift-plus-helper timing for 64 nested unary wrappers at `48.32 → 19.97 µs`, 128 at `142.10 → 36.07 µs`, and 256 at `455.66 → 66.44 µs`. The fast path peels unary wrappers once and preserves one terminal effect. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — DCE span-sized candidate state
+
+- The [DCE HOT strategy page](binaryen/passes/dead-code-elimination/starshine-hot-ir-strategy.md#september-25-2026-span-sized-small-candidate-state) records native helper timing for 512 live leaf nodes at `21.40 → 20.12 µs` and 1,024 at `39.56 → 37.82 µs`. Candidate bitsets and reference counts now cover only the eligible ID span; sparse-ID and retained-reference tests preserve exact deletion semantics. Full-pass impact remains unmeasured.

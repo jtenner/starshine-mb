@@ -92,6 +92,30 @@ test "DCE small deletion keeps candidate referenced by live nonleaf root" {
 }
 
 ///|
+test "DCE small deletion handles sparse candidate IDs and a retained middle reference" {
+  let (func, _) = dce_delete_perf_fixture(8, 0)
+  let first = @ir.hot_build_const_i32(func, @lib.I32(1))
+  for _ in 0..<64 {
+    ignore(@ir.hot_build_nop(func))
+  }
+  let middle = @ir.hot_build_const_i32(func, @lib.I32(2))
+  @ir.hot_append_root(func, @ir.hot_build_drop(func, middle))
+  for _ in 0..<64 {
+    ignore(@ir.hot_build_nop(func))
+  }
+  let last = @ir.hot_build_const_i32(func, @lib.I32(3))
+  dead_code_elimination_delete_unused_nodes(
+    dce_delete_perf_ctx(),
+    func,
+    DeadCodeEliminationNodeUseCache::new(func),
+    [last, middle, first, last],
+  )
+  assert_false(@ir.hot_node_is_live(func, first))
+  assert_true(@ir.hot_node_is_live(func, middle))
+  assert_false(@ir.hot_node_is_live(func, last))
+}
+
+///|
 test "DCE small deletion keeps references from other detached nodes" {
   let (func, detached) = dce_delete_perf_fixture(8, 2)
   ignore(@ir.hot_build_drop(func, detached[1]))
