@@ -55,6 +55,34 @@ fn ge_target_cannot_suspend(
 }
 
 ///|
+fn ge_body_has_rewritable_resume(body : @lib.Expr) -> Bool {
+  let @lib.Expr(instrs) = body
+  for instr in instrs {
+    match instr {
+      @lib.Resume(_, _) => return true
+      @lib.Block(_, nested) | @lib.Loop(_, nested) =>
+        if ge_body_has_rewritable_resume(nested) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ge_body_has_rewritable_resume(@lib.Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(nested) =>
+            if ge_body_has_rewritable_resume(@lib.Expr::new(nested)) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ge_rewrite_fresh_resumes(
   body : @lib.Expr,
   funcs : Array[@lib.Func],
@@ -141,6 +169,12 @@ fn global_effects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_
+  }
+  if !funcs.any(fn(func) {
+      let @lib.Func(_, body) = func
+      ge_body_has_rewritable_resume(body)
+    }) {
+    return mod_
   }
   let mut imported_funcs = 0
   match mod_.import_sec {

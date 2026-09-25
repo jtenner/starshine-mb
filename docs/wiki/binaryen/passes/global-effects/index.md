@@ -5,6 +5,7 @@ last_reviewed: 2026-09-24
 sources:
   - ../../../../../src/passes/global_effects.mbt
   - ../../../../../src/passes/global_effects_target_summary_wbtest.mbt
+  - ../../../../../src/passes/global_effects_noop_perf_wbtest.mbt
   - ../../../../../src/passes_perf_long/global_effects_target_summary_perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
@@ -44,6 +45,8 @@ with 128 repeated resumes improved from 26.42 to 15.83 µs (`1.67×`), and 256
 resumes improved from 71.40 to 28.30 µs (`2.52×`). The benchmark constructs
 and validates its continuation module outside timing; it is synthetic
 Starshine pass-local evidence, not a Binaryen oracle comparison.
+
+The no-resume fast path now scans for a `resume` in the instruction forms this rewrite traverses before allocating rewritten function and body arrays. A native direct-pass benchmark with 64 `nop`s under one block per function improved from `102.83 → 11.66 µs` for 256 functions (8.82×) and `217.21 → 24.61 µs` for 512 (8.83×). On the historical v133 encoded fresh-resume fixture, used only as a local timing control, direct-pass time changed from `2.51 → 2.56 µs` (about 2% slower); this is not new Binaryen parity evidence. The nested guard test, target-summary test, and two encoded continuation tests pass. Full-pipeline impact and allocation counts remain unmeasured.
 
 ## Role
 

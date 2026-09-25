@@ -24255,3 +24255,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — OnceReduction throwing summary
 
 - The [OnceReduction strategy page](binaryen/passes/once-reduction/starshine-hot-ir-strategy.md#september-24-2026-throwing-summary-measurement) records native white-box timing for reverse call chains of 128 functions (`38.44 → 5.53 µs`) and 256 (`171.62 → 10.63 µs`). A seed scan and conditional reverse-call propagation replace a repeated fixed point; three new tests and 63 existing tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-24 — GlobalEffects no-resume allocation
+
+- The [GlobalEffects index](binaryen/passes/global-effects/index.md#current-repository-note--september-24-2026) records native direct-pass timing for 256 no-resume functions (`102.83 → 11.66 µs`) and 512 (`217.21 → 24.61 µs`). The resume-presence guard avoids rebuilding unchanged bodies; a positive rewrite moved `2.51 → 2.56 µs`. Four focused tests pass. Full-pipeline impact remains unmeasured.
