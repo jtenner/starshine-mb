@@ -24494,3 +24494,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — SSA no-merge shared If-arm access cache
 
 - The [SSA no-merge strategy page](binaryen/passes/ssa-nomerge/starshine-hot-ir-strategy.md#september-25-2026-shared-if-arm-access-cache) records native helper timing for 64 same-target tee/call prefixes at `35.35 → 1.17 µs` and 128 distinct-target prefixes at `70.66 → 1.76 µs`. The next If's arm reads and writes are collected once, preserving same-arm matching. A focused split-arm regression and 498 existing SSA no-merge tests pass; full-pass impact remains unmeasured.
+
+### 2026-09-25 — ConstraintAnalysis loop-plan visitation scratch
+
+- The [ConstraintAnalysis page](binaryen/passes/constraint-analysis/index.md#september-25-2026-loop-plan-visitation-scratch) records native `ca_loop_plan` timing for valid sibling parameterized loops: 32 loops `15.07 → 13.01 µs`, 64 loops `35.81 → 29.29 µs`. Reused generation marks and a work array remove one full node-sized allocation per loop. All 34 existing ConstraintAnalysis tests pass; full-pass impact remains unmeasured.

@@ -2,7 +2,7 @@
 kind: entity
 status: working
 starshine_status: active-partial
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-25
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/ConstraintAnalysis.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/ir/constraint.cpp
@@ -11,6 +11,7 @@ sources:
   - ../../../../../src/passes/constraint_analysis.mbt
   - ../../../../../src/passes/constraint_domain.mbt
   - ../../../../../src/passes/constraint_analysis_wbtest.mbt
+  - ../../../../../src/passes/constraint_loop_plan_perf_wbtest.mbt
   - ../../../../../src/passes/constraint_domain_wbtest.mbt
   - ../../../../../src/validate/gen_valid_constraint.mbt
 related:
@@ -21,6 +22,10 @@ related:
 ---
 
 # Constraint analysis
+
+## September 25, 2026 loop-plan visitation scratch
+
+Parameterized-loop planning now reuses one node work array and generation-mark array across sibling loops. Each loop still traverses its own body and associated CFG blocks; the change removes a full node-sized visited allocation and clear per loop. The [native white-box benchmark](../../../../../src/passes/constraint_loop_plan_perf_wbtest.mbt) uses valid sibling loops with one carried i32 parameter and measures `ca_loop_plan` after HOT lifting and CFG construction. Mean time fell from **15.07 → 13.01 µs** (13.7%) for 32 loops and **35.81 → 29.29 µs** (18.2%) for 64. All 34 existing ConstraintAnalysis tests pass. Full-pass and Binaryen-v132 comparison impact remain unmeasured.
 
 `constraint-analysis` is a runnable, opt-in HOT pass targeting Binaryen **132**.
 This supersedes the July 18 upstream-only status. The original upstream pass

@@ -1346,6 +1346,9 @@ fn ca_loop_plan(func : @ir.HotFunc, cfg : @ir.HotCfg) -> CaLoopPlan {
     block_parameters: Array::makei(cfg.blocks.length(), fn(_) { [] }),
   }
   let loop_depths = Array::make(@ir.hot_node_count(func), 0)
+  let seen_generation = Array::make(@ir.hot_node_count(func), 0)
+  let work : Array[Int] = []
+  let mut generation = 0
   for node = 0; node < @ir.hot_node_count(func); node = node + 1 {
     let data = @ir.hot_node_get(func, node)
     if !(data.op is @ir.Loop) {
@@ -1374,18 +1377,18 @@ fn ca_loop_plan(func : @ir.HotFunc, cfg : @ir.HotCfg) -> CaLoopPlan {
     // The same HOT node denotes the initial stack value outside the loop and
     // the current carried value inside it. Facts belong to that execution
     // context, never to the initial producer's literal opcode.
-    let seen = Array::make(@ir.hot_node_count(func), false)
-    seen[node] = true
-    let work : Array[Int] = []
+    generation += 1
+    seen_generation[node] = generation
+    work.clear()
     for index = params.length(); index < children.length(); index = index + 1 {
       work.push(children[index])
     }
     while !work.is_empty() {
       let current = work.pop().unwrap()
-      if current < 0 || seen[current] {
+      if current < 0 || seen_generation[current] == generation {
         continue
       }
-      seen[current] = true
+      seen_generation[current] = generation
       if @ir.hot_node_get(func, current).op is @ir.Loop {
         loop_depths[current] += 1
       }
@@ -1402,7 +1405,8 @@ fn ca_loop_plan(func : @ir.HotFunc, cfg : @ir.HotCfg) -> CaLoopPlan {
       }
     }
     for block in cfg.blocks {
-      if block.region_holder < 0 || !seen[block.region_holder] {
+      if block.region_holder < 0 ||
+        seen_generation[block.region_holder] != generation {
         continue
       }
       for index = 0; index < params.length(); index = index + 1 {
