@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-24
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/local_cse.mbt
@@ -26,6 +26,12 @@ related:
 ---
 
 # `local-cse`
+
+## September 24, 2026 annotation lookup measurement
+
+The raw module path now indexes argument-free `binaryen.idempotent` function annotations once before building call information. Previously it scanned the entire annotation section separately for every function. Duplicate entries retain the original any-matching-entry behavior; annotations with arguments remain ineligible.
+
+The [native direct-pass benchmark](../../../../../src/passes_perf_long/local_cse_annotation_lookup_perf_test.mbt) used one annotation and one empty body per function. At 512 functions, mean time fell from `168.91` to `48.92 µs` (3.45×); at 1,024, from `620.05` to `95.20 µs` (6.51×). The [focused indexing test](../../../../../src/passes/local_cse_annotation_index_wbtest.mbt) and 207 existing Local CSE tests pass. This synthetic fixture isolates annotation preparation and does not establish Binaryen pass-local parity.
 
 ## Role
 

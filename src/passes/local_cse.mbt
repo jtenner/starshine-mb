@@ -3027,26 +3027,28 @@ fn lcse_raw_func_type_for_idx(
 }
 
 ///|
-fn lcse_raw_func_has_idempotent_annotation(
+fn lcse_raw_idempotent_annotation_flags(
   sec : @lib.FuncAnnotationSec?,
-  func_idx : UInt,
-) -> Bool {
+  func_count : Int,
+) -> Array[Bool] {
+  let flags = Array::make(func_count, false)
   match sec {
     Some(@lib.FuncAnnotationSec(entries)) =>
       for entry in entries {
         let @lib.FuncAnnotationAssoc(idx, annotations) = entry
-        if idx == func_idx {
+        if idx < func_count.to_uint() {
           for annotation in annotations {
             if annotation.name == "binaryen.idempotent" &&
               annotation.args.length() == 0 {
-              return true
+              flags[idx.reinterpret_as_int()] = true
+              break
             }
           }
         }
       }
     None => ()
   }
-  false
+  flags
 }
 
 ///|
@@ -3071,6 +3073,10 @@ fn lcse_raw_module_call_infos(mod_ : @lib.Module) -> Array[LcseRawCallInfo] {
       }
     None => ()
   }
+  let idempotent = lcse_raw_idempotent_annotation_flags(
+    mod_.func_annotation_sec,
+    type_idxs.length(),
+  )
   let out : Array[LcseRawCallInfo] = []
   for idx = 0; idx < type_idxs.length(); idx = idx + 1 {
     match lcse_raw_func_type_for_idx(subtypes, type_idxs[idx]) {
@@ -3079,14 +3085,7 @@ fn lcse_raw_module_call_infos(mod_ : @lib.Module) -> Array[LcseRawCallInfo] {
           [ty] => Some(ty)
           _ => None
         }
-        out.push({
-          params,
-          result,
-          idempotent: lcse_raw_func_has_idempotent_annotation(
-            mod_.func_annotation_sec,
-            idx.reinterpret_as_uint(),
-          ),
-        })
+        out.push({ params, result, idempotent: idempotent[idx], })
       }
       None => out.push({ params: [], result: None, idempotent: false, })
     }

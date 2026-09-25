@@ -24191,3 +24191,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — MemoryPacking overlap copies
 
 - The [MemoryPacking page](binaryen/passes/memory-packing/index.md#september-24-2026-overlap-copy-measurement) records native direct-pass timing with overlapping 4,096-byte active segments: 16 segments `278.28 → 216.14 µs`, and 32 segments `1.04 ms → 787.01 µs`. Each affected segment buffer is copied once while overlap ranges are zeroed; pairwise overlap checks remain quadratic. One new range test and 48 existing MemoryPacking tests pass.
+
+### 2026-09-24 — Local CSE annotation lookup
+
+- The [Local CSE page](binaryen/passes/local-cse/index.md#september-24-2026-annotation-lookup-measurement) records native direct-pass timing for 512 annotated empty functions (`168.91 → 48.92 µs`) and 1,024 (`620.05 → 95.20 µs`). One indexed annotation scan replaces a scan per function; the focused duplicate/argument test and 207 existing Local CSE tests pass.
