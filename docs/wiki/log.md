@@ -24223,3 +24223,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — Compiler-fact value lookup
 
 - The [compiler.facts v1 page](binary/compiler-facts-v1.md#september-24-2026-value-fact-lookup-measurement) records native white-box query timing for 2,048 dense facts (`4.49 ms → 76.15 µs`) and 4,096 (`17.63 ms → 173.54 µs`). A per-index hash lookup replaces linear body-site scans; the duplicate/ownership test and 35 existing tests pass. Index construction and full-pass impact remain unmeasured.
+
+### 2026-09-24 — CodeFolding label-map lookup
+
+- The [CodeFolding page](binaryen/passes/code-folding/index.md#september-24-2026-label-map-measurement) records native white-box timing for 1,024 distinct label pairs (`239.29 → 38.21 µs`) and 2,048 (`926.41 → 74.15 µs`). Two integer indexes replace growing-array searches; a bijection test and 204 existing pass tests pass. Full-pass impact remains unmeasured.

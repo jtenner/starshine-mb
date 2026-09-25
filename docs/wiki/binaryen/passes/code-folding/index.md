@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-09-03
+last_reviewed: 2026-09-24
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodeFolding.cpp
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/code_folding.mbt
+  - ../../../../../src/passes/code_folding_label_map_perf_wbtest.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
@@ -22,6 +24,10 @@ related:
 # `code-folding`
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 24, 2026 label-map measurement
+
+The equivalent-branch comparison map now indexes both left and right label IDs while retaining ordered arrays for pair relationships. Previously every new label pair linearly searched both growing arrays. The [native white-box benchmark](../../../../../src/passes/code_folding_label_map_perf_wbtest.mbt) inserts distinct pairs into a fresh map: 1,024 pairs fell from `239.29` to `38.21 µs` (6.26×), and 2,048 from `926.41` to `74.15 µs` (12.49×). A bijection/repeated-pair test and 204 existing CodeFolding tests pass. These helper timings do not establish a full-pass or Binaryen comparison gain.
 
 ## Role
 

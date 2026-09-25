@@ -72,6 +72,8 @@ priv struct CodeFoldingTerminatingTail {
 priv struct CodeFoldingLabelMap {
   left_labels : Array[Int]
   right_labels : Array[Int]
+  left_indices : @hashmap.HashMap[Int, Int]
+  right_indices : @hashmap.HashMap[Int, Int]
 }
 
 ///|
@@ -132,7 +134,12 @@ fn CodeFoldingTerminatingFacts::next_mark_epoch(
 
 ///|
 fn code_folding_label_map_new() -> CodeFoldingLabelMap {
-  { left_labels: [], right_labels: [], }
+  {
+    left_labels: [],
+    right_labels: [],
+    left_indices: @hashmap.new(),
+    right_indices: @hashmap.new(),
+  }
 }
 
 ///|
@@ -1053,12 +1060,10 @@ fn code_folding_label_map_lookup_left(
   label_map : CodeFoldingLabelMap,
   left_label : Int,
 ) -> Int {
-  for idx = 0; idx < label_map.left_labels.length(); idx = idx + 1 {
-    if label_map.left_labels[idx] == left_label {
-      return idx
-    }
+  match label_map.left_indices.get(left_label) {
+    Some(idx) => idx
+    None => -1
   }
-  -1
 }
 
 ///|
@@ -1066,12 +1071,10 @@ fn code_folding_label_map_lookup_right(
   label_map : CodeFoldingLabelMap,
   right_label : Int,
 ) -> Int {
-  for idx = 0; idx < label_map.right_labels.length(); idx = idx + 1 {
-    if label_map.right_labels[idx] == right_label {
-      return idx
-    }
+  match label_map.right_indices.get(right_label) {
+    Some(idx) => idx
+    None => -1
   }
-  -1
 }
 
 ///|
@@ -1088,8 +1091,11 @@ fn code_folding_label_map_add(
   if left_idx >= 0 || right_idx >= 0 {
     return left_idx == right_idx && left_idx >= 0
   }
+  let idx = label_map.left_labels.length()
   label_map.left_labels.push(left_label)
   label_map.right_labels.push(right_label)
+  label_map.left_indices.set(left_label, idx)
+  label_map.right_indices.set(right_label, idx)
   true
 }
 
