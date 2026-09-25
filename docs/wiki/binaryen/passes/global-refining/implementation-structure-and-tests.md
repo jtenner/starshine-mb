@@ -160,6 +160,10 @@ A separate native CLI fixture with 1,000 branching nominal types and 500 mutable
 
 `gr_rewrite_ref_null_set_instrs` now copies an instruction array only when it first rewrites a `ref.null` producer or a structured child. Recursive calls with no rewrite return their existing arrays. The native-release helper benchmark in `src/passes/global_refining_lazy_copy_perf_wbtest.mbt` measured **2.41 → 0.679 µs** for 512 numeric instruction pairs and **4.83 → 1.34 µs** for 1,024 pairs. The focused GlobalRefining tests pass. These fixtures isolate unchanged-code traversal and allocation; full-pass impact and GC bytes remain unmeasured.
 
+## 2026-09-25 unrefined global-write guard
+
+The null-producer walk now runs only when the destination global has a refined reference type. Previously a numeric or otherwise unrefined `global.set` searched backward for a null producer before the pass checked that refinement was absent. A [native-release helper benchmark](../../../../../src/passes/global_refining_unrefined_write_perf_wbtest.mbt) with 32 no-ops between each value and write measured **17.35 → 2.98 µs** for 128 writes and **35.59 → 5.86 µs** for 256. The 22 focused GlobalRefining tests pass. This isolates the mixed-module rewrite helper; full-pass impact remains unmeasured.
+
 ## Sources
 
 - [research note 0208](./index.md)

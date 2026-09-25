@@ -956,19 +956,21 @@ fn gr_rewrite_ref_null_set_instrs(
       @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
         let slot = global_idx.reinterpret_as_int()
         if idx > 0 && slot >= 0 && slot < refined_globals.length() {
-          match
-            (
-              gr_null_write_producer(next, idx, mod_, func_type_indices),
-              refined_globals[slot],
-            ) {
-            (Some(producer), Some(refined_ref_type)) => {
-              if !changed {
-                next = instrs.copy()
+          match refined_globals[slot] {
+            Some(refined_ref_type) =>
+              match gr_null_write_producer(next, idx, mod_, func_type_indices) {
+                Some(producer) => {
+                  if !changed {
+                    next = instrs.copy()
+                  }
+                  next[producer] = @lib.Instruction::ref_null_type(
+                    refined_ref_type,
+                  )
+                  changed = true
+                }
+                None => ()
               }
-              next[producer] = @lib.Instruction::ref_null_type(refined_ref_type)
-              changed = true
-            }
-            _ => ()
+            None => ()
           }
         }
       }

@@ -24403,3 +24403,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Inlining top-level dead-suffix query
 
 - The [Inlining strategy page](binaryen/passes/inlining/starshine-strategy.md#september-25-2026-top-level-marked-dead-suffix-query) records native helper timing from `21.33 µs → 171.24 ns` for 128 marked targets and `83.38 µs → 329.25 ns` for 256. One top-level suffix walk replaces a body rescan per marked function; full-pass impact remains unmeasured.
+
+### 2026-09-25 — GlobalRefining unrefined-write guard
+
+- The [GlobalRefining implementation page](binaryen/passes/global-refining/implementation-structure-and-tests.md#2026-09-25-unrefined-global-write-guard) records native helper timing from `17.35 → 2.98 µs` for 128 numeric writes and `35.59 → 5.86 µs` for 256. The pass now checks for an actual refined type before searching backward for a null producer; full-pass impact remains unmeasured.
