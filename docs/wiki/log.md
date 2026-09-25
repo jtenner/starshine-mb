@@ -24355,3 +24355,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — OptimizeCasts retarget child walk
 
 - The [OptimizeCasts strategy page](binaryen/passes/optimize-casts/starshine-strategy.md#september-25-2026-retarget-child-walk-measurement) records native no-match traversal timing from `18.07 → 10.46 µs` at 256 select nodes and `36.22 → 21.12 µs` at 512. Direct child-slot iteration removes one temporary array per visited node; a positive rewrite test passes. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — Local CSE local invalidation compaction
+
+- The [Local CSE strategy page](binaryen/passes/local-cse/starshine-strategy.md#september-25-2026-local-invalidation-compaction) records native retained-filter timing from `57.99 → 39.81 µs` for 64 writes and `232.59 → 159.02 µs` for 256. The local-write filter compacts active IDs in place and preserves order and duplicates; full-pass impact remains unmeasured.

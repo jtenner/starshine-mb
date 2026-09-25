@@ -1968,17 +1968,18 @@ fn lcse_raw_filter_active_without_local(
   active : Array[Int],
   local_idx : Int,
 ) -> Unit {
-  let keep : Array[Int] = []
-  for expr_id in active {
+  let mut kept = 0
+  for read_idx = 0; read_idx < active.length(); read_idx = read_idx + 1 {
+    let expr_id = active[read_idx]
     if expr_id >= 0 &&
       expr_id < exprs.length() &&
       !lcse_raw_expr_reads_local(exprs[expr_id], local_idx) {
-      keep.push(expr_id)
+      active[kept] = expr_id
+      kept += 1
     }
   }
-  active.clear()
-  for expr_id in keep {
-    active.push(expr_id)
+  while active.length() > kept {
+    ignore(active.pop())
   }
 }
 

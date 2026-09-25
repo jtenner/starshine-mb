@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md
@@ -40,6 +40,10 @@ related:
 ---
 
 # Starshine Strategy For `local-cse`
+
+## September 25, 2026 local invalidation compaction
+
+The raw active-expression filter for a local write now compacts survivors in place, preserving their order and duplicates while removing the temporary survivor array and second copy pass. The [native white-box benchmark](../../../../../src/passes/local_cse_filter_wbtest.mbt) repeats invalidation of an unrelated local with 256 retained expressions: 64 writes improved from `57.99` to `39.81 µs`, and 256 writes from `232.59` to `159.02 µs`. The existing mixed, all-retained, all-removed, and invalid-ID filter test passes. Other invalidation filters still use temporary arrays; full-pass impact remains unmeasured.
 
 Use this page together with the retained tagged `version_129` source URLs in [research note 0453](./index.md), the 2026-05-06 line-anchor refresh in [research note 0495](./index.md), the 2026-06-04 audit note in [research note 0710](./index.md), the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the concrete neighboring implementation areas future preset-slot work will need.

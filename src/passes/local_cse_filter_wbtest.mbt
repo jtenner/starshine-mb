@@ -86,3 +86,32 @@ test "review2 local-cse stable filters preserve duplicate survivor order" {
   lcse_raw_remove_active_expr(active, 0)
   assert_true(active.is_empty())
 }
+
+///|
+fn lcse_local_filter_perf_bench(it : @bench.T, writes : Int) -> Unit {
+  let exprs = Array::makei(256, fn(_) { LcseRawExpr::review2_fixture(0) })
+  let active : Array[Int] = []
+  for idx in 0..<256 {
+    active.push(idx)
+  }
+  lcse_raw_filter_active_without_local(exprs, active, 1)
+  if active.length() != 256 {
+    abort("Local CSE filter benchmark lost surviving expressions")
+  }
+  it.bench(fn() {
+    for _ in 0..<writes {
+      lcse_raw_filter_active_without_local(exprs, active, 1)
+    }
+    it.keep(active.length())
+  })
+}
+
+///|
+test "bench Local CSE retained filter writes=64" (it : @bench.T) {
+  lcse_local_filter_perf_bench(it, 64)
+}
+
+///|
+test "bench Local CSE retained filter writes=256" (it : @bench.T) {
+  lcse_local_filter_perf_bench(it, 256)
+}
