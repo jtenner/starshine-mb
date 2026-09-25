@@ -24498,3 +24498,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — ConstraintAnalysis loop-plan visitation scratch
 
 - The [ConstraintAnalysis page](binaryen/passes/constraint-analysis/index.md#september-25-2026-loop-plan-visitation-scratch) records native `ca_loop_plan` timing for valid sibling parameterized loops: 32 loops `15.07 → 13.01 µs`, 64 loops `35.81 → 29.29 µs`. Reused generation marks and a work array remove one full node-sized allocation per loop. All 34 existing ConstraintAnalysis tests pass; full-pass impact remains unmeasured.
+
+### 2026-09-25 — DFE unchanged fixed-point groups
+
+- The [DFE strategy page](binaryen/passes/duplicate-function-elimination/starshine-strategy.md#september-25-2026-unchanged-fixed-point-groups) records paired native direct-elimination timing with 128 unrelated import wrappers in a separate shape group: depth-16 chains `250.80 → 73.32 µs`, depth-32 chains `538.32 → 184.18 µs`. DFE skips groups whose surviving bodies cannot reference any changed function target. A mixed affected group showed no reliable gain, so the speedup is scoped to separate unchanged groups. One new chain regression, 35 existing DFE tests, and four white-box tests pass.

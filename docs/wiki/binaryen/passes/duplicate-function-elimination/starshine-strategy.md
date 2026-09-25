@@ -11,6 +11,7 @@ sources:
   - ../../../../../src/passes/duplicate_function_elimination_test.mbt
   - ../../../../../src/passes/duplicate_function_elimination_wbtest.mbt
   - ../../../../../src/passes/duplicate_function_type_prune_perf_wbtest.mbt
+  - ../../../../../src/passes/duplicate_function_fixed_point_perf_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - https://webassembly.github.io/spec/js-api/#exported-functions
   - https://webassembly.github.io/spec/js-api/#dom-table-get
@@ -42,6 +43,12 @@ Simple-type pruning now marks signatures referenced by defined and imported tags
 ## September 25, 2026 unused-signature bulk probe
 
 When two or more signatures remain unmarked after direct function, import, and tag references, simple-type pruning now probes them together in one full-module scan. If that scan finds any reference, the existing per-signature probes still identify exactly which types are live; recursive type dependencies retain their existing closure. On a validated fixture with one 1,024-instruction body and 64 or 128 distinct unused signatures, the [native white-box benchmark](../../../../../src/passes/duplicate_function_type_prune_perf_wbtest.mbt) improved **428.03 → 14.57 µs** (29.4×) and **868.04 → 19.13 µs** (45.4×). The one-unused controls stayed near baseline, and a block-only type-reference regression exercises the positive fallback. These are helper timings; full-pass and Binaryen-v132 parity impact remain unmeasured.
+
+## September 25, 2026 unchanged fixed-point groups
+
+After a DFE merge round, a hash group whose surviving functions refer only to targets below the first replaced function index cannot gain a new duplicate: its normalized bodies were already compared in the previous round. DFE now skips rebuilding and rechecking those groups until a referenced target can change. Groups containing dependent callers still run through the existing exact comparison and identity checks.
+
+The [native direct-elimination benchmark](../../../../../src/passes/duplicate_function_fixed_point_perf_wbtest.mbt) uses two dependent call chains and 128 distinct import wrappers in a separate unchanged shape group. With 16 chain levels, mean time fell from **250.80 → 73.32 µs** (3.42×); with 32 levels, from **538.32 → 184.18 µs** (2.92×). An initial fixture placed wrappers in the same affected shape group and showed no reliable speedup, which bounds the result. The new four-level regression, 35 existing DFE tests, and four white-box tests pass. These are synthetic direct-helper timings; full-pipeline impact remains unmeasured.
 
 ## First correction
 

@@ -4385,11 +4385,35 @@ fn dfe_eliminate_duplicate_functions(
       let mut comparison_count = 0
       let mut replacement_count = 0
       while true {
+        let mut first_replaced_abs = -1
+        for local_idx = 0
+            local_idx < replacements.length()
+            local_idx = local_idx + 1 {
+          if replacements[local_idx] >= 0 {
+            first_replaced_abs = imported_count + local_idx
+            break
+          }
+        }
         let canonical_abs = dfe_canonical_abs_remap(
           replacements, imported_count,
         )
         let mut round_changed = false
         for group in hash_groups {
+          if first_replaced_abs >= 0 {
+            let mut may_change = false
+            for local_idx in group {
+              if replacements[local_idx] < 0 &&
+                max_func_target_by_local[local_idx] >= first_replaced_abs {
+                may_change = true
+                break
+              }
+            }
+            // Unchanged function bodies were already compared in the prior
+            // round; they cannot form a new duplicate until a call target moves.
+            if !may_change {
+              continue
+            }
+          }
           let live_indices : Array[Int] = []
           let live_funcs : Array[@lib.Func] = []
           for local_idx in group {
