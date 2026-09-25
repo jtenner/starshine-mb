@@ -24219,3 +24219,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — Compiler-fact opcode-site lookup
 
 - The [compiler.facts v1 page](binary/compiler-facts-v1.md#september-24-2026-opcode-site-lookup-measurement) records native white-box timing for 2,048 site resolutions (`969.52 → 75.98 µs`) and 4,096 (`3.77 ms → 168.76 µs`). Lower-bound search replaces a linear scan over encoder-ordered offsets; one duplicate/stale test and 34 existing tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-24 — Compiler-fact value lookup
+
+- The [compiler.facts v1 page](binary/compiler-facts-v1.md#september-24-2026-value-fact-lookup-measurement) records native white-box query timing for 2,048 dense facts (`4.49 ms → 76.15 µs`) and 4,096 (`17.63 ms → 173.54 µs`). A per-index hash lookup replaces linear body-site scans; the duplicate/ownership test and 35 existing tests pass. Index construction and full-pass impact remain unmeasured.

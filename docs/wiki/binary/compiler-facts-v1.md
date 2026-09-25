@@ -11,6 +11,7 @@ sources:
   - ../../../src/passes/apply_compiler_facts.mbt
   - ../../../src/passes/compiler_fact_query.mbt
   - ../../../src/passes/compiler_fact_site_lookup_perf_wbtest.mbt
+  - ../../../src/passes/compiler_fact_value_lookup_perf_wbtest.mbt
   - ../../../src/passes/directize.mbt
   - ../../../src/passes/optimize.mbt
   - ../../../src/passes/pass_manager.mbt
@@ -28,6 +29,10 @@ related:
 ## September 24, 2026 opcode-site lookup measurement
 
 The query path now uses lower-bound binary search over canonical opcode sites, which the production encoder emits in increasing byte-offset order. Lower bound retains first-match behavior if a supplied site list repeats an offset. The [native white-box benchmark](../../../src/passes/compiler_fact_site_lookup_perf_wbtest.mbt) resolves every site in a prebuilt sorted list: 2,048 lookups fell from `969.52` to `75.98 µs` (12.76×), and 4,096 from `3.77 ms` to `168.76 µs` (22.34×). The duplicate/stale-site regression and 34 existing apply-compiler-facts tests pass. This measures site resolution only; dense body-fact lookup and full-pass timing remain separate opportunities.
+
+## September 24, 2026 value-fact lookup measurement
+
+`CompilerFactIndex` now builds a hash lookup for value facts after selecting the effective body facts for each function. It preserves the last body entry for a duplicate function index, the first fact for a duplicate value site within that body, and body ownership checks. The [native white-box benchmark](../../../src/passes/compiler_fact_value_lookup_perf_wbtest.mbt) times queries after index construction: 2,048 lookups fell from `4.49 ms` to `76.15 µs` (59.0×), and 4,096 from `17.63 ms` to `173.54 µs` (101.6×). One duplicate/ownership regression, 34 main tests, and one additional compiler-fact test pass. Index construction and full-pass time are outside this measurement; the index adds memory proportional to the number of selected value facts.
 
 ## Status
 

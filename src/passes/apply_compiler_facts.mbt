@@ -132,11 +132,40 @@ pub struct CompilerFactIndex {
   facts : @representation.OptimizationFactsSec
   functions : Array[@representation.FunctionFacts?]
   bodies : Array[@representation.FunctionBodyFacts?]
+  values : @hashmap.HashMap[
+    @representation.ValueSite,
+    @representation.ValueFacts,
+  ]
   signatures : Array[@representation.SignatureFacts?]
   types : Array[@representation.TypeFacts?]
   globals : Array[@representation.GlobalFacts?]
   tables : Array[@representation.TableFacts?]
 } derive(Debug)
+
+///|
+fn compiler_fact_index_value_map(
+  bodies : Array[@representation.FunctionBodyFacts?],
+) -> @hashmap.HashMap[@representation.ValueSite, @representation.ValueFacts] {
+  let values : @hashmap.HashMap[
+    @representation.ValueSite,
+    @representation.ValueFacts,
+  ] = @hashmap.new()
+  for function_idx = 0
+      function_idx < bodies.length()
+      function_idx = function_idx + 1 {
+    match bodies[function_idx] {
+      Some(body) =>
+        for entry in body.sites {
+          if entry.value.site.function.reinterpret_as_int() == function_idx &&
+            values.get(entry.value) is None {
+            values.set(entry.value, entry.facts)
+          }
+        }
+      None => ()
+    }
+  }
+  values
+}
 
 ///|
 pub fn CompilerFactIndex::new(
@@ -204,7 +233,16 @@ pub fn CompilerFactIndex::new(
   for value in facts.tables {
     tables[value.table.reinterpret_as_int()] = Some(value)
   }
-  { facts, functions, bodies, signatures, types, globals, tables, }
+  {
+    facts,
+    functions,
+    values: compiler_fact_index_value_map(bodies),
+    bodies,
+    signatures,
+    types,
+    globals,
+    tables,
+  }
 }
 
 ///|
@@ -259,7 +297,16 @@ fn compiler_fact_index_bounded(
     }
   }
 
-  { facts, functions, bodies, signatures, types, globals, tables, }
+  {
+    facts,
+    functions,
+    values: compiler_fact_index_value_map(bodies),
+    bodies,
+    signatures,
+    types,
+    globals,
+    tables,
+  }
 }
 
 ///|
@@ -345,16 +392,7 @@ pub fn CompilerFactIndex::value_facts(
   self : CompilerFactIndex,
   site : @representation.ValueSite,
 ) -> @representation.ValueFacts? {
-  match self.bodies.get(site.site.function.reinterpret_as_int()) {
-    Some(Some(body)) =>
-      for value in body.sites {
-        if value.value == site {
-          return Some(value.facts)
-        }
-      }
-    _ => ()
-  }
-  None
+  self.values.get(site)
 }
 
 ///|
