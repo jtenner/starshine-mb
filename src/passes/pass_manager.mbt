@@ -77762,11 +77762,15 @@ fn run_hot_pipeline_optimize_instructions_cleanup_tuple_wrappers(
   func : @lib.Func,
   original : @lib.Func?,
   mod_ : @lib.Module,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> (@lib.Func, Bool) {
   match original {
     Some(@lib.Func(_, @lib.Expr(body))) if run_hot_pipeline_raw_tuple_has_multivalue_producer(
         body,
-        @ir.hot_module_context_from_module(mod_),
+        match module_ctx {
+          Some(ctx) => ctx
+          None => @ir.hot_module_context_from_module(mod_)
+        },
       ) => pass_lower_cleanup_branchless_blocks(func, mod_)
     _ => (func, false)
   }
@@ -79188,6 +79192,9 @@ fn run_hot_pipeline_func(
         result.func,
         Some(run_hot_pipeline_original_func(mod_, func_idx)),
         mod_,
+        module_ctx=Some(
+          run_hot_pipeline_require_module_ctx(mod_, module_state, options),
+        ),
       )
       return Ok({
         reason: result.reason,
