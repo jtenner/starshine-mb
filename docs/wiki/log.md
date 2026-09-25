@@ -24199,3 +24199,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — TupleOptimization alias-chain resolution
 
 - The [TupleOptimization page](binaryen/passes/tuple-optimization/index.md#september-24-2026-alias-chain-measurement) records native white-box resolver timing at 128 alias hops (`8.55 → 1.61 µs`) and 256 (`17.01 → 3.35 µs`). Iterative accumulation removes a new prefix-array allocation at every hop; one order test and 61 existing white-box tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-24 — TupleOptimization passthrough-chain resolution
+
+- The [TupleOptimization page](binaryen/passes/tuple-optimization/index.md#september-24-2026-passthrough-chain-measurement) records native white-box helper timing at 128 local tees (`6.20 → 1.18 µs`) and 256 (`13.05 → 2.22 µs`). One mutable chain array replaces repeated growing-array copies. A chain-order test and 61 existing white-box tests pass; full-pass impact remains unmeasured.

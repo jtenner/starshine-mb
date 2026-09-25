@@ -3647,54 +3647,40 @@ fn tuple_optimization_pick_root_anchor_slot(
 }
 
 ///|
-fn tuple_optimization_find_passthrough_root_chain_step(
-  func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
-  current : Int,
-  chain : Array[Int],
-) -> Array[Int]? {
-  let sites = @ir.node_use_sites_borrowed(use_def, current)
-  if sites.length() != 1 {
-    return None
-  }
-  let site = sites[0]
-  match site.kind {
-    @ir.HotUseSlotKind::RootUseSlot => Some(chain)
-    @ir.HotUseSlotKind::ChildUseSlot => {
-      if site.slot != 0 {
-        return None
-      }
-      let user = @ir.hot_node_get(func, site.user)
-      match user.op {
-        @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
-          if @ir.hot_child_count(func, site.user) != 1 {
-            return None
-          }
-          tuple_optimization_find_passthrough_root_chain_step(
-            func,
-            use_def,
-            site.user,
-            chain + [site.user],
-          )
-        }
-        _ => None
-      }
-    }
-  }
-}
-
-///|
 fn tuple_optimization_find_passthrough_root_chain(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
   target_id : Int,
 ) -> Array[Int]? {
-  tuple_optimization_find_passthrough_root_chain_step(
-    func,
-    use_def,
-    target_id,
-    [],
-  )
+  let chain : Array[Int] = []
+  let mut current = target_id
+  while true {
+    let sites = @ir.node_use_sites_borrowed(use_def, current)
+    if sites.length() != 1 {
+      return None
+    }
+    let site = sites[0]
+    match site.kind {
+      @ir.HotUseSlotKind::RootUseSlot => return Some(chain)
+      @ir.HotUseSlotKind::ChildUseSlot => {
+        if site.slot != 0 {
+          return None
+        }
+        let user = @ir.hot_node_get(func, site.user)
+        match user.op {
+          @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+            if @ir.hot_child_count(func, site.user) != 1 {
+              return None
+            }
+            chain.push(site.user)
+            current = site.user
+          }
+          _ => return None
+        }
+      }
+    }
+  }
+  None
 }
 
 ///|
