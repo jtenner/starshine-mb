@@ -94,3 +94,13 @@ test "bench Vacuum dropped local run count=128" (it : @bench.T) {
 test "bench Vacuum dropped local run count=256" (it : @bench.T) {
   vacuum_dropped_local_run_perf_bench(it, 256)
 }
+
+///|
+test "bench Vacuum dropped local run count=512" (it : @bench.T) {
+  vacuum_dropped_local_run_perf_bench(it, 512)
+}
+
+///|
+test "bench Vacuum dropped local run count=1024" (it : @bench.T) {
+  vacuum_dropped_local_run_perf_bench(it, 1024)
+}

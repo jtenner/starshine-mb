@@ -24514,3 +24514,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Vacuum branchy dropped-local runs
 
 - The [Vacuum strategy page](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-25-2026-branchy-dropped-local-runs) records native HOT-lift-plus-cleanup timing for 128 dropped reads at `200.12 → 116.02 µs` and 256 at `560.44 → 227.04 µs`. Consecutive dropped reads are spliced once and, for runs longer than four, disposed with exact batch deletion. Other deletion patterns and full-pass impact remain unmeasured.
+
+### 2026-09-25 — Vacuum whole-region replacement for long drop runs
+
+- The [Vacuum strategy page](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-25-2026-branchy-dropped-local-runs) records paired native HOT-lift-plus-cleanup timing after replacing one long run through a single region-body update: 256 dropped reads `218.38 → 202.61 µs`, 512 `457.55 → 406.68 µs`, and 1,024 `1.03 ms → 787.98 µs`. The 128-read case remained near 110 µs; full-pass impact remains unmeasured.

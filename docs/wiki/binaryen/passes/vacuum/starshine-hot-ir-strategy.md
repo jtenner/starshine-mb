@@ -399,3 +399,9 @@ HOT lifting, a branchy local write, and an observable global write measured
 128 dropped reads at `200.12 → 116.02 µs` and 256 at `560.44 → 227.04 µs`.
 The fixture lives in `src/passes/vacuum_dropped_local_run_perf_wbtest.mbt`.
 Other deletion patterns and full-pass timing remain unmeasured.
+
+The region-splice API still shifts the suffix once per removed root. For runs
+longer than four, the fallback now replaces the region body once before the
+same exact batch deletion. Paired native benchmark means including HOT lifting
+are `218.38 → 202.61 µs` at 256 reads, `457.55 → 406.68 µs` at 512, and
+`1.03 ms → 787.98 µs` at 1,024. The 128-read case stayed near 110 µs.

@@ -2140,14 +2140,25 @@ fn hot_pass_vacuum_remove_dropped_local_gets_in_region(
         }
         run_end += 1
       }
-      let removed = pass_splice_region(
-        ctx,
-        func,
-        region_ref,
-        idx,
-        run_end - idx,
-        [],
-      )
+      let removed = if run_end - idx > 4 {
+        let removed : Array[@ir.NodeId] = []
+        let kept : Array[@ir.NodeId] = []
+        for slot = 0
+            slot < @ir.hot_region_root_count(func, region_ref)
+            slot = slot + 1 {
+          let root_id = @ir.hot_region_get(func, region_ref, slot)
+          if slot >= idx && slot < run_end {
+            removed.push(root_id)
+          } else {
+            kept.push(root_id)
+          }
+        }
+        @ir.hot_region_replace_body(func, region_ref, kept)
+        pass_mark_mutated(ctx, func)
+        removed
+      } else {
+        pass_splice_region(ctx, func, region_ref, idx, run_end - idx, [])
+      }
       if removed.length() > 4 {
         vacuum_delete_known_detached_non_control_nodes_batch(ctx, func, removed)
       } else {
