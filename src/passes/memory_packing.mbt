@@ -540,7 +540,7 @@ fn mp_trampled_overlap_range(
 }
 
 ///|
-fn mp_zero_out_trampled_data(datas : Array[@lib.Data]) -> Unit {
+fn mp_zero_out_trampled_data_pairwise(datas : Array[@lib.Data]) -> Unit {
   for earlier_idx = datas.length() - 1
       earlier_idx >= 0
       earlier_idx = earlier_idx - 1 {
@@ -603,6 +603,149 @@ fn mp_zero_out_trampled_data(datas : Array[@lib.Data]) -> Unit {
         None => original
       },
     )
+  }
+}
+
+///|
+fn mp_span_reaches(span : MpSpan, start : UInt64) -> Bool {
+  span.end_at_limit || span.end_ >= start
+}
+
+///|
+fn mp_span_merge(lhs : MpSpan, rhs : MpSpan) -> MpSpan {
+  let start = if lhs.start < rhs.start { lhs.start } else { rhs.start }
+  if lhs.end_at_limit || rhs.end_at_limit {
+    MpSpan::new(start, 0UL, true)
+  } else {
+    MpSpan::new(
+      start,
+      if lhs.end_ > rhs.end_ {
+        lhs.end_
+      } else {
+        rhs.end_
+      },
+      false,
+    )
+  }
+}
+
+///|
+fn mp_span_union_insert(covered : Array[MpSpan], span : MpSpan) -> Unit {
+  let mut low = 0
+  let mut high = covered.length()
+  while low < high {
+    let mid = low + (high - low) / 2
+    if covered[mid].start < span.start {
+      low = mid + 1
+    } else {
+      high = mid
+    }
+  }
+  let mut at = low
+  let mut merged = span
+  if at > 0 && mp_span_reaches(covered[at - 1], merged.start) {
+    at -= 1
+    merged = mp_span_merge(covered[at], merged)
+    ignore(covered.remove(at))
+  }
+  while at < covered.length() && mp_span_reaches(merged, covered[at].start) {
+    merged = mp_span_merge(merged, covered[at])
+    ignore(covered.remove(at))
+  }
+  covered.insert(at, merged)
+}
+
+///|
+fn mp_zero_out_trampled_data(datas : Array[@lib.Data]) -> Unit {
+  if datas.length() < 8 {
+    mp_zero_out_trampled_data_pairwise(datas)
+    return
+  }
+  let spans : Array[MpSpan?] = []
+  for data in datas {
+    match data {
+      @lib.Data(@lib.Active(@lib.MemIdx(0U), expr), bytes) =>
+        match mp_parse_base_offset(expr) {
+          Some(base) => {
+            let span = mp_active_span(mp_base_offset_u64(base), bytes.length())
+            if span is None && !bytes.is_empty() {
+              mp_zero_out_trampled_data_pairwise(datas)
+              return
+            }
+            spans.push(span)
+          }
+          None => spans.push(None)
+        }
+      _ => spans.push(None)
+    }
+  }
+  let covered : Array[MpSpan] = []
+  for earlier_idx = datas.length() - 1
+      earlier_idx >= 0
+      earlier_idx = earlier_idx - 1 {
+    let span = match spans[earlier_idx] {
+      Some(span) => span
+      None => continue
+    }
+    let (mode, original) = match datas[earlier_idx] {
+      @lib.Data(mode, bytes) => (mode, bytes)
+    }
+    let mut low = 0
+    let mut high = covered.length()
+    while low < high {
+      let mid = low + (high - low) / 2
+      if !covered[mid].end_at_limit && covered[mid].end_ <= span.start {
+        low = mid + 1
+      } else {
+        high = mid
+      }
+    }
+    let mut at = low
+    let mut rewritten : Array[Byte]? = None
+    let original_size = original.length().reinterpret_as_uint().to_uint64()
+    while at < covered.length() {
+      let overlap = covered[at]
+      let first = if overlap.start > span.start {
+        overlap.start - span.start
+      } else {
+        0UL
+      }
+      if first >= original_size {
+        break
+      }
+      let last = if overlap.end_at_limit {
+        original_size
+      } else {
+        let delta = overlap.end_ - span.start
+        if delta < original_size {
+          delta
+        } else {
+          original_size
+        }
+      }
+      if first < last {
+        let bytes = match rewritten {
+          Some(bytes) => bytes
+          None => {
+            let bytes = original.to_array()
+            rewritten = Some(bytes)
+            bytes
+          }
+        }
+        for idx = first.to_int(); idx < last.to_int(); idx = idx + 1 {
+          bytes[idx] = (0).to_byte()
+        }
+      }
+      at += 1
+    }
+    datas[earlier_idx] = @lib.Data::new(
+      mode,
+      match rewritten {
+        Some(bytes) => Bytes::from_array(bytes)
+        None => original
+      },
+    )
+    mp_span_union_insert(covered, span)
   }
 }
 

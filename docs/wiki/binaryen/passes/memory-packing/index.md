@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-24
+last_reviewed: 2026-09-25
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/commit/db30c15
@@ -30,6 +30,12 @@ related:
 # `memory-packing`
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 25, 2026 partial-overlap interval union
+
+The overlap rewrite now keeps a sorted union of later active-segment spans while walking segments backward. Each earlier payload is copied at most once and zeroed once per covered byte, including when many later segments overlap the same partial range. The pass still uses the pairwise path for fewer than eight segments; invalid spans retain the old fallback. The [white-box parity tests](../../../../../src/passes/memory_packing_overlap_union_wbtest.mbt) compare both paths on mixed partial overlaps and a memory64 limit case.
+
+The [native direct-pass staircase benchmark](../../../../../src/passes_perf_long/memory_packing_staircase_overlap_perf_test.mbt) uses 4,096-byte active segments at offsets `0..N-1`, with validation outside the timed loop. At 16 segments, mean time fell from `206.88` to `74.69 µs` (2.77×); at 32, from `749.63` to `148.10 µs` (5.06×). The existing full-cover control measures `73.58 µs` at 16 and `145.97 µs` at 32 after this change. These are synthetic Starshine pass-local timings, not Binaryen comparison evidence.
 
 ## September 24, 2026 full-cover overlap measurement
 

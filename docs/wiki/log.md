@@ -24474,3 +24474,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — GlobalRefining unrefined-write guard
 
 - The [GlobalRefining implementation page](binaryen/passes/global-refining/implementation-structure-and-tests.md#2026-09-25-unrefined-global-write-guard) records native helper timing from `17.35 → 2.98 µs` for 128 numeric writes and `35.59 → 5.86 µs` for 256. The pass now checks for an actual refined type before searching backward for a null producer; full-pass impact remains unmeasured.
+
+### 2026-09-25 — MemoryPacking partial-overlap interval union
+
+- The [MemoryPacking page](binaryen/passes/memory-packing/index.md#september-25-2026-partial-overlap-interval-union) records native direct-pass staircase timing at 4,096 bytes per segment: 16 segments `206.88 → 74.69 µs` and 32 segments `749.63 → 148.10 µs`. A sorted suffix union removes repeated partial-overlap pair scans and byte zeroing. Two white-box parity cases and 48 existing MemoryPacking tests pass; the full-cover control remains fast.
