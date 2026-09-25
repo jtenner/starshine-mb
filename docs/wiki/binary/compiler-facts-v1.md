@@ -1,7 +1,7 @@
 ---
 kind: specification
 status: supported
-last_reviewed: 2026-09-12
+last_reviewed: 2026-09-24
 sources:
   - ../../../src/representation/compiler_facts.mbt
   - ../../../src/binary/compiler_facts_encode.mbt
@@ -9,6 +9,8 @@ sources:
   - ../../../src/binary/compiler_fact_sites.mbt
   - ../../../src/validate/compiler_facts.mbt
   - ../../../src/passes/apply_compiler_facts.mbt
+  - ../../../src/passes/compiler_fact_query.mbt
+  - ../../../src/passes/compiler_fact_site_lookup_perf_wbtest.mbt
   - ../../../src/passes/directize.mbt
   - ../../../src/passes/optimize.mbt
   - ../../../src/passes/pass_manager.mbt
@@ -22,6 +24,10 @@ related:
 ---
 
 # `compiler.facts` Version 1
+
+## September 24, 2026 opcode-site lookup measurement
+
+The query path now uses lower-bound binary search over canonical opcode sites, which the production encoder emits in increasing byte-offset order. Lower bound retains first-match behavior if a supplied site list repeats an offset. The [native white-box benchmark](../../../src/passes/compiler_fact_site_lookup_perf_wbtest.mbt) resolves every site in a prebuilt sorted list: 2,048 lookups fell from `969.52` to `75.98 µs` (12.76×), and 4,096 from `3.77 ms` to `168.76 µs` (22.34×). The duplicate/stale-site regression and 34 existing apply-compiler-facts tests pass. This measures site resolution only; dense body-fact lookup and full-pass timing remain separate opportunities.
 
 ## Status
 

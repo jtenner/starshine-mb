@@ -346,14 +346,26 @@ fn CompilerFactQuery::site_resolves(
     self.stats.stale_or_unresolved_sites += 1
     return false
   }
-  for candidate in self.sites[defined] {
-    if candidate.0 == site.offset {
-      if candidate.1 == instruction {
-        return true
-      }
-      self.stats.stale_or_unresolved_sites += 1
-      return false
+  let candidates = self.sites[defined]
+  // The production encoder emits opcode sites in increasing byte-offset order.
+  // Lower bound keeps the old first-match behavior if an invalid input repeats
+  // an offset.
+  let mut lo = 0
+  let mut hi = candidates.length()
+  while lo < hi {
+    let mid = lo + (hi - lo) / 2
+    if candidates[mid].0 < site.offset {
+      lo = mid + 1
+    } else {
+      hi = mid
     }
+  }
+  if lo < candidates.length() && candidates[lo].0 == site.offset {
+    if candidates[lo].1 == instruction {
+      return true
+    }
+    self.stats.stale_or_unresolved_sites += 1
+    return false
   }
   self.stats.stale_or_unresolved_sites += 1
   false

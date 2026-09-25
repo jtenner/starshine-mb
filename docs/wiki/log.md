@@ -24215,3 +24215,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — NoInline wildcard matching
 
 - The [NoInline policy page](binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md#september-24-2026-wildcard-matching-measurement) records native white-box timings for alternating wildcard patterns: size 256 `220.74 → 198.69 µs`, and size 512 `879.08 → 795.16 µs`. Two reusable DP rows replace a full matrix; the direct edge-case test and 144 inlining tests pass. Peak memory and full-pass impact remain unmeasured.
+
+### 2026-09-24 — Compiler-fact opcode-site lookup
+
+- The [compiler.facts v1 page](binary/compiler-facts-v1.md#september-24-2026-opcode-site-lookup-measurement) records native white-box timing for 2,048 site resolutions (`969.52 → 75.98 µs`) and 4,096 (`3.77 ms → 168.76 µs`). Lower-bound search replaces a linear scan over encoder-ordered offsets; one duplicate/stale test and 34 existing tests pass. Full-pass impact remains unmeasured.
