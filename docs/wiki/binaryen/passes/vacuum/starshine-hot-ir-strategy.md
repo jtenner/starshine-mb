@@ -372,3 +372,13 @@ Release SHA-256: `de9733f09782aae699f1f1d77b1119ddb07fc5a5f34a959a2376070d74b828
 Required generated-pass renewal remains pending. Evidence is in Dewdrop's
 `.tmp/starshine-pass-repairs/vacuum-release-fixtures.json`,
 `vacuum-wave17-native-isolated.json`, and `full-replay-regression-wave17/report.json`.
+
+## September 25, 2026: rejected result-If sink guard
+
+`hot_pass_vacuum_sink_drop_into_unreachable_if_arm` now checks both arms for
+the required unreachable/concrete shape before scanning all nodes for uses of
+the If label. The scan still runs before any mutation when the shape matches.
+The native helper benchmark in
+`src/passes/vacuum_label_guard_perf_wbtest.mbt` measured 128 rejected Ifs at
+`564.26 → 22.56 µs` and 256 at `2.17 ms → 48.90 µs`. The 143 tests in
+`optimize_test.mbt` pass. Full-pass impact remains unmeasured.

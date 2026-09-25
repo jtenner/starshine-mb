@@ -24502,3 +24502,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — DFE unchanged fixed-point groups
 
 - The [DFE strategy page](binaryen/passes/duplicate-function-elimination/starshine-strategy.md#september-25-2026-unchanged-fixed-point-groups) records paired native direct-elimination timing with 128 unrelated import wrappers in a separate shape group: depth-16 chains `250.80 → 73.32 µs`, depth-32 chains `538.32 → 184.18 µs`. DFE skips groups whose surviving bodies cannot reference any changed function target. A mixed affected group showed no reliable gain, so the speedup is scoped to separate unchanged groups. One new chain regression, 35 existing DFE tests, and four white-box tests pass.
+
+### 2026-09-25 — Vacuum rejected result-If sink guard
+
+- The [Vacuum strategy page](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-25-2026-rejected-result-if-sink-guard) records native helper timing for 128 rejected result Ifs at `564.26 → 22.56 µs` and 256 at `2.17 ms → 48.90 µs`. Shape checks precede the whole-function label-use scan, while matching candidates still check label uses before mutation. All 143 `optimize_test.mbt` tests pass; full-pass impact remains unmeasured.

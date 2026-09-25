@@ -1827,8 +1827,7 @@ fn hot_pass_vacuum_sink_drop_into_unreachable_if_arm(
   if_id : @ir.NodeId,
 ) -> Bool {
   if !(@ir.hot_node_get(func, if_id).op is @ir.HotOp::If) ||
-    @ir.hot_type_result_arity(func, @ir.hot_node_type(func, if_id)) != 1 ||
-    hot_pass_vacuum_label_is_used(func, @ir.hot_control_node_label(func, if_id)) {
+    @ir.hot_type_result_arity(func, @ir.hot_node_type(func, if_id)) != 1 {
     return false
   }
   let else_ref = match @ir.hot_region_else_ref(func, if_id) {
@@ -1853,7 +1852,8 @@ fn hot_pass_vacuum_sink_drop_into_unreachable_if_arm(
     return false
   }
   let concrete_root = @ir.hot_region_get(func, concrete_ref, 0)
-  if @ir.hot_node_result_arity(func, concrete_root) != 1 {
+  if @ir.hot_node_result_arity(func, concrete_root) != 1 ||
+    hot_pass_vacuum_label_is_used(func, @ir.hot_control_node_label(func, if_id)) {
     return false
   }
   @ir.hot_region_replace_body(func, concrete_ref, [
