@@ -1,3 +1,13 @@
+### 2026-09-25 — Heap2Local default eligibility without discarded nodes
+
+- Replaced struct and array default-value eligibility probes with a pure type
+  predicate. A red test showed an eight-field struct query growing the HOT
+  arena from 2 to 10 nodes; struct and array queries now leave it unchanged.
+  The native-release helper benchmark improved from 16.95 to 5.04 µs at 16
+  fields and from 53.23 to 6.34 µs at 64. Two new and 33 existing Heap2Local
+  tests pass. The known mixed-provenance primary-suite failure remains at
+  21/22; full-pass impact is unmeasured. See [Heap2Local strategy](binaryen/passes/heap2local/starshine-hot-ir-strategy.md#september-25-2026-default-value-eligibility-probes).
+
 ### 2026-09-25 — SGO imported-alias candidate list
 
 - Indexed mutable imported-global slots once per runtime-trace rewrite and

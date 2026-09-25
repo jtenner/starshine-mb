@@ -9,6 +9,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/heap2local_test.mbt
   - ../../../../../src/passes/heap2local_primary_test.mbt
+  - ../../../../../src/passes/heap2local_default_probe_perf_wbtest.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -24,6 +25,10 @@ related:
 ---
 
 # Current Starshine `heap2local` strategy
+
+## September 25, 2026: default-value eligibility probes
+
+Struct and array eligibility checks now inspect field types without building and discarding HOT default-value nodes. Actual transforms still build their required defaults. A red white-box test showed that one eight-field struct eligibility query grew the node arena from 2 to 10 nodes; after the change, both struct and array queries leave the arena unchanged. The native-release helper benchmark, which includes HOT lifting and 16 eligibility queries per iteration, fell from **16.95 to 5.04 µs** with 16 fields (70.3%) and from **53.23 to 6.34 µs** with 64 fields (88.1%). The two new tests and 33 existing Heap2Local behavior tests pass. The primary suite retains its previously recorded mixed-provenance failure at 21/22; full-pass throughput and allocated bytes remain unmeasured.
 
 ## September 25, 2026: detached-node cleanup
 

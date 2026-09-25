@@ -137,6 +137,19 @@ fn h2l_build_default_value(func : @ir.HotFunc, vt : @lib.ValType) -> Int? {
 }
 
 ///|
+fn h2l_default_value_supported(vt : @lib.ValType) -> Bool {
+  match vt {
+    @lib.NumTypeValType(@lib.I32NumType)
+    | @lib.NumTypeValType(@lib.I64NumType)
+    | @lib.NumTypeValType(@lib.F32NumType)
+    | @lib.NumTypeValType(@lib.F64NumType)
+    | @lib.VecTypeValType => true
+    @lib.RefTypeValType(ref_type) => ref_type.is_nullable()
+    @lib.BotValType => false
+  }
+}
+
+///|
 fn h2l_immediate_branch_block_value(func : @ir.HotFunc, node_id : Int) -> Int? {
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block => ()
@@ -200,12 +213,7 @@ fn h2l_supported_struct_new_fields(
       match @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
         Some(fields) => {
           for field in fields {
-            let defaultable = match
-              h2l_build_default_value(func, field.unpack()) {
-              Some(_) => true
-              None => false
-            }
-            if !defaultable {
+            if !h2l_default_value_supported(field.unpack()) {
               return None
             }
           }
@@ -1181,9 +1189,10 @@ fn h2l_supported_array_init(
               h2l_i32_const_value(func, @ir.hot_child_get(func, node_id, 0)) {
               Some(length) =>
                 if length >= 0 && length < 20 {
-                  match h2l_build_default_value(func, field.unpack()) {
-                    Some(_) => Some((type_idx, field, length))
-                    None => None
+                  if h2l_default_value_supported(field.unpack()) {
+                    Some((type_idx, field, length))
+                  } else {
+                    None
                   }
                 } else {
                   None
