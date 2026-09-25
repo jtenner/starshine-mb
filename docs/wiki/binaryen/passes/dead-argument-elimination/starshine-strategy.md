@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -25,6 +25,10 @@ related:
 ---
 
 # Starshine `dead-argument-elimination` strategy and status
+
+## September 25, 2026 nested unread-copy propagation
+
+The unread-local cleanup graph now collects adjacent `local.get`/`local.set` dependencies separately inside each structured body and If arm, including legacy Try catches. It propagates dead targets through the shared graph before cleanup rounds, so sibling nested copy chains no longer require one whole-function round per link. The [native direct-helper benchmark](../../../../../src/passes/dae_unread_copy_chain_perf_wbtest.mbt) improved from `1.56 ms` to `37.79 µs` at 128 nested links and from `6.24 ms` to `74.62 µs` at 256. Flat-chain controls stayed near `9.24 µs` at 128 and `18 µs` at 256. Live-terminal and separate-If-arm tests preserve dependency boundaries. These synthetic helper timings do not measure full-pass impact.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

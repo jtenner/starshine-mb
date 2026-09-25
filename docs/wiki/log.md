@@ -24339,3 +24339,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Inlining dead-suffix call scans
 
 - The [Inlining strategy page](binaryen/passes/inlining/starshine-strategy.md#september-25-2026-dead-suffix-call-scan) records native helper timing from `14.60 µs → 183 ns` at 128 absent calls/marks and `57.21 µs → 354 ns` at 256. A separate absent self-call query improved from `1.83 µs → 21.14 ns` at index 2048 and `3.55 µs → 21.50 ns` at 4096. The shared recursive scan eliminates suffix copies, per-mark rescans, and the self-call Boolean array; full-pass impact remains unmeasured.
+
+### 2026-09-25 — DAE nested unread-copy propagation
+
+- The [DAE strategy page](binaryen/passes/dead-argument-elimination/starshine-strategy.md#september-25-2026-nested-unread-copy-propagation) records native cleanup-helper timing from `1.56 ms → 37.79 µs` at 128 nested links and `6.24 ms → 74.62 µs` at 256. Nested copy dependencies now enter one shared graph while adjacency stays inside each body or arm. Flat-chain timing stayed near baseline; full-pass impact remains unmeasured.

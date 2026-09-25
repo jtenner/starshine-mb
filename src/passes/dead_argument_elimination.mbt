@@ -49802,29 +49802,64 @@ fn dae_cleanup_unread_local_body(
 }
 
 ///|
-fn dae_propagate_unread_simple_copies(
-  body : Array[@lib.Instruction],
+fn dae_collect_unread_simple_copy_pairs(
+  instrs : Array[@lib.Instruction],
   reads : Array[Int],
+  pairs : Array[(Int, Int)],
 ) -> Unit {
-  let pairs : Array[(Int, Int)] = []
-  for idx = 1; idx < body.length(); idx = idx + 1 {
-    match (body[idx - 1], body[idx]) {
-      (
-        @lib.LocalGet(@lib.LocalIdx(source)),
-        @lib.LocalSet(@lib.LocalIdx(target)),
-      ) => {
-        let source_idx = source.reinterpret_as_int()
-        let target_idx = target.reinterpret_as_int()
-        if source_idx >= 0 &&
-          source_idx < reads.length() &&
-          target_idx >= 0 &&
-          target_idx < reads.length() {
-          pairs.push((source_idx, target_idx))
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if idx > 0 {
+      match (instrs[idx - 1], instrs[idx]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(source)),
+          @lib.LocalSet(@lib.LocalIdx(target)),
+        ) => {
+          let source_idx = source.reinterpret_as_int()
+          let target_idx = target.reinterpret_as_int()
+          if source_idx >= 0 &&
+            source_idx < reads.length() &&
+            target_idx >= 0 &&
+            target_idx < reads.length() {
+            pairs.push((source_idx, target_idx))
+          }
+        }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae_collect_unread_simple_copy_pairs(body, reads, pairs)
+      @lib.If(_, then_body, else_body) => {
+        dae_collect_unread_simple_copy_pairs(then_body, reads, pairs)
+        match else_body {
+          Some(body) => dae_collect_unread_simple_copy_pairs(body, reads, pairs)
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        dae_collect_unread_simple_copy_pairs(body, reads, pairs)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              dae_collect_unread_simple_copy_pairs(catch_body, reads, pairs)
+          }
         }
       }
       _ => ()
     }
   }
+}
+
+///|
+fn dae_propagate_unread_simple_copies(
+  body : Array[@lib.Instruction],
+  reads : Array[Int],
+) -> Unit {
+  let pairs : Array[(Int, Int)] = []
+  dae_collect_unread_simple_copy_pairs(body, reads, pairs)
   if pairs.is_empty() {
     return
   }
