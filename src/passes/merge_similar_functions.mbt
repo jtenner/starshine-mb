@@ -137,19 +137,22 @@ fn msf_call_type_cached(
 }
 
 ///|
-fn msf_analyze_legacy_catches(catches : Array[@lib.LegacyCatch]) -> (Int, Int) {
+fn msf_analyze_legacy_catches(
+  catches : Array[@lib.LegacyCatch],
+  call_types : Array[@lib.TypeIdx?],
+) -> (Int, Int) {
   let mut key = catches.length().hash()
   let mut count = 0
   for catch_ in catches {
     key *= 31
     match catch_ {
       @lib.LegacyCatch(tag, @lib.Expr(body)) => {
-        let (body_hash, body_count) = msf_analyze_instrs(body)
+        let (body_hash, body_count) = msf_analyze_instrs(body, call_types)
         key += (1 * 31 + tag.hash()) * 31 + body_hash
         count += body_count
       }
       @lib.LegacyCatchAll(@lib.Expr(body)) => {
-        let (body_hash, body_count) = msf_analyze_instrs(body)
+        let (body_hash, body_count) = msf_analyze_instrs(body, call_types)
         key += 2 * 31 + body_hash
         count += body_count
       }
@@ -159,30 +162,45 @@ fn msf_analyze_legacy_catches(catches : Array[@lib.LegacyCatch]) -> (Int, Int) {
 }
 
 ///|
-fn msf_analyze_instr(instr : @lib.Instruction) -> (Int, Int) {
+fn msf_analyze_instr(
+  instr : @lib.Instruction,
+  call_types : Array[@lib.TypeIdx?],
+) -> (Int, Int) {
   match instr {
     @lib.I32Const(_) => (1009, 1)
     @lib.I64Const(_) => (1013, 1)
     @lib.F32Const(_) => (1019, 1)
     @lib.F64Const(_) => (1021, 1)
     @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => (1031, 1)
-    @lib.Call(_) => (1033, 1)
-    @lib.ReturnCall(_) => (1039, 1)
+    @lib.Call(target) => {
+      let target_type_hash = match msf_call_type_cached(call_types, target) {
+        Some(type_idx) => type_idx.hash()
+        None => target.hash()
+      }
+      (1033 * 31 + target_type_hash, 1)
+    }
+    @lib.ReturnCall(target) => {
+      let target_type_hash = match msf_call_type_cached(call_types, target) {
+        Some(type_idx) => type_idx.hash()
+        None => target.hash()
+      }
+      (1039 * 31 + target_type_hash, 1)
+    }
     @lib.Block(block_type, @lib.Expr(body)) => {
-      let (body_hash, body_count) = msf_analyze_instrs(body)
+      let (body_hash, body_count) = msf_analyze_instrs(body, call_types)
       ((1049 * 31 + block_type.hash()) * 31 + body_hash, 1 + body_count)
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
-      let (body_hash, body_count) = msf_analyze_instrs(body)
+      let (body_hash, body_count) = msf_analyze_instrs(body, call_types)
       ((1051 * 31 + block_type.hash()) * 31 + body_hash, 1 + body_count)
     }
     @lib.If(block_type, then_body, else_body) => {
-      let (then_hash, then_count) = msf_analyze_instrs(then_body)
+      let (then_hash, then_count) = msf_analyze_instrs(then_body, call_types)
       let mut key = (1061 * 31 + block_type.hash()) * 31 + then_hash
       let mut count = 1 + then_count
       match else_body {
         Some(body) => {
-          let (body_hash, body_count) = msf_analyze_instrs(body)
+          let (body_hash, body_count) = msf_analyze_instrs(body, call_types)
           key = key * 31 + body_hash
           count += body_count
         }
@@ -191,8 +209,10 @@ fn msf_analyze_instr(instr : @lib.Instruction) -> (Int, Int) {
       (key, count)
     }
     @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
-      let (body_hash, body_count) = msf_analyze_instrs(body)
-      let (catches_hash, catches_count) = msf_analyze_legacy_catches(catches)
+      let (body_hash, body_count) = msf_analyze_instrs(body, call_types)
+      let (catches_hash, catches_count) = msf_analyze_legacy_catches(
+        catches, call_types,
+      )
       (
         (
           ((1063 * 31 + block_type.hash()) * 31 + delegate.hash()) * 31 +
@@ -204,7 +224,7 @@ fn msf_analyze_instr(instr : @lib.Instruction) -> (Int, Int) {
       )
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-      let (body_hash, body_count) = msf_analyze_instrs(body)
+      let (body_hash, body_count) = msf_analyze_instrs(body, call_types)
       (
         ((1069 * 31 + block_type.hash()) * 31 + catches.hash()) * 31 + body_hash,
         1 + body_count,
@@ -215,11 +235,14 @@ fn msf_analyze_instr(instr : @lib.Instruction) -> (Int, Int) {
 }
 
 ///|
-fn msf_analyze_instrs(instrs : Array[@lib.Instruction]) -> (Int, Int) {
+fn msf_analyze_instrs(
+  instrs : Array[@lib.Instruction],
+  call_types : Array[@lib.TypeIdx?],
+) -> (Int, Int) {
   let mut key = instrs.length().hash()
   let mut count = 0
   for instr in instrs {
-    let (instr_hash, instr_count) = msf_analyze_instr(instr)
+    let (instr_hash, instr_count) = msf_analyze_instr(instr, call_types)
     key = key * 31 + instr_hash
     count += instr_count
   }
@@ -277,13 +300,14 @@ fn msf_build_function_summaries(
   type_idxs : Array[@lib.TypeIdx],
   funcs : Array[@lib.Func],
   signatures : Array[@lib.FuncType?],
+  call_types : Array[@lib.TypeIdx?],
 ) -> Array[MsfFunctionSummary] {
   let summaries : Array[MsfFunctionSummary] = []
   for idx = 0; idx < funcs.length(); idx = idx + 1 {
     let type_idx = type_idxs[idx]
     let signature = msf_cached_signature(signatures, type_idx)
     let @lib.Func(locals, @lib.Expr(body)) = funcs[idx]
-    let (body_hash, instruction_count) = msf_analyze_instrs(body)
+    let (body_hash, instruction_count) = msf_analyze_instrs(body, call_types)
     let type_hash = match signature {
       Some(func_type) => func_type.hash()
       None => type_idx.hash()
@@ -1223,7 +1247,9 @@ fn msf_run_module_pass_with_perf(
   )
   let call_types = msf_build_call_type_cache(mod_)
   let signatures = msf_build_type_signature_cache(mod_)
-  let summaries = msf_build_function_summaries(type_idxs, funcs, signatures)
+  let summaries = msf_build_function_summaries(
+    type_idxs, funcs, signatures, call_types,
+  )
   perf_stop_timer_opt(perf, "detail:msf:build-analysis", analysis_start_us)
   let classes_start_us = perf_start_timer_opt(
     perf, "detail:msf:collect-classes",

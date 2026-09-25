@@ -24307,3 +24307,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — TupleOptimization neighbor append
 
 - The [TupleOptimization HOT strategy page](binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md#september-25-2026-copy-neighbor-append-measurement) records native helper timing for 1,024 ascending neighbors (`229.72 → 1.92 µs`) and 2,048 (`912.78 → 3.63 µs`). Strictly increasing neighbors now append directly, preserving order and duplicate handling; one new and 61 existing tests pass. Out-of-order insertion and full-pass impact remain unmeasured.
+
+### 2026-09-25 — MergeSimilar call-type shape buckets
+
+- The [MergeSimilar strategy page](binaryen/passes/merge-similar-functions/starshine-strategy.md#september-25-2026-call-type-shape-collision-measurement) records native class-collection timing for 128 incompatible call-type wrappers (`191.41 → 1.94 µs`) and 256 (`767.40 → 3.91 µs`). Call type IDs now enter the shape hash while same-type targets remain mergeable; one new and 24 existing tests pass. Full-pass impact remains unmeasured.

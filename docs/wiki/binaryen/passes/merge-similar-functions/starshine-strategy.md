@@ -22,6 +22,10 @@ related:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
+## September 25, 2026 call-type shape-collision measurement
+
+The shape hash now includes the cached target type index for direct and return calls, matching the existing equivalence rule that permits different call targets only when those type indices match. Distinct target types no longer enter one pairwise class-comparison bucket. In the [native white-box benchmark](../../../../../src/passes/merge_similar_functions_shape_collision_perf_wbtest.mbt), 128 same-shaped wrappers calling imports with distinct type IDs improved from `191.41` to `1.94 µs` (98.7×), and 256 improved from `767.40` to `3.91 µs` (196.3×). A same-type-target regression and 24 existing MergeSimilar tests pass. These are class-collection timings; full-pass impact remains unmeasured.
+
 ## Current status
 
 Starshine now implements `merge-similar-functions` as an active whole-module pass.

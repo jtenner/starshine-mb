@@ -36,6 +36,7 @@ test "merge-similar-functions fused summaries cache body and call facts" {
     [type_idx],
     [func],
     msf_build_type_signature_cache(mod_),
+    call_types,
   )
   let summary = summaries[0]
   @debug.assert_eq(summary.instruction_count, 6)
