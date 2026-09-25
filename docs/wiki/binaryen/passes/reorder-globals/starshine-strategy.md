@@ -43,6 +43,12 @@ related:
 Use this page together with the retained current-main freshness research recheck in [research note 0689](./index.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that now own the direct pass, and the concrete neighboring implementation areas around the accepted public late-tail suffix and any broader widening beyond it.
 
+## Repeated extended-const dependencies (September 25, 2026)
+
+The dependency graph now uses one reusable seen array while collecting each defined global's initializer reads. It clears only the indices encountered in that initializer, preserving first-encounter order and deduplicating graph edges without a linear `deps.contains` search for every `global.get`. A focused graph test checks order and duplicate suppression and validates a module with repeated imported-global reads before and after the pass.
+
+The native-release, full-pass benchmark in `src/passes_perf_long/reorder_globals_dependency_dedup_perf_test.mbt` uses a defined extended-const initializer that reads each immutable imported global twice. At 256 imports the mean fell from **71.49 µs to 37.63 µs** (47.4%); at 512 imports it fell from **207.78 µs to 83.79 µs** (59.7%). These are synthetic pass-local results; production-artifact throughput was not measured. The focused new test and existing 12 ReorderGlobals tests pass.
+
 ## The honest current status
 
 `reorder-globals` now has an active direct Starshine module-pass port in `src/passes/reorder_globals.mbt`.

@@ -163,11 +163,13 @@ fn rg_count_global_traffic(
 ///|
 fn rg_note_global_dep(
   deps : Array[Int],
+  seen : Array[Bool],
   idx : @lib.GlobalIdx,
   total : Int,
 ) -> Unit {
   let raw = rg_global_idx_raw(idx)
-  if raw >= 0 && raw < total && !deps.contains(raw) {
+  if raw >= 0 && raw < total && !seen[raw] {
+    seen[raw] = true
     deps.push(raw)
   }
 }
@@ -177,9 +179,10 @@ fn rg_collect_expr_global_deps(
   expr : @lib.Expr,
   total_globals : Int,
   deps : Array[Int],
+  seen : Array[Bool],
 ) -> Unit {
   let @lib.Expr(instrs) = expr
-  rg_collect_instrs_global_deps(instrs, total_globals, deps)
+  rg_collect_instrs_global_deps(instrs, total_globals, deps, seen)
 }
 
 ///|
@@ -187,9 +190,10 @@ fn rg_collect_instrs_global_deps(
   instrs : Array[@lib.Instruction],
   total_globals : Int,
   deps : Array[Int],
+  seen : Array[Bool],
 ) -> Unit {
   for instr in instrs {
-    rg_collect_instruction_global_deps(instr, total_globals, deps)
+    rg_collect_instruction_global_deps(instr, total_globals, deps, seen)
   }
 }
 
@@ -198,30 +202,33 @@ fn rg_collect_instruction_global_deps(
   instr : @lib.Instruction,
   total_globals : Int,
   deps : Array[Int],
+  seen : Array[Bool],
 ) -> Unit {
   match instr {
     @lib.Block(_, body) =>
-      rg_collect_expr_global_deps(body, total_globals, deps)
-    @lib.Loop(_, body) => rg_collect_expr_global_deps(body, total_globals, deps)
+      rg_collect_expr_global_deps(body, total_globals, deps, seen)
+    @lib.Loop(_, body) =>
+      rg_collect_expr_global_deps(body, total_globals, deps, seen)
     @lib.If(_, then_body, else_body) => {
-      rg_collect_instrs_global_deps(then_body, total_globals, deps)
+      rg_collect_instrs_global_deps(then_body, total_globals, deps, seen)
       match else_body {
-        Some(body) => rg_collect_instrs_global_deps(body, total_globals, deps)
+        Some(body) =>
+          rg_collect_instrs_global_deps(body, total_globals, deps, seen)
         None => ()
       }
     }
     @lib.Try(_, body, catches, _) => {
-      rg_collect_expr_global_deps(body, total_globals, deps)
+      rg_collect_expr_global_deps(body, total_globals, deps, seen)
       for catch_ in catches {
         match catch_ {
           @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
-            rg_collect_expr_global_deps(catch_body, total_globals, deps)
+            rg_collect_expr_global_deps(catch_body, total_globals, deps, seen)
         }
       }
     }
     @lib.TryTable(_, _, body) =>
-      rg_collect_expr_global_deps(body, total_globals, deps)
-    @lib.GlobalGet(idx) => rg_note_global_dep(deps, idx, total_globals)
+      rg_collect_expr_global_deps(body, total_globals, deps, seen)
+    @lib.GlobalGet(idx) => rg_note_global_dep(deps, seen, idx, total_globals)
     _ => ()
   }
 }
@@ -237,14 +244,16 @@ fn rg_build_dependency_graph(
     ignore(idx)
     graph.push([])
   }
+  let seen = Array::make(total_globals, false)
   for defined_idx = 0
       defined_idx < globals.length()
       defined_idx = defined_idx + 1 {
     let @lib.Global(_, init) = globals[defined_idx]
     let dependent = imported_globals + defined_idx
     let dependencies : Array[Int] = []
-    rg_collect_expr_global_deps(init, total_globals, dependencies)
+    rg_collect_expr_global_deps(init, total_globals, dependencies, seen)
     for dependency in dependencies {
+      seen[dependency] = false
       if dependency != dependent {
         graph[dependency].push(dependent)
       }

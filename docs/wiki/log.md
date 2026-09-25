@@ -1,3 +1,13 @@
+### 2026-09-25 — ReorderGlobals dependency deduplication
+
+- Replaced per-read linear dependency lookup with a reusable seen array while
+  retaining first-encounter order and clearing only touched entries between
+  initializers. The native-release full-pass repeated extended-const benchmark
+  improved from 71.49 to 37.63 µs at 256 imported globals and from 207.78 to
+  83.79 µs at 512. A focused graph and module-validation test passes, along
+  with 12 existing ReorderGlobals tests; production throughput remains unmeasured.
+  See [ReorderGlobals strategy](binaryen/passes/reorder-globals/starshine-strategy.md#repeated-extended-const-dependencies-september-25-2026).
+
 ### 2026-09-23 — Binaryen 133 post-commit optimizer fuzz
 
 - The v133 focused corpus was green and committed as `00ba1836a` before
