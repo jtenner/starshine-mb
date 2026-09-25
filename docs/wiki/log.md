@@ -24522,3 +24522,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — DCE label-owned detached candidates
 
 - The [DCE HOT strategy page](binaryen/passes/dead-code-elimination/starshine-hot-ir-strategy.md#september-25-2026-label-owned-detached-deletion-candidates) records native helper timing for 16 label-owned candidates with 512 live nodes at `64.85 → 19.29 µs` and 1,024 at `123.26 → 36.42 µs`. The deletion helper avoids full scans when all candidates retain owned labels and preserves mixed-batch reference checks. Ordinary deletion controls remained stable; full-pass impact remains unmeasured.
+
+### 2026-09-25 — Inlining dead-suffix target index
+
+- The [Inlining strategy page](binaryen/passes/inlining/starshine-strategy.md#september-25-2026-dead-suffix-target-collection) records paired native helper timing for 128 distinct dead-suffix targets at `4.04 → 2.63 µs` and 256 at `15.89 → 5.24 µs`. Lookup switches to a hash index after eight distinct targets; one-target controls remained stable at 128 calls `181.31 → 180.76 ns` and 256 `316.45 → 311.61 ns`. Full-pass impact remains unmeasured.

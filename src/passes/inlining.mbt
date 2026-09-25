@@ -7772,6 +7772,7 @@ fn inl_collect_dead_suffix_targets(func : @lib.Func) -> InlDeadSuffixTargets {
   let @lib.Func(_, @lib.Expr(body)) = func
   let targets : Array[Int] = []
   let counts : Array[Int] = []
+  let mut positions : @hashmap.HashMap[Int, Int]? = None
   let mut seen_unreachable = false
   let mut total_count = 0
   for instr in body {
@@ -7783,19 +7784,39 @@ fn inl_collect_dead_suffix_targets(func : @lib.Func) -> InlDeadSuffixTargets {
         if seen_unreachable {
           total_count += 1
           let target = inl_func_idx_slot(func_idx)
-          let mut found = false
-          let mut idx = 0
-          while idx < targets.length() {
-            if targets[idx] == target {
-              counts[idx] = counts[idx] + 1
-              found = true
-              break
-            }
-            idx += 1
+          if targets.length() == 1 && targets[0] == target {
+            counts[0] = counts[0] + 1
+            continue
           }
-          if !found {
-            targets.push(target)
-            counts.push(1)
+          match positions {
+            Some(by_target) =>
+              match by_target.get(target) {
+                Some(idx) => counts[idx] = counts[idx] + 1
+                None => {
+                  by_target.set(target, targets.length())
+                  targets.push(target)
+                  counts.push(1)
+                }
+              }
+            None => {
+              let mut idx = 0
+              while idx < targets.length() && targets[idx] != target {
+                idx += 1
+              }
+              if idx < targets.length() {
+                counts[idx] = counts[idx] + 1
+              } else {
+                targets.push(target)
+                counts.push(1)
+                if targets.length() == 8 {
+                  let by_target : @hashmap.HashMap[Int, Int] = @hashmap.new()
+                  for slot = 0; slot < targets.length(); slot = slot + 1 {
+                    by_target.set(targets[slot], slot)
+                  }
+                  positions = Some(by_target)
+                }
+              }
+            }
           }
         }
       _ => ()

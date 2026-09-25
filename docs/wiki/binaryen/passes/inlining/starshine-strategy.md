@@ -142,3 +142,14 @@ These do not reopen direct inlining:
 Focused tests are `120/120`; white-box tests are `14/14`; full `moon test` is `9452/9452`. Plain and optimizing official-v131 GenValid closeout are each `10000/10000` normalized matches with no failures.
 
 Reopen direct behavior only for a minimized semantic or validation failure, a source-backed missing v131 transform family, a proven size-losing Starshine divergence, or a pass-local performance regression. Shared nested-scheduler abstraction work remains tracked separately under `[O4Z-NESTED]001`.
+
+## September 25, 2026: dead-suffix target collection
+
+`inl_collect_dead_suffix_targets` retains first-seen target order and counts,
+but promotes its linear target search to an integer hash index after eight
+distinct targets. One-target suffixes stay on the direct array path to avoid
+the allocation and lookup cost seen in an eager-map trial. The native helper
+benchmark in `src/passes/inlining_dead_suffix_targets_perf_wbtest.mbt` measured
+128 distinct targets at `4.04 → 2.63 µs` and 256 at `15.89 → 5.24 µs`.
+Repeated one-target controls were stable at `181.31 → 180.76 ns` for 128 calls
+and `316.45 → 311.61 ns` for 256. Full-pass impact remains unmeasured.
