@@ -7,6 +7,8 @@ sources:
   - ../../../../../src/passes/simplify_globals_optimizing.mbt
   - ../../../../../src/passes/simplify_globals_optimizing_test.mbt
   - ../../../../../src/passes_perf_long/sgo_runtime_fact_copy_perf_test.mbt
+  - ../../../../../src/passes/sgo_import_alias_scan_wbtest.mbt
+  - ../../../../../src/passes_perf_long/sgo_import_alias_scan_perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/fuzz_harness_wbtest.mbt
@@ -42,6 +44,10 @@ The runtime-trace rewrite now returns whether the original subtree contained a b
 ## September 25, 2026 runtime-fact copy measurement
 
 The runtime trace now passes the same fact array into plain blocks and then arms. The existing barrier clears still invalidate it after uncertain control flow, and the block's writes are already available to its parent. This removes two array copies per plain block and one per then arm, plus the copy-back loop. The native-release full-pass fixture in `src/passes_perf_long/sgo_runtime_fact_copy_perf_test.mbt` uses exported mutable globals and repeated runtime blocks. At 256 globals and 256 blocks, its mean fell from **3.45 ms to 3.29 ms** (4.6%); at 512 of each, from **10.02 ms to 9.29 ms** (7.3%). All 336 existing SGO tests pass. These are synthetic full-pass timings; production-artifact throughput remains unmeasured.
+
+### Imported alias scan
+
+The imported-global write path now builds a list of mutable imported-global slots once per function and checks only that list for possible aliases. It retains the same type compatibility rule and still invalidates every possible host alias. The native-release full-pass fixture with 256 imported-global writes fell from **3.90 ms to 3.48 ms** with 512 defined globals (10.8%). The 256-defined-global case measured **3.41 ms to 3.27 ms**, with wider post-change variation; the larger case is the stronger evidence. A two-import alias test and all 336 existing SGO tests pass. This fixture is synthetic and does not establish production throughput.
 
 ## Honest current status
 

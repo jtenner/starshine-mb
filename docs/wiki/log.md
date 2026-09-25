@@ -1,3 +1,13 @@
+### 2026-09-25 — SGO imported-alias candidate list
+
+- Indexed mutable imported-global slots once per runtime-trace rewrite and
+  checked only those slots after imported writes, preserving type-compatible
+  host alias invalidation. The native-release full-pass fixture with 256 writes
+  and 512 defined globals improved from 3.90 to 3.48 ms; the 256-global case
+  measured 3.41 to 3.27 ms with higher post-change variance. A focused
+  two-import alias test and 336 existing SGO tests pass. See
+  [SGO strategy](binaryen/passes/simplify-globals-optimizing/starshine-strategy.md#imported-alias-scan).
+
 ### 2026-09-25 — SGO runtime-fact array reuse
 
 - Reused one fact array through plain blocks and then arms in SGO runtime

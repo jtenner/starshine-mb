@@ -6033,8 +6033,14 @@ fn sgo_rewrite_runtime_trace_expr(
   infos : Array[SgoGlobalInfo],
 ) -> (@lib.Expr, Bool) {
   let facts = sgo_empty_const_array(infos.length())
+  let mutable_imports : Array[Int] = []
+  for slot = 0; slot < infos.length(); slot = slot + 1 {
+    if infos[slot].imported && infos[slot].mutable_ {
+      mutable_imports.push(slot)
+    }
+  }
   let (rewritten, changed, _) = sgo_rewrite_runtime_trace_expr_with_facts(
-    expr, infos, facts,
+    expr, infos, facts, mutable_imports,
   )
   (rewritten, changed)
 }
@@ -9443,6 +9449,7 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
   expr : @lib.Expr,
   infos : Array[SgoGlobalInfo],
   facts : Array[@lib.Instruction?],
+  mutable_imports : Array[Int],
 ) -> (@lib.Expr, Bool, Bool) {
   let @lib.Expr(instrs) = expr
   let out : Array[@lib.Instruction] = []
@@ -9472,14 +9479,14 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
           // Distinct import indices can denote the same host mutable global.
           // A write invalidates facts for every type-compatible import alias.
           if infos[slot].imported {
-            for other = 0; other < infos.length(); other = other + 1 {
+            for other in mutable_imports {
               let may_alias = match
                 (infos[other].value_type, infos[slot].value_type) {
                 // Distinct defined-type indices may be structurally equal.
                 (@lib.RefTypeValType(_), @lib.RefTypeValType(_)) => true
                 (lhs, rhs) => lhs == rhs
               }
-              if infos[other].imported && infos[other].mutable_ && may_alias {
+              if may_alias {
                 facts[other] = None
               }
             }
@@ -9493,7 +9500,7 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
       }
       @lib.Block(block_type, body) => {
         let (next_body, body_changed, body_has_barrier) = sgo_rewrite_runtime_trace_expr_with_facts(
-          body, infos, facts,
+          body, infos, facts, mutable_imports,
         )
         has_barrier = has_barrier || body_has_barrier
         out.push(
@@ -9513,6 +9520,7 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
           @lib.Expr::new(then_body),
           infos,
           facts,
+          mutable_imports,
         )
         let @lib.Expr(next_then_body) = next_then
         out.push(
@@ -9531,6 +9539,7 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
           @lib.Expr::new(then_body),
           infos,
           facts,
+          mutable_imports,
         )
         let @lib.Expr(next_then_body) = next_then
         out.push(

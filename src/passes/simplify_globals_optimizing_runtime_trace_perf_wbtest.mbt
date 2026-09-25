@@ -36,6 +36,7 @@ test "SGO runtime trace carries nested block barriers" {
     no_barrier,
     [],
     [],
+    [],
   )
   assert_false(no_change)
   assert_false(has_barrier)
@@ -49,6 +50,7 @@ test "SGO runtime trace carries nested block barriers" {
     with_call,
     [],
     [],
+    [],
   )
   assert_true(has_barrier)
   let with_if = @lib.Expr::new([
@@ -56,6 +58,7 @@ test "SGO runtime trace carries nested block barriers" {
   ])
   let (_, _, has_barrier) = sgo_rewrite_runtime_trace_expr_with_facts(
     with_if,
+    [],
     [],
     [],
   )
