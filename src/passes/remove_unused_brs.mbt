@@ -4169,7 +4169,72 @@ fn remove_unused_brs_try_inline_single_br_if_block(
 }
 
 ///|
-fn remove_unused_brs_collect_simple_branches_to_label(
+priv enum RemoveUnusedBrsLargeSeen {
+  Dense(Array[Bool])
+  Sparse(@hashmap.HashMap[Int, Bool])
+}
+
+///|
+priv struct RemoveUnusedBrsSparseSeen {
+  node_count : Int
+  small : Array[Int]
+  mut large : RemoveUnusedBrsLargeSeen?
+}
+
+///|
+fn RemoveUnusedBrsSparseSeen::new(
+  node_count : Int,
+) -> RemoveUnusedBrsSparseSeen {
+  { node_count, small: [], large: None, }
+}
+
+///|
+fn RemoveUnusedBrsSparseSeen::mark_if_new(
+  seen : RemoveUnusedBrsSparseSeen,
+  node_id : Int,
+) -> Bool {
+  match seen.large {
+    Some(RemoveUnusedBrsLargeSeen::Dense(flags)) => {
+      if flags[node_id] {
+        return false
+      }
+      flags[node_id] = true
+      true
+    }
+    Some(RemoveUnusedBrsLargeSeen::Sparse(index)) => {
+      if index.get(node_id) is Some(_) {
+        return false
+      }
+      index[node_id] = true
+      true
+    }
+    None => {
+      if seen.small.contains(node_id) {
+        return false
+      }
+      seen.small.push(node_id)
+      if seen.small.length() == 16 {
+        if seen.node_count <= 16384 {
+          let flags = Array::make(seen.node_count, false)
+          for prior in seen.small {
+            flags[prior] = true
+          }
+          seen.large = Some(RemoveUnusedBrsLargeSeen::Dense(flags))
+        } else {
+          let index : @hashmap.HashMap[Int, Bool] = @hashmap.new()
+          for prior in seen.small {
+            index[prior] = true
+          }
+          seen.large = Some(RemoveUnusedBrsLargeSeen::Sparse(index))
+        }
+      }
+      true
+    }
+  }
+}
+
+///|
+fn remove_unused_brs_collect_simple_branches_to_label_dense(
   func : @ir.HotFunc,
   node_id : Int,
   target_label : Int,
@@ -4197,7 +4262,7 @@ fn remove_unused_brs_collect_simple_branches_to_label(
     if remove_unused_brs_is_region_child_slot(node.op, slot) {
       continue
     }
-    remove_unused_brs_collect_simple_branches_to_label(
+    remove_unused_brs_collect_simple_branches_to_label_dense(
       func,
       @ir.hot_child_get(func, node_id, slot),
       target_label,
@@ -4209,7 +4274,7 @@ fn remove_unused_brs_collect_simple_branches_to_label(
     for idx = 0
         idx < @ir.hot_region_root_count(func, region_ref)
         idx = idx + 1 {
-      remove_unused_brs_collect_simple_branches_to_label(
+      remove_unused_brs_collect_simple_branches_to_label_dense(
         func,
         @ir.hot_region_get(func, region_ref, idx),
         target_label,
@@ -4237,6 +4302,106 @@ fn remove_unused_brs_collect_simple_branches_to_label(
       @ir.HotControlRegionRole::CatchListRegion =>
         scan_region(@ir.hot_region_catch_list_ref(func, node_id))
     }
+  }
+}
+
+///|
+fn remove_unused_brs_collect_simple_branches_to_label_sparse(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target_label : Int,
+  seen : RemoveUnusedBrsSparseSeen,
+  out : Array[Int],
+) -> Unit {
+  if node_id < 0 || node_id >= @ir.hot_node_count(func) {
+    return
+  }
+  if !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  if !seen.mark_if_new(node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br => {
+      if node.imm0 == target_label && node.child_count == 0 {
+        out.push(node_id)
+      }
+      return
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if remove_unused_brs_is_region_child_slot(node.op, slot) {
+      continue
+    }
+    remove_unused_brs_collect_simple_branches_to_label_sparse(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      target_label,
+      seen,
+      out,
+    )
+  }
+  let scan_region = fn(region_ref : @ir.HotRegionRef) -> Unit {
+    for idx = 0
+        idx < @ir.hot_region_root_count(func, region_ref)
+        idx = idx + 1 {
+      remove_unused_brs_collect_simple_branches_to_label_sparse(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        target_label,
+        seen,
+        out,
+      )
+    }
+  }
+  for info in @ir.hot_control_region_slot_info(node.op) {
+    match info.role {
+      @ir.HotControlRegionRole::BodyRegion =>
+        scan_region(@ir.hot_region_body_ref(func, node_id))
+      @ir.HotControlRegionRole::ThenRegion =>
+        scan_region(@ir.hot_region_then_ref(func, node_id))
+      @ir.HotControlRegionRole::ElseRegion =>
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_ref) => scan_region(else_ref)
+          None => ()
+        }
+      @ir.HotControlRegionRole::CatchRegion =>
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_ref) => scan_region(catch_ref)
+          None => ()
+        }
+      @ir.HotControlRegionRole::CatchListRegion =>
+        scan_region(@ir.hot_region_catch_list_ref(func, node_id))
+    }
+  }
+}
+
+///|
+fn remove_unused_brs_collect_simple_branches_to_label(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target_label : Int,
+  out : Array[Int],
+) -> Unit {
+  let node_count = @ir.hot_node_count(func)
+  let broad_block = node_id >= 0 &&
+    node_id < node_count &&
+    @ir.hot_node_get(func, node_id).op is @ir.HotOp::Block &&
+    @ir.hot_region_root_count(func, @ir.hot_region_body_ref(func, node_id)) >=
+    16
+  if node_count <= 256 || broad_block {
+    let seen = Array::make(node_count, false)
+    remove_unused_brs_collect_simple_branches_to_label_dense(
+      func, node_id, target_label, seen, out,
+    )
+  } else {
+    let seen = RemoveUnusedBrsSparseSeen::new(node_count)
+    remove_unused_brs_collect_simple_branches_to_label_sparse(
+      func, node_id, target_label, seen, out,
+    )
   }
 }
 
@@ -4893,9 +5058,8 @@ fn remove_unused_brs_try_rewrite_branches_to_trap_block(
     return false
   }
   let targets : Array[Int] = []
-  let seen = Array::make(@ir.hot_node_count(func), false)
   remove_unused_brs_collect_simple_branches_to_label(
-    func, block_id, block_label, seen, targets,
+    func, block_id, block_label, targets,
   )
   if targets.is_empty() {
     return false

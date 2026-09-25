@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-31
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../src/ir/hot_core.mbt
@@ -10,6 +10,7 @@ sources:
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
+  - ../../../../../src/passes/remove_unused_brs_sparse_seen_perf_wbtest.mbt
   - ../../../../../src/passes_perf_long/remove_unused_brs_perf_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
@@ -26,6 +27,12 @@ related:
 ---
 
 # Starshine HOT-IR Strategy For `remove-unused-brs`
+
+## September 25, 2026: sparse visits for branch-to-trap subtrees
+
+The branch-to-trap rewrite used to allocate a boolean array sized to the whole function before collecting simple branches from one candidate block. Small functions and blocks with at least 16 direct roots retain that dense path. Other subtrees start with a 16-ID visited list; if the traversal grows, medium arenas promote to a dense array and very large arenas promote to a hash index. The other whole-function catch and retarget scans still use dense visited arrays; this change is limited to the branch-to-trap subtree collector.
+
+The native-release helper benchmark in `src/passes/remove_unused_brs_sparse_seen_perf_wbtest.mbt` measured a one-node subtree in a 1,024-node arena at **289.96 to 73.21 ns** and a 4,096-node arena at **954.42 to 72.86 ns**. The 64-node control stayed at **67.37 to 64.76 ns**; a 128-node subtree stayed near **12 µs** (`11.92 → 12.11 µs` in a paired run). A focused test checks duplicate suppression across both promotion paths. Full-pass impact and allocated bytes remain unmeasured.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
