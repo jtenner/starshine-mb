@@ -595,51 +595,6 @@ fn pls_shift_ext_cache_make_empty(size : Int) -> Array[PLSShiftExtCacheEntry] {
 }
 
 ///|
-fn pls_candidate_for_write(
-  candidates : Array[PLSCandidateLoad],
-  write_id : Int,
-) -> PLSCandidateLoad? {
-  for candidate in candidates {
-    if candidate.set_node == write_id {
-      return Some(candidate)
-    }
-  }
-  None
-}
-
-///|
-fn pls_local_all_writes_become_matching_loads(
-  func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
-  candidates : Array[PLSCandidateLoad],
-  local_idx : Int,
-  bits : Int,
-  target_signed : Bool,
-) -> Bool {
-  if local_idx < @ir.hot_param_count(func) {
-    return false
-  }
-  let writes = @ir.local_write_nodes_borrowed(use_def, local_idx)
-  if writes.length() == 0 {
-    return false
-  }
-  let mut rewrites_opposite_load = false
-  for write_id in writes {
-    let candidate = match pls_candidate_for_write(candidates, write_id) {
-      Some(candidate) => candidate
-      None => return false
-    }
-    if candidate.load_bits != bits || candidate.target_signed != target_signed {
-      return false
-    }
-    if candidate.current_signed != target_signed {
-      rewrites_opposite_load = true
-    }
-  }
-  rewrites_opposite_load
-}
-
-///|
 fn pls_analyze_candidates(
   func : @ir.HotFunc,
   candidates : Array[PLSCandidateLoad],
@@ -732,20 +687,72 @@ fn pls_analyze_candidates(
       target_signed,
     }
   }
+  let candidate_by_write : Array[PLSCandidateLoad?] = Array::make(
+    @ir.hot_node_count(func),
+    None,
+  )
+  for candidate in candidates {
+    if candidate.set_node >= 0 &&
+      candidate.set_node < candidate_by_write.length() &&
+      candidate_by_write[candidate.set_node] is None {
+      candidate_by_write[candidate.set_node] = Some(candidate)
+    }
+  }
+  let cleanup_eligibility : Array[(Int, Bool)?] = Array::make(
+    usage_by_local.length(),
+    None,
+  )
+  for local_idx in local_work_list {
+    if local_idx < @ir.hot_param_count(func) {
+      continue
+    }
+    let writes = @ir.local_write_nodes_borrowed(use_def, local_idx)
+    if writes.is_empty() {
+      continue
+    }
+    let mut bits = -1
+    let mut target_signed = false
+    let mut rewrites_opposite_load = false
+    let mut all_matching = true
+    for write_id in writes {
+      let candidate = match candidate_by_write.get(write_id) {
+        Some(Some(candidate)) => candidate
+        _ => {
+          all_matching = false
+          break
+        }
+      }
+      if bits < 0 {
+        bits = candidate.load_bits
+        target_signed = candidate.target_signed
+      } else if candidate.load_bits != bits ||
+        candidate.target_signed != target_signed {
+        all_matching = false
+        break
+      }
+      if candidate.current_signed != target_signed {
+        rewrites_opposite_load = true
+      }
+    }
+    if all_matching && rewrites_opposite_load {
+      cleanup_eligibility[local_idx] = Some((bits, target_signed))
+    }
+  }
   let elidable_uses : Array[PLSElidableUse] = []
+  let seen_roots = @bitset.BitSet::new(@ir.hot_node_count(func))
   for cleanup_use in cleanup_uses {
-    if !elidable_uses.any(fn(existing) {
-        existing.root_id == cleanup_use.root_id
-      }) &&
-      pls_local_all_writes_become_matching_loads(
-        func,
-        use_def,
-        candidates,
-        cleanup_use.local_idx,
-        cleanup_use.bits,
-        cleanup_use.target_signed,
-      ) {
-      elidable_uses.push(cleanup_use)
+    if cleanup_use.root_id < 0 ||
+      cleanup_use.root_id >= seen_roots.length() ||
+      seen_roots[cleanup_use.root_id] {
+      continue
+    }
+    match cleanup_eligibility[cleanup_use.local_idx] {
+      Some((bits, target_signed)) if bits == cleanup_use.bits &&
+        target_signed == cleanup_use.target_signed => {
+        elidable_uses.push(cleanup_use)
+        seen_roots[cleanup_use.root_id] = true
+      }
+      _ => ()
     }
   }
   { candidates, rewritable_candidates, elidable_uses, }

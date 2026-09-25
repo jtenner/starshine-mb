@@ -24235,3 +24235,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — Dealign unchanged-code fast path
 
 - The [Dealign page](binaryen/passes/dealign/index.md#september-24-2026-unchanged-code-measurement) records native direct-pass timings for 64 unchanged instructions per function: 256 functions `107.55 → 36.29 µs`, and 512 `218.55 → 72.52 µs`; one changed function among 256 improved `94.77 → 28.49 µs`. Dense changed-code time was `153.80 → 154.76 µs`, within observed variation. A nested positive test and four existing Dealign tests pass.
+
+### 2026-09-24 — PickLoadSigns candidate analysis
+
+- The [PickLoadSigns page](binaryen/passes/pick-load-signs/index.md#september-24-2026-candidate-analysis-measurement) records native white-box analysis timing for 128 load/write/extension pairs (`537.50 → 12.26 µs`) and 256 (`4.03 ms → 24.05 µs`). Write-node indexing, one compatibility pass per local, and root bitsets replace nested linear scans. All 23 existing pass tests pass; full-pass impact remains unmeasured.

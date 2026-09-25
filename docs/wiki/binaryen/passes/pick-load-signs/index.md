@@ -2,10 +2,11 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-24
 sources:
   - ../../../../../src/passes/pick_load_signs.mbt
   - ../../../../../src/passes/pick_load_signs_test.mbt
+  - ../../../../../src/passes/pick_load_signs_analysis_perf_wbtest.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -27,6 +28,10 @@ related:
 ---
 
 # `pick-load-signs`
+
+## September 24, 2026 candidate-analysis measurement
+
+Cleanup eligibility now indexes candidate loads by write node, computes each local's all-writes compatibility once, and marks accepted cleanup roots in a bitset. Previously each cleanup use rescanned a growing accepted-root array and every local write, with a linear candidate search for each write. The [native white-box benchmark](../../../../../src/passes/pick_load_signs_analysis_perf_wbtest.mbt) uses one local with repeated `i64.load32_u` writes and signed-extension reads, with HOT lifting and candidate collection outside timing: 128 pairs fell from `537.50` to `12.26 µs` (43.8×), and 256 from `4.03 ms` to `24.05 µs` (167.6×). The fixture confirms every load is rewritable and every extension root is eligible; 23 existing pass tests pass. This is analysis-only synthetic evidence, not full-pass or Binaryen timing.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
