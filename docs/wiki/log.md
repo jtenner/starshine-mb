@@ -24558,3 +24558,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — DCE detached-candidate reference scan
 
 - The [DCE HOT strategy page](binaryen/passes/dead-code-elimination/starshine-hot-ir-strategy.md#september-25-2026-small-detached-candidate-reference-scan) records native helper timing for 512 live non-leaf nodes at `52.26 → 47.65 µs` and 1,024 at `101.38 → 92.62 µs`. The scan skips leaf liveness checks and reads stored child spans; detached-user reference semantics remain covered by focused tests. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — TupleOptimization split-local planning root membership
+
+- The [TupleOptimization HOT strategy page](binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md#september-25-2026-split-local-planning-root-membership) records native helper timing for 128 child-only hosts at `143.17 µs → 463.62 ns` and 256 at `619.57 µs → 920.97 ns`. Planning reads fresh use-def root sites directly; rewrite-time callers retain the stale-site fallback. Full-pass impact remains unmeasured.

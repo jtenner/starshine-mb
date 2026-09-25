@@ -3381,14 +3381,13 @@ fn tuple_optimization_group_needs_dedicated_split_locals(
   match tuple_optimization_group_host_lane(group) {
     Some(host_lane) =>
       match
-        tuple_optimization_find_root_slot_with_use_def(
+        tuple_optimization_host_has_root_slot_during_planning(
           func,
           use_def,
           group.defining_nodes[host_lane],
-          host_lane,
         ) {
-        Some(_) => false
-        None =>
+        true => false
+        false =>
           match
             tuple_optimization_find_passthrough_root_chain(
               func,
@@ -3431,6 +3430,25 @@ fn tuple_optimization_group_needs_dedicated_split_locals(
         None => false
       }
   }
+}
+
+///|
+fn tuple_optimization_host_has_root_slot_during_planning(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  target_id : Int,
+) -> Bool {
+  if target_id < 0 || target_id >= @ir.hot_node_count(func) {
+    return false
+  }
+  // Split-local planning has not changed the HOT graph since use-def was built.
+  // Later rewriting still uses the root-slot finder with its stale-site fallback.
+  for site in @ir.node_use_sites_borrowed(use_def, target_id) {
+    if site.kind is @ir.HotUseSlotKind::RootUseSlot {
+      return true
+    }
+  }
+  false
 }
 
 ///|

@@ -322,3 +322,16 @@ collector benchmark in `src/passes/tuple_root_copy_analysis_perf_wbtest.mbt`
 measured 64 child-only scalar blocks at `21.77 → 2.44 µs` and 128 at
 `80.72 → 5.27 µs`. A real multivalue tuple group keeps the result-block
 analysis enabled. Full-pass impact remains unmeasured.
+
+## September 25, 2026: split-local planning root membership
+
+During split-local planning, `group_needs_dedicated_split_locals` only asks
+whether the host definition has a root use. The HOT graph has not changed
+since use-def construction, so a borrowed `RootUseSlot` check answers this
+without the whole-function root-slot fallback. Rewrite-time callers keep
+their fallback because root placement can change later. The native helper
+benchmark in `src/passes/tuple_optimization_planning_root_perf_wbtest.mbt`
+measured 128 child-only hosts at `143.17 µs → 463.62 ns` and 256 at
+`619.57 µs → 920.97 ns`; 256 root-host controls improved from `4.00 µs` to
+`952.11 ns`. The benchmark keeps use-def construction outside the timed
+region. Full-pass impact remains unmeasured.
