@@ -24195,3 +24195,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — Local CSE annotation lookup
 
 - The [Local CSE page](binaryen/passes/local-cse/index.md#september-24-2026-annotation-lookup-measurement) records native direct-pass timing for 512 annotated empty functions (`168.91 → 48.92 µs`) and 1,024 (`620.05 → 95.20 µs`). One indexed annotation scan replaces a scan per function; the focused duplicate/argument test and 207 existing Local CSE tests pass.
+
+### 2026-09-24 — TupleOptimization alias-chain resolution
+
+- The [TupleOptimization page](binaryen/passes/tuple-optimization/index.md#september-24-2026-alias-chain-measurement) records native white-box resolver timing at 128 alias hops (`8.55 → 1.61 µs`) and 256 (`17.01 → 3.35 µs`). Iterative accumulation removes a new prefix-array allocation at every hop; one order test and 61 existing white-box tests pass. Full-pass impact remains unmeasured.

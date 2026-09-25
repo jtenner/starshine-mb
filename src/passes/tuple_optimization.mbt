@@ -623,47 +623,46 @@ fn tuple_optimization_resolve_copy_payload_local(
   local_id : Int,
   visit_mark : Int,
 ) -> (Int, Array[Int])? {
-  if local_id < 0 || local_id >= local_group_ids.length() {
-    return None
+  let alias_read_nodes : Array[Int] = []
+  let mut current_local = local_id
+  while true {
+    if current_local < 0 || current_local >= local_group_ids.length() {
+      return None
+    }
+    if local_group_ids[current_local] >= 0 {
+      return Some((current_local, alias_read_nodes))
+    }
+    if current_local >= summary.resolve_visit_marks.length() ||
+      summary.resolve_visit_marks[current_local] == visit_mark {
+      return None
+    }
+    summary.resolve_visit_marks[current_local] = visit_mark
+    if current_local >= summary.local_single_write_nodes.length() {
+      return None
+    }
+    let write_id = summary.local_single_write_nodes[current_local]
+    if write_id < 0 {
+      return None
+    }
+    let write = @ir.hot_node_get(func, write_id)
+    match write.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => ()
+      _ => return None
+    }
+    if write.imm0 != current_local || @ir.hot_child_count(func, write_id) != 1 {
+      return None
+    }
+    let child = @ir.hot_child_get(func, write_id, 0)
+    let child_node = @ir.hot_node_get(func, child)
+    let next_local = match child_node.op {
+      @ir.HotOp::LocalGet => child_node.imm0
+      @ir.HotOp::LocalTee => child_node.imm0
+      _ => return None
+    }
+    alias_read_nodes.push(child)
+    current_local = next_local
   }
-  if local_group_ids[local_id] >= 0 {
-    return Some((local_id, []))
-  }
-  if local_id >= summary.resolve_visit_marks.length() ||
-    summary.resolve_visit_marks[local_id] == visit_mark {
-    return None
-  }
-  summary.resolve_visit_marks[local_id] = visit_mark
-  if local_id >= summary.local_single_write_nodes.length() {
-    return None
-  }
-  let write_id = summary.local_single_write_nodes[local_id]
-  if write_id < 0 {
-    return None
-  }
-  let write = @ir.hot_node_get(func, write_id)
-  match write.op {
-    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => ()
-    _ => return None
-  }
-  if write.imm0 != local_id || @ir.hot_child_count(func, write_id) != 1 {
-    return None
-  }
-  let child = @ir.hot_child_get(func, write_id, 0)
-  let child_node = @ir.hot_node_get(func, child)
-  let next_local = match child_node.op {
-    @ir.HotOp::LocalGet => child_node.imm0
-    @ir.HotOp::LocalTee => child_node.imm0
-    _ => return None
-  }
-  match
-    tuple_optimization_resolve_copy_payload_local(
-      func, summary, local_group_ids, next_local, visit_mark,
-    ) {
-    Some((resolved_local, alias_read_nodes)) =>
-      Some((resolved_local, [child] + alias_read_nodes))
-    None => None
-  }
+  None
 }
 
 ///|

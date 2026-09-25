@@ -12,3 +12,7 @@ import {
   "moonbitlang/core/hashmap",
   "moonbitlang/core/debug",
 }
+
+import {
+  "moonbitlang/core/bench",
+} for "wbtest"

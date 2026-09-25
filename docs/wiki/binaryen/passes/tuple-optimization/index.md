@@ -1,13 +1,14 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-01
+last_reviewed: 2026-09-24
 sources:
   - ../../release-horizon-and-oracles.md
   - ../code-pushing/index.md
   - ../../../../../src/passes/tuple_optimization.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
+  - ../../../../../src/passes/tuple_alias_chain_perf_wbtest.mbt
   - ../../../../../src/ir/hot_lower.mbt
   - ../../../../../src/ir/hot_lower_wbtest.mbt
   - ../../../../../src/passes_perf_long/tuple_optimization_perf_test.mbt
@@ -37,6 +38,10 @@ related:
 ---
 
 # `tuple-optimization`
+
+## September 24, 2026 alias-chain measurement
+
+Scalar copy-source resolution now walks an alias chain iteratively and appends each read node once. The previous recursive return built a new prefix array at every hop. The [native white-box benchmark](../../../../../src/passes/tuple_alias_chain_perf_wbtest.mbt) times the resolver itself on prebuilt HOT functions: 128 hops fell from `8.55` to `1.61 µs` (5.31×), and 256 from `17.01` to `3.35 µs` (5.08×). A direct order assertion and 61 existing tuple optimization white-box tests pass. This is helper-level synthetic evidence; other full-pass costs remain outside this measurement.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
