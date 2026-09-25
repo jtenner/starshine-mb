@@ -382,3 +382,8 @@ The native helper benchmark in
 `src/passes/vacuum_label_guard_perf_wbtest.mbt` measured 128 rejected Ifs at
 `564.26 → 22.56 µs` and 256 at `2.17 ms → 48.90 µs`. The 143 tests in
 `optimize_test.mbt` pass. Full-pass impact remains unmeasured.
+
+The same ordering applies to `hot_pass_vacuum_remove_empty_if`: both arms must
+be empty before a label-use scan is needed. The direct native benchmark in the
+same file measured 128 nonempty else arms at `484.68 → 12.43 µs` and 256 at
+`1.93 ms → 24.94 µs`. Matching empty Ifs still check the label before removal.

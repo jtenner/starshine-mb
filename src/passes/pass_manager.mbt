@@ -1880,11 +1880,7 @@ fn hot_pass_vacuum_remove_empty_if(
   if !(node.op is @ir.HotOp::If) ||
     @ir.hot_type_result_arity(func, node.ty) != 0 ||
     @ir.hot_child_count(func, node_id) < 2 ||
-    @ir.hot_region_root_count(func, @ir.hot_region_then_ref(func, node_id)) != 0 ||
-    hot_pass_vacuum_label_is_used(
-      func,
-      @ir.hot_control_node_label(func, node_id),
-    ) {
+    @ir.hot_region_root_count(func, @ir.hot_region_then_ref(func, node_id)) != 0 {
     return false
   }
   match @ir.hot_region_else_ref(func, node_id) {
@@ -1893,6 +1889,12 @@ fn hot_pass_vacuum_remove_empty_if(
         return false
       }
     None => ()
+  }
+  if hot_pass_vacuum_label_is_used(
+      func,
+      @ir.hot_control_node_label(func, node_id),
+    ) {
+    return false
   }
   let condition = @ir.hot_child_get(func, node_id, 0)
   let replacement = if vacuum_can_remove_dropped_node(func, condition) {

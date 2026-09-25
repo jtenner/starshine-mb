@@ -24506,3 +24506,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Vacuum rejected result-If sink guard
 
 - The [Vacuum strategy page](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-25-2026-rejected-result-if-sink-guard) records native helper timing for 128 rejected result Ifs at `564.26 → 22.56 µs` and 256 at `2.17 ms → 48.90 µs`. Shape checks precede the whole-function label-use scan, while matching candidates still check label uses before mutation. All 143 `optimize_test.mbt` tests pass; full-pass impact remains unmeasured.
+
+### 2026-09-25 — Vacuum nonempty-else guard
+
+- The [Vacuum strategy page](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-25-2026-rejected-result-if-sink-guard) records native helper timing for 128 nonempty else arms at `484.68 → 12.43 µs` and 256 at `1.93 ms → 24.94 µs`. Empty-If removal now checks both arms before scanning all node labels; matching candidates still check labels before mutation. Full-pass impact remains unmeasured.
