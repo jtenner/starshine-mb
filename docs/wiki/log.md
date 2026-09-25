@@ -24387,3 +24387,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — DFE imported-signature liveness
 
 - The [DFE type-compaction page](binaryen/passes/duplicate-function-elimination/type-compaction-and-metadata.md#september-25-2026-imported-function-signature-liveness) records native helper timing from `85.92 → 18.08 µs` for 64 imported signatures and `299.57 → 41.54 µs` for 128. One import-section pass marks those signatures live before the remaining per-type reference probes; full-pass impact remains unmeasured.
+
+### 2026-09-25 — TupleOptimization copy-child mask index
+
+- The [TupleOptimization strategy page](binaryen/passes/tuple-optimization/starshine-strategy.md#september-25-2026-copy-child-mask-index) records native mask timing from `6.61 → 5.76 µs` at 32 three-group islands and `21.36 → 11.51 µs` at 64. A source-to-child index replaces repeated group scans during mask construction; full-pass impact remains unmeasured.

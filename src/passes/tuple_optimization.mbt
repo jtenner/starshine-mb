@@ -79,6 +79,36 @@ struct HotTupleOptimizationDropOnlyElisionFacts {
 } derive(Eq, Debug)
 
 ///|
+struct HotTupleOptimizationCopyConsumers {
+  children_by_source : Array[Array[Int]]
+  has_host_consumer : @bitset.BitSet
+}
+
+///|
+fn tuple_optimization_build_copy_consumers(
+  groups : Array[HotTupleOptimizationGroup],
+) -> HotTupleOptimizationCopyConsumers {
+  let children_by_source : Array[Array[Int]] = []
+  for _ in groups {
+    children_by_source.push([])
+  }
+  let has_host_consumer = @bitset.BitSet::new(groups.length())
+  for child_id = 0; child_id < groups.length(); child_id = child_id + 1 {
+    match groups[child_id].copy_source {
+      Some(source_id) if source_id >= 0 && source_id < groups.length() => {
+        children_by_source[source_id].push(child_id)
+        if child_id != source_id &&
+          tuple_optimization_group_host_lane(groups[child_id]) is Some(_) {
+          has_host_consumer[source_id] = true
+        }
+      }
+      _ => ()
+    }
+  }
+  { children_by_source, has_host_consumer, }
+}
+
+///|
 pub impl Show for HotTupleOptimizationGroup with fn output(self, logger) {
   logger.write_string("HotTupleOptimizationGroup(")
   logger.write_string("producer=")
@@ -2591,6 +2621,7 @@ fn tuple_optimization_copy_group_redundant_with_source_host_chain(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
   groups : Array[HotTupleOptimizationGroup],
+  copy_consumers : HotTupleOptimizationCopyConsumers,
   group_id : Int,
 ) -> Bool {
   if group_id < 0 || group_id >= groups.length() {
@@ -2605,9 +2636,7 @@ fn tuple_optimization_copy_group_redundant_with_source_host_chain(
     return false
   }
   if groups[source_group_id].copy_source is None &&
-    tuple_optimization_source_group_has_host_copy_consumer(
-      groups, source_group_id,
-    ) {
+    copy_consumers.has_host_consumer[source_group_id] {
     return false
   }
   let source_host_lane = match
@@ -2720,11 +2749,12 @@ fn tuple_optimization_group_has_nested_rootslot_host_copy_wrapper(
 }
 
 ///|
-fn tuple_optimization_group_should_rewrite_in_func(
+fn tuple_optimization_group_should_rewrite_in_func_indexed(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
+  copy_consumers : HotTupleOptimizationCopyConsumers,
   group_id : Int,
 ) -> Bool {
   if group_id < 0 || group_id >= groups.length() {
@@ -2772,12 +2802,7 @@ fn tuple_optimization_group_should_rewrite_in_func(
     _ => ()
   }
   let mut suppressed_child_copy_count = 0
-  for child_group_id = 0
-      child_group_id < groups.length()
-      child_group_id = child_group_id + 1 {
-    if groups[child_group_id].copy_source != Some(group_id) {
-      continue
-    }
+  for child_group_id in copy_consumers.children_by_source[group_id] {
     let mut child_non_drop_lane_count = 0
     let mut child_has_drop_only_lane_use = false
     for lane_idx = 0
@@ -2825,7 +2850,25 @@ fn tuple_optimization_group_should_rewrite_in_func(
   group.producer < 0 &&
   copy_group_only_uses_host_non_drop) &&
   !tuple_optimization_copy_group_redundant_with_source_host_chain(
-    func, use_def, groups, group_id,
+    func, use_def, groups, copy_consumers, group_id,
+  )
+}
+
+///|
+fn tuple_optimization_group_should_rewrite_in_func(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  summary : HotTupleOptimizationQuerySummary,
+  groups : Array[HotTupleOptimizationGroup],
+  group_id : Int,
+) -> Bool {
+  tuple_optimization_group_should_rewrite_in_func_indexed(
+    func,
+    use_def,
+    summary,
+    groups,
+    tuple_optimization_build_copy_consumers(groups),
+    group_id,
   )
 }
 
@@ -2914,10 +2957,11 @@ fn tuple_optimization_build_group_rewrite_mask(
   if !tuple_optimization_groups_have_copy_source(groups) {
     return tuple_optimization_build_no_copy_group_rewrite_mask(groups, perf~)
   }
+  let copy_consumers = tuple_optimization_build_copy_consumers(groups)
   let rewrite_mask = @bitset.BitSet::new(groups.length())
   for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
-    rewrite_mask[group_id] = tuple_optimization_group_should_rewrite_in_func(
-      func, use_def, summary, groups, group_id,
+    rewrite_mask[group_id] = tuple_optimization_group_should_rewrite_in_func_indexed(
+      func, use_def, summary, groups, copy_consumers, group_id,
     )
   }
   rewrite_mask
@@ -3148,26 +3192,6 @@ fn tuple_optimization_group_host_lane(
   group : HotTupleOptimizationGroup,
 ) -> Int? {
   group.host_lane
-}
-
-///|
-fn tuple_optimization_source_group_has_host_copy_consumer(
-  groups : Array[HotTupleOptimizationGroup],
-  source_group_id : Int,
-) -> Bool {
-  if source_group_id < 0 || source_group_id >= groups.length() {
-    return false
-  }
-  for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
-    if group_id == source_group_id {
-      continue
-    }
-    if groups[group_id].copy_source == Some(source_group_id) &&
-      tuple_optimization_group_host_lane(groups[group_id]) is Some(_) {
-      return true
-    }
-  }
-  false
 }
 
 ///|
