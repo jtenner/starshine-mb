@@ -320,6 +320,10 @@ Runtime differential execution of `embenchen_fannkuch/commands.1.wasm` then expo
   - recent validator raw-skip parity fixes keep moving the frontier, but the debug artifact is still far over budget
   - it is still not within the desired steady-state budget on the debug artifact
 
+## 2026-09-25 child-use threshold scan
+
+`simplify_locals_child_use_count_capped_at_two` stops after the second live use. All four call sites only compare the result with one, so later uses cannot change their decisions. The native-release helper benchmark in `src/passes/simplify_locals_use_count_perf_wbtest.mbt` measured **3.95 µs → 22.24 ns** with 1,024 trailing live nodes and **15.69 µs → 22.48 ns** with 4,096. The focused SimplifyLocals tests and zero/one/multiple-use check pass. This isolates an early shared child; full-pass impact remains unmeasured.
+
 ## Project Performance Rule
 
 - Per `AGENTS.md`, parity bugs are primary and performance work is secondary.

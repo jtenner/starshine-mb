@@ -1653,7 +1653,10 @@ fn simplify_locals_make_local_set(
 }
 
 ///|
-fn simplify_locals_child_use_count(func : @ir.HotFunc, target_id : Int) -> Int {
+fn simplify_locals_child_use_count_capped_at_two(
+  func : @ir.HotFunc,
+  target_id : Int,
+) -> Int {
   let mut count = 0
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -1662,6 +1665,9 @@ fn simplify_locals_child_use_count(func : @ir.HotFunc, target_id : Int) -> Int {
     for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
       if @ir.hot_child_get(func, node_id, slot) == target_id {
         count += 1
+        if count == 2 {
+          return 2
+        }
       }
     }
   }
@@ -3973,7 +3979,8 @@ fn simplify_locals_scan_node(
                 let tee_value = @ir.hot_child_get(func, child_id, 0)
                 if root_drop_tee &&
                   tee_value >= 0 &&
-                  simplify_locals_child_use_count(func, tee_value) == 1 {
+                  simplify_locals_child_use_count_capped_at_two(func, tee_value) ==
+                  1 {
                   tee_value
                 } else {
                   -1
@@ -4140,7 +4147,7 @@ fn simplify_locals_scan_node(
               root_idx < @ir.hot_root_count(func) &&
               node_id == @ir.hot_root_get(func, root_idx)
             if root_drop_tee &&
-              simplify_locals_child_use_count(func, value_id) == 1 {
+              simplify_locals_child_use_count_capped_at_two(func, value_id) == 1 {
               @ir.hot_replace_node(
                 func,
                 node_id,
@@ -7800,8 +7807,10 @@ fn simplify_locals_lower_dropped_tees_in_protected_region(
               let value_id = @ir.hot_child_get(func, child_id, 0)
               if value_id >= 0 &&
                 @ir.hot_node_is_live(func, value_id) &&
-                simplify_locals_child_use_count(func, child_id) == 1 &&
-                simplify_locals_child_use_count(func, value_id) == 1 {
+                simplify_locals_child_use_count_capped_at_two(func, child_id) ==
+                1 &&
+                simplify_locals_child_use_count_capped_at_two(func, value_id) ==
+                1 {
                 @ir.hot_replace_node(
                   func,
                   node_id,

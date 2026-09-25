@@ -24367,3 +24367,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — GlobalRefining unchanged-code allocation
 
 - The [GlobalRefining implementation page](binaryen/passes/global-refining/implementation-structure-and-tests.md#2026-09-25-unchanged-code-rewrite-allocation) records native helper timing from `2.41 → 0.679 µs` for 512 unchanged numeric pairs and `4.83 → 1.34 µs` for 1,024 pairs. The rewrite now copies an instruction array only when it changes a producer or child; full-pass impact remains unmeasured.
+
+### 2026-09-25 — SimplifyLocals child-use threshold
+
+- The [SimplifyLocals performance page](binaryen/passes/simplify-locals/performance-and-artifact-frontiers.md#2026-09-25-child-use-threshold-scan) records native helper timing from `3.95 µs → 22.24 ns` with 1,024 trailing nodes and `15.69 µs → 22.48 ns` with 4,096. The shared-child scan now stops after its second live use; full-pass impact remains unmeasured.
