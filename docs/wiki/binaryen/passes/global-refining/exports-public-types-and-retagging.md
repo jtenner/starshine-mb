@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-24
 sources:
   - ./index.md
+  - ../../../../../src/passes/global_refining.mbt
+  - ../../../../../src/passes/global_refining_public_type_perf_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -101,6 +103,10 @@ The file even leaves a TODO saying Binaryen could refine closed-world exports to
 Today, it does not.
 
 ## What counts as a public type here?
+
+### September 24, 2026 Starshine publicness-query measurement
+
+Starshine now reuses one type-state array for exported immutable globals and resets only the type slots visited by each publicness query. Per-query reset retains the original behavior for recursive type graphs: a provisional public answer while traversing a cycle is never reused for another global. A native direct-pass benchmark with 128 exported globals and 128 types improved `26.20 → 20.89 µs` (1.25×); 256 globals and types improved `59.67 → 41.72 µs` (1.43×). The new scratch-reset test and 23 existing GlobalRefining tests pass. Allocation counts and full-pipeline impact remain unmeasured.
 
 `PublicTypeValidator` gives the key rule.
 

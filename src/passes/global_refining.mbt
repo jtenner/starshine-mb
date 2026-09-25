@@ -147,14 +147,25 @@ fn gr_expr_result_type(env : @validate.Env, expr : @lib.Expr) -> @lib.ValType? {
 }
 
 ///|
+priv struct GrPublicTypeScratch {
+  states : Array[Int]
+  visited : Array[Int]
+}
+
+///|
+fn GrPublicTypeScratch::new(env : @validate.Env) -> GrPublicTypeScratch {
+  { states: Array::make(env.global_types.length(), 0), visited: [], }
+}
+
+///|
 fn gr_valtype_is_public(
   val_type : @lib.ValType,
   env : @validate.Env,
-  type_states : Array[Int],
+  scratch : GrPublicTypeScratch,
 ) -> Bool {
   match val_type {
     @lib.RefTypeValType(ref_type) =>
-      gr_reftype_is_public(ref_type, env, type_states)
+      gr_reftype_is_public(ref_type, env, scratch)
     _ => true
   }
 }
@@ -163,11 +174,11 @@ fn gr_valtype_is_public(
 fn gr_storage_type_is_public(
   storage_type : @lib.StorageType,
   env : @validate.Env,
-  type_states : Array[Int],
+  scratch : GrPublicTypeScratch,
 ) -> Bool {
   match storage_type {
     @lib.ValTypeStorageType(val_type) =>
-      gr_valtype_is_public(val_type, env, type_states)
+      gr_valtype_is_public(val_type, env, scratch)
     @lib.PackTypeStorageType(_) => true
   }
 }
@@ -176,26 +187,26 @@ fn gr_storage_type_is_public(
 fn gr_field_type_is_public(
   field_type : @lib.FieldType,
   env : @validate.Env,
-  type_states : Array[Int],
+  scratch : GrPublicTypeScratch,
 ) -> Bool {
-  gr_storage_type_is_public(field_type.get_storage_type(), env, type_states)
+  gr_storage_type_is_public(field_type.get_storage_type(), env, scratch)
 }
 
 ///|
 fn gr_comptype_is_public(
   comp_type : @lib.CompType,
   env : @validate.Env,
-  type_states : Array[Int],
+  scratch : GrPublicTypeScratch,
 ) -> Bool {
   match comp_type {
     @lib.FuncCompType(params, results) => {
       for param in params {
-        if !gr_valtype_is_public(param, env, type_states) {
+        if !gr_valtype_is_public(param, env, scratch) {
           return false
         }
       }
       for result in results {
-        if !gr_valtype_is_public(result, env, type_states) {
+        if !gr_valtype_is_public(result, env, scratch) {
           return false
         }
       }
@@ -203,16 +214,15 @@ fn gr_comptype_is_public(
     }
     @lib.StructCompType(fields) => {
       for field in fields {
-        if !gr_field_type_is_public(field, env, type_states) {
+        if !gr_field_type_is_public(field, env, scratch) {
           return false
         }
       }
       true
     }
-    @lib.ArrayCompType(field) =>
-      gr_field_type_is_public(field, env, type_states)
+    @lib.ArrayCompType(field) => gr_field_type_is_public(field, env, scratch)
     @lib.ContCompType(func_type) =>
-      gr_typeidx_is_public(func_type, env, type_states)
+      gr_typeidx_is_public(func_type, env, scratch)
   }
 }
 
@@ -220,33 +230,34 @@ fn gr_comptype_is_public(
 fn gr_typeidx_is_public(
   type_idx : @lib.TypeIdx,
   env : @validate.Env,
-  type_states : Array[Int],
+  scratch : GrPublicTypeScratch,
 ) -> Bool {
   match type_idx {
     @lib.TypeIdx(raw) => {
       let idx = raw.reinterpret_as_int()
-      if idx < 0 || idx >= type_states.length() {
+      if idx < 0 || idx >= scratch.states.length() {
         return true
       }
-      match type_states[idx] {
+      match scratch.states[idx] {
         2 => return true
         3 => return false
         1 => return true
         _ => ()
       }
-      type_states[idx] = 1
+      scratch.states[idx] = 1
+      scratch.visited.push(idx)
       let public = match env.resolve_subtype(type_idx) {
         Some(subtype) =>
-          gr_comptype_is_public(subtype.get_comptype(), env, type_states)
+          gr_comptype_is_public(subtype.get_comptype(), env, scratch)
         None => true
       }
-      type_states[idx] = if public { 2 } else { 3 }
+      scratch.states[idx] = if public { 2 } else { 3 }
       public
     }
     @lib.RecIdx(_) =>
       match env.resolve_subtype(type_idx) {
         Some(subtype) =>
-          gr_comptype_is_public(subtype.get_comptype(), env, type_states)
+          gr_comptype_is_public(subtype.get_comptype(), env, scratch)
         None => true
       }
   }
@@ -256,15 +267,15 @@ fn gr_typeidx_is_public(
 fn gr_heaptype_is_public(
   heap_type : @lib.HeapType,
   env : @validate.Env,
-  type_states : Array[Int],
+  scratch : GrPublicTypeScratch,
 ) -> Bool {
   match heap_type {
     @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => true
-    @lib.HeapType(type_idx) => gr_typeidx_is_public(type_idx, env, type_states)
+    @lib.HeapType(type_idx) => gr_typeidx_is_public(type_idx, env, scratch)
     @lib.DefTypeHeapType(def_type) =>
       match def_type.project() {
         Some(subtype) =>
-          gr_comptype_is_public(subtype.get_comptype(), env, type_states)
+          gr_comptype_is_public(subtype.get_comptype(), env, scratch)
         None => true
       }
   }
@@ -274,12 +285,12 @@ fn gr_heaptype_is_public(
 fn gr_reftype_is_public(
   ref_type : @lib.RefType,
   env : @validate.Env,
-  type_states : Array[Int],
+  scratch : GrPublicTypeScratch,
 ) -> Bool {
   if ref_type.is_exact() {
     return false
   }
-  gr_heaptype_is_public(ref_type.get_heap_type(), env, type_states)
+  gr_heaptype_is_public(ref_type.get_heap_type(), env, scratch)
 }
 
 ///|
@@ -291,11 +302,19 @@ fn gr_custom_descriptors_enabled_locally(env : @validate.Env) -> Bool {
 fn gr_refined_export_type_is_public(
   ref_type : @lib.RefType,
   env : @validate.Env,
+  scratch : GrPublicTypeScratch,
 ) -> Bool {
   if gr_custom_descriptors_enabled_locally(env) {
     return true
   }
-  gr_reftype_is_public(ref_type, env, Array::make(env.global_types.length(), 0))
+  let public = gr_reftype_is_public(ref_type, env, scratch)
+  // Reset after each root query: a cycle may have been provisionally public
+  // while another path in the same query established a private type.
+  for idx in scratch.visited {
+    scratch.states[idx] = 0
+  }
+  scratch.visited.clear()
+  public
 }
 
 ///|
@@ -1150,6 +1169,7 @@ fn gr_refine_module(
   ignore(scratch.observed_work())
   let next_globals = globals.copy()
   let refined_globals : Array[@lib.RefType?] = Array::make(total_globals, None)
+  let mut public_type_scratch : GrPublicTypeScratch? = None
   let mut changed = false
   for defined_idx = 0
       defined_idx < globals.length()
@@ -1182,9 +1202,18 @@ fn gr_refine_module(
       !@validate.Match::matches(refined_ref_type, old_ref_type, env) {
       continue
     }
-    if exported_globals[abs_idx] &&
-      !gr_refined_export_type_is_public(refined_ref_type, env) {
-      continue
+    if exported_globals[abs_idx] {
+      let scratch = match public_type_scratch {
+        Some(existing) => existing
+        None => {
+          let created = GrPublicTypeScratch::new(env)
+          public_type_scratch = Some(created)
+          created
+        }
+      }
+      if !gr_refined_export_type_is_public(refined_ref_type, env, scratch) {
+        continue
+      }
     }
     let @lib.Global(@lib.GlobalType(_, mutable_), init) = next_globals[defined_idx]
     let refined_init = match init {

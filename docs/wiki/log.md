@@ -24263,3 +24263,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — DFE simple-type liveness
 
 - The [DFE type-compaction page](binaryen/passes/duplicate-function-elimination/type-compaction-and-metadata.md#september-24-2026-simple-type-liveness-measurement) records native white-box helper timings for 64 live signatures (`12.38 µs → 111.71 ns`), 128 (`40.17 µs → 201.95 ns`), and 128 live plus one unused (`158.46 → 135.66 µs`). Direct function-section references bypass repeated module probes; one new and 39 existing tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-24 — GlobalRefining public-type scratch
+
+- The [exported public types page](binaryen/passes/global-refining/exports-public-types-and-retagging.md#september-24-2026-starshine-publicness-query-measurement) records native direct-pass timing for 128 exported globals and types (`26.20 → 20.89 µs`) and 256 (`59.67 → 41.72 µs`). Per-invocation scratch resets visited states after each query; one new and 23 existing tests pass. Full-pipeline impact remains unmeasured.
