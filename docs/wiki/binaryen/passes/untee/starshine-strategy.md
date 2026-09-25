@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-24
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Untee.cpp
   - ./index.md
   - ../../../../../src/passes/untee.mbt
   - ../../../../../src/passes/untee_test.mbt
+  - ../../../../../src/passes/untee_noop_perf_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -67,6 +68,10 @@ The active surfaces are:
   - exposes `untee_summary` and `untee_run_module_pass`
 
 ## Validation evidence
+
+### September 24, 2026 unchanged-code measurement
+
+Native direct-pass benchmarks in [`untee_noop_perf_wbtest.mbt`](../../../../../src/passes/untee_noop_perf_wbtest.mbt) use 64 tee-free instructions per function. Copying an instruction body and the module's function array only after the first rewrite reduced 256-function no-op time from `260.36` to `184.03 µs` (1.41×) and 512-function time from `528.99` to `348.43 µs` (1.52×). With one tee in the final function of 256, time fell from `267.51` to `182.29 µs` (1.47×). The six focused Untee tests and all three benchmark preflights pass. Allocations and full pipeline impact were not measured separately.
 
 The 2026-07-11 current-main source reread confirms that the upstream owner, public registration/default scheduler, constructor, and focused lit shapes still match the documented contract. It supersedes the 2026-04-25 freshness claim; the older raw capture remains historical provenance.
 

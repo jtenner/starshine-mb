@@ -24243,3 +24243,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — DAE unread-copy cleanup
 
 - The [DeadArgumentElimination page](binaryen/passes/dead-argument-elimination/index.md#september-24-2026-unread-copy-cleanup-measurement) records native white-box cleanup timing for 128 adjacent local-copy links (`318.69 → 9.38 µs`) and 256 (`1.42 ms → 18.69 µs`). Backward unreadness propagation collapses the top-level chain before one cleanup round; one live-read guard and 434 existing tests pass. Nested and full-pass impact remain unmeasured.
+
+### 2026-09-24 — Untee unchanged-code allocation
+
+- The [Untee strategy page](binaryen/passes/untee/starshine-strategy.md#september-24-2026-unchanged-code-measurement) records native direct-pass timings for 256 tee-free functions (`260.36 → 184.03 µs`), 512 (`528.99 → 348.43 µs`), and one sparse changed function among 256 (`267.51 → 182.29 µs`). Instruction and function arrays are now copied only after a rewrite; six focused tests pass. Full pipeline impact remains unmeasured.
