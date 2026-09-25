@@ -451,8 +451,10 @@ structural order assertions; relaxed SIMD and NaNs need allowed-result-aware
 oracles. Checked data-segment offset/length arithmetic and bounded allocation
 matter; Binaryen's 4 GiB flattening limit is an implementation resource policy.
 
-New comparisons require the verified v132 executable, an explicit fresh native
-Starshine executable, and `--require-binaryen-version 132`. Use repository GenValid
+The v132 renewal comparisons required the verified v132 executable, an explicit
+fresh native Starshine executable, and `--require-binaryen-version 132`. New
+comparisons use the verified v133 oracle under the current policy in
+[the v133 upgrade record](version-133-upgrade.md). Use repository GenValid
 profiles and the 10,000-case parallel lane from [the docs schema](../../README.md);
 external wasm-smith runs require an explicit request. DAE cleanup comparisons use
 `--normalize drop-consts --normalize unreachable-control-debris`. Keep old artifact

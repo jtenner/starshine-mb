@@ -33,13 +33,13 @@ inventory. The official Linux `wasm-opt` archive passed its published SHA-256
 check; its binary reports `wasm-opt version 133 (version_133)` and hashes to
 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
 
-**Repository comparison policy remains v132.** The v133 oracle supplied the
-new input shapes, while the repository's ordinary compare-pass baseline remains
-v132. The initial red-first corpus reached 61 green focused tests and
-12,334/12,334 default wasm-gc tests in `00ba1836a`. Four fuzz follow-up tests
-bring the focused corpus to 65 cases; the refreshed default suite passes
-12,338/12,338. These checks establish the listed behavior, not broad pass
-parity; dedicated pass results are below.
+**Repository comparison policy now targets v133.** Use the verified v133 oracle
+for new comparisons and keep the earlier v132 measurements labeled as v132
+historical evidence. The initial red-first corpus reached 61 green focused
+tests and 12,334/12,334 default wasm-gc tests in `00ba1836a`. Four fuzz
+follow-up tests bring the focused corpus to 65 cases; the refreshed default
+suite passes 12,338/12,338. These checks establish the listed behavior, not
+broad pass parity; dedicated pass results are below.
 
 ## Released optimizer opportunities
 
@@ -181,7 +181,7 @@ the explicit native release Starshine executable, eight subprocesses, and
 deterministic GenValid seed `0x5eed`. The separate CA v132 row used the
 checksum-verified official v132 binary SHA-256
 `1014958e6f20d412f1542320b43970214b0fb1ed780595e8f7c0d8761ed53725`.
-The ordinary comparison target remains v132. The table describes the first
+The ordinary comparison target is now v133. The table describes the first
 post-commit run; a mismatch is an **open parity difference** until semantic and
 size evidence supports a more specific judgment.
 
