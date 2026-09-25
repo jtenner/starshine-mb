@@ -27,9 +27,7 @@ fn tuple_planning_root_perf_bench(
   )
   let targets = if roots { root_hosts } else { child_hosts }
   for target in targets {
-    if tuple_optimization_host_has_root_slot_during_planning(
-        func, use_def, target,
-      ) !=
+    if tuple_optimization_has_root_site_in_fresh_use_def(func, use_def, target) !=
       roots {
       abort("tuple planning root membership preflight failed")
     }
@@ -37,7 +35,7 @@ fn tuple_planning_root_perf_bench(
   it.bench(fn() {
     let mut root_count = 0
     for target in targets {
-      if tuple_optimization_host_has_root_slot_during_planning(
+      if tuple_optimization_has_root_site_in_fresh_use_def(
           func, use_def, target,
         ) {
         root_count = root_count + 1
@@ -54,16 +52,12 @@ test "tuple split-local planning finds only true root hosts" {
   )
   for target in child_hosts {
     assert_false(
-      tuple_optimization_host_has_root_slot_during_planning(
-        func, use_def, target,
-      ),
+      tuple_optimization_has_root_site_in_fresh_use_def(func, use_def, target),
     )
   }
   for target in root_hosts {
     assert_true(
-      tuple_optimization_host_has_root_slot_during_planning(
-        func, use_def, target,
-      ),
+      tuple_optimization_has_root_site_in_fresh_use_def(func, use_def, target),
     )
   }
 }

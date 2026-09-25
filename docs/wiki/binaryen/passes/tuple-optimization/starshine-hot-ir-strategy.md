@@ -335,3 +335,19 @@ measured 128 child-only hosts at `143.17 µs → 463.62 ns` and 256 at
 `619.57 µs → 920.97 ns`; 256 root-host controls improved from `4.00 µs` to
 `952.11 ns`. The benchmark keeps use-def construction outside the timed
 region. Full-pass impact remains unmeasured.
+
+## September 25, 2026: captured-lane traffic root lookup
+
+Lane-traffic analysis can encounter a copy group's captured `local.tee`
+under a root `drop`, followed by many write-back reads. The captured tee has
+only a child-use site. Repeatedly asking the root-slot finder for it previously
+walked the whole function once per read. Analysis now uses its fresh use-def
+sites to skip that lane when no root use exists; when a root slot exists, the
+first lookup is reused across that lane's reads. Rewrite-time root-slot
+fallback remains unchanged.
+
+The native helper benchmark in
+`src/passes/tuple_optimization_lane_traffic_perf_wbtest.mbt` uses a real
+multi-result copy group and measured 128 write-back reads at
+`76.92 → 1.02 µs` and 256 at `298.35 → 1.93 µs`. The fixture asserts the
+captured lane is child-only. Full-pass impact remains unmeasured.

@@ -24578,3 +24578,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — SimplifyLocals paired unique-use query
 
 - The [SimplifyLocals HOT strategy page](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#september-25-2026-exact-child-use-scan) records native helper timing for two unique-use queries over 1,024 trailing nodes at `2.30 → 1.12 µs` and 4,096 at `8.85 → 4.29 µs`. The protected-region rewrite checks both targets in one exact arena traversal. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — TupleOptimization captured-lane traffic lookup
+
+- The [TupleOptimization HOT strategy page](binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md#september-25-2026-captured-lane-traffic-root-lookup) records native analysis timing for 128 write-back reads at `76.92 → 1.02 µs` and 256 at `298.35 → 1.93 µs`. A captured tee with child-only use sites now avoids repeated whole-function root-slot searches. Full-pass impact remains unmeasured.

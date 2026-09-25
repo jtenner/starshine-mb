@@ -2253,6 +2253,14 @@ fn tuple_optimization_count_lane_traffic(
       if writes.length() != 1 || writes[0] != group.defining_nodes[lane] {
         continue
       }
+      // Lane-traffic analysis has not changed the HOT graph since use-def was
+      // built. A captured write with only child uses has no root position.
+      if !tuple_optimization_has_root_site_in_fresh_use_def(
+          func, use_def, writes[0],
+        ) {
+        continue
+      }
+      let mut first_root_slot : HotTupleOptimizationRootSlot? = None
       for read in @ir.local_read_nodes_borrowed(use_def, local_id) {
         let sites = @ir.node_use_sites_borrowed(use_def, read)
         if sites.length() != 1 {
@@ -2263,15 +2271,22 @@ fn tuple_optimization_count_lane_traffic(
           let write = @ir.hot_node_get(func, site.user)
           if write.op is @ir.HotOp::LocalSet &&
             write.imm0 == source.lane_locals[lane] {
-            let first = match
-              tuple_optimization_find_root_slot_with_use_def(
-                func,
-                use_def,
-                writes[0],
-                lane,
-              ) {
+            let first = match first_root_slot {
               Some(slot) => slot
-              None => continue
+              None =>
+                match
+                  tuple_optimization_find_root_slot_with_use_def(
+                    func,
+                    use_def,
+                    writes[0],
+                    lane,
+                  ) {
+                  Some(slot) => {
+                    first_root_slot = Some(slot)
+                    slot
+                  }
+                  None => continue
+                }
             }
             let last = match
               tuple_optimization_find_root_slot_with_use_def(
@@ -3381,7 +3396,7 @@ fn tuple_optimization_group_needs_dedicated_split_locals(
   match tuple_optimization_group_host_lane(group) {
     Some(host_lane) =>
       match
-        tuple_optimization_host_has_root_slot_during_planning(
+        tuple_optimization_has_root_site_in_fresh_use_def(
           func,
           use_def,
           group.defining_nodes[host_lane],
@@ -3433,7 +3448,7 @@ fn tuple_optimization_group_needs_dedicated_split_locals(
 }
 
 ///|
-fn tuple_optimization_host_has_root_slot_during_planning(
+fn tuple_optimization_has_root_site_in_fresh_use_def(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
   target_id : Int,
@@ -3441,8 +3456,8 @@ fn tuple_optimization_host_has_root_slot_during_planning(
   if target_id < 0 || target_id >= @ir.hot_node_count(func) {
     return false
   }
-  // Split-local planning has not changed the HOT graph since use-def was built.
-  // Later rewriting still uses the root-slot finder with its stale-site fallback.
+  // Read-only analysis and split-local planning have not changed the HOT graph.
+  // Later rewriting still uses the root-slot finder's stale-site fallback.
   for site in @ir.node_use_sites_borrowed(use_def, target_id) {
     if site.kind is @ir.HotUseSlotKind::RootUseSlot {
       return true
