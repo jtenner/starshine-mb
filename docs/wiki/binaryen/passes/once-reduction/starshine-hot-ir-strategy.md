@@ -1,11 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-21
+last_reviewed: 2026-09-24
 sources:
   - ./index.md
   - ../../../../../src/passes/once_reduction.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
+  - ../../../../../src/passes/once_reduction_throw_summary_perf_wbtest.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -201,6 +202,10 @@ The local registry and preset files make that explicit:
 That means this folder should be maintained as living implementation docs, not as speculative future-port notes.
 
 ## Current behavior-parity coverage
+
+### September 24, 2026 throwing-summary measurement
+
+`or_collect_throwing_funcs` scans each function body for initial throwing seeds, returns immediately when none arise, and otherwise scans direct-call edges once before propagating status through reverse callers. This replaces repeated whole-body scans when a throw reaches earlier functions through a long call chain. The native release white-box benchmark in [`once_reduction_throw_summary_perf_wbtest.mbt`](../../../../../src/passes/once_reduction_throw_summary_perf_wbtest.mbt) measured a 128-function reverse chain at `38.44 → 5.53 µs` (6.95×) and 256 at `171.62 → 10.63 µs` (16.14×). Three focused tests cover nested calls, a nonthrowing cycle, and an out-of-range callee; 63 existing OnceReduction tests pass. A 256-function no-throw control improved `1.12 → 1.06 µs`; full-pass impact remains unmeasured.
 
 Compared with the full upstream Binaryen `version_130` contract, the 2026-06-08 red-test/green phase and follow-up lit-surface expansion cover these important families:
 

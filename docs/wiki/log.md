@@ -24251,3 +24251,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — DCE small detached-node deletion
 
 - The [HOT DCE strategy page](binaryen/passes/dead-code-elimination/starshine-hot-ir-strategy.md#september-24-2026-detached-node-deletion-measurement) records native white-box timing for 16 detached candidates amid 512 live nodes (`117.76 → 21.76 µs`) and 1,024 (`233.35 → 41.84 µs`). One reference pass and one batch deletion replace repeated whole-function scans; three new safety tests and 68 existing tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-24 — OnceReduction throwing summary
+
+- The [OnceReduction strategy page](binaryen/passes/once-reduction/starshine-hot-ir-strategy.md#september-24-2026-throwing-summary-measurement) records native white-box timing for reverse call chains of 128 functions (`38.44 → 5.53 µs`) and 256 (`171.62 → 10.63 µs`). A seed scan and conditional reverse-call propagation replace a repeated fixed point; three new tests and 63 existing tests pass. Full-pass impact remains unmeasured.

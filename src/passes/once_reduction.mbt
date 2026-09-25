@@ -1377,6 +1377,45 @@ fn or_instrs_may_throw(
 }
 
 ///|
+fn or_collect_throw_callers(
+  instrs : Array[@lib.Instruction],
+  caller : Int,
+  callers : Array[Array[Int]],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.Call(@lib.FuncIdx(raw)) | @lib.ReturnCall(@lib.FuncIdx(raw)) => {
+        let callee = raw.reinterpret_as_int()
+        if callee >= 0 && callee < callers.length() {
+          callers[callee].push(caller)
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        or_collect_throw_callers(body, caller, callers)
+      @lib.If(_, then_body, else_body) => {
+        or_collect_throw_callers(then_body, caller, callers)
+        match else_body {
+          Some(body) => or_collect_throw_callers(body, caller, callers)
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        or_collect_throw_callers(body, caller, callers)
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          or_collect_throw_callers(catch_body, caller, callers)
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
 fn or_collect_throwing_funcs(
   funcs : Array[@lib.Func],
   imports : Int,
@@ -1386,14 +1425,40 @@ fn or_collect_throwing_funcs(
   for i = 0; i < imports; i = i + 1 {
     throwing[i] = true
   }
-  let mut changed = true
-  while changed {
-    changed = false
-    for i = 0; i < funcs.length(); i = i + 1 {
-      let @lib.Func(_, @lib.Expr(body)) = funcs[i]
-      if !throwing[imports + i] && or_instrs_may_throw(body, throwing) {
-        throwing[imports + i] = true
-        changed = true
+  let mut found_new = false
+  for i = 0; i < funcs.length(); i = i + 1 {
+    let caller = imports + i
+    let @lib.Func(_, @lib.Expr(body)) = funcs[i]
+    if or_instrs_may_throw(body, throwing) {
+      throwing[caller] = true
+      found_new = true
+    }
+  }
+  if !found_new {
+    return throwing
+  }
+  let queue : Array[Int] = []
+  for i = 0; i < total; i = i + 1 {
+    if throwing[i] {
+      queue.push(i)
+    }
+  }
+  let callers : Array[Array[Int]] = []
+  for _ in 0..<total {
+    callers.push([])
+  }
+  for i = 0; i < funcs.length(); i = i + 1 {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[i]
+    or_collect_throw_callers(body, imports + i, callers)
+  }
+  let mut head = 0
+  while head < queue.length() {
+    let callee = queue[head]
+    head = head + 1
+    for caller in callers[callee] {
+      if !throwing[caller] {
+        throwing[caller] = true
+        queue.push(caller)
       }
     }
   }
