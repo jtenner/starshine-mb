@@ -4357,7 +4357,9 @@ fn dfe_eliminate_duplicate_functions(
             if identity_visible[first] {
               likely_duplicate_group = false
             } else {
-              for sample_idx = 1; sample_idx < 8; sample_idx = sample_idx + 1 {
+              for sample_idx = 1
+                  sample_idx < live_indices.length()
+                  sample_idx = sample_idx + 1 {
                 let next = live_indices[sample_idx]
                 if identity_visible[next] ||
                   canonical_type_raws[first] != canonical_type_raws[next] ||

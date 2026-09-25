@@ -24379,3 +24379,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — TupleOptimization rewritten-consumer index
 
 - The [TupleOptimization strategy page](binaryen/passes/tuple-optimization/starshine-strategy.md#september-25-2026-rewritten-consumer-index) records native helper timing from `553.01 → 2.98 µs` for 512 groups and `2.28 ms → 5.92 µs` for 1,024. One source-indexed summary replaces repeated all-group scans during split-local planning and rewriting; full-pass impact remains unmeasured.
+
+### 2026-09-25 — DFE duplicate-prefix collision guard
+
+- The [DFE strategy page](binaryen/passes/duplicate-function-elimination/starshine-strategy.md#september-25-2026-duplicate-prefix-collision-guard) records native direct-pass timing from `126.77 → 33.01 µs` at 128 mixed wrappers and `459.34 → 66.57 µs` at 256. Checking the full group prevents an eight-duplicate prefix from triggering quadratic pairwise comparisons of distinct functions. The 128 all-duplicate control slowed `19.48 → 20.96 µs`; full-pipeline impact remains unmeasured.
