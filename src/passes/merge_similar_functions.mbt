@@ -1015,8 +1015,10 @@ fn msf_append_declarative_targets(
     return mod_
   }
   let unique : Array[@lib.FuncIdx] = []
+  let seen : @hashmap.HashMap[@lib.FuncIdx, Bool] = @hashmap.new()
   for target in targets {
-    if !unique.contains(target) {
+    if seen.get(target) is None {
+      seen.set(target, true)
       unique.push(target)
     }
   }

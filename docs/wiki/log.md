@@ -24227,3 +24227,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — CodeFolding label-map lookup
 
 - The [CodeFolding page](binaryen/passes/code-folding/index.md#september-24-2026-label-map-measurement) records native white-box timing for 1,024 distinct label pairs (`239.29 → 38.21 µs`) and 2,048 (`926.41 → 74.15 µs`). Two integer indexes replace growing-array searches; a bijection test and 204 existing pass tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-24 — MergeSimilarFunctions target deduplication
+
+- The [MergeSimilarFunctions page](binaryen/passes/merge-similar-functions/index.md#september-24-2026-declarative-target-measurement) records native white-box helper timing for 1,024 distinct targets (`121.38 → 32.12 µs`) and 2,048 (`462.71 → 61.76 µs`). An indexed first-seen set replaces repeated array membership scans; one order test and 18 existing pass tests pass. Full-pass impact remains unmeasured.

@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-29
+last_reviewed: 2026-09-24
 sources:
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/merge_similar_functions.mbt
+  - ../../../../../src/passes/merge_similar_targets_perf_wbtest.mbt
   - ../../../../../agent-todo.md
   - ../../../ir2/registry-map.md
   - ../../no-dwarf-default-optimize-path.md
@@ -22,6 +24,10 @@ related:
 # `merge-similar-functions`
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 24, 2026 declarative-target measurement
+
+The append-only helper now deduplicates declarative function targets with a function-index hash set while preserving first-seen output order. Its previous growing-array membership check took quadratic time for distinct targets. The [native white-box benchmark](../../../../../src/passes/merge_similar_targets_perf_wbtest.mbt) times the helper on prebuilt modules: 1,024 targets fell from `121.38` to `32.12 µs` (3.78×), and 2,048 from `462.71` to `61.76 µs` (7.49×). A repeated-target order test and 18 existing merge-similar tests pass. The benchmark directly measures helper time; it does not establish the frequency of this path or full-pass and Binaryen performance.
 
 ## Role
 
