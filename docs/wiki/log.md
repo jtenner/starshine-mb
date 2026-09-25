@@ -24478,3 +24478,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — MemoryPacking partial-overlap interval union
 
 - The [MemoryPacking page](binaryen/passes/memory-packing/index.md#september-25-2026-partial-overlap-interval-union) records native direct-pass staircase timing at 4,096 bytes per segment: 16 segments `206.88 → 74.69 µs` and 32 segments `749.63 → 148.10 µs`. A sorted suffix union removes repeated partial-overlap pair scans and byte zeroing. Two white-box parity cases and 48 existing MemoryPacking tests pass; the full-cover control remains fast.
+
+### 2026-09-25 — DFE unused-signature bulk probe
+
+- The [DFE strategy page](binaryen/passes/duplicate-function-elimination/starshine-strategy.md#september-25-2026-unused-signature-bulk-probe) records native helper timing with 64 unused signatures at `428.03 → 14.57 µs` and 128 at `868.04 → 19.13 µs`. A single negative module-reference probe now avoids repeated full-body scans; positive probes retain exact per-type liveness. The focused regression and existing DFE tests pass.

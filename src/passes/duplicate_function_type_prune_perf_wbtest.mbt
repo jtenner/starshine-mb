@@ -238,3 +238,102 @@ test "bench DFE defined tag signatures count=64" (it : @bench.T) {
 test "bench DFE defined tag signatures count=128" (it : @bench.T) {
   dfe_tag_type_prune_perf_bench(it, 128)
 }
+
+///|
+fn dfe_unused_type_probe_fixture(count : Int) -> @lib.Module {
+  let types : Array[@lib.RecType] = [
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+  ]
+  for idx in 0..<count {
+    let params : Array[@lib.ValType] = []
+    for bit in 0..<8 {
+      params.push(
+        if (idx & (1 << bit)) != 0 {
+          @lib.ValType::i64()
+        } else {
+          @lib.ValType::i32()
+        },
+      )
+    }
+    types.push(
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func(params, [])),
+      ),
+    )
+  }
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new(types))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new(Array::make(1024, @lib.Instruction::nop())),
+      ),
+    ]),
+  )
+}
+
+///|
+fn dfe_unused_type_probe_bench(it : @bench.T, count : Int) -> Unit {
+  let fixture = dfe_unused_type_probe_fixture(count)
+  if @validate.validate_module(fixture).is_err() {
+    abort("DFE unused-type probe fixture is invalid")
+  }
+  let output = dfe_prune_unused_simple_types(fixture)
+  match output.type_sec {
+    Some(@lib.TypeSec(types)) if types.length() == 1 => ()
+    _ => abort("DFE unused-type probe fixture did not prune unused types")
+  }
+  if @validate.validate_module(output).is_err() {
+    abort("DFE unused-type probe output is invalid")
+  }
+  it.bench(fn() { it.keep(dfe_prune_unused_simple_types(fixture)) })
+}
+
+///|
+test "bench DFE unused simple signatures count=64" (it : @bench.T) {
+  dfe_unused_type_probe_bench(it, 64)
+}
+
+///|
+test "bench DFE unused simple signatures count=128" (it : @bench.T) {
+  dfe_unused_type_probe_bench(it, 128)
+}
+
+///|
+test "DFE unused-type bulk probe retains a block-only signature" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(2U)),
+              @lib.Expr::new([]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_true(@validate.validate_module(input).is_ok())
+  let output = dfe_prune_unused_simple_types(input)
+  match output.type_sec {
+    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 2)
+    None => fail("DFE pruned the block-only signature")
+  }
+  assert_true(@validate.validate_module(output).is_ok())
+}

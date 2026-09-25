@@ -39,6 +39,10 @@ The eight-member sample could choose pairwise comparison for a bucket whose firs
 
 Simple-type pruning now marks signatures referenced by defined and imported tags before probing the module for each remaining type. This extends the existing direct marks for function declarations and function imports. The native-release `dfe_prune_unused_simple_types` benchmark with 512 no-op body instructions, distinct defined tag signatures, and one unused tail fell from **27.75 to 20.19 µs** at 64 tags (27.2%) and from **62.64 to 37.82 µs** at 128 tags (39.6%). The fixture validates before and after pruning; a focused imported-tag test and the existing tag parity tests pass. This measures the pruning helper, not the complete DFE pass or production throughput.
 
+## September 25, 2026 unused-signature bulk probe
+
+When two or more signatures remain unmarked after direct function, import, and tag references, simple-type pruning now probes them together in one full-module scan. If that scan finds any reference, the existing per-signature probes still identify exactly which types are live; recursive type dependencies retain their existing closure. On a validated fixture with one 1,024-instruction body and 64 or 128 distinct unused signatures, the [native white-box benchmark](../../../../../src/passes/duplicate_function_type_prune_perf_wbtest.mbt) improved **428.03 → 14.57 µs** (29.4×) and **868.04 → 19.13 µs** (45.4×). The one-unused controls stayed near baseline, and a block-only type-reference regression exercises the positive fallback. These are helper timings; full-pass and Binaryen-v132 parity impact remain unmeasured.
+
 ## First correction
 
 Despite the older historical page filename, this is **not** a HOT-IR pass in Starshine today.

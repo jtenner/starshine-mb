@@ -3980,17 +3980,33 @@ fn dfe_prune_unused_simple_types(mod_ : @lib.Module) -> @lib.Module {
         return mod_
       }
       let without_types = mod_.with_type_sec(@lib.TypeSec::new([]))
-      let mut idx = 0
-      while idx < rec_types.length() {
-        if !live[idx] {
-          let probe : Map[UInt, UInt] = Map([])
-          let raw_idx = idx.reinterpret_as_uint()
-          probe[raw_idx] = rec_types.length().reinterpret_as_uint()
-          if dfe_module_type_refs_use_remap(without_types, probe) {
-            live[idx] = true
-          }
+      let bulk_probe : Map[UInt, UInt] = Map([])
+      let mut candidate_count = 0
+      for candidate_idx = 0
+          candidate_idx < rec_types.length()
+          candidate_idx = candidate_idx + 1 {
+        if !live[candidate_idx] {
+          bulk_probe[candidate_idx.reinterpret_as_uint()] = rec_types
+            .length()
+            .reinterpret_as_uint()
+          candidate_count += 1
         }
-        idx += 1
+      }
+      let needs_individual_probes = candidate_count == 1 ||
+        dfe_module_type_refs_use_remap(without_types, bulk_probe)
+      let mut idx = 0
+      if needs_individual_probes {
+        while idx < rec_types.length() {
+          if !live[idx] {
+            let probe : Map[UInt, UInt] = Map([])
+            let raw_idx = idx.reinterpret_as_uint()
+            probe[raw_idx] = rec_types.length().reinterpret_as_uint()
+            if dfe_module_type_refs_use_remap(without_types, probe) {
+              live[idx] = true
+            }
+          }
+          idx += 1
+        }
       }
       let mut discovered = true
       while discovered {
