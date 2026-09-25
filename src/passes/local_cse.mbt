@@ -1912,23 +1912,31 @@ fn lcse_raw_can_cache_child_for_replay(
 }
 
 ///|
+fn lcse_raw_compact_active(active : Array[Int], retain : (Int) -> Bool) -> Unit {
+  let mut kept = 0
+  for read_idx = 0; read_idx < active.length(); read_idx = read_idx + 1 {
+    let expr_id = active[read_idx]
+    if retain(expr_id) {
+      active[kept] = expr_id
+      kept += 1
+    }
+  }
+  while active.length() > kept {
+    ignore(active.pop())
+  }
+}
+
+///|
 fn lcse_raw_filter_active_without_memory(
   exprs : Array[LcseRawExpr],
   active : Array[Int],
 ) -> Unit {
-  let keep : Array[Int] = []
-  for expr_id in active {
-    if expr_id >= 0 &&
-      expr_id < exprs.length() &&
-      !exprs[expr_id].reads_memory &&
-      !exprs[expr_id].reads_call {
-      keep.push(expr_id)
-    }
-  }
-  active.clear()
-  for expr_id in keep {
-    active.push(expr_id)
-  }
+  lcse_raw_compact_active(active, fn(expr_id) {
+    expr_id >= 0 &&
+    expr_id < exprs.length() &&
+    !exprs[expr_id].reads_memory &&
+    !exprs[expr_id].reads_call
+  })
 }
 
 ///|
@@ -1936,20 +1944,13 @@ fn lcse_raw_filter_active_without_memory_or_size(
   exprs : Array[LcseRawExpr],
   active : Array[Int],
 ) -> Unit {
-  let keep : Array[Int] = []
-  for expr_id in active {
-    if expr_id >= 0 &&
-      expr_id < exprs.length() &&
-      !exprs[expr_id].reads_memory &&
-      !exprs[expr_id].reads_memory_size &&
-      !exprs[expr_id].reads_call {
-      keep.push(expr_id)
-    }
-  }
-  active.clear()
-  for expr_id in keep {
-    active.push(expr_id)
-  }
+  lcse_raw_compact_active(active, fn(expr_id) {
+    expr_id >= 0 &&
+    expr_id < exprs.length() &&
+    !exprs[expr_id].reads_memory &&
+    !exprs[expr_id].reads_memory_size &&
+    !exprs[expr_id].reads_call
+  })
 }
 
 ///|
@@ -1985,15 +1986,16 @@ fn lcse_raw_filter_active_without_local(
 
 ///|
 fn lcse_raw_remove_active_expr(active : Array[Int], target : Int) -> Unit {
-  let keep : Array[Int] = []
-  for expr_id in active {
+  let mut kept = 0
+  for read_idx = 0; read_idx < active.length(); read_idx = read_idx + 1 {
+    let expr_id = active[read_idx]
     if expr_id != target {
-      keep.push(expr_id)
+      active[kept] = expr_id
+      kept += 1
     }
   }
-  active.clear()
-  for expr_id in keep {
-    active.push(expr_id)
+  while active.length() > kept {
+    ignore(active.pop())
   }
 }
 
@@ -2002,16 +2004,9 @@ fn lcse_raw_filter_active_without_call(
   exprs : Array[LcseRawExpr],
   active : Array[Int],
 ) -> Unit {
-  let keep : Array[Int] = []
-  for expr_id in active {
-    if expr_id >= 0 && expr_id < exprs.length() && !exprs[expr_id].reads_call {
-      keep.push(expr_id)
-    }
-  }
-  active.clear()
-  for expr_id in keep {
-    active.push(expr_id)
-  }
+  lcse_raw_compact_active(active, fn(expr_id) {
+    expr_id >= 0 && expr_id < exprs.length() && !exprs[expr_id].reads_call
+  })
 }
 
 ///|
@@ -2019,19 +2014,12 @@ fn lcse_raw_filter_active_without_global(
   exprs : Array[LcseRawExpr],
   active : Array[Int],
 ) -> Unit {
-  let keep : Array[Int] = []
-  for expr_id in active {
-    if expr_id >= 0 &&
-      expr_id < exprs.length() &&
-      !exprs[expr_id].reads_global &&
-      !exprs[expr_id].reads_call {
-      keep.push(expr_id)
-    }
-  }
-  active.clear()
-  for expr_id in keep {
-    active.push(expr_id)
-  }
+  lcse_raw_compact_active(active, fn(expr_id) {
+    expr_id >= 0 &&
+    expr_id < exprs.length() &&
+    !exprs[expr_id].reads_global &&
+    !exprs[expr_id].reads_call
+  })
 }
 
 ///|
@@ -2039,25 +2027,20 @@ fn lcse_raw_filter_active_local_only(
   exprs : Array[LcseRawExpr],
   active : Array[Int],
 ) -> Unit {
-  let keep : Array[Int] = []
-  for expr_id in active {
+  lcse_raw_compact_active(active, fn(expr_id) {
     if expr_id >= 0 && expr_id < exprs.length() {
       let expr = exprs[expr_id]
-      if !expr.reads_memory &&
-        !expr.reads_memory_size &&
-        !expr.reads_table_state &&
-        !expr.reads_global &&
-        !expr.reads_heap &&
-        !expr.reads_atomic &&
-        !expr.reads_call {
-        keep.push(expr_id)
-      }
+      !expr.reads_memory &&
+      !expr.reads_memory_size &&
+      !expr.reads_table_state &&
+      !expr.reads_global &&
+      !expr.reads_heap &&
+      !expr.reads_atomic &&
+      !expr.reads_call
+    } else {
+      false
     }
-  }
-  active.clear()
-  for expr_id in keep {
-    active.push(expr_id)
-  }
+  })
 }
 
 ///|
@@ -2065,19 +2048,12 @@ fn lcse_raw_filter_active_without_heap(
   exprs : Array[LcseRawExpr],
   active : Array[Int],
 ) -> Unit {
-  let keep : Array[Int] = []
-  for expr_id in active {
-    if expr_id >= 0 &&
-      expr_id < exprs.length() &&
-      !exprs[expr_id].reads_heap &&
-      !exprs[expr_id].reads_call {
-      keep.push(expr_id)
-    }
-  }
-  active.clear()
-  for expr_id in keep {
-    active.push(expr_id)
-  }
+  lcse_raw_compact_active(active, fn(expr_id) {
+    expr_id >= 0 &&
+    expr_id < exprs.length() &&
+    !exprs[expr_id].reads_heap &&
+    !exprs[expr_id].reads_call
+  })
 }
 
 ///|

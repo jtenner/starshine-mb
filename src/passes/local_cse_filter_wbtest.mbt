@@ -115,3 +115,37 @@ test "bench Local CSE retained filter writes=64" (it : @bench.T) {
 test "bench Local CSE retained filter writes=256" (it : @bench.T) {
   lcse_local_filter_perf_bench(it, 256)
 }
+
+///|
+fn lcse_other_filter_perf_bench(it : @bench.T, kind : Int) -> Unit {
+  let exprs = Array::makei(256, fn(_) { LcseRawExpr::review2_fixture(0) })
+  let active : Array[Int] = []
+  for idx in 0..<256 {
+    active.push(idx)
+  }
+  it.bench(fn() {
+    for _ in 0..<256 {
+      match kind {
+        0 => lcse_raw_filter_active_without_memory(exprs, active)
+        1 => lcse_raw_filter_active_without_heap(exprs, active)
+        _ => lcse_raw_remove_active_expr(active, -1)
+      }
+    }
+    it.keep(active.length())
+  })
+}
+
+///|
+test "bench Local CSE retained memory filter writes=256" (it : @bench.T) {
+  lcse_other_filter_perf_bench(it, 0)
+}
+
+///|
+test "bench Local CSE retained heap filter writes=256" (it : @bench.T) {
+  lcse_other_filter_perf_bench(it, 1)
+}
+
+///|
+test "bench Local CSE absent active ID writes=256" (it : @bench.T) {
+  lcse_other_filter_perf_bench(it, 2)
+}
