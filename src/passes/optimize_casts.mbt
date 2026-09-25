@@ -541,8 +541,8 @@ fn oc_count_local_gets(
   } else {
     0
   }
-  let children = oc_node_children(func, node_id)
-  for child_id in children {
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
     count += oc_count_local_gets(func, child_id, local_id)
   }
   count
@@ -588,8 +588,8 @@ fn oc_collect_written_locals(
     @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => writes.push(node.imm0)
     _ => ()
   }
-  let children = oc_node_children(func, node_id)
-  for child_id in children {
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
     oc_collect_written_locals(func, child_id, writes)
   }
 }
@@ -819,8 +819,8 @@ fn oc_node_has_linear_block_barrier(func : @ir.HotFunc, node_id : Int) -> Bool {
   if oc_op_is_linear_block_barrier(node.op) {
     return true
   }
-  let children = oc_node_children(func, node_id)
-  for child_id in children {
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
     if oc_node_has_linear_block_barrier(func, child_id) {
       return true
     }
@@ -896,7 +896,8 @@ fn oc_collect_refinements(
   if oc_op_is_structured_control(node.op) {
     return
   }
-  for child_id in oc_node_children(func, node_id) {
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
     oc_collect_refinements(func, child_id, out)
   }
   match node.op {
@@ -932,7 +933,8 @@ fn oc_collect_refinement_tee_source_aliases(
   if oc_op_is_structured_control(node.op) {
     return
   }
-  for child_id in oc_node_children(func, node_id) {
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
     oc_collect_refinement_tee_source_aliases(func, child_id, out)
   }
   match node.op {

@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-24
 sources:
   - ./index.md
+  - ../../../../../src/passes/optimize_casts.mbt
+  - ../../../../../src/passes/optimize_casts_child_walk_perf_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/ir/hot_core.mbt
@@ -209,6 +211,10 @@ Retained non-goals and reopening surfaces:
 - Reopen OC for new Binaryen source/lit drift, a true semantic mismatch, any Starshine validation/generator/property failure, direct/dedicated fuzz mismatch, broad residual outside the accepted static-fold win, size-neutral/size-losing broad static-fold direction, wasm-smith residual after the documented normalizer, or a reduction proving OC seeds the later `coalesce-locals` neighborhood size drift.
 
 ## Validation bridge
+
+### September 24, 2026 read-only child-walk measurement
+
+Five read-only HOT traversals in [`optimize_casts.mbt`](../../../../../src/passes/optimize_casts.mbt) now iterate child slots directly, avoiding one temporary child array per visited node. Traversals that replace nodes or need a stable child snapshot still copy their children. The native release white-box `oc_count_local_gets` benchmark in [`optimize_casts_child_walk_perf_wbtest.mbt`](../../../../../src/passes/optimize_casts_child_walk_perf_wbtest.mbt) measured 256 nested select sites at `18.07 → 9.42 µs` (1.92×) and 512 at `35.32 → 19.64 µs` (1.80×). Eighty-eight existing OptimizeCasts tests pass. This helper timing does not establish full-pass speedup or measured allocation counts.
 
 See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the implementation ladder, negative families, neighborhood order, and oracle comparison plan.
 

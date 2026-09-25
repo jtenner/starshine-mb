@@ -24267,3 +24267,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — GlobalRefining public-type scratch
 
 - The [exported public types page](binaryen/passes/global-refining/exports-public-types-and-retagging.md#september-24-2026-starshine-publicness-query-measurement) records native direct-pass timing for 128 exported globals and types (`26.20 → 20.89 µs`) and 256 (`59.67 → 41.72 µs`). Per-invocation scratch resets visited states after each query; one new and 23 existing tests pass. Full-pipeline impact remains unmeasured.
+
+### 2026-09-24 — OptimizeCasts read-only child walks
+
+- The [OptimizeCasts strategy page](binaryen/passes/optimize-casts/starshine-strategy.md#september-24-2026-read-only-child-walk-measurement) records native white-box helper timings for 256 nested child sites (`18.07 → 9.42 µs`) and 512 (`35.32 → 19.64 µs`). Five read-only traversals now avoid per-node child arrays; 88 existing tests pass. Full-pass impact remains unmeasured.
