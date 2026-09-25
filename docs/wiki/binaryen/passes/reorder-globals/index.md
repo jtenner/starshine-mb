@@ -1,11 +1,13 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-24
 sources:
   - ../../../../../src/passes/reorder_globals.mbt
   - ../../../../../src/passes/reorder_globals_test.mbt
   - ../../../../../src/passes/reorder_globals_wbtest.mbt
+  - ../../../../../src/passes/reorder_globals_name_sort_wbtest.mbt
+  - ../../../../../src/passes_perf_long/reorder_globals_name_sort_perf_test.mbt
   - ../../../../../src/validate/gen_valid_reorder_globals.mbt
   - ./fuzzing.md
   - ../../../../../src/passes/optimize.mbt
@@ -94,6 +96,16 @@ That is much closer to the real pass than either:
   - `reorder-globals` does the stronger late size/layout reorder
 
 ## Current repo caveat
+
+The 2026-09-24 native direct-pass benchmark uses ascending global name indices
+that become inverted when a hot second half moves forward. Replacing stable
+insertion sorting with a stable index-and-original-position sort reduced time
+from 431.37 to 137.70 µs for 1,024 named globals (`3.13×`) and from 1.54 ms
+to 305.10 µs for 2,048 (`5.05×`). The fixture and validation are outside the
+timed loop in `src/passes_perf_long/reorder_globals_name_sort_perf_test.mbt`;
+`src/passes/reorder_globals_name_sort_wbtest.mbt` checks duplicate-index order.
+These are synthetic Starshine pass-local measurements, not a new Binaryen
+comparison.
 
 - The current Starshine pass registry now splits the family explicitly:
   - `reorder-globals` is an active direct module pass implemented in `src/passes/reorder_globals.mbt`

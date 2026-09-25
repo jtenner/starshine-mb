@@ -834,22 +834,24 @@ fn rg_rewrite_code_sec(
 }
 
 ///|
-fn rg_sort_name_assocs(entries : Array[@lib.NameAssoc]) -> Unit {
-  let mut i = 1
-  while i < entries.length() {
-    let current = entries[i]
-    let @lib.NameAssoc(current_idx, _) = current
-    let mut j = i
-    while j > 0 {
-      let @lib.NameAssoc(prev_idx, _) = entries[j - 1]
-      if prev_idx <= current_idx {
-        break
-      }
-      entries[j] = entries[j - 1]
-      j -= 1
+fn rg_sort_name_assocs_stable(entries : Array[@lib.NameAssoc]) -> Unit {
+  let ordered : Array[(Int, @lib.NameAssoc)] = []
+  for idx = 0; idx < entries.length(); idx = idx + 1 {
+    ordered.push((idx, entries[idx]))
+  }
+  ordered.sort_by(fn(left, right) {
+    let @lib.NameAssoc(left_idx, _) = left.1
+    let @lib.NameAssoc(right_idx, _) = right.1
+    if left_idx < right_idx {
+      -1
+    } else if left_idx > right_idx {
+      1
+    } else {
+      left.0 - right.0
     }
-    entries[j] = current
-    i += 1
+  })
+  for idx = 0; idx < entries.length(); idx = idx + 1 {
+    entries[idx] = ordered[idx].1
   }
 }
 
@@ -870,7 +872,7 @@ fn rg_rewrite_global_name_map(
           out.push(entry)
         }
       }
-      rg_sort_name_assocs(out)
+      rg_sort_name_assocs_stable(out)
       Some(@lib.NameMap::new(out))
     }
     None => None

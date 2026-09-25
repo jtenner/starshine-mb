@@ -24183,3 +24183,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — GlobalEffects target summaries
 
 - The [GlobalEffects page](binaryen/passes/global-effects/index.md) distinguishes the current direct resume rewrite from the historical upstream metadata producer. Caching a defined target's suspension summary per invocation reduced native direct-pass time from `26.42 → 15.83 µs` at 128 repeated resumes and `71.40 → 28.30 µs` at 256. The fixture and validation are outside timing; this is synthetic Starshine evidence.
+
+### 2026-09-24 — ReorderGlobals name-map sorting
+
+- The [ReorderGlobals page](binaryen/passes/reorder-globals/index.md) records native direct-pass timings for inverted remapped names: 1,024 entries `431.37 → 137.70 µs`, and 2,048 entries `1.54 ms → 305.10 µs`. An order-preserving O(n log n) sort replaces insertion sorting; a focused test retains duplicate-index order. This is synthetic pass-local evidence, not a new Binaryen comparison.
