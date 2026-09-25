@@ -104,6 +104,41 @@ test "DFE type pruning still removes an unused trailing simple type" {
 }
 
 ///|
+test "DFE type pruning retains imported tag signatures" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::f64()], []),
+          ),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("tag"),
+          @lib.ExternType::tag(@lib.TagType::new(@lib.TypeIdx::new(0U))),
+        ),
+      ]),
+    )
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let output = dfe_prune_unused_simple_types(input)
+  match output.type_sec {
+    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 1)
+    None => fail("DFE removed the imported tag signature")
+  }
+  assert_true(@validate.validate_module(output) is Ok(_))
+}
+
+///|
 test "bench DFE live simple types count=64" (it : @bench.T) {
   dfe_type_prune_perf_bench(it, 64)
 }
@@ -132,4 +167,74 @@ test "bench DFE imported types plus one unused count=64" (it : @bench.T) {
 ///|
 test "bench DFE imported types plus one unused count=128" (it : @bench.T) {
   dfe_imported_type_prune_perf_bench(it, 128)
+}
+
+///|
+fn dfe_tag_type_prune_perf_fixture(count : Int) -> @lib.Module {
+  let types : Array[@lib.RecType] = [
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+  ]
+  let tags : Array[@lib.TagType] = []
+  for idx in 0..<count {
+    let params : Array[@lib.ValType] = []
+    for bit in 0..<8 {
+      params.push(
+        if (idx & (1 << bit)) != 0 {
+          @lib.ValType::i64()
+        } else {
+          @lib.ValType::i32()
+        },
+      )
+    }
+    types.push(
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func(params, [])),
+      ),
+    )
+    tags.push(@lib.TagType::new(@lib.TypeIdx::new((idx + 1).to_uint())))
+  }
+  types.push(
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::f64()], [])),
+    ),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new(types))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new(Array::make(512, @lib.Instruction::nop())),
+      ),
+    ]),
+  )
+  .with_tag_sec(@lib.TagSec::new(tags))
+}
+
+///|
+fn dfe_tag_type_prune_perf_bench(it : @bench.T, count : Int) -> Unit {
+  let fixture = dfe_tag_type_prune_perf_fixture(count)
+  if @validate.validate_module(fixture).is_err() {
+    abort("DFE tag signature benchmark input is invalid")
+  }
+  let output = dfe_prune_unused_simple_types(fixture)
+  match output.type_sec {
+    Some(@lib.TypeSec(types)) if types.length() == count + 1 => ()
+    _ => abort("DFE tag signature benchmark did not prune only the tail")
+  }
+  if @validate.validate_module(output).is_err() {
+    abort("DFE tag signature benchmark output is invalid")
+  }
+  it.bench(fn() { it.keep(dfe_prune_unused_simple_types(fixture)) })
+}
+
+///|
+test "bench DFE defined tag signatures count=64" (it : @bench.T) {
+  dfe_tag_type_prune_perf_bench(it, 64)
+}
+
+///|
+test "bench DFE defined tag signatures count=128" (it : @bench.T) {
+  dfe_tag_type_prune_perf_bench(it, 128)
 }

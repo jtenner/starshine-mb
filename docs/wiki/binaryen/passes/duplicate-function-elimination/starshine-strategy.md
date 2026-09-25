@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateFunctionElimination.cpp
@@ -10,6 +10,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/duplicate_function_elimination_test.mbt
   - ../../../../../src/passes/duplicate_function_elimination_wbtest.mbt
+  - ../../../../../src/passes/duplicate_function_type_prune_perf_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - https://webassembly.github.io/spec/js-api/#exported-functions
   - https://webassembly.github.io/spec/js-api/#dom-table-get
@@ -33,6 +34,10 @@ Function shape hashing intentionally omits call targets so wrappers can merge af
 ## September 25, 2026 duplicate-prefix collision guard
 
 The eight-member sample could choose pairwise comparison for a bucket whose first eight wrappers were equal and the remainder distinct, reintroducing quadratic work. DFE now checks the whole live group before taking that shortcut. The [native direct-pass benchmark](../../../../../src/passes/duplicate_function_elimination_collision_perf_wbtest.mbt) with eight equal wrappers followed by distinct imported targets improved **126.77 → 33.01 µs** at 128 wrappers and **459.34 → 66.57 µs** at 256. The 128 all-duplicate control slowed **19.48 → 20.96 µs** (7.6%) because it now checks every member before pairwise merging. This measured tradeoff favors mixed collision groups, which previously scaled quadratically. The test confirms seven duplicate removals and preservation of all distinct target calls; full-pipeline impact remains unmeasured.
+
+## September 25, 2026 tag-signature premarking
+
+Simple-type pruning now marks signatures referenced by defined and imported tags before probing the module for each remaining type. This extends the existing direct marks for function declarations and function imports. The native-release `dfe_prune_unused_simple_types` benchmark with 512 no-op body instructions, distinct defined tag signatures, and one unused tail fell from **27.75 to 20.19 µs** at 64 tags (27.2%) and from **62.64 to 37.82 µs** at 128 tags (39.6%). The fixture validates before and after pruning; a focused imported-tag test and the existing tag parity tests pass. This measures the pruning helper, not the complete DFE pass or production throughput.
 
 ## First correction
 

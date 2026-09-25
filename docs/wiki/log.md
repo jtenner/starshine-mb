@@ -1,3 +1,12 @@
+### 2026-09-25 — DFE tag-signature premarking
+
+- Marked type signatures referenced by imported and defined tags before DFE's
+  remaining per-type module probes. The native-release pruning-helper benchmark
+  improved from 27.75 to 20.19 µs at 64 distinct tags and from 62.64 to
+  37.82 µs at 128, with one unused tail type. Three focused and two existing
+  tag parity tests pass; complete DFE throughput remains unmeasured. See
+  [DFE strategy](binaryen/passes/duplicate-function-elimination/starshine-strategy.md#september-25-2026-tag-signature-premarking).
+
 ### 2026-09-25 — Heap2Local default eligibility without discarded nodes
 
 - Replaced struct and array default-value eligibility probes with a pure type

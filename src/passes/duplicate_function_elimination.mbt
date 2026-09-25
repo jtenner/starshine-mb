@@ -3946,6 +3946,31 @@ fn dfe_prune_unused_simple_types(mod_ : @lib.Module) -> @lib.Module {
                   live[type_idx] = true
                 }
               }
+              @lib.Import(
+                _,
+                _,
+                @lib.TagExternType(@lib.TagType(@lib.TypeIdx(raw_idx)))
+              ) => {
+                let type_idx = raw_idx.reinterpret_as_int()
+                if type_idx >= 0 && type_idx < live.length() {
+                  live[type_idx] = true
+                }
+              }
+              _ => ()
+            }
+          }
+        None => ()
+      }
+      match mod_.tag_sec {
+        Some(@lib.TagSec(tags)) =>
+          for tag in tags {
+            match tag {
+              @lib.TagType(@lib.TypeIdx(raw_idx)) => {
+                let type_idx = raw_idx.reinterpret_as_int()
+                if type_idx >= 0 && type_idx < live.length() {
+                  live[type_idx] = true
+                }
+              }
               _ => ()
             }
           }
