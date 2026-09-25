@@ -24311,3 +24311,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — MergeSimilar call-type shape buckets
 
 - The [MergeSimilar strategy page](binaryen/passes/merge-similar-functions/starshine-strategy.md#september-25-2026-call-type-shape-collision-measurement) records native class-collection timing for 128 incompatible call-type wrappers (`191.41 → 1.94 µs`) and 256 (`767.40 → 3.91 µs`). Call type IDs now enter the shape hash while same-type targets remain mergeable; one new and 24 existing tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — CoalesceLocals copy-score lookup
+
+- The [Coalesce strategy page](binaryen/passes/coalesce-locals/starshine-strategy.md#september-25-2026-sparse-copy-score-measurement) records native coloring timing for 64 dense-copy locals (`28.79 → 13.45 µs`) and 128 (`195.23 → 52.08 µs`). Reusable indexed weight rows replace repeated sparse-row scans during slot scoring; one new and 91 existing tests pass. Full-pass impact remains unmeasured.

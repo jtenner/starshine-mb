@@ -6452,24 +6452,6 @@ fn cl_cfg_sparse_weight_add(
 }
 
 ///|
-fn cl_cfg_sparse_weight(
-  weights : CLCfgSparseWeights,
-  lhs : Int,
-  rhs : Int,
-) -> Int {
-  if lhs < 0 || lhs >= weights.rows.length() {
-    return 0
-  }
-  for edge in weights.rows[lhs] {
-    let (other, weight) = edge
-    if other == rhs {
-      return weight
-    }
-  }
-  0
-}
-
-///|
 fn cl_cfg_sparse_copy_weights(
   actions : Array[CLAction],
   effective : Array[Bool],
@@ -6508,11 +6490,14 @@ fn cl_cfg_sparse_slot_interferes(
 fn cl_cfg_sparse_slot_copy_score(
   members : Array[Int],
   local_idx : Int,
-  weights : CLCfgSparseWeights,
+  weight_values : Array[Int],
+  weight_marks : Array[Int],
 ) -> Int {
   let mut score = 0
   for slot_member in members {
-    score += cl_cfg_sparse_weight(weights, local_idx, slot_member)
+    if weight_marks[slot_member] == local_idx {
+      score += weight_values[slot_member]
+    }
   }
   score
 }
@@ -6533,7 +6518,14 @@ fn cl_cfg_sparse_color_with_order(
     slot_types.push(types[idx])
     slot_members.push([idx])
   }
+  let weight_values = Array::make(types.length(), 0)
+  let weight_marks = Array::make(types.length(), -1)
   for local_idx in order {
+    for edge in weights.rows[local_idx] {
+      let (other, weight) = edge
+      weight_values[other] = weight
+      weight_marks[other] = local_idx
+    }
     let mut best_slot = -1
     let mut best_score = -1
     for slot = 0; slot < slot_types.length(); slot = slot + 1 {
@@ -6546,7 +6538,8 @@ fn cl_cfg_sparse_color_with_order(
         let score = cl_cfg_sparse_slot_copy_score(
           slot_members[slot],
           local_idx,
-          weights,
+          weight_values,
+          weight_marks,
         )
         if score > best_score {
           best_score = score

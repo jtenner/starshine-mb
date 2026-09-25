@@ -38,6 +38,10 @@ related:
 Use this page together with the [`coalesce-locals` landing page](./index.md)'s tagged source list, the retained 2026-05-05 research recheck, and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.
 
+## September 25, 2026 sparse copy-score measurement
+
+CFG coloring now scatters each local's sparse copy weights into reusable indexed arrays before scoring compatible slots. A generation mark by local ID avoids clearing the arrays between locals. The [native white-box coloring benchmark](../../../../../src/passes/coalesce_locals_copy_score_perf_wbtest.mbt) with dense copy weights improved from `28.79` to `13.45 µs` (2.14×) at 64 locals and from `195.23` to `52.08 µs` (3.75×) at 128. A weighted slot-choice regression and 91 existing Coalesce tests pass. Fixture construction is outside timing; full-pass impact remains unmeasured.
+
 ## The honest current status
 
 `coalesce-locals` is now an active Starshine module pass with owner file [`../../../../../src/passes/coalesce_locals.mbt`](../../../../../src/passes/coalesce_locals.mbt).
