@@ -1,11 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/passes/ssa_nomerge_test.mbt
+  - ../../../../../src/passes/ssa_nomerge_tee_if_guard_perf_wbtest.mbt
   - ../../../../../src/passes/ssa_nomerge_continuation_wbtest.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -34,6 +35,10 @@ This page describes the **current local MoonBit implementation**, not the full u
 ## September 24, 2026 partial-write preflight measurement
 
 The raw structured partial-write tee preflight now builds a suffix index of the next `if` once per body. Repeated `local.tee; call` sites previously each scanned the rest of the body to find that `if`. In a [native white-box benchmark](../../../../../src/passes/ssa_nomerge_partial_write_preflight_perf_wbtest.mbt) with no later `if`, 256 pairs improved from `44.52` to `1.24 µs` (35.9×), and 512 from `175.38` to `2.53 µs` (69.3×). The focused first-`if`/parameter test and 498 existing SSA-nomerge tests pass. This is helper timing; full-pass impact and positive partial-write workload timing remain unmeasured.
+
+## September 25, 2026 shared If-arm access cache
+
+When several `local.tee; call` prefixes reach the same next `if`, the partial-write preflight now collects local reads and writes in each If arm once, then queries those sets for each target. The cache is rebuilt when the next If changes; read and write must still occur in the same arm. The [native white-box benchmark](../../../../../src/passes/ssa_nomerge_tee_if_guard_perf_wbtest.mbt) improved from **35.35 → 1.17 µs** (30.2×) for 64 prefixes sharing one target and **70.66 → 1.76 µs** (40.1×) for 128 distinct targets. The focused same-arm/split-arm regression and all 498 existing SSA no-merge tests pass. These are helper timings; full-pass impact remains unmeasured.
 
 ## 2026-09-22 continuation-flow boundary
 

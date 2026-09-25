@@ -6109,11 +6109,78 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_result_if_embedded_tee_lifetime(
 }
 
 ///|
+priv struct SsaTeeIfArmAccess {
+  if_idx : Int
+  then_reads : Map[UInt, Bool]
+  then_writes : Map[UInt, Bool]
+  else_reads : Map[UInt, Bool]
+  else_writes : Map[UInt, Bool]
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_collect_if_arm_accesses(
+  instrs : Array[@lib.Instruction],
+  reads : Map[UInt, Bool],
+  writes : Map[UInt, Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => reads[raw] = true
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) =>
+        writes[raw] = true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_ssa_nomerge_collect_if_arm_accesses(
+          body, reads, writes,
+        )
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_ssa_nomerge_collect_if_arm_accesses(
+          then_body, reads, writes,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_ssa_nomerge_collect_if_arm_accesses(
+              body, reads, writes,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn SsaTeeIfArmAccess::new(
+  if_idx : Int,
+  then_body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction]?,
+) -> SsaTeeIfArmAccess {
+  let then_reads : Map[UInt, Bool] = Map([])
+  let then_writes : Map[UInt, Bool] = Map([])
+  let else_reads : Map[UInt, Bool] = Map([])
+  let else_writes : Map[UInt, Bool] = Map([])
+  run_hot_pipeline_raw_ssa_nomerge_collect_if_arm_accesses(
+    then_body, then_reads, then_writes,
+  )
+  match else_body {
+    Some(body) =>
+      run_hot_pipeline_raw_ssa_nomerge_collect_if_arm_accesses(
+        body, else_reads, else_writes,
+      )
+    None => ()
+  }
+  { if_idx, then_reads, then_writes, else_reads, else_writes, }
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_structured_partial_write_tee_lifetime(
   instrs : Array[@lib.Instruction],
   parameter_count : Int,
 ) -> Bool {
   let mut next_if : Array[Int] = []
+  let mut cached_if : SsaTeeIfArmAccess? = None
   for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
     let target = match (instrs[idx], instrs[idx + 1]) {
       (@lib.LocalTee(target), @lib.Call(_)) => target
@@ -6137,28 +6204,22 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_structured_partial_write_tee_lifetime(
     if scan >= 0 {
       match instrs[scan] {
         @lib.If(_, then_body, else_body) => {
-          let (then_reads, _) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
-            then_body, target,
-          )
-          if then_reads &&
-            run_hot_pipeline_raw_simplify_locals_instrs_write_local(
-              then_body, target,
-            ) {
+          let access = match cached_if {
+            Some(access) if access.if_idx == scan => access
+            _ => {
+              let access = SsaTeeIfArmAccess::new(scan, then_body, else_body)
+              cached_if = Some(access)
+              access
+            }
+          }
+          let @lib.LocalIdx(raw) = target
+          if access.then_reads.get(raw).unwrap_or(false) &&
+            access.then_writes.get(raw).unwrap_or(false) {
             return true
           }
-          match else_body {
-            Some(else_body) => {
-              let (else_reads, _) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
-                else_body, target,
-              )
-              if else_reads &&
-                run_hot_pipeline_raw_simplify_locals_instrs_write_local(
-                  else_body, target,
-                ) {
-                return true
-              }
-            }
-            None => ()
+          if access.else_reads.get(raw).unwrap_or(false) &&
+            access.else_writes.get(raw).unwrap_or(false) {
+            return true
           }
         }
         _ => ()

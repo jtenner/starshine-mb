@@ -24490,3 +24490,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — SimplifyLocals loop-carrier preflight summaries
 
 - The [SimplifyLocals performance page](binaryen/passes/simplify-locals/performance-and-artifact-frontiers.md#2026-09-25-loop-carrier-preflight-summaries) records native helper timing for 128 preceding initializers: parameter-result guard `74.85 → 3.01 µs` and ordinary write guard `58.19 → 1.85 µs`. Each loop body is summarized once after the first negative candidate. Two focused tests, 130 no-structure tests, and 105 main SimplifyLocals tests pass; full-pass impact remains unmeasured.
+
+### 2026-09-25 — SSA no-merge shared If-arm access cache
+
+- The [SSA no-merge strategy page](binaryen/passes/ssa-nomerge/starshine-hot-ir-strategy.md#september-25-2026-shared-if-arm-access-cache) records native helper timing for 64 same-target tee/call prefixes at `35.35 → 1.17 µs` and 128 distinct-target prefixes at `70.66 → 1.76 µs`. The next If's arm reads and writes are collected once, preserving same-arm matching. A focused split-arm regression and 498 existing SSA no-merge tests pass; full-pass impact remains unmeasured.
