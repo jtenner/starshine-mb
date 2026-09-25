@@ -24271,3 +24271,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — OptimizeCasts read-only child walks
 
 - The [OptimizeCasts strategy page](binaryen/passes/optimize-casts/starshine-strategy.md#september-24-2026-read-only-child-walk-measurement) records native white-box helper timings for 256 nested child sites (`18.07 → 9.42 µs`) and 512 (`35.32 → 19.64 µs`). Five read-only traversals now avoid per-node child arrays; 88 existing tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-24 — LocalSubtyping stable-function rounds
+
+- The [LocalSubtyping strategy page](binaryen/passes/local-subtyping/starshine-strategy.md#september-24-2026-stable-function-revisit-measurement) records native direct-pass timing for a 16-local chain with 64 stable functions (`391.01 → 206.06 µs`) and 128 (`686.96 → 307.25 µs`). Later rounds skip unchanged functions; one new and 87 existing tests pass. Full-pipeline impact remains unmeasured.

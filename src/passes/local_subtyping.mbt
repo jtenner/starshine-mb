@@ -2126,6 +2126,10 @@ pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     Some(@lib.CodeSec(funcs)) => ls_ref_body_local_iteration_limit(funcs)
     None => return mod_
   }
+  let active = match current_mod.code_sec {
+    Some(@lib.CodeSec(funcs)) => Array::make(funcs.length(), true)
+    None => return current_mod
+  }
   while iteration < iteration_limit {
     let funcs = match current_mod.code_sec {
       Some(@lib.CodeSec(funcs)) => funcs
@@ -2136,6 +2140,10 @@ pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     let rewritten_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
     let mut changed = false
     for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+      if !active[code_idx] {
+        rewritten_funcs.push(funcs[code_idx])
+        continue
+      }
       let func_idx = @lib.FuncIdx::new(
         (imported_func_count + code_idx).reinterpret_as_uint(),
       )
@@ -2146,6 +2154,7 @@ pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         module_ctx,
       )
       rewritten_funcs.push(next_func)
+      active[code_idx] = next_changed
       if next_changed {
         changed = true
       }

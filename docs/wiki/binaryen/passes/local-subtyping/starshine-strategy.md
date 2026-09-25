@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: strong
-last_reviewed: 2026-07-26
+last_reviewed: 2026-09-24
 sources:
   - ./index.md
   - ../../../../../src/passes/local_subtyping.mbt
   - ../../../../../src/passes/local_subtyping_test.mbt
   - ../../../../../src/passes/local_subtyping_wbtest.mbt
+  - ../../../../../src/passes/local_subtyping_stable_funcs_perf_wbtest.mbt
   - ../../../../../src/validate/gen_valid.mbt
   - ./fuzzing.md
 ---
@@ -17,7 +18,7 @@ sources:
 
 ## Current implementation
 
-Starshine runs `local-subtyping` as a module pass. Each iteration rebuilds module context, rewrites every defined function, and repeats until reference-local declarations and represented expression types stabilize.
+Starshine runs `local-subtyping` as a module pass. Each iteration rebuilds module context and revisits functions changed in the prior round until reference-local declarations and represented expression types stabilize. Unchanged functions retain their body and declarations because the context's type and import surfaces stay fixed during these code-only rounds.
 
 The implementation has four cooperating analysis paths:
 
@@ -39,6 +40,10 @@ Assigned reference types are folded pairwise:
 This closes the previously ungenerated concrete-parent, abstract-eq, function-family, and null-bottom families.
 
 ## Iteration and expression repair
+
+### September 24, 2026 stable-function revisit measurement
+
+The native direct-pass benchmark in [`local_subtyping_stable_funcs_perf_wbtest.mbt`](../../../../../src/passes/local_subtyping_stable_funcs_perf_wbtest.mbt) uses a 16-local reference copy chain plus unrelated functions containing 32 `nop`s each. Skipping functions that did not change in the previous round reduced time from `391.01 → 206.06 µs` with 64 stable functions (1.90×) and `686.96 → 307.25 µs` with 128 (2.24×). A direct test checks all chain locals refine and stable bodies remain identical; 87 existing LocalSubtyping tests pass. Full pipeline impact remains unmeasured.
 
 The pass repeats because one narrowed declaration can sharpen a later `local.get`, `select`, or `call_ref` assignment. Represented repairs include:
 
