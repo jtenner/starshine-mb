@@ -24287,3 +24287,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — SSA-nomerge partial-write preflight
 
 - The [SSA-nomerge HOT strategy page](binaryen/passes/ssa-nomerge/starshine-hot-ir-strategy.md#september-24-2026-partial-write-preflight-measurement) records native helper timing for 256 `local.tee; call` pairs (`44.52 → 1.24 µs`) and 512 (`175.38 → 2.53 µs`). A suffix index replaces repeated scans to the next `if`; one new and 498 existing tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-24 — DFE shape-collision buckets
+
+- The [DFE strategy page](binaryen/passes/duplicate-function-elimination/starshine-strategy.md#september-24-2026-shape-collision-measurement) records native direct-pass timing for 128 distinct import wrappers (`119.31 → 20.45 µs`) and 256 (`456.71 → 39.99 µs`). Exact structural sub-buckets avoid pairwise comparisons; a sampled duplicate fast path keeps the identical-wrapper control within 3% (`19.09 → 19.67 µs`). Forty focused tests pass. Full-pipeline impact remains unmeasured.

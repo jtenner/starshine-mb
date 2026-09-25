@@ -26,6 +26,10 @@ related:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
+## September 24, 2026 shape-collision measurement
+
+Function shape hashing intentionally omits call targets so wrappers can merge after targets become canonical. In a large shape bucket, DFE now groups normalized functions by an exact structural hash each round, then retains exact equality checks inside each collision group. A sampled duplicate-heavy fast path keeps direct comparisons when the first eight members are already mergeable. The [native white-box direct-pass benchmark](../../../../../src/passes/duplicate_function_elimination_collision_perf_wbtest.mbt) with wrappers calling distinct imports improved from `119.31` to `20.45 µs` (5.83×) at 128 wrappers and `456.71` to `39.99 µs` (11.42×) at 256. The 128 identical-wrapper control moved from `19.09` to `19.67 µs` (3.0% slower). One new and 39 existing focused tests pass. These are synthetic Starshine pass-local timings; full-pipeline and Binaryen comparisons remain unmeasured.
+
 ## First correction
 
 Despite the older historical page filename, this is **not** a HOT-IR pass in Starshine today.

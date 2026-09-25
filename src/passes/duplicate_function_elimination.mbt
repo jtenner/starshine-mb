@@ -4348,53 +4348,121 @@ fn dfe_eliminate_duplicate_functions(
               )
             }
           }
-          let mut i = 0
-          while i + 1 < live_indices.length() {
-            let first = live_indices[i]
-            if replacements[first] >= 0 {
+          let comparison_groups : Array[Array[Int]] = []
+          // A run of equal, mergeable members is cheaper to compare directly.
+          // The exact buckets help when one shape contains many distinct bodies.
+          let mut likely_duplicate_group = live_indices.length() >= 8
+          if likely_duplicate_group {
+            let first = live_indices[0]
+            if identity_visible[first] {
+              likely_duplicate_group = false
+            } else {
+              for sample_idx = 1; sample_idx < 8; sample_idx = sample_idx + 1 {
+                let next = live_indices[sample_idx]
+                if identity_visible[next] ||
+                  canonical_type_raws[first] != canonical_type_raws[next] ||
+                  live_funcs[0] != live_funcs[sample_idx] ||
+                  (
+                    has_annotations &&
+                    normalized_annotations[first] !=
+                    normalized_annotations[next]
+                  ) {
+                  likely_duplicate_group = false
+                  break
+                }
+              }
+            }
+          }
+          if likely_duplicate_group {
+            let all_live : Array[Int] = []
+            for live_idx = 0
+                live_idx < live_indices.length()
+                live_idx = live_idx + 1 {
+              all_live.push(live_idx)
+            }
+            comparison_groups.push(all_live)
+          } else {
+            let first_by_exact_hash : @hashmap.HashMap[Int, Int] = @hashmap.new(
+              capacity=live_indices.length(),
+            )
+            let collision_group_by_exact_hash : @hashmap.HashMap[Int, Int] = @hashmap.new()
+            for live_idx = 0
+                live_idx < live_indices.length()
+                live_idx = live_idx + 1 {
+              let local_idx = live_indices[live_idx]
+              let mut key = canonical_type_raws[local_idx].hash() * 31 +
+                live_funcs[live_idx].hash()
+              if has_annotations {
+                key = key * 31 + normalized_annotations[local_idx].hash()
+              }
+              match first_by_exact_hash.get(key) {
+                Some(first_idx) =>
+                  match collision_group_by_exact_hash.get(key) {
+                    Some(group_idx) =>
+                      comparison_groups[group_idx].push(live_idx)
+                    None => {
+                      collision_group_by_exact_hash.set(
+                        key,
+                        comparison_groups.length(),
+                      )
+                      comparison_groups.push([first_idx, live_idx])
+                    }
+                  }
+                None => first_by_exact_hash.set(key, live_idx)
+              }
+            }
+          }
+          for comparison_group in comparison_groups {
+            let mut i = 0
+            while i + 1 < comparison_group.length() {
+              let first_live_idx = comparison_group[i]
+              let first = live_indices[first_live_idx]
+              if replacements[first] >= 0 {
+                i += 1
+                continue
+              }
+              let mut j = i + 1
+              while j < comparison_group.length() {
+                let second_live_idx = comparison_group[j]
+                let second = live_indices[second_live_idx]
+                if replacements[second] >= 0 {
+                  j += 1
+                  continue
+                }
+                // Exported and address-materialized functions have observable
+                // identities, including through host-visible tables and globals.
+                if identity_visible[first] || identity_visible[second] {
+                  j += 1
+                  continue
+                }
+                comparison_count += 1
+                let equivalent = if has_annotations {
+                  dfe_functions_equivalent(
+                    canonical_type_raws[first],
+                    live_funcs[first_live_idx],
+                    normalized_annotations[first],
+                    canonical_type_raws[second],
+                    live_funcs[second_live_idx],
+                    normalized_annotations[second],
+                  )
+                } else {
+                  dfe_functions_equivalent_no_annotations(
+                    canonical_type_raws[first],
+                    live_funcs[first_live_idx],
+                    canonical_type_raws[second],
+                    live_funcs[second_live_idx],
+                  )
+                }
+                if equivalent {
+                  replacements[second] = first
+                  changed = true
+                  round_changed = true
+                  replacement_count += 1
+                }
+                j += 1
+              }
               i += 1
-              continue
             }
-            let mut j = i + 1
-            while j < live_indices.length() {
-              let second = live_indices[j]
-              if replacements[second] >= 0 {
-                j += 1
-                continue
-              }
-              // Exported and address-materialized functions have observable
-              // identities, including through host-visible tables and globals.
-              if identity_visible[first] || identity_visible[second] {
-                j += 1
-                continue
-              }
-              comparison_count += 1
-              let equivalent = if has_annotations {
-                dfe_functions_equivalent(
-                  canonical_type_raws[first],
-                  live_funcs[i],
-                  normalized_annotations[first],
-                  canonical_type_raws[second],
-                  live_funcs[j],
-                  normalized_annotations[second],
-                )
-              } else {
-                dfe_functions_equivalent_no_annotations(
-                  canonical_type_raws[first],
-                  live_funcs[i],
-                  canonical_type_raws[second],
-                  live_funcs[j],
-                )
-              }
-              if equivalent {
-                replacements[second] = first
-                changed = true
-                round_changed = true
-                replacement_count += 1
-              }
-              j += 1
-            }
-            i += 1
           }
         }
         if !round_changed {
