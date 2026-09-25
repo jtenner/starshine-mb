@@ -97,9 +97,56 @@ fn oi_local_group_has_offset_metadata(mod_ : @lib.Module) -> Bool {
 }
 
 ///|
+fn oi_has_numeric_select_annotation(body : Array[@lib.Instruction]) -> Bool {
+  for instr in body {
+    match instr {
+      @lib.Select(Some(types)) if types.length() == 1 &&
+        types[0] is @lib.NumTypeValType(_) => return true
+      @lib.Block(_, @lib.Expr(child))
+      | @lib.Loop(_, @lib.Expr(child))
+      | @lib.TryTable(_, _, @lib.Expr(child)) =>
+        if oi_has_numeric_select_annotation(child) {
+          return true
+        }
+      @lib.If(_, yes, no) => {
+        if oi_has_numeric_select_annotation(yes) {
+          return true
+        }
+        match no {
+          Some(child) =>
+            if oi_has_numeric_select_annotation(child) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(child), catches, _) => {
+        if oi_has_numeric_select_annotation(child) {
+          return true
+        }
+        for catch_ in catches {
+          let child = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(child))
+            | @lib.LegacyCatchAll(@lib.Expr(child)) => child
+          }
+          if oi_has_numeric_select_annotation(child) {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn oi_remove_numeric_select_annotations(
   body : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
+  if !oi_has_numeric_select_annotation(body) {
+    return (body, false)
+  }
   let mut changed = false
   let next = body.map(fn(instr) {
     let instr = pass_lower_map_children(instr, fn(child) {
