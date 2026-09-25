@@ -121,26 +121,31 @@ fn no_inline_func_names(mod_ : @lib.Module, total : Int) -> Array[String?] {
 ///|
 fn no_inline_wildcard_match(pattern : String, text : String) -> Bool {
   let width = text.length() + 1
-  let cells = Array::make((pattern.length() + 1) * width, false)
-  cells[0] = true
+  let mut previous = Array::make(width, false)
+  let mut current = Array::make(width, false)
+  previous[0] = true
   let mut pi = 1
   while pi <= pattern.length() {
     let pc = pattern[pi - 1]
     let mut ti = 0
     while ti <= text.length() {
-      let cell = pi * width + ti
       if pc == '*' {
-        let zero = cells[(pi - 1) * width + ti]
-        let more = ti > 0 && cells[pi * width + ti - 1]
-        cells[cell] = zero || more
+        let zero = previous[ti]
+        let more = ti > 0 && current[ti - 1]
+        current[ti] = zero || more
       } else if ti > 0 && (pc == '?' || pc == text[ti - 1]) {
-        cells[cell] = cells[(pi - 1) * width + ti - 1]
+        current[ti] = previous[ti - 1]
+      } else {
+        current[ti] = false
       }
       ti += 1
     }
+    let old = previous
+    previous = current
+    current = old
     pi += 1
   }
-  cells[pattern.length() * width + text.length()]
+  previous[text.length()]
 }
 
 ///|

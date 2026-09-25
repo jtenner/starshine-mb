@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-24
 sources:
   - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
   - ./index.md
+  - ../../../../../src/passes/no_inline.mbt
+  - ../../../../../src/passes/no_inline_wildcard_perf_wbtest.mbt
   - ../../../wasm-compilation-hints-boundary.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/NoInline.cpp
@@ -31,6 +33,10 @@ related:
 ---
 
 # `inlining`: compilation hints vs `no-inline` flags and clone survival
+
+## September 24, 2026 wildcard matching measurement
+
+The local `no-inline` wildcard matcher now reuses two dynamic-programming rows rather than allocating a full pattern-by-name matrix. It retains O(pattern length × name length) time while reducing temporary Boolean cells to O(name length). The [native white-box benchmark](../../../../../src/passes/no_inline_wildcard_perf_wbtest.mbt) uses alternating `*a` patterns and matching names: size 256 fell from `220.74` to `198.69 µs` (1.11×), and size 512 from `879.08` to `795.16 µs` (1.11×). The direct wildcard edge-case test and 144 existing inlining policy tests pass. This is helper-level synthetic evidence; peak memory and full-pass time were not directly measured.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

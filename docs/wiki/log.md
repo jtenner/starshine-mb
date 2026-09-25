@@ -24211,3 +24211,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — DuplicateImportElimination name sorting
 
 - The [DuplicateImportElimination page](binaryen/passes/duplicate-import-elimination/index.md#september-24-2026-name-map-sorting-measurement) records native white-box sorting timings for descending 2,048 and 4,096 entry direct and indirect name maps. Stable sorting reduced each case by 49× to 107×; the duplicate-order test and 15 existing pass tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-24 — NoInline wildcard matching
+
+- The [NoInline policy page](binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md#september-24-2026-wildcard-matching-measurement) records native white-box timings for alternating wildcard patterns: size 256 `220.74 → 198.69 µs`, and size 512 `879.08 → 795.16 µs`. Two reusable DP rows replace a full matrix; the direct edge-case test and 144 inlining tests pass. Peak memory and full-pass impact remain unmeasured.
