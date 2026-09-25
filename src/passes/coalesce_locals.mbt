@@ -410,8 +410,15 @@ fn cl_instrs_end_in_escape_past_depth(
   // mistaken for a trap that escapes its parent as well.
   if last_idx > 0 && instrs[last_idx] == @lib.Instruction::unreachable_() {
     let previous = instrs[last_idx - 1]
+    // Escaping this boundary implies that the previous instruction cannot
+    // fall through. Check it first so a deeply nested escape is not walked
+    // again by the more general no-fallthrough query at every enclosing
+    // unreachable sentinel.
+    if cl_instr_escapes_past_depth(previous, boundary_depth) {
+      return true
+    }
     if cl_instr_never_falls_through(previous) {
-      return cl_instr_escapes_past_depth(previous, boundary_depth)
+      return false
     }
   }
   cl_instr_escapes_past_depth(instrs[last_idx], boundary_depth)

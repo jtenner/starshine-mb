@@ -535,6 +535,26 @@ test "coalesce-locals snapshot preflight requires a memory-size instruction" {
 }
 
 ///|
+test "coalesce-locals nested escape sentinels retain branch depth" {
+  let mut body : Array[@lib.Instruction] = [
+    @lib.Instruction::br(@lib.LabelIdx::new(20U)),
+    @lib.Instruction::unreachable_(),
+  ]
+  for _ in 0..<8 {
+    body = [
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        body,
+        Some([@lib.Instruction::return_()]),
+      ),
+      @lib.Instruction::unreachable_(),
+    ]
+  }
+  assert_true(cl_instrs_end_in_escape_past_depth(body, 0))
+  assert_false(cl_instrs_end_in_escape_past_depth(body, 20))
+}
+
+///|
 test "coalesce-locals indexes only effective writers and observed readers for copied-destination hazards" {
   let instrs = [
     @lib.Instruction::i32_const(@lib.I32(7)),

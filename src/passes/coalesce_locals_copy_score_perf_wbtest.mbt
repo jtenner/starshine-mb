@@ -111,3 +111,23 @@ test "bench Coalesce build dense copy weights locals=64" (it : @bench.T) {
 test "bench Coalesce build dense copy weights locals=128" (it : @bench.T) {
   cl_cfg_copy_weight_build_perf_bench(it, 128)
 }
+
+///|
+test "bench Coalesce nested escape sentinels depth=24" (it : @bench.T) {
+  let mut body : Array[@lib.Instruction] = [
+    @lib.Instruction::br(@lib.LabelIdx::new(64U)),
+    @lib.Instruction::unreachable_(),
+  ]
+  for _ in 0..<24 {
+    body = [
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        body,
+        Some([@lib.Instruction::return_()]),
+      ),
+      @lib.Instruction::unreachable_(),
+    ]
+  }
+  assert_true(cl_instrs_end_in_escape_past_depth(body, 0))
+  it.bench(fn() { it.keep(cl_instrs_end_in_escape_past_depth(body, 0)) })
+}
