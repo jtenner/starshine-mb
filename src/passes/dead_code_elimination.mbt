@@ -332,11 +332,12 @@ fn dead_code_elimination_delete_unused_nodes(
     }
   }
   for user_id = 0; user_id < node_count; user_id = user_id + 1 {
-    if !@ir.hot_node_is_live(func, user_id) {
+    let user = func.nodes[user_id]
+    if user.child_count == 0 || !@ir.hot_node_is_live(func, user_id) {
       continue
     }
-    for slot = 0; slot < @ir.hot_child_count(func, user_id); slot = slot + 1 {
-      let child_id = @ir.hot_child_get(func, user_id, slot)
+    for slot = 0; slot < user.child_count; slot = slot + 1 {
+      let child_id = func.children[user.child_base + slot]
       if child_id >= 0 &&
         child_id < node_count &&
         child_id != user_id &&

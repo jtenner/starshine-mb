@@ -24554,3 +24554,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Vacuum interleaved dropped-local roots
 
 - The [Vacuum strategy page](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-25-2026-interleaved-dropped-local-roots) records native HOT-lift-plus-cleanup timing for 128 interleaved drops at `393.61 → 237.64 µs` and 256 at `1.12 ms → 469.17 µs`. The fallback removes separated pure dropped-local roots with one region-body replacement and exact batch deletion; contiguous-run controls stayed near their prior timings. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — DCE detached-candidate reference scan
+
+- The [DCE HOT strategy page](binaryen/passes/dead-code-elimination/starshine-hot-ir-strategy.md#september-25-2026-small-detached-candidate-reference-scan) records native helper timing for 512 live non-leaf nodes at `52.26 → 47.65 µs` and 1,024 at `101.38 → 92.62 µs`. The scan skips leaf liveness checks and reads stored child spans; detached-user reference semantics remain covered by focused tests. Full-pass impact remains unmeasured.

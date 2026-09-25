@@ -384,3 +384,15 @@ benchmark in `src/passes/dead_code_elimination_delete_perf_wbtest.mbt` measured
 16 label-owned candidates with 512 live nodes at `64.85 → 19.29 µs` and
 1,024 at `123.26 → 36.42 µs`. Ordinary removable-candidate controls remained
 near 22 and 42 µs. Full-pass impact remains unmeasured.
+
+## September 25, 2026: small detached-candidate reference scan
+
+Small detached-candidate batches still need exact references from live detached
+users, so DCE scans the HOT function rather than trusting reachable use-def
+counts. Leaf nodes cannot reference a candidate; checking their child count
+first avoids the liveness lookup, and non-leaf nodes now use their stored child
+span directly. The native helper benchmark measured 512 leaf live nodes at
+`21.66 → 21.40 µs`, 1,024 at `41.48 → 39.56 µs`, 512 non-leaf live nodes at
+`52.26 → 47.65 µs`, and 1,024 at `101.38 → 92.62 µs`. Label-owned candidate
+controls stayed at about 19 and 36 µs. A focused test retains a candidate
+referenced by a live non-leaf root. Full-pass impact remains unmeasured.
