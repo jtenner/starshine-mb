@@ -24303,3 +24303,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — LowerCaptureCleanup branchless block flattening
 
 - The [source helper](../../src/passes/lower_capture_cleanup.mbt) now emits flattened branchless block children into a shared output array; the [native white-box benchmark](../../src/passes/lower_capture_cleanup_flatten_perf_wbtest.mbt) with one `nop` per level improved from `39.40 → 9.69 µs` at 128 levels (4.07×) and `115.85 → 19.23 µs` at 256 (6.02×). The new barrier-block/label-slot regression and existing capture-cleanup white-box test pass. These are helper timings; full-pass impact remains unmeasured.
+
+### 2026-09-25 — TupleOptimization neighbor append
+
+- The [TupleOptimization HOT strategy page](binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md#september-25-2026-copy-neighbor-append-measurement) records native helper timing for 1,024 ascending neighbors (`229.72 → 1.92 µs`) and 2,048 (`912.78 → 3.63 µs`). Strictly increasing neighbors now append directly, preserving order and duplicate handling; one new and 61 existing tests pass. Out-of-order insertion and full-pass impact remain unmeasured.

@@ -27,6 +27,10 @@ related:
 
 # Starshine HOT-IR strategy for `tuple-optimization`
 
+## September 25, 2026 copy-neighbor append measurement
+
+Copy-group linking commonly adds neighbor group IDs in increasing order. The dedup helper now appends a strictly greater ID without scanning the existing list, while preserving insertion order and the linear fallback for out-of-order IDs. The [native white-box benchmark](../../../../../src/passes/tuple_optimization_neighbor_perf_wbtest.mbt) improved from `229.72` to `1.92 µs` (119.6×) for 1,024 ascending neighbors and from `912.78` to `3.63 µs` (251.5×) for 2,048. The new ordering/dedup regression and 61 existing tuple tests pass. Out-of-order deduplication remains linear per insertion; full-pass impact remains unmeasured.
+
 ## First principle
 
 - Starshine does not start from Binaryen's explicit tuple-local AST shape.

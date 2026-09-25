@@ -734,6 +734,16 @@ fn tuple_optimization_add_neighbor(
   neighbors : Array[Int],
   neighbor : Int,
 ) -> Unit {
+  if !neighbors.is_empty() {
+    let last = neighbors[neighbors.length() - 1]
+    if neighbor == last {
+      return
+    }
+    if neighbor > last {
+      neighbors.push(neighbor)
+      return
+    }
+  }
   for existing in neighbors {
     if existing == neighbor {
       return
