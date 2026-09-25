@@ -7639,29 +7639,31 @@ fn inl_instr_is_nontrapping_prefix(
 }
 
 ///|
-fn inl_instrs_have_call_to_func(
+fn inl_instrs_have_matching_call(
   instrs : Array[@lib.Instruction],
-  target_abs : Int,
+  start : Int,
+  matches : (Int) -> Bool,
 ) -> Bool {
-  for instr in instrs {
+  for idx = start; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
     match instr {
       @lib.Call(func_idx) | @lib.ReturnCall(func_idx) =>
-        if inl_func_idx_slot(func_idx) == target_abs {
+        if matches(inl_func_idx_slot(func_idx)) {
           return true
         }
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if inl_instrs_have_call_to_func(body, target_abs) {
+        if inl_instrs_have_matching_call(body, 0, matches) {
           return true
         }
       @lib.If(_, then_body, Some(else_body)) =>
-        if inl_instrs_have_call_to_func(then_body, target_abs) ||
-          inl_instrs_have_call_to_func(else_body, target_abs) {
+        if inl_instrs_have_matching_call(then_body, 0, matches) ||
+          inl_instrs_have_matching_call(else_body, 0, matches) {
           return true
         }
       @lib.If(_, then_body, None) =>
-        if inl_instrs_have_call_to_func(then_body, target_abs) {
+        if inl_instrs_have_matching_call(then_body, 0, matches) {
           return true
         }
       _ => ()
@@ -7676,18 +7678,9 @@ fn inl_suffix_calls_marked_func(
   start : Int,
   marked : Array[Bool],
 ) -> Bool {
-  let suffix : Array[@lib.Instruction] = []
-  let mut idx = start
-  while idx < body.length() {
-    suffix.push(body[idx])
-    idx += 1
-  }
-  for target_abs = 0; target_abs < marked.length(); target_abs = target_abs + 1 {
-    if marked[target_abs] && inl_instrs_have_call_to_func(suffix, target_abs) {
-      return true
-    }
-  }
-  false
+  inl_instrs_have_matching_call(body, start, fn(target_abs) {
+    target_abs >= 0 && target_abs < marked.length() && marked[target_abs]
+  })
 }
 
 ///|
@@ -7696,9 +7689,9 @@ fn inl_suffix_has_self_call(
   start : Int,
   self_abs : Int,
 ) -> Bool {
-  let marked = Array::make(self_abs + 1, false)
-  marked[self_abs] = true
-  inl_suffix_calls_marked_func(body, start, marked)
+  inl_instrs_have_matching_call(body, start, fn(target_abs) {
+    target_abs == self_abs
+  })
 }
 
 ///|

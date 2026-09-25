@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../src/cli/cli.mbt
@@ -21,6 +21,12 @@ related:
 ---
 
 # Starshine Strategy For `inlining`
+
+## September 25, 2026 dead-suffix call scan
+
+The dead-suffix preservation query now traverses the root suffix once and tests call targets against the marked-function array as it visits them. It no longer copies the suffix or recursively rescans it for every marked target. The self-call query uses a scalar target comparison instead of allocating a Boolean array through the function index. The traversal keeps the existing `Call`/`ReturnCall`, Block, Loop, TryTable, and If coverage; legacy Try remains outside this query.
+
+In the [native helper benchmark](../../../../../src/passes/inlining_marked_suffix_perf_wbtest.mbt), 128 absent calls and 128 absent marked targets improved from `14.60 µs` to `183 ns`; 256 of each improved from `57.21 µs` to `354 ns`. Absent self-call queries on a 16-instruction body improved from `1.83 µs` to `21.14 ns` at function index 2048 and from `3.55 µs` to `21.50 ns` at index 4096. These synthetic negative queries isolate the helper; full-pass impact remains unmeasured.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

@@ -24335,3 +24335,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — TupleOptimization cleanup-region index
 
 - The [TupleOptimization strategy page](binaryen/passes/tuple-optimization/starshine-strategy.md#september-25-2026-cleanup-region-deduplication) records native registration timing from `5.63 → 1.65 µs` for 128 distinct regions and `19.36 → 3.22 µs` for 256. A holder-indexed bitset removes the repeated scan of all previously queued cleanup regions. Duplicate and root-region tests pass; full-pass impact remains unmeasured.
+
+### 2026-09-25 — Inlining dead-suffix call scans
+
+- The [Inlining strategy page](binaryen/passes/inlining/starshine-strategy.md#september-25-2026-dead-suffix-call-scan) records native helper timing from `14.60 µs → 183 ns` at 128 absent calls/marks and `57.21 µs → 354 ns` at 256. A separate absent self-call query improved from `1.83 µs → 21.14 ns` at index 2048 and `3.55 µs → 21.50 ns` at 4096. The shared recursive scan eliminates suffix copies, per-mark rescans, and the self-call Boolean array; full-pass impact remains unmeasured.
