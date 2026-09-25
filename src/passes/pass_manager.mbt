@@ -2110,12 +2110,68 @@ fn hot_pass_remove_node_child_nested_region_nops(
 }
 
 ///|
+fn hot_pass_vacuum_is_dropped_local_get_root(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  @ir.hot_node_get(func, node_id).op is @ir.HotOp::Drop &&
+  @ir.hot_child_count(func, node_id) == 1 &&
+  @ir.hot_node_get(func, @ir.hot_child_get(func, node_id, 0)).op
+  is @ir.HotOp::LocalGet
+}
+
+///|
+fn hot_pass_vacuum_batch_interleaved_dropped_local_gets(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count < 32 {
+    return false
+  }
+  let mut candidate_count = 0
+  let mut saw_gap = false
+  let mut gap_after_candidate = false
+  for slot = 0; slot < root_count; slot = slot + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, slot)
+    if hot_pass_vacuum_is_dropped_local_get_root(func, root_id) {
+      if gap_after_candidate {
+        saw_gap = true
+      }
+      candidate_count += 1
+    } else if candidate_count > 0 {
+      gap_after_candidate = true
+    }
+  }
+  if candidate_count < 8 || !saw_gap {
+    return false
+  }
+  let removed : Array[@ir.NodeId] = []
+  let kept : Array[@ir.NodeId] = []
+  for slot = 0; slot < root_count; slot = slot + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, slot)
+    if hot_pass_vacuum_is_dropped_local_get_root(func, root_id) {
+      removed.push(root_id)
+    } else {
+      kept.push(root_id)
+    }
+  }
+  @ir.hot_region_replace_body(func, region_ref, kept)
+  pass_mark_mutated(ctx, func)
+  vacuum_delete_known_detached_non_control_nodes_batch(ctx, func, removed)
+  true
+}
+
+///|
 fn hot_pass_vacuum_remove_dropped_local_gets_in_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
-  let mut changed = false
+  let mut changed = hot_pass_vacuum_batch_interleaved_dropped_local_gets(
+    ctx, func, region_ref,
+  )
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let node_id = @ir.hot_region_get(func, region_ref, idx)

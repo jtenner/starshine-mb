@@ -24550,3 +24550,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — CodePushing legacy-Try access-count cache
 
 - The [CodePushing strategy page](binaryen/passes/code-pushing/starshine-strategy.md#september-25-2026-legacy-try-restart-access-counts) records native raw-helper timing for one eligible move at `1.48 → 1.27 µs`, 16 moves at `87.53 → 45.70 µs`, and 32 moves at `323.20 → 162.50 µs`. Whole-function local-access counts are cached across legacy restart rounds while move order remains unchanged; full-pass impact remains unmeasured.
+
+### 2026-09-25 — Vacuum interleaved dropped-local roots
+
+- The [Vacuum strategy page](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-25-2026-interleaved-dropped-local-roots) records native HOT-lift-plus-cleanup timing for 128 interleaved drops at `393.61 → 237.64 µs` and 256 at `1.12 ms → 469.17 µs`. The fallback removes separated pure dropped-local roots with one region-body replacement and exact batch deletion; contiguous-run controls stayed near their prior timings. Full-pass impact remains unmeasured.
