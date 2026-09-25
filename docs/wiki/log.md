@@ -24279,3 +24279,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — DAE2 repeated graph solving
 
 - The [DAE2 strategy page](binaryen/passes/dae2/starshine-strategy.md#september-24-2026-repeated-solve-measurement) records native white-box helper timings for 128 incremental solves (`10.11 → 2.29 µs`) and 256 (`34.80 → 4.43 µs`). A persistent queue cursor avoids rescanning processed locations; one new and 64 existing tests pass. Real-module impact remains unmeasured.
+
+### 2026-09-24 — MemoryPacking full-cover overlap exit
+
+- The [MemoryPacking page](binaryen/passes/memory-packing/index.md#september-24-2026-full-cover-overlap-measurement) records native direct-pass timing for 16 fully overlapping active segments (`251.82 → 72.91 µs`) and 32 (`969.43 → 126.71 µs`). Full coverage now ends inspection of later segments for the already-zeroed payload; the helper benchmark improved 46.5× and 88.5×. Sixty-four focused tests pass. Partial-overlap pair searches and full-pipeline impact remain unmeasured.

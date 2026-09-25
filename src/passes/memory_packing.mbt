@@ -586,6 +586,9 @@ fn mp_zero_out_trampled_data(datas : Array[@lib.Data]) -> Unit {
               for idx = overlap_start; idx < overlap_end; idx = idx + 1 {
                 bytes[idx] = (0).to_byte()
               }
+              if overlap_start == 0 && overlap_end == original.length() {
+                break
+              }
             }
             None => ()
           }

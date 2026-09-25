@@ -31,6 +31,10 @@ related:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
+## September 24, 2026 full-cover overlap measurement
+
+When a later active segment completely covers an earlier segment, overlap neutralization now stops inspecting subsequent segments for that earlier payload. Later overlaps cannot change bytes already zeroed by full coverage. The [native white-box benchmark](../../../../../src/passes/memory_packing_full_cover_perf_wbtest.mbt) with 256 same-offset, 64-byte segments improved from `1.38 ms` to `29.69 µs` (46.5×); 512 improved from `5.37 ms` to `60.69 µs` (88.5×). The [direct-pass benchmark](../../../../../src/passes_perf_long/memory_packing_overlap_copy_perf_test.mbt) with 4,096-byte segments improved from `251.82` to `72.91 µs` (3.45×) at 16 segments and `969.43` to `126.71 µs` (7.65×) at 32. The overlap-range regression and 63 other focused MemoryPacking tests pass. Partial-overlap pair searches remain quadratic; these are synthetic Starshine pass-local timings, not Binaryen comparison evidence.
+
 ## September 24, 2026 overlap-copy measurement
 
 The active-segment overlap cleanup previously copied an earlier segment's entire byte buffer for every later segment that overlapped it. It now computes overlap ranges first, copies each affected earlier buffer once, and applies all zero ranges to that one copy. Pairwise overlap checks remain quadratic, but byte copying falls from repeated full-buffer copies to one per affected segment.
