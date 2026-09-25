@@ -2,13 +2,14 @@
 kind: entity
 status: strong
 starshine_status: active
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-24
 sources:
   - https://webassembly.github.io/spec/js-api/#read-the-imports
   - ../../../raw/binaryen/2026-07-28-duplicate-import-elimination-v131-refresh.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/DuplicateImportElimination.cpp
   - ../../../../../src/passes/duplicate_import_elimination.mbt
   - ../../../../../src/passes/duplicate_import_elimination_test.mbt
+  - ../../../../../src/passes/duplicate_import_name_sort_perf_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../tests/optimizer/regressions/host-identity.test.ts
   - ../../../../../src/validate/gen_valid.mbt
@@ -29,6 +30,10 @@ related:
 ---
 
 # `duplicate-import-elimination`
+
+## September 24, 2026 name-map sorting measurement
+
+The pass now sorts rewritten direct and indirect function-name associations with an order-preserving O(n log n) sort. The previous insertion sorts took quadratic time on inverted remaps. The [native white-box benchmark](../../../../../src/passes/duplicate_import_name_sort_perf_wbtest.mbt) sorts descending maps after copying the input inside the timed loop: direct names at 2,048 entries fell from `2.77 ms` to `56.38 µs` (49.1×), and at 4,096 from `11.36 ms` to `119.00 µs` (95.5×); indirect names fell from `3.05 ms` to `62.24 µs` (49.0×), and from `12.26 ms` to `114.73 µs` (106.9×). A duplicate-index order test and 15 existing pass tests pass. This measures the sorting helpers on a worst-case valid ordering, not full-pass or Binaryen timing.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

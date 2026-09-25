@@ -24207,3 +24207,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — OptimizeInstructions try-body state
 
 - The [OptimizeInstructions page](binaryen/passes/optimize-instructions/index.md#september-24-2026-try-body-state-measurement) records native white-box proof timing for 256 small try bodies (`120.66 → 41.40 µs`) and 512 (`382.91 → 83.38 µs`). Sparse visit states replace a whole-function array per query. All 1,421 existing OptimizeInstructions tests pass; full-pass impact remains unmeasured.
+
+### 2026-09-24 — DuplicateImportElimination name sorting
+
+- The [DuplicateImportElimination page](binaryen/passes/duplicate-import-elimination/index.md#september-24-2026-name-map-sorting-measurement) records native white-box sorting timings for descending 2,048 and 4,096 entry direct and indirect name maps. Stable sorting reduced each case by 49× to 107×; the duplicate-order test and 15 existing pass tests pass. Full-pass impact remains unmeasured.
