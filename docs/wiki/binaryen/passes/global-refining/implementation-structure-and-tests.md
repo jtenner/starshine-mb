@@ -156,6 +156,10 @@ Red-first whitebox coverage in `src/passes/global_refining_wbtest.mbt` repeats b
 
 A separate native CLI fixture with 1,000 branching nominal types and 500 mutable-global writes measures a **11.655 ms** no-op median and **15.346 ms** direct `global-refining` median, or about **3.691 ms** incremental whole-command time; the output externally validates. This is representative synthetic evidence, not a production-artifact GC-byte claim. Native-release compilation of the skipped whitebox benchmark itself exceeded the bounded 300-second test-build window, so the old/new helper timings above are reported from the default target rather than mislabeled as native-release timings.
 
+## 2026-09-25 unchanged-code rewrite allocation
+
+`gr_rewrite_ref_null_set_instrs` now copies an instruction array only when it first rewrites a `ref.null` producer or a structured child. Recursive calls with no rewrite return their existing arrays. The native-release helper benchmark in `src/passes/global_refining_lazy_copy_perf_wbtest.mbt` measured **2.41 → 0.679 µs** for 512 numeric instruction pairs and **4.83 → 1.34 µs** for 1,024 pairs. The focused GlobalRefining tests pass. These fixtures isolate unchanged-code traversal and allocation; full-pass impact and GC bytes remain unmeasured.
+
 ## Sources
 
 - [research note 0208](./index.md)

@@ -949,7 +949,7 @@ fn gr_rewrite_ref_null_set_instrs(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
 ) -> (Array[@lib.Instruction], Bool) {
-  let next = instrs.copy()
+  let mut next = instrs
   let mut changed = false
   for idx = 0; idx < next.length(); idx = idx + 1 {
     match next[idx] {
@@ -962,6 +962,9 @@ fn gr_rewrite_ref_null_set_instrs(
               refined_globals[slot],
             ) {
             (Some(producer), Some(refined_ref_type)) => {
+              if !changed {
+                next = instrs.copy()
+              }
               next[producer] = @lib.Instruction::ref_null_type(refined_ref_type)
               changed = true
             }
@@ -974,6 +977,9 @@ fn gr_rewrite_ref_null_set_instrs(
           body, refined_globals, mod_, func_type_indices,
         )
         if body_changed {
+          if !changed {
+            next = instrs.copy()
+          }
           next[idx] = @lib.Instruction::block(
             block_type,
             @lib.Expr::new(next_body),
@@ -986,6 +992,9 @@ fn gr_rewrite_ref_null_set_instrs(
           body, refined_globals, mod_, func_type_indices,
         )
         if body_changed {
+          if !changed {
+            next = instrs.copy()
+          }
           next[idx] = @lib.Instruction::loop_(
             block_type,
             @lib.Expr::new(next_body),
@@ -1007,6 +1016,9 @@ fn gr_rewrite_ref_null_set_instrs(
           None => (None, false)
         }
         if then_changed || else_changed {
+          if !changed {
+            next = instrs.copy()
+          }
           next[idx] = @lib.Instruction::if_(block_type, next_then, next_else)
           changed = true
         }
@@ -1016,6 +1028,9 @@ fn gr_rewrite_ref_null_set_instrs(
           body, refined_globals, mod_, func_type_indices,
         )
         if body_changed {
+          if !changed {
+            next = instrs.copy()
+          }
           next[idx] = @lib.Instruction::try_table(
             block_type,
             catches,

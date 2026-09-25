@@ -24363,3 +24363,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Local CSE remaining active-list filters
 
 - The [Local CSE strategy page](binaryen/passes/local-cse/starshine-strategy.md#september-25-2026-local-invalidation-compaction) records native 256-operation timing from `125.00 → 104.22 µs` for memory filtering, `123.80 → 103.94 µs` for heap filtering, and `87.73 → 29.75 µs` for removing an absent active ID. The adjacent invalidation filters now compact in place and keep the existing survivor order; full-pass impact remains unmeasured.
+
+### 2026-09-25 — GlobalRefining unchanged-code allocation
+
+- The [GlobalRefining implementation page](binaryen/passes/global-refining/implementation-structure-and-tests.md#2026-09-25-unchanged-code-rewrite-allocation) records native helper timing from `2.41 → 0.679 µs` for 512 unchanged numeric pairs and `4.83 → 1.34 µs` for 1,024 pairs. The rewrite now copies an instruction array only when it changes a producer or child; full-pass impact remains unmeasured.
