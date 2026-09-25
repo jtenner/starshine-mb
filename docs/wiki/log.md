@@ -24247,3 +24247,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — Untee unchanged-code allocation
 
 - The [Untee strategy page](binaryen/passes/untee/starshine-strategy.md#september-24-2026-unchanged-code-measurement) records native direct-pass timings for 256 tee-free functions (`260.36 → 184.03 µs`), 512 (`528.99 → 348.43 µs`), and one sparse changed function among 256 (`267.51 → 182.29 µs`). Instruction and function arrays are now copied only after a rewrite; six focused tests pass. Full pipeline impact remains unmeasured.
+
+### 2026-09-24 — DCE small detached-node deletion
+
+- The [HOT DCE strategy page](binaryen/passes/dead-code-elimination/starshine-hot-ir-strategy.md#september-24-2026-detached-node-deletion-measurement) records native white-box timing for 16 detached candidates amid 512 live nodes (`117.76 → 21.76 µs`) and 1,024 (`233.35 → 41.84 µs`). One reference pass and one batch deletion replace repeated whole-function scans; three new safety tests and 68 existing tests pass. Full-pass impact remains unmeasured.

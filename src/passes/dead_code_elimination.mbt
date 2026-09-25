@@ -291,59 +291,59 @@ fn dead_code_elimination_delete_unused_nodes(
   if candidates.is_empty() {
     return
   }
-  let mut changed = false
+  // Count references to this small candidate set once. Detached nodes can
+  // still be referenced by other live detached nodes, so reachable use-def
+  // counts alone are insufficient here.
+  let references = Array::make(node_count, 0)
+  for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
+    let owner = @ir.hot_label_owner(func, label_id)
+    if owner >= 0 && owner < node_count && in_candidate[owner] {
+      references[owner] = references[owner] + 1
+    }
+  }
+  for root_id in func.roots {
+    if root_id >= 0 && root_id < node_count && in_candidate[root_id] {
+      references[root_id] = references[root_id] + 1
+    }
+  }
+  for user_id = 0; user_id < node_count; user_id = user_id + 1 {
+    if !@ir.hot_node_is_live(func, user_id) {
+      continue
+    }
+    for slot = 0; slot < @ir.hot_child_count(func, user_id); slot = slot + 1 {
+      let child_id = @ir.hot_child_get(func, user_id, slot)
+      if child_id >= 0 &&
+        child_id < node_count &&
+        child_id != user_id &&
+        in_candidate[child_id] {
+        references[child_id] = references[child_id] + 1
+      }
+    }
+  }
+  let deleted : Array[Int] = []
   let mut progressed = true
   while progressed {
     progressed = false
     for node_id in candidates {
-      if node_id < 0 ||
-        node_id >= node_count ||
-        !in_candidate[node_id] ||
-        !@ir.hot_node_is_live(func, node_id) {
+      if !in_candidate[node_id] || references[node_id] != 0 {
         continue
       }
-      let mut has_live_ref = false
-      for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
-        if @ir.hot_label_owner(func, label_id) == node_id {
-          has_live_ref = true
-          break
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        let child_id = @ir.hot_child_get(func, node_id, slot)
+        if child_id >= 0 &&
+          child_id < node_count &&
+          child_id != node_id &&
+          in_candidate[child_id] {
+          references[child_id] = references[child_id] - 1
         }
       }
-      if has_live_ref {
-        continue
-      }
-      for root_id in func.roots {
-        if root_id == node_id {
-          has_live_ref = true
-          break
-        }
-      }
-      if has_live_ref {
-        continue
-      }
-      for user_id = 0
-          user_id < node_count && !has_live_ref
-          user_id = user_id + 1 {
-        if !@ir.hot_node_is_live(func, user_id) || user_id == node_id {
-          continue
-        }
-        for slot = 0; slot < @ir.hot_child_count(func, user_id); slot = slot + 1 {
-          if @ir.hot_child_get(func, user_id, slot) == node_id {
-            has_live_ref = true
-            break
-          }
-        }
-      }
-      if has_live_ref {
-        continue
-      }
-      @ir.hot_delete_node(func, node_id)
-      changed = true
+      deleted.push(node_id)
       progressed = true
       in_candidate[node_id] = false
     }
   }
-  if changed {
+  if !deleted.is_empty() {
+    @ir.hot_delete_detached_nodes(func, deleted)
     pass_mark_mutated(ctx, func)
   }
 }

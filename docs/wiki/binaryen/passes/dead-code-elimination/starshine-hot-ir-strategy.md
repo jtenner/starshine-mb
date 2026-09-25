@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-24
 sources:
   - ./index.md
   - ../../../../../src/passes/dead_code_elimination.mbt
@@ -9,6 +9,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_code_elimination_test.mbt
   - ../../../../../src/passes/dead_code_elimination_wbtest.mbt
+  - ../../../../../src/passes/dead_code_elimination_delete_perf_wbtest.mbt
   - ../../../../../src/passes/dead_code_elimination_label_targets_wbtest.mbt
   - ../../../../../src/passes/dead_code_elimination_live_repro_test.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -97,6 +98,10 @@ The fastest read-along path through the current Starshine implementation is:
 That exact code map is the main practical addition in this refresh: readers can now jump directly from the strategy summary to the owning files and evidence surfaces.
 
 ## What the local owner file actually does
+
+### September 24, 2026 detached-node deletion measurement
+
+The small detached-node cleanup in [`dead_code_elimination.mbt`](../../../../../src/passes/dead_code_elimination.mbt) used to scan every live node and its children for each candidate, then repeat the scan inside `hot_delete_node`. It now counts candidate references in one pass, accounts for roots, label owners, and other live detached nodes, and tombstones the proven-unreferenced set with one revision invalidation. The native release white-box fixture in [`dead_code_elimination_delete_perf_wbtest.mbt`](../../../../../src/passes/dead_code_elimination_delete_perf_wbtest.mbt) measured 16 detached candidates among 512 live nodes at `117.76 → 21.76 µs` (5.41×) and among 1,024 live nodes at `233.35 → 41.84 µs` (5.58×). Three focused deletion tests and 68 existing DCE tests pass. Fixture creation is included in those timings; full-pass impact remains unmeasured.
 
 The real local implementation lives in `src/passes/dead_code_elimination.mbt`, not in `pass_manager.mbt`.
 `pass_manager.mbt` owns only the surrounding raw-skip and writeback-routing logic.
