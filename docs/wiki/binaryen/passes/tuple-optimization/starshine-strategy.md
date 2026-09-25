@@ -37,6 +37,10 @@ related:
 
 The rewrite cleanup plan keeps the order of regions containing removable roots. It now records seen region holders in a bitset, with a separate flag for the root region, instead of scanning every prior region for each insertion. The [native white-box benchmark](../../../../../src/passes/tuple_optimization_cleanup_region_perf_wbtest.mbt) registers each of 128 or 256 distinct regions twice: `5.63 → 1.65 µs` and `19.36 → 3.22 µs`, respectively. Duplicate and root-region tests plus the existing 61-test tuple white-box suite pass. These timings isolate cleanup-plan registration; full-pass impact remains unmeasured.
 
+## September 25, 2026: rewritten-consumer index
+
+After the rewrite mask is final, the pass now builds source-indexed flags for any rewritten copy consumer and rewritten host-lane copy consumer. Split-local planning and each rewrite read those flags instead of scanning all groups per query. The [native white-box benchmark](../../../../../src/passes/tuple_rewritten_consumers_perf_wbtest.mbt) includes summary construction and both queries for every source: **553.01 → 2.98 µs** for 512 groups and **2.28 ms → 5.92 µs** for 1,024. Masked, self, and invalid source edges are covered; the existing 61 tuple white-box tests pass. This isolates consumer discovery; full-pass impact remains unmeasured. The separate unmasked classification scan and child-copy scan still need profiling.
+
 Use this page together with [`./binaryen-strategy.md`](./binaryen-strategy.md), [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), [`./wat-shapes.md`](./wat-shapes.md), [`./scheduler-and-gates.md`](./scheduler-and-gates.md), and [`./implementation-map.md`](./implementation-map.md). The upstream contract is still the small Binaryen tuple-local scalarization pass; this page shows how the in-tree Starshine port implements that contract and where to follow the exact code.
 
 ## Current Starshine status

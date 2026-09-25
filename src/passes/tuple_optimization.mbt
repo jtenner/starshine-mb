@@ -2950,6 +2950,7 @@ fn tuple_optimization_ensure_split_locals(
   groups : Array[HotTupleOptimizationGroup],
   copy_read_nodes : @bitset.BitSet,
   rewrite_mask : @bitset.BitSet,
+  rewritten_host_copy_consumers : @bitset.BitSet,
   drop_only_elision_facts : HotTupleOptimizationDropOnlyElisionFacts,
   split_locals_by_group : Array[Array[Int]],
   split_ready : @bitset.BitSet,
@@ -2995,7 +2996,7 @@ fn tuple_optimization_ensure_split_locals(
       summary,
       groups,
       copy_read_nodes,
-      rewrite_mask,
+      rewritten_host_copy_consumers,
       group_id,
       groups[group_id],
     ) {
@@ -3013,8 +3014,9 @@ fn tuple_optimization_ensure_split_locals(
         )
       }
       tuple_optimization_ensure_split_locals(
-        func, use_def, summary, groups, copy_read_nodes, rewrite_mask, drop_only_elision_facts,
-        split_locals_by_group, split_ready, split_visiting, source_group,
+        func, use_def, summary, groups, copy_read_nodes, rewrite_mask, rewritten_host_copy_consumers,
+        drop_only_elision_facts, split_locals_by_group, split_ready, split_visiting,
+        source_group,
       )
     }
     None => groups[group_id].lane_locals
@@ -3169,50 +3171,29 @@ fn tuple_optimization_source_group_has_host_copy_consumer(
 }
 
 ///|
-fn tuple_optimization_source_group_has_rewritten_host_copy_consumer(
+fn tuple_optimization_build_rewritten_consumer_facts(
   groups : Array[HotTupleOptimizationGroup],
   rewrite_mask : @bitset.BitSet,
-  source_group_id : Int,
-) -> Bool {
-  if source_group_id < 0 || source_group_id >= groups.length() {
-    return false
-  }
+) -> (@bitset.BitSet, @bitset.BitSet) {
+  let consumers = @bitset.BitSet::new(groups.length())
+  let host_consumers = @bitset.BitSet::new(groups.length())
   for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
-    if group_id == source_group_id {
-      continue
-    }
     if group_id >= rewrite_mask.length() || !rewrite_mask[group_id] {
       continue
     }
-    if groups[group_id].copy_source == Some(source_group_id) &&
-      tuple_optimization_group_host_lane(groups[group_id]) is Some(_) {
-      return true
+    match groups[group_id].copy_source {
+      Some(source) if source >= 0 &&
+        source < groups.length() &&
+        source != group_id => {
+        consumers[source] = true
+        if tuple_optimization_group_host_lane(groups[group_id]) is Some(_) {
+          host_consumers[source] = true
+        }
+      }
+      _ => ()
     }
   }
-  false
-}
-
-///|
-fn tuple_optimization_source_group_has_rewritten_copy_consumer(
-  groups : Array[HotTupleOptimizationGroup],
-  rewrite_mask : @bitset.BitSet,
-  source_group_id : Int,
-) -> Bool {
-  if source_group_id < 0 || source_group_id >= groups.length() {
-    return false
-  }
-  for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
-    if group_id == source_group_id {
-      continue
-    }
-    if group_id >= rewrite_mask.length() || !rewrite_mask[group_id] {
-      continue
-    }
-    if groups[group_id].copy_source == Some(source_group_id) {
-      return true
-    }
-  }
-  false
+  (consumers, host_consumers)
 }
 
 ///|
@@ -3345,14 +3326,12 @@ fn tuple_optimization_group_needs_dedicated_split_locals(
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
   copy_read_nodes : @bitset.BitSet,
-  rewrite_mask : @bitset.BitSet,
+  rewritten_host_copy_consumers : @bitset.BitSet,
   group_id : Int,
   group : HotTupleOptimizationGroup,
 ) -> Bool {
   if group.copy_source is None &&
-    tuple_optimization_source_group_has_rewritten_host_copy_consumer(
-      groups, rewrite_mask, group_id,
-    ) &&
+    rewritten_host_copy_consumers[group_id] &&
     tuple_optimization_source_group_host_copy_consumer_needs_preserved_lanes(
       func, use_def, summary, groups, copy_read_nodes, group_id,
     ) {
@@ -6470,6 +6449,10 @@ fn tuple_optimization_rewrite_good_components(
   if !has_rewrites {
     return false
   }
+  let (rewritten_copy_consumers, rewritten_host_copy_consumers) = tuple_optimization_build_rewritten_consumer_facts(
+    analysis.groups,
+    rewrite_mask,
+  )
   let initial_local_count = @ir.hot_local_count(func)
   let cleanup_plan : HotTupleOptimizationRewriteCleanupPlan = {
     removable_root_defs: @bitset.BitSet::new(@ir.hot_node_count(func)),
@@ -6530,6 +6513,7 @@ fn tuple_optimization_rewrite_good_components(
         analysis.groups,
         analysis.copy_read_nodes,
         rewrite_mask,
+        rewritten_host_copy_consumers,
         drop_only_elision_facts,
         split_locals_by_group,
         split_ready,
@@ -6581,11 +6565,7 @@ fn tuple_optimization_rewrite_good_components(
             group,
             split_locals,
             cleanup_plan,
-            has_rewritten_copy_consumer=tuple_optimization_source_group_has_rewritten_copy_consumer(
-              analysis.groups,
-              rewrite_mask,
-              group_id,
-            ),
+            has_rewritten_copy_consumer=rewritten_copy_consumers[group_id],
             source_group_has_host_lane=tuple_optimization_group_host_lane(
                 analysis.groups[source_group],
               )
@@ -6619,16 +6599,8 @@ fn tuple_optimization_rewrite_good_components(
             group,
             split_locals,
             cleanup_plan,
-            has_rewritten_copy_consumer=tuple_optimization_source_group_has_rewritten_copy_consumer(
-              analysis.groups,
-              rewrite_mask,
-              group_id,
-            ),
-            source_host_copy_consumer=tuple_optimization_source_group_has_rewritten_host_copy_consumer(
-              analysis.groups,
-              rewrite_mask,
-              group_id,
-            ),
+            has_rewritten_copy_consumer=rewritten_copy_consumers[group_id],
+            source_host_copy_consumer=rewritten_host_copy_consumers[group_id],
             elide_simple_drop_only_source=group_id <
               drop_only_elision_facts.mask.length() &&
               drop_only_elision_facts.mask[group_id],

@@ -24375,3 +24375,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — GlobalEffects mixed-module rewrite
 
 - The [GlobalEffects index](binaryen/passes/global-effects/index.md#current-repository-note--september-24-2026) records native direct-pass timing from `503.38 → 392.41 µs` with 256 ordinary functions and `998.35 → 798.71 µs` with 512. The pass now keeps functions without a rewritable resume unchanged when another function triggers rewriting; whole-module validation remains in the measured path.
+
+### 2026-09-25 — TupleOptimization rewritten-consumer index
+
+- The [TupleOptimization strategy page](binaryen/passes/tuple-optimization/starshine-strategy.md#september-25-2026-rewritten-consumer-index) records native helper timing from `553.01 → 2.98 µs` for 512 groups and `2.28 ms → 5.92 µs` for 1,024. One source-indexed summary replaces repeated all-group scans during split-local planning and rewriting; full-pass impact remains unmeasured.
