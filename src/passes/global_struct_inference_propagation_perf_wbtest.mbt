@@ -92,3 +92,17 @@ test "GSI subtype worklist propagates poison and unique candidates" {
     assert_true(slot_candidates.is_empty())
   }
 }
+
+///|
+test "bench GSI empty candidate propagation depth=32" (it : @bench.T) {
+  let (env, initial) = gsi_propagation_perf_fixture(32, 0)
+  it.bench(fn() {
+    let candidates : Array[Array[@lib.GlobalIdx]] = []
+    for row in initial {
+      candidates.push(row.copy())
+    }
+    let poisoned = Array::make(32, false)
+    gsi_propagate_closed_world_subtype_facts(env, poisoned, candidates)
+    it.keep(candidates)
+  })
+}

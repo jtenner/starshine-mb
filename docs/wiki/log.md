@@ -24319,3 +24319,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — GSI subtype-fact propagation
 
 - The [GSI closed-world page](binaryen/passes/global-struct-inference/closed-world-analysis-and-unnesting.md#september-25-2026-subtype-fact-propagation-measurement) records native helper timing for 16 types and 64 globals (`83.03 → 42.36 µs`) and 32 types and 128 globals (`1.23 ms → 168.46 µs`). Queued poison and candidate facts replace repeated all-type sweeps; one new and 75 existing tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — GSI empty-candidate propagation
+
+- The [GSI closed-world page](binaryen/passes/global-struct-inference/closed-world-analysis-and-unnesting.md#september-25-2026-subtype-fact-propagation-measurement) records a native 32-type empty-candidate control improving from `1.34 µs` to `462 ns`. Poison facts now propagate before the helper allocates candidate maps, and it returns when no candidates exist; the 75 existing GSI tests pass. Candidate-heavy timings remained within noise.

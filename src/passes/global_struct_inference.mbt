@@ -190,22 +190,14 @@ fn gsi_propagate_closed_world_subtype_facts(
 ) -> Unit {
   let type_count = poisoned_type_slots.length()
   let poison_queue : Array[Int] = []
-  let candidate_slots : Array[Int] = []
-  let candidate_values : Array[@lib.GlobalIdx] = []
-  let seen : Array[@hashmap.HashMap[@lib.GlobalIdx, Bool]] = []
+  let mut has_candidates = false
   for slot = 0; slot < type_count; slot = slot + 1 {
     if poisoned_type_slots[slot] {
       poison_queue.push(slot)
     }
-    let slot_seen : @hashmap.HashMap[@lib.GlobalIdx, Bool] = @hashmap.new()
-    for candidate in candidate_globals_by_type_slot[slot] {
-      if slot_seen.get(candidate) is None {
-        slot_seen.set(candidate, true)
-        candidate_slots.push(slot)
-        candidate_values.push(candidate)
-      }
+    if !candidate_globals_by_type_slot[slot].is_empty() {
+      has_candidates = true
     }
-    seen.push(slot_seen)
   }
   let mut poison_cursor = 0
   while poison_cursor < poison_queue.length() {
@@ -218,6 +210,23 @@ fn gsi_propagate_closed_world_subtype_facts(
         poison_queue.push(parent_slot)
       }
     }
+  }
+  if !has_candidates {
+    return
+  }
+  let candidate_slots : Array[Int] = []
+  let candidate_values : Array[@lib.GlobalIdx] = []
+  let seen : Array[@hashmap.HashMap[@lib.GlobalIdx, Bool]] = []
+  for slot = 0; slot < type_count; slot = slot + 1 {
+    let slot_seen : @hashmap.HashMap[@lib.GlobalIdx, Bool] = @hashmap.new()
+    for candidate in candidate_globals_by_type_slot[slot] {
+      if slot_seen.get(candidate) is None {
+        slot_seen.set(candidate, true)
+        candidate_slots.push(slot)
+        candidate_values.push(candidate)
+      }
+    }
+    seen.push(slot_seen)
   }
   let mut candidate_cursor = 0
   while candidate_cursor < candidate_slots.length() {
