@@ -6596,11 +6596,46 @@ fn inl_build_func_signature_keys(
   func_type_indices : Array[@lib.TypeIdx],
   total : Int,
 ) -> Array[String] {
+  let flat_types : Array[@lib.SubType] = []
+  match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      for rec_type in rec_types {
+        match rec_type {
+          @lib.SingleRecType(subtype) => flat_types.push(subtype)
+          @lib.GroupRecType(group) => flat_types.append(group)
+        }
+      }
+    None => ()
+  }
+  let type_keys : Array[String?] = Array::make(flat_types.length(), None)
   let signatures : Array[String] = []
-  let mut abs = 0
-  while abs < total {
-    signatures.push(inl_func_signature_key(mod_, func_type_indices, abs))
-    abs += 1
+  for abs = 0; abs < total; abs = abs + 1 {
+    let slot = if abs < func_type_indices.length() {
+      match func_type_indices[abs] {
+        @lib.TypeIdx(raw) => raw.reinterpret_as_int()
+        @lib.RecIdx(_) => -1
+      }
+    } else {
+      -1
+    }
+    if slot >= 0 && slot < flat_types.length() {
+      match flat_types[slot].get_comptype() {
+        @lib.FuncCompType(params, results) => {
+          let key = match type_keys[slot] {
+            Some(key) => key
+            None => {
+              let key = inl_func_type_signature_key(params, results)
+              type_keys[slot] = Some(key)
+              key
+            }
+          }
+          signatures.push(key)
+          continue
+        }
+        _ => ()
+      }
+    }
+    signatures.push("abs-type:" + abs.to_string())
   }
   signatures
 }

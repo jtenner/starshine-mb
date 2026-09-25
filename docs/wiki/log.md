@@ -24295,3 +24295,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — SGO runtime-trace barrier summary
 
 - The [SGO strategy page](binaryen/passes/simplify-globals-optimizing/starshine-strategy.md#september-25-2026-runtime-trace-barrier-measurement) records native helper timing for 128 nested barrier-free blocks (`43.11 → 6.87 µs`) and 256 (`165.48 → 13.85 µs`). The rewrite carries the original subtree barrier result upward and avoids repeated descendant scans; one new and 336 existing tests pass. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — Inlining signature-key builder
+
+- The [Inlining strategy page](binaryen/passes/inlining/starshine-strategy.md#september-25-2026-signature-key-builder-measurement) records native helper timing for 256 late-type function keys (`41.13 → 4.07 µs`) and 512 (`135.31 → 7.65 µs`). A flattened type table and memoized formatted keys replace repeated section scans in the bulk builder; one new and 144 existing tests pass. Individual lookups and full-pass impact remain unmeasured.
