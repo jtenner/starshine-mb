@@ -202,12 +202,12 @@ fn pass_lower_compact_captures(
 }
 
 ///|
-fn pass_lower_flatten_branchless_blocks(
+fn pass_lower_flatten_branchless_blocks_into(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
+  out : Array[@lib.Instruction],
   label_keep? : Array[Bool]? = None,
-) -> (Array[@lib.Instruction], Bool, Bool) {
-  let out : Array[@lib.Instruction] = []
+) -> (Bool, Bool) {
   let mut changed = false
   let mut branchless = true
   for instr in instrs {
@@ -225,6 +225,53 @@ fn pass_lower_flatten_branchless_blocks(
         Some(slot)
       }
       _ => None
+    }
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let body_start = out.length()
+        let (body_changed, body_branchless) = pass_lower_flatten_branchless_blocks_into(
+          body,
+          env,
+          out,
+          label_keep~,
+        )
+        changed = changed || body_changed
+        branchless = branchless && body_branchless
+        let mut flatten = false
+        if body_branchless {
+          match env.expand_blocktype(block_type) {
+            Ok((params, _)) if params.is_empty() => flatten = true
+            _ => ()
+          }
+        }
+        if flatten {
+          // The body is already in the parent's output; no growing array copy.
+          match (label_keep, label_slot) {
+            (Some(keep), Some(slot)) => keep[slot] = false
+            _ => ()
+          }
+          changed = true
+          continue
+        }
+        let next_body : Array[@lib.Instruction] = []
+        if body_changed {
+          for idx = body_start; idx < out.length(); idx = idx + 1 {
+            next_body.push(out[idx])
+          }
+        }
+        while out.length() > body_start {
+          ignore(out.pop())
+        }
+        out.push(
+          if body_changed {
+            @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+          } else {
+            instr
+          },
+        )
+        continue
+      }
+      _ => ()
     }
     let mut children_branchless = true
     let instr = pass_lower_map_children(instr, fn(body) {
@@ -265,26 +312,24 @@ fn pass_lower_flatten_branchless_blocks(
       _ => false
     }
     branchless = branchless && children_branchless && !transfers_control
-    match instr {
-      @lib.Block(bt, @lib.Expr(body)) if children_branchless =>
-        match env.expand_blocktype(bt) {
-          Ok((params, _)) if params.is_empty() => {
-            // No instruction refers to this or an outer label. With no block
-            // parameters, the same ordered producers leave the same results.
-            match (label_keep, label_slot) {
-              (Some(keep), Some(slot)) => keep[slot] = false
-              _ => ()
-            }
-            out.append(body)
-            changed = true
-            continue
-          }
-          _ => ()
-        }
-      _ => ()
-    }
     out.push(instr)
   }
+  (changed, branchless)
+}
+
+///|
+fn pass_lower_flatten_branchless_blocks(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+  label_keep? : Array[Bool]? = None,
+) -> (Array[@lib.Instruction], Bool, Bool) {
+  let out : Array[@lib.Instruction] = []
+  let (changed, branchless) = pass_lower_flatten_branchless_blocks_into(
+    instrs,
+    env,
+    out,
+    label_keep~,
+  )
   (out, changed, branchless)
 }
 

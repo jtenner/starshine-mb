@@ -24299,3 +24299,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Inlining signature-key builder
 
 - The [Inlining strategy page](binaryen/passes/inlining/starshine-strategy.md#september-25-2026-signature-key-builder-measurement) records native helper timing for 256 late-type function keys (`41.13 → 4.07 µs`) and 512 (`135.31 → 7.65 µs`). A flattened type table and memoized formatted keys replace repeated section scans in the bulk builder; one new and 144 existing tests pass. Individual lookups and full-pass impact remain unmeasured.
+
+### 2026-09-25 — LowerCaptureCleanup branchless block flattening
+
+- The [source helper](../../src/passes/lower_capture_cleanup.mbt) now emits flattened branchless block children into a shared output array; the [native white-box benchmark](../../src/passes/lower_capture_cleanup_flatten_perf_wbtest.mbt) with one `nop` per level improved from `39.40 → 9.69 µs` at 128 levels (4.07×) and `115.85 → 19.23 µs` at 256 (6.02×). The new barrier-block/label-slot regression and existing capture-cleanup white-box test pass. These are helper timings; full-pass impact remains unmeasured.
