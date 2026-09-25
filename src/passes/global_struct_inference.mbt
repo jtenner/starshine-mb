@@ -176,19 +176,6 @@ fn gsi_candidate_list_contains(
 }
 
 ///|
-fn gsi_push_candidate_unique(
-  candidates : Array[@lib.GlobalIdx],
-  candidate : @lib.GlobalIdx,
-) -> Bool {
-  if gsi_candidate_list_contains(candidates, candidate) {
-    false
-  } else {
-    candidates.push(candidate)
-    true
-  }
-}
-
-///|
 fn gsi_sort_candidate_globals(candidates : Array[@lib.GlobalIdx]) -> Unit {
   candidates.sort_by(fn(lhs, rhs) {
     gsi_global_idx_order(lhs) - gsi_global_idx_order(rhs)
@@ -202,28 +189,48 @@ fn gsi_propagate_closed_world_subtype_facts(
   candidate_globals_by_type_slot : Array[Array[@lib.GlobalIdx]],
 ) -> Unit {
   let type_count = poisoned_type_slots.length()
-  let mut changed = true
-  while changed {
-    changed = false
-    for child_slot = 0; child_slot < type_count; child_slot = child_slot + 1 {
-      let supers = env.global_types[child_slot].super_types()
-      for super_type in supers {
-        let parent_slot = gsi_type_slot(super_type, type_count)
-        if parent_slot < 0 {
-          continue
-        }
-        if poisoned_type_slots[child_slot] && !poisoned_type_slots[parent_slot] {
-          poisoned_type_slots[parent_slot] = true
-          changed = true
-        }
-        for candidate in candidate_globals_by_type_slot[child_slot] {
-          if gsi_push_candidate_unique(
-              candidate_globals_by_type_slot[parent_slot],
-              candidate,
-            ) {
-            changed = true
-          }
-        }
+  let poison_queue : Array[Int] = []
+  let candidate_slots : Array[Int] = []
+  let candidate_values : Array[@lib.GlobalIdx] = []
+  let seen : Array[@hashmap.HashMap[@lib.GlobalIdx, Bool]] = []
+  for slot = 0; slot < type_count; slot = slot + 1 {
+    if poisoned_type_slots[slot] {
+      poison_queue.push(slot)
+    }
+    let slot_seen : @hashmap.HashMap[@lib.GlobalIdx, Bool] = @hashmap.new()
+    for candidate in candidate_globals_by_type_slot[slot] {
+      if slot_seen.get(candidate) is None {
+        slot_seen.set(candidate, true)
+        candidate_slots.push(slot)
+        candidate_values.push(candidate)
+      }
+    }
+    seen.push(slot_seen)
+  }
+  let mut poison_cursor = 0
+  while poison_cursor < poison_queue.length() {
+    let child_slot = poison_queue[poison_cursor]
+    poison_cursor += 1
+    for super_type in env.global_types[child_slot].super_types() {
+      let parent_slot = gsi_type_slot(super_type, type_count)
+      if parent_slot >= 0 && !poisoned_type_slots[parent_slot] {
+        poisoned_type_slots[parent_slot] = true
+        poison_queue.push(parent_slot)
+      }
+    }
+  }
+  let mut candidate_cursor = 0
+  while candidate_cursor < candidate_slots.length() {
+    let child_slot = candidate_slots[candidate_cursor]
+    let candidate = candidate_values[candidate_cursor]
+    candidate_cursor += 1
+    for super_type in env.global_types[child_slot].super_types() {
+      let parent_slot = gsi_type_slot(super_type, type_count)
+      if parent_slot >= 0 && seen[parent_slot].get(candidate) is None {
+        seen[parent_slot].set(candidate, true)
+        candidate_globals_by_type_slot[parent_slot].push(candidate)
+        candidate_slots.push(parent_slot)
+        candidate_values.push(candidate)
       }
     }
   }

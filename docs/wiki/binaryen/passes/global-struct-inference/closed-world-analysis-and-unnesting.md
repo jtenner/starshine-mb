@@ -26,6 +26,10 @@ This page covers:
 - when it gives up
 - and how non-constant nested values still become optimizable through fresh globals
 
+## September 25, 2026 subtype-fact propagation measurement
+
+Closed-world candidate and poison facts now propagate through subtype edges with queues. Per-type candidate membership maps prevent repeated scans and preserve sorted candidate output after propagation. The [native white-box benchmark](../../../../../src/passes/global_struct_inference_propagation_perf_wbtest.mbt) with a 16-type chain and 64 candidate globals improved from `83.03` to `42.36 µs` (1.96×); a 32-type chain with 128 globals improved from `1.23 ms` to `168.46 µs` (7.30×). A new poison/uniqueness regression and 75 existing GSI tests pass. Fixture construction is outside timing; full-pass impact remains unmeasured.
+
 ## Read this page with one mental model
 
 Binaryen is trying to prove something very small:
