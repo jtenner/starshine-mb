@@ -24239,3 +24239,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — PickLoadSigns candidate analysis
 
 - The [PickLoadSigns page](binaryen/passes/pick-load-signs/index.md#september-24-2026-candidate-analysis-measurement) records native white-box analysis timing for 128 load/write/extension pairs (`537.50 → 12.26 µs`) and 256 (`4.03 ms → 24.05 µs`). Write-node indexing, one compatibility pass per local, and root bitsets replace nested linear scans. All 23 existing pass tests pass; full-pass impact remains unmeasured.
+
+### 2026-09-24 — DAE unread-copy cleanup
+
+- The [DeadArgumentElimination page](binaryen/passes/dead-argument-elimination/index.md#september-24-2026-unread-copy-cleanup-measurement) records native white-box cleanup timing for 128 adjacent local-copy links (`318.69 → 9.38 µs`) and 256 (`1.42 ms → 18.69 µs`). Backward unreadness propagation collapses the top-level chain before one cleanup round; one live-read guard and 434 existing tests pass. Nested and full-pass impact remain unmeasured.

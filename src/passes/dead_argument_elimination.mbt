@@ -49802,6 +49802,59 @@ fn dae_cleanup_unread_local_body(
 }
 
 ///|
+fn dae_propagate_unread_simple_copies(
+  body : Array[@lib.Instruction],
+  reads : Array[Int],
+) -> Unit {
+  let pairs : Array[(Int, Int)] = []
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    match (body[idx - 1], body[idx]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(source)),
+        @lib.LocalSet(@lib.LocalIdx(target)),
+      ) => {
+        let source_idx = source.reinterpret_as_int()
+        let target_idx = target.reinterpret_as_int()
+        if source_idx >= 0 &&
+          source_idx < reads.length() &&
+          target_idx >= 0 &&
+          target_idx < reads.length() {
+          pairs.push((source_idx, target_idx))
+        }
+      }
+      _ => ()
+    }
+  }
+  if pairs.is_empty() {
+    return
+  }
+  let incoming : Array[Array[Int]] = Array::makei(reads.length(), fn(_) { [] })
+  for (source, target) in pairs {
+    incoming[target].push(source)
+  }
+  let queued = Array::make(reads.length(), false)
+  let queue : Array[Int] = []
+  for local_idx = 0; local_idx < reads.length(); local_idx = local_idx + 1 {
+    if reads[local_idx] == 0 {
+      queued[local_idx] = true
+      queue.push(local_idx)
+    }
+  }
+  let mut cursor = 0
+  while cursor < queue.length() {
+    let target = queue[cursor]
+    cursor += 1
+    for source in incoming[target] {
+      reads[source] -= 1
+      if reads[source] == 0 && !queued[source] {
+        queued[source] = true
+        queue.push(source)
+      }
+    }
+  }
+}
+
+///|
 fn dae_cleanup_unread_locals(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -49816,6 +49869,7 @@ fn dae_cleanup_unread_locals(
     let reads = Array::make(count, 0)
     let writes = Array::make(count, 0)
     pass_lower_count_locals(body, reads, writes)
+    dae_propagate_unread_simple_copies(body, reads)
     let (next, changed) = dae_cleanup_unread_local_body(body, reads)
     if !changed {
       break

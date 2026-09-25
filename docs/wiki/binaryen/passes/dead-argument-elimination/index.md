@@ -1,10 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-24
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_argument_elimination.mbt
+  - ../../../../../src/passes/dae_unread_copy_chain_perf_wbtest.mbt
   - ../../../../../src/validate/gen_valid.mbt
   - ./fuzzing.md
   - ./completion-matrix.md
@@ -28,6 +29,10 @@ related:
 ---
 
 # `dead-argument-elimination`
+
+## September 24, 2026 unread-copy cleanup measurement
+
+Before its normal cleanup round, DAE now propagates zero read counts backward through adjacent top-level `local.get source; local.set target` copy pairs. This lets a chain whose terminal local is unread disappear in one rewrite round instead of removing one link per round. The existing iterative cleanup remains for nested and other shapes. The [native white-box benchmark](../../../../../src/passes/dae_unread_copy_chain_perf_wbtest.mbt) times the helper on prebuilt functions: 128 links fell from `318.69` to `9.38 µs` (34.0×), and 256 from `1.42 ms` to `18.69 µs` (76.0×). The live-terminal-read guard and 434 existing DAE white-box tests pass. This is helper-level synthetic evidence, not full-pass or Binaryen timing.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
