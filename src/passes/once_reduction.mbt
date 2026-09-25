@@ -958,6 +958,65 @@ fn or_remove_tail_call_debris(
 }
 
 ///|
+fn or_instrs_need_cleanup(instrs : Array[@lib.Instruction]) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => if idx + 1 < instrs.length() { return true }
+      @lib.Unreachable | @lib.Block(_, _) => {
+        let mut next = idx + 1
+        while next < instrs.length() {
+          match instrs[next] {
+            @lib.Drop => next += 1
+            _ => break
+          }
+        }
+        if next < instrs.length() {
+          match instrs[next] {
+            @lib.Unreachable => return true
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if or_instrs_need_cleanup(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if or_instrs_need_cleanup(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if or_instrs_need_cleanup(body) { return true }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if or_instrs_need_cleanup(body) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          if or_instrs_need_cleanup(catch_body) {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn or_cleanup_unreachable_debris(
   funcs : Array[@lib.Func],
 ) -> (Array[@lib.Func], Bool) {
@@ -966,6 +1025,10 @@ fn or_cleanup_unreachable_debris(
   for idx = 0; idx < funcs.length(); idx = idx + 1 {
     let func = funcs[idx]
     let @lib.Func(locals, @lib.Expr(instrs)) = func
+    if !or_instrs_need_cleanup(instrs) {
+      out.push(func)
+      continue
+    }
     let (without_tail_debris, tail_changed) = or_remove_tail_call_debris(instrs)
     let (next_instrs, unreachable_changed) = pass_raw_remove_dropped_unreachable_debris(
       without_tail_debris,

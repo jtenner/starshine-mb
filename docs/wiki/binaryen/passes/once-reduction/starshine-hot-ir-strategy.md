@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-24
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../src/passes/once_reduction.mbt
@@ -24,7 +24,7 @@ related:
 
 # Starshine `once-reduction` module-pass strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — September 25, 2026:** new comparisons use [Binaryen 133](../../version-133-upgrade.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions.
 
 This page describes the **current local MoonBit implementation** and how its tested behavior maps to the upstream Binaryen `OnceReduction.cpp` contract.
 
@@ -238,6 +238,16 @@ Treat the current Starshine implementation as:
 - a recursive once-bit optimizer whose implementation shape differs from Binaryen's CFG / `DomTree` engine but whose source/lit families are protected by focused tests
 
 Future work on this pass should keep behavior parity and implementation-shape parity separate. If new Binaryen source or lit tests add behavior, extend the behavior checklist and focused tests first, then decide whether the recursive Starshine engine can cover it safely or needs a deeper algorithmic port.
+
+## September 25, 2026 self-optimization measurement
+
+The current release Wasm, with only its malformed `name` custom section removed, is a 6,253,030-byte direct-pass input. Before the cleanup preflight, Starshine's `once-reduction` pass took a median **177.499 ms** over three measured native-release runs versus **31.240 ms** for verified Binaryen 133. The pass made no change to this input, but `or_cleanup_unreachable_debris` still allocated and rebuilt nested instruction arrays for every function.
+
+`or_instrs_need_cleanup` now scans for the tail-call or dropped-unreachable patterns that can actually trigger that cleanup. Functions without a candidate retain their original instruction arrays. The same three-run benchmark after the change measured **64.727 ms** for Starshine and **30.402 ms** for Binaryen 133: a **63.5% Starshine pass-time reduction**, with the pass still **2.13× slower** than Binaryen on this input. Starshine's raw output SHA-256 is unchanged at `bf5e8912012b806bd044ff74f4f748e44067e36b529db4c330c7580c41f1a2ce`, equal to the input; both canonical outputs are equal. The measurements and outputs are under `.tmp/self-opt-pass-times-20260925/v133-direct/` and `.tmp/self-opt-pass-times-20260925/v133-once-cleanup-after/`. These are direct-pass measurements, not a complete O4z timing profile.
+
+The dedicated v133 `once-reduction-tail-calls` lane compared all `10,000/10,000` generated cases with zero command, generator, validation, or property failures. It produced `10,000` raw mismatches from one deterministic fixture, each 120 canonical bytes for Starshine versus 144 for Binaryen. The inspected fixture has unexported once globals and dead reads/writes after terminal tail calls; removing those unreachable operations lets Starshine prove the guards and repeated calls redundant. This is the same documented Starshine size win as the v131 lane, now observed against v133. The run is under `.tmp/pass-fuzz-once-cleanup-v133-10000-full/`; its nonzero harness exit reflects the expected raw mismatch family, not a validation failure.
+
+The ordinary v133 GenValid lane separately compared `10,000/10,000` cases with `10,000` canonical matches and zero mismatches, command failures, generator failures, or validation failures. Its artifacts are under `.tmp/pass-fuzz-once-cleanup-v133-generic-10000/`.
 
 ## Freshness note
 
