@@ -1,13 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../src/passes/heap_store_optimization.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/heap_store_optimization_test.mbt
+  - ../../../../../src/passes/heap_store_swapped_ref_order_perf_wbtest.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
@@ -21,6 +22,12 @@ related:
 ---
 
 # Current Starshine `heap-store-optimization` strategy
+
+## September 25, 2026: swapped-root reference order guard
+
+The swapped-readonly-root guard now checks whether the reference node precedes a candidate root before asking if that root's subtree can be reordered. Roots already before the reference cannot violate this specific local-read order, so the subtree walk was wasted. Roots after the reference still receive the same reorderability and local-touch checks.
+
+The native-release helper benchmark in `src/passes/heap_store_swapped_ref_order_perf_wbtest.mbt` measured 64 preceding roots at **5.44 µs to 91.35 ns** and 128 roots at **10.79 µs to 173.66 ns**. A focused test checks that a later root reading the same local is still rejected. Full-pass impact remains unmeasured.
 
 This page is the local “what is actually implemented today?” companion to the upstream Binaryen strategy page.
 For the compact validation and replay surface, including the 2026-05-06 refreshed direct `pass-fuzz-compare` lane, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). The 2026-06-20 `version_130` refresh supersedes the older `version_129` oracle wording and flags directional `orderedBefore(...)` movement checks as active audit work.

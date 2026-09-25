@@ -24538,3 +24538,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Heap2Local same-block dominance order
 
 - The [Heap2Local HOT strategy page](binaryen/passes/heap2local/starshine-hot-ir-strategy.md#september-25-2026-repeated-same-block-dominance-queries) records native helper timing, including lazy cache construction, for a 512-operation pre-write prefix: 128 reads `56.15 → 3.39 µs` and 256 reads `112.18 → 5.35 µs`. A no-prefix 128-read control stayed at `1.24 → 1.23 µs`. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — HeapStoreOptimization swapped-root order guard
+
+- The [HeapStoreOptimization HOT strategy page](binaryen/passes/heap-store-optimization/starshine-hot-ir-strategy.md#september-25-2026-swapped-root-reference-order-guard) records native helper timing for 64 preceding swapped roots at `5.44 µs → 91.35 ns` and 128 at `10.79 µs → 173.66 ns`. The guard checks node order before walking a root subtree; later same-local roots still receive the full safety check. Full-pass impact remains unmeasured.

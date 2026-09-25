@@ -2983,8 +2983,8 @@ fn hso_swapped_readonly_roots_respect_ref_order(
     if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
       continue
     }
-    if hso_subtree_is_trapless_reorderable(cache, func, node_masks, root_id, []) &&
-      ref_id < root_id &&
+    if ref_id < root_id &&
+      hso_subtree_is_trapless_reorderable(cache, func, node_masks, root_id, []) &&
       hso_subtree_touches_local(func, root_id, ref_local) {
       return false
     }
