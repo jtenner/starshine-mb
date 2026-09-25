@@ -191,6 +191,10 @@ fn global_effects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let rewritten : Array[@lib.Func] = []
   for func in funcs {
     let @lib.Func(locals, body) = func
+    if !ge_body_has_rewritable_resume(body) {
+      rewritten.push(func)
+      continue
+    }
     rewritten.push(
       @lib.Func::new(
         locals,

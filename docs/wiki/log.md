@@ -24371,3 +24371,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — SimplifyLocals child-use threshold
 
 - The [SimplifyLocals performance page](binaryen/passes/simplify-locals/performance-and-artifact-frontiers.md#2026-09-25-child-use-threshold-scan) records native helper timing from `3.95 µs → 22.24 ns` with 1,024 trailing nodes and `15.69 µs → 22.48 ns` with 4,096. The shared-child scan now stops after its second live use; full-pass impact remains unmeasured.
+
+### 2026-09-25 — GlobalEffects mixed-module rewrite
+
+- The [GlobalEffects index](binaryen/passes/global-effects/index.md#current-repository-note--september-24-2026) records native direct-pass timing from `503.38 → 392.41 µs` with 256 ordinary functions and `998.35 → 798.71 µs` with 512. The pass now keeps functions without a rewritable resume unchanged when another function triggers rewriting; whole-module validation remains in the measured path.

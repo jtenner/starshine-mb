@@ -48,6 +48,8 @@ Starshine pass-local evidence, not a Binaryen oracle comparison.
 
 The no-resume fast path now scans for a `resume` in the instruction forms this rewrite traverses before allocating rewritten function and body arrays. A native direct-pass benchmark with 64 `nop`s under one block per function improved from `102.83 → 11.66 µs` for 256 functions (8.82×) and `217.21 → 24.61 µs` for 512 (8.83×). On the historical v133 encoded fresh-resume fixture, used only as a local timing control, direct-pass time changed from `2.51 → 2.56 µs` (about 2% slower); this is not new Binaryen parity evidence. The nested guard test, target-summary test, and two encoded continuation tests pass. Full-pipeline impact and allocation counts remain unmeasured.
 
+In a mixed module where one fresh resume does rewrite, the pass now keeps functions without any rewritable resume unchanged instead of rebuilding their nested instruction arrays. The native-release direct-pass benchmark in `src/passes/global_effects_noop_perf_wbtest.mbt` measured **503.38 → 392.41 µs** with 256 extra ordinary functions and **998.35 → 798.71 µs** with 512. The fixture checks valid rewritten output and unchanged unrelated function bodies. Whole-module validation still runs, and full-pipeline impact and allocated bytes remain unmeasured.
+
 ## Role
 
 - `global-effects` is the local Starshine registry name historically assigned to the upstream Binaryen pass published as `generate-global-effects`; its current implementation has a different direct resume-rewrite contract as noted above.
