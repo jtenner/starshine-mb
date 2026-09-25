@@ -24275,3 +24275,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-24 — LocalSubtyping stable-function rounds
 
 - The [LocalSubtyping strategy page](binaryen/passes/local-subtyping/starshine-strategy.md#september-24-2026-stable-function-revisit-measurement) records native direct-pass timing for a 16-local chain with 64 stable functions (`391.01 → 206.06 µs`) and 128 (`686.96 → 307.25 µs`). Later rounds skip unchanged functions; one new and 87 existing tests pass. Full-pipeline impact remains unmeasured.
+
+### 2026-09-24 — DAE2 repeated graph solving
+
+- The [DAE2 strategy page](binaryen/passes/dae2/starshine-strategy.md#september-24-2026-repeated-solve-measurement) records native white-box helper timings for 128 incremental solves (`10.11 → 2.29 µs`) and 256 (`34.80 → 4.43 µs`). A persistent queue cursor avoids rescanning processed locations; one new and 64 existing tests pass. Real-module impact remains unmeasured.

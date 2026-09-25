@@ -6,11 +6,12 @@ priv struct Dae2Graph {
   edges : Array[Array[Int]]
   used : Array[Bool]
   work : Array[Int]
+  mut cursor : Int
 }
 
 ///|
 fn Dae2Graph::new() -> Dae2Graph {
-  { edges: [], used: [], work: [], }
+  { edges: [], used: [], work: [], cursor: 0, }
 }
 
 ///|
@@ -23,6 +24,9 @@ fn Dae2Graph::location(self : Dae2Graph) -> Int {
 
 ///|
 fn Dae2Graph::edge(self : Dae2Graph, consumer : Int, source : Int) -> Unit {
+  if self.cursor != 0 {
+    abort("DAE2 graph edges must be complete before solving")
+  }
   if consumer >= 0 && source >= 0 {
     self.edges[consumer].push(source)
   }
@@ -40,8 +44,10 @@ fn Dae2Graph::observe(self : Dae2Graph, location : Int) -> Unit {
 fn Dae2Graph::solve(self : Dae2Graph) -> Unit {
   // Each location enters the queue once, so convergence is bounded by the
   // graph size, including recursive call and result dependencies.
-  for cursor = 0; cursor < self.work.length(); cursor = cursor + 1 {
-    for source in self.edges[self.work[cursor]] {
+  while self.cursor < self.work.length() {
+    let consumer = self.work[self.cursor]
+    self.cursor = self.cursor + 1
+    for source in self.edges[consumer] {
       self.observe(source)
     }
   }

@@ -1,12 +1,13 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-09-10
+last_reviewed: 2026-09-24
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
   - https://github.com/WebAssembly/binaryen/pull/8994
   - ../../../../../src/passes/dead_argument_elimination2.mbt
+  - ../../../../../src/passes/dae2_repeated_solve_perf_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination2_types.mbt
   - ../../../../../src/passes/dead_argument_elimination2_legacy.mbt
   - ../../../../../src/passes/dead_argument_elimination2_wbtest.mbt
@@ -26,6 +27,10 @@ The module pass owns a short-lived usage graph. Each function parameter and
 whole result tuple has a location; HOT expression values have locations too.
 Type-family locations connect referenced functions to indirect calls. Observable
 uses seed the graph, and a queue visits each live location at most once.
+
+## September 24, 2026 repeated-solve measurement
+
+Type-identity conflict handling can observe more graph locations and call `solve` again. The graph now retains its queue cursor between solves, so earlier locations are not scanned again; edges must be complete before the first solve. The native release white-box benchmark in [`dae2_repeated_solve_perf_wbtest.mbt`](../../../../../src/passes/dae2_repeated_solve_perf_wbtest.mbt) measured 128 incremental observations/solves at `10.11 → 2.29 µs` (4.41×) and 256 at `34.80 → 4.43 µs` (7.86×). A second-solve propagation test and 64 existing DAE2 tests pass. This isolates graph behavior; pass-level impact on real identity conflicts remains unmeasured.
 
 Direct call arguments depend on the corresponding callee parameter. A used call
 value depends on the callee result. Returns connect to the enclosing result.
