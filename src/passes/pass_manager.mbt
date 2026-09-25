@@ -15364,7 +15364,7 @@ priv struct HsoCandidateScanState {
 priv struct HotPipelineModuleState {
   mut module_ctx : @ir.HotModuleContext?
   mut validation_module_env : @validate.Env?
-  mut ssa_func_type_indices : Array[@lib.TypeIdx]?
+  mut func_type_indices : Array[@lib.TypeIdx]?
   mut vacuum_raw_preclean_elapsed_us : UInt64
   mut vacuum_raw_preclean_count : Int
   mut vacuum_no_candidate_elapsed_us : UInt64
@@ -15384,7 +15384,7 @@ fn HotPipelineModuleState::new() -> HotPipelineModuleState {
   {
     module_ctx: None,
     validation_module_env: None,
-    ssa_func_type_indices: None,
+    func_type_indices: None,
     vacuum_raw_preclean_elapsed_us: 0UL,
     vacuum_raw_preclean_count: 0,
     vacuum_no_candidate_elapsed_us: 0UL,
@@ -15401,22 +15401,22 @@ fn HotPipelineModuleState::new() -> HotPipelineModuleState {
 }
 
 ///|
-fn run_hot_pipeline_ssa_func_type_indices(
+fn run_hot_pipeline_func_type_indices(
   mod_ : @lib.Module,
   module_state : HotPipelineModuleState,
 ) -> Array[@lib.TypeIdx] {
-  match module_state.ssa_func_type_indices {
+  match module_state.func_type_indices {
     Some(indices) => indices
     None => {
       let indices = dae_collect_func_type_indices(mod_)
-      module_state.ssa_func_type_indices = Some(indices)
+      module_state.func_type_indices = Some(indices)
       indices
     }
   }
 }
 
 ///|
-test "SSA function type table cache is scoped to one module state" {
+test "function type table cache is scoped to one module state" {
   let first = pass_test_module_from_wat(
     "(module (type (func)) (func (type 0)))",
   )
@@ -15425,13 +15425,13 @@ test "SSA function type table cache is scoped to one module state" {
   )
   let first_state = HotPipelineModuleState::new()
   let second_state = HotPipelineModuleState::new()
-  let first_indices = run_hot_pipeline_ssa_func_type_indices(first, first_state)
+  let first_indices = run_hot_pipeline_func_type_indices(first, first_state)
   assert_eq(first_indices, [@lib.TypeIdx::new(0U)])
   assert_eq(
-    run_hot_pipeline_ssa_func_type_indices(first, first_state),
+    run_hot_pipeline_func_type_indices(first, first_state),
     first_indices,
   )
-  assert_eq(run_hot_pipeline_ssa_func_type_indices(second, second_state), [
+  assert_eq(run_hot_pipeline_func_type_indices(second, second_state), [
     @lib.TypeIdx::new(1U),
   ])
 }
@@ -30989,7 +30989,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     run_hot_pipeline_raw_ssa_nomerge_has_stacked_call_results(
       instrs,
       mod_,
-      run_hot_pipeline_ssa_func_type_indices(mod_, module_state),
+      run_hot_pipeline_func_type_indices(mod_, module_state),
     ) {
     return Some({
       reason: "stacked-call-results-ssa-nomerge-noop",
@@ -32825,6 +32825,7 @@ fn run_hot_pipeline_raw_merge_blocks_prior_global_conflict(
 fn run_hot_pipeline_raw_merge_blocks_flat_call_prefix(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
   descriptor : @ir.HotPassDescriptor,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "merge-blocks" {
@@ -32836,7 +32837,7 @@ fn run_hot_pipeline_raw_merge_blocks_flat_call_prefix(
     !run_hot_pipeline_raw_merge_blocks_has_flat_call_prefix_candidate(body) {
     return None
   }
-  let func_type_indices = dae_collect_func_type_indices(mod_)
+  let func_type_indices = run_hot_pipeline_func_type_indices(mod_, module_state)
   let mut current = body
   let mut changed = false
   for call_idx = 0; call_idx < current.length(); call_idx = call_idx + 1 {
@@ -78891,7 +78892,7 @@ fn run_hot_pipeline_func(
   }
   match
     run_hot_pipeline_raw_merge_blocks_flat_call_prefix(
-      mod_, func_idx, descriptor,
+      mod_, func_idx, module_state, descriptor,
     ) {
     Some(result) => return Ok(result)
     None => ()

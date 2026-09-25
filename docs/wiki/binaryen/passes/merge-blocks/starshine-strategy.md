@@ -44,6 +44,8 @@ The narrow raw flat-call-prefix repair in `src/passes/pass_manager.mbt` now copi
 
 The native-release full-pass benchmark with repeated `arg0; value; global.set; arg1; call` groups fell from **472.80 µs to 35.62 µs** at 128 groups (92.5%) and from **1.83 ms to 64.73 µs** at 256 groups (96.5%). The fixture is synthetic and does not measure production-artifact throughput. The new output/input-immutability test, 78 existing MergeBlocks tests, and the audit test pass.
 
+The same repair now reuses the module-scoped function-type index table already built for SSA. Previously it collected all function type indices for each eligible function. On the native-release full-pass fixture with one call-prefix group in each caller, the mean fell from **444.88 µs to 248.15 µs** for 256 callers (44.2%) and from **1.27 ms to 492.56 µs** for 512 callers (61.2%). The 128- and 256-group single-function controls stayed within measurement noise. A two-caller test checks both rewrites and output validity; the module-state cache test and 78 existing MergeBlocks tests pass. These are synthetic pass-local measurements.
+
 ## Region-root flattening
 
 For a region-root `Block`, Starshine:

@@ -1,3 +1,12 @@
+### 2026-09-25 — MergeBlocks function-type table reuse
+
+- Reused the module-scoped function-type index table for the raw flat-call
+  repair, removing a table rebuild for every eligible caller. The native-release
+  full-pass fixture fell from 444.88 to 248.15 µs for 256 callers and from
+  1.27 ms to 492.56 µs for 512 callers. Single-function controls were stable.
+  A two-caller validity test, the module-state cache test, and 78 existing
+  MergeBlocks tests pass. See [MergeBlocks strategy](binaryen/passes/merge-blocks/starshine-strategy.md#flat-call-prefix-cost-september-25-2026).
+
 ### 2026-09-25 — MergeBlocks flat call-prefix rotation
 
 - Changed the raw flat-call-prefix repair to copy its instruction body once and
