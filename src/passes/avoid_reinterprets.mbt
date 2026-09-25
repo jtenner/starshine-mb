@@ -30,29 +30,51 @@ fn ar_rewrite_instr(instr : @lib.Instruction) -> (@lib.Instruction, Bool) {
 fn ar_rewrite_instrs(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
-  let out : Array[@lib.Instruction] = []
-  let mut changed = false
+  let mut out : Array[@lib.Instruction]? = None
   let mut i = 0
   while i < instrs.length() {
     let (current, current_changed) = ar_rewrite_instr(instrs[i])
-    if current_changed {
-      changed = true
-    }
+    let mut replacement : @lib.Instruction? = None
     if i + 1 < instrs.length() {
       match ar_rewrite_load_reinterpret_pair(current, instrs[i + 1]) {
-        Some(replacement) => {
-          out.push(replacement)
-          changed = true
-          i = i + 2
-          continue
-        }
+        Some(next) => replacement = Some(next)
         None => ()
       }
     }
-    out.push(current)
-    i = i + 1
+    if current_changed || replacement is Some(_) {
+      let buffer = match out {
+        Some(buffer) => buffer
+        None => {
+          let buffer : Array[@lib.Instruction] = []
+          for prefix = 0; prefix < i; prefix = prefix + 1 {
+            buffer.push(instrs[prefix])
+          }
+          out = Some(buffer)
+          buffer
+        }
+      }
+      buffer.push(
+        match replacement {
+          Some(next) => next
+          None => current
+        },
+      )
+    } else {
+      match out {
+        Some(buffer) => buffer.push(current)
+        None => ()
+      }
+    }
+    if replacement is Some(_) {
+      i += 2
+    } else {
+      i += 1
+    }
   }
-  (out, changed)
+  match out {
+    Some(buffer) => (buffer, true)
+    None => (instrs, false)
+  }
 }
 
 ///|

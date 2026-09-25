@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-25
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp
   - ./index.md
@@ -30,6 +30,10 @@ related:
 ---
 
 # Starshine Strategy For `avoid-reinterprets`
+
+## September 25, 2026: unchanged-body allocation
+
+The recursive rewrite now returns the original instruction array when it finds no changed nested instruction or adjacent load/reinterpret pair. On the first change it copies the preceding prefix once, then appends the remaining rewritten instructions. A [native-release direct-pass benchmark](../../../../../src/passes/avoid_reinterprets_lazy_copy_perf_wbtest.mbt) with one positive function plus 128 or 256 unchanged functions of 128 numeric pairs measured **345.66 → 254.64 µs** and **678.40 → 495.35 µs**, respectively. The fixture validates the rewritten module and checks all unrelated bodies; five focused pass tests pass. Full-pipeline impact and allocated bytes remain unmeasured.
 
 Use this page together with the retained direct `version_129` source/test URLs, 2026-04-24 follow-up research, and the current [Binaryen owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp).
 The goal here is not to re-explain upstream Binaryen, but to show the current Starshine status, local code surfaces, and remaining parity boundary.

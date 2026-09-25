@@ -24391,3 +24391,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — TupleOptimization copy-child mask index
 
 - The [TupleOptimization strategy page](binaryen/passes/tuple-optimization/starshine-strategy.md#september-25-2026-copy-child-mask-index) records native mask timing from `6.61 → 5.76 µs` at 32 three-group islands and `21.36 → 11.51 µs` at 64. A source-to-child index replaces repeated group scans during mask construction; full-pass impact remains unmeasured.
+
+### 2026-09-25 — AvoidReinterprets unchanged-body allocation
+
+- The [AvoidReinterprets strategy page](binaryen/passes/avoid-reinterprets/starshine-strategy.md#september-25-2026-unchanged-body-allocation) records native direct-pass timing from `345.66 → 254.64 µs` with 128 ordinary functions and `678.40 → 495.35 µs` with 256. The recursive rewrite now allocates an output array only on its first actual change; full-pipeline impact remains unmeasured.
