@@ -1659,11 +1659,12 @@ fn simplify_locals_child_use_count_capped_at_two(
 ) -> Int {
   let mut count = 0
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
+    let node = func.nodes[node_id]
+    if node.child_count == 0 || !@ir.hot_node_is_live(func, node_id) {
       continue
     }
-    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-      if @ir.hot_child_get(func, node_id, slot) == target_id {
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      if func.children[node.child_base + slot] == target_id {
         count += 1
         if count == 2 {
           return 2

@@ -245,3 +245,14 @@ The reduced regression in `simplify_locals_dew_outer_exit_test.mbt` writes 31
 inside an inner block, branches to the enclosing exit, and reads the local.
 The old result was 0 because the transform placed the write after the branch.
 The test executes branch depths and checks the required result 31.
+
+## September 25, 2026: exact child-use scan
+
+`simplify_locals_child_use_count_capped_at_two` must count every child edge
+from every live HOT node, including detached nodes and duplicate operand
+slots. Unique-use queries therefore scan the whole arena. Leaf nodes cannot
+hold a child edge; the helper now skips their liveness lookup and reads stored
+child spans directly for non-leaf nodes. The native helper benchmark measured
+1,024 trailing leaf nodes at `3.89 → 1.16 µs` and 4,096 at
+`15.31 → 4.40 µs` for a unique use. Shared-child early-exit controls also
+improved from about 22.7 ns to 10–13 ns. Full-pass impact remains unmeasured.

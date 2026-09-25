@@ -24570,3 +24570,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — DCE span-sized candidate state
 
 - The [DCE HOT strategy page](binaryen/passes/dead-code-elimination/starshine-hot-ir-strategy.md#september-25-2026-span-sized-small-candidate-state) records native helper timing for 512 live leaf nodes at `21.40 → 20.12 µs` and 1,024 at `39.56 → 37.82 µs`. Candidate bitsets and reference counts now cover only the eligible ID span; sparse-ID and retained-reference tests preserve exact deletion semantics. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — SimplifyLocals exact child-use scan
+
+- The [SimplifyLocals HOT strategy page](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#september-25-2026-exact-child-use-scan) records native helper timing for a unique use with 1,024 trailing leaf nodes at `3.89 → 1.16 µs` and 4,096 at `15.31 → 4.40 µs`. The scan skips leaf liveness checks and reads direct child spans while retaining all-live-node edge semantics. Full-pass impact remains unmeasured.
