@@ -24383,3 +24383,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — DFE duplicate-prefix collision guard
 
 - The [DFE strategy page](binaryen/passes/duplicate-function-elimination/starshine-strategy.md#september-25-2026-duplicate-prefix-collision-guard) records native direct-pass timing from `126.77 → 33.01 µs` at 128 mixed wrappers and `459.34 → 66.57 µs` at 256. Checking the full group prevents an eight-duplicate prefix from triggering quadratic pairwise comparisons of distinct functions. The 128 all-duplicate control slowed `19.48 → 20.96 µs`; full-pipeline impact remains unmeasured.
+
+### 2026-09-25 — DFE imported-signature liveness
+
+- The [DFE type-compaction page](binaryen/passes/duplicate-function-elimination/type-compaction-and-metadata.md#september-25-2026-imported-function-signature-liveness) records native helper timing from `85.92 → 18.08 µs` for 64 imported signatures and `299.57 → 41.54 µs` for 128. One import-section pass marks those signatures live before the remaining per-type reference probes; full-pass impact remains unmeasured.

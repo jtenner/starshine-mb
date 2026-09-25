@@ -3936,6 +3936,21 @@ fn dfe_prune_unused_simple_types(mod_ : @lib.Module) -> @lib.Module {
           }
         None => ()
       }
+      match mod_.import_sec {
+        Some(@lib.ImportSec(imports)) =>
+          for import_ in imports {
+            match import_ {
+              @lib.Import(_, _, @lib.FuncExternType(@lib.TypeIdx(raw_idx))) => {
+                let type_idx = raw_idx.reinterpret_as_int()
+                if type_idx >= 0 && type_idx < live.length() {
+                  live[type_idx] = true
+                }
+              }
+              _ => ()
+            }
+          }
+        None => ()
+      }
       if live.all(fn(is_live) { is_live }) {
         return mod_
       }

@@ -281,6 +281,10 @@ The performance guard remains bounded: retained definitions are recursively rebu
 
 The local `dfe_prune_unused_simple_types` helper now marks valid absolute function-section type references directly and probes the remaining type indices through the existing full-module scanner. This preserves the broad reference check for imports, code, globals, and other surfaces while avoiding a separate scan for each already-live function signature. The native release white-box benchmark in [`duplicate_function_type_prune_perf_wbtest.mbt`](../../../../../src/passes/duplicate_function_type_prune_perf_wbtest.mbt) measured 64 distinct live signatures at `12.38 µs → 111.71 ns` (111×), 128 at `40.17 µs → 201.95 ns` (199×), and 128 live plus one unused trailing signature at `158.46 → 135.66 µs` (1.17×). The pruning guard test and 39 existing DFE tests pass. This is a helper timing, not a full-pass or Binaryen-v132 parity result.
 
+## September 25, 2026 imported function-signature liveness
+
+The same helper now marks absolute function-import signature types in one pass before probing other module references. On a fixture with one defined body, 64 or 128 distinct imported signatures, and one unused trailing type, the [native-release white-box benchmark](../../../../../src/passes/duplicate_function_type_prune_perf_wbtest.mbt) improved **85.92 → 18.08 µs** and **299.57 → 41.54 µs**, respectively. The output retains all imported signatures, prunes the unused type, and validates. Other reference surfaces and recursive type dependencies still use the existing probes; full-pass impact remains unmeasured.
+
 ## Practical rule for future docs and code reviews
 
 When future work touches local DFE behavior, classify it honestly.
