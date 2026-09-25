@@ -24486,3 +24486,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — SGO sparse runtime-fact clears
 
 - The [SGO strategy page](binaryen/passes/simplify-globals-optimizing/starshine-strategy.md#september-25-2026-sparse-runtime-fact-clears) records native helper timing for 256 globals/barriers at `36.80 → 6.88 µs` and 512 at `138.76 → 13.47 µs`. Clearing only touched facts removes dense per-barrier work while preserving imported-alias invalidation. One focused call-barrier test and 336 existing SGO tests pass; full-pass impact remains unmeasured.
+
+### 2026-09-25 — SimplifyLocals loop-carrier preflight summaries
+
+- The [SimplifyLocals performance page](binaryen/passes/simplify-locals/performance-and-artifact-frontiers.md#2026-09-25-loop-carrier-preflight-summaries) records native helper timing for 128 preceding initializers: parameter-result guard `74.85 → 3.01 µs` and ordinary write guard `58.19 → 1.85 µs`. Each loop body is summarized once after the first negative candidate. Two focused tests, 130 no-structure tests, and 105 main SimplifyLocals tests pass; full-pass impact remains unmeasured.

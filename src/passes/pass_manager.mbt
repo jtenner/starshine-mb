@@ -4853,6 +4853,57 @@ fn run_hot_pipeline_raw_simplify_locals_has_result_control_write(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_collect_loop_writes(
+  instrs : Array[@lib.Instruction],
+  writes : Map[UInt, Bool],
+  result_writes : Map[UInt, Bool],
+) -> Unit {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) =>
+        writes[raw] = true
+      _ => ()
+    }
+    if idx + 1 < instrs.length() {
+      let has_result_control = match instrs[idx] {
+        @lib.Block(block_type, _) | @lib.Loop(block_type, _) =>
+          run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type)
+        @lib.If(block_type, _, _) =>
+          run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type)
+        _ => false
+      }
+      if has_result_control {
+        match instrs[idx + 1] {
+          @lib.LocalSet(@lib.LocalIdx(raw)) => result_writes[raw] = true
+          _ => ()
+        }
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_simplify_locals_collect_loop_writes(
+          body, writes, result_writes,
+        )
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_simplify_locals_collect_loop_writes(
+          then_body, writes, result_writes,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_simplify_locals_collect_loop_writes(
+              body, writes, result_writes,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_has_parameter_initialized_result_loop_carrier(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -4861,6 +4912,8 @@ fn run_hot_pipeline_raw_simplify_locals_has_parameter_initialized_result_loop_ca
       @lib.Loop(_, @lib.Expr(body)) => body
       _ => continue
     }
+    let mut checked = 0
+    let mut result_summary : Map[UInt, Bool]? = None
     for init_idx = 1; init_idx < loop_idx; init_idx = init_idx + 1 {
       let local_idx = match instrs[init_idx] {
         @lib.LocalSet(local_idx) => local_idx
@@ -4870,9 +4923,29 @@ fn run_hot_pipeline_raw_simplify_locals_has_parameter_initialized_result_loop_ca
         @lib.LocalGet(_) => ()
         _ => continue
       }
-      if run_hot_pipeline_raw_simplify_locals_has_result_control_write(
+      checked += 1
+      let has_result_write = if checked == 1 {
+        run_hot_pipeline_raw_simplify_locals_has_result_control_write(
           loop_body, local_idx,
-        ) {
+        )
+      } else {
+        let summary = match result_summary {
+          Some(summary) => summary
+          None => {
+            let writes : Map[UInt, Bool] = Map([])
+            let summary : Map[UInt, Bool] = Map([])
+            run_hot_pipeline_raw_simplify_locals_collect_loop_writes(
+              loop_body, writes, summary,
+            )
+            result_summary = Some(summary)
+            summary
+          }
+        }
+        match local_idx {
+          @lib.LocalIdx(raw) => summary.get(raw).unwrap_or(false)
+        }
+      }
+      if has_result_write {
         return true
       }
     }
@@ -4919,14 +4992,36 @@ fn run_hot_pipeline_raw_simplify_locals_has_initialized_loop_carrier(
       _ => continue
     }
     let initialized_carriers : Array[@lib.LocalIdx] = []
+    let mut checked = 0
+    let mut write_summary : Map[UInt, Bool]? = None
     for init_idx = 0; init_idx < loop_idx; init_idx = init_idx + 1 {
       let local_idx = match instrs[init_idx] {
         @lib.LocalSet(local_idx) => local_idx
         _ => continue
       }
-      if !run_hot_pipeline_raw_simplify_locals_instrs_write_local(
+      checked += 1
+      let has_write = if checked == 1 {
+        run_hot_pipeline_raw_simplify_locals_instrs_write_local(
           loop_body, local_idx,
-        ) {
+        )
+      } else {
+        let summary = match write_summary {
+          Some(summary) => summary
+          None => {
+            let summary : Map[UInt, Bool] = Map([])
+            let result_writes : Map[UInt, Bool] = Map([])
+            run_hot_pipeline_raw_simplify_locals_collect_loop_writes(
+              loop_body, summary, result_writes,
+            )
+            write_summary = Some(summary)
+            summary
+          }
+        }
+        match local_idx {
+          @lib.LocalIdx(raw) => summary.get(raw).unwrap_or(false)
+        }
+      }
+      if !has_write {
         continue
       }
       if init_idx > 0 {

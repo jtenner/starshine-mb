@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../agent-todo.md
@@ -19,6 +19,12 @@ related:
 # `simplify-locals` Performance And Artifact Frontiers
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## 2026-09-25 loop-carrier preflight summaries
+
+Two raw SimplifyLocals loop-carrier guards previously searched the same loop body for each preceding initializer. After the first negative query, they now collect ordinary local writes and result-control local writes once per loop body, then query those maps for later initializer candidates. The first query retains the direct scan, avoiding summary work for one-candidate loops. The collector traverses nested blocks, loops, try tables, and if arms with the same coverage as the previous predicates.
+
+The [native white-box benchmark](../../../../../src/passes/simplify_locals_loop_guard_perf_wbtest.mbt) uses 512-instruction loop bodies that write an unrelated local. Parameter-initialized result-loop checks improved from `37.64 → 2.65 µs` at 64 initializers and `74.85 → 3.01 µs` at 128; ordinary initialized-loop checks improved from `29.13 → 1.60 µs` and `58.19 → 1.85 µs`. Two positive focused tests, 130 no-structure tests, and 105 main SimplifyLocals tests pass. These are helper timings; full-pass and Binaryen-v132 effects remain unmeasured.
 
 ## 2026-08-28 no-tee direct-pass checkpoint
 
