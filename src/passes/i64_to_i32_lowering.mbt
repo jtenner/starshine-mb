@@ -158,6 +158,37 @@ fn i64_lower_sat_rewrite_expr(
 }
 
 ///|
+fn i64_lower_sat_expr_has_candidate(expr : @lib.Expr) -> Bool {
+  let @lib.Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      @lib.I64TruncSatF32S
+      | @lib.I64TruncSatF32U
+      | @lib.I64TruncSatF64S
+      | @lib.I64TruncSatF64U => return true
+      @lib.Block(_, nested) | @lib.Loop(_, nested) =>
+        if i64_lower_sat_expr_has_candidate(nested) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if i64_lower_sat_expr_has_candidate(@lib.Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if i64_lower_sat_expr_has_candidate(@lib.Expr::new(body)) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn i64_to_i32_lowering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -168,6 +199,12 @@ fn i64_to_i32_lowering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     None => return mod_
   }
   if type_indices.length() != funcs.length() {
+    return mod_
+  }
+  if !funcs.any(fn(func) {
+      let @lib.Func(_, body) = func
+      i64_lower_sat_expr_has_candidate(body)
+    }) {
     return mod_
   }
   let signatures = msf_build_type_signature_cache(mod_)

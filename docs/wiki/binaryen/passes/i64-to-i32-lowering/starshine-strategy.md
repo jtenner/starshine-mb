@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -31,6 +31,12 @@ related:
 ---
 
 # Starshine strategy for `i64-to-i32-lowering`
+
+## September 25, 2026: no-candidate pass timing
+
+The status text below describes the July 2026 implementation state and is superseded for the saturating-conversion slice: [`i64_to_i32_lowering.mbt`](../../../../../src/passes/i64_to_i32_lowering.mbt) now lowers the four `i64.trunc_sat_f32/f64_s/u` opcodes. The broader Binaryen ABI lowering described below remains unimplemented.
+
+The module pass first scans bodies for those opcodes. If none occurs, it returns before building a signature cache and rewritten function array. A native direct-pass benchmark with 128 unchanged functions improved from `54.18 µs` to `6.64 µs`; with 256 functions it improved from `107.16 µs` to `12.63 µs`. The [benchmark and positive conversion test](../../../../../src/passes/i64_to_i32_lowering_noop_perf_wbtest.mbt) cover this guard. These synthetic no-candidate timings do not measure full-pipeline impact.
 
 ## Current local status
 

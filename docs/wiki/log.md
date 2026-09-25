@@ -24327,3 +24327,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — IntrinsicLowering no-target guard
 
 - [IntrinsicLowering](../../src/passes/intrinsic_lowering.mbt) now returns after import inspection when no `binaryen-intrinsics.call.without.effects` target exists. The [native direct-pass benchmark](../../src/passes/intrinsic_lowering_no_target_perf_wbtest.mbt) improved from `51.21 µs` to `20.73 ns` at 128 functions and from `102.44 µs` to `20.28 ns` at 256. A positive matching-import rewrite test passes. These are synthetic no-target pass-local timings; full-pipeline impact remains unmeasured.
+
+### 2026-09-25 — I64ToI32Lowering no-candidate guard
+
+- The [I64ToI32Lowering strategy page](binaryen/passes/i64-to-i32-lowering/starshine-strategy.md#september-25-2026-no-candidate-pass-timing) records native direct-pass timing from `54.18 → 6.64 µs` at 128 unchanged functions and `107.16 → 12.63 µs` at 256. The pass now scans for its four saturating-conversion opcodes before allocating signature and rewrite state. A positive conversion test passes; full-pipeline impact remains unmeasured.
