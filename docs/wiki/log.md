@@ -24574,3 +24574,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — SimplifyLocals exact child-use scan
 
 - The [SimplifyLocals HOT strategy page](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#september-25-2026-exact-child-use-scan) records native helper timing for a unique use with 1,024 trailing leaf nodes at `3.89 → 1.16 µs` and 4,096 at `15.31 → 4.40 µs`. The scan skips leaf liveness checks and reads direct child spans while retaining all-live-node edge semantics. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — SimplifyLocals paired unique-use query
+
+- The [SimplifyLocals HOT strategy page](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#september-25-2026-exact-child-use-scan) records native helper timing for two unique-use queries over 1,024 trailing nodes at `2.30 → 1.12 µs` and 4,096 at `8.85 → 4.29 µs`. The protected-region rewrite checks both targets in one exact arena traversal. Full-pass impact remains unmeasured.

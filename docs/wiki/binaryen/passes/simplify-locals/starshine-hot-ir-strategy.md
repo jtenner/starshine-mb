@@ -256,3 +256,10 @@ child spans directly for non-leaf nodes. The native helper benchmark measured
 1,024 trailing leaf nodes at `3.89 → 1.16 µs` and 4,096 at
 `15.31 → 4.40 µs` for a unique use. Shared-child early-exit controls also
 improved from about 22.7 ns to 10–13 ns. Full-pass impact remains unmeasured.
+
+The protected-region dropped-tee rewrite checks unique use of both the tee
+and its value without mutating between queries. It now counts both targets in
+one all-live-node traversal and rejects as soon as either reaches two uses.
+The native helper benchmark measured 1,024 trailing leaf nodes at
+`2.30 → 1.12 µs` and 4,096 at `8.85 → 4.29 µs`; single-target controls stayed
+near 1.14 and 4.43 µs. A focused test rejects either shared target.

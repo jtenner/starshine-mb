@@ -1676,6 +1676,40 @@ fn simplify_locals_child_use_count_capped_at_two(
 }
 
 ///|
+fn simplify_locals_two_child_uses_are_unique(
+  func : @ir.HotFunc,
+  first_id : Int,
+  second_id : Int,
+) -> Bool {
+  if first_id == second_id {
+    return simplify_locals_child_use_count_capped_at_two(func, first_id) == 1
+  }
+  let mut first_count = 0
+  let mut second_count = 0
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    let node = func.nodes[node_id]
+    if node.child_count == 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      let child_id = func.children[node.child_base + slot]
+      if child_id == first_id {
+        first_count += 1
+        if first_count == 2 {
+          return false
+        }
+      } else if child_id == second_id {
+        second_count += 1
+        if second_count == 2 {
+          return false
+        }
+      }
+    }
+  }
+  first_count == 1 && second_count == 1
+}
+
+///|
 fn simplify_locals_local_type_id(
   func : @ir.HotFunc,
   local_id : Int,
@@ -7808,10 +7842,9 @@ fn simplify_locals_lower_dropped_tees_in_protected_region(
               let value_id = @ir.hot_child_get(func, child_id, 0)
               if value_id >= 0 &&
                 @ir.hot_node_is_live(func, value_id) &&
-                simplify_locals_child_use_count_capped_at_two(func, child_id) ==
-                1 &&
-                simplify_locals_child_use_count_capped_at_two(func, value_id) ==
-                1 {
+                simplify_locals_two_child_uses_are_unique(
+                  func, child_id, value_id,
+                ) {
                 @ir.hot_replace_node(
                   func,
                   node_id,
