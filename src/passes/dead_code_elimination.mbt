@@ -276,6 +276,25 @@ fn dead_code_elimination_delete_unused_nodes(
     return
   }
   let node_count = @ir.hot_node_count(func)
+  let mut has_unowned_candidate = false
+  for node_id in node_ids {
+    if node_id < 0 ||
+      node_id >= node_count ||
+      !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let label_id = @ir.hot_control_node_label(func, node_id)
+    if label_id >= 0 &&
+      label_id < func.labels.length() &&
+      @ir.hot_label_owner(func, label_id) == node_id {
+      continue
+    }
+    has_unowned_candidate = true
+    break
+  }
+  if !has_unowned_candidate {
+    return
+  }
   let candidates : Array[Int] = []
   let in_candidate = @bitset.BitSet::new(node_count)
   for node_id in node_ids {
@@ -283,6 +302,12 @@ fn dead_code_elimination_delete_unused_nodes(
       node_id >= node_count ||
       !@ir.hot_node_is_live(func, node_id) ||
       in_candidate[node_id] {
+      continue
+    }
+    let label_id = @ir.hot_control_node_label(func, node_id)
+    if label_id >= 0 &&
+      label_id < func.labels.length() &&
+      @ir.hot_label_owner(func, label_id) == node_id {
       continue
     }
     in_candidate[node_id] = true

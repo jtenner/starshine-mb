@@ -24518,3 +24518,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — Vacuum whole-region replacement for long drop runs
 
 - The [Vacuum strategy page](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-25-2026-branchy-dropped-local-runs) records paired native HOT-lift-plus-cleanup timing after replacing one long run through a single region-body update: 256 dropped reads `218.38 → 202.61 µs`, 512 `457.55 → 406.68 µs`, and 1,024 `1.03 ms → 787.98 µs`. The 128-read case remained near 110 µs; full-pass impact remains unmeasured.
+
+### 2026-09-25 — DCE label-owned detached candidates
+
+- The [DCE HOT strategy page](binaryen/passes/dead-code-elimination/starshine-hot-ir-strategy.md#september-25-2026-label-owned-detached-deletion-candidates) records native helper timing for 16 label-owned candidates with 512 live nodes at `64.85 → 19.29 µs` and 1,024 at `123.26 → 36.42 µs`. The deletion helper avoids full scans when all candidates retain owned labels and preserves mixed-batch reference checks. Ordinary deletion controls remained stable; full-pass impact remains unmeasured.

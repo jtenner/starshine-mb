@@ -372,3 +372,15 @@ That makes the current subset easy to teach honestly:
 
 - **what it does today:** a broader HOT cleanup family around dead dropped values, dead-result control, payload-forwarder repair, and explicit tail repair
 - **what it does not equal:** upstream Binaryen's smaller `TypeUpdater`-centered `dce`
+
+## September 25, 2026: label-owned detached deletion candidates
+
+When DCE flattens an untargeted void block, its detached block still owns a
+live label. The small-batch deletion helper's reference scan therefore cannot
+delete that block. It now filters such candidates before allocating and
+scanning the whole function; mixed batches still scan for the remaining
+candidates, including references from the retained block. The native helper
+benchmark in `src/passes/dead_code_elimination_delete_perf_wbtest.mbt` measured
+16 label-owned candidates with 512 live nodes at `64.85 → 19.29 µs` and
+1,024 at `123.26 → 36.42 µs`. Ordinary removable-candidate controls remained
+near 22 and 42 µs. Full-pass impact remains unmeasured.

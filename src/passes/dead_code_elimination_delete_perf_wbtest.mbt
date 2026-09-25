@@ -102,3 +102,62 @@ test "bench DCE small deletion live=512" (it : @bench.T) {
 test "bench DCE small deletion live=1024" (it : @bench.T) {
   dce_delete_perf_bench(it, 1024)
 }
+
+///|
+fn dce_label_owned_delete_perf_bench(it : @bench.T, live_count : Int) -> Unit {
+  it.bench(fn() {
+    let (func, _) = dce_delete_perf_fixture(live_count, 0)
+    let ctx = dce_delete_perf_ctx()
+    let cache = DeadCodeEliminationNodeUseCache::new(func)
+    for _ in 0..<16 {
+      let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+      dead_code_elimination_delete_unused_nodes(ctx, func, cache, [block])
+      if !@ir.hot_node_is_live(func, block) {
+        abort("DCE deleted a label-owning detached block")
+      }
+    }
+    it.keep(func)
+  })
+}
+
+///|
+test "DCE label-owning detached block protects mixed candidate batch" {
+  let (func, _) = dce_delete_perf_fixture(8, 0)
+  let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let constant = @ir.hot_build_const_i32(func, @lib.I32(7))
+  dead_code_elimination_delete_unused_nodes(
+    dce_delete_perf_ctx(),
+    func,
+    DeadCodeEliminationNodeUseCache::new(func),
+    [block, constant],
+  )
+  assert_true(@ir.hot_node_is_live(func, block))
+  assert_false(@ir.hot_node_is_live(func, constant))
+}
+
+///|
+test "DCE label-owning detached block still protects referenced candidate" {
+  let (func, _) = dce_delete_perf_fixture(8, 0)
+  let constant = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    @ir.hot_build_drop(func, constant),
+  ])
+  dead_code_elimination_delete_unused_nodes(
+    dce_delete_perf_ctx(),
+    func,
+    DeadCodeEliminationNodeUseCache::new(func),
+    [block, constant],
+  )
+  assert_true(@ir.hot_node_is_live(func, block))
+  assert_true(@ir.hot_node_is_live(func, constant))
+}
+
+///|
+test "bench DCE label-owned deletion live=512" (it : @bench.T) {
+  dce_label_owned_delete_perf_bench(it, 512)
+}
+
+///|
+test "bench DCE label-owned deletion live=1024" (it : @bench.T) {
+  dce_label_owned_delete_perf_bench(it, 1024)
+}
