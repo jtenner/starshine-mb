@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-25
 sources:
   - ./index.md
   - ../../../../../src/passes/coalesce_locals.mbt
@@ -39,6 +39,8 @@ Use this page together with the [`coalesce-locals` landing page](./index.md)'s t
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.
 
 ## September 25, 2026 sparse copy-score measurement
+
+The copy-weight builder now creates an integer partner-to-row index only when a row reaches eight entries. Short rows keep linear lookup, while dense rows update existing weights without scanning every preceding partner. In the [native white-box construction benchmark](../../../../../src/passes/coalesce_locals_copy_score_perf_wbtest.mbt), a complete 64-local copy graph improved from `85.32` to `55.38 µs`, and a 128-local graph from `546.67` to `221.60 µs`. The existing coloring benchmark stayed near its previous timing. The extra index uses memory proportional to the local count for each indexed row; full-pass impact remains unmeasured.
 
 CFG coloring now scatters each local's sparse copy weights into reusable indexed arrays before scoring compatible slots. A generation mark by local ID avoids clearing the arrays between locals. The [native white-box coloring benchmark](../../../../../src/passes/coalesce_locals_copy_score_perf_wbtest.mbt) with dense copy weights improved from `28.79` to `13.45 µs` (2.14×) at 64 locals and from `195.23` to `52.08 µs` (3.75×) at 128. A weighted slot-choice regression and 91 existing Coalesce tests pass. Fixture construction is outside timing; full-pass impact remains unmeasured.
 

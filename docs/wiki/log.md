@@ -24343,3 +24343,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — DAE nested unread-copy propagation
 
 - The [DAE strategy page](binaryen/passes/dead-argument-elimination/starshine-strategy.md#september-25-2026-nested-unread-copy-propagation) records native cleanup-helper timing from `1.56 ms → 37.79 µs` at 128 nested links and `6.24 ms → 74.62 µs` at 256. Nested copy dependencies now enter one shared graph while adjacency stays inside each body or arm. Flat-chain timing stayed near baseline; full-pass impact remains unmeasured.
+
+### 2026-09-25 — CoalesceLocals copy-weight construction
+
+- The [CoalesceLocals strategy page](binaryen/passes/coalesce-locals/starshine-strategy.md#september-25-2026-sparse-copy-score-measurement) records native dense graph construction timing from `85.32 → 55.38 µs` at 64 locals and `546.67 → 221.60 µs` at 128. Rows gain lazy integer partner indexes after eight entries; the coloring control stayed near baseline. Full-pass impact remains unmeasured.

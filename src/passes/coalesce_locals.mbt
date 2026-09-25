@@ -6406,6 +6406,7 @@ fn cl_cfg_live_set_from_liveness(
 ///|
 priv struct CLCfgSparseWeights {
   rows : Array[Array[(Int, Int)]]
+  row_positions : Array[Array[Int]?]
 }
 
 ///|
@@ -6414,7 +6415,7 @@ fn CLCfgSparseWeights::new(total_locals : Int) -> CLCfgSparseWeights {
   for _ in 0..<total_locals {
     rows.push([])
   }
-  { rows, }
+  { rows, row_positions: Array::make(total_locals, None), }
 }
 
 ///|
@@ -6424,6 +6425,34 @@ fn cl_cfg_sparse_weight_add_one(
   rhs : Int,
 ) -> Unit {
   let row = weights.rows[lhs]
+  let positions = match weights.row_positions[lhs] {
+    Some(positions) => Some(positions)
+    None =>
+      if row.length() < 8 {
+        None
+      } else {
+        let positions = Array::make(weights.rows.length(), -1)
+        for idx = 0; idx < row.length(); idx = idx + 1 {
+          positions[row[idx].0] = idx
+        }
+        weights.row_positions[lhs] = Some(positions)
+        Some(positions)
+      }
+  }
+  match positions {
+    Some(positions) => {
+      let idx = positions[rhs]
+      if idx >= 0 {
+        let (other, weight) = row[idx]
+        row[idx] = (other, weight + 1)
+        return
+      }
+      positions[rhs] = row.length()
+      row.push((rhs, 1))
+      return
+    }
+    None => ()
+  }
   for idx = 0; idx < row.length(); idx = idx + 1 {
     let (other, weight) = row[idx]
     if other == rhs {

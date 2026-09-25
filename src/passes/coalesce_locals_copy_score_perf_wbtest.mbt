@@ -70,3 +70,44 @@ test "Coalesce indexed copy weights keep preferred slot" {
   @debug.assert_eq(result.old_to_new, [0, 1, 1])
   @debug.assert_eq(result.removed_copies, 2)
 }
+
+///|
+fn cl_cfg_copy_weight_build_perf_fixture(count : Int) -> CLCfgSparseWeights {
+  let weights = CLCfgSparseWeights::new(count)
+  for lhs = 0; lhs < count; lhs = lhs + 1 {
+    for rhs = lhs + 1; rhs < count; rhs = rhs + 1 {
+      cl_cfg_sparse_weight_add(weights, lhs, rhs)
+    }
+  }
+  weights
+}
+
+///|
+test "Coalesce dense copy weight builder keeps symmetric repeated edges" {
+  let weights = cl_cfg_copy_weight_build_perf_fixture(10)
+  assert_eq(weights.rows[0].length(), 9)
+  assert_eq(weights.rows[9].length(), 9)
+  cl_cfg_sparse_weight_add(weights, 0, 9)
+  assert_eq(weights.rows[0][8], (9, 2))
+  assert_eq(weights.rows[9][0], (0, 2))
+}
+
+///|
+fn cl_cfg_copy_weight_build_perf_bench(it : @bench.T, count : Int) -> Unit {
+  let weights = cl_cfg_copy_weight_build_perf_fixture(count)
+  if weights.rows[0].length() != count - 1 ||
+    weights.rows[count - 1].length() != count - 1 {
+    abort("Coalesce dense copy weight fixture lost edges")
+  }
+  it.bench(fn() { it.keep(cl_cfg_copy_weight_build_perf_fixture(count)) })
+}
+
+///|
+test "bench Coalesce build dense copy weights locals=64" (it : @bench.T) {
+  cl_cfg_copy_weight_build_perf_bench(it, 64)
+}
+
+///|
+test "bench Coalesce build dense copy weights locals=128" (it : @bench.T) {
+  cl_cfg_copy_weight_build_perf_bench(it, 128)
+}
