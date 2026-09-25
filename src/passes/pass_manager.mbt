@@ -30817,29 +30817,66 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_result_if_loop_carrier(
 fn run_hot_pipeline_raw_ssa_nomerge_has_result_if_crossing_local_lifetime(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
-  for set_idx = 0; set_idx < instrs.length(); set_idx = set_idx + 1 {
-    let target = match instrs[set_idx] {
-      @lib.LocalSet(target) => target
-      _ => continue
+  if instrs.length() <= 24 {
+    for set_idx = 0; set_idx < instrs.length(); set_idx = set_idx + 1 {
+      let target = match instrs[set_idx] {
+        @lib.LocalSet(target) => target
+        _ => continue
+      }
+      let mut saw_result_if = false
+      let mut saw_returning_if = false
+      for later = set_idx + 1; later < instrs.length(); later = later + 1 {
+        match instrs[later] {
+          @lib.If(block_type, then_body, else_body) =>
+            if run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
+              saw_result_if = true
+            } else if saw_result_if {
+              let else_has_return = match else_body {
+                Some(body) => run_hot_pipeline_raw_merge_locals_has_return(body)
+                None => false
+              }
+              if run_hot_pipeline_raw_merge_locals_has_return(then_body) ||
+                else_has_return {
+                saw_returning_if = true
+              }
+            }
+          @lib.LocalGet(read) if saw_returning_if && read == target =>
+            return true
+          _ => ()
+        }
+      }
     }
-    let mut saw_result_if = false
-    let mut saw_returning_if = false
-    for later = set_idx + 1; later < instrs.length(); later = later + 1 {
-      match instrs[later] {
+  } else {
+    let first_set : @hashmap.HashMap[Int, Int] = @hashmap.new()
+    let mut latest_result_if = -1
+    let mut latest_result_if_before_return = -1
+    for idx = 0; idx < instrs.length(); idx = idx + 1 {
+      match instrs[idx] {
+        @lib.LocalSet(@lib.LocalIdx(raw)) => {
+          let local_id = raw.reinterpret_as_int()
+          if first_set.get(local_id) is None {
+            first_set[local_id] = idx
+          }
+        }
         @lib.If(block_type, then_body, else_body) =>
           if run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
-            saw_result_if = true
-          } else if saw_result_if {
+            latest_result_if = idx
+          } else if latest_result_if >= 0 {
             let else_has_return = match else_body {
               Some(body) => run_hot_pipeline_raw_merge_locals_has_return(body)
               None => false
             }
             if run_hot_pipeline_raw_merge_locals_has_return(then_body) ||
               else_has_return {
-              saw_returning_if = true
+              latest_result_if_before_return = latest_result_if
             }
           }
-        @lib.LocalGet(read) if saw_returning_if && read == target => return true
+        @lib.LocalGet(@lib.LocalIdx(raw)) if latest_result_if_before_return >= 0 =>
+          match first_set.get(raw.reinterpret_as_int()) {
+            Some(first_idx) if first_idx < latest_result_if_before_return =>
+              return true
+            _ => ()
+          }
         _ => ()
       }
     }
@@ -30880,19 +30917,44 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_result_if_crossing_local_lifetime(
 fn run_hot_pipeline_raw_ssa_nomerge_has_any_result_if_crossing_local_read(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
-  for set_idx = 0; set_idx < instrs.length(); set_idx = set_idx + 1 {
-    let target = match instrs[set_idx] {
-      @lib.LocalSet(target) => target
-      _ => continue
+  if instrs.length() <= 24 {
+    for set_idx = 0; set_idx < instrs.length(); set_idx = set_idx + 1 {
+      let target = match instrs[set_idx] {
+        @lib.LocalSet(target) => target
+        _ => continue
+      }
+      let mut saw_result_if = false
+      for later = set_idx + 1; later < instrs.length(); later = later + 1 {
+        match instrs[later] {
+          @lib.If(block_type, _, _) =>
+            if run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
+              saw_result_if = true
+            }
+          @lib.LocalGet(read) if saw_result_if && read == target => return true
+          _ => ()
+        }
+      }
     }
-    let mut saw_result_if = false
-    for later = set_idx + 1; later < instrs.length(); later = later + 1 {
-      match instrs[later] {
+  } else {
+    let first_set : @hashmap.HashMap[Int, Int] = @hashmap.new()
+    let mut latest_result_if = -1
+    for idx = 0; idx < instrs.length(); idx = idx + 1 {
+      match instrs[idx] {
+        @lib.LocalSet(@lib.LocalIdx(raw)) => {
+          let local_id = raw.reinterpret_as_int()
+          if first_set.get(local_id) is None {
+            first_set[local_id] = idx
+          }
+        }
         @lib.If(block_type, _, _) =>
           if run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
-            saw_result_if = true
+            latest_result_if = idx
           }
-        @lib.LocalGet(read) if saw_result_if && read == target => return true
+        @lib.LocalGet(@lib.LocalIdx(raw)) if latest_result_if >= 0 =>
+          match first_set.get(raw.reinterpret_as_int()) {
+            Some(first_idx) if first_idx < latest_result_if => return true
+            _ => ()
+          }
         _ => ()
       }
     }

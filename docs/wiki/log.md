@@ -24530,3 +24530,7 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — TupleOptimization child-only result-block lookup
 
 - The [TupleOptimization HOT strategy page](binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md#september-25-2026-child-only-result-block-analysis) records native collector timing for 64 child-only scalar blocks at `21.77 → 2.44 µs` and 128 at `80.72 → 5.27 µs`. Fresh use-def sites rule out a root slot during read-only analysis, while rewrite callers retain the stale-use-def fallback. Full-pass impact remains unmeasured.
+
+### 2026-09-25 — SSA result-If suffix preflight
+
+- The [SSA-nomerge HOT strategy page](binaryen/passes/ssa-nomerge/starshine-hot-ir-strategy.md#september-25-2026-result-if-suffix-preflight) records paired native helper timing for 256 local sets at `69.21 → 2.51 µs` and 512 at `261.87 → 4.74 µs`. Long bodies use one forward scan; a four-set control remained stable at `42.03 → 40.49 ns` through the bounded short path. Full-pass impact remains unmeasured.

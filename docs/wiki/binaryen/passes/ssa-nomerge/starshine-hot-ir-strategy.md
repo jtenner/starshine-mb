@@ -305,3 +305,9 @@ Future work on this pass should answer one question explicitly:
 - or is it a branch/table/typed/EH/full-SSA boundary that needs a named helper, no-op, or sibling pass?
 
 Those are materially different goals, and the wiki should keep that difference explicit.
+
+## September 25, 2026: result-If suffix preflight
+
+The raw `ssa-nomerge` preflight had two predicates that searched the remaining instruction suffix after every `local.set`. Both could take quadratic time on a straight-line body with many writes. Bodies longer than 24 instructions now scan once, recording the first set position for each local and the latest relevant result-If event. The short-body path retains the bounded original search to avoid map setup on small functions. Nested instruction lists are still checked recursively, and only direct instructions in the same list participate in each event sequence.
+
+The paired native helper benchmark in `src/passes/ssa_result_if_suffix_perf_wbtest.mbt` measured both predicates together on bodies with no crossing read: 256 sets `69.21 → 2.51 µs` and 512 sets `261.87 → 4.74 µs`. The equivalent four-set short-body predicate stayed stable (`42.03 → 40.49 ns`). Benchmark setup assertions cover both paths and event ordering. Full-pass impact remains unmeasured.
