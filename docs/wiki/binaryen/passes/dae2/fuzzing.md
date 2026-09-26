@@ -13,6 +13,12 @@ sources:
 
 # DAE2 GenValid coverage
 
+## September 26 shared source-order renewal
+
+Fresh native `f7fb87fb1a66416d87a018b78fcd8fddf2f58a110d77f982c56434cd1a3bbaf9` renews 10,000 `dae2` aggregate comparisons in each world against the same verified Binaryen 133 oracle and settings below. Open counts remain 2,879 canonical / 667 cleanup-normalized / 6,454 residuals; closed counts remain 0 / 100 / 9,900, including 706 canonically larger outputs. Each world again has 9,312 Node-v2 matches and 688 original-runtime-blocked continuation cases, with zero semantic mismatches or validation, property, generator or command failures. The 12,476-test full suite passes. Residual parity and closed-world size gaps remain open; blocked runtime cases remain unverified.
+
+Evidence: `.tmp/pass-fuzz-dae2{,-closed}-coalesce-source-order-v133-10000-20260926/`. The [shared renewal](../coalesce-locals/fuzzing.md#september-26-source-order-index-renewal) owns the other affected lanes and saved-output replay; the [strategy](./starshine-strategy.md#september-26-2026-shared-source-order-index) records the confirmed 15.7% large-artifact improvement.
+
 ## September 26 lazy local-flow renewal
 
 Fresh native Starshine `0925e7e8ae15e1e06d4fa171fdcf5b251e42f68f627ef7955a10bf032570748f` renews both 10,000-case `dae2` aggregate lanes against the same verified v133 oracle, seed, worker limits, normalization and Node-v2 settings below. Counts are unchanged: open 2,879 canonical / 667 cleanup-normalized / 6,454 residual; closed 0 / 100 / 9,900, including 706 canonically larger outputs. Each world has 9,312 runtime matches and 688 original-runtime-blocked cases, with zero semantic mismatches or validation, property, generator or command failures. All 40 saved residual outputs are byte-identical to the pre-change CLI. My classification remains open parity gaps, including the 706 size-losing closed-world cases; blocked executions remain unverified.

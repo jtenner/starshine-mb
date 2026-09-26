@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-26
 sources:
   - ./index.md
   - ../../../../../src/passes/coalesce_locals.mbt
@@ -391,6 +391,20 @@ assigns operand nodes to blocks, it inserts the same carried dependencies that
 lowering will emit first. This removes the second, inconsistent order model.
 The default CFG path is unchanged; only `expand_operand_control=true` uses the
 shared facts. CoalesceLocals and Precompute are the two production consumers.
+
+The September 26 performance renewal adds a lazy sparse index from local ID to
+minimum access order for queried roots with more than four accesses, when the
+carried summary has multiple accesses. Tiny queries retain the direct scan.
+The index belongs to the same immutable `HotSourceOrderFacts` snapshot as the
+existing node-access cache; it is not reused after mutation. Each query still
+filters writes by opcode, local range and `after_order`, then takes the minimum
+across those locals before applying both strict interval bounds. Selecting any
+later access inside the interval would be incorrect. A 32-write/32-read fixture
+reduces access visits from 1,024 to 32 on the first query and zero on reuse;
+bounded exhaustive checks cover duplicate accesses, writes as accesses,
+unmatched locals and strict bounds. See the
+[regressions](../../../../../src/ir/hot_source_order_index_wbtest.mbt) and
+[performance evidence](./starshine-strategy.md#september-26-2026-source-order-local-access-index).
 
 The red-first tests cover both sides of the contract. The IR test requires the
 source local to remain live after the carried block. The pass test executes four

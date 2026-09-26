@@ -38,6 +38,34 @@ related:
 Use this page together with the [`coalesce-locals` landing page](./index.md)'s tagged source list, the retained 2026-05-05 research recheck, and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.
 
+## September 26, 2026 source-order local-access index
+
+The renewed large-input profile identifies `hot_lower_impl_carried_local_write_conflicts` inside expanded CFG construction. Its nested scan compared every qualifying write with every access in another root. A lazy sparse index now caches that root's minimum access order for each local. The write filter and both strict interval bounds are unchanged; missing entries retain the node-count sentinel, and the earliest access must win even when a later access falls inside the requested interval. Queries with at most four accesses or a single carried access keep their direct scan. The cache shares the lifetime of the existing immutable source-order snapshot; memory grows with distinct locals in indexed roots, without allocating a function-sized local array for every query.
+
+[Binaryen 133 CoalesceLocals](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/CoalesceLocals.cpp) processes indexed local actions from its CFG. Starshine additionally reconciles HOT operand dependencies with emitted stack order; this optimization retains that proof while indexing its repeated queries. It does not claim that Binaryen implements this Starshine-specific ordering cache. The [ordering contract](./interference-and-ordering.md#carried-control-must-use-emitted-source-order) remains authoritative.
+
+A red-first 32-write/32-read regression measured 1,024 access visits instead of 32. The index needs 32 on first use and zero access-array visits on reuse; qualifying writes are still examined. Tests cover duplicate accesses, local writes as accesses, disjoint locals, filtered writes and strict minimum bounds, plus command dispatch preserving a default-initialized body local separately from an arbitrary parameter. All 292 focused and 12,476 full wasm-gc tests pass; `moon info`, `moon fmt` and the native release build pass without a public API change.
+
+Native `f7fb87fb1a66416d87a018b78fcd8fddf2f58a110d77f982c56434cd1a3bbaf9` versus pre-change `dd1746825fca4894469fc07309835381c434b0b347d730496ffeacb320b6a177`, one warmup and seven isolated alternating pairs:
+
+| Input / pass | Before pipeline | After pipeline | Change |
+| --- | ---: | ---: | ---: |
+| Large / coalesce-locals | 7,821.570ms | 7,542.937ms | 3.6% faster |
+| Large / dae2 | 7,633.494ms | 6,438.548ms | 15.7% faster |
+| Small / coalesce-locals | 13.611ms | 13.669ms | effectively unchanged |
+| Small / inlining-optimizing | 121.256ms | 121.008ms | effectively unchanged |
+| Small / dae-optimizing | 149.506ms | 152.781ms | 3.275ms / 2.2% slower |
+
+Every large Coalesce pair improves, saving 182.784–430.886ms. All paired raw outputs are identical. Three-pair checks also retain exact outputs for both compiler inputs across optimizing inlining, DAE and SimplifyGlobals and on the dedicated wide-local fixtures. The small DAEO tradeoff is explicit: a separate seven-pair comparison against the pre-forwarding-guard CLI (`0925e7e8ae15e1e06d4fa171fdcf5b251e42f68f627ef7955a10bf032570748f`) still shows a **26.9% combined gain**, `210.095ms → 153.542ms`.
+
+The final verified-v133 sweep on this same CLI measures large pass-local Coalesce `7,548.790ms` versus `1,100.470ms` (**6.86x slower**) and DAE2 `6,446.246ms` versus `398.444ms` (**16.18x slower**). Small DAEO remains `155.511ms` versus `7.315ms` (**21.26x slower**). Large DAEO is faster on timing (`1,001.411ms` versus `1,578.710ms`) but remains 41,427 canonical bytes larger; that is an open cleanup/size gap, not a complete pass win. Coalesce retains its existing 90,915-byte canonical size deficit. Performance and parity gaps stay open. Sweep artifacts: `.tmp/pass-sweep-v133-coalesce-source-order-{small,large}-20260926/`.
+
+Evidence: `.tmp/coalesce-source-order-confirm-{small,large}-20260926/`, `.tmp/coalesce-source-order-paired-<fixture>-20260926/`, `.tmp/dae-optimizing-combined-confirm-small-20260926/`, [`hot_source_order.mbt`](../../../../../src/ir/hot_source_order.mbt), [`hot_lower.mbt`](../../../../../src/ir/hot_lower.mbt), [bounded regressions](../../../../../src/ir/hot_source_order_index_wbtest.mbt), [command test](../../../../../src/cmd/coalesce_source_order_wbtest.mbt), and [fuzzing renewal](./fuzzing.md). Initial lifting, preceding-dependency discovery and required local-flow solving remain performance targets.
+
+### Rejected canonical matrix prototype
+
+Binaryen stores an interference pair under canonical `(min, max)` indices. A prototype reused Starshine's existing triangular bit matrix for CFG interferences, reducing a 96-local fixture from 96 bitset allocations to one while preserving every pair. Full-pass results did not justify retaining it: three large compiler pairs measured only `7,844.650ms → 7,798.995ms`, while the 2,048-local 128/512/1,024-loop fixtures slowed `25.085 → 28.398ms`, `32.967 → 35.050ms`, and `47.367 → 48.437ms`. The code and matrix tests were fully reverted; no matrix performance win or oracle signoff is claimed. Artifacts: `.tmp/coalesce-canonical-matrix-paired-<fixture>-20260926/`, `.tmp/coalesce-canonical-matrix-prototype{,-test}.mbt`; rejected native hash `b1c6e1a964d4eb7e5242fb277657d46fbc689ee7578d502a73eed2c0806a49de`.
+
 ## September 26, 2026 CFG live-set reuse
 
 CFG interference construction now reuses one live-set workspace across both scans of every block. Initialization visits set members from the existing liveness bitset instead of querying every declared local; resetting clears only the previous members and their positions. Each forward scan still reloads the authoritative live-in facts, retaining member order, ineffective-write interference and parameter/default-value interference. This follows the live-set reuse in [Binaryen 133 CoalesceLocals](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/CoalesceLocals.cpp). Binaryen carries the reverse scan's set directly into its forward scan; Starshine reloads its existing analysis facts. The bitset iterator still scans nonzero words, so this is not a claim of strictly constant work per set member.

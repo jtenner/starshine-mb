@@ -8,6 +8,10 @@ priv struct HotSourceOrderFacts {
   first_effect_orders : Array[Int]
   preceding_dependency_min_cache : Array[Int]
   local_access_nodes : Array[Array[NodeId]?]
+  first_local_access_orders : @hashmap.HashMap[
+    NodeId,
+    @hashmap.HashMap[Int, Int],
+  ]
   local_access_seen : Array[Int]
   mut local_access_stamp : Int
 }
@@ -21,6 +25,7 @@ fn HotSourceOrderFacts::new(func : HotFunc) -> HotSourceOrderFacts {
     first_effect_orders: hot_lower_impl_build_first_effect_orders(func),
     preceding_dependency_min_cache: Array::make(hot_node_count(func), -2),
     local_access_nodes: Array::make(hot_node_count(func), None),
+    first_local_access_orders: @hashmap.new(),
     local_access_seen: Array::make(hot_node_count(func), 0),
     local_access_stamp: 0,
   }
@@ -57,6 +62,33 @@ fn hot_source_order_local_access_nodes(
   visit(node_id)
   facts.local_access_nodes[node_id] = Some(accesses)
   accesses
+}
+
+///|
+fn hot_source_order_first_local_access_orders(
+  func : HotFunc,
+  node_id : NodeId,
+  accesses : Array[NodeId],
+  facts : HotSourceOrderFacts,
+  visits? : Array[Int]? = None,
+) -> @hashmap.HashMap[Int, Int] {
+  if facts.first_local_access_orders.get(node_id) is Some(orders) {
+    return orders
+  }
+  let orders : @hashmap.HashMap[Int, Int] = @hashmap.new()
+  for access_id in accesses {
+    match visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    let access = hot_node_get(func, access_id)
+    let previous = orders.get(access.imm0).or(hot_node_count(func))
+    if access.order < previous {
+      orders.set(access.imm0, access.order)
+    }
+  }
+  facts.first_local_access_orders.set(node_id, orders)
+  orders
 }
 
 ///|

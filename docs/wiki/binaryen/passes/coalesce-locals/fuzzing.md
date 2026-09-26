@@ -10,6 +10,28 @@ sources:
   - ./index.md
 ---
 
+
+## September 26 source-order index renewal
+
+Fresh native Starshine `f7fb87fb1a66416d87a018b78fcd8fddf2f58a110d77f982c56434cd1a3bbaf9` and verified Binaryen 133 (`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`) complete **90,000 comparisons** across nine lanes, 10,000 each at seed `0x5eed`. These are the documented aggregates: `coalesce-locals-all`, `precompute-all` for both variants, `dae2` in both worlds, `dead-argument-elimination`, `inlining-optimizing-all`, `dae-optimizing`, and `simplify-globals-optimizing-all`. Each uses explicit prebuilt native CLI/generator binaries, `--jobs auto`, eight subprocesses, at most 20 mismatch artifacts, and the default cache. No external generator was requested.
+
+| Pass / world | Canonical matches | Cleanup-normalized | Residuals | Canonically larger |
+| --- | ---: | ---: | ---: | ---: |
+| coalesce-locals | 3,750 | 5,000 | 1,250 | 0 |
+| precompute | 3,238 | 6,762 | 0 | 0 |
+| precompute-propagate | 2,766 | 7,234 | 0 | 0 |
+| dae2 | 2,879 | 667 | 6,454 | 0 |
+| dae2-closed | 0 | 100 | 9,900 | 706 |
+| dae | 3,750 | 0 | 6,250 | 0 |
+| inlining-optimizing | 10,000 | 0 | 0 | 0 |
+| dae-optimizing | 5,153 | 0 | 4,847 | 0 |
+| simplify-globals-optimizing | 5,055 | 0 | 4,945 | 0 |
+
+All nine lanes have zero validation, property, generator and command failures. Coalesce uses `local-cleanup-debris` and `unreachable-control-debris`; both Precompute variants use `drop-consts`, `unreachable-control-debris`, then `local-cleanup-debris`; DAE, DAE2 and DAE optimizing use `drop-consts` and `unreachable-control-debris`. Each DAE2 world has 9,312 Node-v2 matches, 688 original-runtime-blocked continuation cases, and zero semantic mismatches. The other lanes do not claim runtime execution evidence. The full wasm-gc suite passes all 12,476 tests.
+
+All 120 saved residual outputs reproduce byte-for-byte against the pre-change CLI. My classification retains these differences as parity gaps, including the 706 size-losing closed-world DAE2 cases; blocked executions remain unverified. Matching counts, validation, normalization and smaller size do not by themselves close transform or semantic gaps. Historical v131/v132 results below retain their versions and scope.
+
+Artifacts: `.tmp/pass-fuzz-<pass>-coalesce-source-order-v133-10000-20260926/` (closed DAE2 uses `dae2-closed`), `.tmp/coalesce-source-order-replay/result.json`, `.tmp/coalesce-source-order-full-tests-20260926.log`, and `.tmp/pass-sweep-v133-coalesce-source-order-{small,large}-20260926/`. The [strategy page](./starshine-strategy.md#september-26-2026-source-order-local-access-index) records the proof, red-first regressions, confirmed gains, small DAEO tradeoff and rejected matrix prototype.
 # `coalesce-locals` Fuzzing Profile
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
