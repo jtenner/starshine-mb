@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-25
+last_reviewed: 2026-09-26
 sources:
   - ./index.md
   - ../../../../../src/passes/coalesce_locals.mbt
@@ -37,6 +37,14 @@ related:
 
 Use this page together with the [`coalesce-locals` landing page](./index.md)'s tagged source list, the retained 2026-05-05 research recheck, and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.
+
+## September 26, 2026 rejected copy/remap fusion
+
+A prototype combined the deep-copy and local-index rewrite traversals in the CFG, structured-interval and single-body-local paths. A bounded control fixture reduced traversal visits from 34 to 17, and tests covered source-array isolation, legacy handler bodies and the active dispatcher; 1,098 focused tests passed. This follows the single index-application phase in [Binaryen 133 `CoalesceLocals::applyIndices`](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/CoalesceLocals.cpp), but Starshine still needs independent output arrays.
+
+The native full-pass evidence did **not** establish a meaningful gain. Three large-fixture pairs after one warmup measured pipeline medians `8,222.178ms → 8,149.123ms`; a seven-pair repeat measured `8,165.653ms → 8,148.049ms`, with per-pair savings ranging from `-194.063ms` to `135.365ms`. Repeat command medians were `9,205.201ms → 9,199.482ms`. Small pipeline medians were `13.919ms → 13.869ms`. Before/after outputs were identical across CoalesceLocals and its three optimizing callers on both compiler fixtures. The candidate was fully reverted and received no new oracle signoff; these timings must not be reported as a committed performance improvement.
+
+Artifacts: `.tmp/coalesce-copy-remap-paired-{small,large}-20260926/`, `.tmp/coalesce-copy-remap-confirm-large-20260926/`, and local prototype snapshots `.tmp/coalesce-copy-remap-experiment{,_wbtest}.mbt`. Baseline native SHA-256 was `a6385c90382a7a2925d0b4e049a5bcd5ccac3fc8d4f473e7cf41a0411a5943ea`; discarded candidate SHA-256 was `016955b1d23dd74709184f36de2695583852c945dc8b5152eb92425c0b41672b`. Remaining profile owners are CFG/source-order work and interference construction, including repeated live-set allocation and dense liveness probing.
 
 ## September 25, 2026 sparse copy-score measurement
 
