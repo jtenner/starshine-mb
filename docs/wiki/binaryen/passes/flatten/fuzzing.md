@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-02
+last_reviewed: 2026-09-26
 sources:
   - ./index.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
@@ -20,6 +20,10 @@ related:
 # `flatten` Fuzzing Status
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 26, 2026 catch-repair preflight renewal
+
+The [shared catch-repair preflight](../dae2/starshine-strategy.md#september-26-2026-catch-payload-analysis-preflight) now skips node-use graph construction when the existing scan finds no typed payloads. Actual typed-payload repair and rejection rules are unchanged; 969 focused IR, DAE2 and Flatten tests pass. Fresh verified Binaryen 133 `flatten-all` signoff compares 10,000 cases with seed `0x5eed`, explicit native binaries, eight subprocesses and all three documented debris normalizers: 837 normalized, 5,057 cleanup-normalized and 4,106 residuals. There are zero canonical size losses and zero validation/property/generator/command failures. Runtime execution was not enabled. All 20 saved raw residual outputs are identical to the pre-change compiler. Agent judgment keeps these v133 residuals open as parity gaps; the historical v131 cleanup-win classifications below are not renewed by output identity alone. Artifacts: `.tmp/pass-fuzz-flatten-catch-preflight-v133-10000-20260926/`; the DAE2 owner records exact compiler hashes and shared implementation evidence.
 
 ## September runtime renewal remains open
 

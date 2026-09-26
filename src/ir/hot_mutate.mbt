@@ -566,8 +566,8 @@ fn hot_ordered_catch_payload_repair(
 fn hot_catch_payload_repair_plan(
   func : HotFunc,
   max_lanes : Int,
+  use_def_builds? : Array[Int]? = None,
 ) -> Array[HotCatchPayloadRepair]? {
-  let use_def = use_def_build_node_uses(func)
   let plans : Array[HotCatchPayloadRepair] = []
   let mut payload_count = 0
   for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
@@ -580,6 +580,15 @@ fn hot_catch_payload_repair_plan(
       _ => ()
     }
   }
+  if payload_count == 0 {
+    return Some(plans)
+  }
+  // A use graph is needed only when typed payloads require capture planning.
+  match use_def_builds {
+    Some(builds) => builds[0] += 1
+    None => ()
+  }
+  let use_def = use_def_build_node_uses(func)
   let mut planned_payloads = 0
   for try_id = 0; try_id < hot_node_count(func); try_id = try_id + 1 {
     if !hot_node_is_live(func, try_id) ||
