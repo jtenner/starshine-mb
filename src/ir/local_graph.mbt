@@ -1144,7 +1144,9 @@ fn local_graph_build_reverse_flow(
   }
   let actions = local_graph_reverse_action_sequences(func, cfg)
   let node_blocks = Array::make(node_count, -1)
-  let node_positions = Array::make(node_count, -1)
+  let nearest_writes = Array::make(node_count, -1)
+  let last_writes = Array::make(local_count, -1)
+  let written_locals : Array[Int] = []
   for block_id = 0; block_id < actions.length(); block_id = block_id + 1 {
     for idx = 0; idx < actions[block_id].length(); idx = idx + 1 {
       let node_id = actions[block_id][idx]
@@ -1154,9 +1156,23 @@ fn local_graph_build_reverse_flow(
           return local_graph_build_sparse_flow(func, cfg, include_exceptional)
         }
         node_blocks[node_id] = block_id
-        node_positions[node_id] = idx
+        let node = hot_node_get(func, node_id)
+        match node.op {
+          HotOp::LocalSet | HotOp::LocalTee => {
+            if last_writes[node.imm0] < 0 {
+              written_locals.push(node.imm0)
+            }
+            last_writes[node.imm0] = node_id
+          }
+          HotOp::LocalGet => nearest_writes[node_id] = last_writes[node.imm0]
+          _ => ()
+        }
       }
     }
+    for local_id in written_locals {
+      last_writes[local_id] = -1
+    }
+    written_locals.clear()
   }
 
   let get_sources : Array[Array[Int]] = []
@@ -1178,18 +1194,13 @@ fn local_graph_build_reverse_flow(
       continue
     }
     let local_id = hot_node_get(func, node_id).imm0
-    let sources = match
-      local_graph_reverse_find_last_write(
-        func,
-        actions[block_id],
-        node_positions[node_id],
-        local_id,
-      ) {
-      Some(write_id) => [local_graph_set_source_id(local_count, write_id)]
-      None =>
-        local_graph_reverse_entry_sources(
-          func, cfg, actions, block_id, local_id, include_exceptional, cache, local_count,
-        )
+    let write_id = nearest_writes[node_id]
+    let sources = if write_id >= 0 {
+      [local_graph_set_source_id(local_count, write_id)]
+    } else {
+      local_graph_reverse_entry_sources(
+        func, cfg, actions, block_id, local_id, include_exceptional, cache, local_count,
+      )
     }
     local_graph_record_get_sources(
       local_count,
