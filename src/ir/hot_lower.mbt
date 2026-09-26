@@ -920,7 +920,7 @@ fn hot_lower_impl_future_dependency_suffix_minima(
   func : HotFunc,
   roots : Array[NodeId],
   label_frames : HotLowerLabelFrames,
-) -> Array[Int]? {
+) -> HotSourceOrderRootIndex? {
   hot_source_order_future_suffix_minima(func, roots, label_frames.source_order)
 }
 
@@ -995,7 +995,7 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   current_root : NodeId,
   future_roots : Array[NodeId],
   future_start : Int,
-  future_dependency_suffix_minima : Array[Int]?,
+  future_dependency_suffix_minima : HotSourceOrderRootIndex?,
   use_def : HotUseDef,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,

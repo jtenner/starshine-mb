@@ -117,9 +117,10 @@ fn hot_source_order_preceding_dependencies(
   current_root : NodeId,
   future_roots : Array[NodeId],
   future_start : Int,
-  future_dependency_suffix_minima : Array[Int]?,
+  future_dependency_suffix_minima : HotSourceOrderRootIndex?,
   facts : HotSourceOrderFacts,
   scratch_builds? : Array[Int]? = None,
+  root_visits? : Array[Int]? = None,
 ) -> Array[NodeId] {
   let call_order_required = hot_node_result_arity(func, current_root) == 0 &&
     (match hot_query_op(func, current_root) {
@@ -139,13 +140,22 @@ fn hot_source_order_preceding_dependencies(
     return []
   }
   match future_dependency_suffix_minima {
-    Some(suffix_minima) =>
+    Some(index) =>
       if future_start < 0 ||
-        future_start >= suffix_minima.length() ||
-        suffix_minima[future_start] >= current_root {
+        future_start >= index.suffix_minima.length() ||
+        index.suffix_minima[future_start] >= current_root {
         return []
       }
     None => ()
+  }
+  let candidates = match future_dependency_suffix_minima {
+    Some(index) if index.maximum >= current_root =>
+      Some(index.candidates(future_start, current_root))
+    _ => None
+  }
+  let candidate_count = match candidates {
+    Some(slots) => slots.length()
+    None => future_roots.length() - future_start
   }
   let scratch = match facts.dependency_scratch {
     Some(scratch) => scratch
@@ -165,8 +175,16 @@ fn hot_source_order_preceding_dependencies(
   // An inserted root can have a newer ID than the consumer it precedes.
   // That order comes from the region, not from a former stack lifetime.
   // Infer an anti-dependence only within the value/current/consumer interval.
-  for idx = future_start; idx < future_roots.length(); idx = idx + 1 {
+  for position = 0; position < candidate_count; position = position + 1 {
+    let idx = match candidates {
+      Some(slots) => slots[position]
+      None => future_start + position
+    }
     if future_roots[idx] > current_root {
+      match root_visits {
+        Some(count) => count[0] += 1
+        None => ()
+      }
       hot_lower_impl_collect_preceding_dependency(
         func,
         future_roots[idx],
@@ -185,8 +203,16 @@ fn hot_source_order_preceding_dependencies(
   for node_id in carried {
     anti_dependencies[node_id] = true
   }
-  for idx = future_start; idx < future_roots.length(); idx = idx + 1 {
+  for position = 0; position < candidate_count; position = position + 1 {
+    let idx = match candidates {
+      Some(slots) => slots[position]
+      None => future_start + position
+    }
     if future_roots[idx] <= current_root {
+      match root_visits {
+        Some(count) => count[0] += 1
+        None => ()
+      }
       hot_lower_impl_collect_preceding_dependency(
         func,
         future_roots[idx],
@@ -260,7 +286,7 @@ fn hot_source_order_future_suffix_minima(
   func : HotFunc,
   roots : Array[NodeId],
   facts : HotSourceOrderFacts,
-) -> Array[Int]? {
+) -> HotSourceOrderRootIndex? {
   if roots.length() < 64 ||
     !hot_lower_impl_roots_may_need_future_dependencies(
       func,
@@ -270,13 +296,81 @@ fn hot_source_order_future_suffix_minima(
     ) {
     return None
   }
-  Some(
-    hot_lower_impl_build_preceding_dependency_suffix_minima(
+  Some(HotSourceOrderRootIndex::new(func, roots, facts))
+}
+
+///|
+priv struct HotSourceOrderRootIndex {
+  suffix_minima : Array[Int]
+  minima : Array[Int]
+  leaf_base : Int
+  length : Int
+  maximum : Int
+}
+
+///|
+fn HotSourceOrderRootIndex::new(
+  func : HotFunc,
+  roots : Array[NodeId],
+  facts : HotSourceOrderFacts,
+) -> HotSourceOrderRootIndex {
+  let suffix_minima = hot_lower_impl_build_preceding_dependency_suffix_minima(
+    func,
+    roots,
+    facts.preceding_dependency_min_cache,
+    facts.value_orders,
+    facts.node_effects,
+  )
+  let mut leaf_base = 1
+  while leaf_base < roots.length() {
+    leaf_base *= 2
+  }
+  let minima = Array::make(leaf_base * 2, hot_node_count(func))
+  let mut maximum = 0
+  for idx in 0..<roots.length() {
+    let minimum = hot_lower_impl_preceding_dependency_min_node(
       func,
-      roots,
+      roots[idx],
       facts.preceding_dependency_min_cache,
       facts.value_orders,
       facts.node_effects,
-    ),
-  )
+    )
+    minima[leaf_base + idx] = minimum
+    if minimum > maximum {
+      maximum = minimum
+    }
+  }
+  let mut idx = leaf_base - 1
+  while idx > 0 {
+    let left = minima[idx * 2]
+    let right = minima[idx * 2 + 1]
+    minima[idx] = if left < right { left } else { right }
+    idx -= 1
+  }
+  { suffix_minima, minima, leaf_base, length: roots.length(), maximum, }
+}
+
+///|
+fn HotSourceOrderRootIndex::candidates(
+  self : HotSourceOrderRootIndex,
+  start : Int,
+  before : Int,
+) -> Array[Int] {
+  let out : Array[Int] = []
+  fn visit(index : Int, left : Int, right : Int) -> Unit {
+    if right <= start || left >= self.length || self.minima[index] >= before {
+      return
+    }
+    if index >= self.leaf_base {
+      out.push(left)
+      return
+    }
+    let mid = (left + right) / 2
+    visit(index * 2, left, mid)
+    visit(index * 2 + 1, mid, right)
+  }
+  // Left-to-right traversal preserves source root order, including equal-order
+  // carried values. A skipped subtree cannot contain an eligible dependency.
+  visit(1, 0, self.leaf_base)
+  out
 }

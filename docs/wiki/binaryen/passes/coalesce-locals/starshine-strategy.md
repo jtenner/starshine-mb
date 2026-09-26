@@ -38,6 +38,27 @@ related:
 Use this page together with the [`coalesce-locals` landing page](./index.md)'s tagged source list, the retained 2026-05-05 research recheck, and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.
 
+## September 26, 2026 future-root minimum index
+
+The shared source-order query now indexes per-root dependency minima for the
+existing large-root admission path. A left-to-right minimum tree skips future
+roots that cannot contain an earlier dependency; the original suffix rejection,
+two consumer phases and conflict checks remain intact. A dense all-eligible
+query retains the direct traversal. The bounded regression reduced collector
+root visits from 65 to one while preserving the carried call. Indexed/reference
+queries agree across root offsets and consumer-order cutoffs; all five focused
+source-order tests pass.
+
+For 64 queries, irrelevant-root benchmarks improve `945.99 → 12.63 µs` at
+256 roots and `3.63 ms → 13.69 µs` at 1,024. The dense 256-root control measures
+`584.93 µs` direct versus `582.60 µs` indexed, effectively flat. Setup is outside
+these query benchmarks; full artifact comparison must include index construction.
+Sources: `src/ir/hot_source_order.mbt`, `src/ir/hot_lower.mbt`,
+`src/ir/hot_source_order_roots_{wbtest,perf_wbtest}.mbt`, and local logs
+`.tmp/pass-perf-work-20260926/source-roots-{before,final-bench}.log`.
+This shared lift/lower improvement also reaches DAE2 and other HOT users without
+changing coloring, liveness or transformation coverage.
+
 ## September 26, 2026 dependency-query scratch reuse
 
 Source-order dependency discovery now allocates its consumer bounds, visited
