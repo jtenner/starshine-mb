@@ -17178,6 +17178,40 @@ test "dae unread parameter batch resolves each uniform callsite once" {
 }
 
 ///|
+test "dae uniform actual scan stops after every requested parameter is disproven" {
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    call $target
+    ),
+  )
+  for _idx = 0; _idx < 128; _idx = _idx + 1 {
+    source.write_string("    drop\n    i32.const 7\n    call $target\n")
+  }
+  source.write_string("  ))")
+  let mod_ = pass_test_module_from_wat(source.to_string())
+  let snapshot = dae_collect_module_boundary_snapshot(mod_)
+  let resolutions = [0]
+  let values = dae_collect_uniform_const_actuals_from_function_infos(
+    mod_,
+    0,
+    1,
+    snapshot.type_indices,
+    snapshot.boundary_facts,
+    snapshot.function_infos,
+    collect_params=Some([true]),
+    stable_callsite_resolutions=Some(resolutions),
+  )
+  assert_eq(values, Some([None]))
+  assert_eq(resolutions[0], 1)
+}
+
+///|
 test "dae unread parameter batch transaction reports each signature plan effect" {
   let source =
     #|(module

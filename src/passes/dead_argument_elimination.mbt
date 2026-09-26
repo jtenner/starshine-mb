@@ -12316,6 +12316,12 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
   let seen = Array::make(param_count, false)
   let invalid = Array::make(param_count, false)
   let candidates : Array[@lib.Instruction?] = Array::make(param_count, None)
+  let mut unresolved_count = 0
+  for active in active_params {
+    if active {
+      unresolved_count += 1
+    }
+  }
   let visited = match uniform_resolution_cache {
     Some(cache) if cache.visited.length() == func_type_indices.length() =>
       cache.visited
@@ -12435,8 +12441,14 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
           }
           None => invalid[p] = true
         }
+        if invalid[p] {
+          unresolved_count -= 1
+        }
       }
       p += 1
+    }
+    if unresolved_count == 0 {
+      break
     }
   }
   let out : Array[@lib.Instruction?] = []

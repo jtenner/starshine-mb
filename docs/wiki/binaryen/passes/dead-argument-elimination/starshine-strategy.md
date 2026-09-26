@@ -26,6 +26,12 @@ related:
 
 # Starshine `dead-argument-elimination` strategy and status
 
+## September 25, 2026 uniform-actual early exit
+
+The stable-callsite uniform-actual collector stops resolving later calls once every requested parameter has been disproven. A mixed first call followed by 128 constant calls now resolves one callsite instead of 129; the result remains `None` for that parameter. This follows Binaryen's candidate-driven approach while retaining Starshine's existing callsite and value proofs. The large 6.2 MB v133 sweep improved from `1,982.868ms` to `795.133ms` Starshine pass-local median (`2.49x` faster); Binaryen v133 measured `376.831ms` in the new sweep, leaving a `2.11x` gap. The 189 KB sweep improved from `120.741ms` to `104.203ms`, still `155.08x` Binaryen's `0.672ms`. The large input's raw and canonical Starshine outputs are byte-identical before and after (raw SHA-256 `9b586fe98986dc96196ee827b6cf71c0cba1efd24b2d26983328674f984c7d49`). Evidence: [implementation](../../../../../src/passes/dead_argument_elimination.mbt), [whitebox regression](../../../../../src/passes/dead_argument_elimination_wbtest.mbt), and local sweep artifacts `.tmp/pass-sweep-v133-dae-early-stop-{small,large}-20260925/`.
+
+The v133 dedicated DAE GenValid lane compared `10000/10000` cases with the prebuilt native Starshine and verified Binaryen 133 oracle: `3750` normalized matches, `6250` raw mismatches, and zero validation, property, generator, or command failures. All residual Starshine canonical outputs are smaller, but this alone does not establish semantic safety; their v133 classification remains open. The lane used both DAE cleanup normalizers and stored evidence at `.tmp/pass-fuzz-dae-early-stop-v133-10000/`.
+
 ## September 25, 2026 nested unread-copy propagation
 
 The unread-local cleanup graph now collects adjacent `local.get`/`local.set` dependencies separately inside each structured body and If arm, including legacy Try catches. It propagates dead targets through the shared graph before cleanup rounds, so sibling nested copy chains no longer require one whole-function round per link. The [native direct-helper benchmark](../../../../../src/passes/dae_unread_copy_chain_perf_wbtest.mbt) improved from `1.56 ms` to `37.79 µs` at 128 nested links and from `6.24 ms` to `74.62 µs` at 256. Flat-chain controls stayed near `9.24 µs` at 128 and `18 µs` at 256. Live-terminal and separate-If-arm tests preserve dependency boundaries. These synthetic helper timings do not measure full-pass impact.
