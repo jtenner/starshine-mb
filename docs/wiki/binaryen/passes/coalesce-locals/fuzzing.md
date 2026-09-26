@@ -10,6 +10,7 @@ sources:
   - ./index.md
 ---
 
+# `coalesce-locals` Fuzzing Profile
 
 ## September 26 source-order index renewal
 
@@ -32,7 +33,7 @@ All nine lanes have zero validation, property, generator and command failures. C
 All 120 saved residual outputs reproduce byte-for-byte against the pre-change CLI. My classification retains these differences as parity gaps, including the 706 size-losing closed-world DAE2 cases; blocked executions remain unverified. Matching counts, validation, normalization and smaller size do not by themselves close transform or semantic gaps. Historical v131/v132 results below retain their versions and scope.
 
 Artifacts: `.tmp/pass-fuzz-<pass>-coalesce-source-order-v133-10000-20260926/` (closed DAE2 uses `dae2-closed`), `.tmp/coalesce-source-order-replay/result.json`, `.tmp/coalesce-source-order-full-tests-20260926.log`, and `.tmp/pass-sweep-v133-coalesce-source-order-{small,large}-20260926/`. The [strategy page](./starshine-strategy.md#september-26-2026-source-order-local-access-index) records the proof, red-first regressions, confirmed gains, small DAEO tradeoff and rejected matrix prototype.
-# `coalesce-locals` Fuzzing Profile
+
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

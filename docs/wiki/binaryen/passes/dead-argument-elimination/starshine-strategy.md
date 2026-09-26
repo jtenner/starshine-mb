@@ -24,11 +24,12 @@ related:
   - ../signature-pruning/index.md
 ---
 
+# Starshine `dead-argument-elimination` strategy and status
 
 ## September 26, 2026 parameter-free forwarding preflight
 
 The shared boundary graph now omits parameter-forwarding analysis for callers with no formal parameters while retaining call, tail-call and result dependencies. Seven paired small-compiler runs improve plain DAE pipeline time `104.944ms → 60.029ms` (**42.8%**); the large compiler is effectively unchanged at `833.538ms → 835.475ms`. All paired outputs are byte-identical. The [optimizing strategy](../dae-optimizing/starshine-strategy.md#september-26-2026-parameter-free-forwarding-preflight) owns the Binaryen 133 source reasoning, bounded regressions, hashes and measurement details; [fuzzing](./fuzzing.md) records renewed dedicated-profile evidence. Historical v131/v132 results below retain their original scope.
-# Starshine `dead-argument-elimination` strategy and status
+
 
 ## September 25, 2026 uniform-actual early exit
 

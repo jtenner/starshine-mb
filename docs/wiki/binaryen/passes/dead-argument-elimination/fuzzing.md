@@ -11,13 +11,14 @@ sources:
 
 ---
 
+# `dead-argument-elimination` Fuzzing Profile
 
 ## September 26 parameter-free forwarding renewal
 
 Fresh native Starshine `dd1746825fca4894469fc07309835381c434b0b347d730496ffeacb320b6a177` and verified Binaryen 133 (`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`) complete the 10,000-case `dead-argument-elimination` aggregate at seed `0x5eed`: **3,750 canonical matches / 6,250 residuals**, zero cleanup-normalized cases, zero canonically larger outputs, and zero validation, property, generator or command failures. The explicit prebuilt native CLI/generator use `--jobs auto`, eight subprocesses, 20 saved artifacts, the default cache, and both `drop-consts` and `unreachable-control-debris` normalizers. No external generator was requested.
 
 All 20 saved residual outputs reproduce byte-for-byte against the pre-change CLI. My classification keeps these as pre-existing parity gaps; smaller output and validation alone do not establish semantic equivalence or close output-shape differences. Evidence: `.tmp/pass-fuzz-dae-dae-forwarding-preflight-v133-10000-20260926/` and `.tmp/dae-forwarding-preflight-replay/result.json`. See the [strategy](./starshine-strategy.md#september-26-2026-parameter-free-forwarding-preflight) for the source contract, tests and isolated performance evidence. Historical results below retain their original versions.
-# `dead-argument-elimination` Fuzzing Profile
+
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
