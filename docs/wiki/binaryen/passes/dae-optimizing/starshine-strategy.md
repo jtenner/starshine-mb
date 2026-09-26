@@ -29,6 +29,14 @@ related:
 
 # Starshine strategy for `dae-optimizing`
 
+## September 26, 2026 shared query-cost fixes
+
+Optimizing DAE shares the [forwarding index and stable operand cache](../dead-argument-elimination/starshine-strategy.md#september-26-2026-stable-operand-reuse)
+and the [structured-lifetime summaries](../simplify-globals-optimizing/starshine-strategy.md#september-26-2026-structured-lifetime-summaries).
+These remove repeated analysis without changing cleanup order, touched-function
+isolation or typed-loop guards. Focused helper gains are recorded at those
+owners; they do not close this pass's guarded-cleanup or canonical-size gaps.
+
 ## September 26, 2026 parameter-free forwarding preflight
 
 The shared DAE boundary graph skips parameter-forwarding traversal when the caller has no formal parameters. Such a caller cannot produce a forwarding edge: the edge contract requires a `local.get` index strictly below the caller parameter count. Ordinary calls, tail calls and result observers retain their independent collection. This follows [Binaryen 133 DAEScanner](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/DeadArgumentElimination.cpp), which scans ordinary facts but runs `ParamUtils::getUsedParams` only when `numParams > 0`.

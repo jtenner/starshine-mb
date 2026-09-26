@@ -1388,6 +1388,10 @@ priv struct DaeUniformResolutionCache {
   forwarded_resolution_scans : Array[Int]?
   function_infos : Array[DaeFunctionInfo]?
   stable_callsite_resolutions : Array[Int]?
+  mut callsite_operands : @hashmap.HashMap[
+    (Int, Int),
+    DaeUniformCallsiteOperands,
+  ]?
   visited : Array[Bool]
 }
 
@@ -1423,6 +1427,7 @@ fn DaeUniformResolutionCache::new(
     forwarded_resolution_scans,
     function_infos,
     stable_callsite_resolutions,
+    callsite_operands: None,
     visited: Array::make(total, false),
   }
 }
@@ -12412,6 +12417,81 @@ fn dae_resolve_stable_callsite_scope(
 }
 
 ///|
+priv struct DaeUniformCallsiteOperands {
+  param_count : Int
+  scope : Array[@lib.Instruction]
+  direct_actual_start : Int?
+  evidence : DaeCallsiteValueSliceEvidence?
+}
+
+///|
+fn dae_resolve_uniform_callsite_operands(
+  mod_ : @lib.Module,
+  body : Array[@lib.Instruction],
+  callsite : DaeStableCallsite,
+  callee_abs : Int,
+  param_count : Int,
+  func_type_indices : Array[@lib.TypeIdx],
+  cache : @hashmap.HashMap[(Int, Int), DaeUniformCallsiteOperands]?,
+  callsite_index : Int,
+  resolutions : Array[Int]?,
+) -> DaeUniformCallsiteOperands? {
+  match cache {
+    Some(entries) =>
+      if entries.get((callee_abs, callsite_index)) is Some(value) &&
+        value.param_count == param_count {
+        return Some(value)
+      }
+    None => ()
+  }
+  match resolutions {
+    Some(count) => count[0] += 1
+    None => ()
+  }
+  let (scope, call_idx, entry_stack_values) = match
+    dae_resolve_stable_callsite_scope(body, callsite.path, 0, 0, mod_) {
+    Some(resolved) => resolved
+    None => return None
+  }
+  if dae_target_callsite_evidence(
+      scope[call_idx],
+      callee_abs,
+      DaeTargetDirectOrReturnCall,
+    )
+    is None {
+    return None
+  }
+  let direct_actual_start = dae_callsite_contiguous_single_root_actual_start(
+    scope, call_idx, param_count, mod_, func_type_indices,
+  )
+  match resolutions {
+    Some(count) if count.length() >= 3 =>
+      match direct_actual_start {
+        Some(_) => count[1] += 1
+        None => count[2] += 1
+      }
+    _ => ()
+  }
+  let evidence = match direct_actual_start {
+    Some(_) => None
+    None =>
+      match
+        dae_callsite_value_slice_evidence(
+          scope, call_idx, param_count, entry_stack_values, mod_, func_type_indices,
+        ) {
+        Some(value) => Some(value)
+        None => return None
+      }
+  }
+  let value = { param_count, scope, direct_actual_start, evidence, }
+  match cache {
+    Some(entries) => entries.set((callee_abs, callsite_index), value)
+    None => ()
+  }
+  Some(value)
+}
+
+///|
 fn dae_collect_uniform_const_actuals_from_function_infos(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -12451,57 +12531,48 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
       cache.visited
     _ => Array::make(func_type_indices.length(), false)
   }
+  // Only narrowed, multi-parameter queries repeat operand recovery. Keep the
+  // common full-parameter scan allocation-free with respect to this cache.
+  let operand_cache = match (uniform_resolution_cache, collect_params) {
+    (Some(cache), Some(_)) if param_count > 1 => {
+      let entries = match cache.callsite_operands {
+        Some(entries) => entries
+        None => {
+          let entries = @hashmap.new()
+          cache.callsite_operands = Some(entries)
+          entries
+        }
+      }
+      Some(entries)
+    }
+    _ => None
+  }
   // A tail call supplies the same parameter boundary as an ordinary call.
   // Its arguments must join the constant proof, including recursive updates.
-  for callsite in function_infos[callee_abs].calls {
+  let callsites = function_infos[callee_abs].calls
+  for callsite_index = 0
+      callsite_index < callsites.length()
+      callsite_index = callsite_index + 1 {
+    let callsite = callsites[callsite_index]
     if !callsite.active || callsite.callee_abs != callee_abs {
       continue
-    }
-    match stable_callsite_resolutions {
-      Some(resolutions) => resolutions[0] += 1
-      None => ()
     }
     let caller_def = callsite.caller_def
     if caller_def < 0 || caller_def >= funcs.length() {
       return None
     }
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-    let (scope, call_idx, entry_stack_values) = match
-      dae_resolve_stable_callsite_scope(body, callsite.path, 0, 0, mod_) {
-      Some(resolved) => resolved
-      None => return None
-    }
-    match
-      dae_target_callsite_evidence(
-        scope[call_idx],
-        callee_abs,
-        DaeTargetDirectOrReturnCall,
+    let operands = match
+      dae_resolve_uniform_callsite_operands(
+        mod_, body, callsite, callee_abs, param_count, func_type_indices, operand_cache,
+        callsite_index, stable_callsite_resolutions,
       ) {
-      Some(_) => ()
+      Some(operands) => operands
       None => return None
     }
-    let direct_actual_start = dae_callsite_contiguous_single_root_actual_start(
-      scope, call_idx, param_count, mod_, func_type_indices,
-    )
-    match stable_callsite_resolutions {
-      Some(resolutions) if resolutions.length() >= 3 =>
-        match direct_actual_start {
-          Some(_) => resolutions[1] += 1
-          None => resolutions[2] += 1
-        }
-      _ => ()
-    }
-    let evidence = match direct_actual_start {
-      Some(_) => None
-      None =>
-        match
-          dae_callsite_value_slice_evidence(
-            scope, call_idx, param_count, entry_stack_values, mod_, func_type_indices,
-          ) {
-          Some(value) => Some(value)
-          None => return None
-        }
-    }
+    let scope = operands.scope
+    let direct_actual_start = operands.direct_actual_start
+    let evidence = operands.evidence
     let mut p = 0
     while p < param_count {
       if active_params[p] && !invalid[p] {

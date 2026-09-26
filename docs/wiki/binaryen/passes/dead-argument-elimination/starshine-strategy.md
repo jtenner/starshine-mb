@@ -26,6 +26,22 @@ related:
 
 # Starshine `dead-argument-elimination` strategy and status
 
+## September 26, 2026 stable operand reuse
+
+Narrowed multi-parameter uniform-actual queries now lazily reuse stable scope
+resolution and operand evidence per callsite within one parameter-batch analysis.
+Each parameter still gets its own constant proof; the cache ends before any
+module rewrite. Full-parameter scans do not allocate this index. The regression
+first resolved one callsite twice, then once after the change, while preserving
+both distinct constants and unrequested-parameter results.
+
+The native 16-parameter query benchmark improves `149.09 → 49.90 µs` for 32
+calls and `591.97 → 178.80 µs` for 128 calls. These are helper measurements;
+artifact measurements and final aggregate correctness results remain separate.
+Sources: `src/passes/dead_argument_elimination.mbt`,
+`src/passes/dae_stable_operands_{wbtest,perf_wbtest}.mbt`, and
+`.tmp/pass-perf-work-20260926/dae-stable-{before,after}.log`.
+
 ## September 26, 2026 indexed forwarding facts
 
 Parameterized callers now reuse the boundary snapshot's resolved function
