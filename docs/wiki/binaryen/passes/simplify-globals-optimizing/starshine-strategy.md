@@ -40,6 +40,27 @@ related:
 Use this page with the retained 2026-04-24 research inventory, direct tagged source URLs, and [research note 0376](./index.md).
 The purpose here is to map the reviewed Binaryen contract to the exact current Starshine status and the concrete local surfaces a future port should start from. The implementation-readiness and validation ladder now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
+## September 26, 2026 structured-lifetime summaries
+
+The shared cleanup guard now summarizes calls, local reads and nested hazards
+once per structured body instead of rescanning later subtrees for every captured
+local. Captures remain live across overwrites; immediate `if` arms stay separate,
+while an enclosing body may combine facts across its nested arms. Flat functions
+retain their allocation-free rejection path. This changes analysis cost, not
+the typed-loop or call-capture safety boundary.
+
+A bounded candidate-rich prefix first required 2,430 visits and now meets its
+512-visit bound while preserving both positive and negative lifetime cases.
+The focused native benchmark improves `220.96 → 18.21 µs` at 128 captures and
+`881.46 → 37.14 µs` at 256. These helper measurements do not establish a full
+pass speedup. Six focused guard/dispatcher tests pass. Source and evidence:
+`src/passes/pass_manager.mbt`, `src/passes/structured_lifetime_summary_wbtest.mbt`,
+`src/passes/structured_lifetime_summary_perf_wbtest.mbt`, and
+`.tmp/pass-perf-work-20260926/lifetime-summary-{before,after}.log`.
+The shared users include all SimplifyLocals modes, optimizing DAE, inlining and
+SimplifyGlobals, plus precompute and CodePushing. Aggregate fuzz renewal follows
+the complete performance work as requested.
+
 ## September 26, 2026 structured-lifetime guard bounds
 
 The shared raw SimplifyLocals/precompute guard scans direct call-result captures for later structured bodies containing both a read of the captured local and a call. It previously inspected every later instruction and allocated a temporary body-surface array even for ordinary instructions. The guard now locates the final structured root, returns immediately for a flat sequence, bounds capture searches and recursive descent by that root, and examines structured bodies directly without those temporary arrays.

@@ -18,6 +18,15 @@ related:
 
 # `simplify-locals` Performance And Artifact Frontiers
 
+## September 26 structured-lifetime summaries
+
+The [shared guard summary](../simplify-globals-optimizing/starshine-strategy.md#september-26-2026-structured-lifetime-summaries)
+removes repeated candidate-rich subtree scans for all five SimplifyLocals modes.
+Its native helper benchmark improves 12.1x at 128 captures and 23.7x at 256,
+with unchanged lifetime predicates. Whole-pipeline measurements must still
+include raw cleanup and lift/lower costs; these helper gains do not replace
+artifact evidence or close existing output-quality gaps.
+
 ## September 26 structured-lifetime guard bounds
 
 Bounding the shared call-result lifetime guard at the last structured root and eliminating temporary body-surface arrays reduces small-fixture no-structure pipeline medians from `10.193ms` to `2.952ms`, and notee-nostructure from `9.205ms` to `1.859ms`. These are three alternating native pairs after one warmup, with byte-identical output. The large full-pass fixture remains approximately unchanged at `2,135.514ms → 2,139.162ms`. The [SimplifyGlobals strategy](../simplify-globals-optimizing/starshine-strategy.md#september-26-2026-structured-lifetime-guard-bounds) owns the shared guard proof, v133 evidence and follow-up measurements; HOT-only timers omit this raw cleanup and must not replace these pipeline costs.

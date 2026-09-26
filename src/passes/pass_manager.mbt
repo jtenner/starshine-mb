@@ -5483,6 +5483,106 @@ fn run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
 }
 
 ///|
+priv struct RawStructuredLifetimeFacts {
+  reads : @hashmap.HashMap[UInt, Bool]
+  mut has_call : Bool
+  mut hazard : Bool
+}
+
+///|
+fn RawStructuredLifetimeFacts::new() -> RawStructuredLifetimeFacts {
+  { reads: @hashmap.new(), has_call: false, hazard: false, }
+}
+
+///|
+fn raw_structured_lifetime_merge(
+  into : RawStructuredLifetimeFacts,
+  child : RawStructuredLifetimeFacts,
+  captures : @hashmap.HashMap[UInt, Bool],
+) -> Unit {
+  into.hazard = into.hazard || child.hazard
+  if !into.hazard && child.has_call {
+    if captures.length() < child.reads.length() {
+      for local in captures.keys() {
+        if child.reads.get(local) is Some(_) {
+          into.hazard = true
+          break
+        }
+      }
+    } else {
+      for local in child.reads.keys() {
+        if captures.get(local) is Some(_) {
+          into.hazard = true
+          break
+        }
+      }
+    }
+  }
+  into.has_call = into.has_call || child.has_call
+  for local in child.reads.keys() {
+    into.reads.set(local, true)
+  }
+}
+
+///|
+fn raw_structured_lifetime_summarize(
+  instrs : Array[@lib.Instruction],
+  end : Int,
+  visits : Array[Int]?,
+) -> RawStructuredLifetimeFacts {
+  let facts = RawStructuredLifetimeFacts::new()
+  let captures : @hashmap.HashMap[UInt, Bool] = @hashmap.new()
+  for idx = 0; idx < end; idx = idx + 1 {
+    match visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    match instrs[idx] {
+      @lib.LocalGet(@lib.LocalIdx(local)) => facts.reads.set(local, true)
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+        facts.has_call = true
+      @lib.LocalSet(@lib.LocalIdx(local))
+      | @lib.LocalTee(@lib.LocalIdx(local)) =>
+        if idx > 0 && instrs[idx - 1] is @lib.Call(_) {
+          // The guard intentionally retains captures across later overwrites.
+          captures.set(local, true)
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        raw_structured_lifetime_merge(
+          facts,
+          raw_structured_lifetime_summarize(body, body.length(), visits),
+          captures,
+        )
+      @lib.If(_, yes, no) => {
+        // Each immediate arm must contain both the read and the call. An
+        // enclosing body's summary may combine facts from its nested arms.
+        raw_structured_lifetime_merge(
+          facts,
+          raw_structured_lifetime_summarize(yes, yes.length(), visits),
+          captures,
+        )
+        match no {
+          Some(body) =>
+            raw_structured_lifetime_merge(
+              facts,
+              raw_structured_lifetime_summarize(body, body.length(), visits),
+              captures,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    if facts.hazard {
+      return facts
+    }
+  }
+  facts
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
   instrs : Array[@lib.Instruction],
   visits? : Array[Int]? = None,
@@ -5504,93 +5604,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
   if last_structured < 0 {
     return false
   }
-  // Captures after the final structured root cannot feed a later body.
-  for idx = 0; idx + 2 <= last_structured; idx = idx + 1 {
-    match visits {
-      Some(count) => count[0] += 1
-      None => ()
-    }
-    let target = match (instrs[idx], instrs[idx + 1]) {
-      (@lib.Call(_), @lib.LocalSet(local_idx))
-      | (@lib.Call(_), @lib.LocalTee(local_idx)) => local_idx
-      _ => continue
-    }
-    for scan = idx + 2; scan <= last_structured; scan = scan + 1 {
-      match visits {
-        Some(count) => count[0] += 1
-        None => ()
-      }
-      match instrs[scan] {
-        @lib.Block(_, @lib.Expr(body))
-        | @lib.Loop(_, @lib.Expr(body))
-        | @lib.TryTable(_, _, @lib.Expr(body)) => {
-          let (has_local, has_call) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
-            body, target,
-          )
-          if has_local && has_call {
-            return true
-          }
-        }
-        @lib.If(_, then_body, else_body) => {
-          let (has_local, has_call) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
-            then_body, target,
-          )
-          if has_local && has_call {
-            return true
-          }
-          match else_body {
-            Some(body) => {
-              let (has_local, has_call) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
-                body, target,
-              )
-              if has_local && has_call {
-                return true
-              }
-            }
-            None => ()
-          }
-        }
-        _ => ()
-      }
-    }
-  }
-  for idx = 0; idx <= last_structured; idx = idx + 1 {
-    match visits {
-      Some(count) => count[0] += 1
-      None => ()
-    }
-    match instrs[idx] {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
-            body,
-            visits~,
-          ) {
-          return true
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
-            then_body,
-            visits~,
-          ) {
-          return true
-        }
-        match else_body {
-          Some(else_body) =>
-            if run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
-                else_body,
-                visits~,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
+  raw_structured_lifetime_summarize(instrs, last_structured + 1, visits).hazard
 }
 
 ///|
