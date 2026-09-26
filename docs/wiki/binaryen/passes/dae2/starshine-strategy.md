@@ -33,6 +33,30 @@ whole result tuple has a location; HOT expression values have locations too.
 Type-family locations connect referenced functions to indirect calls. Observable
 uses seed the graph, and a queue visits each live location at most once.
 
+## September 26, 2026 sparse local-flow query storage
+
+Reverse reaching-definition queries now allocate cache entries only for queried
+block/local pairs. They reuse visited-block and worklist storage and index a
+predecessor's last local writes lazily; blocks with at most four actions retain
+the direct scan. The sparse control-flow fallback also reuses traversal storage.
+Caches remain scoped to one immutable function/CFG, preserve source ordering,
+and publish results only after completing the predecessor closure.
+
+Bounded tests first failed on dense cache capacity and eight query-workspace
+allocations instead of one. They retain exact reaching writes across separate
+blocks. Existing join, loop and handler fixtures compare sparse results with
+the converged reference solver. Command coverage checks real unused-argument
+pruning while preserving a cross-block local value.
+
+Focused native graph-construction benchmarks improve `749.80 → 401.22 µs` for
+128 cross-block reads and `2.81 → 1.47 ms` for 256; each fixture declares four
+times as many locals as it reads. These measurements establish the targeted
+analysis gain, not a whole-DAE2 speedup. Evidence:
+`src/ir/local_graph_query{,_perf}_wbtest.mbt`,
+`src/cmd/perf_local_flow_wbtest.mbt`, and
+`.tmp/pass-perf-work-20260926/local-query-{before,after}.log`.
+Aggregate fuzz renewal follows the complete performance work as requested.
+
 ## September 26, 2026 shared source-order index
 
 The [CoalesceLocals source-order renewal](../coalesce-locals/starshine-strategy.md#september-26-2026-source-order-local-access-index) also improves large-input DAE2: seven isolated alternating pairs give pipeline `7,633.494ms → 6,438.548ms` (**15.7% faster**), with byte-identical outputs. Unlike the lazy-flow fixture gain below, this is a confirmed compiler-artifact improvement. The shared ordering proof and strict bounds remain unchanged; the linked page owns hashes, tests, the small DAEO tradeoff and signoff evidence. Initial lifting and required local-flow solving remain open targets.

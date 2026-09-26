@@ -9,15 +9,18 @@ fn local_graph_sparse_entry_sources(
   local_id : LocalId,
   include_exceptional : Bool,
   cache : Array[@hashmap.HashMap[Int, Array[Int]]],
+  seen : Array[Bool],
+  visited : Array[BlockId],
+  work : Array[BlockId],
 ) -> Array[Int] {
   match cache[block_id].get(local_id) {
     Some(sources) => return sources
     None => ()
   }
   let sources : Array[Int] = []
-  let work = [block_id]
-  let seen = Array::make(cfg_block_count(cfg), false)
+  work.push(block_id)
   seen[block_id] = true
+  visited.push(block_id)
   while !work.is_empty() {
     let current = work.pop().unwrap()
     if current == cfg_entry_block(cfg) {
@@ -40,6 +43,7 @@ fn local_graph_sparse_entry_sources(
               let entry = -source - 1
               if !seen[entry] {
                 seen[entry] = true
+                visited.push(entry)
                 work.push(entry)
               }
             }
@@ -47,6 +51,7 @@ fn local_graph_sparse_entry_sources(
         None =>
           if !seen[pred.block] {
             seen[pred.block] = true
+            visited.push(pred.block)
             work.push(pred.block)
           }
       }
@@ -55,6 +60,10 @@ fn local_graph_sparse_entry_sources(
   // Cache only after the complete backwards closure. A cycle encountered
   // during traversal is not evidence that its remaining entry sources vanish.
   cache[block_id].set(local_id, sources)
+  for block in visited {
+    seen[block] = false
+  }
+  visited.clear()
   sources
 }
 
@@ -63,6 +72,7 @@ fn local_graph_build_sparse_flow(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
+  query_builds? : Array[Int]? = None,
 ) -> HotLocalGraph {
   let local_count = hot_local_count(func)
   let node_count = hot_node_count(func)
@@ -92,6 +102,13 @@ fn local_graph_build_sparse_flow(
     summaries.push(summary)
     cache.push(@hashmap.new())
   }
+  let seen = Array::make(cfg_block_count(cfg), false)
+  let visited : Array[BlockId] = []
+  let work : Array[BlockId] = []
+  match query_builds {
+    Some(count) => count[0] += 1
+    None => ()
+  }
   let write_influences = local_graph_empty_influences(func)
   for node = 0; node < node_count; node = node + 1 {
     if !hot_node_is_live(func, node) ||
@@ -112,6 +129,9 @@ fn local_graph_build_sparse_flow(
           local_id,
           include_exceptional,
           cache,
+          seen,
+          visited,
+          work,
         )
       }
       local_graph_record_get_sources(

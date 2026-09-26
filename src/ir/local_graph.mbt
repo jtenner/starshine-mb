@@ -1055,6 +1055,40 @@ fn local_graph_reverse_find_last_write(
 }
 
 ///|
+fn local_graph_reverse_indexed_last_write(
+  func : HotFunc,
+  actions : Array[Array[NodeId]],
+  block : BlockId,
+  local_id : LocalId,
+  indices : Array[@hashmap.HashMap[Int, NodeId]?],
+) -> NodeId? {
+  let nodes = actions[block]
+  if nodes.length() <= 4 {
+    return local_graph_reverse_find_last_write(
+      func,
+      nodes,
+      nodes.length(),
+      local_id,
+    )
+  }
+  let index = match indices[block] {
+    Some(index) => index
+    None => {
+      let index : @hashmap.HashMap[Int, NodeId] = @hashmap.new()
+      for node in nodes {
+        let data = hot_node_get(func, node)
+        if data.op is HotOp::LocalSet || data.op is HotOp::LocalTee {
+          index.set(data.imm0, node)
+        }
+      }
+      indices[block] = Some(index)
+      index
+    }
+  }
+  index.get(local_id)
+}
+
+///|
 fn local_graph_reverse_entry_sources(
   func : HotFunc,
   cfg : HotCfg,
@@ -1062,43 +1096,35 @@ fn local_graph_reverse_entry_sources(
   block_id : BlockId,
   local_id : LocalId,
   include_exceptional : Bool,
-  cache : Array[Array[Int]?],
+  cache : Array[@hashmap.HashMap[Int, Array[Int]]?],
+  last_writes : Array[@hashmap.HashMap[Int, NodeId]?],
+  seen : Array[Bool],
+  visited : Array[BlockId],
+  work : Array[BlockId],
   local_count : Int,
+  cache_slots? : Array[Int]? = None,
 ) -> Array[Int] {
-  let key = block_id * local_count + local_id
-  match cache[key] {
-    Some(sources) => return sources.copy()
-    None => ()
+  if cache[block_id] is Some(row) {
+    if row.get(local_id) is Some(sources) {
+      return sources.copy()
+    }
   }
   let sources : Array[Int] = []
-  let work : Array[BlockId] = [block_id]
-  let seen = Array::make(cfg_block_count(cfg), false)
+  work.push(block_id)
   seen[block_id] = true
+  visited.push(block_id)
   while !work.is_empty() {
     let current = work.pop().unwrap()
-    let predecessors : Array[BlockId] = []
-    for pred in cfg_predecessor_edges(cfg, current) {
-      if !include_exceptional && pred.kind == CfgEdgeKind::ExceptionalEdge {
+    let mut has_predecessor = false
+    for edge in cfg_predecessor_edges(cfg, current) {
+      if !include_exceptional && edge.kind == CfgEdgeKind::ExceptionalEdge {
         continue
       }
-      predecessors.push(pred.block)
-    }
-    if predecessors.is_empty() {
-      if current == cfg_entry_block(cfg) {
-        let entry_source = local_graph_entry_source_id(local_id)
-        if !local_graph_array_contains(sources, entry_source) {
-          sources.push(entry_source)
-        }
-      }
-      continue
-    }
-    for pred in predecessors {
+      has_predecessor = true
+      let pred = edge.block
       match
-        local_graph_reverse_find_last_write(
-          func,
-          actions[pred],
-          actions[pred].length(),
-          local_id,
+        local_graph_reverse_indexed_last_write(
+          func, actions, pred, local_id, last_writes,
         ) {
         Some(write_id) => {
           let source_id = local_graph_set_source_id(local_count, write_id)
@@ -1109,12 +1135,35 @@ fn local_graph_reverse_entry_sources(
         None =>
           if !seen[pred] {
             seen[pred] = true
+            visited.push(pred)
             work.push(pred)
           }
       }
     }
+    if !has_predecessor && current == cfg_entry_block(cfg) {
+      let entry_source = local_graph_entry_source_id(local_id)
+      if !local_graph_array_contains(sources, entry_source) {
+        sources.push(entry_source)
+      }
+    }
   }
-  cache[key] = Some(sources.copy())
+  for block in visited {
+    seen[block] = false
+  }
+  visited.clear()
+  let row = match cache[block_id] {
+    Some(row) => row
+    None => {
+      let row = @hashmap.new()
+      cache[block_id] = Some(row)
+      row
+    }
+  }
+  row.set(local_id, sources.copy())
+  match cache_slots {
+    Some(count) => count[0] += 1
+    None => ()
+  }
   sources
 }
 
@@ -1123,6 +1172,7 @@ fn local_graph_build_reverse_flow(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
+  cache_slots? : Array[Int]? = None,
 ) -> HotLocalGraph {
   let local_count = hot_local_count(func)
   let node_count = hot_node_count(func)
@@ -1180,10 +1230,21 @@ fn local_graph_build_reverse_flow(
   for _ in 0..<node_count {
     get_sources.push([])
   }
-  let cache : Array[Array[Int]?] = Array::make(
-    cfg_block_count(cfg) * local_count,
+  let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
+    cfg_block_count(cfg),
     None,
   )
+  let block_writes : Array[@hashmap.HashMap[Int, NodeId]?] = Array::make(
+    cfg_block_count(cfg),
+    None,
+  )
+  let seen = Array::make(cfg_block_count(cfg), false)
+  let visited : Array[BlockId] = []
+  let work : Array[BlockId] = []
+  match cache_slots {
+    Some(count) => count[0] += cache.length()
+    None => ()
+  }
   for node_id = 0; node_id < node_count; node_id = node_id + 1 {
     if !hot_node_is_live(func, node_id) ||
       !(hot_node_get(func, node_id).op is HotOp::LocalGet) {
@@ -1199,7 +1260,19 @@ fn local_graph_build_reverse_flow(
       [local_graph_set_source_id(local_count, write_id)]
     } else {
       local_graph_reverse_entry_sources(
-        func, cfg, actions, block_id, local_id, include_exceptional, cache, local_count,
+        func,
+        cfg,
+        actions,
+        block_id,
+        local_id,
+        include_exceptional,
+        cache,
+        block_writes,
+        seen,
+        visited,
+        work,
+        local_count,
+        cache_slots~,
       )
     }
     local_graph_record_get_sources(
