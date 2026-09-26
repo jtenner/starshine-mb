@@ -33,6 +33,29 @@ whole result tuple has a location; HOT expression values have locations too.
 Type-family locations connect referenced functions to indirect calls. Observable
 uses seed the graph, and a queue visits each live location at most once.
 
+## September 26, 2026 skip unchanged rewrite lifts
+
+The rewrite phase now reuses the first analysis phase's complete direct/indirect call summary. It rebuilds HOT only when a function or one of its callees changes signature, or when indexed control types require the existing preservation path. Legacy `Try` also retains that path. The rewrite decision is computed once; type-family identity, new function-type selection, names, final cleanup and validation still run. The bounded preflight leaves all analysis and fixed-point edges intact. [Binaryen 133's DAE2 optimizer](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/DeadArgumentElimination2.cpp) works on its retained IR and gates signature/local reconstruction on removed parameters or results; this change avoids Starshine's additional reconstruction of unaffected bodies.
+
+A regression first failed with three rewrite lifts instead of two while successfully pruning the sibling's unused parameter. Two pass fixtures and one active command fixture verify the skip, retained indexed-control preparation, unchanged input/body preservation and the optimized call signature. All 74 focused DAE2 tests pass; `moon info` and `moon fmt` succeed without a public API change. The full wasm-gc suite passes 12466 tests with zero failures.
+
+Fresh native `b084365e0bd4b2bc98457da7eb8773504b5cf2720665dea7ae5b961d30c41a06` is compared with baseline `8b7d8d8aa8de9342cf6148de10350ca9104217e18d2317cf92b2be7e7d08e0a1`. Isolated alternating pairs after one warmup preserve exact raw output on every fixture:
+
+| Fixture | Samples | Before pipeline | After pipeline |
+| --- | ---: | ---: | ---: |
+| Small compiler | 7 | 19.135ms | 18.362ms |
+| Large compiler | 3 | 8,394.226ms | 7,704.931ms |
+| 100 unchanged functions | 3 | 14.341ms | 10.454ms |
+| 500 unchanged functions | 3 | 73.810ms | 51.734ms |
+| 1,000 unchanged functions | 3 | 152.037ms | 107.030ms |
+| 1,000 functions requiring rewrites | 7 | 331.541ms | 335.645ms |
+
+The large compiler improves **8.2%**, with command median `9,411.505ms → 8,622.409ms`. The 1,000-unchanged-function fixture improves **29.6%**. The all-changing synthetic fixture regresses **1.2% (4.104ms)**; this is a measured tradeoff, not a universal speedup. A preliminary implementation retained a duplicate rewrite check and was replaced before signoff; its interrupted oracle run does not establish final evidence.
+
+Fresh v133 pass-local medians remain `18.699ms` versus `1.131ms` on the small compiler and `7,578.025ms` versus `396.714ms` on the large compiler. The remaining DAE2 performance gap stays open.
+
+Evidence: `.tmp/dae2-relift-paired-{small,large,functions-1000,unchanged-100,unchanged-500,unchanged-1000}-final-20260926/`, `.tmp/dae2-relift-inputs/manifest.json`, and the [fuzzing renewal](./fuzzing.md). Source and fixtures: [`dead_argument_elimination2.mbt`](../../../../../src/passes/dead_argument_elimination2.mbt), [`dead_argument_elimination2_types.mbt`](../../../../../src/passes/dead_argument_elimination2_types.mbt), [`dae2_relift_wbtest.mbt`](../../../../../src/passes/dae2_relift_wbtest.mbt), and [command test](../../../../../src/cmd/dae2_relift_wbtest.mbt).
+
 ## September 26, 2026 catch-payload analysis preflight
 
 DAE2 invokes ordered catch-payload repair on each lifted function. The repair planner previously built its complete node-use graph before checking whether the function contained typed catch payloads. It now performs the existing live-node preflight first and returns the same empty plan when there are no payloads. Catch-all markers still reject; real typed payloads still build the graph and use the original complete, atomic repair plan. Public repairability and mutation results are unchanged. This follows the lazy-analysis principle in [Binaryen 133 DAE2](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/DeadArgumentElimination2.cpp), whose parameter-use visitor queries `LazyLocalGraph` only after confirming a read targets a parameter; Starshine's catch repair remains its own representation bridge.
@@ -96,7 +119,9 @@ Tail calls connect caller and callee result liveness in both directions. Local
 flow distinguishes entry parameters from overwritten locals; branch payloads
 and the result types of their targets remain valid.
 
-Each HOT body is released after analysis and relifted only for mutation. LocalGraph
+Each HOT body is released after analysis. A second lift is limited to changed
+function/call signatures or indexed-control preservation; other bodies are
+reused directly. LocalGraph
 uses symbolic block-entry sources and sparse changed-local summaries when a
 linear reverse scan cannot represent nested control. It resolves complete
 predecessor closures before caching, preserving loops and exception paths.

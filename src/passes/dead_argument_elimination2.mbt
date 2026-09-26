@@ -485,6 +485,7 @@ fn dae2_run_module_pass(
   mod_ : @lib.Module,
   closed_world : Bool,
   cleanup_module_env_builds? : Array[Int]? = None,
+  rewrite_lifts? : Array[Int]? = None,
 ) -> Result[@lib.Module, String] {
   let original = mod_
   let mod_ = match dae2_prepare_legacy_handlers(mod_) {
@@ -582,13 +583,6 @@ fn dae2_run_module_pass(
   let control_types : @hashmap.HashMap[Int, @lib.TypeIdx] = @hashmap.new()
   for index = imported; index < total_funcs; index = index + 1 {
     let info = infos[index]
-    let func = match dae2_lift_for_analysis(mod_, context, index) {
-      Ok(func) => func
-      Err(err) => return Err(err)
-    }
-    if @ir.hot_node_count(func) != info.node_locations.length() {
-      return Err("dae2: analysis relift changed node identities")
-    }
     let kept_params : Array[@lib.ValType] = []
     let removed_params : Array[@lib.ValType] = []
     for param = 0; param < info.params.length(); param = param + 1 {
@@ -603,98 +597,125 @@ fn dae2_run_module_pass(
     } else {
       []
     }
-    let lower_state : HotPipelineLowerState = {
-      next_type_sec: Some(types),
-      type_sec_changed: false,
-    }
-    dae2_preserve_control_types(
-      func, context, graph, infos, type_infos, lower_state, control_types,
-    )
-    if !dae2_function_needs_rewrite(graph, infos, type_infos, info, func) {
-      match lower_state.next_type_sec {
-        Some(next) => types = next
-        None => ()
-      }
-      let @lib.Func(locals, @lib.Expr(body)) = mod_.code_sec.unwrap().0[index -
-        imported]
-      bodies.push(
-        @lib.Func::new(
-          locals,
-          @lib.Expr::new(dae2_original_control_types(body, control_types)),
-        ),
-      )
+    let original_func = mod_.code_sec.unwrap().0[index - imported]
+    let @lib.Func(_, @lib.Expr(original_body)) = original_func
+    let needs_rewrite = dae2_function_needs_rewrite(graph, infos, info)
+    if !needs_rewrite && !dae2_instrs_have_indexed_control(original_body) {
+      // Analysis already records every direct and indirect callee. With no
+      // changed boundary or indexed control type, preserve the original body
+      // without rebuilding its HOT graph and deterministic captures.
+      bodies.push(original_func)
       local_remaps.push(None)
     } else {
-      let old_arities = Array::makei(@ir.hot_node_count(func), fn(node) {
-        @ir.hot_node_result_arity(func, node)
-      })
-      let memo = Array::make(info.node_locations.length(), -1)
-      let roots = @ir.hot_root_span(func).map(fn(node) {
-        let rewritten = dae2_rewrite_node(
-          graph, infos, index, func, node, memo, old_arities, lower_state, type_infos,
-        )
-        if results.is_empty() {
-          dae2_discard(func, rewritten)
-        } else {
-          rewritten
-        }
-      })
-      ignore(@ir.hot_root_splice(func, 0, @ir.hot_root_count(func), roots))
-      @ir.hot_body_result_type_set(
-        func,
-        @ir.hot_type_intern_results(func, results),
-      )
-      run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
-      match lower_state.next_type_sec {
-        Some(next) => types = next
+      match rewrite_lifts {
+        Some(count) => count[0] += 1
         None => ()
       }
-      match @ir.hot_verify_core(func) {
-        Ok(_) => ()
-        Err(err) => return Err("dae2: rewritten HOT function \{index}: \{err}")
+      let func = match dae2_lift_for_analysis(mod_, context, index) {
+        Ok(func) => func
+        Err(err) => return Err(err)
       }
-      match @ir.hot_verify_control(func) {
-        Ok(_) => ()
-        Err(err) =>
-          return Err("dae2: rewritten HOT control in function \{index}: \{err}")
+      if @ir.hot_node_count(func) != info.node_locations.length() {
+        return Err("dae2: analysis relift changed node identities")
       }
-      let @lib.Func(locals, @lib.Expr(body)) = @ir.hot_lower_func_unverified(
-        func,
+      let lower_state : HotPipelineLowerState = {
+        next_type_sec: Some(types),
+        type_sec_changed: false,
+      }
+      dae2_preserve_control_types(
+        func, context, graph, infos, type_infos, lower_state, control_types,
       )
-      let local_map = Array::make(info.params.length() + locals.length(), -1)
-      let mut kept = 0
-      let mut removed = 0
-      for param = 0; param < info.params.length(); param = param + 1 {
-        if graph.used[info.param_locations[param]] {
-          local_map[param] = kept
-          kept += 1
-        } else {
-          local_map[param] = kept_params.length() +
-            locals.length() +
-            removed_params.length() -
-            1 -
-            removed
-          removed += 1
+      if !needs_rewrite {
+        match lower_state.next_type_sec {
+          Some(next) => types = next
+          None => ()
         }
+        let @lib.Func(locals, @lib.Expr(body)) = mod_.code_sec.unwrap().0[index -
+          imported]
+        bodies.push(
+          @lib.Func::new(
+            locals,
+            @lib.Expr::new(dae2_original_control_types(body, control_types)),
+          ),
+        )
+        local_remaps.push(None)
+      } else {
+        let old_arities = Array::makei(@ir.hot_node_count(func), fn(node) {
+          @ir.hot_node_result_arity(func, node)
+        })
+        let memo = Array::make(info.node_locations.length(), -1)
+        let roots = @ir.hot_root_span(func).map(fn(node) {
+          let rewritten = dae2_rewrite_node(
+            graph, infos, index, func, node, memo, old_arities, lower_state, type_infos,
+          )
+          if results.is_empty() {
+            dae2_discard(func, rewritten)
+          } else {
+            rewritten
+          }
+        })
+        ignore(@ir.hot_root_splice(func, 0, @ir.hot_root_count(func), roots))
+        @ir.hot_body_result_type_set(
+          func,
+          @ir.hot_type_intern_results(func, results),
+        )
+        run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
+        match lower_state.next_type_sec {
+          Some(next) => types = next
+          None => ()
+        }
+        match @ir.hot_verify_core(func) {
+          Ok(_) => ()
+          Err(err) =>
+            return Err("dae2: rewritten HOT function \{index}: \{err}")
+        }
+        match @ir.hot_verify_control(func) {
+          Ok(_) => ()
+          Err(err) =>
+            return Err(
+              "dae2: rewritten HOT control in function \{index}: \{err}",
+            )
+        }
+        let @lib.Func(locals, @lib.Expr(body)) = @ir.hot_lower_func_unverified(
+          func,
+        )
+        let local_map = Array::make(info.params.length() + locals.length(), -1)
+        let mut kept = 0
+        let mut removed = 0
+        for param = 0; param < info.params.length(); param = param + 1 {
+          if graph.used[info.param_locations[param]] {
+            local_map[param] = kept
+            kept += 1
+          } else {
+            local_map[param] = kept_params.length() +
+              locals.length() +
+              removed_params.length() -
+              1 -
+              removed
+            removed += 1
+          }
+        }
+        for local_idx = 0
+            local_idx < locals.length()
+            local_idx = local_idx + 1 {
+          local_map[info.params.length() + local_idx] = kept_params.length() +
+            local_idx
+        }
+        let new_locals = locals.copy()
+        for slot = removed_params.length() - 1; slot >= 0; slot = slot - 1 {
+          new_locals.push(removed_params[slot])
+        }
+        let (body, capture_map) = pass_lower_compact_captures_with_map(
+          @lib.Func::new(
+            new_locals,
+            @lib.Expr::new(dae_rewrite_locals_instrs(body, local_map)),
+          ),
+          mod_.code_sec.unwrap().0[index - imported],
+          kept_params,
+        )
+        local_remaps.push(Some(local_map.map(fn(index) { capture_map[index] })))
+        bodies.push(body)
       }
-      for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
-        local_map[info.params.length() + local_idx] = kept_params.length() +
-          local_idx
-      }
-      let new_locals = locals.copy()
-      for slot = removed_params.length() - 1; slot >= 0; slot = slot - 1 {
-        new_locals.push(removed_params[slot])
-      }
-      let (body, capture_map) = pass_lower_compact_captures_with_map(
-        @lib.Func::new(
-          new_locals,
-          @lib.Expr::new(dae_rewrite_locals_instrs(body, local_map)),
-        ),
-        mod_.code_sec.unwrap().0[index - imported],
-        kept_params,
-      )
-      local_remaps.push(Some(local_map.map(fn(index) { capture_map[index] })))
-      bodies.push(body)
     }
     let original_type_slot = dae2_type_slot(indices[index], 0)
     let type_info = infos[type_infos[original_type_slot]]

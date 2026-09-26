@@ -608,34 +608,37 @@ fn dae2_original_control_types(
 }
 
 ///|
+fn dae2_instrs_have_indexed_control(instrs : Array[@lib.Instruction]) -> Bool {
+  instrs.any(fn(instr) {
+    match instr {
+      @lib.Block(bt, @lib.Expr(body))
+      | @lib.Loop(bt, @lib.Expr(body))
+      | @lib.TryTable(bt, _, @lib.Expr(body)) =>
+        bt is @lib.TypeIdxBlockType(_) || dae2_instrs_have_indexed_control(body)
+      @lib.If(bt, then_body, else_body) =>
+        bt is @lib.TypeIdxBlockType(_) ||
+        dae2_instrs_have_indexed_control(then_body) ||
+        (match else_body {
+          Some(body) => dae2_instrs_have_indexed_control(body)
+          None => false
+        })
+      // Legacy adaptation retains its complete preparation path.
+      @lib.Try(_, _, _, _) => true
+      _ => false
+    }
+  })
+}
+
+///|
 fn dae2_function_needs_rewrite(
   graph : Dae2Graph,
   infos : Array[Dae2Function],
-  type_infos : Array[Int],
   info : Dae2Function,
-  func : @ir.HotFunc,
 ) -> Bool {
-  if dae2_signature_changes(graph, info) {
-    return true
-  }
-  for node = 0; node < @ir.hot_node_count(func); node = node + 1 {
-    match @ir.hot_node_get(func, node).op {
-      @ir.Call
-      | @ir.ReturnCall
-      | @ir.CallIndirect
-      | @ir.ReturnCallIndirect
-      | @ir.CallRef
-      | @ir.ReturnCallRef =>
-        if dae2_signature_changes(
-            graph,
-            dae2_call_info(infos, type_infos, func, node),
-          ) {
-          return true
-        }
-      _ => ()
-    }
-  }
-  false
+  dae2_signature_changes(graph, info) ||
+  info.call_infos.any(fn(callee) {
+    dae2_signature_changes(graph, infos[callee])
+  })
 }
 
 ///|

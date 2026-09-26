@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-11
+last_reviewed: 2026-09-26
 sources:
   - ../../../../../src/validate/gen_valid_dae2.mbt
   - ../../../../../src/validate/gen_valid_dae2_wbtest.mbt
@@ -12,6 +12,19 @@ sources:
 ---
 
 # DAE2 GenValid coverage
+
+## September 26 unchanged-function relift renewal
+
+Verified Binaryen 133 (`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`) and fresh native Starshine `b084365e0bd4b2bc98457da7eb8773504b5cf2720665dea7ae5b961d30c41a06` renew the `dae2` aggregate in both worlds, 10,000 comparisons each at seed `0x5eed`. The explicit native CLI and generator use eight subprocesses, `--jobs auto`, at most 20 mismatch artifacts, the default cache, `drop-consts` and `unreachable-control-debris` normalization, and `--semantic-oracle node-v2`. No external generator was requested.
+
+| World | Canonical matches | Cleanup-normalized | Residuals | Canonically larger | Node-v2 matches | Runtime blocked |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Open | 2,879 | 667 | 6,454 | 0 | 9,312 | 688 |
+| Closed | 0 | 100 | 9,900 | 706 | 9,312 | 688 |
+
+Both lanes have zero semantic mismatches, validation, property, generator or command failures. The 688 blocked cases per world remain original-runtime-blocked continuation cases. All 40 saved raw residuals reproduce byte-for-byte against the pre-change CLI. My classification retains the residuals as parity gaps and the 706 closed-world larger outputs as size-losing gaps; passing runtime cases and normalization do not close those transform/size differences.
+
+Evidence: `.tmp/pass-fuzz-dae2-relift-{open,closed}-v133-10000-final-20260926/` and `.tmp/dae2-relift-replay/result.json`. The [strategy page](./starshine-strategy.md#september-26-2026-skip-unchanged-rewrite-lifts) records source reasoning, red-first tests, isolated speedups and the 1.2% all-changing synthetic slowdown. Historical v132 results below retain their original version and scope.
 
 The aggregate profile is **`dae2`**. This supersedes the June 16 note that no
 dedicated profile existed. Its fourteen members cover forwarded results,
@@ -41,7 +54,7 @@ Build explicit native tools, then run at least 10,000 comparisons per world:
 ```sh
 moon build --target native --release src/cmd
 moon build --target native --release src/fuzz
-bun fuzz compare-pass --count 10000 --min-compared 10000 --seed 0x5eed   --pass dae2 --gen-valid-profile dae2 --require-binaryen-version 132   --wasm-opt-bin .tmp/binaryen-version_132/bin/wasm-opt   --starshine-bin _build/native/release/build/cmd/cmd.exe   --gen-valid-bin _build/native/release/build/fuzz/fuzz.exe   --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20   --normalize drop-consts --normalize unreachable-control-debris   --out-dir .tmp/dae2-v132-open
+bun fuzz compare-pass --count 10000 --min-compared 10000 --seed 0x5eed   --pass dae2 --gen-valid-profile dae2 --require-binaryen-version 133   --wasm-opt-bin .tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt   --starshine-bin _build/native/release/build/cmd/cmd.exe   --gen-valid-bin _build/native/release/build/fuzz/fuzz.exe   --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20   --normalize drop-consts --normalize unreachable-control-debris   --out-dir .tmp/dae2-v133-open
 ```
 
 Repeat with `--closed-world` and a separate output directory. For an intake run
