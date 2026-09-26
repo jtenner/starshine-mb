@@ -924,6 +924,10 @@ fn h2l_index_root_subtree(
   root_slot : Int,
   slots : Array[Int],
 ) -> Unit {
+  // Optional operands (for example a missing else arm) use a negative ID.
+  if node_id < 0 || node_id >= slots.length() {
+    return
+  }
   if slots[node_id] != -1 {
     return
   }
