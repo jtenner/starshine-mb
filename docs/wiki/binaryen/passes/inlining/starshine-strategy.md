@@ -22,6 +22,24 @@ related:
 
 # Starshine Strategy For `inlining`
 
+## September 26, 2026 combined body facts
+
+The planner and multivalue preparation now compute instruction count, direct
+calls, loops, tail calls and tail calls nested in `try_table` in one traversal.
+The previous independent shape/count helpers remain as bounded reference
+checks. Candidate selection, profitability and rewrite order are unchanged.
+The native helper benchmark improves `3.27 µs → 648 ns` for 128 blocks and
+`12.98 → 2.66 µs` for 512 blocks. These are helper measurements, not full-pass
+ratios. A red traversal-count regression, four structural fixtures and both
+plain/optimizing command dispatch paths pass after implementation.
+
+Sources: `src/passes/inlining.mbt`,
+`src/passes/inlining_body_facts_{wbtest,perf_wbtest}.mbt`,
+`src/cmd/perf_inlining_wbtest.mbt`, and the local
+`.tmp/pass-perf-work-20260926/inlining-body-*` measurement logs.
+Fresh v133 artifact comparison and aggregate fuzz follow the complete shared
+performance changes; earlier v131/v132 evidence below retains its original scope.
+
 ## September 25, 2026 dead-suffix call scan
 
 The dead-suffix preservation query now traverses the root suffix once and tests call targets against the marked-function array as it visits them. It no longer copies the suffix or recursively rescans it for every marked target. The self-call query uses a scalar target comparison instead of allocating a Boolean array through the function index. The traversal keeps the existing `Call`/`ReturnCall`, Block, Loop, TryTable, and If coverage; legacy Try remains outside this query.

@@ -362,8 +362,7 @@ fn inl_prepare_multivalue_block_types(
     let def_idx = abs - imports
     if def_idx >= 0 && def_idx < funcs.length() && refs[abs] > 0 {
       let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
-      let (calls, loops, tries, _) = inl_scan_shape_instrs(body)
-      let size = inl_count_instrs(body)
+      let (calls, loops, tries, _, size) = inl_measure_body(body)
       let no_full_policy = abs >= 0 &&
         abs < no_full_inline.length() &&
         no_full_inline[abs]
@@ -481,6 +480,74 @@ fn inl_scan_shape_instrs(
     tails = tails || d
   }
   (calls, loops, tries, tails)
+}
+
+///|
+priv struct InlBodyFacts {
+  mut calls : Bool
+  mut loops : Bool
+  mut tries : Bool
+  mut tails : Bool
+  mut size : Int
+}
+
+///|
+fn InlBodyFacts::new() -> InlBodyFacts {
+  { calls: false, loops: false, tries: false, tails: false, size: 0, }
+}
+
+///|
+fn inl_measure_body_visit(
+  instrs : Array[@lib.Instruction],
+  facts : InlBodyFacts,
+  inside_try : Bool,
+  visits : Array[Int]?,
+) -> Unit {
+  for instr in instrs {
+    facts.size += 1
+    match visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    match instr {
+      @lib.Call(_) => facts.calls = true
+      @lib.ReturnCall(_) => {
+        facts.calls = true
+        facts.tails = true
+        facts.tries = facts.tries || inside_try
+      }
+      @lib.ReturnCallIndirect(_, _) | @lib.ReturnCallRef(_) => {
+        facts.tails = true
+        facts.tries = facts.tries || inside_try
+      }
+      @lib.Block(_, @lib.Expr(body)) =>
+        inl_measure_body_visit(body, facts, inside_try, visits)
+      @lib.Loop(_, @lib.Expr(body)) => {
+        facts.loops = true
+        inl_measure_body_visit(body, facts, inside_try, visits)
+      }
+      @lib.If(_, yes, no) => {
+        inl_measure_body_visit(yes, facts, inside_try, visits)
+        match no {
+          Some(body) => inl_measure_body_visit(body, facts, inside_try, visits)
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        inl_measure_body_visit(body, facts, true, visits)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn inl_measure_body(
+  instrs : Array[@lib.Instruction],
+  visits? : Array[Int]? = None,
+) -> (Bool, Bool, Bool, Bool, Int) {
+  let facts = InlBodyFacts::new()
+  inl_measure_body_visit(instrs, facts, false, visits)
+  (facts.calls, facts.loops, facts.tries, facts.tails, facts.size)
 }
 
 ///|
@@ -2073,8 +2140,7 @@ fn inl_build_function_infos(
         None => abort("missing code section for inlining info")
       }
       let @lib.Func(_, @lib.Expr(body)) = func
-      let (calls, loops, tries, tails) = inl_scan_shape_instrs(body)
-      let measured_size = inl_count_instrs(body)
+      let (calls, loops, tries, tails, measured_size) = inl_measure_body(body)
       match
         @ir.hot_module_resolve_func_type(
           module_ctx,
