@@ -3661,9 +3661,19 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
   function_epochs : Array[DaeFunctionEpochs],
   edges : Array[DaeParameterForwardingEdge],
   out : Array[Array[Int]],
+  visits? : Array[Int]? = None,
 ) -> Unit {
+  // Only formal parameter reads can create forwarding edges. Calls and
+  // result observers are collected independently by the boundary graph.
+  if caller_param_count <= 0 {
+    return
+  }
   let mut idx = 0
   while idx < instrs.length() {
+    match visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
     match instrs[idx] {
       @lib.Call(func_idx) =>
         dae_record_parameter_forwarding_dependency(
@@ -3711,6 +3721,7 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
               function_epochs,
               edges,
               out,
+              visits~,
             )
             match children.secondary_body {
               Some(body) =>
@@ -3724,6 +3735,7 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
                   function_epochs,
                   edges,
                   out,
+                  visits~,
                 )
               None => ()
             }

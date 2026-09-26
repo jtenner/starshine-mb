@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-26
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -27,6 +27,23 @@ related:
   - ../precompute-propagate/index.md
 ---
 
+
+## September 26, 2026 parameter-free forwarding preflight
+
+The shared DAE boundary graph skips parameter-forwarding traversal when the caller has no formal parameters. Such a caller cannot produce a forwarding edge: the edge contract requires a `local.get` index strictly below the caller parameter count. Ordinary calls, tail calls and result observers retain their independent collection. This follows [Binaryen 133 DAEScanner](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/DeadArgumentElimination.cpp), which scans ordinary facts but runs `ParamUtils::getUsedParams` only when `numParams > 0`.
+
+Callgrind on the small compiler attributed 34.9% of instructions to forwarding collection; its largest function has no parameters. The bounded regression initially visited eight instructions instead of zero. Tests retain nested forwarding for parameterized callers and ordinary/result dependencies for parameter-free callers. Command coverage preserves an imported result while removing an unused argument. All 917 focused and 12,473 full wasm-gc tests pass; `moon info`, `moon fmt` and the native release build succeed without a public API change.
+
+Seven isolated alternating pairs after one warmup use native `dd1746825fca4894469fc07309835381c434b0b347d730496ffeacb320b6a177` against `0925e7e8ae15e1e06d4fa171fdcf5b251e42f68f627ef7955a10bf032570748f`:
+
+| Input / pass | Before pipeline | After pipeline | Interpretation |
+| --- | ---: | ---: | --- |
+| Small / dae-optimizing | 218.561ms | 155.749ms | 28.7% faster |
+| Small / dae | 104.944ms | 60.029ms | 42.8% faster |
+| Large / dae-optimizing | 1,051.915ms | 1,057.933ms | no meaningful gain |
+| Large / dae | 833.538ms | 835.475ms | no meaningful gain |
+
+Every paired raw output is identical. The large-input paths remain performance targets. Evidence: `.tmp/callgrind-daeo-renewal.out`, `.tmp/dae-forwarding-preflight-paired-{small,large}-20260926/`, [source](../../../../../src/passes/dead_argument_elimination.mbt), [bounded tests](../../../../../src/passes/dae_forwarding_preflight_wbtest.mbt), [command regression](../../../../../src/cmd/dae_forwarding_preflight_wbtest.mbt), and [fuzzing renewal](./fuzzing.md). New comparisons use verified Binaryen 133; historical results below retain their original versions.
 # Starshine strategy for `dae-optimizing`
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
