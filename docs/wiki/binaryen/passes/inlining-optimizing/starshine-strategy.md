@@ -67,6 +67,10 @@ The shared scheduler abstraction for DAE/inlining/SGO is still tracked under `[O
 
 The durable pass-local fixture is the inline-heavy helper-chain matrix described in [`fuzzing.md`](./fuzzing.md). The accepted post-repair ratios meet the repository's `<= 1x Binaryen` target across 1, 5, 10, 20, 50, and 100 helper cases. Reopen on repeated regression above that target or a new nested-pass scaling cliff.
 
+### September 26, 2026 shared structured-lifetime guard
+
+The subsequent [guard-bound optimization](../simplify-globals-optimizing/starshine-strategy.md#september-26-2026-structured-lifetime-guard-bounds) reduces small-fixture optimizing-inlining pipeline time from `129.889ms` to `120.510ms` (7.2%) across three alternating pairs after one warmup, with identical output. It preserves the existing call-capture lifetime predicate and avoids searching ordinary tails without a later structured body.
+
 ### September 26, 2026 precompute tail rejection
 
 After the raw SimplifyLocals improvements below, the nested precompute infinite-loop matcher still scanned the growing instruction prefix after every emitted instruction. A backward suffix scan now stops at the first blocking instruction with the same transform contract. Three alternating native pairs after one warmup on the 192,893-byte fixture improve this pipeline from `204.648ms` to `128.793ms` (37.1%), and command time from `208.888ms` to `133.174ms`, with byte-identical output. A fresh verified-v133 sweep still measures `140.302ms` versus `44.769ms` pass-local; the remaining gap stays open. The [precompute strategy](../precompute/starshine-hot-ir-strategy.md#september-26-2026-infinite-loop-tail-scan) owns the implementation proof, scaling fixtures, hashes and renewed comparison evidence.

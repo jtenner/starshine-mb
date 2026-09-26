@@ -5485,53 +5485,94 @@ fn run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
 ///|
 fn run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
   instrs : Array[@lib.Instruction],
+  visits? : Array[Int]? = None,
 ) -> Bool {
-  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
-    let target = match (instrs[idx], instrs[idx + 1]) {
-      (@lib.Call(_), @lib.LocalSet(local_idx))
-      | (@lib.Call(_), @lib.LocalTee(local_idx)) => Some(local_idx)
-      _ => None
-    }
-    match target {
-      Some(target) =>
-        for scan = idx + 2; scan < instrs.length(); scan = scan + 1 {
-          let body_surfaces : Array[Array[@lib.Instruction]] = match
-            instrs[scan] {
-            @lib.Block(_, @lib.Expr(body))
-            | @lib.Loop(_, @lib.Expr(body))
-            | @lib.TryTable(_, _, @lib.Expr(body)) => [body]
-            @lib.If(_, then_body, else_body) =>
-              match else_body {
-                Some(else_body) => [then_body, else_body]
-                None => [then_body]
-              }
-            _ => []
-          }
-          for body in body_surfaces {
-            let (has_local, has_call) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
-              body, target,
-            )
-            if has_local && has_call {
-              return true
-            }
-          }
-        }
+  let mut last_structured = -1
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match visits {
+      Some(count) => count[0] += 1
       None => ()
     }
+    match instrs[idx] {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.If(_, _, _) => last_structured = idx
+      _ => ()
+    }
   }
-  for instr in instrs {
-    match instr {
+  if last_structured < 0 {
+    return false
+  }
+  // Captures after the final structured root cannot feed a later body.
+  for idx = 0; idx + 2 <= last_structured; idx = idx + 1 {
+    match visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    let target = match (instrs[idx], instrs[idx + 1]) {
+      (@lib.Call(_), @lib.LocalSet(local_idx))
+      | (@lib.Call(_), @lib.LocalTee(local_idx)) => local_idx
+      _ => continue
+    }
+    for scan = idx + 2; scan <= last_structured; scan = scan + 1 {
+      match visits {
+        Some(count) => count[0] += 1
+        None => ()
+      }
+      match instrs[scan] {
+        @lib.Block(_, @lib.Expr(body))
+        | @lib.Loop(_, @lib.Expr(body))
+        | @lib.TryTable(_, _, @lib.Expr(body)) => {
+          let (has_local, has_call) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
+            body, target,
+          )
+          if has_local && has_call {
+            return true
+          }
+        }
+        @lib.If(_, then_body, else_body) => {
+          let (has_local, has_call) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
+            then_body, target,
+          )
+          if has_local && has_call {
+            return true
+          }
+          match else_body {
+            Some(body) => {
+              let (has_local, has_call) = run_hot_pipeline_raw_simplify_locals_subtree_has_local_and_call(
+                body, target,
+              )
+              if has_local && has_call {
+                return true
+              }
+            }
+            None => ()
+          }
+        }
+        _ => ()
+      }
+    }
+  }
+  for idx = 0; idx <= last_structured; idx = idx + 1 {
+    match visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    match instrs[idx] {
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
             body,
+            visits~,
           ) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
         if run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
             then_body,
+            visits~,
           ) {
           return true
         }
@@ -5539,6 +5580,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
           Some(else_body) =>
             if run_hot_pipeline_raw_simplify_locals_has_call_result_structured_lifetime(
                 else_body,
+                visits~,
               ) {
               return true
             }

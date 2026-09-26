@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-25
+last_reviewed: 2026-09-26
 sources:
+  - https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/SimplifyLocals.cpp
+  - ../../../../../src/passes/simplify_locals_structured_lifetime_wbtest.mbt
+  - ../../../../../src/passes/pass_manager.mbt
   - ./index.md
   - ../../../../../src/passes/simplify_globals_optimizing.mbt
   - ../../../../../src/passes/simplify_globals_optimizing_test.mbt
@@ -36,6 +39,53 @@ related:
 
 Use this page with the retained 2026-04-24 research inventory, direct tagged source URLs, and [research note 0376](./index.md).
 The purpose here is to map the reviewed Binaryen contract to the exact current Starshine status and the concrete local surfaces a future port should start from. The implementation-readiness and validation ladder now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+
+## September 26, 2026 structured-lifetime guard bounds
+
+The shared raw SimplifyLocals/precompute guard scans direct call-result captures for later structured bodies containing both a read of the captured local and a call. It previously inspected every later instruction and allocated a temporary body-surface array even for ordinary instructions. The guard now locates the final structured root, returns immediately for a flat sequence, bounds capture searches and recursive descent by that root, and examines structured bodies directly without those temporary arrays.
+
+The conservative predicate is unchanged: overwritten captured locals still count, each direct `if` arm is checked separately, an enclosing body can combine facts across its nested arms, and nested capture patterns are still checked recursively. This follows [Binaryen 133 SimplifyLocals](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/SimplifyLocals.cpp)'s emphasis on bounded traversal through linear execution regions; Starshine's guard is a separate correctness boundary and has not been weakened. Candidate-rich structured prefixes can still require repeated subtree scans.
+
+Two bounded regressions first failed at 16,767 and 16,770 visits on flat/trailing 128-capture sequences. Positive tests retain nested hazards, per-arm separation and overwrite conservatism; the active SimplifyLocals and precompute-propagate dispatchers preserve the captured value across the later call. The earlier native profile attributed 11.71% of instructions to this guard on the small SimplifyGlobals-optimizing fixture; this profile is instruction-count evidence, not a wall-time result.
+
+Three alternating native pairs after one warmup on the 192,893-byte compiler fixture measure the following pipeline medians, with byte-identical before/after outputs:
+
+| Pass | Before | After | Reduction |
+| --- | ---: | ---: | ---: |
+| `simplify-globals-optimizing` | 28.668ms | 20.971ms | 26.8% |
+| `precompute-propagate` | 12.794ms | 5.930ms | 53.6% |
+| `simplify-locals-nostructure` | 10.193ms | 2.952ms | 71.0% |
+| `simplify-locals-notee-nostructure` | 9.205ms | 1.859ms | 79.8% |
+| `inlining-optimizing` | 129.889ms | 120.510ms | 7.2% |
+| `dae-optimizing` | 224.630ms | 210.730ms | 6.2% |
+
+The fresh verified-v133 small sweep still measures SimplifyGlobals optimizing at `26.142ms` pass-local versus `1.276ms`; its untraced command medians are `24.351ms` versus `10.189ms`. The traced and untraced measurements are distinct. Raw cleanup is excluded from no-structure HOT pass timers (`0.336ms` and `0.163ms`), so the pipeline measurements above are the relevant Starshine costs; Binaryen's corresponding pass timers are `1.722ms` and `1.627ms`.
+
+All eight requested optimizing/locals passes also retain identical output bytes in three paired large-fixture samples. Large full SimplifyLocals remains approximately unchanged (`2,135.514ms → 2,139.162ms` pipeline); no large guarded inlining/SimplifyGlobals optimization win is claimed. The large plain-precompute warmup was interrupted before completion and supplies no timing evidence; both direct precompute variants retain completed small-fixture measurements.
+
+Artifacts: `.tmp/structured-lifetime-paired-{small,large}-20260926/` and `.tmp/pass-sweep-v133-structured-lifetime-small-20260926/`. Baseline native SHA-256 is `5975dc028dc7f0a41c1beae12af7bdc7ba273109be5636f21044a318816fd131`; updated is `30dc535a657e2467aaf55d765ee9393e742144f97186b862c517c30e6a513a4c`. Oracle Binaryen 133 SHA-256 is `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+
+A seven-pair repeat resolves the initial nonesting timing concern: large pipeline medians are `3,625.860ms → 3,595.592ms`, and command medians `4,466.910ms → 4,449.559ms`. Small nonesting moves `7.129ms → 7.274ms` pipeline and `11.031ms → 11.135ms` command, while notee moves `3.483ms → 3.079ms` pipeline; these small movements are not claimed as wins. The same seven-pair small run measures CodePushing, another caller of the guard, at `11.421ms → 3.698ms` pipeline and `15.666ms → 7.486ms` command. Three large CodePushing pairs remain near their baseline (`719.465ms → 705.242ms` pipeline). Every confirmation output is byte-identical. Artifacts: `.tmp/structured-lifetime-confirm-{small,large,large-nonesting}-20260926/`.
+
+`moon info`, formatting and native release build pass, with no public API change from this unit. The four bounded guard regressions pass; the subsequent full default wasm-gc suite passes **12,456/12,456** tests, including the precompute and DAE2 environment changes recorded in their owner pages. Full-suite log: `.tmp/structured-lifetime-full-tests-20260926.log`.
+
+The eleven renewed v133 aggregate lanes each complete 10,000 cases with seed `0x5eed`, explicit prebuilt native compiler/generator and at most eight subprocesses. They use the documented `-all` profiles, except DAE optimizing's `dae-optimizing` aggregate and both precompute variants' `precompute-all`. Precompute enables all three documented debris normalizers, DAE optimizing enables drop-consts and unreachable-control-debris, and CodePushing enables local-cleanup-debris.
+
+| Pass | Normalized | Cleanup-normalized | Residuals | Canonically larger |
+| --- | ---: | ---: | ---: | ---: |
+| `precompute` | 3,238 | 6,762 | 0 | 0 |
+| `precompute-propagate` | 2,766 | 7,234 | 0 | 0 |
+| `inlining-optimizing` | 10,000 | 0 | 0 | 0 |
+| `dae-optimizing` | 5,153 | 0 | 4,847 | 0 |
+| `simplify-globals-optimizing` | 5,055 | 0 | 4,945 | 0 |
+| `simplify-locals` | 380 | 0 | 9,620 | 0 |
+| `simplify-locals-nonesting` | 5,026 | 0 | 4,974 | 0 |
+| `simplify-locals-notee` | 0 | 0 | 10,000 | 0 |
+| `simplify-locals-nostructure` | 0 | 0 | 10,000 | 1,662 |
+| `simplify-locals-notee-nostructure` | 0 | 0 | 10,000 | 0 |
+| `code-pushing` | 4,493 | 5,507 | 0 | 513 |
+
+All 110,000 comparisons have zero validation, property, generator or command failures; runtime semantic execution was not enabled. Agent classification: generated residuals remain open parity gaps, including no-structure's 1,662 size-losing cases. CodePushing's 513 canonical size losses all belong to `code-pushing-br-if-value`; cleanup normalization matches them, but it does not settle their size gap. All 140 saved raw residual outputs and all 513 size-losing CodePushing outputs are byte-identical to the baseline compiler, so these differences predate this guard optimization. Artifacts: `.tmp/pass-fuzz-<pass>-structured-lifetime-v133-10000-20260926/` and `.tmp/structured-lifetime-replay/result.json`.
 
 ## September 25, 2026 runtime-trace barrier measurement
 

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-12
+last_reviewed: 2026-09-26
 sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -13,7 +13,7 @@ sources:
 
 # `code-pushing` Fuzzing Profile
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — September 26, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131/v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 Recommended ordinary GenValid smoke lane:
 
@@ -22,6 +22,10 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-pushing
 ```
 
 Native-path note: after `moon build --target native --release src/cmd`, use `_build/native/release/build/cmd/cmd.exe`. A legacy `target/native/...` artifact may coexist, but it is not signoff evidence unless timestamp/hash comparison verifies that it is the freshly built executable; see [`../../../AGENTS.md`](../../../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
+
+## September 26, 2026 shared lifetime guard renewal
+
+The [shared guard optimization](../simplify-globals-optimizing/starshine-strategy.md#september-26-2026-structured-lifetime-guard-bounds) bounds flat/trailing capture scans and preserves the existing predicate. Fresh verified Binaryen 133 signoff in `.tmp/pass-fuzz-code-pushing-structured-lifetime-v133-10000-20260926/` compares 10,000 `code-pushing-all` cases with seed `0x5eed`, explicit native binaries, eight subprocesses and `local-cleanup-debris`: 4,493 normalized and 5,507 cleanup-normalized matches, no residual mismatches or validation/property/generator/command failures. Runtime execution was not enabled. All 513 canonical size losses are the `code-pushing-br-if-value` leaf; agent judgment keeps those size gaps open despite normalization. All 513 raw outputs replay identically against the pre-change compiler. Small pipeline time improves `11.421ms → 3.698ms` over seven alternating pairs after one warmup. The shared owner records hashes, large-fixture controls and the 12,456-test full-suite signoff. Historical v132 evidence below retains its original scope.
 
 ## September 12, 2026 correctness repair evidence
 
@@ -48,7 +52,6 @@ cover nested global writes, both bounded-query components, region/unique scans,
 and exhausted depth limits. Original/optimized Node execution checks saved local
 values and original mutable globals. The source fix preserves precise disjoint
 writes and completes a no-write query even after the read-count budget expires.
-
 
 ## Dedicated GenValid profile
 

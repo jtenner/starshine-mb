@@ -18,6 +18,11 @@ related:
 
 # `simplify-locals` Performance And Artifact Frontiers
 
+## September 26 structured-lifetime guard bounds
+
+Bounding the shared call-result lifetime guard at the last structured root and eliminating temporary body-surface arrays reduces small-fixture no-structure pipeline medians from `10.193ms` to `2.952ms`, and notee-nostructure from `9.205ms` to `1.859ms`. These are three alternating native pairs after one warmup, with byte-identical output. The large full-pass fixture remains approximately unchanged at `2,135.514ms → 2,139.162ms`. The [SimplifyGlobals strategy](../simplify-globals-optimizing/starshine-strategy.md#september-26-2026-structured-lifetime-guard-bounds) owns the shared guard proof, v133 evidence and follow-up measurements; HOT-only timers omit this raw cleanup and must not replace these pipeline costs.
+
+
 > **Comparison baseline — September 26, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Historical v131/v132 sources, commands, artifacts and results retain their original versions and do not establish v133 signoff.
 
 ## 2026-09-26 shared validation module facts
