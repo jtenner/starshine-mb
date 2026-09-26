@@ -1988,6 +1988,7 @@ priv struct DaeCurrentBoundaryGraph {
   mut module_epoch : Int
   mut call_epoch : Int
   mut type_epoch : Int
+  mut dependency_cache : DaeBoundaryDependencyGraph?
 }
 
 ///|
@@ -2786,6 +2787,7 @@ fn dae_current_boundary_graph_new(
     module_epoch: 0,
     call_epoch: 0,
     type_epoch: 0,
+    dependency_cache: None,
   }
 }
 
@@ -2808,6 +2810,7 @@ fn dae_typed_batch_boundary_graph_new(
     module_epoch: 0,
     call_epoch: 0,
     type_epoch: 0,
+    dependency_cache: None,
   }
 }
 
@@ -2909,6 +2912,7 @@ fn dae_current_boundary_graph_refresh(
   if changed {
     graph.module_epoch += 1
   }
+  graph.dependency_cache = None
   graph.mod_ = mod_
   graph.snapshot = next
   graph.topology = dae_collect_current_topology_extras(mod_, next)
@@ -3864,7 +3868,27 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
 ///|
 fn dae_boundary_dependency_graph_new(
   graph : DaeCurrentBoundaryGraph,
+  builds? : Array[Int]? = None,
 ) -> DaeBoundaryDependencyGraph {
+  match graph.dependency_cache {
+    Some(dependencies) => dependencies
+    None => {
+      let dependencies = dae_boundary_dependency_graph_build(graph, builds~)
+      graph.dependency_cache = Some(dependencies)
+      dependencies
+    }
+  }
+}
+
+///|
+fn dae_boundary_dependency_graph_build(
+  graph : DaeCurrentBoundaryGraph,
+  builds? : Array[Int]? = None,
+) -> DaeBoundaryDependencyGraph {
+  match builds {
+    Some(count) => count[0] += 1
+    None => ()
+  }
   let imported = graph.snapshot.imported
   let defined = graph.snapshot.defined
   let callers_by_def = dae_dependency_adjacency_new(defined)
@@ -4921,6 +4945,7 @@ fn dae_body_only_boundary_graph_new(
     module_epoch: 0,
     call_epoch: 0,
     type_epoch: 0,
+    dependency_cache: None,
   }
 }
 
@@ -21607,6 +21632,7 @@ fn dae_current_boundary_graph_adopt_parameter_batch_lightweight(
   for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
     function_types[imported + def_idx] = defined_function_types[def_idx]
   }
+  graph.dependency_cache = None
   graph.mod_ = mod_
   graph.snapshot = {
     imported,
@@ -21721,6 +21747,7 @@ fn dae_current_boundary_graph_adopt_dropped_result_batch_lightweight(
     dropped_calls,
     escaped: graph.snapshot.call_facts.escaped,
   }
+  graph.dependency_cache = None
   graph.mod_ = mod_
   graph.snapshot = {
     imported,
@@ -21784,6 +21811,7 @@ fn dae_current_boundary_graph_adopt_dropped_result_batch(
     call_facts.escaped != graph.snapshot.call_facts.escaped {
     return false
   }
+  graph.dependency_cache = None
   graph.mod_ = mod_
   graph.snapshot = {
     imported,

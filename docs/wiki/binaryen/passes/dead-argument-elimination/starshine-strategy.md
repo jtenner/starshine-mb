@@ -26,6 +26,23 @@ related:
 
 # Starshine `dead-argument-elimination` strategy and status
 
+## September 26, 2026 snapshot-scoped dependency reuse
+
+Repeated dependency queries now reuse one graph per current boundary snapshot.
+All four full/lightweight snapshot adoption paths discard it; constructors start
+empty. Adjacency and forwarding arrays remain read-only to consumers. A bounded
+fixture first rebuilt three times, now once, and preserves forwarding edges
+across body and signature refreshes. A separate parameter-batch adoption test
+checks that a removed argument discards its old forwarding edge.
+
+Three warm queries on the 128-callee fixture measure `378.18 µs` rebuilding
+versus `27.90 ns` reusing the graph. This excludes the initial build and is not a
+whole-pass speedup. The existing forwarding-construction benchmark explicitly
+calls the uncached builder so it continues to measure construction.
+Sources: `src/passes/dead_argument_elimination.mbt`,
+`src/passes/dae_dependency_cache_{wbtest,perf_wbtest}.mbt`, and
+`.tmp/pass-perf-work-20260926/dae-dependency-cache-bench.log`.
+
 ## September 26, 2026 stable operand reuse
 
 Narrowed multi-parameter uniform-actual queries now lazily reuse stable scope
