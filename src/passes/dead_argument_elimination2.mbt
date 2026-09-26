@@ -121,21 +121,12 @@ fn dae2_analyze_function(
   index : Int,
   type_infos : Array[Int],
   func : @ir.HotFunc,
+  local_graph_builds? : Array[Int]? = None,
+  fallback_write_builds? : Array[Int]? = None,
 ) -> Unit {
   let info = infos[index]
-  let cfg = @ir.cfg_build(func)
-  let locals = @ir.local_graph_build_full_flow(func, cfg)
-  let writes : Array[Array[Int]] = Array::makei(@ir.hot_local_count(func), fn(
-    _,
-  ) {
-    []
-  })
-  for node = 0; node < info.node_locations.length(); node = node + 1 {
-    let data = @ir.hot_node_get(func, node)
-    if data.op is @ir.LocalSet || data.op is @ir.LocalTee {
-      writes[data.imm0].push(node)
-    }
-  }
+  let mut local_flow : @ir.HotLocalGraph? = None
+  let mut fallback_writes : Array[Array[Int]]? = None
   for node = 0; node < info.node_locations.length(); node = node + 1 {
     if !@ir.hot_node_is_live(func, node) {
       continue
@@ -145,10 +136,50 @@ fn dae2_analyze_function(
     let children = @ir.hot_child_span(func, node)
     match data.op {
       @ir.LocalGet => {
+        let locals = match local_flow {
+          Some(locals) => locals
+          None => {
+            match local_graph_builds {
+              Some(count) => count[0] += 1
+              None => ()
+            }
+            let locals = @ir.local_graph_build_full_flow(
+              func,
+              @ir.cfg_build(func),
+            )
+            local_flow = Some(locals)
+            locals
+          }
+        }
         let sources = @ir.local_graph_reaching_sources_for_get(locals, node)
         // A get inside control not represented by LocalGraph has no recorded
         // sources. That is unknown, not proof that its entry value is unused.
         if sources.is_empty() {
+          let writes = match fallback_writes {
+            Some(writes) => writes
+            None => {
+              match fallback_write_builds {
+                Some(count) => count[0] += 1
+                None => ()
+              }
+              let writes : Array[Array[Int]] = Array::makei(
+                @ir.hot_local_count(func),
+                fn(_) { [] },
+              )
+              // Unrepresented reads retain every possible write, including
+              // nodes outside the represented CFG, exactly as before.
+              for write = 0
+                  write < info.node_locations.length()
+                  write = write + 1 {
+                let data = @ir.hot_node_get(func, write)
+                if data.op is @ir.LocalSet || data.op is @ir.LocalTee {
+                  writes[data.imm0].push(write)
+                }
+              }
+              fallback_writes = Some(writes)
+              writes
+            }
+          }
           if data.imm0 < info.params.length() {
             graph.edge(value, info.param_locations[data.imm0])
           }
@@ -486,6 +517,8 @@ fn dae2_run_module_pass(
   closed_world : Bool,
   cleanup_module_env_builds? : Array[Int]? = None,
   rewrite_lifts? : Array[Int]? = None,
+  local_graph_builds? : Array[Int]? = None,
+  fallback_write_builds? : Array[Int]? = None,
 ) -> Result[@lib.Module, String] {
   let original = mod_
   let mod_ = match dae2_prepare_legacy_handlers(mod_) {
@@ -551,7 +584,15 @@ fn dae2_run_module_pass(
         _ => ()
       }
     }
-    dae2_analyze_function(graph, infos, index, type_infos, func)
+    dae2_analyze_function(
+      graph,
+      infos,
+      index,
+      type_infos,
+      func,
+      local_graph_builds~,
+      fallback_write_builds~,
+    )
   }
   graph.solve()
   let mut signature_change = false

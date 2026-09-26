@@ -13,6 +13,12 @@ sources:
 
 # DAE2 GenValid coverage
 
+## September 26 lazy local-flow renewal
+
+Fresh native Starshine `0925e7e8ae15e1e06d4fa171fdcf5b251e42f68f627ef7955a10bf032570748f` renews both 10,000-case `dae2` aggregate lanes against the same verified v133 oracle, seed, worker limits, normalization and Node-v2 settings below. Counts are unchanged: open 2,879 canonical / 667 cleanup-normalized / 6,454 residual; closed 0 / 100 / 9,900, including 706 canonically larger outputs. Each world has 9,312 runtime matches and 688 original-runtime-blocked cases, with zero semantic mismatches or validation, property, generator or command failures. All 40 saved residual outputs are byte-identical to the pre-change CLI. My classification remains open parity gaps, including the 706 size-losing closed-world cases; blocked executions remain unverified.
+
+All 12,470 default wasm-gc tests pass. Evidence: `.tmp/pass-fuzz-dae2-lazy-flow-{open,closed}-v133-10000-final-20260926/`, `.tmp/dae2-lazy-flow-replay/result.json`, and `.tmp/dae2-lazy-flow-full-tests-final-20260926.log`. The [strategy page](./starshine-strategy.md#september-26-2026-lazy-local-flow-analysis) records the 10–29% dedicated-fixture gains and neutral large-artifact repeat; this renewal does not close the overall performance gap.
+
 ## September 26 unchanged-function relift renewal
 
 Verified Binaryen 133 (`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`) and fresh native Starshine `b084365e0bd4b2bc98457da7eb8773504b5cf2720665dea7ae5b961d30c41a06` renew the `dae2` aggregate in both worlds, 10,000 comparisons each at seed `0x5eed`. The explicit native CLI and generator use eight subprocesses, `--jobs auto`, at most 20 mismatch artifacts, the default cache, `drop-consts` and `unreachable-control-debris` normalization, and `--semantic-oracle node-v2`. No external generator was requested.
