@@ -11067,7 +11067,15 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
     mod_, module_state, options,
   )
   let env = run_hot_pipeline_raw_simplify_locals_func_env(
-    mod_, func_idx, module_ctx, locals,
+    mod_,
+    func_idx,
+    module_ctx,
+    locals,
+    module_env=Some(
+      run_hot_pipeline_require_validation_module_env(
+        mod_, module_state, options,
+      ),
+    ),
   )
   let (balanced_instrs, balanced_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fixpoint(
     instrs, env,
@@ -12974,7 +12982,15 @@ fn run_hot_pipeline_raw_simplify_locals(
   }
   if allows_tee && stats.locals_count <= 64 && stack_carried_size_admitted {
     let env = run_hot_pipeline_raw_simplify_locals_func_env(
-      mod_, func_idx, module_ctx, locals,
+      mod_,
+      func_idx,
+      module_ctx,
+      locals,
+      module_env=Some(
+        run_hot_pipeline_require_validation_module_env(
+          mod_, module_state, options,
+        ),
+      ),
     )
     let (stack_carried_instrs, stack_carried_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_stack_carried_local_gets(
       instrs, env,
@@ -13939,7 +13955,15 @@ fn run_hot_pipeline_raw_simplify_locals(
         mod_, module_state, options,
       )
       let env = run_hot_pipeline_raw_simplify_locals_func_env(
-        mod_, func_idx, module_ctx, locals,
+        mod_,
+        func_idx,
+        module_ctx,
+        locals,
+        module_env=Some(
+          run_hot_pipeline_require_validation_module_env(
+            mod_, module_state, options,
+          ),
+        ),
       )
       let (pure_call_tail_instrs, pure_call_tail_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails_nested_fixpoint(
         instrs,
@@ -14167,7 +14191,15 @@ fn run_hot_pipeline_raw_simplify_locals(
         mod_, module_state, options,
       )
       let env = run_hot_pipeline_raw_simplify_locals_func_env(
-        mod_, func_idx, module_ctx, locals,
+        mod_,
+        func_idx,
+        module_ctx,
+        locals,
+        module_env=Some(
+          run_hot_pipeline_require_validation_module_env(
+            mod_, module_state, options,
+          ),
+        ),
       )
       let params = run_hot_pipeline_required_raw_func_params(
         mod_, module_ctx, func_idx,
@@ -14247,7 +14279,15 @@ fn run_hot_pipeline_raw_simplify_locals(
     mod_, module_state, options,
   )
   let env = run_hot_pipeline_raw_simplify_locals_func_env(
-    mod_, func_idx, module_ctx, locals,
+    mod_,
+    func_idx,
+    module_ctx,
+    locals,
+    module_env=Some(
+      run_hot_pipeline_require_validation_module_env(
+        mod_, module_state, options,
+      ),
+    ),
   )
   let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
     instrs, env,
