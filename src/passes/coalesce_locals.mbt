@@ -6534,8 +6534,13 @@ fn cl_cfg_sparse_slot_interferes(
   members : Array[Int],
   local_idx : Int,
   interferences : CLCfgSparseInterferences,
+  query_steps? : Array[Int]? = None,
 ) -> Bool {
   for slot_member in members {
+    match query_steps {
+      Some(count) => count[0] += 1
+      None => ()
+    }
     if cl_cfg_sparse_interferes(interferences, local_idx, slot_member) {
       return true
     }
@@ -6566,6 +6571,117 @@ fn cl_cfg_sparse_color_with_order(
   param_count : Int,
   interferences : CLCfgSparseInterferences,
   weights : CLCfgSparseWeights,
+  query_steps? : Array[Int]? = None,
+) -> CLColoring {
+  // Small functions retain the compact member-based path. Larger rows scatter
+  // conflicts and copy weights by assigned slot once for each source local.
+  if types.length() < 64 {
+    return cl_cfg_sparse_color_members(
+      order,
+      types,
+      param_count,
+      interferences,
+      weights,
+      query_steps~,
+    )
+  }
+  let old_to_new = Array::make(types.length(), -1)
+  let slot_types : Array[@lib.ValType] = []
+  for idx in 0..<param_count {
+    old_to_new[idx] = idx
+    slot_types.push(types[idx])
+  }
+  let forbidden = Array::make(types.length(), -1)
+  let score_marks = Array::make(types.length(), -1)
+  let scores = Array::make(types.length(), 0)
+  for local_idx in order {
+    let words = interferences.rows[local_idx].words
+    for word_idx in 0..<words.length() {
+      match query_steps {
+        Some(count) => count[0] += 1
+        None => ()
+      }
+      let mut word = words[word_idx]
+      while word != 0UL {
+        let other = word_idx * 64 + word.ctz()
+        if other < old_to_new.length() {
+          let slot = old_to_new[other]
+          if slot >= 0 {
+            forbidden[slot] = local_idx
+          }
+        }
+        word = word & (word - 1UL)
+      }
+    }
+    let mut max_score = 0
+    for edge in weights.rows[local_idx] {
+      let (other, weight) = edge
+      let slot = old_to_new[other]
+      if slot >= 0 {
+        if score_marks[slot] != local_idx {
+          score_marks[slot] = local_idx
+          scores[slot] = 0
+        }
+        scores[slot] += weight
+        if scores[slot] > max_score {
+          max_score = scores[slot]
+        }
+      }
+    }
+    let mut best_slot = -1
+    let mut best_score = -1
+    for slot in 0..<slot_types.length() {
+      match query_steps {
+        Some(count) => count[0] += 1
+        None => ()
+      }
+      if slot_types[slot] == types[local_idx] && forbidden[slot] != local_idx {
+        let score = if score_marks[slot] == local_idx {
+          scores[slot]
+        } else {
+          0
+        }
+        if score > best_score {
+          best_score = score
+          best_slot = slot
+          // Earlier slots win equal scores. No later slot can improve on the
+          // maximum assigned copy weight, including the common zero-weight row.
+          if best_score == max_score {
+            break
+          }
+        }
+      }
+    }
+    if best_slot < 0 {
+      best_slot = slot_types.length()
+      slot_types.push(types[local_idx])
+    }
+    old_to_new[local_idx] = best_slot
+  }
+  let body_slot_types : Array[@lib.ValType] = []
+  for slot in param_count..<slot_types.length() {
+    body_slot_types.push(slot_types[slot])
+  }
+  let mut removed_copies = 0
+  for lhs in 0..<weights.rows.length() {
+    for edge in weights.rows[lhs] {
+      let (rhs, weight) = edge
+      if rhs > lhs && old_to_new[lhs] == old_to_new[rhs] {
+        removed_copies += weight
+      }
+    }
+  }
+  { old_to_new, slot_types: body_slot_types, removed_copies, }
+}
+
+///|
+fn cl_cfg_sparse_color_members(
+  order : Array[Int],
+  types : Array[@lib.ValType],
+  param_count : Int,
+  interferences : CLCfgSparseInterferences,
+  weights : CLCfgSparseWeights,
+  query_steps? : Array[Int]? = None,
 ) -> CLColoring {
   let old_to_new = Array::make(types.length(), -1)
   let slot_types : Array[@lib.ValType] = []
@@ -6591,6 +6707,7 @@ fn cl_cfg_sparse_color_with_order(
           slot_members[slot],
           local_idx,
           interferences,
+          query_steps~,
         ) {
         let score = cl_cfg_sparse_slot_copy_score(
           slot_members[slot],

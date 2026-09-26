@@ -38,6 +38,30 @@ related:
 Use this page together with the [`coalesce-locals` landing page](./index.md)'s tagged source list, the retained 2026-05-05 research recheck, and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.
 
+## September 26, 2026 indexed coloring slots
+
+For at least 64 locals, CFG coloring now marks conflicting assigned slots from
+each interference row's set bits and accumulates copy weights by assigned slot.
+It preserves parameter slots, type compatibility, ascending slot order and the
+first-slot tie break. Small functions retain the member-based path. The search
+can stop once it reaches the maximum available copy score; zero-weight rows
+therefore stop at the first legal slot. No interference matrix or coloring
+heuristic was removed or weakened.
+
+The bounded regression fell from 8,128 member probes to at most 512 query steps
+and agrees with the previous algorithm for mixed types, parameters, weights and
+both local orders. The native sparse coloring controls improve
+`378.15 → 10.06 µs` at 512 locals and `5.92 ms → 77.41 µs` at 2,048;
+the 128-local clique improves `59.63 → 42.19 µs`. These isolate coloring, with
+fixture construction outside timing. The command regression preserves all 128
+ordered call arguments while reducing local declarations.
+
+Sources: `src/passes/coalesce_locals.mbt`,
+`src/passes/coalesce_slot_queries_{wbtest,perf_wbtest}.mbt`,
+`src/cmd/perf_coalesce_slots_wbtest.mbt`, and
+`.tmp/pass-perf-work-20260926/coalesce-slot-bench.log`.
+Full artifact gains and final fuzz evidence are recorded separately.
+
 ## September 26, 2026 future-root minimum index
 
 The shared source-order query now indexes per-root dependency minima for the
