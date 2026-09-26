@@ -14,6 +14,25 @@ priv struct HotSourceOrderFacts {
   ]
   local_access_seen : Array[Int]
   mut local_access_stamp : Int
+  mut dependency_scratch : HotSourceOrderScratch?
+}
+
+///|
+priv struct HotSourceOrderScratch {
+  seen_consumer : Array[Int]
+  consumer_bounds : Array[Int]
+  anti_dependencies : @bitset.BitSet
+  touched : Array[NodeId]
+}
+
+///|
+fn HotSourceOrderScratch::new(count : Int) -> HotSourceOrderScratch {
+  {
+    seen_consumer: Array::make(count, count),
+    consumer_bounds: Array::make(count, -1),
+    anti_dependencies: @bitset.BitSet::new(count),
+    touched: [],
+  }
 }
 
 ///|
@@ -28,6 +47,7 @@ fn HotSourceOrderFacts::new(func : HotFunc) -> HotSourceOrderFacts {
     first_local_access_orders: @hashmap.new(),
     local_access_seen: Array::make(hot_node_count(func), 0),
     local_access_stamp: 0,
+    dependency_scratch: None,
   }
 }
 
@@ -99,6 +119,7 @@ fn hot_source_order_preceding_dependencies(
   future_start : Int,
   future_dependency_suffix_minima : Array[Int]?,
   facts : HotSourceOrderFacts,
+  scratch_builds? : Array[Int]? = None,
 ) -> Array[NodeId] {
   let call_order_required = hot_node_result_arity(func, current_root) == 0 &&
     (match hot_query_op(func, current_root) {
@@ -126,8 +147,20 @@ fn hot_source_order_preceding_dependencies(
       }
     None => ()
   }
-  let seen_consumer = Array::make(hot_node_count(func), hot_node_count(func))
-  let consumer_bounds = Array::make(hot_node_count(func), -1)
+  let scratch = match facts.dependency_scratch {
+    Some(scratch) => scratch
+    None => {
+      match scratch_builds {
+        Some(count) => count[0] += 1
+        None => ()
+      }
+      let scratch = HotSourceOrderScratch::new(hot_node_count(func))
+      facts.dependency_scratch = Some(scratch)
+      scratch
+    }
+  }
+  let seen_consumer = scratch.seen_consumer
+  let consumer_bounds = scratch.consumer_bounds
   let carried : Array[NodeId] = []
   // An inserted root can have a newer ID than the consumer it precedes.
   // That order comes from the region, not from a former stack lifetime.
@@ -143,11 +176,12 @@ fn hot_source_order_preceding_dependencies(
         facts.node_effects,
         seen_consumer,
         consumer_bounds,
+        scratch.touched,
         carried,
       )
     }
   }
-  let anti_dependencies = @bitset.BitSet::new(hot_node_count(func))
+  let anti_dependencies = scratch.anti_dependencies
   for node_id in carried {
     anti_dependencies[node_id] = true
   }
@@ -162,6 +196,7 @@ fn hot_source_order_preceding_dependencies(
         facts.node_effects,
         seen_consumer,
         consumer_bounds,
+        scratch.touched,
         carried,
       )
     }
@@ -209,6 +244,14 @@ fn hot_source_order_preceding_dependencies(
       selected.push(node_id)
     }
   }
+  // Facts belong to one immutable source-order snapshot. Queries do not nest;
+  // clear only visited entries before the next root reuses this workspace.
+  for node_id in scratch.touched {
+    seen_consumer[node_id] = hot_node_count(func)
+    consumer_bounds[node_id] = -1
+    anti_dependencies[node_id] = false
+  }
+  scratch.touched.clear()
   selected
 }
 

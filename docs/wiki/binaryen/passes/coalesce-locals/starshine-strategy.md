@@ -38,6 +38,37 @@ related:
 Use this page together with the [`coalesce-locals` landing page](./index.md)'s tagged source list, the retained 2026-05-05 research recheck, and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.
 
+## September 26, 2026 dependency-query scratch reuse
+
+Source-order dependency discovery now allocates its consumer bounds, visited
+consumers and anti-dependency bits lazily once per immutable function snapshot.
+Each query clears only nodes it visited. Repeated queries retain independent
+consumer bounds and call ordering; the bounded regression first failed with
+nine workspace builds instead of one. The existing two-stage collection and
+strict source-order conflict predicates are unchanged.
+
+The focused native benchmark performs 64 queries over the same carried call.
+At 1,024 surrounding nodes it improves `40.80 → 8.83 µs`; at 4,096 nodes,
+`128.75 → 9.54 µs`. These are helper measurements, not whole-pass speedups.
+Evidence: `src/ir/hot_source_order_scratch_wbtest.mbt`,
+`src/ir/hot_source_order_scratch_perf_wbtest.mbt`,
+`src/cmd/perf_call_order_wbtest.mbt`, and
+`.tmp/pass-perf-work-20260926/source-scratch-{before,after}.log`.
+
+Three isolated alternating large-compiler pairs after one warmup reduce
+CoalesceLocals pipeline median `8,272.009 → 7,366.607 ms` (11.0%) and DAE2
+`7,127.363 → 6,648.325 ms` (6.7%). Every output is byte-identical to the saved
+starting-worktree native executable, matches its untraced output, and validates
+with wasm-tools. Seven-pair small confirmations measure DAE2
+`19.341 → 19.597 ms` and DAEO `162.912 → 163.065 ms`; no small-input speedup is
+claimed. Small CoalesceLocals is unchanged at `14.490 → 14.487 ms` over three
+pairs. These are causal Starshine comparisons, not new Binaryen ratios.
+Inputs/executable hashes and every sample are recorded in
+`.tmp/pass-perf-work-20260926/source-scratch-{large,small,small-confirm}/result.json`.
+Focused tests cover the source-order cache and active CoalesceLocals/DAE2
+dispatchers. At the user's request, aggregate fuzz renewal follows the complete
+performance work rather than blocking each individual change.
+
 ## September 26, 2026 source-order local-access index
 
 The renewed large-input profile identifies `hot_lower_impl_carried_local_write_conflicts` inside expanded CFG construction. Its nested scan compared every qualifying write with every access in another root. A lazy sparse index now caches that root's minimum access order for each local. The write filter and both strict interval bounds are unchanged; missing entries retain the node-count sentinel, and the earliest access must win even when a later access falls inside the requested interval. Queries with at most four accesses or a single carried access keep their direct scan. The cache shares the lifetime of the existing immutable source-order snapshot; memory grows with distinct locals in indexed roots, without allocating a function-sized local array for every query.

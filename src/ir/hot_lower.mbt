@@ -739,6 +739,7 @@ fn hot_lower_impl_collect_preceding_dependency(
   node_effects : Array[EffectMask],
   seen_consumer : Array[Int],
   consumer_bounds : Array[Int],
+  touched : Array[NodeId],
   out : Array[NodeId],
 ) -> Unit {
   if node_id < 0 ||
@@ -746,6 +747,9 @@ fn hot_lower_impl_collect_preceding_dependency(
     seen_consumer[node_id] <= consumer_id ||
     !hot_node_is_live(func, node_id) {
     return
+  }
+  if seen_consumer[node_id] == seen_consumer.length() {
+    touched.push(node_id)
   }
   seen_consumer[node_id] = consumer_id
   if value_orders[node_id] < before_node_id &&
@@ -761,7 +765,7 @@ fn hot_lower_impl_collect_preceding_dependency(
   for input_id in inputs.nodes {
     hot_lower_impl_collect_preceding_dependency(
       func, input_id, before_node_id, consumer_id, value_orders, node_effects, seen_consumer,
-      consumer_bounds, out,
+      consumer_bounds, touched, out,
     )
   }
 }
