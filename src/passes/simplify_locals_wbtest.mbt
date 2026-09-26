@@ -10,6 +10,61 @@ fn simplify_locals_wbtest_ctx() -> HotPassContext {
 }
 
 ///|
+test "simplify-locals skips future call suffixes with no earlier operands" {
+  let func = @ir.HotFunc::new()
+  for _idx = 0; _idx < 128; _idx = _idx + 1 {
+    @ir.hot_root_append(func, @ir.hot_build_call(func, 0, [], []))
+  }
+  let future_roots_scanned = [0]
+  let changed = simplify_locals_scan_region(
+    func,
+    @ir.HotRegionRef::root(),
+    simplify_locals_new_sinkables(func),
+    true,
+    simplify_locals_count_local_gets(func),
+    [],
+    SimplifyLocalsPolicy::new(true, true, true),
+    false,
+    false,
+    [],
+    future_roots_scanned=Some(future_roots_scanned),
+  )
+  assert_false(changed)
+  assert_eq(@ir.hot_region_root_count(func, @ir.HotRegionRef::root()), 128)
+  assert_eq(future_roots_scanned[0], 0)
+}
+
+///|
+test "simplify-locals suffix preflight retains older effectful operands" {
+  let func = @ir.HotFunc::new()
+  let old_value = @ir.hot_build_call(func, 0, [@lib.ValType::i32()], [])
+  let current_call = @ir.hot_build_call(func, 1, [], [])
+  @ir.hot_root_append(func, current_call)
+  let later_value = @ir.hot_build_call(func, 2, [@lib.ValType::i32()], [
+    old_value,
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_call(func, 3, [], [later_value]))
+  let suffix_mins = simplify_locals_future_input_suffix_min_node_ids(
+    func,
+    @ir.HotRegionRef::root(),
+  )
+  assert_eq(suffix_mins[1], old_value)
+  let future_roots_scanned = [0]
+  assert_eq(
+    simplify_locals_preceding_future_call_dependencies(
+      func,
+      @ir.HotRegionRef::root(),
+      0,
+      current_call,
+      future_input_suffix_mins=Some(suffix_mins),
+      future_roots_scanned=Some(future_roots_scanned),
+    ),
+    [old_value],
+  )
+  assert_eq(future_roots_scanned[0], 1)
+}
+
+///|
 test "simplify-locals root stack hazard detects effectful reads before overwrite" {
   let func = pass_test_lift_first_func(
     (

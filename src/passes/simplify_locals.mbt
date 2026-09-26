@@ -3523,11 +3523,73 @@ fn simplify_locals_collect_preceding_call_dependency(
 }
 
 ///|
+fn simplify_locals_source_input_min_node_id(
+  func : @ir.HotFunc,
+  node_id : Int,
+  memo : Array[Int],
+  sentinel : Int,
+) -> Int {
+  if node_id < 0 ||
+    node_id >= memo.length() ||
+    !@ir.hot_node_is_live(func, node_id) {
+    return sentinel
+  }
+  if memo[node_id] >= 0 {
+    return memo[node_id]
+  }
+  let mut min_id = node_id
+  // Store a conservative bound before descending in case the graph shares a
+  // node through more than one input path.
+  memo[node_id] = node_id
+  for input_id in simplify_locals_source_order_inputs(func, node_id) {
+    let candidate = simplify_locals_source_input_min_node_id(
+      func, input_id, memo, sentinel,
+    )
+    if candidate < min_id {
+      min_id = candidate
+    }
+  }
+  memo[node_id] = min_id
+  min_id
+}
+
+///|
+fn simplify_locals_future_input_suffix_min_node_ids(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Array[Int] {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let sentinel = @ir.hot_node_count(func)
+  let memo = Array::make(sentinel, -1)
+  let suffix_mins = Array::make(root_count + 1, sentinel)
+  let mut idx = root_count
+  while idx > 0 {
+    idx -= 1
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    let mut min_id = suffix_mins[idx + 1]
+    if root_id >= 0 && @ir.hot_node_is_live(func, root_id) {
+      for input_id in simplify_locals_source_order_inputs(func, root_id) {
+        let candidate = simplify_locals_source_input_min_node_id(
+          func, input_id, memo, sentinel,
+        )
+        if candidate < min_id {
+          min_id = candidate
+        }
+      }
+    }
+    suffix_mins[idx] = min_id
+  }
+  suffix_mins
+}
+
+///|
 fn simplify_locals_preceding_future_call_dependencies(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   root_idx : Int,
   current_root : Int,
+  future_input_suffix_mins? : Array[Int]? = None,
+  future_roots_scanned? : Array[Int]? = None,
 ) -> Array[Int] {
   match @ir.hot_node_get(func, current_root).op {
     @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef => ()
@@ -3536,11 +3598,20 @@ fn simplify_locals_preceding_future_call_dependencies(
   if @ir.hot_node_result_arity(func, current_root) != 0 {
     return []
   }
+  match future_input_suffix_mins {
+    Some(mins) if root_idx + 1 < mins.length() &&
+      mins[root_idx + 1] >= current_root => return []
+    _ => ()
+  }
   let seen = Array::make(@ir.hot_node_count(func), false)
   let out : Array[Int] = []
   for idx = root_idx + 1
       idx < @ir.hot_region_root_count(func, region_ref)
       idx = idx + 1 {
+    match future_roots_scanned {
+      Some(scanned) => scanned[0] += 1
+      None => ()
+    }
     let future_root = @ir.hot_region_get(func, region_ref, idx)
     for input_id in simplify_locals_source_order_inputs(func, future_root) {
       simplify_locals_collect_preceding_call_dependency(
@@ -3564,6 +3635,7 @@ fn simplify_locals_scan_region(
   protect_control_embedded_local_tee : Bool,
   inside_control : Bool,
   deferred_sets : Array[Int],
+  future_roots_scanned? : Array[Int]? = None,
 ) -> Bool {
   if protect_control_embedded_local_tee &&
     inside_control &&
@@ -3573,14 +3645,44 @@ fn simplify_locals_scan_region(
     return false
   }
   let mut changed = false
+  let initial_revision = @ir.hot_revision_current(func)
+  let mut future_input_suffix_mins : Array[Int]? = None
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
       continue
     }
+    if @ir.hot_region_root_count(func, region_ref) >= 16 &&
+      @ir.hot_revision_current(func) == initial_revision &&
+      @ir.hot_node_result_arity(func, node_id) == 0 {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef =>
+          match future_input_suffix_mins {
+            None =>
+              future_input_suffix_mins = Some(
+                simplify_locals_future_input_suffix_min_node_ids(
+                  func, region_ref,
+                ),
+              )
+            Some(_) => ()
+          }
+        _ => ()
+      }
+    }
+    let current_suffix_mins = if @ir.hot_revision_current(func) ==
+      initial_revision {
+      future_input_suffix_mins
+    } else {
+      None
+    }
     for
       dependency_id in simplify_locals_preceding_future_call_dependencies(
-        func, region_ref, idx, node_id,
+        func,
+        region_ref,
+        idx,
+        node_id,
+        future_input_suffix_mins=current_suffix_mins,
+        future_roots_scanned~,
       ) {
       if simplify_locals_scan_node(
           func,

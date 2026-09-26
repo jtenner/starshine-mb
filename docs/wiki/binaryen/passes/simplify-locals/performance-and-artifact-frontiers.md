@@ -20,6 +20,16 @@ related:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
+## 2026-09-25 future-call suffix preflight (Binaryen 133)
+
+The shared HOT scan previously revisited every later root for each void call, searching for effectful value operands allocated before that call. A lazily built suffix minimum now proves when no such earlier operand exists. The index is used only while the function revision is unchanged; mutations fall back to the existing dependency scan. This removes quadratic work from dense unchanged call regions while preserving dependency order. Binaryen 133 uses a [linear execution walker](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/SimplifyLocals.cpp); Starshine retains its extra HOT dependency repair only where the operand ordering requires it. The [whitebox tests](../../../../../src/passes/simplify_locals_wbtest.mbt) cover a dense no-dependency region and an older effectful value nested below a newer call.
+
+On the 189 KB fixture, `simplify-locals-nonesting` fell from `54.111ms` to `2.421ms` pass-local (`22.4x` faster), versus verified Binaryen 133 at `1.786ms`. Its raw output hash is unchanged: `cc12ddcada04bd3d30196c72e25e10ab9cc7059e0ffe963f23a0dc673fca2bde`. All eight canonical/alias names were swept; the other canonical medians are full `0.486ms`, no-tee `0.908ms`, no-structure `0.384ms`, and no-tee/no-structure `0.178ms`. Every available small baseline and all five large canonical outputs remain byte-identical.
+
+The 6.2 MB sweep still has substantial command overhead: full SimplifyLocals is `26,003ms` command / `104.658ms` pass-local, no-nesting is `4,277ms` / `620.267ms`, and no-tee is `3,362ms` / `898.619ms`. This preflight does not close the raw-dispatch, lift/lower, or output-size gaps. Evidence is local at `.tmp/pass-sweep-v133-simplify-locals-suffix-{small,variants,large}-20260925/`.
+
+All five aggregate GenValid lanes compared `10000/10000` with verified v133 and the prebuilt native Starshine. Full/no-nesting/no-tee/no-structure/no-tee-no-structure had `380/5026/0/0/0` normalized matches and `9620/4974/10000/10000/10000` residuals respectively, with zero validation, property, generator, or command failures. Agent classification remains open parity gaps for the smaller residuals; smaller size alone is not semantic evidence. No-structure also has `1662` canonically larger residuals, classified as size-losing. These are not green parity lanes. The 335 focused family tests pass. Artifacts are `.tmp/pass-fuzz-<canonical-pass>-suffix-v133-10000/`.
+
 ## 2026-09-25 loop-carrier preflight summaries
 
 Two raw SimplifyLocals loop-carrier guards previously searched the same loop body for each preceding initializer. After the first negative query, they now collect ordinary local writes and result-control local writes once per loop body, then query those maps for later initializer candidates. The first query retains the direct scan, avoiding summary work for one-candidate loops. The collector traverses nested blocks, loops, try tables, and if arms with the same coverage as the previous predicates.
