@@ -337,12 +337,14 @@ fn pass_lower_flatten_branchless_blocks(
 fn pass_lower_cleanup_branchless_blocks(
   func : @lib.Func,
   mod_ : @lib.Module,
+  module_env? : @validate.Env? = None,
 ) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(body)) = func
-  let (body, changed, _) = pass_lower_flatten_branchless_blocks(
-    body,
-    @validate.Env::new().with_module(mod_),
-  )
+  let env = match module_env {
+    Some(env) => env
+    None => @validate.Env::new().with_module(mod_)
+  }
+  let (body, changed, _) = pass_lower_flatten_branchless_blocks(body, env)
   if changed {
     (@lib.Func::new(locals, @lib.Expr::new(body)), true)
   } else {

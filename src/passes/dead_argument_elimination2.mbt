@@ -484,6 +484,7 @@ fn dae2_rewrite_node(
 fn dae2_run_module_pass(
   mod_ : @lib.Module,
   closed_world : Bool,
+  cleanup_module_env_builds? : Array[Int]? = None,
 ) -> Result[@lib.Module, String] {
   let original = mod_
   let mod_ = match dae2_prepare_legacy_handlers(mod_) {
@@ -774,8 +775,18 @@ fn dae2_run_module_pass(
   candidate = dae2_fold_known_local_throws(candidate)
   // Removed arguments can leave result wrappers around ordered producers.
   // Only flatten blocks without label-dependent control transfers.
+  match cleanup_module_env_builds {
+    Some(builds) => builds[0] += 1
+    None => ()
+  }
+  // Every body is cleaned against the same finalized signature/type snapshot.
+  let cleanup_env = @validate.Env::new().with_module(candidate)
   let cleaned_bodies = candidate.code_sec.unwrap().0.map(fn(func) {
-    pass_lower_cleanup_branchless_blocks(func, candidate).0
+    pass_lower_cleanup_branchless_blocks(
+      func,
+      candidate,
+      module_env=Some(cleanup_env),
+    ).0
   })
   candidate = candidate.with_code_sec(@lib.CodeSec::new(cleaned_bodies))
   // No mutation escapes until every definition and call site has its new
