@@ -7108,34 +7108,37 @@ fn precompute_raw_loop_is_unconditional_self_branch(
 ///|
 fn precompute_raw_try_mark_value_tail_after_infinite_loop(
   out : Array[@lib.Instruction],
+  visits? : Array[Int]? = None,
 ) -> Bool {
   if out.length() < 2 {
     return false
   }
-  let mut loop_idx = 0
-  while loop_idx + 1 < out.length() {
-    if precompute_raw_loop_is_unconditional_self_branch(out[loop_idx]) {
-      let mut suffix_idx = loop_idx + 1
-      let mut has_value_tail = false
-      let mut suffix_supported = true
-      while suffix_idx < out.length() {
-        match out[suffix_idx] {
-          @lib.Nop => ()
-          instr if precompute_raw_instr_is_flat_discardable_value(instr) =>
-            has_value_tail = true
-          _ => suffix_supported = false
+  let mut idx = out.length() - 1
+  let mut has_value_tail = false
+  // Only the first non-value/non-nop instruction can be the loop: any
+  // earlier loop would have this instruction in its unsupported suffix.
+  while idx >= 0 {
+    match visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    match out[idx] {
+      @lib.Nop => ()
+      instr if precompute_raw_instr_is_flat_discardable_value(instr) =>
+        has_value_tail = true
+      instr => {
+        if !has_value_tail ||
+          !precompute_raw_loop_is_unconditional_self_branch(instr) {
+          return false
         }
-        suffix_idx = suffix_idx + 1
-      }
-      if suffix_supported && has_value_tail {
-        while out.length() > loop_idx + 1 {
+        while out.length() > idx + 1 {
           ignore(out.pop())
         }
         out.push(@lib.Instruction::unreachable_())
         return true
       }
     }
-    loop_idx = loop_idx + 1
+    idx -= 1
   }
   false
 }

@@ -67,6 +67,10 @@ The shared scheduler abstraction for DAE/inlining/SGO is still tracked under `[O
 
 The durable pass-local fixture is the inline-heavy helper-chain matrix described in [`fuzzing.md`](./fuzzing.md). The accepted post-repair ratios meet the repository's `<= 1x Binaryen` target across 1, 5, 10, 20, 50, and 100 helper cases. Reopen on repeated regression above that target or a new nested-pass scaling cliff.
 
+### September 26, 2026 precompute tail rejection
+
+After the raw SimplifyLocals improvements below, the nested precompute infinite-loop matcher still scanned the growing instruction prefix after every emitted instruction. A backward suffix scan now stops at the first blocking instruction with the same transform contract. Three alternating native pairs after one warmup on the 192,893-byte fixture improve this pipeline from `204.648ms` to `128.793ms` (37.1%), and command time from `208.888ms` to `133.174ms`, with byte-identical output. A fresh verified-v133 sweep still measures `140.302ms` versus `44.769ms` pass-local; the remaining gap stays open. The [precompute strategy](../precompute/starshine-hot-ir-strategy.md#september-26-2026-infinite-loop-tail-scan) owns the implementation proof, scaling fixtures, hashes and renewed comparison evidence.
+
 ### September 26, 2026 raw cleanup suffix scans
 
 The shared SimplifyLocals raw cleanup rebuilt continuation read sets for every instruction. It now accumulates original-subtree reads once in reverse sibling order, writes rewritten children into their original positions, and skips continuation analysis in flat bodies. Loops retain their own next-iteration reads. This follows the same aim as [Binaryen 133's linear execution traversal](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/SimplifyLocals.cpp): avoid repeatedly analyzing instruction suffixes.

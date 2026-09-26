@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-26
 sources:
+  - https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/Precompute.cpp
+  - ../../../../../src/passes/precompute_loop_tail_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ./index.md
   - ../late-pipeline-dispatch.md
@@ -35,9 +37,45 @@ related:
 > locals aliased. The fold now requires pairwise distinct indices; tests cover
 > all three alias pairs. See the [eight-agent safety audit](../../../ir2/architecture-rules.md#september-22-eight-agent-pass-safety-audit).
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — September 26, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131/v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
-This page describes the **current in-tree Starshine implementation** against the maintained Binaryen `version_132` baseline. The detailed historical algorithm reading began at `version_129`; focused v130/current-main review found no behavior-bearing drift, and the 2026-07-26 explicit-v131 renewal is summarized in the living owner and validation pages. For the validation ladder that sits on top of this code map, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+This page describes the **current in-tree Starshine implementation** against the maintained Binaryen `version_133` baseline. The detailed historical algorithm reading began at `version_129`; focused v130/current-main review found no behavior-bearing drift, and the 2026-07-26 explicit-v131 renewal is summarized in the living owner and validation pages. For the validation ladder that sits on top of this code map, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+
+## September 26, 2026 infinite-loop tail scan
+
+The raw output-tail folder runs after each emitted instruction. Its infinite-loop recognizer previously searched the entire prefix for a void `loop { br 0 }`, then inspected each candidate's suffix. It now scans backward through the trailing flat discardable values and nops. The first other instruction is the only possible qualifying loop: any earlier loop would contain that unsupported instruction in its suffix. A suffix must still contain a value; an all-nop suffix is unchanged. Only the existing loop shape is accepted, and the existing unreachable replacement and preserved prefix are unchanged.
+
+This applies Binaryen 133's early-rejection strategy to Starshine's raw stack representation. [`Precompute.cpp::visitBlock`](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/Precompute.cpp) explicitly avoids repeated failed analysis through nested blocks to prevent quadratic work; it is not an identical implementation of this stack-tail matcher. The native instruction profile `.tmp/callgrind-liveout-inlining-optimizing.out` attributed 44.02% of instructions to the old matcher. Instruction counts are profiling evidence, not wall-time measurements.
+
+The bounded regression preserves 128 value/drop pairs across incremental tail checks and first failed at 32,640 visits against a 384-visit budget. Companion assertions cover prefix preservation, value removal after the exact infinite loop, nop-only tails, blocking calls and multiple loops. The public pipeline fixture covers both precompute variants with direct opcode assertions and validation.
+
+All 1,249 focused precompute, inlining, DAE and SimplifyGlobals tests pass on wasm-gc. `moon info`, formatting and the native release build pass with no public API change from this unit. Three alternating native pairs after one warmup, using the 192,893-byte compiler fixture, measure:
+
+| Pass | Before pipeline | After pipeline | Result |
+| --- | ---: | ---: | --- |
+| `inlining-optimizing` | 204.648ms | 128.793ms | 37.1% faster |
+| `dae-optimizing` | 246.554ms | 224.771ms | 8.8% faster |
+| `precompute` | 1.790ms | 1.790ms | No material change |
+| `precompute-propagate` | 12.953ms | 12.783ms | No material change claimed |
+| `simplify-globals-optimizing` | 28.680ms | 28.731ms | No material change |
+
+All paired outputs are byte-identical. Call-heavy scaling fixtures preserve every imported call and the final result. At 256/1,024/4,096 calls, plain-precompute pipeline medians change `0.161/0.553/6.761ms → 0.151/0.231/0.545ms`; propagation changes `0.619/1.729/13.708ms → 0.538/1.364/7.668ms`. Whole-command startup dominates the smallest cases. On 4,096 calls, plain-precompute command time falls `8.961ms → 2.819ms`, and propagation falls `16.315ms → 10.216ms`.
+
+The fresh verified-v133 small sweep still measures optimizing inlining at `140.302ms` pass-local versus `44.769ms`, and DAE optimizing at `228.133ms` versus `7.601ms`. Traced pass timers and untraced command medians are separate measurements; these passes still lose to Binaryen. Direct precompute's zero HOT pass timer omits raw cleanup, so its measured `1.790ms` pipeline cost must not be reported as zero.
+
+Artifacts: `.tmp/precompute-tail-paired-small-20260926/`, `.tmp/precompute-tail-paired-calls-{256,1024,4096}-20260926/`, `.tmp/precompute-tail-inputs/manifest.json`, and `.tmp/pass-sweep-v133-precompute-tail-small-20260926/`. Baseline native SHA-256 is `a9bc998439325ef23dec3af201619d4e86991cfe46fc8bde920b5e8aaa159475`; updated is `5975dc028dc7f0a41c1beae12af7bdc7ba273109be5636f21044a318816fd131`. Verified Binaryen 133 SHA-256 is `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+
+The five renewed v133 aggregate lanes each complete 10,000 cases with seed `0x5eed`, explicit native binaries and eight subprocesses. Precompute variants use `precompute-all` with the three documented cleanup normalizers; optimizing inlining and SimplifyGlobals use their `-all` profiles; DAE optimizing uses its aggregate and both debris normalizers.
+
+| Pass | Normalized | Cleanup-normalized | Residuals |
+| --- | ---: | ---: | ---: |
+| `precompute` | 3,238 | 6,762 | 0 |
+| `precompute-propagate` | 2,766 | 7,234 | 0 |
+| `inlining-optimizing` | 10,000 | 0 | 0 |
+| `dae-optimizing` | 5,153 | 0 | 4,847 |
+| `simplify-globals-optimizing` | 5,055 | 0 | 4,945 |
+
+All lanes have zero validation, property, generator or command failures and zero canonical size losses. Runtime semantic execution was not enabled. Agent classification: the remaining DAE optimizing and SimplifyGlobals differences are open parity gaps; all 40 saved raw residual outputs match the pre-change compiler. The optimization does not resolve those existing transform differences. Artifacts: `.tmp/pass-fuzz-<pass>-precompute-tail-v133-10000-20260926/` and `.tmp/precompute-tail-residual-replay.json`.
 
 ## Short version
 
