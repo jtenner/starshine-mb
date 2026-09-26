@@ -48,3 +48,58 @@ test "dae stable operands preserve per-parameter candidates with one callsite re
   }
   assert_eq(resolutions[0], 1)
 }
+
+///|
+test "dae current call facts use stable paths for active constant operands" {
+  let graph = dae_stable_operands_fixture(4, 2)
+  let resolutions = [0]
+  let actual = dae_collect_uniform_const_actuals_from_current_call_facts(
+    graph.mod_,
+    0,
+    2,
+    graph.snapshot.type_indices,
+    graph.snapshot.boundary_facts,
+    graph.snapshot.function_infos,
+    stable_callsite_resolutions=Some(resolutions),
+  )
+  assert_eq(
+    actual,
+    Some([
+      Some(@lib.Instruction::i32_const(@lib.I32(7))),
+      Some(@lib.Instruction::i32_const(@lib.I32(8))),
+    ]),
+  )
+  assert_eq(
+    actual,
+    dae_collect_uniform_const_actuals_from_boundary_facts(
+      graph.mod_,
+      0,
+      2,
+      graph.snapshot.type_indices,
+      graph.snapshot.boundary_facts,
+    ),
+  )
+  assert_eq(resolutions[0], 4)
+}
+
+///|
+test "dae preferred stable paths retain constant proofs when batch edits shift callsites" {
+  let graph = dae_stable_operands_fixture(1, 2)
+  let shifted = pass_test_module_from_wat(
+    "(module (func $helper (param i32 i32) (result i32) local.get 0) (func (export \"run\") nop block i32.const 7 i32.const 8 call $helper drop end))",
+  )
+  assert_eq(
+    dae_collect_uniform_const_actuals_from_current_call_facts(
+      shifted,
+      0,
+      2,
+      graph.snapshot.type_indices,
+      graph.snapshot.boundary_facts,
+      graph.snapshot.function_infos,
+    ),
+    Some([
+      Some(@lib.Instruction::i32_const(@lib.I32(7))),
+      Some(@lib.Instruction::i32_const(@lib.I32(8))),
+    ]),
+  )
+}

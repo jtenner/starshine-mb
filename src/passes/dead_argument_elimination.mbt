@@ -12132,6 +12132,28 @@ fn dae_resolve_uniform_const_candidate(
 }
 
 ///|
+fn dae_materializable_uniform_slice_candidate(
+  instrs : Array[@lib.Instruction],
+  slice : DaeValueSlice,
+  param_type : @lib.ValType,
+) -> @lib.Instruction? {
+  let body : Array[@lib.Instruction] = []
+  for idx in slice.start..<slice.end {
+    body.push(instrs[idx])
+  }
+  if dae_instrs_are_materializable_ref_const_expr(body) {
+    Some(
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(param_type),
+        @lib.Expr::new(body),
+      ),
+    )
+  } else {
+    None
+  }
+}
+
+///|
 fn dae_collect_uniform_const_actuals_instrs(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
@@ -12210,29 +12232,19 @@ fn dae_collect_uniform_const_actuals_instrs(
                           _ => invalid[p] = true
                         }
                     }
-                  None => {
-                    let slice = evidence.slices[p]
-                    let body : Array[@lib.Instruction] = []
-                    let mut slice_idx = slice.start
-                    while slice_idx < slice.end {
-                      body.push(instrs[slice_idx])
-                      slice_idx += 1
+                  None =>
+                    match
+                      dae_materializable_uniform_slice_candidate(
+                        instrs,
+                        evidence.slices[p],
+                        param_types[p],
+                      ) {
+                      Some(candidate) =>
+                        dae_record_uniform_const_candidate(
+                          seen, invalid, candidates, p, candidate,
+                        )
+                      None => invalid[p] = true
                     }
-                    if dae_instrs_are_materializable_ref_const_expr(body) {
-                      dae_record_uniform_const_candidate(
-                        seen,
-                        invalid,
-                        candidates,
-                        p,
-                        @lib.Instruction::block(
-                          @lib.BlockType::val_type(param_types[p]),
-                          @lib.Expr::new(body),
-                        ),
-                      )
-                    } else {
-                      invalid[p] = true
-                    }
-                  }
                 }
               }
               p += 1
@@ -12659,7 +12671,29 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
                 }
             }
           }
-          None => invalid[p] = true
+          None => {
+            let candidate = match evidence {
+              Some(value) =>
+                match
+                  dae_resolve_func_type(mod_, func_type_indices, callee_abs) {
+                  Some(@lib.FuncType(params, _)) if p < params.length() =>
+                    dae_materializable_uniform_slice_candidate(
+                      scope,
+                      value.slices[p],
+                      params[p],
+                    )
+                  _ => None
+                }
+              None => None
+            }
+            match candidate {
+              Some(candidate) =>
+                dae_record_uniform_const_candidate(
+                  seen, invalid, candidates, p, candidate,
+                )
+              None => invalid[p] = true
+            }
+          }
         }
         if invalid[p] {
           unresolved_count -= 1
@@ -12694,10 +12728,27 @@ fn dae_collect_uniform_const_actuals_from_current_call_facts(
   function_infos : Array[DaeFunctionInfo],
   allow_immutable_global_get? : Bool = false,
   collect_params? : Array[Bool]? = None,
-  prefer_stable_paths? : Bool = false,
+  prefer_stable_paths? : Bool = true,
   stable_callsite_resolutions? : Array[Int]? = None,
   uniform_resolution_cache? : DaeUniformResolutionCache? = None,
 ) -> Array[@lib.Instruction?]? {
+  if prefer_stable_paths {
+    let result = dae_collect_uniform_const_actuals_from_function_infos(
+      mod_,
+      callee_abs,
+      param_count,
+      func_type_indices,
+      boundary_facts,
+      function_infos,
+      allow_immutable_global_get~,
+      collect_params~,
+      stable_callsite_resolutions~,
+      uniform_resolution_cache~,
+    )
+    if result is Some(_) {
+      return result
+    }
+  }
   let mut has_inactive_direct_call = false
   if callee_abs >= 0 && callee_abs < function_infos.length() {
     for callsite in function_infos[callee_abs].calls {
@@ -12707,10 +12758,13 @@ fn dae_collect_uniform_const_actuals_from_current_call_facts(
       }
     }
   }
-  // Stable paths keep inactive suffix calls from poisoning current-value facts.
-  // Select the exact scope-aware collector whenever an inactive direct call is
-  // present; module cardinality is not part of value legality.
-  if prefer_stable_paths || has_inactive_direct_call {
+  // Lightweight batch adoption may retain shifted paths. If exact resolution
+  // fails, the original body scan remains authoritative for active-only calls.
+  // Inactive suffix calls must still use the scope-aware proof.
+  if has_inactive_direct_call {
+    if prefer_stable_paths {
+      return None
+    }
     dae_collect_uniform_const_actuals_from_function_infos(
       mod_,
       callee_abs,
