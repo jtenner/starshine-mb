@@ -6395,18 +6395,39 @@ fn cl_cfg_live_set_from_liveness(
   block_id : @ir.BlockId,
   total_locals : Int,
   live_in : Bool,
+  reuse? : CLCfgLiveSet? = None,
+  builds? : Array[Int]? = None,
+  visits? : Array[Int]? = None,
 ) -> CLCfgLiveSet {
-  let live = CLCfgLiveSet::new(total_locals)
-  for local_idx = 0; local_idx < total_locals; local_idx = local_idx + 1 {
-    let is_live = if live_in {
-      @ir.local_live_in(liveness, block_id, local_idx)
-    } else {
-      @ir.local_live_out(liveness, block_id, local_idx)
+  let live = match reuse {
+    Some(live) if live.live.length() == total_locals => {
+      for local_idx in live.members {
+        live.live[local_idx] = false
+        live.positions[local_idx] = -1
+      }
+      live.members.clear()
+      live
     }
-    if is_live {
-      cl_cfg_live_set_add(live, local_idx)
+    _ => {
+      match builds {
+        Some(count) => count[0] += 1
+        None => ()
+      }
+      CLCfgLiveSet::new(total_locals)
     }
   }
+  let bits = if live_in {
+    @ir.live_in(liveness, block_id)
+  } else {
+    @ir.live_out(liveness, block_id)
+  }
+  @ir.bitset_for_each_set_bit(bits, fn(local_idx) {
+    match visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    cl_cfg_live_set_add(live, local_idx)
+  })
   live
 }
 
@@ -6707,6 +6728,8 @@ fn cl_cfg_compute_interferences(
   block_actions : Array[CLCfgBlockActions],
   total_locals : Int,
   param_count : Int,
+  live_set_builds? : Array[Int]? = None,
+  live_member_visits? : Array[Int]? = None,
 ) -> (CLCfgSparseInterferences, Array[@ir.NodeId], Array[@ir.NodeId]) {
   let interferences = CLCfgSparseInterferences::new(total_locals)
   for lhs = 0; lhs < param_count; lhs = lhs + 1 {
@@ -6724,6 +6747,12 @@ fn cl_cfg_compute_interferences(
       }
     }
   }
+  // Share storage between scans, but reload the authoritative block facts.
+  let live_workspace = CLCfgLiveSet::new(total_locals)
+  match live_set_builds {
+    Some(count) => count[0] += 1
+    None => ()
+  }
   let ineffective_sets : Array[@ir.NodeId] = []
   let ineffective_tees : Array[@ir.NodeId] = []
   for block_id = 0; block_id < @ir.cfg_block_count(cfg); block_id = block_id + 1 {
@@ -6732,7 +6761,13 @@ fn cl_cfg_compute_interferences(
     let ends_live_range = Array::make(actions.length(), false)
     let effective = Array::make(actions.length(), false)
     let live_after = cl_cfg_live_set_from_liveness(
-      liveness, block_id, total_locals, false,
+      liveness,
+      block_id,
+      total_locals,
+      false,
+      reuse=Some(live_workspace),
+      builds=live_set_builds,
+      visits=live_member_visits,
     )
     let mut action_idx = actions.length() - 1
     while action_idx >= 0 {
@@ -6767,7 +6802,13 @@ fn cl_cfg_compute_interferences(
       }
     }
     let live = cl_cfg_live_set_from_liveness(
-      liveness, block_id, total_locals, true,
+      liveness,
+      block_id,
+      total_locals,
+      true,
+      reuse=Some(live_workspace),
+      builds=live_set_builds,
+      visits=live_member_visits,
     )
     ignore(
       cl_cfg_sparse_add_live_member_interferences(interferences, live.members),

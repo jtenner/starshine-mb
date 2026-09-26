@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-08-27
+last_reviewed: 2026-09-26
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -13,6 +13,23 @@ sources:
 # `coalesce-locals` Fuzzing Profile
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## 2026-09-26 CFG live-set renewal against Binaryen 133
+
+Fresh native `8b7d8d8aa8de9342cf6148de10350ca9104217e18d2317cf92b2be7e7d08e0a1` was built with `moon build --target native --release src/cmd`. The oracle reports `wasm-opt version 133 (version_133)`, SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`. These results supersede the comparison version for this renewal only; historical v131/v132 evidence retains its original scope.
+
+Each lane compares 10,000 GenValid inputs at seed `0x5eed`, using the documented aggregate profile, explicit native CLI and generator, `--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --require-binaryen-version 133`. No external generator or runtime execution lane was enabled.
+
+| Pass | Canonical matches | Cleanup-normalized matches | Residual mismatches | Canonically larger |
+| --- | ---: | ---: | ---: | ---: |
+| coalesce-locals | 3,750 | 5,000 | 1,250 | 0 |
+| inlining-optimizing | 10,000 | 0 | 0 | 0 |
+| dae-optimizing | 5,153 | 0 | 4,847 | 0 |
+| simplify-globals-optimizing | 5,055 | 0 | 4,945 | 0 |
+
+All four lanes have zero validation, property, generator or command failures. Coalesce uses `local-cleanup-debris` and `unreachable-control-debris`; DAE optimizing uses `drop-consts` and `unreachable-control-debris`. Twenty saved residuals from each of Coalesce, DAE optimizing and SimplifyGlobals optimizing reproduce byte-for-byte with the pre-change CLI. My classification for this renewal keeps the residuals open as parity gaps; validation, normalization and smaller output alone do not establish semantic closure or a Starshine win.
+
+Artifacts: `.tmp/pass-fuzz-<pass>-coalesce-live-set-v133-10000-20260926/result.json`, `.tmp/coalesce-live-set-replay/result.json`, and `.tmp/pass-sweep-v133-coalesce-live-set-{small,large}-20260926/result.json`. See the [strategy page](./starshine-strategy.md#september-26-2026-cfg-live-set-reuse) for the source contract, red-first tests and isolated speed measurements.
 
 ## 2026-08-27 bit-matrix and control-summary renewal
 
