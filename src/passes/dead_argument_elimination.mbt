@@ -3556,6 +3556,66 @@ fn dae_boundary_components(
 }
 
 ///|
+priv struct DaeForwardingMembership {
+  edges : @hashmap.HashMap[(Int, Int, Int, Int, Bool), Bool]
+  callers : @hashmap.HashMap[(Int, Int), Bool]
+}
+
+///|
+fn DaeForwardingMembership::new(
+  edges : Array[DaeParameterForwardingEdge],
+  callers : Array[Array[Int]],
+) -> DaeForwardingMembership {
+  let edge_keys : @hashmap.HashMap[(Int, Int, Int, Int, Bool), Bool] = @hashmap.new()
+  for edge in edges {
+    edge_keys.set(
+      (
+        edge.caller_def,
+        edge.caller_param_idx,
+        edge.callee_def,
+        edge.callee_param_idx,
+        edge.direct_tail,
+      ),
+      true,
+    )
+  }
+  let caller_keys : @hashmap.HashMap[(Int, Int), Bool] = @hashmap.new()
+  for target in 0..<callers.length() {
+    if callers[target].length() > 4 {
+      for caller in callers[target] {
+        caller_keys.set((target, caller), true)
+      }
+    }
+  }
+  { edges: edge_keys, callers: caller_keys, }
+}
+
+///|
+fn dae_forwarding_func_type(
+  mod_ : @lib.Module,
+  indices : Array[@lib.TypeIdx],
+  abs : Int,
+  snapshot : Array[@lib.FuncType?]?,
+  resolutions : Array[Int]?,
+) -> @lib.FuncType? {
+  match snapshot {
+    Some(types) =>
+      if abs >= 0 && abs < types.length() {
+        types[abs]
+      } else {
+        None
+      }
+    None => {
+      match resolutions {
+        Some(count) => count[0] += 1
+        None => ()
+      }
+      dae_resolve_func_type(mod_, indices, abs)
+    }
+  }
+}
+
+///|
 fn dae_record_parameter_forwarding_dependency(
   instrs : Array[@lib.Instruction],
   call_idx : Int,
@@ -3569,6 +3629,10 @@ fn dae_record_parameter_forwarding_dependency(
   function_epochs : Array[DaeFunctionEpochs],
   edges : Array[DaeParameterForwardingEdge],
   out : Array[Array[Int]],
+  membership : DaeForwardingMembership,
+  function_types? : Array[@lib.FuncType?]? = None,
+  type_resolutions? : Array[Int]? = None,
+  edge_probes? : Array[Int]? = None,
 ) -> Unit {
   let imported = dae_imported_func_count(current)
   let target_def = target_abs - imported
@@ -3580,12 +3644,20 @@ fn dae_record_parameter_forwarding_dependency(
     return
   }
   let target_params = match
-    dae_resolve_func_type(current, type_indices, target_abs) {
+    dae_forwarding_func_type(
+      current, type_indices, target_abs, function_types, type_resolutions,
+    ) {
     Some(@lib.FuncType(params, _)) => params
     None => return
   }
   let caller_params = match
-    dae_resolve_func_type(current, type_indices, imported + caller_def) {
+    dae_forwarding_func_type(
+      current,
+      type_indices,
+      imported + caller_def,
+      function_types,
+      type_resolutions,
+    ) {
     Some(@lib.FuncType(params, _)) => params
     None => return
   }
@@ -3615,13 +3687,15 @@ fn dae_record_parameter_forwarding_dependency(
               local_slot < caller_param_count &&
               local_slot < caller_params.length() &&
               caller_params[local_slot] == target_params[param_idx] {
-              if !edges.any(fn(edge) {
-                  edge.caller_def == caller_def &&
-                  edge.caller_param_idx == local_slot &&
-                  edge.callee_def == target_def &&
-                  edge.callee_param_idx == param_idx &&
-                  edge.direct_tail == direct_tail
-                }) {
+              let key = (
+                caller_def, local_slot, target_def, param_idx, direct_tail,
+              )
+              match edge_probes {
+                Some(count) => count[0] += 1
+                None => ()
+              }
+              if membership.edges.get(key) is None {
+                membership.edges.set(key, true)
                 let caller_epochs = function_epochs[caller_def]
                 let callee_epochs = function_epochs[target_def]
                 edges.push({
@@ -3637,7 +3711,17 @@ fn dae_record_parameter_forwarding_dependency(
                   callee_body_epoch: callee_epochs.body_epoch,
                 })
               }
-              if !out[target_def].contains(caller_def) {
+              if out[target_def].length() <= 4 {
+                if !out[target_def].contains(caller_def) {
+                  out[target_def].push(caller_def)
+                  if out[target_def].length() == 5 {
+                    for caller in out[target_def] {
+                      membership.callers.set((target_def, caller), true)
+                    }
+                  }
+                }
+              } else if membership.callers.get((target_def, caller_def)) is None {
+                membership.callers.set((target_def, caller_def), true)
                 out[target_def].push(caller_def)
               }
             }
@@ -3662,11 +3746,19 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
   edges : Array[DaeParameterForwardingEdge],
   out : Array[Array[Int]],
   visits? : Array[Int]? = None,
+  membership? : DaeForwardingMembership? = None,
+  function_types? : Array[@lib.FuncType?]? = None,
+  type_resolutions? : Array[Int]? = None,
+  edge_probes? : Array[Int]? = None,
 ) -> Unit {
   // Only formal parameter reads can create forwarding edges. Calls and
   // result observers are collected independently by the boundary graph.
   if caller_param_count <= 0 {
     return
+  }
+  let membership = match membership {
+    Some(index) => index
+    None => DaeForwardingMembership::new(edges, out)
   }
   let mut idx = 0
   while idx < instrs.length() {
@@ -3689,6 +3781,10 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
           function_epochs,
           edges,
           out,
+          membership,
+          function_types~,
+          type_resolutions~,
+          edge_probes~,
         )
       @lib.ReturnCall(func_idx) =>
         dae_record_parameter_forwarding_dependency(
@@ -3704,6 +3800,10 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
           function_epochs,
           edges,
           out,
+          membership,
+          function_types~,
+          type_resolutions~,
+          edge_probes~,
         )
       @lib.Block(_, @lib.Expr(_))
       | @lib.Loop(_, @lib.Expr(_))
@@ -3722,6 +3822,10 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
               edges,
               out,
               visits~,
+              membership=Some(membership),
+              function_types~,
+              type_resolutions~,
+              edge_probes~,
             )
             match children.secondary_body {
               Some(body) =>
@@ -3736,6 +3840,10 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
                   edges,
                   out,
                   visits~,
+                  membership=Some(membership),
+                  function_types~,
+                  type_resolutions~,
+                  edge_probes~,
                 )
               None => ()
             }
@@ -3819,11 +3927,13 @@ fn dae_boundary_dependency_graph_new(
   }
   let parameter_forwarding_edges : Array[DaeParameterForwardingEdge] = []
   let parameter_forwarders_by_def = dae_dependency_adjacency_new(defined)
+  let membership = DaeForwardingMembership::new(
+    parameter_forwarding_edges, parameter_forwarders_by_def,
+  )
   let mut caller_def = 0
   while caller_def < defined && caller_def < graph.snapshot.funcs.length() {
     let caller_abs = imported + caller_def
-    let caller_param_count = match
-      dae_resolve_func_type(graph.mod_, graph.snapshot.type_indices, caller_abs) {
+    let caller_param_count = match graph.snapshot.function_types[caller_abs] {
       Some(@lib.FuncType(params, _)) => params.length()
       None => 0
     }
@@ -3838,6 +3948,8 @@ fn dae_boundary_dependency_graph_new(
       graph.function_epochs,
       parameter_forwarding_edges,
       parameter_forwarders_by_def,
+      function_types=Some(graph.snapshot.function_types),
+      membership=Some(membership),
     )
     caller_def += 1
   }

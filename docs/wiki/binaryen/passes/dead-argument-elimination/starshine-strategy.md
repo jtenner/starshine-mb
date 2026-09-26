@@ -26,6 +26,24 @@ related:
 
 # Starshine `dead-argument-elimination` strategy and status
 
+## September 26, 2026 indexed forwarding facts
+
+Parameterized callers now reuse the boundary snapshot's resolved function
+signatures and an exact forwarding-edge membership index. Caller adjacency
+retains first-seen order, with direct scans for up to four callers and a hash
+index beyond that. Edge keys include the direct-tail flag; epochs and graph
+rebuild boundaries remain unchanged. The bounded regression first reported
+128 repeated type resolutions and now reports zero, while checking all edges
+and caller order. Thirty-five forwarding tests and both DAE command modes pass.
+
+Native graph-construction benchmarks measure `135.52 → 133.39 µs` for 128
+callees (effectively flat) and `324.94 → 284.07 µs` for 256 (12.6% faster).
+These synthetic measurements do not establish an artifact pass speedup.
+Sources: `src/passes/dead_argument_elimination.mbt`,
+`src/passes/dae_forwarding_facts_{wbtest,perf_wbtest}.mbt`,
+`src/cmd/perf_forwarding_wbtest.mbt`, and
+`.tmp/pass-perf-work-20260926/dae-facts-final-bench.log`.
+
 ## September 26, 2026 parameter-free forwarding preflight
 
 The shared boundary graph now omits parameter-forwarding analysis for callers with no formal parameters while retaining call, tail-call and result dependencies. Seven paired small-compiler runs improve plain DAE pipeline time `104.944ms → 60.029ms` (**42.8%**); the large compiler is effectively unchanged at `833.538ms → 835.475ms`. All paired outputs are byte-identical. The [optimizing strategy](../dae-optimizing/starshine-strategy.md#september-26-2026-parameter-free-forwarding-preflight) owns the Binaryen 133 source reasoning, bounded regressions, hashes and measurement details; [fuzzing](./fuzzing.md) records renewed dedicated-profile evidence. Historical v131/v132 results below retain their original scope.
