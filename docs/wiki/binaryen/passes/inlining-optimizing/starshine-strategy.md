@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-09-26
 sources:
   - ./index.md
   - ../inlining/starshine-strategy.md
@@ -9,6 +9,7 @@ sources:
   - ../../../../../src/passes/inlining_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/simplify_locals_liveout_perf_wbtest.mbt
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -19,7 +20,7 @@ related:
 
 # Starshine Strategy For `inlining-optimizing`
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — September 26, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 evidence retains its historical version and does not establish v133 signoff.
 
 ## Current status
 
@@ -65,6 +66,37 @@ The shared scheduler abstraction for DAE/inlining/SGO is still tracked under `[O
 ## Performance
 
 The durable pass-local fixture is the inline-heavy helper-chain matrix described in [`fuzzing.md`](./fuzzing.md). The accepted post-repair ratios meet the repository's `<= 1x Binaryen` target across 1, 5, 10, 20, 50, and 100 helper cases. Reopen on repeated regression above that target or a new nested-pass scaling cliff.
+
+### September 26, 2026 raw cleanup suffix scans
+
+The shared SimplifyLocals raw cleanup rebuilt continuation read sets for every instruction. It now accumulates original-subtree reads once in reverse sibling order, writes rewritten children into their original positions, and skips continuation analysis in flat bodies. Loops retain their own next-iteration reads. This follows the same aim as [Binaryen 133's linear execution traversal](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/SimplifyLocals.cpp): avoid repeatedly analyzing instruction suffixes.
+
+On the 192,893-byte fixture, three alternating paired native samples after one warmup reduced the `inlining-optimizing` pipeline median from `1,892.011ms` to `214.775ms` (8.81x); command median fell from `1,896.974ms` to `219.582ms`. On the 6,211,596-byte fixture, full SimplifyLocals pipeline time fell from `27,115.200ms` to `22,658.906ms` (16.4%). These are whole-pipeline measurements, including raw cleanup, not just HOT pass timers. Every paired baseline/current output hash is identical across eight passes on both fixtures.
+
+A separate verified-v133 small sweep measured `inlining-optimizing` at `223.547ms` pass-local versus Binaryen's `47.037ms`; the remaining 4.75x gap stays open. The large fixture's inlining and SimplifyGlobals guards miss cleanup, so their favorable oracle timing ratios are not comparable optimization wins. A seven-sample no-structure confirmation measured pipeline `750.413ms → 756.744ms` and command `1,572.920ms → 1,574.132ms`; the initial three-sample apparent regression did not repeat materially. Other small timing movements are not claimed as gains.
+
+Four bounded regressions cover flat dead-capture removal, later sibling reads, original reads removed by child cleanup, and structured sibling scaling. The structured test first failed at 8,384 suffix root visits and now needs at most 130. All 1,250 focused SimplifyLocals, inlining, DAE optimizing and SimplifyGlobals tests pass on wasm-gc. `moon info`, formatting and the native release build pass; this unit adds no public API.
+
+Paired artifacts are `.tmp/liveout-linear-paired-{small,large}-20260926/` and `.tmp/liveout-linear-paired-nostructure-confirm-20260926/`; oracle sweeps are `.tmp/pass-sweep-v133-liveout-linear-{small,large}-20260926/`. Baseline native SHA-256 is `72b55be2e092167030dccf79d6e48f646d338c16791852a9a9171d73b41b9894`; updated SHA-256 is `2a1772b917dcd61d58b6949524243dec37903c36f7761d8500cef0850b935552`. Binaryen reports version 133 and SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+
+#### v133 aggregate comparison renewal
+
+All eight dedicated aggregate profiles completed 10,000 cases each with seed `0x5eed`, explicit prebuilt native compiler/generator and eight subprocesses. There were zero validation, property, generator or command failures and zero cleanup-normalized matches; the DAE optimizing lane enabled both documented debris normalizers. Runtime semantic execution was not enabled.
+
+| Pass | Normalized matches | Residuals | Canonically larger | Oracle cache hits/misses |
+| --- | ---: | ---: | ---: | ---: |
+| `inlining-optimizing` | 10,000 | 0 | 0 | 9,992/8 |
+| `dae-optimizing` | 5,153 | 4,847 | 0 | 7,370/2,630 |
+| `simplify-globals-optimizing` | 5,055 | 4,945 | 0 | 9,992/8 |
+| `simplify-locals` | 380 | 9,620 | 0 | 10,000/0 |
+| `simplify-locals-nonesting` | 5,026 | 4,974 | 0 | 10,000/0 |
+| `simplify-locals-notee` | 0 | 10,000 | 0 | 10,000/0 |
+| `simplify-locals-nostructure` | 0 | 10,000 | 1,662 | 10,000/0 |
+| `simplify-locals-notee-nostructure` | 0 | 10,000 | 0 | 10,000/0 |
+
+Agent classification: optimizing inlining matches this aggregate. Other residuals remain open parity gaps; no-structure's 1,662 larger cases are size-losing gaps. Inspected examples include DAE local-constant/call-operand cleanup with retained dropped reads, and SimplifyGlobals' removed empty-body `nop`; smaller output alone does not settle their whole families. All 140 saved residual outputs are byte-identical to the pre-change compiler, establishing that these saved differences predate this optimization. This is bounded regression evidence, not a semantic proof for every residual.
+
+Reports, selected-subprofile counts and per-case manifests are under `.tmp/pass-fuzz-<pass>-liveout-v133-10000-20260926/`; replay evidence is `.tmp/liveout-baseline-residual-replay/`. Profile names are the documented `<pass>-all` aggregates, except DAE optimizing's `dae-optimizing` profile.
 
 ## Evidence
 

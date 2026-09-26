@@ -73414,22 +73414,6 @@ fn run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
 }
 
 ///|
-fn run_hot_pipeline_simplify_locals_lowered_reads_after(
-  instrs : Array[@lib.Instruction],
-  start_idx : Int,
-  inherited_reads : Array[Int],
-) -> Array[Int] {
-  let reads = inherited_reads.copy()
-  for idx = start_idx; idx < instrs.length(); idx = idx + 1 {
-    run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
-      [instrs[idx]],
-      reads,
-    )
-  }
-  reads
-}
-
-///|
 fn simplify_locals_cleanup_is_inert_separator(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Nop => true
@@ -73443,24 +73427,51 @@ fn simplify_locals_cleanup_is_inert_separator(instr : @lib.Instruction) -> Bool 
 fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
   instrs : Array[@lib.Instruction],
   live_after : Array[Int],
+  child_liveout_contexts? : Array[Int]? = None,
+  suffix_root_visits? : Array[Int]? = None,
 ) -> Array[@lib.Instruction] {
-  let normalized : Array[@lib.Instruction] = []
-  for idx = 0; idx < instrs.length(); idx = idx + 1 {
-    let instr = instrs[idx]
-    let child_live_after = run_hot_pipeline_simplify_locals_lowered_reads_after(
-      instrs,
-      idx + 1,
-      live_after,
-    )
+  let has_children = instrs.any(fn(instr) {
     match instr {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.If(_, _, _) => true
+      _ => false
+    }
+  })
+  let normalized = Array::make(instrs.length(), @lib.Instruction::nop())
+  let suffix_reads = if has_children { live_after.copy() } else { live_after }
+  // Children use the original continuation's reads. Accumulate those reads
+  // once in reverse order, preserving the original instruction order in the
+  // output. Flat bodies never need a child continuation set.
+  for idx = instrs.length() - 1; idx >= 0; idx = idx - 1 {
+    let instr = instrs[idx]
+    let child_live_after = match instr {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.If(_, _, _) => {
+        match child_liveout_contexts {
+          Some(contexts) => contexts[0] += 1
+          None => ()
+        }
+        // A loop also observes reads from its own next iteration. Keep those
+        // separate from the continuation inherited by its siblings.
+        if instr is @lib.Loop(_, _) {
+          suffix_reads.copy()
+        } else {
+          suffix_reads
+        }
+      }
+      _ => live_after
+    }
+    normalized[idx] = match instr {
       @lib.Block(bt, @lib.Expr(body)) =>
-        normalized.push(
-          @lib.Instruction::block(
-            bt,
-            @lib.Expr::new(
-              run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
-                body, child_live_after,
-              ),
+        @lib.Instruction::block(
+          bt,
+          @lib.Expr::new(
+            run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+              body, child_live_after,
             ),
           ),
         )
@@ -73468,48 +73479,54 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pai
         run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
           body, child_live_after,
         )
-        normalized.push(
-          @lib.Instruction::loop_(
-            bt,
-            @lib.Expr::new(
-              run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
-                body, child_live_after,
-              ),
+        @lib.Instruction::loop_(
+          bt,
+          @lib.Expr::new(
+            run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+              body, child_live_after,
             ),
           ),
         )
       }
       @lib.TryTable(bt, catches, @lib.Expr(body)) =>
-        normalized.push(
-          @lib.Instruction::try_table(
-            bt,
-            catches,
-            @lib.Expr::new(
-              run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
-                body, child_live_after,
-              ),
+        @lib.Instruction::try_table(
+          bt,
+          catches,
+          @lib.Expr::new(
+            run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+              body, child_live_after,
             ),
           ),
         )
       @lib.If(bt, then_body, else_body) =>
-        normalized.push(
-          @lib.Instruction::if_(
-            bt,
-            run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
-              then_body, child_live_after,
-            ),
-            match else_body {
-              Some(else_body) =>
-                Some(
-                  run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
-                    else_body, child_live_after,
-                  ),
-                )
-              None => None
-            },
+        @lib.Instruction::if_(
+          bt,
+          run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+            then_body, child_live_after,
           ),
+          match else_body {
+            Some(else_body) =>
+              Some(
+                run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+                  else_body, child_live_after,
+                ),
+              )
+            None => None
+          },
         )
-      _ => normalized.push(instr)
+      _ => instr
+    }
+    if has_children {
+      match suffix_root_visits {
+        Some(visits) => visits[0] += 1
+        None => ()
+      }
+      // Use the original subtree even when child cleanup removed a read.
+      // The old suffix analysis saw that original read as well.
+      run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
+        [instr],
+        suffix_reads,
+      )
     }
   }
   let rewritten : Array[@lib.Instruction] = []

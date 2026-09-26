@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-09-25
+last_reviewed: 2026-09-26
 sources:
   - ./index.md
   - ../../../../../agent-todo.md
@@ -18,7 +18,15 @@ related:
 
 # `simplify-locals` Performance And Artifact Frontiers
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — September 26, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Historical v131/v132 sources, commands, artifacts and results retain their original versions and do not establish v133 signoff.
+
+## 2026-09-26 raw child continuation reads
+
+The shared raw cleanup now accumulates original sibling reads in reverse order instead of scanning the remaining suffix at every instruction. Flat bodies avoid continuation sets; loops retain self-reads for later iterations. The [four bounded regressions](../../../../../src/passes/simplify_locals_liveout_perf_wbtest.mbt) assert preserved captures, removed dead captures, and one sibling-root traversal. Structured scaling first failed with 8,384 visits for 130 roots.
+
+Three alternating native before/after samples on the 6,211,596-byte artifact reduced full SimplifyLocals pipeline time from `27,115.200ms` to `22,658.906ms` (16.4%) and command time from `28,074.252ms` to `23,681.449ms`. All five canonical variants keep byte-identical output. The small compiler fixture's nested inlining pipeline improves 8.81x. Full measurement provenance, the no-structure seven-sample confirmation, and shared test coverage are recorded in [the inlining strategy](../inlining-optimizing/starshine-strategy.md#september-26-2026-raw-cleanup-suffix-scans).
+
+The remaining roughly 23-second full pipeline cost is outside its short HOT pass timer. Twelve debugger samples found ten in repeated custom-descriptor module scans reached through `Env::with_module`, one in validation, and one in allocation. The repeated construction originates in the skipped-effectful-carrier raw rewrite's function environment. This identifies the next investigation; debugger samples do not establish a speedup. Local evidence: `.tmp/liveout-linear-profile-large.log`.
 
 ## 2026-09-25 future-call suffix preflight (Binaryen 133)
 
