@@ -77998,6 +77998,7 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   func_idx : @lib.FuncIdx,
   mod_ : @lib.Module,
   module_ctx? : @ir.HotModuleContext? = None,
+  module_env? : @validate.Env? = None,
 ) -> @lib.Func {
   let func = if descriptor_name == "constraint-analysis" ||
     descriptor_name == "tuple-optimization" ||
@@ -78131,7 +78132,7 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   }
   let cleaned = if descriptor_name == "precompute" ||
     descriptor_name == "precompute-propagate" {
-    pass_lower_cleanup_branchless_blocks(cleaned, mod_).0
+    pass_lower_cleanup_branchless_blocks(cleaned, mod_, module_env~).0
   } else {
     cleaned
   }
@@ -79497,6 +79498,11 @@ fn run_hot_pipeline_func(
       let (output, changed) = pass_lower_cleanup_branchless_blocks(
         result.func,
         mod_,
+        module_env=Some(
+          run_hot_pipeline_require_validation_module_env(
+            mod_, module_state, options,
+          ),
+        ),
       )
       return Ok({
         reason: result.reason,
@@ -79879,7 +79885,15 @@ fn run_hot_pipeline_func(
           ca_lower_cleanup_raw(original, mod_)
         } else if descriptor.name == "precompute" ||
           descriptor.name == "precompute-propagate" {
-          pass_lower_cleanup_branchless_blocks(original, mod_)
+          pass_lower_cleanup_branchless_blocks(
+            original,
+            mod_,
+            module_env=Some(
+              run_hot_pipeline_require_validation_module_env(
+                mod_, module_state, options,
+              ),
+            ),
+          )
         } else {
           (original, false)
         }
@@ -79975,6 +79989,16 @@ fn run_hot_pipeline_func(
             Some(run_hot_pipeline_original_func(mod_, func_idx)),
             func_idx,
             mod_,
+            module_env=if descriptor.name == "precompute" ||
+              descriptor.name == "precompute-propagate" {
+              Some(
+                run_hot_pipeline_require_validation_module_env(
+                  mod_, module_state, options,
+                ),
+              )
+            } else {
+              None
+            },
             module_ctx=if descriptor.name == "optimize-instructions" &&
               !lower_state.type_sec_changed {
               Some(
@@ -80036,6 +80060,16 @@ fn run_hot_pipeline_func(
         Some(run_hot_pipeline_original_func(mod_, func_idx)),
         func_idx,
         mod_,
+        module_env=if descriptor.name == "precompute" ||
+          descriptor.name == "precompute-propagate" {
+          Some(
+            run_hot_pipeline_require_validation_module_env(
+              mod_, module_state, options,
+            ),
+          )
+        } else {
+          None
+        },
         module_ctx=if descriptor.name == "optimize-instructions" &&
           !lower_state.type_sec_changed {
           Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
@@ -82052,6 +82086,17 @@ fn run_hot_pipeline_apply_hot_pass_stack(
             Err(err) => return Err("func[\{func_idx}]: \{err}")
           }
         }
+        let cleanup_module_env = if descriptors.any(fn(d) {
+            d.name == "precompute" || d.name == "precompute-propagate"
+          }) {
+          Some(
+            run_hot_pipeline_require_validation_module_env(
+              current_mod, module_state, options,
+            ),
+          )
+        } else {
+          None
+        }
         if @ir.hot_revision_current(func) == lifted_revision {
           if descriptors.any(fn(d) {
               d.name == "constraint-analysis" ||
@@ -82063,7 +82108,11 @@ fn run_hot_pipeline_apply_hot_pass_stack(
               }) {
               ca_lower_cleanup_raw(defs[code_idx], current_mod)
             } else {
-              pass_lower_cleanup_branchless_blocks(defs[code_idx], current_mod)
+              pass_lower_cleanup_branchless_blocks(
+                defs[code_idx],
+                current_mod,
+                module_env=cleanup_module_env,
+              )
             }
             if changed {
               match lowered {
@@ -82097,6 +82146,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
               Some(run_hot_pipeline_original_func(mod_, func_idx)),
               func_idx,
               current_mod,
+              module_env=cleanup_module_env,
             )
           HotPipelineVerifyPolicy::FinalModuleOnly =>
             run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
@@ -82110,6 +82160,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
               Some(run_hot_pipeline_original_func(mod_, func_idx)),
               func_idx,
               current_mod,
+              module_env=cleanup_module_env,
             )
         }
         let lowered_func = if descriptors.any(fn(d) {
@@ -82119,7 +82170,11 @@ fn run_hot_pipeline_apply_hot_pass_stack(
         } else if descriptors.any(fn(d) {
             d.name == "precompute" || d.name == "precompute-propagate"
           }) {
-          pass_lower_cleanup_branchless_blocks(lowered_func, current_mod).0
+          pass_lower_cleanup_branchless_blocks(
+            lowered_func,
+            current_mod,
+            module_env=cleanup_module_env,
+          ).0
         } else {
           lowered_func
         }
@@ -82128,6 +82183,9 @@ fn run_hot_pipeline_apply_hot_pass_stack(
           current_mod = current_mod.with_type_sec(
             lower_state.next_type_sec.unwrap(),
           )
+          // Both caches belong to the previous type snapshot.
+          module_state.module_ctx = None
+          module_state.validation_module_env = None
         }
         match lowered {
           Some(defs_copy) => defs_copy[code_idx] = lowered_func
@@ -82299,6 +82357,17 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
             Err(err) => return Err("func[\{func_idx}]: \{err}")
           }
         }
+        let cleanup_module_env = if descriptors.any(fn(d) {
+            d.name == "precompute" || d.name == "precompute-propagate"
+          }) {
+          Some(
+            run_hot_pipeline_require_validation_module_env(
+              current_mod, module_state, options,
+            ),
+          )
+        } else {
+          None
+        }
         if @ir.hot_revision_current(func) == lifted_revision {
           if descriptors.any(fn(d) {
               d.name == "constraint-analysis" ||
@@ -82310,7 +82379,11 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
               }) {
               ca_lower_cleanup_raw(defs[code_idx], current_mod)
             } else {
-              pass_lower_cleanup_branchless_blocks(defs[code_idx], current_mod)
+              pass_lower_cleanup_branchless_blocks(
+                defs[code_idx],
+                current_mod,
+                module_env=cleanup_module_env,
+              )
             }
             if changed {
               match lowered {
@@ -82348,6 +82421,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
               Some(run_hot_pipeline_original_func(mod_, func_idx)),
               func_idx,
               current_mod,
+              module_env=cleanup_module_env,
             )
           HotPipelineVerifyPolicy::FinalModuleOnly =>
             run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
@@ -82361,6 +82435,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
               Some(run_hot_pipeline_original_func(mod_, func_idx)),
               func_idx,
               current_mod,
+              module_env=cleanup_module_env,
             )
         }
         let lowered_func = if descriptors.any(fn(d) {
@@ -82370,7 +82445,11 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
         } else if descriptors.any(fn(d) {
             d.name == "precompute" || d.name == "precompute-propagate"
           }) {
-          pass_lower_cleanup_branchless_blocks(lowered_func, current_mod).0
+          pass_lower_cleanup_branchless_blocks(
+            lowered_func,
+            current_mod,
+            module_env=cleanup_module_env,
+          ).0
         } else {
           lowered_func
         }
@@ -82379,6 +82458,9 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
           current_mod = current_mod.with_type_sec(
             lower_state.next_type_sec.unwrap(),
           )
+          // Both caches belong to the previous type snapshot.
+          module_state.module_ctx = None
+          module_state.validation_module_env = None
         }
         match lowered {
           Some(defs_copy) => defs_copy[code_idx] = lowered_func

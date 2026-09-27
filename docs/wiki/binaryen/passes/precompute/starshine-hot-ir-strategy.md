@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-26
+last_reviewed: 2026-09-27
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/Precompute.cpp
   - ../../../../../src/passes/precompute_loop_tail_wbtest.mbt
@@ -40,6 +40,44 @@ related:
 > **Comparison baseline — September 26, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131/v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 This page describes the **current in-tree Starshine implementation** against the maintained Binaryen `version_133` baseline. The detailed historical algorithm reading began at `version_129`; focused v130/current-main review found no behavior-bearing drift, and the 2026-07-26 explicit-v131 renewal is summarized in the living owner and validation pages. For the validation ladder that sits on top of this code map, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+
+## September 27, 2026 shared cleanup environment
+
+The large-input timeout came from branchless-block cleanup rebuilding a full
+validation environment for each function. Four native debugger samples land in
+`module_uses_custom_descriptors` below `Env::with_module` and
+`pass_lower_cleanup_branchless_blocks`; this repeatedly scans every module body.
+The inner precompute timer excludes that dispatch cleanup.
+
+The raw-result, unchanged-HOT and lowered-result paths now reuse the existing
+`HotPipelineModuleState.validation_module_env`. Stacked and touched-function
+pipelines pass the same environment to cleanup and clear both module caches when
+lowering adopts a new type section. Parameterized blocks remain intact; branchless
+blocks with no parameters still flatten. This changes context reuse, not the
+cleanup rules or validation guards.
+
+The bounded regression first failed because the dispatcher never populated its
+shared environment. It now checks one environment build across several functions,
+actual typed-block outputs, separate module snapshots and both public precompute
+modes. The command regression and 316 precompute-focused tests pass. New native
+benchmarks cover 128/512-function modules for both variants; fixture validation
+and output checks precede timing.
+
+On the 6,211,596-byte / 12,904-function artifact, the fixed native CLI completes
+three untraced runs in 1,616.902–1,617.118 ms. Its 6,202,548-byte output is
+byte-identical to the completed starting CLI output and independently validates.
+An unrelated build overlapped the end of the starting run, so its elapsed time is
+excluded from speedup ratios. The uncontended portion had already exceeded four
+minutes. Further timing and final generated signoff belong to the complete
+campaign; this checkpoint does not close other performance or parity gaps.
+
+Sources: `src/passes/pass_manager.mbt`,
+`src/passes/precompute_module_env{,_perf}_wbtest.mbt`,
+`src/cmd/perf_precompute_module_env_wbtest.mbt`. Local profiles, red/green tests,
+benchmark logs, frozen binary and artifact identities are under
+`.tmp/pass-perf-campaign-20260927/`; `unit1-contention.json` records excluded
+samples. Fixed CLI SHA-256:
+`0b2a64611f6fed5500ae23501475d75f560ec09ddae82a59f22be416b96581f3`.
 
 ## September 26, 2026 infinite-loop tail scan
 

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-27
 sources:
   - index.md
   - ../../../../../src/passes/precompute.mbt
@@ -28,6 +28,16 @@ related:
 # Starshine `precompute-propagate` strategy
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## September 27, 2026 cleanup context reuse
+
+The [shared precompute cleanup repair](../precompute/starshine-hot-ir-strategy.md#september-27-2026-shared-cleanup-environment)
+also covers propagation's raw-result, unchanged-HOT, lowered-result and stacked
+paths. It retains parameter-block and snapshot boundaries and the existing
+one-solve/one-rerun behavior. Both modes have bounded dispatcher/command
+regressions and 128/512-function native benchmarks. The initial large propagation
+runs overlapped another build; retain their validation/byte evidence without
+using their elapsed times as accepted performance evidence.
 
 ## Current status
 
