@@ -224,6 +224,14 @@ and [upgrade ledger](../../version-132-upgrade.md) track the remaining signoff.
 
 ## September 27, 2026: retain identical child spans during rewriting
 
+**Timing supersession:** the [nested-timer correction](../../../tooling/tracing-playbook.md#september-27-2026-nested-timing-scope-correction)
+reparses the same saved traces and supersedes the optimizing pipeline totals
+below: small **26.037 → 25.455 ms**, large **8,517.890 → 8,502.036 ms**,
+and active wide fixture **60.813 → 58.127 ms (4.4%)**. The previous totals
+included nested cleanup twice. Plain DAE2, exact-byte checks, active signature
+changes and runtime evidence are unchanged; large optimizing performance
+remains open.
+
 DAE2 compares replacement children with the node's current span and skips the
 write when their order and count are identical. Calls and control rewrites can
 reset a span before this point, so comparing against the originally captured

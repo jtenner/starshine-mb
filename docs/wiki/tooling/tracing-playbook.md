@@ -1207,3 +1207,25 @@ would copy the entire mask for each non-defaultable local's first assignment,
 creating quadratic work on wide initializers. A future fix needs explicit region
 ownership or a persistent representation, with wide non-defaultable-local and
 handler invariants before adoption. The current campaign preserves those paths.
+
+## September 27, 2026: nested timing scope correction
+
+Optimizing DAE2 runs a nested SimplifyLocals/Vacuum pipeline under its own pass
+and pipeline timers. Summing every emitted timer double-counts that cleanup;
+the resulting pipeline total can even exceed the command wall time. The
+comparison parser now counts enclosing named scopes once, sums serial scopes,
+retains measured children when a wrapper is untimed, and preserves legacy
+unscoped traces. A completion without a corresponding named start cannot close
+its caller. Fine-grained phase counters remain inclusive diagnostic attribution,
+not an additive wall-time ledger.
+
+Six bounded parser regressions include red-first nested and unmatched-completion
+cases; all 21 timing-harness tests (60 assertions) pass. Compiler binaries and
+outputs are unchanged. Saved traces under `.tmp/pass-perf-next-20260927/` are
+reparsed into `corrected-timing-summary.json` and `final-pairs-*-corrected.json`;
+original reports remain available. This is an accounting correction, not a
+compiler performance gain. The follow-up campaign uses corrected durations.
+
+Sources: [parser](../../../scripts/lib/self-optimize-compare-task.ts),
+[scope regressions](../../../scripts/lib/self-optimize-nested-timing.test.ts),
+and [DAE2 child-span correction](../binaryen/passes/dae2/starshine-strategy.md#september-27-2026-retain-identical-child-spans-during-rewriting).

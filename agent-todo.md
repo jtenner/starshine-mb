@@ -71,6 +71,10 @@
   Coalesce memoizes numeric default identities within each analysis; large
   compiler time measures 4944.998 → 4929.752 ms. Exact key/ID, reference
   initialization and boundary-runtime invariants pass; final renewal is pending.
+- **Timing correction:** enclosing pass/pipeline scopes now exclude duplicate
+  nested cleanup timers. The [correction](docs/wiki/tooling/tracing-playbook.md#september-27-2026-nested-timing-scope-correction)
+  supersedes optimizing DAE2 totals above; saved traces are retained and final
+  evidence uses corrected durations. This is not a compiler speedup.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,

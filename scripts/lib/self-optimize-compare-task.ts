@@ -2019,6 +2019,42 @@ function sumStarshinePerfTimersMs(stderr: string, predicate: (name: string) => b
   return elapsedUs / 1000;
 }
 
+function sumOutermostStarshinePerfTimersMs(stderr: string, scope: "pass" | "pipeline"): number {
+  // Optimizing module passes may run another pipeline under their own timer.
+  // Prefer a scope's inclusive duration; only untimed wrappers inherit children.
+  const stack: Array<{ name: string; ownUs: number | null; childUs: number }> = [];
+  let elapsedUs = 0;
+  const finish = () => {
+    const completed = stack.pop();
+    if (!completed) return;
+    const duration = completed.ownUs ?? completed.childUs;
+    const parent = stack.at(-1);
+    if (parent) parent.childUs += duration;
+    else elapsedUs += duration;
+  };
+  const boundary = scope === "pipeline"
+    ? /(?:^|\s)(pipeline):(start|done)\b/
+    : /(?:^|\s)pass\[([^\]]+)\]:(start|done)\b/;
+  for (const line of stderr.split("\n")) {
+    const event = boundary.exec(line);
+    if (event?.[2] === "start") stack.push({ name: event[1], ownUs: null, childUs: 0 });
+    else if (event?.[2] === "done" && stack.at(-1)?.name === event[1]) finish();
+    const timer = /perf:timer name=([^\s]+) elapsed_us=(\d+)/.exec(line);
+    if (!timer || (scope === "pipeline" ? timer[1] !== "pipeline" : !timer[1].startsWith("pass:"))) {
+      continue;
+    }
+    const duration = Number(timer[2]);
+    const current = stack.at(-1);
+    if (current) {
+      const name = scope === "pipeline" ? "pipeline" : timer[1].slice("pass:".length);
+      if (current.name === name) current.ownUs = (current.ownUs ?? 0) + duration;
+      else current.childUs += duration;
+    } else elapsedUs += duration;
+  }
+  while (stack.length > 0) finish();
+  return elapsedUs / 1000;
+}
+
 function latestStarshinePerfTimerTotalMs(stderr: string, timerName: string): number {
   let totalUs = 0;
   for (const match of stderr.matchAll(
@@ -2032,7 +2068,7 @@ function latestStarshinePerfTimerTotalMs(stderr: string, timerName: string): num
 }
 
 export function parseStarshinePassElapsedMs(stderr: string): number {
-  const elapsedMs = sumStarshinePerfTimersMs(stderr, (name) => name.startsWith("pass:"));
+  const elapsedMs = sumOutermostStarshinePerfTimersMs(stderr, "pass");
   if (elapsedMs !== 0 || /perf:timer name=pass:[^\s]+ elapsed_us=0\b/.test(stderr)) {
     return elapsedMs;
   }
@@ -2085,10 +2121,7 @@ export function parseStarshinePerfTimingSummary(stderr: string): StarshinePerfTi
   const commandUnattributedElapsedMs = Math.round(
     Math.max(0, commandInputElapsedMs - commandKnownElapsedMs) * 1_000_000,
   ) / 1_000_000;
-  const optimizerPipelineElapsedMs = sumStarshinePerfTimersMs(
-    stderr,
-    (name) => name === "pipeline",
-  );
+  const optimizerPipelineElapsedMs = sumOutermostStarshinePerfTimersMs(stderr, "pipeline");
   const optimizerLiftElapsedMs = sumStarshinePerfTimersMs(
     stderr,
     (name) => name === "lift",
