@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-09-26
 sources:
+  - ../../../tooling/tracing-playbook.md
   - ../../../ir2/architecture-rules.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -10,6 +11,28 @@ sources:
 ---
 
 # `dae-optimizing` Fuzzing Profile
+
+## September 26 final allocation/indexing renewal
+
+The [final shared campaign](../../../tooling/tracing-playbook.md#september-26-2026-pass-time-allocation-and-indexing-renewal)
+uses frozen native CLI `da5f112b6bbf092476d2d6ac6694128e19adca3d288003526ab01c3e0b0bfcbb`,
+verified Binaryen 133 and 10,000 cases per documented aggregate at seed `0x5eed`.
+The shared record owns exact commands, profiles, normalizers, cache counts,
+runtime limits and baseline replays. This supersedes earlier current-baseline
+wording; historical v131/v132 results keep their original scope.
+
+| Lane | Canonical / cleanup matches | Residuals | Canonically larger | Star/original matches / blocked |
+| --- | ---: | ---: | ---: | ---: |
+| `dae-optimizing` | 5,153 / 0 | 4,847 | 0 | 10,000 / 0 |
+
+All listed lanes report zero validation, generator or command failures and no
+observed Starshine/original semantic mismatches. Cases blocked on the original
+input remain unverified.
+Residuals remain open parity gaps; canonically larger outputs remain quality
+gaps even when cleanup normalization matches. Valid or smaller output alone is not an accepted win. Saved residuals and all canonically larger
+cases reproduce the starting compiler bytes, as recorded in the shared replay.
+
+Local reports: `.tmp/pass-perf-work-20260926/final4-fuzz-dae-optimizing/result.json`.
 
 ## September 26 parameter-free forwarding renewal
 

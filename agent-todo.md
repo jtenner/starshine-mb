@@ -1,5 +1,34 @@
 # Agent Tasks
 
+## v0.1.1 — Current pass-time checkpoint [IR2-PERF-20260926]
+
+- **Goal / why:** finish reducing the remaining artifact pipeline costs without
+  losing cleanup breadth, output quality or runtime behavior.
+- **Current evidence:** the [September 26 final renewal](docs/wiki/tooling/tracing-playbook.md#september-26-2026-pass-time-allocation-and-indexing-renewal)
+  supersedes earlier current timing rows below. It records eleven optimization
+  commits, all 27 paired measurements, and 170,000 final-source comparisons.
+  Completed implementation details live in the wiki rather than this backlog.
+- **Remaining tasks / deliverables:** profile initial HOT lifting, DAE2 local-flow
+  solving, Coalesce CFG/interference construction, DAE call facts, inlining body
+  processing, and SimplifyLocals work outside the inner pass timer. Keep small
+  DAE/DAE-optimizing/SGO ratios and large Coalesce/DAE2/plain-inlining costs open.
+  Follow up on small full SimplifyLocals and large no-structure timings; retain
+  output-shape and canonical-size gaps, including the generated closed-DAE2/
+  no-structure losses and 513 cleanup-normalized CodePushing `br-if-value` cases.
+- **Required APIs / invariants:** reuse existing pass/IR interfaces; no public API
+  addition is required. Preserve source order, snapshot invalidation, parameter
+  slots, handler/loop liveness and capture lifetimes. Runtime-blocked generated
+  cases remain unverified. Keep Binaryen-only Node compilation limits (exact heap
+  types and import encoding `0x7f`) visible; valid or smaller output alone does
+  not close parity.
+- **Dependencies / exit criteria:** use the frozen-baseline hashes and phase
+  attribution in the renewal, isolated paired timing and verified Binaryen 133.
+  Close an owner only after material artifact improvement, valid output and
+  justified semantic/output-quality evidence; helper-only gains are insufficient.
+- **Suggested tests:** bounded red-first cost/behavior and dispatcher regressions,
+  focused native controls during development, then the documented 10,000-case
+  aggregate per affected pass. Keep large synthetic/fuzz work outside `moon test`.
+
 ## v0.1.1 — September 22 optimizer correctness spree [IR2-CORRECTNESS-20260922]
 
 - **Goal / why:** close the eight-agent pass audit at `006c24f9` without silently

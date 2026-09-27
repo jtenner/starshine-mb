@@ -36,9 +36,10 @@ plain/optimizing command dispatch paths pass after implementation.
 Sources: `src/passes/inlining.mbt`,
 `src/passes/inlining_body_facts_{wbtest,perf_wbtest}.mbt`,
 `src/cmd/perf_inlining_wbtest.mbt`, and the local
-`.tmp/pass-perf-work-20260926/inlining-body-*` measurement logs.
-Fresh v133 artifact comparison and aggregate fuzz follow the complete shared
-performance changes; earlier v131/v132 evidence below retains its original scope.
+`.tmp/pass-perf-work-20260926/inlining-facts-*` measurement logs.
+The [final shared renewal](../../../tooling/tracing-playbook.md#september-26-2026-pass-time-allocation-and-indexing-renewal) records verified-v133
+artifact measurements and aggregate fuzzing; earlier v131/v132 evidence below
+retains its original scope.
 
 ## September 25, 2026 dead-suffix call scan
 

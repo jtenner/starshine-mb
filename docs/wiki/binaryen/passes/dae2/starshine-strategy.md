@@ -55,7 +55,7 @@ analysis gain, not a whole-DAE2 speedup. Evidence:
 `src/ir/local_graph_query{,_perf}_wbtest.mbt`,
 `src/cmd/perf_local_flow_wbtest.mbt`, and
 `.tmp/pass-perf-work-20260926/local-query-{before,after}.log`.
-Aggregate fuzz renewal follows the complete performance work as requested.
+Final aggregate results and runtime limits are in the [shared renewal](../../../tooling/tracing-playbook.md#september-26-2026-pass-time-allocation-and-indexing-renewal).
 
 ## September 26, 2026 shared source-order index
 

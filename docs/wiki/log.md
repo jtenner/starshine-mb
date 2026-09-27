@@ -24582,3 +24582,14 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 ### 2026-09-25 — TupleOptimization captured-lane traffic lookup
 
 - The [TupleOptimization HOT strategy page](binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md#september-25-2026-captured-lane-traffic-root-lookup) records native analysis timing for 128 write-back reads at `76.92 → 1.02 µs` and 256 at `298.35 → 1.93 µs`. A captured tee with child-only use sites now avoids repeated whole-function root-slot searches. Full-pass impact remains unmeasured.
+
+### 2026-09-26 — Pass-time allocation/indexing renewal
+
+- Filed eleven separately committed performance changes and their red-first
+  regressions/helper controls into the [tracing playbook](tooling/tracing-playbook.md#september-26-2026-pass-time-allocation-and-indexing-renewal).
+- Recorded all 27 paired artifact measurements, verified-v133 inner timers,
+  unchanged output bytes, remaining pipeline costs and canonical size deficits.
+- Completed 170,000 generated comparisons across 17 final-source lanes; recorded
+  Node-v2 runtime limits, residual parity/size gaps and starting-binary replays.
+- Updated owner dossiers, the wiki index and the active timing checkpoint;
+  historical oracle versions and unrelated user worktree changes are preserved.

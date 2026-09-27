@@ -60,7 +60,7 @@ Sources: `src/passes/coalesce_locals.mbt`,
 `src/passes/coalesce_slot_queries_{wbtest,perf_wbtest}.mbt`,
 `src/cmd/perf_coalesce_slots_wbtest.mbt`, and
 `.tmp/pass-perf-work-20260926/coalesce-slot-bench.log`.
-Full artifact gains and final fuzz evidence are recorded separately.
+Final artifact and fuzz results are in the [shared renewal](../../../tooling/tracing-playbook.md#september-26-2026-pass-time-allocation-and-indexing-renewal).
 
 ## September 26, 2026 future-root minimum index
 
@@ -111,8 +111,8 @@ pairs. These are causal Starshine comparisons, not new Binaryen ratios.
 Inputs/executable hashes and every sample are recorded in
 `.tmp/pass-perf-work-20260926/source-scratch-{large,small,small-confirm}/result.json`.
 Focused tests cover the source-order cache and active CoalesceLocals/DAE2
-dispatchers. At the user's request, aggregate fuzz renewal follows the complete
-performance work rather than blocking each individual change.
+dispatchers. The [completed final campaign](../../../tooling/tracing-playbook.md#september-26-2026-pass-time-allocation-and-indexing-renewal) records aggregate
+coverage and the remaining parity gaps.
 
 ## September 26, 2026 source-order local-access index
 

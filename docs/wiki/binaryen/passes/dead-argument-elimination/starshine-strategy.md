@@ -40,8 +40,8 @@ regressions; those tests pass after sharing the proof, without weakening them.
 Bounded regressions cover active constants and shifted callsite paths, and the
 command test checks the materialized i31 instruction sequence. Native controls
 measure `65.34 → 24.24 µs` at 128 calls and `258.93 → 95.20 µs` at 512 calls
-for legacy body scans versus current callsite facts. Full artifact and aggregate
-fuzz evidence remain separate from these helper gains.
+for legacy body scans versus current callsite facts. The [final shared renewal](../../../tooling/tracing-playbook.md#september-26-2026-pass-time-allocation-and-indexing-renewal) records full artifact
+and aggregate fuzz evidence separately from these helper gains.
 Sources: `src/passes/dead_argument_elimination.mbt`,
 `src/passes/dae_stable_operands_{wbtest,perf_wbtest}.mbt`,
 `src/passes/dae_optimizing_test.mbt`, `src/cmd/perf_uniform_reference_wbtest.mbt`,

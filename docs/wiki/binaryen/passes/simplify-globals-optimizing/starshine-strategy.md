@@ -102,8 +102,8 @@ pass speedup. Six focused guard/dispatcher tests pass. Source and evidence:
 `src/passes/structured_lifetime_summary_perf_wbtest.mbt`, and
 `.tmp/pass-perf-work-20260926/lifetime-summary-{before,after}.log`.
 The shared users include all SimplifyLocals modes, optimizing DAE, inlining and
-SimplifyGlobals, plus precompute and CodePushing. Aggregate fuzz renewal follows
-the complete performance work as requested.
+SimplifyGlobals, plus precompute and CodePushing. The [completed final campaign](../../../tooling/tracing-playbook.md#september-26-2026-pass-time-allocation-and-indexing-renewal)
+records aggregate coverage, runtime limits and the remaining parity gaps.
 
 ## September 26, 2026 structured-lifetime guard bounds
 
