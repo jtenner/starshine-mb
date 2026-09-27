@@ -79428,6 +79428,11 @@ fn run_hot_pipeline_func(
         module_ctx=Some(
           run_hot_pipeline_require_module_ctx(mod_, module_state, options),
         ),
+        module_env_provider=Some(fn() {
+          run_hot_pipeline_require_validation_module_env(
+            mod_, module_state, options,
+          )
+        }),
       )
       return Ok({
         reason: result.reason,

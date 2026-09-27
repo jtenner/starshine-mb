@@ -1642,3 +1642,27 @@ Sources: [pipeline](../../../../../src/passes/pass_manager.mbt),
 and [dispatcher](../../../../../src/cmd/perf_optimize_instructions_module_env_wbtest.mbt).
 Final artifact and generated evidence is in the
 [campaign report](../../../tooling/tracing-playbook.md).
+
+The first cache change covered the six lowered-function sites, but the raw
+return path called tuple cleanup directly and still omitted the provider. The
+nine-unit artifact checkpoint therefore remained about **11.1 seconds**. Fresh
+GDB samples explicitly showed that raw caller under the same descriptor scan;
+the follow-up now passes the lazy provider there too. This supersedes any
+interpretation that the lowered-path helper benchmark alone closed that cost.
+
+The bounded raw-route regression uses a valid multivalue block before a
+`try_table`: OI intentionally leaves the latter to its existing raw boundary,
+while tuple cleanup must still flatten the preceding block. It first failed
+because the shared environment remained absent. The corrected route builds one
+environment across two functions, preserves the exact numeric/call lane order
+and the original `try_table`, and produces a valid module. Six focused tests
+pass, including lowered-path controls and both active-dispatcher fixtures.
+
+Sources: [raw-route invariant](../../../../../src/passes/optimize_instructions_raw_module_env_wbtest.mbt),
+[raw guard/cleanup benchmark](../../../../../src/passes/optimize_instructions_raw_module_env_perf_wbtest.mbt),
+and the [dispatcher fixtures](../../../../../src/cmd/perf_optimize_instructions_module_env_wbtest.mbt).
+Same-binary native raw-guard/cleanup batches compare exact outputs before timing:
+128 functions improve **786.18 → 44.40 µs**, and 512 improve
+**11.28 ms → 175.15 µs**. Each batch starts with an empty environment cache;
+fixture parsing and shared type-context setup are excluded. The final campaign
+report owns the complete artifact renewal after this caller is wired.

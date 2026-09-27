@@ -22,3 +22,17 @@ test "command optimize-instructions flattens tuple wrappers in producer order" {
     ],
   )
 }
+
+///|
+test "command optimize-instructions cleans carried tuple lanes on its raw return path" {
+  let output = cmd_deep_audit_run(
+    "(module (type (func (result i32 i64))) (global (mut i64) (i64.const 0)) (func (export \"run\") (result i32 i64) block (type 0) i32.const 7 call 1 end try_table nop end) (func (result i64) i64.const 123 global.set 0 i64.const 9))",
+    "optimize-instructions",
+  )
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_eq(body.length(), 3)
+  assert_eq(body[0], @lib.Instruction::i32_const(@lib.I32(7)))
+  assert_eq(body[1], @lib.Instruction::call(@lib.FuncIdx::new(1U)))
+  assert_true(body[2] is @lib.TryTable(_, _, _))
+}
