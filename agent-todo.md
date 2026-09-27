@@ -24,6 +24,9 @@
   3,255.510 → 2,709.490 ms with identical bytes and validation; 62 focused
   tests pass. Shared-consumer artifact and aggregate renewal remain pending.
   OI module encoding/control cleanup and validation still need attention.
+  Borrowed lowering operands reduce large Coalesce pipeline time
+  6,635.983 → 6,297.403 ms and DAE2 5,570.475 → 5,374.611 ms with
+  identical bytes; 120 focused regressions pass. Final aggregates are pending.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,

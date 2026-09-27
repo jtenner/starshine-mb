@@ -243,12 +243,16 @@ fn hot_lower_impl_mem_idx(raw : Int) -> MemIdx {
 
 ///|
 priv struct HotLowerInputs {
-  nodes : Array[NodeId]
+  nodes : ArrayView[NodeId]
   pop_count : Int
 }
 
 ///|
-fn hot_lower_impl_input_info(func : HotFunc, id : NodeId) -> HotLowerInputs {
+fn hot_lower_impl_input_info(
+  func : HotFunc,
+  id : NodeId,
+  copied_slots? : Array[Int]? = None,
+) -> HotLowerInputs {
   let node = hot_node_get(func, id)
   match node.op {
     HotOp::Block
@@ -264,26 +268,41 @@ fn hot_lower_impl_input_info(func : HotFunc, id : NodeId) -> HotLowerInputs {
     | HotOp::TableSize
     | HotOp::DataDrop
     | HotOp::ElemDrop
-    | HotOp::RefFunc => { nodes: [], pop_count: 0, }
+    | HotOp::RefFunc => { nodes: func.children[0:0], pop_count: 0, }
     HotOp::Loop => {
-      let out : Array[NodeId] = []
       let input_count = hot_label_branch_arity(
         func,
         hot_control_node_label(func, id),
       )
-      for i = 0; i < input_count; i = i + 1 {
-        out.push(func.children[node.child_base + i])
+      {
+        nodes: func.children[node.child_base:node.child_base + input_count],
+        pop_count: input_count,
       }
-      { nodes: out, pop_count: input_count, }
     }
-    HotOp::If => { nodes: [func.children[node.child_base]], pop_count: 1, }
+    HotOp::If =>
+      {
+        nodes: func.children[node.child_base:node.child_base + 1],
+        pop_count: 1,
+      }
     _ => {
-      let out : Array[NodeId] = []
-      for i = 0; i < node.child_count; i = i + 1 {
-        let child = func.children[node.child_base + i]
-        if child != HOT_NONE_NODE {
-          out.push(child)
+      // Lowering and source-order analysis only read the current HOT snapshot.
+      // Dense child storage can be borrowed; absent slots need compact storage.
+      let children = func.children[node.child_base:node.child_base +
+        node.child_count]
+      let nodes = if children.any(fn(child) { child == HOT_NONE_NODE }) {
+        let kept : Array[NodeId] = []
+        for child in children {
+          if child != HOT_NONE_NODE {
+            match copied_slots {
+              Some(count) => count[0] += 1
+              None => ()
+            }
+            kept.push(child)
+          }
         }
+        kept[:]
+      } else {
+        children
       }
       let pop_count = match node.op {
         HotOp::BrIf | HotOp::BrTable | HotOp::BrOnNull | HotOp::BrOnNonNull => 1
@@ -293,9 +312,9 @@ fn hot_lower_impl_input_info(func : HotFunc, id : NodeId) -> HotLowerInputs {
             | Some(@lib.BrOnCastDescEqFail(_, _, _)) => 2
             _ => 1
           }
-        _ => out.length()
+        _ => nodes.length()
       }
-      { nodes: out, pop_count, }
+      { nodes, pop_count, }
     }
   }
 }
@@ -332,7 +351,7 @@ fn hot_lower_impl_push_results(
 ///|
 fn hot_lower_impl_matching_input_prefix(
   stack : Array[HotLowerStackValue],
-  inputs : Array[NodeId],
+  inputs : ArrayView[NodeId],
 ) -> Int {
   let max_count = if stack.length() < inputs.length() {
     stack.length()
@@ -2172,7 +2191,7 @@ fn hot_lower_impl_emit_value(
 ///|
 fn hot_lower_impl_emit_inputs(
   func : HotFunc,
-  inputs : Array[NodeId],
+  inputs : ArrayView[NodeId],
   use_def : HotUseDef,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,

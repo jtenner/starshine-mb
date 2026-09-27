@@ -37,6 +37,35 @@ related:
 
 # IR2 Architecture Rules
 
+## Borrowed lowering operands (September 27, 2026)
+
+Lowering and source-order analysis borrow dense child spans from the unchanged
+HOT snapshot. The view preserves operand order and duplicate tuple lanes; it
+contains only a loop's parameter prefix or an if's condition, never its body
+regions. An intentionally absent child slot still takes the compact-copy path.
+Branch selector and descriptor-cast pop counts retain their existing contract.
+These views must not survive a mutation of HOT child storage.
+
+Red-first copied-slot checks, bounded control/tuple/branch fixtures and active
+CoalesceLocals/DAE2 dispatch tests pass, together with 120 focused regressions.
+Native 256-query controls improve 8.94 → 5.03 µs for two operands and
+72.41 → 21.04 µs for 128. One warmup and three isolated alternating artifact
+pairs retain identical raw bytes, traced/untraced agreement and independent
+validation. Large pipeline medians fall 6,635.983 → 6,297.403 ms for Coalesce
+and 5,570.475 → 5,374.611 ms for DAE2. SimplifyLocals is effectively unchanged
+at 2,203.937 → 2,188.646 ms; propagation improves 1,573.635 → 1,532.599 ms.
+These gains do not close the remaining pass costs or existing parity gaps.
+Small Coalesce rises 12.972 → 13.440 ms and needs final repeat measurement;
+the other three small cases improve. Final aggregate fuzz renewal remains pending.
+
+Evidence: `.tmp/pass-perf-next-20260927/input-view-{checks.json,bench-0.log}`,
+`input-view-pairs-{small,large}/result.json` in that directory; native SHA-256
+`5413c60f4f7359bcedafce14d0c3a667e71bd12bd009b47275267a9a35bf5c75`.
+Sources: [lowering](../../../src/ir/hot_lower.mbt),
+[bounded invariants](../../../src/ir/hot_lower_input_view_wbtest.mbt),
+[native controls](../../../src/ir/hot_lower_input_view_perf_wbtest.mbt), and
+[dispatcher test](../../../src/cmd/perf_lower_input_view_wbtest.mbt).
+
 ## September 22 eight-agent pass safety audit
 
 Eight read-only scouts divided the active passes by numeric rewrites, locals,
