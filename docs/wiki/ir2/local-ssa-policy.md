@@ -455,3 +455,39 @@ Sources: [solver](../../../src/ir/local_graph.mbt),
 [bounded invariants](../../../src/ir/local_graph_worklist_wbtest.mbt),
 [native controls](../../../src/ir/local_graph_worklist_perf_wbtest.mbt), and
 [dispatcher loop fixture](../../../src/cmd/perf_local_flow_worklist_wbtest.mbt).
+
+## September 27, 2026: sparse tuple evaluation state
+
+Unexpanded block transfers now record only tuple producers actually encountered
+on a path. Scalar nodes allocate no tuple entries. Conditional arms copy the
+encountered set; their join retains its intersection, so a producer evaluated
+on only one arm can still execute afterward. Expanded CFG transfer remains
+unchanged and needs no entries. This replaces a function-sized Boolean array
+per block and its whole-array copies/intersection at every nested conditional.
+It does not change local-state joining, exceptional policy or source ordering.
+
+The scalar storage bound failed at four flags before implementation and now
+requires zero while asserting reaching writes and influences. An independent
+copy of the former dense transfer checks exact states and observation order
+through shared tuple producers, nested joins, loops and handlers. All 41 focused
+checks pass, including active tuple-producer dispatch through Coalesce, DAE2,
+propagation and OI. Native full-transfer controls improve **326.91 → 83.52 µs**
+for 64 scalar regions and **4.07 ms → 344.22 µs** for 256.
+
+One warmup and three isolated alternating pairs reduce large DAE2 pipeline
+**5,447.170 → 5,228.758 ms (4.0%)** with identical raw bytes, traced/untraced
+agreement and independent validation. Large propagation (1,553.324 →
+1,557.568 ms) and OI (2,738.469 → 2,733.916 ms) are effectively unchanged.
+Small DAE2 improves 17.604 → 17.268 ms; propagation 5.198 → 4.976 ms;
+OI is 3.328 → 3.346 ms. Remaining pass and parity gaps stay open;
+final affected-pass aggregate renewal is pending.
+
+Evidence: `.tmp/pass-perf-next-20260927/sparse-tuples-{checks.json,bench-0.log}`
+and `sparse-tuples-pairs-{small,large}/result.json`; native SHA-256
+`ad4bc3b931fc54a838cc0db1e2d3af0e3f9a3481932f19bad08b78d51139a1d6`.
+Sources: [transfer](../../../src/ir/local_graph.mbt),
+[sparse state](../../../src/ir/local_graph_sparse_tuple_state.mbt),
+[exact reference comparison](../../../src/ir/local_graph_sparse_tuple_wbtest.mbt),
+[scalar invariant](../../../src/ir/local_graph_tuple_state_wbtest.mbt),
+[native controls](../../../src/ir/local_graph_sparse_tuple_perf_wbtest.mbt), and
+[dispatcher test](../../../src/cmd/perf_lower_input_view_wbtest.mbt).

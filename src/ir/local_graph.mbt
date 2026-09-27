@@ -324,7 +324,7 @@ fn local_graph_transfer_nested_region(
   state : Array[Array[Int]],
   get_sources : Array[Array[Int]]?,
   write_influences : Array[Array[NodeId]]?,
-  evaluated_tuples : Array[Bool],
+  evaluated_tuples : LocalGraphTupleState,
 ) -> Unit {
   for idx = 0; idx < hot_region_root_count(func, region); idx = idx + 1 {
     local_graph_transfer_node(
@@ -349,7 +349,7 @@ fn local_graph_transfer_node(
   get_sources : Array[Array[Int]]?,
   write_influences : Array[Array[NodeId]]?,
   traverse_nested_blocks : Bool,
-  evaluated_tuples : Array[Bool],
+  evaluated_tuples : LocalGraphTupleState,
 ) -> Unit {
   if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
     return
@@ -363,10 +363,9 @@ fn local_graph_transfer_node(
     _ => false
   }
   if traverse_nested_blocks && is_tuple {
-    if evaluated_tuples[node_id] {
+    if evaluated_tuples.already_evaluated(node_id) {
       return
     }
-    evaluated_tuples[node_id] = true
   }
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     if local_graph_is_region_slot(node.op, slot) {
@@ -421,9 +420,7 @@ fn local_graph_transfer_node(
             )
           }
         }
-        for id = 0; id < evaluated_tuples.length(); id = id + 1 {
-          evaluated_tuples[id] = yes_tuples[id] && no_tuples[id]
-        }
+        evaluated_tuples.intersect_paths(yes_tuples, no_tuples)
         for local_id = 0; local_id < local_count; local_id = local_id + 1 {
           state[local_id] = local_graph_join_sources(
             yes[local_id],
@@ -480,17 +477,9 @@ fn local_graph_transfer_block(
   tuple_slots? : Array[Int]? = None,
 ) -> Array[Array[Int]] {
   let state = local_graph_state_clone(in_state)
-  // Expanded CFGs already visit each tuple producer at its execution position.
-  // Only recursive, unexpanded traversal needs per-producer bookkeeping.
-  let evaluated_tuples = if cfg.operands_expanded {
-    []
-  } else {
-    Array::make(hot_node_count(func), false)
-  }
-  match tuple_slots {
-    Some(count) => count[0] += evaluated_tuples.length()
-    None => ()
-  }
+  // Expanded CFGs already visit each producer at its execution position.
+  // Recursive traversal records only tuple producers actually encountered.
+  let evaluated_tuples = LocalGraphTupleState::new(tuple_slots)
   for node_id in cfg_block_get(cfg, block_id).nodes {
     if cfg.operands_expanded {
       // The CFG already lists each operand at its execution position.

@@ -30,6 +30,9 @@
   Lazy lift dependency masks cut large Coalesce pipeline time a further
   6,280.441 → 5,216.253 ms with identical bytes. Collision and carried-read
   invariants pass; small increases on other consumers require final renewal.
+  Sparse per-path tuple state lowers large DAE2 pipeline time
+  5,447.170 → 5,228.758 ms, retaining exact reaching sources and tuple
+  execution counts. Final aggregate renewal remains pending.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,

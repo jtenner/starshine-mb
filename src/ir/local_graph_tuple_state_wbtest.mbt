@@ -1,5 +1,5 @@
 ///|
-test "expanded local-flow transfer skips tuple flags and preserves reaching writes" {
+test "scalar local-flow transfers skip tuple storage and preserve reaching writes" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let write = hot_build_local_set(
     func,
@@ -30,6 +30,6 @@ test "expanded local-flow transfer skips tuple flags and preserves reaching writ
     assert_eq(result[0], [local_graph_set_source_id(1, write)])
     assert_eq(sources[read], [local_graph_set_source_id(1, write)])
     assert_eq(influences[write], [read])
-    assert_eq(slots[0], if expanded { 0 } else { hot_node_count(func) })
+    assert_eq(slots[0], 0)
   }
 }
