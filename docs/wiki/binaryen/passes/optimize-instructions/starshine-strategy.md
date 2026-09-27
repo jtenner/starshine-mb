@@ -1684,3 +1684,55 @@ initializer pruning correction. Native CLI SHA-256 is
 `95f15ba42e212adb7b742d612f4aeb0b30985c4b9621c43a08f80e55a261673d`;
 paired evidence is `.tmp/pass-perf-next-20260927/type-scan-pairs-large/result.json`.
 Final generated renewal for this follow-up campaign remains pending.
+
+
+## September 27, 2026: group numeric locals from declaration runs
+
+The shared numeric-local grouping helper now visits compressed declaration runs
+instead of repeatedly resolving each expanded local. Indexed lookup rechecks the
+run index, so the previous loops multiplied expanded local count by declaration
+run count. The new implementation retains first-seen type buckets and stable
+order within each type, computes bucket offsets, and builds a mapping only when
+the declaration layout changes. Parameter slots, numeric-type admission, empty
+runs, decoded-name remapping, size acceptance and validation remain unchanged.
+
+The red-first unchanged-layout fixture allocated 18 mapping slots instead of
+zero. Fifteen focused tests pass, including exact original-helper comparisons,
+zero-length reference declarations, 64/128 index boundaries, parameter indices,
+source-body isolation and active OI command effect order. Dedicated native
+controls measured 97.60 µs → 967.45 ns for 32 interleaved runs, 1.08 ms → 3.09 µs
+for 128 runs, and 126.00 µs → 179.92 ns for 2,048 already-grouped locals.
+
+Full-pipeline medians use one warmup and three isolated alternating pairs:
+
+| Input / pass | Before ms | After ms |
+| --- | ---: | ---: |
+| small / optimize-instructions | 3.315 | 3.221 |
+| small / duplicate-function-elimination | 0.577 | 0.482 |
+| small / precompute-propagate | 4.853 | 4.927 |
+| large / optimize-instructions | 2,591.761 | 2,571.059 |
+| large / duplicate-function-elimination | 900.209 | 873.337 |
+| large / precompute-propagate | 1,514.207 | 1,501.958 |
+| wide / duplicate-function-elimination | 95.149 | 0.707 |
+
+The wide fixture is a separate 17,297-byte module with 64 exported functions,
+each with a distinct constant result and 2,048 numeric locals in 128 alternating
+16-local runs. Its 99.3% DFE improvement establishes a full-pass benefit for that
+workload; it is not the compiler artifact. On the compiler artifact, large DFE
+improves 3.0%, while OI and propagation are effectively flat. All seven pairs
+retain exact bytes, traced/untraced agreement and independent validation.
+`moon info`, `moon fmt`, six native controls and the release build pass. Final
+shared aggregate renewal remains required.
+
+Sources: [grouping](../../../../../src/passes/pass_manager.mbt),
+[bounded invariants](../../../../../src/passes/numeric_group_wbtest.mbt),
+[original reference](../../../../../src/passes/numeric_group_reference_wbtest.mbt),
+[native controls](../../../../../src/passes/numeric_group_perf_wbtest.mbt),
+[dispatcher fixture](../../../../../src/cmd/perf_numeric_group_wbtest.mbt).
+Evidence: `.tmp/pass-perf-next-20260927/numeric-group-{red,focused,bench-1}.log`
+and `numeric-group-pairs-{small,large,wide}/result.json`. Helper round zero was
+rejected for competing Chrome CPU activity. After native SHA-256:
+`952e483dc8f1df45c071459ca9f93e6a6280e2b66ea2eaef9da6f834a07e5840`;
+before: `23b26fd040549b11575ad847d766eb4a5a3b831bcb15da831c1d8d0b43933a66`.
+Wide input SHA-256:
+`6b6f515b4d544836eece338544a65e8b9d5cc890d8f9e33f71629e62792405ff`.

@@ -18260,6 +18260,7 @@ fn run_hot_pipeline_raw_numeric_local_type(ty : @lib.ValType) -> Bool {
 fn run_hot_pipeline_raw_group_body_locals_by_type_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
+  mapping_slots? : Array[Int]? = None,
 ) -> (@lib.Func, Array[Int]?) {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   if locals.length() <= 1 {
@@ -18270,52 +18271,73 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_func(
       return (func, None)
     }
   }
-  for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
-    if !run_hot_pipeline_raw_numeric_local_type(locals.get(local_idx)) {
+  let runs = locals.runs()
+  let buckets : Array[@lib.ValType] = []
+  let counts : Array[Int] = []
+  let run_buckets : Array[Int] = []
+  for run in runs {
+    if run.count == 0U {
+      run_buckets.push(-1)
+      continue
+    }
+    if !run_hot_pipeline_raw_numeric_local_type(run.vt) {
       return (func, None)
     }
-  }
-  let buckets : Array[@lib.ValType] = []
-  for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
-    let ty = locals.get(local_idx)
-    if run_hot_pipeline_raw_local_type_bucket_index(buckets, ty) < 0 {
-      buckets.push(ty)
+    let mut bucket = run_hot_pipeline_raw_local_type_bucket_index(
+      buckets,
+      run.vt,
+    )
+    if bucket < 0 {
+      bucket = buckets.length()
+      buckets.push(run.vt)
+      counts.push(0)
     }
+    run_buckets.push(bucket)
+    counts[bucket] += run.count.reinterpret_as_int()
+  }
+  let grouped_locals = @lib.Locals::new(
+    Array::makei(buckets.length(), fn(i) {
+      @lib.LocalRun::new(counts[i].to_uint(), buckets[i])
+    }),
+  )
+  // This also preserves the old normalization of adjacent declaration groups.
+  if grouped_locals == locals {
+    return (func, None)
   }
   let param_count = params.length()
-  let total_local_count = param_count + locals.length()
-  let local_remap : Array[Int] = []
-  for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
-    local_remap.push(local_id)
+  let total = param_count + locals.length()
+  let remap = Array::makei(total, fn(i) { i })
+  match mapping_slots {
+    Some(count) => count[0] += remap.length()
+    None => ()
   }
-  let grouped_local_types : Array[@lib.ValType] = []
-  let mut changed = false
-  for bucket_idx = 0; bucket_idx < buckets.length(); bucket_idx = bucket_idx + 1 {
-    let bucket_ty = buckets[bucket_idx]
-    for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
-      if locals.get(local_idx) == bucket_ty {
-        let old_local_id = param_count + local_idx
-        let next_local_id = param_count + grouped_local_types.length()
-        if old_local_id != next_local_id {
-          changed = true
-          local_remap[old_local_id] = next_local_id
-        }
-        grouped_local_types.push(bucket_ty)
-      }
+  let starts : Array[Int] = []
+  let mut next = param_count
+  for count in counts {
+    starts.push(next)
+    next += count
+  }
+  let mut old = param_count
+  for i = 0; i < runs.length(); i = i + 1 {
+    let count = runs[i].count.reinterpret_as_int()
+    if count == 0 {
+      continue
     }
-  }
-  let grouped_locals = @lib.Locals::from_types(grouped_local_types)
-  if !changed && grouped_locals == locals {
-    return (func, None)
+    let bucket = run_buckets[i]
+    for j = 0; j < count; j = j + 1 {
+      remap[old + j] = starts[bucket] + j
+    }
+    old += count
+    starts[bucket] += count
   }
   (
     @lib.Func::new(
       grouped_locals,
       @lib.Expr::new(
-        run_hot_pipeline_raw_compact_rewrite_local_refs(instrs, local_remap),
+        run_hot_pipeline_raw_compact_rewrite_local_refs(instrs, remap),
       ),
     ),
-    Some(local_remap),
+    Some(remap),
   )
 }
 

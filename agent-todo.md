@@ -43,6 +43,9 @@
   Fixed-size validation masks reduce large SimplifyLocals pipeline time
   2,166.236 → 2,067.964 ms and OI 2,656.134 → 2,593.829 ms; array ownership
   and non-defaultable-local invariants pass. Full aggregate renewal is pending.
+  Run-based numeric-local grouping cuts a dedicated wide-local DFE fixture
+  95.149 → 0.707 ms and large compiler DFE 900.209 → 873.337 ms. OI and
+  propagation artifact times remain effectively flat for this change.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,
