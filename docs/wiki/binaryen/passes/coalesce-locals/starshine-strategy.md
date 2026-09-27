@@ -38,6 +38,52 @@ related:
 Use this page together with the [`coalesce-locals` landing page](./index.md)'s tagged source list, the retained 2026-05-05 research recheck, and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.
 
+## September 27, 2026 structured interference live-member iteration
+
+Structured interference construction now uses the existing indexed live set
+instead of scanning every declared local for each read or effective write.
+Entry parameter/default-value edges, remaining-get counts, value identities,
+effective-write handling and the exact interference matrix are unchanged.
+Swap removal affects iteration order only; edge insertion is commutative and
+membership does not change during the edge loop.
+
+The bounded red test previously visited 1,088 candidate locals; actual-live
+iteration stays within 72 and preserves every reference matrix bit. Default
+entry reads, ineffective writes and dispatcher execution through block/if
+control are covered. All 145 focused Coalesce tests pass. Native full-helper
+reference/current controls measure 3.81 µs / 3.77 µs with eight locals
+and 1.73 ms / 1.06 ms with 2,048 locals. Inputs and liveness facts are
+outside timing; each iteration constructs its own output matrix.
+
+New full-pipeline fixtures have 128/512 sequential temporary locals and repeated
+if arms, keeping only a few values live at once. Thirty original/before/after
+runtime checks preserve results at boundary inputs. Compiler and optimizing
+consumers are also measured; guarded cleanup paths remain guard evidence.
+
+| Input | Pass | Before pipeline ms | After pipeline ms |
+| --- | --- | ---: | ---: |
+| large | coalesce-locals | 5032.304 | 4958.244 |
+| large | inlining-optimizing | 621.666 | 623.490 |
+| large | dae-optimizing | 981.633 | 988.513 |
+| large | simplify-globals-optimizing | 57.049 | 55.814 |
+| small | coalesce-locals | 13.582 | 11.334 |
+| small | inlining-optimizing | 110.623 | 104.848 |
+| small | dae-optimizing | 136.631 | 139.510 |
+| small | simplify-globals-optimizing | 19.149 | 19.474 |
+| wide-128 | coalesce-locals | 1.794 | 1.867 |
+| wide-512 | coalesce-locals | 20.708 | 19.041 |
+
+One warmup and three uncontended alternating pairs retain identical raw bytes,
+traced/untraced agreement and independent validation. Overall compiler budgets
+and parity/size gaps remain open; final aggregate renewal is pending.
+Evidence: `.tmp/pass-perf-next-20260927/coalesce-structured-live-*`;
+CLI SHA-256 `72332ba9757b0b1166841e9234faf119510be99237fb4b94ac4c903464c03815`. Sources:
+[implementation](../../../../../src/passes/coalesce_locals.mbt),
+[invariants](../../../../../src/passes/coalesce_structured_live_wbtest.mbt),
+[reference](../../../../../src/passes/coalesce_structured_live_reference_wbtest.mbt),
+[native controls](../../../../../src/passes/coalesce_structured_live_perf_wbtest.mbt),
+and [dispatcher execution](../../../../../src/cmd/perf_coalesce_structured_live_wbtest.mbt).
+
 ## September 27, 2026 word-wise live cliques
 
 CFG interference cliques with at least 16 live entries build a valid-member

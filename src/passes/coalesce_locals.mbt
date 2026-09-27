@@ -4057,6 +4057,7 @@ fn cl_compute_interferences(
   liveness : CLLiveness,
   types : Array[@lib.ValType],
   param_count : Int,
+  live_visits? : Array[Int]? = None,
 ) -> CLBitMatrix {
   let total_locals = types.length()
   let interferences = CLBitMatrix::new(total_locals)
@@ -4099,34 +4100,32 @@ fn cl_compute_interferences(
       _ => ()
     }
   }
-  let live = liveness.live_at_entry.copy()
-  let mut live_count = 0
-  for is_live in live {
-    if is_live {
-      live_count += 1
+  let live = CLCfgLiveSet::new(total_locals)
+  for local = 0; local < total_locals; local = local + 1 {
+    if liveness.live_at_entry[local] {
+      cl_cfg_live_set_add(live, local)
     }
   }
   for action_idx = 0; action_idx < actions.length(); action_idx = action_idx + 1 {
     let action = actions[action_idx]
     match action.kind {
       CLActionKind::Get => {
-        if !live[action.local_idx] {
-          live[action.local_idx] = true
-          live_count += 1
-        }
-        if live_count > 1 {
-          for other = 0; other < total_locals; other = other + 1 {
+        cl_cfg_live_set_add(live, action.local_idx)
+        if live.members.length() > 1 {
+          for other in live.members {
+            match live_visits {
+              Some(visits) => visits[0] += 1
+              None => ()
+            }
             if other != action.local_idx &&
-              live[other] &&
               current_values[other] != current_values[action.local_idx] {
               cl_add_interference(interferences, action.local_idx, other)
             }
           }
         }
         remaining_gets[action.local_idx] -= 1
-        if remaining_gets[action.local_idx] == 0 && live[action.local_idx] {
-          live[action.local_idx] = false
-          live_count -= 1
+        if remaining_gets[action.local_idx] == 0 {
+          cl_cfg_live_set_remove(live, action.local_idx)
         }
       }
       CLActionKind::Set | CLActionKind::Tee => {
@@ -4141,24 +4140,20 @@ fn cl_compute_interferences(
           cl_value_for_source(action.source, current_values, interner)
         }
         if liveness.effective[action_idx] {
-          if live_count > 0 {
-            for other = 0; other < total_locals; other = other + 1 {
-              if other != action.local_idx &&
-                live[other] &&
-                current_values[other] != new_value {
+          if live.members.length() > 0 {
+            for other in live.members {
+              match live_visits {
+                Some(visits) => visits[0] += 1
+                None => ()
+              }
+              if other != action.local_idx && current_values[other] != new_value {
                 cl_add_interference(interferences, action.local_idx, other)
               }
             }
           }
-          if !live[action.local_idx] {
-            live_count += 1
-          }
-          live[action.local_idx] = true
+          cl_cfg_live_set_add(live, action.local_idx)
         } else {
-          if live[action.local_idx] {
-            live_count -= 1
-          }
-          live[action.local_idx] = false
+          cl_cfg_live_set_remove(live, action.local_idx)
         }
         current_values[action.local_idx] = new_value
       }

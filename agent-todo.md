@@ -65,6 +65,9 @@
   Compiler times are mostly flat; source order and runtime call counts pass.
   Word-wise CFG live cliques retain exact edges and improve large Coalesce
   5131.579 → 5064.714 ms; wide-loop runtime checks pass.
+  Structured Coalesce now iterates actual live members with exact matrix parity;
+  large compiler time measures 5032.304 → 4958.244 ms. Wide structured
+  fixtures preserve boundary results; full aggregate renewal remains pending.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,
