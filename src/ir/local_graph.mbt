@@ -110,6 +110,9 @@ fn local_graph_state_clone(state : Array[Array[Int]]) -> Array[Array[Int]] {
 
 ///|
 fn local_graph_join_sources(lhs : Array[Int], rhs : Array[Int]) -> Array[Int] {
+  if physical_equal(lhs, rhs) || rhs.is_empty() {
+    return lhs
+  }
   if lhs.is_empty() {
     return rhs
   }
@@ -126,10 +129,16 @@ fn local_graph_state_equal(
   lhs : Array[Array[Int]],
   rhs : Array[Array[Int]],
 ) -> Bool {
+  if physical_equal(lhs, rhs) {
+    return true
+  }
   if lhs.length() != rhs.length() {
     return false
   }
   for idx = 0; idx < lhs.length(); idx = idx + 1 {
+    if physical_equal(lhs[idx], rhs[idx]) {
+      continue
+    }
     if lhs[idx].length() != rhs[idx].length() {
       return false
     }
@@ -476,6 +485,9 @@ fn local_graph_transfer_block(
   write_influences : Array[Array[NodeId]]?,
   tuple_slots? : Array[Int]? = None,
 ) -> Array[Array[Int]] {
+  if cfg_block_get(cfg, block_id).nodes.is_empty() {
+    return in_state
+  }
   let state = local_graph_state_clone(in_state)
   // Expanded CFGs already visit each producer at its execution position.
   // Recursive traversal records only tuple producers actually encountered.
@@ -524,20 +536,40 @@ fn local_graph_merge_predecessors(
   out_states : Array[Array[Array[Int]]],
   include_exceptional : Bool,
 ) -> Array[Array[Int]] {
-  let merged = local_graph_empty_state(local_count)
+  // Published block states and their source sets are immutable. A transfer
+  // takes its own outer-array copy before replacing any local's source set.
+  let mut merged : Array[Array[Int]]? = None
+  let mut owned = false
   for pred in cfg_predecessor_edges(cfg, block_id) {
     if !include_exceptional && pred.kind == CfgEdgeKind::ExceptionalEdge {
       continue
     }
     let pred_state = out_states[pred.block]
-    for local_id = 0; local_id < local_count; local_id = local_id + 1 {
-      merged[local_id] = local_graph_join_sources(
-        merged[local_id],
-        pred_state[local_id],
-      )
+    match merged {
+      None => merged = Some(pred_state)
+      Some(previous) => {
+        if physical_equal(previous, pred_state) {
+          continue
+        }
+        let mut current = previous
+        for local = 0; local < local_count; local = local + 1 {
+          let next = local_graph_join_sources(current[local], pred_state[local])
+          if !physical_equal(next, current[local]) {
+            if !owned {
+              current = current.copy()
+              owned = true
+            }
+            current[local] = next
+          }
+        }
+        merged = Some(current)
+      }
     }
   }
-  merged
+  match merged {
+    Some(state) => state
+    None => local_graph_empty_state(local_count)
+  }
 }
 
 ///|

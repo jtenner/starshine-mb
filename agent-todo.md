@@ -46,6 +46,9 @@
   Run-based numeric-local grouping cuts a dedicated wide-local DFE fixture
   95.149 → 0.707 ms and large compiler DFE 900.209 → 873.337 ms. OI and
   propagation artifact times remain effectively flat for this change.
+  Borrowed immutable predecessor states reduce large propagation pipeline
+  1,637.447 → 1,584.323 ms and DAE2 5,704.756 → 5,543.947 ms; ownership
+  and captured-read invariants pass. Small OI/MergeLocals increases remain visible.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,

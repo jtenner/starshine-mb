@@ -491,3 +491,37 @@ Sources: [transfer](../../../src/ir/local_graph.mbt),
 [scalar invariant](../../../src/ir/local_graph_tuple_state_wbtest.mbt),
 [native controls](../../../src/ir/local_graph_sparse_tuple_perf_wbtest.mbt), and
 [dispatcher test](../../../src/cmd/perf_lower_input_view_wbtest.mbt).
+
+## September 27, 2026: borrowed immutable predecessor states
+
+Forward merges borrow the first admitted predecessor state and copy its outer
+array only when a later predecessor adds a source. Source sets remain immutable;
+nonempty transfers still own an outer-array copy before replacing local sets.
+Empty blocks share their input, and identity checks avoid rescanning shared
+states. Exceptional-edge filtering and first-seen source order are unchanged.
+
+Two ownership checks failed before implementation. The three bounded regressions
+compare exact sources with the original merger, exercise subset and multi-source
+joins, and prove later transfers cannot modify either predecessor. All 16 focused
+checks pass, including the dispatcher fixture that retains an earlier captured
+local across both arms of a later write. Native batches of 128 single-predecessor
+merges improve **65.76 → 1.71 µs** at 128 locals and **2.02 ms → 1.90 µs** at
+4,096 locals; these are helper measurements, not whole-pass speedups.
+
+One warmup and three accepted alternating compiler-artifact pairs reduce large
+propagation pipeline **1,637.447 → 1,584.323 ms** and DAE2 **5,704.756 →
+5,543.947 ms**. Large OI is effectively flat (2,792.210 → 2,832.533 ms). Small
+propagation improves 5.442 → 5.175 ms, DAE2 18.918 → 18.805 ms, while OI
+increases 3.456 → 3.570 ms and MergeLocals 1.502 → 1.824 ms. The guarded large
+MergeLocals admission timing (38.928 → 42.759 ms) does not exercise this path.
+All eight pairs preserve raw bytes, traced/untraced agreement and independent
+validation. Remaining budgets and final aggregate renewal stay open.
+
+Evidence: `.tmp/pass-perf-next-20260927/flow-borrow-{checks.json,bench-0.log}`
+and `flow-borrow-pairs-{small,large}/result.json`; native SHA-256
+`e0df4ac3a6947fc3eafb868a3549d1e6dadc1ca2c0e8a0047df290a7e23f3f3c`.
+Sources: [implementation](../../../src/ir/local_graph.mbt),
+[bounded ownership checks](../../../src/ir/local_graph_borrow_wbtest.mbt),
+[original reference](../../../src/ir/local_graph_borrow_reference_wbtest.mbt),
+[native controls](../../../src/ir/local_graph_borrow_perf_wbtest.mbt), and
+[dispatcher fixture](../../../src/cmd/perf_local_flow_borrow_wbtest.mbt).
