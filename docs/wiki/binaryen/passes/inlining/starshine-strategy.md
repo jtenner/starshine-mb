@@ -22,6 +22,45 @@ related:
 
 # Starshine Strategy For `inlining`
 
+## September 27, 2026 rejected retention-reference bounds
+
+A third remapping prototype reused the existing helper-retention reference scan
+to record each body's largest function index. Bodies referring only to indices
+before the first removed helper shared their immutable expression; other bodies
+used the original remapper. This avoided a separate preflight scan and matched
+the original module and index remapping in 213 focused tests. The ownership test
+failed before implementation; 24 active-fixture runtime checks also passed.
+
+The complete-retention helper benchmark improved 49.68 → 7.99 µs for unchanged
+import references and measured 49.95 → 50.37 µs for dense changed references.
+That gain did not carry through to the full pipeline:
+
+| Input | Pass | Before pipeline ms | Prototype pipeline ms |
+| --- | --- | ---: | ---: |
+| large | inlining | 1770.690 | 1871.984 |
+| large | inlining-optimizing | 627.137 | 621.692 |
+| small | inlining | 5.929 | 5.804 |
+| small | inlining-optimizing | 107.042 | 106.554 |
+| wide-dense | inlining | 6.103 | 6.111 |
+| wide-imports | inlining | 6.136 | 6.162 |
+
+Large plain inlining regressed **5.72%**. Both new 64-exported-body fixtures
+(512 calls per body, unchanged imports versus dense shifted references) removed
+the intended helper but stayed flat. The large optimizing path is guarded and
+cannot justify the change. All six alternating pairs retained identical raw
+bytes, traced/untraced agreement and independent validation.
+
+The prototype and its tests were removed; the existing implementation and the
+user's unrelated annotation changes were restored exactly. This is rejected
+performance evidence, not a production optimization or new fuzz signoff. Future
+work should profile body classification and staged rounds before revisiting
+remapping. The cost of the extra bound tracking was not separately attributed.
+
+Local evidence: `.tmp/pass-perf-next-20260927/inlining-reference-facts-*` and
+`rejected-inlining-reference-facts/`; rejected native SHA-256
+`3518e9187d7daa31487b6418c1d55d53b32b9696c125c13eb07f5f6726688b22`.
+Production source: [inlining.mbt](../../../../../src/passes/inlining.mbt).
+
 ## September 26, 2026 combined body facts
 
 The planner and multivalue preparation now compute instruction count, direct

@@ -40,6 +40,9 @@
   regression; see the [measured rejection](docs/wiki/binaryen/passes/inlining/starshine-strategy.md#september-27-2026-rejected-conditional-copy-remapping).
   A coarse remap preflight was also rejected after a 3.3% large plain-inlining
   regression. Future remapping must avoid a separate full expression scan.
+  Reusing retention reference bounds was also rejected after a 5.7% large
+  plain-inlining regression; two new active wide-body controls stayed flat.
+  Next profiling should examine body classification and staged rounds.
   SimplifyLocals continuation indexes were also rejected: two prototypes
   regressed large pipeline time despite faster isolated lookup benchmarks.
   Fixed-size validation masks reduce large SimplifyLocals pipeline time
