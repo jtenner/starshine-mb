@@ -36,6 +36,21 @@ pub fn hot_lift_local_accesses(func : HotFunc) -> HotLiftLocalAccesses {
 }
 
 ///|
+// Only completed stack values are queried while lifting. Their operand trees
+// remain immutable as later nodes are appended. Bits are a negative filter:
+// colliding local IDs still use the exact recursive conflict check.
+priv struct HotLiftLocalAccessMasks {
+  reads : Array[UInt64]
+  writes : Array[UInt64]
+  ready : Array[Bool]
+}
+
+///|
+fn HotLiftLocalAccessMasks::new() -> HotLiftLocalAccessMasks {
+  { reads: [], writes: [], ready: [], }
+}
+
+///|
 priv struct HotLiftLabelFrames {
   active : Array[LabelId]
   mut legacy_catch_depth : Int
@@ -45,6 +60,7 @@ priv struct HotLiftLabelFrames {
   capture_stack_locals : Bool
   materialize_multi_values : Bool
   pending_effects : Array[Int]
+  mut local_access_masks : HotLiftLocalAccessMasks?
 }
 
 ///|
@@ -62,6 +78,7 @@ fn hot_lift_impl_new_label_frames(
     capture_stack_locals,
     materialize_multi_values,
     pending_effects: [],
+    local_access_masks: None,
   }
 }
 
@@ -1706,6 +1723,46 @@ fn hot_lift_impl_build_exact_node3(
 }
 
 ///|
+fn hot_lift_impl_collect_local_access_masks(
+  func : HotFunc,
+  node_id : NodeId,
+  masks : HotLiftLocalAccessMasks,
+  node_visits : Array[Int]?,
+) -> Unit {
+  while masks.ready.length() <= node_id {
+    masks.reads.push(0UL)
+    masks.writes.push(0UL)
+    masks.ready.push(false)
+  }
+  if masks.ready[node_id] {
+    return
+  }
+  match node_visits {
+    Some(count) => count[0] += 1
+    None => ()
+  }
+  let node = hot_node_get(func, node_id)
+  let mut reads = 0UL
+  let mut writes = 0UL
+  match node.op {
+    HotOp::LocalGet => reads = 1UL << (node.imm0 & 63)
+    HotOp::LocalSet | HotOp::LocalTee => writes = 1UL << (node.imm0 & 63)
+    _ => ()
+  }
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    let child = hot_child_get(func, node_id, slot)
+    if child >= 0 && hot_node_is_live(func, child) {
+      hot_lift_impl_collect_local_access_masks(func, child, masks, node_visits)
+      reads = reads | masks.reads[child]
+      writes = writes | masks.writes[child]
+    }
+  }
+  masks.reads[node_id] = reads
+  masks.writes[node_id] = writes
+  masks.ready[node_id] = true
+}
+
+///|
 // Preserve both directions of a pending stack value's local dependency. A
 // later write must not change its reads; a later read must see its writes.
 // Explicit captures make these edges visible to every tree transform.
@@ -1714,9 +1771,15 @@ fn hot_lift_impl_value_conflicts_with_local_access(
   node_id : NodeId,
   local_id : Int,
   is_write : Bool,
+  masks? : HotLiftLocalAccessMasks? = None,
+  node_visits? : Array[Int]? = None,
 ) -> Bool {
   if node_id < 0 || !hot_node_is_live(func, node_id) {
     return false
+  }
+  match node_visits {
+    Some(count) => count[0] += 1
+    None => ()
   }
   let node = hot_node_get(func, node_id)
   if node.imm0 == local_id {
@@ -1726,12 +1789,33 @@ fn hot_lift_impl_value_conflicts_with_local_access(
       _ => ()
     }
   }
+  if node.child_count == 0 {
+    return false
+  }
+  match masks {
+    Some(masks) => {
+      hot_lift_impl_collect_local_access_masks(
+        func, node_id, masks, node_visits,
+      )
+      let mask = if is_write {
+        masks.reads[node_id] | masks.writes[node_id]
+      } else {
+        masks.writes[node_id]
+      }
+      if (mask & (1UL << (local_id & 63))) == 0UL {
+        return false
+      }
+    }
+    None => ()
+  }
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     if hot_lift_impl_value_conflicts_with_local_access(
         func,
         hot_child_get(func, node_id, slot),
         local_id,
         is_write,
+        masks~,
+        node_visits~,
       ) {
       return true
     }
@@ -1773,13 +1857,24 @@ fn hot_lift_impl_capture_before_local_access(
   local_id : Int,
   is_write : Bool,
   operand_count : Int,
+  label_frames : HotLiftLabelFrames,
 ) -> Unit {
   let pending_count = values.length() - operand_count
   let mut last_conflict = -1
   for idx = 0; idx < pending_count; idx = idx + 1 {
     let value_id = values[idx]
+    if label_frames.local_access_masks is None &&
+      value_id >= 0 &&
+      hot_node_is_live(func, value_id) &&
+      hot_child_count(func, value_id) > 0 {
+      label_frames.local_access_masks = Some(HotLiftLocalAccessMasks::new())
+    }
     if hot_lift_impl_value_conflicts_with_local_access(
-        func, value_id, local_id, is_write,
+        func,
+        value_id,
+        local_id,
+        is_write,
+        masks=label_frames.local_access_masks,
       ) &&
       !roots.any(fn(root) {
         hot_lift_impl_value_contains_node(func, root, value_id)
@@ -3212,6 +3307,7 @@ fn hot_lift_impl_lift_instruction(
         raw.reinterpret_as_int(),
         true,
         child_count,
+        label_frames,
       )
     Instruction::LocalGet(LocalIdx(raw)) =>
       hot_lift_impl_capture_before_local_access(
@@ -3222,6 +3318,7 @@ fn hot_lift_impl_lift_instruction(
         raw.reinterpret_as_int(),
         false,
         child_count,
+        label_frames,
       )
     _ => ()
   }

@@ -37,6 +37,41 @@ related:
 
 # IR2 Architecture Rules
 
+## Local dependency masks during lift (September 27, 2026)
+
+Pending stack expressions are complete and immutable while subsequent
+instructions are lifted. A lazy per-function cache summarizes their local reads
+and writes in two 64-bit masks. An absent bit proves no conflict; a present bit
+still runs the exact recursive predicate, so colliding local IDs never establish
+a dependency. New nodes acquire new entries. This cache must remain confined to
+lifting; ordinary pass mutations would require invalidation. Existing capture
+selection, throwing-call order and tuple-lane handling are unchanged.
+
+A red-first bounded test visited 68 nodes for four negative queries; cached
+queries visit at most 21, including initial summary construction. Collision,
+new-node, conditional-region and command-level carried-read checks pass along
+with 42 focused tests. Native 128-query controls include a fresh cache per batch:
+uncached/cached times are 78.83/3.78 µs at depth 32 and 368.80/7.47 µs at depth
+128. These are helper controls, not pass timing claims.
+
+One warmup and three isolated alternating compiler pairs preserve raw bytes,
+traced/untraced agreement and independent validation. Large Coalesce pipeline
+improves **6,280.441 → 5,216.253 ms (16.9%)**. Costs on the other large consumers
+rise slightly: DAE2 5,396.936 → 5,477.060 ms, SimplifyLocals
+2,187.794 → 2,202.822 ms and propagation 1,534.849 → 1,548.174 ms. Retain these
+tradeoffs for final renewal; this change does not close any parity/size gap.
+Small timings also rise: Coalesce 13.319 → 13.695 ms, DAE2 17.142 → 18.117 ms,
+SimplifyLocals 6.378 → 6.455 ms and propagation 5.050 → 5.460 ms. Renew these
+small-case costs before declaring them satisfactory. Aggregate fuzz renewal is pending.
+
+Evidence: `.tmp/pass-perf-next-20260927/lift-masks-{checks.json,bench-0.log}`
+and `lift-masks-pairs-{small,large}/result.json`; native SHA-256
+`5c9fb901485d71e944939cc62ee5feb4275e2175a532d0eb0c65d6ff1307bf25`.
+Sources: [lift](../../../src/ir/hot_lift.mbt),
+[bounded invariants](../../../src/ir/hot_lift_local_mask_wbtest.mbt),
+[native controls](../../../src/ir/hot_lift_local_mask_perf_wbtest.mbt), and
+[dispatcher execution check](../../../src/cmd/perf_lift_local_mask_wbtest.mbt).
+
 ## Borrowed lowering operands (September 27, 2026)
 
 Lowering and source-order analysis borrow dense child spans from the unchanged
