@@ -444,3 +444,28 @@ under `rejected-sl-read-set/`. The uncontended final helper round is
 Final rejected native SHA-256: `f6b1b1d46240837257241add39f115106d7aac740023ba22a0221f4442755269`.
 The [original continuation implementation](../../../../../src/passes/pass_manager.mbt)
 is restored exactly to its pre-prototype state.
+
+## September 27, 2026: incremental statement-prefix typechecking
+
+Both raw statement-prefix searches now advance one typechecking state instead
+of rebuilding and rechecking every longer prefix. Expr typechecking is itself
+a left-to-right instruction fold, so a failed prefix cannot become valid by
+appending more instructions. The search keeps the original earliest-boundary,
+reachability and escape rules and allocates only the final prefix/tail split.
+No state survives the scan or an IR/environment mutation. Other suffix searches
+remain separate performance work.
+
+[Focused tests](../../../../../src/passes/statement_prefix_reuse_wbtest.mbt)
+compare the former implementation, assert semantic splits and bounded work,
+and cover escape, positive-result tails and intentionally invalid underflow.
+The [dispatcher fixture](../../../../../src/cmd/perf_statement_prefix_reuse_wbtest.mbt)
+preserves an observable effect and returned value. [Native benchmarks](../../../../../src/passes/statement_prefix_reuse_perf_wbtest.mbt)
+measure widths 16 and 256 against the former quadratic search. Sources:
+[incremental scan](../../../../../src/passes/statement_prefix_reuse.mbt),
+[call sites](../../../../../src/passes/pass_manager.mbt), and
+[sequential typechecking contract](../../../../../src/validate/typecheck.mbt).
+
+Uncontended native prefix controls improve **10.86 µs → 532.70 ns** at width
+16 and **1.98 ms → 7.63 µs** at width 256. These deliberately candidate-rich
+prefix scans isolate the former quadratic work; whole-pipeline effects are
+reported separately. Evidence: `.tmp/pass-perf-reuse-20260927/accepted-bench-statement_prefix_reuse_perf_wbtest-1.log`.

@@ -8300,29 +8300,17 @@ fn run_hot_pipeline_raw_simplify_locals_take_statement_prefix(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
 ) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
-  let mut end = 1
-  while end <= instrs.length() {
-    let prefix : Array[@lib.Instruction] = []
-    for idx = 0; idx < end; idx = idx + 1 {
-      prefix.push(instrs[idx])
-    }
-    let init_state = @validate.make_state(env, [])
-    match @validate.Typecheck::typecheck(@lib.Expr::new(prefix), init_state) {
-      Ok(state) =>
-        if state.reachable &&
-          state.escape == @validate.tc_escape_none() &&
-          state.stack.length() == 0 {
-          let tail : Array[@lib.Instruction] = []
-          for idx = end; idx < instrs.length(); idx = idx + 1 {
-            tail.push(instrs[idx])
-          }
-          return (prefix, tail)
-        }
-      Err(_) => ()
-    }
-    end = end + 1
+  let end = run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
+    instrs, env, false,
+  )
+  if end == 0 {
+    return ([], instrs.copy())
   }
-  ([], instrs.copy())
+  let prefix = Array::makei(end, fn(index) { instrs[index] })
+  let tail = Array::makei(instrs.length() - end, fn(index) {
+    instrs[end + index]
+  })
+  (prefix, tail)
 }
 
 ///|
@@ -8330,33 +8318,17 @@ fn run_hot_pipeline_raw_simplify_locals_take_statement_prefix_allow_escape(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
 ) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
-  let mut end = 1
-  while end <= instrs.length() {
-    let prefix : Array[@lib.Instruction] = []
-    for idx = 0; idx < end; idx = idx + 1 {
-      prefix.push(instrs[idx])
-    }
-    let init_state = @validate.make_state(env, [])
-    match @validate.Typecheck::typecheck(@lib.Expr::new(prefix), init_state) {
-      Ok(state) =>
-        if state.stack.length() == 0 ||
-          (
-            end == instrs.length() &&
-            state.reachable &&
-            state.escape == @validate.tc_escape_none() &&
-            state.stack.length() > 0
-          ) {
-          let tail : Array[@lib.Instruction] = []
-          for idx = end; idx < instrs.length(); idx = idx + 1 {
-            tail.push(instrs[idx])
-          }
-          return (prefix, tail)
-        }
-      Err(_) => ()
-    }
-    end = end + 1
+  let end = run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
+    instrs, env, true,
+  )
+  if end == 0 {
+    return ([], instrs.copy())
   }
-  ([], instrs.copy())
+  let prefix = Array::makei(end, fn(index) { instrs[index] })
+  let tail = Array::makei(instrs.length() - end, fn(index) {
+    instrs[end + index]
+  })
+  (prefix, tail)
 }
 
 ///|
