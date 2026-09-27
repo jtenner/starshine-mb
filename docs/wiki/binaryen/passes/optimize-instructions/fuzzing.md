@@ -1,3 +1,32 @@
+## September 27 performance-campaign renewal
+
+The [shared final campaign](../../../tooling/tracing-playbook.md#september-27-2026-precompute-cleanup-and-pass-allocation-campaign)
+uses native CLI `5d009c4396b65d613acdc187e443f6c2cee843c7bfbc48ee726ba633de2aac54`,
+verified Binaryen 133, seed `0x5eed`, `--jobs auto --max-subprocesses 8` and 10,000 cases
+per lane. It supersedes earlier current-baseline wording; historical v131/v132
+results retain their original scope. The shared report owns exact profiles,
+normalizers, cache use, runtime limits, size deltas and baseline replays.
+
+| Lane | Canonical / cleanup matches | Residuals | Canonically larger | Star/original matches / blocked |
+| --- | ---: | ---: | ---: | ---: |
+| `optimize-instructions` | 8,920 / 403 | 677 | 0 | 8,910 / 1,090 |
+
+All listed lanes report zero validation, generator, property, command and observed
+Starshine/original semantic failures. Runtime-blocked cases remain unverified;
+shape/size classifications and any scoped exceptions are agent judgments in
+the shared report, not conclusions implied by validation or normalization.
+
+All 677 residuals across 14 tuple labels are smaller immediately, preserve
+baseline output bytes and become byte-identical after common verified-v133 `-Oz`.
+The shared report classifies these as scoped Starshine wins from the tuple
+contract, inspected shapes and measured deltas. In particular, all 41 current
+`runtime-multi-selected-effectful-lanes` cases have no downstream loss; the older
+v132 +4-byte reopening below retains its historical scope and is superseded
+for this current compiler/oracle pair. The large artifact still has a separate
+47,825-byte canonical deficit; this family renewal does not close all OI quality.
+
+Local reports: `.tmp/pass-perf-campaign-20260927/final-fuzz-optimize-instructions/result.json`.
+
 ## 2026-09-23 saved SIMD result-if parity
 
 The saved seven-pass `campaign-simd-numeric` ledger contained six shape-10
@@ -678,7 +707,7 @@ The previous OI-G behavior slice added `oi-memory-bulk:shared-atomic-select-xor-
 --
 kind: workflow
 status: working
-last_reviewed: 2026-06-30
+last_reviewed: 2026-09-27
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts

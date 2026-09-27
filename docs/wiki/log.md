@@ -1,3 +1,18 @@
+### 2026-09-27 — Precompute cleanup and pass allocation campaign
+
+- Ten atomic optimizations remove repeated module validation setup, repeated
+  copied-local scans, eager signature formatting, unchanged-snapshot scans,
+  empty dependency rows, unused expanded-CFG tuple flags and stable transfer
+  rescans. OI tuple cleanup also shares its module environment. The final-source
+  suite passes 12,527 wasm-gc tests; 130,000 verified-v133 aggregate comparisons
+  report no validation, generator, property, command or observed Starshine/original
+  semantic failures. Existing parity/size gaps and runtime coverage limits remain
+  explicit. The 512 active inline-main cases also preserve baseline bytes and
+  pass 1,920 fresh three-way and 640 original/Starshine runtime checks; v133
+  rejects the 128 active tail-call fixtures, recorded separately as tool failures.
+  See the [campaign report](tooling/tracing-playbook.md#september-27-2026-precompute-cleanup-and-pass-allocation-campaign)
+  for exact artifact gains, rejected timing checkpoint, tool hashes and replays.
+
 ### 2026-09-25 — DFE tag-signature premarking
 
 - Marked type signatures referenced by imported and defined tags before DFE's

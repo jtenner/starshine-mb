@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-26
+last_reviewed: 2026-09-27
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -14,6 +14,26 @@ related:
 ---
 
 # `inlining` fuzzing and signoff
+
+## September 27 performance-campaign renewal
+
+The [shared final campaign](../../../tooling/tracing-playbook.md#september-27-2026-precompute-cleanup-and-pass-allocation-campaign)
+uses native CLI `5d009c4396b65d613acdc187e443f6c2cee843c7bfbc48ee726ba633de2aac54`,
+verified Binaryen 133, seed `0x5eed`, `--jobs auto --max-subprocesses 8` and 10,000 cases
+per lane. It supersedes earlier current-baseline wording; historical v131/v132
+results retain their original scope. The shared report owns exact profiles,
+normalizers, cache use, runtime limits, size deltas and baseline replays.
+
+| Lane | Canonical / cleanup matches | Residuals | Canonically larger | Star/original matches / blocked |
+| --- | ---: | ---: | ---: | ---: |
+| `inlining` | 10,000 / 0 | 0 | 0 | 10,000 / 0 |
+
+All listed lanes report zero validation, generator, property, command and observed
+Starshine/original semantic failures. Runtime-blocked cases remain unverified;
+shape/size classifications and any scoped exceptions are agent judgments in
+the shared report, not conclusions implied by validation or normalization.
+
+Local reports: `.tmp/pass-perf-campaign-20260927/final-fuzz-inlining/result.json`.
 
 ## September 26 final allocation/indexing renewal
 

@@ -1,33 +1,49 @@
 # Agent Tasks
 
-## v0.1.1 — Current pass-time checkpoint [IR2-PERF-20260926]
+## v0.1.1 — Current pass-time checkpoint [IR2-PERF-20260927]
 
-- **Goal / why:** finish reducing the remaining artifact pipeline costs without
-  losing cleanup breadth, output quality or runtime behavior.
-- **Current evidence:** the [September 26 final renewal](docs/wiki/tooling/tracing-playbook.md#september-26-2026-pass-time-allocation-and-indexing-renewal)
-  supersedes earlier current timing rows below. It records eleven optimization
-  commits, all 27 paired measurements, and 170,000 final-source comparisons.
-  Completed implementation details live in the wiki rather than this backlog.
-- **Remaining tasks / deliverables:** profile initial HOT lifting, DAE2 local-flow
-  solving, Coalesce CFG/interference construction, DAE call facts, inlining body
-  processing, and SimplifyLocals work outside the inner pass timer. Keep small
-  DAE/DAE-optimizing/SGO ratios and large Coalesce/DAE2/plain-inlining costs open.
-  Follow up on small full SimplifyLocals and large no-structure timings; retain
-  output-shape and canonical-size gaps, including the generated closed-DAE2/
-  no-structure losses and 513 cleanup-normalized CodePushing `br-if-value` cases.
-- **Required APIs / invariants:** reuse existing pass/IR interfaces; no public API
-  addition is required. Preserve source order, snapshot invalidation, parameter
-  slots, handler/loop liveness and capture lifetimes. Runtime-blocked generated
-  cases remain unverified. Keep Binaryen-only Node compilation limits (exact heap
-  types and import encoding `0x7f`) visible; valid or smaller output alone does
-  not close parity.
-- **Dependencies / exit criteria:** use the frozen-baseline hashes and phase
-  attribution in the renewal, isolated paired timing and verified Binaryen 133.
-  Close an owner only after material artifact improvement, valid output and
-  justified semantic/output-quality evidence; helper-only gains are insufficient.
-- **Suggested tests:** bounded red-first cost/behavior and dispatcher regressions,
-  focused native controls during development, then the documented 10,000-case
-  aggregate per affected pass. Keep large synthetic/fuzz work outside `moon test`.
+- **Goal / why:** reduce remaining artifact costs while preserving transformation
+  breadth, valid output, runtime behavior and canonical output quality.
+- **Current evidence:** the [September 27 campaign](docs/wiki/tooling/tracing-playbook.md#september-27-2026-precompute-cleanup-and-pass-allocation-campaign)
+  records ten atomic optimizations, 18 baseline/current artifact pairs,
+  additional paired propagation checks, 19 verified-v133 timing rows plus the
+  guarded large MergeLocals case, 130,000 aggregate comparisons and 512 active named-wrapper cases. It supersedes timing
+  and renewal recommendations below for the remeasured passes; retained September
+  26 rows and earlier oracle versions are historical, not the current baseline.
+- **Completed mechanisms:** Precompute cleanup reuses its validation environment;
+  OI tuple-wrapper cleanup shares its lazy environment; expanded local-flow
+  transfers skip unused tuple flags and reuse stable transfer outputs; inlining
+  scans copied-local initialization once and resolves only needed retention
+  signatures; DAE skips structural work on identical snapshots; DAE2 uses flat
+  dependency edges. Detailed evidence belongs in the linked owner pages/report.
+- **Remaining tasks / deliverables:** profile large Precompute propagation,
+  DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
+  CFG/interference construction,
+  inlining body processing and nested cleanup, OI module work outside its
+  code-section phase, and SimplifyLocals raw/lift/lower costs. Use the final
+  report's per-input ratios to choose the next owner. Keep
+  guarded cleanup, canonical-size and residual parity gaps open alongside timing.
+  Passes not remeasured retain their September 26 status, including no-structure
+  size losses and the 513 cleanup-normalized CodePushing `br-if-value` cases.
+  Previously completed cache/scan mechanisms do not need reimplementation. The
+  current v133 renewal confirms scoped OI tuple and MergeLocals wins; the older
+  v132 tuple downstream-size loss does not reproduce in its 41 current cases.
+  Active inline-main tail-call fixtures remain blocked on the v133 oracle error,
+  while Starshine validation, original-runtime and baseline-byte checks pass.
+- **Required APIs / invariants:** preserve source order, immutable snapshot
+  invalidation, parameter slots, handler/loop liveness, capture lifetimes and
+  tuple-producer execution. Shared local-flow changes also require OI/MergeLocals
+  coverage. No public API addition is needed. Runtime-blocked cases remain
+  unverified; valid or smaller output alone does not close parity.
+- **Dependencies / exit criteria:** use the pinned final binary and input hashes,
+  isolated alternating pairs and verified Binaryen 133. Accept material artifact
+  gains with no important behavior, size or coverage regression; helper-only
+  improvements and guarded no-ops do not close a pass. Validator initialization
+  masks need an ownership/persistent-state design: naive whole-mask copy-on-write
+  can become quadratic for non-defaultable local initialization.
+- **Suggested tests:** bounded red-first work/behavior and dispatcher regressions,
+  focused native controls, then each affected pass's documented 10,000-case
+  aggregate. Keep long fuzz/performance work outside the default suite.
 
 ## v0.1.1 — September 22 optimizer correctness spree [IR2-CORRECTNESS-20260922]
 
