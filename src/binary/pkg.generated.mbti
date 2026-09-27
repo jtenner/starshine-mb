@@ -24,6 +24,8 @@ pub fn decode_module_with_detail(Bytes, Int) -> Result[(@lib.Module, Int), Modul
 
 pub fn encode_module(@lib.Module, compact_imports? : Bool) -> Result[Bytes, EncodeError]
 
+pub fn encoded_module_sizes(@lib.Module, @lib.Module) -> Result[(Int, Int), EncodeError]
+
 pub fn size_signed(Int64, Int) -> Result[Int, BinaryEncodeError]
 
 pub fn size_unsigned(UInt64, Int) -> Result[Int, BinaryEncodeError]

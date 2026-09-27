@@ -4808,8 +4808,8 @@ fn dfe_group_numeric_locals_if_smaller(mod_ : @lib.Module) -> @lib.Module {
   if !changed {
     return mod_
   }
-  match (@binary.encode_module(mod_), @binary.encode_module(grouped)) {
-    (Ok(old_bytes), Ok(new_bytes)) if new_bytes.length() < old_bytes.length() =>
+  match @binary.encoded_module_sizes(mod_, grouped) {
+    Ok((old_size, new_size)) if new_size < old_size =>
       if @validate.validate_module(grouped) is Ok(_) {
         return grouped
       }
@@ -4855,8 +4855,8 @@ fn dfe_cleanup_simple_type_encoding(mod_ : @lib.Module) -> @lib.Module {
   if pruned.type_sec.unwrap().0.length() == types.length() {
     return grouped
   }
-  match (@binary.encode_module(grouped), @binary.encode_module(pruned)) {
-    (Ok(before), Ok(after)) if after.length() < before.length() =>
+  match @binary.encoded_module_sizes(grouped, pruned) {
+    Ok((before, after)) if after < before =>
       if @validate.validate_module(pruned) is Ok(_) {
         return pruned
       }

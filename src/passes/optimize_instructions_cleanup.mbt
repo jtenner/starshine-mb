@@ -61,8 +61,8 @@ fn oi_group_numeric_locals_if_smaller(
   } else {
     mod_
   }
-  match (@binary.encode_module(size_baseline), @binary.encode_module(grouped)) {
-    (Ok(old_bytes), Ok(new_bytes)) if new_bytes.length() < old_bytes.length() =>
+  match @binary.encoded_module_sizes(size_baseline, grouped) {
+    Ok((old_size, new_size)) if new_size < old_size =>
       if @validate.validate_module(grouped) is Ok(_) {
         return grouped
       }

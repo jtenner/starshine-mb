@@ -223,3 +223,31 @@ Existing pass dossiers that depend on this checklist include:
 - Validation and proof helpers: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate_proof/func_index.mbt`](../../../src/validate_proof/func_index.mbt)
 - WAST lowering and authoring: [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md)
 - Related docs: [`custom-and-name-sections.md`](custom-and-name-sections.md), [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md), [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../binaryen/passes/reorder-functions/index.md`](../binaryen/passes/reorder-functions/index.md), [`../binaryen/passes/remove-unused-module-elements/index.md`](../binaryen/passes/remove-unused-module-elements/index.md)
+
+## September 27, 2026: exact paired encoded sizes
+
+`binary.encoded_module_sizes(before, after)` returns the exact sizes of the
+ordinary canonical encodings. It measures each function with the standard
+encoder, includes body/count/section LEB framing, and avoids assembling the
+complete code-section buffers. An unchanged function at the same index reuses
+its measured size only when both modules have identical string literal pools.
+Reuse is confined to one synchronous call; there is no persistent mutable-IR
+cache. Names, compiler facts and other sections still use the ordinary encoder,
+and encoding errors still reject the candidate. DFE and OI keep their strict
+whole-module size comparisons and completed-module validation.
+
+[Boundary tests](../../../src/passes/encoded_size_pair_wbtest.mbt) compare full
+encoded byte lengths at body and section LEB boundaries, across changed names
+and compiler facts, and when a physically shared function's string index grows
+from 127 to 128. Reserved custom names remain intentionally invalid. The
+[native controls](../../../src/passes/encoded_size_pair_perf_wbtest.mbt) cover
+shared bodies, entirely changed bodies and a small module. Sources:
+[size implementation](../../../src/binary/encoded_size.mbt),
+[section encoder](../../../src/binary/encode.mbt),
+[DFE guards](../../../src/passes/duplicate_function_elimination.mbt), and
+[OI guard](../../../src/passes/optimize_instructions_cleanup.mbt).
+
+Uncontended native controls measure shared 128-function pairs at **4.07 →
+2.16 ms**, entirely changed pairs at **4.11 → 4.11 ms**, and the small control
+at **2.01 → 2.07 µs**. These are size-comparison helper timings, not full-pass
+timings. Local evidence: `.tmp/pass-perf-reuse-20260927/accepted-bench-encoded_size_pair_perf_wbtest-1.log`.

@@ -1615,6 +1615,7 @@ fn encode_module_sections(
   val : Module,
   buf : @buffer.Buffer,
   compact_imports : Bool,
+  size_state? : EncodedModuleSizeState? = None,
 ) -> Result[Unit, BinaryEncodeError] {
   buf.write_bytes(b"\x00\x61\x73\x6D\x01\x00\x00\x00")
   // custom sections
@@ -1698,10 +1699,15 @@ fn encode_module_sections(
           return Err(t)
         }
         match val.code_sec {
-          Some(CodeSec(funcs)) =>
-            if Encode::encode(Some(CodeSec::new(funcs)), buf) is Err(t) {
+          Some(CodeSec(funcs)) => {
+            let encoded = match size_state {
+              Some(state) => measure_module_code(funcs, stringrefs, state)
+              None => Encode::encode(Some(CodeSec::new(funcs)), buf)
+            }
+            if encoded is Err(t) {
               return Err(t)
             }
+          }
           None => ()
         }
         if Encode::encode(val.data_sec, buf) is Err(t) {
