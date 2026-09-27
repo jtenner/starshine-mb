@@ -237,3 +237,36 @@ Sources: [cache and removal](../../../../../src/passes/inlining.mbt),
 [retention invariants](../../../../../src/passes/inlining_retention_signatures_wbtest.mbt),
 [sparse/dense benchmarks](../../../../../src/passes/inlining_retention_signatures_perf_wbtest.mbt),
 [grouped-type resolver control](../../../../../src/passes/inlining_signature_keys_perf_wbtest.mbt).
+
+## September 27, 2026: rejected conditional-copy remapping
+
+A prototype returned unchanged expression arrays and copied only the ancestors
+of remapped function references. Red-first copied-slot checks, NaN payload,
+source-array isolation, control/return-call/ref.func and active-dispatch fixtures
+passed (148 focused tests). Native helpers improved 30.80 → 12.39 µs for 128
+unchanged regions and 126.66 → 50.64 µs for one edit among 512 regions.
+
+The full-pass evidence rejected this design. One warmup and three isolated
+alternating compiler pairs measured these pipeline medians:
+
+| Input | Pass | Before ms | Prototype ms |
+| --- | --- | ---: | ---: |
+| Small | inlining | 7.186 | 6.323 |
+| Large | inlining | 1,999.105 | 2,219.615 |
+| Small | inlining-optimizing | 121.070 | 116.702 |
+| Large | inlining-optimizing | 718.368 | 738.684 |
+
+All outputs were byte-identical, traced/untraced agreed and independent validation
+passed. The **11.0% large plain-inlining regression** outweighs the small-input
+and helper wins. Large optimizing inlining remains guarded; its admission timing
+does not establish useful cleanup throughput. The prototype and its uncommitted
+tests were removed completely. No production improvement or oracle signoff is
+claimed. A future remapping design needs controls with dense changed references,
+not only unchanged nested bodies, before another artifact comparison.
+
+Evidence: `.tmp/pass-perf-next-20260927/rejected-inlining-cow.json`,
+`inlining-cow-pairs-{small,large}/result.json`, `inlining-cow-bench-0.log`, and
+saved sources under `rejected-inlining-cow/` in that directory. Rejected native
+SHA-256: `441283bcd90e839f5e88fa04d9f7ae9db3040d09c597e834d4dc1e2763df998b`.
+The restoration exactly matches the campaign's initial `inlining.mbt`, retaining
+the user's pre-existing annotation changes. [Implementation](../../../../../src/passes/inlining.mbt).
