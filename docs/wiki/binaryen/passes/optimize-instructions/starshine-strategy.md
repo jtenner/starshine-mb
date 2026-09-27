@@ -1666,3 +1666,21 @@ Same-binary native raw-guard/cleanup batches compare exact outputs before timing
 **11.28 ms → 175.15 µs**. Each batch starts with an empty environment cache;
 fixture parsing and shared type-context setup are excluded. The final campaign
 report owns the complete artifact renewal after this caller is wired.
+
+## September 27, 2026: module type-reference scan
+
+GDB samples of the remaining module-cleanup cost reached repeated whole-module
+reference probes in `dfe_prune_unused_simple_types`. The shared pruner now scans
+roots once and follows retained type dependencies through a queue, retaining the
+existing compaction and remapping rules. Isolated large-artifact pairs improve
+OI pipeline time **3,255.510 → 2,709.490 ms** (16.8%), with identical output bytes,
+traced/untraced agreement and independent validation. The 128-type synthetic
+control improves 1.81 ms → 11.90 µs; it does not establish a similar whole-pass
+ratio. Module cleanup remains expensive and the canonical-size gap remains open.
+
+The [DFE strategy and invariants](../duplicate-function-elimination/starshine-strategy.md#september-27-2026-one-pass-type-reference-discovery)
+record 62 focused tests, transitive reference coverage, and the separate NaN
+initializer pruning correction. Native CLI SHA-256 is
+`95f15ba42e212adb7b742d612f4aeb0b30985c4b9621c43a08f80e55a261673d`;
+paired evidence is `.tmp/pass-perf-next-20260927/type-scan-pairs-large/result.json`.
+Final generated renewal for this follow-up campaign remains pending.

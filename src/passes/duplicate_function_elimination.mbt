@@ -3906,7 +3906,10 @@ fn dfe_rec_type_is_unused_suffix_prune_candidate(
 }
 
 ///|
-fn dfe_prune_unused_simple_types(mod_ : @lib.Module) -> @lib.Module {
+fn dfe_prune_unused_simple_types(
+  mod_ : @lib.Module,
+  root_scans? : Array[Int]? = None,
+) -> @lib.Module {
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) => {
       if rec_types.length() == 0 {
@@ -3979,60 +3982,23 @@ fn dfe_prune_unused_simple_types(mod_ : @lib.Module) -> @lib.Module {
       if live.all(fn(is_live) { is_live }) {
         return mod_
       }
-      let without_types = mod_.with_type_sec(@lib.TypeSec::new([]))
-      let bulk_probe : Map[UInt, UInt] = Map([])
-      let mut candidate_count = 0
-      for candidate_idx = 0
-          candidate_idx < rec_types.length()
-          candidate_idx = candidate_idx + 1 {
-        if !live[candidate_idx] {
-          bulk_probe[candidate_idx.reinterpret_as_uint()] = rec_types
-            .length()
-            .reinterpret_as_uint()
-          candidate_count += 1
+      let refs : DfeTypeRefs = { live, pending: [], }
+      for idx in 0..<live.length() {
+        if live[idx] {
+          refs.pending.push(idx)
         }
       }
-      let needs_individual_probes = candidate_count == 1 ||
-        dfe_module_type_refs_use_remap(without_types, bulk_probe)
+      match root_scans {
+        Some(count) => count[0] += 1
+        None => ()
+      }
+      dfe_type_refs_module_roots(mod_, refs)
+      let mut cursor = 0
+      while cursor < refs.pending.length() {
+        dfe_type_refs_rec_type(rec_types[refs.pending[cursor]], refs)
+        cursor += 1
+      }
       let mut idx = 0
-      if needs_individual_probes {
-        while idx < rec_types.length() {
-          if !live[idx] {
-            let probe : Map[UInt, UInt] = Map([])
-            let raw_idx = idx.reinterpret_as_uint()
-            probe[raw_idx] = rec_types.length().reinterpret_as_uint()
-            if dfe_module_type_refs_use_remap(without_types, probe) {
-              live[idx] = true
-            }
-          }
-          idx += 1
-        }
-      }
-      let mut discovered = true
-      while discovered {
-        discovered = false
-        idx = 0
-        while idx < rec_types.length() {
-          if live[idx] {
-            let mut dependency_idx = 0
-            while dependency_idx < rec_types.length() {
-              if !live[dependency_idx] {
-                let probe : Map[UInt, UInt] = Map([])
-                let raw_dependency_idx = dependency_idx.reinterpret_as_uint()
-                probe[raw_dependency_idx] = rec_types
-                  .length()
-                  .reinterpret_as_uint()
-                if dfe_rec_type_uses_remap(rec_types[idx], probe) {
-                  live[dependency_idx] = true
-                  discovered = true
-                }
-              }
-              dependency_idx += 1
-            }
-          }
-          idx += 1
-        }
-      }
       let kept : Array[@lib.RecType] = []
       let remap : Map[UInt, UInt] = Map([])
       idx = 0

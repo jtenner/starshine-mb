@@ -321,3 +321,41 @@ When you need to validate or review current Starshine behavior, read the code in
 6. `src/passes/duplicate_function_elimination_test.mbt:99-848`
 
 That path gives the cleanest local explanation from registry -> dispatcher -> module-pass core -> rewrite surface -> extra cleanup -> proof tests. After that, use [`scheduler-validation-and-parity.md`](./scheduler-validation-and-parity.md) to decide whether a change is preserving explicit-pass behavior, changing local extra cleanup, or changing the now-source-backed public preset scheduler slots.
+
+## September 27, 2026: one-pass type-reference discovery
+
+Simple-type pruning now scans module roots once, then follows retained type
+references through a monotone queue. It preserves the existing declaration
+premarking shortcut, pruning admission rules, ascending type compaction and
+remapper. The collector follows that remapper's admitted instruction surface;
+future proposal support must update both together. Type definitions contribute
+supertypes, descriptor metadata, fields, function signatures and embedded
+resolved definitions. Module roots include locals, tags, nested control and
+handler bodies, table/global initializers, and element/data offset expressions.
+
+A bounded red-first fixture previously scanned the whole module 16 times; it
+now scans once and retains/remaps the body-only signature. Structural fixtures
+compare every collected slot with the original probes across reference surfaces.
+A valid transitive GC dependency chain checks closure and exact rewriting.
+The old rewrite/equality probes also treated an unchanged NaN initializer as a
+reference to every candidate type. A separate red-first regression now removes
+two unused signatures (eight bytes), and restoring only the original type
+section reproduces every original byte, including the NaN payload.
+
+The 62 focused tests include DFE, OI/Precompute cleanup and the active command
+dispatcher. Same-binary native controls compare exact output before timing:
+32 candidate types and 2,048 body instructions improve **467.46 → 11.77 µs**;
+128 types improve **1.81 ms → 11.90 µs**. One contended build/benchmark round
+was excluded; the accepted round recorded no competing heavy process. The large OI pipeline improves **3,255.510 → 2,709.490 ms** in isolated
+alternating pairs (one warmup, three accepted rounds), preserving bytes and
+passing independent validation. Shared-consumer artifact renewal continues
+under `.tmp/pass-perf-next-20260927/`; final aggregate fuzz renewal remains
+pending.
+This shared helper also serves OptimizeInstructions, DAE2 and selected
+Precompute/type-cleanup paths; a helper gain alone does not close those passes.
+
+Sources: [pruner](../../../../../src/passes/duplicate_function_elimination.mbt),
+[collector](../../../../../src/passes/type_reference_scan.mbt),
+[bounded reference and payload invariants](../../../../../src/passes/type_reference_scan_wbtest.mbt),
+[native controls](../../../../../src/passes/type_reference_scan_perf_wbtest.mbt), and
+[dispatcher fixture](../../../../../src/cmd/perf_type_reference_scan_wbtest.mbt).

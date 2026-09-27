@@ -20,6 +20,10 @@
   time 1,983.883 → 1,684.910 ms with identical bytes in isolated pairs; exact
   source-state and loop/handler tests pass. Final aggregate renewal is pending.
   This reduces stable merge work but does not close the remaining pass time.
+  One-pass type-reference discovery also reduces large OI pipeline time
+  3,255.510 → 2,709.490 ms with identical bytes and validation; 62 focused
+  tests pass. Shared-consumer artifact and aggregate renewal remain pending.
+  OI module encoding/control cleanup and validation still need attention.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,
