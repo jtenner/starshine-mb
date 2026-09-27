@@ -216,3 +216,24 @@ renewal are tracked in the [tracing playbook](../../../tooling/tracing-playbook.
 Sources: [implementation](../../../../../src/passes/inlining.mbt),
 [retention tests](../../../../../src/passes/inlining_retention_signatures_wbtest.mbt),
 [benchmark](../../../../../src/passes/inlining_retention_signatures_perf_wbtest.mbt).
+
+## September 27, 2026: sparse retention candidates
+
+The retention cache now formats keys only for eligible helpers, memoizing by
+flattened type slot. A positive quota no longer formats every unrelated function
+signature. The shared bulk builder uses the same resolver, so grouped types,
+invalid-index fallbacks, structural signature equivalence and retention order
+keep their existing behavior.
+
+A bounded fixture with 64 distinct type slots and two eligible helpers first
+formatted 64 signatures; it now formats at most two, retains the first eligible
+helper and preserves every unrelated function. The result validates. Sparse
+256/512-function native controls improved from **33.95/63.80 µs to
+14.99/28.66 µs**; dense, no-quota and full-table controls did not regress.
+Final measurements and generated renewal are recorded in the
+[tracing playbook](../../../tooling/tracing-playbook.md).
+
+Sources: [cache and removal](../../../../../src/passes/inlining.mbt),
+[retention invariants](../../../../../src/passes/inlining_retention_signatures_wbtest.mbt),
+[sparse/dense benchmarks](../../../../../src/passes/inlining_retention_signatures_perf_wbtest.mbt),
+[grouped-type resolver control](../../../../../src/passes/inlining_signature_keys_perf_wbtest.mbt).

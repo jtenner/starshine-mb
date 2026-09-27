@@ -52,3 +52,37 @@ test "bench campaign retention funcs=512 no quota" (it : @bench.T) {
 test "bench campaign retention funcs=512 quota" (it : @bench.T) {
   inl_retention_signature_bench(it, 512, true)
 }
+
+///|
+fn inl_sparse_retention_bench(it : @bench.T, count : Int) -> Unit {
+  let mod_ = inl_sparse_retention_fixture(count)
+  let infos = inl_build_function_infos(mod_)
+  let candidates = Array::make(count, false)
+  candidates[0] = true
+  candidates[count - 1] = true
+  let quotas : @hashmap.HashMap[String, Int] = @hashmap.new()
+  quotas.set("p:r:", 1)
+  let result = inl_remove_dead_inlined_helpers(
+    mod_, infos, candidates, candidates, quotas,
+  )
+  if result.original_abs != Array::makei(count - 1, fn(i) { i }) {
+    abort("sparse retention benchmark removed the wrong helpers")
+  }
+  it.bench(fn() {
+    it.keep(
+      inl_remove_dead_inlined_helpers(
+        mod_, infos, candidates, candidates, quotas,
+      ),
+    )
+  })
+}
+
+///|
+test "bench campaign sparse retention funcs=256 candidates=2" (it : @bench.T) {
+  inl_sparse_retention_bench(it, 256)
+}
+
+///|
+test "bench campaign sparse retention funcs=512 candidates=2" (it : @bench.T) {
+  inl_sparse_retention_bench(it, 512)
+}

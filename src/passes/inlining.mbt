@@ -4983,6 +4983,7 @@ fn inl_remove_dead_inlined_helpers(
   inlined_from : Array[Bool],
   retain_counts : @hashmap.HashMap[String, Int],
   signature_builds? : Array[Int]? = None,
+  formatted_signatures? : Array[Int]? = None,
 ) -> InlRemovalResult {
   let imports = inl_imported_func_count(mod_)
   let defined = inl_defined_func_count(mod_)
@@ -4990,7 +4991,7 @@ fn inl_remove_dead_inlined_helpers(
   let refs = Array::make(total, 0)
   let used = Array::make(total, false)
   let has_retention = inl_hash_has_positive(retain_counts)
-  let mut signatures : Array[String]? = None
+  let mut signatures : InlSignatureKeyCache? = None
   let retained_counts : @hashmap.HashMap[String, Int] = @hashmap.new()
   inl_mark_global_uses(mod_, used)
   match mod_.code_sec {
@@ -5023,16 +5024,16 @@ fn inl_remove_dead_inlined_helpers(
               Some(count) => count[0] += 1
               None => ()
             }
-            let keys = inl_build_func_signature_keys(
+            let keys = InlSignatureKeyCache::new(
               mod_,
               inl_collect_func_type_indices(mod_),
-              total,
+              formatted_signatures~,
             )
             signatures = Some(keys)
             keys
           }
         }
-        let sig = keys[abs]
+        let sig = keys.key(abs)
         let want_retain = inl_hash_get_int(retain_counts, sig)
         let retained = inl_hash_get_int(retained_counts, sig)
         if retained < want_retain {
@@ -6789,11 +6790,19 @@ fn inl_func_signature_key(
 }
 
 ///|
-fn inl_build_func_signature_keys(
+priv struct InlSignatureKeyCache {
+  flat_types : Array[@lib.SubType]
+  type_keys : Array[String?]
+  func_type_indices : Array[@lib.TypeIdx]
+  formatted_signatures : Array[Int]?
+}
+
+///|
+fn InlSignatureKeyCache::new(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
-  total : Int,
-) -> Array[String] {
+  formatted_signatures? : Array[Int]? = None,
+) -> InlSignatureKeyCache {
   let flat_types : Array[@lib.SubType] = []
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) =>
@@ -6805,37 +6814,53 @@ fn inl_build_func_signature_keys(
       }
     None => ()
   }
-  let type_keys : Array[String?] = Array::make(flat_types.length(), None)
-  let signatures : Array[String] = []
-  for abs = 0; abs < total; abs = abs + 1 {
-    let slot = if abs < func_type_indices.length() {
-      match func_type_indices[abs] {
-        @lib.TypeIdx(raw) => raw.reinterpret_as_int()
-        @lib.RecIdx(_) => -1
-      }
-    } else {
-      -1
-    }
-    if slot >= 0 && slot < flat_types.length() {
-      match flat_types[slot].get_comptype() {
-        @lib.FuncCompType(params, results) => {
-          let key = match type_keys[slot] {
-            Some(key) => key
-            None => {
-              let key = inl_func_type_signature_key(params, results)
-              type_keys[slot] = Some(key)
-              key
-            }
-          }
-          signatures.push(key)
-          continue
-        }
-        _ => ()
-      }
-    }
-    signatures.push("abs-type:" + abs.to_string())
+  {
+    flat_types,
+    type_keys: Array::make(flat_types.length(), None),
+    func_type_indices,
+    formatted_signatures,
   }
-  signatures
+}
+
+///|
+fn InlSignatureKeyCache::key(self : InlSignatureKeyCache, abs : Int) -> String {
+  let slot = if abs >= 0 && abs < self.func_type_indices.length() {
+    match self.func_type_indices[abs] {
+      @lib.TypeIdx(raw) => raw.reinterpret_as_int()
+      @lib.RecIdx(_) => -1
+    }
+  } else {
+    -1
+  }
+  if slot >= 0 && slot < self.flat_types.length() {
+    match self.flat_types[slot].get_comptype() {
+      @lib.FuncCompType(params, results) =>
+        match self.type_keys[slot] {
+          Some(key) => return key
+          None => {
+            match self.formatted_signatures {
+              Some(count) => count[0] += 1
+              None => ()
+            }
+            let key = inl_func_type_signature_key(params, results)
+            self.type_keys[slot] = Some(key)
+            return key
+          }
+        }
+      _ => ()
+    }
+  }
+  "abs-type:" + abs.to_string()
+}
+
+///|
+fn inl_build_func_signature_keys(
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  total : Int,
+) -> Array[String] {
+  let cache = InlSignatureKeyCache::new(mod_, func_type_indices)
+  Array::makei(total, fn(abs) { cache.key(abs) })
 }
 
 ///|
