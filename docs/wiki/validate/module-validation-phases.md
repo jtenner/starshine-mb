@@ -291,3 +291,40 @@ Local evidence: `.tmp/pass-perf-next-20260927/tc-intersection-{extended-red,focu
 and `tc-intersection-pairs-{small,large}/result.json`. Before native SHA-256:
 `cab3363114752cf0669d838466d150e944ff9eedf98b507ca518f5aca7a1b0f0`;
 after: `23b26fd040549b11575ad847d766eb4a5a3b831bcb15da831c1d8d0b43933a66`.
+
+## September 27, 2026: bounded branch initialization borrowing
+
+Block, loop and if-arm typechecking can borrow an incoming initialization mask
+when a bounded nested scan proves the branch cannot set any previously false
+bit. Only local.set/tee initializes locals; the scan covers all structured
+children, including legacy catches. A possibly uninitialized or invalid local,
+a scan exceeding eight instructions, or a mask smaller than 128 locals retains the
+owned-copy path. Branch intersections keep their existing ownership. This
+preserves the public boolean-array representation without a general persistent
+state or copy-on-write conversion.
+
+[Tests](../../../src/validate/tc_branch_fork_wbtest.mbt) cover preserved false
+bits, mutation isolation, nested catches, the scan budget and small-mask copies.
+[Benchmarks](../../../src/validate/tc_branch_fork_perf_wbtest.mbt) measure borrowed,
+write/fallback and small controls. The write fallback has additional scan cost;
+its tradeoff must remain visible beside the read-only gain. Sources:
+[proof scan](../../../src/validate/tc_branch_fork.mbt) and
+[typechecker](../../../src/validate/typecheck.mbt).
+
+The initial allocated 32-instruction proof budget regressed short-mask and
+oversized-body controls. The final proof passes an integer budget and rejects
+large bodies before walking them. Fixed-affinity 128-fork batches measure:
+
+| Control | Copy reference | Final candidate |
+| --- | ---: | ---: |
+| 4,096 locals, two read-only instructions | 6.72 µs | 1.34 µs |
+| 4,096 locals, initialization write | 6.70 µs | 6.91 µs |
+| 17 locals | 2.84 µs | 2.81 µs |
+| 128 locals, two read-only instructions | 2.76 µs | 1.43 µs |
+| 4,096 locals, 32 instructions | 6.73 µs | 6.54 µs |
+| 4,096 locals, 64 instructions | 6.99 µs | 6.59 µs |
+
+These are helper controls; final pipeline measurements own pass-level claims.
+All four focused invariants pass, including a write after a nested read-only
+block that must not initialize the sibling arm. Local evidence:
+`.tmp/pass-perf-reuse-20260927/tc-fork-{controls-before,final-bench,final-green}.log`.

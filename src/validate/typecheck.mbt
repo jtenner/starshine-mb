@@ -683,7 +683,10 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     reachable: st1.reachable,
     escape: st1.escape,
     reachable_escape_depths: [],
-    initialized_locals: st1.initialized_locals.copy(),
+    initialized_locals: tc_fork_initialized_for_body(
+      st1.initialized_locals,
+      body_instrs,
+    ),
   }
   let st_body = match Typecheck::typecheck(Expr::new(body_instrs), st_body0) {
     Err(e) => return Err(e)
@@ -771,7 +774,10 @@ fn typecheck_if(
     reachable: st1.reachable,
     escape: st1.escape,
     reachable_escape_depths: [],
-    initialized_locals: st1.initialized_locals.copy(),
+    initialized_locals: tc_fork_initialized_for_body(
+      st1.initialized_locals,
+      then_instrs,
+    ),
   }
   let st_then = match Typecheck::typecheck(Expr::new(then_instrs), st_then0) {
     Err(e) => return Err(e)
@@ -785,7 +791,10 @@ fn typecheck_if(
     reachable: st1.reachable,
     escape: st1.escape,
     reachable_escape_depths: [],
-    initialized_locals: st1.initialized_locals.copy(),
+    initialized_locals: tc_fork_initialized_for_body(
+      st1.initialized_locals,
+      else_instrs,
+    ),
   }
   let st_else = match Typecheck::typecheck(Expr::new(else_instrs), st_else0) {
     Err(e) => return Err(e)
@@ -2075,7 +2084,10 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     reachable: st1.reachable,
     escape: st1.escape,
     reachable_escape_depths: [],
-    initialized_locals: st1.initialized_locals.copy(),
+    initialized_locals: tc_fork_initialized_for_body(
+      st1.initialized_locals,
+      body.0,
+    ),
   }
   let st_body = match Typecheck::typecheck(body, st_body0) {
     Err(e) => return Err(e)
