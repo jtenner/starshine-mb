@@ -2892,7 +2892,10 @@ fn dae_current_boundary_graph_refresh(
       }
       let body_changed = def_idx >= previous.funcs.length() ||
         def_idx >= next.funcs.length() ||
-        previous.funcs[def_idx] != next.funcs[def_idx]
+        !dae_snapshot_func_unchanged(
+          previous.funcs[def_idx],
+          next.funcs[def_idx],
+        )
       if body_changed {
         graph.function_epochs[def_idx].body_epoch += 1
         changed = true
@@ -4348,7 +4351,7 @@ fn dae_build_family_rewrite_plan(
   if target_def < 0 ||
     target_def >= graph.snapshot.defined ||
     !candidate.changed ||
-    candidate.mod_out == current ||
+    dae_snapshot_module_unchanged(candidate.mod_out, current) ||
     candidate.primary_def != target_def ||
     candidate.touched.length() != graph.snapshot.defined ||
     dae_defined_func_count(candidate.mod_out) != graph.snapshot.defined ||
@@ -4453,8 +4456,8 @@ fn dae_apply_family_rewrite_plan(
   graph : DaeCurrentBoundaryGraph,
   plan : DaeFamilyRewritePlan,
 ) -> DaeRewritePlanApplication {
-  if current != plan.source ||
-    graph.mod_ != current ||
+  if !dae_snapshot_module_unchanged(current, plan.source) ||
+    !dae_snapshot_module_unchanged(graph.mod_, current) ||
     plan.expected_module_epoch != graph.module_epoch ||
     plan.expected_call_epoch != graph.call_epoch ||
     plan.expected_type_epoch != graph.type_epoch {
@@ -4494,7 +4497,7 @@ fn dae_apply_family_rewrite_plan(
   }
   if plan.candidate.primary_def != plan.target_def ||
     !plan.candidate.changed ||
-    plan.candidate.mod_out == current {
+    dae_snapshot_module_unchanged(plan.candidate.mod_out, current) {
     return dae_rewrite_plan_rejection(current, DaeNoStrictImprovement)
   }
   match @validate.validate_module(plan.candidate.mod_out) {
@@ -5100,7 +5103,7 @@ fn dae_work_item_candidate_effects(
         effects.local_projection_changed[def_idx] = true
         any_locals_changed = true
       }
-      if before_expr != after_expr {
+      if !dae_snapshot_expr_unchanged(before_expr, after_expr) {
         any_body_changed = true
       }
     }
@@ -23237,7 +23240,7 @@ fn dae_build_signature_rewrite_plan_from_candidate(
     target_def >= graph.snapshot.defined ||
     candidate.primary_def != target_def ||
     !candidate.changed ||
-    candidate.mod_out == current ||
+    dae_snapshot_module_unchanged(candidate.mod_out, current) ||
     candidate.touched.length() != graph.snapshot.defined ||
     target_def >= candidate.touched.length() ||
     !candidate.touched[target_def] {
@@ -25013,7 +25016,7 @@ fn dae_specialized_result_facts_are_current(
   facts : DaeSpecializedResultFacts,
   graph : DaeCurrentBoundaryGraph,
 ) -> Bool {
-  if graph.mod_ != facts.graph.mod_ ||
+  if !dae_snapshot_module_unchanged(graph.mod_, facts.graph.mod_) ||
     facts.expected_module_epoch != graph.module_epoch ||
     facts.expected_call_epoch != graph.call_epoch ||
     facts.expected_type_epoch != graph.type_epoch ||

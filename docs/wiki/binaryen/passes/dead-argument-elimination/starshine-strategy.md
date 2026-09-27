@@ -26,6 +26,31 @@ related:
 
 # Starshine `dead-argument-elimination` strategy and status
 
+## September 27, 2026 unchanged snapshot checks
+
+DAE's candidate guards and boundary refresh first recognize identical immutable
+module, function, and instruction-array snapshots. Distinct objects still use
+the existing structural comparison; local declarations remain part of function
+change detection. This avoids repeatedly traversing unchanged bodies during
+candidate validation and effect classification. It also keeps a shared NaN body
+from spuriously advancing its body epoch solely because floating-point numeric
+`Eq` is non-reflexive. This is a snapshot identity rule, not a replacement for
+numeric equality or a claim that arbitrary distinct NaNs are equivalent.
+
+The bounded regression first failed by advancing the unchanged body's epoch.
+Companion cases cover equal distinct trees, changed nested constants, changed
+local declarations, and exact NaN payload preservation through both command
+modes. Sources: [snapshot helpers](../../../../../src/passes/dae_snapshot_identity.mbt),
+[regressions](../../../../../src/passes/dae_snapshot_identity_wbtest.mbt),
+[native benchmark](../../../../../src/passes/dae_snapshot_identity_perf_wbtest.mbt),
+[command fixture](../../../../../src/cmd/dae_snapshot_identity_wbtest.mbt).
+The same-binary native benchmark measures **1.59 µs → 6.60 ns** for a
+512-instruction shared snapshot and **12.22 µs → 7.47 ns** at 4,096 instructions.
+These are guard costs, not whole-pass speedups. Three new invariant tests, two
+existing dependency-cache tests, and the NaN command fixture pass. Full-suite,
+artifact, and generated evidence are recorded in the
+[tracing playbook](../../../tooling/tracing-playbook.md).
+
 ## September 26, 2026 current-callsite uniform proofs
 
 Uniform-actual analysis now prefers the callsites already collected in current

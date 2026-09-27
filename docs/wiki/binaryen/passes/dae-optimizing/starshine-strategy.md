@@ -346,3 +346,10 @@ Concrete future tests should cover at least:
 - dropped-return removal and uninhabitable-result repair;
 - nested cleanup replay on touched functions;
 - registry behavior for whichever local spelling decision is chosen.
+
+### September 27, 2026 unchanged snapshot checks
+
+The shared DAE engine now recognizes identical immutable snapshots before
+structural comparison. [The DAE strategy](../dead-argument-elimination/starshine-strategy.md#september-27-2026-unchanged-snapshot-checks)
+records the preserved invalidation contract, NaN epoch regression, and source
+fixtures; optimizing DAE uses the same guards.
