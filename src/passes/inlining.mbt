@@ -3434,9 +3434,14 @@ fn inl_local_may_read_before_write_sequence(
   instrs : Array[@lib.Instruction],
   local_id : Int,
   written_in : Bool,
+  visits? : Array[Int]? = None,
 ) -> Bool {
   let mut written = written_in
   for instr in instrs {
+    match visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
     match instr {
       @lib.LocalGet(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() == local_id =>
         if !written {
@@ -3446,13 +3451,21 @@ fn inl_local_may_read_before_write_sequence(
         local_id => written = true
       @lib.If(_, then_body, else_body) => {
         if inl_local_may_read_before_write_sequence(
-            then_body, local_id, written,
+            then_body,
+            local_id,
+            written,
+            visits~,
           ) {
           return true
         }
         match else_body {
           Some(body) =>
-            if inl_local_may_read_before_write_sequence(body, local_id, written) {
+            if inl_local_may_read_before_write_sequence(
+                body,
+                local_id,
+                written,
+                visits~,
+              ) {
               return true
             }
           None => ()
@@ -3463,13 +3476,23 @@ fn inl_local_may_read_before_write_sequence(
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if inl_local_may_read_before_write_sequence(body, local_id, written) {
+        if inl_local_may_read_before_write_sequence(
+            body,
+            local_id,
+            written,
+            visits~,
+          ) {
           return true
         }
       // Structured control can leave before a write. Child writes are not
       // definite for following instructions in the enclosing sequence.
       @lib.Try(_, @lib.Expr(body), catches, _) => {
-        if inl_local_may_read_before_write_sequence(body, local_id, written) {
+        if inl_local_may_read_before_write_sequence(
+            body,
+            local_id,
+            written,
+            visits~,
+          ) {
           return true
         }
         for catch_ in catches {
@@ -3478,7 +3501,10 @@ fn inl_local_may_read_before_write_sequence(
             | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
           }
           if inl_local_may_read_before_write_sequence(
-              catch_body, local_id, written,
+              catch_body,
+              local_id,
+              written,
+              visits~,
             ) {
             return true
           }
@@ -3497,6 +3523,84 @@ fn inl_local_may_read_before_write(
   local_id : Int,
 ) -> Bool {
   inl_local_may_read_before_write_sequence(body, local_id, false)
+}
+
+///|
+fn inl_locals_read_before_write(
+  body : Array[@lib.Instruction],
+  first_local : Int,
+  local_count : Int,
+  visits? : Array[Int]? = None,
+) -> Array[Bool] {
+  if local_count == 1 {
+    return [
+      inl_local_may_read_before_write_sequence(
+        body,
+        first_local,
+        false,
+        visits~,
+      ),
+    ]
+  }
+  let needed = Array::make(local_count, false)
+  if local_count == 0 {
+    return needed
+  }
+  let written = Array::make(local_count, false)
+  let writes : Array[Int] = []
+  fn scan(instrs : Array[@lib.Instruction]) -> Unit {
+    let scope_start = writes.length()
+    for instr in instrs {
+      match visits {
+        Some(count) => count[0] += 1
+        None => ()
+      }
+      match instr {
+        @lib.LocalGet(@lib.LocalIdx(raw)) => {
+          let index = raw.reinterpret_as_int()
+          let slot = index - first_local
+          if index >= first_local && slot < local_count && !written[slot] {
+            needed[slot] = true
+          }
+        }
+        @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+          let index = raw.reinterpret_as_int()
+          let slot = index - first_local
+          if index >= first_local && slot < local_count && !written[slot] {
+            written[slot] = true
+            writes.push(slot)
+          }
+        }
+        @lib.Block(_, @lib.Expr(nested))
+        | @lib.Loop(_, @lib.Expr(nested))
+        | @lib.TryTable(_, _, @lib.Expr(nested)) => scan(nested)
+        @lib.If(_, yes, no) => {
+          scan(yes)
+          match no {
+            Some(nested) => scan(nested)
+            None => ()
+          }
+        }
+        @lib.Try(_, @lib.Expr(nested), catches, _) => {
+          scan(nested)
+          for catch_ in catches {
+            match catch_ {
+              @lib.LegacyCatch(_, @lib.Expr(handler))
+              | @lib.LegacyCatchAll(@lib.Expr(handler)) => scan(handler)
+            }
+          }
+        }
+        _ => ()
+      }
+    }
+    // A child can branch or throw before a write. Its writes are definite only
+    // within that child; siblings and the parent retain their entry state.
+    while writes.length() > scope_start {
+      written[writes.pop().unwrap()] = false
+    }
+  }
+  scan(body)
+  needed
 }
 
 ///|
@@ -3989,12 +4093,14 @@ fn inl_make_inline_replacement(
     )
     param_idx -= 1
   }
+  let needs_init = inl_locals_read_before_write(
+    prepared_body,
+    info.params.length(),
+    callee_locals.length(),
+  )
   let mut local_idx = 0
   for local_type in callee_locals.iter() {
-    if inl_local_may_read_before_write(
-        prepared_body,
-        info.params.length() + local_idx,
-      ) {
+    if needs_init[local_idx] {
       replacement.append(
         inl_default_local_init_instrs(
           local_type,

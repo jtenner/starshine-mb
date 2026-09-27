@@ -172,3 +172,27 @@ benchmark in `src/passes/inlining_dead_suffix_targets_perf_wbtest.mbt` measured
 128 distinct targets at `4.04 → 2.63 µs` and 256 at `15.89 → 5.24 µs`.
 Repeated one-target controls were stable at `181.31 → 180.76 ns` for 128 calls
 and `316.45 → 311.61 ns` for 256. Full-pass impact remains unmeasured.
+
+## September 27, 2026: one initialization scan per callee
+
+The inline replacement builder now determines read-before-write initialization
+for all copied locals in one instruction traversal, instead of traversing the
+callee once per local. A write log restores the entry state after each child
+region: writes inside blocks, loops, either if arm, and exception handlers do
+not become definite writes in the enclosing sequence or a sibling. Parameters
+are excluded, `local.tee` establishes a write, and a single copied local retains
+the original early-return scan.
+
+The bounded regression first failed with 16,384 instruction visits for 64 locals
+and a 256-instruction body; the shared scan visits at most 256. Native focused
+benchmarks compare both algorithms in the same binary: **20.22 µs → 428.04 ns**
+at 64 locals and **314.29 µs → 1.49 µs** at 256. These isolate initialization
+analysis, not the entire inlining pass. All 176 focused inlining tests and the
+command fixture for both modes pass. Artifact timings and aggregate fuzz renewal
+are recorded in the campaign section of the
+[tracing playbook](../../../tooling/tracing-playbook.md).
+
+Sources: [implementation](../../../../../src/passes/inlining.mbt),
+[invariants](../../../../../src/passes/inlining_initialization_wbtest.mbt),
+[benchmark](../../../../../src/passes/inlining_initialization_perf_wbtest.mbt),
+[dispatcher fixture](../../../../../src/cmd/inlining_initialization_wbtest.mbt).

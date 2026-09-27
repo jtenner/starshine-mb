@@ -135,3 +135,11 @@ Expression-level branch hints, source maps, copied callee debug-name synthesis, 
 ## Reopening criteria
 
 Reopen for a minimized semantic/validation mismatch, a source-backed missing v131 family, a measured size regression without a Starshine benefit, a pass-local timing regression, or a shared scheduler change that alters the tested touched-only roster.
+
+### September 27, 2026: copied-local initialization
+
+Both inlining modes use the shared single traversal described in the
+[plain inlining strategy](../inlining/starshine-strategy.md#september-27-2026-one-initialization-scan-per-callee).
+The optimization preserves conservative write boundaries across structured
+control and handlers; the command regression verifies default values after
+optimizing cleanup as well as plain inlining.
