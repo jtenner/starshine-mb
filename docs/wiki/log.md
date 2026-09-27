@@ -1,3 +1,16 @@
+### 2026-09-27 — Follow-up pass allocation campaign
+
+- Fifteen atomic optimizations reduce large Coalesce pipeline time by 24.1%,
+  Precompute propagation by 19.6%, OI by 20.9%, DFE by 37.9% and DAE2 by 14.0%
+  on the fixed compiler input. Four rejected approaches remain documented;
+  their production code was removed. All 12,583 default wasm-gc tests pass.
+  The final 220,000 verified-v133 comparisons cover 22 affected lanes, including
+  SSA consumers and every SimplifyLocals variant, with no validation or observed
+  Starshine/original semantic failures. Existing parity, size, runtime-coverage
+  and performance gaps remain open. The [report](tooling/tracing-playbook.md#september-27-2026-follow-up-pass-allocation-campaign)
+  owns exact hashes, 28 artifact pairs, 27 oracle timing rows, residual and
+  downstream replays, and active inline-main runtime coverage.
+
 ### 2026-09-27 — Precompute cleanup and pass allocation campaign
 
 - Ten atomic optimizations remove repeated module validation setup, repeated

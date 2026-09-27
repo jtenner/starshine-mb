@@ -14,6 +14,29 @@ sources:
 
 # DAE2 GenValid coverage
 
+## September 27 follow-up allocation campaign renewal
+
+The [final follow-up report](../../../tooling/tracing-playbook.md#september-27-2026-follow-up-pass-allocation-campaign)
+uses native CLI `6610a792ef8d07151ee38bd6c6fbfe82097086e4f50f6dfd3902eecacb00320e`,
+verified Binaryen 133, seed `0x5eed`, eight subprocesses and 10,000 cases
+per listed aggregate. It supersedes pending renewal for the follow-up
+allocation changes and earlier current-baseline wording. New evidence
+requires verified v133; older dated results retain their original scope.
+
+| Lane | Aggregate | Canonical / cleanup matches | Residuals | Canonically larger | Star/original matches / blocked |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `dae2` | `dae2` | 2,879 / 667 | 6,454 | 0 | 9,312 / 688 |
+| `dae2-closed` | `dae2` | 0 / 100 | 9,900 | 706 | 9,312 / 688 |
+| `dae2-optimizing` | `dae2` | 2,233 / 0 | 7,767 | 0 | 9,312 / 688 |
+
+Validation, generator, property-counter, command and observed Starshine/
+original semantic failures are zero. Blocked runtime cases remain unverified.
+The report owns exact commands, normalizers, cache use, size-loss and retained
+baseline replays, downstream evidence and agent classifications. Residual
+parity/size gaps are not closed by validation or smaller output alone.
+
+Local results: `.tmp/pass-perf-next-20260927/final-fuzz-dae2/result.json`, `.tmp/pass-perf-next-20260927/final-fuzz-dae2-closed/result.json`, `.tmp/pass-perf-next-20260927/final-fuzz-dae2-optimizing/result.json`.
+
 ## September 27 performance-campaign renewal
 
 The [shared final campaign](../../../tooling/tracing-playbook.md#september-27-2026-precompute-cleanup-and-pass-allocation-campaign)

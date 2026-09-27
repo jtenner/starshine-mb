@@ -26,6 +26,18 @@ related:
 
 # Starshine strategy for `duplicate-function-elimination`
 
+## September 27 follow-up allocation campaign renewal
+
+The [final follow-up campaign](../../../tooling/tracing-playbook.md#september-27-2026-follow-up-pass-allocation-campaign)
+supersedes pending-renewal notes for its allocation changes below. The frozen
+source passes 12,583 default tests. Its 220,000 comparisons across 22 affected
+lanes report no validation, generator, property-counter, command or observed
+Starshine/original semantic failures. The report retains exact tool identities,
+all artifact timings, active fixtures, residual/size replays and runtime limits.
+Per-change measurements are historical isolated pairs, not additive gains.
+Remaining timing, output-quality and runtime-coverage gaps stay open; rejected
+prototypes remain rejected.
+
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
 ## September 24, 2026 shape-collision measurement

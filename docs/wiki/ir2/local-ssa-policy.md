@@ -33,6 +33,18 @@ related:
 
 # IR2 Local SSA Policy
 
+## September 27 follow-up allocation campaign renewal
+
+The [final follow-up campaign](../tooling/tracing-playbook.md#september-27-2026-follow-up-pass-allocation-campaign)
+supersedes pending-renewal notes for its allocation changes below. The frozen
+source passes 12,583 default tests. Its 220,000 comparisons across 22 affected
+lanes report no validation, generator, property-counter, command or observed
+Starshine/original semantic failures. The report retains exact tool identities,
+all artifact timings, active fixtures, residual/size replays and runtime limits.
+Per-change measurements are historical isolated pairs, not additive gains.
+Remaining timing, output-quality and runtime-coverage gaps stay open; rejected
+prototypes remain rejected.
+
 ## Overview
 
 Starshine's local SSA is **not** a second optimizer IR. It is a locals-only analysis overlay built over a normal [`HotFunc`](../../../src/ir/hot_core.mbt) body, keyed to that function's revision. The body remains ordinary HOT IR before and after SSA-assisted work: local reads are still `LocalGet`, writes are still `LocalSet` / `LocalTee`, and phis are metadata that never become persistent HOT nodes.

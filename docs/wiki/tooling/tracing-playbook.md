@@ -1229,3 +1229,356 @@ compiler performance gain. The follow-up campaign uses corrected durations.
 Sources: [parser](../../../scripts/lib/self-optimize-compare-task.ts),
 [scope regressions](../../../scripts/lib/self-optimize-nested-timing.test.ts),
 and [DAE2 child-span correction](../binaryen/passes/dae2/starshine-strategy.md#september-27-2026-retain-identical-child-spans-during-rewriting).
+
+## September 27, 2026: follow-up pass allocation campaign
+
+This checkpoint supersedes earlier timing and aggregate-renewal recommendations
+for the remeasured inputs and passes. Historical v131/v132/v133 results retain
+their original scope. Fifteen optimizations were committed separately after
+bounded red-first invariants and focused native/full-pipeline benchmarks.
+Four rejected approaches remain documented, including two SimplifyLocals
+continuation-index variants; their production code was removed. Remaining
+compiler budgets, parity gaps and runtime coverage limits remain explicit.
+
+### Retained changes and rejected approaches
+
+- `e1b46f1a7`: queue changed forward local-flow blocks in source order.
+- `5193aa64e`: collect type roots once before pruning unused signatures.
+- `1b4a793b6`: borrow dense HOT operands during lowering and source-order checks.
+- `362fecd3f`: cache negative local dependency proofs during HOT lifting.
+- `b93aa67d7`: track only encountered tuple producers in local-flow transfers.
+- `9dbbc4ec4`: defer DAE replay facts until candidate planning needs them.
+- `180b9a339`: record rejected inlining remap allocation prototype.
+- `408a1a1ce`: record rejected SimplifyLocals continuation indexes.
+- `c1b6fbb7d`: allocate validation initialization masks at their final size.
+- `d78b64f4d`: group numeric locals directly from compressed declaration runs.
+- `153486302`: borrow immutable predecessor states until local-flow joins change.
+- `d927318a1`: record rejected inlining remap preflight experiment.
+- `40ed4f059`: resolve numeric grouping signatures without scanning module bodies.
+- `7b78fb714`: retain identical child spans during DAE2 rewriting.
+- `716f60ab6`: cache completed-root effect ordering during HOT lifting.
+- `e44df6e67`: add dense Coalesce interference cliques a word at a time.
+- `f1f25e82f`: reject retention-bound remapping after full-pass regression.
+- `80baae5e5`: iterate actual live locals during structured interference building.
+- `6d32bdae7`: memoize numeric default identities in Coalesce value analysis.
+
+A separate harness fix, `63e9360b3`, counts enclosing pass/pipeline timers once.
+The [scope correction](#september-27-2026-nested-timing-scope-correction)
+supersedes nested-timer sums using the same saved traces; it is not a compiler
+speedup. Six bounded timing regressions and all 21 harness tests pass.
+
+The [LocalGraph contract](../ir2/local-ssa-policy.md) owns ordered work queues,
+immutable predecessor borrowing and sparse tuple evaluation. The
+[lift/lower contract](../ir2/architecture-rules.md) owns dense operand views,
+negative dependency masks and completed-root effect caching. Pass dossiers
+record exact per-change benchmarks and invariants for
+[DFE](../binaryen/passes/duplicate-function-elimination/starshine-strategy.md),
+[OI](../binaryen/passes/optimize-instructions/starshine-strategy.md),
+[DAE](../binaryen/passes/dead-argument-elimination/starshine-strategy.md),
+[DAE2](../binaryen/passes/dae2/starshine-strategy.md),
+[Coalesce](../binaryen/passes/coalesce-locals/starshine-strategy.md),
+[Inlining](../binaryen/passes/inlining/starshine-strategy.md),
+[SimplifyLocals](../binaryen/passes/simplify-locals/performance-and-artifact-frontiers.md), and
+[validation masks](../validate/module-validation-phases.md).
+Per-change medians are not additive; cumulative gains below use the same
+frozen starting and final binaries.
+
+### Frozen tools, inputs and validation
+
+- Starting source commit: `8eff882b37c1085a7432dd2a5f91986b33db6f69`; native SHA-256 `5d009c4396b65d613acdc187e443f6c2cee843c7bfbc48ee726ba633de2aac54`.
+- Final production commit: `6d32bdae782b5f725bb85245a3caa20bd37bce02`; native SHA-256 `6610a792ef8d07151ee38bd6c6fbfe82097086e4f50f6dfd3902eecacb00320e`.
+- Rebuilt native generator SHA-256: `98b9c219968bb579523cecdbb16d681436da5e31640ccd6c24b3c69af295d6d9`.
+- Verified oracle: `wasm-opt version 133 (version_133)`, SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+- Small input: 192,893 bytes, 45 functions, SHA-256 `06a9dd57ade8a4fd7c60cba2d1c97845b61e115a54f49ec484fd5a2d73b9f69c`.
+- Large input: 6,211,596 bytes, 12,904 functions, SHA-256 `98189860f95b4eb8464794eb9fab5f9fd8d16942c63a6e31ed9175e7e791cbbd`.
+- `moon info`, `moon fmt`, all **12,583 wasm-gc tests**, explicit native CLI/generator builds, timing-harness tests and README/API sync pass.
+- The original dirty worktree was preserved and included in both compiler
+  snapshots. This campaign adds no public `.mbti` API change.
+
+### Cumulative alternating compiler pairs
+
+Each row uses one warmup and three uncontended alternating samples. Traced and
+untraced outputs agree, before/final raw bytes match, and outputs independently
+validate. Detected busy rounds are retained as rejected samples and retried.
+These are enclosing optimizer pipeline times, excluding command startup and decoding.
+The saved reports also retain command wall time. Original timer sums remain
+available; `final-pairs-*-corrected.json` applies the scope accounting fix.
+
+| Input | Pass | Before pipeline ms | Final pipeline ms | Change |
+| --- | --- | ---: | ---: | ---: |
+| small | `dae2` | 17.907 | 17.015 | -5.0% |
+| small | `dae2-optimizing` | 26.273 | 26.211 | -0.2% |
+| small | `dae` | 50.769 | 51.453 | +1.3% |
+| small | `dae-optimizing` | 138.098 | 136.451 | -1.2% |
+| small | `inlining` | 5.692 | 5.737 | +0.8% |
+| small | `inlining-optimizing` | 110.280 | 106.745 | -3.2% |
+| small | `simplify-globals-optimizing` | 20.445 | 19.264 | -5.8% |
+| small | `precompute` | 1.283 | 1.281 | -0.2% |
+| small | `precompute-propagate` | 5.210 | 4.684 | -10.1% |
+| small | `optimize-instructions` | 3.509 | 3.210 | -8.5% |
+| small | `merge-locals` | 1.506 | 1.451 | -3.7% |
+| small | `coalesce-locals` | 13.382 | 10.802 | -19.3% |
+| small | `simplify-locals` | 6.475 | 7.173 | +10.8% |
+| small | `duplicate-function-elimination` | 0.777 | 0.467 | -39.9% |
+| large | `dae2` | 5787.334 | 4975.737 | -14.0% |
+| large | `dae2-optimizing` | 9206.506 | 8251.110 | -10.4% |
+| large | `dae` | 803.753 | 795.796 | -1.0% |
+| large | `dae-optimizing` | 1008.288 | 999.407 | -0.9% |
+| large | `inlining` | 1748.354 | 1738.160 | -0.6% |
+| large | `inlining-optimizing` | 621.474 | 595.998 | -4.1% |
+| large | `simplify-globals-optimizing` | 56.467 | 56.033 | -0.8% |
+| large | `precompute` | 676.248 | 678.776 | +0.4% |
+| large | `precompute-propagate` | 1805.571 | 1451.486 | -19.6% |
+| large | `optimize-instructions` | 3192.209 | 2524.999 | -20.9% |
+| large | `merge-locals` | 37.482 | 37.233 | -0.7% |
+| large | `coalesce-locals` | 6536.898 | 4963.276 | -24.1% |
+| large | `simplify-locals` | 2159.408 | 2043.669 | -5.4% |
+| large | `duplicate-function-elimination` | 1359.493 | 843.849 | -37.9% |
+
+The first small SimplifyLocals pair set increased **6.475 → 7.173 ms (+10.8%)**.
+A dedicated nine-sample alternating repeat measured **6.432 → 6.269 ms (-2.5%)**,
+with identical bytes and independent validation. The initial increase did not
+reproduce; retain both reports and avoid treating these small differences as
+a material pass-level win. Evidence: `final-repeat-small-simplify-locals/`.
+
+The documented large guarded DAE/DAEO, inlining-optimizing, SimplifyGlobals-
+optimizing and MergeLocals paths remain coverage controls. Their timing alone
+does not establish active cleanup performance or unchanged optimization breadth.
+Dedicated active fixtures in the owner pages separately establish applicable
+gains and preserve runtime results. Small sub-millisecond differences require
+care when interpreting noise.
+
+### Verified v133 timing renewal
+
+Fresh sweeps bracket requested passes with reference commands and retain
+phase attribution, command median/MAD, canonical sizes and exact tool/input
+identities. The inner Starshine pass timer can omit module cleanup and
+validation; pipeline cost remains visible and governs the remaining work.
+A zero recorded inner timer does not mean zero pipeline work; its ratio is omitted.
+`dae2-optimizing` compares the upstream DAE2, SimplifyLocals and Vacuum sequence.
+Large MergeLocals remains the separately recorded guarded case.
+
+| Input | Pass | Starshine pipeline ms | Starshine inner ms | Binaryen pass ms | Inner ratio | Canonical byte delta |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| small | `dae2` | 17.495 | 17.457 | 1.172 | 14.89× | -97 |
+| small | `dae2-optimizing` | 25.815 | 25.788 | 3.766 | 6.85× | -250 |
+| small | `dae` | 52.701 | 52.677 | 0.646 | 81.50× | -134 |
+| small | `dae-optimizing` | 140.066 | 140.039 | 7.100 | 19.72× | -1,373 |
+| small | `inlining` | 6.184 | 6.163 | 2.562 | 2.41× | -6,504 |
+| small | `inlining-optimizing` | 107.830 | 107.800 | 44.903 | 2.40× | +461 |
+| small | `simplify-globals-optimizing` | 20.336 | 20.313 | 1.310 | 15.51× | -372 |
+| small | `precompute` | 1.323 | 0.000 | 1.361 | n/a | -70 |
+| small | `precompute-propagate` | 5.055 | 1.672 | 2.382 | 0.70× | -84 |
+| small | `optimize-instructions` | 3.602 | 0.552 | 0.685 | 0.81× | -28 |
+| small | `merge-locals` | 1.483 | 0.318 | 0.363 | 0.88× | -35 |
+| small | `coalesce-locals` | 11.655 | 11.623 | 5.087 | 2.28× | -28 |
+| small | `simplify-locals` | 6.440 | 0.494 | 1.769 | 0.28× | +19 |
+| small | `duplicate-function-elimination` | 0.456 | 0.434 | 0.241 | 1.80× | -53 |
+| large | `dae2` | 4954.468 | 4937.001 | 397.543 | 12.42× | -100,655 |
+| large | `dae2-optimizing` | 8298.320 | 8281.018 | 1580.220 | 5.24× | +422,019 |
+| large | `dae` | 804.243 | 786.800 | 380.432 | 2.07× | -3,626 |
+| large | `dae-optimizing` | 1017.234 | 999.928 | 1600.130 | 0.62× | +41,427 |
+| large | `inlining` | 1741.690 | 1724.454 | 812.603 | 2.12× | -1,369,483 |
+| large | `inlining-optimizing` | 614.076 | 596.818 | 14089.700 | 0.04× | +933,016 |
+| large | `simplify-globals-optimizing` | 55.795 | 38.458 | 1048.580 | 0.04× | +173,229 |
+| large | `precompute` | 689.339 | 62.301 | 181.211 | 0.34× | -5,153 |
+| large | `precompute-propagate` | 1482.456 | 591.354 | 680.520 | 0.87× | -9,535 |
+| large | `optimize-instructions` | 2575.642 | 113.052 | 239.108 | 0.47× | +47,825 |
+| large | `coalesce-locals` | 4921.395 | 4904.144 | 1117.400 | 4.39× | +90,915 |
+| large | `simplify-locals` | 2080.387 | 95.312 | 1055.120 | 0.09× | +428,416 |
+| large | `duplicate-function-elimination` | 845.856 | 828.589 | 69.875 | 11.86× | -31,031 |
+
+### Final aggregate correctness renewal
+
+Twenty-two dedicated lanes each compare 10,000 GenValid cases at seed `0x5eed`,
+using the explicit prebuilt native CLI/generator, verified v133, `--jobs auto`,
+`--max-subprocesses 8`, at most 20 saved mismatch artifacts per lane, independent
+validation and Node-v2 original/Starshine/Binaryen observations. SSA and
+SSA-no-merge are included because they consume the changed LocalGraph solver.
+No external-generator lane or long randomized default test was added.
+
+| Lane | Aggregate | Canonical / cleanup matches | Residuals | Canonically larger | Star/original matches / blocked |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `dae2` | `dae2` | 2,879 / 667 | 6,454 | 0 | 9,312 / 688 |
+| `dae2-closed` | `dae2` | 0 / 100 | 9,900 | 706 | 9,312 / 688 |
+| `dae2-optimizing` | `dae2` | 2,233 / 0 | 7,767 | 0 | 9,312 / 688 |
+| `precompute` | `precompute-all` | 3,238 / 6,762 | 0 | 0 | 9,551 / 449 |
+| `precompute-propagate` | `precompute-all` | 2,766 / 7,234 | 0 | 0 | 9,551 / 449 |
+| `inlining` | `pass-inlining` | 10,000 / 0 | 0 | 0 | 10,000 / 0 |
+| `inlining-optimizing` | `inlining-optimizing-all` | 10,000 / 0 | 0 | 0 | 10,000 / 0 |
+| `inline-main` | `pass-inlining` | 10,000 / 0 | 0 | 0 | 10,000 / 0 |
+| `dae` | `dead-argument-elimination` | 3,750 / 0 | 6,250 | 0 | 10,000 / 0 |
+| `dae-optimizing` | `dae-optimizing` | 5,153 / 0 | 4,847 | 0 | 10,000 / 0 |
+| `simplify-globals-optimizing` | `simplify-globals-optimizing-all` | 5,055 / 0 | 4,945 | 0 | 10,000 / 0 |
+| `optimize-instructions` | `pass-oi-all` | 8,920 / 403 | 677 | 0 | 8,910 / 1,090 |
+| `merge-locals` | `merge-locals-all` | 9,353 / 0 | 647 | 0 | 10,000 / 0 |
+| `ssa` | `ssa-all` | 8,713 / 640 | 647 | 0 | 9,335 / 665 |
+| `ssa-nomerge` | `ssa-nomerge-all` | 3,750 / 0 | 6,250 | 0 | 6,250 / 3,750 |
+| `coalesce-locals` | `coalesce-locals-all` | 3,750 / 5,000 | 1,250 | 0 | 8,750 / 1,250 |
+| `duplicate-function-elimination` | `duplicate-function-elimination` | 5,000 / 0 | 5,000 | 0 | 10,000 / 0 |
+| `simplify-locals` | `simplify-locals-all` | 380 / 0 | 9,620 | 0 | 10,000 / 0 |
+| `simplify-locals-notee` | `simplify-locals-notee-all` | 0 / 0 | 10,000 | 0 | 10,000 / 0 |
+| `simplify-locals-nonesting` | `simplify-locals-nonesting-all` | 5,026 / 0 | 4,974 | 0 | 10,000 / 0 |
+| `simplify-locals-nostructure` | `simplify-locals-nostructure-all` | 0 / 0 | 10,000 | 1,662 | 10,000 / 0 |
+| `simplify-locals-notee-nostructure` | `simplify-locals-notee-nostructure-all` | 0 / 0 | 10,000 | 0 | 10,000 / 0 |
+
+Across **220,000 comparisons**, validation, generator, property-counter, command
+and observed Starshine/original semantic failures are zero.
+**210,283** cases match observed original behavior; **9,717** runtime-blocked
+cases remain unverified. Matching exported observations do not demonstrate
+execution of every unexported body or establish full three-way agreement.
+Separate determinism, idempotence and metamorphic lanes are outside this run.
+Starshine outputs are regenerated for every case; persistent caches reuse
+deterministic oracle outputs and hash-keyed runtime observations.
+
+DAE/DAE2 and optimizing SimplifyGlobals use `drop-consts` and
+`unreachable-control-debris`; Precompute variants additionally use
+`local-cleanup-debris`. OI uses drop/local cleanup; Coalesce uses local and
+unreachable cleanup; SSA uses local cleanup and `ssa-local-allocation-debris`.
+Other listed lanes use no cleanup normalizers. Closed DAE2 adds `--closed-world`.
+Exact commands and profiles are retained in `final-fuzz-campaign.json`.
+
+### Residual and runtime-coverage review
+
+Classifications are agent judgments. The retained-output and complete
+canonical-size-loss replays compare the final compiler with the frozen start.
+Byte identity establishes that the replayed output predates this campaign;
+it does not by itself prove semantic equivalence or close a parity gap.
+
+| Lane | Retained baseline-identical | All size-losing baseline-identical |
+| --- | ---: | ---: |
+| `dae2` | 20/20 | 0/0 |
+| `dae2-closed` | 20/20 | 706/706 |
+| `dae2-optimizing` | 20/20 | 0/0 |
+| `dae` | 20/20 | 0/0 |
+| `dae-optimizing` | 20/20 | 0/0 |
+| `simplify-globals-optimizing` | 20/20 | 0/0 |
+| `optimize-instructions` | 20/20 | 0/0 |
+| `merge-locals` | 20/20 | 0/0 |
+| `ssa` | 20/20 | 0/0 |
+| `ssa-nomerge` | 20/20 | 0/0 |
+| `coalesce-locals` | 20/20 | 0/0 |
+| `duplicate-function-elimination` | 20/20 | 0/0 |
+| `simplify-locals` | 20/20 | 0/0 |
+| `simplify-locals-notee` | 20/20 | 0/0 |
+| `simplify-locals-nonesting` | 20/20 | 0/0 |
+| `simplify-locals-nostructure` | 20/20 | 1662/1662 |
+| `simplify-locals-notee-nostructure` | 20/20 | 0/0 |
+
+OI, MergeLocals and DFE receive exhaustive residual replays through common
+verified-v133 `-Oz --all-features --strip-debug`, with independent validation:
+
+- `optimize-instructions`: 677 residuals; 677 baseline-identical outputs; 677 byte-identical downstream outputs.
+- `merge-locals`: 647 residuals; 647 baseline-identical outputs; 647 byte-identical downstream outputs.
+- `duplicate-function-elimination`: 5000 residuals; 5000 baseline-identical outputs; 5000 byte-identical downstream outputs.
+
+**Scoped OI wins:** all 677 residuals retain the previously inspected
+14 tuple families, preserve lane producers and effect order under
+the [tuple contract](../binaryen/passes/optimize-instructions/starshine-strategy.md),
+and save 26–104 canonical bytes before common cleanup
+(27,497 bytes total). Their downstream bytes are identical; the
+historical v132 downstream loss is not reproduced under this v133 pair.
+
+**Scoped MergeLocals wins:** all 647 `trivial-confusion` residuals
+remove the unread tee write while preserving its branch-condition value
+under the [owner contract](../binaryen/passes/merge-locals/starshine-strategy.md#residual-classifications).
+Each saves 2 canonical bytes and retains identical downstream bytes.
+
+**Scoped DFE wins:** all 5,000 fixed-point caller residuals save six
+canonical bytes and converge to identical downstream bytes. Inspected output
+retains one private literal callee and one caller instead of two identical
+callers, under the existing [fixed-point contract](../binaryen/passes/duplicate-function-elimination/starshine-strategy.md)
+and [bounded direct/three-round tests](../../../src/passes/duplicate_function_elimination_test.mbt).
+The [generator](../../../src/validate/gen_valid_undersampled_passes.mbt)
+contains only these private literal/call functions and exports none: the
+aggregate runtime-match counter does not demonstrate body execution.
+The classification relies on the inspected private-call equivalence and
+measured size/downstream benefit, not that counter.
+
+The inspected tuple-copy, unread-tee and fixed-point caller contracts and downstream
+evidence in the owner dossiers support only those scoped win classifications.
+Other residuals remain parity gaps; larger canonical outputs remain size-losing
+quality gaps. Validation, runtime agreement or smaller output alone does not
+justify accepting an uninspected shape family.
+
+Runtime coverage limits from the full saved case census:
+
+- `dae2` original-runtime blocks: `dae2-continuations` 688.
+- `dae2-closed` original-runtime blocks: `dae2-continuations` 688.
+- `dae2-optimizing` original-runtime blocks: `dae2-continuations` 688.
+- `precompute` original-runtime blocks: `precompute-gc-atomic-boundary` 449.
+- `precompute-propagate` original-runtime blocks: `precompute-gc-atomic-boundary` 449.
+- `dae` Binaryen-side runtime limits: `dae-arg-type-refinement` 625, `dae-return-type-refinement` 625.
+- `optimize-instructions` original-runtime blocks: `pass-oi-descriptor-gc` 1,090.
+- `ssa` original-runtime blocks: `ssa-loop` 665.
+- `ssa-nomerge` original-runtime blocks: `ssa-nomerge-stress` 1,250, `ssa-nomerge-coverage` 2,500.
+- `coalesce-locals` original-runtime blocks: `coalesce-locals-unreachable` 625, `coalesce-locals-legacy-eh` 625.
+- `simplify-locals` Binaryen-side runtime limits: `simplify-locals-effect-order` 1,225, `simplify-locals-stress` 604.
+- `simplify-locals-notee` Binaryen-side runtime limits: `simplify-locals-effect-order` 1,250, `simplify-locals-stress` 625.
+- `simplify-locals-nonesting` Binaryen-side runtime limits: `simplify-locals-effect-order` 1,087, `simplify-locals-stress` 529.
+- `simplify-locals-nostructure` Binaryen-side runtime limits: `simplify-locals-nostructure-effect-order` 1,683.
+- `simplify-locals-notee-nostructure` Binaryen-side runtime limits: `simplify-locals-effect-order` 1,250, `simplify-locals-stress` 625.
+
+The separate active inline-main campaign changes all **512** main
+bodies, keeps all 512 helpers present and matches baseline bytes.
+Existing cleanup changes 485 helper bodies identically in both compilers.
+This active lane passes
+**1,920 three-way** and **640 original/Starshine** runtime comparisons.
+Verified v133 rejects 128 tail-call fixtures with
+`all break targets must be valid`. These are separately recorded Binaryen/tool
+failures, outside the zero-command-failure aggregate rows; their Starshine
+outputs validate and match original runtime behavior, while oracle coverage
+remains unavailable.
+
+### Cache and evidence inventory
+
+| Lane | Binaryen cache hits / misses | Node-v2 cache hits / misses |
+| --- | ---: | ---: |
+| `dae2` | 10,000 / 0 | 10,000 / 0 |
+| `dae2-closed` | 10,000 / 0 | 10,000 / 0 |
+| `dae2-optimizing` | 10,000 / 0 | 10,000 / 0 |
+| `precompute` | 10,000 / 0 | 10,000 / 0 |
+| `precompute-propagate` | 10,000 / 0 | 10,000 / 0 |
+| `inlining` | 10,000 / 0 | 10,000 / 0 |
+| `inlining-optimizing` | 10,000 / 0 | 10,000 / 0 |
+| `inline-main` | 10,000 / 0 | 10,000 / 0 |
+| `dae` | 10,000 / 0 | 10,000 / 0 |
+| `dae-optimizing` | 10,000 / 0 | 10,000 / 0 |
+| `simplify-globals-optimizing` | 10,000 / 0 | 10,000 / 0 |
+| `optimize-instructions` | 10,000 / 0 | 10,000 / 0 |
+| `merge-locals` | 10,000 / 0 | 10,000 / 0 |
+| `ssa` | 2,309 / 7,691 | 0 / 10,000 |
+| `ssa-nomerge` | 1,471 / 8,529 | 0 / 10,000 |
+| `coalesce-locals` | 10,000 / 0 | 10,000 / 0 |
+| `duplicate-function-elimination` | 23 / 9,977 | 0 / 10,000 |
+| `simplify-locals` | 10,000 / 0 | 10,000 / 0 |
+| `simplify-locals-notee` | 10,000 / 0 | 10,000 / 0 |
+| `simplify-locals-nonesting` | 10,000 / 0 | 10,000 / 0 |
+| `simplify-locals-nostructure` | 10,000 / 0 | 10,000 / 0 |
+| `simplify-locals-notee-nostructure` | 10,000 / 0 | 10,000 / 0 |
+
+All local artifacts are under `.tmp/pass-perf-next-20260927/`: final validation
+and tool identities; `final-pairs-{small,large}/result.json`; `final-sweeps.json`;
+each aggregate result, toolchain, cases and observations; retained and size-loss
+replays; `final-all-shapes-replay.json`; `final-fuzz-details.json`; active
+inline-main observations; per-change benchmarks and activity/runtime checks;
+and the final original-edit/API/tool-identity preservation audit.
+
+### Remaining performance and quality work
+
+Large compiler pipeline costs remain open where the tables exceed the target.
+Prioritize propagation state/CFG costs, DAE call facts and slicing, DAE2
+analysis/lift/lower reuse, Coalesce CFG/lowering work, OI module validation and
+encoding work, and inlining body classification/staged rounds. DFE is below
+one second but still about 12× v133 on the large input; its remaining relative
+gap needs profiling. Saved large paired traces put DFE elimination at
+138.454 ms inside an 826.638 ms pass timer; isolate its surrounding cleanup
+size checks and validation before tuning body hashing further. The current
+whole-module size guards also account for name/fact sections and contextual
+string encoding, so replacing them with body-only estimates requires proof
+and boundary tests. Plain Precompute also retains substantial pipeline work
+outside its inner timer. The rejected
+remap and continuation-index approaches should not be retried as established
+wins. Keep admission guards, canonical-size losses, residual parity families
+and runtime-blocked cases visible alongside performance. Completed mechanisms
+are documented above and do not need reimplementation.

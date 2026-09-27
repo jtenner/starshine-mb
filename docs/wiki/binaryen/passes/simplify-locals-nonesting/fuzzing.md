@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-26
+last_reviewed: 2026-09-27
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -22,6 +22,27 @@ related:
 ---
 
 # `simplify-locals-nonesting` fuzzing
+
+## September 27 follow-up allocation campaign renewal
+
+The [final follow-up report](../../../tooling/tracing-playbook.md#september-27-2026-follow-up-pass-allocation-campaign)
+uses native CLI `6610a792ef8d07151ee38bd6c6fbfe82097086e4f50f6dfd3902eecacb00320e`,
+verified Binaryen 133, seed `0x5eed`, eight subprocesses and 10,000 cases
+per listed aggregate. It supersedes pending renewal for the follow-up
+allocation changes and earlier current-baseline wording. New evidence
+requires verified v133; older dated results retain their original scope.
+
+| Lane | Aggregate | Canonical / cleanup matches | Residuals | Canonically larger | Star/original matches / blocked |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `simplify-locals-nonesting` | `simplify-locals-nonesting-all` | 5,026 / 0 | 4,974 | 0 | 10,000 / 0 |
+
+Validation, generator, property-counter, command and observed Starshine/
+original semantic failures are zero. Blocked runtime cases remain unverified.
+The report owns exact commands, normalizers, cache use, size-loss and retained
+baseline replays, downstream evidence and agent classifications. Residual
+parity/size gaps are not closed by validation or smaller output alone.
+
+Local results: `.tmp/pass-perf-next-20260927/final-fuzz-simplify-locals-nonesting/result.json`.
 
 ## September 26 final allocation/indexing renewal
 

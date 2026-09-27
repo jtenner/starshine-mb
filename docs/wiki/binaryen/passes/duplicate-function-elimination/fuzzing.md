@@ -1,13 +1,41 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-27
 sources:
+  - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 ---
 
 # `duplicate-function-elimination` Fuzzing Profile
+
+## September 27 follow-up allocation campaign renewal
+
+The [final follow-up report](../../../tooling/tracing-playbook.md#september-27-2026-follow-up-pass-allocation-campaign)
+uses native CLI `6610a792ef8d07151ee38bd6c6fbfe82097086e4f50f6dfd3902eecacb00320e`,
+verified Binaryen 133, seed `0x5eed`, eight subprocesses and 10,000 cases
+per listed aggregate. It supersedes pending renewal for the follow-up
+allocation changes and earlier current-baseline wording. New evidence
+requires verified v133; older dated results retain their original scope.
+
+| Lane | Aggregate | Canonical / cleanup matches | Residuals | Canonically larger | Star/original matches / blocked |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `duplicate-function-elimination` | `duplicate-function-elimination` | 5,000 / 0 | 5,000 | 0 | 10,000 / 0 |
+
+Validation, generator, property-counter, command and observed Starshine/
+original semantic failures are zero. Blocked runtime cases remain unverified.
+The report owns exact commands, normalizers, cache use, size-loss and retained
+baseline replays, downstream evidence and agent classifications. Residual
+parity/size gaps are not closed by validation or smaller output alone.
+
+The profile exports no functions, so its runtime-match counter does not
+establish body execution. All 5,000 fixed-point caller residuals are identical
+to the starting compiler, save six canonical bytes and converge to identical
+bytes after common v133 `-Oz`; the report documents the inspected private-call
+contract supporting this scoped win.
+
+Local results: `.tmp/pass-perf-next-20260927/final-fuzz-duplicate-function-elimination/result.json`.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

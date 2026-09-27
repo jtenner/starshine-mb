@@ -23,6 +23,18 @@ related:
 
 # Current Starshine `optimize-instructions` strategy
 
+## September 27 follow-up allocation campaign renewal
+
+The [final follow-up campaign](../../../tooling/tracing-playbook.md#september-27-2026-follow-up-pass-allocation-campaign)
+supersedes pending-renewal notes for its allocation changes below. The frozen
+source passes 12,583 default tests. Its 220,000 comparisons across 22 affected
+lanes report no validation, generator, property-counter, command or observed
+Starshine/original semantic failures. The report retains exact tool identities,
+all artifact timings, active fixtures, residual/size replays and runtime limits.
+Per-change measurements are historical isolated pairs, not additive gains.
+Remaining timing, output-quality and runtime-coverage gaps stay open; rejected
+prototypes remain rejected.
+
 ## Finish synthesized reference predicates and reuse parent trap contracts
 
 Producer-owned finishing applies to references as well as scalar binaries. When `ref.eq` replaces a null comparison with `ref.is_null` after that visitor slot, `OiSynthesizedRefIsNullFact` immediately invokes the ordinary `OiRefIsNullRewritePlanFact`; known non-null results fold while allocation/effects remain ordered through the existing drop-plus-constant plan. Separately, `OiStructGetNonNullCheckFact` encodes Binaryen v130's exact `visitStructGet` contract: a direct `ref.as_non_null` receiver is redundant because the parent traps at the same null receiver point. The fact forwards the nullable child only for exact struct gets and leaves other GC consumers fail closed.

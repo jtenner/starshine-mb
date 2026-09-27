@@ -22,6 +22,18 @@ related:
 
 # Starshine Strategy For `inlining`
 
+## September 27 follow-up allocation campaign renewal
+
+The [final follow-up campaign](../../../tooling/tracing-playbook.md#september-27-2026-follow-up-pass-allocation-campaign)
+supersedes pending-renewal notes for its allocation changes below. The frozen
+source passes 12,583 default tests. Its 220,000 comparisons across 22 affected
+lanes report no validation, generator, property-counter, command or observed
+Starshine/original semantic failures. The report retains exact tool identities,
+all artifact timings, active fixtures, residual/size replays and runtime limits.
+Per-change measurements are historical isolated pairs, not additive gains.
+Remaining timing, output-quality and runtime-coverage gaps stay open; rejected
+prototypes remain rejected.
+
 ## September 27, 2026 rejected retention-reference bounds
 
 A third remapping prototype reused the existing helper-retention reference scan

@@ -709,6 +709,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-09-27
 sources:
+  - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ./parity-matrix.json
@@ -730,6 +731,27 @@ The same OI-G grouped local.tee-produced xchg refresh split every residual from 
 The latest OI-G classification pass split every residual from `.tmp/oi-g-shared-atomic-select-and-count630-20260630`. The count630 lane compared 630/630 with 438 normalized matches, 192 mismatches, zero validation/generator/property/command/runtime semantic failures, Binaryen cache hits/misses `137/493`, and runtime checked/unsupported/failed `489/141/0`. Manual `wasm-tools validate --features all` accepted all 768 residual raw/canonical artifacts. Manual classification splits the residuals into exactly two buckets: 166 shared-atomic profile-case candidates across fixed/random xchg/add/cmpxchg/sub/xor/or/and plus local.tee/helper-call address-producer cleanup, and 26 store8 low-byte-mask candidates across `store-mask-boundaries` and `runtime-store8-mask-restore-read`. The atomic bucket preserves i32/i64 atomic loads plus expected RMW/cmpxchg operation counts (`332/332` atomic loads, `332/332` atomic.rmw, `28/28` cmpxchg), is runtime-equal for all 166 residuals, preserves helper calls `72/72`, removes local.tee address producers `68/0`, and aggregates Starshine raw/canonical/WAT deltas `-622/-158/-422`. The store8 bucket preserves store8 counts (`80/80`), removes redundant i64 masks (`26/0` `i64.and`), includes runtime equality for all 14 runtime-store8 residuals, and aggregates `-146/-104/-988`. The select-produced atomic and label itself remains 22/22 normalized matches, so no select-produced and residual bucket remains. This reduces grouped unknowns but remains sampled Starshine-win evidence only, not true shared ordering/concurrency, blocking wait/notify closure, exact memory64/multi-memory runtime closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence.
 
 # `optimize-instructions` fuzzing and parity sweep
+
+## September 27 follow-up allocation campaign renewal
+
+The [final follow-up report](../../../tooling/tracing-playbook.md#september-27-2026-follow-up-pass-allocation-campaign)
+uses native CLI `6610a792ef8d07151ee38bd6c6fbfe82097086e4f50f6dfd3902eecacb00320e`,
+verified Binaryen 133, seed `0x5eed`, eight subprocesses and 10,000 cases
+per listed aggregate. It supersedes pending renewal for the follow-up
+allocation changes and earlier current-baseline wording. New evidence
+requires verified v133; older dated results retain their original scope.
+
+| Lane | Aggregate | Canonical / cleanup matches | Residuals | Canonically larger | Star/original matches / blocked |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `optimize-instructions` | `pass-oi-all` | 8,920 / 403 | 677 | 0 | 8,910 / 1,090 |
+
+Validation, generator, property-counter, command and observed Starshine/
+original semantic failures are zero. Blocked runtime cases remain unverified.
+The report owns exact commands, normalizers, cache use, size-loss and retained
+baseline replays, downstream evidence and agent classifications. Residual
+parity/size gaps are not closed by validation or smaller output alone.
+
+Local results: `.tmp/pass-perf-next-20260927/final-fuzz-optimize-instructions/result.json`.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
