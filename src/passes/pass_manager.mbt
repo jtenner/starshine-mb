@@ -77977,6 +77977,7 @@ fn run_hot_pipeline_optimize_instructions_cleanup_tuple_wrappers(
   original : @lib.Func?,
   mod_ : @lib.Module,
   module_ctx? : @ir.HotModuleContext? = None,
+  module_env_provider? : (() -> @validate.Env)? = None,
 ) -> (@lib.Func, Bool) {
   match original {
     Some(@lib.Func(_, @lib.Expr(body))) if run_hot_pipeline_raw_tuple_has_multivalue_producer(
@@ -77985,7 +77986,15 @@ fn run_hot_pipeline_optimize_instructions_cleanup_tuple_wrappers(
           Some(ctx) => ctx
           None => @ir.hot_module_context_from_module(mod_)
         },
-      ) => pass_lower_cleanup_branchless_blocks(func, mod_)
+      ) =>
+      pass_lower_cleanup_branchless_blocks(
+        func,
+        mod_,
+        module_env=match module_env_provider {
+          Some(provide) => Some(provide())
+          None => None
+        },
+      )
     _ => (func, false)
   }
 }
@@ -77999,6 +78008,7 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   mod_ : @lib.Module,
   module_ctx? : @ir.HotModuleContext? = None,
   module_env? : @validate.Env? = None,
+  module_env_provider? : (() -> @validate.Env)? = None,
 ) -> @lib.Func {
   let func = if descriptor_name == "constraint-analysis" ||
     descriptor_name == "tuple-optimization" ||
@@ -78103,6 +78113,7 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
       original_func,
       mod_,
       module_ctx~,
+      module_env_provider~,
     ).0
   } else {
     cleaned
@@ -79989,6 +80000,11 @@ fn run_hot_pipeline_func(
             Some(run_hot_pipeline_original_func(mod_, func_idx)),
             func_idx,
             mod_,
+            module_env_provider=Some(fn() {
+              run_hot_pipeline_require_validation_module_env(
+                mod_, module_state, options,
+              )
+            }),
             module_env=if descriptor.name == "precompute" ||
               descriptor.name == "precompute-propagate" {
               Some(
@@ -80060,6 +80076,11 @@ fn run_hot_pipeline_func(
         Some(run_hot_pipeline_original_func(mod_, func_idx)),
         func_idx,
         mod_,
+        module_env_provider=Some(fn() {
+          run_hot_pipeline_require_validation_module_env(
+            mod_, module_state, options,
+          )
+        }),
         module_env=if descriptor.name == "precompute" ||
           descriptor.name == "precompute-propagate" {
           Some(
@@ -82146,6 +82167,11 @@ fn run_hot_pipeline_apply_hot_pass_stack(
               Some(run_hot_pipeline_original_func(mod_, func_idx)),
               func_idx,
               current_mod,
+              module_env_provider=Some(fn() {
+                run_hot_pipeline_require_validation_module_env(
+                  current_mod, module_state, options,
+                )
+              }),
               module_env=cleanup_module_env,
             )
           HotPipelineVerifyPolicy::FinalModuleOnly =>
@@ -82160,6 +82186,11 @@ fn run_hot_pipeline_apply_hot_pass_stack(
               Some(run_hot_pipeline_original_func(mod_, func_idx)),
               func_idx,
               current_mod,
+              module_env_provider=Some(fn() {
+                run_hot_pipeline_require_validation_module_env(
+                  current_mod, module_state, options,
+                )
+              }),
               module_env=cleanup_module_env,
             )
         }
@@ -82421,6 +82452,11 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
               Some(run_hot_pipeline_original_func(mod_, func_idx)),
               func_idx,
               current_mod,
+              module_env_provider=Some(fn() {
+                run_hot_pipeline_require_validation_module_env(
+                  current_mod, module_state, options,
+                )
+              }),
               module_env=cleanup_module_env,
             )
           HotPipelineVerifyPolicy::FinalModuleOnly =>
@@ -82435,6 +82471,11 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
               Some(run_hot_pipeline_original_func(mod_, func_idx)),
               func_idx,
               current_mod,
+              module_env_provider=Some(fn() {
+                run_hot_pipeline_require_validation_module_env(
+                  current_mod, module_state, options,
+                )
+              }),
               module_env=cleanup_module_env,
             )
         }

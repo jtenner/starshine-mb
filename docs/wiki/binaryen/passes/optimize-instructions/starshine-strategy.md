@@ -1608,3 +1608,37 @@ incoming state is unchanged, after a mandatory first visit. This preserves the
 fixed point and avoids repeated instruction walks; exact-state native controls
 and branch-join dispatcher coverage are documented in the
 [stable-transfer invariant](../../../ir2/local-ssa-policy.md#september-27-2026-stable-forward-transfers).
+
+## September 27, 2026: tuple cleanup validation environment
+
+Tuple-wrapper cleanup now requests the pipeline's cached validation environment
+through a lazy provider after finding an original multivalue producer. Single,
+stacked and touched-stack lowering share the provider; existing type-snapshot
+invalidation remains authoritative. Ordinary scalar tuple cleanup never calls
+the provider. Other OI analysis may independently need the same environment.
+
+The large artifact previously spent about 11.3 seconds in the pipeline while the
+inner OI timer reported only about 115 ms. Five of six GDB samples landed in
+whole-module custom-descriptor scans under tuple-wrapper cleanup. Reconstructing
+`Env.with_module` for every eligible function repeated that scan even when other
+OI analysis had already populated the snapshot cache.
+
+The bounded provider regression first observed zero provider calls; it now
+requires two eligible functions to request the same snapshot with one actual
+construction, preserves the exact ordered numeric/call producers, and checks
+that a scalar helper does not request another environment. The existing tuple
+parity fixture and new active-dispatcher fixture retain the effectful call's
+position. Six focused tests pass, including Precompute snapshot controls.
+
+Same-binary native controls compare exact cleanup outputs before timing. At
+128 functions, separate environments cost **1.08 ms**, versus **53.72 µs** shared;
+at 512 functions, **15.85 ms → 215.06 µs**. Fixture parsing/context setup is
+outside timing; each shared batch starts with an empty environment cache. These
+measurements isolate cleanup setup, not the complete pass.
+
+Sources: [pipeline](../../../../../src/passes/pass_manager.mbt),
+[sharing and ordering invariants](../../../../../src/passes/optimize_instructions_module_env_wbtest.mbt),
+[native controls](../../../../../src/passes/optimize_instructions_module_env_perf_wbtest.mbt),
+and [dispatcher](../../../../../src/cmd/perf_optimize_instructions_module_env_wbtest.mbt).
+Final artifact and generated evidence is in the
+[campaign report](../../../tooling/tracing-playbook.md).
