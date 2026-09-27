@@ -26,6 +26,44 @@ related:
 
 # Starshine `dead-argument-elimination` strategy and status
 
+## September 27, 2026 lazy literal replay facts
+
+Reverse/forward literal replay builds its original boundary facts only when a
+candidate reaches the rewrite planner, then retains those facts for the rest of
+that scan. A terminating unsuccessful attempt no longer constructs a transaction
+graph, and an empty exact-literal worklist no longer eagerly collects unused
+facts. Successful candidates still get a fresh post-planning transaction graph:
+the planner can own inactive caller cleanup on aliased source bodies, so sharing
+its earlier graph here would require a stronger ownership proof. Candidate
+selection, source-order frontiers, validation and cleanup breadth are unchanged.
+
+The no-literal-candidate test first built one unnecessary snapshot. It now builds
+zero while preserving the call, and the productive fixture matches the original
+rewrite's module, touched functions and primary candidate. Both active command
+modes retain dynamic parameters and specialize uniform literals. All 441 focused
+tests pass. Native original/lazy replay controls improve 52.67 → 12.76 µs at
+512 instructions and 385.05 → 90.68 µs at 4,096 instructions.
+
+A new 58,282-byte, 65-function fixture carries a dynamic value through 64 callees,
+each with 128 local updates. It exercises active analysis without uniform actuals.
+One warmup and three isolated alternating pipeline pairs improve **DAE
+7.210 → 5.475 ms (24.1%)** and **DAEO 41.199 → 36.425 ms (11.6%)**. Outputs
+remain byte-identical, traced/untraced agreement holds and independent validation
+passes. The compiler's small timings remain effectively flat: DAE 55.661 →
+56.124 ms and DAEO 150.130 → 149.715 ms. Its large guarded paths bypass this
+replay work, so their observed 938.135 → 878.218 ms and 1,144.540 → 1,092.058 ms
+are recorded as controls, not attributed gains. Compiler performance and parity
+remain open; final affected-pass aggregate fuzz renewal is pending.
+
+Evidence: `.tmp/pass-perf-next-20260927/literal-replay-{checks.json,bench-0.log}`,
+`literal-replay-pairs-{small,large,nonconstant}/result.json` and
+`literal-replay-nonconstant.json`; native SHA-256
+`cab3363114752cf0669d838466d150e944ff9eedf98b507ca518f5aca7a1b0f0`.
+Sources: [implementation](../../../../../src/passes/dead_argument_elimination.mbt),
+[bounded tests](../../../../../src/passes/dae_literal_replay_wbtest.mbt),
+[native controls](../../../../../src/passes/dae_literal_replay_perf_wbtest.mbt), and
+[dispatcher tests](../../../../../src/cmd/perf_dae_literal_replay_wbtest.mbt).
+
 ## September 27, 2026 unchanged snapshot checks
 
 DAE's candidate guards and boundary refresh first recognize identical immutable

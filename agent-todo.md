@@ -33,6 +33,9 @@
   Sparse per-path tuple state lowers large DAE2 pipeline time
   5,447.170 → 5,228.758 ms, retaining exact reaching sources and tuple
   execution counts. Final aggregate renewal remains pending.
+  Lazy DAE literal replay facts improve a new nonconstant-call fixture
+  7.210 → 5.475 ms (DAE) and 41.199 → 36.425 ms (DAEO); 441 focused
+  tests pass. Small compiler timings remain flat, so their gap stays open.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,

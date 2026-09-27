@@ -31285,12 +31285,15 @@ fn dae_try_rewrite_reverse_exact_literal_once(
   original_dead_suffix_dropped_calls_from_parameterized_self_callers : Array[
     Int,
   ],
+  original_snapshot_builds? : Array[Int]? = None,
   reverse? : Bool = true,
   max_def_exclusive? : Int = -1,
 ) -> DaePassResult {
   let original_dead_suffix_undropped_escaped_result_calls = original_dead_suffix_escaped_result_call_facts.undropped_calls
   let original_dead_suffix_dropped_escaped_result_calls = original_dead_suffix_escaped_result_call_facts.dropped_calls
-  let rewrite_original = dae_collect_original_boundary_snapshot(mod_)
+  // Replay facts remain fixed for this candidate scan. Build them
+  // only when the first candidate reaches the rewrite planner.
+  let mut rewrite_original : DaeOriginalBoundarySnapshot? = None
   let rewrite_graph = dae_current_boundary_graph_new(mod_)
   let boundary_snapshot = rewrite_graph.snapshot
   let imported = boundary_snapshot.imported
@@ -31431,6 +31434,18 @@ fn dae_try_rewrite_reverse_exact_literal_once(
       0 &&
       def_idx < original_dead_suffix_undropped_escaped_result_calls.length() &&
       !original_dead_suffix_undropped_escaped_result_calls[def_idx] {
+      let active_original = match rewrite_original {
+        Some(original) => original
+        None => {
+          match original_snapshot_builds {
+            Some(count) => count[0] += 1
+            None => ()
+          }
+          let original = dae_collect_original_boundary_snapshot(mod_)
+          rewrite_original = Some(original)
+          original
+        }
+      }
       let result = dae_try_rewrite_candidate(
         mod_,
         callee_abs,
@@ -31439,7 +31454,7 @@ fn dae_try_rewrite_reverse_exact_literal_once(
         local_use,
         boundary_candidate.direct_call_count,
         boundary_candidate.direct_callers,
-        original=Some(rewrite_original),
+        original=Some(active_original),
         graph=Some(rewrite_graph),
       )
       if result.changed {
@@ -48902,6 +48917,9 @@ fn dae_run_core(
         original_dead_suffix_mutual_calls, original_dead_suffix_calls_from_param_operand_self_result_callers,
         original_dead_suffix_escaped_result_operand_call_counts, original_dead_suffix_dropped_calls_from_parameterized_self_callers,
       )
+      if !reverse_result.changed || reverse_result.primary_def < 0 {
+        break
+      }
       let reverse_graph = dae_current_boundary_graph_new(current)
       let reverse_effects = if reverse_result.changed &&
         reverse_result.primary_def >= 0 {
@@ -48986,6 +49004,9 @@ fn dae_run_core(
       reverse=false,
       max_def_exclusive=original_defined,
     )
+    if !low_revisit_result.changed || low_revisit_result.primary_def < 0 {
+      break
+    }
     let low_revisit_graph = dae_current_boundary_graph_new(current)
     let low_revisit_effects = if low_revisit_result.changed &&
       low_revisit_result.primary_def >= 0 {
@@ -49066,7 +49087,11 @@ fn dae_run_core(
       touched,
       changed,
       low_exact_literal_candidates,
-      original=Some(dae_collect_original_boundary_snapshot(current)),
+      original=if low_exact_literal_candidates.is_empty() {
+        None
+      } else {
+        Some(dae_collect_original_boundary_snapshot(current))
+      },
       graph=Some(current_boundary_graph),
       dependencies=Some(current_dependencies),
     )
