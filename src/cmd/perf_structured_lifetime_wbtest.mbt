@@ -28,3 +28,33 @@ test "command SimplifyLocals modes retain the guarded captured call result" {
     ])
   }
 }
+
+///|
+test "command cleanup modes preserve uncaptured structured import calls" {
+  for
+    pass in [
+      "simplify-locals", "simplify-locals-notee", "simplify-locals-nonesting", "simplify-locals-nostructure",
+      "simplify-locals-notee-nostructure", "precompute-propagate",
+    ] {
+    let output = cmd_deep_audit_run(
+      "(module (import \"host\" \"read\" (func $read (param i32) (result i32))) (func (export \"run\") block i32.const 1 call $read drop end block i32.const 2 call $read drop end))",
+      pass,
+    )
+    assert_true(@validate.validate_module(output) is Ok(_))
+    let flat : Array[@lib.Instruction] = []
+    for instr in cmd_deep_audit_body(output) {
+      match instr {
+        @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => flat.append(body)
+        _ => flat.push(instr)
+      }
+    }
+    assert_eq(flat, [
+      @lib.Instruction::i32_const(1),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(2),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ])
+  }
+}

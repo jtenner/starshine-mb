@@ -18,6 +18,16 @@ related:
 
 # `simplify-locals` Performance And Artifact Frontiers
 
+## September 26 selective lifetime summaries
+
+The [shared guard now avoids unused read/call summaries](../simplify-globals-optimizing/starshine-strategy.md#september-26-2026-selective-lifetime-summaries)
+while preserving nested hazards and call ordering. The 512-body negative helper
+improves `72.86 → 4.05 µs`; a late nested hazard improves `71.84 → 4.20 µs`
+against the same-binary full-summary control. Large no-structure improves 2.1%
+against the preceding candidate but remains 3.7% above the starting worktree in
+this focused artifact check. Keep that remaining cost open; output bytes are
+unchanged and the helper result does not establish a whole-pass win.
+
 ## September 26 structured-lifetime summaries
 
 The [shared guard summary](../simplify-globals-optimizing/starshine-strategy.md#september-26-2026-structured-lifetime-summaries)

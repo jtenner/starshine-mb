@@ -67,6 +67,13 @@ The shared scheduler abstraction for DAE/inlining/SGO is still tracked under `[O
 
 The durable pass-local fixture is the inline-heavy helper-chain matrix described in [`fuzzing.md`](./fuzzing.md). The accepted post-repair ratios meet the repository's `<= 1x Binaryen` target across 1, 5, 10, 20, 50, and 100 helper cases. Reopen on repeated regression above that target or a new nested-pass scaling cliff.
 
+### September 26, 2026 selective lifetime summaries
+
+The [shared guard now builds summaries only when an earlier capture needs their reads](../simplify-globals-optimizing/starshine-strategy.md#september-26-2026-selective-lifetime-summaries).
+It preserves the existing lifetime boundary and avoids rescanning capture-free
+parents before a late nested hazard. Focused helper gains remain separate from
+optimizing-inlining artifact and final aggregate evidence.
+
 ### September 26, 2026 structured-lifetime summaries
 
 Nested cleanup uses the [shared structured-lifetime summary](../simplify-globals-optimizing/starshine-strategy.md#september-26-2026-structured-lifetime-summaries).

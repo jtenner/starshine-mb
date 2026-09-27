@@ -40,6 +40,50 @@ related:
 Use this page with the retained 2026-04-24 research inventory, direct tagged source URLs, and [research note 0376](./index.md).
 The purpose here is to map the reviewed Binaryen contract to the exact current Starshine status and the concrete local surfaces a future port should start from. The implementation-readiness and validation ladder now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
+## September 26, 2026 selective lifetime summaries
+
+The lifetime guard now creates read/call summaries only for structured bodies
+whose reads are needed by an earlier direct call capture. Before any such capture,
+it checks nested hazards recursively without allocating read maps. The capture
+map itself is lazy. Flat tails remain bounded, overwrites retain earlier captures,
+and immediate `if` arms stay separate; enclosing subtree facts retain their
+existing combined-read/call semantics. This preserves the guard's admission
+boundary while removing unused summaries and the redundant scan before a late
+nested capture.
+
+Two bounded regressions first failed at one unnecessary summary instead of zero
+and 397 visits instead of at most 300. They check negative bodies, captures after
+the final structured root, and real nested hazards. Existing arm/overwrite guards
+and six dispatcher modes preserve exact imported-call arguments and order.
+All nine focused tests pass.
+
+| Native helper fixture | Before / control | Selective summaries |
+| --- | ---: | ---: |
+| 128 structured bodies without captures | 17.06 µs | 1.05 µs |
+| 512 structured bodies without captures | 72.86 µs | 4.05 µs |
+| 128 captures before structured bodies | 17.98 µs | 13.76 µs |
+| 256 captures before structured bodies | 35.33 µs | 26.33 µs |
+| Late nested hazard after 512 bodies, same-binary full-summary control | 71.84 µs | 4.20 µs |
+
+Fixture construction is outside timing. These are helper measurements; artifact
+results and aggregate correctness evidence are recorded separately. Sources:
+`src/passes/pass_manager.mbt`,
+`src/passes/structured_lifetime_summary_{wbtest,perf_wbtest}.mbt`,
+`src/passes/simplify_locals_structured_lifetime_wbtest.mbt`,
+`src/cmd/perf_structured_lifetime_wbtest.mbt`, and
+`.tmp/pass-perf-work-20260926/lifetime-{negative,late}-red.log` /
+`lifetime-negative-{before,selective}-bench-0.log`.
+
+The isolated large no-structure comparison improves `823.330 → 806.213 ms`
+(2.1%) from the preceding ten-change candidate. Against the original worktree,
+the same final candidate measures `787.077 → 816.222 ms` (+3.7%) for no-structure
+and `381.563 → 368.285 ms` (-3.5%) for the combined mode. Every paired output is
+byte-identical. This does not close the no-structure artifact cost; helper gains
+must not be presented as whole-pass gains. Evidence:
+`.tmp/pass-perf-work-20260926/lifetime-selective-large-unit/result.json` and
+`final4-confirm-{small,large}/result.json`. The retained native CLI is
+`da5f112b6bbf092476d2d6ac6694128e19adca3d288003526ab01c3e0b0bfcbb`.
+
 ## September 26, 2026 structured-lifetime summaries
 
 The shared cleanup guard now summarizes calls, local reads and nested hazards
