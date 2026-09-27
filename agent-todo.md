@@ -57,6 +57,9 @@
   DAE2 now retains identical child spans. A new active wide-expression fixture
   improves optimizing time 68.743 → 64.668 ms; compiler DAE2 remains about
   5.2 seconds and DAE2-optimizing 11.4 seconds, so neither budget is closed.
+  Demand-driven lift effect ordering removes repeated whole-function scans: an
+  active DAE2 fixture improves 183.754 → 15.235 ms at 1,024 regions.
+  Compiler times are mostly flat; source order and runtime call counts pass.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,

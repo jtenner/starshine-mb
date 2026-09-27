@@ -37,6 +37,54 @@ related:
 
 # IR2 Architecture Rules
 
+## Demand-driven first-effect ordering during lift (September 27, 2026)
+
+Region-result placement queries the earliest external effect of completed roots
+and their operand trees. These trees are immutable during lifting; unfinished
+control placeholders are never queried as completed roots. A per-function cache
+uses the same effect predicate and operand boundaries as lowering, including
+separate region scopes. A fixed no-effect sentinel remains valid as the function
+grows. The cache ends with lifting and must not survive ordinary pass mutation
+or the later ordered-catch repair.
+
+The previous implementation rescanned every node for each qualifying region.
+A bounded red-first test visited 138 nodes where the cached query needs three;
+133 focused source-order, lift/lower and dispatcher tests pass. Native controls
+with fresh caches improve 64 repeated-root queries from 1.17 ms to 3.04 µs and
+256 from 17.92 ms to 11.59 µs. These controls alone are not pass-speedup evidence.
+
+A new active DAE2 fixture removes a helper's unused second parameter while
+preserving one logging call per result block. Full pipeline pairs give 256 regions: 11.785 → 3.523 ms; 1024 regions: 183.754 → 15.235 ms.
+All original/before/after modules return the expected value and logging count
+for five boundary inputs (30 checks). Compiler pairs remain mostly flat; DAE2
+improves modestly, and the overall compiler budgets remain open.
+
+| Compiler input | Pass | Before pipeline ms | After pipeline ms |
+| --- | --- | ---: | ---: |
+| large | precompute | 738.344 | 733.836 |
+| large | precompute-propagate | 1612.064 | 1605.213 |
+| large | optimize-instructions | 2708.987 | 2718.158 |
+| large | coalesce-locals | 5431.177 | 5353.762 |
+| large | simplify-locals | 2174.854 | 2182.496 |
+| large | dae2 | 5461.328 | 5303.226 |
+| small | precompute | 1.352 | 1.298 |
+| small | precompute-propagate | 4.692 | 5.048 |
+| small | optimize-instructions | 3.222 | 3.515 |
+| small | coalesce-locals | 13.330 | 13.732 |
+| small | simplify-locals | 6.264 | 6.640 |
+| small | dae2 | 17.462 | 17.542 |
+
+One warmup and three uncontended alternating samples per fixture retain identical
+raw bytes, traced/untraced agreement and independent validation. Final aggregate
+renewal is pending. Evidence: `.tmp/pass-perf-next-20260927/lift-effects-*`,
+including pairs, focused tests, native controls and `wide-runtime.json`;
+CLI SHA-256 `e3281d41e631c00bbc41c862cdf3d431666f9e6129affbf43053e48aefd3c8a2`.
+Sources: [lift](../../../src/ir/hot_lift.mbt),
+[cache](../../../src/ir/hot_lift_effect_order.mbt),
+[invariants](../../../src/ir/hot_lift_effect_order_wbtest.mbt),
+[native controls](../../../src/ir/hot_lift_effect_order_perf_wbtest.mbt), and
+[dispatcher order check](../../../src/cmd/perf_lift_effect_order_wbtest.mbt).
+
 ## Local dependency masks during lift (September 27, 2026)
 
 Pending stack expressions are complete and immutable while subsequent

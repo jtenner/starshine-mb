@@ -60,6 +60,7 @@ priv struct HotLiftLabelFrames {
   capture_stack_locals : Bool
   materialize_multi_values : Bool
   pending_effects : Array[Int]
+  first_effect_orders : Array[Int]
   mut local_access_masks : HotLiftLocalAccessMasks?
 }
 
@@ -78,6 +79,7 @@ fn hot_lift_impl_new_label_frames(
     capture_stack_locals,
     materialize_multi_values,
     pending_effects: [],
+    first_effect_orders: [],
     local_access_masks: None,
   }
 }
@@ -2145,24 +2147,24 @@ fn hot_lift_impl_lift_region(
   // A region result can remain on the operand stack across later effects.
   // It has no later consumer to anchor that lifetime during lowering, so
   // retain its source position explicitly among the region roots.
-  let first_effect_orders = if tc_state.reachable &&
-    values.any(fn(value) { roots.any(fn(root) { root > value }) }) {
-    Some(hot_lower_impl_build_first_effect_orders(func))
-  } else {
-    None
-  }
+  let needs_effect_orders = tc_state.reachable &&
+    values.any(fn(value) { roots.any(fn(root) { root > value }) })
   for value in values {
     let mut insert_at = roots.length()
     if hot_node_result_arity(func, value) > 0 &&
       !roots.any(fn(root) {
         hot_lift_impl_value_contains_node(func, root, value)
       }) &&
-      first_effect_orders is Some(orders) {
+      needs_effect_orders {
       for idx = 0; idx < roots.length(); idx = idx + 1 {
         let root = roots[idx]
-        if root < orders.length() &&
-          orders[root] < orders.length() &&
-          orders[root] > hot_node_get(func, value).order {
+        let order = hot_lift_impl_first_effect_order(
+          func,
+          root,
+          label_frames.first_effect_orders,
+        )
+        if order < hot_node_count(func) &&
+          order > hot_node_get(func, value).order {
           insert_at = idx
           break
         }
