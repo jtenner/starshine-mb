@@ -282,3 +282,28 @@ Sources: [rewriter](../../../../../src/passes/dead_argument_elimination2.mbt),
 [span invariants](../../../../../src/passes/dae2_child_rewrite_wbtest.mbt),
 [native controls](../../../../../src/passes/dae2_child_rewrite_perf_wbtest.mbt),
 and [dispatcher fixture](../../../../../src/cmd/perf_dae2_child_rewrite_wbtest.mbt).
+
+## September 27, 2026: reject retained analysis bodies
+
+Retaining analyzed HOT bodies until rewrite avoided a second lift and improved
+the dedicated 64-function benchmark from 792.82 to 624.50 µs. It did not
+improve the large compiler workload: one warmup and three alternating pairs
+measured plain DAE2 **5,489.948 → 5,695.433 ms (+3.7%)** and optimizing DAE2
+**9,154.678 → 9,429.039 ms (+3.0%)**. Peak resident memory increased from
+302,124 to 394,520 KiB (+30.6%). All four small/large paired comparisons
+retained identical bytes, traced/untraced agreement and independent validation.
+
+A smaller 32,768-node cache also regressed large plain DAE2, **5,459.205 →
+5,584.159 ms (+2.3%)**. That variant's remaining optimizing measurements were
+stopped after rejection; they do not constitute a completed matrix. Production
+retention code was removed. A later attempt must reduce live memory or shorten
+retention lifetime, rather than assume fewer lifts imply faster full passes.
+
+The bounded [fixture test](../../../../../src/passes/dae2_retention_wbtest.mbt)
+checks active rewriting and source reuse. The retained [native benchmarks](../../../../../src/passes/dae2_retention_perf_wbtest.mbt)
+measure the current uncached implementation at 64 and 1,024 functions; they
+are controls for future work, not a shipped retention optimization. Local
+evidence is under `.tmp/pass-perf-reuse-20260927/`: `dae2-retention-pairs-*`,
+`dae2-retention-memory.json`, `dae2-retention-small-cache-pairs-*`, and rejected
+source snapshots. The initial ownership/work regression failed before the
+prototype; 74 focused checks passed before its performance rejection.
