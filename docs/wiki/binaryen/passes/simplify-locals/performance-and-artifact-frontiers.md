@@ -398,3 +398,37 @@ Runtime differential execution of `embenchen_fannkuch/commands.1.wasm` then expo
   - the owning perf or whitebox test
   - whether it is a pure skip or a narrow raw rewrite plus skip
 - When a hotspot is retired, remove it from `agent-todo.md` and fold only the durable result into this page.
+
+
+## September 27, 2026: rejected continuation read-set indexes
+
+Two prototypes replaced repeated ordered-array membership checks with a lazy
+index shared across sibling continuations. The second also used an exact
+64-bit mask for low local IDs. Both preserved first-seen order, seeded reads,
+loop next-iteration reads and the existing control traversal. Bounded regression
+checks and all six active dispatcher modes passed; full-pass outputs remained
+byte-identical and independently validated.
+
+The helpers improved, but the compiler artifact did not. The final helper
+controls measured 875.84 → 713.22 ns for eight locals and 267.74 → 25.94 µs for
+512 locals. One warmup plus three isolated alternating pipeline pairs measured:
+
+| Prototype / input | SimplifyLocals before → after ms | Propagation before → after ms |
+| --- | ---: | ---: |
+| Lazy index / small | 6.739 → 6.673 | 5.700 → 5.190 |
+| Lazy index / large | 2,248.269 → 2,325.836 | 1,604.634 → 1,625.824 |
+| Mask plus index / small | 6.209 → 6.280 | 4.849 → 4.871 |
+| Mask plus index / large | 2,170.580 → 2,228.281 | 1,519.140 → 1,527.943 |
+
+Every large SimplifyLocals pair regressed in the final prototype. Both designs
+were removed, including their uncommitted tests; no production win or aggregate
+oracle renewal is claimed. Helper lookup speed is insufficient justification for
+an index that also adds per-region initialization and allocation.
+
+Evidence: `.tmp/pass-perf-next-20260927/rejected-sl-read-set.json`,
+`sl-read-set{,2}-pairs-{small,large}/result.json`, and retained prototype sources
+under `rejected-sl-read-set/`. The uncontended final helper round is
+`sl-read-set2-bench-1.log`; round zero was rejected for competing Chrome CPU use.
+Final rejected native SHA-256: `f6b1b1d46240837257241add39f115106d7aac740023ba22a0221f4442755269`.
+The [original continuation implementation](../../../../../src/passes/pass_manager.mbt)
+is restored exactly to its pre-prototype state.

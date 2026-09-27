@@ -38,6 +38,8 @@
   tests pass. Small compiler timings remain flat, so their gap stays open.
   Conditional-copy inlining remapping was rejected after an 11.0% large-input
   regression; see the [measured rejection](docs/wiki/binaryen/passes/inlining/starshine-strategy.md#september-27-2026-rejected-conditional-copy-remapping).
+  SimplifyLocals continuation indexes were also rejected: two prototypes
+  regressed large pipeline time despite faster isolated lookup benchmarks.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,
