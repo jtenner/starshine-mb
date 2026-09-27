@@ -38,6 +38,8 @@
   tests pass. Small compiler timings remain flat, so their gap stays open.
   Conditional-copy inlining remapping was rejected after an 11.0% large-input
   regression; see the [measured rejection](docs/wiki/binaryen/passes/inlining/starshine-strategy.md#september-27-2026-rejected-conditional-copy-remapping).
+  A coarse remap preflight was also rejected after a 3.3% large plain-inlining
+  regression. Future remapping must avoid a separate full expression scan.
   SimplifyLocals continuation indexes were also rejected: two prototypes
   regressed large pipeline time despite faster isolated lookup benchmarks.
   Fixed-size validation masks reduce large SimplifyLocals pipeline time

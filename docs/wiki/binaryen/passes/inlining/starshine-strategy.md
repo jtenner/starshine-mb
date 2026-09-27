@@ -270,3 +270,33 @@ saved sources under `rejected-inlining-cow/` in that directory. Rejected native
 SHA-256: `441283bcd90e839f5e88fa04d9f7ae9db3040d09c597e834d4dc1e2763df998b`.
 The restoration exactly matches the campaign's initial `inlining.mbt`, retaining
 the user's pre-existing annotation changes. [Implementation](../../../../../src/passes/inlining.mbt).
+
+## September 27, 2026: rejected coarse remap preflight
+
+A second prototype scanned each top-level expression for an actually changed
+function reference, retained unchanged trees, and used the original linear
+copy for changed trees. Recursive copying did not repeat the preflight. The
+unchanged-tree ownership assertion failed before implementation; all 148 focused
+checks subsequently passed, including NaN payloads, source isolation, control
+references and active dispatch.
+
+Same-binary native controls measured unchanged 128-region trees **30.34 →
+3.45 µs**, sparse late edits over 512 regions **122.16 → 137.08 µs**, and dense
+edits **203.40 → 195.75 µs**. The extra scan costs work when a late reference
+changes. In one warmup and three accepted alternating compiler pairs, large
+plain inlining regressed **2,020.262 → 2,087.051 ms (3.3%)**. Small plain
+inlining was 5.983 → 5.847 ms and small optimizing inlining 116.240 →
+114.449 ms. Large optimizing inlining remains guarded (690.420 → 659.628 ms);
+its admission timing cannot justify retaining a plain-pass regression.
+
+All four pairs kept identical independently validated bytes and traced/untraced
+agreement. The prototype and tests were removed; the original source including
+pre-existing user annotation edits was restored exactly. No production win or
+new oracle signoff is claimed. Any later remapping attempt should reuse facts
+from an existing reference scan rather than adding another body traversal.
+
+Evidence: `.tmp/pass-perf-next-20260927/rejected-inlining-preflight.json`,
+`inlining-preflight-pairs-{small,large}/result.json`,
+`inlining-preflight-bench-1.log` (the first round had foreign CPU contention),
+and saved sources under `rejected-inlining-preflight/`. Rejected native SHA-256:
+`a33adcdd12d05630a5a23f0fdc09d98839683b4964ecf621d0055a4bca69da5a`. [Implementation](../../../../../src/passes/inlining.mbt).
