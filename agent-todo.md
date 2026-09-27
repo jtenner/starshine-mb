@@ -54,6 +54,9 @@
   Signature-only numeric-grouping facts remove an unused full body scan and
   reduce large OI pipeline 2,975.489 → 2,863.709 ms with identical bytes.
   Small DFE/propagation increases and the remaining overall budgets stay open.
+  DAE2 now retains identical child spans. A new active wide-expression fixture
+  improves optimizing time 68.743 → 64.668 ms; compiler DAE2 remains about
+  5.2 seconds and DAE2-optimizing 11.4 seconds, so neither budget is closed.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,

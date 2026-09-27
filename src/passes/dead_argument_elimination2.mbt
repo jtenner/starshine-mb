@@ -455,7 +455,7 @@ fn dae2_rewrite_node(
           ),
         )
       }
-      ignore(@ir.hot_replace_child_span(func, node, args))
+      ignore(dae2_replace_children_if_changed(func, node, args))
       let call = if !used && !tail { dae2_discard(func, node) } else { node }
       let prefix = prefix.filter(fn(id) {
         !(@ir.hot_node_get(func, id).op is @ir.Nop)
@@ -493,11 +493,11 @@ fn dae2_rewrite_node(
     }
     @ir.Return =>
       if graph.used[info.result_location] {
-        ignore(@ir.hot_replace_child_span(func, node, children))
+        ignore(dae2_replace_children_if_changed(func, node, children))
         node
       } else {
         let parts = children.map(fn(child) { dae2_discard(func, child) })
-        ignore(@ir.hot_replace_child_span(func, node, []))
+        ignore(dae2_replace_children_if_changed(func, node, []))
         parts.push(node)
         dae2_void_sequence(func, parts)
       }
@@ -510,7 +510,7 @@ fn dae2_rewrite_node(
       } else {
         children.map(fn(child) { dae2_discard(func, child) })
       }
-      ignore(@ir.hot_replace_child_span(func, node, next))
+      ignore(dae2_replace_children_if_changed(func, node, next))
       node
     }
     @ir.Drop =>
@@ -524,7 +524,7 @@ fn dae2_rewrite_node(
         children.map(fn(child) { dae2_discard(func, child) }),
       )
     _ => {
-      ignore(@ir.hot_replace_child_span(func, node, children))
+      ignore(dae2_replace_children_if_changed(func, node, children))
       if used {
         node
       } else {
@@ -916,4 +916,29 @@ fn dae2_lift_for_analysis(
     }
     Err(err) => Err("dae2: lift function \{index}: \{err}")
   }
+}
+
+///|
+// Compare against the current node: call/control rewriting may have changed
+// its metadata or reset its span after the original children were captured.
+fn dae2_replace_children_if_changed(
+  func : @ir.HotFunc,
+  node : Int,
+  children : Array[Int],
+) -> Bool {
+  let data = @ir.hot_node_get(func, node)
+  if data.child_count == children.length() {
+    let mut same = true
+    for i = 0; i < children.length(); i = i + 1 {
+      if @ir.hot_child_get(func, node, i) != children[i] {
+        same = false
+        break
+      }
+    }
+    if same {
+      return false
+    }
+  }
+  ignore(@ir.hot_replace_child_span(func, node, children))
+  true
 }

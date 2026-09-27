@@ -221,3 +221,44 @@ inside one handler is not accidentally caught by its sibling.
 This is implementation evidence, not a claim that every upstream output shape
 or every proposal already matches. The [validation page](starshine-port-readiness-and-validation.md)
 and [upgrade ledger](../../version-132-upgrade.md) track the remaining signoff.
+
+## September 27, 2026: retain identical child spans during rewriting
+
+DAE2 compares replacement children with the node's current span and skips the
+write when their order and count are identical. Calls and control rewrites can
+reset a span before this point, so comparing against the originally captured
+children would be incorrect. Real changes still use the shared mutation API;
+unchanged spans avoid copying old children, appending duplicate arena storage
+and invalidating revisions. Tuple memoization, ordering and signature rules
+remain unchanged.
+
+The unchanged-span test failed before implementation. Both bounded storage/order
+invariants, the active kept/discarded call fixture and 86 other focused DAE2
+checks pass (89 total), including tuples and handlers. Native batches improve
+**3.12 → 1.40 µs** for 64 repeated writes and **37.76 → 11.54 µs** for 1,024.
+Both controls create a fresh small function per batch because the former write
+appends arena storage; setup is included equally and storage cannot accumulate
+across benchmark iterations.
+
+Compiler pipeline medians are effectively flat: large DAE2 **5,172.277 →
+5,199.715 ms**, large DAE2-optimizing **11,435.083 → 11,431.747 ms**; small
+DAE2 17.493 → 17.614 ms and optimizing 33.900 → 32.941 ms. These large
+budgets remain open. A new 50,413-byte fixture with 64 private helpers, two
+parameters and 256 live additions each measures an active rewrite: the unused
+second argument disappears from every helper signature. DAE2 is 51.720 →
+51.196 ms and optimizing improves **68.743 → 64.668 ms (5.9%)**. This is a
+dedicated workload, not a claimed compiler-artifact gain.
+
+All six one-warmup/three-pair comparisons retain exact before/after bytes,
+traced/untraced agreement and independent validation. Original and both pass
+outputs from both binaries return identical values at five inputs including
+32-bit overflow boundaries. Final aggregate renewal remains pending.
+
+Evidence: `.tmp/pass-perf-next-20260927/dae2-child-{checks.json,bench-1.log}`,
+`dae2-child-pairs-{small,large,wide}/result.json`, and
+`dae2-child-wide-{input,runtime,signatures}.json`. The first benchmark round
+was rejected for foreign CPU contention. Native SHA-256: `928989c8aaf2b1a390fb5493571d8b746ac7536ab750d295be5cc7990b30bb08`.
+Sources: [rewriter](../../../../../src/passes/dead_argument_elimination2.mbt),
+[span invariants](../../../../../src/passes/dae2_child_rewrite_wbtest.mbt),
+[native controls](../../../../../src/passes/dae2_child_rewrite_perf_wbtest.mbt),
+and [dispatcher fixture](../../../../../src/cmd/perf_dae2_child_rewrite_wbtest.mbt).
