@@ -477,9 +477,20 @@ fn local_graph_transfer_block(
   in_state : Array[Array[Int]],
   get_sources : Array[Array[Int]]?,
   write_influences : Array[Array[NodeId]]?,
+  tuple_slots? : Array[Int]? = None,
 ) -> Array[Array[Int]] {
   let state = local_graph_state_clone(in_state)
-  let evaluated_tuples = Array::make(hot_node_count(func), false)
+  // Expanded CFGs already visit each tuple producer at its execution position.
+  // Only recursive, unexpanded traversal needs per-producer bookkeeping.
+  let evaluated_tuples = if cfg.operands_expanded {
+    []
+  } else {
+    Array::make(hot_node_count(func), false)
+  }
+  match tuple_slots {
+    Some(count) => count[0] += evaluated_tuples.length()
+    None => ()
+  }
   for node_id in cfg_block_get(cfg, block_id).nodes {
     if cfg.operands_expanded {
       // The CFG already lists each operand at its execution position.

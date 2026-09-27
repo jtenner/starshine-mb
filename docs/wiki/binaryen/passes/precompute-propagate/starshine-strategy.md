@@ -200,3 +200,15 @@ Evidence in Dewdrop's `.tmp/starshine-pass-repairs/` includes
 `precompute-loop-copy-native-red.log`, `precompute-family-native-wave18.log`,
 `precompute-loop-copy-variants/report.json`, `precompute-release-short-circuit.json`,
 and `full-replay-regression-wave18/report.json`.
+
+## September 27, 2026: expanded local-flow scratch allocation
+
+The shared forward LocalGraph solver no longer clears a function-sized tuple
+flag array for every expanded CFG block. This pass requests expanded operands,
+which already execute each producer once; recursive unexpanded traversal keeps
+its flags. Reaching-source and influence assertions, existing tuple/control
+fixtures, a dispatcher test and focused native controls cover the change. The
+256-region full-graph control improved from 1.94 s to 46.75 ms; whole-pass gains
+require the final artifact measurements. See the
+[IR invariant and evidence](../../../ir2/local-ssa-policy.md#september-27-2026-expanded-cfg-tuple-bookkeeping)
+and [campaign report](../../../tooling/tracing-playbook.md).

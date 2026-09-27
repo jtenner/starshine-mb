@@ -13,3 +13,18 @@ test "command precompute variants flatten branchless result blocks and retain pa
     assert_true(second_body[1] is @lib.Block(@lib.TypeIdxBlockType(_), _))
   }
 }
+
+///|
+test "command precompute propagation preserves a conditional local write and default source" {
+  let output = cmd_deep_audit_run(
+    "(module (func (export \"branch\") (param i32) (result i32) (local i32) local.get 0 if i32.const 7 local.set 1 end local.get 1))",
+    "precompute-propagate",
+  )
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_eq(
+    body.last().unwrap(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+  assert_true(body[1] is @lib.If(_, _, _))
+}

@@ -1,7 +1,7 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-08-12
+last_reviewed: 2026-09-27
 sources:
   - ../binaryen/passes/ssa-nomerge/index.md
   - https://doi.org/10.1145/115372.115320
@@ -367,3 +367,33 @@ Native `c447149a…` completes the same compiler DAE2 probe in 7.53 seconds /
 451,280 KiB with the same output hash. The 304 adapted upstream module/world
 cases and 24 independent lifetime comparisons pass. Pass-level campaigns and
 isolated performance attribution remain pending.
+
+## September 27, 2026: expanded CFG tuple bookkeeping
+
+The forward LocalGraph solver now allocates per-producer tuple evaluation flags
+only for recursive, unexpanded traversal. An expanded CFG already lists operands
+at their execution positions and never reads these flags. Clearing an entire
+function-sized array per CFG block added work proportional to nodes times blocks
+on every solver iteration and the final source-recording traversal.
+
+The bounded regression first allocated four unused slots in expanded mode; it
+now allocates zero while asserting the exact reaching write and write-to-read
+influence. Unexpanded mode retains all four slots. Existing shared-tuple,
+branch/loop/handler and dispatcher tests remain green (36 focused tests).
+The native 256-region full-graph benchmark improved from **1.94 s to 46.75 ms**;
+the unexpanded control did not regress. No transfer, merge, fixed-point order,
+exceptional-edge policy or source-recording rule changed.
+
+A paired artifact check first exposed a 31.7% propagation slowdown between two
+binaries differing only in inlining retention work. GDB samples in the slower
+binary repeatedly landed in the unused array's byte-clearing loop. None of the
+Precompute function sizes changed; code-layout sensitivity is an inference, not
+a proven mechanism. Removing the unused work addresses the sampled hotspot
+independently of that inference. Final artifact and generated evidence belongs
+in the [campaign report](../tooling/tracing-playbook.md).
+
+Sources: [implementation](../../../src/ir/local_graph.mbt),
+[bounded transfer regression](../../../src/ir/local_graph_tuple_state_wbtest.mbt),
+[native controls](../../../src/ir/local_graph_tuple_state_perf_wbtest.mbt),
+[existing tuple/control invariants](../../../src/ir/local_graph_test.mbt), and
+[dispatcher fixture](../../../src/cmd/perf_precompute_module_env_wbtest.mbt).
