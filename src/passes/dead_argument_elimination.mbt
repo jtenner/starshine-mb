@@ -2683,12 +2683,7 @@ fn dae_collect_module_boundary_snapshot(
   let function_types_start_us = perf_start_timer_opt(
     perf, "detail:dae:boundary-snapshot:function-types",
   )
-  let function_types : Array[@lib.FuncType?] = []
-  let mut func_abs = 0
-  while func_abs < total {
-    function_types.push(dae_resolve_func_type(mod_, type_indices, func_abs))
-    func_abs += 1
-  }
+  let function_types = dae_snapshot_function_types(mod_, type_indices)
   perf_stop_timer_opt(
     perf, "detail:dae:boundary-snapshot:function-types", function_types_start_us,
   )

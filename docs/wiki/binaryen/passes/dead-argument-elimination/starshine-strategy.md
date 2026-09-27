@@ -906,3 +906,29 @@ Concrete tests should cover at least:
 - Do not claim Starshine has Binaryen `dae` parity until required direct/profile compare lanes are green and reviewed; focused Moon tests, direct regular GenValid, and post-fix direct wasm-smith are green, but direct DAE dedicated/random-all lanes remain raw-red and focused owned-direct `struct.new_default`, static `local.get` result, typed-block-operand argument, zero-param, parametric, and multi-result typeidx block/if/loop operand argument, typed-select operand argument including typed-call result operands, branch-free effectful call, and bounded branchful non-escaping `if` conditions, nullable `ref.null` select LUB, and nullable typed-select common-LUB, typed-block-body result, two-caller argument-LUB, terminal-`if` returned-value LUB, typed-select returned-value LUB, typed-call, zero-/ten-param-probed stack-sliced `call_ref`, and zero-/ten-param-probed stack-sliced `call_indirect` select returned-value LUB, block-condition/pure-condition/call-condition/call-post-op-condition/memory-condition/branchful-if-condition typed-select LUB, multi-result typed-select operand LUB including a non-tail-lane select-first/scalar-second shape, non-tail-lane drop-only parametric typeidx block/if/loop returned-value refinement, explicit-return `if` returned-value LUB, loop-carried explicit-return, typed-`if` explicit-return, typed block/loop explicit-return, zero-param typeidx block body, zero-param typeidx terminal `if`, fallthrough typed/typeidx loop, zero-param multi-result fallthrough loop, simple multi-result `if`-arm returned-value refinement, and flat implicit/explicit plus droppable-prefix/simple-and-nested block-carrier/simple loop-carrier/simple `if`-arm/tail/leading/explicit-return/multiple/interleaved-debris single-result `if` operands/typed-select operands/simple-and-nested block-carrier `if`-arm/simple-and-nested/void-block explicit-return block-carrier `if`-arm multi-result returned-value refinement subsets of live GC argument/result refinement are implemented; broader arbitrary unification remains open.
 - Do not treat `dae2` as a test bucket for plain DAE; it is a separate upstream pass.
 - Do not merge this page into the optimizing sibling: the whole point is to keep the shared boundary core and the optimizing-only nested rerun split readable.
+
+## September 27, 2026: flatten snapshot signature lookup once
+
+DAE's module-boundary snapshot now flattens the referenced prefix of recursive
+type groups once and indexes the resulting optional function signatures. Previously each function
+repeatedly scanned the type section. Nonfunction entries retain their slots;
+missing, out-of-range and recursive-relative indices retain the previous None
+result. No cross-mutation boundary snapshot or call-fact cache is introduced.
+
+[Focused tests](../../../../../src/passes/dae_signature_index_wbtest.mbt)
+compare the old resolver over recursive groups and nonfunction holes. The
+[dispatcher fixture](../../../../../src/cmd/perf_dae_signature_index_wbtest.mbt)
+preserves kept/discarded argument effects and order. [Native controls](../../../../../src/passes/dae_signature_index_perf_wbtest.mbt)
+measure 64 and 1,024 functions referencing the final type. Sources:
+[index builder](../../../../../src/passes/dae_signature_index.mbt) and
+[snapshot consumer](../../../../../src/passes/dead_argument_elimination.mbt).
+
+A red work-bound test found the first prototype visiting eight types when only
+type zero was needed. The final index stops at the maximum referenced type and
+skips traversal when no nonnegative absolute index is present. Fixed-affinity native
+controls measure **2.37 → 2.05 µs** at 64 functions/types and **415.91 →
+31.58 µs** at 1,024. A single first-type query in a 1,024-type module measures
+**33.31 → 69.66 ns**: a small constant allocation cost, without traversing the
+unused tail. These are snapshot lookup controls, not complete DAE timings.
+Evidence: `.tmp/pass-perf-reuse-20260927/dae-signature-unused-tail-{red,green}.log`
+and `final-dae-signature-bench-0.log`.
