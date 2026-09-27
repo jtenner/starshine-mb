@@ -18345,6 +18345,7 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_func(
 fn run_hot_pipeline_raw_group_body_locals_by_type_module(
   mod_ : @lib.Module,
   touched? : Array[Bool]? = None,
+  context_builds? : Array[Int]? = None,
 ) -> @lib.Module {
   // Opaque name bytes cannot be safely permuted without decoding them.
   if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
@@ -18353,7 +18354,8 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_module(
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
-      let module_ctx = @ir.hot_module_context_from_module(mod_)
+      ignore(context_builds)
+      let params_by_func = raw_numeric_group_function_params(mod_)
       let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
       let remaps : Array[Array[Int]?] = []
       let mut changed = false
@@ -18367,7 +18369,8 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_module(
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
         )
-        let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
+        let @lib.FuncIdx(raw_func) = func_idx
+        let params = params_by_func[raw_func.reinterpret_as_int()]
         let (grouped, remap) = run_hot_pipeline_raw_group_body_locals_by_type_func(
           funcs[code_idx],
           params,
@@ -18391,6 +18394,39 @@ fn run_hot_pipeline_raw_group_body_locals_by_type_module(
     }
     None => mod_
   }
+}
+
+///|
+// Numeric local grouping needs only signatures; no body, global initializer or
+// descriptor-feature scan participates in this rewrite's admission decisions.
+fn raw_numeric_group_function_params(
+  mod_ : @lib.Module,
+) -> Array[Array[@lib.ValType]] {
+  let subtypes = run_hot_pipeline_raw_flatten_type_sec(mod_.type_sec)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  type_indices.map(fn(index) {
+    match index {
+      @lib.TypeIdx(raw) =>
+        match subtypes.get(raw.reinterpret_as_int()) {
+          Some(subtype) =>
+            match subtype.get_comptype() {
+              @lib.FuncCompType(params, _) => params
+              _ =>
+                abort(
+                  "hot module context function indices must resolve to function types",
+                )
+            }
+          None =>
+            abort(
+              "hot module context function indices must resolve within the subtype table",
+            )
+        }
+      @lib.RecIdx(_) =>
+        abort(
+          "hot module context function indices must not use rec-group indices",
+        )
+    }
+  })
 }
 
 ///|

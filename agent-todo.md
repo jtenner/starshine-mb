@@ -51,6 +51,9 @@
   Borrowed immutable predecessor states reduce large propagation pipeline
   1,637.447 → 1,584.323 ms and DAE2 5,704.756 → 5,543.947 ms; ownership
   and captured-read invariants pass. Small OI/MergeLocals increases remain visible.
+  Signature-only numeric-grouping facts remove an unused full body scan and
+  reduce large OI pipeline 2,975.489 → 2,863.709 ms with identical bytes.
+  Small DFE/propagation increases and the remaining overall budgets stay open.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,

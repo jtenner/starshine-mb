@@ -1736,3 +1736,38 @@ rejected for competing Chrome CPU activity. After native SHA-256:
 before: `23b26fd040549b11575ad847d766eb4a5a3b831bcb15da831c1d8d0b43933a66`.
 Wide input SHA-256:
 `6b6f515b4d544836eece338544a65e8b9d5cc890d8f9e33f71629e62792405ff`.
+
+## September 27, 2026: signature-only numeric grouping context
+
+The module-level numeric local grouper resolves parameter arrays directly from
+the flattened subtype table and imported/defined function type indices. Its
+rewrite never consumes descriptor-feature, global-initializer or body facts,
+so constructing a complete HOT module context added an unnecessary body scan.
+Signature resolution still includes imports and recursive type groups, retaining
+the existing invalid-index checks. Numeric admission, stable grouping, local
+names, touched-function selection and surrounding size/validation guards remain
+unchanged.
+
+The bounded allocation check failed at one full context build and now requires
+zero while checking the exact rewritten declarations against the old module
+grouper. A grouped-type/import fixture compares parameter arrays with HOT
+resolution. Seven focused grouping and active-dispatch checks pass. Native
+original/current full-grouping controls improve **1.89 → 1.49 µs** for 128
+instructions and **64.90 → 60.41 µs** for 8,192.
+
+One warmup and three accepted alternating compiler pairs reduce large OI
+pipeline **2,975.489 → 2,863.709 ms (3.8%)**, with large DFE 990.860 →
+978.594 ms and propagation 1,585.681 → 1,564.420 ms. Small OI is 3.641 →
+3.587 ms; small DFE increases 0.497 → 0.600 ms and propagation 4.989 →
+5.142 ms. All six pairs retain exact output bytes, traced/untraced agreement
+and independent validation. The remaining large OI/propagation budgets and
+final aggregate renewal remain open.
+
+Evidence: `.tmp/pass-perf-next-20260927/numeric-context-{checks.json,bench-0.log}`
+and `numeric-context-pairs-{small,large}/result.json`; native SHA-256
+`d23b2dc2541039a66c51c1fb280c1aa5672fe1b1e68b89b80eab31c56d803b15`.
+Sources: [module grouper](../../../../../src/passes/pass_manager.mbt),
+[signature invariants](../../../../../src/passes/numeric_group_context_wbtest.mbt),
+[original reference](../../../../../src/passes/numeric_group_context_reference_wbtest.mbt),
+[native controls](../../../../../src/passes/numeric_group_context_perf_wbtest.mbt),
+and [dispatcher fixture](../../../../../src/cmd/perf_numeric_group_wbtest.mbt).
