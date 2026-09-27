@@ -1,4 +1,5 @@
 import {
+  "moonbitlang/core/bench",
   "moonbitlang/core/debug",
   "moonbitlang/core/hashmap",
   "jtenner/starshine/bitset",

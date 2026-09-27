@@ -40,6 +40,9 @@
   regression; see the [measured rejection](docs/wiki/binaryen/passes/inlining/starshine-strategy.md#september-27-2026-rejected-conditional-copy-remapping).
   SimplifyLocals continuation indexes were also rejected: two prototypes
   regressed large pipeline time despite faster isolated lookup benchmarks.
+  Fixed-size validation masks reduce large SimplifyLocals pipeline time
+  2,166.236 → 2,067.964 ms and OI 2,656.134 → 2,593.829 ms; array ownership
+  and non-defaultable-local invariants pass. Full aggregate renewal is pending.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,

@@ -1282,15 +1282,22 @@ fn validate_initial_local_initialized(
   params : Array[ValType],
   decls : Locals,
 ) -> Array[Bool] {
-  let initialized : Array[Bool] = []
-  for _ in params {
-    initialized.push(true)
-  }
+  let mut total = params.length()
   for run in decls.runs() {
     let count = run.count.reinterpret_as_int()
-    let is_defaultable = has_default(run.vt)
-    for _i = 0; _i < count; _i = _i + 1 {
-      initialized.push(is_defaultable)
+    if count > 0 {
+      total += count
+    }
+  }
+  let initialized = Array::make(total, true)
+  let mut offset = params.length()
+  for run in decls.runs() {
+    let count = run.count.reinterpret_as_int()
+    if count > 0 {
+      if !has_default(run.vt) {
+        initialized.fill(false, start=offset, end=offset + count)
+      }
+      offset += count
     }
   }
   initialized

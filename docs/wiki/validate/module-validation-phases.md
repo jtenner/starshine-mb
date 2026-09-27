@@ -228,3 +228,54 @@ disabling a required slice produces a `FeaturePolicy` diagnostic. This is not
 an MVP-only validator mode or a claim that every older proposal has a gate.
 See [the implementation](../../../src/validate/proposal_features.mbt) and
 [tests](../../../src/validate/proposal_features_wbtest.mbt).
+
+
+## September 27, 2026: fixed-size initialization masks
+
+Initial local masks now allocate their final size once, leave parameters and
+defaultable body locals initialized, and clear only non-defaultable declaration
+runs. Branch intersections allocate exactly the shorter input length. Both
+operations still return independent mutable arrays; branch entry copies and
+initialization semantics are unchanged. This avoids growing-array allocation
+without introducing mask sharing or copy-on-write ownership changes.
+
+Two red-first bounded checks found 32 reserved slots for 17-element results.
+Four new invariants cover exact size, truth tables, empty/asymmetric intersections,
+branch-state isolation and non-nullable parameter/body-local differences. All
+80 focused tests pass, as do `moon info`, `moon fmt` and the native build; the
+public interface is unchanged. Dedicated native batches of 128 operations measured:
+
+| Operation / width | Growing allocation | Fixed-size allocation |
+| --- | ---: | ---: |
+| Intersection / 17 | 9.00 µs | 3.43 µs |
+| Intersection / 2,049 | 486.94 µs | 137.40 µs |
+| Initial mask / 17 | 11.20 µs | 6.43 µs |
+| Initial mask / 4,096 | 815.05 µs | 10.47 µs |
+
+One warmup and three isolated alternating compiler pipeline pairs measured:
+
+| Input / pass | Before ms | After ms |
+| --- | ---: | ---: |
+| small / simplify-locals | 6.797 | 6.279 |
+| small / optimize-instructions | 3.721 | 3.709 |
+| small / coalesce-locals | 13.210 | 13.186 |
+| small / precompute-propagate | 5.135 | 4.835 |
+| large / simplify-locals | 2,166.236 | 2,067.964 |
+| large / optimize-instructions | 2,656.134 | 2,593.829 |
+| large / coalesce-locals | 5,159.842 | 5,122.636 |
+| large / precompute-propagate | 1,511.066 | 1,517.944 |
+
+All eight pairs retain identical raw outputs, traced/untraced agreement and
+independent validation. Large SimplifyLocals improves 4.5% and OI 2.3%; the large
+Coalesce and propagation changes are effectively flat. These improvements do
+not close the remaining pass budgets. Final full-suite and aggregate renewal
+are recorded separately in the shared campaign report.
+
+Sources: [intersection](../../../src/validate/typecheck.mbt),
+[initial mask](../../../src/validate/validate.mbt),
+[bounded invariants](../../../src/validate/tc_initialized_intersection_wbtest.mbt),
+[native controls](../../../src/validate/tc_initialized_intersection_perf_wbtest.mbt).
+Local evidence: `.tmp/pass-perf-next-20260927/tc-intersection-{extended-red,focused,bench-0}.log`
+and `tc-intersection-pairs-{small,large}/result.json`. Before native SHA-256:
+`cab3363114752cf0669d838466d150e944ff9eedf98b507ca518f5aca7a1b0f0`;
+after: `23b26fd040549b11575ad847d766eb4a5a3b831bcb15da831c1d8d0b43933a66`.

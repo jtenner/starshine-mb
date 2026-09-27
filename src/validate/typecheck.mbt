@@ -150,16 +150,12 @@ fn tc_initialized_intersection(
   left : Array[Bool],
   right : Array[Bool],
 ) -> Array[Bool] {
-  let out : Array[Bool] = []
   let limit = if left.length() < right.length() {
     left.length()
   } else {
     right.length()
   }
-  for idx = 0; idx < limit; idx = idx + 1 {
-    out.push(left[idx] && right[idx])
-  }
-  out
+  Array::makei(limit, fn(idx) { left[idx] && right[idx] })
 }
 
 ///|
