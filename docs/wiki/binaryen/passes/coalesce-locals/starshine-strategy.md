@@ -591,3 +591,27 @@ It is:
 - **both exact scheduler neighborhoods replayed**
 - **clear neighboring implementation map for broader preset follow-up**
 - **clear warning not to over-claim unrelated neighboring-pass policy as part of direct `coalesce-locals` signoff**
+
+## September 27, 2026: fuse lowered-body copying and remapping
+
+The loop CFG rewrite now copies its analyzed, lowered instruction body and maps
+local indices in one recursive traversal. It still rewrites the capture-aware
+lowered body: remapping the original raw body would lose required temporary and
+capture handling. Parameter entries and slot types use the existing coloring.
+Every mutable structured child array is copied, including legacy catch bodies;
+unchanged scalar instructions retain their original values.
+
+[Ownership and reference-equivalence tests](../../../../../src/passes/coalesce_copy_remap_wbtest.mbt)
+cover nested controls, legacy catches and parameter slots. The
+[dispatcher test](../../../../../src/cmd/perf_coalesce_copy_remap_wbtest.mbt)
+checks a live loop's results. [Native controls](../../../../../src/passes/coalesce_copy_remap_perf_wbtest.mbt)
+compare the former copy-then-remap path with the fused path at 32 and 512 regions.
+Sources: [copy/remap](../../../../../src/passes/coalesce_copy_remap.mbt) and
+[CFG rewrite](../../../../../src/passes/coalesce_locals.mbt).
+The historical claim above that the pass-local gap was retired applies to its
+older fixture/oracle; the current large-compiler performance gap remains open.
+
+Uncontended native controls improve **4.40 → 3.78 µs** at 32 regions and
+**72.88 → 60.28 µs** at 512. These isolate copying/remapping and do not claim
+that the whole pass improves by the same percentage. Evidence:
+`.tmp/pass-perf-reuse-20260927/accepted-bench-coalesce_copy_remap_perf_wbtest-1.log`.

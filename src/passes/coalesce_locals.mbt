@@ -7075,8 +7075,7 @@ fn cl_rewrite_loop_func_cfg(
     coloring.slot_types.push(base_types[local_id])
   }
   let rewritten_locals = @lib.Locals::from_types(coloring.slot_types)
-  let rewritten_instrs = cl_deep_copy_instrs(base_instrs)
-  cl_rewrite_all_local_idxs_in_place(rewritten_instrs, coloring.old_to_new)
+  let rewritten_instrs = cl_copy_remap_instrs(base_instrs, coloring.old_to_new)
   ignore(cl_remove_redundant_copy_pairs(rewritten_instrs))
   let rewritten = @lib.Func::new(
     rewritten_locals,
