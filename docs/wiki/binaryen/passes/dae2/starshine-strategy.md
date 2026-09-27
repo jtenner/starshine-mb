@@ -33,6 +33,35 @@ whole result tuple has a location; HOT expression values have locations too.
 Type-family locations connect referenced functions to indirect calls. Observable
 uses seed the graph, and a queue visits each live location at most once.
 
+## September 27, 2026 flat dependency storage
+
+DAE2's parameter, result, and expression-value graph stores actual dependencies
+in flat source/next arrays, with first/last edge indices for each location.
+Creating a location no longer allocates an empty heap array. Appending through
+the last edge preserves insertion order and therefore the existing observation
+queue order. Duplicate dependencies remain harmless; unobserved cycles remain
+unused, and a later observation resumes the same monotone fixed point.
+
+The sparse-location regression first failed with 64 edge rows for an edgeless
+64-location graph. It now requires no edge entries until a dependency is added,
+then verifies exact live locations, duplicates, disconnected cycles, negative
+sentinel inputs, insertion order, and repeated solving. The existing unrepresented
+read test still checks both parameter-entry and write dependencies. The command
+fixture verifies dead-argument removal while keeping a live forwarded parameter
+in both DAE2 modes.
+
+Sources: [graph implementation](../../../../../src/passes/dead_argument_elimination2.mbt),
+[invariants](../../../../../src/passes/dae2_sparse_edges_wbtest.mbt),
+[sparse and dense controls](../../../../../src/passes/dae2_sparse_edges_perf_wbtest.mbt),
+[dispatcher fixture](../../../../../src/cmd/dae2_sparse_edges_wbtest.mbt).
+All six focused regressions pass. Native construction/solve benchmarks compare
+the original row algorithm and flat storage in the same binary: **114.69 →
+32.27 µs** for 8,192 sparse locations, **454.05 → 127.55 µs** for 32,768, and
+**117.19 → 79.24 µs** for a denser 4,096-location control. These isolate graph
+storage and solving; they do not establish a whole-pass speedup. Final artifact
+and generated evidence belongs to the
+[tracing playbook](../../../tooling/tracing-playbook.md).
+
 ## September 26, 2026 sparse local-flow query storage
 
 Reverse reaching-definition queries now allocate cache entries only for queried

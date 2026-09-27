@@ -2,8 +2,13 @@
 // Binaryen 132 DAE2: parameter and whole-result liveness share a least fixed
 // point. All locations start unused. Observable uses seed a backwards worklist;
 // a forwarding cycle does not become live merely because it contains a cycle.
+// Flat insertion-ordered adjacency avoids an empty heap array per location.
+// first/last link only actual edges; solve preserves the original queue order.
 priv struct Dae2Graph {
-  edges : Array[Array[Int]]
+  edges : Array[Int]
+  next_edge : Array[Int]
+  first_edge : Array[Int]
+  last_edge : Array[Int]
   used : Array[Bool]
   work : Array[Int]
   mut cursor : Int
@@ -11,13 +16,22 @@ priv struct Dae2Graph {
 
 ///|
 fn Dae2Graph::new() -> Dae2Graph {
-  { edges: [], used: [], work: [], cursor: 0, }
+  {
+    edges: [],
+    next_edge: [],
+    first_edge: [],
+    last_edge: [],
+    used: [],
+    work: [],
+    cursor: 0,
+  }
 }
 
 ///|
 fn Dae2Graph::location(self : Dae2Graph) -> Int {
   let id = self.used.length()
-  self.edges.push([])
+  self.first_edge.push(-1)
+  self.last_edge.push(-1)
   self.used.push(false)
   id
 }
@@ -28,7 +42,16 @@ fn Dae2Graph::edge(self : Dae2Graph, consumer : Int, source : Int) -> Unit {
     abort("DAE2 graph edges must be complete before solving")
   }
   if consumer >= 0 && source >= 0 {
-    self.edges[consumer].push(source)
+    let edge = self.edges.length()
+    self.edges.push(source)
+    self.next_edge.push(-1)
+    let previous = self.last_edge[consumer]
+    if previous < 0 {
+      self.first_edge[consumer] = edge
+    } else {
+      self.next_edge[previous] = edge
+    }
+    self.last_edge[consumer] = edge
   }
 }
 
@@ -47,8 +70,10 @@ fn Dae2Graph::solve(self : Dae2Graph) -> Unit {
   while self.cursor < self.work.length() {
     let consumer = self.work[self.cursor]
     self.cursor = self.cursor + 1
-    for source in self.edges[consumer] {
-      self.observe(source)
+    let mut edge = self.first_edge[consumer]
+    while edge >= 0 {
+      self.observe(self.edges[edge])
+      edge = self.next_edge[edge]
     }
   }
 }
