@@ -38,6 +38,50 @@ related:
 Use this page together with the [`coalesce-locals` landing page](./index.md)'s tagged source list, the retained 2026-05-05 research recheck, and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.
 
+## September 27, 2026 word-wise live cliques
+
+CFG interference cliques with at least 16 live entries build a valid-member
+bitset and OR only its nonempty words into the existing row bitsets. Smaller
+sets retain direct pair insertion. This preserves the matrix representation,
+member filtering, duplicate handling, empty diagonal and padding bits. It does
+not change coloring, liveness, capture handling or the 4,096-local guard.
+
+The red-first 32-member fixture previously inserted 496 pairs; the new path
+inserts none individually and produces every identical row. All 142 focused
+Coalesce/dispatcher tests pass. Native reference/current controls are
+13.22 µs / 392.43 ns for 64 dense members in 128 locals, 15.40 / 3.64 µs for
+64 spaced members in 4,096 locals, and 155.35 / 2.06 µs for 256 dense members
+in 512 locals. Fixture allocation is outside timing; each path repeatedly
+applies the same idempotent clique to its own matrix.
+
+Full pipeline controls include compiler inputs and new 64-live-local fixtures
+with 128/512 loop regions. Original and both outputs agree for five boundary
+inputs per wide fixture (30 checks). One warmup and three uncontended alternating
+pairs retain identical raw bytes, traced/untraced agreement and independent
+validation. Guarded optimizing compiler paths remain guard evidence, not active
+cleanup wins. Remaining compiler costs and parity/size gaps stay open.
+
+| Input | Pass | Before pipeline ms | After pipeline ms |
+| --- | --- | ---: | ---: |
+| large | coalesce-locals | 5131.579 | 5064.714 |
+| large | inlining-optimizing | 605.104 | 623.509 |
+| large | dae-optimizing | 1014.277 | 987.804 |
+| large | simplify-globals-optimizing | 56.171 | 56.347 |
+| small | coalesce-locals | 14.034 | 13.671 |
+| small | inlining-optimizing | 105.757 | 106.393 |
+| small | dae-optimizing | 135.612 | 138.038 |
+| small | simplify-globals-optimizing | 19.070 | 19.819 |
+| wide-128 | coalesce-locals | 24.045 | 21.671 |
+| wide-512 | coalesce-locals | 93.463 | 83.890 |
+
+Final aggregate renewal is pending. Local evidence:
+`.tmp/pass-perf-next-20260927/coalesce-clique-*`; CLI SHA-256 `7107be93763118b45ee19e84801aa7504af90ef0a376841de58f22c7f8c72fc3`.
+Sources: [implementation](../../../../../src/passes/coalesce_locals.mbt),
+[edge invariants](../../../../../src/passes/coalesce_clique_wbtest.mbt),
+[reference](../../../../../src/passes/coalesce_clique_reference_wbtest.mbt),
+[native controls](../../../../../src/passes/coalesce_clique_perf_wbtest.mbt),
+and [dispatcher execution](../../../../../src/cmd/perf_coalesce_clique_wbtest.mbt).
+
 ## September 26, 2026 indexed coloring slots
 
 For at least 64 locals, CFG coloring now marks conflicting assigned slots from

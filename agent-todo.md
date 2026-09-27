@@ -60,6 +60,8 @@
   Demand-driven lift effect ordering removes repeated whole-function scans: an
   active DAE2 fixture improves 183.754 → 15.235 ms at 1,024 regions.
   Compiler times are mostly flat; source order and runtime call counts pass.
+  Word-wise CFG live cliques retain exact edges and improve large Coalesce
+  5131.579 → 5064.714 ms; wide-loop runtime checks pass.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,
