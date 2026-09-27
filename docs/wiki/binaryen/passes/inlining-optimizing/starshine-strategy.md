@@ -143,3 +143,7 @@ Both inlining modes use the shared single traversal described in the
 The optimization preserves conservative write boundaries across structured
 control and handlers; the command regression verifies default values after
 optimizing cleanup as well as plain inlining.
+
+Helper removal also uses the [lazy signature table](../inlining/starshine-strategy.md#september-27-2026-lazy-helper-retention-signatures):
+empty quotas skip signature work; positive quotas share one build and preserve
+first-retained helper order.

@@ -196,3 +196,23 @@ Sources: [implementation](../../../../../src/passes/inlining.mbt),
 [invariants](../../../../../src/passes/inlining_initialization_wbtest.mbt),
 [benchmark](../../../../../src/passes/inlining_initialization_perf_wbtest.mbt),
 [dispatcher fixture](../../../../../src/cmd/inlining_initialization_wbtest.mbt).
+
+## September 27, 2026: lazy helper-retention signatures
+
+Dead inlined helpers no longer resolve and format a function signature when
+there is no positive retention quota. If a candidate requires quota checks,
+removal lazily builds one signature table using the existing flattened-type
+memoization. Removal order, first-retained helper selection, structural
+signature grouping across type slots, and index remapping are unchanged.
+
+The two bounded regressions first failed at three signature builds; they now
+require zero builds without quotas and at most one with quotas, while asserting
+the exact surviving original function indices and validating the result.
+Native removal benchmarks measure **51.94 → 2.33 µs** (256 helpers, no quota),
+**53.10 → 10.56 µs** (256, quota), **166.43 → 4.15 µs** (512, no quota), and
+**170.03 → 20.24 µs** (512, quota). Whole-pass results and final generated
+renewal are tracked in the [tracing playbook](../../../tooling/tracing-playbook.md).
+
+Sources: [implementation](../../../../../src/passes/inlining.mbt),
+[retention tests](../../../../../src/passes/inlining_retention_signatures_wbtest.mbt),
+[benchmark](../../../../../src/passes/inlining_retention_signatures_perf_wbtest.mbt).

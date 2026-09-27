@@ -4982,13 +4982,15 @@ fn inl_remove_dead_inlined_helpers(
   touched : Array[Bool],
   inlined_from : Array[Bool],
   retain_counts : @hashmap.HashMap[String, Int],
+  signature_builds? : Array[Int]? = None,
 ) -> InlRemovalResult {
   let imports = inl_imported_func_count(mod_)
   let defined = inl_defined_func_count(mod_)
   let total = imports + defined
   let refs = Array::make(total, 0)
   let used = Array::make(total, false)
-  let func_type_indices = inl_collect_func_type_indices(mod_)
+  let has_retention = inl_hash_has_positive(retain_counts)
+  let mut signatures : Array[String]? = None
   let retained_counts : @hashmap.HashMap[String, Int] = @hashmap.new()
   inl_mark_global_uses(mod_, used)
   match mod_.code_sec {
@@ -5011,12 +5013,36 @@ fn inl_remove_dead_inlined_helpers(
       infos[abs].inlineable &&
       refs[abs] == 0 &&
       !used[abs] {
-      let sig = inl_func_signature_key(mod_, func_type_indices, abs)
-      let want_retain = inl_hash_get_int(retain_counts, sig)
-      let retained = inl_hash_get_int(retained_counts, sig)
-      if retained < want_retain {
-        retained_counts.set(sig, retained + 1)
+      let retain = if !has_retention {
+        false
       } else {
+        let keys = match signatures {
+          Some(keys) => keys
+          None => {
+            match signature_builds {
+              Some(count) => count[0] += 1
+              None => ()
+            }
+            let keys = inl_build_func_signature_keys(
+              mod_,
+              inl_collect_func_type_indices(mod_),
+              total,
+            )
+            signatures = Some(keys)
+            keys
+          }
+        }
+        let sig = keys[abs]
+        let want_retain = inl_hash_get_int(retain_counts, sig)
+        let retained = inl_hash_get_int(retained_counts, sig)
+        if retained < want_retain {
+          retained_counts.set(sig, retained + 1)
+          true
+        } else {
+          false
+        }
+      }
+      if !retain {
         remove[def_idx] = true
         any_removed = true
       }
