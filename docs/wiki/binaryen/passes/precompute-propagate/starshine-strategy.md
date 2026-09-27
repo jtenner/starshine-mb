@@ -212,3 +212,9 @@ fixtures, a dispatcher test and focused native controls cover the change. The
 require the final artifact measurements. See the
 [IR invariant and evidence](../../../ir2/local-ssa-policy.md#september-27-2026-expanded-cfg-tuple-bookkeeping)
 and [campaign report](../../../tooling/tracing-playbook.md).
+
+The forward solver also reuses a block's previous transfer output when its
+incoming state is unchanged, after a mandatory first visit. This preserves the
+fixed point and avoids repeated instruction walks; exact-state native controls
+and branch-join dispatcher coverage are documented in the
+[stable-transfer invariant](../../../ir2/local-ssa-policy.md#september-27-2026-stable-forward-transfers).

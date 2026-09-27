@@ -397,3 +397,27 @@ Sources: [implementation](../../../src/ir/local_graph.mbt),
 [native controls](../../../src/ir/local_graph_tuple_state_perf_wbtest.mbt),
 [existing tuple/control invariants](../../../src/ir/local_graph_test.mbt), and
 [dispatcher fixture](../../../src/cmd/perf_precompute_module_env_wbtest.mbt).
+
+## September 27, 2026: stable forward transfers
+
+The forward solver executes each block on its first visit, then repeats its pure
+transfer only when the block's incoming state changes. A fixed function and CFG
+produce the same output from the same input; transfers clone their input and
+replace changed local sets. Retaining the prior output therefore preserves the
+fixed point, including exceptional predecessors and source ordering. Predecessor
+merges and the final source-recording traversal remain unchanged.
+
+A bounded test first observed nine transfers where the CFG needs only its first
+visits; it now checks the reduced count and exact entry/exit reaching definitions
+in expanded and unexpanded modes. Existing tuple/control tests plus the command
+branch-join fixture pass (37 focused tests). Same-binary native reference/current
+controls assert every converged input state before timing: 64 expanded regions
+improve **2.57 ms → 484.08 µs**, 256 regions **44.78 → 6.82 ms**, and the
+unexpanded 64-region control **22.12 → 1.05 ms**. These are synthetic solver
+measurements, not whole-pass speedup claims. Final artifact and generated checks
+are recorded in the [campaign report](../tooling/tracing-playbook.md).
+
+Sources: [solver](../../../src/ir/local_graph.mbt),
+[bounded invariant](../../../src/ir/local_graph_stable_transfer_wbtest.mbt),
+[paired native controls](../../../src/ir/local_graph_stable_transfer_perf_wbtest.mbt),
+and [dispatcher join fixture](../../../src/cmd/perf_precompute_module_env_wbtest.mbt).

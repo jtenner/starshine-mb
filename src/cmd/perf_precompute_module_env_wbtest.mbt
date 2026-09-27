@@ -28,3 +28,14 @@ test "command precompute propagation preserves a conditional local write and def
   )
   assert_true(body[1] is @lib.If(_, _, _))
 }
+
+///|
+test "command precompute propagation converges on equal branch writes" {
+  let output = cmd_deep_audit_run(
+    "(module (func (export \"joined\") (param i32) (result i32) (local i32) local.get 0 if i32.const 7 local.set 1 else i32.const 7 local.set 1 end local.get 1))",
+    "precompute-propagate",
+  )
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_eq(body.last().unwrap(), @lib.Instruction::i32_const(@lib.I32(7)))
+}

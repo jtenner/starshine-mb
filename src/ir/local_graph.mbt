@@ -556,6 +556,7 @@ fn local_graph_build_in_states(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
+  block_transfers? : Array[Int]? = None,
 ) -> Array[Array[Array[Int]]] {
   let local_count = hot_local_count(func)
   let in_states : Array[Array[Array[Int]]] = []
@@ -567,6 +568,7 @@ fn local_graph_build_in_states(
   let entry_state = local_graph_entry_state(local_count)
   in_states[cfg_entry_block(cfg)] = entry_state
   let mut changed = true
+  let mut first_round = true
   while changed {
     changed = false
     for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
@@ -577,23 +579,33 @@ fn local_graph_build_in_states(
           cfg, block_id, local_count, out_states, include_exceptional,
         )
       }
-      if !local_graph_state_equal(in_states[block_id], next_in) {
+      let input_changed = !local_graph_state_equal(in_states[block_id], next_in)
+      if input_changed {
         in_states[block_id] = next_in
         changed = true
       }
-      let next_out = local_graph_transfer_block(
-        func,
-        cfg,
-        block_id,
-        in_states[block_id],
-        None,
-        None,
-      )
-      if !local_graph_state_equal(out_states[block_id], next_out) {
-        out_states[block_id] = next_out
-        changed = true
+      // Transfers read a fixed function/CFG and mutate only their cloned state.
+      // An unchanged input therefore retains the previous output exactly.
+      if first_round || input_changed {
+        match block_transfers {
+          Some(count) => count[0] += 1
+          None => ()
+        }
+        let next_out = local_graph_transfer_block(
+          func,
+          cfg,
+          block_id,
+          in_states[block_id],
+          None,
+          None,
+        )
+        if !local_graph_state_equal(out_states[block_id], next_out) {
+          out_states[block_id] = next_out
+          changed = true
+        }
       }
     }
+    first_round = false
   }
   in_states
 }
