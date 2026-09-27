@@ -167,11 +167,12 @@ fn cl_copy_weight_degree(weights : CLCopyWeights, local_idx : Int) -> Int {
 priv struct CLValueInterner {
   keys : Array[String]
   mut next_value : Int
+  mut numeric_defaults : Array[Int]?
 }
 
 ///|
 fn CLValueInterner::new() -> CLValueInterner {
-  { keys: [], next_value: 0, }
+  { keys: [], next_value: 0, numeric_defaults: None, }
 }
 
 ///|
@@ -4010,7 +4011,7 @@ fn cl_initial_value(
   if idx < param_count {
     interner.fresh()
   } else if @lib.has_default(ty) {
-    interner.intern("default:\{@debug.to_string(ty)}")
+    cl_default_identity(interner, ty)
   } else {
     interner.fresh()
   }
@@ -4133,9 +4134,7 @@ fn cl_compute_interferences(
             action.source,
             types[action.local_idx],
           ) {
-          interner.intern(
-            "default:\{@debug.to_string(types[action.local_idx])}",
-          )
+          cl_default_identity(interner, types[action.local_idx])
         } else {
           cl_value_for_source(action.source, current_values, interner)
         }

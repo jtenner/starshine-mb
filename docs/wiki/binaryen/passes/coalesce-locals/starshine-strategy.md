@@ -38,6 +38,55 @@ related:
 Use this page together with the [`coalesce-locals` landing page](./index.md)'s tagged source list, the retained 2026-05-05 research recheck, and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.
 
+## September 27, 2026 numeric default identities
+
+Structured value analysis caches the five numeric/vector default identities in
+its own append-only value interner. The first query retains the existing debug
+key and index assignment; subsequent implicit defaults and explicit zero writes
+reuse that index. The small cache is allocated only when a numeric default is
+encountered. Parameters and non-defaultable references keep their fresh-value
+path; nullable references retain their original formatting and interning.
+The cache never crosses interner instances. Existing liveness safety edges and
+the fresh/interned ID schedule are unchanged.
+
+A red-first test formatted 40 repeated defaults and now formats five while
+preserving every key, returned ID and fresh counter. Isolation, parameter and
+reference initialization checks pass, together with 148 focused Coalesce tests
+and the added reference-default invariant. Dispatcher execution retains live
+parameters beside implicit and explicit defaults. Full-helper native controls
+measure 3.11 µs → 706.33 ns at eight locals and 997.37 µs → 17.82 µs at
+2,048 locals; fixture/liveness setup is outside timing and output matrices agree.
+
+| Input | Pass | Before pipeline ms | After pipeline ms |
+| --- | --- | ---: | ---: |
+| defaults-32 | coalesce-locals | 2.910 | 1.975 |
+| defaults-512 | coalesce-locals | 180.314 | 166.730 |
+| large | coalesce-locals | 4944.998 | 4929.752 |
+| large | inlining-optimizing | 621.709 | 598.876 |
+| large | dae-optimizing | 983.499 | 1007.168 |
+| large | simplify-globals-optimizing | 58.656 | 56.475 |
+| small | coalesce-locals | 11.816 | 10.840 |
+| small | inlining-optimizing | 104.290 | 107.245 |
+| small | dae-optimizing | 134.627 | 135.791 |
+| small | simplify-globals-optimizing | 19.448 | 19.560 |
+| wide-128 | coalesce-locals | 1.659 | 1.585 |
+| wide-512 | coalesce-locals | 18.827 | 18.768 |
+
+One warmup and three uncontended alternating samples preserve identical raw
+bytes, traced/untraced agreement and independent validation. The wide structured
+fixtures also pass thirty original/before/after boundary runtime checks. Guarded
+optimizing paths remain guard evidence; final aggregate renewal and remaining
+compiler budgets stay open. The additional default-heavy fixtures contain 64
+exported functions with 32/512 initialized numeric locals each; 90 boundary
+checks preserve their zero results through both branch choices. Evidence:
+`.tmp/pass-perf-next-20260927/coalesce-defaults-*`; CLI SHA-256 `6610a792ef8d07151ee38bd6c6fbfe82097086e4f50f6dfd3902eecacb00320e`.
+Sources: [interference builder](../../../../../src/passes/coalesce_locals.mbt),
+[cache](../../../../../src/passes/coalesce_value_defaults.mbt),
+[invariants](../../../../../src/passes/coalesce_default_identity_wbtest.mbt),
+[reference](../../../../../src/passes/coalesce_default_identity_reference_wbtest.mbt),
+[native controls](../../../../../src/passes/coalesce_default_identity_perf_wbtest.mbt),
+and [dispatcher check](../../../../../src/cmd/perf_coalesce_default_identity_wbtest.mbt).
+
 ## September 27, 2026 structured interference live-member iteration
 
 Structured interference construction now uses the existing indexed live set

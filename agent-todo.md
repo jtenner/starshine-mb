@@ -68,6 +68,9 @@
   Structured Coalesce now iterates actual live members with exact matrix parity;
   large compiler time measures 5032.304 → 4958.244 ms. Wide structured
   fixtures preserve boundary results; full aggregate renewal remains pending.
+  Coalesce memoizes numeric default identities within each analysis; large
+  compiler time measures 4944.998 → 4929.752 ms. Exact key/ID, reference
+  initialization and boundary-runtime invariants pass; final renewal is pending.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,
