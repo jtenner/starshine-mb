@@ -116,6 +116,9 @@ fn local_graph_join_sources(lhs : Array[Int], rhs : Array[Int]) -> Array[Int] {
   if lhs.is_empty() {
     return rhs
   }
+  if lhs.length() >= 256 && rhs.length() >= 256 {
+    return local_graph_join_indexed_sources(lhs, rhs)
+  }
   if rhs.all(fn(source) { local_graph_array_contains(lhs, source) }) {
     return lhs
   }

@@ -4062,3 +4062,30 @@ deltas; `size-followup-binaries.json`, `size-followup-source.json`, and
 `verification-audit.json` preserve provenance and the unchanged excluded input
 hash. This supersedes the prior 4,700-observation backlog count without changing
 its historical artifacts.
+
+## September 27, 2026: indexed large local-flow joins
+
+LocalGraph preserves source encounter order and immutable published arrays while
+avoiding repeated membership scans for large unions. Both inputs must contain
+at least 256 sources before the indexed path is considered. A contiguous RHS
+subset returns the original LHS after a linear check. Other subsets retain the
+previous allocation-free membership check; only a union adding new sources
+builds a set, and the output copy is delayed until its first new member.
+
+The initial 32-source threshold regressed the 32-source mixed control and
+128-source subset control. It was raised after benchmarking, and asymmetric
+ordered/reversed subsets were added to prevent an index-construction regression.
+Fixed-affinity native controls at 256 sources measure mixed joins **21.67 →
+16.42 µs** and ordered subsets **8.64 µs → 124.46 ns**. An asymmetric
+4,096/256-source ordered subset measures **62.32 µs → 555.04 ns**; reversed
+subsets remain effectively flat (**8.21 → 8.33 µs**). Small paths retain the
+previous implementation. These are helper measurements under recorded host
+activity, not a claim about complete propagation or SSA throughput.
+
+[Bounded tests](../../../src/ir/local_graph_indexed_join_wbtest.mbt) check order,
+deduplication, source ownership, and index-free subset reuse; the latter work
+regression failed before implementation. [Native controls](../../../src/ir/local_graph_indexed_join_perf_wbtest.mbt)
+cover 8, 32, 128, 256 and 512 sources plus asymmetric subsets. Sources:
+[helper](../../../src/ir/local_graph_indexed_join.mbt) and
+[solver](../../../src/ir/local_graph.mbt). Local evidence:
+`.tmp/pass-perf-reuse-20260927/local-join-{threshold-pinned,final-bench,contiguous-red}.log`.
