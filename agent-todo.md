@@ -16,6 +16,10 @@
   scans copied-local initialization once and resolves only needed retention
   signatures; DAE skips structural work on identical snapshots; DAE2 uses flat
   dependency edges. Detailed evidence belongs in the linked owner pages/report.
+  The follow-up ordered LocalGraph work queue reduces large propagation pipeline
+  time 1,983.883 → 1,684.910 ms with identical bytes in isolated pairs; exact
+  source-state and loop/handler tests pass. Final aggregate renewal is pending.
+  This reduces stable merge work but does not close the remaining pass time.
 - **Remaining tasks / deliverables:** profile large Precompute propagation,
   DAE call facts and slicing, DAE2 lifting and required flow solving, Coalesce
   CFG/interference construction,

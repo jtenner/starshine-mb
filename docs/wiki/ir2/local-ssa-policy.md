@@ -421,3 +421,37 @@ Sources: [solver](../../../src/ir/local_graph.mbt),
 [bounded invariant](../../../src/ir/local_graph_stable_transfer_wbtest.mbt),
 [paired native controls](../../../src/ir/local_graph_stable_transfer_perf_wbtest.mbt),
 and [dispatcher join fixture](../../../src/cmd/perf_precompute_module_env_wbtest.mbt).
+
+## September 27, 2026: ordered sparse forward work queues
+
+The forward solver now re-merges only blocks whose predecessors changed output.
+It still visits every block once, including disconnected regions, and retains
+ascending block order within each original convergence round. A changed output
+queues later successors in the current round and earlier successors in the next;
+exceptional edges follow the query's existing inclusion policy. Two min-heaps
+preserve source ordering without rescanning unrelated stable blocks. Transfers
+and immutable source-set ownership are unchanged.
+
+The bounded red-first regression observed 77 predecessor merges on 12 blocks;
+the new queue needs 19. It asserts every input state against the former solver,
+exit reaching writes, and unchanged-local defaults in both CFG modes. A separate
+loop/handler case checks cyclic convergence and exceptional-edge filtering.
+The dispatcher verifies a constant propagated across a finite loop. All 38
+focused tests pass. Native same-binary original/current controls assert exact
+states before timing: expanded 32/128 reads/locals **2.33 ms → 174.85 µs**,
+expanded 128/512 **130.68 → 2.62 ms**, unexpanded 32/128 **2.35 ms → 187.35 µs**.
+
+The isolated large propagation artifact improves **1,983.883 → 1,684.910 ms**
+pipeline in alternating pairs (one warmup, three accepted rounds), with identical
+output bytes and independent validation. This is still above one second;
+six small/large pairs preserve bytes and validate, with OI effectively flat
+(3,592.813 → 3,631.380 ms large). The large MergeLocals fixture is still a
+guarded no-op, so its 42.053 → 46.080 ms admission timing is not evidence
+about solver throughput. Final aggregate renewal is tracked in
+`.tmp/pass-perf-next-20260927/`. This checkpoint does not close DAE2's sparse
+reverse-query costs or the remaining propagation gap.
+
+Sources: [solver](../../../src/ir/local_graph.mbt),
+[bounded invariants](../../../src/ir/local_graph_worklist_wbtest.mbt),
+[native controls](../../../src/ir/local_graph_worklist_perf_wbtest.mbt), and
+[dispatcher loop fixture](../../../src/cmd/perf_local_flow_worklist_wbtest.mbt).

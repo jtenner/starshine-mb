@@ -218,3 +218,11 @@ incoming state is unchanged, after a mandatory first visit. This preserves the
 fixed point and avoids repeated instruction walks; exact-state native controls
 and branch-join dispatcher coverage are documented in the
 [stable-transfer invariant](../../../ir2/local-ssa-policy.md#september-27-2026-stable-forward-transfers).
+
+A subsequent ordered work queue avoids re-merging stable predecessor states.
+Ascending visits within each convergence round preserve source order; backedges
+and exceptional edges retain their existing semantics. Exact-state comparisons,
+a cyclic handler fixture and a finite-loop dispatcher regression pass. Large
+pipeline pairs improve **1,983.883 → 1,684.910 ms** with identical bytes, still
+above the target. See the [work-queue invariant and focused evidence](../../../ir2/local-ssa-policy.md#september-27-2026-ordered-sparse-forward-work-queues).
+Final aggregate renewal remains pending for this follow-up campaign.

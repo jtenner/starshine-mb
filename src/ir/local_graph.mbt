@@ -552,26 +552,85 @@ fn local_graph_merge_predecessors(
 }
 
 ///|
+fn local_graph_worklist_push(queue : Array[BlockId], block : BlockId) -> Unit {
+  queue.push(block)
+  let mut slot = queue.length() - 1
+  while slot > 0 {
+    let parent = (slot - 1) / 2
+    if queue[parent] <= block {
+      break
+    }
+    queue[slot] = queue[parent]
+    slot = parent
+  }
+  queue[slot] = block
+}
+
+///|
+fn local_graph_worklist_pop(queue : Array[BlockId]) -> BlockId {
+  let block = queue[0]
+  let last = queue.pop().unwrap()
+  if !queue.is_empty() {
+    let mut slot = 0
+    while slot * 2 + 1 < queue.length() {
+      let mut child = slot * 2 + 1
+      if child + 1 < queue.length() && queue[child + 1] < queue[child] {
+        child += 1
+      }
+      if last <= queue[child] {
+        break
+      }
+      queue[slot] = queue[child]
+      slot = child
+    }
+    queue[slot] = last
+  }
+  block
+}
+
+///|
 fn local_graph_build_in_states(
   func : HotFunc,
   cfg : HotCfg,
   include_exceptional : Bool,
   block_transfers? : Array[Int]? = None,
+  block_merges? : Array[Int]? = None,
 ) -> Array[Array[Array[Int]]] {
   let local_count = hot_local_count(func)
+  let block_count = cfg_block_count(cfg)
   let in_states : Array[Array[Array[Int]]] = []
   let out_states : Array[Array[Array[Int]]] = []
-  for _ in 0..<cfg_block_count(cfg) {
+  for _ in 0..<block_count {
     in_states.push(local_graph_empty_state(local_count))
     out_states.push(local_graph_empty_state(local_count))
   }
   let entry_state = local_graph_entry_state(local_count)
   in_states[cfg_entry_block(cfg)] = entry_state
-  let mut changed = true
+  // Every block runs initially, including disconnected regions with local writes.
+  // Later visits retain ascending block order in each original solver round.
+  // Earlier successors wait for the next round; later ones can run this round.
+  let queued = Array::make(block_count, true)
+  let mut current : Array[BlockId] = []
+  let mut next : Array[BlockId] = []
   let mut first_round = true
-  while changed {
-    changed = false
-    for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
+  while first_round || !current.is_empty() {
+    let mut initial_block = 0
+    while (first_round && initial_block < block_count) ||
+          (!first_round && !current.is_empty()) {
+      let block_id = if first_round {
+        let block = initial_block
+        initial_block += 1
+        block
+      } else {
+        local_graph_worklist_pop(current)
+      }
+      queued[block_id] = false
+      if block_id != cfg_entry_block(cfg) {
+        match block_merges {
+          Some(count) => count[0] += 1
+          None => ()
+        }
+      }
       let next_in = if block_id == cfg_entry_block(cfg) {
         entry_state
       } else {
@@ -582,10 +641,7 @@ fn local_graph_build_in_states(
       let input_changed = !local_graph_state_equal(in_states[block_id], next_in)
       if input_changed {
         in_states[block_id] = next_in
-        changed = true
       }
-      // Transfers read a fixed function/CFG and mutate only their cloned state.
-      // An unchanged input therefore retains the previous output exactly.
       if first_round || input_changed {
         match block_transfers {
           Some(count) => count[0] += 1
@@ -601,11 +657,28 @@ fn local_graph_build_in_states(
         )
         if !local_graph_state_equal(out_states[block_id], next_out) {
           out_states[block_id] = next_out
-          changed = true
+          for edge in cfg_successor_edges(cfg, block_id) {
+            if (
+                !include_exceptional &&
+                edge.kind == CfgEdgeKind::ExceptionalEdge
+              ) ||
+              queued[edge.block] {
+              continue
+            }
+            queued[edge.block] = true
+            if edge.block <= block_id {
+              local_graph_worklist_push(next, edge.block)
+            } else if !first_round {
+              local_graph_worklist_push(current, edge.block)
+            }
+          }
         }
       }
     }
     first_round = false
+    let emptied = current
+    current = next
+    next = emptied
   }
   in_states
 }
