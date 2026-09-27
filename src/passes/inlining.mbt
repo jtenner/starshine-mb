@@ -2085,6 +2085,7 @@ fn inl_build_function_infos(
   allow_functions_with_loops? : Bool = false,
   trivial_mode_cache? : Array[(Bool, Bool)?]? = None,
   classification_counts? : Array[Int]? = None,
+  body_measure_cache? : InlBodyMeasureCache? = None,
 ) -> Array[InlFunctionInfo] {
   let imports = inl_imported_func_count(mod_)
   let total = imports + inl_defined_func_count(mod_)
@@ -2140,7 +2141,11 @@ fn inl_build_function_infos(
         None => abort("missing code section for inlining info")
       }
       let @lib.Func(_, @lib.Expr(body)) = func
-      let (calls, loops, tries, tails, measured_size) = inl_measure_body(body)
+      let (calls, loops, tries, tails, measured_size) = match
+        body_measure_cache {
+        Some(cache) => cache.measure(abs, body)
+        None => inl_measure_body(body)
+      }
       match
         @ir.hot_module_resolve_func_type(
           module_ctx,
@@ -9283,6 +9288,7 @@ fn inl_run_module_pass_once(
   partial_inlining_ifs : Int,
   prepare_multivalue_block_types : Bool,
   trivial_mode_cache : Array[(Bool, Bool)?],
+  body_measure_cache : InlBodyMeasureCache?,
   perf? : HotPerfSession? = None,
 ) -> (@lib.Module, Bool, Array[Int], Array[Bool], Array[(Bool, Bool)?]) {
   let prepare_start_us = perf_start_timer_opt(
@@ -9313,6 +9319,7 @@ fn inl_run_module_pass_once(
     flexible_inline_max_size~,
     max_combined_binary_size~,
     allow_functions_with_loops~,
+    body_measure_cache~,
     trivial_mode_cache=if trivial_mode_cache.length() > 0 {
       Some(trivial_mode_cache)
     } else {
@@ -9422,6 +9429,10 @@ fn inl_run_module_pass_once(
     result.touched,
     removal.original_abs,
   )
+  match body_measure_cache {
+    Some(cache) => cache.remap(result.touched, removal.original_abs)
+    None => ()
+  }
   if !optimize {
     return (
       removal.mod_out,
@@ -9600,6 +9611,11 @@ fn inlining_run_module_pass_with_perf(
   } else {
     []
   }
+  let body_measure_cache = if cache_plain_function_facts {
+    Some(InlBodyMeasureCache::new(initial_total))
+  } else {
+    None
+  }
   let mut iterations = 0
   let max_iterations = inl_defined_func_count(mod_) + 1
   while iterations < max_iterations {
@@ -9630,6 +9646,7 @@ fn inlining_run_module_pass_with_perf(
         optimize, partial_inlining_ifs, iterations,
       ),
       trivial_mode_cache,
+      body_measure_cache,
       perf~,
     )
     perf_stop_timer_opt(perf, "detail:inlining:iteration", iteration_start_us)

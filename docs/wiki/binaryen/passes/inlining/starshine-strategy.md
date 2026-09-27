@@ -351,3 +351,27 @@ Evidence: `.tmp/pass-perf-next-20260927/rejected-inlining-preflight.json`,
 `inlining-preflight-bench-1.log` (the first round had foreign CPU contention),
 and saved sources under `rejected-inlining-preflight/`. Rejected native SHA-256:
 `a33adcdd12d05630a5a23f0fdc09d98839683b4964ecf621d0055a4bca69da5a`. [Implementation](../../../../../src/passes/inlining.mbt).
+
+## September 27, 2026: retain unchanged body measurements between plain rounds
+
+Plain inlining caches only the call/loop/try/tail flags and instruction count
+from body measurement. Touched bodies invalidate their entries; surviving
+function indices remap entries through the existing removal map. These facts
+are independent of callee indices. Call-reference counts, call graphs and
+planning still rebuild; optimizing and partial inlining do not use this cache.
+This is narrower than retaining complete planning snapshots.
+
+[Focused tests](../../../../../src/passes/inlining_measure_cache_wbtest.mbt)
+check index changes, changed-body invalidation, factual results and traversal
+reuse. The [dispatcher fixture](../../../../../src/cmd/perf_inlining_measure_cache_wbtest.mbt)
+checks a helper chain reducing to its returned constant. [Native benchmarks](../../../../../src/passes/inlining_measure_cache_perf_wbtest.mbt)
+include both warm unchanged entries and dirty entries requiring a fresh scan,
+at widths 16 and 1,024. Sources: [cache](../../../../../src/passes/inlining_measure_cache.mbt)
+and [round controller](../../../../../src/passes/inlining.mbt).
+
+Uncontended 128-query batches improve **3.44 → 1.11 µs** for warm 16-instruction
+bodies and **87.02 → 1.13 µs** at 1,024 instructions. Invalidating every entry
+on every query costs **3.46 → 5.59 µs** for small bodies and **86.80 → 89.00 µs**
+for large ones; the cache therefore depends on unchanged-round reuse and is
+not an unconditional scan improvement. Evidence:
+`.tmp/pass-perf-reuse-20260927/accepted-bench-inlining_measure_cache_perf_wbtest-1.log`.
