@@ -2,63 +2,65 @@
 
 ## v0.1.1 — Current pass-time checkpoint [IR2-PERF-20260927]
 
-- **Goal / why:** reduce remaining artifact costs while preserving transformation
-  breadth, valid output, runtime behavior and canonical output quality.
-- **Current evidence:** the [follow-up campaign](docs/wiki/tooling/tracing-playbook.md#september-27-2026-follow-up-pass-allocation-campaign)
-  records fifteen separately committed optimizations, four rejected approaches,
-  28 frozen-baseline/final artifact pairs, 27 verified-v133 timing rows and
-  220,000 aggregate comparisons across 22 lanes. All 12,583 default wasm-gc
-  tests pass. It supersedes earlier timing and renewal recommendations for the
-  measured inputs/passes; September 26 rows and prior campaigns remain historical.
-- **Measured large pipeline gains:** Coalesce 6,536.898 → 4,963.276 ms (-24.1%);
-  Precompute propagation 1,805.571 → 1,451.486 ms (-19.6%);
-  OI 3,192.209 → 2,524.999 ms (-20.9%); DFE 1,359.493 → 843.849 ms (-37.9%);
-  DAE2 5,787.334 → 4,975.737 ms (-14.0%); DAE2-optimizing 9,206.506 → 8,251.110 ms (-10.4%);
-  SimplifyLocals 2,159.408 → 2,043.669 ms (-5.4%). Plain Precompute remains
-  about 679 ms. The report retains all small-input
-  rows, the nine-sample SimplifyLocals repeat, command/inner timers and size deltas.
-- **Completed mechanisms:** ordered LocalGraph queues, sparse tuple bookkeeping,
-  immutable predecessor borrowing, one-pass type roots, borrowed HOT operands,
-  lift dependency/effect caches, lazy DAE replay facts, fixed-size validation
-  masks, run-based numeric grouping with signature-only context, unchanged
-  DAE2 child spans, and Coalesce word-wise cliques, live-member iteration and
-  numeric default identities. Owner pages record bounded invariants and active
-  fixture/runtime evidence. These mechanisms do not need reimplementation.
-- **Remaining tasks / deliverables:** reduce DAE2 analysis/lift/lower work,
-  Coalesce CFG/lowering costs, Precompute propagation state/CFG work, OI module
-  validation/encoding, SimplifyLocals raw/lift/lower work, DAE call facts and
-  slicing, and inlining body classification/staged rounds. Large DAE2, optimizing
-  DAE2, Coalesce, OI, SimplifyLocals, propagation and plain inlining still exceed
-  one second. Small DAE/DAEO, optimizing SimplifyGlobals and inlining retain
-  material v133 gaps. DFE is now subsecond but still about 12× v133 on the
-  large input; profile its remaining work before claiming parity. Plain
-  Precompute still spends much more in its full pipeline than its inner timer.
-  Three inlining remap approaches and two SimplifyLocals
-  continuation-index variants regressed full-pass timings and remain rejected.
-  Profile the next owner before changing it; helper wins alone do not close it.
-- **Quality / coverage blockers:** large guarded DAE/DAEO, inlining-optimizing,
-  SimplifyGlobals-optimizing and MergeLocals timings do not demonstrate active
-  cleanup breadth. Canonical-size losses and residual parity gaps remain open;
-  baseline byte identity establishes provenance, not semantic equivalence.
-  The report renews scoped OI tuple, MergeLocals and DFE fixed-point wins with
-  exhaustive residual and downstream replay. Runtime-blocked cases remain
-  unverified. Active inline-main tail-call cases remain blocked on the v133 oracle error despite
-  matching original/Starshine runtime and baseline bytes. Unmeasured passes
-  retain their prior status, including CodePushing cleanup-normalized cases.
-- **Required APIs / invariants:** preserve source order, snapshot ownership and
-  invalidation, parameter slots, handler/loop liveness, capture lifetimes and
-  tuple-producer execution. Shared local-flow changes also require OI,
-  MergeLocals and SSA coverage. No public API addition is needed. Validator
-  initialization masks require an ownership/persistent-state design before
-  broader sharing; naive whole-mask copy-on-write can become quadratic.
-- **Dependencies / exit criteria:** use frozen binary/input hashes, isolated
-  alternating pairs and verified Binaryen 133. Accept material artifact gains
-  without important behavior, size or coverage regressions; keep inner timing
-  separate from total pipeline cost. All affected aggregate lanes have renewed
-  validation and observed-runtime evidence, with limits recorded in the report.
-- **Suggested tests:** bounded red-first behavior/work and dispatcher regressions,
-  focused native controls and active runtime fixtures, then each affected pass's
-  documented 10,000-case aggregate. Keep long fuzz/perf work outside default tests.
+- **Goal / why:** reduce remaining artifact costs without losing transformation
+  breadth, valid output, runtime behavior or canonical output quality.
+- **Current evidence:** the [bounded reuse campaign](docs/wiki/tooling/tracing-playbook.md#september-27-2026-bounded-reuse-campaign)
+  adds seven separately committed optimizations, 64 native benchmark cases,
+  24 before/after artifact rows and 24 verified-v133 timing rows. All 12,606
+  default wasm-gc tests pass. Final fuzzing ran after benchmark iteration:
+  220,000 comparisons across 22 lanes, with zero validation or observed
+  original/Starshine semantic failures. Runtime-blocked cases remain unverified.
+  The new report supersedes lower historical timing rows for renewed pairs.
+- **Completed mechanisms:** exact paired encoded sizes for OI/DFE guards,
+  fused Coalesce copy/remap, incremental SimplifyLocals statement prefixes,
+  large LocalGraph union indexing with cheap subset paths, bounded validator
+  initialization-mask borrowing, plain-inlining body measurement reuse and
+  DAE signature-prefix indexing. Earlier ordered work queues, sparse tuples,
+  immutable predecessor borrowing and lift/effect caches remain implemented.
+  These mechanisms do not need reimplementation.
+- **Measured outcome:** OI and DFE have clear additional large-artifact gains;
+  the report records paired deltas and MAD for every row. LocalGraph helper
+  gains do not establish a propagation pipeline win. Short timings were
+  repeated with 31 pairs and large Coalesce with 11; tracked host contention
+  and near-noise changes remain explicit. Small Coalesce increased by about
+  0.34 ms (+3.13% paired); keep this control regression visible. Targets are
+  not all satisfied.
+- **Remaining tasks / deliverables:** reduce Precompute propagation state/CFG
+  transfers, DAE2 analysis/lift/lower, Coalesce CFG/lowering, OI validation and
+  remaining encoding, SimplifyLocals raw/lift/lower work, DAE call facts/slicing,
+  and inlining staged planning. Plain Precompute still has substantial pipeline
+  cost outside its inner timer. Large DAE2, Coalesce, OI, propagation,
+  SimplifyLocals and plain inlining remain above one second; important relative
+  v133 gaps remain even for subsecond passes. Profile the next owner and require
+  artifact evidence instead of extrapolating isolated helper gains.
+- **Rejected approaches:** retained DAE2 IR improved a small helper but regressed
+  large pipelines and peak memory; production retention was removed and its
+  benchmarks retained. Prior inlining remap and SimplifyLocals continuation
+  variants remain rejected. Smaller LocalGraph index thresholds and broader
+  allocated validator proofs lost controls and were narrowed before signoff.
+- **Quality / coverage blockers:** large guarded DAE/DAEO and optimizing inlining
+  do not demonstrate active cleanup breadth. Canonical size losses and residual
+  parity gaps remain open. Scoped OI tuple, unread-tee MergeLocals and fixed-point
+  DFE wins require their inspected contracts and downstream evidence. Baseline
+  byte identity proves provenance only. Active inline-main tail-call oracle
+  failures and runtime-blocked generated cases remain coverage limits.
+  Unmeasured passes retain their previous status.
+- **Required APIs / invariants:** reviewed `binary.encoded_module_sizes` is the
+  only new public API. Preserve snapshot ownership/invalidation, exact binary
+  sizes and errors, source order, parameter slots, handler/loop liveness,
+  capture lifetimes, tuple producers and earliest statement boundaries.
+  Broader validator sharing needs an ownership design; cross-mutation context
+  reuse needs explicit invalidation. Shared LocalGraph changes require OI,
+  MergeLocals and SSA coverage.
+- **Dependencies / exit criteria:** frozen binaries/input hashes, verified
+  Binaryen 133, focused native controls and alternating artifact pairs. Accept
+  material gains without important behavior, size or coverage regressions;
+  keep inner timing separate from total pipeline cost. Resolve parity/size
+  gaps with inspected contracts and measured benefit or align to the oracle.
+- **Suggested tests:** bounded red-first invariants and dispatcher regressions,
+  focused native controls and active runtime fixtures, then each affected
+  pass's documented 10,000-case aggregate after implementation is settled.
+  Keep long fuzz/perf work outside default tests.
 
 ## v0.1.1 — September 22 optimizer correctness spree [IR2-CORRECTNESS-20260922]
 

@@ -1,3 +1,16 @@
+### 2026-09-27 — Bounded pass reuse campaign
+
+- Seven atomic optimizations cover exact encoded sizes, Coalesce copy/remap,
+  SimplifyLocals prefixes, LocalGraph unions, validator masks, inlining body
+  measurements and DAE signature lookup. All 64 native benchmark cases and
+  12,606 default wasm-gc tests pass. The rejected DAE2 retention experiment
+  preserves its benchmarks and measured time/memory regressions. Final fuzzing
+  followed benchmark iteration: 220,000 verified-v133 comparisons, with no
+  validation or observed original/Starshine semantic failures. Existing parity,
+  size and runtime-coverage gaps remain open. The [report](tooling/tracing-playbook.md#september-27-2026-bounded-reuse-campaign)
+  records 24 repeated before/after rows, 24 oracle timing rows, residual/downstream
+  replays, active inline-main checks, tool hashes and host-contention limits.
+
 ### 2026-09-27 — Follow-up pass allocation campaign
 
 - Fifteen atomic optimizations reduce large Coalesce pipeline time by 24.1%,
