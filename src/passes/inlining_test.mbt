@@ -947,6 +947,103 @@ test "no-inline clone-survival helper copies policy markers to appended clones" 
 }
 
 ///|
+test "no-inline clone annotation copy does not mutate its input module" {
+  let input = pass_test_module_from_wat("(module (func $source) (func $clone))").with_func_annotation_sec(
+    @lib.FuncAnnotationSec::new([
+      @lib.FuncAnnotationAssoc::new(0U, [
+        @lib.FuncAnnotation::new("starshine.no-full-inline"),
+        @lib.FuncAnnotation::new("starshine.no-partial-inline"),
+      ]),
+      @lib.FuncAnnotationAssoc::new(1U, [
+        @lib.FuncAnnotation::new("vendor.keep"),
+      ]),
+    ]),
+  )
+  let copied = no_inline_copy_policy_annotations(input, 0U, 1U)
+  @debug.assert_eq(
+    inl_test_count_func_annotation(copied, 1U, "starshine.no-full-inline"),
+    1,
+  )
+  @debug.assert_eq(
+    inl_test_count_func_annotation(copied, 1U, "starshine.no-partial-inline"),
+    1,
+  )
+  @debug.assert_eq(inl_test_count_func_annotation(copied, 1U, "vendor.keep"), 1)
+  @debug.assert_eq(
+    inl_test_count_func_annotation(input, 1U, "starshine.no-full-inline"),
+    0,
+  )
+  @debug.assert_eq(
+    inl_test_count_func_annotation(input, 1U, "starshine.no-partial-inline"),
+    0,
+  )
+  @debug.assert_eq(inl_test_count_func_annotation(input, 1U, "vendor.keep"), 1)
+}
+
+///|
+test "no-inline unions split annotation associations" {
+  let input = pass_test_module_from_wat("(module (func $target))").with_func_annotation_sec(
+    @lib.FuncAnnotationSec::new([
+      @lib.FuncAnnotationAssoc::new(0U, [
+        @lib.FuncAnnotation::new("vendor.first"),
+        @lib.FuncAnnotation::new("starshine.no-partial-inline"),
+      ]),
+      @lib.FuncAnnotationAssoc::new(0U, [
+        @lib.FuncAnnotation::new("vendor.second"),
+      ]),
+    ]),
+  )
+  let output = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["no-inline=target"]) {
+    Ok(module_) => module_
+    Err(err) => fail("expected split annotation policy dispatch, got \{err}")
+  }
+  for
+    name in [
+      "vendor.first", "vendor.second", "starshine.no-full-inline", "starshine.no-partial-inline",
+    ] {
+    @debug.assert_eq(inl_test_count_func_annotation(output, 0U, name), 1)
+  }
+}
+
+///|
+test "inlining strips split wrapper markers without dropping sibling annotations" {
+  let input = pass_test_module_from_wat("(module (func $target))").with_func_annotation_sec(
+    @lib.FuncAnnotationSec::new([
+      @lib.FuncAnnotationAssoc::new(0U, [
+        @lib.FuncAnnotation::new("vendor.keep"),
+      ]),
+      @lib.FuncAnnotationAssoc::new(0U, [
+        @lib.FuncAnnotation::new("starshine.partial-inline-wrapper"),
+      ]),
+    ]),
+  )
+  let direct = inlining_run_module_pass(input)
+  @debug.assert_eq(inl_test_count_func_annotation(direct, 0U, "vendor.keep"), 1)
+  @debug.assert_eq(
+    inl_test_count_func_annotation(
+      direct, 0U, "starshine.partial-inline-wrapper",
+    ),
+    0,
+  )
+  let dispatched = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["inlining"]) {
+    Ok(module_) => module_
+    Err(err) => fail("expected split annotation inlining dispatch, got \{err}")
+  }
+  @debug.assert_eq(
+    inl_test_count_func_annotation(dispatched, 0U, "vendor.keep"),
+    1,
+  )
+  @debug.assert_eq(
+    inl_test_count_func_annotation(
+      dispatched, 0U, "starshine.partial-inline-wrapper",
+    ),
+    0,
+  )
+}
+
+///|
 test "no-inline policy dispatch preserves structured compiler facts" {
   let facts = @representation.CompilerFactCustomSection::new(
     @representation.OptimizationFactsSec::new(),

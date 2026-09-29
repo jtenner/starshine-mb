@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-25
+last_reviewed: 2026-09-28
 sources:
   - ./index.md
   - ../../../../../src/cli/cli.mbt
@@ -375,3 +375,19 @@ on every query costs **3.46 → 5.59 µs** for small bodies and **86.80 → 89.0
 for large ones; the cache therefore depends on unchanged-round reuse and is
 not an unconditional scan improvement. Evidence:
 `.tmp/pass-perf-reuse-20260927/accepted-bench-inlining_measure_cache_perf_wbtest-1.log`.
+
+## September 28, 2026 performance reuse contracts
+
+Planning resolves signatures through one prefix and creates a HOT module context only for a fallback or strict unresolved-type check. Ordinary inlining does not classify uncalled functions as possible callees; partial splitting and named inline-main retain full classification. A first-unused cursor preserves reusable scratch-slot order across mixed types and holes. Reference counts, caller cleanup, no-inline policies and source ownership remain unchanged.
+
+Tests and native controls: [inlining_planning_setup_wbtest.mbt](../../../../../src/passes/inlining_planning_setup_wbtest.mbt), [inlining_planning_setup_perf_wbtest.mbt](../../../../../src/passes/inlining_planning_setup_perf_wbtest.mbt), [inlining_called_planning_wbtest.mbt](../../../../../src/passes/inlining_called_planning_wbtest.mbt), [inlining_called_planning_perf_wbtest.mbt](../../../../../src/passes/inlining_called_planning_perf_wbtest.mbt). The [campaign report](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign) owns frozen-binary artifact timings, verified-v133 evidence and final correctness outcomes; helper timings alone do not close the remaining pipeline or parity gaps.
+
+## September 28, 2026 follow-up performance contracts
+
+Mixed-type scratch pools use bounded per-type cursors after a wide pool's first
+unused slot mismatches. Each callsite gets a fresh cursor context, with at most
+eight cached types. Uniform and small pools keep their direct search; slot order,
+exact types, appended locals and remapping retain the original behavior.
+
+The renewed artifact matrix and dedicated correctness lanes are recorded in the
+[follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign).

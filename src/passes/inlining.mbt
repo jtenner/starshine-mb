@@ -1212,7 +1212,13 @@ fn inl_annotation_map(
         let @lib.FuncAnnotationAssoc(raw_idx, annotations) = entry
         let slot = raw_idx.reinterpret_as_int()
         if slot >= 0 && slot < total {
-          by_func[slot] = annotations.copy()
+          let merged = by_func[slot].copy()
+          for annotation in annotations {
+            if !merged.contains(annotation) {
+              merged.push(annotation)
+            }
+          }
+          by_func[slot] = merged
         }
       }
     None => ()
@@ -2086,6 +2092,8 @@ fn inl_build_function_infos(
   trivial_mode_cache? : Array[(Bool, Bool)?]? = None,
   classification_counts? : Array[Int]? = None,
   body_measure_cache? : InlBodyMeasureCache? = None,
+  module_context_builds? : Array[Int]? = None,
+  classify_uncalled? : Bool = true,
 ) -> Array[InlFunctionInfo] {
   let imports = inl_imported_func_count(mod_)
   let total = imports + inl_defined_func_count(mod_)
@@ -2111,7 +2119,26 @@ fn inl_build_function_infos(
   let partial_wrappers = inl_partial_wrapper_flags(mod_, total)
   let toolchain_inline_hints = inl_toolchain_inline_hints(mod_, total)
   let infos : Array[InlFunctionInfo] = []
-  let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let signatures = dae_snapshot_function_types(mod_, types)
+  let mut module_ctx : @ir.HotModuleContext? = None
+  let require_module_ctx = fn() {
+    match module_ctx {
+      Some(context) => context
+      None => {
+        match module_context_builds {
+          Some(count) => count[0] += 1
+          None => ()
+        }
+        let context = @ir.hot_module_context_from_module(mod_)
+        module_ctx = Some(context)
+        context
+      }
+    }
+  }
+  if signatures.any(fn(signature) { signature is None }) {
+    // Preserve the existing strict context checks on invalid type references.
+    ignore(require_module_ctx())
+  }
   let mut abs = 0
   while abs < total {
     let (
@@ -2125,11 +2152,7 @@ fn inl_build_function_infos(
       trivial_shrinks,
       trivial_may_not_shrink,
     ) = if abs < imports {
-      match
-        @ir.hot_module_resolve_func_type(
-          module_ctx,
-          @lib.FuncIdx::new(abs.reinterpret_as_uint()),
-        ) {
+      match signatures.get(abs).unwrap_or(None) {
         Some(@lib.FuncType(params, results)) =>
           (params, results, 1000000, true, false, false, true, false, false)
         None => ([], [], 1000000, true, false, false, true, false, false)
@@ -2146,11 +2169,7 @@ fn inl_build_function_infos(
         Some(cache) => cache.measure(abs, body)
         None => inl_measure_body(body)
       }
-      match
-        @ir.hot_module_resolve_func_type(
-          module_ctx,
-          @lib.FuncIdx::new(abs.reinterpret_as_uint()),
-        ) {
+      match signatures.get(abs).unwrap_or(None) {
         Some(@lib.FuncType(params, results)) => {
           let partial_wrapper = abs >= 0 &&
             abs < partial_wrappers.length() &&
@@ -2175,6 +2194,7 @@ fn inl_build_function_infos(
             AlwaysInline => false
           }
           let classification_required = !partial_wrapper &&
+            (classify_uncalled || refs[abs] > 0) &&
             !no_full_policy &&
             hint_requires_classification
           let (trivial_shrinks, trivial_may_not_shrink) = if !classification_required {
@@ -2225,7 +2245,10 @@ fn inl_build_function_infos(
                         None => ()
                       }
                       inl_hot_trivial_instruction_modes(
-                        mod_, abs, module_ctx, measured_size,
+                        mod_,
+                        abs,
+                        require_module_ctx(),
+                        measured_size,
                       )
                     }
                   }
@@ -3955,22 +3978,88 @@ fn inl_fold_adjacent_local_set_gets(
 }
 
 ///|
+priv struct InlScratchTypeCursor {
+  local_type : @lib.ValType
+  mut next_slot : Int
+}
+
+///|
+fn InlScratchTypeCursor::new(
+  local_type : @lib.ValType,
+  next_slot : Int,
+) -> InlScratchTypeCursor {
+  { local_type, next_slot, }
+}
+
+///|
 fn inl_allocate_reusable_scratch_local(
   local_type : @lib.ValType,
   pool_types : Array[@lib.ValType],
   pool_used : Array[Bool],
   next_locals : @lib.Locals,
   absolute_pool_base : Int,
+  first_unused? : Array[Int]? = None,
+  slot_visits? : Array[Int]? = None,
+  type_cursors? : Array[InlScratchTypeCursor]? = None,
 ) -> Int {
-  for slot = 0; slot < pool_types.length(); slot = slot + 1 {
+  let mut start = match first_unused {
+    Some(cursor) => {
+      while cursor[0] < pool_types.length() && pool_used[cursor[0]] {
+        cursor[0] += 1
+      }
+      cursor[0]
+    }
+    None => 0
+  }
+  let mut type_cursor = -1
+  if pool_types.length() >= 64 &&
+    start < pool_types.length() &&
+    (pool_used[start] || pool_types[start] != local_type) {
+    if type_cursors is Some(cursors) {
+      for index = 0; index < cursors.length(); index = index + 1 {
+        if cursors[index].local_type == local_type {
+          type_cursor = index
+          break
+        }
+      }
+      // Bound memory and comparisons for workloads with many distinct nominal
+      // reference types. The ordinary scan remains complete for uncached types.
+      if type_cursor < 0 && cursors.length() < 8 {
+        type_cursor = cursors.length()
+        cursors.push(InlScratchTypeCursor::new(local_type, start))
+      }
+      if type_cursor >= 0 && cursors[type_cursor].next_slot > start {
+        start = cursors[type_cursor].next_slot
+      }
+    }
+  }
+  for slot = start; slot < pool_types.length(); slot = slot + 1 {
+    match slot_visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
     if !pool_used[slot] && pool_types[slot] == local_type {
       pool_used[slot] = true
+      if type_cursor >= 0 {
+        type_cursors.unwrap()[type_cursor].next_slot = slot + 1
+      }
+      match first_unused {
+        Some(cursor) if cursor[0] == slot => cursor[0] += 1
+        _ => ()
+      }
       return absolute_pool_base + slot
     }
   }
   let slot = pool_types.length()
+  if type_cursor >= 0 {
+    type_cursors.unwrap()[type_cursor].next_slot = slot + 1
+  }
   pool_types.push(local_type)
   pool_used.push(true)
+  match first_unused {
+    Some(cursor) if cursor[0] == slot => cursor[0] += 1
+    _ => ()
+  }
   next_locals.append_types([local_type])
   absolute_pool_base + slot
 }
@@ -4039,6 +4128,8 @@ fn inl_make_inline_replacement(
       body_local_idx += 1
     }
     let pool_used = Array::make(pool_types.length(), false)
+    let first_unused = [0]
+    let type_cursors : Array[InlScratchTypeCursor] = []
     let absolute_pool_base = caller_param_count + reusable_body_local_start
     for parameter = 0
         parameter < info.params.length()
@@ -4053,6 +4144,8 @@ fn inl_make_inline_replacement(
             pool_used,
             next_locals,
             absolute_pool_base,
+            first_unused=Some(first_unused),
+            type_cursors=Some(type_cursors),
           )
         },
       )
@@ -4060,7 +4153,13 @@ fn inl_make_inline_replacement(
     for local_type in callee_locals.iter() {
       local_map.push(
         inl_allocate_reusable_scratch_local(
-          local_type, pool_types, pool_used, next_locals, absolute_pool_base,
+          local_type,
+          pool_types,
+          pool_used,
+          next_locals,
+          absolute_pool_base,
+          first_unused=Some(first_unused),
+          type_cursors=Some(type_cursors),
         ),
       )
     }
@@ -9312,6 +9411,7 @@ fn inl_run_module_pass_once(
   )
   let infos = inl_build_function_infos(
     split_prepared,
+    classify_uncalled=false,
     optimize_level~,
     shrink_level~,
     always_inline_max_size~,
