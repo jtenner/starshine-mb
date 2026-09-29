@@ -25,6 +25,30 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 rejected native getter annotation
+
+Adding `#inline` to `hot_node_get` produced an **identical native binary** to
+v7: SHA-256 `eeadc7c3e87fdb0a56b31aaf27721f92e97a718cea28ccf5ad6b8ac6ecf20763`,
+14,352,728 bytes. The annotation was removed. All 12,921 tests, native build,
+12 existing field-query controls and three next-stage reader controls pass;
+no native performance benefit can be attributed to this source annotation.
+
+The identical-binary v8 comparison is also a timing calibration: small DAE2/O
+appeared +9.85%/+2.50%, large +0.75%/+0.58%, and active tee −0.40%/−2.97%.
+These are measurement variation, not code regressions or wins. Preserve earlier
+small/control timings as observations, but do not infer a causal improvement
+from similarly small differences. Native helper scaling, fixed output/runtime
+checks and large gains have separate evidence; sub-percent artifact changes
+were already classified as near flat.
+
+The earlier bracket ran `precompute` through the before binary. Subsequent
+trials use a separate frozen reference executable for both brackets so neither
+candidate receives that asymmetric code-cache warmup. An independent-reference
+identical-binary calibration is recorded with subsequent results; this setup
+change alone is not proof that all timing noise is eliminated. Local evidence
+uses `v8`, `machine-v8.json` and `affinity-pairs-independent.py`. Fuzz remains
+deferred.
+
 ## September 29, 2026 bounded SSA source summaries
 
 LocalGraph's SSA flag needs only one distinct reaching source and agreement

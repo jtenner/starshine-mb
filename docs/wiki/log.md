@@ -21,6 +21,9 @@
   SSA singleton summaries replace growing unions and a second arena scan;
   the 512-write control improves 48.72 → 6.47µs, with large artifacts near flat
   and 12,919 tests passing. Instruction counts and noisy control costs remain explicit.
+  A native getter inline annotation produces an identical binary and is removed.
+  Its timing calibration exposes up to 9.85% small-input variation; later
+  paired brackets use a separate reference executable and retain that limitation.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration
