@@ -765,6 +765,11 @@ fn hot_lower_impl_collect_preceding_dependency(
     !hot_node_is_live(func, node_id) {
     return
   }
+  // Subtree masks include every operand: a pure tree cannot contain an
+  // effectful value that needs to be carried across this root.
+  if effects_is_pure(node_effects[node_id]) {
+    return
+  }
   if seen_consumer[node_id] == seen_consumer.length() {
     touched.push(node_id)
   }
@@ -826,6 +831,10 @@ fn hot_lower_impl_preceding_dependency_min_node(
   }
   if cache[node_id] != -2 {
     return cache[node_id]
+  }
+  if effects_is_pure(node_effects[node_id]) {
+    cache[node_id] = none
+    return none
   }
   let mut minimum = if hot_node_result_arity(func, node_id) > 0 &&
     !effects_is_pure(node_effects[node_id]) {

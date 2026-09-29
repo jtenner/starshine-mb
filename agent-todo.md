@@ -8,13 +8,17 @@
   regression introduced by the stacked-read correctness fix. Subsequent slices
   remove repeated opcode formatting, predecessor walks, region-root lookup,
   quadratic source unions and reader-list searches, source-row copies and a
-  duplicate operand-order traversal. Accepted changes and rejected cache trials
+  duplicate operand-order traversal and walks through proven pure subtrees.
+  Accepted changes and rejected cache trials
   are recorded in the [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md).
-  All 12,923 default tests, 126 bounded modules / 1,029 original/v133
+  All 12,929 default tests, 126 bounded modules / 1,029 original/v133
   observations and measured before/after bytes pass. The new active-reader
   fixture adds one passing bounded guard and four dedicated native controls;
   its matched 8192-reader pipelines improve 57.40%/49.80%. This deliberate
-  scalability workload does not establish a compiler-artifact gain.
+  scalability workload does not establish a compiler-artifact gain. Pure-subtree
+  pruning reduces dependency-analysis instructions 0.77% and paired large
+  DAE2 time 1.44%; optimizing compiler time is near flat and control costs
+  remain recorded.
 - **Remaining DAE2/O work:** close the multi-second compiler gap by reducing
   source-order scans, CFG/reaching-definition work, lift/lower and optimizing
   cleanup. The 32-root dependency-index threshold trial is rejected; sparse

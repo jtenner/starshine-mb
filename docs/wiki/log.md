@@ -46,6 +46,11 @@
   Lowering the dependency-index threshold to 32 roots is rejected after
   sparse helper gains fail to improve compiler pipelines; the shipping
   threshold stays 64 and 20 construction-inclusive controls remain available.
+  Pure-subtree dependency pruning then removes repeated operand walks;
+  two work-invariant regressions fail first, all 12,929 default tests and
+  1,029 bounded observations pass. Dependency instructions fall 0.77% and
+  paired large DAE2 time falls 1.44%; optimizing compiler timing is near flat,
+  with small/control costs preserved.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration

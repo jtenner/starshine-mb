@@ -25,6 +25,72 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 pure-subtree dependency pruning
+
+The shared preceding-value collector and indexed minimum query stop at a pure
+subtree. Effect masks already include every live child, while these dependency
+queries follow subsets of those operands. A zero subtree mask therefore cannot
+contain a value with nonzero effects that needs carrying across a statement.
+The collector leaves its scratch arrays untouched; the minimum query caches
+only the root's no-dependency sentinel. Calls, local-state reads, loads and
+numeric traps still follow the existing traversal. No retained cache or new
+allocation is introduced.
+
+Two [work-invariant regressions](../../../../../src/ir/hot_source_order_pure_wbtest.mbt)
+fail before the change: the old minimum query fills a pure leaf's cache slot,
+and collection records all 33 nodes in its touched workspace. Both now pass,
+with an additional effect/trap guard matching the original query reference.
+Eight [native controls](../../../../../src/ir/hot_source_order_pure_perf_wbtest.mbt)
+exclude fact construction and compare balanced 64/512-leaf trees. Collection
+improves 2.45µs → 19.67ns / 19.74µs → 19.49ns; minimum queries, including
+fresh cache-vector initialization, improve 2.40µs → 51.96ns /
+19.37µs → 254.87ns. These are helper controls, not compiler-wide speedups.
+
+Three alternating v11→v13 pairs, with CPU 6 affinity and the independent
+precompute-reference bracket, measure the following pipeline medians:
+
+| Input | DAE2 before → after | DAE2-O before → after |
+| --- | --- | --- |
+| Large compiler | 4683.480 → 4615.983ms (−1.44%) | 8061.194 → 8024.433ms (−0.46%) |
+| Small compiler | 4.418 → 4.346ms (−1.63%) | 11.536 → 11.448ms (−0.76%) |
+| Active tee | 4.055 → 4.161ms (+2.61%) | 106.419 → 107.161ms (+0.70%) |
+
+Large before/after MADs are 21.715/41.907ms and 57.195/27.438ms. Optimizing
+compiler timing is near flat; small/control changes remain limited by the
+identical-binary calibration. Managed-sandbox process visibility limits foreign
+CPU observation, so empty observations do not establish a quiet host.
+Dependency-only Callgrind instructions fall 20,486,620,723 → 20,329,087,979
+(−0.77%). Small whole-command instructions fall 80,724,625 → 80,565,783 /
+172,455,037 → 172,284,529; allocator request/free calls fall by only 7/9.
+Do not interpret those request counts as allocated bytes or peak RSS.
+
+The fresh verified-v133 sweep uses one warmup and three samples:
+
+| Input / pass | Starshine | Binaryen 133 | Ratio |
+| --- | ---: | ---: | ---: |
+| Small DAE2 | 4.749ms | 0.999ms | 4.75× |
+| Small DAE2-O | 14.283ms | 3.295ms | 4.33× |
+| Large DAE2 | 4297.268ms | 451.817ms | 9.51× |
+| Large DAE2-O | 7739.332ms | 1684.540ms | 4.59× |
+
+Large Starshine/Binaryen MADs are 37.034/6.357ms and 42.177/0.870ms.
+These separate cohorts are not a paired v11→v13 oracle-ratio improvement.
+Canonical sizes remain 6,132,389/6,232,586 and 5,995,920/5,573,450 bytes;
+the optimizing 422,470-byte gap and plain output-shape classification stay open.
+The oracle/input hashes are the same verified v133 hashes recorded below;
+new oracle evidence is `oracle-v13-{small,large}/`.
+
+Info, fmt, all 12,929 default tests, native CLI build and all eight controls
+pass. The fixed replay validates 126 modules with 1,029 matching
+original/v133 observations; all measured before/after bytes and traced/untraced
+outputs match. Candidate v13 SHA-256 is
+`a367397e0045ee3db4cc3711135edab4b1449cca2647cb0f202f684fc14360ab`.
+Evidence under `.tmp/dae2-lean-20260929/` uses `pairs-v13-*`,
+`callgrind-v13-dependencies`, `small-instructions-v13/`,
+`allocator-calls-v13.json`, `pure-red.log` and `validation-v13.json`.
+The next section preserves the earlier directly measured cumulative checkpoint;
+do not multiply its gains by this cohort's percentages. Fuzz remains deferred.
+
 ## September 29, 2026 cumulative lean checkpoint
 
 A fresh matched comparison uses v1 (the reverse-flow repair) as its baseline,
@@ -143,7 +209,8 @@ Local evidence uses `v12`, `region-*`, `threshold-*` and `rejected-v12/` under
 `.tmp/dae2-lean-20260929/`. Rejected candidate SHA-256 is
 `6c698eb8a86eb8fa250a0562944ad547fe3c7f8e547fa879f0c255de6adc2798`.
 Its completed v133 sweep remains saved under `oracle-v12-{small,large}/`;
-current production oracle evidence remains the accepted v11 checkpoint.
+the accepted production oracle at that checkpoint was v11, now superseded
+by the v13 sweep above.
 Fuzz remains deferred.
 
 ## September 29, 2026 fuse source-order operand walks
