@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-29
 sources:
   - binaryen-strategy.md
   - ../../../../../src/passes/optimize.mbt
@@ -25,6 +25,16 @@ related:
 # `vacuum`
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## Current-main PR #9155 parity
+
+The HOT and raw paths now sink a dropped concrete If result into both arms,
+preserve ordered effects/traps, and revisit newly unused nested values. The
+reverse arm-drop packing rule is removed. See the
+[implementation and focused evidence](starshine-hot-ir-strategy.md#september-29-2026--pr-9155-concrete-arm-drop-sinking)
+for the exact main revision, red-first tests, validation, benchmarks and the
+remaining indexed-input-signature gap. Historical packing evidence remains
+recorded under its original upstream/source versions.
 
 ## Dewdrop terminal-return regression
 

@@ -1850,7 +1850,7 @@ fn hot_pass_vacuum_flip_empty_then_if(
 }
 
 ///|
-fn hot_pass_vacuum_sink_drop_into_unreachable_if_arm(
+fn hot_pass_vacuum_sink_drop_into_if_arms(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -1861,35 +1861,49 @@ fn hot_pass_vacuum_sink_drop_into_unreachable_if_arm(
     @ir.hot_type_result_arity(func, @ir.hot_node_type(func, if_id)) != 1 {
     return false
   }
+  // Void block types cannot encode control inputs. Keep indexed signatures
+  // with inputs until their input signature can be preserved when demoting.
+  match @ir.hot_type_get(func, @ir.hot_node_type(func, if_id)) {
+    @ir.BlockResultResolved(_, params, _) if params.length() != 0 =>
+      return false
+    _ => ()
+  }
   let else_ref = match @ir.hot_region_else_ref(func, if_id) {
     Some(region) => region
     None => return false
   }
   let then_ref = @ir.hot_region_then_ref(func, if_id)
-  if @ir.hot_region_root_count(func, then_ref) != 1 ||
-    @ir.hot_region_root_count(func, else_ref) != 1 {
+  let then_count = @ir.hot_region_root_count(func, then_ref)
+  let else_count = @ir.hot_region_root_count(func, else_ref)
+  if then_count == 0 || else_count == 0 {
     return false
   }
-  let then_root = @ir.hot_region_get(func, then_ref, 0)
-  let else_root = @ir.hot_region_get(func, else_ref, 0)
-  let concrete_ref = if @ir.hot_node_get(func, then_root).op
-    is @ir.HotOp::Unreachable &&
-    !(@ir.hot_node_get(func, else_root).op is @ir.HotOp::Unreachable) {
-    else_ref
-  } else if @ir.hot_node_get(func, else_root).op is @ir.HotOp::Unreachable &&
-    !(@ir.hot_node_get(func, then_root).op is @ir.HotOp::Unreachable) {
-    then_ref
-  } else {
-    return false
-  }
-  let concrete_root = @ir.hot_region_get(func, concrete_ref, 0)
-  if @ir.hot_node_result_arity(func, concrete_root) != 1 ||
+  let then_root = @ir.hot_region_get(func, then_ref, then_count - 1)
+  let else_root = @ir.hot_region_get(func, else_ref, else_count - 1)
+  let then_concrete = @ir.hot_node_result_arity(func, then_root) == 1
+  let else_concrete = @ir.hot_node_result_arity(func, else_root) == 1
+  if !(then_concrete || else_concrete) ||
+    (
+      !then_concrete &&
+      !(@ir.hot_node_get(func, then_root).op is @ir.Unreachable)
+    ) ||
+    (
+      !else_concrete &&
+      !(@ir.hot_node_get(func, else_root).op is @ir.Unreachable)
+    ) ||
     hot_pass_vacuum_label_is_used(func, @ir.hot_control_node_label(func, if_id)) {
     return false
   }
-  @ir.hot_region_replace_body(func, concrete_ref, [
-    @ir.hot_build_drop(func, concrete_root),
-  ])
+  // Discard only the final value, after each arm's existing effects. Reuse
+  // the If and its condition; the unselected arm is never evaluated.
+  for arm in [then_ref, else_ref] {
+    let roots = vacuum_region_roots(func, arm)
+    let last = roots.length() - 1
+    if @ir.hot_node_result_arity(func, roots[last]) == 1 {
+      roots[last] = @ir.hot_build_drop(func, roots[last])
+      @ir.hot_region_replace_body(func, arm, roots)
+    }
+  }
   @ir.hot_control_result_type_set(func, if_id, @ir.hot_type_void(func))
   let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [if_id])
   vacuum_delete_detached_non_control_nodes(ctx, func, removed)
@@ -2379,11 +2393,12 @@ fn hot_pass_remove_region_nops(
           idx += 1
           continue
         }
-        if hot_pass_vacuum_sink_drop_into_unreachable_if_arm(
+        if hot_pass_vacuum_sink_drop_into_if_arms(
             ctx, func, region_ref, idx, child_id,
           ) {
           changed = true
-          idx += 1
+          // The same slot now holds a void If. Revisit its arms so the new
+          // drops expose nested value cleanup during this pass invocation.
           continue
         }
         let preserved_operand = match
@@ -62094,340 +62109,6 @@ fn run_hot_pipeline_raw_vacuum_try_pop_i32_const_compare_keep_lhs(
 }
 
 ///|
-fn run_hot_pipeline_raw_vacuum_call_returns_single_i32(
-  module_ctx : @ir.HotModuleContext?,
-  func_idx : @lib.FuncIdx,
-) -> Bool {
-  match module_ctx {
-    Some(ctx) =>
-      match @ir.hot_module_resolve_func_type(ctx, func_idx) {
-        Some(@lib.FuncType(_, [result])) => result == @lib.ValType::i32()
-        _ => false
-      }
-    None => false
-  }
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_call_single_i32_param_count(
-  module_ctx : @ir.HotModuleContext?,
-  func_idx : @lib.FuncIdx,
-) -> Int? {
-  match module_ctx {
-    Some(ctx) =>
-      match @ir.hot_module_resolve_func_type(ctx, func_idx) {
-        Some(@lib.FuncType(params, [result])) if result == @lib.ValType::i32() =>
-          Some(params.length())
-        _ => None
-      }
-    None => None
-  }
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_call_operand_value_expr_operand_count(
-  instr : @lib.Instruction,
-  module_ctx : @ir.HotModuleContext?,
-) -> Int? {
-  match instr {
-    @lib.Call(func_idx) =>
-      run_hot_pipeline_raw_vacuum_call_single_i32_param_count(
-        module_ctx, func_idx,
-      )
-    @lib.LocalTee(_) => Some(1)
-    @lib.If(@lib.ValTypeBlockType(value_type), _, Some(_)) if value_type ==
-      @lib.ValType::i32() => Some(1)
-    _ => run_hot_pipeline_raw_vacuum_pure_instr_operand_count(instr)
-  }
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_call_operand_value_expr_start(
-  instrs : Array[@lib.Instruction],
-  end_exclusive : Int,
-  module_ctx : @ir.HotModuleContext?,
-) -> Int? {
-  if end_exclusive <= 0 {
-    return None
-  }
-  let instr = instrs[end_exclusive - 1]
-  let operand_count = match
-    run_hot_pipeline_raw_vacuum_call_operand_value_expr_operand_count(
-      instr, module_ctx,
-    ) {
-    Some(count) => count
-    None => return None
-  }
-  let mut start = end_exclusive - 1
-  let mut remaining = operand_count
-  while remaining > 0 {
-    let operand_start = match
-      run_hot_pipeline_raw_vacuum_call_operand_value_expr_start(
-        instrs, start, module_ctx,
-      ) {
-      Some(value) => value
-      None => return None
-    }
-    start = operand_start
-    remaining = remaining - 1
-  }
-  Some(start)
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_body_is_single_call_operand_value_expr_drop(
-  body : Array[@lib.Instruction],
-  module_ctx : @ir.HotModuleContext?,
-) -> Bool {
-  if body.length() < 2 || !(body[body.length() - 1] is @lib.Drop) {
-    return false
-  }
-  match body[body.length() - 2] {
-    @lib.Call(func_idx) if run_hot_pipeline_raw_vacuum_call_returns_single_i32(
-        module_ctx, func_idx,
-      ) => ()
-    _ => return false
-  }
-  match
-    run_hot_pipeline_raw_vacuum_call_operand_value_expr_start(
-      body,
-      body.length() - 1,
-      module_ctx,
-    ) {
-    Some(0) => true
-    _ => false
-  }
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_body_ends_call_drop(
-  body : Array[@lib.Instruction],
-) -> Bool {
-  body.length() >= 2 &&
-  body[body.length() - 2] is @lib.Call(_) &&
-  body[body.length() - 1] is @lib.Drop
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_body_ends_result_if_drop(
-  body : Array[@lib.Instruction],
-) -> Bool {
-  body.length() >= 2 &&
-  body[body.length() - 2] is @lib.If(@lib.ValTypeBlockType(_), _, Some(_)) &&
-  body[body.length() - 1] is @lib.Drop
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_instr_has_dropped_result_if_call_candidate(
-  instr : @lib.Instruction,
-) -> Bool {
-  match instr {
-    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
-      (
-        run_hot_pipeline_raw_vacuum_body_ends_call_drop(then_body) &&
-        run_hot_pipeline_raw_vacuum_body_ends_call_drop(else_body)
-      ) ||
-      (
-        run_hot_pipeline_raw_vacuum_body_ends_result_if_drop(then_body) &&
-        run_hot_pipeline_raw_vacuum_body_ends_result_if_drop(else_body)
-      ) ||
-      run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
-        then_body,
-      ) ||
-      run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
-        else_body,
-      )
-    @lib.If(_, then_body, Some(else_body)) =>
-      run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
-        then_body,
-      ) ||
-      run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
-        else_body,
-      )
-    @lib.If(_, then_body, None) =>
-      run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
-        then_body,
-      )
-    @lib.Block(_, @lib.Expr(body))
-    | @lib.Loop(_, @lib.Expr(body))
-    | @lib.TryTable(_, _, @lib.Expr(body)) =>
-      run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
-        body,
-      )
-    _ => false
-  }
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for instr in instrs {
-    if run_hot_pipeline_raw_vacuum_instr_has_dropped_result_if_call_candidate(
-        instr,
-      ) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_body_has_f1259_release_update_prefix_before_terminal_call(
-  body : Array[@lib.Instruction],
-) -> Bool {
-  if body.length() < 7 {
-    return false
-  }
-  let (shared_raw, value_raw) = match (body[0], body[1], body[2]) {
-    (
-      @lib.LocalGet(@lib.LocalIdx(shared_raw)),
-      @lib.I32Load(_),
-      @lib.LocalSet(@lib.LocalIdx(value_raw)),
-    ) => (shared_raw, value_raw)
-    _ => return false
-  }
-  match (body[3], body[4]) {
-    (@lib.LocalGet(@lib.LocalIdx(next_shared_raw)), @lib.Call(_)) if next_shared_raw ==
-      shared_raw => ()
-    _ => return false
-  }
-  let mut terminal_uses_value = false
-  for idx = 5; idx + 2 < body.length(); idx = idx + 1 {
-    match body[idx] {
-      @lib.LocalGet(@lib.LocalIdx(next_value_raw)) if next_value_raw ==
-        value_raw => terminal_uses_value = true
-      _ => ()
-    }
-  }
-  terminal_uses_value
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_body_has_only_pure_prefix_before_terminal_call_drop(
-  body : Array[@lib.Instruction],
-) -> Bool {
-  if body.length() < 2 {
-    return false
-  }
-  for idx = 0; idx + 2 < body.length(); idx = idx + 1 {
-    if run_hot_pipeline_raw_vacuum_pure_instr_operand_count(body[idx]) is None {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_body_is_single_call_operand_value_expr(
-  body : Array[@lib.Instruction],
-  module_ctx : @ir.HotModuleContext?,
-) -> Bool {
-  if body.length() == 0 {
-    return false
-  }
-  match body[body.length() - 1] {
-    @lib.Call(func_idx) if run_hot_pipeline_raw_vacuum_call_returns_single_i32(
-        module_ctx, func_idx,
-      ) =>
-      match
-        run_hot_pipeline_raw_vacuum_call_operand_value_expr_start(
-          body,
-          body.length(),
-          module_ctx,
-        ) {
-        Some(0) => true
-        _ => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_body_is_single_loaded_result_if_drop(
-  body : Array[@lib.Instruction],
-  module_ctx : @ir.HotModuleContext?,
-) -> Bool {
-  if body.length() != 4 {
-    return false
-  }
-  match (body[0], body[1], body[2], body[3]) {
-    (
-      @lib.LocalGet(_),
-      @lib.I32Load(_),
-      @lib.If(@lib.ValTypeBlockType(value_type), then_body, Some(else_body)),
-      @lib.Drop,
-    ) if value_type == @lib.ValType::i32() =>
-      run_hot_pipeline_raw_vacuum_body_is_single_call_operand_value_expr(
-        then_body, module_ctx,
-      ) &&
-      run_hot_pipeline_raw_vacuum_body_is_single_call_operand_value_expr(
-        else_body, module_ctx,
-      )
-    _ => false
-  }
-}
-
-///|
-fn run_hot_pipeline_raw_vacuum_try_strip_terminal_i32_call_drop(
-  body : Array[@lib.Instruction],
-  module_ctx : @ir.HotModuleContext?,
-) -> Array[@lib.Instruction]? {
-  if body.length() < 2 ||
-    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) ||
-    run_hot_pipeline_raw_vacuum_body_targets_if_or_outer(body, 0) ||
-    run_hot_pipeline_raw_vacuum_body_has_f1259_release_update_prefix_before_terminal_call(
-      body,
-    ) {
-    return None
-  }
-  match body[body.length() - 1] {
-    @lib.Drop => ()
-    _ => return None
-  }
-  let terminal_is_result_if_value_expr = match body[body.length() - 2] {
-    @lib.If(@lib.ValTypeBlockType(value_type), _, Some(_)) if value_type ==
-      @lib.ValType::i32() =>
-      match
-        run_hot_pipeline_raw_vacuum_call_operand_value_expr_start(
-          body,
-          body.length() - 1,
-          module_ctx,
-        ) {
-        Some(0) => true
-        _ => false
-      }
-    _ => false
-  }
-  let terminal_is_loaded_result_if_value_expr = run_hot_pipeline_raw_vacuum_body_is_single_loaded_result_if_drop(
-    body, module_ctx,
-  )
-  if !terminal_is_result_if_value_expr &&
-    !terminal_is_loaded_result_if_value_expr &&
-    !run_hot_pipeline_raw_vacuum_body_is_single_call_operand_value_expr_drop(
-      body, module_ctx,
-    ) &&
-    !run_hot_pipeline_raw_vacuum_body_has_only_pure_prefix_before_terminal_call_drop(
-      body,
-    ) {
-    return None
-  }
-  match body[body.length() - 2] {
-    @lib.Call(func_idx) if run_hot_pipeline_raw_vacuum_call_returns_single_i32(
-        module_ctx, func_idx,
-      ) => ()
-    @lib.If(@lib.ValTypeBlockType(value_type), _, Some(_)) if value_type ==
-      @lib.ValType::i32() => ()
-    _ => return None
-  }
-  let value_body : Array[@lib.Instruction] = []
-  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
-    value_body.push(body[idx])
-  }
-  Some(value_body)
-}
-
-///|
 fn run_hot_pipeline_raw_vacuum_block_type_is_empty(
   module_ctx : @ir.HotModuleContext?,
   block_type : @lib.BlockType,
@@ -62449,28 +62130,23 @@ fn run_hot_pipeline_raw_vacuum_block_type_is_empty(
 }
 
 ///|
-fn run_hot_pipeline_raw_vacuum_instr_has_typeidx_empty_block_candidate(
+fn run_hot_pipeline_raw_vacuum_instr_requires_type_context(
   instr : @lib.Instruction,
 ) -> Bool {
   match instr {
-    @lib.Block(@lib.TypeIdxBlockType(_), _) => true
+    @lib.Block(@lib.TypeIdxBlockType(_), _)
+    | @lib.If(@lib.TypeIdxBlockType(_), _, _) => true
     @lib.Block(_, @lib.Expr(body))
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
-      run_hot_pipeline_raw_vacuum_instrs_have_typeidx_empty_block_candidate(
-        body,
-      )
+      run_hot_pipeline_raw_vacuum_instrs_require_type_context(body)
     @lib.If(_, then_body, else_body) => {
-      if run_hot_pipeline_raw_vacuum_instrs_have_typeidx_empty_block_candidate(
-          then_body,
-        ) {
+      if run_hot_pipeline_raw_vacuum_instrs_require_type_context(then_body) {
         return true
       }
       match else_body {
         Some(body) =>
-          run_hot_pipeline_raw_vacuum_instrs_have_typeidx_empty_block_candidate(
-            body,
-          )
+          run_hot_pipeline_raw_vacuum_instrs_require_type_context(body)
         None => false
       }
     }
@@ -62479,13 +62155,11 @@ fn run_hot_pipeline_raw_vacuum_instr_has_typeidx_empty_block_candidate(
 }
 
 ///|
-fn run_hot_pipeline_raw_vacuum_instrs_have_typeidx_empty_block_candidate(
+fn run_hot_pipeline_raw_vacuum_instrs_require_type_context(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
   for instr in instrs {
-    if run_hot_pipeline_raw_vacuum_instr_has_typeidx_empty_block_candidate(
-        instr,
-      ) {
+    if run_hot_pipeline_raw_vacuum_instr_requires_type_context(instr) {
       return true
     }
   }
@@ -63326,6 +63000,19 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_legacy_try(
     }
   }
   false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_preclean_dropped_arm(
+  body : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
+) -> Array[@lib.Instruction] {
+  let dropped = body.copy()
+  dropped.push(@lib.Instruction::drop())
+  let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+    dropped, module_ctx,
+  )
+  cleaned
 }
 
 ///|
@@ -65208,10 +64895,10 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         }
       }
       @lib.If(block_type, then_body, else_body) => {
-        let (next_then, then_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+        let (clean_then, then_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
           then_body, module_ctx,
         )
-        let (next_else, else_changed) = match else_body {
+        let (clean_else, else_changed) = match else_body {
           Some(body) => {
             let (cleaned, did_change) = run_hot_pipeline_raw_vacuum_preclean_instrs(
               body, module_ctx,
@@ -65220,55 +64907,19 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           }
           None => (None, false)
         }
+        let mut next_then = clean_then
+        let next_else = clean_else
+        let mut active_block_type = block_type
         changed = changed || then_changed || else_changed
-        let normalized_else = match next_else {
+        let mut normalized_else = match next_else {
           Some(body) if body.length() == 0 => {
             changed = true
             None
           }
           _ => next_else
         }
-        let sunk_unreachable_result_if = match (block_type, normalized_else) {
-          (@lib.ValTypeBlockType(_), Some(else_body)) if idx + 1 <
-            instrs.length() &&
-            instrs[idx + 1] is @lib.Drop =>
-            if next_then == [@lib.Instruction::unreachable_()] &&
-              else_body != [@lib.Instruction::unreachable_()] &&
-              !run_hot_pipeline_raw_vacuum_body_targets_owner(else_body, 0) {
-              let dropped_else = else_body.copy()
-              dropped_else.push(@lib.Instruction::drop())
-              rewritten.push(
-                @lib.Instruction::if_(
-                  @lib.BlockType::void_(),
-                  next_then,
-                  Some(dropped_else),
-                ),
-              )
-              true
-            } else if else_body == [@lib.Instruction::unreachable_()] &&
-              next_then != [@lib.Instruction::unreachable_()] &&
-              !run_hot_pipeline_raw_vacuum_body_targets_owner(next_then, 0) {
-              let dropped_then = next_then.copy()
-              dropped_then.push(@lib.Instruction::drop())
-              rewritten.push(
-                @lib.Instruction::if_(
-                  @lib.BlockType::void_(),
-                  dropped_then,
-                  Some(else_body),
-                ),
-              )
-              true
-            } else {
-              false
-            }
-          _ => false
-        }
-        if sunk_unreachable_result_if {
-          changed = true
-          idx = idx + 2
-          continue
-        }
-        let dropped_pure_result_if = match (block_type, normalized_else) {
+        let dropped_pure_result_if = match
+          (active_block_type, normalized_else) {
           (@lib.ValTypeBlockType(_), Some(else_body)) if idx + 1 <
             instrs.length() &&
             instrs[idx + 1] is @lib.Drop &&
@@ -65285,7 +64936,62 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           idx = idx + 2
           continue
         }
-        let collapsed_constant_result_if = if block_type !=
+        let has_dropped_result = idx + 1 < instrs.length() &&
+          instrs[idx + 1] is @lib.Drop
+        let single_result_without_inputs = has_dropped_result &&
+          (match active_block_type {
+            @lib.ValTypeBlockType(_) => true
+            @lib.TypeIdxBlockType(type_idx) =>
+              match module_ctx {
+                Some(ctx) =>
+                  match @ir.hot_module_resolve_type_func_type(ctx, type_idx) {
+                    Some(@lib.FuncType(params, results)) =>
+                      params.length() == 0 && results.length() == 1
+                    None => false
+                  }
+                None => false
+              }
+            @lib.VoidBlockType => false
+          })
+        if single_result_without_inputs {
+          match normalized_else {
+            Some(else_body) if !run_hot_pipeline_raw_vacuum_body_targets_owner(
+                next_then, 0,
+              ) &&
+              !run_hot_pipeline_raw_vacuum_body_targets_owner(else_body, 0) => {
+              let then_concrete = run_hot_pipeline_dce_raw_body_may_fallthrough(
+                next_then,
+              )
+              let else_concrete = run_hot_pipeline_dce_raw_body_may_fallthrough(
+                else_body,
+              )
+              if then_concrete || else_concrete {
+                // Append drops only to falling-through values and run ordinary
+                // arm cleanup again now that their results are unused.
+                if then_concrete {
+                  next_then = run_hot_pipeline_raw_vacuum_preclean_dropped_arm(
+                    next_then, module_ctx,
+                  )
+                }
+                if else_concrete {
+                  let cleaned = run_hot_pipeline_raw_vacuum_preclean_dropped_arm(
+                    else_body, module_ctx,
+                  )
+                  normalized_else = if cleaned.length() == 0 {
+                    None
+                  } else {
+                    Some(cleaned)
+                  }
+                }
+                active_block_type = @lib.BlockType::void_()
+                changed = true
+                idx = idx + 1
+              }
+            }
+            _ => ()
+          }
+        }
+        let collapsed_constant_result_if = if active_block_type !=
           @lib.BlockType::void_() &&
           rewritten.length() > 0 {
           match rewritten[rewritten.length() - 1] {
@@ -65320,7 +65026,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           idx = idx + 1
           continue
         }
-        match block_type {
+        match active_block_type {
           @lib.VoidBlockType if rewritten.length() > 0 =>
             match rewritten[rewritten.length() - 1] {
               @lib.I32Const(@lib.I32(value)) => {
@@ -65343,7 +65049,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
                 } else {
                   rewritten.push(
                     @lib.Instruction::if_(
-                      block_type, next_then, normalized_else,
+                      active_block_type, next_then, normalized_else,
                     ),
                   )
                 }
@@ -65356,43 +65062,32 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
                         else_body,
                       ) {
                       rewritten.push(
-                        @lib.Instruction::if_(block_type, next_then, None),
+                        @lib.Instruction::if_(
+                          active_block_type,
+                          next_then,
+                          None,
+                        ),
                       )
                       changed = true
                       idx = idx + 1
                       continue
                     }
-                    let packed_then = run_hot_pipeline_raw_vacuum_try_strip_terminal_i32_call_drop(
-                      next_then, module_ctx,
-                    )
-                    let packed_else = run_hot_pipeline_raw_vacuum_try_strip_terminal_i32_call_drop(
-                      else_body, module_ctx,
-                    )
-                    match (packed_then, packed_else) {
-                      (Some(then_value), Some(else_value)) => {
-                        rewritten.push(
-                          @lib.Instruction::if_(
-                            @lib.BlockType::val_type(@lib.ValType::i32()),
-                            then_value,
-                            Some(else_value),
-                          ),
-                        )
-                        rewritten.push(@lib.Instruction::drop())
-                        changed = true
-                      }
-                      _ if next_then.length() == 0 && else_body.length() > 0 => {
-                        rewritten.push(@lib.Instruction::i32_eqz())
-                        rewritten.push(
-                          @lib.Instruction::if_(block_type, else_body, None),
-                        )
-                        changed = true
-                      }
-                      _ =>
-                        rewritten.push(
-                          @lib.Instruction::if_(
-                            block_type, next_then, normalized_else,
-                          ),
-                        )
+                    if next_then.length() == 0 && else_body.length() > 0 {
+                      rewritten.push(@lib.Instruction::i32_eqz())
+                      rewritten.push(
+                        @lib.Instruction::if_(
+                          active_block_type,
+                          else_body,
+                          None,
+                        ),
+                      )
+                      changed = true
+                    } else {
+                      rewritten.push(
+                        @lib.Instruction::if_(
+                          active_block_type, next_then, normalized_else,
+                        ),
+                      )
                     }
                   }
                   _ if next_then.length() == 0 &&
@@ -65403,14 +65098,16 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
                   _ =>
                     rewritten.push(
                       @lib.Instruction::if_(
-                        block_type, next_then, normalized_else,
+                        active_block_type, next_then, normalized_else,
                       ),
                     )
                 }
             }
           _ =>
             rewritten.push(
-              @lib.Instruction::if_(block_type, next_then, normalized_else),
+              @lib.Instruction::if_(
+                active_block_type, next_then, normalized_else,
+              ),
             )
         }
       }
@@ -70954,10 +70651,7 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   let has_dropped_simple_struct = run_hot_pipeline_raw_vacuum_instrs_have_dropped_simple_struct(
     instrs,
   )
-  let module_ctx = if run_hot_pipeline_raw_vacuum_instrs_have_typeidx_empty_block_candidate(
-      instrs,
-    ) ||
-    run_hot_pipeline_raw_vacuum_instrs_have_dropped_result_if_call_candidate(
+  let module_ctx = if run_hot_pipeline_raw_vacuum_instrs_require_type_context(
       instrs,
     ) ||
     has_fresh_array_set ||

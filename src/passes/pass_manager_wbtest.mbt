@@ -4099,12 +4099,9 @@ test "raw vacuum preclean preserves side-effecting dropped result-if arm drops" 
 }
 
 ///|
-test "raw vacuum preclean packs f2369 call-operand dropped result-if arms" {
-  // Slot23 `defined=2369 abs=2396` follows the retained f2334 wrapper fix:
-  // Binaryen applies Vacuum.cpp's dropped-arm rule to a void `if` whose then
-  // arm is entirely one dropped i32 call expression, even though one terminal
-  // call operand is itself call-produced. Keep this narrower than f1272: side
-  // effects before the terminal dropped value expression must remain void.
+test "raw vacuum preclean preserves sunk f2369 call-operand dropped result-if arms" {
+  // The historical v133 packing expectation is superseded by PR #9155.
+  // Keep drops at the individual calls while preserving operand effects and traps.
   let input = pass_test_module_from_wat(
     (
       #|(module
@@ -4125,64 +4122,42 @@ test "raw vacuum preclean packs f2369 call-operand dropped result-if arms" {
   let make = @lib.FuncIdx::new(0U)
   let pred = @lib.FuncIdx::new(1U)
   let emit = @lib.FuncIdx::new(2U)
-  let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
-    [
-      @lib.Instruction::local_get(receiver),
-      @lib.Instruction::local_get(index),
-      @lib.Instruction::call(pred),
-      @lib.Instruction::if_(
-        @lib.BlockType::void_(),
-        [
-          @lib.Instruction::local_get(target),
-          @lib.Instruction::local_get(receiver),
-          @lib.Instruction::local_get(index),
-          @lib.Instruction::call(make),
-          @lib.Instruction::call(emit),
-          @lib.Instruction::drop(),
-        ],
-        Some([
-          @lib.Instruction::local_get(target),
-          @lib.Instruction::local_get(index),
-          @lib.Instruction::call(emit),
-          @lib.Instruction::drop(),
-        ]),
-      ),
-      @lib.Instruction::i32_const(@lib.I32(1)),
-    ],
+  let input = [
+    @lib.Instruction::local_get(receiver),
+    @lib.Instruction::local_get(index),
+    @lib.Instruction::call(pred),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::local_get(target),
+        @lib.Instruction::local_get(receiver),
+        @lib.Instruction::local_get(index),
+        @lib.Instruction::call(make),
+        @lib.Instruction::call(emit),
+        @lib.Instruction::drop(),
+      ],
+      Some([
+        @lib.Instruction::local_get(target),
+        @lib.Instruction::local_get(index),
+        @lib.Instruction::call(emit),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+  ]
+  let (cleaned, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+    input,
     Some(module_ctx),
   )
-  match cleaned {
-    [
-      @lib.LocalGet(_),
-      @lib.LocalGet(_),
-      @lib.Call(_),
-      @lib.If(@lib.ValTypeBlockType(value_type), then_body, Some(else_body)),
-      @lib.Drop,
-      @lib.I32Const(_),
-    ] => {
-      @debug.assert_eq(value_type, @lib.ValType::i32())
-      assert_true(then_body[then_body.length() - 1] is @lib.Call(_))
-      assert_true(else_body[else_body.length() - 1] is @lib.Call(_))
-    }
-    [
-      @lib.LocalGet(_),
-      @lib.LocalGet(_),
-      @lib.Call(_),
-      @lib.If(@lib.VoidBlockType, _, Some(_)),
-      @lib.I32Const(_),
-    ] => fail("expected f2369 call-operand dropped result-if arms to be packed")
-    other =>
-      fail("expected f2369 result-if packing, got \{@debug.to_string(other)}")
-  }
+  // Hoisting these drops is intentionally forbidden by PR #9155.
+  assert_false(changed)
+  assert_eq(cleaned, input)
 }
 
 ///|
-test "raw vacuum preclean packs f3752 local-tee call-operand dropped result-if arms" {
-  // Slot23 `defined=3752 abs=3779` follows the f3579 loop-head copy fix:
-  // Binaryen packs `drop(call)` arms into `drop(if (result i32) ...)` even when
-  // an else-arm terminal call operand uses `local.tee(call(...))`. The local.tee
-  // remains inside the selected arm, so this extends only the value-expression
-  // recognizer used by the existing dropped-result-if packing rule.
+test "raw vacuum preclean preserves sunk f3752 local-tee call-operand dropped result-if arms" {
+  // The historical v133 packing expectation is superseded by PR #9155.
+  // Keep drops at the individual calls while preserving operand effects and traps.
   let input = pass_test_module_from_wat(
     (
       #|(module
@@ -4209,55 +4184,42 @@ test "raw vacuum preclean packs f3752 local-tee call-operand dropped result-if a
   let make = @lib.FuncIdx::new(2U)
   let offset = @lib.FuncIdx::new(3U)
   let else_call = @lib.FuncIdx::new(4U)
-  let (cleaned, _) = run_hot_pipeline_raw_vacuum_preclean_instrs(
-    [
-      @lib.Instruction::local_get(source),
-      @lib.Instruction::call(pred),
-      @lib.Instruction::if_(
-        @lib.BlockType::void_(),
-        [
-          @lib.Instruction::local_get(env),
-          @lib.Instruction::local_get(index),
-          @lib.Instruction::local_get(extra),
-          @lib.Instruction::call(then_call),
-          @lib.Instruction::drop(),
-        ],
-        Some([
-          @lib.Instruction::local_get(env),
-          @lib.Instruction::local_get(env),
-          @lib.Instruction::local_get(source),
-          @lib.Instruction::call(make),
-          @lib.Instruction::local_tee(scratch),
-          @lib.Instruction::local_get(env),
-          @lib.Instruction::local_get(scratch),
-          @lib.Instruction::call(offset),
-          @lib.Instruction::local_get(index),
-          @lib.Instruction::i32_add(),
-          @lib.Instruction::local_get(extra),
-          @lib.Instruction::call(else_call),
-          @lib.Instruction::drop(),
-        ]),
-      ),
-    ],
+  let input = [
+    @lib.Instruction::local_get(source),
+    @lib.Instruction::call(pred),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::local_get(env),
+        @lib.Instruction::local_get(index),
+        @lib.Instruction::local_get(extra),
+        @lib.Instruction::call(then_call),
+        @lib.Instruction::drop(),
+      ],
+      Some([
+        @lib.Instruction::local_get(env),
+        @lib.Instruction::local_get(env),
+        @lib.Instruction::local_get(source),
+        @lib.Instruction::call(make),
+        @lib.Instruction::local_tee(scratch),
+        @lib.Instruction::local_get(env),
+        @lib.Instruction::local_get(scratch),
+        @lib.Instruction::call(offset),
+        @lib.Instruction::local_get(index),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::local_get(extra),
+        @lib.Instruction::call(else_call),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ]
+  let (cleaned, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+    input,
     Some(module_ctx),
   )
-  match cleaned {
-    [
-      @lib.LocalGet(_),
-      @lib.Call(_),
-      @lib.If(@lib.ValTypeBlockType(value_type), then_body, Some(else_body)),
-      @lib.Drop,
-    ] => {
-      @debug.assert_eq(value_type, @lib.ValType::i32())
-      assert_true(then_body[then_body.length() - 1] is @lib.Call(_))
-      assert_true(else_body.any(fn(instr) { instr is @lib.LocalTee(_) }))
-      assert_true(else_body[else_body.length() - 1] is @lib.Call(_))
-    }
-    [@lib.LocalGet(_), @lib.Call(_), @lib.If(@lib.VoidBlockType, _, Some(_))] =>
-      fail("expected f3752 local-tee call operand arms to be packed")
-    other =>
-      fail("expected f3752 result-if packing, got \{@debug.to_string(other)}")
-  }
+  // Hoisting these drops is intentionally forbidden by PR #9155.
+  assert_false(changed)
+  assert_eq(cleaned, input)
 }
 
 ///|
@@ -4423,12 +4385,9 @@ test "raw vacuum preclean keeps f2393 positive no-op if after no-op else ladder"
 }
 
 ///|
-test "raw vacuum preclean packs f4824 nested dropped result-if arms with load conditions" {
-  // Slot23 `defined=4824 abs=4851` follows the retained f4702 child flatten:
-  // Binaryen packs an outer void `if` whose arms are each one dropped
-  // `if (result i32)` value expression. The inner result-if conditions are
-  // potentially trapping loads, so this extends only the single loaded-condition
-  // value-if shape and keeps f1272/f3771 side-effect-prefix guards closed.
+test "raw vacuum preclean sinks f4824 nested result drops while retaining load conditions" {
+  // The historical v133 packing expectation is superseded by PR #9155.
+  // Keep drops at the individual calls while preserving operand effects and traps.
   let input = pass_test_module_from_wat(
     (
       #|(module
@@ -4497,42 +4456,46 @@ test "raw vacuum preclean packs f4824 nested dropped result-if arms with load co
   assert_true(changed)
   match cleaned {
     [
-      @lib.LocalGet(_),
-      @lib.I32Load(_),
-      @lib.If(@lib.ValTypeBlockType(value_type), then_body, Some(else_body)),
-      @lib.Drop,
-      @lib.I32Const(_),
+      @lib.LocalGet(actual_object),
+      @lib.I32Load(actual_load),
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+      @lib.I32Const(@lib.I32(4)),
     ] => {
-      @debug.assert_eq(value_type, @lib.ValType::i32())
-      assert_true(
-        then_body[then_body.length() - 1]
-        is @lib.If(@lib.ValTypeBlockType(_), _, Some(_)),
-      )
-      assert_true(
-        else_body[else_body.length() - 1]
-        is @lib.If(@lib.ValTypeBlockType(_), _, Some(_)),
-      )
+      assert_eq(actual_object, object)
+      assert_eq(actual_load, load0)
+      for (body, left, right) in [(then_body, 3, 1), (else_body, 2, 0)] {
+        assert_eq(body, [
+          @lib.Instruction::local_get(object),
+          @lib.Instruction::i32_load(load4),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [
+              @lib.Instruction::local_get(sink),
+              @lib.Instruction::i32_const(@lib.I32(left)),
+              @lib.Instruction::call(emit),
+              @lib.Instruction::drop(),
+            ],
+            Some([
+              @lib.Instruction::local_get(sink),
+              @lib.Instruction::i32_const(@lib.I32(right)),
+              @lib.Instruction::call(emit),
+              @lib.Instruction::drop(),
+            ]),
+          ),
+        ])
+      }
     }
-    [
-      @lib.LocalGet(_),
-      @lib.I32Load(_),
-      @lib.If(@lib.VoidBlockType, _, Some(_)),
-      @lib.I32Const(_),
-    ] => fail("expected f4824 nested dropped result-if arms to be packed")
-    other =>
+    _ =>
       fail(
-        "expected f4824 nested result-if packing, got \{@debug.to_string(other)}",
+        "expected void outer/nested conditionals with each unused call result dropped inside its arm",
       )
   }
 }
 
 ///|
-test "raw vacuum preclean packs f1903 dropped result-if arms" {
-  // Slot23 `defined=1903 abs=1930` follows the f1900 preservation fix:
-  // Binaryen packs a void `if` whose arms are dropped i32 value expressions into
-  // `drop (if (result i32) ...)`, even when the then arm itself is an
-  // `if (result i32)` carrying calls. This remains narrower than f1272: arms
-  // with side effects before the terminal value expression must stay void.
+test "raw vacuum preclean sinks f1903 nested result drops without hoisting arm drops" {
+  // The historical v133 packing expectation is superseded by PR #9155.
+  // Keep drops at the individual calls while preserving operand effects and traps.
   let input = pass_test_module_from_wat(
     (
       #|(module
@@ -4589,26 +4552,44 @@ test "raw vacuum preclean packs f1903 dropped result-if arms" {
   )
   match cleaned {
     [
-      @lib.LocalGet(_),
-      @lib.Call(_),
-      @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)),
-      @lib.Drop,
-      @lib.LocalGet(_),
+      @lib.LocalGet(actual_arg),
+      @lib.Call(actual_pred),
+      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)),
+      @lib.LocalGet(final_arg),
     ] => {
-      assert_true(
-        then_body[then_body.length() - 1]
-        is @lib.If(@lib.ValTypeBlockType(_), _, Some(_)),
-      )
-      assert_true(else_body[else_body.length() - 1] is @lib.Call(_))
+      assert_eq(actual_arg, arg)
+      assert_eq(final_arg, arg)
+      assert_eq(actual_pred, pred)
+      let nested = match nested_value_if {
+        @lib.If(_, left, Some(right)) => {
+          let dropped_left = left.copy()
+          dropped_left.push(@lib.Instruction::drop())
+          let dropped_right = right.copy()
+          dropped_right.push(@lib.Instruction::drop())
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            dropped_left,
+            Some(dropped_right),
+          )
+        }
+        _ => fail("expected the reduced fixture's two concrete nested arms")
+      }
+      assert_eq(then_body, [
+        @lib.Instruction::local_get(arg),
+        @lib.Instruction::call(choose),
+        nested,
+      ])
+      assert_eq(else_body, [
+        @lib.Instruction::local_get(arg),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::call(emit),
+        @lib.Instruction::drop(),
+      ])
     }
-    [
-      @lib.LocalGet(_),
-      @lib.Call(_),
-      @lib.If(@lib.VoidBlockType, _, Some(_)),
-      @lib.LocalGet(_),
-    ] => fail("expected f1903 dropped result-if arms to be packed")
-    other =>
-      fail("expected f1903 result-if packing, got \{@debug.to_string(other)}")
+    _ =>
+      fail(
+        "expected nested value drops sunk inside the existing void conditional",
+      )
   }
 }
 

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-25
+last_reviewed: 2026-09-29
 sources:
   - index.md
   - ./index.md
@@ -30,6 +30,84 @@ related:
 
 Use this page together with [`./binaryen-strategy.md`](./binaryen-strategy.md) and [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md); their direct `version_129` source/test URLs and retained research provide the upstream provenance.
 The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives, how the local HOT-plus-pipeline split is wired today, which checked ordered-neighborhood evidence is closed, and which narrower upstream families remain outside the represented direct surface.
+
+## September 29, 2026 — PR #9155 concrete-arm drop sinking
+
+[Binaryen PR #9155](https://github.com/WebAssembly/binaryen/pull/9155) merged at
+[`d1a6b253c7f75a3da7f0951102840013e46d6b7b`](https://github.com/WebAssembly/binaryen/commit/d1a6b253c7f75a3da7f0951102840013e46d6b7b).
+This dated current-main comparison supplements the verified release-v133
+baseline; its version string also says 133, so the source commit and executable
+SHA-256 distinguish the two oracles. Historical one-unreachable-arm and
+reverse-packing claims below are superseded for current Starshine behavior.
+
+The existing HOT sink now handles two concrete scalar/reference arm values,
+including preceding arm effects, and retains the original If and condition.
+It drops only the final value and changes the control/region result types to
+void. HOT cleanup revisits the converted If so inserted drops can remove
+nested unused values during the same invocation. The raw pre-clean path
+implements the same rule using its existing fallthrough and owner-branch
+checks, then reuses ordinary cleanup on each dropped arm. Its type-context
+admission scan includes indexed single-result If signatures without inputs.
+The reverse raw call-arm packing rule and its exclusive helpers are removed.
+
+Focused regressions in
+[`vacuum_pr9155_wbtest.mbt`](../../../../../src/passes/vacuum_pr9155_wbtest.mbt)
+and the
+[command dispatcher tests](../../../../../src/cmd/vacuum_pr9155_wbtest.mbt)
+cover i32, f64, nullable/non-null GC references, ordered calls, integer and null
+traps, nested cleanup, unreachable arms, indexed raw admission, input ownership
+and repeated-pass stability. Existing f2369/f3752/f4824/f1903 fixtures in
+[`pass_manager_wbtest.mbt`](../../../../../src/passes/pass_manager_wbtest.mbt)
+retain their operand/effect/load assertions with the new per-arm drop contract.
+The
+[active/rejected benchmarks](../../../../../src/passes/vacuum_label_guard_perf_wbtest.mbt)
+cover 128/256 concrete-arm sinks and the existing protected owner-label and
+nonempty-else controls; the active path includes a fresh lift per iteration.
+
+Validation completes: `moon info`, `moon fmt`, all 12,907 default wasm-gc
+checks, README API sync, the explicit native release CLI build and all six
+native benchmarks pass. There are no `.mbti` changes relative to the frozen
+V25 source. The native candidate SHA-256 is
+`5c03b6a93d19e8c90403b7b691f87ebfc94c42eb670052506bfa7cad50a2fbf8`.
+The current-main executable SHA-256 is
+`d5161c42f9ba9ce70b49040769e42a3a9074354e15f27e841b1463327b9ccbad`.
+Its reduced `--vacuum --all-features --disable-compact-imports` outputs match
+Starshine's encoded function bodies for i32/f64/GC and already-sunk versions.
+Disabling compact imports keeps this comparison on the ordinary import encoding;
+it does not change the vacuum transform.
+
+The fixed replay matrix independently validates 60 modules across 15 fixtures
+and matches all 744 Node v26.10.0 observations of results, selected-arm effects,
+integer/null traps and imported exceptions against original and pre-fix outputs.
+Canonicalization uses current-main parse/write plus debug/producer stripping,
+without vacuum or another semantic optimization: 13/15 whole modules match.
+Agent classification of the two remaining differences:
+
+- **Starshine win, reduced nested witness:** same selected condition/call effects
+  and traps under the inspected unused-result contract, with eight fewer
+  canonical bytes (81 versus 89). Starshine revisits inserted drops in one
+  invocation; main retains the dropped nested result If until later cleanup.
+- **Open parity gap, indexed input signature:** both replays match original
+  observations, but Starshine retains the typed result owner/drop and does not
+  expose individual dropped calls. Its one-byte canonical advantage (83 versus
+  84) does not close this transform/downstream cleanup gap.
+
+The branch-targeted-owner witness has identical canonical output; its direct
+void demotion remains intentionally excluded by both representations' live
+result-owner contract. Raw debug/name differences are not size-win evidence.
+Native active sink controls, including a fresh lift, take 1.50 ± 0.012 ms at
+128 roots and 5.06 ± 0.124 ms at 256. The path performs repeated whole-arena label and detached-use checks; this
+wider scaling requires attribution and remains a performance investigation,
+not a claimed pass speedup. Local evidence is under `.tmp/vacuum-pr9155-20260929/`; long GenValid
+renewal remains deferred until the performance trials finish, as requested.
+
+Indexed control signatures with input parameters remain excluded from direct
+void demotion: a void block type cannot encode those inputs. Current Binaryen
+main captures them in locals before sinking drops. This is an open transform
+parity gap, requiring input capture/signature normalization. Result owners with
+live value-carrying branch targets retain their signatures; main likewise keeps
+a result owner in the reduced branch witness. These guards preserve validation
+and do not establish whole-pass parity signoff.
 
 ## Exact local code map
 
@@ -62,7 +140,7 @@ The rewrite logic is currently centered on these HOT helpers in `src/passes/pass
 
 - `vacuum_dropped_parent_replacement(func, node_id)`, which recursively removes an unused ordinary value wrapper while preserving nonremovable child effects/traps as ordered drops and enforcing Binaryen's multi-child defaultability boundary
 - `hot_pass_vacuum_rewrite_dropped_parents_batch(...)`, which rebuilds a complete region once and deletes only zero-use known-detached wrappers in one batch instead of applying one splice/check cycle per dropped parent; shared parents still feeding observable roots remain live
-- `hot_pass_vacuum_sink_drop_into_unreachable_if_arm(...)`, which converts a scalar result `if` with one exact unreachable arm into a void `if` whose concrete arm drops its value
+- `hot_pass_vacuum_sink_drop_into_if_arms(...)`, which converts a dropped single-result `if` into a void `if` and drops each concrete arm value after its existing effects; unreachable arms remain intact
 - `hot_pass_vacuum_remove_local_only_void_body(ctx, func)`,  which can canonicalize an otherwise side-effect-free/local-only void function body to Binaryen's single `nop` body without requiring a `local.tee`; it explicitly requires zero function-body result arity and rejects calls, external writes, memory/table mutation, throwing/trapping operations, and loops whose own label is targeted
 - `hot_pass_vacuum_remove_empty_if(...)`, which removes an empty void `if` after recursively cleaning its arms, discards a removable pure condition, and otherwise preserves condition evaluation in Binaryen's `drop(condition)` shape
 - `hot_pass_remove_region_nops(ctx, func, region_ref)`, which handles the ordinary recursive region cleanup

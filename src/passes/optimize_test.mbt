@@ -5436,8 +5436,8 @@ test "vacuum preserves release-update void if arm drops" {
   // Slot23 `defined=1259 abs=1286` follows f1224: Binaryen keeps the
   // release/update arms as a void `if` with per-arm dropped result calls when
   // each arm first loads/stores a local and releases the shared object.
-  // Starshine's dropped-result-if packing remains valid for pure emit arms,
-  // but this loop-local update shape must stay Binaryen-shaped.
+  // PR #9155 also keeps pure emit-arm drops inside the void conditional;
+  // this release/update shape retains the same ordering contract.
   let input = pass_test_module_from_wat(
     (
       #|(module
@@ -5498,7 +5498,7 @@ test "vacuum preserves release-update void if arm drops" {
 }
 
 ///|
-test "vacuum packs dropped result-if call arms after nop cleanup" {
+test "vacuum keeps dropped call results inside void if arms after nop cleanup" {
   let input = pass_test_module_from_wat(
     (
       #|(module
@@ -5535,31 +5535,31 @@ test "vacuum packs dropped result-if call arms after nop cleanup" {
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => {
-      let mut saw_result_if = false
-      let mut saw_drop_after_result_if = false
-      for idx = 0; idx < instrs.length(); idx = idx + 1 {
-        match instrs[idx] {
-          @lib.If(@lib.ValTypeBlockType(vt), _, Some(_)) if vt ==
-            @lib.ValType::i32() => {
-            saw_result_if = true
-            if idx + 1 < instrs.length() && instrs[idx + 1] is @lib.Drop {
-              saw_drop_after_result_if = true
-            }
-          }
-          @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
-            if then_body.any(fn(instr) { instr is @lib.Drop }) ||
-              else_body.any(fn(instr) { instr is @lib.Drop }) {
-              fail(
-                "expected Binaryen-style dropped result-if packing, got void if with arm drops: \{@debug.to_string(instrs[idx])}",
-              )
-            }
-          _ => ()
+      let conditionals = instrs.filter(fn(instr) { instr is @lib.If(_, _, _) })
+      assert_eq(conditionals.length(), 1)
+      match conditionals[0] {
+        @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+          assert_eq(then_body, [
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_const(@lib.I32(255)),
+            @lib.Instruction::i32_and(),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+          ])
+          assert_eq(else_body, [
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(63)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+          ])
         }
+        _ =>
+          fail(
+            "expected a void conditional with unused call results dropped in each arm",
+          )
       }
-      assert_true(
-        saw_result_if && saw_drop_after_result_if,
-        msg=@debug.to_string(instrs),
-      )
+      assert_false(instrs.any(fn(instr) { instr is @lib.Drop }))
     }
     other =>
       fail(
