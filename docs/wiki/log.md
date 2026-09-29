@@ -8,6 +8,9 @@
   explicit in the [DAE2 strategy](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-expanded-flow-performance-repair).
   Direct tuple-opcode admission then improves large DAE2/O another
   3.89%/2.90%, with 12,910 tests and the same bounded replay lane passing.
+  Read-only predecessor compression adds 4.97%/3.53% large reductions,
+  with 12,911 tests passing and small/tee control costs recorded. Fresh
+  dependency attribution identifies CFG construction and reverse queries.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration

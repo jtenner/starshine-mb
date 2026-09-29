@@ -1454,10 +1454,77 @@ fn local_graph_reverse_indexed_last_write(
 }
 
 ///|
+fn local_graph_reverse_transparent_predecessors(
+  func : HotFunc,
+  cfg : HotCfg,
+  actions : Array[Array[NodeId]],
+  include_exceptional : Bool,
+) -> Array[BlockId] {
+  let count = cfg_block_count(cfg)
+  let next = Array::makei(count, fn(block) { block })
+  for block in 0..<count {
+    let mut writes = false
+    for node in actions[block] {
+      match hot_node_op(func, node) {
+        HotOp::LocalSet | HotOp::LocalTee => {
+          writes = true
+          break
+        }
+        _ => ()
+      }
+    }
+    if writes {
+      continue
+    }
+    let mut predecessor = -1
+    for edge in cfg_predecessor_edges(cfg, block) {
+      if !include_exceptional && edge.kind == CfgEdgeKind::ExceptionalEdge {
+        continue
+      }
+      if predecessor >= 0 {
+        predecessor = -2
+        break
+      }
+      predecessor = edge.block
+    }
+    if predecessor >= 0 {
+      next[block] = predecessor
+    }
+  }
+  // The eligible links form a functional graph. Resolve each chain once;
+  // a closed read-only cycle has no external source and retains one
+  // representative so the query's existing visited set terminates it.
+  let state = Array::make(count, 0)
+  let path : Array[BlockId] = []
+  for block in 0..<count {
+    if state[block] != 0 {
+      continue
+    }
+    let mut current = block
+    while state[current] == 0 {
+      state[current] = 1
+      path.push(current)
+      if next[current] == current {
+        break
+      }
+      current = next[current]
+    }
+    let target = if state[current] == 2 { next[current] } else { current }
+    for member in path {
+      next[member] = target
+      state[member] = 2
+    }
+    path.clear()
+  }
+  next
+}
+
+///|
 fn local_graph_reverse_entry_sources(
   func : HotFunc,
   cfg : HotCfg,
   actions : Array[Array[NodeId]],
+  transparent_predecessors : Array[BlockId],
   block_id : BlockId,
   local_id : LocalId,
   include_exceptional : Bool,
@@ -1486,7 +1553,7 @@ fn local_graph_reverse_entry_sources(
         continue
       }
       has_predecessor = true
-      let pred = edge.block
+      let pred = transparent_predecessors[edge.block]
       match
         local_graph_reverse_indexed_last_write(
           func, actions, pred, local_id, last_writes,
@@ -1595,6 +1662,9 @@ fn local_graph_build_reverse_flow(
     written_locals.clear()
   }
 
+  let transparent_predecessors = local_graph_reverse_transparent_predecessors(
+    func, cfg, actions, include_exceptional,
+  )
   let get_sources : Array[Array[Int]] = Array::make(node_count, [])
   let write_influences = local_graph_empty_influences(func)
   let recorded_sources = LocalGraphSourceRecorder::new(get_sources)
@@ -1631,6 +1701,7 @@ fn local_graph_build_reverse_flow(
         func,
         cfg,
         actions,
+        transparent_predecessors,
         block_id,
         local_id,
         include_exceptional,

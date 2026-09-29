@@ -25,6 +25,44 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 read-only predecessor chains
+
+Reverse local-flow queries previously walked every intervening read-only block
+again for each local. A linear prepass now resolves single-predecessor chains,
+stopping at writes and joins. Closed read-only cycles retain one representative;
+exceptional-edge selection follows the query policy. The
+[bounded graph fixture](../../../../../src/ir/local_graph_transparent_wbtest.mbt)
+compares sources with dense flow across chains, joins, reachable loops,
+disconnected cycles and exception edges. Source sets pass before and after;
+post-change assertions also check the compressed predecessor map.
+
+The existing expanded-flow benchmarks now take 13.69/53.08/102.54µs at
+32/128/256 reads, versus 25.92/279.86/1040µs in the earlier v1 cohort. These
+helper cohorts differ; the current same-process dense controls are
+66.56/867.01/3220µs. Scaling is now approximately linear on this fixture.
+Three alternating artifact pairs give large DAE2 4558.704 → 4331.999ms
+(−4.97%; MAD 2.407/14.058ms) and DAE2-O 7342.827 → 7083.803ms
+(−3.53%; MAD 14.866/18.654ms). Small controls are 4.242 → 4.331ms and
+11.376 → 11.057ms; active tee controls are 3.544 → 3.504ms and
+104.067 → 106.056ms. Preserve the observed +2.10% small DAE2 and +1.91%
+active optimizing costs; this does not establish a win for every workload.
+
+All output bytes match. Full 12,911-test validation, native build, six native
+benchmarks and the 126-module / 1,029-observation fixed replay lane pass.
+Candidate SHA-256 is
+`888b45565e826f0d7cabc51e8a7042fa889b29328302f51ebb6f8136b757e327`;
+artifacts use `.tmp/dae2-lean-20260929/` and the `v3` suffix. Fuzz remains deferred.
+
+A fresh dependency-only Callgrind profile of the preceding **v2** binary records
+26,495,753,239 instructions with validated, byte-identical large output. Its
+nonrecursive inclusive CFG and LocalGraph owners account for 56.38% and 32.81%;
+self costs include HOT node reads 15.46%, reverse entry traversal 12.20%, indexed
+last-write lookup 5.72%, and object destruction 5.44%. Recursive inclusive
+attribution overlaps and must not be added. This is not a whole-command profile
+or a timing comparison with v9. The next trials target repeated node decoding
+in write lookup and source-order subtree scans; local `profile-v2-{self,inclusive}.txt`
+and `callgrind-v2-dependencies` preserve the attribution.
+
 ## September 29, 2026 tuple preparation without opcode strings
 
 Shared HOT lowering now tests `HotOp::TupleMake` directly and reads result

@@ -10,8 +10,10 @@
   observations match original/v133 behavior and before/after bytes. Three-pair
   large pipeline medians fall 39.136 → 5.092s (DAE2) and 38.973 → 7.936s (DAE2-O).
   This repairs the dense-flow cost introduced by the source-order fix, rather
-  than beating historical V18 by those percentages. Remaining targets include
-  read-only predecessor chains, source-union churn, and lift/lower;
+  than beating historical V18 by those percentages. Read-only predecessor compression then improves large DAE2/O another
+  4.97%/3.53% (4.332/7.084s; 12,911 tests), retaining small/tee control costs.
+  Remaining targets include write lookup, source-order scans, source-union
+  churn, and lift/lower;
   opcode-based tuple preparation removes temporary strings and improves paired
   large DAE2/O a further 3.89%/2.90% with identical bytes (12,910 tests pass); fresh oracle ratios and deferred aggregate fuzz remain open.
   See the [measured repair](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-29-2026-expanded-flow-performance-repair).
@@ -244,6 +246,10 @@ breadth. Shared changes require all affected consumers in the matrix below.
   location lookup and unavoidable lift/lower allocation separately. Reuse
   compact affected-function/revision facts or bounded scratch only with measured
   benefit; preserve conservative dependencies for unknown control information.
+  The fresh lean-v2 dependency-only profile puts CFG construction at 56.38%
+  and LocalGraph at 32.81% inclusive, with node reads at 15.46% self. Target
+  repeated last-write decoding and source-order scans next; do not confuse
+  this scoped profile with whole-command attribution.
   The v9 large whole-command profile puts DAE2 analysis at 0.58% self and the
   LocalGraph source/build/join helpers at 2.53% combined; isolate lift, analysis,
   lower and final validation before pursuing more graph metadata.
