@@ -1339,7 +1339,10 @@ fn validate_end_stack_for_function_body(
 }
 
 ///|
-fn validate_func_body_against_functype(
+/// Validate one body against a resolved signature and unchanged module
+/// environment. Each invocation owns its local stack, labels and initialization
+/// state, so callers may reuse the module environment across sibling bodies.
+pub fn validate_func_body_against_functype(
   env : Env,
   ft : FuncType,
   f : Func,

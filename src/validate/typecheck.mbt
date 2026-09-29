@@ -149,21 +149,81 @@ fn TcState::push1(st : TcState, vt : ValType) -> TcState {
 fn tc_initialized_intersection(
   left : Array[Bool],
   right : Array[Bool],
+  element_checks? : Array[Int]? = None,
 ) -> Array[Bool] {
+  if physical_equal(left, right) {
+    // A read-only control fork can share its mask with both arms. The merged
+    // state still owns a copy so a later initialization cannot change either arm.
+    return left.copy()
+  }
   let limit = if left.length() < right.length() {
     left.length()
   } else {
     right.length()
   }
+  match element_checks {
+    Some(counts) => counts[0] += limit
+    None => ()
+  }
   Array::makei(limit, fn(idx) { left[idx] && right[idx] })
 }
 
 ///|
-fn TcState::mark_local_initialized(st : TcState, idx : LocalIdx) -> TcState {
+#inline
+fn tc_initialized_join(left : Array[Bool], right : Array[Bool]) -> Array[Bool] {
+  // Expression owners copy inherited masks before changing a false bit.
+  // Reusing an unchanged join also keeps enclosing joins on this constant-time
+  // path, instead of making equal-but-distinct masks at every nested if.
+  if physical_equal(left, right) {
+    left
+  } else {
+    tc_initialized_intersection(left, right)
+  }
+}
+
+///|
+priv struct TcInitializationOwner {
+  mut mask : Array[Bool]?
+  copy_count : Array[Int]?
+}
+
+///|
+fn TcInitializationOwner::new(
+  copy_count? : Array[Int]? = None,
+) -> TcInitializationOwner {
+  { mask: None, copy_count, }
+}
+
+///|
+fn TcState::mark_local_initialized(
+  st : TcState,
+  idx : LocalIdx,
+  initialization_owner? : TcInitializationOwner? = None,
+) -> TcState {
   let LocalIdx(raw) = idx
   let local_id = raw.reinterpret_as_int()
-  if local_id >= 0 && local_id < st.initialized_locals.length() {
-    st.initialized_locals[local_id] = true
+  if local_id >= 0 &&
+    local_id < st.initialized_locals.length() &&
+    !st.initialized_locals[local_id] {
+    // Control entry, sibling arms, and prior states may share this mask. A
+    // semantic change owns its storage before setting a bit; idempotent writes
+    // leave every shared mask untouched.
+    if initialization_owner is Some(owner) {
+      if owner.mask is Some(owned) &&
+        physical_equal(owned, st.initialized_locals) {
+        st.initialized_locals[local_id] = true
+        return st
+      }
+      if owner.copy_count is Some(count) {
+        count[0] += 1
+      }
+    }
+    let initialized_locals = st.initialized_locals.copy()
+    if initialization_owner is Some(owner) {
+      owner.mask = Some(initialized_locals)
+    }
+    initialized_locals[local_id] = true
+    return TcState::{ ..st, initialized_locals, }
   }
   st
 }
@@ -209,19 +269,27 @@ fn TcState::pop1(st : TcState) -> Result[(TcState, ValType), String] {
 }
 
 ///|
-fn TcState::pop_expect(st : TcState, expected : ValType) -> TcResult {
-  match st.pop1() {
-    Err(e) => Err(e)
-    Ok((st2, actual)) => {
-      if actual == ValType::bottom() {
-        return Ok(st2)
-      }
-      if Match::matches(actual, expected, st.env) {
-        Ok(st2)
+fn TcState::pop_expect(
+  st : TcState,
+  expected : ValType,
+  operand_pairs? : Array[Int]? = None,
+) -> TcResult {
+  ignore(operand_pairs)
+  // The stack is already owned and mutated by pop1. Check its popped value
+  // directly so typed operands do not allocate an intermediate state/value pair.
+  let actual = match st.stack.pop() {
+    Some(value) => value
+    None =>
+      if !st.reachable {
+        return Ok(st)
       } else {
-        Err("type mismatch: expected=\{expected} actual=\{actual}")
+        return Err("stack underflow")
       }
-    }
+  }
+  if actual == ValType::bottom() || Match::matches(actual, expected, st.env) {
+    Ok(st)
+  } else {
+    Err("type mismatch: expected=\{expected} actual=\{actual}")
   }
 }
 
@@ -440,8 +508,26 @@ fn normalize_loop_exit(
 pub impl Typecheck for Expr with fn typecheck(self, st0) {
   let Expr(instrs) = self
   let mut st = st0
+  let mut initialization_owner : TcInitializationOwner? = None
   for index, ins in instrs {
-    match Typecheck::typecheck(ins, st) {
+    let checked = match ins {
+      LocalSet(idx) | LocalTee(idx) => {
+        let LocalIdx(raw) = idx
+        let local_id = raw.reinterpret_as_int()
+        if initialization_owner is None &&
+          local_id >= 0 &&
+          local_id < st.initialized_locals.length() &&
+          !st.initialized_locals[local_id] {
+          initialization_owner = Some(TcInitializationOwner::new())
+        }
+        match ins {
+          LocalSet(_) => typecheck_local_set(st, idx, initialization_owner~)
+          _ => typecheck_local_tee(st, idx, initialization_owner~)
+        }
+      }
+      _ => Typecheck::typecheck(ins, st)
+    }
+    match checked {
       Ok(stp) => st = stp
       Err(err) =>
         return Err("instruction[\{index}] \{ins}: \{err}; stack=\{st.stack}")
@@ -530,26 +616,35 @@ fn typecheck_local_get(st : TcState, idx : LocalIdx) -> TcResult {
 }
 
 ///|
-fn typecheck_local_set(st : TcState, idx : LocalIdx) -> TcResult {
+fn typecheck_local_set(
+  st : TcState,
+  idx : LocalIdx,
+  initialization_owner? : TcInitializationOwner? = None,
+) -> TcResult {
   match st.env.get_local_type(idx) {
     None => Err("invalid local index")
     Some(vt) =>
       match st.pop_expect(vt) {
         Err(e) => Err(e)
-        Ok(st2) => Ok(st2.mark_local_initialized(idx))
+        Ok(st2) => Ok(st2.mark_local_initialized(idx, initialization_owner~))
       }
   }
 }
 
 ///|
-fn typecheck_local_tee(st : TcState, idx : LocalIdx) -> TcResult {
+fn typecheck_local_tee(
+  st : TcState,
+  idx : LocalIdx,
+  initialization_owner? : TcInitializationOwner? = None,
+) -> TcResult {
   match st.env.get_local_type(idx) {
     None => Err("invalid local index")
     Some(vt) =>
       // tee pops vt then pushes vt
       match st.pop_expect(vt) {
         Err(e) => Err(e)
-        Ok(st2) => Ok(st2.mark_local_initialized(idx).push1(vt))
+        Ok(st2) =>
+          Ok(st2.mark_local_initialized(idx, initialization_owner~).push1(vt))
       }
   }
 }
@@ -834,7 +929,7 @@ pub fn tc_state_finish_if(
 
   if then_reach || else_reach {
     let merged_initialized = if then_reach && else_reach {
-      tc_initialized_intersection(
+      tc_initialized_join(
         st_then.initialized_locals,
         st_else.initialized_locals,
       )
@@ -5356,6 +5451,28 @@ pub fn tc_state_with_owned_stack(
     reachable: state.reachable,
     escape: state.escape,
     reachable_escape_depths: state.reachable_escape_depths,
+    initialized_locals: state.initialized_locals,
+  }
+}
+
+///|
+// Fork a child scope with an owned stack and no inherited escape observations.
+// Matching local storage preserves definite-initialization facts. A different
+// local environment keeps tc_state_new's established all-initialized policy.
+pub fn tc_state_fork_body(
+  state : TcState,
+  env : Env,
+  stack : Array[ValType],
+) -> TcState {
+  if !physical_equal(state.env.locals, env.locals) {
+    return tc_state_new(env, stack, state.reachable, state.escape)
+  }
+  TcState::{
+    env,
+    stack,
+    reachable: state.reachable,
+    escape: state.escape,
+    reachable_escape_depths: [],
     initialized_locals: state.initialized_locals,
   }
 }

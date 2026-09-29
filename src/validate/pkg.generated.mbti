@@ -205,6 +205,8 @@ pub fn tc_state_finish_loop(TcState, TcState, TcState, Array[@lib.ValType]) -> R
 
 pub fn tc_state_finish_try_table(TcState, TcState, TcState, Array[@lib.ValType], Array[@lib.Catch]) -> Result[TcState, String]
 
+pub fn tc_state_fork_body(TcState, Env, Array[@lib.ValType]) -> TcState
+
 pub fn tc_state_merge_nonfallthrough_if_exits(TcEscape, TcEscape) -> TcEscape
 
 pub fn tc_state_new(Env, Array[@lib.ValType], Bool, TcEscape) -> TcState
@@ -240,6 +242,8 @@ pub fn validate_defined_funcs_against_module(@lib.Module, Array[(@lib.FuncIdx, @
 pub fn validate_elemsec(@lib.ElemSec?, Env) -> Result[Env, String]
 
 pub fn validate_exportsec(@lib.ExportSec?, Env) -> Result[Unit, String]
+
+pub fn validate_func_body_against_functype(Env, @lib.FuncType, @lib.Func) -> Result[Unit, String]
 
 pub fn validate_funcsec(@lib.FuncSec?, Env) -> Result[Env, String]
 

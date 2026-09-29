@@ -1,5 +1,5 @@
 ///|
-test "initialization fork borrows only masks that a body cannot change" {
+test "initialization forks borrow masks and isolate actual writes" {
   let mask = Array::make(256, true)
   mask[3] = false
   let safe = [
@@ -14,14 +14,18 @@ test "initialization fork borrows only masks that a body cannot change" {
     Instruction::local_set(LocalIdx::new(3U)),
   ]
   let isolated = tc_fork_initialized_for_body(mask, writes)
-  assert_true(!physical_equal(mask, isolated))
-  isolated[3] = true
+  assert_true(physical_equal(mask, isolated))
+  let state = TcState::{
+    ..make_state(empty_env(), []),
+    initialized_locals: isolated,
+  }
+  let isolated = state.mark_local_initialized(LocalIdx::new(3U)).initialized_locals
   assert_eq(mask[3], false)
   assert_eq(isolated[3], true)
 }
 
 ///|
-test "initialization fork examines nested arms loops and legacy catches" {
+test "initialization forks isolate writes in nested arms loops and legacy catches" {
   let mask = Array::make(256, true)
   mask[3] = false
   let writes = [Instruction::local_set(LocalIdx::new(3U))]
@@ -36,23 +40,40 @@ test "initialization fork examines nested arms loops and legacy catches" {
       ]),
     ] {
     let forked = tc_fork_initialized_for_body(mask, [instr])
-    forked[3] = true
+    let state = TcState::{
+      ..make_state(empty_env(), []),
+      initialized_locals: forked,
+    }
+    let changed = state.mark_local_initialized(LocalIdx::new(3U))
+    assert_true(changed.initialized_locals[3])
     assert_eq(mask[3], false)
   }
 }
 
 ///|
-test "initialization fork budget and small masks retain owned arrays" {
+test "initialization forks defer copies for long bodies and small masks" {
   let mask = Array::make(256, false)
   let forked = tc_fork_initialized_for_body(
     mask,
     Array::make(9, Instruction::nop()),
   )
-  forked[0] = true
+  assert_true(physical_equal(mask, forked))
+  let state = TcState::{
+    ..make_state(empty_env(), []),
+    initialized_locals: forked,
+  }
+  let changed = state.mark_local_initialized(LocalIdx::new(0U))
+  assert_true(changed.initialized_locals[0])
   assert_eq(mask[0], false)
   let small = [false]
   let forked = tc_fork_initialized_for_body(small, [])
-  forked[0] = true
+  assert_true(physical_equal(small, forked))
+  let state = TcState::{
+    ..make_state(empty_env(), []),
+    initialized_locals: forked,
+  }
+  let changed = state.mark_local_initialized(LocalIdx::new(0U))
+  assert_true(changed.initialized_locals[0])
   assert_eq(small[0], false)
 }
 

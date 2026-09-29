@@ -35,6 +35,13 @@ Use this page for the **validator** contract: what `validate_typesec(...)` accep
 
 The current evidence is the WebAssembly Core 3.0 type syntax, text type-use, binary type encoding, validation, matching, and module-validation pages, reviewed on 2026-07-14, plus Starshine validator/proof-helper evidence. One extra consumer rule follows from the same bridge: module-level function signatures live in `FuncSec(Array[TypeIdx])`, so any `RecIdx` seen while validating a recursive group is temporary and must be normalized before later phases or module-level caches use it.
 
+The [function-section fixture](../../../src/validate/function_section_index_wbtest.mbt)
+checks global indices spanning a multi-member recursive group and a later type,
+and rejects an intentionally invalid `RecIdx` in `FuncSec`. The declaration in
+[`types.mbt`](../../../src/lib/types.mbt) documents the same contract. This closes
+the focused [AUDIT]006 inline/wiki/test documentation gap; it introduces no new
+index representation or public function.
+
 ## Beginner Model
 
 A recursive group is a scope for type definitions, but its members still become flat module type indices:
