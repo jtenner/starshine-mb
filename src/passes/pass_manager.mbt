@@ -16181,11 +16181,10 @@ fn run_hot_pipeline_prepare_tuple_make_lowering(
     if !@ir.hot_node_is_live(func, node_id) {
       continue
     }
-    let node = @ir.hot_node_get(func, node_id)
-    if node.op.to_string() != "TupleMake" {
+    if !(@ir.hot_node_op(func, node_id) is @ir.TupleMake) {
       continue
     }
-    let results = @ir.hot_type_results(func, node.ty)
+    let results = @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))
     if results.length() <= 1 {
       continue
     }

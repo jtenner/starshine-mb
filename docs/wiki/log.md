@@ -6,6 +6,8 @@
   identical bytes. Full 12,909-test validation and 1,029 bounded observations
   pass; historical V18 correctness/performance limits and remaining costs stay
   explicit in the [DAE2 strategy](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-expanded-flow-performance-repair).
+  Direct tuple-opcode admission then improves large DAE2/O another
+  3.89%/2.90%, with 12,910 tests and the same bounded replay lane passing.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration

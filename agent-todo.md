@@ -11,8 +11,9 @@
   large pipeline medians fall 39.136 → 5.092s (DAE2) and 38.973 → 7.936s (DAE2-O).
   This repairs the dense-flow cost introduced by the source-order fix, rather
   than beating historical V18 by those percentages. Remaining targets include
-  read-only predecessor chains, source-union churn, tuple preparation, and
-  lift/lower; fresh oracle ratios and deferred aggregate fuzz remain open.
+  read-only predecessor chains, source-union churn, and lift/lower;
+  opcode-based tuple preparation removes temporary strings and improves paired
+  large DAE2/O a further 3.89%/2.90% with identical bytes (12,910 tests pass); fresh oracle ratios and deferred aggregate fuzz remain open.
   See the [measured repair](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-29-2026-expanded-flow-performance-repair).
 - **Historical complete native checkpoint:** priority-v18 passes 12,877 default
   wasm-gc tests, 112 focused native tests, 62 native benchmark cases, interface

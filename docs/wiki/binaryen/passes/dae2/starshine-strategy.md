@@ -25,6 +25,34 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 tuple preparation without opcode strings
+
+Shared HOT lowering now tests `HotOp::TupleMake` directly and reads result
+metadata only for tuple nodes. Previously it formatted every live opcode into
+a temporary string merely to identify that one opcode. The
+[bounded type/IR guard](../../../../../src/passes/tuple_prepare_opcode_wbtest.mbt)
+passes before and after the change, preserving zero/scalar/multivalue handling,
+node counts, type interning and valid HOT output. This is a performance change,
+not a newly implemented semantic behavior.
+
+[Native controls](../../../../../src/passes/tuple_prepare_opcode_perf_wbtest.mbt)
+compare the original string scan with opcode matching, including fresh function
+construction and active multivalue promotion each iteration. At 64/1024 roots,
+means fall 31.45 → 6.15µs and 480.45 → 76.75µs; lowered IR and resulting type
+sections match the reference. Full validation passes 12,910 default tests,
+interface generation, formatting, native CLI build and all four benchmarks.
+Frozen binary SHA-256 is
+`cb4d1d0054ff4c54d08f95dd2bdc9a4c4c5987e05ac8fad626e1a1f92c1aa385`;
+local artifacts use `.tmp/dae2-lean-20260929/` with the `v2` suffix.
+Three alternating CPU-affined pairs after a warmup preserve all output bytes:
+small DAE2/O medians 4.310 → 4.205ms / 11.295 → 10.921ms; large medians
+4752.195 → 4567.170ms / 7575.284 → 7355.966ms (−3.89%/−2.90%). Large
+MADs are 1.404/14.403ms and 25.654/17.601ms, respectively. Active tee DAE2
+is flat (3.545 → 3.555ms), while DAE2-O improves 109.851 → 104.022ms
+(−5.31%). The 126-module fixed runtime lane again validates 1,029 observations
+with zero behavioral or byte differences. Rejected reference-drift warmup and
+foreign CPU observations remain in local evidence; no aggregate fuzz ran.
+
 ## September 29, 2026 expanded-flow performance repair
 
 Expanded operand CFGs now use the existing reverse reaching-definition solver.
