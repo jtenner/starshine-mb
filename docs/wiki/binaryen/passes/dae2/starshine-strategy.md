@@ -25,6 +25,70 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 empty continuation-query guard
+
+The CFG builder already scans every live node for continuation instructions.
+When that scan leaves its continuation cache empty, segmentation now uses a
+Boolean query that returns false directly and block processing skips the empty
+target loop. Nonempty caches retain the original target aggregation, ordering
+and branch-edge construction. No extra retained buffer or public API is added.
+
+Three [bounded guards](../../../../../src/ir/cfg_continuation_guard_wbtest.mbt)
+cover published-row ownership/order, empty and cold caches, frozen original
+segmentation, complete partial-CFG/root maps and both operand modes. Published
+rows are opaque cache facts, not a new runtime continuation fixture. The initial
+red compile lacks the new private helper; it establishes the new work/API
+contract rather than a preexisting semantic failure. Eight
+[native controls](../../../../../src/ir/cfg_continuation_guard_perf_wbtest.mbt)
+include fresh builder/source-fact construction:
+
+| Workload | List queries → guarded mean |
+| --- | --- |
+| 128 empty queries | 1.74µs → 717.54ns |
+| 8192 empty queries | 109.51 → 45.20µs |
+| Region, 64 groups | 43.58 → 41.71µs |
+| Region, 512 groups | 347.47 → 333.60µs |
+
+Dependency-window instructions fall **20,041,432,123 → 19,515,570,507
+(2.62%)**. Incoming allocator requests fall **40,733,403 → 36,393,019**:
+**4,340,384 fewer (10.66%)**. Frees fall by the same count,
+116,179,650 → 111,839,266. These are named call counts, not byte or retained-
+object measurements. Small command instructions fall 80,271,379 → 79,877,693 /
+171,954,261 → 171,561,201; each removes 3,241 requests and frees.
+
+Three alternating v17→v18 large pairs give DAE2 **4259.192 → 4218.427ms
+(−0.96%)**, MAD 13.736/37.014ms, and optimizing **7317.563 → 7211.068ms
+(−1.46%)**, MAD 128.740/11.458ms. Small medians are 4.219 → 4.245ms /
+11.372 → 11.398ms; tee 3.846 → 3.859ms / 103.396 → 105.478ms. Active
+joined-reader medians are 20.785 → 20.016ms / 30.023 → 30.248ms; pure-tail
+13.184 → 13.175ms / 13.428 → 13.223ms. Preserve the optimizing tee/control
+costs and reference-drift retries (1.205 small and 1.199 pure-tail). Managed
+process visibility does not prove quiet-host timing. Three alternating untraced
+RSS samples have plain medians 257,676 → 257,544 KiB, ranges
+257,608–280,724 / 257,176–282,056; optimizing 292,148 → 292,296 KiB,
+ranges 292,016–314,300 / 291,852–304,340. Overlap establishes no memory gain.
+
+Info/fmt, native debug, all **12,944 default wasm-gc tests**, release CLI and
+eight controls pass. Exact before/after/traced bytes, independent validation,
+126 modules / 1,029 original/v133 observations and both seven-module /
+28-observation active replays pass. The current-source verified-v133 renewal
+uses CPU 6, one warmup and three samples: small medians 4.364 / 0.998475ms
+(**4.37×**) and 13.103 / 3.275570ms (**4.00×**); large
+4170.494 / 446.723ms (**9.34×**) and 7586.644 / 1626.730ms (**4.66×**).
+MADs are 0.022/0.017834ms, 0.364/0.103740ms, 33.291/4.613ms and
+7.916/3.890ms. These fresh cohorts do not measure a causal ratio change over
+v17. Canonical large sizes remain unchanged; the **422,470-byte optimizing
+gap remains open**, and smaller plain output alone is not a proven win.
+
+Local `.tmp/dae2-lean-20260929/` evidence uses `v18`: source manifest,
+validation/bench logs, fixed/paired/active replays, `dependency-cost-v18.json`,
+small instruction/allocator and RSS records, and `oracle-v18-{small,large}/`.
+Frozen candidate SHA-256 is
+`3fef08348d42db75886acb76d0acf548f2dad245ba32996213ad0045e3332155`;
+before is v17 `e7b6149bbea19956d8adb8dcbdbef2a5857b0b30b806371ba33f8f8bbc66060c`.
+Pinned input/oracle hashes are preserved below. Aggregate fuzz remains deferred
+at the user's request; these bounded checks do not renew generated signoff.
+
 ## September 29, 2026 shared own-effect results
 
 The operand-order walk already computes each node's own effects for its first

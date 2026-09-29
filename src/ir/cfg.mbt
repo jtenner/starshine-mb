@@ -392,11 +392,11 @@ fn cfg_builder_region_segments(
       if hot_is_control_node(func, next) {
         break
       }
-      if !cfg_expression_continuation_targets(
+      if cfg_expression_has_continuation_targets(
           func,
           previous,
           builder.continuation_targets,
-        ).is_empty() ||
+        ) ||
         cfg_region_segment_break_after_drop_operand_control(func, previous) {
         break
       }
@@ -636,19 +636,21 @@ fn cfg_builder_process_block(
   }
   let last_node = segment.last_node
   let node = hot_node_get(func, last_node)
-  for root in builder.cfg.blocks[current_block].nodes {
-    for
-      label in cfg_expression_continuation_targets(
-        func,
-        root,
-        builder.continuation_targets,
-      ) {
-      cfg_builder_add_edge(
-        builder,
-        current_block,
-        cfg_builder_label_target_get(builder, label),
-        CfgEdgeKind::BranchEdge,
-      )
+  if !builder.continuation_targets.is_empty() {
+    for root in builder.cfg.blocks[current_block].nodes {
+      for
+        label in cfg_expression_continuation_targets(
+          func,
+          root,
+          builder.continuation_targets,
+        ) {
+        cfg_builder_add_edge(
+          builder,
+          current_block,
+          cfg_builder_label_target_get(builder, label),
+          CfgEdgeKind::BranchEdge,
+        )
+      }
     }
   }
   match node.op {

@@ -72,6 +72,19 @@ pub fn hot_continuation_targets_set(
 }
 
 ///|
+// Existence-only callers can avoid constructing an owned empty array when
+// the builder's arena scan proved there are no continuation nodes.
+#inline
+fn cfg_expression_has_continuation_targets(
+  func : HotFunc,
+  root : NodeId,
+  cache : Array[Array[LabelId]?],
+) -> Bool {
+  !cache.is_empty() &&
+  !cfg_expression_continuation_targets(func, root, cache).is_empty()
+}
+
+///|
 fn cfg_expression_continuation_targets(
   func : HotFunc,
   root : NodeId,

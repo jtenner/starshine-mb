@@ -1,3 +1,14 @@
+### 2026-09-29 — DAE2 empty continuation queries
+
+- [Empty continuation guards](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-empty-continuation-query-guard)
+  avoid owned empty target lists after the builder proves there are no live
+  continuations. Three guards, all 12,944 default tests, native debug, eight
+  controls and bounded original/v133 replays pass. Dependency instructions fall
+  2.62% with 4,340,384 fewer allocator requests (10.66%); paired large DAE2/O
+  times improve 0.96%/1.46%, retaining control costs and RSS/timing limitations.
+  Current-source v133 ratios remain open at 9.34×/4.66×; canonical bytes and the
+  optimizing size gap are unchanged. No API change; aggregate fuzz is deferred.
+
 ### 2026-09-29 — DAE2 own-effect reuse
 
 - [Shared own-effect results](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-shared-own-effect-results)
