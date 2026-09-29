@@ -282,6 +282,7 @@ fn cfg_builder_region_segments(
   let segments : Array[CfgRegionSegment] = []
   let region_holder = cfg_builder_region_holder(region_ref)
   let root_count = hot_region_root_count(func, region_ref)
+  let expanded = builder.operand_seen is Some(_)
   let ordered_nodes : Array[NodeId] = []
   let root_slots : Array[Int] = []
   let roots : Array[NodeId] = []
@@ -295,7 +296,11 @@ fn cfg_builder_region_segments(
     None => None
   }
   for slot = 0; slot < root_count; slot = slot + 1 {
-    let root_id = hot_region_get(func, region_ref, slot)
+    let root_id = if expanded {
+      roots[slot]
+    } else {
+      hot_region_get(func, region_ref, slot)
+    }
     match builder.operand_seen {
       Some(seen) => {
         let facts = builder.source_order.unwrap()
@@ -358,7 +363,9 @@ fn cfg_builder_region_segments(
     )
     for index = start; index < end; index = index + 1 {
       let slot = root_slots[index]
-      if ordered_nodes[index] == hot_region_get(func, region_ref, slot) {
+      // Expanded operands reuse the immutable root snapshot already built
+      // for source ordering. Without expansion, every listed node is a root.
+      if !expanded || ordered_nodes[index] == roots[slot] {
         builder.cfg.region_roots.push({ region_holder, slot, block: block_id, })
       }
     }

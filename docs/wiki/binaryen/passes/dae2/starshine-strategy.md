@@ -25,6 +25,34 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 reuse CFG region-root snapshots
+
+Expanded CFG construction already snapshots each region's roots for source
+ordering. It now reuses that array when visiting roots and registering operand
+blocks, removing repeated region/label/type lookups. Root-only construction
+registers its already-known roots directly. This adds no cache or allocation.
+The [bounded guard](../../../../../src/ir/cfg_root_snapshot_wbtest.mbt) checks
+indexed inputs and exact body slots in both modes; it passes before and after.
+The [native controls](../../../../../src/ir/cfg_root_snapshot_perf_wbtest.mbt)
+measure full CFG construction: 8/64 expanded roots improve 82.75 → 72.05µs /
+510.40 → 444.74µs, and 64 root-only roots 148.16 → 141.56µs.
+
+Three alternating large-input pairs measure DAE2 **4663.759 → 4476.399ms
+(−4.02%)**, MAD 5.624/7.962ms; DAE2-O is nearly flat at
+7496.749 → 7452.244ms (−0.59%), MAD 72.745/17.440ms. Small medians are
+4.507 → 4.402ms / 11.804 → 12.231ms; active tee medians are
+3.743 → 3.813ms / 106.230 → 107.506ms. Small/control costs and rejected
+reference-drift attempts remain recorded; this is chiefly a large DAE2 gain.
+Do not combine absolute times from different cohorts as a matched comparison.
+
+Info, fmt, 12,919 default tests, native build and three controls pass. The fixed
+126-module / 1,029-observation original/v133 lane has zero behavioral or
+before/after byte differences. Local evidence uses the `v6` suffix under
+`.tmp/dae2-lean-20260929/`; candidate SHA-256 is
+`c14847b66efd69ab8b8be8b7b20b1cb70ff37e270666b9c74ef0dc3506a339a1`.
+The suite includes the next SSA trial's guards before its implementation.
+Aggregate fuzz remains deferred.
+
 ## September 29, 2026 rejected source-order cache trials
 
 Two cache prototypes are **not in production**. A lazy write-presence cache

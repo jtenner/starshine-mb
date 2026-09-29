@@ -14,6 +14,8 @@
   4.97%/3.53% (4.332/7.084s; 12,911 tests), retaining small/tee control costs.
   The existing write-local index now serves predecessor queries too (41%
   helper improvement; large artifact costs near flat; 12,914 tests pass).
+  Reusing existing CFG root snapshots adds a 4.02% large DAE2 reduction;
+  DAE2-O is nearly flat, small/tee costs remain recorded, and 12,919 tests pass.
   Remaining targets include source-order scans, source-union churn, and lift/lower;
   opcode-based tuple preparation removes temporary strings and improves paired
   large DAE2/O a further 3.89%/2.90% with identical bytes (12,910 tests pass); fresh oracle ratios and deferred aggregate fuzz remain open.

@@ -16,6 +16,8 @@
   Two source-order cache prototypes are removed after their synthetic wins
   fail to improve compiler pipelines; v5b regresses small/large DAE2. Their
   bounded semantic and bidirectional performance controls remain in the repo.
+  CFG root snapshot reuse then removes repeated region lookup, improving large
+  DAE2 4.02% with 12,919 tests passing; optimizing/control costs stay explicit.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration
