@@ -25,6 +25,80 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 shared own-effect results
+
+The operand-order walk already computes each node's own effects for its first
+external-effect order. It now writes those contributions into the mask buffer
+that all-child effect aggregation will consume. Aggregation ORs descendant
+contributions in place instead of querying node flags/exact payloads again.
+The operand-order and all-child walks still use their original distinct edge
+sets; control-region effects cannot contaminate operand first-effect orders.
+No additional node-sized array is retained, and standalone effect construction
+keeps its original computation when no owned buffer is supplied.
+
+Three [bounded guards](../../../../../src/ir/hot_source_order_own_masks_wbtest.mbt)
+check exact own contributions, pointer reuse, all-child masks and operand
+orders against frozen original walks. Cases cover division traps, memory and
+GC reads, imported effects, control inputs, source-ordered local writes,
+shared operand DAGs, deleted IDs and empty arenas. New private fields/arguments
+are absent at the initial red compile; this is an API/work contract addition,
+not a preexisting semantic parity failure. Ten [native controls](../../../../../src/ir/hot_source_order_own_masks_perf_wbtest.mbt)
+include all fresh fact allocation and four standalone-builder comparisons:
+
+| Construction | Original → reused mean |
+| --- | --- |
+| Facts, 8 roots | 15.93 → 13.33µs |
+| Facts, 64 roots | 125.61 → 105.74µs |
+| Facts, 128 roots | 251.16 → 209.91µs |
+| Standalone masks, 8 roots | 6.47 → 6.48µs |
+| Standalone masks, 128 roots | 102.91 → 102.78µs |
+
+Dependency-window instructions fall **20,241,185,629 → 20,041,432,123
+(0.99%)**. Recorded named own-effect call edges fall **7,410,967 → 3,704,362**;
+the operand-order visitor retains its 3,704,362 calls. These are Callgrind
+function edges, not a guarantee that every inlined evaluation appears as a
+named call. Large allocator requests/frees remain 40,733,403 / 116,179,650;
+small command counts also remain unchanged. Small instructions fall
+80,491,061 → 80,271,203 / 172,211,670 → 171,957,006.
+
+Three alternating v16→v17 pairs give near-flat compiler medians: large DAE2
+**4270.513 → 4249.844ms (−0.48%)**, MAD 8.519/15.334ms; optimizing
+**7186.294 → 7217.688ms (+0.44%)**, MAD 14.279/98.167ms. Small medians
+are 4.192 → 4.173ms / 11.145 → 11.232ms; tee medians are
+3.724 → 3.672ms / 105.400 → 105.614ms. Active joined-reader medians
+are 20.614 → 20.275ms / 30.133 → 29.853ms; pure-tail medians are
+13.441 → 13.407ms / 13.889 → 13.765ms. Preserve control costs and dispersion;
+no compiler-wide timing gain is established. Managed visibility does not
+establish quiet-host timing. Three alternating untraced large RSS samples give
+plain medians 259,928 → 280,724 KiB (ranges 259,688–281,736 /
+259,376–281,912) and optimizing 292,292 → 293,496 KiB (ranges
+292,276–314,332 / 292,144–304,528). The median increases remain recorded;
+overlapping ranges do not establish a causal memory increase or gain.
+
+Info/fmt, all **12,941 default wasm-gc tests**, native debug, release CLI,
+ten controls and README/API sync pass. Exact before/after/traced bytes,
+independent validation, 126 modules / 1,029 original/v133 observations and
+both seven-module / 28-observation active replays pass. No public API change.
+
+The current-source oracle renewal passes with verified v133, CPU 6, one warmup
+and three samples. Small pass-local medians are 4.277 / 0.999788ms (**4.28×**)
+and optimizing 13.144 / 3.13785ms (**4.19×**); large are
+4432.497 / 494.776ms (**8.96×**) and 7732.823 / 1763.390ms (**4.39×**).
+MADs are 0.051/0.029676ms, 0.231/0.046850ms, 122.378/5.498ms and
+201.165/10.210ms. These are fresh comparison cohorts, not paired ratio gains
+over earlier sweeps. Canonical sizes retain the v15 values below; the
+**422,470-byte optimizing gap remains open** and smaller plain output alone
+is not a proven win. The rejected v16 freshness attempt remains failed evidence.
+
+Local `.tmp/dae2-lean-20260929/` evidence uses `v17`, including its source
+manifest, validation/bench/API logs, paired/fixed/active replay folders,
+`dependency-cost-v17.json`, small instruction/allocator and memory records,
+and `oracle-v17-{small,large}/`. Frozen candidate SHA-256 is
+`e7b6149bbea19956d8adb8dcbdbef2a5857b0b30b806371ba33f8f8bbc66060c`;
+before is v16 `56ecbd2857cec1234dd72015284e6c2100748d5f72221d17996d1a923171dc3d`.
+The pinned large input and verified v133 oracle retain the hashes below.
+Aggregate fuzz remains deferred at the user's request.
+
 ## September 29, 2026 fixed-size CFG workspaces
 
 CFG node-to-block and label-to-target maps now allocate their known lengths

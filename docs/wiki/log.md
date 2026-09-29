@@ -1,3 +1,14 @@
+### 2026-09-29 — DAE2 own-effect reuse
+
+- [Shared own-effect results](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-shared-own-effect-results)
+  remove repeated flag/descriptor queries while composing all-child masks in
+  the same owned buffer. Three new guards, all 12,941 default tests, native debug,
+  ten controls and bounded original/v133 replays pass. Fact construction improves
+  about 16%; standalone mask controls stay flat and dependency instructions fall
+  0.99%, with unchanged allocation counts. Compiler/RSS costs remain explicit.
+  A current-source v133 renewal records open 8.96×/4.39× large ratios; the failed
+  v16 freshness attempt remains failed. API sync passes; aggregate fuzz is deferred.
+
 ### 2026-09-29 — DAE2 fixed CFG workspaces
 
 - [Fixed-size maps](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-fixed-size-cfg-workspaces)

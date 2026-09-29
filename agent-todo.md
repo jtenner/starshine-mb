@@ -12,7 +12,7 @@
   boxed private CFG segment rows and growth of fixed-size CFG maps.
   Accepted changes and rejected cache trials
   are recorded in the [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md).
-  All 12,938 default tests, 126 bounded modules / 1,029 original/v133
+  All 12,941 default tests, 126 bounded modules / 1,029 original/v133
   observations and measured before/after bytes pass. The new active-reader
   fixture adds one passing bounded guard and four dedicated native controls;
   its matched 8192-reader pipelines improve 57.40%/49.80%. This deliberate
@@ -33,11 +33,13 @@
   production keeps the v13 query. Packed private CFG segments remove 490,847
   allocator requests in dependency analysis (1.19%) with near-flat compiler
   timings and recorded active-control costs. Fresh v133 ratios remain
-  8.60×/4.84× on the large v15 input. Fixed-size CFG maps remove another
+  8.96×/4.39× on the large v17 input. Fixed-size CFG maps remove another
   63,326 requests and 0.34% of dependency instructions, with recorded control
-  costs and near-flat compiler timings. Reuse already computed own-node
-  effects, then inspect preceding-query allocations, redundant catch scans
-  and field-specific HOT reads next. The initial proposal-feature allocation
+  costs and near-flat compiler timings. Own-effect reuse removes repeated
+  descriptor work and another 0.99% of dependency instructions without an
+  extra retained node array; compiler timings and standalone mask controls
+  remain near flat. Inspect empty continuation-query arrays, preceding-query
+  allocations, redundant catch scans and field-specific HOT reads next. The initial proposal-feature allocation
   interpretation is superseded by generic array-growth attribution. Verified-v133
   ratios, cumulative timing, memory and instruction
   attribution are owned by the strategy page. Keep small/control costs and

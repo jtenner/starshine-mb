@@ -325,19 +325,30 @@ fn effects_accumulate_node_cached(
   node_id : NodeId,
   node_masks : Array[EffectMask],
   ready : @bitset.BitSet,
+  own_masks_ready? : Bool = false,
 ) -> EffectMask {
   if ready[node_id] {
     return node_masks[node_id]
   }
-  let mut mask = effects_mask_for_flags(hot_node_flags(func, node_id))
-  mask = mask | effects_mask_for_node_exact(func, node_id)
+  let mut mask = if own_masks_ready {
+    node_masks[node_id]
+  } else {
+    effects_mask_for_flags(hot_node_flags(func, node_id)) |
+    effects_mask_for_node_exact(func, node_id)
+  }
   for slot = 0; slot < hot_child_count(func, node_id); slot = slot + 1 {
     let child_id = hot_child_get(func, node_id, slot)
     if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
       continue
     }
     mask = mask |
-      effects_accumulate_node_cached(func, child_id, node_masks, ready)
+      effects_accumulate_node_cached(
+        func,
+        child_id,
+        node_masks,
+        ready,
+        own_masks_ready~,
+      )
   }
   node_masks[node_id] = mask
   ready[node_id] = true
@@ -345,14 +356,35 @@ fn effects_accumulate_node_cached(
 }
 
 ///|
-fn effects_build_node_masks(func : HotFunc) -> Array[EffectMask] {
-  let node_masks = Array::make(hot_node_count(func), 0U)
+fn effects_build_node_masks(
+  func : HotFunc,
+  own_masks? : Array[EffectMask]? = None,
+) -> Array[EffectMask] {
+  // A supplied buffer is privately owned, covers this immutable arena, and
+  // starts with own-node contributions only. Consume it in place; completed
+  // subtree masks become visible exactly where the original walk published.
+  let node_masks = match own_masks {
+    Some(masks) => masks
+    None => Array::make(hot_node_count(func), 0U)
+  }
+  if node_masks.length() != hot_node_count(func) {
+    abort("own-effect masks must cover the complete hot node arena")
+  }
+  let own_masks_ready = own_masks is Some(_)
   let ready = @bitset.BitSet::new(hot_node_count(func))
   for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
     if !hot_node_is_live(func, node_id) {
       continue
     }
-    ignore(effects_accumulate_node_cached(func, node_id, node_masks, ready))
+    ignore(
+      effects_accumulate_node_cached(
+        func,
+        node_id,
+        node_masks,
+        ready,
+        own_masks_ready~,
+      ),
+    )
   }
   node_masks
 }

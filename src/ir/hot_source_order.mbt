@@ -40,6 +40,7 @@ fn HotSourceOrderScratch::new(count : Int) -> HotSourceOrderScratch {
 priv struct HotSourceOrderOrders {
   value_orders : Array[Int]
   first_effect_orders : Array[Int]
+  own_effects : Array[EffectMask]
 }
 
 ///|
@@ -47,6 +48,7 @@ fn HotSourceOrderOrders::new(func : HotFunc) -> HotSourceOrderOrders {
   let none = hot_node_count(func)
   let value_orders = Array::make(none, -1)
   let first_effect_orders = Array::make(none, -1)
+  let own_effects = Array::make(none, 0U)
   fn visit(node_id : NodeId) -> Unit {
     if node_id < 0 ||
       !hot_node_is_live(func, node_id) ||
@@ -55,10 +57,11 @@ fn HotSourceOrderOrders::new(func : HotFunc) -> HotSourceOrderOrders {
     }
     let node = hot_node_get(func, node_id)
     value_orders[node_id] = node.order
-    let own_effects = effects_mask_for_flags(node.flags) |
+    let own_mask = effects_mask_for_flags(node.flags) |
       effects_mask_for_node_exact(func, node_id)
+    own_effects[node_id] = own_mask
     first_effect_orders[node_id] = if hot_lower_impl_has_external_effects(
-        own_effects,
+        own_mask,
       ) {
       node.order
     } else {
@@ -80,7 +83,7 @@ fn HotSourceOrderOrders::new(func : HotFunc) -> HotSourceOrderOrders {
   for node_id in 0..<none {
     visit(node_id)
   }
-  { value_orders, first_effect_orders, }
+  { value_orders, first_effect_orders, own_effects, }
 }
 
 ///|
@@ -89,7 +92,12 @@ fn HotSourceOrderFacts::new(func : HotFunc) -> HotSourceOrderFacts {
   {
     local_access_cache: Array::make(hot_node_count(func), -1),
     value_orders: orders.value_orders,
-    node_effects: effects_build_node_masks(func),
+    // The operand-order walk already computed each node's own mask. Compose
+    // all live child edges into that owned buffer without rereading payloads.
+    node_effects: effects_build_node_masks(
+      func,
+      own_masks=Some(orders.own_effects),
+    ),
     first_effect_orders: orders.first_effect_orders,
     preceding_dependency_min_cache: Array::make(hot_node_count(func), -2),
     local_access_nodes: Array::make(hot_node_count(func), None),
