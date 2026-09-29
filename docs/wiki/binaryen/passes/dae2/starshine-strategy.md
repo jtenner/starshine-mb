@@ -105,7 +105,14 @@ unused argument, which DAE2 removes. The v7/v9 paired full pipelines improve
 DAE2/O, with MADs 0.094/0.035ms and 0.551/0.467ms. Seven original/before/after/
 v133 modules validate and return identical values in 28 observations; before/
 after bytes match. This is a deliberate scalability workload, separate from the
-compiler artifact below. Local `joined-readers-v9/`, `joined-readers.wat` and
+compiler artifact below. The permanent [active pipeline benchmarks](../../../../../src/passes_perf_long/dae2_joined_readers_perf_test.mbt)
+cover 512/8192 readers for both passes, with a bounded default guard proving
+argument removal and input ownership. All four native controls and that guard
+pass. Final v11 benchmark means are 1.33/21.28ms (DAE2) and 2.05/31.18ms
+(DAE2-O); these are standalone controls, not matched improvement estimates.
+The subsequent cache-borrowing change is flat on the active 8192-reader input:
+21.871 → 22.012ms / 31.555 → 31.495ms, with seven validated modules and 28
+matching observations. Local `joined-readers-v9/`, `joined-readers-v10/`, `joined-readers.wat` and
 `joined-readers.py` retain it; input SHA-256 is
 `60935ce550d11451d4dce59ff319d6ed58633b645496ecf9eac3fdcc62079f86`.
 
