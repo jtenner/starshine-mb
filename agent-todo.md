@@ -247,6 +247,10 @@ breadth. Shared changes require all affected consumers in the matrix below.
   location lookup and unavoidable lift/lower allocation separately. Reuse
   compact affected-function/revision facts or bounded scratch only with measured
   benefit; preserve conservative dependencies for unknown control information.
+  Lean-v5/v5b source-order caches are rejected: strong synthetic gains did
+  not improve compiler pipelines, and v5b regressed small/large DAE2. Preserve
+  the bidirectional controls; overlapping access lists remain an open quadratic
+  family. Reuse the existing CFG root snapshot before adding more caches.
   The fresh lean-v2 dependency-only profile puts CFG construction at 56.38%
   and LocalGraph at 32.81% inclusive, with node reads at 15.46% self. Target
   repeated last-write decoding and source-order scans next; do not confuse

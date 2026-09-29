@@ -25,6 +25,41 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 rejected source-order cache trials
+
+Two cache prototypes are **not in production**. A lazy write-presence cache
+avoided access-list materialization for read-only carried expressions. It reduced
+the 128-deep one-direction control 250.33 → 22.27µs, but the reverse write/read
+query still materialized the same trees: a bidirectional control remained
+277.07 → 264.98µs. Its large DAE2/O medians were effectively flat
+4607.042 → 4614.436ms / 7620.928 → 7566.612ms, with small/tee control costs.
+
+A second prototype cached compact uniform-local identities and earliest-access /
+latest-write orders, retaining the original mixed-local scan. It reduced the
+bidirectional 128-deep control 279.23 → 26.78µs, but regressed paired small DAE2
+4.421 → 4.672ms (+5.68%) and large DAE2 4600.324 → 4673.942ms (+1.60%).
+Large DAE2-O was flat at 7659.031 → 7664.762ms; active tee medians were
+3.797 → 3.784ms / 106.223 → 105.765ms. These synthetic wins do not justify
+keeping the additional per-function cache and real-input costs. Both prototypes
+were removed; the accepted production baseline remains v4 at this checkpoint.
+
+The [read-only/dead-tail guards](../../../../../src/ir/hot_source_order_write_free_wbtest.mbt),
+[bidirectional/order-bound guards](../../../../../src/ir/hot_source_order_uniform_wbtest.mbt)
+and their [one-direction](../../../../../src/ir/hot_source_order_write_free_perf_wbtest.mbt)
+/ [bidirectional](../../../../../src/ir/hot_source_order_uniform_perf_wbtest.mbt)
+benchmarks remain useful controls. The selected benchmark path always measures
+the current implementation; the reference retains the original scan. The
+quadratic overlapping-access-list family remains open rather than being hidden
+by a helper-only success claim.
+
+The second prototype passed 12,918 default tests, native build and four controls;
+both passed the 126-module / 1,029-observation fixed replay with unchanged bytes.
+Local `.tmp/dae2-lean-20260929/` evidence uses `v5` and `v5b`; rejected v5b source
+is preserved in `rejected-v5b/`. Binary hashes are
+`2ad9d25559765dc54f191fb194ba807b8faa4f72d7b97f3996c2028bab13d912` and
+`05a93a72a031a2996e3e273720945aeddf4c6d8c2335aeb6a944c67a29c1b5fe`.
+This is experimental evidence, not accepted performance or aggregate signoff.
+
 ## September 29, 2026 reuse the write-local index
 
 Reverse-flow construction now builds its required node-to-write-local vector

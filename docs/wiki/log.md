@@ -13,6 +13,9 @@
   dependency attribution identifies CFG construction and reverse queries.
   Reusing the write-local vector improves the lookup control 41%, with
   near-flat artifact costs and 12,914 default tests passing.
+  Two source-order cache prototypes are removed after their synthetic wins
+  fail to improve compiler pipelines; v5b regresses small/large DAE2. Their
+  bounded semantic and bidirectional performance controls remain in the repo.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration
