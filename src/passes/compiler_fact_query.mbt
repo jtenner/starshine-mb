@@ -66,6 +66,66 @@ fn compiler_fact_query_signed_bits(
 }
 
 ///|
+fn compiler_fact_query_sign_bit(width : @representation.IntWidth) -> UInt64 {
+  match width {
+    @representation.Int8 => 0x80UL
+    @representation.Int16 => 0x8000UL
+    @representation.Int32 => 0x8000_0000UL
+    @representation.Int64 => 0x8000_0000_0000_0000UL
+  }
+}
+
+///|
+fn compiler_fact_query_ranges_overlap(
+  left_min : Int64,
+  left_max : Int64,
+  right_min : Int64,
+  right_max : Int64,
+) -> Bool {
+  left_min <= right_max && right_min <= left_max
+}
+
+///|
+fn compiler_fact_query_signed_unsigned_ranges_overlap(
+  width : @representation.IntWidth,
+  unsigned_min : UInt64,
+  unsigned_max : UInt64,
+  signed_min : Int64,
+  signed_max : Int64,
+) -> Bool {
+  let sign_bit = compiler_fact_query_sign_bit(width)
+  if unsigned_max < sign_bit {
+    return compiler_fact_query_ranges_overlap(
+      unsigned_min.to_int64(),
+      unsigned_max.to_int64(),
+      signed_min,
+      signed_max,
+    )
+  }
+  if unsigned_min >= sign_bit {
+    return compiler_fact_query_ranges_overlap(
+      compiler_fact_query_signed_bits(width, unsigned_min),
+      compiler_fact_query_signed_bits(width, unsigned_max),
+      signed_min,
+      signed_max,
+    )
+  }
+  let (width_min, width_max) = compiler_fact_query_signed_width_bounds(width)
+  compiler_fact_query_ranges_overlap(
+    unsigned_min.to_int64(),
+    width_max,
+    signed_min,
+    signed_max,
+  ) ||
+  compiler_fact_query_ranges_overlap(
+    width_min,
+    compiler_fact_query_signed_bits(width, unsigned_max),
+    signed_min,
+    signed_max,
+  )
+}
+
+///|
 fn compiler_fact_integer_domain_exact(
   width : @representation.IntWidth,
   bits : UInt64,
@@ -514,6 +574,13 @@ fn compiler_fact_query_integer_domain_from_facts(
           }
           _ => ()
         }
+        match (signed_min, signed_max) {
+          (Some(0L), Some(0L)) => {
+            stats.malformed_or_impossible_facts += 1
+            return None
+          }
+          _ => ()
+        }
       }
     }
     None => ()
@@ -524,6 +591,16 @@ fn compiler_fact_query_integer_domain_from_facts(
   }
   match (signed_min, signed_max) {
     (Some(min), Some(max)) if min > 0L || max < 0L => nonzero = true
+    _ => ()
+  }
+  match (unsigned_min, unsigned_max, signed_min, signed_max) {
+    (Some(umin), Some(umax), Some(smin), Some(smax)) =>
+      if !compiler_fact_query_signed_unsigned_ranges_overlap(
+          width, umin, umax, smin, smax,
+        ) {
+        stats.malformed_or_impossible_facts += 1
+        return None
+      }
     _ => ()
   }
   match exact_bits {

@@ -171,7 +171,7 @@ test "untee recurses into structured bodies" {
 }
 
 ///|
-test "review2 untee declaration runs preserve nondefaultable initialization" {
+test "untee ignores unrelated nondefaultable locals for unreachable i32 tees" {
   for count in [0U, 1U] {
     let locals = @lib.Locals::from_decl_runs_preserving_groups([
       @lib.LocalRun::new(2U, @lib.ValType::i32()),
@@ -202,14 +202,9 @@ test "review2 untee declaration runs preserve nondefaultable initialization" {
       Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => body
       _ => abort("expected function")
     }
-    assert_eq(body.length(), if count == 0U { 2 } else { 4 })
-    if count != 0U {
-      assert_true(
-        body[1] == @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-      )
-      assert_true(
-        body[2] == @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-      )
-    }
+    @debug.assert_eq(body, [
+      @lib.Instruction::unreachable_(),
+      @lib.Instruction::drop(),
+    ])
   }
 }

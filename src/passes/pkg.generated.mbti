@@ -507,6 +507,8 @@ pub(all) struct FlattenFlatnessReport {
 pub fn FlattenFlatnessReport::empty() -> Self
 pub fn FlattenFlatnessReport::is_flat(Self) -> Bool
 
+type H2LDominanceOrder
+
 pub struct HotPassContext {
   descriptor : @ir.HotPassDescriptor
   cache : @ir.HotAnalysisCache
@@ -627,6 +629,8 @@ pub enum HotPipelineVerifyTarget {
 }
 
 type HotTupleOptimizationAnalysis derive(Eq, @debug.Debug)
+
+type HotTupleOptimizationCopyConsumers
 
 type HotTupleOptimizationDropOnlyElisionFacts derive(Eq, @debug.Debug)
 

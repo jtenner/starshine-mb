@@ -1,4 +1,29 @@
 ///|
+fn pass_module_has_offset_sensitive_metadata(mod_ : @lib.Module) -> Bool {
+  for custom in mod_.custom_secs {
+    let @lib.CustomSec(@lib.Name(raw_name), _) = custom
+    let name = raw_name.to_owned()
+    if name.starts_with("metadata.code.") ||
+      name == "reloc.CODE" ||
+      name.starts_with(".debug_") {
+      return true
+    }
+  }
+  match mod_.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for @lib.FuncAnnotationAssoc(_, annotations) in entries {
+        if annotations.any(fn(annotation) {
+            annotation.name == "metadata.code.branch_hint"
+          }) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 pub fn pass_compute_label_used(func : @ir.HotFunc) -> @bitset.BitSet {
   // No target can pass the scan's bounds check without a declared label.
   // Keep this outside the scan to avoid perturbing its nonempty hot loop.
@@ -952,17 +977,34 @@ pub fn pass_verify_before_after(
 
 ///|
 // Control bodies share HOT's child storage with expression operands. Visitors
-// that also walk region roots must use only this leading operand range.
+// that also walk region roots use this count and pass_value_operand_slot to
+// include typed control entries without visiting structural region children.
 fn pass_value_operand_count(func : @ir.HotFunc, node_id : Int) -> Int {
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Block | @ir.HotOp::Try | @ir.HotOp::TryTable => 0
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block => node.imm1
+    @ir.HotOp::Try | @ir.HotOp::TryTable => 0
     @ir.HotOp::Loop =>
       @ir.hot_label_branch_arity(
         func,
         @ir.hot_control_node_label(func, node_id),
       )
-    @ir.HotOp::If => 1
-    _ => @ir.hot_child_count(func, node_id)
+    @ir.HotOp::If => node.child_count - 2
+    _ => node.child_count
+  }
+}
+
+///|
+fn pass_value_operand_slot(node : @ir.HotNode, index : Int) -> Int {
+  if node.op is @ir.HotOp::If {
+    // Entry values execute before the condition. Slots 1 and 2 are regions.
+    if index < node.child_count - 3 {
+      index + 3
+    } else {
+      0
+    }
+  } else {
+    index
   }
 }
 

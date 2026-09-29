@@ -2129,6 +2129,65 @@ fn optimize_module_with_pass_flags_trace(
 }
 
 ///|
+test "performance candidates retain active command folds boundary rewrites and helper removal" {
+  let scalar = @passes.pass_test_module_from_wat(
+    "(module (func (export \"value\") (result i32) i32.const 1 i32.const 2 i32.add))",
+  )
+  let scalar_bytes = @binary.encode_module(scalar).unwrap()
+  for name in ["precompute", "precompute-propagate", "optimize-instructions"] {
+    let output = optimize_module_with_pass_flags(
+      scalar,
+      [name],
+      OptimizeOptions::new(),
+    ).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_eq(body, [@lib.Instruction::i32_const(@lib.I32(3))])
+    @validate.validate_module(output).unwrap()
+  }
+  assert_eq(@binary.encode_module(scalar).unwrap(), scalar_bytes)
+  let calls = @passes.pass_test_module_from_wat(
+    "(module (func $helper (param i32) (result i32) i32.const 7) (func (export \"run\") (result i32) i32.const 9 call $helper))",
+  )
+  for name in ["dae", "dae-optimizing", "dae2", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      calls,
+      [name],
+      OptimizeOptions::new(),
+    ).unwrap()
+    let env = @validate.Env::new().with_module(output)
+    assert_eq(
+      env.get_functype_by_funcidx(@lib.FuncIdx::new(0U)),
+      Some(@lib.FuncType::new([], [@lib.ValType::i32()])),
+    )
+    @validate.validate_module(output).unwrap()
+  }
+  for name in ["inlining", "inlining-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      calls,
+      [name],
+      OptimizeOptions::new(),
+    ).unwrap()
+    assert_eq(output.code_sec.unwrap().0.length(), 1)
+    @validate.validate_module(output).unwrap()
+  }
+  let copies = @passes.pass_test_module_from_wat(
+    "(module (func (export \"copy\") (param i32) (result i32) (local i32 i32) local.get 0 local.set 1 local.get 1 local.set 2 local.get 2))",
+  )
+  for name in ["coalesce-locals", "simplify-locals"] {
+    let output = optimize_module_with_pass_flags(
+      copies,
+      [name],
+      OptimizeOptions::new(),
+    ).unwrap()
+    assert_true(
+      @binary.encode_module(output).unwrap().length() <
+      @binary.encode_module(copies).unwrap().length(),
+    )
+    @validate.validate_module(output).unwrap()
+  }
+}
+
+///|
 fn cmd_path_has_ascii_suffix_ignore_case(
   path : String,
   suffix : String,
@@ -5176,6 +5235,63 @@ fn should_validate_encoded_module_after_encode(
 }
 
 ///|
+fn cmd_input_identity_has_encoding_cleanup_candidate(mod : Module) -> Bool {
+  // Identity is stronger than structural equality for NaNs, but must not skip
+  // cleanup that those inputs previously reached through the encoding path.
+  // Conservatively reject control shells; the encoder proves which can flatten.
+  let data_empty = match mod.data_sec {
+    None => true
+    Some(@lib.DataSec(data)) => data.is_empty()
+  }
+  let count_empty = match mod.data_cnt_sec {
+    None | Some(@lib.DataCntSec(@lib.U32(0U))) => true
+    _ => false
+  }
+  if data_empty &&
+    count_empty &&
+    (mod.data_sec is Some(_) || mod.data_cnt_sec is Some(_)) {
+    return true
+  }
+  if mod.type_sec is Some(@lib.TypeSec(types)) && types.is_empty() {
+    return true
+  }
+  if mod.code_sec is Some(@lib.CodeSec(funcs)) {
+    let work : Array[Array[@lib.Instruction]] = []
+    for func in funcs {
+      let @lib.Func(_, @lib.Expr(body)) = func
+      if body.last() is Some(@lib.Return) {
+        return true
+      }
+      work.push(body)
+      while work.pop() is Some(instrs) {
+        for instr in instrs {
+          match instr {
+            @lib.Nop => return true
+            @lib.Block(bt, @lib.Expr(nested))
+            | @lib.Loop(bt, @lib.Expr(nested)) => {
+              if bt == @lib.BlockType::void_() {
+                return true
+              }
+              work.push(nested)
+            }
+            @lib.If(_, yes, no) => {
+              work.push(yes)
+              if no is Some(nested) {
+                work.push(nested)
+              }
+            }
+            @lib.TryTable(_, _, @lib.Expr(nested)) => work.push(nested)
+            // Encoding cleanup intentionally leaves legacy Try bodies alone.
+            _ => ()
+          }
+        }
+      }
+    }
+  }
+  false
+}
+
+///|
 fn should_reuse_input_wasm_bytes(
   format : CliInputFormat,
   pass_count : Int,
@@ -5187,7 +5303,13 @@ fn should_reuse_input_wasm_bytes(
     Wasm =>
       pass_count > 0 &&
       !should_validate_encoded_module_after_encode(debug_serial_passes) &&
-      optimized_mod == input_mod
+      (
+        (
+          physical_equal(optimized_mod, input_mod) &&
+          !cmd_input_identity_has_encoding_cleanup_candidate(optimized_mod)
+        ) ||
+        optimized_mod == input_mod
+      )
     Wat | Wast => false
   }
 }
@@ -8697,6 +8819,26 @@ test "deep audit command precompute rounds i64 s exp 54 neighbor 1 negative Fals
 }
 
 ///|
+test "deep audit command precompute preserves exact ref.null global type" {
+  let output = cmd_deep_audit_run(
+    (
+      #|(module
+      #|  (type $box (struct))
+      #|  (global $value (ref null (exact $box)) (ref.null (exact $box)))
+      #|  (func (export "read") (result (ref null (exact $box)))
+      #|    (global.get $value)))
+      #|
+    ),
+    "precompute",
+  )
+  assert_true(@validate.validate_module(output) is Ok(_))
+  match cmd_deep_audit_body(output) {
+    [@lib.RefNull(ref_type)] => assert_true(ref_type.is_exact())
+    body => fail("expected one folded exact ref.null, got \{body}")
+  }
+}
+
+///|
 test "deep audit command precompute allocation resource boundary" {
   let array_type = @lib.TypeIdx::new(0U)
   let func_type = @lib.TypeIdx::new(1U)
@@ -9626,4 +9768,69 @@ test "direct DFE preserves address-taken internal function identities" {
     ),
   )
   assert_true(@validate.validate_module(optimized) is Ok(_))
+}
+
+///|
+test "direct performance consumers preserve definitely initialized reference branches" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #|(module (type $f (func))
+      #| (func (export "choose") (param (ref $f) i32) (result (ref $f))
+      #|   (local (ref $f) (ref $f))
+      #|   local.get 1 if local.get 0 local.set 2 else local.get 0 local.set 2 end
+      #|   local.get 2))
+    ),
+  )
+  let original = @binary.encode_module(input)
+  for
+    pass in [
+      "precompute", "precompute-propagate", "coalesce-locals", "dae2", "optimize-instructions",
+      "simplify-locals", "inlining-optimizing", "simplify-locals-nonesting", "simplify-locals-notee",
+      "simplify-locals-nostructure", "simplify-locals-notee-nostructure",
+    ] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    assert_eq(output.export_sec, input.export_sec)
+    let @lib.Func(locals, _) = output.code_sec.unwrap().0[0]
+    assert_true(locals.length() <= 2)
+    assert_eq(@binary.encode_module(input), original)
+  }
+}
+
+///|
+test "unchanged NaN input reuses its exact encoded bytes after an optimizer pass" {
+  let mod_ = @passes.pass_test_module_from_wat(
+    "(module (func (result f32) f32.const nan:0x400001))",
+  )
+  let bytes = @binary.encode_module(mod_).unwrap()
+  assert_true(
+    should_reuse_input_wasm_bytes(CliInputFormat::wasm(), 1, false, mod_, mod_),
+  )
+  assert_false(
+    should_reuse_input_wasm_bytes(CliInputFormat::wasm(), 1, true, mod_, mod_),
+  )
+  assert_false(
+    should_reuse_input_wasm_bytes(CliInputFormat::wat(), 1, false, mod_, mod_),
+  )
+  assert_false(
+    should_reuse_input_wasm_bytes(CliInputFormat::wasm(), 0, false, mod_, mod_),
+  )
+  let changed = @passes.pass_test_module_from_wat(
+    "(module (func (result f32) f32.const nan:0x400002))",
+  )
+  assert_false(
+    should_reuse_input_wasm_bytes(
+      CliInputFormat::wasm(),
+      1,
+      false,
+      mod_,
+      changed,
+    ),
+  )
+  @validate.validate_module(mod_).unwrap()
+  assert_eq(@binary.encode_module(mod_).unwrap(), bytes)
 }

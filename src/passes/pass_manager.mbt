@@ -8266,15 +8266,36 @@ fn run_hot_pipeline_raw_simplify_locals_take_value_suffix(
   instrs : Array[@lib.Instruction],
   count : Int,
   env : @validate.Env,
+  typed_instructions? : Array[Int]? = None,
 ) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
   if count <= 0 {
     return (instrs.copy(), [])
   }
+  let mut required = 0
+  let mut net = 0
+  let mut known = true
   let mut start = instrs.length() - 1
   while start >= 0 {
+    if known {
+      match sl_value_suffix_stack_effect(instrs[start], env) {
+        Some((inputs, outputs)) => {
+          required = Int::max(inputs, required + inputs - outputs)
+          net += outputs - inputs
+        }
+        None => known = false
+      }
+      if known && (required != 0 || net != count) {
+        start -= 1
+        continue
+      }
+    }
     let suffix : Array[@lib.Instruction] = []
     for idx = start; idx < instrs.length(); idx = idx + 1 {
       suffix.push(instrs[idx])
+    }
+    match typed_instructions {
+      Some(visits) => visits[0] += suffix.length()
+      None => ()
     }
     let init_state = @validate.make_state(env, [])
     match @validate.Typecheck::typecheck(@lib.Expr::new(suffix), init_state) {
@@ -12694,24 +12715,44 @@ fn run_hot_pipeline_raw_simplify_locals_has_self_update_loop_lifetime(
 ///|
 fn run_hot_pipeline_raw_has_root_global_snapshot_write_prefix(
   instrs : Array[@lib.Instruction],
+  instruction_visits? : Array[Int]? = None,
 ) -> Bool {
-  let live : Array[@lib.Instruction] = []
+  let mut live_count = 0
+  let mut target = @lib.GlobalIdx::new(0U)
   for instr in instrs {
-    match instr {
-      @lib.Nop => ()
-      _ => live.push(instr)
+    match instruction_visits {
+      Some(visits) => visits[0] += 1
+      None => ()
     }
-  }
-  let target = match live {
-    [@lib.GlobalGet(target), @lib.LocalTee(_), @lib.GlobalGet(second_read), ..] if second_read ==
-      target => target
-    _ => return false
-  }
-  let limit = if live.length() < 16 { live.length() } else { 16 }
-  for idx = 3; idx < limit; idx = idx + 1 {
-    match live[idx] {
-      @lib.GlobalSet(written) if written == target => return true
-      _ => ()
+    if instr is @lib.Nop {
+      continue
+    }
+    match live_count {
+      0 =>
+        match instr {
+          @lib.GlobalGet(index) => target = index
+          _ => return false
+        }
+      1 =>
+        match instr {
+          @lib.LocalTee(_) => ()
+          _ => return false
+        }
+      2 =>
+        match instr {
+          @lib.GlobalGet(index) if index == target => ()
+          _ => return false
+        }
+      _ =>
+        match instr {
+          @lib.GlobalSet(index) if index == target => return true
+          _ => ()
+        }
+    }
+    live_count += 1
+    // Only the first sixteen non-nop instructions participate in this guard.
+    if live_count == 16 {
+      return false
     }
   }
   false
@@ -46605,6 +46646,7 @@ fn run_hot_pipeline_raw_precompute(
   module_state : HotPipelineModuleState,
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
+  instruction_scans? : Array[Int]? = None,
 ) -> HotPipelineFuncResult? {
   let propagating = descriptor.name == "precompute-propagate"
   if descriptor.name != "precompute" && !propagating {
@@ -46821,7 +46863,13 @@ fn run_hot_pipeline_raw_precompute(
     })
   }
   let stats = OptimizeInstructionsLoweredStats::new()
-  run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+  if propagating || locals.length() > 64 {
+    match instruction_scans {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+  }
   if propagating && precompute_raw_instrs_have_legacy_try(body) {
     let module_ctx = Some(
       run_hot_pipeline_require_module_ctx(mod_, module_state, options),
@@ -75246,67 +75294,85 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
   body : Array[@lib.Instruction],
   counts : Array[Int],
 ) -> Array[@lib.Instruction] {
-  let rewritten : Array[@lib.Instruction] = []
-  for instr in body {
-    rewritten.push(
-      match instr {
-        @lib.LocalSet(@lib.LocalIdx(raw)) => {
-          let idx = raw.reinterpret_as_int()
-          if idx >= 0 && idx < counts.length() && counts[idx] == 0 {
-            @lib.Instruction::drop()
-          } else {
-            instr
+  let mut rewritten : Array[@lib.Instruction]? = None
+  for index = 0; index < body.length(); index = index + 1 {
+    let instr = body[index]
+    let next = match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        let idx = raw.reinterpret_as_int()
+        if idx >= 0 && idx < counts.length() && counts[idx] == 0 {
+          @lib.Instruction::drop()
+        } else {
+          instr
+        }
+      }
+      @lib.Block(bt, @lib.Expr(nested)) => {
+        let next_body = run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
+          nested, counts,
+        )
+        if physical_equal(next_body, nested) {
+          instr
+        } else {
+          @lib.Instruction::block(bt, @lib.Expr::new(next_body))
+        }
+      }
+      @lib.Loop(bt, @lib.Expr(nested)) => {
+        let next_body = run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
+          nested, counts,
+        )
+        if physical_equal(next_body, nested) {
+          instr
+        } else {
+          @lib.Instruction::loop_(bt, @lib.Expr::new(next_body))
+        }
+      }
+      @lib.TryTable(bt, catches, @lib.Expr(nested)) => {
+        let next_body = run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
+          nested, counts,
+        )
+        if physical_equal(next_body, nested) {
+          instr
+        } else {
+          @lib.Instruction::try_table(bt, catches, @lib.Expr::new(next_body))
+        }
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let next_then = run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
+          then_body, counts,
+        )
+        let mut next_else = else_body
+        if else_body is Some(nested) {
+          let next_body = run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
+            nested, counts,
+          )
+          if !physical_equal(next_body, nested) {
+            next_else = Some(next_body)
           }
         }
-        @lib.Block(block_type, @lib.Expr(nested)) =>
-          @lib.Instruction::block(
-            block_type,
-            @lib.Expr::new(
-              run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
-                nested, counts,
-              ),
-            ),
-          )
-        @lib.Loop(block_type, @lib.Expr(nested)) =>
-          @lib.Instruction::loop_(
-            block_type,
-            @lib.Expr::new(
-              run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
-                nested, counts,
-              ),
-            ),
-          )
-        @lib.If(block_type, then_body, else_body) =>
-          @lib.Instruction::if_(
-            block_type,
-            run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
-              then_body, counts,
-            ),
-            match else_body {
-              Some(else_body) =>
-                Some(
-                  run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
-                    else_body, counts,
-                  ),
-                )
-              None => None
-            },
-          )
-        @lib.TryTable(block_type, catches, @lib.Expr(nested)) =>
-          @lib.Instruction::try_table(
-            block_type,
-            catches,
-            @lib.Expr::new(
-              run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
-                nested, counts,
-              ),
-            ),
-          )
-        _ => instr
-      },
-    )
+        if physical_equal(next_then, then_body) &&
+          physical_equal(next_else, else_body) {
+          instr
+        } else {
+          @lib.Instruction::if_(bt, next_then, next_else)
+        }
+      }
+      _ => instr
+    }
+    if rewritten is None && !physical_equal(next, instr) {
+      let prefix : Array[@lib.Instruction] = []
+      for previous = 0; previous < index; previous = previous + 1 {
+        prefix.push(body[previous])
+      }
+      rewritten = Some(prefix)
+    }
+    if rewritten is Some(out) {
+      out.push(next)
+    }
   }
-  rewritten
+  match rewritten {
+    Some(out) => out
+    None => body
+  }
 }
 
 ///|
@@ -75324,7 +75390,7 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_func(
   let rewritten = run_hot_pipeline_simplify_locals_lowered_drop_zero_read_sets_body(
     body, counts,
   )
-  if rewritten == body {
+  if physical_equal(rewritten, body) {
     func
   } else {
     @lib.Func::new(locals, @lib.Expr::new(rewritten))
@@ -78051,7 +78117,19 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
       (Some(original), Some(params)) =>
         pass_lower_compact_captures(
           if descriptor_name == "constraint-analysis" {
-            ca_lower_refinalize(func, mod_, func_idx)
+            ca_lower_refinalize(
+              func,
+              mod_,
+              func_idx,
+              module_env=match module_env {
+                Some(env) => Some(env)
+                None =>
+                  match module_env_provider {
+                    Some(provide) => Some(provide())
+                    None => None
+                  }
+              },
+            )
           } else {
             func
           },
@@ -79928,7 +80006,15 @@ fn run_hot_pipeline_func(
         !dce_requires_unchanged_lowering {
         let original = run_hot_pipeline_original_func(mod_, func_idx)
         let (output, changed) = if descriptor.name == "constraint-analysis" {
-          ca_lower_cleanup_raw(original, mod_)
+          ca_lower_cleanup_raw(
+            original,
+            mod_,
+            module_env=Some(
+              run_hot_pipeline_require_validation_module_env(
+                mod_, module_state, options,
+              ),
+            ),
+          )
         } else if descriptor.name == "precompute" ||
           descriptor.name == "precompute-propagate" {
           pass_lower_cleanup_branchless_blocks(
@@ -82143,7 +82229,9 @@ fn run_hot_pipeline_apply_hot_pass_stack(
           }
         }
         let cleanup_module_env = if descriptors.any(fn(d) {
-            d.name == "precompute" || d.name == "precompute-propagate"
+            d.name == "constraint-analysis" ||
+            d.name == "precompute" ||
+            d.name == "precompute-propagate"
           }) {
           Some(
             run_hot_pipeline_require_validation_module_env(
@@ -82162,7 +82250,11 @@ fn run_hot_pipeline_apply_hot_pass_stack(
             let (output, changed) = if descriptors.any(fn(d) {
                 d.name == "constraint-analysis"
               }) {
-              ca_lower_cleanup_raw(defs[code_idx], current_mod)
+              ca_lower_cleanup_raw(
+                defs[code_idx],
+                current_mod,
+                module_env=cleanup_module_env,
+              )
             } else {
               pass_lower_cleanup_branchless_blocks(
                 defs[code_idx],
@@ -82232,7 +82324,11 @@ fn run_hot_pipeline_apply_hot_pass_stack(
         let lowered_func = if descriptors.any(fn(d) {
             d.name == "constraint-analysis"
           }) {
-          ca_lower_cleanup_raw(lowered_func, current_mod).0
+          ca_lower_cleanup_raw(
+            lowered_func,
+            current_mod,
+            module_env=cleanup_module_env,
+          ).0
         } else if descriptors.any(fn(d) {
             d.name == "precompute" || d.name == "precompute-propagate"
           }) {
@@ -82424,7 +82520,9 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
           }
         }
         let cleanup_module_env = if descriptors.any(fn(d) {
-            d.name == "precompute" || d.name == "precompute-propagate"
+            d.name == "constraint-analysis" ||
+            d.name == "precompute" ||
+            d.name == "precompute-propagate"
           }) {
           Some(
             run_hot_pipeline_require_validation_module_env(
@@ -82443,7 +82541,11 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
             let (output, changed) = if descriptors.any(fn(d) {
                 d.name == "constraint-analysis"
               }) {
-              ca_lower_cleanup_raw(defs[code_idx], current_mod)
+              ca_lower_cleanup_raw(
+                defs[code_idx],
+                current_mod,
+                module_env=cleanup_module_env,
+              )
             } else {
               pass_lower_cleanup_branchless_blocks(
                 defs[code_idx],
@@ -82517,7 +82619,11 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
         let lowered_func = if descriptors.any(fn(d) {
             d.name == "constraint-analysis"
           }) {
-          ca_lower_cleanup_raw(lowered_func, current_mod).0
+          ca_lower_cleanup_raw(
+            lowered_func,
+            current_mod,
+            module_env=cleanup_module_env,
+          ).0
         } else if descriptors.any(fn(d) {
             d.name == "precompute" || d.name == "precompute-propagate"
           }) {
@@ -93035,7 +93141,8 @@ fn run_hot_pipeline_apply_module_pass(
     "propagate-globals-globally" =>
       propagate_globals_globally_run_module_pass(mod_)
     "dae2" | "dae2-optimizing" =>
-      match dae2_run_module_pass(mod_, options.closed_world) {
+      match
+        dae2_run_module_pass(mod_, options.closed_world, perf=options.perf) {
         Ok(next) =>
           if entry.name == "dae2-optimizing" {
             match
@@ -93379,4 +93486,31 @@ fn hot_pass_run_with_aggregate_perf_timer(
     post_pass_start_us,
   )
   Ok(result)
+}
+
+///|
+// Arity is only a rejection precheck. Every possible split still uses the
+// original checker, including operand types, local initialization and escapes.
+// Unknown controls abandon the precheck for the rest of this query.
+fn sl_value_suffix_stack_effect(
+  instr : @lib.Instruction,
+  env : @validate.Env,
+) -> (Int, Int)? {
+  match instr {
+    @lib.Block(_, _) | @lib.Loop(_, _) => None
+    @lib.Select(Some(types)) => Some((types.length() * 2 + 1, types.length()))
+    @lib.Call(index) =>
+      match env.get_functype_by_funcidx(index) {
+        Some(@lib.FuncType(params, results)) =>
+          Some((params.length(), results.length()))
+        None => None
+      }
+    @lib.CallIndirect(index, _) | @lib.CallRef(index) =>
+      match env.resolve_functype(index) {
+        Some(@lib.FuncType(params, results)) =>
+          Some((params.length() + 1, results.length()))
+        None => None
+      }
+    _ => precompute_raw_terminal_prefix_stack_effect(instr)
+  }
 }

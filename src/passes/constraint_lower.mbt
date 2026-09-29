@@ -142,9 +142,13 @@ fn ca_lower_refinalize(
   func : @lib.Func,
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
+  module_env? : @validate.Env? = None,
 ) -> @lib.Func {
   let @lib.Func(locals, @lib.Expr(body)) = func
-  let env = @validate.Env::new().with_module(mod_)
+  let env = match module_env {
+    Some(env) => env
+    None => @validate.Env::new().with_module(mod_)
+  }
   let body = ca_lower_refinalize_body(body, env)
   // A sole result loop starts with an empty outer stack. When its declared
   // outputs already match the function results, the function end consumes
@@ -163,7 +167,11 @@ fn ca_lower_refinalize(
       _ => ()
     }
   }
-  ca_lower_cleanup_raw(@lib.Func::new(locals, @lib.Expr::new(body)), mod_).0
+  ca_lower_cleanup_raw(
+    @lib.Func::new(locals, @lib.Expr::new(body)),
+    mod_,
+    module_env=Some(env),
+  ).0
 }
 
 ///|
@@ -192,8 +200,13 @@ fn ca_lower_trim_terminal_local_roundtrip(
 fn ca_lower_cleanup_raw(
   func : @lib.Func,
   mod_ : @lib.Module,
+  module_env? : @validate.Env? = None,
 ) -> (@lib.Func, Bool) {
-  let (func, changed) = pass_lower_cleanup_branchless_blocks(func, mod_)
+  let (func, changed) = pass_lower_cleanup_branchless_blocks(
+    func,
+    mod_,
+    module_env~,
+  )
   let (output, terminal_changed) = ca_lower_trim_terminal_local_roundtrip(func)
   (output, changed || terminal_changed)
 }

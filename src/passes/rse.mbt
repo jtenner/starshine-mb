@@ -572,6 +572,12 @@ fn rse_visit_node(
       state.reachable = false
       rse_fresh_value(state, node_id)
     }
+    @ir.HotOp::Continuation => {
+      for label_id in @ir.hot_continuation_targets(func, node_id) {
+        rse_record_branch_exit(state, label_id)
+      }
+      rse_fresh_value(state, node_id)
+    }
     @ir.HotOp::Return
     | @ir.HotOp::Unreachable
     | @ir.HotOp::Throw
@@ -1417,6 +1423,21 @@ fn rse_raw_record_branch_exit(
 }
 
 ///|
+fn rse_raw_record_resume_handler_exits(
+  state : RseRawState,
+  scopes : Array[RseRawLabelScope],
+  handlers : Array[@lib.ResumeHandler],
+) -> Unit {
+  for handler in handlers {
+    match handler {
+      @lib.ResumeOnLabel(_, label) =>
+        rse_raw_record_branch_exit(state, scopes, rse_raw_label_depth(label))
+      @lib.ResumeOnSwitch(_) => ()
+    }
+  }
+}
+
+///|
 fn rse_raw_unary_key(state : RseRawState, op : String, value : Int) -> Int {
   if value == -1 {
     -1
@@ -2069,6 +2090,13 @@ fn rse_raw_rewrite_expr_scoped(
         rse_raw_clear_stack(state)
         rse_raw_clear_values(state)
         state.reachable = false
+      }
+      @lib.Instruction::Resume(_, handlers)
+      | @lib.Instruction::ResumeThrow(_, _, handlers)
+      | @lib.Instruction::ResumeThrowRef(_, handlers) => {
+        rse_raw_record_resume_handler_exits(state, scopes, handlers)
+        out.push(instr)
+        rse_raw_clear_stack(state)
       }
       @lib.Instruction::Return | @lib.Instruction::Unreachable => {
         out.push(instr)

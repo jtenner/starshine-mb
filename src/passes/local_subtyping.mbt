@@ -2072,7 +2072,7 @@ fn ls_remove_return_suffixes(mod_ : @lib.Module) -> @lib.Module {
   if label_limits.is_empty() {
     return mod_
   }
-  let candidate = mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
+  let candidate = ls_rebuild_module(mod_, Some(@lib.CodeSec::new(next_funcs)))
   match mod_.name_sec {
     Some(names) =>
       match names.label_names {

@@ -331,16 +331,17 @@ fn dead_code_elimination_delete_unused_nodes(
     if owner >= first_candidate &&
       owner <= last_candidate &&
       in_candidate[owner - first_candidate] {
-      references[owner - first_candidate] =
-        references[owner - first_candidate] + 1
+      references[owner - first_candidate] = references[owner - first_candidate] +
+        1
     }
   }
   for root_id in func.roots {
     if root_id >= first_candidate &&
       root_id <= last_candidate &&
       in_candidate[root_id - first_candidate] {
-      references[root_id - first_candidate] =
-        references[root_id - first_candidate] + 1
+      references[root_id - first_candidate] = references[root_id -
+        first_candidate] +
+        1
     }
   }
   for user_id = 0; user_id < node_count; user_id = user_id + 1 {
@@ -354,8 +355,9 @@ fn dead_code_elimination_delete_unused_nodes(
         child_id <= last_candidate &&
         child_id != user_id &&
         in_candidate[child_id - first_candidate] {
-        references[child_id - first_candidate] =
-          references[child_id - first_candidate] + 1
+        references[child_id - first_candidate] = references[child_id -
+          first_candidate] +
+          1
       }
     }
   }
@@ -374,8 +376,9 @@ fn dead_code_elimination_delete_unused_nodes(
           child_id <= last_candidate &&
           child_id != node_id &&
           in_candidate[child_id - first_candidate] {
-          references[child_id - first_candidate] =
-            references[child_id - first_candidate] - 1
+          references[child_id - first_candidate] = references[child_id -
+            first_candidate] -
+            1
         }
       }
       deleted.push(node_id)

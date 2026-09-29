@@ -960,6 +960,71 @@ test "empty and malformed integer domains fail closed" {
 }
 
 ///|
+test "contradictory signed zero and nonzero facts fail closed" {
+  let facts = @representation.ValueFacts::new(
+    integer=Some(
+      @representation.IntegerFacts::new(
+        @representation.IntWidth::i32(),
+        signed_range=Some(@representation.SignedRange::new(0L, 0L)),
+        nonzero=true,
+      ),
+    ),
+  )
+  let module_ = compiler_fact_test_attach_value_fact(
+    compiler_fact_test_i32_eqz_module(),
+    1U,
+    facts,
+  )
+  let result = apply_compiler_facts(
+    module_,
+    CompilerFactUsePolicy::trust_assertions(),
+  ).unwrap()
+  assert_true(
+    result.module_.pretty_print_func(@lib.FuncIdx::new(1U)).contains("i32.eqz"),
+  )
+  assert_true(result.stats.malformed_or_impossible_facts > 0)
+}
+
+///|
+test "contradictory signed and unsigned integer ranges fail closed" {
+  let facts = @representation.ValueFacts::new(
+    integer=Some(
+      @representation.IntegerFacts::new(
+        @representation.IntWidth::i32(),
+        unsigned_range=Some(@representation.UnsignedRange::new(0UL, 0UL)),
+        signed_range=Some(@representation.SignedRange::new(-1L, -1L)),
+      ),
+    ),
+  )
+  let base = compiler_fact_test_i32_compare_module(@lib.Instruction::i32_lt_s())
+  let with_zero = match base.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, @lib.Expr([call, _, compare]))])) =>
+      base.with_code_sec(
+        @lib.CodeSec::new([
+          @lib.Func::new(
+            locals,
+            @lib.Expr::new([
+              call,
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              compare,
+            ]),
+          ),
+        ]),
+      )
+    other => fail("expected comparison fixture, got \{other}")
+  }
+  let module_ = compiler_fact_test_attach_value_fact(with_zero, 1U, facts)
+  let result = apply_compiler_facts(
+    module_,
+    CompilerFactUsePolicy::trust_assertions(),
+  ).unwrap()
+  assert_true(
+    result.module_.pretty_print_func(@lib.FuncIdx::new(1U)).contains("i32.lt_s"),
+  )
+  assert_true(result.stats.malformed_or_impossible_facts > 0)
+}
+
+///|
 test "stale instruction offset cannot be remapped by instruction order" {
   let base = compiler_fact_test_i32_compare_module(@lib.Instruction::i32_eq())
   let original_site = compiler_fact_test_first_plain_call_site(base, 1U)

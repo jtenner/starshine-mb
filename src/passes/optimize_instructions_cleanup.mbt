@@ -44,6 +44,7 @@ fn oi_cleanup_module_encoding(
 fn oi_group_numeric_locals_if_smaller(
   mod_ : @lib.Module,
   touched? : Array[Bool]? = None,
+  function_comparisons? : Array[Int]? = None,
 ) -> @lib.Module {
   if pass_module_has_legacy_try(mod_) ||
     oi_local_group_has_offset_metadata(mod_) {
@@ -53,7 +54,8 @@ fn oi_group_numeric_locals_if_smaller(
     mod_,
     touched~,
   )
-  if grouped.code_sec == mod_.code_sec {
+  ignore(function_comparisons)
+  if physical_equal(grouped, mod_) {
     return mod_
   }
   let size_baseline = if mod_.compiler_fact_custom_section is Some(_) {

@@ -603,10 +603,19 @@ fn lcse_raw_instr_is_branch_control(instr : @lib.Instruction) -> Bool {
     | @lib.Instruction::BrOnNonNull(_)
     | @lib.Instruction::BrOnCast(_, _, _, _)
     | @lib.Instruction::BrOnCastFail(_, _, _, _)
+    | @lib.Instruction::BrOnCastDescEq(_, _, _)
+    | @lib.Instruction::BrOnCastDescEqFail(_, _, _)
+    | @lib.Instruction::Rethrow(_)
     | @lib.Instruction::Return
     | @lib.Instruction::ReturnCall(_)
     | @lib.Instruction::ReturnCallIndirect(_, _)
-    | @lib.Instruction::ReturnCallRef(_) => true
+    | @lib.Instruction::ReturnCallRef(_)
+    | @lib.Instruction::Try(_, _, _, _)
+    | @lib.Instruction::TryTable(_, _, _) => true
+    @lib.Instruction::Resume(_, handlers)
+    | @lib.Instruction::ResumeThrow(_, _, handlers)
+    | @lib.Instruction::ResumeThrowRef(_, handlers) =>
+      handlers.any(fn(handler) { handler is @lib.ResumeOnLabel(_, _) })
     _ => false
   }
 }
@@ -3099,6 +3108,9 @@ fn lcse_module_has_shared_memory(mod_ : @lib.Module) -> Bool {
 pub fn local_cse_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
+      if funcs.is_empty() {
+        return mod_
+      }
       let params = cl_defined_func_param_cache(mod_)
       let call_infos = lcse_raw_module_call_infos(mod_)
       let subtypes = cl_module_subtypes(mod_)

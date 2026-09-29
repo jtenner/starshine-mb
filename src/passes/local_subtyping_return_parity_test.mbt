@@ -68,3 +68,16 @@ test "local-subtyping return parity keeps surviving label names" {
     input.name_sec.unwrap().label_names.unwrap().0[1],
   )
 }
+
+///|
+test "local-subtyping return cleanup clears opaque raw label names" {
+  let input = pass_test_module_from_wat(
+    "(module (func block nop end return block nop end))",
+  ).with_raw_name_sec_payload(b"opaque-label-map")
+  let direct = local_subtyping_run_module_pass(input)
+  @debug.assert_eq(direct.raw_name_sec_payload, None)
+  assert_true(@validate.validate_module(direct) is Ok(_))
+  let dispatched = audit_run_module(input, "local-subtyping")
+  @debug.assert_eq(dispatched.raw_name_sec_payload, None)
+  assert_true(@validate.validate_module(dispatched) is Ok(_))
+}

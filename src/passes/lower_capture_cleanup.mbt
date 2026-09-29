@@ -103,6 +103,12 @@ fn pass_lower_remove_balanced_captures(
               }
               height -= 1
             }
+            @lib.Drop => {
+              if height == 0 {
+                break
+              }
+              height -= 1
+            }
             @lib.LocalTee(_) => if height == 0 { break }
             @lib.Nop => ()
             _ => break

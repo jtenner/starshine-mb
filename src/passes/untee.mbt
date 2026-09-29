@@ -6,7 +6,7 @@ pub fn untee_summary() -> String {
 ///|
 fn untee_rewrite_instr(
   instr : @lib.Instruction,
-  preserve_initialization : Bool,
+  preserve_initialization : Array[Bool],
 ) -> (@lib.Instruction, Bool) {
   pass_rewrite_structured_instr(instr, fn(body) {
     untee_rewrite_instrs(body, preserve_initialization)
@@ -16,7 +16,7 @@ fn untee_rewrite_instr(
 ///|
 fn untee_rewrite_instrs(
   instrs : Array[@lib.Instruction],
-  preserve_initialization : Bool,
+  preserve_initialization : Array[Bool],
 ) -> (Array[@lib.Instruction], Bool) {
   let mut out : Array[@lib.Instruction]? = None
   for idx in 0..<instrs.length() {
@@ -37,8 +37,13 @@ fn untee_rewrite_instrs(
             prefix
           }
         }
+        let @lib.LocalIdx(raw_local) = local_idx
+        let local_id = raw_local.reinterpret_as_int()
+        let preserve_target_initialization = local_id >= 0 &&
+          local_id < preserve_initialization.length() &&
+          preserve_initialization[local_id]
         match target.last() {
-          Some(@lib.Unreachable) if !preserve_initialization => ()
+          Some(@lib.Unreachable) if !preserve_target_initialization => ()
           _ => {
             target.push(@lib.Instruction::local_set(local_idx))
             target.push(@lib.Instruction::local_get(local_idx))
@@ -76,17 +81,27 @@ pub fn untee_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     return mod_
   }
   let mut rewritten : Array[@lib.Func]? = None
+  let params_by_func : Array[Array[@lib.ValType]] = match
+    (mod_.type_sec, mod_.func_sec) {
+    (Some(_), Some(_)) => cl_defined_func_param_cache(mod_)
+    _ => Array::make(funcs.length(), [])
+  }
   for func_idx = 0; func_idx < funcs.length(); func_idx = func_idx + 1 {
     let func = funcs[func_idx]
     let @lib.Func(locals, @lib.Expr(body)) = func
     // Definite initialization is checked even in polymorphic unreachable code.
-    let mut preserve_initialization = false
-    for run in locals.runs() {
-      if run.count() != 0U &&
-        run.val_type() is @lib.RefTypeValType(ref_type) &&
-        ref_type.is_non_nullable() {
-        preserve_initialization = true
-        break
+    let params = params_by_func[func_idx]
+    let preserve_initialization = Array::make(
+      params.length() + locals.length(),
+      false,
+    )
+    for body_local = 0
+        body_local < locals.length()
+        body_local = body_local + 1 {
+      match locals.get(body_local) {
+        @lib.RefTypeValType(ref_type) if ref_type.is_non_nullable() =>
+          preserve_initialization[params.length() + body_local] = true
+        _ => ()
       }
     }
     let (next_body, func_changed) = untee_rewrite_instrs(

@@ -2256,7 +2256,9 @@ fn tuple_optimization_count_lane_traffic(
       // Lane-traffic analysis has not changed the HOT graph since use-def was
       // built. A captured write with only child uses has no root position.
       if !tuple_optimization_has_root_site_in_fresh_use_def(
-          func, use_def, writes[0],
+          func,
+          use_def,
+          writes[0],
         ) {
         continue
       }

@@ -315,14 +315,20 @@ fn hso_order_effects_for_node(
     effects.shared_array_read = true
     effects.shared_array_write = true
   }
-  for idx = 0; idx < pass_value_operand_count(func, node_id); idx = idx + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for idx = 0; idx < operand_count; idx = idx + 1 {
     hso_order_effects_merge(
       effects,
       hso_order_effects_for_node(
         cache,
         func,
         module_ctx,
-        @ir.hot_child_get(func, node_id, idx),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, idx),
+        ),
       ),
     )
   }
@@ -875,11 +881,17 @@ fn hso_subtree_accesses_global(
       }
     _ => ()
   }
-  for idx = 0; idx < pass_value_operand_count(func, node_id); idx = idx + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for idx = 0; idx < operand_count; idx = idx + 1 {
     if hso_subtree_accesses_global(
         module_ctx,
         func,
-        @ir.hot_child_get(func, node_id, idx),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, idx),
+        ),
         global_id,
         want_write,
       ) {
@@ -991,11 +1003,17 @@ fn hso_subtree_global_order_conflicts(
       }
     _ => ()
   }
-  for idx = 0; idx < pass_value_operand_count(func, barrier_id); idx = idx + 1 {
+  let operand_node = @ir.hot_node_get(func, barrier_id)
+  let operand_count = pass_value_operand_count(func, barrier_id)
+  for idx = 0; idx < operand_count; idx = idx + 1 {
     if hso_subtree_global_order_conflicts(
         module_ctx,
         func,
-        @ir.hot_child_get(func, barrier_id, idx),
+        @ir.hot_child_get(
+          func,
+          barrier_id,
+          pass_value_operand_slot(operand_node, idx),
+        ),
         moved_id,
       ) {
       return true
@@ -1084,8 +1102,17 @@ fn hso_subtree_has_global_write(func : @ir.HotFunc, node_id : Int) -> Bool {
     @ir.HotOp::GlobalSet => return true
     _ => ()
   }
-  for idx = 0; idx < pass_value_operand_count(func, node_id); idx = idx + 1 {
-    if hso_subtree_has_global_write(func, @ir.hot_child_get(func, node_id, idx)) {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for idx = 0; idx < operand_count; idx = idx + 1 {
+    if hso_subtree_has_global_write(
+        func,
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, idx),
+        ),
+      ) {
       return true
     }
   }
@@ -1147,10 +1174,16 @@ fn hso_subtree_touches_local(
       }
     _ => ()
   }
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     if hso_subtree_touches_local(
         func,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, slot),
+        ),
         local_id,
       ) {
       return true
@@ -1309,10 +1342,16 @@ fn hso_subtree_may_escape_to_active_catch(
     | @ir.HotOp::Delegate => return true
     _ => ()
   }
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     if hso_subtree_may_escape_to_active_catch(
         func,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, slot),
+        ),
       ) {
       return true
     }
@@ -1376,10 +1415,16 @@ fn hso_subtree_contains_try_table(func : @ir.HotFunc, node_id : Int) -> Bool {
     @ir.HotOp::TryTable => return true
     _ => ()
   }
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     if hso_subtree_contains_try_table(
         func,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, slot),
+        ),
       ) {
       return true
     }
@@ -1457,10 +1502,16 @@ fn hso_subtree_has_catchable_try_table_escape(
       }
     _ => ()
   }
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     if hso_subtree_has_catchable_try_table_escape(
         func,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, slot),
+        ),
       ) {
       return true
     }
@@ -1565,10 +1616,16 @@ fn hso_subtree_skip_is_branch_only(func : @ir.HotFunc, node_id : Int) -> Bool {
     | @ir.HotOp::Unreachable => return false
     _ => ()
   }
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     if !hso_subtree_skip_is_branch_only(
         func,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, slot),
+        ),
       ) {
       return false
     }
@@ -1673,10 +1730,16 @@ fn hso_subtree_may_skip_local_set_from_root(
   if pushes_owner {
     active_owners.push(node_id)
   }
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     if hso_subtree_may_skip_local_set_from_root(
         func,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, slot),
+        ),
         active_owners,
       ) {
       if pushes_owner {
@@ -1796,12 +1859,18 @@ fn hso_compute_subtree_is_trapless_readonly(
     @ir.hot_node_may_throw_exception(func, node_id) {
     return false
   }
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     if !hso_subtree_is_trapless_readonly(
         cache,
         func,
         node_masks,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, slot),
+        ),
       ) {
       return false
     }
@@ -1967,12 +2036,18 @@ fn hso_subtree_is_trapless_reorderable(
   if pushes_owner {
     active_owners.push(node_id)
   }
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     if !hso_subtree_is_trapless_reorderable(
         cache,
         func,
         node_masks,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, slot),
+        ),
         active_owners,
       ) {
       if pushes_owner {
@@ -2132,12 +2207,18 @@ fn hso_subtree_is_trapless_readonly_contained_control(
   if pushes_owner {
     active_owners.push(node_id)
   }
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     if !hso_subtree_is_trapless_readonly_contained_control(
         cache,
         func,
         node_masks,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, slot),
+        ),
         active_owners,
       ) {
       if pushes_owner {
@@ -2347,10 +2428,16 @@ fn hso_desc_node_has_loop_control_barrier(
   if @ir.hot_is_terminator_node(func, node_id) {
     return true
   }
-  for idx = 0; idx < pass_value_operand_count(func, node_id); idx = idx + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for idx = 0; idx < operand_count; idx = idx + 1 {
     if hso_desc_node_has_loop_control_barrier(
         func,
-        @ir.hot_child_get(func, node_id, idx),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, idx),
+        ),
         active_loop_id,
       ) {
       return true
@@ -2453,13 +2540,19 @@ fn hso_desc_operand_effects_for_node(
     | Some(@lib.Instruction::StructNewDesc(_))
     | Some(@lib.Instruction::StructNewDefaultDesc(_)) => {
       let mut mask = hso_struct_new_shallow_effects(func, node_id)
-      for idx = 0; idx < pass_value_operand_count(func, node_id); idx = idx + 1 {
+      let operand_node = @ir.hot_node_get(func, node_id)
+      let operand_count = pass_value_operand_count(func, node_id)
+      for idx = 0; idx < operand_count; idx = idx + 1 {
         mask = mask |
           hso_desc_operand_effects_for_node(
             func,
             module_ctx,
             node_masks,
-            @ir.hot_child_get(func, node_id, idx),
+            @ir.hot_child_get(
+              func,
+              node_id,
+              pass_value_operand_slot(operand_node, idx),
+            ),
           )
       }
       return mask
@@ -2468,13 +2561,19 @@ fn hso_desc_operand_effects_for_node(
   }
   if @ir.hot_is_branch(func, node_id) {
     let mut mask = 0U
-    for idx = 0; idx < pass_value_operand_count(func, node_id); idx = idx + 1 {
+    let operand_node = @ir.hot_node_get(func, node_id)
+    let operand_count = pass_value_operand_count(func, node_id)
+    for idx = 0; idx < operand_count; idx = idx + 1 {
       mask = mask |
         hso_desc_operand_effects_for_node(
           func,
           module_ctx,
           node_masks,
-          @ir.hot_child_get(func, node_id, idx),
+          @ir.hot_child_get(
+            func,
+            node_id,
+            pass_value_operand_slot(operand_node, idx),
+          ),
         )
     }
     return mask
@@ -2483,13 +2582,19 @@ fn hso_desc_operand_effects_for_node(
     @ir.HotOp::LocalGet => return 0U
     @ir.HotOp::Drop => {
       let mut mask = 0U
-      for idx = 0; idx < pass_value_operand_count(func, node_id); idx = idx + 1 {
+      let operand_node = @ir.hot_node_get(func, node_id)
+      let operand_count = pass_value_operand_count(func, node_id)
+      for idx = 0; idx < operand_count; idx = idx + 1 {
         mask = mask |
           hso_desc_operand_effects_for_node(
             func,
             module_ctx,
             node_masks,
-            @ir.hot_child_get(func, node_id, idx),
+            @ir.hot_child_get(
+              func,
+              node_id,
+              pass_value_operand_slot(operand_node, idx),
+            ),
           )
       }
       return mask
@@ -2528,13 +2633,19 @@ fn hso_desc_operand_effects_for_node(
     }
     @ir.HotOp::If => {
       let mut mask = 0U
-      for idx = 0; idx < pass_value_operand_count(func, node_id); idx = idx + 1 {
+      let operand_node = @ir.hot_node_get(func, node_id)
+      let operand_count = pass_value_operand_count(func, node_id)
+      for idx = 0; idx < operand_count; idx = idx + 1 {
         mask = mask |
           hso_desc_operand_effects_for_node(
             func,
             module_ctx,
             node_masks,
-            @ir.hot_child_get(func, node_id, idx),
+            @ir.hot_child_get(
+              func,
+              node_id,
+              pass_value_operand_slot(operand_node, idx),
+            ),
           )
       }
       mask = mask |
@@ -2556,13 +2667,19 @@ fn hso_desc_operand_effects_for_node(
     }
     @ir.HotOp::Select => {
       let mut mask = 0U
-      for idx = 0; idx < pass_value_operand_count(func, node_id); idx = idx + 1 {
+      let operand_node = @ir.hot_node_get(func, node_id)
+      let operand_count = pass_value_operand_count(func, node_id)
+      for idx = 0; idx < operand_count; idx = idx + 1 {
         mask = mask |
           hso_desc_operand_effects_for_node(
             func,
             module_ctx,
             node_masks,
-            @ir.hot_child_get(func, node_id, idx),
+            @ir.hot_child_get(
+              func,
+              node_id,
+              pass_value_operand_slot(operand_node, idx),
+            ),
           )
       }
       return mask
@@ -2673,10 +2790,16 @@ fn hso_subtree_has_tail_or_throw_escape(
     | @ir.HotOp::Unreachable => return true
     _ => ()
   }
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     if hso_subtree_has_tail_or_throw_escape(
         func,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, slot),
+        ),
       ) {
       return true
     }
@@ -3480,10 +3603,16 @@ fn hso_subtree_targets_owner_label(
       return true
     }
   }
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     if hso_subtree_targets_owner_label(
         func,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, slot),
+        ),
         owner_id,
       ) {
       return true
@@ -3640,10 +3769,16 @@ fn hso_retarget_subtree_label(
     None => ()
   }
   let node = @ir.hot_node_get(func, node_id)
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     hso_retarget_subtree_label(
       func,
-      @ir.hot_child_get(func, node_id, slot),
+      @ir.hot_child_get(
+        func,
+        node_id,
+        pass_value_operand_slot(operand_node, slot),
+      ),
       from_label_id,
       to_label_id,
     )
