@@ -18,7 +18,10 @@
   scalability workload does not establish a compiler-artifact gain. Pure-subtree
   pruning reduces dependency-analysis instructions 0.77% and paired large
   DAE2 time 1.44%; optimizing compiler time is near flat and control costs
-  remain recorded.
+  remain recorded. The new active pure-tail pipeline fixture adds one focused
+  passing default guard and four native benchmarks; matching frozen-binary
+  DAE2/O comparisons improve 45.76%/45.33%, with 28 original/v133 observations.
+  Compiler competitiveness remains open.
 - **Remaining DAE2/O work:** close the multi-second compiler gap by reducing
   source-order scans, CFG/reaching-definition work, lift/lower and optimizing
   cleanup. The 32-root dependency-index threshold trial is rejected; sparse

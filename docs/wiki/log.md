@@ -51,6 +51,10 @@
   1,029 bounded observations pass. Dependency instructions fall 0.77% and
   paired large DAE2 time falls 1.44%; optimizing compiler timing is near flat,
   with small/control costs preserved.
+  Permanent 512/8192-leaf active pure-tail pipeline benchmarks and a bounded
+  argument-removal guard pass. Matching paired CLI pipelines improve
+  45.76%/45.33%, with 28 original/v133 observations and unchanged bytes.
+  The fresh verified-v133 compiler ratios remain 9.51×/4.59×.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration

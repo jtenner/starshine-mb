@@ -88,8 +88,42 @@ outputs match. Candidate v13 SHA-256 is
 Evidence under `.tmp/dae2-lean-20260929/` uses `pairs-v13-*`,
 `callgrind-v13-dependencies`, `small-instructions-v13/`,
 `allocator-calls-v13.json`, `pure-red.log` and `validation-v13.json`.
-The next section preserves the earlier directly measured cumulative checkpoint;
+The cumulative section below preserves the earlier directly measured checkpoint;
 do not multiply its gains by this cohort's percentages. Fuzz remains deferred.
+
+## September 29, 2026 active pure-tail pipeline benchmark
+
+The [permanent full-pass workload](../../../../../src/passes_perf_long/dae2_pure_tail_perf_test.mbt)
+has a private helper with one removable argument, a conditional local write,
+32 calls that increment an exported global, and a balanced dropped numeric
+tail. Fewer than 64 statement roots exercise direct future-dependency scanning:
+previously every preceding call rediscovered the pure tail's operands. The
+conditional reaching definitions and actual signature change keep DAE2 analysis
+and rewriting active. Balanced trees avoid conflating that repeated work with
+deep-stack stress.
+
+The bounded eight-leaf test validates both pass outputs, checks argument removal
+and confirms input ownership. All four dedicated native benchmarks pass at
+512/8192 leaves: DAE2 means 961.23µs/13.59ms, optimizing means 1.01ms/13.57ms.
+Setup validates the output and requires argument removal outside timing; these
+standalone means are not before/after improvement percentages. Info/fmt and
+the focused default guard pass after the 12,929-test full run recorded above.
+
+A matching 8192-leaf CLI fixture, one warmup and three alternating v11/v13
+pairs with the independent reference bracket, measures DAE2 **24.764 →
+13.431ms (−45.76%)** and DAE2-O **25.466 → 13.921ms (−45.33%)**. Before/after
+MADs are 0.038/0.060ms and 0.091/0.002ms. Before/after bytes, traced/untraced
+outputs and validation match. Original, both frozen Starshine binaries and
+verified v133 return identical results and exactly 32 writes for four inputs:
+seven modules and 28 runtime observations. This scaling gain does not establish
+a compiler-artifact speedup; the compiler results remain separately recorded.
+
+Local evidence is `.tmp/dae2-lean-20260929/pure-tail-v13/`,
+`pure-tail-{controls,bench,test}.log` and `pure-tail.wat`. Input SHA-256 is
+`1ce3aa502916d19fec1f9740965806afa2fb4e633acf9e8105d0eda5a69966f0`.
+Both frozen binary and verified oracle hashes are recorded in the surrounding
+checkpoints. Production code is unchanged by this benchmark addition; no
+aggregate fuzz runs.
 
 ## September 29, 2026 cumulative lean checkpoint
 
