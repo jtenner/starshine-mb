@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-09-26
+last_reviewed: 2026-09-29
 sources:
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/ir/catch_payload_preflight_wbtest.mbt
@@ -24,6 +24,295 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## September 29, 2026 branchless scalar blocks and source-order flow
+
+The next candidate admits input-free void/scalar blocks with no branches,
+early returns, indexed signatures or other structured control. An iterative
+walk flattens their ordered children for the existing symbolic scalar analysis
+and direct mutation. Flat analysis retains its original shared instruction row;
+block output matches the full-HOT reference exactly. Indexed, tuple, branched,
+loop, exception and continuation families retain their complete fallback.
+[Red-first block fixtures](../../../../../src/passes/dae2_raw_branchless_blocks_wbtest.mbt)
+cover nested results, global effects, writes, load tees, import results, traps
+and recursive forwarding in both world modes, with zero analysis/rewrite lifts.
+[Native controls](../../../../../src/passes/dae2_raw_branchless_blocks_perf_wbtest.mbt)
+compare complete HOT/direct DAE2 at tiny/wide sizes and depths 1/16.
+
+The trials exposed a correctness error in the previous HOT fallback: a read
+already on the operand stack could be assigned the definition from a later
+block write because the root-only CFG visits its consuming parent later.
+An entry read lost its parameter; a read after an earlier write lost that
+write. A first-write entry-edge experiment fixed only the former and is
+superseded. Demanded LocalGraph now uses expanded operand control, preserving
+both actual source families and loop-carried writes. Read-only and proved
+entry-write admission still avoid the graph.
+[Dependency regressions](../../../../../src/passes/dae2_stacked_block_entry_wbtest.mbt)
+first fail on the lost entry parameter and earlier write, then require exact
+signatures, retained writes, valid output and owned input. The
+[dispatcher](../../../../../src/cmd/dae2_raw_branchless_blocks_wbtest.mbt) checks
+both modes. Nineteen focused checks pass; full/native, bounded execution and
+artifact cost/size evidence remain under way. Keep this as a release blocker
+until runtime replays and final affected aggregate renewal complete.
+
+## September 29, 2026 scalar tees and solved graph transfer
+
+V13 tracks a tee's stack value separately from its local write. Demanded writes
+keep their ordered tee/drop shape; unread captures for removed parameters
+vanish. The first V13 projection incorrectly retained unread original
+body-local tees: the large DAE2 input grew 316 bytes across 86 functions.
+V14 projects retention from surviving local.get instructions, matching
+`hot_lower_impl_prune_dead_local_tees_in_body` even for reads preceding a later
+write. [Red-first capture fixtures](../../../../../src/passes/dae2_raw_tee_captures_wbtest.mbt)
+cover unread body locals, earlier reads, overwrites and removed parameters;
+the dispatcher fixture also failed before the repair. [Tee fixtures](../../../../../src/passes/dae2_raw_tee_wbtest.mbt) compare
+exact full-HOT bytes for stacked entry reads, overwritten definitions, mandatory
+loads/calls, removed results and f32/f64 reinterpretation. Both
+[dispatcher modes](../../../../../src/cmd/dae2_raw_tee_wbtest.mbt) retain discarded
+import effects. The initial two tests failed with a second rewrite lift; the
+combined tee/storage slice now passes seventeen focused checks.
+
+V12 drops solved module adjacency before rewrite but requires mutable graph
+fields. V13 instead transfers the same solved bitvector into a fresh empty
+graph, so the owned analysis graph dies without adding mutable-field reference
+work to every edge. [Transfer tests](../../../../../src/passes/dae2_solved_transfer_wbtest.mbt)
+require shared solved values, zero new edge capacity and unchanged borrowed
+storage. [Matched graph controls](../../../../../src/passes/dae2_graph_fields_perf_wbtest.mbt)
+compare the frozen V12 mutable graph with immutable fields. V14 completes
+12,853 default and 86 focused native tests, 46 benchmarks and 4,056 matching
+bounded observations. Large DAE2/O bytes match V12. Small DAE2/O pipelines
+improve 62.47%/40.67%; active tee pipelines improve 91.89%/18.29%. Large costs
+remain multi-second with contended small movements; RSS ranges overlap, and
+quiet GC/entry/pure costs remain. The [complete V14 report](../../../tooling/tracing-playbook.md#v14-complete-checkpoint-and-next-cleanup-targets)
+records hashes, oracle ratios, size gaps and the SL stack-order hotspot.
+
+## September 29, 2026 scalar direct mutation
+
+V11 qualifies scalar flat bodies for mutation without a second HOT arena.
+A body-local dependency graph demands stack values and the last local write
+feeding each read. Calls demand only retained arguments; mandatory producers
+still execute in original order and drop unused retained results at production.
+Removed results, explicit returns and kept-result calls follow solved module
+boundary liveness. Local slots and names use the existing reverse removed-param
+placement and capture compaction map. Complete final-module validation remains.
+
+[Exact HOT comparisons](../../../../../src/passes/dae2_raw_rewrite_wbtest.mbt)
+cover writes beneath stacked reads, traps, effects, recursion, grouped locals,
+names and 130 parameters. Tuple results and indirect calls retain HOT mutation at this checkpoint;
+V13/V14 subsequently admit scalar tees under the contract above. The [dispatcher](../../../../../src/cmd/dae2_raw_rewrite_wbtest.mbt)
+checks both modes. The initial eight-fixture test failed with two rewrite lifts
+before implementation; the final focused slice passes fifteen checks. V11
+passes 12,840 default and 73 focused native tests and 52 native benchmarks.
+The 741-module bounded matrix has 3,380 matching runtime observations and
+identical V10/V11 outputs. Direct-only mutation controls improve 38.62 →
+12.98 µs at tiny scale and 8.44 → 1.52 ms at 32 bodies/128 operations.
+Enclosing active flat DAE2/O improve 81.45%/66.02% and GC 89.71%/56.97%.
+Large compiler DAE2/O remain 3.89/7.07 seconds at 9.19×/4.39× v133.
+The [priority report](../../../tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls)
+records the initial active O regression, its quiet renewal, RSS variation and
+remaining size gaps. V12 completes releasing solved module adjacency before rewrite;
+[storage and active rewrite checks](../../../../../src/passes/dae2_solved_storage_wbtest.mbt)
+require zero retained edge capacity and unchanged solved liveness/output.
+
+## September 29, 2026 mandatory producers and replay reset
+
+V10 qualifies flat scalar loads, trapping numeric operations and selected GC,
+reference, table and growth producers without the first HOT arena. All inputs
+are observed even for a dropped result, preserving possible traps and effects;
+struct field counts use the existing module subtype context. Changed functions
+still replay and mutate through HOT. The
+[direct opcode and exact-HOT fixtures](../../../../../src/passes/dae2_raw_producers_wbtest.mbt)
+include array operations missing from the text reader, and the
+[dispatcher](../../../../../src/cmd/dae2_raw_producers_wbtest.mbt) covers both modes.
+
+Bulk replay reset preserves the retained-capacity and immutable-boundary
+contracts, restoring the wide helper after V9's 7.18% regression. Fresh/reused
+64-body controls measure 720.37/629.66 µs at 8,192 boundaries. V10 passes
+12,830 default tests, 61 focused native tests and 2,808 bounded runtime
+observations. Quiet active GC DAE2/O improve 7.53%/2.79%; large passes remain
+four/seven seconds with a contended O increase requiring renewal. The
+[priority report](../../../tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls)
+owns exact hashes, RSS dispersion and fresh verified-v133 ratios.
+
+## September 29, 2026 flat writes and rewrite allocation
+
+V9 extends the symbolic stack with one current dependency per local. A flat
+`local.set` replaces that symbol; `local.tee` replaces it while preserving the
+stack value. Values already on the stack retain their earlier symbol across a
+later write. Validation still precedes graph commitment, and structured writes
+retain full HOT/LocalGraph analysis. The
+[assignment fixtures](../../../../../src/passes/dae2_raw_assignments_wbtest.mbt)
+compare exact full-HOT bytes for overwrites, tees, stacked entry reads and a
+body-local carrier, with no initial lifts.
+
+Changed raw bodies now share one module-scoped replay workspace. Reset clears
+all expression edges, work and observed state, then reseeds the immutable solved
+boundary prefix. Capacity is bounded by that prefix and the largest replayed
+body; no HOT arena is retained. [Reset and multi-body tests](../../../../../src/passes/dae2_replay_workspace_wbtest.mbt)
+prove old edges cannot affect a smaller next body or mutate module liveness.
+[Native controls](../../../../../src/passes/dae2_replay_workspace_perf_wbtest.mbt)
+compare fresh and reused replay allocation at 128/8,192 boundaries.
+
+The rewrite walk reads checked child slots until a child ID changes, allocating
+one owned parent snapshot at the first replacement. Unchanged ordinary nodes
+return directly; calls retain the old producer IDs required for tuple grouping.
+[Ownership fixtures](../../../../../src/passes/dae2_lazy_children_wbtest.mbt)
+assert unchanged encoded expressions/revisions and independent changed snapshots;
+[controls](../../../../../src/passes/dae2_lazy_children_perf_wbtest.mbt) compare
+the former owned-map path against lazy snapshots. The expanded focused suite
+passes 451 tests and V9 passes 12,819 default, 50 focused native and 479
+native IR tests plus 64 native benchmark cases. Its 2,444 bounded runtime
+observations match. Child controls improve 72.51 → 36.61 ns and
+290.10 → 136.65 µs; replay improves 66.59 → 44.79 µs at 128 boundaries,
+but regresses 765.67 → 820.62 µs at 8,192. The wide reset needs another
+trial, completed by V10 above. The priority report records completed V9
+enclosing, repeated memory and fresh oracle evidence; V8's historical costs
+remain visible.
+
+## September 29, 2026 symbolic flat-body analysis
+
+An active flat body can record parameter and whole-result dependencies without
+its initial HOT arena. Constants and default-initialized locals contribute no
+dependency; readonly parameter reads alias their boundary location. Pure scalar
+operators merge distinct dependencies through compact integer joins. Call
+arguments depend on the callee's parameter locations, returned lanes alias its
+whole-result location, and indirect/reference targets are observed. Stores
+observe their operands. Recursive forwarding therefore retains the same least
+fixed point without a fixed parameter-count limit.
+
+Qualification completes before committing graph edges and every admitted body
+is validated. Assignments, structured control, tail calls, intrinsic targets,
+trapping producers and unsupported SIMD/GC operations retain full HOT analysis.
+Only bodies needing a rewrite are lifted; their expression liveness is replayed
+in a fresh graph seeded with the solved boundary prefix. No solved module edges
+are mutated. A newly observed boundary triggers a complete HOT reanalysis of
+the original module. The private reference switch enables exact encoded-output
+comparisons; it is not a public optimizer option.
+
+[Red-first tests](../../../../../src/passes/dae2_raw_analysis_wbtest.mbt)
+cover stores, dropped expressions/results, final returns, multiple result lanes,
+recursion, indirect/reference families, 96 parameters, input ownership and invalid
+types. [Both command modes](../../../../../src/cmd/dae2_raw_analysis_wbtest.mbt)
+retain live store operands while pruning an unused argument. Dedicated
+[benchmarks](../../../../../src/passes/dae2_raw_analysis_perf_wbtest.mbt)
+compare full HOT and raw analysis with active rewriting at tiny and wide sizes,
+then measure complete plain and optimizing pipelines. V8 passes 12,812 default
+and 43 focused native tests; 2,184 bounded runtime observations and exact
+HOT-reference output controls match. Three quiet flat-body pairs improve
+DAE2/O 10.37%/27.68%, while large DAE2 remains about four seconds. Five
+V7b/V8 RSS pairs add median 15,796/6,060 KiB for DAE2/O with wide variation.
+The compiler and memory gaps remain open; the priority report owns exact hashes,
+MAD and host contention.
+
+## September 29, 2026 readonly observable boundaries
+
+Flat private void bodies can establish readonly parameter liveness before HOT
+lifting. Qualification scans the whole body first and marks a parameter only
+when a direct leaf read supplies an observable store or pinned call operand.
+Parameter assignments, unsupported control and unknown arities retain the
+complete analysis. Newly pinned boundaries use the same validated first-lift
+admission as exposed functions; every call/control family must also be pinned,
+and intrinsic calls retain HOT target analysis. Invalid bodies still reject.
+
+[Pass and ownership regressions](../../../../../src/passes/dae2_observed_entry_wbtest.mbt)
+and [both dispatcher modes](../../../../../src/cmd/dae2_observed_entry_wbtest.mbt)
+preserve stores and live arguments while removing an unrelated dead parameter.
+The V6 checkpoint passes 12,795 default tests and 1,716 bounded runtime
+observations. Three quiet pairs improve the 128-wrapper/128-store pipeline
+57.26% in DAE2 and 30.68% in DAE2-O with identical bytes. Full compiler costs
+remain near their prior four/seven-second levels; this does not close P03.
+The [priority report](../../../tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls)
+owns exact hashes, native controls, MAD, memory uncertainty and pending renewal.
+
+## September 28, 2026 compact locations and early admission
+
+Node locations now occupy one contiguous range per analyzed function. The
+function snapshot stores its base and count instead of an additional node-ID
+array. Bulk graph growth retains spare capacity across neighboring bodies;
+dependency IDs, negative sentinels and insertion order are unchanged. V3 fused
+call metadata and intrinsic target pins into dependency analysis. V4 records
+all six call forms during the existing raw control scan, including legacy
+bodies/catches, and avoids collecting the same metadata again in HOT.
+
+A body whose boundary, callees and indexed control families are fully pinned
+may avoid its first HOT lift. Public type-family seeds count as pins before
+fixed-point propagation; private direct boundaries stay independent. The
+original body still undergoes function-body validation against a reusable
+module environment. Each validation owns its local, label, operand and
+initialization state; no sibling state is retained. Intrinsic calls retain
+HOT analysis to pin their literal `ref.func` targets. Legacy/unknown controls,
+invalid family IDs and unpinned boundaries retain the full path. Metadata still
+drives rewrite admission after solving.
+
+For a local with exactly one unconditional top-level `local.set`, root-order
+analysis can resolve reads to entry or that write without building CFG and
+LocalGraph. Operand reads precede completion of the write. Shared reads seen
+on both sides, detached reads, conditional/repeated writes, shared writes and
+handler/continuation bodies retain the complete flow/unknown fallback. The
+proof does not mutate HOT and dies with the analyzed function.
+
+The initial v2 proof expanded shared HOT subtrees repeatedly and stalled on the
+large compiler input. That prototype is rejected: its small runtime controls
+and faster graph-allocation benchmarks did not establish enclosing performance.
+A sixteen-node regression subsequently failed its traversal-work bound while
+preserving the expected cross-write unknown read. V3 caches non-read visits in
+the source scratch, invalidating them after each admitted root write. This
+fixes exponential expansion but can revisit a shared subtree after every
+unrelated write. V4's red-first many-write DAG regression exposed that remaining
+cost. Unique postorder plus one reverse propagation computes each node's first
+and last reaching root ordinal. A read entirely before its sole write is an
+entry read, a read entirely after is a write read, and a crossing interval is
+unknown. Operands within the write root precede its completion. A write used
+under another root, or repeated as a root, requires full flow. The work is
+linear in nodes, child edges and roots; scratch remains function-scoped.
+
+V4's one-write native controls regress, so V5 uses a separate single-write
+proof with only two visit epochs and a scalar completion flag. It avoids the
+interval/postorder arrays while preserving linear work. The multi-write proof
+still uses root intervals; shared or repeatedly executed writes require full
+flow. Indexed LocalGraph queries now return a scalar readonly source record
+for DAE2, avoiding an enum allocation per source. Owned-array and enum queries
+remain available, with identical source order and checked bounds.
+
+V3 also keeps retained leaf rewrites scalar, classifies dependency-node effects
+once per operand loop, and appends private function signatures in one owned type
+workspace. The outer source group vector is copied once; original definitions
+remain unchanged. Lowering may replace the workspace after adding control
+types, at which point its flattened count is recomputed. Private appends update
+that count directly, preserving metadata and allocation order. Family rewriting,
+canonicalization, name remaps and full final validation remain unchanged.
+
+Red-first controls exposed extra lifts, exact-capacity bulk growth, missing call
+metadata, unnecessary local flow and repeated DAG traversal. V5 passes 12,788
+default wasm-gc tests, 477 native IR tests and nineteen focused native tests.
+The bounded runtime matrix validates 325 modules with 1,560 matching results,
+effects and traps against original/baseline/candidate/verified-v133 behavior.
+V4 pinned-call sibling pipelines improve DAE2/O 51.33%/18.88%, and V5
+conditional-write DAE2 improves 3.99% over V4. The fresh V5 large pass-local
+comparison remains 3,976.588 ms at 9.34× v133 for DAE2 and 7,213.857 ms at
+4.44× for DAE2-O. DAE2-O also remains larger than the oracle by 382,584 raw
+bytes. These improvements do not close the large compiler or output-quality
+gaps. Exact hashes, dispersion and controls are in the
+[priority report](../../../tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls).
+Dedicated aggregate renewal remains deferred
+during performance iteration; these changes do not inherit earlier signoff.
+
+Sources: [implementation](../../../../../src/passes/dead_argument_elimination2.mbt),
+[range invariants](../../../../../src/passes/dae2_compact_locations_wbtest.mbt),
+[first-lift controls](../../../../../src/passes/dae2_first_lift_wbtest.mbt),
+[raw call metadata](../../../../../src/passes/dae2_raw_calls_wbtest.mbt),
+[pinned-call benchmarks](../../../../../src/passes/dae2_pinned_calls_perf_wbtest.mbt),
+[entry-write behavior](../../../../../src/passes/dae2_entry_write_wbtest.mbt),
+[source-order checks](../../../../../src/passes/dae2_entry_sources_wbtest.mbt),
+[DAG interval benchmarks](../../../../../src/passes/dae2_entry_interval_perf_wbtest.mbt),
+[scalar source ownership](../../../../../src/ir/local_graph_scalar_sources_wbtest.mbt),
+[scalar query benchmarks](../../../../../src/ir/local_graph_scalar_sources_perf_wbtest.mbt),
+[native controls](../../../../../src/passes/dae2_priority_perf_wbtest.mbt),
+[leaf rewrites](../../../../../src/passes/dae2_rewrite_leaf_wbtest.mbt),
+[type workspace](../../../../../src/passes/dae2_type_workspace_wbtest.mbt),
+[allocation controls](../../../../../src/passes/dae2_rewrite_allocation_perf_wbtest.mbt),
+[dispatcher](../../../../../src/cmd/dae2_entry_write_wbtest.mbt), and
+[validation ownership](../../../../../src/ir/hot_validation_env_wbtest.mbt).
 
 ## September 27 follow-up allocation campaign renewal
 
@@ -307,3 +596,26 @@ evidence is under `.tmp/pass-perf-reuse-20260927/`: `dae2-retention-pairs-*`,
 `dae2-retention-memory.json`, `dae2-retention-small-cache-pairs-*`, and rejected
 source snapshots. The initial ownership/work regression failed before the
 prototype; 74 focused checks passed before its performance rejection.
+
+## September 28, 2026 performance reuse contracts
+
+Compact indexed-control family summaries let unchanged functions avoid a second lift when every referenced signature family is unchanged; unresolved families retain the conservative rewrite path. Handler admission avoids rebuilding handler-free bodies and preserves untouched sibling bodies. Legacy adaptation still canonicalizes grouped local declarations when another function changes, preserving the original encoded output. Whole-HOT retention remains rejected.
+
+Tests and native controls: [dae2_control_summary_wbtest.mbt](../../../../../src/passes/dae2_control_summary_wbtest.mbt), [dae2_control_summary_perf_wbtest.mbt](../../../../../src/passes/dae2_control_summary_perf_wbtest.mbt), [dae2_handler_admission_wbtest.mbt](../../../../../src/passes/dae2_handler_admission_wbtest.mbt), [dae2_handler_admission_perf_wbtest.mbt](../../../../../src/passes/dae2_handler_admission_perf_wbtest.mbt). The [campaign report](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign) owns frozen-binary artifact timings, verified-v133 evidence and final correctness outcomes; helper timings alone do not close the remaining pipeline or parity gaps.
+
+
+## September 28, 2026 shared follow-up controls
+
+Shared initialization ownership and HOT result queries retain their semantic
+contracts in the [IR ownership rules](../../../ir2/architecture-rules.md#performance-reuse-ownership-contracts).
+The [follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign)
+separates new helper evidence from this pass's enclosing timings and final
+aggregate status. Prior signoff does not automatically cover the new sources;
+guarded paths and remaining size/parity gaps retain their existing limits.
+
+The V21 expansion validates 3,172 modules and records 13,776 observations.
+DAE2/O now agree with original and v133 on both old stacked-read witnesses;
+V18 incorrectly returned 11. SL full/nostructure still return 22, so shared
+cleanup signoff remains blocked. The V24 shared source-order repair is under
+full/native/runtime confirmation; see the [failure and repair trial](../../../tooling/tracing-playbook.md#v21-stacked-block-runtime-failure-and-v24-repair-trial).
+Historical 79-fixture V18 evidence does not cover these new witnesses.

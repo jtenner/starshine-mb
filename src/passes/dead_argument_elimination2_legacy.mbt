@@ -383,6 +383,22 @@ fn dae2_legacy_body(
 }
 
 ///|
+fn dae2_legacy_unchanged_func(func : @lib.Func) -> @lib.Func {
+  let @lib.Func(locals, body) = func
+  let runs = locals.runs()
+  for index in 0..<runs.length() {
+    if runs[index].count == 0U ||
+      (index > 0 && runs[index - 1].vt == runs[index].vt) {
+      // Handler adaptation historically canonicalizes declaration groups in
+      // every function of a changed module. Preserve those exact bytes while
+      // retaining the original instruction span and avoiding expanded locals.
+      return @lib.Func::new(@lib.Locals::new(runs), body)
+    }
+  }
+  func
+}
+
+///|
 fn dae2_prepare_legacy_handlers(
   mod_ : @lib.Module,
 ) -> Result[@lib.Module, String] {
@@ -407,6 +423,10 @@ fn dae2_prepare_legacy_handlers(
       Some(@lib.FuncType(params, _)) => params.length()
       None => return Err("dae2: missing legacy function type")
     }
+    if (dae2_handler_admission(body) & 2) == 0 {
+      bodies.push(dae2_legacy_unchanged_func(funcs[index]))
+      continue
+    }
     let local_types = locals.iter().to_array()
     let state : Dae2LegacyState = {
       env,
@@ -422,7 +442,14 @@ fn dae2_prepare_legacy_handlers(
     }
     changed = changed || state.changed
     bodies.push(
-      @lib.Func::new(@lib.Locals::from_types(local_types), @lib.Expr::new(body)),
+      if state.changed {
+        @lib.Func::new(
+          @lib.Locals::from_types(local_types),
+          @lib.Expr::new(body),
+        )
+      } else {
+        dae2_legacy_unchanged_func(funcs[index])
+      },
     )
   }
   if !changed {
@@ -604,6 +631,47 @@ fn dae2_body_has_exception_or_continuation(
 }
 
 ///|
+// Body-scoped admission only: bit 1 identifies a possible known throw fold,
+// bit 2 a legacy multi-handler adaptation. All nested handler bodies matter.
+// Signature and tag proofs remain in the admitted transformations.
+fn dae2_handler_admission(body : Array[@lib.Instruction]) -> Int {
+  let mut flags = 0
+  for instr in body {
+    match instr {
+      @lib.TryTable(_, _, @lib.Expr(child)) => {
+        if child.last() is Some(@lib.Throw(_)) {
+          flags = flags | 1
+        }
+        flags = flags | dae2_handler_admission(child)
+      }
+      @lib.Block(_, @lib.Expr(child)) | @lib.Loop(_, @lib.Expr(child)) =>
+        flags = flags | dae2_handler_admission(child)
+      @lib.If(_, yes, no) => {
+        flags = flags | dae2_handler_admission(yes)
+        if no is Some(child) {
+          flags = flags | dae2_handler_admission(child)
+        }
+      }
+      @lib.Try(_, @lib.Expr(child), catches, _) => {
+        if catches.length() > 1 {
+          flags = flags | 2
+        }
+        flags = flags | dae2_handler_admission(child)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(child))
+            | @lib.LegacyCatchAll(@lib.Expr(child)) =>
+              flags = flags | dae2_handler_admission(child)
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  flags
+}
+
+///|
 fn dae2_fold_known_local_throws(mod_ : @lib.Module) -> @lib.Module {
   let bodies = match mod_.code_sec {
     Some(@lib.CodeSec(bodies)) => bodies
@@ -611,27 +679,36 @@ fn dae2_fold_known_local_throws(mod_ : @lib.Module) -> @lib.Module {
   }
   let env = @validate.Env::new().with_module(mod_)
   let imported_tags = @ir.hot_module_context_from_module(mod_).imported_tag_count
-  mod_.with_code_sec(
-    @lib.CodeSec::new(
-      bodies.map(fn(func) {
-        let @lib.Func(locals, @lib.Expr(body)) = func
-        let (body, changed) = dae2_fold_known_local_throws_body(
-          body, env, imported_tags,
-        )
-        let body = if changed && !dae2_body_has_exception_or_continuation(body) {
-          // Remove unused void scaffolding only after dispatch folding has
-          // eliminated exception scopes. Preserve every result block type.
-          run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
-            body,
-            true,
-            false,
-            flatten_results=false,
-          ).0
-        } else {
-          body
-        }
-        @lib.Func::new(locals, @lib.Expr::new(body))
-      }),
-    ),
-  )
+  let mut any_changed = false
+  let next = bodies.map(fn(func) {
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    if (dae2_handler_admission(body) & 1) == 0 {
+      return func
+    }
+    let (body, changed) = dae2_fold_known_local_throws_body(
+      body, env, imported_tags,
+    )
+    if !changed {
+      return func
+    }
+    any_changed = true
+    let body = if changed && !dae2_body_has_exception_or_continuation(body) {
+      // Remove unused void scaffolding only after dispatch folding has
+      // eliminated exception scopes. Preserve every result block type.
+      run_hot_pipeline_raw_vacuum_flatten_unbranched_result_blocks(
+        body,
+        true,
+        false,
+        flatten_results=false,
+      ).0
+    } else {
+      body
+    }
+    @lib.Func::new(locals, @lib.Expr::new(body))
+  })
+  if any_changed {
+    mod_.with_code_sec(@lib.CodeSec::new(next))
+  } else {
+    mod_
+  }
 }

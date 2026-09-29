@@ -1,4 +1,55 @@
 ///|
+priv struct Dae2TypeWorkspace {
+  mut types : @lib.TypeSec
+  mut flat_count : Int
+}
+
+///|
+fn Dae2TypeWorkspace::new(types : @lib.TypeSec) -> Dae2TypeWorkspace {
+  let @lib.TypeSec(groups) = types
+  // Own the outer group vector before appending. Original groups and their
+  // immutable definitions retain their identities until final family rewriting.
+  {
+    types: @lib.TypeSec::new(groups.copy()),
+    flat_count: dae_type_sec_flattened_length(types),
+  }
+}
+
+///|
+fn Dae2TypeWorkspace::append_signature(
+  self : Dae2TypeWorkspace,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+  metadata : @lib.TypeMetadata,
+) -> @lib.TypeIdx {
+  let index = @lib.TypeIdx::new(self.flat_count.to_uint())
+  let @lib.TypeSec(groups) = self.types
+  groups.push(
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func(params, results), metadata~),
+    ),
+  )
+  self.flat_count += 1
+  index
+}
+
+///|
+fn Dae2TypeWorkspace::adopt_lower_types(
+  self : Dae2TypeWorkspace,
+  state : HotPipelineLowerState,
+) -> Unit {
+  if state.type_sec_changed {
+    match state.next_type_sec {
+      Some(types) => {
+        self.types = types
+        self.flat_count = dae_type_sec_flattened_length(types)
+      }
+      None => abort("DAE2 lowering removed the type section")
+    }
+  }
+}
+
+///|
 // Type locations use the same graph as function parameters/results. All
 // members of a declared subtype family share liveness, while private direct
 // functions keep independent locations and receive replacement signatures.
@@ -44,6 +95,15 @@ fn dae2_call_info_index(
   node : Int,
 ) -> Int {
   let data = @ir.hot_node_get(func, node)
+  dae2_call_info_index_from_data(type_infos, func, data)
+}
+
+///|
+fn dae2_call_info_index_from_data(
+  type_infos : Array[Int],
+  func : @ir.HotFunc,
+  data : @ir.HotNode,
+) -> Int {
   match data.op {
     @ir.Call | @ir.ReturnCall => data.imm0
     _ => {
@@ -249,17 +309,8 @@ fn dae2_prepare_type_locations(
       @lib.FuncCompType(params, results) => {
         let root = roots[index]
         if type_infos[root] < 0 {
-          let param_locations = params.map(fn(_) { graph.location() })
-          let result_location = graph.location()
           type_infos[root] = infos.length()
-          infos.push({
-            params,
-            results,
-            param_locations,
-            result_location,
-            node_locations: [],
-            call_infos: [],
-          })
+          infos.push(Dae2Function::new(graph, params, results))
         }
         type_infos[index] = type_infos[root]
       }
@@ -642,37 +693,27 @@ fn dae2_function_needs_rewrite(
 }
 
 ///|
-fn dae2_pin_intrinsic_targets(
-  context : @ir.HotModuleContext,
-  graph : Dae2Graph,
-  infos : Array[Dae2Function],
-  func : @ir.HotFunc,
-) -> Unit {
-  // These imports bind a referenced target signature. Keep the signature
-  // even when the caller and its result are otherwise unused.
-  for node = 0; node < @ir.hot_node_count(func); node = node + 1 {
-    let data = @ir.hot_node_get(func, node)
-    if data.op is @ir.Call {
-      match context.func_imports[data.imm0] {
-        Some((module_name, field_name)) if module_name ==
-          @lib.Name::from_string("binaryen-intrinsics") &&
-          field_name == @lib.Name::from_string("call.without.effects") => {
-          let children = @ir.hot_child_span(func, node)
-          if !children.is_empty() {
-            let target = @ir.hot_node_get(func, children[children.length() - 1])
-            if target.op is @ir.RefFunc {
-              let target_info = infos[target.imm0]
-              for location in target_info.param_locations {
-                graph.observe(location)
-              }
-              graph.observe(target_info.result_location)
-            }
+fn dae2_intrinsic_import_mask(context : @ir.HotModuleContext) -> Array[Bool]? {
+  let module_name = @lib.Name::from_string("binaryen-intrinsics")
+  let field_name = @lib.Name::from_string("call.without.effects")
+  let mut result : Array[Bool]? = None
+  for index in 0..<context.func_imports.length() {
+    match context.func_imports[index] {
+      Some((module_, field)) if module_ == module_name && field == field_name => {
+        let mask = match result {
+          Some(mask) => mask
+          None => {
+            let mask = Array::make(context.func_imports.length(), false)
+            result = Some(mask)
+            mask
           }
         }
-        _ => ()
+        mask[index] = true
       }
+      _ => ()
     }
   }
+  result
 }
 
 ///|
@@ -790,4 +831,114 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
     }
     None => next.without_name_sec()
   }
+}
+
+///|
+// Capture original indexed control types before lifting normalizes block types.
+// The summary belongs to this body/signature snapshot and contains no HOT arena.
+fn dae2_collect_control_type_infos(
+  body : Array[@lib.Instruction],
+  type_infos : Array[Int],
+  out : Array[Int],
+  call_infos? : Array[Int]? = None,
+) -> Bool {
+  let mut has_calls = false
+  for instruction in body {
+    let block_type = match instruction {
+      @lib.Block(block_type, @lib.Expr(child))
+      | @lib.Loop(block_type, @lib.Expr(child))
+      | @lib.TryTable(block_type, _, @lib.Expr(child)) => {
+        has_calls = dae2_collect_control_type_infos(
+            child,
+            type_infos,
+            out,
+            call_infos~,
+          ) ||
+          has_calls
+        Some(block_type)
+      }
+      @lib.If(block_type, yes, no) => {
+        has_calls = dae2_collect_control_type_infos(
+            yes,
+            type_infos,
+            out,
+            call_infos~,
+          ) ||
+          has_calls
+        if no is Some(child) {
+          has_calls = dae2_collect_control_type_infos(
+              child,
+              type_infos,
+              out,
+              call_infos~,
+            ) ||
+            has_calls
+        }
+        Some(block_type)
+      }
+      @lib.Try(_, @lib.Expr(child), catches, _) => {
+        out.push(-1)
+        has_calls = dae2_collect_control_type_infos(
+            child,
+            type_infos,
+            out,
+            call_infos~,
+          ) ||
+          has_calls
+        for catch_ in catches {
+          let @lib.Expr(child) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          has_calls = dae2_collect_control_type_infos(
+              child,
+              type_infos,
+              out,
+              call_infos~,
+            ) ||
+            has_calls
+        }
+        None
+      }
+      @lib.Call(@lib.FuncIdx(raw)) | @lib.ReturnCall(@lib.FuncIdx(raw)) => {
+        has_calls = true
+        match call_infos {
+          Some(callees) => callees.push(raw.reinterpret_as_int())
+          None => ()
+        }
+        None
+      }
+      @lib.CallIndirect(index, _)
+      | @lib.ReturnCallIndirect(index, _)
+      | @lib.CallRef(index)
+      | @lib.ReturnCallRef(index) => {
+        has_calls = true
+        match call_infos {
+          Some(callees) => {
+            let slot = dae2_type_slot(index, 0)
+            callees.push(
+              if slot >= 0 && slot < type_infos.length() {
+                type_infos[slot]
+              } else {
+                -1
+              },
+            )
+          }
+          None => ()
+        }
+        None
+      }
+      _ => None
+    }
+    if block_type is Some(@lib.TypeIdxBlockType(index)) {
+      let slot = dae2_type_slot(index, 0)
+      out.push(
+        if slot >= 0 && slot < type_infos.length() {
+          type_infos[slot]
+        } else {
+          -1
+        },
+      )
+    }
+  }
+  has_calls
 }

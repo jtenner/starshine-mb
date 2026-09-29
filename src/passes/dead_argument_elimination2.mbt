@@ -15,6 +15,21 @@ priv struct Dae2Graph {
 }
 
 ///|
+fn Dae2Graph::for_solved_rewrite(self : Dae2Graph) -> Dae2Graph {
+  // The owned analysis graph dies at this transfer. Keep its solved bitvector
+  // while dropping adjacency, without mutable array fields on hot edge paths.
+  {
+    edges: [],
+    next_edge: [],
+    first_edge: [],
+    last_edge: [],
+    work: [],
+    used: self.used,
+    cursor: self.cursor,
+  }
+}
+
+///|
 fn Dae2Graph::new() -> Dae2Graph {
   {
     edges: [],
@@ -34,6 +49,28 @@ fn Dae2Graph::location(self : Dae2Graph) -> Int {
   self.last_edge.push(-1)
   self.used.push(false)
   id
+}
+
+///|
+fn Dae2Graph::locations(self : Dae2Graph, count : Int) -> Int {
+  let base = self.used.length()
+  let end = base + count
+  if count < 0 || end < base {
+    abort("DAE2 graph location count is out of range")
+  }
+  if end > self.used.capacity() {
+    // Array.resize grows to the exact requested size. Preserve the scalar
+    // allocator's amortized growth across many adjacent function ranges.
+    let doubled = self.used.capacity() * 2
+    let capacity = if doubled > end { doubled } else { end }
+    self.first_edge.reserve_capacity(capacity)
+    self.last_edge.reserve_capacity(capacity)
+    self.used.reserve_capacity(capacity)
+  }
+  self.first_edge.resize(end, -1)
+  self.last_edge.resize(end, -1)
+  self.used.resize(end, false)
+  base
 }
 
 ///|
@@ -84,14 +121,50 @@ priv struct Dae2Function {
   results : Array[@lib.ValType]
   param_locations : Array[Int]
   result_location : Int
-  node_locations : Array[Int]
+  mut node_location_base : Int
+  mut node_count : Int
+  mut raw_analysis : Bool
   call_infos : Array[Int]
+  mut call_infos_ready : Bool
+  control_type_infos : Array[Int]
+}
+
+///|
+fn Dae2Function::new(
+  graph : Dae2Graph,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> Dae2Function {
+  {
+    params,
+    results,
+    param_locations: params.map(fn(_) { graph.location() }),
+    result_location: graph.location(),
+    node_location_base: 0,
+    node_count: 0,
+    raw_analysis: false,
+    call_infos: [],
+    call_infos_ready: false,
+    control_type_infos: [],
+  }
+}
+
+///|
+fn Dae2Function::assign_node_locations(
+  self : Dae2Function,
+  graph : Dae2Graph,
+  count : Int,
+) -> Unit {
+  // Allocation is contiguous in storage-node order. The immutable analysis
+  // snapshot keeps only this range; mutation relifts must preserve its count.
+  self.node_location_base = graph.locations(count)
+  self.node_count = count
 }
 
 ///|
 fn dae2_node_location(info : Dae2Function, node : Int) -> Int {
-  if node >= 0 && node < info.node_locations.length() {
-    info.node_locations[node]
+  if node >= 0 && node < info.node_count {
+    info.node_location_base + node
   } else {
     -1
   }
@@ -116,7 +189,7 @@ fn dae2_observe_branch_target(
 
 ///|
 fn dae2_removable_node(func : @ir.HotFunc, node : Int) -> Bool {
-  let op = @ir.hot_node_get(func, node).op
+  let op = @ir.hot_node_op(func, node)
   // Local writes require DAE2's reaching-definition liveness proof. They
   // are not generally discardable when another pass proves a value constant.
   op is @ir.LocalSet ||
@@ -125,18 +198,242 @@ fn dae2_removable_node(func : @ir.HotFunc, node : Int) -> Bool {
 }
 
 ///|
-fn dae2_region_sources(
-  graph : Dae2Graph,
-  info : Dae2Function,
+fn dae2_entry_read_sources(
   func : @ir.HotFunc,
-  consumer : Int,
-  roots : Array[Int],
-) -> Unit {
-  for root in roots {
-    if root >= 0 && @ir.hot_node_result_arity(func, root) > 0 {
-      graph.edge(consumer, dae2_node_location(info, root))
+  visits? : Array[Int]? = None,
+  interval_builds? : Array[Int]? = None,
+) -> Array[Int]? {
+  let root_writes : Array[Int] = []
+  for root in @ir.hot_root_span(func) {
+    if root >= 0 && @ir.hot_node_op(func, root) is @ir.LocalSet {
+      root_writes.push(root)
     }
   }
+  if root_writes.is_empty() {
+    return None
+  }
+  let writes = Array::make(@ir.hot_local_count(func), -1)
+  for node in 0..<@ir.hot_node_count(func) {
+    if !@ir.hot_node_is_live(func, node) {
+      continue
+    }
+    let data = @ir.hot_node_get(func, node)
+    // These control families retain the complete LocalGraph/unknown proof.
+    if data.op is @ir.Try ||
+      data.op is @ir.TryTable ||
+      data.op is @ir.Continuation {
+      return None
+    }
+    if data.op is @ir.LocalSet || data.op is @ir.LocalTee {
+      writes[data.imm0] = if writes[data.imm0] == -1 { node } else { -2 }
+    }
+  }
+  let entry_writes = Array::make(writes.length(), -1)
+  let mut admitted = 0
+  for root in root_writes {
+    let local = @ir.hot_node_get(func, root).imm0
+    if writes[local] == root {
+      if entry_writes[local] < 0 {
+        admitted += 1
+      }
+      entry_writes[local] = root
+    }
+  }
+  if admitted == 0 {
+    return None
+  }
+  if admitted == 1 {
+    return dae2_entry_single_read_sources(func, entry_writes, visits~)
+  }
+  match interval_builds {
+    Some(count) => count[0] += 1
+    None => ()
+  }
+  let count = @ir.hot_node_count(func)
+  let root_count = @ir.hot_root_count(func)
+  let write_roots = Array::make(writes.length(), -1)
+  let sources = Array::make(count, -2)
+  let first_roots = Array::make(count, root_count)
+  let postorder : Array[Int] = []
+  let stack : Array[Int] = []
+  // First obtain a unique DAG postorder. Sources doubles as the discovery
+  // marker and then the greatest reaching root ordinal, avoiding a seen array.
+  for root in @ir.hot_root_span(func) {
+    if root < 0 {
+      continue
+    }
+    stack.push(root)
+    while !stack.is_empty() {
+      let item = stack.pop().unwrap()
+      if item >= 0 {
+        if !@ir.hot_node_is_live(func, item) {
+          continue
+        }
+        if sources[item] != -2 {
+          continue
+        }
+        sources[item] = -1
+        match visits {
+          Some(count) => count[0] += 1
+          None => ()
+        }
+        let data = @ir.hot_node_get(func, item)
+        stack.push(-item - 1)
+        for slot = data.child_count - 1; slot >= 0; slot = slot - 1 {
+          let child = @ir.hot_child_get(func, item, slot)
+          if child >= 0 {
+            stack.push(child)
+          }
+        }
+      } else {
+        postorder.push(-item - 1)
+      }
+    }
+  }
+  for ordinal in 0..<root_count {
+    let root = @ir.hot_root_get(func, ordinal)
+    if root < 0 || !@ir.hot_node_is_live(func, root) {
+      continue
+    }
+    first_roots[root] = first_roots[root].min(ordinal)
+    sources[root] = sources[root].max(ordinal)
+    let data = @ir.hot_node_get(func, root)
+    if data.op is @ir.LocalSet && entry_writes[data.imm0] == root {
+      // Repeated roots also execute the write repeatedly and need full flow.
+      if write_roots[data.imm0] >= 0 {
+        return None
+      }
+      write_roots[data.imm0] = ordinal
+    }
+  }
+  // Parents precede all children in reverse postorder, so each edge propagates
+  // its root interval once even when shared across many unrelated writes.
+  for position = postorder.length() - 1; position >= 0; position = position - 1 {
+    let node = postorder[position]
+    let data = @ir.hot_node_get(func, node)
+    match visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    if data.op is @ir.LocalSet && entry_writes[data.imm0] == node {
+      let ordinal = write_roots[data.imm0]
+      if first_roots[node] != ordinal || sources[node] != ordinal {
+        // A write shared below another root is not an unconditional root-only
+        // definition. Preserve the complete LocalGraph fallback in that case.
+        return None
+      }
+    }
+    for slot in 0..<data.child_count {
+      let child = @ir.hot_child_get(func, node, slot)
+      if child >= 0 && @ir.hot_node_is_live(func, child) {
+        first_roots[child] = first_roots[child].min(first_roots[node])
+        sources[child] = sources[child].max(sources[node])
+      }
+    }
+  }
+  for node in 0..<count {
+    if !@ir.hot_node_is_live(func, node) {
+      continue
+    }
+    let data = @ir.hot_node_get(func, node)
+    let last_root = sources[node]
+    sources[node] = if data.op is @ir.LocalGet &&
+      entry_writes[data.imm0] >= 0 &&
+      last_root >= 0 {
+      let write_root = write_roots[data.imm0]
+      if last_root <= write_root {
+        // The write root's operands execute before its local.set completes.
+        -1
+      } else if first_roots[node] > write_root {
+        entry_writes[data.imm0]
+      } else {
+        // A shared read reached both before and after the write is unknown.
+        -3
+      }
+    } else {
+      -2
+    }
+  }
+  Some(sources)
+}
+
+///|
+// With one admitted write there are only two visit epochs. This retains linear
+// DAG work while avoiding interval/postorder scratch on the common small path.
+fn dae2_entry_single_read_sources(
+  func : @ir.HotFunc,
+  entry_writes : Array[Int],
+  visits? : Array[Int]? = None,
+) -> Array[Int]? {
+  let mut completed = false
+  let sources = Array::make(@ir.hot_node_count(func), -2)
+  let stack : Array[Int] = []
+  let mut epoch = 0
+  for root in @ir.hot_root_span(func) {
+    if root < 0 {
+      continue
+    }
+    stack.push(root)
+    while !stack.is_empty() {
+      let item = stack.pop().unwrap()
+      if item >= 0 {
+        if !@ir.hot_node_is_live(func, item) {
+          continue
+        }
+        match visits {
+          Some(count) => count[0] += 1
+          None => ()
+        }
+        let data = @ir.hot_node_get(func, item)
+        if data.op is @ir.LocalSet &&
+          entry_writes[data.imm0] == item &&
+          item != root {
+          return None
+        }
+        if !(data.op is @ir.LocalGet) {
+          // HOT shares value subtrees. Visit each non-read once between root
+          // writes instead of expanding its tree once per incoming use. Read
+          // sources occupy their own nodes; other source slots cache the epoch.
+          let marker = -4 - epoch
+          if sources[item] == marker {
+            continue
+          }
+          sources[item] = marker
+        }
+        stack.push(-item - 1)
+        for slot = data.child_count - 1; slot >= 0; slot = slot - 1 {
+          let child = @ir.hot_child_get(func, item, slot)
+          if child >= 0 {
+            stack.push(child)
+          }
+        }
+      } else {
+        let node = -item - 1
+        let data = @ir.hot_node_get(func, node)
+        if data.op is @ir.LocalGet && entry_writes[data.imm0] >= 0 {
+          let source = if completed { entry_writes[data.imm0] } else { -1 }
+          sources[node] = if sources[node] == -2 || sources[node] == source {
+            source
+          } else {
+            -3
+          }
+        } else if data.op is @ir.LocalSet && entry_writes[data.imm0] == node {
+          // A sole top-level write dominates later roots. A write also shared
+          // under another root does not have that proof. Revisited reads that
+          // span the write remain unknown, preserving the complete fallback.
+          if node != root {
+            return None
+          }
+          if completed {
+            return None
+          }
+          completed = true
+          epoch += 1
+        }
+      }
+    }
+  }
+  Some(sources)
 }
 
 ///|
@@ -148,19 +445,66 @@ fn dae2_analyze_function(
   func : @ir.HotFunc,
   local_graph_builds? : Array[Int]? = None,
   fallback_write_builds? : Array[Int]? = None,
+  analysis_child_snapshots? : Array[Int]? = None,
+  intrinsic_imports? : Array[Bool]? = None,
 ) -> Unit {
+  // This phase changes only the dependency graph; HOT child slots stay stable.
+  ignore(analysis_child_snapshots)
   let info = infos[index]
   let mut local_flow : @ir.HotLocalGraph? = None
   let mut fallback_writes : Array[Array[Int]]? = None
-  for node = 0; node < info.node_locations.length(); node = node + 1 {
+  let mut written_locals : Array[Bool]? = None
+  let mut entry_read_sources : Array[Int]? = None
+  let mut entry_source_attempted = false
+  for node = 0; node < info.node_count; node = node + 1 {
     if !@ir.hot_node_is_live(func, node) {
       continue
     }
-    let value = info.node_locations[node]
+    let value = info.node_location_base + node
     let data = @ir.hot_node_get(func, node)
-    let children = @ir.hot_child_span(func, node)
     match data.op {
       @ir.LocalGet => {
+        let written = match written_locals {
+          Some(written) => written
+          None => {
+            let written = Array::make(@ir.hot_local_count(func), false)
+            for write in 0..<info.node_count {
+              if @ir.hot_node_is_live(func, write) {
+                let data = @ir.hot_node_get(func, write)
+                if data.op is @ir.LocalSet || data.op is @ir.LocalTee {
+                  written[data.imm0] = true
+                }
+              }
+            }
+            written_locals = Some(written)
+            written
+          }
+        }
+        // With no write anywhere in this body, every read has its entry value,
+        // including reads in control regions not represented by LocalGraph.
+        // Default-initialized body locals need no parameter dependency.
+        if !written[data.imm0] {
+          if data.imm0 < info.params.length() {
+            graph.edge(value, info.param_locations[data.imm0])
+          }
+          continue
+        }
+        if !entry_source_attempted {
+          entry_read_sources = dae2_entry_read_sources(func)
+          entry_source_attempted = true
+        }
+        match entry_read_sources {
+          Some(sources) if sources[node] >= -1 => {
+            let source = sources[node]
+            if source >= 0 {
+              graph.edge(value, dae2_node_location(info, source))
+            } else if data.imm0 < info.params.length() {
+              graph.edge(value, info.param_locations[data.imm0])
+            }
+            continue
+          }
+          _ => ()
+        }
         let locals = match local_flow {
           Some(locals) => locals
           None => {
@@ -170,16 +514,21 @@ fn dae2_analyze_function(
             }
             let locals = @ir.local_graph_build_full_flow(
               func,
-              @ir.cfg_build(func),
+              // A stacked read can precede a later control root even when
+              // its consuming parent follows that root. Expand operands so
+              // both entry reads and earlier writes keep their actual sources.
+              @ir.cfg_build(func, expand_operand_control=true),
             )
             local_flow = Some(locals)
             locals
           }
         }
-        let sources = @ir.local_graph_reaching_sources_for_get(locals, node)
+        let source_count = @ir.local_graph_reaching_source_count_for_get(
+          locals, node,
+        )
         // A get inside control not represented by LocalGraph has no recorded
         // sources. That is unknown, not proof that its entry value is unused.
-        if sources.is_empty() {
+        if source_count == 0 {
           let writes = match fallback_writes {
             Some(writes) => writes
             None => {
@@ -193,9 +542,7 @@ fn dae2_analyze_function(
               )
               // Unrepresented reads retain every possible write, including
               // nodes outside the represented CFG, exactly as before.
-              for write = 0
-                  write < info.node_locations.length()
-                  write = write + 1 {
+              for write = 0; write < info.node_count; write = write + 1 {
                 let data = @ir.hot_node_get(func, write)
                 if data.op is @ir.LocalSet || data.op is @ir.LocalTee {
                   writes[data.imm0].push(write)
@@ -212,13 +559,16 @@ fn dae2_analyze_function(
             graph.edge(value, dae2_node_location(info, write))
           }
         }
-        for source in sources {
-          match source {
-            @ir.EntrySource(local_idx) if local_idx < info.params.length() =>
-              graph.edge(value, info.param_locations[local_idx])
-            @ir.SetSource(write) =>
-              graph.edge(value, dae2_node_location(info, write))
-            _ => ()
+        for source_index in 0..<source_count {
+          let source = @ir.local_graph_reaching_source_value_for_get(
+            locals, node, source_index,
+          )
+          if source.is_entry {
+            if source.index < info.params.length() {
+              graph.edge(value, info.param_locations[source.index])
+            }
+          } else {
+            graph.edge(value, dae2_node_location(info, source.index))
           }
         }
       }
@@ -228,17 +578,44 @@ fn dae2_analyze_function(
       | @ir.CallRef
       | @ir.ReturnCallIndirect
       | @ir.ReturnCallRef => {
-        let callee = dae2_call_info(infos, type_infos, func, node)
+        let callee_index = dae2_call_info_index_from_data(
+          type_infos, func, data,
+        )
+        if !info.call_infos_ready {
+          info.call_infos.push(callee_index)
+        }
+        if data.op is @ir.Call {
+          match intrinsic_imports {
+            Some(imports) if imports[data.imm0] && data.child_count > 0 => {
+              let target = @ir.hot_node_get(
+                func,
+                @ir.hot_child_get(func, node, data.child_count - 1),
+              )
+              if target.op is @ir.RefFunc {
+                let target_info = infos[target.imm0]
+                for location in target_info.param_locations {
+                  graph.observe(location)
+                }
+                graph.observe(target_info.result_location)
+              }
+            }
+            _ => ()
+          }
+        }
+        let callee = infos[callee_index]
         let indirect = !(data.op is @ir.Call || data.op is @ir.ReturnCall)
         for arg = 0; arg < callee.params.length(); arg = arg + 1 {
           graph.edge(
             callee.param_locations[arg],
-            dae2_node_location(info, children[arg]),
+            dae2_node_location(info, @ir.hot_child_get(func, node, arg)),
           )
         }
         if indirect {
           graph.observe(
-            dae2_node_location(info, children[children.length() - 1]),
+            dae2_node_location(
+              info,
+              @ir.hot_child_get(func, node, data.child_count - 1),
+            ),
           )
         }
         if data.op is @ir.ReturnCall ||
@@ -251,20 +628,32 @@ fn dae2_analyze_function(
         }
       }
       @ir.Return =>
-        for child in children {
+        for slot = 0; slot < data.child_count; slot = slot + 1 {
+          let child = @ir.hot_child_get(func, node, slot)
           graph.edge(info.result_location, dae2_node_location(info, child))
         }
       @ir.Drop => ()
       @ir.Block | @ir.Loop =>
-        dae2_region_sources(graph, info, func, value, children)
+        for slot = 0; slot < data.child_count; slot = slot + 1 {
+          let child = @ir.hot_child_get(func, node, slot)
+          if child >= 0 && @ir.hot_node_result_arity(func, child) > 0 {
+            graph.edge(value, dae2_node_location(info, child))
+          }
+        }
       @ir.If => {
-        graph.observe(dae2_node_location(info, children[0]))
-        for arm = 1; arm < children.length(); arm = arm + 1 {
-          graph.edge(value, dae2_node_location(info, children[arm]))
+        graph.observe(
+          dae2_node_location(info, @ir.hot_child_get(func, node, 0)),
+        )
+        for arm = 1; arm < data.child_count; arm = arm + 1 {
+          graph.edge(
+            value,
+            dae2_node_location(info, @ir.hot_child_get(func, node, arm)),
+          )
         }
       }
       @ir.TryTable => {
-        for child in children {
+        for slot = 0; slot < data.child_count; slot = slot + 1 {
+          let child = @ir.hot_child_get(func, node, slot)
           graph.observe(dae2_node_location(info, child))
         }
         for arm in @ir.hot_catch_info_get(func, data.imm1).catches {
@@ -278,7 +667,8 @@ fn dae2_analyze_function(
         }
       }
       @ir.Continuation => {
-        for child in children {
+        for slot = 0; slot < data.child_count; slot = slot + 1 {
+          let child = @ir.hot_child_get(func, node, slot)
           graph.observe(dae2_node_location(info, child))
         }
         for label in @ir.hot_continuation_targets(func, node) {
@@ -292,7 +682,8 @@ fn dae2_analyze_function(
       | @ir.BrOnNonNull
       | @ir.BrOnCast
       | @ir.BrOnCastFail => {
-        for child in children {
+        for slot = 0; slot < data.child_count; slot = slot + 1 {
+          let child = @ir.hot_child_get(func, node, slot)
           graph.observe(dae2_node_location(info, child))
         }
         // Branch payload types stay fixed. A result-bearing target therefore
@@ -306,23 +697,26 @@ fn dae2_analyze_function(
         }
       }
       _ =>
-        for child in children {
-          let source = dae2_node_location(info, child)
-          if dae2_removable_node(func, node) {
-            graph.edge(value, source)
-          } else {
-            graph.observe(source)
+        if data.child_count > 0 {
+          let removable = dae2_removable_node(func, node)
+          for slot = 0; slot < data.child_count; slot = slot + 1 {
+            let child = @ir.hot_child_get(func, node, slot)
+            let source = dae2_node_location(info, child)
+            if removable {
+              graph.edge(value, source)
+            } else {
+              graph.observe(source)
+            }
           }
         }
     }
   }
-  dae2_region_sources(
-    graph,
-    info,
-    func,
-    info.result_location,
-    @ir.hot_root_span(func),
-  )
+  for slot = 0; slot < @ir.hot_root_count(func); slot = slot + 1 {
+    let root = @ir.hot_root_get(func, slot)
+    if root >= 0 && @ir.hot_node_result_arity(func, root) > 0 {
+      graph.edge(info.result_location, dae2_node_location(info, root))
+    }
+  }
 }
 
 ///|
@@ -336,12 +730,85 @@ fn dae2_discard(func : @ir.HotFunc, node : Int) -> Int {
 
 ///|
 fn dae2_void_sequence(func : @ir.HotFunc, nodes : Array[Int]) -> Int {
-  let kept = nodes.filter(fn(id) { !(@ir.hot_node_get(func, id).op is @ir.Nop) })
+  let kept = nodes.filter(fn(id) { !(@ir.hot_node_op(func, id) is @ir.Nop) })
   match kept {
     [] => @ir.hot_build_nop(func)
     [node] => node
     _ => @ir.hot_build_block(func, @lib.BlockType::void_(), kept)
   }
+}
+
+///|
+// Keep generic leaf rewriting scalar. Calls and structural controls still
+// require their family/result updates in the complete rewrite below.
+#inline
+fn dae2_rewrite_leaf(
+  func : @ir.HotFunc,
+  node : Int,
+  data : @ir.HotNode,
+  used : Bool,
+) -> Int {
+  if data.child_count != 0 {
+    return -1
+  }
+  match data.op {
+    @ir.Call
+    | @ir.ReturnCall
+    | @ir.CallIndirect
+    | @ir.CallRef
+    | @ir.ReturnCallIndirect
+    | @ir.ReturnCallRef
+    | @ir.Return
+    | @ir.Block
+    | @ir.Loop
+    | @ir.If
+    | @ir.Drop => -1
+    _ =>
+      if used {
+        node
+      } else if dae2_removable_node(func, node) {
+        @ir.hot_build_nop(func)
+      } else {
+        dae2_discard(func, node)
+      }
+  }
+}
+
+///|
+// Descendant edits allocate new child spans and cannot change this parent's
+// slots in a valid HOT DAG. Read slots directly until a replacement is needed.
+#inline
+fn dae2_rewrite_children(
+  graph : Dae2Graph,
+  infos : Array[Dae2Function],
+  index : Int,
+  func : @ir.HotFunc,
+  node : Int,
+  memo : Array[Int],
+  old_arities : Array[Int],
+  lower_state : HotPipelineLowerState,
+  type_infos : Array[Int],
+) -> Array[Int]? {
+  let count = @ir.hot_child_count(func, node)
+  let mut changed : Array[Int]? = None
+  for slot in 0..<count {
+    let original = @ir.hot_child_get(func, node, slot)
+    let child = dae2_rewrite_node(
+      graph, infos, index, func, original, memo, old_arities, lower_state, type_infos,
+    )
+    if child != original {
+      let children = match changed {
+        Some(children) => children
+        None => {
+          let children = @ir.hot_child_span(func, node)
+          changed = Some(children)
+          children
+        }
+      }
+      children[slot] = child
+    }
+  }
+  changed
 }
 
 ///|
@@ -369,14 +836,37 @@ fn dae2_rewrite_node(
   }
   let info = infos[index]
   let data = @ir.hot_node_get(func, node)
-  let used = graph.used[info.node_locations[node]]
+  let used = graph.used[info.node_location_base + node]
+  let leaf = dae2_rewrite_leaf(func, node, data, used)
+  if leaf >= 0 {
+    memo[node] = leaf
+    return leaf
+  }
   let removable = dae2_removable_node(func, node)
-  let old_children = @ir.hot_child_span(func, node)
-  let children = old_children.map(fn(child) {
-    dae2_rewrite_node(
-      graph, infos, index, func, child, memo, old_arities, lower_state, type_infos,
-    )
-  })
+  let changed_children = dae2_rewrite_children(
+    graph, infos, index, func, node, memo, old_arities, lower_state, type_infos,
+  )
+  if changed_children is None &&
+    !(data.op is @ir.Call ||
+    data.op is @ir.ReturnCall ||
+    data.op is @ir.CallIndirect ||
+    data.op is @ir.CallRef ||
+    data.op is @ir.ReturnCallIndirect ||
+    data.op is @ir.ReturnCallRef ||
+    data.op is @ir.Return ||
+    data.op is @ir.Block ||
+    data.op is @ir.Loop ||
+    data.op is @ir.If ||
+    data.op is @ir.Drop) &&
+    (used || !removable) {
+    let replacement = if used { node } else { dae2_discard(func, node) }
+    memo[node] = replacement
+    return replacement
+  }
+  let children = match changed_children {
+    Some(children) => children
+    None => @ir.hot_child_span(func, node)
+  }
   let replacement = match data.op {
     @ir.Call
     | @ir.ReturnCall
@@ -385,6 +875,7 @@ fn dae2_rewrite_node(
     | @ir.ReturnCallIndirect
     | @ir.ReturnCallRef => {
       let callee = dae2_call_info(infos, type_infos, func, node)
+      let old_children = @ir.hot_child_span(func, node)
       let indirect = !(data.op is @ir.Call || data.op is @ir.ReturnCall)
       let tail = data.op is @ir.ReturnCall ||
         data.op is @ir.ReturnCallIndirect ||
@@ -544,7 +1035,12 @@ fn dae2_run_module_pass(
   rewrite_lifts? : Array[Int]? = None,
   local_graph_builds? : Array[Int]? = None,
   fallback_write_builds? : Array[Int]? = None,
+  analysis_lifts? : Array[Int]? = None,
+  perf? : HotPerfSession? = None,
+  raw_analysis? : Bool = true,
+  raw_rewrite? : Bool = true,
 ) -> Result[@lib.Module, String] {
+  let prepare_start = perf_start_timer_opt(perf, "detail:dae2:prepare")
   let original = mod_
   let mod_ = match dae2_prepare_legacy_handlers(mod_) {
     Ok(prepared) => prepared
@@ -565,16 +1061,7 @@ fn dae2_run_module_pass(
       Some(sig) => sig
       None => return Err("dae2: missing function signature")
     }
-    let param_locations = params.map(fn(_) { graph.location() })
-    let result_location = graph.location()
-    infos.push({
-      params,
-      results,
-      param_locations,
-      result_location,
-      node_locations: [],
-      call_infos: [],
-    })
+    infos.push(Dae2Function::new(graph, params, results))
   }
   let exposure = dae_collect_original_exposure(
     dae2_exposure_module(mod_),
@@ -584,31 +1071,127 @@ fn dae2_run_module_pass(
   let type_infos = dae2_prepare_type_locations(
     mod_, context, graph, infos, exposure, closed_world,
   )
+  let boundary_count = graph.used.length()
+  let intrinsic_imports = dae2_intrinsic_import_mask(context)
+  perf_stop_timer_opt(perf, "detail:dae2:prepare", prepare_start)
+  let analysis_start = perf_start_timer_opt(perf, "detail:dae2:analysis")
+  let mut lift_us = 0UL
+  let mut dependency_us = 0UL
+  let mut admission_env : @validate.Env? = None
   // Keep only the dependency graph between functions. Each HOT body and its
   // CFG/local overlays die after this iteration; relift a body for mutation
   // only after the complete module-wide fixed point has been solved.
   for index = imported; index < total_funcs; index = index + 1 {
+    let info = infos[index]
+    let original_func = mod_.code_sec.unwrap().0[index - imported]
+    let @lib.Func(_, @lib.Expr(raw_body)) = original_func
+    ignore(
+      dae2_collect_control_type_infos(
+        raw_body,
+        type_infos,
+        info.control_type_infos,
+        call_infos=Some(info.call_infos),
+      ),
+    )
+    info.call_infos_ready = true
+    dae2_pin_flat_observable_params(
+      graph, infos, index, raw_body, indices, type_infos, exposure,
+    )
+    let pinned_boundary = dae2_boundary_is_pinned(
+      graph, infos, index, indices, type_infos, exposure,
+    )
+    // Edges within fully pinned boundaries cannot change any signature. Raw
+    // call/control metadata still drives rewrite admission after solving.
+    // Intrinsic calls require HOT analysis to pin their literal ref.func target.
+    if pinned_boundary &&
+      info.control_type_infos.all(fn(family) {
+        dae2_boundary_is_pinned(
+          graph, infos, family, indices, type_infos, exposure,
+        )
+      }) &&
+      info.call_infos.all(fn(callee) {
+        let intrinsic = match intrinsic_imports {
+          Some(mask) => callee >= 0 && callee < mask.length() && mask[callee]
+          None => false
+        }
+        !intrinsic &&
+        dae2_boundary_is_pinned(
+          graph, infos, callee, indices, type_infos, exposure,
+        )
+      }) {
+      let env = match admission_env {
+        Some(env) => env
+        None => {
+          let env = @ir.hot_module_context_validation_env(context)
+          admission_env = Some(env)
+          env
+        }
+      }
+      match
+        @validate.validate_func_body_against_functype(
+          env,
+          @lib.FuncType::new(info.params, info.results),
+          original_func,
+        ) {
+        Ok(_) => continue
+        Err(error) => return Err("dae2: validate function \{index}: \{error}")
+      }
+    }
+    if raw_analysis {
+      let dependency_start = perf_start_timer_opt(
+        perf, "detail:dae2:analysis:dependencies",
+      )
+      let plan = dae2_raw_dependency_plan(
+        graph,
+        infos,
+        index,
+        type_infos,
+        original_func,
+        intrinsic_imports,
+        module_context=Some(context),
+      )
+      dependency_us += perf_elapsed_since_start_opt(perf, dependency_start)
+      match plan {
+        Some(plan) => {
+          let env = match admission_env {
+            Some(env) => env
+            None => {
+              let env = @ir.hot_module_context_validation_env(context)
+              admission_env = Some(env)
+              env
+            }
+          }
+          match
+            @validate.validate_func_body_against_functype(
+              env,
+              @lib.FuncType::new(info.params, info.results),
+              original_func,
+            ) {
+            Ok(_) => ()
+            Err(error) =>
+              return Err("dae2: validate function \{index}: \{error}")
+          }
+          plan.commit(graph)
+          info.raw_analysis = true
+          continue
+        }
+        None => ()
+      }
+    }
+    match analysis_lifts {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    let lift_start = perf_start_timer_opt(perf, "detail:dae2:analysis:lift")
     let func = match dae2_lift_for_analysis(mod_, context, index) {
       Ok(func) => func
       Err(err) => return Err(err)
     }
-    let info = infos[index]
-    for _ in 0..<@ir.hot_node_count(func) {
-      info.node_locations.push(graph.location())
-    }
-    dae2_pin_intrinsic_targets(context, graph, infos, func)
-    for node = 0; node < @ir.hot_node_count(func); node = node + 1 {
-      match @ir.hot_node_get(func, node).op {
-        @ir.Call
-        | @ir.ReturnCall
-        | @ir.CallIndirect
-        | @ir.ReturnCallIndirect
-        | @ir.CallRef
-        | @ir.ReturnCallRef =>
-          info.call_infos.push(dae2_call_info_index(type_infos, func, node))
-        _ => ()
-      }
-    }
+    lift_us += perf_elapsed_since_start_opt(perf, lift_start)
+    info.assign_node_locations(graph, @ir.hot_node_count(func))
+    let dependency_start = perf_start_timer_opt(
+      perf, "detail:dae2:analysis:dependencies",
+    )
     dae2_analyze_function(
       graph,
       infos,
@@ -617,8 +1200,16 @@ fn dae2_run_module_pass(
       func,
       local_graph_builds~,
       fallback_write_builds~,
+      intrinsic_imports~,
     )
+    dependency_us += perf_elapsed_since_start_opt(perf, dependency_start)
   }
+  perf_stop_timer_opt(perf, "detail:dae2:analysis", analysis_start)
+  perf_record_timer_elapsed_opt(perf, "detail:dae2:analysis:lift", lift_us)
+  perf_record_timer_elapsed_opt(
+    perf, "detail:dae2:analysis:dependencies", dependency_us,
+  )
+  let solve_start = perf_start_timer_opt(perf, "detail:dae2:solve-and-admit")
   graph.solve()
   let mut signature_change = false
   match mod_.type_sec {
@@ -633,20 +1224,27 @@ fn dae2_run_module_pass(
         dae2_signature_changes(graph, infos[callee])
       })
   }
+  perf_stop_timer_opt(perf, "detail:dae2:solve-and-admit", solve_start)
   if !signature_change {
     // Captures and legacy-handler adaptation are analysis scaffolding. When
     // no definition or call signature changes, keep the original expression
     // structure rather than making users pay for that scaffolding in output.
     return Ok(dfe_cleanup_simple_type_encoding(original))
   }
-  let mut types = match mod_.type_sec {
+  let graph = graph.for_solved_rewrite()
+  let source_types = match mod_.type_sec {
     Some(types) => types
     None => return Ok(mod_)
   }
+  let type_workspace = Dae2TypeWorkspace::new(source_types)
   let new_indices : Array[@lib.TypeIdx] = []
   let bodies : Array[@lib.Func] = []
   let local_remaps : Array[Array[Int]?] = []
   let control_types : @hashmap.HashMap[Int, @lib.TypeIdx] = @hashmap.new()
+  let rewrite_start = perf_start_timer_opt(perf, "detail:dae2:rewrite")
+  let mut rewrite_lift_us = 0UL
+  let mut lower_us = 0UL
+  let mut raw_rewrite_graph : Dae2Graph? = None
   for index = imported; index < total_funcs; index = index + 1 {
     let info = infos[index]
     let kept_params : Array[@lib.ValType] = []
@@ -666,36 +1264,105 @@ fn dae2_run_module_pass(
     let original_func = mod_.code_sec.unwrap().0[index - imported]
     let @lib.Func(_, @lib.Expr(original_body)) = original_func
     let needs_rewrite = dae2_function_needs_rewrite(graph, infos, info)
-    if !needs_rewrite && !dae2_instrs_have_indexed_control(original_body) {
+    let control_rewrite = info.control_type_infos.any(fn(family) {
+      family < 0 ||
+      family >= infos.length() ||
+      dae2_signature_changes(graph, infos[family])
+    })
+    let direct = if raw_rewrite &&
+      needs_rewrite &&
+      info.raw_analysis &&
+      !control_rewrite {
+      dae2_rewrite_raw_function(
+        graph, infos, index, original_func, context, kept_params, removed_params,
+      )
+    } else {
+      None
+    }
+    if !needs_rewrite && !control_rewrite {
       // Analysis already records every direct and indirect callee. With no
-      // changed boundary or indexed control type, preserve the original body
+      // changed boundary or changed indexed control family, preserve the original body
       // without rebuilding its HOT graph and deterministic captures.
       bodies.push(original_func)
       local_remaps.push(None)
+    } else if direct is Some((body, local_map)) {
+      bodies.push(body)
+      local_remaps.push(Some(local_map))
     } else {
       match rewrite_lifts {
         Some(count) => count[0] += 1
         None => ()
       }
+      let rewrite_lift_start = perf_start_timer_opt(
+        perf, "detail:dae2:rewrite:lift",
+      )
       let func = match dae2_lift_for_analysis(mod_, context, index) {
         Ok(func) => func
         Err(err) => return Err(err)
       }
-      if @ir.hot_node_count(func) != info.node_locations.length() {
+      rewrite_lift_us += perf_elapsed_since_start_opt(perf, rewrite_lift_start)
+      let rewrite_graph = if info.raw_analysis {
+        let replay = match raw_rewrite_graph {
+          Some(replay) => {
+            replay.reset_for_raw_rewrite(graph, boundary_count)
+            replay
+          }
+          None => {
+            let replay = graph.for_raw_rewrite(boundary_count)
+            raw_rewrite_graph = Some(replay)
+            replay
+          }
+        }
+        info.assign_node_locations(replay, @ir.hot_node_count(func))
+        dae2_analyze_function(
+          replay,
+          infos,
+          index,
+          type_infos,
+          func,
+          local_graph_builds~,
+          fallback_write_builds~,
+          intrinsic_imports~,
+        )
+        replay.solve()
+        let mut boundary_changed = false
+        for location in 0..<boundary_count {
+          if replay.used[location] != graph.used[location] {
+            boundary_changed = true
+            break
+          }
+        }
+        if boundary_changed {
+          // Qualification must reproduce the complete boundary fixed point.
+          // Re-run the original module through HOT if a new dependency appears.
+          return dae2_run_module_pass(
+            original,
+            closed_world,
+            cleanup_module_env_builds~,
+            rewrite_lifts~,
+            local_graph_builds~,
+            fallback_write_builds~,
+            analysis_lifts~,
+            perf~,
+            raw_analysis=false,
+          )
+        }
+        replay
+      } else {
+        graph
+      }
+      if @ir.hot_node_count(func) != info.node_count {
         return Err("dae2: analysis relift changed node identities")
       }
       let lower_state : HotPipelineLowerState = {
-        next_type_sec: Some(types),
+        next_type_sec: Some(type_workspace.types),
         type_sec_changed: false,
       }
       dae2_preserve_control_types(
-        func, context, graph, infos, type_infos, lower_state, control_types,
+        func, context, rewrite_graph, infos, type_infos, lower_state, control_types,
       )
       if !needs_rewrite {
-        match lower_state.next_type_sec {
-          Some(next) => types = next
-          None => ()
-        }
+        type_workspace.adopt_lower_types(lower_state)
         let @lib.Func(locals, @lib.Expr(body)) = mod_.code_sec.unwrap().0[index -
           imported]
         bodies.push(
@@ -709,10 +1376,11 @@ fn dae2_run_module_pass(
         let old_arities = Array::makei(@ir.hot_node_count(func), fn(node) {
           @ir.hot_node_result_arity(func, node)
         })
-        let memo = Array::make(info.node_locations.length(), -1)
+        let memo = Array::make(info.node_count, -1)
         let roots = @ir.hot_root_span(func).map(fn(node) {
           let rewritten = dae2_rewrite_node(
-            graph, infos, index, func, node, memo, old_arities, lower_state, type_infos,
+            rewrite_graph, infos, index, func, node, memo, old_arities, lower_state,
+            type_infos,
           )
           if results.is_empty() {
             dae2_discard(func, rewritten)
@@ -726,10 +1394,7 @@ fn dae2_run_module_pass(
           @ir.hot_type_intern_results(func, results),
         )
         run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
-        match lower_state.next_type_sec {
-          Some(next) => types = next
-          None => ()
-        }
+        type_workspace.adopt_lower_types(lower_state)
         match @ir.hot_verify_core(func) {
           Ok(_) => ()
           Err(err) =>
@@ -742,9 +1407,13 @@ fn dae2_run_module_pass(
               "dae2: rewritten HOT control in function \{index}: \{err}",
             )
         }
+        let lower_start = perf_start_timer_opt(
+          perf, "detail:dae2:rewrite:lower",
+        )
         let @lib.Func(locals, @lib.Expr(body)) = @ir.hot_lower_func_unverified(
           func,
         )
+        lower_us += perf_elapsed_since_start_opt(perf, lower_start)
         let local_map = Array::make(info.params.length() + locals.length(), -1)
         let mut kept = 0
         let mut removed = 0
@@ -794,25 +1463,23 @@ fn dae2_run_module_pass(
       new_indices.push(indices[index])
     } else {
       let metadata = context.subtypes[original_type_slot].metadata()
-      let @lib.TypeSec(groups) = types
-      let next_groups = groups.copy()
       new_indices.push(
-        @lib.TypeIdx::new(
-          dae_type_sec_flattened_length(types).reinterpret_as_uint(),
-        ),
+        type_workspace.append_signature(kept_params, results, metadata),
       )
-      next_groups.push(
-        @lib.RecType::new(
-          @lib.SubType::comp_type(
-            @lib.CompType::func(kept_params, results),
-            metadata~,
-          ),
-        ),
-      )
-      types = @lib.TypeSec::new(next_groups)
     }
   }
-  types = dae2_rewrite_type_section(types, graph, infos, type_infos)
+  perf_stop_timer_opt(perf, "detail:dae2:rewrite", rewrite_start)
+  perf_record_timer_elapsed_opt(
+    perf, "detail:dae2:rewrite:lift", rewrite_lift_us,
+  )
+  perf_record_timer_elapsed_opt(perf, "detail:dae2:rewrite:lower", lower_us)
+  let finalize_start = perf_start_timer_opt(perf, "detail:dae2:finalize")
+  let types = dae2_rewrite_type_section(
+    type_workspace.types,
+    graph,
+    infos,
+    type_infos,
+  )
   // Signature rewriting can make a new private definition identical to an
   // existing function type. Resolve this only after type-family rewrites have
   // converged. Redirect newly allocated function signatures, never identities
@@ -868,6 +1535,7 @@ fn dae2_run_module_pass(
   }
   // Every body is cleaned against the same finalized signature/type snapshot.
   let cleanup_env = @validate.Env::new().with_module(candidate)
+  let cleanup_start = perf_start_timer_opt(perf, "detail:dae2:finalize:cleanup")
   let cleaned_bodies = candidate.code_sec.unwrap().0.map(fn(func) {
     pass_lower_cleanup_branchless_blocks(
       func,
@@ -876,9 +1544,16 @@ fn dae2_run_module_pass(
     ).0
   })
   candidate = candidate.with_code_sec(@lib.CodeSec::new(cleaned_bodies))
+  perf_stop_timer_opt(perf, "detail:dae2:finalize:cleanup", cleanup_start)
   // No mutation escapes until every definition and call site has its new
   // signature. The module dispatcher rebuilds the HOT module context/caches.
-  match @validate.validate_module(candidate) {
+  let validation_start = perf_start_timer_opt(
+    perf, "detail:dae2:finalize:validate",
+  )
+  let validated = @validate.validate_module(candidate)
+  perf_stop_timer_opt(perf, "detail:dae2:finalize:validate", validation_start)
+  perf_stop_timer_opt(perf, "detail:dae2:finalize", finalize_start)
+  match validated {
     Ok(_) =>
       Ok(
         dfe_cleanup_simple_type_encoding(
@@ -893,6 +1568,31 @@ fn dae2_run_module_pass(
 fn dae2_signature_changes(graph : Dae2Graph, info : Dae2Function) -> Bool {
   info.param_locations.any(fn(location) { !graph.used[location] }) ||
   (!info.results.is_empty() && !graph.used[info.result_location])
+}
+
+///|
+fn dae2_boundary_is_pinned(
+  graph : Dae2Graph,
+  infos : Array[Dae2Function],
+  index : Int,
+  indices : Array[@lib.TypeIdx],
+  type_infos : Array[Int],
+  exposure : Array[DaeFunctionExposure],
+) -> Bool {
+  if index < 0 || index >= infos.length() {
+    return false
+  }
+  if !dae2_signature_changes(graph, infos[index]) {
+    return true
+  }
+  // Public function locations receive their already-observed family seeds
+  // during solve. Private direct functions remain independent of that family.
+  index < indices.length() &&
+  dae_function_exposure_blocks_boundary(exposure[index]) &&
+  !dae2_signature_changes(
+    graph,
+    infos[type_infos[dae2_type_slot(indices[index], 0)]],
+  )
 }
 
 ///|
