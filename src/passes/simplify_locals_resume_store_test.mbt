@@ -12,6 +12,43 @@ test "simplify-locals keeps post-resume write path-specific" {
 }
 
 ///|
+test "redundant-set-elimination joins resume handler local values" {
+  let input = rse_resume_handler_join_module()
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let output = audit_run_module(input, "redundant-set-elimination")
+  assert_true(@validate.validate_module(output) is Ok(_))
+  @debug.assert_eq(
+    audit_count(audit_body(output), fn(instr) { instr is @lib.LocalSet(_) }),
+    3,
+  )
+  let body = audit_body(output)
+  assert_true(
+    body[body.length() - 1] is @lib.LocalGet(@lib.LocalIdx(1U)),
+    msg=body.to_string(),
+  )
+}
+
+///|
+fn rse_resume_handler_join_module() -> @lib.Module {
+  let base = simplify_locals_resume_store_module()
+  let body = audit_body(base)
+  let joined = body.copy()
+  joined.insert(joined.length() - 1, @lib.Instruction::i32_const(9))
+  joined.insert(
+    joined.length() - 1,
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  )
+  base.with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        @lib.Expr::new(joined),
+      ),
+    ]),
+  )
+}
+
+///|
 fn simplify_locals_resume_store_module() -> @lib.Module {
   let cont_sig = @lib.TypeIdx::new(0U)
   let cont = @lib.TypeIdx::new(1U)

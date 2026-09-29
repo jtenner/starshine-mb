@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-28
 sources:
   - ./index.md
   - ../../../../../src/passes/pass_manager.mbt
@@ -352,3 +352,103 @@ The `[O4Z-AUDIT-SL]` closeout refreshed direct and generated late-neighborhood s
   - a perf test or wbtest for the skip reason
   - a traced artifact note that explains why the heuristic exists
 - If a new idea's best evidence is "it makes the printed output look nicer," do not add it here.
+
+## September 28, 2026 performance reuse contracts
+
+Value-suffix cleanup first checks backward stack arity, then runs the original typechecker only for a possible split or an unsupported arity. The latest legal split, original errors, multi-value ordering and side-effect boundaries remain unchanged. The summary is candidate-local and rebuilt after mutation; all five variant policies still use the same proved suffix contract.
+
+Tests and native controls: [value_suffix_reuse_wbtest.mbt](../../../../../src/passes/value_suffix_reuse_wbtest.mbt), [value_suffix_reuse_test.mbt](../../../../../src/passes/value_suffix_reuse_test.mbt), [value_suffix_reuse_perf_wbtest.mbt](../../../../../src/passes/value_suffix_reuse_perf_wbtest.mbt). The [campaign report](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign) owns frozen-binary artifact timings, verified-v133 evidence and final correctness outcomes; helper timings alone do not close the remaining pipeline or parity gaps.
+
+
+## September 28, 2026 follow-up cleanup ownership
+
+Zero-read-set cleanup now preserves unchanged instruction/body storage and copies
+the prefix only after a real replacement. Structured children reuse unaffected
+siblings; function identity handles unchanged NaN payloads without structural
+floating-point equality. Read counts and the supported control families retain
+their previous meaning. No variant gains an additional skip condition.
+
+[Bounded ownership and active tests](../../../../../src/passes/sl_zero_read_identity_wbtest.mbt)
+compare the old opcode sequence and validate all five variants; the command
+suite also covers their non-null branch-initialization behavior.
+[Native controls](../../../../../src/passes/sl_zero_read_identity_perf_wbtest.mbt)
+separate tiny/wide, unchanged/dense-change and flat/nested costs. Final enclosing
+measurements remain tracked in the [follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign).
+
+
+## September 29, 2026 mutation-scoped query reuse
+
+V18's private get-count snapshot belongs to one HOT function, exact revision
+and local count. Each consumer receives an owned copy because cleanup updates
+its counts. Node/local/root changes and deleted reads invalidate the snapshot.
+Functions below 32 nodes or with sparse locals retain the direct scan. Unchanged
+main/dead cleanup stages share the fact; supported transformations and all five
+variant policies are unchanged. [Work and behavior fixtures](../../../../../src/passes/sl_get_count_cache_wbtest.mbt)
+cover ownership, edits, owner changes, tiny/sparse admission, active policies,
+typed loops, tuples and effects. [Native controls](../../../../../src/passes/sl_get_count_cache_perf_wbtest.mbt)
+include tiny/wide repeated scans and all five complete lift/pass/verify/lower paths.
+
+Effect queries recompute masks on every call. A candidate-local epoch row avoids
+reallocating visited flags, grows only to the current arena and clears on epoch
+wrap; leaf queries allocate no row. [Direct fixtures](../../../../../src/passes/sl_effect_scan_workspace_wbtest.mbt)
+check exact masks/visits after edits, shared DAG edges, storage reuse and wrap.
+[Controls](../../../../../src/passes/sl_effect_scan_workspace_perf_wbtest.mbt)
+compare the frozen traversal with retained scratch at 1/128/4,096 nodes and
+both leaves and writes.
+
+The stack-order predicate asks whether any reachable value-producing node has
+an ID earlier than a threshold. Its exact answer is the minimum such ID, so a
+revision-guarded memo row serves repeated thresholds without a fresh arena-sized
+visited row for every later root. It follows the same control regions as the
+original traversal and conservatively keeps a barrier on a temporary cycle.
+Regions below 16 roots retain the direct predicate.
+[Threshold/stack-hazard fixtures](../../../../../src/passes/sl_value_order_minimum_wbtest.mbt)
+compare every threshold through typed if/loop/try-table control and require
+invalidation after replacement. [Native controls](../../../../../src/passes/sl_value_order_minimum_perf_wbtest.mbt)
+cover tiny/wide independent and older-stack hazard cases. The
+[dispatcher](../../../../../src/cmd/sl_cleanup_cache_wbtest.mbt) checks active cleanup
+and owned input across all five modes.
+
+V18 passes 12,877 default tests, 112 focused native tests and 62 benchmark
+cases. Its 79-fixture shared-consumer matrix validates 2,730 outputs with
+12,008 matching observations and exact V14/V18 bytes. Complete enclosing
+pairs improve active tee DAE2-O/SL 31.29%/29.98%, while large compiler DAE2/O
+remain flat. The [V18 evidence](../../../tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
+records other mode/shared-owner costs, pure renewal, interference, overlapping
+RSS and the remaining v133 gaps.
+
+## September 29, 2026 fresh replacement wrappers
+
+Five replacement factories allocate a wrapper, extract its exact node record
+and immediately retire it before attaching any inbound reference. That ownership
+proof permits the existing detached deletion API, preserving tombstones,
+child spans, flags, source order and revision invalidation while avoiding
+an arena-wide unreferenced-node scan. Older wrapper nodes retain checked
+retirement; ordinary checked IR deletion keeps its contract. No public API
+changes. [Factory and fallback fixtures](../../../../../src/passes/sl_fresh_wrapper_retirement_wbtest.mbt)
+first fail on the scan work bounds and assert all five node shapes and ownership.
+[Native controls](../../../../../src/passes/sl_fresh_wrapper_retirement_perf_wbtest.mbt)
+compare checked/fresh factories at widths 1/128/4,096 with identical lift work,
+arena records and lowered output. [Admission boundary fixtures](../../../../../src/passes/sl_cleanup_cache_boundaries_wbtest.mbt)
+cover 31/32/33 nodes, local-density limits and 15/16/17 region roots.
+Sixteen focused checks pass; full/native and enclosing shared-consumer evidence
+remain pending for this next candidate. The V14 profile's 8.04% checked-deletion
+self cost identifies the target but does not prove its resulting speedup.
+
+## September 29, 2026 stacked reads and extracted block wrappers
+
+A root-order traversal can visit a block overwrite before an older local read
+contained in a later arithmetic consumer. Preserve an earlier pending write
+when a source-ordered read exists between writes, and do not let an older read
+consume a later pending definition. A block-result rewrite allocates a fresh
+local-set wrapper at the block's preserved source position. Shared lowering and
+expanded CFG dependency selection must compare that execution position with
+consumer positions, rather than the wrapper's newer allocation ID.
+[IR regression](../../../../../src/ir/hot_source_order_wrapper_wbtest.mbt)
+covers both direct and indexed root queries; [pass fixtures](../../../../../src/passes/sl_stacked_block_order_wbtest.mbt)
+follow the saved entry/constant through capture locals in all five policies,
+with [dispatcher checks](../../../../../src/cmd/sl_stacked_block_order_wbtest.mbt)
+and owned input bytes. Thirty-four focused checks pass. Native runtime
+confirmation remains pending for V24. V21 has four true semantic failure rows
+and V18 has eight in the new witnesses; their original 79-fixture signoff
+does not cover these shapes. See the [trial evidence](../../../tooling/tracing-playbook.md#v21-stacked-block-runtime-failure-and-v24-repair-trial).

@@ -85,6 +85,43 @@ test "coalesce-locals keeps resume-throw handler successor writes live" {
 }
 
 ///|
+test "redundant-set-elimination joins resume-throw handler local values" {
+  for throw_ref in [false, true] {
+    let form = if throw_ref { "resume_throw_ref" } else { "resume_throw" }
+    let input = rse_resume_throw_handler_join_module(throw_ref)
+    assert_true(
+      @validate.validate_module(input) is Ok(_),
+      msg="invalid input for \{form}",
+    )
+    let output = audit_run_module(input, "redundant-set-elimination")
+    assert_true(
+      @validate.validate_module(output) is Ok(_),
+      msg="invalid output for \{form}",
+    )
+    @debug.assert_eq(
+      audit_count(audit_body(output), fn(instr) { instr is @lib.LocalSet(_) }),
+      3,
+    )
+  }
+}
+
+///|
+fn rse_resume_throw_handler_join_module(throw_ref : Bool) -> @lib.Module {
+  let base = simplify_locals_resume_throw_handler_module(throw_ref, false)
+  let @lib.Func(locals, @lib.Expr(body)) = base.code_sec.unwrap().0[0]
+  let joined = body.copy()
+  let target_local = if throw_ref { 2U } else { 1U }
+  joined.insert(joined.length() - 1, @lib.Instruction::i32_const(9))
+  joined.insert(
+    joined.length() - 1,
+    @lib.Instruction::local_set(@lib.LocalIdx::new(target_local)),
+  )
+  base.with_code_sec(
+    @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(joined))]),
+  )
+}
+
+///|
 fn simplify_locals_resume_throw_sequence(
   throw_ref : Bool,
   cont : @lib.TypeIdx,

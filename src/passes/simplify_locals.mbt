@@ -171,6 +171,8 @@ priv struct SimplifyLocalsSinkables {
   scratch_local_write_stamps : Array[Int]
   mut next_scratch_stamp : Int
   source_gets : Array[Array[(Int, Int)]]
+  mut effect_scan_workspace : SimplifyLocalsEffectScanWorkspace?
+  mut value_order_minimums : SimplifyLocalsValueOrderMinimums?
 }
 
 ///|
@@ -239,6 +241,8 @@ fn simplify_locals_new_sinkables(
     scratch_local_write_stamps: Array::make(@ir.hot_local_count(func), 0),
     next_scratch_stamp: 1,
     source_gets,
+    effect_scan_workspace: None,
+    value_order_minimums: None,
   }
 }
 
@@ -1150,20 +1154,35 @@ fn simplify_locals_effect_scan_push_region(
 fn simplify_locals_effects_mask_for_subtree_scan(
   func : @ir.HotFunc,
   node_id : Int,
+  workspace? : SimplifyLocalsEffectScanWorkspace? = None,
 ) -> (@ir.EffectMask, Int) {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return (0U, 0)
+  }
+  if @ir.hot_child_count(func, node_id) == 0 &&
+    !@ir.hot_node_kind_is_control(func, node_id) {
+    return (simplify_locals_effects_mask_for_exact_node(func, node_id), 1)
+  }
   let pending : Array[Int] = [node_id]
-  let seen = Array::make(@ir.hot_node_count(func), false)
+  let marks = match workspace {
+    Some(workspace) => workspace.begin(func)
+    None => Array::make(@ir.hot_node_count(func), 0)
+  }
+  let epoch = match workspace {
+    Some(workspace) => workspace.epoch
+    None => 1
+  }
   let mut mask = 0U
   let mut visited_nodes = 0
   while !pending.is_empty() {
     let current_id = pending.pop().unwrap()
     if current_id < 0 ||
-      current_id >= seen.length() ||
-      seen[current_id] ||
+      current_id >= marks.length() ||
+      marks[current_id] == epoch ||
       !@ir.hot_node_is_live(func, current_id) {
       continue
     }
-    seen[current_id] = true
+    marks[current_id] = epoch
     visited_nodes += 1
     mask = mask | simplify_locals_effects_mask_for_exact_node(func, current_id)
     let current = @ir.hot_node_get(func, current_id)
@@ -1225,8 +1244,9 @@ fn simplify_locals_effects_mask_for_subtree_scan(
 fn simplify_locals_effects_mask_for_subtree(
   func : @ir.HotFunc,
   node_id : Int,
+  workspace? : SimplifyLocalsEffectScanWorkspace? = None,
 ) -> @ir.EffectMask {
-  simplify_locals_effects_mask_for_subtree_scan(func, node_id).0
+  simplify_locals_effects_mask_for_subtree_scan(func, node_id, workspace~).0
 }
 
 ///|
@@ -1239,10 +1259,21 @@ fn simplify_locals_effects_for_pending_local_set(
   let effects = simplify_locals_empty_effects()
   let stamp = simplify_locals_next_scratch_stamp(sinkables)
   let value_mask = if node.child_count != 0 {
-    simplify_locals_effects_mask_for_subtree(
-      func,
-      @ir.hot_child_get(func, node_id, 0),
-    )
+    let value = @ir.hot_child_get(func, node_id, 0)
+    let workspace = if @ir.hot_node_count(func) >= 32 &&
+      @ir.hot_child_count(func, value) > 0 {
+      match sinkables.effect_scan_workspace {
+        Some(workspace) => Some(workspace)
+        None => {
+          let workspace = SimplifyLocalsEffectScanWorkspace::new()
+          sinkables.effect_scan_workspace = Some(workspace)
+          Some(workspace)
+        }
+      }
+    } else {
+      None
+    }
+    simplify_locals_effects_mask_for_subtree(func, value, workspace~)
   } else {
     0U
   }
@@ -1599,41 +1630,65 @@ fn simplify_locals_invalidate_sinkables(
 }
 
 ///|
-fn simplify_locals_make_nop(func : @ir.HotFunc) -> @ir.HotNode {
-  let replacement_id = @ir.hot_build_nop(func)
+// Factories pass their immediately allocated, never-attached wrapper.
+fn simplify_locals_take_new_wrapper(
+  func : @ir.HotFunc,
+  replacement_id : Int,
+  retirement_scans : Array[Int]?,
+) -> @ir.HotNode {
   let replacement = @ir.hot_node_get(func, replacement_id)
-  @ir.hot_delete_node(func, replacement_id)
+  // The builder allocated this node immediately before extraction, and no
+  // root or child reference has been attached to it. Keep ordinary checked
+  // deletion for all nodes whose detached ownership is not proved here.
+  if replacement_id == @ir.hot_node_count(func) - 1 {
+    @ir.hot_delete_detached_node(func, replacement_id)
+  } else {
+    match retirement_scans {
+      Some(scans) => scans[0] += 1
+      None => ()
+    }
+    @ir.hot_delete_node(func, replacement_id)
+  }
   replacement
 }
 
 ///|
-fn simplify_locals_make_drop(func : @ir.HotFunc, value_id : Int) -> @ir.HotNode {
+fn simplify_locals_make_nop(
+  func : @ir.HotFunc,
+  retirement_scans? : Array[Int]? = None,
+) -> @ir.HotNode {
+  let replacement_id = @ir.hot_build_nop(func)
+  simplify_locals_take_new_wrapper(func, replacement_id, retirement_scans)
+}
+
+///|
+fn simplify_locals_make_drop(
+  func : @ir.HotFunc,
+  value_id : Int,
+  retirement_scans? : Array[Int]? = None,
+) -> @ir.HotNode {
   let replacement_id = @ir.hot_build_drop(func, value_id)
-  let replacement = @ir.hot_node_get(func, replacement_id)
-  @ir.hot_delete_node(func, replacement_id)
-  replacement
+  simplify_locals_take_new_wrapper(func, replacement_id, retirement_scans)
 }
 
 ///|
 fn simplify_locals_make_local_get(
   func : @ir.HotFunc,
   local_id : Int,
+  retirement_scans? : Array[Int]? = None,
 ) -> @ir.HotNode {
   let replacement_id = @ir.hot_build_local_get(func, local_id)
-  let replacement = @ir.hot_node_get(func, replacement_id)
-  @ir.hot_delete_node(func, replacement_id)
-  replacement
+  simplify_locals_take_new_wrapper(func, replacement_id, retirement_scans)
 }
 
 ///|
 fn simplify_locals_make_local_tee(
   func : @ir.HotFunc,
   set_id : Int,
+  retirement_scans? : Array[Int]? = None,
 ) -> @ir.HotNode {
   let replacement_id = @ir.hot_build_local_tee_from_set(func, set_id)
-  let replacement = @ir.hot_node_get(func, replacement_id)
-  @ir.hot_delete_node(func, replacement_id)
-  replacement
+  simplify_locals_take_new_wrapper(func, replacement_id, retirement_scans)
 }
 
 ///|
@@ -1643,13 +1698,12 @@ fn simplify_locals_make_local_set(
   func : @ir.HotFunc,
   local_id : Int,
   value_id : Int,
+  retirement_scans? : Array[Int]? = None,
 ) -> @ir.HotNode {
   let replacement_id = @ir.hot_build_local_set_from_value(
     func, local_id, value_id,
   )
-  let replacement = @ir.hot_node_get(func, replacement_id)
-  @ir.hot_delete_node(func, replacement_id)
-  replacement
+  simplify_locals_take_new_wrapper(func, replacement_id, retirement_scans)
 }
 
 ///|
@@ -3422,12 +3476,23 @@ fn simplify_locals_record_local_set(
               previous_info.node_id,
               0,
             )
-            @ir.hot_replace_node(
-              func,
-              previous_info.node_id,
-              simplify_locals_make_drop(func, previous_value_id),
-            )
-            changed = true
+            // A later root can consume a read evaluated between these writes.
+            // Keep its reaching definition even though tree order has not yet
+            // visited the consumer containing that stacked read.
+            if !simplify_locals_has_earlier_source_read(
+                func,
+                sinkables,
+                local_id,
+                previous_node.order,
+                node.order,
+              ) {
+              @ir.hot_replace_node(
+                func,
+                previous_info.node_id,
+                simplify_locals_make_drop(func, previous_value_id),
+              )
+              changed = true
+            }
           }
           _ => ()
         }
@@ -4163,6 +4228,27 @@ fn simplify_locals_scan_node(
             let pending_node = @ir.hot_node_get(func, info.node_id)
             match pending_node.op {
               @ir.HotOp::LocalSet => {
+                // Tree visitation can reach an old stacked read after a later
+                // block write. That read cannot consume the pending definition.
+                // Replacing an existing write can give it a later factory
+                // allocation order without moving its execution position.
+                let pending_order = if pending_node.order < info.node_id {
+                  pending_node.order
+                } else {
+                  info.node_id
+                }
+                let read_order = if current.order < node_id {
+                  current.order
+                } else {
+                  node_id
+                }
+                if read_order < pending_order {
+                  simplify_locals_sinkables_clear_local(sinkables, local_id)
+                  simplify_locals_invalidate_sinkables(
+                    func, node_id, current, sinkables,
+                  )
+                  return changed
+                }
                 // A previous cycle can place an older read in a later root's
                 // operand tree. Do not sink its definition into the first read
                 // visited by tree order if that would cross the older read.
@@ -4357,12 +4443,18 @@ fn simplify_locals_scan_node(
               root_idx,
               node_id,
               current.imm0,
+              minimums=simplify_locals_value_order_minimums_for_region(
+                sinkables, func, parent_region,
+              ),
             ) ||
             simplify_locals_set_first_use_crosses_intervening_local_write(
               func,
               parent_region,
               root_idx,
               current.imm0,
+              minimums=simplify_locals_value_order_minimums_for_region(
+                sinkables, func, parent_region,
+              ),
             )
           None => false
         })
@@ -5049,15 +5141,41 @@ fn simplify_locals_try_rewrite_if_return(
         then_ref,
         then_tail.value_id,
       )
-      let replacement_if = @ir.hot_build_if(
+      if simplify_locals_region_has_branch_to_label(
+          func,
+          then_ref,
+          @ir.hot_control_node_label(func, node_id),
+        ) {
+        // Existing void exits must skip the synthesized assignment. Keep their
+        // original label on an outer block around the new result conditional.
+        let result_if = @ir.hot_build_if(
+          func,
+          result_block_type,
+          @ir.hot_child_get(func, node_id, 0),
+          replacement_then,
+          else_body=Some([@ir.hot_build_local_get(func, then_tail.local_id)]),
+        )
+        let capture = @ir.hot_build_local_set_from_value(
+          func,
+          then_tail.local_id,
+          result_if,
+        )
+        @ir.hot_region_replace_body(func, then_ref, [])
+        @ir.hot_control_demote_if_to_block(func, node_id, [capture])
+        return true
+      }
+      let else_region = @ir.hot_build_region(
         func,
-        result_block_type,
-        @ir.hot_child_get(func, node_id, 0),
-        replacement_then,
-        else_body=Some([@ir.hot_build_local_get(func, then_tail.local_id)]),
+        [@ir.hot_build_local_get(func, then_tail.local_id)],
+        1,
       )
-      @ir.hot_region_replace_body(func, then_ref, [])
-      @ir.hot_control_demote_if_to_block(func, node_id, [])
+      @ir.hot_child_set(func, node_id, 2, else_region)
+      @ir.hot_region_replace_body(func, then_ref, replacement_then)
+      @ir.hot_control_result_type_set(
+        func,
+        node_id,
+        @ir.hot_type_intern_block_result(func, result_block_type),
+      )
       if get_counts[then_tail.local_id] == 1 &&
         simplify_locals_try_consume_following_local_get(
           func,
@@ -5066,9 +5184,6 @@ fn simplify_locals_try_rewrite_if_return(
           then_tail.local_id,
           detached,
         ) {
-        ignore(
-          @ir.hot_region_set(func, parent_region, root_idx, replacement_if),
-        )
         return true
       }
       ignore(
@@ -5076,11 +5191,7 @@ fn simplify_locals_try_rewrite_if_return(
           func,
           parent_region,
           root_idx,
-          @ir.hot_build_local_set_from_value(
-            func,
-            then_tail.local_id,
-            replacement_if,
-          ),
+          @ir.hot_build_local_set_from_value(func, then_tail.local_id, node_id),
         ),
       )
       true
@@ -5253,22 +5364,47 @@ fn simplify_locals_try_rewrite_nested_one_armed_if_child(
     then_ref,
     then_tail.value_id,
   )
-  let replacement_if = @ir.hot_build_if(
+  if simplify_locals_region_has_branch_to_label(
+      func,
+      then_ref,
+      @ir.hot_control_node_label(func, child_id),
+    ) {
+    let result_if = @ir.hot_build_if(
+      func,
+      result_block_type,
+      @ir.hot_child_get(func, child_id, 0),
+      replacement_then,
+      else_body=Some([@ir.hot_build_local_get(func, then_tail.local_id)]),
+    )
+    let capture = @ir.hot_build_local_set_from_value(
+      func,
+      then_tail.local_id,
+      result_if,
+    )
+    @ir.hot_region_replace_body(func, then_ref, [])
+    @ir.hot_control_demote_if_to_block(func, child_id, [capture])
+    return true
+  }
+  // Rewrite in place so the conditional's source position and label remain
+  // unchanged. A fresh conditional would place its write after old consumers.
+  let else_region = @ir.hot_build_region(
     func,
-    result_block_type,
-    @ir.hot_child_get(func, child_id, 0),
-    replacement_then,
-    else_body=Some([@ir.hot_build_local_get(func, then_tail.local_id)]),
+    [@ir.hot_build_local_get(func, then_tail.local_id)],
+    1,
   )
-  @ir.hot_region_replace_body(func, then_ref, [])
-  @ir.hot_control_demote_if_to_block(func, child_id, [])
+  @ir.hot_child_set(func, child_id, 2, else_region)
+  @ir.hot_region_replace_body(func, then_ref, replacement_then)
+  @ir.hot_control_result_type_set(
+    func,
+    child_id,
+    @ir.hot_type_intern_block_result(func, result_block_type),
+  )
   @ir.hot_child_set(
     func,
     parent_id,
     slot,
-    @ir.hot_build_local_set_from_value(func, then_tail.local_id, replacement_if),
+    @ir.hot_build_local_set_from_value(func, then_tail.local_id, child_id),
   )
-  detached.push(child_id)
   true
 }
 
@@ -6019,13 +6155,19 @@ fn simplify_locals_run_main_cycle(
   detached : Array[Int],
   policy : SimplifyLocalsPolicy,
   protect_control_embedded_local_tee : Bool,
+  get_count_cache? : SimplifyLocalsGetCounts? = None,
+  get_count_scans? : Array[Int]? = None,
 ) -> (Bool, Bool) {
   let sinkables = simplify_locals_new_sinkables(func, module_ctx=ctx.module_ctx)
   let count_gets_start_us = perf_start_timer_opt(
     ctx.perf,
     "detail:simplify-locals:count-local-gets",
   )
-  let get_counts = simplify_locals_count_local_gets(func)
+  let get_counts = simplify_locals_counts_for_cycle(
+    func,
+    get_count_cache,
+    full_scans=get_count_scans,
+  )
   perf_stop_timer_accumulate_opt(
     ctx.perf,
     "detail:simplify-locals:count-local-gets",
@@ -6471,8 +6613,14 @@ fn simplify_locals_run_dead_cleanup(
   rehomed_owners : Array[SimplifyLocalsDetachedControlOwner],
   discount_unreachable_tail_gets : Bool,
   preserve_self_copy_reads? : Bool = false,
+  get_count_cache? : SimplifyLocalsGetCounts? = None,
+  get_count_scans? : Array[Int]? = None,
 ) -> Bool {
-  let get_counts = simplify_locals_count_local_gets(func)
+  let get_counts = simplify_locals_counts_for_cycle(
+    func,
+    get_count_cache,
+    full_scans=get_count_scans,
+  )
   if discount_unreachable_tail_gets {
     simplify_locals_discount_unreachable_root_tail_gets(func, get_counts)
   }
@@ -6778,7 +6926,14 @@ fn simplify_locals_run_with_options(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   policy : SimplifyLocalsPolicy,
+  reuse_get_counts? : Bool = true,
+  get_count_scans? : Array[Int]? = None,
 ) -> HotPassResult {
+  let get_count_cache = if reuse_get_counts {
+    simplify_locals_new_get_count_cache(func)
+  } else {
+    None
+  }
   let precleanup_detached : Array[Int] = []
   let precleanup_changed = !policy.allow_structure_rewrites &&
     policy.allow_sink_tee &&
@@ -6799,7 +6954,14 @@ fn simplify_locals_run_with_options(
     )
     let main_detached : Array[Int] = []
     let (main_changed, has_deferred_main_cycle) = simplify_locals_run_main_cycle(
-      ctx, func, first_cycle, main_detached, policy, false,
+      ctx,
+      func,
+      first_cycle,
+      main_detached,
+      policy,
+      false,
+      get_count_cache~,
+      get_count_scans~,
     )
     perf_stop_timer_opt(
       ctx.perf,
@@ -6831,6 +6993,8 @@ fn simplify_locals_run_with_options(
       policy.allow_nesting,
       preserve_self_copy_reads=policy.allow_structure_rewrites &&
         !policy.allow_sink_tee,
+      get_count_cache~,
+      get_count_scans~,
     )
     perf_stop_timer_accumulate_opt(
       ctx.perf,
@@ -6953,6 +7117,8 @@ fn simplify_locals_run_with_options(
       policy.allow_nesting,
       preserve_self_copy_reads=policy.allow_structure_rewrites &&
         !policy.allow_sink_tee,
+      get_count_cache~,
+      get_count_scans~,
     )
     perf_stop_timer_opt(
       ctx.perf,
@@ -6993,7 +7159,11 @@ fn simplify_locals_is_region_child_slot(
   node_id : Int,
   slot : Int,
 ) -> Bool {
-  slot >= pass_value_operand_count(func, node_id)
+  if @ir.hot_node_get(func, node_id).op is @ir.HotOp::If {
+    slot == 1 || slot == 2
+  } else {
+    slot >= pass_value_operand_count(func, node_id)
+  }
 }
 
 ///|
@@ -7110,6 +7280,8 @@ fn simplify_locals_set_first_use_crosses_intervening_local_write(
   region_ref : @ir.HotRegionRef,
   root_idx : Int,
   local_id : Int,
+  minimums? : SimplifyLocalsValueOrderMinimums? = None,
+  later_seen_rows? : Array[Int]? = None,
 ) -> Bool {
   if root_idx < 0 {
     return false
@@ -7155,11 +7327,12 @@ fn simplify_locals_set_first_use_crosses_intervening_local_write(
           if later_root < 0 || !@ir.hot_node_is_live(func, later_root) {
             continue
           }
-          if simplify_locals_node_contains_value_before(
+          if simplify_locals_contains_value_before_with_minimums(
               func,
               later_root,
               root_id,
-              Array::make(@ir.hot_node_count(func), false),
+              minimums,
+              seen_rows=later_seen_rows,
             ) {
             let later_reads : Array[Int] = []
             let later_writes : Array[Int] = []
@@ -7203,6 +7376,7 @@ fn simplify_locals_set_crosses_older_stack_value(
   root_idx : Int,
   set_node_id : Int,
   local_id : Int,
+  minimums? : SimplifyLocalsValueOrderMinimums? = None,
 ) -> Bool {
   if root_idx < 0 {
     return false
@@ -7214,11 +7388,8 @@ fn simplify_locals_set_crosses_older_stack_value(
     if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
       continue
     }
-    if simplify_locals_node_contains_value_before(
-        func,
-        root_id,
-        set_node_id,
-        Array::make(@ir.hot_node_count(func), false),
+    if simplify_locals_contains_value_before_with_minimums(
+        func, root_id, set_node_id, minimums,
       ) {
       return true
     }
@@ -7351,10 +7522,16 @@ fn simplify_locals_node_reads_local(
       }
     _ => ()
   }
-  for slot = 0; slot < pass_value_operand_count(func, node_id); slot = slot + 1 {
+  let operand_node = @ir.hot_node_get(func, node_id)
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
     if simplify_locals_node_reads_local(
         func,
-        @ir.hot_child_get(func, node_id, slot),
+        @ir.hot_child_get(
+          func,
+          node_id,
+          pass_value_operand_slot(operand_node, slot),
+        ),
         local_id,
       ) {
       return true
@@ -8121,8 +8298,14 @@ fn simplify_locals_lower_dropped_tees_in_protected_region(
 fn simplify_locals_run_root_dead_cleanup(
   func : @ir.HotFunc,
   detached : Array[Int],
+  get_count_cache? : SimplifyLocalsGetCounts? = None,
+  get_count_scans? : Array[Int]? = None,
 ) -> Bool {
-  let get_counts = simplify_locals_count_local_gets(func)
+  let get_counts = simplify_locals_counts_for_cycle(
+    func,
+    get_count_cache,
+    full_scans=get_count_scans,
+  )
   let one_armed_if_tail_sets = simplify_locals_one_armed_if_tail_sets(func)
   let mut changed = false
   let root_ref = @ir.HotRegionRef::root()
@@ -8229,7 +8412,14 @@ fn simplify_locals_run_control_embedded_tee_root_only(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   policy : SimplifyLocalsPolicy,
+  reuse_get_counts? : Bool = true,
+  get_count_scans? : Array[Int]? = None,
 ) -> HotPassResult {
+  let get_count_cache = if reuse_get_counts {
+    simplify_locals_new_get_count_cache(func)
+  } else {
+    None
+  }
   pipeline_trace_hook(
     ctx.trace,
     ctx.descriptor.name,
@@ -8241,18 +8431,32 @@ fn simplify_locals_run_control_embedded_tee_root_only(
   while true {
     let main_detached : Array[Int] = []
     let (main_changed, has_deferred_main_cycle) = simplify_locals_run_main_cycle(
-      ctx, func, first_cycle, main_detached, policy, true,
+      ctx,
+      func,
+      first_cycle,
+      main_detached,
+      policy,
+      true,
+      get_count_cache~,
+      get_count_scans~,
     )
     simplify_locals_delete_detached_nodes(func, main_detached)
 
     let cleanup_detached : Array[Int] = []
     let cleanup_changed = simplify_locals_run_root_dead_cleanup(
-      func, cleanup_detached,
+      func,
+      cleanup_detached,
+      get_count_cache~,
+      get_count_scans~,
     )
     simplify_locals_delete_detached_nodes(func, cleanup_detached)
 
     let protected_detached : Array[Int] = []
-    let protected_get_counts = simplify_locals_count_local_gets(func)
+    let protected_get_counts = simplify_locals_counts_for_cycle(
+      func,
+      get_count_cache,
+      full_scans=get_count_scans,
+    )
     let protected_one_armed_if_tail_sets = simplify_locals_one_armed_if_tail_sets(
       func,
     )
