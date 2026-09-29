@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-26
+last_reviewed: 2026-09-28
 sources:
   - ./index.md
   - ../../../../../src/passes/coalesce_locals.mbt
@@ -615,3 +615,21 @@ Uncontended native controls improve **4.40 → 3.78 µs** at 32 regions and
 **72.88 → 60.28 µs** at 512. These isolate copying/remapping and do not claim
 that the whole pass improves by the same percentage. Evidence:
 `.tmp/pass-perf-reuse-20260927/accepted-bench-coalesce_copy_remap_perf_wbtest-1.log`.
+
+## September 28, 2026 performance reuse contracts
+
+Raw source-hazard steps are compiled once for an immutable body and replayed for each candidate source. Barriers, copy exceptions, control joins and deterministic remapping retain the reference behavior. This removes repeated raw instruction classification; expanded CFG construction, interference and lowering remain separate measured owners.
+
+Tests and native controls: [coalesce_source_hazards_wbtest.mbt](../../../../../src/passes/coalesce_source_hazards_wbtest.mbt), [coalesce_source_hazards_perf_wbtest.mbt](../../../../../src/passes/coalesce_source_hazards_perf_wbtest.mbt). The [campaign report](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign) owns frozen-binary artifact timings, verified-v133 evidence and final correctness outcomes; helper timings alone do not close the remaining pipeline or parity gaps.
+
+## September 28, 2026 follow-up performance contracts
+
+One immutable preorder control index serves action collection, depth collection
+and local-only rewriting. Its packed fallthrough/escape facts preserve catch-label
+depths, unreachable sentinels and loop/legacy boundaries; dead subtrees skip via
+preorder end offsets. Extra interference kernels enumerate occupied matrix bits
+and maintained live members while retaining type, parameter and source-order
+rules. Bounded reference tests cover all three kernels.
+
+The renewed artifact matrix and dedicated correctness lanes are recorded in the
+[follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign).

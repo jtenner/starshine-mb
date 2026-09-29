@@ -317,6 +317,10 @@ fn cl_instr_is_branch_instruction(instr : @lib.Instruction) -> Bool {
     | @lib.BrOnCastFail(_, _, _, _)
     | @lib.BrOnCastDescEq(_, _, _)
     | @lib.BrOnCastDescEqFail(_, _, _) => true
+    @lib.Resume(_, handlers)
+    | @lib.ResumeThrow(_, _, handlers)
+    | @lib.ResumeThrowRef(_, handlers) =>
+      handlers.any(fn(handler) { handler is @lib.ResumeOnLabel(_, _) })
     _ => false
   }
 }
@@ -352,20 +356,330 @@ fn cl_instr_is_control_transfer_barrier(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn cl_br_table_all_past_depth(
-  labels : Array[@lib.LabelIdx],
-  default_label : @lib.LabelIdx,
-  boundary_depth : Int,
-) -> Bool {
-  if cl_label_idx_raw(default_label) <= boundary_depth {
-    return false
+// A scalar packs the no-fallthrough bit and the exclusive escape boundary.
+// Sentinels sit outside every raw u32 label depth; shifting a finite boundary
+// through a region cannot turn "no escape" into a terminal escape.
+const CL_CONTROL_NO_ESCAPE : Int64 = -4294967296L
+
+///|
+const CL_CONTROL_TERMINAL_ESCAPE : Int64 = 4294967296L
+
+///|
+fn cl_control_pack(boundary : Int64, no_fallthrough : Bool) -> Int64 {
+  (boundary << 1) | (if no_fallthrough { 1L } else { 0L })
+}
+
+///|
+fn cl_control_boundary(facts : Int64) -> Int64 {
+  facts >> 1
+}
+
+///|
+fn cl_control_no_fallthrough(facts : Int64) -> Bool {
+  (facts & 1L) != 0L
+}
+
+///|
+fn cl_control_shift_boundary(boundary : Int64) -> Int64 {
+  if boundary == CL_CONTROL_NO_ESCAPE || boundary == CL_CONTROL_TERMINAL_ESCAPE {
+    boundary
+  } else {
+    boundary - 1L
   }
-  for label in labels {
-    if cl_label_idx_raw(label) <= boundary_depth {
-      return false
+}
+
+///|
+fn cl_control_note_target(label : @lib.LabelIdx, frames : Array[Bool]) -> Unit {
+  let depth = cl_label_idx_raw(label)
+  if depth >= 0 && depth < frames.length() {
+    frames[frames.length() - depth - 1] = true
+  }
+}
+
+///|
+fn cl_control_body_boundary(
+  body : Array[@lib.Instruction],
+  frames : Array[Bool],
+  instruction_visits : Array[Int]?,
+  control_index? : CLControlIndex? = None,
+) -> Int64 {
+  let mut previous = cl_control_pack(CL_CONTROL_NO_ESCAPE, false)
+  let mut last = previous
+  for child in body {
+    previous = last
+    last = cl_control_instruction(
+      child,
+      frames,
+      instruction_visits,
+      control_index~,
+    )
+  }
+  // A dead unreachable sentinel inherits its preceding transfer's boundary,
+  // rather than turning a branch to the current label into an escaping trap.
+  if body.length() > 1 &&
+    body[body.length() - 1] is @lib.Unreachable &&
+    cl_control_no_fallthrough(previous) {
+    cl_control_boundary(previous)
+  } else {
+    cl_control_boundary(last)
+  }
+}
+
+///|
+priv struct CLControlIndex {
+  facts : Array[Int64]
+  ends : Array[Int]
+}
+
+///|
+fn CLControlIndex::new() -> CLControlIndex {
+  { facts: [], ends: [], }
+}
+
+///|
+fn cl_control_instruction(
+  instr : @lib.Instruction,
+  frames : Array[Bool],
+  instruction_visits : Array[Int]?,
+  control_index? : CLControlIndex? = None,
+) -> Int64 {
+  match control_index {
+    None => cl_control_instruction_impl(instr, frames, instruction_visits, None)
+    Some(index) => {
+      let position = index.facts.length()
+      index.facts.push(0L)
+      index.ends.push(0)
+      let facts = cl_control_instruction_impl(
+        instr, frames, instruction_visits, control_index,
+      )
+      index.facts[position] = facts
+      index.ends[position] = index.facts.length()
+      facts
     }
   }
-  true
+}
+
+///|
+fn cl_control_instruction_impl(
+  instr : @lib.Instruction,
+  frames : Array[Bool],
+  instruction_visits : Array[Int]?,
+  control_index : CLControlIndex?,
+) -> Int64 {
+  if instruction_visits is Some(visits) {
+    visits[0] += 1
+  }
+  if cl_instr_is_terminal(instr) {
+    return cl_control_pack(CL_CONTROL_TERMINAL_ESCAPE, true)
+  }
+  match instr {
+    @lib.Br(label) => {
+      cl_control_note_target(label, frames)
+      cl_control_pack(cl_label_idx_raw(label).to_int64(), true)
+    }
+    @lib.BrIf(label)
+    | @lib.BrOnNull(label)
+    | @lib.BrOnNonNull(label)
+    | @lib.BrOnCast(label, _, _, _)
+    | @lib.BrOnCastFail(label, _, _, _)
+    | @lib.BrOnCastDescEq(label, _, _)
+    | @lib.BrOnCastDescEqFail(label, _, _) => {
+      cl_control_note_target(label, frames)
+      cl_control_pack(CL_CONTROL_NO_ESCAPE, false)
+    }
+    @lib.BrTable(labels, default_label) => {
+      cl_control_note_target(default_label, frames)
+      let mut boundary = cl_label_idx_raw(default_label).to_int64()
+      for label in labels {
+        cl_control_note_target(label, frames)
+        let depth = cl_label_idx_raw(label).to_int64()
+        if depth < boundary {
+          boundary = depth
+        }
+      }
+      cl_control_pack(boundary, true)
+    }
+    @lib.Block(_, @lib.Expr(body)) => {
+      frames.push(false)
+      let boundary = cl_control_body_boundary(
+        body,
+        frames,
+        instruction_visits,
+        control_index~,
+      )
+      let self_target = frames.pop().unwrap()
+      if self_target {
+        cl_control_pack(CL_CONTROL_NO_ESCAPE, false)
+      } else {
+        cl_control_pack(cl_control_shift_boundary(boundary), boundary > 0L)
+      }
+    }
+    @lib.If(_, yes, no) => {
+      frames.push(false)
+      let yes_boundary = cl_control_body_boundary(
+        yes,
+        frames,
+        instruction_visits,
+        control_index~,
+      )
+      let no_boundary = match no {
+        Some(body) =>
+          cl_control_body_boundary(
+            body,
+            frames,
+            instruction_visits,
+            control_index~,
+          )
+        None => CL_CONTROL_NO_ESCAPE
+      }
+      let self_target = frames.pop().unwrap()
+      let boundary = if yes_boundary < no_boundary {
+        yes_boundary
+      } else {
+        no_boundary
+      }
+      if self_target {
+        cl_control_pack(CL_CONTROL_NO_ESCAPE, false)
+      } else {
+        cl_control_pack(cl_control_shift_boundary(boundary), boundary > 0L)
+      }
+    }
+    @lib.TryTable(_, catches, @lib.Expr(body)) => {
+      // Catch labels address the surrounding context, before the try body's
+      // label is pushed, exactly like the existing branch-target query.
+      for catch_ in catches {
+        let label = match catch_ {
+          @lib.Catch(_, label)
+          | @lib.CatchRef(_, label)
+          | @lib.CatchAll(label)
+          | @lib.CatchAllRef(label) => label
+        }
+        cl_control_note_target(label, frames)
+      }
+      frames.push(false)
+      let boundary = cl_control_body_boundary(
+        body,
+        frames,
+        instruction_visits,
+        control_index~,
+      )
+      let self_target = frames.pop().unwrap()
+      if self_target {
+        cl_control_pack(CL_CONTROL_NO_ESCAPE, false)
+      } else {
+        cl_control_pack(cl_control_shift_boundary(boundary), boundary > 0L)
+      }
+    }
+    @lib.Loop(_, @lib.Expr(body)) => {
+      frames.push(false)
+      let _ = cl_control_body_boundary(
+        body,
+        frames,
+        instruction_visits,
+        control_index~,
+      )
+      let _ = frames.pop()
+      cl_control_pack(CL_CONTROL_NO_ESCAPE, false)
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      frames.push(false)
+      let _ = cl_control_body_boundary(
+        body,
+        frames,
+        instruction_visits,
+        control_index~,
+      )
+      for catch_ in catches {
+        let @lib.Expr(body) = match catch_ {
+          @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+        }
+        let _ = cl_control_body_boundary(
+          body,
+          frames,
+          instruction_visits,
+          control_index~,
+        )
+      }
+      let _ = frames.pop()
+      cl_control_pack(CL_CONTROL_NO_ESCAPE, false)
+    }
+    _ => cl_control_pack(CL_CONTROL_NO_ESCAPE, false)
+  }
+}
+
+///|
+fn cl_control_index_budget(
+  body : Array[@lib.Instruction],
+  budget : Int,
+  visits : Array[Int]?,
+) -> Int {
+  let mut remaining = budget
+  for instr in body {
+    if visits is Some(count) {
+      count[0] += 1
+    }
+    remaining -= 1
+    if remaining <= 0 {
+      return 0
+    }
+    match instr {
+      @lib.Block(_, @lib.Expr(child))
+      | @lib.Loop(_, @lib.Expr(child))
+      | @lib.TryTable(_, _, @lib.Expr(child)) =>
+        remaining = cl_control_index_budget(child, remaining, visits)
+      @lib.If(_, yes, no) => {
+        remaining = cl_control_index_budget(yes, remaining, visits)
+        if remaining <= 0 {
+          return 0
+        }
+        if no is Some(child) {
+          remaining = cl_control_index_budget(child, remaining, visits)
+        }
+      }
+      @lib.Try(_, @lib.Expr(child), catches, _) => {
+        remaining = cl_control_index_budget(child, remaining, visits)
+        for catch_ in catches {
+          if remaining <= 0 {
+            return 0
+          }
+          let @lib.Expr(child) = match catch_ {
+            @lib.LegacyCatch(_, child) | @lib.LegacyCatchAll(child) => child
+          }
+          remaining = cl_control_index_budget(child, remaining, visits)
+        }
+      }
+      _ => ()
+    }
+    if remaining <= 0 {
+      return 0
+    }
+  }
+  remaining
+}
+
+///|
+fn cl_control_index_for_body(
+  body : Array[@lib.Instruction],
+  visits : Array[Int]?,
+) -> CLControlIndex? {
+  if !body.any(fn(instr) {
+      if visits is Some(count) {
+        count[0] += 1
+      }
+      instr is @lib.Block(_, _) ||
+      instr is @lib.Loop(_, _) ||
+      instr is @lib.If(_, _, _) ||
+      instr is @lib.Try(_, _, _, _) ||
+      instr is @lib.TryTable(_, _, _)
+    }) {
+    return None
+  }
+  if cl_control_index_budget(body, 16, visits) > 0 {
+    return None
+  }
+  let index = CLControlIndex::new()
+  let _ = cl_control_body_boundary(body, [], visits, control_index=Some(index))
+  Some(index)
 }
 
 ///|
@@ -373,26 +687,8 @@ fn cl_instr_escapes_past_depth(
   instr : @lib.Instruction,
   boundary_depth : Int,
 ) -> Bool {
-  if cl_instr_is_terminal(instr) {
-    return true
-  }
-  match instr {
-    @lib.Br(label_idx) => cl_label_idx_raw(label_idx) > boundary_depth
-    @lib.BrTable(labels, default_label) =>
-      cl_br_table_all_past_depth(labels, default_label, boundary_depth)
-    @lib.Block(_, @lib.Expr(body)) =>
-      !body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
-      cl_instrs_end_in_escape_past_depth(body, boundary_depth + 1)
-    @lib.If(_, then_body, Some(else_body)) =>
-      !then_body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
-      !else_body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
-      cl_instrs_end_in_escape_past_depth(then_body, boundary_depth + 1) &&
-      cl_instrs_end_in_escape_past_depth(else_body, boundary_depth + 1)
-    @lib.TryTable(_, _, @lib.Expr(body)) =>
-      !body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
-      cl_instrs_end_in_escape_past_depth(body, boundary_depth + 1)
-    _ => false
-  }
+  cl_control_boundary(cl_control_instruction(instr, [], None)) >
+  boundary_depth.to_int64()
 }
 
 ///|
@@ -400,50 +696,42 @@ fn cl_instrs_end_in_escape_past_depth(
   instrs : Array[@lib.Instruction],
   boundary_depth : Int,
 ) -> Bool {
-  if instrs.length() == 0 {
+  if instrs.is_empty() {
     return false
   }
-  let last_idx = instrs.length() - 1
-  // ReFinalize-style cleanup keeps an unreachable sentinel after a control
-  // transfer when an enclosing typed region still needs stack polymorphism.
-  // Look through that dead sentinel when deciding which enclosing label the
-  // transfer actually escapes; otherwise a branch to the current block is
-  // mistaken for a trap that escapes its parent as well.
-  if last_idx > 0 && instrs[last_idx] == @lib.Instruction::unreachable_() {
-    let previous = instrs[last_idx - 1]
-    // Escaping this boundary implies that the previous instruction cannot
-    // fall through. Check it first so a deeply nested escape is not walked
-    // again by the more general no-fallthrough query at every enclosing
-    // unreachable sentinel.
-    if cl_instr_escapes_past_depth(previous, boundary_depth) {
+  let last = instrs.length() - 1
+  if last > 0 && instrs[last] is @lib.Unreachable {
+    let previous = cl_control_instruction(instrs[last - 1], [], None)
+    if cl_control_boundary(previous) > boundary_depth.to_int64() {
       return true
     }
-    if cl_instr_never_falls_through(previous) {
+    if cl_control_no_fallthrough(previous) {
       return false
     }
   }
-  cl_instr_escapes_past_depth(instrs[last_idx], boundary_depth)
+  cl_instr_escapes_past_depth(instrs[last], boundary_depth)
 }
 
 ///|
-fn cl_instr_never_falls_through(instr : @lib.Instruction) -> Bool {
-  if cl_instr_is_terminal(instr) {
-    return true
-  }
+fn cl_instr_never_falls_through(
+  instr : @lib.Instruction,
+  instruction_visits? : Array[Int]? = None,
+) -> Bool {
+  // Keep ordinary leaves allocation-free; the frame stack belongs only to a
+  // structured query, never to the mutable raw instruction tree.
   match instr {
-    @lib.Br(_) | @lib.BrTable(_, _) => true
-    @lib.Block(_, @lib.Expr(body)) =>
-      !body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
-      cl_instrs_end_in_escape_past_depth(body, 0)
-    @lib.If(_, then_body, Some(else_body)) =>
-      !then_body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
-      !else_body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
-      cl_instrs_end_in_escape_past_depth(then_body, 0) &&
-      cl_instrs_end_in_escape_past_depth(else_body, 0)
-    @lib.TryTable(_, _, @lib.Expr(body)) =>
-      !body.any(fn(child) { cl_instr_tree_branches_to_depth(child, 0) }) &&
-      cl_instrs_end_in_escape_past_depth(body, 0)
-    _ => false
+    @lib.Block(_, _) | @lib.If(_, _, Some(_)) | @lib.TryTable(_, _, _) =>
+      cl_control_no_fallthrough(
+        cl_control_instruction(instr, [], instruction_visits),
+      )
+    _ => {
+      if instruction_visits is Some(visits) {
+        visits[0] += 1
+      }
+      cl_instr_is_terminal(instr) ||
+      instr is @lib.Br(_) ||
+      instr is @lib.BrTable(_, _)
+    }
   }
 }
 
@@ -2183,25 +2471,75 @@ fn cl_collect_instrs(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
   total_locals : Int,
+  control_visits? : Array[Int]? = None,
+  control_index? : CLControlIndex? = None,
+  control_cursor? : Array[Int]? = None,
 ) -> Unit {
+  let control_index = match control_index {
+    Some(index) => Some(index)
+    None => cl_control_index_for_body(instrs, control_visits)
+  }
+  let control_cursor = match (control_index, control_cursor) {
+    (Some(_), None) => Some([0])
+    (_, cursor) => cursor
+  }
   let mut reachable = true
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let instr = instrs[idx]
+    let position = match control_cursor {
+      Some(cursor) => cursor[0]
+      None => -1
+    }
     if !reachable {
+      if control_index is Some(index) {
+        control_cursor.unwrap()[0] = index.ends[position]
+      }
       continue
+    }
+    if control_cursor is Some(cursor) {
+      cursor[0] += 1
     }
     match instr {
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-        cl_collect_instrs(body, actions, total_locals)
+        cl_collect_instrs(
+          body,
+          actions,
+          total_locals,
+          control_visits~,
+          control_index~,
+          control_cursor~,
+        )
       @lib.If(_, then_body, else_body) => {
-        cl_collect_instrs(then_body, actions, total_locals)
+        cl_collect_instrs(
+          then_body,
+          actions,
+          total_locals,
+          control_visits~,
+          control_index~,
+          control_cursor~,
+        )
         match else_body {
-          Some(body) => cl_collect_instrs(body, actions, total_locals)
+          Some(body) =>
+            cl_collect_instrs(
+              body,
+              actions,
+              total_locals,
+              control_visits~,
+              control_index~,
+              control_cursor~,
+            )
           None => ()
         }
       }
       @lib.TryTable(_, _, @lib.Expr(body)) =>
-        cl_collect_instrs(body, actions, total_locals)
+        cl_collect_instrs(
+          body,
+          actions,
+          total_locals,
+          control_visits~,
+          control_index~,
+          control_cursor~,
+        )
       @lib.LocalGet(local_idx) => {
         let raw = cl_local_idx_raw(local_idx)
         if raw >= 0 && raw < total_locals {
@@ -2234,7 +2572,15 @@ fn cl_collect_instrs(
       }
       _ => ()
     }
-    if cl_instr_makes_rest_unreachable(instr) {
+    let no_fallthrough = match control_index {
+      Some(index) => cl_control_no_fallthrough(index.facts[position])
+      None =>
+        cl_instr_never_falls_through(instr, instruction_visits=control_visits)
+    }
+    if control_index is Some(index) {
+      control_cursor.unwrap()[0] = index.ends[position]
+    }
+    if no_fallthrough {
       reachable = false
     }
   }
@@ -3157,23 +3503,39 @@ fn cl_skip_source_write_dest_read_actions(
   instrs : Array[@lib.Instruction],
   effective : Array[Bool],
   action_cursor : Array[Int],
+  instruction_visits? : Array[Int]? = None,
 ) -> Unit {
   for instr in instrs {
+    match instruction_visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
     match instr {
       @lib.LocalGet(_) | @lib.LocalSet(_) | @lib.LocalTee(_) =>
         action_cursor[0] += 1
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        cl_skip_source_write_dest_read_actions(body, effective, action_cursor)
+        cl_skip_source_write_dest_read_actions(
+          body,
+          effective,
+          action_cursor,
+          instruction_visits~,
+        )
       @lib.If(_, then_body, else_body) => {
         cl_skip_source_write_dest_read_actions(
-          then_body, effective, action_cursor,
+          then_body,
+          effective,
+          action_cursor,
+          instruction_visits~,
         )
         match else_body {
           Some(body) =>
             cl_skip_source_write_dest_read_actions(
-              body, effective, action_cursor,
+              body,
+              effective,
+              action_cursor,
+              instruction_visits~,
             )
           None => ()
         }
@@ -3185,6 +3547,136 @@ fn cl_skip_source_write_dest_read_actions(
 }
 
 ///|
+// These steps belong to one immutable body and its effective-action table.
+// Keeping only local operations and control boundaries avoids decoding the same
+// instruction forest once for every source local.
+priv enum CLSourceHazardStep {
+  Read(Int)
+  Write(Int, Int)
+  Branch(Array[CLSourceHazardStep], Array[CLSourceHazardStep])
+  Barrier
+  Reset
+}
+
+///|
+fn cl_compile_source_hazard_steps(
+  instrs : Array[@lib.Instruction],
+  effective : Array[Bool],
+  action_cursor : Array[Int],
+  steps : Array[CLSourceHazardStep],
+  instruction_visits : Array[Int]?,
+) -> Unit {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instruction_visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    match instrs[idx] {
+      @lib.LocalGet(local_idx) => {
+        action_cursor[0] += 1
+        steps.push(Read(cl_local_idx_raw(local_idx)))
+      }
+      @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) => {
+        let action_idx = action_cursor[0]
+        action_cursor[0] += 1
+        if cl_action_is_effective(effective, action_idx) {
+          let copied_dest = if idx > 0 {
+            match instrs[idx - 1] {
+              @lib.LocalGet(dest) => cl_local_idx_raw(dest)
+              _ => -1
+            }
+          } else {
+            -1
+          }
+          steps.push(Write(cl_local_idx_raw(local_idx), copied_dest))
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) =>
+        cl_compile_source_hazard_steps(
+          body, effective, action_cursor, steps, instruction_visits,
+        )
+      @lib.If(_, then_body, else_body) => {
+        let yes = []
+        let no = []
+        cl_compile_source_hazard_steps(
+          then_body, effective, action_cursor, yes, instruction_visits,
+        )
+        match else_body {
+          Some(body) =>
+            cl_compile_source_hazard_steps(
+              body, effective, action_cursor, no, instruction_visits,
+            )
+          None => ()
+        }
+        steps.push(Branch(yes, no))
+      }
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        cl_skip_source_write_dest_read_actions(
+          body,
+          effective,
+          action_cursor,
+          instruction_visits~,
+        )
+        steps.push(Barrier)
+      }
+      @lib.BrIf(_) | @lib.BrTable(_, _) => steps.push(Barrier)
+      @lib.Br(_) | @lib.Return => steps.push(Reset)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn cl_run_source_hazard_steps(
+  steps : Array[CLSourceHazardStep],
+  source : Int,
+  candidate_dests : Array[Int],
+  may_clobber : Array[Bool],
+  hazards : Array[Bool],
+) -> Unit {
+  for step in steps {
+    match step {
+      Read(local_id) =>
+        if local_id >= 0 && local_id < hazards.length() && may_clobber[local_id] {
+          hazards[local_id] = true
+          may_clobber[local_id] = false
+        }
+      Write(local_id, copied_dest) =>
+        if local_id == source {
+          for dest in candidate_dests {
+            may_clobber[dest] = dest != copied_dest
+          }
+        } else if local_id >= 0 && local_id < may_clobber.length() {
+          may_clobber[local_id] = false
+        }
+      Branch(yes, no) => {
+        let then_state = may_clobber.copy()
+        cl_run_source_hazard_steps(
+          yes, source, candidate_dests, then_state, hazards,
+        )
+        cl_run_source_hazard_steps(
+          no, source, candidate_dests, may_clobber, hazards,
+        )
+        for dest in candidate_dests {
+          may_clobber[dest] = then_state[dest] || may_clobber[dest]
+        }
+      }
+      Barrier =>
+        for dest in candidate_dests {
+          if may_clobber[dest] {
+            hazards[dest] = true
+            may_clobber[dest] = false
+          }
+        }
+      Reset =>
+        for dest in candidate_dests {
+          may_clobber[dest] = false
+        }
+    }
+  }
+}
+
+///|
 fn cl_mark_source_write_dest_read_hazards(
   instrs : Array[@lib.Instruction],
   effective : Array[Bool],
@@ -3193,8 +3685,13 @@ fn cl_mark_source_write_dest_read_hazards(
   may_clobber : Array[Bool],
   hazards : Array[Bool],
   action_cursor : Array[Int],
+  instruction_visits? : Array[Int]? = None,
 ) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instruction_visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
     match instrs[idx] {
       @lib.LocalGet(local_idx) => {
         action_cursor[0] += 1
@@ -3228,19 +3725,40 @@ fn cl_mark_source_write_dest_read_hazards(
       }
       @lib.Block(_, @lib.Expr(body)) =>
         cl_mark_source_write_dest_read_hazards(
-          body, effective, source, candidate_dests, may_clobber, hazards, action_cursor,
+          body,
+          effective,
+          source,
+          candidate_dests,
+          may_clobber,
+          hazards,
+          action_cursor,
+          instruction_visits~,
         )
       @lib.If(_, then_body, else_body) => {
         let incoming = may_clobber.copy()
         let then_state = incoming.copy()
         cl_mark_source_write_dest_read_hazards(
-          then_body, effective, source, candidate_dests, then_state, hazards, action_cursor,
+          then_body,
+          effective,
+          source,
+          candidate_dests,
+          then_state,
+          hazards,
+          action_cursor,
+          instruction_visits~,
         )
         let else_state = incoming
         match else_body {
           Some(body) =>
             cl_mark_source_write_dest_read_hazards(
-              body, effective, source, candidate_dests, else_state, hazards, action_cursor,
+              body,
+              effective,
+              source,
+              candidate_dests,
+              else_state,
+              hazards,
+              action_cursor,
+              instruction_visits~,
             )
           None => ()
         }
@@ -3280,6 +3798,7 @@ fn cl_source_write_dest_read_hazards(
   source : Int,
   candidate_dests : Array[Int],
   total_locals : Int,
+  instruction_visits? : Array[Int]? = None,
 ) -> Array[Bool] {
   let hazards = Array::make(total_locals, false)
   cl_mark_source_write_dest_read_hazards(
@@ -3290,6 +3809,7 @@ fn cl_source_write_dest_read_hazards(
     Array::make(total_locals, false),
     hazards,
     [0],
+    instruction_visits~,
   )
   hazards
 }
@@ -3300,15 +3820,35 @@ fn cl_add_structured_write_live_interferences(
   types : Array[@lib.ValType],
   param_count : Int,
   interferences : CLBitMatrix,
+  candidate_visits? : Array[Int]? = None,
 ) -> Unit {
-  for source = param_count; source < types.length(); source = source + 1 {
-    for dest = 0; dest < types.length(); dest = dest + 1 {
-      if source != dest &&
-        source < write_live_hazards.length() &&
-        dest < write_live_hazards.length() &&
-        cl_bit_matrix_get(write_live_hazards, source, dest) &&
-        types[source] == types[dest] {
-        cl_add_interference(interferences, source, dest)
+  // The triangular matrix stores each symmetric pair once. Walk its occupied
+  // bits, preserving type and parameter filters without probing every pair.
+  let mut lower = 0
+  let size = write_live_hazards.size
+  for word_idx = 0
+      word_idx < write_live_hazards.bits.words.length()
+      word_idx = word_idx + 1 {
+    let mut word = write_live_hazards.bits.words[word_idx]
+    while word != 0UL {
+      let index = word_idx * 64 + word.ctz()
+      word = word & (word - 1UL)
+      if index >= write_live_hazards.bits.length() {
+        break
+      }
+      while lower + 1 < size &&
+            index >= write_live_hazards.row_offsets[lower + 1] {
+        lower += 1
+      }
+      let upper = lower + 1 + index - write_live_hazards.row_offsets[lower]
+      if candidate_visits is Some(visits) {
+        visits[0] += 1
+      }
+      if lower < types.length() &&
+        upper < types.length() &&
+        upper >= param_count &&
+        types[lower] == types[upper] {
+        cl_add_interference(interferences, lower, upper)
       }
     }
   }
@@ -3419,6 +3959,7 @@ fn cl_add_source_write_dest_read_interferences(
   types : Array[@lib.ValType],
   param_count : Int,
   interferences : CLBitMatrix,
+  instruction_visits? : Array[Int]? = None,
 ) -> Unit {
   let (writers, readers) = cl_source_write_dest_read_active_flags(
     actions,
@@ -3438,6 +3979,7 @@ fn cl_add_source_write_dest_read_interferences(
         }
     }
   }
+  let mut compiled : Array[CLSourceHazardStep]? = None
   for source = param_count; source < types.length(); source = source + 1 {
     if !writers[source] {
       continue
@@ -3448,12 +3990,28 @@ fn cl_add_source_write_dest_read_interferences(
     if candidate_dests.length() == 0 {
       continue
     }
-    let hazards = cl_source_write_dest_read_hazards(
-      instrs,
-      effective,
+    let steps = match compiled {
+      Some(steps) => steps
+      None => {
+        let steps = []
+        cl_compile_source_hazard_steps(
+          instrs,
+          effective,
+          [0],
+          steps,
+          instruction_visits,
+        )
+        compiled = Some(steps)
+        steps
+      }
+    }
+    let hazards = Array::make(types.length(), false)
+    cl_run_source_hazard_steps(
+      steps,
       source,
       candidate_dests,
-      types.length(),
+      Array::make(types.length(), false),
+      hazards,
     )
     for dest in candidate_dests {
       if hazards[dest] {
@@ -3468,11 +4026,31 @@ fn cl_collect_action_depths(
   instrs : Array[@lib.Instruction],
   depths : Array[Int],
   depth : Int,
+  control_index? : CLControlIndex? = None,
+  control_cursor? : Array[Int]? = None,
 ) -> Unit {
+  let control_index = match control_index {
+    Some(index) => Some(index)
+    None => cl_control_index_for_body(instrs, None)
+  }
+  let control_cursor = match (control_index, control_cursor) {
+    (Some(_), None) => Some([0])
+    (_, cursor) => cursor
+  }
   let mut reachable = true
   for instr in instrs {
+    let position = match control_cursor {
+      Some(cursor) => cursor[0]
+      None => -1
+    }
     if !reachable {
+      if control_index is Some(index) {
+        control_cursor.unwrap()[0] = index.ends[position]
+      }
       continue
+    }
+    if control_cursor is Some(cursor) {
+      cursor[0] += 1
     }
     match instr {
       @lib.LocalGet(_) | @lib.LocalSet(_) | @lib.LocalTee(_) =>
@@ -3480,17 +4058,43 @@ fn cl_collect_action_depths(
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        cl_collect_action_depths(body, depths, depth + 1)
+        cl_collect_action_depths(
+          body,
+          depths,
+          depth + 1,
+          control_index~,
+          control_cursor~,
+        )
       @lib.If(_, then_body, else_body) => {
-        cl_collect_action_depths(then_body, depths, depth + 1)
+        cl_collect_action_depths(
+          then_body,
+          depths,
+          depth + 1,
+          control_index~,
+          control_cursor~,
+        )
         match else_body {
-          Some(body) => cl_collect_action_depths(body, depths, depth + 1)
+          Some(body) =>
+            cl_collect_action_depths(
+              body,
+              depths,
+              depth + 1,
+              control_index~,
+              control_cursor~,
+            )
           None => ()
         }
       }
       _ => ()
     }
-    if cl_instr_makes_rest_unreachable(instr) {
+    let no_fallthrough = match control_index {
+      Some(index) => cl_control_no_fallthrough(index.facts[position])
+      None => cl_instr_makes_rest_unreachable(instr)
+    }
+    if control_index is Some(index) {
+      control_cursor.unwrap()[0] = index.ends[position]
+    }
+    if no_fallthrough {
       reachable = false
     }
   }
@@ -4257,43 +4861,47 @@ fn cl_add_plain_live_interferences(
   actions : Array[CLAction],
   liveness : CLLiveness,
   interferences : CLBitMatrix,
+  candidate_visits? : Array[Int]? = None,
 ) -> Unit {
   let total_locals = interferences.length()
   let remaining_gets = Array::make(total_locals, 0)
   for action in actions {
-    match action.kind {
-      CLActionKind::Get => remaining_gets[action.local_idx] += 1
-      _ => ()
+    if action.kind is CLActionKind::Get {
+      remaining_gets[action.local_idx] += 1
     }
   }
-  let live = liveness.live_at_entry.copy()
+  let live = CLCfgLiveSet::new(total_locals)
+  for local = 0; local < total_locals; local = local + 1 {
+    if liveness.live_at_entry[local] {
+      cl_cfg_live_set_add(live, local)
+    }
+  }
   for action_idx = 0; action_idx < actions.length(); action_idx = action_idx + 1 {
     let action = actions[action_idx]
+    if action.kind is CLActionKind::Get {
+      cl_cfg_live_set_add(live, action.local_idx)
+    }
+    for other in live.members {
+      if candidate_visits is Some(visits) {
+        visits[0] += 1
+      }
+      if other != action.local_idx {
+        cl_add_interference(interferences, action.local_idx, other)
+      }
+    }
     match action.kind {
       CLActionKind::Get => {
-        live[action.local_idx] = true
-        for other = 0; other < total_locals; other = other + 1 {
-          if other != action.local_idx && live[other] {
-            cl_add_interference(interferences, action.local_idx, other)
-          }
-        }
         remaining_gets[action.local_idx] -= 1
         if remaining_gets[action.local_idx] == 0 {
-          live[action.local_idx] = false
+          cl_cfg_live_set_remove(live, action.local_idx)
         }
       }
-      CLActionKind::Set | CLActionKind::Tee => {
-        for other = 0; other < total_locals; other = other + 1 {
-          if other != action.local_idx && live[other] {
-            cl_add_interference(interferences, action.local_idx, other)
-          }
-        }
+      CLActionKind::Set | CLActionKind::Tee =>
         if liveness.effective[action_idx] {
-          live[action.local_idx] = true
+          cl_cfg_live_set_add(live, action.local_idx)
         } else {
-          live[action.local_idx] = false
+          cl_cfg_live_set_remove(live, action.local_idx)
         }
-      }
     }
   }
 }
@@ -4342,6 +4950,7 @@ fn cl_color_with_order(
   param_count : Int,
   interferences : CLBitMatrix,
   weights : CLCopyWeights,
+  slot_visits? : Array[Int]? = None,
 ) -> CLColoring {
   let total_locals = types.length()
   let old_to_new = Array::make(total_locals, -1)
@@ -4354,25 +4963,48 @@ fn cl_color_with_order(
     slot_types.push(types[idx])
     slot_members.push([idx])
   }
+  let slot_copy_scores = Array::make(total_locals, 0)
+  let score_marks = Array::make(total_locals, -1)
+  let mut score_epoch = 0
   for local_idx in order {
     let ty = types[local_idx]
-    let slot_copy_scores = Array::make(slot_types.length(), 0)
+    score_epoch += 1
+    let mut maximum_score = 0
     for edge in weights.rows[local_idx] {
       let (other, weight) = edge
       let assigned_slot = old_to_new[other]
-      if assigned_slot >= 0 && assigned_slot < slot_copy_scores.length() {
+      if assigned_slot >= 0 && assigned_slot < slot_types.length() {
+        if score_marks[assigned_slot] != score_epoch {
+          score_marks[assigned_slot] = score_epoch
+          slot_copy_scores[assigned_slot] = 0
+        }
         slot_copy_scores[assigned_slot] += weight
+        if slot_copy_scores[assigned_slot] > maximum_score {
+          maximum_score = slot_copy_scores[assigned_slot]
+        }
       }
     }
     let mut best_slot = -1
     let mut best_score = -1
     for slot = 0; slot < slot_types.length(); slot = slot + 1 {
+      if slot_visits is Some(visits) {
+        visits[0] += 1
+      }
       if slot_types[slot] == ty &&
         !cl_slot_interferes(slot_members[slot], local_idx, interferences) {
-        let score = slot_copy_scores[slot]
+        let score = if score_marks[slot] == score_epoch {
+          slot_copy_scores[slot]
+        } else {
+          0
+        }
         if score > best_score {
           best_score = score
           best_slot = slot
+          // Earlier slots win ties. This upper bound includes every assigned
+          // copy weight, even slots rejected for type or interference.
+          if best_score == maximum_score {
+            break
+          }
         }
       }
     }
@@ -4870,10 +5502,24 @@ fn cl_rewrite_instrs_in_place(
   old_to_new : Array[Int],
   effective : Array[Bool],
   action_cursor : Array[Int],
+  control_index? : CLControlIndex? = None,
+  control_cursor? : Array[Int]? = None,
 ) -> Unit {
+  let control_index = match control_index {
+    Some(index) => Some(index)
+    None => cl_control_index_for_body(instrs, None)
+  }
+  let control_cursor = match (control_index, control_cursor) {
+    (Some(_), None) => Some([0])
+    (_, cursor) => cursor
+  }
   let mut reachable = true
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let instr = instrs[idx]
+    let position = match control_cursor {
+      Some(cursor) => cursor[0]
+      None => -1
+    }
     if !reachable {
       match instr {
         @lib.LocalGet(local_idx) =>
@@ -4890,32 +5536,69 @@ fn cl_rewrite_instrs_in_place(
           )
         _ => ()
       }
+      if control_index is Some(index) {
+        control_cursor.unwrap()[0] = index.ends[position]
+      }
       continue
+    }
+    if control_cursor is Some(cursor) {
+      cursor[0] += 1
     }
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) => {
-        cl_rewrite_instrs_in_place(body, old_to_new, effective, action_cursor)
+        cl_rewrite_instrs_in_place(
+          body,
+          old_to_new,
+          effective,
+          action_cursor,
+          control_index~,
+          control_cursor~,
+        )
         instrs[idx] = @lib.Instruction::block(block_type, @lib.Expr::new(body))
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
-        cl_rewrite_instrs_in_place(body, old_to_new, effective, action_cursor)
+        cl_rewrite_instrs_in_place(
+          body,
+          old_to_new,
+          effective,
+          action_cursor,
+          control_index~,
+          control_cursor~,
+        )
         instrs[idx] = @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
       }
       @lib.If(block_type, then_body, else_body) => {
         cl_rewrite_instrs_in_place(
-          then_body, old_to_new, effective, action_cursor,
+          then_body,
+          old_to_new,
+          effective,
+          action_cursor,
+          control_index~,
+          control_cursor~,
         )
         match else_body {
           Some(else_instrs) =>
             cl_rewrite_instrs_in_place(
-              else_instrs, old_to_new, effective, action_cursor,
+              else_instrs,
+              old_to_new,
+              effective,
+              action_cursor,
+              control_index~,
+              control_cursor~,
             )
           None => ()
         }
         instrs[idx] = @lib.Instruction::if_(block_type, then_body, else_body)
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        cl_rewrite_instrs_in_place(body, old_to_new, effective, action_cursor)
+        cl_rewrite_instrs_in_place(
+          body,
+          old_to_new,
+          effective,
+          action_cursor,
+          control_index~,
+          control_cursor~,
+        )
         instrs[idx] = @lib.Instruction::try_table(
           block_type,
           catches,
@@ -4954,7 +5637,14 @@ fn cl_rewrite_instrs_in_place(
       }
       _ => ()
     }
-    if cl_instr_makes_rest_unreachable(instr) {
+    let no_fallthrough = match control_index {
+      Some(index) => cl_control_no_fallthrough(index.facts[position])
+      None => cl_instr_makes_rest_unreachable(instr)
+    }
+    if control_index is Some(index) {
+      control_cursor.unwrap()[0] = index.ends[position]
+    }
+    if no_fallthrough {
       reachable = false
     }
   }
@@ -7875,6 +8565,9 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   ignore(cl_imported_func_count(mod_))
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
+      if funcs.is_empty() {
+        return mod_
+      }
       let defined_func_params = cl_defined_func_param_cache(mod_)
       let hot_context = @ir.hot_module_context_from_module(mod_)
       let imported_func_count = cl_imported_func_count(mod_)
