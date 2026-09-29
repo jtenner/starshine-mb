@@ -718,28 +718,38 @@ fn wt_parse_u64_literal(text : String, kind : String) -> Result[UInt64, String] 
 
 ///|
 fn wt_parse_f64(text : String) -> Result[@lib.F64, String] {
-  let lowered = text.trim().to_owned()
-  if lowered.has_prefix("nan:") ||
-    lowered == "nan" ||
-    lowered == "+nan" ||
-    lowered == "-nan" ||
-    lowered.has_prefix("+nan:") ||
-    lowered.has_prefix("-nan:") {
-    return Ok(@lib.F64(@double.not_a_number))
+  match
+    wt_parse_nan_payload_bits(
+      text, 0x7ff0000000000000UL, 0x0008000000000000UL, 0x000fffffffffffffUL, 0x8000000000000000UL,
+      "f64",
+    ) {
+    Ok(Some(bits)) =>
+      return Ok(@lib.F64(bits.reinterpret_as_int64().reinterpret_as_double()))
+    Ok(None) => ()
+    Err(error) => return Err(error)
   }
-  let v = @string.parse_double(text) catch {
+  let value = @string.parse_double(text) catch {
     _ => return Err("invalid f64 literal: \{text}")
   }
-  Ok(@lib.F64(v))
+  Ok(@lib.F64(value))
 }
 
 ///|
 fn wt_parse_f32(text : String) -> Result[@lib.F32, String] {
-  let v = match wt_parse_f64(text) {
-    Ok(@lib.F64(d)) => d
-    Err(e) => return Err(e)
+  match
+    wt_parse_nan_payload_bits(
+      text, 0x7f800000UL, 0x00400000UL, 0x007fffffUL, 0x80000000UL, "f32",
+    ) {
+    Ok(Some(bits)) => return Ok(@lib.F32(bits.to_int().reinterpret_as_float()))
+    Ok(None) => ()
+    Err(error) => return Err(error)
   }
-  Ok(@lib.F32(Float::from_double(v)))
+  // Preserve the numeric conversion and its existing error spelling; a NaN
+  // never takes this path, so f32 payload bits cannot widen and canonicalize.
+  let value = @string.parse_double(text) catch {
+    _ => return Err("invalid f64 literal: \{text}")
+  }
+  Ok(@lib.F32(Float::from_double(value)))
 }
 
 ///|
@@ -761,6 +771,11 @@ fn wt_parse_nan_payload_bits(
 ) -> Result[UInt64?, String] {
   let trimmed = text.trim().to_owned()
   if trimmed.length() == 0 {
+    return Ok(None)
+  }
+  if !trimmed.has_prefix("nan") &&
+    !trimmed.has_prefix("+nan") &&
+    !trimmed.has_prefix("-nan") {
     return Ok(None)
   }
   let mut negative = false
@@ -1952,10 +1967,9 @@ fn wt_instr_to_lib(
     TryTable(bt, catches, body) => {
       let next_labels = labels.copy()
       next_labels.push(None)
-      let catch_labels : Array[String?] = [None]
-      for label in labels {
-        catch_labels.push(label)
-      }
+      // Catch targets belong to the enclosing scope; labels already includes
+      // the implicit function label. The try_table's own label is body-only.
+      let catch_labels = labels
       let lib_bt = match wt_block_type(ctx, bt) {
         Ok(v) => v
         Err(e) => return Err(e)
@@ -3419,7 +3433,7 @@ fn wt_lower_module(mod : Module) -> Result[@lib.Module, String] {
       offset += 1
     }
     let body = match
-      wt_instrs_to_lib(ctx, f.body, local_ids, [], wt_default_legacy_ctx()) {
+      wt_instrs_to_lib(ctx, f.body, local_ids, [None], wt_default_legacy_ctx()) {
       Ok(v) => v
       Err(e) => return Err(e)
     }

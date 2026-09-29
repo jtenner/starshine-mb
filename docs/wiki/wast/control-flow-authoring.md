@@ -78,6 +78,13 @@ Starshine mirrors that split in [`typecheck_block(...)`](../../../src/validate/t
 
 ## Text Shapes And Stack Rules
 
+Function bodies start with one unnamed implicit label. Numeric `br 0` at the
+function root and `br 1` inside one block can target it; the function's `$name`
+does not name that label. Its payload is the function result vector. `try_table`
+catch targets resolve in the surrounding label stack and do not add another
+implicit function label. The September 28 parser repair is covered by
+[direct instruction and invalid-depth fixtures](../../../src/wast/implicit_function_label_wbtest.mbt).
+
 | WAST shape | Stack before | Fallthrough / continuation | Branch or result rule |
 | --- | --- | --- | --- |
 | `block` | block params, if any | pushes block results if reachable | label expects block results. |

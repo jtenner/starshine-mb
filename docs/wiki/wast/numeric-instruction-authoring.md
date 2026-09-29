@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-09-29
 sources:
   - https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md
   - ../../../src/wast/keywords.mbt
@@ -89,8 +89,17 @@ Starshine's WAST parser records the literal text, and the lowerer parses it late
 
 - The lexer recognizes decimal and hexadecimal numeric tokens, underscore-separated digit runs, hexadecimal floats, infinities, and `nan` / payload spellings. That proves tokenization, not full semantic acceptance by every downstream scalar-constant path.
 - `i32.const` and `i64.const` lower through `wt_parse_i32` / `wt_parse_i64`, which currently delegate ordinary scalar integer text to signed parsing. Index parsing and SIMD-lane parsing have separate helper paths that strip underscores or parse unsigned hex explicitly, so do not use those surfaces as proof that every scalar integer literal spelling roundtrips. Keep non-decimal, separator-heavy, or unsigned-wrap scalar integer fixtures focused and test-backed.
-- `f32.const` and `f64.const` body instructions forward integer and float tokens to lowering. The lowerer can canonicalize `nan*` text when it receives that text, while WAST assertion-result parsing has explicit `nan:canonical` / `nan:arithmetic` expectation variants. Broad roundtrip tests should not assume exact NaN payload spelling survives unless the test checks that path deliberately.
+- `f32.const` and `f64.const` body instructions forward integer and float tokens to lowering. Scalar lowering now preserves the sign and exact IEEE payload of `nan`, `+nan`, `-nan` and `nan:0x...`, including separator-bearing payloads. Zero, malformed and out-of-range payloads reject. The f32 path constructs its bits directly, avoiding payload changes from widening through f64. WAST assertion-result parsing still has separate `nan:canonical` / `nan:arithmetic` expectation variants; printer spelling is a separate contract.
 - In WAST spec assertions, constants also appear as expected values. `render_wast_value(...)` and `render_wast_result(...)` print the scalar constant spelling family for `assert_return` arguments, including the assertion-only NaN expectation spellings.
+
+The September 29 scalar payload fix is covered by four red-first
+[bit and encoded-byte fixtures](../../../src/wast/scalar_nan_payload_wbtest.mbt):
+f32/f64 plain and signed NaNs, signalling/custom/maximum payloads, malformed
+payload rejection, numeric values and signed zero. Full wasm-gc and focused
+native suites pass; V18's signed/signalling f32/f64 text-frontend witnesses
+match integer-bit observations across eleven passes and verified v133 output.
+This supersedes the earlier payload-canonicalization limitation for scalar body
+constants, while assertion and printing paths keep their separate contracts.
 
 ### Tests and comparisons produce `i32`
 
