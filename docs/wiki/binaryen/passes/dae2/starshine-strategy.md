@@ -25,6 +25,62 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 fixed-size CFG workspaces
+
+CFG node-to-block and label-to-target maps now allocate their known lengths
+once rather than growing by repeated pushes. The node arena span includes
+deleted IDs; the existing live continuation scan and exception/source facts
+are unchanged. Two [bounded guards](../../../../../src/ir/cfg_fixed_workspace_wbtest.mbt)
+check complete sentinel maps, exact fixed spans, dead nodes, independent
+builder ownership, empty arenas and both operand modes. The first regression
+fails before implementation with capacity **16 instead of 15**; both now pass.
+
+Eight [native controls](../../../../../src/ir/cfg_fixed_workspace_perf_wbtest.mbt)
+include fresh builder allocation and, in expanded mode, all source facts.
+Inputs have 129/8193 scalar roots plus three labeled blocks:
+
+| Builder | Grown → sized mean |
+| --- | --- |
+| 129, compact | 845.29 → 667.45ns |
+| 8193, compact | 41.02 → 36.64µs |
+| 129, expanded | 5.24 → 5.64µs (cost retained) |
+| 8193, expanded | 302.02 → 287.62µs |
+
+The 8193 compact selected standard deviation is 4.38µs; do not treat its mean
+alone as a firm speedup. Three alternating v15→v16 compiler pairs give large
+DAE2 **4558.923 → 4607.221ms (+1.06%)**, MAD 34.938/79.508ms, and
+optimizing **7863.144 → 7735.328ms (−1.63%)**, MAD 158.383/78.134ms.
+Small medians are 4.379 → 4.376ms / 11.689 → 11.605ms; tee medians
+are 3.890 → 3.794ms / 105.939 → 105.024ms. Active joined-reader medians
+are 20.799 → 21.204ms / 30.847 → 30.979ms; pure-tail medians are
+13.799 → 13.671ms / 14.197 → 13.941ms. Preserve control costs and the
+tee optimizing reference-drift retries. These do not establish compiler-wide
+speedups; managed process visibility still does not establish quiet timing.
+
+Dependency-window incoming allocator requests/frees each fall by **63,326**:
+requests 40,796,729 → 40,733,403; frees 116,242,976 → 116,179,650.
+Instructions fall **20,310,625,985 → 20,241,185,629 (0.34%)**.
+Small command instructions fall 80,556,565 → 80,489,707 /
+172,271,280 → 172,212,041, with 78 fewer allocator requests/frees per command.
+Retain the simpler fixed-span construction for growth/work reduction without
+claiming an RSS benefit. Allocator calls are not allocation bytes or live objects.
+
+Info/fmt, all **12,938 default wasm-gc tests**, native debug, native CLI build,
+eight controls, exact before/after/traced bytes and independent validation
+pass. The 126-module / 1,029-observation replay and both seven-module /
+28-observation active replays match original and verified v133. No API diff.
+A queued v16 oracle sweep is rejected by the source-freshness guard after the
+next prototype advances the worktree; retain that failed attempt, rather than
+claiming a current-source sweep. The accepted v15 oracle below remains its
+own historical cohort; renew against the next frozen current-source candidate.
+
+Local `.tmp/dae2-lean-20260929/` evidence uses `v16`, including its source
+manifest, `validation-v16.json`, bench/paired logs, fixed runtime and active
+replays, `small-instructions-v16/` and `dependency-cost-v16.json`. Frozen
+candidate SHA-256 is `56ecbd2857cec1234dd72015284e6c2100748d5f72221d17996d1a923171dc3d`;
+before is v15 `7c48e6c9c62c2d3ad5278008cb05f42f73813094d5195519914466ed68b9493e`.
+The large input and verified v133 oracle retain the hashes below. Fuzz is deferred.
+
 ## September 29, 2026 packed CFG segment storage
 
 Private CFG segment metadata now occupies three consecutive integers per row

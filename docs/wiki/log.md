@@ -1,3 +1,13 @@
+### 2026-09-29 — DAE2 fixed CFG workspaces
+
+- [Fixed-size maps](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-fixed-size-cfg-workspaces)
+  remove another 63,326 allocator requests and 0.34% of dependency instructions.
+  The capacity/ownership regression fails first, all 12,938 default tests and
+  bounded original/v133 replays pass. Eight native controls retain the small
+  expanded-builder cost; compiler timings are near flat. The queued oracle
+  refuses a frozen prior binary after source advances; a current-source renewal
+  remains pending. No API change; aggregate fuzz remains deferred.
+
 ### 2026-09-29 — DAE2 CFG segment allocation
 
 - [Packed private CFG segments](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-packed-cfg-segment-storage)

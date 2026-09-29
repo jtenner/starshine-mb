@@ -139,19 +139,16 @@ fn cfg_builder_new(
   conservative_exception_entries : Bool,
   expand_operand_control : Bool,
 ) -> CfgBuilder {
-  let node_to_block : Array[BlockId] = []
+  let node_count = hot_node_count(func)
+  let node_to_block = Array::make(node_count, -1)
   let mut has_continuations = false
-  for node in 0..<hot_node_count(func) {
-    node_to_block.push(-1)
+  for node in 0..<node_count {
     if hot_node_is_live(func, node) &&
       hot_node_get(func, node).op == HotOp::Continuation {
       has_continuations = true
     }
   }
-  let label_targets : Array[BlockId] = []
-  for _ in 0..<func.labels.length() {
-    label_targets.push(-1)
-  }
+  let label_targets = Array::make(func.labels.length(), -1)
   {
     cfg: {
       operands_expanded: expand_operand_control,
@@ -165,7 +162,7 @@ fn cfg_builder_new(
     label_targets,
     conservative_exception_entries,
     operand_seen: if expand_operand_control {
-      Some(Array::make(hot_node_count(func), false))
+      Some(Array::make(node_count, false))
     } else {
       None
     },
@@ -175,7 +172,7 @@ fn cfg_builder_new(
       None
     },
     continuation_targets: if has_continuations {
-      Array::make(hot_node_count(func), None)
+      Array::make(node_count, None)
     } else {
       []
     },
