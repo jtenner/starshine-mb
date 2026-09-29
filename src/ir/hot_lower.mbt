@@ -255,7 +255,10 @@ fn hot_lower_impl_input_info(
   id : NodeId,
   copied_slots? : Array[Int]? = None,
 ) -> HotLowerInputs {
-  let node = hot_node_get(func, id)
+  // Keep the same checked admission without returning a complete header
+  // across a function boundary before reading its fields here.
+  hot_node_require_live_read(func, id)
+  let node = func.nodes[id]
   match node.op {
     HotOp::Block => {
       let count = if node.imm1 > 0 { node.imm1 } else { 0 }

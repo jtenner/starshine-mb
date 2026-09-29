@@ -1,3 +1,17 @@
+### 2026-09-29 — DAE2 checked input-header fields
+
+- [Checked input-header fields](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-checked-input-header-fields)
+  retain complete admission while reading arena fields locally. Native
+  inspection supersedes a public-name-only guard: the first trial retained
+  15,921,704 private header-return calls; the strengthened guard now reaches
+  zero. All 12,950 default tests, native debug, six controls and bounded
+  original/v133 replays pass with unchanged bytes. Query controls improve
+  11–14%; paired large DAE2 improves 1.12%, optimizing stays near flat and
+  total instructions/heap calls are near flat. Optimizing tee and plain RSS
+  costs remain explicit. Fresh v133 large ratios remain open at 8.96×/4.33×;
+  writer metadata, repeated reaching queries and working buffers are next.
+  Aggregate fuzz is deferred.
+
 ### 2026-09-29 — DAE2 single core validation
 
 - [Single core validation](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-single-core-validation)

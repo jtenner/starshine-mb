@@ -3,6 +3,8 @@ kind: entity
 status: working
 last_reviewed: 2026-09-29
 sources:
+  - ../../../../../src/ir/hot_lower.mbt
+  - ../../../../../src/ir/hot_lower_input_header_wbtest.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/ir/catch_payload_preflight_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/DeadArgumentElimination2.cpp
@@ -24,6 +26,86 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## September 29, 2026 checked input-header fields
+
+Operand-input queries keep the complete checked node-admission contract, then
+read the arena header locally. The existing private admission helper has the
+same live-index and legacy free-list fallback as `hot_node_get`; no unchecked
+read, operand policy, retained cache, revision or public API changes.
+
+The first two [bounded guards](../../../../../src/ir/hot_lower_input_header_wbtest.mbt) pass against the original query: they are
+semantic/ownership controls, not claims of a prior semantic failure. They
+compare the frozen original complete input query on real CFG control fixtures,
+block/if/multivalue loop inputs, duplicate tuple lanes, intentionally supported
+temporary absent slots, deletions and an incomplete deletion index, including
+copy counts and unchanged revision/free storage. Six [native controls](../../../../../src/ir/hot_lower_input_header_perf_wbtest.mbt) consume
+every complete operand query at 8/64/512 control groups outside setup.
+
+The initial `v21` trial called the private full-header reader directly. Its
+first native guard observed zero public-name calls, but native inspection
+showed **15,921,704** calls to the private header-returning symbol from the
+same input query. That renamed boundary did not meet the intended work
+contract. The guard now includes both public and private complete-header
+readers and fails on both original and initial trial. The initial profile
+falls 0.86%, 18,434,089,586 → 18,275,167,806 instructions, with unchanged
+36,064,317 requests / 111,510,564 frees. It is retained trial evidence, not
+proof of boundary elimination. Initial matched large medians regress
+3849.195 → 3889.291ms (1.04%, MAD 1.074/2.554) and optimizing
+6653.685 → 6680.301ms (0.40%, MAD 14.018/32.700). Small 3.882 → 3.924ms /
+10.961 → 10.863ms, tee 3.576 → 3.545ms / 101.440 → 99.771ms; joined
+18.547 → 18.447ms / 28.041 → 28.004ms; pure-tail 11.752 → 11.585ms /
+11.758 → 11.549ms. Its RSS ranges overlap, so no causal claim is made.
+
+The refined `v21b` calls checked admission, then reads `func.nodes[id]` in
+the query. Unlike the initial trial, the intended native contract is no
+complete-header return calls from this reader, regardless of symbol name.
+The strengthened guard passes at **zero** full-header return calls; checked
+admission still runs, so this is not a reduction in all query/validation work.
+Final dependency instructions are nearly flat, **18,434,089,586 →
+18,429,845,490 (−0.023%)**. Requests/frees stay **36,064,317 / 111,510,564**.
+Small whole-command instructions increase slightly, 78,936,034 → 78,941,581 /
+170,584,657 → 170,617,575, with unchanged allocator calls in both modes.
+
+Final complete-query controls at 8/64/512 groups are **1.40 → 1.21µs**,
+**11.04 → 9.80µs**, and **88.64 → 78.18µs** (11–14%); setup and arena
+allocation are outside timing. Matched large medians improve
+**3877.834 → 3834.564ms (1.12%)**, MAD 6.644/3.253ms, while optimizing
+**6637.800 → 6620.646ms (0.26%)**, MAD 35.379/9.621ms, is near flat.
+Small medians are 4.152 → 4.037ms / 10.719 → 10.669ms; a 1.192 reference
+bracket retry is retained. Tee medians are 3.522 → 3.518ms /
+101.465 → 103.818ms: preserve the **2.32% optimizing control cost**.
+
+Plain untraced RSS median increases **257,904 → 259,196 KiB**, ranges
+257,504–258,336 / 258,624–281,912. Optimizing medians are
+292,000 → 291,908 KiB, ranges 291,924–292,292 / 291,848–293,504.
+Record the plain increase (0.50%) without a causal claim from three samples;
+optimizing ranges overlap. No retained cache or node-array buffer was added.
+
+Final verified-v133 medians are small 4.397 / 0.937713ms (**4.69×**) and
+13.295 / 3.044530ms (**4.37×**); large 3776.687 / 421.478ms (**8.96×**)
+and 6932.212 / 1600.160ms (**4.33×**). MADs are 0.086/0.004388ms,
+0.260/0.006610ms, 2.512/2.657ms and 0.661/11.390ms. Ratios retain CPU 6,
+one warmup and three samples, and do not measure a causal ratio change
+against older cohorts. Canonical bytes/sizes retain the **422,470-byte
+optimizing parity gap**; smaller plain output alone is not a proven win.
+
+Both iterations pass info/fmt, native debug, **12,950 default wasm-gc tests**,
+release CLI, six controls and fixed 126-module / 1,029-observation replays.
+Byte-exact before/after and traced/untraced output independently validates.
+Public interfaces are unchanged. Initial SHA-256 is
+`a03464a2316394b2197020f74a20175d1468a5afc313e176ddbabd50533ee657`; final
+`f4538c12dd02d6dfa54a94f2829fe8f13fc01f3bb80f5f735646cd6e7810f679`.
+
+Evidence: local `.tmp/dae2-lean-20260929/` v21/v21b manifests, validation and
+bench logs, strengthened red/work guards, dependency/allocator/instruction
+profiles, fixed/paired/RSS records and verified-v133 oracle folders. Both final
+active lanes pass seven modules / 28 matching original/v133 observations, with
+identical before/after bytes. Joined-reader medians are 18.587 → 18.474ms /
+27.836 → 27.675ms; pure-tail 11.434 → 11.433ms / 11.953 → 11.899ms,
+all near flat. Larger targets
+are LocalGraph writer scans, quadratic source membership and unused read rows,
+and preceding-dependency working buffers. Aggregate fuzz stays deferred.
 
 ## September 29, 2026 single core validation
 
