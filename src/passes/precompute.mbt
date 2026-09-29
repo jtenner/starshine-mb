@@ -3687,6 +3687,55 @@ fn precompute_try_eliminate_dead_drop(
 }
 
 ///|
+fn precompute_delete_removed_roots(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  removed : Array[Int],
+) -> Unit {
+  if removed.is_empty() {
+    return
+  }
+  // A removed region root may still supply a typed control entry or another
+  // region. Check physical references once for this batch, including detached
+  // live nodes, instead of assuming each removed root is an exclusive owner.
+  let pending = @bitset.BitSet::new(@ir.hot_node_count(func))
+  for node in removed {
+    if @ir.hot_node_is_live(func, node) {
+      pending[node] = true
+    }
+  }
+  for index in 0..<@ir.hot_root_count(func) {
+    let root = @ir.hot_root_get(func, index)
+    if root >= 0 {
+      pending[root] = false
+    }
+  }
+  for node in 0..<@ir.hot_node_count(func) {
+    if !@ir.hot_node_is_live(func, node) {
+      continue
+    }
+    let data = @ir.hot_node_get(func, node)
+    for slot in 0..<data.child_count {
+      let child = @ir.hot_child_get(func, node, slot)
+      if child >= 0 {
+        pending[child] = false
+      }
+    }
+  }
+  let deletable : Array[Int] = []
+  for node in removed {
+    if node >= 0 && node < pending.length() && pending[node] {
+      pending[node] = false
+      deletable.push(node)
+    }
+  }
+  if !deletable.is_empty() {
+    @ir.hot_delete_detached_nodes(func, deletable)
+    pass_mark_mutated(ctx, func)
+  }
+}
+
+///|
 fn precompute_simplify_region_roots(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3765,7 +3814,7 @@ fn precompute_simplify_region_roots(
             root_count - idx - 1,
             [],
           )
-          pass_delete_detached_nodes(ctx, func, removed)
+          precompute_delete_removed_roots(ctx, func, removed)
           changed = true
         }
         break
@@ -3785,7 +3834,7 @@ fn precompute_simplify_region_roots(
               root_count - idx - 1,
               [@ir.hot_build_unreachable(func)],
             )
-            pass_delete_detached_nodes(ctx, func, removed)
+            precompute_delete_removed_roots(ctx, func, removed)
             changed = true
             continue
           }
@@ -3808,7 +3857,7 @@ fn precompute_simplify_region_roots(
               root_count - idx - 1,
               [@ir.hot_build_unreachable(func)],
             )
-            pass_delete_detached_nodes(ctx, func, removed)
+            precompute_delete_removed_roots(ctx, func, removed)
             changed = true
             continue
           }
@@ -3817,7 +3866,7 @@ fn precompute_simplify_region_roots(
             let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
               @ir.hot_build_nop(func),
             ])
-            pass_delete_detached_nodes(ctx, func, removed)
+            precompute_delete_removed_roots(ctx, func, removed)
             changed = true
             continue
           }
@@ -3849,7 +3898,7 @@ fn precompute_simplify_region_roots(
                     1,
                     [@ir.hot_build_nop(func)],
                   )
-                  pass_delete_detached_nodes(ctx, func, removed)
+                  precompute_delete_removed_roots(ctx, func, removed)
                   changed = true
                   continue
                 }
@@ -3872,7 +3921,7 @@ fn precompute_simplify_region_roots(
             let removed = pass_splice_region(
               ctx, func, region_ref, idx, 1, replacement,
             )
-            pass_delete_detached_nodes(ctx, func, removed)
+            precompute_delete_removed_roots(ctx, func, removed)
             changed = true
             continue
           }
@@ -4342,7 +4391,7 @@ fn precompute_raw_global_const_instr(
     Some(@ir.HotConstPayload::F64Const(value)) =>
       Some(@lib.Instruction::f64_const(value))
     Some(@ir.HotConstPayload::RefNullConst(value)) =>
-      Some(@lib.Instruction::ref_null(value.get_heap_type()))
+      Some(@lib.Instruction::ref_null_type(value))
     Some(@ir.HotConstPayload::StringConst(_)) | None => None
   }
 }
@@ -6886,7 +6935,9 @@ fn precompute_raw_instrs_have_label_relative_branch(
       | @lib.BrOnNull(_)
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _) => return true
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.BrOnCastDescEq(_, _, _)
+      | @lib.BrOnCastDescEqFail(_, _, _) => return true
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
         if precompute_raw_instrs_have_label_relative_branch(body) {
           return true
@@ -6933,7 +6984,9 @@ fn precompute_raw_instr_has_branch_to_depth(
     | @lib.BrOnNull(label_idx)
     | @lib.BrOnNonNull(label_idx)
     | @lib.BrOnCast(label_idx, _, _, _)
-    | @lib.BrOnCastFail(label_idx, _, _, _) =>
+    | @lib.BrOnCastFail(label_idx, _, _, _)
+    | @lib.BrOnCastDescEq(label_idx, _, _)
+    | @lib.BrOnCastDescEqFail(label_idx, _, _) =>
       precompute_raw_label_matches_depth(label_idx, depth)
     @lib.BrTable(labels, fallback) => {
       for label_idx in labels {
@@ -7636,7 +7689,26 @@ fn precompute_raw_fold_output_tail(
   out : Array[@lib.Instruction],
   module_ctx? : @ir.HotModuleContext? = None,
   label_arities? : Array[Int?] = [],
+  full_tail_checks? : Array[Int]? = None,
 ) -> Bool {
+  // The other tail folds end in an operator, control, or write. Ordinary
+  // reads and scalar literals can only trigger infinite-loop tail cleanup.
+  match out.last() {
+    None => return false
+    Some(@lib.Nop)
+    | Some(@lib.LocalGet(_))
+    | Some(@lib.GlobalGet(_))
+    | Some(@lib.I32Const(_))
+    | Some(@lib.I64Const(_))
+    | Some(@lib.F32Const(_))
+    | Some(@lib.F64Const(_)) =>
+      return precompute_raw_try_mark_value_tail_after_infinite_loop(out)
+    _ => ()
+  }
+  match full_tail_checks {
+    Some(checks) => checks[0] += 1
+    None => ()
+  }
   if precompute_raw_fold_same_target_br_table_tail(out, label_arities) {
     return true
   }
@@ -8280,7 +8352,9 @@ fn precompute_raw_fold_block_local_constants(
         }
       }
       @lib.Block(_, @lib.Expr(body)) => {
-        let mut straight_line = true
+        let mut straight_line = !precompute_raw_instrs_have_label_relative_branch(
+          body,
+        )
         for nested in body {
           match nested {
             @lib.Block(_, _)
@@ -9392,7 +9466,11 @@ fn precompute_run_raw_func(
   }
   Some(
     (
-      @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+      if changed {
+        @lib.Func::new(locals, @lib.Expr::new(rewritten))
+      } else {
+        func
+      },
       changed,
       if retains_raw_control_flow {
         "raw-control-flow-folds"

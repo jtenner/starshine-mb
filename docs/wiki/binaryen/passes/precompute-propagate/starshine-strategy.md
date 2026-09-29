@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-27
+last_reviewed: 2026-09-28
 sources:
   - index.md
   - ../../../../../src/passes/precompute.mbt
@@ -226,3 +226,28 @@ a cyclic handler fixture and a finite-loop dispatcher regression pass. Large
 pipeline pairs improve **1,983.883 → 1,684.910 ms** with identical bytes, still
 above the target. See the [work-queue invariant and focused evidence](../../../ir2/local-ssa-policy.md#september-27-2026-ordered-sparse-forward-work-queues).
 Final aggregate renewal remains pending for this follow-up campaign.
+
+## September 28, 2026 performance reuse contracts
+
+Expanded LocalGraph transfers borrow the predecessor array on read-only blocks and copy it once before the first local write; reads still record sources and influences. Recursive transfers keep their owned-copy path. Plain raw Precompute returns the original unchanged function and avoids unneeded large-body statistics. Existing sparse unions and lazy module environments remain in place.
+
+Tests and native controls: [local_graph_transfer_borrow_wbtest.mbt](../../../../../src/ir/local_graph_transfer_borrow_wbtest.mbt), [local_graph_transfer_borrow_perf_wbtest.mbt](../../../../../src/ir/local_graph_transfer_borrow_perf_wbtest.mbt), [precompute_raw_identity_wbtest.mbt](../../../../../src/passes/precompute_raw_identity_wbtest.mbt), [precompute_raw_identity_perf_wbtest.mbt](../../../../../src/passes/precompute_raw_identity_perf_wbtest.mbt). The [campaign report](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign) owns frozen-binary artifact timings, verified-v133 evidence and final correctness outcomes; helper timings alone do not close the remaining pipeline or parity gaps.
+
+The final raw-fold prototype checks a simple read/scalar-literal tail before the
+operator-specific patterns while retaining infinite-loop value-tail cleanup.
+The root-global snapshot guard streams its first sixteen non-nop instructions
+and stops at an incompatible prefix instead of copying the complete body.
+[Bounded tests](../../../../../src/passes/precompute_tail_admission_wbtest.mbt)
+prove the active fold, infinite-loop cleanup, unchanged guards, nop handling and
+sixteenth-instruction boundary; [native controls](../../../../../src/passes/precompute_tail_admission_perf_wbtest.mbt)
+include active operators as well as unchanged value tails and guarded prefixes.
+
+
+## September 28, 2026 shared follow-up controls
+
+Shared initialization ownership and HOT result queries retain their semantic
+contracts in the [IR ownership rules](../../../ir2/architecture-rules.md#performance-reuse-ownership-contracts).
+The [follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign)
+separates new helper evidence from this pass's enclosing timings and final
+aggregate status. Prior signoff does not automatically cover the new sources;
+guarded paths and remaining size/parity gaps retain their existing limits.

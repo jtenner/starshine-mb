@@ -2059,6 +2059,61 @@ test "precompute folds defined immutable globals even after imported globals" {
 }
 
 ///|
+test "precompute preserves exact ref.null type when folding immutable global" {
+  let source =
+    #|(module
+    #|  (type $box (struct))
+    #|  (global $value (ref null (exact $box)) (ref.null (exact $box)))
+    #|  (func (export "read") (result (ref null (exact $box)))
+    #|    (global.get $value)))
+  let optimized = match pass_test_run_pipeline(source, ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected exact global fold success, got \{err}")
+  }
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
+  match body {
+    [@lib.RefNull(ref_type)] => assert_true(ref_type.is_exact())
+    _ => fail("expected one folded exact ref.null, got \{body}")
+  }
+}
+
+///|
+test "precompute does not leak local constants across nested br_on_null exits" {
+  let output = audit_run(
+    (
+      #|(module
+      #|  (func (export "read") (param anyref) (result i32)
+      #|    (local i32)
+      #|    block (result i32)
+      #|      i32.const 0
+      #|      local.set 1
+      #|      block
+      #|        local.get 0
+      #|        br_on_null 0
+      #|        drop
+      #|        i32.const 1
+      #|        local.set 1
+      #|      end
+      #|      local.get 1
+      #|    end))
+      #|
+    ),
+    "precompute",
+  )
+  match @validate.validate_module(output) {
+    Ok(_) => ()
+    Err(err) => fail("expected branch-sensitive precompute output, got \{err}")
+  }
+  assert_eq(
+    audit_count(audit_body(output), fn(i) {
+      i is @lib.LocalGet(@lib.LocalIdx(1U))
+    }),
+    1,
+  )
+}
+
+///|
 test "precompute validates rewritten functions against full module call targets" {
   let input = "(module (import \"env\" \"sink\" (func (param i32))) (global i32 (i32.const 169776)) (global i32 (i32.const 169472)) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) global.get 0 local.set 9 i32.const 0 local.set 0 i32.const 0 local.set 1 i32.const 0 local.set 2 i32.const 0 local.set 3 i32.const 0 local.set 4 i32.const 0 local.set 5 i32.const 0 local.set 6 global.get 1 call 0 global.get 1 local.set 7 i32.const 0 local.set 8 local.get 0 local.get 1 local.get 2 local.get 3 local.get 4 local.get 5 local.get 6 local.get 7 local.get 8 call 2) (func (param i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32) local.get 0))"
   let trace = match pass_test_capture_trace(input, ["precompute"]) {
