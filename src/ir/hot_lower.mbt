@@ -703,31 +703,6 @@ fn hot_lower_impl_stack_has_node(
 }
 
 ///|
-fn hot_lower_impl_build_value_orders(func : HotFunc) -> Array[Int] {
-  let orders = Array::make(hot_node_count(func), -1)
-  fn visit(node_id : NodeId) -> Int {
-    if node_id < 0 || !hot_node_is_live(func, node_id) {
-      return -1
-    }
-    if orders[node_id] >= 0 {
-      return orders[node_id]
-    }
-    orders[node_id] = hot_node_get(func, node_id).order
-    for input_id in hot_lower_impl_input_info(func, node_id).nodes {
-      let input_order = visit(input_id)
-      if input_order > orders[node_id] {
-        orders[node_id] = input_order
-      }
-    }
-    orders[node_id]
-  }
-  for node_id = 0; node_id < orders.length(); node_id = node_id + 1 {
-    ignore(visit(node_id))
-  }
-  orders
-}
-
-///|
 fn hot_lower_impl_has_external_effects(mask : EffectMask) -> Bool {
   mask != 0U && mask != EFFECT_MASK_LOCAL_STATE
 }

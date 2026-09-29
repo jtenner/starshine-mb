@@ -25,6 +25,36 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 fuse source-order operand walks
+
+Source-order facts now compute maximum value order and first external-effect
+order in one operand traversal. The two existing result arrays retain their
+sentinels and discovery order; no cache is added. The standalone first-effect
+query remains separate for consumers that need only that summary. The old
+value-only traversal survives only as a test reference.
+
+The [bounded guard](../../../../../src/ir/hot_source_order_fused_wbtest.mbt)
+compares both arrays before and after on calls, stacked writes, indexed control,
+loads and deleted nodes. Six [native controls](../../../../../src/ir/hot_source_order_fused_perf_wbtest.mbt)
+compare full fact construction with the original two-walk reference. A repeated
+low-variance cohort measures 8/64/128 roots at 19.58 → 15.79µs /
+153.10 → 124.40µs / 340.18 → 246.32µs. The first noisy timing cohort is
+preserved, but does not support the helper claim.
+
+Three alternating pairs measure large DAE2 **4779.348 → 4589.724ms (−3.97%)**,
+MAD 61.700/67.940ms, and DAE2-O **7924.408 → 7826.148ms (−1.24%)**,
+MAD 19.823/44.409ms. Small medians are 4.736 → 4.541ms /
+12.252 → 12.391ms; active tee medians are 3.778 → 3.888ms /
+106.876 → 105.483ms. Small changes remain subject to the calibration limits;
+these results do not establish Binaryen competitiveness.
+
+Info, fmt, 12,923 default tests, native build and all six controls pass. The
+126-module / 1,029-observation original/v133 replay and before/after artifact
+bytes match. Candidate SHA-256 is
+`c43278a2cf8ced917ccdcc21d3d2cfd216c75d182ac336126fb6b9e10482248b`.
+Local evidence under `.tmp/dae2-lean-20260929/` uses `v11`; the repeated
+controls are in `controls-order-repeat.log`. No aggregate fuzz ran.
+
 ## September 29, 2026 borrow completed reverse-query rows
 
 Reverse-flow query cache entries are immutable after collection. Cache insertion

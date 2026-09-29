@@ -32,6 +32,8 @@
   gains for unique recording, with 28 matching original/v133 observations.
   Completed reverse-query rows are then borrowed; the ownership regression
   is red first, 12,923 tests pass, and the 2048-read control improves 16.5%.
+  Fusing value/effect source-order walks improves paired large DAE2/O
+  3.97%/1.24%; all 12,923 tests and 1,029 bounded observations pass.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration

@@ -36,12 +36,61 @@ fn HotSourceOrderScratch::new(count : Int) -> HotSourceOrderScratch {
 }
 
 ///|
+#valtype
+priv struct HotSourceOrderOrders {
+  value_orders : Array[Int]
+  first_effect_orders : Array[Int]
+}
+
+///|
+fn HotSourceOrderOrders::new(func : HotFunc) -> HotSourceOrderOrders {
+  let none = hot_node_count(func)
+  let value_orders = Array::make(none, -1)
+  let first_effect_orders = Array::make(none, -1)
+  fn visit(node_id : NodeId) -> Unit {
+    if node_id < 0 ||
+      !hot_node_is_live(func, node_id) ||
+      value_orders[node_id] >= 0 {
+      return
+    }
+    let node = hot_node_get(func, node_id)
+    value_orders[node_id] = node.order
+    let own_effects = effects_mask_for_flags(node.flags) |
+      effects_mask_for_node_exact(func, node_id)
+    first_effect_orders[node_id] = if hot_lower_impl_has_external_effects(
+        own_effects,
+      ) {
+      node.order
+    } else {
+      none
+    }
+    // Both summaries use the same operand edges and discovery order. Publish
+    // both initial values before recursion, preserving shared/cyclic visits.
+    for input_id in hot_lower_impl_input_info(func, node_id).nodes {
+      if input_id < 0 || !hot_node_is_live(func, input_id) {
+        continue
+      }
+      visit(input_id)
+      value_orders[node_id] = value_orders[node_id].max(value_orders[input_id])
+      first_effect_orders[node_id] = first_effect_orders[node_id].min(
+        first_effect_orders[input_id],
+      )
+    }
+  }
+  for node_id in 0..<none {
+    visit(node_id)
+  }
+  { value_orders, first_effect_orders, }
+}
+
+///|
 fn HotSourceOrderFacts::new(func : HotFunc) -> HotSourceOrderFacts {
+  let orders = HotSourceOrderOrders::new(func)
   {
     local_access_cache: Array::make(hot_node_count(func), -1),
-    value_orders: hot_lower_impl_build_value_orders(func),
+    value_orders: orders.value_orders,
     node_effects: effects_build_node_masks(func),
-    first_effect_orders: hot_lower_impl_build_first_effect_orders(func),
+    first_effect_orders: orders.first_effect_orders,
     preceding_dependency_min_cache: Array::make(hot_node_count(func), -2),
     local_access_nodes: Array::make(hot_node_count(func), None),
     first_local_access_orders: @hashmap.new(),

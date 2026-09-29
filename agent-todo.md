@@ -24,6 +24,8 @@
   Its active balanced 8192-reader DAE2/O pipelines improve 57.40%/49.80%.
   Immutable reverse-cache rows now avoid copies (2048-read control −16.5%;
   12,923 tests), with nearly flat compiler timings and recorded control costs.
+  Fused value/effect walks improve paired large DAE2/O 3.97%/1.24%,
+  with unchanged output bytes and 12,923 passing tests.
   Remaining targets include source-order scans, source-union churn, and lift/lower;
   opcode-based tuple preparation removes temporary strings and improves paired
   large DAE2/O a further 3.89%/2.90% with identical bytes (12,910 tests pass); fresh oracle ratios and deferred aggregate fuzz remain open.
