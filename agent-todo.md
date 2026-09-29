@@ -4,64 +4,36 @@
 
 - **Goal / why:** close the remaining command, pipeline and oracle gaps before
   release while preserving active transformations, output quality and ownership.
-- **Current DAE2 lean checkpoint:** expanded operand flow now uses reverse
-  reaching definitions without recursively duplicating CFG actions. All 12,909
-  default tests and six native controls pass; 126 bounded modules / 1,029
-  observations match original/v133 behavior and before/after bytes. Three-pair
-  large pipeline medians fall 39.136 → 5.092s (DAE2) and 38.973 → 7.936s (DAE2-O).
-  This repairs the dense-flow cost introduced by the source-order fix, rather
-  than beating historical V18 by those percentages. Read-only predecessor compression then improves large DAE2/O another
-  4.97%/3.53% (4.332/7.084s; 12,911 tests), retaining small/tee control costs.
-  The existing write-local index now serves predecessor queries too (41%
-  helper improvement; large artifact costs near flat; 12,914 tests pass).
-  Reusing existing CFG root snapshots adds a 4.02% large DAE2 reduction;
-  DAE2-O is nearly flat, small/tee costs remain recorded, and 12,919 tests pass.
-  SSA singleton summaries remove a quadratic union (512-write control
-  48.72 → 6.47µs); large compiler times are near flat and 12,919 tests pass.
-  Unique reverse-flow reader recording removes another quadratic scan
-  (2048-reader graph 611.87 → 128.49µs; 12,921 tests). Large DAE2 costs +1.61%
-  in its paired cohort, so this is a scalability win rather than an artifact gain.
-  Its active balanced 8192-reader DAE2/O pipelines improve 57.40%/49.80%.
-  Immutable reverse-cache rows now avoid copies (2048-read control −16.5%;
-  12,923 tests), with nearly flat compiler timings and recorded control costs.
-  Fused value/effect walks improve paired large DAE2/O 3.97%/1.24%,
-  with unchanged output bytes and 12,923 passing tests.
-  Remaining targets include source-order scans, source-union churn, and lift/lower;
-  opcode-based tuple preparation removes temporary strings and improves paired
-  large DAE2/O a further 3.89%/2.90% with identical bytes (12,910 tests pass); fresh oracle ratios and deferred aggregate fuzz remain open.
-  See the [measured repair](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-29-2026-expanded-flow-performance-repair).
-- **Historical complete native checkpoint:** priority-v18 passes 12,877 default
-  wasm-gc tests, 112 focused native tests, 62 native benchmark cases, interface
-  generation, formatting and native CLI build. Its 79-fixture shared-consumer
-  matrix validates 2,730 modules with 12,008 matching results, effects and traps.
-  All binary-input V14/V18 bytes match. Causal active tee DAE2-O/SL pipelines
-  improve 31.29%/29.98%; the compiler large DAE2/O pipelines are effectively
-  unchanged. Small/mutable/entry costs and overlapping RSS remain recorded.
-  The [priority evidence](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
-  owns hashes, dispersion, foreign CPU observations, fresh oracle ratios and
-  superseded candidates. Scalar-block admission and fresh wrapper retirement
-  remain under trial. Long aggregate renewal follows the performance trials;
-  earlier generated results do not sign current source.
-- **Current correctness blocker:** V21 passes 12,887 default / 122 focused
-  native tests and 22 benchmark cases, but its expanded 92-fixture runtime
-  matrix exposes four SimplifyLocals failures: entry and earlier-write values
-  stacked across a block overwrite in full/nostructure modes. Eight baseline
-  V18 rows fail these new witnesses, including DAE2/O; historical V18 evidence
-  covers its original 79-fixture matrix only. Expanded operand flow repairs
-  DAE2/O. Preserved execution order for freshly allocated wrappers plus SL
-  reaching-definition guards pass V24 full/native validation (12,893/251),
-  with 30 native controls. A new one-armed branch-exit witness exposes three
-  V18 aborting lanes and V24 public fallback; V25 retains the original void
-  label owner around a result-if capture. Red-first direct HOT/dispatcher
-  tests and 110 focused checks pass, followed by 12,895 default / 253 native
-  tests. The expanded 96-fixture runtime validates 3,302 modules / 25,018
-  observations with zero candidate/oracle failures, retaining eight baseline
-  semantic failures and six baseline SIGABRTs. Enclosing evidence runs
-  from the hash-checked frozen V25 source snapshot while the independently
-  requested vacuum PR #9155 fix is developed. The large-artifact DAE2
-  byte-drift guard stops the enclosing run; classify that drift before renewing
-  measurements. Small DAE2/O paired costs increase 18.61%/7.18%; preserve
-  these costs. Release/performance signoff remains open.
+- **Current DAE2/O checkpoint:** reverse expanded flow repairs the dense-solver
+  regression introduced by the stacked-read correctness fix. Subsequent slices
+  remove repeated opcode formatting, predecessor walks, region-root lookup,
+  quadratic source unions and reader-list searches, source-row copies and a
+  duplicate operand-order traversal. Accepted changes and rejected cache trials
+  are recorded in the [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md).
+  All 12,923 default tests, 126 bounded modules / 1,029 original/v133
+  observations and measured before/after bytes pass. The new active-reader
+  fixture adds one passing bounded guard and four dedicated native controls;
+  its matched 8192-reader pipelines improve 57.40%/49.80%. This deliberate
+  scalability workload does not establish a compiler-artifact gain.
+- **Remaining DAE2/O work:** close the multi-second compiler gap by reducing
+  source-order scans, CFG/reaching-definition work, lift/lower and optimizing
+  cleanup. Fresh verified-v133 ratios, cumulative timing, memory and instruction
+  attribution are owned by the strategy page. Keep small/control costs and
+  identical-binary calibration limits explicit. Long aggregate fuzz remains
+  deferred at the user's request; earlier generated results do not sign current
+  source. Exit criteria remain valid output, measured improvement on active and
+  compiler workloads, classified size/parity differences, and final renewal.
+- **Correctness and size limits:** V25 repaired the stacked-read and one-armed
+  branch-exit failures exposed after V18. Its 96-fixture replay validates 3,302
+  modules / 25,018 observations with no candidate/oracle failures; eight V18
+  semantic failures and six V18 aborts remain historical evidence. V18's 79-
+  fixture results do not cover the new witnesses, and its faster timings are
+  not a correctness-equivalent baseline. The V25 large DAE2 output is 458 bytes
+  larger across 41 functions than V18; finish classifying that drift. Current
+  performance changes preserve V25-based bytes. Binaryen optimizing output-size
+  gaps remain open; smaller plain DAE2 output alone does not prove a win.
+  See the [priority evidence](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
+  and the strategy page for supersession, oracle hashes and unresolved limits.
 - **Historical next-v9 checkpoint:** next-v9 passes 12,745 wasm-gc tests,
   473 native IR tests, interface generation, formatting and native CLI build.
   The iteration has 174 unique passing native helper cases; this latest slice

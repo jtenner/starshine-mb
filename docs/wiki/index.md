@@ -9,6 +9,8 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 ## Schema And Operations
 
+- [Current DAE2 lean checkpoint](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-cumulative-lean-checkpoint) — Matched post-repair compiler gains, active reader-scaling benchmarks, verified-v133 ratios, rejected trials and remaining performance/size gaps; aggregate fuzz is deferred.
+
 - [DAE priority performance work](tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls) — V14 closes unread-tee parity with 12,853 default / 86 native tests, 46 benchmarks and 4,056 matching bounded observations. Fresh v133 ratios, multi-second/optimizing-size gaps and quiet control costs remain recorded. V18 completes 12,877 default / 112 native tests, 62 benchmarks and 12,008 observations; active tee DAE2-O improves 31.29%, while compiler large pipelines and optimizing size gaps remain open. V25 repairs stacked-read and branch-exit failures with 12,895 default / 253 native tests and 25,018 bounded observations; large DAE2 artifact drift and small pipeline costs keep performance signoff open.
 
 - [Next performance campaign](tooling/tracing-playbook.md#september-28-2026-next-performance-campaign) — September 28 iteration, provisional artifact measurements, typed conditional entry repair, source and influence row ownership, fused DAE topology, native value-layout experiments, and pending shared-IR signoff; preserves the earlier complete v8 evidence separately.

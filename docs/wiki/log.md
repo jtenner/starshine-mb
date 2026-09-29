@@ -37,6 +37,12 @@
   Permanent active 512/8192-reader pipeline benchmarks now guard the
   scalability workload; their bounded argument-removal test and four native
   cases pass. Cache borrowing is flat on the same active workload.
+  Fresh cumulative v1→v11 compiler measurements improve large DAE2/O
+  15.73%/7.86%. Verified-v133 ratios remain 10.19×/4.60×, and optimizing
+  canonical output remains 422,470 bytes larger; both gaps stay open.
+  Dependency-only instructions fall 22.68% from v2; small whole-command
+  instructions and allocator calls also fall. Overlapping RSS and background
+  CPU observations limit memory and timing claims.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration

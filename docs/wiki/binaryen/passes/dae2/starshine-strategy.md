@@ -25,6 +25,84 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 cumulative lean checkpoint
+
+A fresh matched comparison uses v1 (the reverse-flow repair) as its baseline,
+not the earlier correctness-broken V18 or the roughly 39-second dense solver.
+Three alternating pairs, pinned to CPU 6 with an independent frozen precompute
+reference, give the following pipeline medians:
+
+| Input | DAE2 before → v11 | DAE2-O before → v11 |
+| --- | --- | --- |
+| Large compiler | 5403.347 → 4553.645ms (−15.73%) | 8689.363 → 8006.475ms (−7.86%) |
+| Small compiler | 4.800 → 4.654ms (−3.04%) | 12.057 → 11.639ms (−3.47%) |
+| Active tee | 3.885 → 3.930ms (+1.16%) | 111.039 → 106.728ms (−3.88%) |
+
+Large before/after MADs are 0.851/183.876ms and 165.795/184.159ms.
+All measured bytes match, traced/untraced outputs agree, and outputs validate.
+Reference-drift retries are retained. Eleven of twelve accepted large runs
+record foreign Chrome/kernel CPU activity, so this is not a quiet-host signoff;
+the small differences also remain limited by the identical-binary calibration.
+These cumulative figures are measured directly, not products of percentages from separate optimization cohorts.
+
+A separate fresh **verified Binaryen 133** sweep, one warmup and three samples,
+uses the same frozen v11 binary. Its pass-local pipeline medians are:
+
+| Input / pass | Starshine | Binaryen 133 | Ratio |
+| --- | ---: | ---: | ---: |
+| Small DAE2 | 4.827ms | 1.036ms | 4.66× |
+| Small DAE2-O | 14.155ms | 3.315ms | 4.27× |
+| Large DAE2 | 4671.195ms | 458.548ms | 10.19× |
+| Large DAE2-O | 8281.950ms | 1802.110ms | 4.60× |
+
+Starshine/Binaryen large MADs are 38.016/5.873ms and 26.839/67.390ms.
+The compiler performance target remains open. Canonical large output sizes are
+6,132,389/6,232,586 bytes for DAE2 and 5,995,920/5,573,450 bytes for DAE2-O.
+The optimizing size gap is 422,470 bytes; the smaller plain output alone does
+not prove a Starshine win or close the output-shape parity investigation.
+No output-shape difference is newly accepted by these performance measurements.
+
+Local evidence is `.tmp/dae2-lean-20260929/cumulative-v11-{small,large,tee}/`
+and `oracle-v11-{small,large}/`. V1 SHA-256 is
+`a612ebefc2f7d54085530d22d88d2565861d26e4753b64e9660b282999a18fc3`;
+v11 SHA-256 is
+`c43278a2cf8ced917ccdcc21d3d2cfd216c75d182ac336126fb6b9e10482248b`.
+The oracle is `wasm-opt version 133 (version_133)`, SHA-256
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+The large input SHA-256 remains
+`98189860f95b4eb8464794eb9fab5f9fd8d16942c63a6e31ed9175e7e791cbbd`.
+The dependency-only Callgrind profile falls from **26,495,753,239 instructions
+at v2 to 20,486,620,723 at v11 (−22.68%)**, with byte-identical validated output.
+This baseline already includes the direct tuple-opcode improvement; it differs
+from the v1 timing baseline above. It counts the analysis dependency function,
+not the whole compiler command. Remaining nonrecursive inclusive costs are
+CFG construction 62.12% and LocalGraph 23.94%; source-order dependency
+queries account for 19.04% inside CFG construction. These nested percentages
+must not be added. Largest self costs include HOT node reads 13.35%, reverse
+entry queries 7.06%, object destruction 6.61% and liveness reads 3.96%.
+The source-order query total is essentially unchanged from v2, making repeated
+region scans a useful next target. Profiles are `profile-v11-{self,inclusive}.txt`
+and `callgrind-v11-dependencies`; v2 retains the earlier equivalent scope.
+
+Whole-command small-input Callgrind controls compare v1/v11. DAE2 instructions
+fall 85,690,018 → 80,721,030 (−5.80%); optimizing instructions fall
+178,863,157 → 172,466,407 (−3.58%). Counted calls into `mi_malloc` fall
+325,973 → 312,090 and 512,453 → 492,159 (13,883 and 20,294 fewer requests).
+The corresponding frees fall by the same counts. These are native allocator
+call counts, not allocated bytes or a claim about peak memory.
+
+Three alternating large-input RSS samples overlap: DAE2 median 282,308 →
+281,308 KiB, ranges 255,884–283,288 / 259,160–281,808; DAE2-O median
+292,356 → 302,336 KiB, ranges 292,024–314,784 / 291,804–304,696. Retain the
+higher optimizing median without claiming a proven memory regression or win.
+The initial RSS launcher found no `/usr/bin/time`; its setup error is preserved,
+and completed samples use a fresh Python child wrapper's Linux `ru_maxrss`.
+Evidence is `memory-v11/`, `small-instructions-v11/` and `allocator-calls-v11.json`.
+All corresponding outputs validate and retain exact before/after bytes.
+
+This is bounded performance/correctness evidence; aggregate fuzz remains
+explicitly deferred until the performance trials finish.
+
 ## September 29, 2026 fuse source-order operand walks
 
 Source-order facts now compute maximum value order and first external-effect
@@ -43,7 +121,9 @@ preserved, but does not support the helper claim.
 
 Three alternating pairs measure large DAE2 **4779.348 → 4589.724ms (−3.97%)**,
 MAD 61.700/67.940ms, and DAE2-O **7924.408 → 7826.148ms (−1.24%)**,
-MAD 19.823/44.409ms. Small medians are 4.736 → 4.541ms /
+MAD 19.823/44.409ms. Ten of twelve accepted large runs record foreign CPU
+activity; preserve that limit alongside the helper and instruction evidence.
+Small medians are 4.736 → 4.541ms /
 12.252 → 12.391ms; active tee medians are 3.778 → 3.888ms /
 106.876 → 105.483ms. Small changes remain subject to the calibration limits;
 these results do not establish Binaryen competitiveness.
