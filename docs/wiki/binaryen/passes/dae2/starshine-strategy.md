@@ -25,6 +25,125 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 single core validation
+
+The public all-verifier called the complete core verifier before calling the
+control verifier, which starts by calling core again. No mutation or callback
+separates those checks. The all-verifier now delegates to the same complete
+control entry point once; standalone core/control APIs, their validation
+coverage, cache argument behavior and error order remain unchanged. The private
+work counter is per verification, not per node; it adds no retained cache.
+
+Two [bounded guards](../../../../../src/ir/hot_verify_core_once_wbtest.mbt)
+fail first with **2 != 1** on the original two-call sequence, then check one
+complete core walk on empty, ordinary, control and legacy-catch functions.
+They compare original all-verifier results, unchanged revisions, both cache
+argument types, core-before-control error precedence, malformed exit arity
+and orphan catch rejection. The earlier helper-raises compile failure is kept
+separate from the actual red work assertion. Eight
+[native controls](../../../../../src/ir/hot_verify_core_once_perf_wbtest.mbt)
+compare complete validation with and without legacy catches at 128/4096 roots.
+
+The first single-core candidate (`v20`) still boxed an explicitly forwarded
+`None` work counter. Generated C identifies the allocation, and a focused
+native cost guard fails with **17 != 0** on the small command while its raw
+bytes independently validate and equal the matched output. The first guard
+attempt used a canonical oracle output path and failed its byte comparison;
+that harness failure is retained separately and is not the allocation red.
+The final `v20b` default path calls the uncounted complete control entry point
+and keeps explicit counters on their instrumented path. The cost guard is
+now green at **zero** default-forwarding allocations, with unchanged bytes.
+Source-only suspicion of per-query reverse-flow counter boxes is superseded:
+its generated C already forwards the nullable pointer directly to the inner
+kernel. No change is justified for that suspected allocation.
+
+Final complete-verifier controls:
+
+| Roots / legacy catch | Original duplicate → single mean |
+| --- | --- |
+| 128 / absent | 3.24 → 1.86µs |
+| 4096 / absent | 100.19 → 56.43µs |
+| 128 / present | 5.12 → 3.50µs |
+| 4096 / present | 135.14 → 90.03µs |
+
+The initial v19→v20 dependency profile removes **9,887** direct core calls;
+12,718 core calls from control entry remain. Instructions fall
+**19,116,248,490 → 18,436,041,744 (3.56%)** and incoming requests/frees by
+**280,661** each (36,354,865 → 36,074,204 / 111,801,112 → 111,520,451).
+Small whole-command instructions fall 79,499,491 → 78,939,286 /
+171,144,584 → 170,595,337; requests/frees fall by 481 in both modes.
+Three matched compiler pairs are near flat: large **3899.809 → 3880.437ms
+(−0.50%)**, MAD 14.442/10.174ms; optimizing **6678.827 → 6636.707ms
+(−0.63%)**, MAD 20.770/17.782ms. Small medians are 3.963 → 3.875ms /
+10.782 → 10.736ms, tee 3.532 → 3.561ms / 100.914 → 103.071ms.
+Active joined-reader medians are 18.764 → 19.156ms / 27.858 → 27.618ms;
+pure-tail 11.571 → 12.079ms / 12.527 → 12.172ms. Preserve the plain active
+and optimizing tee costs and dispersion. Managed visibility does not prove
+quiet-host timing. Untraced large RSS medians are 271,816 → 269,588 KiB,
+ranges 259,544–281,584 / 255,516–270,484; optimizing 292,076 → 314,440 KiB,
+ranges 292,012–294,080 / 292,172–314,536. The optimizing median increase is
+recorded; overlapping ranges do not establish a causal memory claim.
+
+The initial current-source v133 renewal gives small medians 4.090 / 0.950781ms
+(**4.30×**) and 12.090 / 3.032920ms (**3.99×**); large
+3853.517 / 418.791ms (**9.20×**) and 6995.914 / 1601.970ms (**4.37×**).
+MADs are 0.023/0.001793ms, 0.274/0.005700ms, 21.610/1.912ms and
+10.893/6.670ms. These fresh cohorts do not measure causal ratio changes.
+Initial frozen SHA-256 is
+`49427761448648d73764a36f88a5179c4e74adaf5a006b7fc5233d6e4e9d975e`;
+final `v20b` is
+`13312635576e7a89a4e616faea3d50a73057b44973ff21e4e53e6abb7a8e12ca`.
+Both pass info/fmt, native debug, all **12,948 default wasm-gc tests**, release
+CLI and eight controls. Initial fixed/active replays and the final fixed replay
+pass with exact before/after bytes and original/v133 observations; final
+measurements are separately owned below rather than silently replacing this
+initial control. Public interfaces remain unchanged.
+
+The final v20→v20b refinement removes **9,887** more dependency-window
+requests/frees: **36,064,317 / 111,510,564** remain. Instructions fall another
+1,952,158 (0.0106%), to **18,434,089,586**. Relative to the original v19 core
+sequence, final instructions are down **3.57%** and requests/frees by
+**290,548**. These are named call/work counts, not allocation-byte or retained-
+object counts. Small requests/frees drop by 17 in both modes; instruction
+controls are near flat, 78,932,831 → 78,931,546 /
+170,586,274 → 170,590,506, preserving the optimizing cost.
+
+Three refinement pairs give near-flat large medians **3847.115 → 3854.029ms
+(+0.18%)**, MAD 13.862/10.605ms, and optimizing **6660.027 → 6617.547ms
+(−0.64%)**, MAD 26.241/13.900ms. Small medians are 3.998 → 3.960ms /
+10.860 → 10.936ms; tee 3.493 → 3.561ms / 100.850 → 101.048ms; joined
+readers 18.418 → 18.400ms / 27.861 → 27.810ms; pure-tail
+11.474 → 11.467ms / 11.679 → 11.614ms. Do not multiply gains across these
+separate cohorts. Refinement RSS medians are 281,644 → 281,308 KiB,
+ranges 258,656–281,980 / 256,968–281,668; optimizing
+304,304 → 292,004 KiB, ranges 292,200–314,656 / 291,900–302,116. Overlap
+establishes no causal memory gain. Final fixed and both active replays match
+all bytes and original/v133 observations, with independent validation.
+
+Final verified-v133 medians are small 4.313 / 0.961476ms (**4.49×**) and
+12.425 / 3.113380ms (**3.99×**); large 3869.286 / 422.985ms (**9.15×**)
+and 7049.952 / 1605.100ms (**4.39×**). MADs are 0.089/0.027601ms,
+0.212/0.058020ms, 6.175/2.496ms and 14.445/1.620ms. They retain CPU 6,
+one warmup and three samples; new-cohort ratios are not causal gains over
+prior sweeps. The large sweep and queued profile steps were interrupted by
+the server restart. Completed validation, small-oracle, fixed replay and
+memory records were retained; only unfinished steps were resumed. The partial
+large folder/log remains interrupted evidence, and the successful renewal is
+`oracle-v20b-large-recovered/`. Canonical sizes are unchanged; the
+**422,470-byte optimizing gap remains open**, and smaller plain output alone
+is not a proven win.
+
+Local `.tmp/dae2-lean-20260929/` evidence uses `v20` and `v20b`, including
+source manifests, red/validation/bench/native-cost logs, fixed/paired/active
+replays, `dependency-cost-v20{,b}.json`, small instructions/allocator and RSS
+records, and initial/final oracle folders. Both seven-module active lanes
+observe 28 matching results; the fixed lane retains 126 modules / 1,029
+observations. Final source is frozen before later experiments advance it.
+The pinned input/oracle hashes remain below. The next confirmed cost is the
+operand-query helper's **15,921,704** public complete-header reads; consider
+the existing checked private implementation with native call/instruction
+and full pipeline controls. Aggregate fuzz remains deferred by request.
+
 ## September 29, 2026 catch-layout preflight
 
 The full control verifier already scans every live HOT node. It now records

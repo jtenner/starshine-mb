@@ -450,7 +450,12 @@ pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
 fn hot_verify_control_impl(
   func : HotFunc,
   catch_layout_calls? : Array[Int]? = None,
+  core_verification_calls? : Array[Int]? = None,
 ) -> Result[Unit, HotVerifyError] {
+  match core_verification_calls {
+    Some(calls) => calls[0] = calls[0] + 1
+    None => ()
+  }
   match hot_verify_core(func) {
     Ok(_) => ()
     Err(err) => return Err(err)
@@ -1736,11 +1741,24 @@ pub fn[C] hot_verify_all(
   cache? : C? = None,
 ) -> Result[Unit, HotVerifyError] {
   let _ = cache
-  match hot_verify_core(func) {
-    Ok(_) => ()
-    Err(err) => return Err(err)
+  hot_verify_all_impl(func)
+}
+
+///|
+fn hot_verify_all_impl(
+  func : HotFunc,
+  core_verification_calls? : Array[Int]? = None,
+) -> Result[Unit, HotVerifyError] {
+  // Control verification begins with the complete core verifier. No mutation
+  // separates the two original calls, so repeating core adds no checks and
+  // does not change which error is returned first.
+  match core_verification_calls {
+    // An explicitly forwarded None would box Some(None) at this optional-
+    // argument boundary. Keep default verification on the uncounted entry.
+    None => hot_verify_control(func)
+    Some(calls) =>
+      hot_verify_control_impl(func, core_verification_calls=Some(calls))
   }
-  hot_verify_control(func)
 }
 
 ///|

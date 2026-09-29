@@ -1,3 +1,17 @@
+### 2026-09-29 — DAE2 single core validation
+
+- [Single core validation](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-single-core-validation)
+  removes the duplicate all-verifier walk while preserving error order and
+  complete validation. The work assertion fails first; a native refinement
+  removes boxed disabled-counter forwarding (17 → 0 small). All 12,948 default
+  tests, native debug, eight controls and bounded original/v133 replays pass.
+  Final dependency instructions fall 3.57% with 290,548 fewer allocator requests;
+  complete verifier controls improve 30–44%, compiler timings stay near flat
+  and measured control/RSS costs remain explicit. Interrupted large-oracle and
+  queued profiles resume without repeating completed checks; partial evidence
+  stays interrupted. Final v133 large ratios remain open at 9.15×/4.39× with
+  unchanged bytes and size gap. Checked private header reads are next; fuzz is deferred.
+
 ### 2026-09-29 — DAE2 catch-layout preflight
 
 - [Catch-layout preflight](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-catch-layout-preflight)
