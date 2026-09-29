@@ -13,13 +13,13 @@ import {
 } from "./pass-performance-sweep";
 
 describe("pass performance sweep", () => {
-  test("requires the repository's Binaryen v132 oracle", () => {
+  test("requires the repository's Binaryen v133 oracle", () => {
     expect(() =>
-      assertBinaryenPerformanceVersion("wasm-opt version 132 (version_132)")
+      assertBinaryenPerformanceVersion("wasm-opt version 133 (version_133)")
     ).not.toThrow();
     expect(() =>
-      assertBinaryenPerformanceVersion("wasm-opt version 130 (version_130)")
-    ).toThrow("expected Binaryen v132");
+      assertBinaryenPerformanceVersion("wasm-opt version 132 (version_132)")
+    ).toThrow("expected Binaryen v133");
   });
 
   test("rejects an input or executable identity change during a campaign", () => {
@@ -156,6 +156,20 @@ describe("pass performance sweep", () => {
     expect(plan[0].args).toContain("--timing-only");
     expect(plan[0].args).toContain("--starshine-bin");
     expect(plan[0].args).toContain("--wasm-opt-bin");
+  });
+
+  test("applies closed-world mode to pass and reference measurements", () => {
+    const options = parsePassPerformanceSweepArgs([
+      "--input", "fixture.wasm",
+      "--passes", "global-type-optimization",
+      "--starshine-bin", "starshine",
+      "--wasm-opt-bin", "wasm-opt-v133",
+      "--closed-world",
+    ]);
+    expect(options.closedWorld).toBe(true);
+    expect(buildPassPerformanceSweepPlan(options).every((entry) =>
+      entry.args.includes("--closed-world")
+    )).toBe(true);
   });
 
   test("reports raw medians, baseline-subtracted costs, ratios, and identity", () => {

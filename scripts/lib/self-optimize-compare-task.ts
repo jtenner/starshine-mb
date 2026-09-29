@@ -125,9 +125,14 @@ const BINARYEN_FLAG_ALIASES = new Map<string, string>([
   ["--dead-code-elimination", "--dce"],
   ["--dead-argument-elimination", "--dae"],
   ["--dead-argument-elimination-optimizing", "--dae-optimizing"],
+  ["--global-effects", "--generate-global-effects"],
   ["--global-struct-inference", "--gsi"],
+  ["--global-struct-inference-desc-cast", "--gsi-desc-cast"],
+  ["--global-type-optimization", "--gto"],
   ["--redundant-set-elimination", "--rse"],
+  ["--simplify-locals-no-nesting", "--simplify-locals-nonesting"],
   ["--simplify-locals-no-structure", "--simplify-locals-nostructure"],
+  ["--simplify-locals-no-tee", "--simplify-locals-notee"],
 ]);
 
 const STARSHINE_FLAG_ALIASES = new Map<string, string>([
@@ -160,6 +165,14 @@ function normalizeBinaryenPassFlag(flag: string): string {
     fail(`unsupported preset flag for self-optimize compare: ${flag}`);
   }
   return BINARYEN_FLAG_ALIASES.get(flag) ?? flag;
+}
+
+export function normalizeBinaryenPassFlags(flags: string[]): string[] {
+  return flags.flatMap((flag) =>
+    flag === "--dae2-optimizing"
+      ? ["--dae2", "--simplify-locals", "--vacuum"]
+      : [normalizeBinaryenPassFlag(flag)]
+  );
 }
 
 function normalizeStarshinePassFlag(flag: string): string {
@@ -2557,7 +2570,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     );
   }
 
-  const binaryenPassFlags = options.passFlags.map(normalizeBinaryenPassFlag);
+  const binaryenPassFlags = normalizeBinaryenPassFlags(options.passFlags);
   const starshinePassFlags = options.passFlags.map(normalizeStarshinePassFlag);
   const starshineInvocation = resolveStarshineInvocation(
     repoRoot,

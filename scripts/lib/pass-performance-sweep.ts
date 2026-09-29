@@ -21,6 +21,7 @@ export type PassPerformanceSweepOptions = {
   warmup: number;
   samples: number;
   baselinePass: string;
+  closedWorld: boolean;
   bunBin: string;
   dryRun: boolean;
 };
@@ -121,6 +122,7 @@ export type PassPerformanceSweepReport = {
   warmup: number;
   samples: number;
   baselinePass: string;
+  closedWorld: boolean;
   passes: string[];
   plan: PassPerformanceSweepPlanEntry[];
   measuredSamples: PassPerformanceSample[];
@@ -238,6 +240,7 @@ export function parsePassPerformanceSweepArgs(
   let warmup = 1;
   let samples = 3;
   let baselinePass = "strip-debug";
+  let closedWorld = false;
   let bunBin = "bun";
   let dryRun = false;
 
@@ -281,6 +284,10 @@ export function parsePassPerformanceSweepArgs(
           argv[idx + 1] ?? fail("missing value for --baseline-pass"),
         );
         idx += 2;
+        break;
+      case "--closed-world":
+        closedWorld = true;
+        idx += 1;
         break;
       case "--bun":
         bunBin = argv[idx + 1] ?? fail("missing value for --bun");
@@ -329,6 +336,7 @@ export function parsePassPerformanceSweepArgs(
     warmup,
     samples,
     baselinePass,
+    closedWorld,
     bunBin,
     dryRun,
   };
@@ -386,6 +394,7 @@ export function buildPassPerformanceSweepPlan(
           options.wasmToolsBin,
           "--timing-only",
           "--wall-attribution",
+          ...(options.closedWorld ? ["--closed-world"] : []),
           `--${entry.pass}`,
         ],
       });
@@ -695,8 +704,8 @@ export function assertStablePerformanceIdentity(
 }
 
 export function assertBinaryenPerformanceVersion(version: string): void {
-  if (!/\bversion 132\b/.test(version)) {
-    fail(`expected Binaryen v132 for performance evidence, got: ${version}`);
+  if (!/\bversion 133\b/.test(version)) {
+    fail(`expected Binaryen v133 for performance evidence, got: ${version}`);
   }
 }
 
@@ -838,6 +847,7 @@ export function formatPassPerformanceSweepReport(
     `- Binaryen: \`${report.wasmOptBin}\` (SHA-256 \`${report.wasmOptBinSha256}\`)`,
     `- Binaryen version: \`${report.wasmOptVersion}\``,
     `- Method: ${report.warmup} warmup round(s), ${report.samples} measured alternating serial round(s), bracketed reference \`${report.baselinePass}\``,
+    `- Closed-world mode: ${report.closedWorld ? "yes" : "no"}`,
     "",
     `Reference medians (median±MAD): Starshine ${fmtMeasurement(report.summary.baseline.starshineCommandMedianMs, report.summary.baseline.starshineCommandMadMs)}; Binaryen ${fmtMeasurement(report.summary.baseline.binaryenCommandMedianMs, report.summary.baseline.binaryenCommandMadMs)}. Reference-adjusted increments use the mean of each round's leading and trailing references.`,
     "",
@@ -994,6 +1004,7 @@ export function runPassPerformanceSweep(
     warmup: options.warmup,
     samples: options.samples,
     baselinePass: options.baselinePass,
+    closedWorld: options.closedWorld,
     passes: options.passes,
     plan,
     measuredSamples,
@@ -1016,7 +1027,7 @@ export function runPassPerformanceSweep(
 function printHelp(): void {
   process.stdout.write(`Usage: bun scripts/pass-performance-sweep.ts \\
   --input <artifact.wasm> --passes <a,b,...> \\
-  --starshine-bin <current-native-cli> --wasm-opt-bin <verified-v132-wasm-opt> [options]
+  --starshine-bin <current-native-cli> --wasm-opt-bin <verified-v133-wasm-opt> [options]
 
 Runs bracketing references plus each direct pass serially, alternates pass order by round,
 requires traced/no-trace byte identity, and writes raw samples plus median timing,
@@ -1027,6 +1038,7 @@ Options:
   --warmup <N>             Warmup rounds (default/minimum: 1)
   --samples <N>            Measured rounds (default/minimum: 3)
   --baseline-pass <name>   Bracketing reference pass (default: strip-debug)
+  --closed-world           Apply closed-world mode to both tools in every run
   --wasm-tools-bin <path>  wasm-tools executable (default: wasm-tools)
   --bun <path>             Bun executable (default: bun)
   --dry-run                Print the serial plan without executing it
