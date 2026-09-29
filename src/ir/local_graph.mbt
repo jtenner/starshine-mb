@@ -1398,7 +1398,7 @@ fn local_graph_reverse_action_sequences(
 
 ///|
 fn local_graph_reverse_find_last_write(
-  func : HotFunc,
+  write_local_ids : Array[LocalId],
   actions : Array[NodeId],
   end : Int,
   local_id : LocalId,
@@ -1407,13 +1407,8 @@ fn local_graph_reverse_find_last_write(
   while idx > 0 {
     idx -= 1
     let node_id = actions[idx]
-    let node = hot_node_get(func, node_id)
-    match node.op {
-      HotOp::LocalSet | HotOp::LocalTee =>
-        if node.imm0 == local_id {
-          return Some(node_id)
-        }
-      _ => ()
+    if write_local_ids[node_id] == local_id {
+      return Some(node_id)
     }
   }
   None
@@ -1421,7 +1416,7 @@ fn local_graph_reverse_find_last_write(
 
 ///|
 fn local_graph_reverse_indexed_last_write(
-  func : HotFunc,
+  write_local_ids : Array[LocalId],
   actions : Array[Array[NodeId]],
   block : BlockId,
   local_id : LocalId,
@@ -1430,7 +1425,7 @@ fn local_graph_reverse_indexed_last_write(
   let nodes = actions[block]
   if nodes.length() <= 4 {
     return local_graph_reverse_find_last_write(
-      func,
+      write_local_ids,
       nodes,
       nodes.length(),
       local_id,
@@ -1441,9 +1436,9 @@ fn local_graph_reverse_indexed_last_write(
     None => {
       let index : @hashmap.HashMap[Int, NodeId] = @hashmap.new()
       for node in nodes {
-        let data = hot_node_get(func, node)
-        if data.op is HotOp::LocalSet || data.op is HotOp::LocalTee {
-          index.set(data.imm0, node)
+        let local = write_local_ids[node]
+        if local >= 0 {
+          index.set(local, node)
         }
       }
       indices[block] = Some(index)
@@ -1455,7 +1450,7 @@ fn local_graph_reverse_indexed_last_write(
 
 ///|
 fn local_graph_reverse_transparent_predecessors(
-  func : HotFunc,
+  write_local_ids : Array[LocalId],
   cfg : HotCfg,
   actions : Array[Array[NodeId]],
   include_exceptional : Bool,
@@ -1465,12 +1460,9 @@ fn local_graph_reverse_transparent_predecessors(
   for block in 0..<count {
     let mut writes = false
     for node in actions[block] {
-      match hot_node_op(func, node) {
-        HotOp::LocalSet | HotOp::LocalTee => {
-          writes = true
-          break
-        }
-        _ => ()
+      if write_local_ids[node] >= 0 {
+        writes = true
+        break
       }
     }
     if writes {
@@ -1521,7 +1513,7 @@ fn local_graph_reverse_transparent_predecessors(
 
 ///|
 fn local_graph_reverse_entry_sources(
-  func : HotFunc,
+  write_local_ids : Array[LocalId],
   cfg : HotCfg,
   actions : Array[Array[NodeId]],
   transparent_predecessors : Array[BlockId],
@@ -1556,7 +1548,7 @@ fn local_graph_reverse_entry_sources(
       let pred = transparent_predecessors[edge.block]
       match
         local_graph_reverse_indexed_last_write(
-          func, actions, pred, local_id, last_writes,
+          write_local_ids, actions, pred, local_id, last_writes,
         ) {
         Some(write_id) => {
           let source_id = local_graph_set_source_id(local_count, write_id)
@@ -1662,8 +1654,11 @@ fn local_graph_build_reverse_flow(
     written_locals.clear()
   }
 
+  // The final graph already needs this immutable index. Reuse it for every
+  // predecessor query instead of decoding the same node at each visit.
+  let write_local_ids = local_graph_build_write_local_ids(func)
   let transparent_predecessors = local_graph_reverse_transparent_predecessors(
-    func, cfg, actions, include_exceptional,
+    write_local_ids, cfg, actions, include_exceptional,
   )
   let get_sources : Array[Array[Int]] = Array::make(node_count, [])
   let write_influences = local_graph_empty_influences(func)
@@ -1698,7 +1693,7 @@ fn local_graph_build_reverse_flow(
       [local_graph_set_source_id(local_count, write_id)]
     } else {
       local_graph_reverse_entry_sources(
-        func,
+        write_local_ids,
         cfg,
         actions,
         transparent_predecessors,
@@ -1727,7 +1722,7 @@ fn local_graph_build_reverse_flow(
     param_count: hot_param_count(func),
     get_source_ids: get_sources,
     set_influence_gets: write_influences,
-    write_local_ids: local_graph_build_write_local_ids(func),
+    write_local_ids,
     write_is_tees: local_graph_build_write_is_tees(func),
     local_is_already_ssa: local_graph_build_local_already_ssa(
       func, local_count, get_sources,

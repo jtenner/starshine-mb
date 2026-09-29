@@ -46,7 +46,7 @@ test "reverse local flow preserves sources through transparent chains and cycles
   for exceptional in [false, true] {
     let actions = local_graph_reverse_action_sequences(func, builder.cfg)
     let transparent = local_graph_reverse_transparent_predecessors(
-      func,
+      local_graph_build_write_local_ids(func),
       builder.cfg,
       actions,
       exceptional,

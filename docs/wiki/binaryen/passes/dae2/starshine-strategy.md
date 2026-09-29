@@ -25,6 +25,32 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 reuse the write-local index
+
+Reverse-flow construction now builds its required node-to-write-local vector
+before queries and reuses it for short write scans, lazy block indexes and
+transparent-chain admission. It retains the same vector in the finished graph;
+there is no additional persistent index. This removes repeated complete HOT
+node reads in predecessor queries. The
+[bounded lookup guard](../../../../../src/ir/local_graph_write_index_wbtest.mbt)
+passes before/after for reads, sets, tees, absent locals and prefix limits;
+[native controls](../../../../../src/ir/local_graph_write_index_perf_wbtest.mbt)
+compare the old scan and the indexed lookup on the same function. A 512-query
+batch improves 6.31 → 3.70µs (−41.36%).
+
+The enclosing effect is modest: three paired large medians are
+4324.275 → 4293.496ms for DAE2 (−0.71%; MAD 3.134/13.836ms) and
+7115.667 → 7094.366ms for DAE2-O (−0.30%; MAD 35.662/5.471ms).
+Small medians are 4.261 → 4.151ms / 11.095 → 11.091ms; active tee medians
+are 3.680 → 3.693ms / 103.460 → 102.506ms. These near-flat artifact controls
+must not be presented as a major pipeline win. All bytes match; info, fmt,
+12,914 default tests, native build, both controls and the fixed 126-module /
+1,029-observation original/v133 lane pass. Candidate SHA-256 is
+`df13c59e51ff5d011a90083dfd623f6a01d4e9aa473fb631bc1a4519702e5c04`;
+local evidence has the `v4` suffix. The additional source-order tests present
+in this validation are guards for the following trial, not yet its implementation.
+No aggregate fuzz or new competitiveness claim is made.
+
 ## September 29, 2026 read-only predecessor chains
 
 Reverse local-flow queries previously walked every intervening read-only block

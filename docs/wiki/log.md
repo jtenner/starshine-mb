@@ -11,6 +11,8 @@
   Read-only predecessor compression adds 4.97%/3.53% large reductions,
   with 12,911 tests passing and small/tee control costs recorded. Fresh
   dependency attribution identifies CFG construction and reverse queries.
+  Reusing the write-local vector improves the lookup control 41%, with
+  near-flat artifact costs and 12,914 default tests passing.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration
