@@ -18,6 +18,9 @@
   bounded semantic and bidirectional performance controls remain in the repo.
   CFG root snapshot reuse then removes repeated region lookup, improving large
   DAE2 4.02% with 12,919 tests passing; optimizing/control costs stay explicit.
+  SSA singleton summaries replace growing unions and a second arena scan;
+  the 512-write control improves 48.72 → 6.47µs, with large artifacts near flat
+  and 12,919 tests passing. Instruction counts and noisy control costs remain explicit.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration

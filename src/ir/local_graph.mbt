@@ -959,42 +959,53 @@ fn local_graph_build_local_already_ssa(
   local_count : Int,
   get_sources : Array[Array[Int]],
 ) -> Array[Bool] {
-  let index_sources : Array[Array[Int]] = []
-  for _ in 0..<local_count {
-    index_sources.push([])
+  if local_count == 0 {
+    return []
   }
-  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+  // Finalized source IDs are nonnegative; sparse symbols are resolved first.
+  // Only singleton identity matters. -1 means unseen and -2 means multiple;
+  // retain no growing union after a second distinct source is observed.
+  let reads = Array::make(local_count, -1)
+  let writes = Array::make(local_count, -1)
+  for node_id in 0..<hot_node_count(func) {
     if !hot_node_is_live(func, node_id) {
       continue
     }
     let node = hot_node_get(func, node_id)
     match node.op {
-      HotOp::LocalGet =>
-        ignore(
-          local_graph_union_into(index_sources[node.imm0], get_sources[node_id]),
-        )
-      _ => ()
-    }
-  }
-  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
-    if !hot_node_is_live(func, node_id) {
-      continue
-    }
-    let node = hot_node_get(func, node_id)
-    match node.op {
+      HotOp::LocalGet => {
+        let mut source = reads[node.imm0]
+        if source == -2 {
+          continue
+        }
+        for incoming in get_sources[node_id] {
+          if source == -1 {
+            source = incoming
+          } else if source != incoming {
+            source = -2
+            break
+          }
+        }
+        reads[node.imm0] = source
+      }
       HotOp::LocalSet | HotOp::LocalTee => {
-        let sources = index_sources[node.imm0]
-        if sources.length() == 1 &&
-          sources[0] != local_graph_set_source_id(local_count, node_id) {
-          sources.clear()
+        let source = local_graph_set_source_id(local_count, node_id)
+        let previous = writes[node.imm0]
+        writes[node.imm0] = if previous == -1 || previous == source {
+          source
+        } else {
+          -2
         }
       }
       _ => ()
     }
   }
-  let out : Array[Bool] = []
-  for sources in index_sources {
-    out.push(sources.length() == 1)
+  let out : Array[Bool] = Array(capacity=local_count)
+  for local in 0..<local_count {
+    out.push(
+      reads[local] >= 0 &&
+      (writes[local] == -1 || writes[local] == reads[local]),
+    )
   }
   out
 }

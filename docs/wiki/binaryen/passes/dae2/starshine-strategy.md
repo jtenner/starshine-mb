@@ -25,6 +25,40 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 bounded SSA source summaries
+
+LocalGraph's SSA flag needs only one distinct reaching source and agreement
+with every write. It now records unseen/singleton/multiple identities in two
+flat local-indexed arrays during one arena scan. This replaces growing unions
+with linear membership searches, one heap array per local and a second arena
+scan. Finalized nonnegative source IDs remain distinct from the private summary
+sentinels; unused writes still invalidate singleton reads when identities differ.
+
+The [bounded guards](../../../../../src/ir/local_graph_ssa_summary_wbtest.mbt)
+cover entry values, singleton/multiple writes and unread conflicting writes;
+they pass before and after. The [native controls](../../../../../src/ir/local_graph_ssa_summary_perf_wbtest.mbt)
+compare the original union with the summary: 16/128/512 writes take
+0.643 → 0.266µs / 6.22 → 1.68µs / 48.72 → 6.47µs. This removes the
+quadratic union on that workload without claiming a large compiler gain.
+
+Paired large DAE2/O medians are effectively flat at
+4553.674 → 4562.817ms / 7615.647 → 7540.545ms; respective MADs are
+33.512/51.085ms and 157.977/39.231ms. Small medians are
+4.723 → 4.334ms / 11.619 → 11.747ms; active tee medians are
+3.791 → 3.985ms (+5.12%) / 106.828 → 106.876ms. Preserve these noisy control
+costs. Separate whole-command Callgrind counts on the small input fall
+81,849,693 → 81,523,967 / 173,674,540 → 173,343,909 instructions
+(−0.40%/−0.19%); active tee counts are essentially unchanged
+102,629,320 → 102,633,080 / 2,049,641,510 → 2,049,674,565. Instruction
+counts do not establish wall-time improvements or erase the observed costs.
+
+Info, fmt, 12,919 default tests, native build, six controls and the fixed
+126-module / 1,029-observation original/v133 replay pass with identical output
+bytes. Local evidence has the `v7` suffix, plus `small-instructions-v7/` and
+`tee-instructions-v7/`; candidate SHA-256 is
+`eeadc7c3e87fdb0a56b31aaf27721f92e97a718cea28ccf5ad6b8ac6ecf20763`.
+No aggregate fuzz ran.
+
 ## September 29, 2026 reuse CFG region-root snapshots
 
 Expanded CFG construction already snapshots each region's roots for source

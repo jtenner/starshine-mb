@@ -16,6 +16,8 @@
   helper improvement; large artifact costs near flat; 12,914 tests pass).
   Reusing existing CFG root snapshots adds a 4.02% large DAE2 reduction;
   DAE2-O is nearly flat, small/tee costs remain recorded, and 12,919 tests pass.
+  SSA singleton summaries remove a quadratic union (512-write control
+  48.72 → 6.47µs); large compiler times are near flat and 12,919 tests pass.
   Remaining targets include source-order scans, source-union churn, and lift/lower;
   opcode-based tuple preparation removes temporary strings and improves paired
   large DAE2/O a further 3.89%/2.90% with identical bytes (12,910 tests pass); fresh oracle ratios and deferred aggregate fuzz remain open.
@@ -252,7 +254,8 @@ breadth. Shared changes require all affected consumers in the matrix below.
   Lean-v5/v5b source-order caches are rejected: strong synthetic gains did
   not improve compiler pipelines, and v5b regressed small/large DAE2. Preserve
   the bidirectional controls; overlapping access lists remain an open quadratic
-  family. Reuse the existing CFG root snapshot before adding more caches.
+  family. Existing CFG root snapshots are now reused (lean-v6); avoid
+  rebuilding region/label/type lookup per operand before adding more caches.
   The fresh lean-v2 dependency-only profile puts CFG construction at 56.38%
   and LocalGraph at 32.81% inclusive, with node reads at 15.46% self. Target
   repeated last-write decoding and source-order scans next; do not confuse
