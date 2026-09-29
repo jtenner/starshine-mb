@@ -833,21 +833,36 @@ pub fn hot_root_splice(
   for root in new_roots {
     hot_mutate_require_live_node(func, root, "hot root slots")
   }
+  // Callers may supply the root array itself. Freeze that input before moving
+  // slots, then shift the retained suffix once rather than once per edit.
+  let new_roots = if physical_equal(new_roots, func.roots) {
+    new_roots.copy()
+  } else {
+    new_roots
+  }
+  let old_length = func.roots.length()
+  let delta = new_roots.length() - remove_count
   let removed : Array[NodeId] = []
   for i = idx; i < idx + remove_count; i = i + 1 {
     removed.push(func.roots[i])
   }
-  for _ in 0..<remove_count {
-    ignore(hot_mutate_root_remove_no_bump(func, idx))
+  if delta > 0 {
+    for _ in 0..<delta {
+      func.roots.push(new_roots[0])
+    }
+    for slot = old_length - 1; slot >= idx + remove_count; slot = slot - 1 {
+      func.roots[slot + delta] = func.roots[slot]
+    }
+  } else if delta < 0 {
+    for slot = idx + remove_count; slot < old_length; slot = slot + 1 {
+      func.roots[slot + delta] = func.roots[slot]
+    }
+    for _ in 0..<-delta {
+      ignore(func.roots.pop())
+    }
   }
-  for insert_idx = 0
-      insert_idx < new_roots.length()
-      insert_idx = insert_idx + 1 {
-    hot_mutate_root_insert_no_bump(
-      func,
-      idx + insert_idx,
-      new_roots[insert_idx],
-    )
+  for slot = 0; slot < new_roots.length(); slot = slot + 1 {
+    func.roots[idx + slot] = new_roots[slot]
   }
   hot_revision_bump(func)
   removed
@@ -855,15 +870,19 @@ pub fn hot_root_splice(
 
 ///|
 pub fn hot_child_count(func : HotFunc, id : NodeId) -> Int {
-  hot_mutate_require_live_node(func, id, "hot child_count")
+  if !hot_node_read_is_proven_live(func, id) {
+    hot_mutate_require_live_node(func, id, "hot child_count")
+  }
   func.nodes[id].child_count
 }
 
 ///|
 pub fn hot_child_get(func : HotFunc, id : NodeId, idx : Int) -> NodeId {
-  let node = hot_node_get(func, id)
-  hot_mutate_require_child_index(node, idx)
-  func.children[node.child_base + idx]
+  hot_node_require_live_read(func, id)
+  if idx < 0 || idx >= func.nodes[id].child_count {
+    abort("hot child index out of bounds")
+  }
+  func.children[func.nodes[id].child_base + idx]
 }
 
 ///|
@@ -1163,13 +1182,27 @@ pub fn hot_control_demote_if_to_block(
   hot_mutate_require_label_id(
     func, label_id, "hot_control_demote_if_to_block if label",
   )
-  ignore(hot_replace_child_span(func, if_id, new_children))
+  let entry_count = node.child_count - 3
+  let children = if entry_count == 0 {
+    new_children
+  } else {
+    let children : Array[NodeId] = []
+    for slot in 3..<node.child_count {
+      children.push(func.children[node.child_base + slot])
+    }
+    for child in new_children {
+      children.push(child)
+    }
+    children
+  }
+  ignore(hot_replace_child_span(func, if_id, children))
   let next_node = hot_node_get(func, if_id)
   func.nodes[if_id] = {
     ..next_node,
     op: HotOp::Block,
     flags: hot_default_flags_for_op(HotOp::Block),
     imm0: label_id,
+    imm1: entry_count,
   }
   func.labels[label_id] = {
     kind: HotLabelKind::BlockLabel,
@@ -1251,8 +1284,54 @@ pub fn hot_tuple_make_promote_to_block(
 
 ///|
 pub fn hot_node_get(func : HotFunc, id : NodeId) -> HotNode {
-  hot_mutate_require_live_node(func, id, "hot node_get")
+  hot_node_get_impl(func, id, None)
+}
+
+///|
+#inline
+fn hot_node_get_impl(
+  func : HotFunc,
+  id : NodeId,
+  fallback_checks : Array[Int]?,
+) -> HotNode {
+  if !hot_node_read_is_proven_live(func, id) {
+    match fallback_checks {
+      Some(checks) => checks[0] += 1
+      None => ()
+    }
+    hot_mutate_require_live_node(func, id, "hot node_get")
+  }
   func.nodes[id]
+}
+
+///|
+// Field reads share the same checked admission as complete node reads without
+// materializing a HotNode return value at the package boundary.
+#inline
+fn hot_node_read_is_proven_live(func : HotFunc, id : NodeId) -> Bool {
+  if id < 0 || id >= func.nodes.length() {
+    false
+  } else if func.free_nodes.is_empty() {
+    true
+  } else if id < func.deleted_nodes.length() {
+    !func.deleted_nodes[id]
+  } else {
+    false
+  }
+}
+
+///|
+#inline
+fn hot_node_require_live_read(func : HotFunc, id : NodeId) -> Unit {
+  if !hot_node_read_is_proven_live(func, id) {
+    hot_mutate_require_live_node(func, id, "hot node_get")
+  }
+}
+
+///|
+pub fn hot_node_op(func : HotFunc, id : NodeId) -> HotOp {
+  hot_node_require_live_read(func, id)
+  func.nodes[id].op
 }
 
 ///|

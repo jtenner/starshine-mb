@@ -88,6 +88,9 @@ fn hot_region_ref_from_holder(func : HotFunc, holder : NodeId) -> HotRegionRef {
 ///|
 fn hot_region_body_base(func : HotFunc, holder : NodeId) -> Int {
   let node = hot_node_get(func, holder)
+  if node.op == HotOp::Block && node.imm1 > 0 {
+    return node.imm1
+  }
   if node.op != HotOp::Loop {
     return 0
   }

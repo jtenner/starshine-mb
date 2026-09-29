@@ -141,6 +141,7 @@ pub fn HotOp::atomic_op() -> HotOp {
 }
 
 ///|
+#valtype
 pub struct HotNode {
   op : HotOp
   ty : TypeId
@@ -422,24 +423,51 @@ pub fn hot_body_result_type_set(func : HotFunc, ty : TypeId) -> Unit {
 
 ///|
 pub fn hot_node_is_live(func : HotFunc, node_id : NodeId) -> Bool {
+  // Keep normal getters on a direct path: the optional work probe belongs to
+  // the incomplete-bitmap fallback, not every read of a maintained HOT arena.
   if node_id < 0 || node_id >= func.nodes.length() {
     return false
   }
   if func.free_nodes.is_empty() {
     return true
   }
+  if node_id < func.deleted_nodes.length() {
+    return !func.deleted_nodes[node_id]
+  }
+  hot_node_is_live_impl(func, node_id)
+}
+
+///|
+fn hot_node_is_live_impl(
+  func : HotFunc,
+  node_id : NodeId,
+  free_list_checks? : Array[Int]? = None,
+) -> Bool {
+  if node_id < 0 || node_id >= func.nodes.length() {
+    return false
+  }
+  if func.free_nodes.is_empty() {
+    return true
+  }
+  if node_id < func.deleted_nodes.length() {
+    // Allocation and deletion already maintain this bitmap, including small
+    // free lists. Repeated getters can therefore answer without rescanning
+    // every tombstone. Keep the fallback for incomplete internal fixtures.
+    return !func.deleted_nodes[node_id]
+  }
   if func.free_nodes.length() <= 32 {
     for free_id in func.free_nodes {
+      match free_list_checks {
+        Some(checks) => checks[0] += 1
+        None => ()
+      }
       if free_id == node_id {
         return false
       }
     }
     return true
   }
-  if node_id >= func.deleted_nodes.length() {
-    return true
-  }
-  !func.deleted_nodes[node_id]
+  true
 }
 
 ///|

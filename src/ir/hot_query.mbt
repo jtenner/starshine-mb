@@ -147,7 +147,8 @@ pub fn hot_node_kind_is_atomic(func : HotFunc, node_id : NodeId) -> Bool {
 
 ///|
 pub fn hot_node_type(func : HotFunc, node_id : NodeId) -> TypeId {
-  hot_node_get(func, node_id).ty
+  hot_node_require_live_read(func, node_id)
+  func.nodes[node_id].ty
 }
 
 ///|

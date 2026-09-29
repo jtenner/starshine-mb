@@ -4,11 +4,18 @@
 priv struct LocalGraphTupleState {
   mut evaluated : @set.Set[NodeId]?
   slots : Array[Int]?
+  join_visits : Array[Int]?
+  local_count : Int
+  mut write_journal : LocalGraphWriteJournal?
 }
 
 ///|
-fn LocalGraphTupleState::new(slots : Array[Int]?) -> LocalGraphTupleState {
-  { evaluated: None, slots, }
+fn LocalGraphTupleState::new(
+  slots : Array[Int]?,
+  join_visits? : Array[Int]? = None,
+  local_count? : Int = 0,
+) -> LocalGraphTupleState {
+  { evaluated: None, slots, join_visits, local_count, write_journal: None, }
 }
 
 ///|
@@ -47,7 +54,12 @@ fn LocalGraphTupleState::already_evaluated(
 fn LocalGraphTupleState::copy(
   self : LocalGraphTupleState,
 ) -> LocalGraphTupleState {
-  let copied = LocalGraphTupleState::new(self.slots)
+  let copied = LocalGraphTupleState::new(
+    self.slots,
+    join_visits=self.join_visits,
+    local_count=self.local_count,
+  )
+  copied.write_journal = self.write_journal
   match self.evaluated {
     Some(entries) => {
       copied.evaluated = Some(entries.copy())
@@ -72,4 +84,32 @@ fn LocalGraphTupleState::intersect_paths(
     }
     _ => None
   }
+}
+
+///|
+// A journal belongs to one recursive block transfer. Forks share it because
+// writes are observations, while source arrays remain owned by each path.
+priv struct LocalGraphWriteJournal {
+  locals : Array[Int]
+  seen : Array[Bool]
+}
+
+///|
+fn LocalGraphWriteJournal::new(count : Int) -> LocalGraphWriteJournal {
+  { locals: [], seen: Array::make(count, false), }
+}
+
+///|
+fn LocalGraphTupleState::prepare_write_journal(
+  self : LocalGraphTupleState,
+) -> LocalGraphWriteJournal? {
+  if self.local_count < 128 {
+    return None
+  }
+  if self.write_journal is Some(journal) {
+    return Some(journal)
+  }
+  let journal = LocalGraphWriteJournal::new(self.local_count)
+  self.write_journal = Some(journal)
+  Some(journal)
 }

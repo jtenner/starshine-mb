@@ -76,7 +76,8 @@ fn local_graph_build_sparse_flow(
 ) -> HotLocalGraph {
   let local_count = hot_local_count(func)
   let node_count = hot_node_count(func)
-  let get_sources : Array[Array[Int]] = Array::makei(node_count, fn(_) { [] })
+  let get_sources : Array[Array[Int]] = Array::make(node_count, [])
+  let recorded_sources = LocalGraphSourceRecorder::new(get_sources)
   let summaries : Array[@hashmap.HashMap[Int, Array[Int]]] = []
   let cache : Array[@hashmap.HashMap[Int, Array[Int]]] = []
   for block = 0; block < cfg_block_count(cfg); block = block + 1 {
@@ -89,7 +90,7 @@ fn local_graph_build_sparse_flow(
       cfg,
       block,
       state,
-      Some(get_sources),
+      Some(recorded_sources),
       None,
     )
     let summary : @hashmap.HashMap[Int, Array[Int]] = @hashmap.new()
@@ -138,7 +139,7 @@ fn local_graph_build_sparse_flow(
         local_count,
         node,
         resolved,
-        Some(get_sources),
+        Some(recorded_sources),
         Some(write_influences),
       )
     }

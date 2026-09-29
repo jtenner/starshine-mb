@@ -298,9 +298,10 @@ pub fn ssa_rewrite_local_use(
 }
 
 ///|
-fn ssa_destroy_is_region_slot(op : HotOp, slot : Int) -> Bool {
-  match op {
-    HotOp::Block | HotOp::Loop => true
+fn ssa_destroy_is_region_slot(node : HotNode, slot : Int) -> Bool {
+  match node.op {
+    HotOp::Block => slot >= node.imm1
+    HotOp::Loop => true
     HotOp::If => slot == 1 || slot == 2
     HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
     _ => false
@@ -339,8 +340,9 @@ fn ssa_destroy_assign_node_order_node(
   }
   let mut cursor = next_order
   let node = hot_node_get(func, node_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if ssa_destroy_is_region_slot(node.op, slot) {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if ssa_destroy_is_region_slot(node, slot) {
       continue
     }
     cursor = ssa_destroy_assign_node_order_node(
@@ -421,8 +423,9 @@ fn ssa_destroy_mark_reachable_node_tree(
   }
   reachable_nodes[node_id] = true
   let node = hot_node_get(func, node_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if ssa_destroy_is_region_slot(node.op, slot) {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if ssa_destroy_is_region_slot(node, slot) {
       continue
     }
     ssa_destroy_mark_reachable_node_tree(
@@ -592,8 +595,9 @@ fn ssa_destroy_mark_block_node(
     node_blocks[node_id] = block_id
   }
   let node = hot_node_get(func, node_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if ssa_destroy_is_region_slot(node.op, slot) {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if ssa_destroy_is_region_slot(node, slot) {
       continue
     }
     ssa_destroy_mark_block_node(
@@ -679,8 +683,9 @@ fn ssa_destroy_node_contains_terminator(
   if cfg_op_is_terminator(node.op) {
     return true
   }
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if ssa_destroy_is_region_slot(node.op, slot) {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if ssa_destroy_is_region_slot(node, slot) {
       continue
     }
     if ssa_destroy_node_contains_terminator(
@@ -792,8 +797,9 @@ fn ssa_destroy_mark_root_slot_node(
   }
   node_root_slots[node_id] = root_slot
   let node = hot_node_get(func, node_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if ssa_destroy_is_region_slot(node.op, slot) {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if ssa_destroy_is_region_slot(node, slot) {
       continue
     }
     ssa_destroy_mark_root_slot_node(
@@ -971,7 +977,7 @@ fn ssa_destroy_has_live_parent(func : HotFunc, node_id : NodeId) -> Bool {
     }
     let parent = hot_node_get(func, parent_id)
     for slot = 0; slot < parent.child_count; slot = slot + 1 {
-      if ssa_destroy_is_region_slot(parent.op, slot) {
+      if ssa_destroy_is_region_slot(parent, slot) {
         continue
       }
       if hot_child_get(func, parent_id, slot) == node_id {

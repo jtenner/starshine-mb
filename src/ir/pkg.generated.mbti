@@ -4,6 +4,7 @@ package "jtenner/starshine/ir"
 import {
   "jtenner/starshine/bitset",
   "jtenner/starshine/lib",
+  "jtenner/starshine/validate",
   "moonbitlang/core/debug",
   "moonbitlang/core/hashmap",
 }
@@ -309,6 +310,8 @@ pub fn hot_build_ref_func(HotFunc, @lib.FuncIdx, @lib.RefType) -> Int
 
 pub fn hot_build_ref_null(HotFunc, @lib.RefType) -> Int
 
+pub fn hot_build_region(HotFunc, Array[Int], Int) -> Int
+
 pub fn hot_build_resolved_block(HotFunc, @lib.BlockType, Array[@lib.ValType], Array[@lib.ValType], Array[Int]) -> Int
 
 pub fn hot_build_return(HotFunc, Array[Int]) -> Int
@@ -481,6 +484,8 @@ pub fn hot_memarg_get(HotFunc, Int) -> HotMemArg
 
 pub fn hot_module_context_from_module(@lib.Module) -> HotModuleContext
 
+pub fn hot_module_context_validation_env(HotModuleContext) -> @validate.Env
+
 pub fn hot_module_func_has_annotation(HotModuleContext, @lib.FuncIdx, String) -> Bool
 
 pub fn hot_module_func_import_matches(HotModuleContext, @lib.FuncIdx, String, String) -> Bool
@@ -564,6 +569,8 @@ pub fn hot_node_kind_is_table(HotFunc, Int) -> Bool
 pub fn hot_node_kind_is_tuple(HotFunc, Int) -> Bool
 
 pub fn hot_node_may_throw_exception(HotFunc, Int) -> Bool
+
+pub fn hot_node_op(HotFunc, Int) -> HotOp
 
 pub fn hot_node_promote_to_block(HotFunc, Int, @lib.BlockType, Array[Int]) -> Unit
 
@@ -826,6 +833,12 @@ pub fn local_graph_influenced_gets_for_write(HotLocalGraph, Int) -> Array[Int]
 pub fn local_graph_local_is_already_ssa(HotLocalGraph, Int) -> Bool
 
 pub fn local_graph_node_is_write(HotLocalGraph, Int) -> Bool
+
+pub fn local_graph_reaching_source_count_for_get(HotLocalGraph, Int) -> Int
+
+pub fn local_graph_reaching_source_for_get(HotLocalGraph, Int, Int) -> HotLocalGraphSource
+
+pub fn local_graph_reaching_source_value_for_get(HotLocalGraph, Int, Int) -> HotLocalGraphSourceValue
 
 pub fn local_graph_reaching_sources_for_get(HotLocalGraph, Int) -> Array[HotLocalGraphSource]
 
@@ -1266,6 +1279,11 @@ pub struct HotLocalGraph {
 pub enum HotLocalGraphSource {
   EntrySource(Int)
   SetSource(Int)
+} derive(Eq, @debug.Debug)
+
+pub struct HotLocalGraphSourceValue {
+  is_entry : Bool
+  index : Int
 } derive(Eq, @debug.Debug)
 
 pub struct HotLocalSsa {

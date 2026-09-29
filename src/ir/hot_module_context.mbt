@@ -20,6 +20,25 @@ pub struct HotModuleContext {
 } derive(Eq, Debug)
 
 ///|
+/// Build a reusable body-validation environment from one immutable module
+/// context. Function-local labels, locals and return state are intentionally
+/// absent; the body validator adds them independently for each function.
+pub fn hot_module_context_validation_env(
+  ctx : HotModuleContext,
+) -> @validate.Env {
+  @validate.Env::new()
+  .with_exact_reference_inference(ctx.uses_custom_descriptors)
+  .with_types(ctx.subtypes)
+  .with_funcs_and_type_idxs(ctx.func_types, ctx.func_type_slots)
+  .with_tables(ctx.tables)
+  .with_mems(ctx.mems)
+  .with_globals(ctx.globals)
+  .with_elems(ctx.elems)
+  .with_datas(ctx.datas)
+  .with_tags(ctx.tags)
+}
+
+///|
 fn hot_module_context_flatten_subtypes(
   type_sec : @lib.TypeSec?,
 ) -> Array[SubType] {

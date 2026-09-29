@@ -1,5 +1,22 @@
 ///|
-fn hot_intern_type(func : HotFunc, info : HotTypeInfo) -> TypeId {
+fn hot_intern_type(
+  func : HotFunc,
+  info : HotTypeInfo,
+  key_formats? : Array[Int]? = None,
+) -> TypeId {
+  // Common functions have only a few result shapes. Structural comparison
+  // avoids allocating a rendered key on repeated tuple/control queries.
+  // Keep the existing indexed lookup for larger heterogeneous type tables.
+  if func.types.length() <= 16 {
+    for id = 0; id < func.types.length(); id = id + 1 {
+      if func.types[id] == info {
+        return id
+      }
+    }
+  }
+  if key_formats is Some(count) {
+    count[0] += 1
+  }
   let key = info.to_string()
   match func.type_ids.get(key) {
     Some(id) => id
@@ -97,7 +114,33 @@ fn hot_type_block_result_values(block_type : BlockType) -> Array[ValType] {
 
 ///|
 pub fn hot_type_result_arity(func : HotFunc, type_id : TypeId) -> Int {
-  hot_type_results(func, type_id).length()
+  hot_type_result_arity_impl(func, type_id, None)
+}
+
+///|
+#inline
+fn hot_type_result_arity_impl(
+  func : HotFunc,
+  type_id : TypeId,
+  copied_values : Array[Int]?,
+) -> Int {
+  // Counting results does not require the owned arrays returned by
+  // hot_type_results. Keep its unresolved-block error behavior unchanged.
+  ignore(copied_values)
+  match hot_type_get(func, type_id) {
+    VoidType => 0
+    Value(_) => 1
+    BlockResult(block_type) =>
+      match block_type {
+        VoidBlockType => 0
+        ValTypeBlockType(_) => 1
+        TypeIdxBlockType(_) =>
+          abort(
+            "type-index block types are not supported by the current hot type queries",
+          )
+      }
+    BlockResultResolved(_, _, values) | Results(values) => values.length()
+  }
 }
 
 ///|

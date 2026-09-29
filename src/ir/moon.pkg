@@ -9,3 +9,7 @@ import {
   "moonbitlang/core/double",
   "moonbitlang/core/float",
 }
+
+import {
+  "jtenner/starshine/binary",
+} for "wbtest"

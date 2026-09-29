@@ -69,6 +69,23 @@ fn hot_walk_push_live_node(
 }
 
 ///|
+// If keeps its historical condition/then/else slots, followed by typed entry
+// operands. Execution order is entries, condition, then the selected region.
+#inline
+fn hot_child_evaluation_slot(node : HotNode, index : Int) -> Int {
+  if node.op == HotOp::If && node.child_count > 3 {
+    let entries = node.child_count - 3
+    if index < entries {
+      index + 3
+    } else {
+      index - entries
+    }
+  } else {
+    index
+  }
+}
+
+///|
 fn hot_walk_push_children_reversed(
   func : HotFunc,
   stack : Array[NodeId],

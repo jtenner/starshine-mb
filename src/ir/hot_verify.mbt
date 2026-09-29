@@ -473,12 +473,16 @@ pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
           }
         }
       HotOp::If => {
-        if node.child_count != 3 {
+        let entry_count = match hot_type_get(func, node.ty) {
+          BlockResultResolved(_, params, _) => params.length()
+          _ => 0
+        }
+        if node.child_count != 3 + entry_count {
           return Err(
             HotVerifyError::InvalidControlChildCount(
               node_id,
               node.child_count,
-              3,
+              3 + entry_count,
             ),
           )
         }
@@ -488,6 +492,14 @@ pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
           return Err(
             HotVerifyError::InvalidControlChild(node_id, 0, condition_id),
           )
+        }
+        for slot in 3..<node.child_count {
+          let entry = hot_child_get(func, node_id, slot)
+          if entry == HOT_NONE_NODE || !hot_node_is_live(func, entry) {
+            return Err(
+              HotVerifyError::InvalidControlChild(node_id, slot, entry),
+            )
+          }
         }
         let then_region = hot_child_get(func, node_id, 1)
         if !hot_verify_region_holder(func, then_region) {
@@ -716,9 +728,10 @@ fn hot_verify_cfg_block_contains_node(
 }
 
 ///|
-fn hot_verify_node_child_is_region_slot(op : HotOp, slot : Int) -> Bool {
-  match op {
-    HotOp::Block | HotOp::Loop => true
+fn hot_verify_node_child_is_region_slot(node : HotNode, slot : Int) -> Bool {
+  match node.op {
+    HotOp::Block => slot >= node.imm1
+    HotOp::Loop => true
     HotOp::If => slot == 1 || slot == 2
     HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
     _ => false
@@ -739,7 +752,7 @@ fn hot_verify_node_tree_contains(
   }
   let root = hot_node_get(func, root_id)
   for slot = 0; slot < root.child_count; slot = slot + 1 {
-    if hot_verify_node_child_is_region_slot(root.op, slot) {
+    if hot_verify_node_child_is_region_slot(root, slot) {
       continue
     }
     let child_id = hot_child_get(func, root_id, slot)

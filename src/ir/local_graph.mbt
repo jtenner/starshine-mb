@@ -5,6 +5,24 @@ pub enum HotLocalGraphSource {
 } derive(Eq, Debug)
 
 ///|
+/// Scalar source description for allocation-free indexed queries. Entry
+/// indices identify locals; other indices identify write nodes. No graph
+/// storage or encoded source identity escapes through this value.
+#valtype
+pub struct HotLocalGraphSourceValue {
+  is_entry : Bool
+  index : Int
+} derive(Eq, Debug)
+
+///|
+fn HotLocalGraphSourceValue::new(
+  is_entry : Bool,
+  index : Int,
+) -> HotLocalGraphSourceValue {
+  { is_entry, index, }
+}
+
+///|
 pub struct HotLocalGraph {
   local_count : Int
   param_count : Int
@@ -90,10 +108,25 @@ fn local_graph_node_array_contains(
 }
 
 ///|
-fn local_graph_union_into(target : Array[Int], src : Array[Int]) -> Bool {
+fn local_graph_union_into(
+  target : Array[Int],
+  src : Array[Int],
+  buffer_growths? : Array[Int]? = None,
+  membership_queries? : Array[Int]? = None,
+  start? : Int = 0,
+) -> Bool {
   let mut changed = false
-  for value in src {
+  for index = start; index < src.length(); index = index + 1 {
+    let value = src[index]
+    match membership_queries {
+      Some(count) => count[0] += 1
+      None => ()
+    }
     if !local_graph_array_contains(target, value) {
+      match buffer_growths {
+        Some(count) => if target.length() == target.capacity() { count[0] += 1 }
+        None => ()
+      }
       target.push(value)
       changed = true
     }
@@ -109,7 +142,13 @@ fn local_graph_state_clone(state : Array[Array[Int]]) -> Array[Array[Int]] {
 }
 
 ///|
-fn local_graph_join_sources(lhs : Array[Int], rhs : Array[Int]) -> Array[Int] {
+fn local_graph_join_sources(
+  lhs : Array[Int],
+  rhs : Array[Int],
+  buffer_growths? : Array[Int]? = None,
+  membership_queries? : Array[Int]? = None,
+  minimum_capacity? : Int = 0,
+) -> Array[Int] {
   if physical_equal(lhs, rhs) || rhs.is_empty() {
     return lhs
   }
@@ -119,11 +158,36 @@ fn local_graph_join_sources(lhs : Array[Int], rhs : Array[Int]) -> Array[Int] {
   if lhs.length() >= 256 && rhs.length() >= 256 {
     return local_graph_join_indexed_sources(lhs, rhs)
   }
-  if rhs.all(fn(source) { local_graph_array_contains(lhs, source) }) {
+  let mut first_new = 0
+  while first_new < rhs.length() {
+    match membership_queries {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    if !local_graph_array_contains(lhs, rhs[first_new]) {
+      break
+    }
+    first_new += 1
+  }
+  if first_new == rhs.length() {
     return lhs
   }
-  let merged = lhs.copy()
-  ignore(local_graph_union_into(merged, rhs))
+  let merged : Array[Int] = Array(
+    capacity=(lhs.length() + rhs.length()).max(minimum_capacity),
+  )
+  merged.append(lhs)
+  // The prefix was proved present and this one value was proved absent.
+  // Remaining values still need deduplication against the growing union.
+  merged.push(rhs[first_new])
+  ignore(
+    local_graph_union_into(
+      merged,
+      rhs,
+      buffer_growths~,
+      membership_queries~,
+      start=first_new + 1,
+    ),
+  )
   merged
 }
 
@@ -169,9 +233,10 @@ fn local_graph_entry_state(local_count : Int) -> Array[Array[Int]] {
 }
 
 ///|
-fn local_graph_is_region_slot(op : HotOp, slot : Int) -> Bool {
-  match op {
-    HotOp::Block | HotOp::Loop => true
+fn local_graph_is_region_slot(node : HotNode, slot : Int) -> Bool {
+  match node.op {
+    HotOp::Block => slot >= node.imm1
+    HotOp::Loop => true
     HotOp::If => slot == 1 || slot == 2
     HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
     _ => false
@@ -179,16 +244,79 @@ fn local_graph_is_region_slot(op : HotOp, slot : Int) -> Bool {
 }
 
 ///|
+priv struct LocalGraphSourceRecorder {
+  rows : Array[Array[Int]]
+  mut single_owned : Int
+  mut owned : @bitset.BitSet?
+}
+
+///|
+fn LocalGraphSourceRecorder::new(
+  rows : Array[Array[Int]],
+) -> LocalGraphSourceRecorder {
+  { rows, single_owned: -1, owned: None, }
+}
+
+///|
+#inline
+fn LocalGraphSourceRecorder::record(
+  self : LocalGraphSourceRecorder,
+  get_id : NodeId,
+  sources : Array[Int],
+) -> Unit {
+  let previous = self.rows[get_id]
+  if previous.is_empty() {
+    self.rows[get_id] = sources
+    // Sparse resolution clears symbolic rows before recording resolved ones.
+    // A new borrowed row must not inherit the old row's ownership.
+    if self.single_owned == get_id {
+      self.single_owned = -1
+    }
+    match self.owned {
+      Some(owned) => owned[get_id] = false
+      None => ()
+    }
+    return
+  }
+  if physical_equal(previous, sources) || sources.is_empty() {
+    return
+  }
+  if self.single_owned == get_id || (self.owned is Some(owned) && owned[get_id]) {
+    ignore(local_graph_union_into(previous, sources))
+    return
+  }
+  // Private observation rows grow across joins; leave room for the next small
+  // observations without changing the immutable state rows' allocation policy.
+  let merged = local_graph_join_sources(previous, sources, minimum_capacity=4)
+  if !physical_equal(previous, merged) {
+    self.rows[get_id] = merged
+    if self.single_owned < 0 {
+      self.single_owned = get_id
+      return
+    }
+    let owned = match self.owned {
+      Some(owned) => owned
+      None => {
+        let owned = @bitset.BitSet::new(self.rows.length())
+        self.owned = Some(owned)
+        owned
+      }
+    }
+    owned[get_id] = true
+  }
+}
+
+///|
+#inline
 fn local_graph_record_get_sources(
   local_count : Int,
   get_id : NodeId,
   sources : Array[Int],
-  get_sources : Array[Array[Int]]?,
+  get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
 ) -> Unit {
   match get_sources {
-    Some(sources_by_node) =>
-      ignore(local_graph_union_into(sources_by_node[get_id], sources))
+    Some(recorder) => recorder.record(get_id, sources)
     None => ()
   }
   match write_influences {
@@ -197,11 +325,15 @@ fn local_graph_record_get_sources(
         if source_id >= local_count {
           let set_id = source_id - local_count
           if set_id >= 0 && set_id < influences_by_node.length() {
-            if !local_graph_node_array_contains(
-                influences_by_node[set_id],
-                get_id,
-              ) {
-              influences_by_node[set_id].push(get_id)
+            let observers = influences_by_node[set_id]
+            if observers.is_empty() {
+              // Unobserved rows share an immutable empty array. The first
+              // observer owns a row with the ordinary small-array growth room.
+              let owned : Array[NodeId] = Array(capacity=8)
+              owned.push(get_id)
+              influences_by_node[set_id] = owned
+            } else if !local_graph_node_array_contains(observers, get_id) {
+              observers.push(get_id)
             }
           }
         }
@@ -234,7 +366,8 @@ fn local_graph_nested_block_node_is_straight_line(
     HotOp::Loop | HotOp::If | HotOp::Try | HotOp::TryTable => return false
     _ => ()
   }
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
     if !local_graph_nested_block_node_is_straight_line(
         func,
         hot_child_get(func, node_id, slot),
@@ -300,8 +433,9 @@ fn local_graph_nested_operand_can_transfer(
     HotOp::Loop | HotOp::Try | HotOp::TryTable => return false
     _ => ()
   }
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if !local_graph_is_region_slot(node.op, slot) &&
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if !local_graph_is_region_slot(node, slot) &&
       !local_graph_nested_operand_can_transfer(
         func,
         hot_child_get(func, node_id, slot),
@@ -334,7 +468,7 @@ fn local_graph_transfer_nested_region(
   local_count : Int,
   region : HotRegionRef,
   state : Array[Array[Int]],
-  get_sources : Array[Array[Int]]?,
+  get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
   evaluated_tuples : LocalGraphTupleState,
 ) -> Unit {
@@ -358,7 +492,7 @@ fn local_graph_transfer_node(
   local_count : Int,
   node_id : NodeId,
   state : Array[Array[Int]],
-  get_sources : Array[Array[Int]]?,
+  get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
   traverse_nested_blocks : Bool,
   evaluated_tuples : LocalGraphTupleState,
@@ -379,8 +513,9 @@ fn local_graph_transfer_node(
       return
     }
   }
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if local_graph_is_region_slot(node.op, slot) {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if local_graph_is_region_slot(node, slot) {
       continue
     }
     local_graph_transfer_node(
@@ -397,6 +532,11 @@ fn local_graph_transfer_node(
   if traverse_nested_blocks {
     match node.op {
       HotOp::If => {
+        let write_journal = evaluated_tuples.prepare_write_journal()
+        let first_write = match write_journal {
+          Some(journal) => journal.locals.length()
+          None => 0
+        }
         let yes = local_graph_state_clone(state)
         let no = local_graph_state_clone(state)
         let yes_tuples = evaluated_tuples.copy()
@@ -433,11 +573,41 @@ fn local_graph_transfer_node(
           }
         }
         evaluated_tuples.intersect_paths(yes_tuples, no_tuples)
-        for local_id = 0; local_id < local_count; local_id = local_id + 1 {
-          state[local_id] = local_graph_join_sources(
-            yes[local_id],
-            no[local_id],
-          )
+        match write_journal {
+          Some(journal) => {
+            for index = first_write
+                index < journal.locals.length()
+                index = index + 1 {
+              let local_id = journal.locals[index]
+              if !journal.seen[local_id] {
+                journal.seen[local_id] = true
+                if evaluated_tuples.join_visits is Some(visits) {
+                  visits[0] += 1
+                }
+                state[local_id] = local_graph_join_sources(
+                  yes[local_id],
+                  no[local_id],
+                )
+              }
+            }
+            // No mark survives a completed join. The shared scratch can be
+            // reused by the next sibling or outer join without losing a write.
+            for index = first_write
+                index < journal.locals.length()
+                index = index + 1 {
+              journal.seen[journal.locals[index]] = false
+            }
+          }
+          None =>
+            for local_id = 0; local_id < local_count; local_id = local_id + 1 {
+              if evaluated_tuples.join_visits is Some(visits) {
+                visits[0] += 1
+              }
+              state[local_id] = local_graph_join_sources(
+                yes[local_id],
+                no[local_id],
+              )
+            }
         }
       }
       HotOp::Block =>
@@ -453,12 +623,24 @@ fn local_graph_transfer_node(
           )
         } else {
           local_graph_transfer_unknown_control(
-            func, local_count, node_id, state, get_sources, write_influences,
+            func,
+            local_count,
+            node_id,
+            state,
+            get_sources,
+            write_influences,
+            write_journal=evaluated_tuples.write_journal,
           )
         }
       HotOp::Loop | HotOp::Try | HotOp::TryTable =>
         local_graph_transfer_unknown_control(
-          func, local_count, node_id, state, get_sources, write_influences,
+          func,
+          local_count,
+          node_id,
+          state,
+          get_sources,
+          write_influences,
+          write_journal=evaluated_tuples.write_journal,
         )
       _ => ()
     }
@@ -472,8 +654,12 @@ fn local_graph_transfer_node(
         get_sources,
         write_influences,
       )
-    HotOp::LocalSet | HotOp::LocalTee =>
+    HotOp::LocalSet | HotOp::LocalTee => {
+      if evaluated_tuples.write_journal is Some(journal) {
+        journal.locals.push(node.imm0)
+      }
       state[node.imm0] = [local_graph_set_source_id(local_count, node_id)]
+    }
     _ => ()
   }
 }
@@ -484,48 +670,54 @@ fn local_graph_transfer_block(
   cfg : HotCfg,
   block_id : BlockId,
   in_state : Array[Array[Int]],
-  get_sources : Array[Array[Int]]?,
+  get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
   tuple_slots? : Array[Int]? = None,
+  join_visits? : Array[Int]? = None,
 ) -> Array[Array[Int]] {
   if cfg_block_get(cfg, block_id).nodes.is_empty() {
     return in_state
   }
-  let state = local_graph_state_clone(in_state)
-  // Expanded CFGs already visit each producer at its execution position.
-  // Recursive traversal records only tuple producers actually encountered.
-  let evaluated_tuples = LocalGraphTupleState::new(tuple_slots)
-  for node_id in cfg_block_get(cfg, block_id).nodes {
-    if cfg.operands_expanded {
+  let local_count = hot_local_count(func)
+  if cfg.operands_expanded {
+    let mut state = in_state
+    let mut owned = false
+    for node_id in cfg_block_get(cfg, block_id).nodes {
       // The CFG already lists each operand at its execution position.
       // Descending again invents extra reads and writes across control edges.
       let node = hot_node_get(func, node_id)
       match node.op {
         HotOp::LocalGet =>
           local_graph_record_get_sources(
-            hot_local_count(func),
+            local_count,
             node_id,
             state[node.imm0],
             get_sources,
             write_influences,
           )
-        HotOp::LocalSet | HotOp::LocalTee =>
-          state[node.imm0] = [
-            local_graph_set_source_id(hot_local_count(func), node_id),
-          ]
+        HotOp::LocalSet | HotOp::LocalTee => {
+          if !owned {
+            state = state.copy()
+            owned = true
+          }
+          state[node.imm0] = [local_graph_set_source_id(local_count, node_id)]
+        }
         _ => ()
       }
-      continue
     }
+    return state
+  }
+  // Recursive transfer can replace state through nested control. Keep its
+  // owned-copy path and sparse tuple evaluation state separate from the CFG.
+  let state = local_graph_state_clone(in_state)
+  let evaluated_tuples = LocalGraphTupleState::new(
+    tuple_slots,
+    join_visits~,
+    local_count~,
+  )
+  for node_id in cfg_block_get(cfg, block_id).nodes {
     local_graph_transfer_node(
-      func,
-      hot_local_count(func),
-      node_id,
-      state,
-      get_sources,
-      write_influences,
-      false,
-      evaluated_tuples,
+      func, local_count, node_id, state, get_sources, write_influences, false, evaluated_tuples,
     )
   }
   state
@@ -709,11 +901,7 @@ fn local_graph_build_in_states(
 
 ///|
 fn local_graph_empty_influences(func : HotFunc) -> Array[Array[NodeId]] {
-  let influences : Array[Array[NodeId]] = []
-  for _ in 0..<hot_node_count(func) {
-    influences.push([])
-  }
-  influences
+  Array::make(hot_node_count(func), [])
 }
 
 ///|
@@ -818,10 +1006,8 @@ fn local_graph_build_with_exceptional_policy(
   include_exceptional : Bool,
 ) -> HotLocalGraph {
   let local_count = hot_local_count(func)
-  let get_sources : Array[Array[Int]] = []
-  for _ in 0..<hot_node_count(func) {
-    get_sources.push([])
-  }
+  let get_sources : Array[Array[Int]] = Array::make(hot_node_count(func), [])
+  let recorded_sources = LocalGraphSourceRecorder::new(get_sources)
   let write_influences = local_graph_empty_influences(func)
   let in_states = local_graph_build_in_states(func, cfg, include_exceptional)
   for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
@@ -831,7 +1017,7 @@ fn local_graph_build_with_exceptional_policy(
         cfg,
         block_id,
         in_states[block_id],
-        Some(get_sources),
+        Some(recorded_sources),
         Some(write_influences),
       ),
     )
@@ -880,6 +1066,57 @@ pub fn local_graph_reaching_sources_for_get(
     out.push(local_graph_source_from_id(graph.local_count, source_id))
   }
   out
+}
+
+///|
+/// Read a stable LocalGraph snapshot without materializing an owned source
+/// array. Zero sources means the read has no represented reaching definition;
+/// consumers that require a complete proof must retain their unknown fallback.
+#inline
+pub fn local_graph_reaching_source_count_for_get(
+  graph : HotLocalGraph,
+  node_id : NodeId,
+) -> Int {
+  local_graph_require_node_range(graph, node_id)
+  graph.get_source_ids[node_id].length()
+}
+
+///|
+/// Read one source in the same order as the owned query. The source index
+/// must be below local_graph_reaching_source_count_for_get. This query does
+/// not expose or copy the graph's internal source row.
+#inline
+pub fn local_graph_reaching_source_for_get(
+  graph : HotLocalGraph,
+  node_id : NodeId,
+  source_index : Int,
+) -> HotLocalGraphSource {
+  local_graph_require_node_range(graph, node_id)
+  local_graph_source_from_id(
+    graph.local_count,
+    graph.get_source_ids[node_id][source_index],
+  )
+}
+
+///|
+/// Same checked indices and order as the enum query, with a scalar return.
+#inline
+pub fn local_graph_reaching_source_value_for_get(
+  graph : HotLocalGraph,
+  node_id : NodeId,
+  source_index : Int,
+) -> HotLocalGraphSourceValue {
+  local_graph_require_node_range(graph, node_id)
+  let source_id = graph.get_source_ids[node_id][source_index]
+  let is_entry = source_id < graph.local_count
+  HotLocalGraphSourceValue::new(
+    is_entry,
+    if is_entry {
+      source_id
+    } else {
+      source_id - graph.local_count
+    },
+  )
 }
 
 ///|
@@ -1060,8 +1297,9 @@ fn local_graph_flatten_node(
     return
   }
   let node = hot_node_get(func, node_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if local_graph_is_region_slot(node.op, slot) {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if local_graph_is_region_slot(node, slot) {
       continue
     }
     local_graph_flatten_node(func, hot_child_get(func, node_id, slot), out)
@@ -1105,8 +1343,9 @@ fn local_graph_reverse_actions_node(
     return
   }
   let node = hot_node_get(func, node_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if local_graph_is_region_slot(node.op, slot) {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if local_graph_is_region_slot(node, slot) {
       continue
     }
     local_graph_reverse_actions_node(
@@ -1302,7 +1541,7 @@ fn local_graph_build_reverse_flow(
     for root in block.nodes {
       let data = hot_node_get(func, root)
       for slot = 0; slot < data.child_count; slot = slot + 1 {
-        if !local_graph_is_region_slot(data.op, slot) &&
+        if !local_graph_is_region_slot(data, slot) &&
           !local_graph_nested_block_node_is_straight_line(
             func,
             hot_child_get(func, root, slot),
@@ -1345,11 +1584,9 @@ fn local_graph_build_reverse_flow(
     written_locals.clear()
   }
 
-  let get_sources : Array[Array[Int]] = []
+  let get_sources : Array[Array[Int]] = Array::make(node_count, [])
   let write_influences = local_graph_empty_influences(func)
-  for _ in 0..<node_count {
-    get_sources.push([])
-  }
+  let recorded_sources = LocalGraphSourceRecorder::new(get_sources)
   let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
     cfg_block_count(cfg),
     None,
@@ -1399,7 +1636,7 @@ fn local_graph_build_reverse_flow(
       local_count,
       node_id,
       sources,
-      Some(get_sources),
+      Some(recorded_sources),
       Some(write_influences),
     )
   }
@@ -1551,8 +1788,9 @@ fn local_graph_transfer_unknown_control(
   local_count : Int,
   node : NodeId,
   state : Array[Array[Int]],
-  get_sources : Array[Array[Int]]?,
+  get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
+  write_journal? : LocalGraphWriteJournal? = None,
 ) -> Unit {
   let work = [node]
   let seen = Array::make(hot_node_count(func), false)
@@ -1565,10 +1803,14 @@ fn local_graph_transfer_unknown_control(
     seen[current] = true
     let data = hot_node_get(func, current)
     match data.op {
-      HotOp::LocalSet | HotOp::LocalTee =>
+      HotOp::LocalSet | HotOp::LocalTee => {
+        if write_journal is Some(journal) {
+          journal.locals.push(data.imm0)
+        }
         state[data.imm0] = local_graph_join_sources(state[data.imm0], [
           local_graph_set_source_id(local_count, current),
         ])
+      }
       HotOp::LocalGet => reads.push(current)
       _ => ()
     }

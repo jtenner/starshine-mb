@@ -189,16 +189,7 @@ fn hot_lift_impl_env_from_context(
     Some(decls) => decls
     None => hot_lift_impl_all_locals(locals)
   }
-  let env = empty_env()
-    .with_exact_reference_inference(ctx.uses_custom_descriptors)
-    .with_types(ctx.subtypes)
-    .with_funcs_and_type_idxs(ctx.func_types, ctx.func_type_slots)
-    .with_tables(ctx.tables)
-    .with_mems(ctx.mems)
-    .with_globals(ctx.globals)
-    .with_elems(ctx.elems)
-    .with_datas(ctx.datas)
-    .with_tags(ctx.tags)
+  let env = hot_module_context_validation_env(ctx)
     .with_locals(all_locals)
     .with_label(return_types)
     .with_return_type(Some(return_types))
@@ -1975,12 +1966,7 @@ fn hot_lift_impl_region_state(
   region_env : Env,
   entry_types : Array[ValType],
 ) -> TcState {
-  tc_state_new(
-    region_env,
-    entry_types,
-    entry_state.reachable,
-    entry_state.escape,
-  )
+  @validate.tc_state_fork_body(entry_state, region_env, entry_types)
 }
 
 ///|
@@ -2019,6 +2005,26 @@ fn hot_lift_impl_typecheck_data_instruction(
   tc_state : TcState,
   concrete_before_types? : Array[ValType] = [],
 ) -> Result[(TcState, Int, Array[ValType]), HotLiftError] {
+  // The region owns this stack. Known arity only needs its old length, so the
+  // ordinary typechecker can consume it directly. Generic inference below
+  // retains its snapshot because it replays suffix candidates.
+  let before_count = tc_state.stack.length()
+  match hot_lift_impl_known_pop_count(instr, tc_state.env) {
+    Some(count) if count >= 0 && count <= before_count => {
+      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
+        Ok(next) => next
+        Err(err) => return Err(err)
+      }
+      let pushed : Array[ValType] = []
+      for index = before_count - count
+          index < after_state.stack.length()
+          index = index + 1 {
+        pushed.push(after_state.stack[index])
+      }
+      return Ok((after_state, count, pushed))
+    }
+    _ => ()
+  }
   let before_types = tc_state.stack
   let before_state = tc_state
   let typecheck_state = tc_state_with_stack(tc_state, before_types)
@@ -2058,7 +2064,9 @@ fn hot_lift_impl_lift_region(
   initial_value_types? : Array[ValType] = [],
 ) -> Result[(Array[NodeId], Array[NodeId], TcState), HotLiftError] {
   let Expr(instrs) = expr
-  let mut tc_state = tc_state
+  // Entry stacks can share a tag signature or an arm's saved entry types.
+  // Take ownership once per region before consuming data instructions in place.
+  let mut tc_state = tc_state_with_stack(tc_state, tc_state.stack)
   let roots : Array[NodeId] = []
   let values : Array[NodeId] = hot_lift_impl_copy_node_ids(initial_values)
   let concrete_values : Array[ValType] = hot_lift_impl_copy_val_types(
@@ -2427,9 +2435,13 @@ fn hot_lift_impl_lift_control(
         Ok(state) => state
         Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
       }
-      ignore(
-        hot_replace_child_span(func, id, [condition, then_region, else_region]),
-      )
+      // Keep the established condition/region slots. Entry operands are
+      // evaluated before the condition and shared by the two arm stacks.
+      let children = [condition, then_region, else_region]
+      for entry_value in entry_values {
+        children.push(entry_value)
+      }
+      ignore(hot_replace_child_span(func, id, children))
       hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
       hot_lift_impl_push_node(roots, values, concrete_values, id, results)
       Ok(after_state)

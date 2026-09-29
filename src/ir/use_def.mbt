@@ -66,9 +66,10 @@ fn use_def_require_local_range(use_def : HotUseDef, local_id : LocalId) -> Unit 
 }
 
 ///|
-fn use_def_region_slot(op : HotOp, slot : Int) -> Bool {
-  match op {
-    HotOp::Block | HotOp::Loop => true
+fn use_def_region_slot(node : HotNode, slot : Int) -> Bool {
+  match node.op {
+    HotOp::Block => slot >= node.imm1
+    HotOp::Loop => true
     HotOp::If => slot == 1 || slot == 2
     HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
     _ => false
@@ -143,6 +144,19 @@ fn use_def_visit_node(
   let node = hot_node_get(func, node_id)
   match node.op {
     HotOp::Block | HotOp::Loop => {
+      if node.op == HotOp::Block {
+        for slot in 0..<node.imm1 {
+          let child_id = func.children[node.child_base + slot]
+          use_def_add_site(node_uses, child_id, {
+            user: node_id,
+            slot,
+            kind: HotUseSlotKind::ChildUseSlot,
+          })
+          use_def_visit_node(
+            func, child_id, node_uses, local_reads, local_writes, seen,
+          )
+        }
+      }
       use_def_visit_region(
         func,
         hot_region_body_ref(func, node_id),
@@ -155,7 +169,8 @@ fn use_def_visit_node(
     }
     _ => ()
   }
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
     let child_id = func.children[node.child_base + slot]
     if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
       continue
@@ -232,8 +247,9 @@ fn use_def_scan_block_node(
   }
   seen_stamps[node_id] = block_id
   let node = hot_node_get(func, node_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if use_def_region_slot(node.op, slot) {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if use_def_region_slot(node, slot) {
       continue
     }
     let child_id = func.children[node.child_base + slot]
@@ -366,7 +382,8 @@ fn hot_node_use_counts_visit(
   }
   seen[node_id] = true
   let node = hot_node_get(func, node_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
     let child_id = func.children[node.child_base + slot]
     if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
       continue

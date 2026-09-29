@@ -133,7 +133,8 @@ fn hot_lower_impl_control_param_types(
   id : NodeId,
 ) -> Array[ValType] {
   match hot_type_get(func, hot_node_get(func, id).ty) {
-    BlockResultResolved(_, params, _) => params.copy()
+    // Private read-only borrow: lowering never changes the interned signature.
+    BlockResultResolved(_, params, _) => params
     _ => []
   }
 }
@@ -242,6 +243,7 @@ fn hot_lower_impl_mem_idx(raw : Int) -> MemIdx {
 }
 
 ///|
+#valtype
 priv struct HotLowerInputs {
   nodes : ArrayView[NodeId]
   pop_count : Int
@@ -255,8 +257,14 @@ fn hot_lower_impl_input_info(
 ) -> HotLowerInputs {
   let node = hot_node_get(func, id)
   match node.op {
-    HotOp::Block
-    | HotOp::Try
+    HotOp::Block => {
+      let count = if node.imm1 > 0 { node.imm1 } else { 0 }
+      {
+        nodes: func.children[node.child_base:node.child_base + count],
+        pop_count: count,
+      }
+    }
+    HotOp::Try
     | HotOp::TryTable
     | HotOp::Nop
     | HotOp::Unreachable
@@ -279,11 +287,20 @@ fn hot_lower_impl_input_info(
         pop_count: input_count,
       }
     }
-    HotOp::If =>
-      {
-        nodes: func.children[node.child_base:node.child_base + 1],
-        pop_count: 1,
+    HotOp::If => {
+      if node.child_count == 3 {
+        return {
+          nodes: func.children[node.child_base:node.child_base + 1],
+          pop_count: 1,
+        }
       }
+      let inputs : Array[NodeId] = []
+      for slot in 3..<node.child_count {
+        inputs.push(func.children[node.child_base + slot])
+      }
+      inputs.push(func.children[node.child_base])
+      { nodes: inputs[:], pop_count: inputs.length(), }
+    }
     _ => {
       // Lowering and source-order analysis only read the current HOT snapshot.
       // Dense child storage can be borrowed; absent slots need compact storage.
@@ -352,27 +369,33 @@ fn hot_lower_impl_push_results(
 fn hot_lower_impl_matching_input_prefix(
   stack : Array[HotLowerStackValue],
   inputs : ArrayView[NodeId],
+  comparisons? : Array[Int]? = None,
 ) -> Int {
   let max_count = if stack.length() < inputs.length() {
     stack.length()
   } else {
     inputs.length()
   }
-  let mut best = 0
-  for count = 0; count <= max_count; count = count + 1 {
+  // Prefer the complete already-stacked input vector, especially tuple lanes
+  // which share one producer id. The first match is the longest valid prefix.
+  for count = max_count; count > 0; count = count - 1 {
     let stack_start = stack.length() - count
     let mut ok = true
     for i = 0; i < count; i = i + 1 {
+      match comparisons {
+        Some(counts) => counts[0] += 1
+        None => ()
+      }
       if stack[stack_start + i].node_id != inputs[i] {
         ok = false
         break
       }
     }
     if ok {
-      best = count
+      return count
     }
   }
-  best
+  0
 }
 
 ///|
@@ -1050,6 +1073,7 @@ fn hot_lower_impl_body_items(
   label_stack_head : Int,
   extra_locals : Array[ValType],
   options : HotLowerOptions,
+  entry_stack? : Array[HotLowerStackValue]? = None,
 ) -> Array[Instruction] {
   let out : Array[Instruction] = []
   let mut next_stack = label_stack_head
@@ -1063,6 +1087,8 @@ fn hot_lower_impl_body_items(
   let node = hot_node_get(func, id)
   let body_base = if node.op == HotOp::Loop {
     hot_label_branch_arity(func, label_id)
+  } else if node.op == HotOp::Block && node.imm1 > 0 {
+    node.imm1
   } else if node.op == HotOp::Block &&
     label_id >= 0 &&
     hot_label_kind(func, label_id) == HotLabelKind::RegionLabel {
@@ -1075,7 +1101,10 @@ fn hot_lower_impl_body_items(
   } else {
     hot_label_branch_arity(func, label_id)
   }
-  let value_stack : Array[HotLowerStackValue] = []
+  let value_stack : Array[HotLowerStackValue] = match entry_stack {
+    Some(values) => values.copy()
+    None => []
+  }
   let input_ids : Array[NodeId] = []
   let input_occurrences : Array[Int] = []
   for i = 0; i < body_base; i = i + 1 {
@@ -1113,10 +1142,39 @@ fn hot_lower_impl_body_items(
   let future_dependency_suffix_minima = hot_lower_impl_future_dependency_suffix_minima(
     func, root_ids, label_frames,
   )
+  // An arm can forward its earlier entry lanes as leading result roots. They
+  // are already in the right order below the remaining entry values. Emitting
+  // them again duplicates constants or spills effectful values unnecessarily.
+  let mut entry_root_prefix = 0
+  if entry_stack is Some(_) || (node.op == HotOp::Block && node.imm1 > 0) {
+    let mut lanes = 0
+    for root in root_ids {
+      let arity = hot_node_result_arity(func, root)
+      if arity == 0 || lanes + arity > value_stack.length() {
+        break
+      }
+      let mut matches = true
+      for lane in lanes..<(lanes + arity) {
+        if value_stack[lane].node_id != root {
+          matches = false
+          break
+        }
+      }
+      if !matches {
+        break
+      }
+      lanes += arity
+      entry_root_prefix += 1
+    }
+  }
   let mut root_idx = 0
   for i = body_base; i < node.child_count; i = i + 1 {
     let child = func.children[node.child_base + i]
     if child != HOT_NONE_NODE {
+      if root_idx < entry_root_prefix {
+        root_idx += 1
+        continue
+      }
       if hot_query_op(func, child) == HotOp::Unreachable {
         hot_lower_impl_drop_dead_stack_before_unreachable(
           child, value_stack, out,
@@ -1171,6 +1229,7 @@ fn hot_lower_impl_region_body(
   label_stack_head : Int,
   extra_locals : Array[ValType],
   options : HotLowerOptions,
+  entry_stack? : Array[HotLowerStackValue]? = None,
 ) -> Array[Instruction] {
   if id == HOT_NONE_NODE {
     return []
@@ -1181,11 +1240,21 @@ fn hot_lower_impl_region_body(
     label_id >= 0 &&
     hot_label_kind(func, label_id) == HotLabelKind::RegionLabel {
     return hot_lower_impl_body_items(
-      func, id, use_def, label_frames, label_stack_head, extra_locals, options,
+      func,
+      id,
+      use_def,
+      label_frames,
+      label_stack_head,
+      extra_locals,
+      options,
+      entry_stack~,
     )
   }
   let out : Array[Instruction] = []
-  let value_stack : Array[HotLowerStackValue] = []
+  let value_stack : Array[HotLowerStackValue] = match entry_stack {
+    Some(values) => values.copy()
+    None => []
+  }
   hot_lower_impl_emit_root(
     func, id, use_def, label_frames, label_stack_head, value_stack, out, extra_locals,
     options,
@@ -1848,18 +1917,45 @@ fn hot_lower_impl_emit_instruction(
       let condition_region_base = node.child_base
       let then_id = func.children[condition_region_base + 1]
       let else_id = func.children[condition_region_base + 2]
+      let entry_stack = if node.child_count == 3 {
+        None
+      } else {
+        let params = hot_lower_impl_control_param_types(func, id)
+        Some(
+          Array::makei(params.length(), fn(index) {
+            {
+              node_id: func.children[condition_region_base + 3 + index],
+              val_type: params[index],
+            }
+          }),
+        )
+      }
       out.push(
         Instruction::if_(
           hot_lower_impl_control_block_type(func, id),
           hot_lower_impl_region_body(
-            func, then_id, use_def, label_frames, next_stack, extra_locals, options,
+            func,
+            then_id,
+            use_def,
+            label_frames,
+            next_stack,
+            extra_locals,
+            options,
+            entry_stack~,
           ),
           if else_id == HOT_NONE_NODE {
             None
           } else {
             Some(
               hot_lower_impl_region_body(
-                func, else_id, use_def, label_frames, next_stack, extra_locals, options,
+                func,
+                else_id,
+                use_def,
+                label_frames,
+                next_stack,
+                extra_locals,
+                options,
+                entry_stack~,
               ),
             )
           },
@@ -2679,10 +2775,11 @@ fn hot_lower_impl_emit_root(
       return
     }
   }
-  let label_id = hot_control_node_label(func, id)
-  let param_types = hot_lower_impl_control_param_types(func, id)
-  if hot_query_op(func, id) == HotOp::Block &&
-    !hot_lower_impl_label_is_used(label_frames, label_id) {
+  let node = hot_node_get(func, id)
+  if node.op == HotOp::Block &&
+    node.imm1 == 0 &&
+    !hot_lower_impl_label_is_used(label_frames, node.imm0) {
+    let param_types = hot_lower_impl_control_param_types(func, id)
     if options.flatten_unused_result_blocks && param_types.length() == 0 {
       match
         hot_lower_impl_transparent_unused_result_block_roots(

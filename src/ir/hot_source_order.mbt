@@ -122,6 +122,14 @@ fn hot_source_order_preceding_dependencies(
   scratch_builds? : Array[Int]? = None,
   root_visits? : Array[Int]? = None,
 ) -> Array[NodeId] {
+  // Extracting an existing value into a new statement preserves its execution
+  // order. Its allocation ID can be newer than the consumer of an older read.
+  let source_order = hot_node_get(func, current_root).order
+  let current_order = if source_order < current_root {
+    source_order
+  } else {
+    current_root
+  }
   let call_order_required = hot_node_result_arity(func, current_root) == 0 &&
     (match hot_query_op(func, current_root) {
       HotOp::Call | HotOp::CallIndirect | HotOp::CallRef => true
@@ -143,14 +151,14 @@ fn hot_source_order_preceding_dependencies(
     Some(index) =>
       if future_start < 0 ||
         future_start >= index.suffix_minima.length() ||
-        index.suffix_minima[future_start] >= current_root {
+        index.suffix_minima[future_start] >= current_order {
         return []
       }
     None => ()
   }
   let candidates = match future_dependency_suffix_minima {
-    Some(index) if index.maximum >= current_root =>
-      Some(index.candidates(future_start, current_root))
+    Some(index) if index.maximum >= current_order =>
+      Some(index.candidates(future_start, current_order))
     _ => None
   }
   let candidate_count = match candidates {
@@ -172,15 +180,15 @@ fn hot_source_order_preceding_dependencies(
   let seen_consumer = scratch.seen_consumer
   let consumer_bounds = scratch.consumer_bounds
   let carried : Array[NodeId] = []
-  // An inserted root can have a newer ID than the consumer it precedes.
-  // That order comes from the region, not from a former stack lifetime.
-  // Infer an anti-dependence only within the value/current/consumer interval.
+  // A newly inserted computation follows region order. A wrapper extracted
+  // from an old value retains that value's order even with a new allocation ID.
+  // Infer anti-dependence within the preserved value/current/consumer interval.
   for position = 0; position < candidate_count; position = position + 1 {
     let idx = match candidates {
       Some(slots) => slots[position]
       None => future_start + position
     }
-    if future_roots[idx] > current_root {
+    if future_roots[idx] > current_order {
       match root_visits {
         Some(count) => count[0] += 1
         None => ()
@@ -188,7 +196,7 @@ fn hot_source_order_preceding_dependencies(
       hot_lower_impl_collect_preceding_dependency(
         func,
         future_roots[idx],
-        current_root,
+        current_order,
         future_roots[idx],
         facts.value_orders,
         facts.node_effects,
@@ -208,7 +216,7 @@ fn hot_source_order_preceding_dependencies(
       Some(slots) => slots[position]
       None => future_start + position
     }
-    if future_roots[idx] <= current_root {
+    if future_roots[idx] <= current_order {
       match root_visits {
         Some(count) => count[0] += 1
         None => ()
@@ -216,7 +224,7 @@ fn hot_source_order_preceding_dependencies(
       hot_lower_impl_collect_preceding_dependency(
         func,
         future_roots[idx],
-        current_root,
+        current_order,
         future_roots[idx],
         facts.value_orders,
         facts.node_effects,

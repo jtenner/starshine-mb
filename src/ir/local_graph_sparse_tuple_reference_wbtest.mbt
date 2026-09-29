@@ -4,7 +4,7 @@ fn local_graph_tuple_reference_nested_region(
   local_count : Int,
   region : HotRegionRef,
   state : Array[Array[Int]],
-  get_sources : Array[Array[Int]]?,
+  get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
   evaluated_tuples : Array[Bool],
 ) -> Unit {
@@ -28,7 +28,7 @@ fn local_graph_tuple_reference_node(
   local_count : Int,
   node_id : NodeId,
   state : Array[Array[Int]],
-  get_sources : Array[Array[Int]]?,
+  get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
   traverse_nested_blocks : Bool,
   evaluated_tuples : Array[Bool],
@@ -51,7 +51,7 @@ fn local_graph_tuple_reference_node(
     evaluated_tuples[node_id] = true
   }
   for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if local_graph_is_region_slot(node.op, slot) {
+    if local_graph_is_region_slot(node, slot) {
       continue
     }
     local_graph_tuple_reference_node(
@@ -157,7 +157,7 @@ fn local_graph_tuple_reference_block(
   cfg : HotCfg,
   block_id : BlockId,
   in_state : Array[Array[Int]],
-  get_sources : Array[Array[Int]]?,
+  get_sources : LocalGraphSourceRecorder?,
   write_influences : Array[Array[NodeId]]?,
   tuple_slots? : Array[Int]? = None,
 ) -> Array[Array[Int]] {

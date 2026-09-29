@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-29
 sources:
   - ./test-matrix.md
   - ./local-ssa-policy.md
@@ -36,6 +36,113 @@ related:
 ---
 
 # IR2 Architecture Rules
+
+## Native immutable value records (September 28, 2026)
+
+`HotNode` and the private lowering operand-query result `HotLowerInputs` use
+value layouts. Their immutable fields and borrowed child-span contracts remain
+unchanged; callers still mutate HOT through its checked mutation APIs. Native
+code-generation gates confirm removal of their record heap construction sites.
+Both default wasm-gc tests and native compatibility checks remain required.
+The [performance record](../tooling/tracing-playbook.md#lowering-value-layout-compatibility-gate)
+retains measurements and rejects a separate `HotLowerStackValue` experiment:
+its reference-containing value arrays compile in the current release backend
+but fail native debug compilation. That layout is not integrated.
+
+## Checked HOT field queries (September 29, 2026)
+
+The checked `hot_node_op`, `hot_node_type`, child-count and child-slot queries
+read only the requested fields. They share the original live-node predicate,
+including the complete deleted-node bitmap proof and canonical fallback when
+that proof is incomplete. Child slots retain their checked bounds. Reads do not
+cache headers or mutate the arena; current fields reflect later checked edits,
+and previously returned `HotNode` values stay immutable snapshots. See the
+[field fixtures](../../../src/ir/hot_field_queries_wbtest.mbt) and
+[native controls](../../../src/ir/hot_field_queries_perf_wbtest.mbt). This avoids
+whole-header return traffic; `HotNode` was already a value record, so this is
+not removal of a record heap allocation.
+
+## LocalGraph read-source ownership (September 28, 2026)
+
+Transfer source sets are immutable. The private source recorder borrows a read's
+first observation, copies only when a later observation extends that borrowed
+row, then owns and reuses that row for further observations. Other reads and
+transfer states retain their original snapshots. The first privately extended
+row uses a scalar ownership slot; a bitmap is allocated only when another row
+needs ownership. The first private row reserves at least four entries so small
+repeated observations can append without another buffer growth. Generic
+immutable state joins retain their separate capacity policy. Sparse resolution clears a symbolic row
+before recording resolved sources; recording into an empty row resets that
+row's ownership bit. Empty rows may be shared. Public reaching-source queries
+that return arrays remain owned. The indexed count/source queries read one
+immutable graph snapshot without allocating an array or exposing its source
+storage; they preserve the owned query's order and bounds. A zero count remains
+unknown for an unrepresented read, so DAE2 retains its entry/all-writes fallback.
+The scalar indexed query returns `HotLocalGraphSourceValue`: its readonly
+`is_entry` flag selects local versus write-node meaning for `index`. Primitive
+value fields avoid native enum allocation; encoded source IDs and source rows
+remain private. The legacy enum and owned-array APIs keep the same contract.
+[Scalar source fixtures](../../../src/ir/local_graph_scalar_sources_wbtest.mbt)
+cover all three builders and mutation of independently owned query results.
+[Indexed query fixtures](../../../src/ir/local_graph_indexed_sources_wbtest.mbt)
+cover entry/write joins, all three flow builders, and owned-query mutation.
+[Ownership fixtures](../../../src/ir/local_graph_read_source_borrow_wbtest.mbt)
+cover sibling isolation, repeat merges, sparse resets and public-query mutation.
+[Ordered unions](../../../src/ir/local_graph_join_prefix_wbtest.mbt) retain
+encounter order and check each right-hand candidate once in the small-union path;
+the wide indexed path remains separate. The [performance record](../tooling/tracing-playbook.md#next-v4-traversal-and-source-row-allocation)
+keeps the initial repeated-copy regression visible until renewed measurements.
+
+The write-to-observer direction also shares immutable empty rows. The first
+observer replaces its write's empty row with private storage; later observations
+reuse that row and preserve ordered deduplication. Three flow builders follow
+this rule, and public influenced-get queries still copy. See the
+[influence ownership tests](../../../src/ir/local_graph_influence_borrow_wbtest.mbt).
+
+## Typed conditional entry operands (September 28, 2026)
+
+A resolved HOT `If` keeps condition, then-region, and optional else-region in
+slots 0–2. Slots 3 onward retain its block parameters in stack order, including
+duplicate lanes from a single tuple producer. These operands execute before the
+condition. Lowering seeds each arm with the already-evaluated entry values;
+the implicit else forwards them. Leading result roots matching that entry stack
+remain in place, avoiding duplicate constants and needless scratch locals for
+independent scalar entries. CFG, local-flow and SSA operand visitors use
+that evaluation order rather than physical slot order.
+
+When constant folding demotes such an `If` to `Block`, the block keeps the entry
+operands as a prefix whose length is `imm1`. Region edits exclude that prefix;
+lowering and analyses treat it as the control header's operands. Ordinary blocks
+retain `imm1 == 0`. This prevents an empty selected arm from losing an effectful
+entry producer and keeps its use-def edge visible. No public function signature
+changes are required.
+
+The previous representation omitted the entry operands. Bounded regressions
+first reproduced invalid lowering, reversed CFG call order and lost folded-block
+producers. The [IR fixtures](../../../src/ir/hot_lower_if_parameters_wbtest.mbt)
+assert exact instructions, tuple lanes, both arm stacks, local definitions and
+CFG/use-def ownership; the [command fixtures](../../../src/cmd/typed_if_entry_wbtest.mbt)
+exercise local-flow, heap-store and cleanup dispatchers. Dedicated aggregate renewal remains pending while
+performance iteration continues.
+
+### Typed-entry pass consumers and tail cleanup
+
+SimplifyLocals and heap-store optimization use an operand count plus a physical
+slot mapping for typed conditionals: entry operands precede the condition in
+execution order; structural arm slots are excluded. Demoted Blocks expose their
+explicit `imm1` prefix as operands. [Focused fixtures](../../../src/passes/typed_control_operand_wbtest.mbt)
+remove unused entry roots from trapping arms, independently validate the lowered
+module, and require local-read/global-write hazards to remain visible through
+the header. The original traversal fails all four focused requirements.
+
+A root removed from an unreachable arm tail may remain referenced by a typed-if
+header. Precompute now filters removed roots against live physical references
+before batch deletion; detached debris is still deleted. This check
+includes orphan live nodes and does not build CFG or full use-def state. A
+red-first regression preserves a global-writing entry producer while deleting
+an unrelated nop. [Dispatcher coverage](../../../src/cmd/typed_if_entry_wbtest.mbt)
+checks the observable pre-trap write across cleanup variants. Final aggregate
+renewal remains required for these consumer changes.
 
 ## September 27 follow-up allocation campaign renewal
 
@@ -138,6 +245,9 @@ Lowering and source-order analysis borrow dense child spans from the unchanged
 HOT snapshot. The view preserves operand order and duplicate tuple lanes; it
 contains only a loop's parameter prefix or an if's condition, never its body
 regions. An intentionally absent child slot still takes the compact-copy path.
+The September 28 typed-conditional contract above extends this historical If
+case: parameterized If nodes compact their entry prefix before the condition;
+the ordinary three-child If still borrows its condition directly.
 Branch selector and descriptor-cast pop counts retain their existing contract.
 These views must not survive a mutation of HOT child storage.
 
@@ -160,6 +270,95 @@ Sources: [lowering](../../../src/ir/hot_lower.mbt),
 [bounded invariants](../../../src/ir/hot_lower_input_view_wbtest.mbt),
 [native controls](../../../src/ir/hot_lower_input_view_perf_wbtest.mbt), and
 [dispatcher test](../../../src/cmd/perf_lower_input_view_wbtest.mbt).
+
+## September 23 optimizer corruption audit continuation
+
+Eight read-only agents were launched across scalar folding, locals/dataflow,
+control flow, GC/heap, interprocedural passes, module/global passes, pass
+infrastructure, and the remaining pass surface. Six agents exhausted the shared
+usage allowance; the interprocedural and module/global agents completed and
+reviewed the root's repairs. Only the root changed files or invoked MoonBit.
+Every implemented behavior change began with a failing direct or dispatcher
+regression; fuzzing began only after `moon info`, `moon fmt`, focused suites,
+and the full default suite passed **12,275/12,275**. No public `.mbti` changed.
+
+The audit establishes these additional invariants:
+
+- Precompute preserves exact `ref.null` types, treats descriptor branches as
+  control, scopes label-relative facts to their owner, and no longer infers
+  contradictory signed/unsigned intervals. GlobalStructInference preserves
+  every atomic struct read. Shared capture cleanup accounts for dropped stack
+  values, and LocalSubtyping rebuilds changed return suffixes without stale raw
+  code, names, or compiler facts.
+- RSE includes continuation handler predecessors; Local CSE and CoalesceLocals
+  recognize descriptor/continuation branches as control barriers. Untee now
+  protects only the nondefaultable locals that require protection, retaining
+  safe optimization of unrelated locals. ReorderLocals, CoalesceLocals, and
+  Local CSE preserve an explicitly present empty code section.
+- StringGathering does not rewrite table initializers, does not reuse an
+  exported nullable string global as a narrower canonical global, and emits
+  sorted global-name associations. ReorderGlobals counts global exports as
+  traffic. MemoryPacking invalidates compiler facts only when code or globals
+  change and removes label-name associations only from functions whose labels
+  it rewrites.
+- No-inline, Inlining, and DFE use copy-on-write ordered unions for split
+  annotation associations. MergeSimilarFunctions synthesizes `call_ref` only
+  when `function-references`, `reference-types`, and `gc` are all enabled.
+  Whole-type-group cleanup and offset-changing module passes fail closed for
+  opaque custom sections; DFE, GlobalRefining, StringGathering, and
+  ReorderGlobals share the offset-sensitive metadata guard.
+
+The fresh release-native CLI SHA-256 is
+`329242987382c9b6d7e923f7c84ab5cfb58ec5d30eee33bac343c5997f63a303`;
+the GenValid binary is
+`d928491c79da0842a8d82c971961020c7a229b2ab6fe0c209e3fcb4d99d6e608`.
+All lanes used seed `0x5eed`, 10,000 requested and compared cases, explicit
+native binaries, `--jobs auto --max-subprocesses 8
+--max-mismatch-artifacts 20`, independent `wasm-tools` output validation, and
+verified Binaryen 132 SHA-256
+`500201b4d13ccc3a61fa5254073e75a138bc57be198bd6c18c5a9562c081ad18`
+(`version_132-100-gfbf2e5aa2`). DAE2 lanes used the required dropped-constant
+and unreachable-control-debris normalizers. No external-generator lane ran.
+
+| Pass / profile | Direct | Cleanup | Differences | Canonical larger | Agent judgment |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `precompute` / `precompute-all` | 3,238 | 6,762 | 0 | 0 | normalized parity |
+| `precompute-propagate` / `precompute-all` | 2,766 | 7,234 | 0 | 0 | normalized parity |
+| `global-struct-inference` / regular | 10,000 | 0 | 0 | 0 | canonical parity |
+| `global-struct-inference-desc-cast` / regular | 10,000 | 0 | 0 | 0 | canonical parity |
+| `local-cse` / `local-cse` | 10,000 | 0 | 0 | 0 | canonical parity |
+| `coalesce-locals` / `coalesce-locals-all` | 3,750 | 2,500 | 3,750 | 0 | established inert-control cleanup wins |
+| `memory-packing` / `memory-packing-all` | 7,288 | 0 | 2,712 | 1,330 | documented correctness wins; Memory64 preflight has a size cost |
+| `duplicate-function-elimination` / dedicated | 5,000 | 0 | 5,000 | 0 | stronger private fixed-point merging win |
+| `global-refining` / `global-refining-all` | 2,500 | 0 | 7,500 | 0 | retained parity gaps; smaller size alone does not close them |
+| `merge-similar-functions` / `merge-similar-functions-all` | 10,000 | 0 | 0 | 0 | canonical parity |
+| `inlining` / `pass-inlining` | 10,000 | 0 | 0 | 0 | canonical parity; raw encoding remains larger |
+| `inlining-optimizing` / `inlining-optimizing-all` | 10,000 | 0 | 0 | 0 | exact parity |
+| `reorder-locals` / `reorder-locals-all` | 7,996 | 0 | 2,004 | 0 | inspected inert `nop`/void-loop cleanup wins |
+| `untee` / regular | 10,000 | 0 | 0 | 0 | canonical parity |
+| `redundant-set-elimination` / `rse` | 7,656 | 0 | 2,344 | 0 | established source-backed cleanup wins |
+| `local-subtyping` / `local-subtyping-all` | 3,170 | 0 | 6,830 | 0 | retained parity gaps; no new size-loss family |
+| `heap2local` / `heap2local-all` | 2,474 | 0 | 7,526 | 0 | established complete-elimination wins |
+| `reorder-globals` / `reorder-globals-all` | 7,010 | 0 | 2,990 | 2,990 | host-order correctness wins with a one-byte canonical cost |
+| `string-gathering` / regular | 10,000 | 0 | 0 | 0 | canonical parity |
+| `constraint-analysis` / aggregate | 7,368 | 0 | 2,632 | 0 | source-backed generated fact-fold families |
+| `optimize-instructions` / `pass-oi-all` | 8,920 | 0 | 1,080 | 0 | established SB005 representation wins |
+| `tuple-optimization` / `tuple-optimization-all` | 0 | 0 | 10,000 | 0 | established pure/drop-only scalar-spelling wins |
+| `dae2` / `dae2` | 2,879 | 667 | 6,454 | 0 | exact current baseline; residual parity gaps retained |
+| `dae2-optimizing` / `dae2-optimizing` | 2,233 | 0 | 7,767 | 0 | exact current baseline; residual parity gaps retained |
+
+The 24 lanes total **240,000 comparisons**, **154,248 direct matches**,
+**17,163 cleanup-normalized matches**, and **68,589 output differences**, with
+zero validation, property, generator, or command failures. Canonical size is
+smaller/equal/larger in **81,432 / 154,248 / 4,320** cases. The 4,320 larger
+cases are exactly the documented MemoryPacking complete-preflight correctness
+family and ReorderGlobals's host-observable import-order preservation; neither
+is accepted merely as representation drift. Runtime semantic execution was not
+enabled in this renewal, so residual judgments retain their cited prior
+transform/runtime evidence and otherwise remain parity gaps. `apply-compiler-facts`
+and `no-inline` have no standalone compare-pass names; their new direct and
+dispatcher regressions are covered by the full suite, and both public inlining
+lanes cover the no-inline policy integration.
 
 ## September 22 eight-agent pass safety audit
 
@@ -373,6 +572,108 @@ Important practical consequences:
 2. **Side tables preserve exact boundary details.** Generic HOT families such as heap/reference/string/SIMD/atomic forms may carry exact instruction payloads so lift/lower can preserve opcode identity that a pass does not understand deeply yet.
 3. **Deleted nodes are tombstones, not an alternate body.** Tombstones keep ids stable during a pass, but later queries must check liveness instead of assuming every allocated node is semantically present.
 4. **Revision is part of correctness.** Any semantic mutation that changes roots, children, nodes, locals, labels, types, or lowered meaning must bump the revision through the public mutation surface.
+
+## Performance reuse ownership contracts
+
+One-armed if-result conversion keeps the original If in place when its
+label is unused. If an arm targets that label, retain the original void exit
+owner as a Block around the new result-if capture; a branch must skip the
+capture assignment. Direct HOT and dispatcher regressions cover this path
+in `sl_stacked_block_order_wbtest.mbt`.
+
+`hot_build_region` exposes the existing checked control-region builder. It
+creates a region holder without an additional encoded block; its fallthrough
+arity must match the control slot to which it is attached, and its body nodes
+belong to the same HOT function. This lets one-armed SL conditionals acquire an
+else region in place, preserving their original node, source position and label
+instead of allocating a later conditional. The [SL behavior fixtures](../../../src/passes/simplify_locals_test.mbt)
+and [stacked-value regressions](../../../src/passes/sl_stacked_block_order_wbtest.mbt)
+cover the transform and its source-order guards. Review the additive `.mbti`
+signature; no existing builder or checked deletion contract changes.
+
+The September 28 performance work keeps reuse local to the object or immutable
+body whose facts were proved. These contracts are covered by bounded tests and
+native controls; the [campaign report](../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign)
+separates helper gains from full-pipeline evidence.
+
+- Expanded LocalGraph transfers borrow their predecessor array until a local
+  write. The first write copies the outer array once; source rows remain immutable.
+  Reads still record dependencies and influences. Recursive transfers retain the
+  owned path. See [ownership tests](../../../src/ir/local_graph_transfer_borrow_wbtest.mbt).
+- Initialization-mask intersection may recognize the same array on both sides,
+  but returns an owned copy. A later initialization cannot change a parent or
+  sibling state. Direct operand checks retain the original pop, error and
+  unreachable-stack behavior. See [mask tests](../../../src/validate/tc_initialized_alias_wbtest.mbt)
+  and [operand tests](../../../src/validate/tc_pop_expect_wbtest.mbt).
+- Writing control scopes now share the entry initialization mask until a false
+  bit changes. A private expression owner copies on its first write and reuses
+  only that owned mask; each child expression starts with a fresh owner. Standalone
+  instruction checks still preserve earlier states. The intersection helper
+  retains its independent copy; control joins now borrow identical masks under
+  this write ownership contract, including through nested unchanged branches.
+  Distinct masks still use the exact intersection. The additive
+  `tc_state_fork_body` API owns the supplied stack,
+  resets scope escape observations and preserves initialization facts when
+  `Env.locals` has the same storage; different locals retain `tc_state_new`'s
+  established inference policy. Callers that directly write public state arrays
+  must first use `tc_state_clone` to acquire independent storage. See
+  [initialization ownership tests](../../../src/validate/tc_initialization_cow_wbtest.mbt)
+  and [HOT region forks](../../../src/ir/hot_lift.mbt).
+- Wide LocalGraph tuple branches journal changed local ids lazily, including
+  conservative writes from unknown controls. Joins visit those ids in their
+  deterministic order while retaining owned outer arrays and ordered reaching
+  definitions. Small or unindexed states retain the complete scan. See
+  [journal tests](../../../src/ir/local_graph_write_journal_wbtest.mbt).
+- Root splicing shifts the suffix once and snapshots replacement roots when
+  they alias the edited root array. Removed roots, ordering and the revision bump
+  retain their contract. CFG membership indexes preserve both predecessor and
+  successor edges; tiny CFGs retain their direct scan. See [splice tests](../../../src/ir/hot_root_splice_bulk_wbtest.mbt)
+  and [CFG tests](../../../src/ir/cfg_membership_wbtest.mbt).
+- Allocation and deletion maintain `deleted_nodes` alongside stable node ids.
+  Its indexed liveness answer requires an in-range node and a present bitmap
+  entry; incomplete internal fixtures retain the existing fallback. A getter
+  already returns the existing node, so a new borrowed-node representation would
+  not remove a node allocation. See [liveness tests](../../../src/ir/hot_indexed_liveness_wbtest.mbt).
+- The getter now proves ordinary live reads from bounds and the maintained
+  deletion bitmap, using the canonical checker for incomplete or invalid arenas.
+  It returns through one array-read path: early-return variants introduced extra
+  native reference-count traffic and lost helper controls. See
+  [getter tests](../../../src/ir/hot_node_get_direct_wbtest.mbt).
+- HOT result arity reads the stored shape directly; `hot_type_results` still
+  returns independently writable result arrays. Small type tables compare
+  immutable structural shapes before formatting keys, with the existing map
+  retained for larger tables. These are immediate queries, not revision caches.
+  See [arity tests](../../../src/ir/hot_type_arity_wbtest.mbt) and
+  [interning tests](../../../src/ir/hot_type_intern_reuse_wbtest.mbt).
+- Exact module-size pairs cache expression lengths only within that pair and
+  only while ordered string pools agree. An iterative structural proof admits
+  local-index rewrites, adding their exact unsigned-LEB width deltas. Current
+  declarations and complete section/body framing are always counted; changed
+  legacy Try or unsupported edits retain full encoding and its errors. Final
+  module validation remains required. See [size reuse tests](../../../src/binary/encoded_size_local_remap_wbtest.mbt).
+- DAE2's compact control-family summary belongs to the analyzed raw function and
+  module type mapping. Unknown families force conservative rewriting. It avoids
+  a second lift only when local, call, signature and control dependencies are
+  unchanged; it never retains all HOT arenas. Coalesce source-hazard steps and
+  SimplifyLocals suffix facts likewise belong to one unmodified instruction span.
+  See [DAE2 tests](../../../src/passes/dae2_control_summary_wbtest.mbt),
+  [hazard tests](../../../src/passes/coalesce_source_hazards_wbtest.mbt) and
+  [suffix tests](../../../src/passes/value_suffix_reuse_wbtest.mbt).
+- Constraint-analysis cleanup shares the dispatcher’s lazy module environment
+  through lowering and raw cleanup. Existing type changes invalidate it; a new
+  caller that changes imports, signatures, globals, tables, tags or other
+  environment dependencies must prove its own invalidation before reusing it.
+  Final module validation remains complete. See [environment tests](../../../src/passes/constraint_lower_module_env_wbtest.mbt).
+
+`hot_module_context_validation_env` exposes the same module metadata environment
+used by lifting. It contains no function-local scope. A caller may reuse it
+across immutable sibling bodies with `validate_func_body_against_functype`;
+each invocation owns its locals, function label, operand stack and local
+initialization state. DAE2 uses this validation before skipping a body's first
+lift when its boundary, callees and indexed control families are fully pinned.
+Intrinsic target pins and unknown controls retain HOT analysis. Module validation still owns declaration and
+cross-section checks. See [scope-isolation tests](../../../src/ir/hot_validation_env_wbtest.mbt)
+and [DAE2 admission](../../../src/passes/dae2_first_lift_wbtest.mbt).
 
 ## Revision-Keyed Overlays
 

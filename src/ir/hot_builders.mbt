@@ -25,7 +25,10 @@ fn hot_builder_tag_idx_raw(tag_idx : TagIdx) -> Int {
 }
 
 ///|
-fn hot_build_region(
+/// Build a control's region holder without introducing an encoded block.
+/// Attach the holder to a compatible control slot; result_arity is its
+/// fallthrough stack arity. Body nodes must belong to the same function.
+pub fn hot_build_region(
   func : HotFunc,
   body : Array[NodeId],
   result_arity : Int,

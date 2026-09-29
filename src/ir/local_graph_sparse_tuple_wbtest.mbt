@@ -29,7 +29,7 @@ test "sparse tuple transfer retains exact path state across joins and shared pro
           cfg,
           block,
           initial,
-          Some(actual_gets),
+          Some(LocalGraphSourceRecorder::new(actual_gets)),
           Some(actual_influences),
         )
         let expected = local_graph_tuple_reference_block(
@@ -37,7 +37,7 @@ test "sparse tuple transfer retains exact path state across joins and shared pro
           cfg,
           block,
           initial,
-          Some(expected_gets),
+          Some(LocalGraphSourceRecorder::new(expected_gets)),
           Some(expected_influences),
         )
         assert_eq(actual, expected)

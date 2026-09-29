@@ -388,8 +388,9 @@ fn cfg_builder_collect_operand_nodes(
   let node = hot_node_get(func, node_id)
   // The control header owns its condition and value operands. Its branch
   // regions are built separately with their actual control-flow edges.
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if !use_def_region_slot(node.op, slot) {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if !use_def_region_slot(node, slot) {
       cfg_builder_collect_operand_nodes(
         func,
         hot_child_get(func, node_id, slot),
@@ -979,7 +980,29 @@ fn cfg_builder_build_region(
 }
 
 ///|
-fn cfg_verify(cfg : HotCfg) -> Unit {
+fn cfg_verify(
+  cfg : HotCfg,
+  node_membership_visits? : Array[Int]? = None,
+) -> Unit {
+  let listed = if cfg.blocks.any(fn(block) { block.nodes.length() > 8 }) {
+    let seen = Array::make(cfg.node_to_block.length(), false)
+    for block in cfg.blocks {
+      for node in block.nodes {
+        match node_membership_visits {
+          Some(count) => count[0] += 1
+          None => ()
+        }
+        if node >= 0 &&
+          node < seen.length() &&
+          cfg.node_to_block[node] == block.id {
+          seen[node] = true
+        }
+      }
+    }
+    Some(seen)
+  } else {
+    None
+  }
   for block_id = 0; block_id < cfg.blocks.length(); block_id = block_id + 1 {
     let block = cfg.blocks[block_id]
     if block.id != block_id {
@@ -1024,11 +1047,20 @@ fn cfg_verify(cfg : HotCfg) -> Unit {
     if block_id >= cfg.blocks.length() {
       abort("cfg node-to-block mapping must reference a valid block")
     }
-    let mut found = false
-    for mapped in cfg.blocks[block_id].nodes {
-      if mapped == node_id {
-        found = true
-        break
+    let mut found = match listed {
+      Some(seen) => seen[node_id]
+      None => false
+    }
+    if listed is None {
+      for mapped in cfg.blocks[block_id].nodes {
+        match node_membership_visits {
+          Some(count) => count[0] += 1
+          None => ()
+        }
+        if mapped == node_id {
+          found = true
+          break
+        }
       }
     }
     if !found {

@@ -23,7 +23,7 @@ test "scalar local-flow transfers skip tuple storage and preserve reaching write
       cfg,
       block,
       local_graph_entry_state(1),
-      Some(sources),
+      Some(LocalGraphSourceRecorder::new(sources)),
       Some(influences),
       tuple_slots=Some(slots),
     )

@@ -55,9 +55,10 @@ fn ssa_local_record_use(
 }
 
 ///|
-fn ssa_local_is_region_slot(op : HotOp, slot : Int) -> Bool {
-  match op {
-    HotOp::Block | HotOp::Loop => true
+fn ssa_local_is_region_slot(node : HotNode, slot : Int) -> Bool {
+  match node.op {
+    HotOp::Block => slot >= node.imm1
+    HotOp::Loop => true
     HotOp::If => slot == 1 || slot == 2
     HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
     _ => false
@@ -107,7 +108,8 @@ fn ssa_simple_value_block_subtree_is_straight_line(
   if !allow_block_root && ssa_simple_node_is_forbidden_control(func, node_id) {
     return false
   }
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
     let child_id = func.children[node.child_base + slot]
     if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
       continue
@@ -401,8 +403,9 @@ fn ssa_local_visit_node(
   pushed_locals : Array[LocalId],
 ) -> Unit {
   let node = hot_node_get(func, node_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if ssa_local_is_region_slot(node.op, slot) {
+  for index = 0; index < node.child_count; index = index + 1 {
+    let slot = hot_child_evaluation_slot(node, index)
+    if ssa_local_is_region_slot(node, slot) {
       continue
     }
     match ssa_local_live_child(func, node, slot) {
