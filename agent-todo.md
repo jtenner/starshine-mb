@@ -11,7 +11,7 @@
   duplicate operand-order traversal and walks through proven pure subtrees.
   Accepted changes and rejected cache trials
   are recorded in the [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md).
-  All 12,929 default tests, 126 bounded modules / 1,029 original/v133
+  All 12,933 default tests, 126 bounded modules / 1,029 original/v133
   observations and measured before/after bytes pass. The new active-reader
   fixture adds one passing bounded guard and four dedicated native controls;
   its matched 8192-reader pipelines improve 57.40%/49.80%. This deliberate
@@ -25,7 +25,12 @@
 - **Remaining DAE2/O work:** close the multi-second compiler gap by reducing
   source-order scans, CFG/reaching-definition work, lift/lower and optimizing
   cleanup. The 32-root dependency-index threshold trial is rejected; sparse
-  helper wins did not carry into compiler pipelines. Fresh verified-v133
+  helper wins did not carry into compiler pipelines. Single-predecessor row
+  reuse and its known-write revision are also rejected: helper gains accompany
+  near-flat active workloads and +2.41%/+1.77% revised large timings, with only
+  0.15% fewer dependency instructions. Dedicated candidate controls remain;
+  production keeps v13. Inspect CFG segmentation records, proposal-feature
+  arrays and preceding-query allocations next. Fresh verified-v133
   ratios, cumulative timing, memory and instruction
   attribution are owned by the strategy page. Keep small/control costs and
   identical-binary calibration limits explicit. Long aggregate fuzz remains

@@ -25,6 +25,77 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 rejected predecessor-row reuse
+
+Two single-predecessor query trials are removed from production. The first
+borrows a completed predecessor's immutable source row when it has no write
+to the queried local. The revised version also resolves a sole preceding write
+directly and avoids processing its first edge twice on the fallback path.
+Both preserve exact source order, overwrite boundaries, exceptional policy,
+entry-reaching loops and closed cycles. No retained cache is added.
+
+The [candidate guards](../../../../../src/ir/local_graph_predecessor_cache_wbtest.mbt)
+retain the frozen v13 reference and the rejected revised algorithm in white-box
+code. Sharing and known-write workspace regressions fail before their respective
+implementations; the boundary guard compares both locals and exceptional
+policies. The [eight native controls](../../../../../src/ir/local_graph_predecessor_cache_perf_wbtest.mbt)
+include cold cache/index/scratch allocation, query each block once and exclude
+CFG/fact construction equally. The revised installed candidate measures:
+
+| Query chain | Original → candidate |
+| --- | --- |
+| 64 read-only blocks | 10.43 → 3.90µs |
+| 512 read-only blocks | 83.53 → 29.91µs |
+| 64 overwriting blocks | 5.09 → 4.49µs |
+| 512 overwriting blocks | 39.87 → 34.09µs |
+
+The first trial's overwrite controls regress 4.90 → 5.82µs / 37.87 → 44.79µs;
+the revision removes that helper cost, but neither trial improves the compiler
+pipelines. Three alternating v13→v14b pairs measure large DAE2 **4248.864 →
+4351.417ms (+2.41%)**, MAD 0.004/18.881ms, and optimizing **7296.766 →
+7425.941ms (+1.77%)**, MAD 8.655/67.920ms. The first trial also records
+large costs of +1.61%/+0.78%. Preserve those timing observations without
+claiming every difference is causal: dependency-only instructions fall only
+20,329,087,979 → 20,299,338,150 (−0.15%), and counted allocator requests/frees
+fall by only 343 in that window. Active joined-reader and pure-tail pipelines
+are near flat for the revision; helper wins do not establish a full-pass win.
+
+Small revised medians are 4.968 → 4.485ms / 11.750 → 11.806ms; tee medians
+are 3.706 → 3.728ms / 104.978 → 104.549ms. Small instructions fall
+80,559,242 → 80,546,335 / 172,282,363 → 172,264,765, with two fewer allocator
+requests/frees in each command. Reference-drift retries and the identical-binary
+calibration limit small timing claims. Managed process visibility still does
+not establish quiet-host timing. Counts are incoming allocator calls, not
+allocated bytes, net live objects or RSS.
+
+Installed v14/v14b prototypes pass 12,932/12,933 default tests, info/fmt,
+native build, eight controls and the 126-module / 1,029-observation replay.
+Each also passes the two seven-module / 28-observation active replays against
+original and verified v133. All measured before/after bytes, traced/untraced
+outputs and independent validation match. The production query is restored
+exactly to v13; candidate implementations remain confined to dedicated tests.
+Rejected binary SHA-256 values are
+`092a57cd4f5bcc2870451d4649b5599a7fdfa37fcac2d2d083af0cec48e8c05b`
+and `b52ea87e0602f61285f21b21a0f2928a8b8806e227c8001efbf8f94a1b0b3dd1`.
+Local evidence under `.tmp/dae2-lean-20260929/` uses `v14`, `v14b`,
+`rejected-v14/`, `rejected-v14b/` and `dependency-cost-v14b.json`.
+Current production oracle evidence remains the accepted v13 sweep below.
+Fuzz remains deferred.
+
+After restoring production, info/fmt, all 12,933 default tests, native build
+and the eight candidate-only controls pass. The rebuilt CLI is byte-identical
+to v13, so its accepted oracle and runtime evidence still describe production.
+Renewed control means are retained in `v14-controls-bench.log`; they do not
+alter the installed-prototype pipeline results above.
+
+Direct allocation attribution identifies larger targets: v13 dependency
+analysis records 4,927,673 calls from CFG region segmentation to `mi_malloc`,
+3,092,437 from preceding-dependency queries, and 1,914,225 from block creation.
+Proposal-feature array construction also calls the integer-array allocator
+5,982,618 times. These are distinct call edges, including wrapper layers;
+do not sum them as independent allocation totals. Inspect their record/array
+lifetime before adding another cache. Evidence is `allocation-callers-v13.json`.
+
 ## September 29, 2026 pure-subtree dependency pruning
 
 The shared preceding-value collector and indexed minimum query stop at a pure

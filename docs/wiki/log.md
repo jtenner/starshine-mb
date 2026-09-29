@@ -55,6 +55,12 @@
   argument-removal guard pass. Matching paired CLI pipelines improve
   45.76%/45.33%, with 28 original/v133 observations and unchanged bytes.
   The fresh verified-v133 compiler ratios remain 9.51×/4.59×.
+  Two single-predecessor query trials are removed after helper gains fail to
+  improve full passes. The known-write revision fixes its overwrite-control
+  cost, but large compiler timing records +2.41%/+1.77%, with only 0.15% fewer
+  dependency instructions and 343 fewer allocator calls. Red-first candidate
+  guards and eight controls remain; production keeps v13. Allocation attribution
+  points next to CFG segmentation, proposal-feature arrays and source queries.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration
