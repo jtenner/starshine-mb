@@ -9866,6 +9866,7 @@ fn sgo_final_cleanup_pure_expr_range(
 fn sgo_final_cleanup_dropped_pure_result_if_length(
   instrs : Array[@lib.Instruction],
   start : Int,
+  purity_checks? : Array[Int]? = None,
 ) -> Int {
   let max_condition_length = 16
   let condition_limit = Int::min(
@@ -9873,18 +9874,21 @@ fn sgo_final_cleanup_dropped_pure_result_if_length(
     start + max_condition_length,
   )
   for if_pos = start + 1; if_pos <= condition_limit; if_pos = if_pos + 1 {
-    if !sgo_final_cleanup_pure_expr_range(instrs, start, if_pos) {
-      continue
-    }
     if if_pos + 1 >= instrs.length() || !(instrs[if_pos + 1] is @lib.Drop) {
       continue
     }
     match instrs[if_pos] {
-      @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) =>
-        if sgo_final_cleanup_pure_expr_range(then_body, 0, then_body.length()) &&
+      @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
+        match purity_checks {
+          Some(count) => count[0] += 1
+          None => ()
+        }
+        if sgo_final_cleanup_pure_expr_range(instrs, start, if_pos) &&
+          sgo_final_cleanup_pure_expr_range(then_body, 0, then_body.length()) &&
           sgo_final_cleanup_pure_expr_range(else_body, 0, else_body.length()) {
           return if_pos - start + 2
         }
+      }
       _ => ()
     }
   }

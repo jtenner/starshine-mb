@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-26
+last_reviewed: 2026-09-28
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/SimplifyLocals.cpp
   - ../../../../../src/passes/simplify_locals_structured_lifetime_wbtest.mbt
@@ -517,3 +517,19 @@ The structured producer classifier now admits scalar `loop` producers and otherw
 The read-only-to-write counter now recognizes two bounded cases where the guarded value itself originates inside structured control: an exact scalar result loop containing only the guarded `global.get`, and the probed branchful result block where that value is carried to `br_if`'s target or replaced by a scalar constant on fallthrough. The result then uses the existing typed pure-suffix and guarded-write/if-return matcher. This is intentionally not a blanket structured replay rule: nested side-effecting conditions, arbitrary branch stacks, multiple guarded reads, type-index generalization, and multivalue remain outside the matcher.
 
 The remaining cleanup drift is measured as parity work, not accepted representation drift. One-use local declarations cost Starshine two stripped bytes (`46` versus `44`), and effectful result-if residual cleanup costs two (`65` versus `63`); both converge under shared downstream `-Oz`. A trial declaration deletion was reverted after it left local-name metadata out of range, so declaration cleanup must be metadata-aware. The 51-repeat timing decision remains `<=1x`, worst `0.977x` on read-only-select.
+
+## September 28, 2026 performance reuse contracts
+
+Dropped-result if cleanup checks the following Drop and eligible branch/result shapes before scanning a long pure prefix. The original purity, effect and trap proofs still decide admitted candidates. Full-pipeline benchmarks cover global/function scaling; a guarded unchanged artifact remains a coverage limit, not evidence of active cleanup speed.
+
+Tests and native controls: [sgo_candidate_scan_wbtest.mbt](../../../../../src/passes/sgo_candidate_scan_wbtest.mbt), [sgo_candidate_scan_perf_wbtest.mbt](../../../../../src/passes/sgo_candidate_scan_perf_wbtest.mbt), [sgo_full_pipeline_perf_wbtest.mbt](../../../../../src/passes/sgo_full_pipeline_perf_wbtest.mbt). The [campaign report](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign) owns frozen-binary artifact timings, verified-v133 evidence and final correctness outcomes; helper timings alone do not close the remaining pipeline or parity gaps.
+
+
+## September 28, 2026 shared follow-up controls
+
+Shared initialization ownership and HOT result queries retain their semantic
+contracts in the [IR ownership rules](../../../ir2/architecture-rules.md#performance-reuse-ownership-contracts).
+The [follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign)
+separates new helper evidence from this pass's enclosing timings and final
+aggregate status. Prior signoff does not automatically cover the new sources;
+guarded paths and remaining size/parity gaps retain their existing limits.
