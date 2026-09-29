@@ -25,6 +25,51 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 expanded-flow performance repair
+
+Expanded operand CFGs now use the existing reverse reaching-definition solver.
+Their nodes already represent evaluation order, so action extraction records
+local reads/writes directly rather than recursively expanding operands again.
+Root-only CFG admission and shared-expression fallback remain intact. The
+[red-first regression](../../../../../src/ir/local_graph_expanded_reverse_wbtest.mbt)
+first observed duplicate actions `[0,0,1,2,2]` instead of `[0,1,2]`; six bounded
+fixtures compare source sets with the dense solver across stacked reads,
+loop-carried writes, branches and indexed inputs. The
+[native benchmark](../../../../../src/ir/local_graph_expanded_reverse_perf_wbtest.mbt)
+compares both solvers at 32/128/256 reads and 128/512/1024 locals.
+
+Three alternating, CPU-affined samples after one warmup give these pipeline
+medians in milliseconds (identical before/after wasm bytes, validated outputs):
+
+| Input | DAE2 before → after | DAE2-O before → after |
+| --- | ---: | ---: |
+| Small | 5.181 → 4.654 | 12.703 → 12.704 |
+| Large compiler | 39136.021 → 5092.202 | 38973.233 → 7936.136 |
+| Active tee | 3.723 → 3.801 | 106.362 → 106.250 |
+
+Large reductions are 86.99%/79.64%; median absolute deviations are
+30.347/73.633ms for DAE2 and 43.095/102.208ms for DAE2-O (before/after).
+These repair the dense-flow regression introduced by the source-order
+correctness fix: **they are not improvements of that magnitude over historical
+V18's 4.17s/7.54s**, whose newly exposed semantic failures remain documented.
+A traced large sample reduces dependency analysis 36317.052 → 2074.588ms;
+rewrite/lower/validation costs remain. Native 128-read graph construction is
+932.16 → 279.86µs, and 256-read construction 3.79 → 1.04ms. Residual scaling
+and multi-second artifact costs remain active performance gaps.
+
+`moon info`, `moon fmt`, all 12,909 default tests, native CLI build and six
+native benchmarks pass. Eighteen fixed runtime fixtures validate 126 modules
+and 1,029 result/effect/trap observations against original inputs and verified
+Binaryen v133, with zero mismatches or before/after output changes. This bounded
+lane is not aggregate fuzz signoff. Baseline binary SHA-256 is
+`5c03b6a93d19e8c90403b7b691f87ebfc94c42eb670052506bfa7cad50a2fbf8`;
+candidate is `a612ebefc2f7d54085530d22d88d2565861d26e4753b64e9660b282999a18fc3`.
+Local reproducibility artifacts are `.tmp/dae2-lean-20260929/`: source manifests,
+`validation-v1.json`, `runtime-v1/result.json`, and `pairs-v1-{small,large,tee}/`.
+The pair runner retains rejected reference-drift attempts and foreign CPU
+observations; no new v133 timing ratio or memory improvement is claimed.
+Fuzz renewal is explicitly deferred until performance work is complete.
+
 ## September 29, 2026 branchless scalar blocks and source-order flow
 
 The next candidate admits input-free void/scalar blocks with no branches,

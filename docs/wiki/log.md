@@ -1,3 +1,13 @@
+### 2026-09-29 — DAE2 expanded-flow cost attribution
+
+- The source-order correctness repair selected a dense local-state solver and
+  pushed large DAE2/O to roughly 39 seconds. Reusing reverse flow with one action
+  per expanded CFG node reduces those pipelines to 5.092/7.936 seconds with
+  identical bytes. Full 12,909-test validation and 1,029 bounded observations
+  pass; historical V18 correctness/performance limits and remaining costs stay
+  explicit in the [DAE2 strategy](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-expanded-flow-performance-repair).
+  Fuzz remains deferred by request until performance trials finish.
+
 ### 2026-09-29 — DAE priority performance iteration
 
 - V14 completes 12,853 default tests, 86 focused native checks, 46 benchmarks

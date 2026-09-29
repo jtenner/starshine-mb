@@ -1048,11 +1048,7 @@ pub fn local_graph_build_full_flow(
   func : HotFunc,
   cfg : HotCfg,
 ) -> HotLocalGraph {
-  if cfg.operands_expanded {
-    local_graph_build_with_exceptional_policy(func, cfg, true)
-  } else {
-    local_graph_build_reverse_flow(func, cfg, true)
-  }
+  local_graph_build_reverse_flow(func, cfg, true)
 }
 
 ///|
@@ -1383,7 +1379,17 @@ fn local_graph_reverse_action_sequences(
   for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
     let actions : Array[NodeId] = []
     for node_id in cfg_block_get(cfg, block_id).nodes {
-      local_graph_reverse_actions_node(func, node_id, actions, false)
+      if cfg.operands_expanded {
+        // The CFG has already ordered operands, including stack-carried
+        // reads and control inputs. Recursing repeats their evaluations.
+        match hot_node_op(func, node_id) {
+          HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee =>
+            actions.push(node_id)
+          _ => ()
+        }
+      } else {
+        local_graph_reverse_actions_node(func, node_id, actions, false)
+      }
     }
     sequences.push(actions)
   }
@@ -1538,6 +1544,11 @@ fn local_graph_build_reverse_flow(
   // Reverse scans require a complete linear action list for every CFG block.
   // Nested branching operands have multiple paths and use the forward join.
   for block in cfg.blocks {
+    if cfg.operands_expanded {
+      // Operand control is represented by CFG edges rather than hidden in
+      // a root's subtree, so every block already has a linear action list.
+      break
+    }
     for root in block.nodes {
       let data = hot_node_get(func, root)
       for slot = 0; slot < data.child_count; slot = slot + 1 {

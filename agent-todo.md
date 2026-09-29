@@ -4,7 +4,17 @@
 
 - **Goal / why:** close the remaining command, pipeline and oracle gaps before
   release while preserving active transformations, output quality and ownership.
-- **Last complete native checkpoint:** priority-v18 passes 12,877 default
+- **Current DAE2 lean checkpoint:** expanded operand flow now uses reverse
+  reaching definitions without recursively duplicating CFG actions. All 12,909
+  default tests and six native controls pass; 126 bounded modules / 1,029
+  observations match original/v133 behavior and before/after bytes. Three-pair
+  large pipeline medians fall 39.136 → 5.092s (DAE2) and 38.973 → 7.936s (DAE2-O).
+  This repairs the dense-flow cost introduced by the source-order fix, rather
+  than beating historical V18 by those percentages. Remaining targets include
+  read-only predecessor chains, source-union churn, tuple preparation, and
+  lift/lower; fresh oracle ratios and deferred aggregate fuzz remain open.
+  See the [measured repair](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-29-2026-expanded-flow-performance-repair).
+- **Historical complete native checkpoint:** priority-v18 passes 12,877 default
   wasm-gc tests, 112 focused native tests, 62 native benchmark cases, interface
   generation, formatting and native CLI build. Its 79-fixture shared-consumer
   matrix validates 2,730 modules with 12,008 matching results, effects and traps.
