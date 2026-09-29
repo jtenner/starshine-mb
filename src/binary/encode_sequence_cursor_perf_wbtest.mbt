@@ -1,24 +1,9 @@
 ///|
-// Sequence cursors retain O(depth) work, including for wide instruction lists.
-priv enum ControlEncodeWork {
-  ControlInstruction(Instruction)
-  ControlSequence(Array[Instruction], Int)
-  ControlCatches(Array[@lib.LegacyCatch], Int)
-  ControlDelegate(@lib.LabelIdx)
-  ControlByte(Byte)
-}
-
-///|
-fn encode_control_work(
+fn encode_control_work_reference(
   work : Array[ControlEncodeWork],
   buf : @buffer.Buffer,
-  work_items? : Array[Int]? = None,
 ) -> Result[Unit, BinaryEncodeError] {
   while work.pop() is Some(task) {
-    match work_items {
-      Some(count) => count[0] += 1
-      None => ()
-    }
     match task {
       ControlByte(value) => buf.write_byte(value)
       ControlDelegate(label) => {
@@ -27,30 +12,13 @@ fn encode_control_work(
           return Err(err)
         }
       }
-      ControlSequence(values, index) => {
-        let mut cursor = index
-        while cursor < values.length() {
-          let instruction = values[cursor]
-          match instruction {
-            Block(_, _)
-            | Loop(_, _)
-            | If(_, _, _)
-            | Try(_, _, _, _)
-            | TryTable(_, _, _) => {
-              if cursor + 1 < values.length() {
-                work.push(ControlSequence(values, cursor + 1))
-              }
-              work.push(ControlInstruction(instruction))
-              break
-            }
-            _ =>
-              if encode_leaf_instruction(instruction, buf) is Err(err) {
-                return Err(err)
-              }
+      ControlSequence(values, index) =>
+        if index < values.length() {
+          if index + 1 < values.length() {
+            work.push(ControlSequence(values, index + 1))
           }
-          cursor += 1
+          work.push(ControlInstruction(values[index]))
         }
-      }
       ControlCatches(values, index) =>
         if index < values.length() {
           if index + 1 < values.length() {
@@ -129,4 +97,89 @@ fn encode_control_work(
     }
   }
   Ok(())
+}
+
+///|
+fn encode_sequence_cursor_bench(
+  it : @bench.T,
+  width : Int,
+  nested : Bool,
+  reference : Bool,
+) -> Unit {
+  let flat = Array::make(width, @lib.Instruction::nop())
+  let body = if nested {
+    Array::make(
+      16,
+      @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(flat)),
+    )
+  } else {
+    flat
+  }
+  let first = @buffer.new()
+  encode_control_work_reference(
+    [ControlByte(0x0B), ControlSequence(body, 0)],
+    first,
+  ).unwrap()
+  let second = @buffer.new()
+  encode_control_work([ControlByte(0x0B), ControlSequence(body, 0)], second).unwrap()
+  if first.to_bytes() != second.to_bytes() {
+    abort("encoder cursor changed control bytes")
+  }
+  it.bench(fn() {
+    let buffer = @buffer.new()
+    it.keep(
+      if reference {
+        encode_control_work_reference(
+          [ControlByte(0x0B), ControlSequence(body, 0)],
+          buffer,
+        )
+      } else {
+        encode_control_work(
+          [ControlByte(0x0B), ControlSequence(body, 0)],
+          buffer,
+        )
+      },
+    )
+    it.keep(buffer.length())
+  })
+}
+
+///|
+test "bench encoder sequence width=4 flat reference" (it : @bench.T) {
+  encode_sequence_cursor_bench(it, 4, false, true)
+}
+
+///|
+test "bench encoder sequence width=4 flat cursor" (it : @bench.T) {
+  encode_sequence_cursor_bench(it, 4, false, false)
+}
+
+///|
+test "bench encoder sequence width=128 flat reference" (it : @bench.T) {
+  encode_sequence_cursor_bench(it, 128, false, true)
+}
+
+///|
+test "bench encoder sequence width=128 flat cursor" (it : @bench.T) {
+  encode_sequence_cursor_bench(it, 128, false, false)
+}
+
+///|
+test "bench encoder sequence width=4096 flat reference" (it : @bench.T) {
+  encode_sequence_cursor_bench(it, 4096, false, true)
+}
+
+///|
+test "bench encoder sequence width=4096 flat cursor" (it : @bench.T) {
+  encode_sequence_cursor_bench(it, 4096, false, false)
+}
+
+///|
+test "bench encoder sequence width=128 nested reference" (it : @bench.T) {
+  encode_sequence_cursor_bench(it, 128, true, true)
+}
+
+///|
+test "bench encoder sequence width=128 nested cursor" (it : @bench.T) {
+  encode_sequence_cursor_bench(it, 128, true, false)
 }

@@ -75,17 +75,36 @@ pub trait Encode {
 }
 
 ///|
-let binary_encode_stringrefs_context : Ref[Array[Bytes]?] = Ref::new(None)
+priv struct BinaryEncodeStringRefsContext {
+  strings : Array[Bytes]
+  mut index : @hashmap.HashMap[Bytes, Int]?
+}
 
 ///|
-/// Temporarily bind a module stringref pool while encoding so `string.const` indices
-/// can be resolved without mutating global encoder state.
+fn BinaryEncodeStringRefsContext::new(
+  strings : Array[Bytes],
+  index : @hashmap.HashMap[Bytes, Int]?,
+) -> BinaryEncodeStringRefsContext {
+  { strings, index, }
+}
+
+///|
+let binary_encode_stringrefs_context : Ref[BinaryEncodeStringRefsContext?] = Ref::new(
+  None,
+)
+
+///|
+/// Bind a module string pool and its index for this encoding call, restoring
+/// the enclosing context on both success and encoding errors.
 fn[T] with_binary_encode_stringrefs_context(
   stringrefs : Array[Bytes]?,
   f : () -> Result[T, BinaryEncodeError],
+  known_index? : @hashmap.HashMap[Bytes, Int]? = None,
 ) -> Result[T, BinaryEncodeError] {
   let saved = binary_encode_stringrefs_context.val
-  binary_encode_stringrefs_context.val = stringrefs
+  binary_encode_stringrefs_context.val = stringrefs.map(fn(strings) {
+    BinaryEncodeStringRefsContext::new(strings, known_index)
+  })
   let result = f()
   binary_encode_stringrefs_context.val = saved
   result
@@ -98,10 +117,46 @@ fn[T] with_binary_encode_stringrefs_context(
 fn encode_string_const_index(
   bytes : Bytes,
 ) -> Result[@lib.U32, BinaryEncodeError] {
+  encode_string_const_index_impl(bytes, None)
+}
+
+///|
+#inline
+fn encode_string_const_index_impl(
+  bytes : Bytes,
+  candidate_checks : Array[Int]?,
+) -> Result[@lib.U32, BinaryEncodeError] {
   match binary_encode_stringrefs_context.val {
-    Some(stringrefs) => {
+    Some(context) => {
+      if context.index is Some(index) {
+        return encode_string_index_lookup(index, bytes, candidate_checks)
+      }
+      let stringrefs = context.strings
       let mut i = 0
       while i < stringrefs.length() {
+        // A short prefix stays cheaper for sparse use of a large external
+        // pool. A distant lookup builds one index for this encoding scope.
+        if i == 32 {
+          let index : @hashmap.HashMap[Bytes, Int] = @hashmap.new(
+            capacity=stringrefs.length(),
+          )
+          for position = 0
+              position < stringrefs.length()
+              position = position + 1 {
+            let literal = stringrefs[position]
+            if candidate_checks is Some(count) {
+              count[0] += 1
+            }
+            if index.get(literal) is None {
+              index.set(literal, position)
+            }
+          }
+          context.index = Some(index)
+          return encode_string_index_lookup(index, bytes, candidate_checks)
+        }
+        if candidate_checks is Some(count) {
+          count[0] += 1
+        }
         if stringrefs[i] == bytes {
           return Ok(@lib.U32(i.reinterpret_as_uint()))
         }
@@ -110,6 +165,21 @@ fn encode_string_const_index(
       Err(BinaryEncodeError::StringConstLiteralMissingFromSection)
     }
     None => Err(BinaryEncodeError::CannotEncodeStringConstWithoutModuleContext)
+  }
+}
+
+///|
+fn encode_string_index_lookup(
+  index : @hashmap.HashMap[Bytes, Int],
+  bytes : Bytes,
+  candidate_checks : Array[Int]?,
+) -> Result[@lib.U32, BinaryEncodeError] {
+  if candidate_checks is Some(count) {
+    count[0] += 1
+  }
+  match index.get(bytes) {
+    Some(position) => Ok(@lib.U32(position.reinterpret_as_uint()))
+    None => Err(BinaryEncodeError::StringConstLiteralMissingFromSection)
   }
 }
 
@@ -1520,24 +1590,77 @@ pub impl Encode for CastOp with fn encode(val, buf) {
 }
 
 ///|
-/// Collect unique `string.const` payloads across module globals and code so the
-/// encoder can write a deterministic `stringrefs` section.
-fn encode_module_stringrefs(mod_ : Module) -> Array[Bytes] {
-  /// Keep insertion order while de-duplicating byte arrays.
-  fn push_unique(out : Array[Bytes], bytes : Bytes) -> Unit {
-    for existing in out {
-      if existing == bytes {
-        return
-      }
-    }
-    out.push(bytes)
-  }
+priv struct EncodeStringRefsPool {
+  values : Array[Bytes]
+  mut seen : @hashmap.HashMap[Bytes, Int]?
+  membership_work : Array[Int]?
+}
 
+///|
+fn EncodeStringRefsPool::new(
+  membership_work : Array[Int]?,
+) -> EncodeStringRefsPool {
+  { values: [], seen: None, membership_work, }
+}
+
+///|
+fn EncodeStringRefsPool::push_unique(
+  self : EncodeStringRefsPool,
+  bytes : Bytes,
+) -> Unit {
+  if self.seen is None && self.values.length() >= 32 {
+    let seen : @hashmap.HashMap[Bytes, Int] = @hashmap.new(capacity=64)
+    for index = 0; index < self.values.length(); index = index + 1 {
+      seen.set(self.values[index], index)
+    }
+    self.seen = Some(seen)
+  }
+  if self.seen is Some(seen) {
+    // Count membership requests, not internal hash-table collision comparisons.
+    if self.membership_work is Some(work) {
+      work[0] += 1
+    }
+    if seen.get(bytes) is Some(_) {
+      return
+    }
+    seen.set(bytes, self.values.length())
+    self.values.push(bytes)
+    return
+  }
+  for existing in self.values {
+    if self.membership_work is Some(work) {
+      work[0] += 1
+    }
+    if existing == bytes {
+      return
+    }
+  }
+  self.values.push(bytes)
+}
+
+///|
+/// Collect unique `string.const` payloads in declaration/global/code order.
+/// The membership index never determines output order and belongs to this call.
+fn encode_module_stringrefs(
+  mod_ : Module,
+  membership_work? : Array[Int]? = None,
+) -> Array[Bytes] {
+  encode_module_stringrefs_pool(mod_, membership_work~).values
+}
+
+///|
+fn encode_module_stringrefs_pool(
+  mod_ : Module,
+  membership_work? : Array[Int]? = None,
+) -> EncodeStringRefsPool {
   /// Recurse through structured control instructions and collect string constants
   /// that can be reached in nested blocks for local declarations and exports.
-  fn collect_instruction(instr : Instruction, out : Array[Bytes]) -> Unit {
+  fn collect_instruction(
+    instr : Instruction,
+    out : EncodeStringRefsPool,
+  ) -> Unit {
     match instr {
-      StringConst(bytes) => push_unique(out, bytes)
+      StringConst(bytes) => out.push_unique(bytes)
       Block(_, Expr(instrs))
       | Loop(_, Expr(instrs))
       | TryTable(_, _, Expr(instrs)) =>
@@ -1573,11 +1696,11 @@ fn encode_module_stringrefs(mod_ : Module) -> Array[Bytes] {
     }
   }
 
-  let out : Array[Bytes] = []
+  let out = EncodeStringRefsPool::new(membership_work)
   match mod_.stringrefs_sec {
     Some(StringRefsSec(strings)) =>
       for bytes in strings {
-        push_unique(out, bytes)
+        out.push_unique(bytes)
       }
     None => ()
   }
@@ -1666,7 +1789,8 @@ fn encode_module_sections(
   if Encode::encode(val.tag_sec, buf) is Err(t) {
     return Err(t)
   }
-  let stringrefs = encode_module_stringrefs(val)
+  let string_pool = encode_module_stringrefs_pool(val)
+  let stringrefs = string_pool.values
   let stringrefs_sec = if stringrefs.length() > 0 ||
     val.stringrefs_sec is Some(_) {
     Some(StringRefsSec::new(stringrefs))
@@ -1715,6 +1839,7 @@ fn encode_module_sections(
         }
         Ok(())
       },
+      known_index=string_pool.seen,
     )
     is Err(t) {
     return Err(t)

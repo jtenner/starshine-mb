@@ -1290,9 +1290,9 @@ fn decode_custom_sections_with_detail(
               ),
             )
           }
-          match Decode::decode(bytes, payload_start) {
+          match Decode::decode(payload, 0) {
             Ok((name_sec, consumed)) => {
-              if consumed != next {
+              if consumed != payload.length() {
                 return Err(
                   module_section_decode_error(
                     bytes,

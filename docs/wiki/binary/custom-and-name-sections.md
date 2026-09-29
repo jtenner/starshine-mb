@@ -63,6 +63,13 @@ This gives validators and mutating passes typed views of debug names and advisor
 
 ## Common Metadata Section Routing
 
+Structured `name` decoding uses the custom section's bounded payload, starting
+at offset zero, and requires exact payload consumption. It reuses the bytes
+already retained for raw-name preservation. A following custom section cannot
+be consumed as another name subsection or satisfy an overlong name string.
+The September 28 repair has [encoded-byte fixtures](../../../src/binary/name_section_boundary_wbtest.mbt)
+for both valid following metadata and a malformed subsection boundary.
+
 | Section or metadata lane | Upstream meaning | Current Starshine route | Maintenance rule |
 | --- | --- | --- | --- |
 | `name` custom section | Standard name-section metadata for debug names. | Parsed into `Module.name_sec` plus optional `raw_name_sec_payload`; raw `CustomSec("name", ...)` is rejected on encode/validation. | Rewrite or clear structured maps after index-space rewrites; do not keep stale raw name bytes after structural changes. |

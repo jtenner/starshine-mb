@@ -440,6 +440,8 @@ pub struct TypeSec(Array[RecType]) derive(Eq, Arbitrary, Hash, Debug)
 pub struct ImportSec(Array[Import]) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
+/// Function declarations reference the flattened global type index space.
+/// RecIdx is local to a recursive type declaration and is invalid here.
 pub struct FuncSec(Array[TypeIdx]) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|

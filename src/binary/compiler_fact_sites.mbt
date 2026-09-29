@@ -237,26 +237,31 @@ pub fn compiler_fact_opcode_sites(
 pub fn compiler_fact_module_opcode_offsets(
   module_ : Module,
 ) -> Result[Array[Array[UInt]], BinaryEncodeError] {
-  let stringrefs = encode_module_stringrefs(module_)
+  let string_pool = encode_module_stringrefs_pool(module_)
+  let stringrefs = string_pool.values
   let context = if stringrefs.is_empty() { None } else { Some(stringrefs) }
-  with_binary_encode_stringrefs_context(context, fn() {
-    let functions = match module_.code_sec {
-      Some(CodeSec(functions)) => functions
-      None => []
-    }
-    let indexed : Array[Array[UInt]] = []
-    for function in functions {
-      let Func(_, Expr(instructions)) = function
-      let offsets : Array[UInt] = []
-      let cursor = Ref::new(0)
-      match
-        compiler_fact_collect_opcode_offsets(instructions, offsets, cursor) {
-        Ok(_) => indexed.push(offsets)
-        Err(err) => return Err(err)
+  with_binary_encode_stringrefs_context(
+    context,
+    fn() {
+      let functions = match module_.code_sec {
+        Some(CodeSec(functions)) => functions
+        None => []
       }
-    }
-    Ok(indexed)
-  })
+      let indexed : Array[Array[UInt]] = []
+      for function in functions {
+        let Func(_, Expr(instructions)) = function
+        let offsets : Array[UInt] = []
+        let cursor = Ref::new(0)
+        match
+          compiler_fact_collect_opcode_offsets(instructions, offsets, cursor) {
+          Ok(_) => indexed.push(offsets)
+          Err(err) => return Err(err)
+        }
+      }
+      Ok(indexed)
+    },
+    known_index=string_pool.seen,
+  )
 }
 
 ///|
