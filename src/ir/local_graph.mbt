@@ -905,6 +905,45 @@ fn local_graph_empty_influences(func : HotFunc) -> Array[Array[NodeId]] {
 }
 
 ///|
+#valtype
+priv struct LocalGraphWriteFacts {
+  local_ids : Array[LocalId]
+  is_tees : Array[Bool]
+}
+
+///|
+fn LocalGraphWriteFacts::new(
+  local_ids : Array[LocalId],
+  is_tees : Array[Bool],
+) -> LocalGraphWriteFacts {
+  { local_ids, is_tees, }
+}
+
+///|
+fn local_graph_build_write_facts(func : HotFunc) -> LocalGraphWriteFacts {
+  let count = hot_node_count(func)
+  let local_ids = Array::make(count, -1)
+  let is_tees = Array::make(count, false)
+  // Both immutable graph fields cover the same arena. Build them together
+  // at their final span, preserving sentinel rows for deleted nodes.
+  for node_id in 0..<count {
+    if !hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = hot_node_get(func, node_id)
+    match node.op {
+      HotOp::LocalSet => local_ids[node_id] = node.imm0
+      HotOp::LocalTee => {
+        local_ids[node_id] = node.imm0
+        is_tees[node_id] = true
+      }
+      _ => ()
+    }
+  }
+  LocalGraphWriteFacts::new(local_ids, is_tees)
+}
+
+///|
 fn local_graph_build_write_local_ids(func : HotFunc) -> Array[LocalId] {
   let write_local_ids : Array[LocalId] = []
   for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
@@ -1033,13 +1072,14 @@ fn local_graph_build_with_exceptional_policy(
       ),
     )
   }
+  let write_facts = local_graph_build_write_facts(func)
   {
     local_count,
     param_count: hot_param_count(func),
     get_source_ids: get_sources,
     set_influence_gets: write_influences,
-    write_local_ids: local_graph_build_write_local_ids(func),
-    write_is_tees: local_graph_build_write_is_tees(func),
+    write_local_ids: write_facts.local_ids,
+    write_is_tees: write_facts.is_tees,
     local_is_already_ssa: local_graph_build_local_already_ssa(
       func, local_count, get_sources,
     ),
@@ -1696,7 +1736,8 @@ fn local_graph_build_reverse_flow(
 
   // The final graph already needs this immutable index. Reuse it for every
   // predecessor query instead of decoding the same node at each visit.
-  let write_local_ids = local_graph_build_write_local_ids(func)
+  let write_facts = local_graph_build_write_facts(func)
+  let write_local_ids = write_facts.local_ids
   let transparent_predecessors = local_graph_reverse_transparent_predecessors(
     write_local_ids, cfg, actions, include_exceptional,
   )
@@ -1758,7 +1799,7 @@ fn local_graph_build_reverse_flow(
     get_source_ids: get_sources,
     set_influence_gets: write_influences,
     write_local_ids,
-    write_is_tees: local_graph_build_write_is_tees(func),
+    write_is_tees: write_facts.is_tees,
     local_is_already_ssa: local_graph_build_local_already_ssa(
       func, local_count, get_sources,
     ),

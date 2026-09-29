@@ -11,10 +11,11 @@
   duplicate operand-order traversal and walks through proven pure subtrees,
   boxed private CFG segment rows, growth of fixed-size CFG maps and empty
   continuation-query allocations, vacuous catch-layout scans and duplicate
-  core validation and complete-header return boundaries in operand queries.
+  core validation, complete-header return boundaries in operand queries and
+  separate writer metadata scans/growing rows.
   Accepted changes and rejected cache trials
   are recorded in the [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md).
-  All 12,950 default tests, 126 bounded modules / 1,029 original/v133
+  All 12,953 default tests, 126 bounded modules / 1,029 original/v133
   observations and measured before/after bytes pass. The new active-reader
   fixture adds one passing bounded guard and four dedicated native controls;
   its matched 8192-reader pipelines improve 57.40%/49.80%. This deliberate
@@ -35,7 +36,7 @@
   production keeps the v13 query. Packed private CFG segments remove 490,847
   allocator requests in dependency analysis (1.19%) with near-flat compiler
   timings and recorded active-control costs. Fresh v133 ratios remain
-  8.96×/4.33× on the frozen large v21b input. Fixed-size CFG maps remove another
+  9.03×/4.36× on the frozen large v22 input. Fixed-size CFG maps remove another
   63,326 requests and 0.34% of dependency instructions, with recorded control
   costs and near-flat compiler timings. Own-effect reuse removes repeated
   descriptor work and another 0.99% of dependency instructions without an
@@ -52,8 +53,11 @@
   paired 1.12% large DAE2 gain; optimizing and total instruction/heap work
   remain near flat, with tee/RSS costs recorded. The original private-call
   trial only renamed that boundary; strengthened native evidence supersedes
-  its public-name-only guard. Finish the fused LocalGraph writer-metadata
-  candidate's measurements (12,953 tests pass), then reduce repeated
+  its public-name-only guard. Fused writer metadata improves native controls
+  62–65%, removes 1.37% of dependency instructions and 89,396 requests/frees,
+  with near-flat compiler timings. Plain tee/active optimizing control costs,
+  earlier tee-buffer lifetime and a 4.78% plain RSS median increase remain
+  recorded; overlapping ranges do not establish a causal memory win. Reduce repeated
   never-written-local reaching queries, preceding-query buffers, quadratic
   distinct-source unions and field-specific HOT reads. The initial proposal-feature allocation
   interpretation is superseded by generic array-growth attribution. Verified-v133

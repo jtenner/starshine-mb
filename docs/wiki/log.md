@@ -1,3 +1,16 @@
+### 2026-09-29 — DAE2 fused writer metadata
+
+- [Fused writer metadata](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-fused-writer-metadata)
+  replaces separate arena walks/growing rows in all three LocalGraph builders.
+  The span-budget assertion fails first (16 != 15). All 12,953 default tests,
+  native debug, eight controls and fixed/active original/v133 replays pass
+  with unchanged bytes. Helper controls improve 62–65%, dependency instructions
+  1.37% and allocator calls by 89,396; compiler timings stay near flat.
+  Plain tee/active optimizing costs, earlier tee-buffer lifetime and plain RSS
+  increase remain explicit. Fresh v133 large ratios stay open at 9.03×/4.36×.
+  Repeated immutable-read queries, quadratic unions and working buffers are next;
+  aggregate fuzz is deferred.
+
 ### 2026-09-29 — DAE2 checked input-header fields
 
 - [Checked input-header fields](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-checked-input-header-fields)

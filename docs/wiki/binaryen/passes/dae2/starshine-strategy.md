@@ -3,6 +3,9 @@ kind: entity
 status: working
 last_reviewed: 2026-09-29
 sources:
+  - ../../../../../src/ir/local_graph.mbt
+  - ../../../../../src/ir/local_graph_sparse.mbt
+  - ../../../../../src/ir/local_graph_write_facts_wbtest.mbt
   - ../../../../../src/ir/hot_lower.mbt
   - ../../../../../src/ir/hot_lower_input_header_wbtest.mbt
   - ../../../../../src/ir/hot_mutate.mbt
@@ -26,6 +29,75 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## September 29, 2026 fused writer metadata
+
+Forward, reverse and sparse LocalGraph builders now construct their existing
+writer-local and tee fields in one live arena scan. Both scalar vectors have
+the known node-count span from allocation, with unchanged deleted/nonwriter
+sentinels. The private two-reference value result adds no retained graph
+field. Reverse flow borrows the completed local-ID index for predecessor
+queries and retains both fields for its final graph; tee storage is therefore
+available earlier in that build than in the original separate scans.
+
+Three [bounded guards](../../../../../src/ir/local_graph_write_facts_wbtest.mbt)
+cover zero/15-node spans, sets/tees/nonwriters, deletion-index fallback,
+revision/free-list ownership and all three builders in both operand modes.
+The baseline combines the original helpers and genuinely fails its known-
+span work assertion, **16 != 15**, before the fixed-span fused implementation.
+Its two semantic guards are green before; no semantic failure is claimed.
+Eight [native controls](../../../../../src/ir/local_graph_write_facts_perf_wbtest.mbt)
+include allocation of both result vectors and consume their complete rows:
+
+| Roots / writer density | Separate → fused mean |
+| --- | --- |
+| 128 / sparse | 1.21µs → 421.89ns |
+| 128 / dense | 2.70µs → 992.09ns |
+| 8192 / sparse | 66.15 → 24.14µs |
+| 8192 / dense | 157.90 → 59.79µs |
+
+Helper gains are **62–65%**. Dependency-analysis instructions fall
+**18,429,845,490 → 18,176,793,615 (1.37%)**; incoming allocator requests/frees
+fall by **89,396** each, 36,064,317 → 35,974,921 /
+111,510,564 → 111,421,168. These count named calls, not bytes/net objects.
+Small whole-command instructions fall 78,940,083 → 78,751,426 /
+170,611,371 → 170,425,152, with 126 fewer requests/frees in both modes.
+
+Three matched compiler pairs are near flat: large **3802.798 → 3783.394ms
+(0.51%)**, MAD 1.059/1.018ms; optimizing **6619.884 → 6609.561ms (0.16%)**,
+MAD 31.514/50.202ms. Small medians are 3.883 → 3.810ms / 10.672 → 10.664ms;
+tee 3.566 → 3.639ms (**2.05% cost**) / 106.013 → 102.011ms. Joined-reader
+medians are 20.413 → 19.234ms / 29.388 → 30.724ms (**4.55% optimizing cost**),
+MAD 0.851/0.109ms and 0.488/1.564ms. A 1.714 reference-bracket retry is kept;
+host visibility and dispersion do not support a causal active-workload gain.
+Pure-tail medians are 12.176 → 12.103ms / 12.147 → 12.088ms, near flat.
+
+Untraced RSS medians are **257,288 → 269,580 KiB**, ranges
+256,588–282,656 / 269,412–281,312; optimizing 292,044 → 291,896 KiB,
+ranges 292,012–292,064 / 291,848–292,236. Preserve the **4.78% plain median
+increase** and earlier tee-buffer lifetime; overlapping ranges establish no
+causal memory win. Further memory/lifetime work remains open.
+
+The candidate passes info/fmt, native debug, **12,953 default wasm-gc tests**,
+release CLI and all eight controls. Fixed 126-module / 1,029-observation and
+both seven-module / 28-observation active replays match original/v133 results.
+All before/after and traced/untraced bytes match and independently validate.
+Public interfaces are unchanged. Frozen SHA-256 is
+`5ddc236e0a05eb81f6b4ba31692300a5cb6d0f6dd61b46f2f5f603b343a440de`.
+
+Fresh verified-v133 medians are small 4.356 / 0.937708ms (**4.65×**) and
+13.444 / 3.077960ms (**4.37×**); large 3759.060 / 416.509ms (**9.03×**)
+and 6949.506 / 1595.020ms (**4.36×**). MADs are 0.051/0.012233ms,
+0.160/0.066730ms, 0.934/1.037ms and 1.028/3.940ms. CPU 6, one warmup and
+three samples remain; ratios from different cohorts are not causal changes.
+Canonical sizes retain the **422,470-byte optimizing parity gap**.
+
+Evidence uses local `.tmp/dae2-lean-20260929/` v22 manifests, actual red,
+validation/bench logs, dependency/allocator/instruction profiles, matched
+fixed/active/RSS records and oracle folders. Next targets are repeated
+never-written-local reaching queries, quadratic source membership and
+preceding-dependency working buffers. Preserve exact entry/unreachable
+source rows and shared-action fallback; aggregate fuzz remains deferred.
 
 ## September 29, 2026 checked input-header fields
 

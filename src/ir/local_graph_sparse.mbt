@@ -144,13 +144,14 @@ fn local_graph_build_sparse_flow(
       )
     }
   }
+  let write_facts = local_graph_build_write_facts(func)
   {
     local_count,
     param_count: hot_param_count(func),
     get_source_ids: get_sources,
     set_influence_gets: write_influences,
-    write_local_ids: local_graph_build_write_local_ids(func),
-    write_is_tees: local_graph_build_write_is_tees(func),
+    write_local_ids: write_facts.local_ids,
+    write_is_tees: write_facts.is_tees,
     local_is_already_ssa: local_graph_build_local_already_ssa(
       func, local_count, get_sources,
     ),
