@@ -1,3 +1,15 @@
+### 2026-09-29 — DAE2 catch-layout preflight
+
+- [Catch-layout preflight](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-catch-layout-preflight)
+  reuses the complete control scan to skip a vacuous legacy-payload workspace
+  and two arena walks. The work guard fails first; legacy and orphan checks
+  remain intact. All 12,946 default tests, native debug, eight controls and
+  bounded original/v133 replays pass. Dependency instructions fall 2.05% with
+  38,154 fewer requests; matched large DAE2/O improve 1.43%/1.27%, retaining
+  control costs, dispersion and RSS overlap. Fresh frozen v133 ratios remain
+  open at 9.19×/4.39× with unchanged bytes and optimizing size gap. Duplicate
+  core verification is the next confirmed repeated-work target; fuzz is deferred.
+
 ### 2026-09-29 — DAE2 empty continuation queries
 
 - [Empty continuation guards](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-empty-continuation-query-guard)

@@ -443,11 +443,20 @@ fn hot_verify_catch_payload_layout(
 
 ///|
 pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
+  hot_verify_control_impl(func)
+}
+
+///|
+fn hot_verify_control_impl(
+  func : HotFunc,
+  catch_layout_calls? : Array[Int]? = None,
+) -> Result[Unit, HotVerifyError] {
   match hot_verify_core(func) {
     Ok(_) => ()
     Err(err) => return Err(err)
   }
 
+  let mut needs_catch_layout = false
   for node_id = 0; node_id < func.nodes.length(); node_id = node_id + 1 {
     if !hot_node_is_live(func, node_id) {
       continue
@@ -516,6 +525,7 @@ pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
         }
       }
       HotOp::Try => {
+        needs_catch_layout = true
         if node.child_count != 2 {
           return Err(
             HotVerifyError::InvalidControlChildCount(
@@ -557,6 +567,7 @@ pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
           )
         }
       }
+      HotOp::Catch => needs_catch_layout = true
       HotOp::TryTable => {
         if node.child_count != 2 {
           return Err(
@@ -673,9 +684,18 @@ pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
     }
   }
 
-  match hot_verify_catch_payload_layout(func) {
-    Ok(_) => ()
-    Err(err) => return Err(err)
+  // The layout checker only examines live Try/Catch nodes. This flag comes
+  // from the complete control scan, so the remaining check is vacuous when
+  // neither operation exists. Live orphan payloads still take the full path.
+  if needs_catch_layout {
+    match catch_layout_calls {
+      Some(calls) => calls[0] = calls[0] + 1
+      None => ()
+    }
+    match hot_verify_catch_payload_layout(func) {
+      Ok(_) => ()
+      Err(err) => return Err(err)
+    }
   }
   Ok(())
 }

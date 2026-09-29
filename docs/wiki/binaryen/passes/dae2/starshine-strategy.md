@@ -25,6 +25,77 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 catch-layout preflight
+
+The full control verifier already scans every live HOT node. It now records
+whether that scan encounters `Try` or `Catch`; only those operations can affect
+the legacy catch-payload layout check. A catch-free function skips the unused
+admission vector and two arena walks. Legacy tries and live orphan payloads
+still run the original checker; core validation, branch checks, handler checks
+and error precedence remain intact. This is a preflight for a vacuous check,
+not an unchecked validation entry point or a revision cache.
+
+Two [bounded guards](../../../../../src/ir/hot_verify_catch_layout_wbtest.mbt)
+compare the frozen original full control verifier, unchanged revisions,
+valid catch payloads, invalid function-exit arity and live orphan payloads.
+The valid catch-free work assertion fails first with **1 != 0**, then passes;
+valid legacy catches and orphan rejection each still invoke the layout checker
+once. Eight [native controls](../../../../../src/ir/hot_verify_catch_layout_perf_wbtest.mbt)
+include the complete core/control validation:
+
+| Roots / legacy catch | Original → guarded mean |
+| --- | --- |
+| 128 / absent | 2.87 → 1.82µs |
+| 4096 / absent | 88.62 → 56.50µs |
+| 128 / present | 3.56 → 3.57µs |
+| 4096 / present | 95.84 → 93.44µs |
+
+Dependency-window instructions fall **19,515,570,507 → 19,116,248,490
+(2.05%)**. Incoming allocator requests/frees fall by **38,154** each,
+36,393,019 → 36,354,865 / 111,839,266 → 111,801,112. The original layout
+checker had 12,718 named calls; the catch-free large profile has none after
+the guard. These are named call counts, not byte or retained-object counts.
+Small instructions fall 79,872,223 → 79,493,215 / 171,579,405 → 171,144,932;
+requests/frees fall by 63 plain and 75 optimizing.
+
+Three alternating v18→v19 large pairs give DAE2 **3982.634 → 3925.734ms
+(−1.43%)**, MAD 4.410/4.675ms, and optimizing **6788.859 → 6702.398ms
+(−1.27%)**, MAD 7.191/6.543ms. Small medians are 3.957 → 3.924ms /
+11.039 → 10.891ms; tee 3.575 → 3.522ms / 101.305 → 102.764ms.
+The small optimizing bracket retries reference drift 1.157. Preserve the
+optimizing tee cost and dispersion; managed visibility does not prove quiet
+host timing. Active joined-reader medians are 19.328 → 18.664ms /
+28.353 → 27.974ms; pure-tail 12.280 → 11.736ms / 12.417 → 11.778ms.
+Three alternating untraced large RSS samples give plain medians
+282,176 → 258,780 KiB, ranges 260,340–282,608 / 257,272–269,344;
+optimizing 309,864 → 292,200 KiB, ranges 292,020–314,400 / 292,020–292,216.
+Overlapping ranges do not establish a causal memory gain.
+
+Info/fmt, native debug, all **12,946 default wasm-gc tests**, release CLI and
+eight controls pass. Exact before/after/traced bytes, independent validation,
+126 modules / 1,029 original/v133 observations and both seven-module /
+28-observation active replays pass. No public API changes.
+
+The freshly frozen current-source v133 renewal uses CPU 6, one warmup and
+three samples. Small pass-local medians are 4.331 / 0.966971ms (**4.48×**) and
+12.265 / 3.135380ms (**3.91×**); large 3888.417 / 423.069ms (**9.19×**)
+and 7048.657 / 1607.030ms (**4.39×**). MADs are 0.080/0.000742ms,
+0.327/0.108670ms, 12.981/0.328ms and 10.373/0.380ms. These fresh cohorts
+are not paired ratio gains over v18. Canonical sizes retain the values below;
+the **422,470-byte optimizing gap remains open**, and smaller plain output
+alone does not prove a Starshine win.
+
+Local `.tmp/dae2-lean-20260929/` evidence uses `v19`: source manifest,
+red/validation/bench logs, fixed/paired/active replays, `dependency-cost-v19.json`,
+small instruction/allocator and RSS records, and `oracle-v19-{small,large}/`.
+Frozen candidate SHA-256 is
+`9fafad5c41d229a788a04e43646a518e38c0549e526c099e4e78704bea00afcb`;
+before is v18 `3fef08348d42db75886acb76d0acf548f2dad245ba32996213ad0045e3332155`.
+Pinned input/oracle hashes remain below. Source inspection/profile attribution
+also confirms the all-verifier's duplicate core call: 9,887 direct calls in
+addition to 12,718 control-entry core calls. That separate work remains open
+at this checkpoint. Aggregate fuzz remains deferred by request.
+
 ## September 29, 2026 empty continuation-query guard
 
 The CFG builder already scans every live node for continuation instructions.
