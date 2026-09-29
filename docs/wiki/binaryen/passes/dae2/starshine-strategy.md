@@ -25,6 +25,33 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 borrow completed reverse-query rows
+
+Reverse-flow query cache entries are immutable after collection. Cache insertion
+and lookup now share the completed source row instead of copying it. Unique
+reverse recording borrows the row; iterative recording keeps its existing
+copy-on-write merge. Public owned queries still return independent arrays.
+The [ownership regression](../../../../../src/ir/local_graph_source_cache_wbtest.mbt)
+first failed because the returned row differed physically from the cache; it
+now checks both cache sharing and isolation of a later merge.
+
+The [full graph controls](../../../../../src/ir/local_graph_source_cache_perf_wbtest.mbt)
+measure repeated entry-source reads in one block. At 128/512/2048 reads they
+improve 13.06 → 10.94µs / 49.33 → 41.23µs / 194.82 → 162.59µs (about 16.5%).
+Paired large DAE2 is flat at 4736.866 → 4732.602ms, MAD 16.009/13.716ms;
+DAE2-O measures 7938.411 → 7812.697ms (−1.58%), MAD 92.021/1.483ms.
+Small medians are 4.362 → 4.422ms / 11.594 → 11.633ms; active tee medians
+are 4.582 → 3.963ms / 106.764 → 109.645ms. Preserve the +2.70% optimizing
+tee observation and the timing-calibration limits rather than claiming a win
+on every input.
+
+Info, fmt, 12,923 default tests, native build, three cache benchmarks and six
+next-stage order controls pass. The 126-module / 1,029-observation original/v133
+replay and artifact byte checks pass. Candidate SHA-256 is
+`0ca046728397956793707c6e2de24d672bc4ea3bd1ba164c832e8f15a6819fe3`;
+local evidence uses `v10` and `cache-borrow-red.log`. The suite includes the
+fused-order guard before that optimization. No aggregate fuzz ran.
+
 ## September 29, 2026 append unique reverse-flow readers
 
 Reverse flow records each get once with a deduplicated source row. Its recorder
@@ -40,6 +67,17 @@ at 128/512/2048 readers improve 11.50 → 9.57µs / 68.77 → 32.84µs /
 611.87 → 128.49µs. The high-count case is 4.76× faster and scaling is now
 approximately linear. This is a graph-construction gain, not a compiler-wide
 speedup claim.
+
+An additional active DAE2 workload joins two writes (7 or 9) and consumes the
+local 8,192 times in a balanced addition tree. Its private helper also has an
+unused argument, which DAE2 removes. The v7/v9 paired full pipelines improve
+**51.781 → 22.058ms (−57.40%)** and **64.182 → 32.221ms (−49.80%)** for
+DAE2/O, with MADs 0.094/0.035ms and 0.551/0.467ms. Seven original/before/after/
+v133 modules validate and return identical values in 28 observations; before/
+after bytes match. This is a deliberate scalability workload, separate from the
+compiler artifact below. Local `joined-readers-v9/`, `joined-readers.wat` and
+`joined-readers.py` retain it; input SHA-256 is
+`60935ce550d11451d4dce59ff319d6ed58633b645496ecf9eac3fdcc62079f86`.
 
 Independent-reference paired medians retain a large DAE2 cost:
 4623.318 → 4697.854ms (+1.61%; MAD 78.203/38.001ms). DAE2-O is nearly

@@ -21,6 +21,9 @@
   Unique reverse-flow reader recording removes another quadratic scan
   (2048-reader graph 611.87 → 128.49µs; 12,921 tests). Large DAE2 costs +1.61%
   in its paired cohort, so this is a scalability win rather than an artifact gain.
+  Its active balanced 8192-reader DAE2/O pipelines improve 57.40%/49.80%.
+  Immutable reverse-cache rows now avoid copies (2048-read control −16.5%;
+  12,923 tests), with nearly flat compiler timings and recorded control costs.
   Remaining targets include source-order scans, source-union churn, and lift/lower;
   opcode-based tuple preparation removes temporary strings and improves paired
   large DAE2/O a further 3.89%/2.90% with identical bytes (12,910 tests pass); fresh oracle ratios and deferred aggregate fuzz remain open.

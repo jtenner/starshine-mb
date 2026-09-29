@@ -28,6 +28,10 @@
   improves 611.87 → 128.49µs, with 12,921 tests passing. Large DAE2 records
   +1.61%; artifact gains remain unproven for this slice. Independent-reference
   identical-binary controls and all measured costs stay explicit.
+  The balanced 8192-reader active DAE2/O pipelines confirm 57.40%/49.80%
+  gains for unique recording, with 28 matching original/v133 observations.
+  Completed reverse-query rows are then borrowed; the ownership regression
+  is red first, 12,923 tests pass, and the 2048-read control improves 16.5%.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration

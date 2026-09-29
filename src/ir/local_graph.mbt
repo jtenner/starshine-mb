@@ -1541,7 +1541,8 @@ fn local_graph_reverse_entry_sources(
 ) -> Array[Int] {
   if cache[block_id] is Some(row) {
     if row.get(local_id) is Some(sources) {
-      return sources.copy()
+      // Completed rows are immutable; readers either borrow or copy on write.
+      return sources
     }
   }
   let sources : Array[Int] = []
@@ -1594,7 +1595,7 @@ fn local_graph_reverse_entry_sources(
       row
     }
   }
-  row.set(local_id, sources.copy())
+  row.set(local_id, sources)
   match cache_slots {
     Some(count) => count[0] += 1
     None => ()
