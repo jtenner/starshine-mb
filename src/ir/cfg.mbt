@@ -71,10 +71,66 @@ priv struct CfgRegionBuild {
 }
 
 ///|
+#valtype
 priv struct CfgRegionSegment {
   block_id : BlockId
   end_slot : Int
   last_node : NodeId
+}
+
+///|
+// Scalar rows avoid a separately allocated record for every segment. Keep the
+// public CFG block and root mappings unchanged; this arena is builder-local.
+#valtype
+priv struct CfgRegionSegments {
+  rows : Array[Int]
+}
+
+///|
+fn CfgRegionSegments::new() -> CfgRegionSegments {
+  { rows: [], }
+}
+
+///|
+#inline
+fn CfgRegionSegments::push(
+  self : CfgRegionSegments,
+  block_id : BlockId,
+  end_slot : Int,
+  last_node : NodeId,
+) -> Unit {
+  self.rows.push(block_id)
+  self.rows.push(end_slot)
+  self.rows.push(last_node)
+}
+
+///|
+#inline
+fn CfgRegionSegments::length(self : CfgRegionSegments) -> Int {
+  self.rows.length() / 3
+}
+
+///|
+#inline
+fn CfgRegionSegments::block_id(
+  self : CfgRegionSegments,
+  index : Int,
+) -> BlockId {
+  self.rows[index * 3]
+}
+
+///|
+#inline
+fn CfgRegionSegments::get(
+  self : CfgRegionSegments,
+  index : Int,
+) -> CfgRegionSegment {
+  let offset = index * 3
+  {
+    block_id: self.rows[offset],
+    end_slot: self.rows[offset + 1],
+    last_node: self.rows[offset + 2],
+  }
 }
 
 ///|
@@ -278,8 +334,8 @@ fn cfg_builder_region_segments(
   builder : CfgBuilder,
   func : HotFunc,
   region_ref : HotRegionRef,
-) -> Array[CfgRegionSegment] {
-  let segments : Array[CfgRegionSegment] = []
+) -> CfgRegionSegments {
+  let segments = CfgRegionSegments::new()
   let region_holder = cfg_builder_region_holder(region_ref)
   let root_count = hot_region_root_count(func, region_ref)
   let expanded = builder.operand_seen is Some(_)
@@ -369,11 +425,7 @@ fn cfg_builder_region_segments(
         builder.cfg.region_roots.push({ region_holder, slot, block: block_id, })
       }
     }
-    segments.push({
-      block_id,
-      end_slot: root_slots[end - 1] + 1,
-      last_node: ordered_nodes[end - 1],
-    })
+    segments.push(block_id, root_slots[end - 1] + 1, ordered_nodes[end - 1])
     start = end
   }
   segments
@@ -573,15 +625,15 @@ fn cfg_builder_process_block(
   builder : CfgBuilder,
   func : HotFunc,
   region_ref : HotRegionRef,
-  segments : Array[CfgRegionSegment],
+  segments : CfgRegionSegments,
   segment_idx : Int,
   handler_target : BlockId?,
   exits : Array[BlockId],
 ) -> Unit {
-  let segment = segments[segment_idx]
+  let segment = segments.get(segment_idx)
   let current_block = segment.block_id
   let next_block = if segment_idx + 1 < segments.length() {
-    Some(segments[segment_idx + 1].block_id)
+    Some(segments.block_id(segment_idx + 1))
   } else {
     None
   }
@@ -983,7 +1035,7 @@ fn cfg_builder_build_region(
       builder, func, region_ref, segments, idx, handler_target, exits,
     )
   }
-  { entry_block: Some(segments[0].block_id), exit_blocks: exits, }
+  { entry_block: Some(segments.block_id(0)), exit_blocks: exits, }
 }
 
 ///|

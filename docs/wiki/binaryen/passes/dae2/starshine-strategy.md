@@ -25,6 +25,79 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 packed CFG segment storage
+
+Private CFG segment metadata now occupies three consecutive integers per row
+instead of one heap record per segment. A value record decodes rows only when
+all fields are needed; the next-block and entry queries read just the block ID.
+Public CFG blocks, root mappings, source ordering and segmentation decisions
+are unchanged. The primitive backing array also avoids the previously rejected
+native debug compiler limitation for arrays of custom value records.
+
+The [three bounded guards](../../../../../src/ir/cfg_segment_storage_wbtest.mbt)
+cover empty/growing storage, exact ordered fields and complete block/root
+mappings against a frozen boxed reference in both operand modes. The initial
+arena/API tests fail to compile before the implementation because the private
+API is absent; this is not a preexisting semantic failure. The structural
+comparison passes before and after. Eight [native controls](../../../../../src/ir/cfg_segment_storage_perf_wbtest.mbt)
+include growth/consumption or fresh builder/source-fact/segment construction:
+
+| Control | Boxed → packed mean |
+| --- | --- |
+| 128 metadata rows | 1.14µs → 488.32ns |
+| 1024 metadata rows | 8.74 → 3.12µs |
+| 64 segments, region construction | 48.30 → 47.11µs |
+| 512 segments, region construction | 389.75 → 374.13µs |
+
+Three alternating v13→v15 pairs give near-flat compiler timings: large DAE2
+**4510.768 → 4542.607ms (+0.71%)**, MAD 25.722/20.813ms; optimizing
+**7585.983 → 7544.887ms (−0.54%)**, MAD 11.476/12.469ms. Small medians
+are 4.264 → 4.278ms / 11.470 → 11.418ms; tee medians are
+3.866 → 3.864ms / 106.370 → 105.713ms. Active joined-reader medians
+are 20.772 → 21.071ms / 31.773 → 31.361ms; pure-tail medians are
+14.080 → 14.276ms / 13.786 → 14.121ms. Preserve those control costs and
+the pure-tail reference-drift retry; no full-pass speedup is established.
+Managed process visibility does not establish quiet-host timing.
+
+The reason to retain this slice is measured heap churn: dependency-only
+incoming `mi_malloc` calls fall **41,287,576 → 40,796,729 (490,847 fewer,
+1.19%)** and `mi_free` calls fall by the same count. Instructions fall
+20,329,087,979 → 20,310,625,985 (0.09%). Small whole-command allocator
+requests/frees fall by 248 in each pass; instructions change
+80,558,748 → 80,550,362 / 172,281,532 → 172,289,872. These scopes count
+calls, not allocation bytes or net live objects. Three alternating untraced
+large RSS samples give plain medians 272,216 → 253,328 KiB (ranges
+252,140–273,244 / 251,280–273,772) and optimizing 292,024 → 299,264 KiB
+(ranges 289,788–313,424 / 292,144–300,008). Preserve the latter cost;
+overlapping ranges do not prove a memory gain or regression.
+
+Info/fmt, all **12,936 default wasm-gc tests**, native debug guards, release CLI
+build and eight controls pass. The frozen binaries preserve every measured
+output byte and pass independent validation, the 126-module / 1,029-observation
+replay and both seven-module / 28-observation active replays against original
+and verified v133. No public interface changes.
+
+Fresh verified-v133 pass-local medians (one warmup, three samples) remain gaps:
+small DAE2 4.653 / 1.02914ms (**4.52×**), optimizing 13.213 / 3.20605ms
+(**4.12×**); large DAE2 4507.166 / 523.992ms (**8.60×**), optimizing
+8534.009 / 1764.800ms (**4.84×**). MADs are 0.119/0.01865ms,
+0.459/0.01736ms, 17.027/1.136ms and 52.358/5.520ms respectively.
+These are a new oracle cohort, not a causal ratio improvement over v13.
+Large canonical sizes remain 6,132,389 / 6,232,586 bytes for plain DAE2 and
+5,995,920 / 5,573,450 for optimizing; the **422,470-byte optimizing parity
+gap remains open**, and smaller plain output alone is not a proven win.
+
+Local evidence under `.tmp/dae2-lean-20260929/` uses `v15`, including the
+source manifest, validation/bench logs, `pairs-v15-*`, active replay folders,
+`dependency-cost-v15.json`, `small-instructions-v15/`, `memory-v15/` and
+`oracle-v15-{small,large}/`. Frozen candidate SHA-256 is
+`7c48e6c9c62c2d3ad5278008cb05f42f73813094d5195519914466ed68b9493e`;
+before is accepted v13 `a367397e0045ee3db4cc3711135edab4b1449cca2647cb0f202f684fc14360ab`.
+The oracle is verified `wasm-opt version 133 (version_133)`, SHA-256
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`;
+the pinned large input remains `98189860f95b4eb8464794eb9fab5f9fd8d16942c63a6e31ed9175e7e791cbbd`.
+Long aggregate fuzz remains deferred at the user's request.
+
 ## September 29, 2026 rejected predecessor-row reuse
 
 Two single-predecessor query trials are removed from production. The first
@@ -91,10 +164,16 @@ alter the installed-prototype pipeline results above.
 Direct allocation attribution identifies larger targets: v13 dependency
 analysis records 4,927,673 calls from CFG region segmentation to `mi_malloc`,
 3,092,437 from preceding-dependency queries, and 1,914,225 from block creation.
-Proposal-feature array construction also calls the integer-array allocator
-5,982,618 times. These are distinct call edges, including wrapper layers;
-do not sum them as independent allocation totals. Inspect their record/array
-lifetime before adding another cache. Evidence is `allocation-callers-v13.json`.
+The initially recorded “proposal-feature array” interpretation is superseded:
+the 5,982,618 calls reach an int-sized generic allocation specialization named
+for `ProposalFeature`, but 5,980,331 originate in `Array[Int]` reallocation.
+The specialization name does not identify proposal metadata construction.
+Upstream growth edges include 979,607 from CFG segmentation, 830,456 from
+operand collection variants, and 472,703 from reverse entry-source queries.
+These are call edges with potentially folded generic implementations and
+wrapper layers, not independent allocation totals. Inspect buffer lifetimes
+before adding another cache. Evidence is `allocation-callers-v13.json` and
+`array-growth-callers-v13.json`.
 
 ## September 29, 2026 pure-subtree dependency pruning
 

@@ -1,3 +1,13 @@
+### 2026-09-29 — DAE2 CFG segment allocation
+
+- [Packed private CFG segments](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-packed-cfg-segment-storage)
+  remove 490,847 dependency-window allocator requests (1.19%) while compiler
+  timings remain near flat; eight controls and all 12,936 default tests pass,
+  including native debug and bounded original/v133 runtime checks. Active
+  control costs, fresh 8.60×/4.84× large v133 ratios and the optimizing size gap
+  remain explicit. Generic specialization names do not establish proposal-feature
+  allocations; upstream tracing supersedes that interpretation. Fuzz is deferred.
+
 ### 2026-09-29 — DAE2 expanded-flow cost attribution
 
 - The source-order correctness repair selected a dense local-state solver and
