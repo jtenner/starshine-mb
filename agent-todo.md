@@ -17,7 +17,9 @@
   scalability workload does not establish a compiler-artifact gain.
 - **Remaining DAE2/O work:** close the multi-second compiler gap by reducing
   source-order scans, CFG/reaching-definition work, lift/lower and optimizing
-  cleanup. Fresh verified-v133 ratios, cumulative timing, memory and instruction
+  cleanup. The 32-root dependency-index threshold trial is rejected; sparse
+  helper wins did not carry into compiler pipelines. Fresh verified-v133
+  ratios, cumulative timing, memory and instruction
   attribution are owned by the strategy page. Keep small/control costs and
   identical-binary calibration limits explicit. Long aggregate fuzz remains
   deferred at the user's request; earlier generated results do not sign current

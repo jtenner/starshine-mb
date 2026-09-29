@@ -103,6 +103,49 @@ All corresponding outputs validate and retain exact before/after bytes.
 This is bounded performance/correctness evidence; aggregate fuzz remains
 explicitly deferred until the performance trials finish.
 
+## September 29, 2026 rejected smaller-region index threshold
+
+A 64 → 32 root-index threshold trial is removed. The existing index algorithm
+is valid on small regions, but the measured compiler inputs show no pipeline
+benefit. Three alternating pairs measure large DAE2/O 4349.487 → 4404.810ms
+(+1.27%) / 7460.982 → 7517.513ms (+0.76%). Small medians are 4.241 →
+4.870ms (+14.83%) / 11.727 → 11.892ms (+1.41%); active tee medians are
+3.924 → 3.928ms / 108.375 → 107.433ms. Preserve these timing observations
+without claiming all differences are causal: small instruction and allocator
+counts are essentially identical, and prior calibration demonstrates timing
+variation. Small instructions are 80,724,150 → 80,722,900 /
+172,465,174 → 172,463,564; allocator request counts are unchanged.
+
+The [suffix-query controls](../../../../../src/ir/hot_source_order_threshold_perf_wbtest.mbt)
+include facts/index construction and compare direct/indexed queries at 4/16/32
+roots. Their repeated-barrier pattern is a kernel workload. The additional
+[region controls](../../../../../src/ir/hot_source_order_region_perf_wbtest.mbt)
+query each actual effectful root once, with the real changing cutoff and suffix.
+At 32 roots sparse regions improve 13.25 → 7.58µs, but dense regions cost
+16.74 → 17.64µs (+5.38%). At 16 roots they measure 4.38 → 3.51µs and
+5.72 → 6.12µs. These synthetic tradeoffs do not establish a compiler win.
+
+The [bounded index guards](../../../../../src/ir/hot_source_order_threshold_wbtest.mbt)
+retain equality across every suffix for sparse/dense 4/16/32-root regions, and
+check the 32-root candidate set directly. The prototype's threshold-admission
+regression was red first; after rejection its admission assertion becomes a
+direct index-algorithm guard. The shipping threshold remains 64. No existing
+feature or supported index algorithm is removed.
+
+While the prototype was installed, info/fmt, 12,926 default tests, native build,
+12 kernel controls, eight actual-region controls, and the 126-module /
+1,029-observation original/v133 replay pass with identical output bytes.
+The interrupted paired run was resumed by checking binary/input/reference
+hashes and completed sample artifacts, retaining partial evidence and avoiding
+re-measurement of completed pairs. Later managed-sandbox process visibility
+limits foreign-CPU detection; an empty observation does not prove a quiet host.
+Local evidence uses `v12`, `region-*`, `threshold-*` and `rejected-v12/` under
+`.tmp/dae2-lean-20260929/`. Rejected candidate SHA-256 is
+`6c698eb8a86eb8fa250a0562944ad547fe3c7f8e547fa879f0c255de6adc2798`.
+Its completed v133 sweep remains saved under `oracle-v12-{small,large}/`;
+current production oracle evidence remains the accepted v11 checkpoint.
+Fuzz remains deferred.
+
 ## September 29, 2026 fuse source-order operand walks
 
 Source-order facts now compute maximum value order and first external-effect

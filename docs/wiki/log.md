@@ -43,6 +43,9 @@
   Dependency-only instructions fall 22.68% from v2; small whole-command
   instructions and allocator calls also fall. Overlapping RSS and background
   CPU observations limit memory and timing claims.
+  Lowering the dependency-index threshold to 32 roots is rejected after
+  sparse helper gains fail to improve compiler pipelines; the shipping
+  threshold stays 64 and 20 construction-inclusive controls remain available.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration
