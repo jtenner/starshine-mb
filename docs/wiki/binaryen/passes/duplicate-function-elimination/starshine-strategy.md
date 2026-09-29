@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-25
+last_reviewed: 2026-09-28
 sources:
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateFunctionElimination.cpp
@@ -371,3 +371,26 @@ Sources: [pruner](../../../../../src/passes/duplicate_function_elimination.mbt),
 [bounded reference and payload invariants](../../../../../src/passes/type_reference_scan_wbtest.mbt),
 [native controls](../../../../../src/passes/type_reference_scan_perf_wbtest.mbt), and
 [dispatcher fixture](../../../../../src/cmd/perf_type_reference_scan_wbtest.mbt).
+
+## September 28, 2026 performance reuse contracts
+
+The numeric-local guard recognizes the original code section by identity before sizing or validation. Active grouping, exact collision equality, host-visible identity, remapping, fixed-point deletion and type roots retain their existing contracts. The type-root walk was already fused and was not replaced with another index.
+
+Tests and native controls: [local_group_identity_wbtest.mbt](../../../../../src/passes/local_group_identity_wbtest.mbt), [local_group_identity_perf_wbtest.mbt](../../../../../src/passes/local_group_identity_perf_wbtest.mbt). The [campaign report](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign) owns frozen-binary artifact timings, verified-v133 evidence and final correctness outcomes; helper timings alone do not close the remaining pipeline or parity gaps.
+
+## September 28, 2026 follow-up performance contracts
+
+Function-index remapping preserves unchanged functions and nested bodies,
+allocating only at the first changed target. The first collision epoch uses its
+identity map directly; subsequent epochs can skip bodies whose greatest target
+precedes the first replacement. Type normalization, exact collision equality,
+host-visible identity and final remaps retain their existing checks.
+
+Exact numeric-local size guards reuse previously measured expression lengths
+when an iterative comparison proves that only local-index widths changed.
+Declarations, complete module sections and body/section LEB framing are still
+measured exactly; changed string pools or other edits retain full encoding.
+Final validation is unchanged. See the [size proof and error controls](../../../../../src/binary/encoded_size_local_remap_wbtest.mbt).
+
+The renewed artifact matrix and dedicated correctness lanes are recorded in the
+[follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign).

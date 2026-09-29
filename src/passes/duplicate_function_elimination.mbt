@@ -28,7 +28,13 @@ fn dfe_func_annotation_map(
     Some(@lib.FuncAnnotationSec(entries)) =>
       for entry in entries {
         let @lib.FuncAnnotationAssoc(entry_idx, annotations) = entry
-        by_idx[entry_idx] = annotations
+        let merged = by_idx.get(entry_idx).unwrap_or([]).copy()
+        for annotation in annotations {
+          if !merged.contains(annotation) {
+            merged.push(annotation)
+          }
+        }
+        by_idx[entry_idx] = merged
       }
     None => ()
   }
@@ -3038,51 +3044,97 @@ fn dfe_rewrite_instruction_func_idxs(
   remap : Array[UInt],
 ) -> @lib.Instruction {
   match instr {
-    @lib.Block(block_type, expr) =>
-      @lib.Instruction::block(
-        block_type,
-        dfe_rewrite_expr_func_idxs(expr, remap),
-      )
-    @lib.Loop(block_type, expr) =>
-      @lib.Instruction::loop_(
-        block_type,
-        dfe_rewrite_expr_func_idxs(expr, remap),
-      )
-    @lib.If(block_type, then_body, else_body) => {
-      let rewritten_then : Array[@lib.Instruction] = Array::new(
-        capacity=then_body.length(),
-      )
-      for nested in then_body {
-        rewritten_then.push(dfe_rewrite_instruction_func_idxs(nested, remap))
+    @lib.Block(block_type, expr) => {
+      let rewritten = dfe_rewrite_expr_func_idxs(expr, remap)
+      if physical_equal(rewritten, expr) {
+        instr
+      } else {
+        @lib.Instruction::block(block_type, rewritten)
       }
+    }
+    @lib.Loop(block_type, expr) => {
+      let rewritten = dfe_rewrite_expr_func_idxs(expr, remap)
+      if physical_equal(rewritten, expr) {
+        instr
+      } else {
+        @lib.Instruction::loop_(block_type, rewritten)
+      }
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let rewritten_then = dfe_rewrite_instrs_func_idxs(then_body, remap)
+      let mut else_changed = false
       let rewritten_else = match else_body {
         Some(body) => {
-          let rewritten : Array[@lib.Instruction] = Array::new(
-            capacity=body.length(),
-          )
-          for nested in body {
-            rewritten.push(dfe_rewrite_instruction_func_idxs(nested, remap))
-          }
+          let rewritten = dfe_rewrite_instrs_func_idxs(body, remap)
+          else_changed = !physical_equal(rewritten, body)
           Some(rewritten)
         }
         None => None
       }
-      @lib.Instruction::if_(block_type, rewritten_then, rewritten_else)
+      if physical_equal(rewritten_then, then_body) && !else_changed {
+        instr
+      } else {
+        @lib.Instruction::if_(block_type, rewritten_then, rewritten_else)
+      }
     }
-    @lib.Call(func_idx) =>
-      @lib.Instruction::call(dfe_rewrite_func_idx(func_idx, remap))
-    @lib.ReturnCall(func_idx) =>
-      @lib.Instruction::return_call(dfe_rewrite_func_idx(func_idx, remap))
-    @lib.TryTable(block_type, catches, body) =>
-      @lib.Instruction::try_table(
-        block_type,
-        catches,
-        dfe_rewrite_expr_func_idxs(body, remap),
-      )
-    @lib.RefFunc(func_idx) =>
-      @lib.Instruction::ref_func(dfe_rewrite_func_idx(func_idx, remap))
+    @lib.Call(func_idx) => {
+      let rewritten = dfe_rewrite_func_idx(func_idx, remap)
+      if rewritten == func_idx {
+        instr
+      } else {
+        @lib.Instruction::call(rewritten)
+      }
+    }
+    @lib.ReturnCall(func_idx) => {
+      let rewritten = dfe_rewrite_func_idx(func_idx, remap)
+      if rewritten == func_idx {
+        instr
+      } else {
+        @lib.Instruction::return_call(rewritten)
+      }
+    }
+    @lib.TryTable(block_type, catches, body) => {
+      let rewritten = dfe_rewrite_expr_func_idxs(body, remap)
+      if physical_equal(rewritten, body) {
+        instr
+      } else {
+        @lib.Instruction::try_table(block_type, catches, rewritten)
+      }
+    }
+    @lib.RefFunc(func_idx) => {
+      let rewritten = dfe_rewrite_func_idx(func_idx, remap)
+      if rewritten == func_idx {
+        instr
+      } else {
+        @lib.Instruction::ref_func(rewritten)
+      }
+    }
     _ => instr
   }
+}
+
+///|
+fn dfe_rewrite_instrs_func_idxs(
+  instrs : Array[@lib.Instruction],
+  remap : Array[UInt],
+) -> Array[@lib.Instruction] {
+  let mut out : Array[@lib.Instruction]? = None
+  for index, instr in instrs {
+    let rewritten = dfe_rewrite_instruction_func_idxs(instr, remap)
+    if out is None && !physical_equal(rewritten, instr) {
+      let prefix : Array[@lib.Instruction] = Array::new(
+        capacity=instrs.length(),
+      )
+      for offset = 0; offset < index; offset = offset + 1 {
+        prefix.push(instrs[offset])
+      }
+      out = Some(prefix)
+    }
+    if out is Some(next) {
+      next.push(rewritten)
+    }
+  }
+  out.unwrap_or(instrs)
 }
 
 ///|
@@ -3091,11 +3143,12 @@ fn dfe_rewrite_expr_func_idxs(
   remap : Array[UInt],
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
-  for instr in instrs {
-    rewritten.push(dfe_rewrite_instruction_func_idxs(instr, remap))
+  let rewritten = dfe_rewrite_instrs_func_idxs(instrs, remap)
+  if physical_equal(rewritten, instrs) {
+    expr
+  } else {
+    @lib.Expr::new(rewritten)
   }
-  @lib.Expr::new(rewritten)
 }
 
 ///|
@@ -3104,7 +3157,12 @@ fn dfe_rewrite_func_func_idxs(
   remap : Array[UInt],
 ) -> @lib.Func {
   let @lib.Func(locals, body) = func
-  @lib.Func::new(locals, dfe_rewrite_expr_func_idxs(body, remap))
+  let rewritten = dfe_rewrite_expr_func_idxs(body, remap)
+  if physical_equal(rewritten, body) {
+    func
+  } else {
+    @lib.Func::new(locals, rewritten)
+  }
 }
 
 ///|
@@ -3165,29 +3223,42 @@ fn dfe_rewrite_func_annotation_sec(
   drop_unmapped : Bool,
 ) -> @lib.FuncAnnotationSec {
   let @lib.FuncAnnotationSec(entries) = sec
-  let rewritten : Array[@lib.FuncAnnotationAssoc] = Array::new(
-    capacity=entries.length(),
-  )
-  let mut last_idx : UInt? = None
+  let rewritten_indices : Array[UInt] = []
+  let rewritten_annotations : Array[Array[@lib.FuncAnnotation]] = []
   for entry in entries {
     let @lib.FuncAnnotationAssoc(idx, annotations) = entry
-    match remap.get(idx.reinterpret_as_int()) {
-      Some(next_idx) => {
-        if last_idx == Some(next_idx) {
-          continue
-        }
-        rewritten.push(@lib.FuncAnnotationAssoc::new(next_idx, annotations))
-        last_idx = Some(next_idx)
-      }
-      None =>
-        if !drop_unmapped {
-          if last_idx == Some(idx) {
-            continue
-          }
-          rewritten.push(entry)
-          last_idx = Some(idx)
-        }
+    let next_idx = match remap.get(idx.reinterpret_as_int()) {
+      Some(next_idx) => next_idx
+      None => if drop_unmapped { continue } else { idx }
     }
+    let mut slot = -1
+    for candidate = 0
+        candidate < rewritten_indices.length()
+        candidate = candidate + 1 {
+      if rewritten_indices[candidate] == next_idx {
+        slot = candidate
+        break
+      }
+    }
+    if slot < 0 {
+      rewritten_indices.push(next_idx)
+      rewritten_annotations.push([])
+      slot = rewritten_indices.length() - 1
+    }
+    for annotation in annotations {
+      if !rewritten_annotations[slot].contains(annotation) {
+        rewritten_annotations[slot].push(annotation)
+      }
+    }
+  }
+  let rewritten : Array[@lib.FuncAnnotationAssoc] = []
+  for slot = 0; slot < rewritten_indices.length(); slot = slot + 1 {
+    rewritten.push(
+      @lib.FuncAnnotationAssoc::new(
+        rewritten_indices[slot],
+        rewritten_annotations[slot],
+      ),
+    )
   }
   @lib.FuncAnnotationSec::new(rewritten)
 }
@@ -4390,7 +4461,14 @@ fn dfe_eliminate_duplicate_functions(
                 normalization_visits, normalized_rewrite_count,
               )
               live_funcs.push(
-                dfe_rewrite_func_func_idxs(normalized, canonical_abs),
+                if first_replaced_abs < 0 ||
+                  max_func_target_by_local[local_idx] < first_replaced_abs {
+                  // Before the first replacement the map is the identity.
+                  // Later epochs cannot change a target below its first delta.
+                  normalized
+                } else {
+                  dfe_rewrite_func_func_idxs(normalized, canonical_abs)
+                },
               )
             }
           }
@@ -4740,7 +4818,8 @@ fn dfe_run_module_pass_with_perf(
   mod_ : @lib.Module,
   perf : HotPerfSession?,
 ) -> @lib.Module {
-  if pass_module_has_legacy_try(mod_) {
+  if pass_module_has_legacy_try(mod_) ||
+    pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
   }
   let iteration_timer = dfe_perf_start_timer_opt(perf, "iterations")
@@ -4789,23 +4868,18 @@ pub fn dfe_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
 // The DFE entrypoint excludes legacy Try and strips names before this cleanup.
 // Keep parameter indices stable and accept only an actual whole-module saving:
 // fewer declaration runs can otherwise lose to wider local-index encodings.
-fn dfe_group_numeric_locals_if_smaller(mod_ : @lib.Module) -> @lib.Module {
-  let before = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return mod_
+fn dfe_group_numeric_locals_if_smaller(
+  mod_ : @lib.Module,
+  function_comparisons? : Array[Int]? = None,
+) -> @lib.Module {
+  if mod_.code_sec is None {
+    return mod_
   }
   let grouped = run_hot_pipeline_raw_group_body_locals_by_type_module(mod_)
-  let after = grouped.code_sec.unwrap().0
-  let mut changed = false
-  for idx = 0; idx < before.length(); idx = idx + 1 {
-    let @lib.Func(old_locals, _) = before[idx]
-    let @lib.Func(new_locals, _) = after[idx]
-    if old_locals != new_locals {
-      changed = true
-      break
-    }
-  }
-  if !changed {
+  // The grouping helper returns its input unless a nonidentity local remap
+  // changed a body and its declarations; no body equality walk is needed.
+  ignore(function_comparisons)
+  if physical_equal(grouped, mod_) {
     return mod_
   }
   match @binary.encoded_module_sizes(mod_, grouped) {
@@ -4820,6 +4894,9 @@ fn dfe_group_numeric_locals_if_smaller(mod_ : @lib.Module) -> @lib.Module {
 
 ///|
 fn dfe_cleanup_raw_encoding(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   dfe_cleanup_simple_type_encoding(dfe_group_numeric_locals_if_smaller(mod_))
 }
 

@@ -1222,6 +1222,92 @@ test "duplicate-function-elimination keeps different semantic annotations distin
 }
 
 ///|
+test "duplicate-function-elimination unions split annotation associations" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("starshine.no-full-inline"),
+        ]),
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("vendor.keep"),
+        ]),
+        @lib.FuncAnnotationAssoc::new(1U, [
+          @lib.FuncAnnotation::new("vendor.keep"),
+        ]),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 2)
+}
+
+///|
+test "duplicate-function-elimination preserves split annotation unions on merged survivor" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("binaryen.idempotent"),
+        ]),
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("vendor.keep"),
+        ]),
+        @lib.FuncAnnotationAssoc::new(1U, [
+          @lib.FuncAnnotation::new("binaryen.idempotent"),
+        ]),
+        @lib.FuncAnnotationAssoc::new(1U, [
+          @lib.FuncAnnotation::new("vendor.keep"),
+        ]),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 1)
+  @debug.assert_eq(
+    optimized.func_annotation_sec,
+    Some(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("binaryen.idempotent"),
+          @lib.FuncAnnotation::new("vendor.keep"),
+        ]),
+      ]),
+    ),
+  )
+}
+
+///|
 test "duplicate-function-elimination keeps exported identities across a duplicate bucket" {
   let input = @lib.Module::new()
     .with_type_sec(dfe_test_type_sec())
