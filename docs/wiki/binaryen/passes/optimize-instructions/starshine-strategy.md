@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-27
+last_reviewed: 2026-09-28
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize_instructions.mbt
@@ -1783,3 +1783,28 @@ Sources: [module grouper](../../../../../src/passes/pass_manager.mbt),
 [original reference](../../../../../src/passes/numeric_group_context_reference_wbtest.mbt),
 [native controls](../../../../../src/passes/numeric_group_context_perf_wbtest.mbt),
 and [dispatcher fixture](../../../../../src/cmd/perf_numeric_group_wbtest.mbt).
+
+## September 28, 2026 performance reuse contracts
+
+An unchanged numeric-local grouping returns the original code section by identity instead of traversing every instruction for structural equality. Exact code sizing encodes each body into one buffer and counts its exact U32 LEB frame without a second function-frame buffer. Final whole-module size checks and validation still run. Aliased initialization-mask joins return an owned copy, avoiding element comparisons while preserving later-write isolation.
+
+Tests and native controls: [local_group_identity_wbtest.mbt](../../../../../src/passes/local_group_identity_wbtest.mbt), [local_group_identity_perf_wbtest.mbt](../../../../../src/passes/local_group_identity_perf_wbtest.mbt), [encoded_size_body_wbtest.mbt](../../../../../src/binary/encoded_size_body_wbtest.mbt), [tc_initialized_alias_wbtest.mbt](../../../../../src/validate/tc_initialized_alias_wbtest.mbt). The [campaign report](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign) owns frozen-binary artifact timings, verified-v133 evidence and final correctness outcomes; helper timings alone do not close the remaining pipeline or parity gaps.
+
+
+## September 28, 2026 shared follow-up controls
+
+Shared initialization ownership and HOT result queries retain their semantic
+contracts in the [IR ownership rules](../../../ir2/architecture-rules.md#performance-reuse-ownership-contracts).
+Identical-mask control joins now borrow under the expression copy-on-write
+contract; the standalone intersection helper retains its owned-copy contract.
+The [follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign)
+separates new helper evidence from this pass's enclosing timings and final
+aggregate status. Prior signoff does not automatically cover the new sources;
+guarded paths and remaining size/parity gaps retain their existing limits.
+
+The numeric-local size guard also reuses measured expression lengths across
+proved local-index-only rewrites. It computes exact unsigned-LEB differences,
+re-encodes declarations and retains whole-module sections/framing and final
+validation. Changed string pools and unsupported differences use full encoding;
+[bounded tests](../../../../../src/binary/encoded_size_local_remap_wbtest.mbt)
+cover index/body boundaries, nested controls and error preservation.

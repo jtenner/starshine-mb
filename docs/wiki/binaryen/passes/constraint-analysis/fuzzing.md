@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-13
+last_reviewed: 2026-09-28
 sources:
   - ../../../ir2/architecture-rules.md
   - ../../../../../src/validate/gen_valid_constraint.mbt
@@ -21,6 +21,9 @@ predecessors, relations between locals, effects, and the floating-point boundary
 Constants include zero, sign boundaries, all-ones patterns and values above i32
 width. The default suite uses four fixed seeds per member; broad campaigns run
 outside `moon test`.
+
+The following command is retained as historical v132 provenance; use the v133
+command below for new evidence.
 
 ```sh
 moon build --target native --release src/cmd
@@ -122,3 +125,53 @@ block parameters, and nested observable local writes. This supersedes the
 61-case canonical loop-size exception above: the compact parameter loops now
 also have smaller canonical output. The follow-up ledger records the fresh
 10,000-case aggregate, exact binaries, runtime evidence, and size judgments.
+
+## Current verified-v133 lane
+
+The environment-sharing change affects refinalization as well as the integer
+constraint rewrite. Run the complete aggregate after performance iteration:
+
+```sh
+moon build --target native --release src/cmd
+moon build --target native --release src/fuzz
+bun fuzz compare-pass --count 10000 --min-compared 10000 --seed 0x5eed \
+  --pass constraint-analysis --gen-valid-profile constraint-analysis \
+  --wasm-opt-bin .tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt \
+  --require-binaryen-version 133 \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --gen-valid-bin _build/native/release/build/fuzz/fuzz.exe \
+  --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 \
+  --max-failures 20000 --keep-going-after-command-failures --no-reduce-mismatches \
+  --require-independent-validator --semantic-oracle node-v2 \
+  --out-dir .tmp/constraint-v133
+```
+
+Verify `wasm-opt version 133 (version_133)` before the run. The
+[campaign report](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign)
+records the oracle hash, final tool hashes, active fixtures and aggregate results.
+Use the default cache; Starshine output is regenerated. Runtime-blocked cases and
+output/size gaps remain separate from complete semantic matches.
+
+### September 28 verified-v133 renewal
+
+Final native `39441994…` and generator `a694ff42…` complete the twelve-family
+10,000-case aggregate against verified v133 `8f25e9fd…`, after performance
+iteration. All 10,000 fresh complete three-way Node-v2 comparisons match, with
+zero validation, generator, command or observed semantic failures and no runtime
+blocks. There are 7,368 canonical matches and 2,632 residuals; all residuals
+are canonically smaller (7,881 bytes total), with no canonical size losses.
+The 20 retained outputs are byte-identical to the frozen starting compiler.
+
+The [current residual review](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign)
+classifies only the twenty inspected examples as scoped Starshine wins, using
+specific join, range, assignment/call, signed-minimum and dropped-tee contracts
+plus measured raw/canonical and downstream sizes. Their common-v133 Oz pairs
+independently validate: eleven are byte-identical, nine remain smaller by one
+or five bytes. The other 2,612 residuals retain open parity classification;
+smaller size and runtime agreement alone do not close those families. Historical
+v132/v133 counts and results above retain their original identities.
+
+Artifacts: `.tmp/pass-perf-complete-20260927/final-fuzz-constraint-analysis/`,
+`ca-residual-inspection.json`, `ca-residual-judgments.json`, and the complete
+campaign/replay ledger. The [report](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign)
+owns tool hashes, active performance controls, cache counts and limitations.

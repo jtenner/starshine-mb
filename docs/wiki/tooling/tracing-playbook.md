@@ -1,8 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-27
+last_reviewed: 2026-09-28
 sources:
+  - ../../../src/passes/constraint_lower.mbt
+  - ../../../src/validate/typecheck.mbt
+  - ../../../src/binary/encoded_size.mbt
+  - ../../../src/binary/encode_control.mbt
+  - ../../../src/ir/hot_mutate.mbt
+  - ../../../src/ir/hot_core.mbt
+  - ../../../src/ir/cfg.mbt
+  - ../../../src/ir/local_graph.mbt
   - ../../../src/ir/hot_source_order.mbt
   - ../../../src/passes/dead_argument_elimination2.mbt
   - ../../../src/passes/dead_argument_elimination.mbt
@@ -36,6 +44,517 @@ related:
 ---
 
 # Tracing Playbook
+
+## DAE priority scan and source-query controls
+
+The September 28 priority iteration starts from frozen next-v9 binary
+`c2f20105e295367c7736dc5bb38700fe74e0d9502acf4497ae47aa28aaf689c2`.
+The native trap-scan controls retain that implementation beside the fused scan
+and check identical call facts outside the timed closure. On an AMD Ryzen 7
+8845HS, native release, CPU 6, all sixteen cases pass. Flat widths 8/128/4,096
+improve 200.94/664.17 ns and 15.11 µs to 177.26/375.89 ns and 6.66 µs.
+Nested trap depths 8/128/512 improve 233.47 ns, 1.48 µs and 5.87 µs to
+209.08 ns, 1.02 µs and 4.22 µs. Nontrapping wrapper depths 8/128, width 8,
+improve 344.70 ns and 29.22 µs to 219.26 ns and 1.04 µs. The last case removes
+repeated walks through singleton ancestors, not merely a cheaper leaf query.
+
+Tests first exposed the missing summary return contract. Focused DAE tests pass
+7/7; the new indexed LocalGraph API first failed as unbound, then its source
+ownership/DAE2/fallback/dispatcher controls pass 14/14. `moon info`, `moon fmt`,
+12,753 default wasm-gc tests and 475 native debug IR tests pass. The two public
+LocalGraph query signatures were reviewed. The indexed enum query removes the
+owned source-array copy but still allocates individual native enum values.
+Dedicated aggregate renewal is deferred while performance work continues.
+Historical v133 ratios and broader parity gaps remain unchanged claims until
+renewed evidence is recorded.
+
+V2's bounded runtime matrix validates 286 modules and observes 1,248 results,
+effects and traps without mismatch against original and verified v133 behavior.
+Its large DAE2 timing is rejected: the initial entry-write proof expands shared
+HOT subtrees and does not finish within several minutes. V3 adds root-write
+visit epochs in the same scratch and a small failing work-bound regression,
+then passes nineteen focused tests. It also removes empty leaf child arrays,
+repeated effect queries and per-signature type-vector copies. New enclosing
+measurements must use V3; V2's helper results do not justify retaining its
+unbounded traversal.
+
+The frozen V3 binary is
+`29d061679199adc8cdf701674defab6bae652f53bd23966534420a3211696ae3`.
+It passes 12,773 default wasm-gc tests, ten focused native tests and forty native
+benchmark cases. Its bounded original/baseline/candidate/v133 runtime matrix
+validates 286 modules and observes 1,248 results, effects and traps without a
+mismatch. All paired baseline/candidate output bytes match.
+
+| Input / pass | Baseline pipeline ms | V3 pipeline ms | Change |
+| --- | ---: | ---: | ---: |
+| Small / DAE | 44.385 | 42.160 | -5.01% |
+| Small / DAEO | 117.525 | 110.793 | -5.73% |
+| Small / DAE2 | 12.694 | 12.644 | -0.39%, near noise |
+| Small / DAE2-O | 19.327 | 19.249 | -0.40%, near noise |
+| Active conditional writes / DAE, seven pairs | 37.385 | 36.180 | -3.22% |
+| Active conditional writes / DAE2 | 12.554 | 12.228 | -2.60% |
+| Active entry writes / DAE2 | 12.120 | 10.849 | -10.49% |
+| Pinned call-free siblings / DAE2 | 11.048 | 3.990 | -63.88% |
+| Pinned call-free siblings / DAE2-O | 19.515 | 12.285 | -37.05% |
+
+Rows use one warmup and three alternating pairs, except the explicit seven-pair
+DAE confirmation. Every accepted small/active row has no observed foreign CPU
+activity. The active DAE confirmation's MAD is 0.231/0.048 ms; Callgrind improves
+765,870,948 to 740,005,104 instructions (-3.38%). This resolves the earlier
+V1 active DAE +6.52% regression for the selected V3 candidate, without erasing
+that earlier evidence. DAE now reuses recursive path scratch; recorded sites
+still own copies. Large rows remain diagnostic: eight of twenty-four accepted
+rows observe foreign CPU activity. DAE2 remains 4,001.369 → 3,993.297 ms and
+DAE2-O 6,932.680 → 6,825.889 ms, so these changes do not close P03.
+
+Single-process large-input peak RSS samples improve DAE2 281,812 → 269,948 KiB
+and DAE2-O 308,532 → 292,240 KiB. These are individual samples, not a repeated
+memory confidence interval. Leaf-array controls improve 70.41 → 8.90 µs;
+2,048 private signature appends improve 11.15 ms → 142.92 µs. Those helper
+gains are not additive whole-pass evidence. A later root-interval proof and
+broader pinned-call admission are under separate V4 validation.
+
+V4 (`df12b99c52a8f66e47a9ef63b2594a9e6294d62fcc1b69455c4e5419a3be6561`)
+passes 12,781 default tests, seventeen focused native tests and thirty-six
+native benchmark cases. Its bounded matrix validates 325 modules with 1,560
+observations and no original/baseline/candidate/v133 runtime mismatch. Outputs
+match the V3 baseline exactly. Three alternating V3/V4 pairs improve pinned
+call-heavy DAE2 siblings 13.196 → 6.423 ms (-51.33%) and DAE2-O 34.436 →
+27.936 ms (-18.88%). All six accepted rows in each lane are free of observed
+foreign CPU activity. Small, conditional-write and entry-write pipeline changes
+are between -0.14% and +0.69%; large DAE2 is 3,993.374 → 4,015.127 ms (+0.54%)
+and DAE2-O 6,853.406 → 6,863.409 ms (+0.15%), with host-contended rows retained
+as diagnostic evidence. Large costs remain open.
+
+The unique root-interval helper improves the 32-write/depth-64 DAG control
+38.49 → 5.55 µs, but regresses one write/depth zero 213.28 → 284.68 ns and one
+write/depth 64 1.63 → 2.63 µs. V5 therefore restores a separate bounded
+two-epoch single-write path, using one scalar completion flag and no interval
+arrays. Multiple admitted writes retain linear interval propagation. Red-first
+source, repeated-root, work-bound and input-ownership tests guard both paths.
+V5 (`77d1de00d44f3b571fc827db07d4ec322293738c71bb20526e3f1fdb216aaf40`)
+passes 12,788 default wasm-gc tests, 477 native IR tests, nineteen focused native
+tests and forty-six native benchmark cases. Its bounded runtime matrix validates
+325 modules and observes 1,560 results, effects and traps without mismatch;
+all baseline/candidate bytes match. The single-write path restores 210.63 →
+203.31 ns at depth zero and 1.61 → 1.59 µs at depth 64; the 32-write control
+retains 37.64 → 5.47 µs. The scalar LocalGraph source record improves the
+128-source/128-read query 120.50 → 36.69 µs while preserving checked indices,
+source ordering and ownership. Arithmetic suffix widths 1/128/4,096 improve
+22.27 ns/1.81 µs/57.04 µs to 9.05 ns/1.58 µs/50.41 µs. Marked reference
+suffixes regress 29.15 → 36.81 ns at width one and 566.65 → 631.19 ns at
+width 32; the V6 scalar-to-ordered-stack handoff below supersedes that regression.
+
+Three alternating V4/V5 pairs improve active conditional-write DAE 37.898 →
+36.525 ms (-3.62%, MAD 0.813/0.080 ms) and DAE2 13.197 → 12.670 ms
+(-3.99%, MAD 0.557/0.061 ms). Those rows have no observed foreign CPU activity.
+The wide-join DAE2/O controls improve 107.725 → 106.580 ms (-1.06%) and
+121.851 → 119.501 ms (-1.93%). Small compiler changes are -0.24% through
++0.80%, and large changes -1.18% through +0.88%; four of twenty-four small
+and eight of twenty-four large observations record foreign CPU activity, so
+these compiler deltas remain diagnostic. Single-process large RSS observations
+are DAE2 291,432 → 275,752 KiB and DAE2-O 292,048 → 297,444 KiB. Earlier
+V4 DAE2 samples were substantially lower; repeated memory controls remain
+required before claiming a memory win.
+
+The fresh V5 open-world comparison uses the verified Binaryen 133 oracle,
+one warmup and three alternating samples on CPU 6 with `strip-debug` reference
+brackets. This renews the four DAE ratios, without extending historical fuzz
+signoff to current source. The large input is 6,211,596 bytes, SHA-256
+`98189860f95b4eb8464794eb9fab5f9fd8d16942c63a6e31ed9175e7e791cbbd`;
+the small input hash is
+`06a9dd57ade8a4fd7c60cba2d1c97845b61e115a54f49ec484fd5a2d73b9f69c`.
+Production source identity is
+`528120802f356d59cdefd3c7c639906f073e74fa9debeb00d598c08827a201f5`
+across 258 files. Full samples and phase attribution live in
+`oracle-v5-{small,large}/summary.md` under the priority artifact directory.
+
+| Pass | Small Starshine / v133 pass ms | Ratio | Large Starshine / v133 pass ms | Ratio |
+| --- | ---: | ---: | ---: | ---: |
+| DAE | 43.294 / 0.609 | 71.05× | 719.480 / 377.991 | 1.90× |
+| DAEO | 122.646 / 14.865 | 8.25× | 924.849 / 1,657.570 | 0.56× |
+| DAE2 | 13.301 / 0.992 | 13.41× | 3,976.588 / 425.845 | 9.34× |
+| DAE2-O | 21.567 / 3.075 | 7.01× | 7,213.857 / 1,625.480 | 4.44× |
+
+Large DAE/DAEO meet the pass-local ≤2× timing target, while the small four
+passes and large DAE2/O remain open. Canonical outputs differ in every row;
+smaller raw output alone does not prove a Starshine win. Large DAEO is
+6,148,499 versus 6,120,298 raw bytes, and DAE2-O is 5,956,034 versus
+5,573,450: both are size-losing parity gaps. DAE2-O's measured SimplifyLocals
+code-section phase is 2,576.764 ms in addition to core DAE2 work; inclusive
+timers and their subtotals must not be summed. Long aggregate renewal remains
+deferred until the performance iteration is complete.
+
+V6 (`ee1c6c3b57e2c83cdfa1ce090b336eff2d1e06cd1c5b76a5620e5e5039e91202`)
+passes 12,795 default tests, 477 native IR tests, twenty-six focused native tests
+and fifty-four native benchmark cases. Its bounded original/V5/V6/v133 matrix
+validates 364 modules with 1,716 matching observations and identical V5/V6
+bytes. Readonly entry parameters consumed directly by stores or pinned calls
+can pin flat private void boundaries before lifting; parameter assignments and
+unknown control retain HOT analysis, and admitted bodies still undergo complete
+body validation. A malformed store regression rejects rather than bypassing
+validation. Active dead arguments in an unrelated helper remain removable.
+
+The marked-reference handoff resolves V5's native helper regressions: reference
+width one is 28.33 ns for the frozen array control versus 28.52 ns for the
+handoff, and width 32 is 583.59 → 536.81 ns. Arithmetic widths 1/128/4,096
+are 21.51 ns/1.76 µs/55.99 µs versus 8.52 ns/1.35 µs/43.03 µs. The new
+readonly-store pipeline benchmark checks valid output, unchanged sibling
+bodies, active argument removal and reusable input; 128 private/store wrappers
+with 128 stores each measure 11.11 ms in DAE2 and 30.38 ms in DAE2-O.
+Three quiet alternating V5/V6 pairs improve the readonly-store DAE2 pipeline
+20.911 → 8.937 ms (-57.26%, MAD 0.325/0.112 ms), and DAE2-O
+37.730 → 26.156 ms (-30.68%, MAD 0.232/0.079 ms), with identical outputs.
+Active conditional-write DAE improves 36.771 → 36.287 ms (-1.32%) and DAEO
+334.558 → 323.669 ms (-3.25%); those lanes also have no observed foreign CPU
+activity. Small compiler deltas -0.52% through +1.53% have twelve of twenty-four
+contended rows. Large deltas -0.55% through +3.04% have ten of twenty-four
+contended rows; the +3.04% DAE observation requires renewal before accepting
+a large-input speed claim. Four of twelve wide-join rows are contended.
+Individual RSS samples are DAE2 293,480 → 275,968 KiB and DAE2-O
+309,836 → 291,616 KiB; earlier variance still precludes a firm memory claim.
+Compiler competitiveness and final aggregate signoff remain open.
+
+Sources: [observable parameter proof](../../../src/passes/dae2_observed_entry.mbt),
+[behavior and invalid-body regressions](../../../src/passes/dae2_observed_entry_wbtest.mbt),
+[readonly-store benchmarks](../../../src/passes/dae2_observed_entry_perf_wbtest.mbt),
+and [wide-join pipelines](../../../src/passes/dae2_wide_joins_perf_wbtest.mbt).
+
+V7b (`25956fad0fc86d6b9ef9a5a40fb245d8cc50fdbab135ec9993bdf98503f5d128`)
+passes 12,802 default tests, 479 native IR tests, 33 focused native tests and
+48 native benchmark cases. It removes complete pure unused argument slices
+before localizing them, borrowing the slice endpoint and copying plan flags only
+when changed. The 31-fixture four-pass matrix validates 403 modules with 1,872
+matching results, effects and traps against original/V6/V7b/verified-v133.
+Two plain-DAE outputs improve 83 → 72 and 87 → 69 raw bytes; canonical sizes
+also decrease. Inspection attributes this to removal of nontrapping arithmetic
+and unread scratch writes, retaining import order. These are wins against the
+previous Starshine source, not a classification of every Binaryen shape gap.
+
+V7b also introduces checked scalar HOT opcode reads and direct type/child field
+reads while retaining node/slot bounds, incomplete deletion-proof fallback and
+immutable snapshots. A separate 11-fixture, 18-pass matrix validates 605 modules
+with 2,420 matching runtime observations; paired V6/V7b bytes all match there.
+Native header/opcode controls improve 29.55 → 24.37 µs at width 16 and
+31.05 → 25.72 µs at width 4,096 with 128 deleted nodes; type controls improve
+29.98 → 25.90 µs and 31.20 → 28.70 µs. The original child reference used
+different modulo work and omitted the old slot check. Its speed comparison is
+withdrawn; corrected reference controls are included in V8. These helpers alone
+do not establish enclosing pass gains. Sources:
+[argument regression](../../../src/passes/dae_pure_arguments_wbtest.mbt),
+[argument pipelines](../../../src/passes/dae_pure_arguments_perf_wbtest.mbt),
+[checked fields](../../../src/ir/hot_field_queries_wbtest.mbt), and
+[field controls](../../../src/ir/hot_field_queries_perf_wbtest.mbt).
+
+The corrected V8 child reference performs the same constant-modulo slot selection
+and preserves the frozen header/slot checks. Width 16 improves 34.09 → 29.66 µs;
+width 4,096 with 128 deleted nodes improves 38.69 → 30.44 µs. Corrected opcode
+controls are 29.98 → 25.30 µs and 31.13 → 26.18 µs; type controls are
+30.63 → 28.63 µs and 31.87 → 28.67 µs. All twelve native cases pass; checked
+semantics and arena ownership are asserted outside timing. These observations
+supersede only the invalid original child comparison, not the historical opcode
+and type observations.
+
+V8 adds symbolic flat-body parameter/result dependencies without an initial HOT
+arena. It aliases readonly parameter reads and whole-call results, allocates only
+distinct dependency joins, and validates before graph commitment. Changed bodies
+still lift and replay complete expression liveness in a fresh graph seeded with
+the solved boundary prefix. The original module graph stays sealed. The initial
+tests fail with two lifts instead of zero, then focused encoded-output comparisons
+match the full HOT reference across stores, results, calls, recursion and typed
+families. The frozen binary is
+`83d79efc4a22662c8403cae9159c3a57df28202b5701b11eed43810bcd38ba44`;
+interface generation, formatting, 12,812 default tests, 479 native IR tests,
+43 focused native tests, native CLI build and 56 native benchmark cases pass.
+The 37-fixture, four-pass original/V7b/V8/v133 matrix validates 481 modules
+with 2,184 matching runtime observations and identical V7b/V8 output bytes.
+
+Three alternating quiet V7b/V8 flat-body pairs improve DAE2 9.893 → 8.867 ms
+(-10.37%, MAD 0.076/0.110 ms) and DAE2-O 14.949 → 10.811 ms
+(-27.68%, MAD 2.119/0.078 ms). The wide baseline dispersion remains relevant.
+Readonly-store DAE2/O change +0.93%/-0.23%. Quiet V6/V8 conditional-write
+DAE2/O improve 4.23%/1.98%, while DAE/DAEO add 1.33%/2.73%. A bounded
+Callgrind comparison records small DAE instructions +0.003% and active DAE
+-0.199%; this does not erase the active wall-time costs. The V6/V8 pure-argument
+fixture improves DAE 43.573 → 30.502 ms (-30.00%) and DAEO 74.091 →
+41.008 ms (-44.65%). Plain DAE shrinks 13,378 → 802 raw bytes; DAEO bytes
+already matched after cleanup. Three of twelve pure-argument rows observe
+foreign CPU activity.
+
+Small compiler DAE/DAEO/DAE2/O change -0.11%/+7.01%/-3.67%/+0.17% with
+18/24 accepted rows observing foreign CPU activity; the DAEO cost requires
+quiet renewal. Large compiler changes are -0.41%/+0.02%/+0.66%/-1.71% with
+8/24 contended rows. Large DAE2 remains 4,024.403 ms and DAE2-O 6,826.048 ms.
+The shared small Precompute/propagation/Coalesce/SL/OI pipelines change
+-7.19%/-1.10%/-0.89%/+0.52%/+0.36% in thirty quiet rows; large changes are
++1.55%/+0.71%/-1.96%/+0.75%/+0.04%, with six of thirty rows contended.
+All paired bytes match except the documented plain-DAE pure-argument improvement.
+These measurements do not establish compiler competitiveness.
+
+Five alternating V7b/V8 untraced RSS pairs instead add median DAE2
+275,624 → 291,420 KiB (+15,796 KiB, +5.73%) and DAE2-O
+291,932 → 297,992 KiB (+6,060 KiB, +2.08%). DAE2 samples are bimodal and
+span about 269–293 MiB across both sides; no memory win is established.
+Per-body replay allocation is therefore an active V9 target, alongside flat
+assignments and lazy child snapshots. Sources:
+[raw analysis](../../../src/passes/dae2_raw_analysis.mbt),
+[exact-output and ownership fixtures](../../../src/passes/dae2_raw_analysis_wbtest.mbt),
+and [active analysis/pipeline controls](../../../src/passes/dae2_raw_analysis_perf_wbtest.mbt).
+
+V9 (`ba640e30f63c5fb9187a513c05820c0d45244375cc3e2b2bbd6f4ead8a6366b2`)
+passes interface generation, formatting, 12,819 default tests, 479 native IR
+tests, 50 focused native tests, native CLI build and 64 native benchmark cases.
+Flat assignments carry the current local dependency while stacked earlier reads
+retain their original symbol. Unchanged child rewrites allocate no owned span;
+changed children own one snapshot. Changed raw bodies reuse one replay workspace,
+clearing prior edges/work and reseeding immutable module boundaries. The DAE
+candidate guard now recognizes shared code containing NaNs instead of rejecting
+a valid pruning transaction under nonreflexive numeric equality.
+
+The bounded 41-fixture, four-pass original/V8/V9/v133 matrix validates 533
+modules with 2,444 matching observations. V8/V9 bytes match except the shared
+NaN-body fixture, where DAE and DAEO shrink 90 → 74 raw bytes and canonical
+sizes decrease. Inspected output removes the unused parameter/argument and
+preserves the exact `nan:0x400001` instruction; this is a measured improvement
+against V8, not a general classification of Binaryen residuals. Short Callgrind
+traces reuse verified V8 baselines and reduce small DAE instructions
+705,239,530 → 684,133,979 (-2.99%) and active DAE
+715,194,988 → 681,756,205 (-4.68%), with identical bytes in those inputs.
+
+Native child controls improve 72.51 → 36.61 ns for one rewrite and
+290.10 → 136.65 µs for 4,096 rewrites. The 64-body replay control improves
+66.59 → 44.79 µs at 128 boundary locations, but regresses
+765.67 → 820.62 µs at 8,192 (+7.18%). Wide prefix reset therefore needs
+another implementation trial; helper wins do not close memory or compiler gaps.
+The initial three V8/V9 small compiler pairs improve DAE/DAEO/DAE2/O
+3.36%/3.43%/11.46%/5.70% in 24 quiet rows. Quiet entry-write DAE2/O improve
+12.58%/5.02%; readonly-store DAE2/O change +1.38%/-0.72%, and flat-body
+DAE2/O change -0.98%/-1.52%. Pure-argument DAE/DAEO improve 1.74%/1.02%
+in twelve quiet rows. Active DAE/DAEO/DAE2/O change
+-6.62%/+0.28%/-2.35%/-2.82% with two of twenty-four rows contended. Large
+changes are -0.97%/-0.12%/-0.66%/-1.31% with eight of twenty-four contended
+rows. All paired outputs match exactly in these timing controls.
+
+Five untraced V8/V9 RSS pairs reduce median DAE2 275,824 → 269,176 KiB
+(-6,648 KiB, -2.41%) and DAE2-O 314,632 → 298,136 KiB
+(-16,496 KiB, -5.24%). DAE2 ranges overlap at 269,836–289,392 versus
+267,588–292,008 KiB, and O ranges overlap at 292,096–324,680 versus
+292,196–310,484 KiB. These repeated observations do not establish a firm
+memory win across allocator/host variation or erase the earlier V8 costs.
+
+The fresh verified-v133 V9 sweep uses one warmup and three alternating samples
+on CPU 6 with `strip-debug` brackets. Production source identity is
+`6be8fc73e265a5e0beac38cf25f81099f4c51d39860e51714f2fefabbb4099d2`
+across 260 files. The preceding V5 table remains historical. V9 pass medians
+and ratios are:
+
+| Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
+| --- | ---: | ---: | ---: | ---: |
+| DAE | 41.301 / 0.613 | 67.37× | 740.291 / 373.657 | 1.98× |
+| DAEO | 120.710 / 14.930 | 8.09× | 937.367 / 1,660.770 | 0.56× |
+| DAE2 | 11.336 / 0.963 | 11.78× | 3,935.432 / 424.018 | 9.28× |
+| DAE2-O | 20.562 / 3.084 | 6.67× | 7,107.821 / 1,614.320 | 4.40× |
+
+All canonical outputs still differ. Large DAEO remains 6,148,499 versus
+6,120,298 raw bytes, and DAE2-O 5,956,034 versus 5,573,450: these remain
+size-losing parity gaps. DAE2-O's SimplifyLocals code-section median is
+2,518.479 ms; its inclusive/subphase timers must not be summed. Compiler
+competitiveness and final aggregate signoff remain open. Full samples live in
+`oracle-v9-{small,large}/summary.md` under the local priority artifact directory.
+Sources:
+[assignments](../../../src/passes/dae2_raw_assignments_wbtest.mbt),
+[child ownership](../../../src/passes/dae2_lazy_children_wbtest.mbt),
+[child controls](../../../src/passes/dae2_lazy_children_perf_wbtest.mbt),
+[replay ownership](../../../src/passes/dae2_replay_workspace_wbtest.mbt),
+[replay controls](../../../src/passes/dae2_replay_workspace_perf_wbtest.mbt), and
+[NaN transaction](../../../src/passes/dae_nan_plans_wbtest.mbt).
+
+V10 (`050231021b65677f2512151816d66f58501db3a6735e79678362ed72cd920d71`)
+completes interface generation, formatting, 12,830 default tests, 479 native IR
+tests, 61 focused native tests, native CLI build and 84 native benchmarks.
+Its 260-file production hash is
+`83a1d051ad02236dd4591272cce100ea72d15f0a6afa30af9753130d62f79232`.
+The 48-fixture original/V9/V10/verified-v133 matrix validates 624 modules with
+2,808 matching results, effects and traps. V9/V10 outputs match except the
+shared NaN-global DAE/DAEO fixture: both shrink 85 → 69 raw bytes with lower
+canonical sizes. Unit assertions inspect initializer bits; a JSON NaN runtime
+observation by itself does not prove payload preservation.
+
+Raw analysis now qualifies mandatory scalar loads/traps and selected GC/ref
+producers, observing all their inputs even when their result is dropped. Struct
+arity comes from the existing module context. This avoids the first arena,
+while HOT mutation still handles changed bodies. Reset uses retained-capacity
+bulk initialization: fresh/reused 64-body controls measure 65.37/42.65 µs at
+128 boundaries and 720.37/629.66 µs at 8,192. This supersedes the V9 wide helper
+regression without erasing its historical record. Shared metadata identity
+measures 47.49 → 16.97 ns at four type groups and 32.17 µs → 16.95 ns at
+4,096; distinct metadata stays 32.07/32.14 µs. Bounded borrowed multi-result
+prefixes measure 123.94 → 62.49 ns for two values and 172.31 → 25.40 µs
+for sixteen values with an observable prefix.
+
+Three quiet V9/V10 pairs on active GC improve DAE2 42.576 → 39.372 ms
+(-7.53%, MAD 0.199/0.090 ms) and O 64.767 → 62.962 ms
+(-2.79%, MAD 0.255/0.346 ms). Quiet small DAE/DAEO/DAE2/O change
+-1.08%/+1.32%/-0.45%/-0.83%; entry DAE2 improves 27.73%, but its
+baseline MAD is 3.080 ms versus 0.113 ms after, so the percentage is unstable.
+Large DAE/DAEO/DAE2/O change -0.59%/+0.09%/+0.62%/+3.34% with foreign
+CPU activity in 2/1/2/3 of each six retained rows. Keep the optimizing increase
+open for quiet renewal. Every timing-control output is byte-identical.
+Seven quiet V6/V10 pairs renew earlier DAE regressions: small DAE/DAEO
+41.830 → 40.698 ms (-2.71%) and 111.934 → 109.075 ms (-2.55%);
+active 36.143 → 34.902 ms (-3.43%) and 326.561 → 325.156 ms (-0.43%).
+These controls supersede the directional V8 regression observations.
+
+Five V9/V10 untraced RSS pairs change DAE2 median 269,872 → 269,652 KiB
+(-220), and O 297,772 → 292,232 KiB (-5,540). Their respective ranges
+268,524–276,044 / 268,832–275,820 and
+292,092–337,072 / 291,952–303,808 overlap; do not claim a firm memory win.
+The fresh CPU-6 v133 oracle uses one warmup, three alternating samples and
+`strip-debug` brackets:
+
+| Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
+| --- | ---: | ---: | ---: | ---: |
+| DAE | 41.480 / 0.617 | 67.28× | 740.770 / 373.538 | 1.98× |
+| DAEO | 121.083 / 13.753 | 8.80× | 945.515 / 1,659.900 | 0.57× |
+| DAE2 | 11.464 / 0.967 | 11.86× | 3,940.761 / 421.901 | 9.34× |
+| DAE2-O | 20.090 / 3.044 | 6.60× | 7,139.235 / 1,612.080 | 4.43× |
+
+Canonical outputs all differ. Large optimizing raw sizes remain the V9
+6,148,499 / 6,120,298 (DAEO) and 5,956,034 / 5,573,450 (O);
+canonical sizes are 6,161,725 / 6,120,298 and 5,995,469 / 5,573,450.
+These are open size-losing parity gaps. Full samples, CPU observations and
+dispersion remain in `pairs-v10-*/result.json`, `oracle-v10-{small,large}/result.json`,
+`memory-v10.json` and `confirm-v10-v6-*/result.json` under the priority directory.
+Long aggregate renewal follows the performance trials; none of these bounded
+controls replaces it. Sources:
+[mandatory producers](../../../src/passes/dae2_raw_producers_wbtest.mbt),
+[producer controls](../../../src/passes/dae2_raw_producers_perf_wbtest.mbt),
+[owned sections](../../../src/passes/dae_owned_sections_wbtest.mbt),
+[metadata controls](../../../src/passes/dae_owned_sections_perf_wbtest.mbt),
+[operand bounds](../../../src/passes/dae_operand_range_wbtest.mbt), and
+[multi-result controls](../../../src/passes/dae_multivalue_prefix_perf_wbtest.mbt).
+
+V11 (`4e5b41271e087c0829022b77cb54ba3b107e7dd2fb6410ef3c8efb7cbec0fb2c`)
+completes interface generation, formatting, 12,840 default tests, 73 focused
+native tests, native CLI build and 52 native benchmarks. Its 261-file production
+hash is `79ef94896d894d031b8f5b49589f83c4bddc6ef48e3f93c64e145a76b6ad22b9`.
+The unchanged IR retains V10's 479 native checks. The 57-fixture
+original/V10/V11/verified-v133 matrix validates 741 modules with 3,380 matching
+observations and identical before/after bytes. NaN fixtures expose integer
+reinterpretation results to prove payload preservation.
+
+Scalar direct rewriting qualifies the existing flat analysis lane and avoids
+its second HOT arena. HOT-rewrite/direct-only controls measure 38.62/12.98 µs
+at tiny scale and 8.44/1.52 ms at 32 bodies/128 operations. Full HOT/direct
+producer pipelines measure 51.24/14.38 µs tiny and 42.63/4.05 ms wide.
+Distinct transaction fallback compares float bits in code and initializer
+carriers; four red tests demonstrated changed signed-zero acceptance and
+copied-NaN rejection. Shared 1,024-body snapshot identity measures 7.77 ns;
+shared-body reference 94.53 µs improves to 1.99 µs, distinct copies stay
+90.88/91.61 µs (+0.8%), and the last changed body improves 91.02 → 2.03 µs.
+
+Three V10/V11 paired pipeline samples improve active flat DAE2/O
+8.691 → 1.612 ms (-81.45%, MAD 0.190/0.003) and
+10.811 → 3.674 ms (-66.02%, MAD 0.149/0.014); GC improves
+39.670 → 4.083 ms (-89.71%, MAD 0.186/0.009) and
+63.608 → 27.372 ms (-56.97%, MAD 1.651/0.172). Entry DAE2/O improves
+82.43%/27.05%; readonly stores improve 2.71%/0.22%.
+Initial small DAE -9.47% has baseline MAD 4.805 ms versus 0.427 after;
+19/34 retained small rows and 10/24 large rows observe foreign CPU activity.
+Initial active O +18.99% reverses in seven quiet pairs to
+16.979 → 16.373 ms (-3.57%, MAD 0.176/0.378). That quiet cohort has
+zero foreign CPU rows and improves active DAE2 12.376 → 11.518 ms
+(-6.93%, MAD 0.255/0.072), while active DAEO remains
+321.561 → 324.113 ms (+0.79%, MAD 1.178/1.276).
+Seven quiet small DAE pairs renew to 40.874 → 40.695 ms (-0.44%,
+MAD 0.627/0.249). Keep the initial runs as diagnostic evidence.
+Large paired DAE/DAEO/DAE2/O changes +1.05%/-1.05%/-1.17%/-1.93%;
+these contended samples do not establish a compiler win.
+
+Five V10/V11 RSS pairs change median DAE2 275,976 → 276,120 KiB (+144)
+and O 293,532 → 297,608 KiB (+4,076). Ranges respectively
+270,848–291,756 / 269,560–292,148 and
+291,716–338,580 / 292,264–310,284 overlap; no memory win is established.
+The fresh CPU-6 v133 oracle uses one warmup and three alternating samples:
+
+| Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
+| --- | ---: | ---: | ---: | ---: |
+| DAE | 41.749 / 0.610 | 68.40× | 741.314 / 377.260 | 1.96× |
+| DAEO | 118.862 / 14.021 | 8.48× | 936.721 / 1,651.110 | 0.57× |
+| DAE2 | 11.323 / 0.955 | 11.86× | 3,885.392 / 422.809 | 9.19× |
+| DAE2-O | 20.289 / 3.016 | 6.73× | 7,066.518 / 1,610.630 | 4.39× |
+
+All canonical outputs differ; large optimizing raw/canonical sizes remain
+identical to V10's open size losses. Artifacts `pairs-v11-*`, `memory-v11.json`,
+`oracle-v11-{small,large}` and `confirm-v11-v10-*` retain samples, MAD and
+CPU observations. Sources: [scalar mutation](../../../src/passes/dae2_raw_rewrite.mbt),
+[exact HOT fixtures](../../../src/passes/dae2_raw_rewrite_wbtest.mbt),
+[mutation controls](../../../src/passes/dae2_raw_rewrite_perf_wbtest.mbt), and
+[float-bit guards](../../../src/passes/dae_snapshot_bits_wbtest.mbt).
+V12 tests early restoration admission and releasing solved adjacency before
+rewrite; full pipeline, runtime and RSS evidence remains required.
+
+V12 (`4ab85d5672c7f1ea1a5b775fd5e3069decb5eed03108d72f75708b1ca626e3d2`)
+completes interface generation, formatting, 12,845 default tests,
+78 focused native tests, native CLI build and
+34 native benchmarks. Production hash is
+`5e674ef4bffafc18d6b06b17634924fccace43c850ec31e13b2a3a84254f041b`. Its 741-module bounded matrix yields
+3,380 matching observations with no output changes from V11.
+
+Dead-suffix restoration now admits only selected unreachable zero-param bodies
+whose original signature contains f64, then scans escapes lazily. Red tests
+require zero scans for impossible candidates and still restore the escaped
+self operand; reference comparisons cover result signatures and short bitmaps.
+Tiny reference/admitted helpers measure 264.65/38.31 ns, wide 32-body/128-op
+helpers 24.08 µs/62.32 ns. This work reduction does not close the small DAE gap.
+V12 also drops solved adjacency capacity before mutation. Its mutable-field
+trial grows native edge assembly from 90 to 115 instruction lines with two
+additional drop call sites; V13 tests transferring the same solved bitvector
+into a new graph with immutable adjacency fields instead.
+
+Three paired large DAE/DAEO/DAE2/O changes -0.01%/-0.10%/+0.64%/+0.72%
+observe foreign CPU in 8/24 retained rows. Initial flat O +83.57% reverses in
+seven quiet pairs to 3.851 → 3.731 ms (-3.12%, MAD 0.214/0.038).
+That renewal still costs flat DAE2 1.585 → 1.619 ms (+2.15%), entry DAE2
+1.640 → 1.689 ms (+2.99%), entry O 21.930 → 22.518 ms (+2.68%,
+MAD 0.189/0.696) and small DAEO 109.955 → 111.908 ms (+1.78%,
+MAD 0.748/2.049); small DAE2 changes -1.62%. All 84 renewed rows have no
+observed foreign CPU. Preserve the remaining costs for the next candidate.
+
+Five RSS pairs change DAE2 median 275,860 → 268,472 KiB (-7,388) and
+O 292,068 → 295,588 KiB (+3,520); dispersion remains in `memory-v12.json`.
+The fresh verified-v133 CPU-6 sweep uses one warmup and three alternating samples:
+
+| Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
+| --- | ---: | ---: | ---: | ---: |
+| `dae` | 42.439 / 0.608 | 69.82× | 743.205 / 379.244 | 1.96× |
+| `dae-optimizing` | 120.157 / 13.740 | 8.75× | 940.292 / 1,656.900 | 0.57× |
+| `dae2` | 11.419 / 0.957 | 11.94× | 3,937.210 / 424.085 | 9.28× |
+| `dae2-optimizing` | 19.731 / 3.235 | 6.10× | 7,137.923 / 1,621.400 | 4.40× |
+
+All before/after bytes match, and all canonical oracle outputs differ.
+Large optimizing raw/canonical size losses remain unchanged. Artifacts
+`pairs-v12-*`, `oracle-v12-{small,large}`, `memory-v12.json` and
+`confirm-v12-v11-*` retain samples and dispersion. Sources:
+[restoration admission](../../../src/passes/dae_restore_admission_wbtest.mbt),
+[restoration controls](../../../src/passes/dae_restore_admission_perf_wbtest.mbt), and
+[solved storage](../../../src/passes/dae2_solved_storage_wbtest.mbt).
+V13 scalar tee mutation and immutable solved-graph transfer pass seventeen
+focused checks; full native and enclosing renewal are in progress.
+
+The large native debug pass-test link hits Moonc `v0.10.14+7d59c7ec9`'s stack
+limit at 16 MiB, including after removal of forced path-helper inlining. The
+same ten focused native tests pass with `ulimit -s 65536`. This is a compiler
+invocation setting; native CLI runtime controls use the ordinary process limit.
+Preserve both failed logs and the successful retry when reporting validation.
+
+Sources: [DAE scan](../../../src/passes/dead_argument_elimination.mbt),
+[DAE controls](../../../src/passes/dae_trap_summary_perf_wbtest.mbt),
+[LocalGraph queries](../../../src/ir/local_graph.mbt),
+[query ownership tests](../../../src/ir/local_graph_indexed_sources_wbtest.mbt),
+and [DAE2 controls](../../../src/passes/dae2_indexed_sources_perf_wbtest.mbt).
+Local artifacts live under `.tmp/pass-perf-dae-priority-20260928/`; the baseline,
+red/green logs, build stages and frozen source hashes identify this iteration.
 
 ## Overview
 
@@ -94,6 +613,17 @@ perf:dump cfg label=<label> entry=<id> exit=<id> exceptional=<id-or-> blocks=<n>
 
 Timer lines are the pass-local timing source parsed by self-opt and compare tooling. Counter and dump lines are investigation aids; do not turn them into broad CI failure criteria without a focused contract.
 
+DAE2 additionally emits `detail:dae2:prepare`, `analysis`, `solve-and-admit`,
+`rewrite`, and `finalize` timers when pass timing is enabled. Analysis splits
+out accumulated `analysis:lift` and `analysis:dependencies`; rewrite splits
+out `rewrite:lift` and `rewrite:lower`; finalization splits out cleanup and
+validation. These are nested phase totals, so adding every detail timer would
+double-count work. Analysis also includes function disposal and metadata
+collection; its lift subtotal includes catch-payload repair. Final type cleanup
+after validation and dispatcher cleanup for `dae2-optimizing` remain outside
+the respective DAE2 detail totals. The [DAE2 implementation](../../../src/passes/dead_argument_elimination2.mbt)
+and [dispatcher](../../../src/passes/pass_manager.mbt) own this attribution.
+
 ### Paired wall-time attribution
 
 Use the direct comparison tool's opt-in paired mode for `[WALL]001` work:
@@ -101,7 +631,7 @@ Use the direct comparison tool's opt-in paired mode for `[WALL]001` work:
 ```text
 bun scripts/self-optimize-compare.ts <input.wasm> \
   --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --wasm-opt-bin .tmp/binaryen-version_132/bin/wasm-opt \
+  --wasm-opt-bin .tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt \
   --timing-only --wall-attribution --<pass>
 ```
 
@@ -115,11 +645,13 @@ flock -w 3600 /tmp/starshine-perf-sweep-heavy.lock \
   --input <input.wasm> \
   --passes <pass-a,pass-b,...> \
   --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --wasm-opt-bin .tmp/binaryen-version_132/bin/wasm-opt \
+  --wasm-opt-bin .tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt \
   --warmup 1 --samples 3 --out-dir <artifact-dir>
 ```
 
-`pass-performance-sweep` brackets every requested-pass round with leading and trailing reference-pass commands, reversing requested-pass order on alternating rounds to reduce thermal and order bias. It rejects campaigns with fewer than one warmup or three measured rounds, refuses a pre-existing artifact directory, requires explicit Starshine and Binaryen binaries, verifies that the oracle reports version 132, and rejects a native binary older than current compiler sources. It pins both executable SHA-256 identities, the input, and a production-compiler source fingerprint before sampling; rechecks them at the end; preserves every underlying `self-optimize-compare` result; rejects traced/no-trace byte drift and cross-round Starshine or Binaryen raw-output drift, including the reference; and writes machine-readable `result.json` plus `summary.md` with raw samples, median±MAD command and bracket-adjusted measurements, pass-local and phase attribution, sizes, and canonical equality. A bracket-adjusted increment subtracts the mean of that round's two references and is noise context rather than a substitute for pass-local attribution or a causal before/after binary comparison. Use the default `strip-debug` reference only when the input is known not to carry debug payloads. The wrapper is serial internally; the outer `flock` prevents separate worktrees, builds, or campaigns from sharing the measured host interval. A timing set that overlapped an untracked heavy process is invalid and must be rerun in a fresh artifact directory.
+`pass-performance-sweep` brackets every requested-pass round with leading and trailing reference-pass commands, reversing requested-pass order on alternating rounds to reduce thermal and order bias. It rejects campaigns with fewer than one warmup or three measured rounds, refuses a pre-existing artifact directory, requires explicit Starshine and Binaryen binaries, verifies that the oracle reports version 133, and rejects a native binary older than current compiler sources. It pins both executable SHA-256 identities, the input, and a production-compiler source fingerprint before sampling; rechecks them at the end; preserves every underlying `self-optimize-compare` result; rejects traced/no-trace byte drift and cross-round Starshine or Binaryen raw-output drift, including the reference; and writes machine-readable `result.json` plus `summary.md` with raw samples, median±MAD command and bracket-adjusted measurements, pass-local and phase attribution, sizes, and canonical equality. A bracket-adjusted increment subtracts the mean of that round's two references and is noise context rather than a substitute for pass-local attribution or a causal before/after binary comparison. Use the default `strip-debug` reference only when the input is known not to carry debug payloads. The wrapper is serial internally; the outer `flock` prevents separate worktrees, builds, or campaigns from sharing the measured host interval. A timing set that overlapped an untracked heavy process is invalid and must be rerun in a fresh artifact directory.
+
+Use `--closed-world` for passes such as `global-type-optimization` that require that mode; the sweep applies it to both tools and the bracketing reference. The 2026-09-25 v133 common-pass campaign is in `.tmp/pass-sweep-v133-combined-20260925/`: 67 Starshine-advertised names produced paired results across 63 Binaryen flag sequences. The v133 `wasm-opt --help` optimization-pass catalog has 172 flags; 110 have no paired Starshine sweep. The primary 189 KB input left both outputs unchanged for 28 names, so those timings measure admission/no-op cost rather than transform throughput. Active-input pass-local ratios above the 2x target include `dae`, `dae-optimizing`, `dae2`, `dae2-optimizing`, `inlining`, `inlining-optimizing`, `simplify-globals-optimizing`, and `simplify-locals-nonesting`; the per-pass reports contain exact medians, output sizes, and hashes. This campaign is performance evidence only; output drift still needs pass-specific parity classification.
 
 The attribution hierarchy is nested. **Do not sum parents and children together.** The useful boundaries are:
 
@@ -1838,3 +2370,1885 @@ and repeated paired timings, v133 sweeps, every aggregate command/result/case,
 retained and complete size-loss replays, downstream shape replays, cohort census,
 runtime coverage details, active inline-main observations and preservation audit.
 The wiki records durable conclusions; ignored artifacts retain exact local data.
+
+## September 28, 2026 performance backlog campaign
+
+This campaign exercises every P01–P14 owner in the performance backlog. It removes
+repeated transfers, scans, setup and encoding work, with bounded red-first tests
+and 322 native benchmark cases across 23 new files. The following measurements
+supersede earlier timings only for the renewed input/pass pairs. Earlier versions,
+rejected experiments, output-quality gaps and runtime limits remain historical
+evidence. No commits or publication were performed during this campaign.
+
+### Mechanisms, reasons and focused evidence
+
+Benchmark setup and semantic/ownership preflight checks run outside the measured
+loop. Reference implementations reproduce the preceding algorithm; results remain
+observable inside the loop. Synthetic scaling cases run through `moon bench`,
+outside default behavior tests. Times below are isolated native-release helpers
+or explicitly named synthetic full passes; they do not predict artifact speedups.
+
+| Slice | Change and reason | Representative reference → candidate | Contract / owner |
+| --- | --- | --- | --- |
+| P01 | Borrow the expanded LocalGraph input until the first set/tee; read-only blocks need no transfer copy. | 4096-local read-only: 6.93 µs → 112.12 ns; first write: 7.17 → 6.79 µs; all-write: 79.91 → 73.74 µs. | Reaching sources/write influences still recorded; first write owns the outer array, predecessor source rows remain unchanged. [Propagation](../binaryen/passes/precompute-propagate/starshine-strategy.md). |
+| P02 | Reuse unchanged raw Precompute functions, defer unused statistics, gate impossible tail folds and stream the first sixteen live snapshot-prefix instructions. | 4096-instruction negative prefix: 50.90 µs → 9.44 ns; positive prefix: 53.81 µs → 12.84 ns; simple value tail: 58.69 → 20.73 ns. | Active scalar folding and infinite-loop tail cleanup remain; Nops and the sixteenth-instruction boundary retain their meaning. [Precompute](../binaryen/passes/precompute-propagate/starshine-strategy.md). |
+| P03 | Keep compact control dependencies, skip a provably unaffected second lift, and admit only relevant legacy/TryTable handler rewrites. | 1024 no-handler functions: legacy preparation 617.80 → 88.66 µs; TryTable fold 444.64 → 145.90 µs. | Unknown controls stay conservative; signatures are checked before admission; grouped-local framing preserves old encoded bytes. [DAE2](../binaryen/passes/dae2/starshine-strategy.md). |
+| P04 | Compile immutable raw source-hazard steps once per body, then replay them for each source local. | 128 locals: sparse 298.56 → 194.83 µs; dense 263.86 → 195.53 µs. | Preserve barriers, joins, source order and copy exceptions; source arrays remain owned by the input. [Coalesce](../binaryen/passes/coalesce-locals/starshine-strategy.md). |
+| P05 | Reject impossible value suffixes with an arity precheck before repeated full typechecking. | Width 256 chain: 2.06 ms → 13.49 µs; candidate-free: 1.61 ms → 3.05 µs. | Possible/unknown suffixes use the original checker; preserve earliest split, errors, effects and all five variant rules. [SimplifyLocals](../binaryen/passes/simplify-locals/raw-lane-and-writeback.md). |
+| P06 | Test unchanged code-section identity before deep equality; measure exact function-body framing from one encoded body buffer. | OI unchanged grouping, four wide bodies: 54.93 → 11.62 µs; 128 × 4096 exact body sizes: 4.20 → 4.18 ms (flat). | Full-module exact size guard, final validation, metadata, string-pool and encoder errors remain. [OI](../binaryen/passes/optimize-instructions/starshine-strategy.md). |
+| P07 | Apply the same unchanged grouping admission to DFE; retain its already-fused type-root traversal and incremental fixed point. | Four wide changed bodies: 674.42 → 639.80 µs; unchanged tiny grouping: 930.09 → 882.46 ns. | Exact collision equality, host-visible identity and type/remap roots remain. [DFE](../binaryen/passes/duplicate-function-elimination/starshine-strategy.md). |
+| P08 | Build count-only call facts without discarded caller/path/loop records; index typed-loop signatures once. | 512 calls: zero parameters 49.88 → 11.82 µs, sixteen parameters 82.34 → 43.02 µs; 1024 signatures 913.58 → 43.06 µs. | Preserve calls, tails, dropped results, unreachable/escaping uses and source order; existing operand/literal/forwarding caches remain. [DAE](../binaryen/passes/dead-argument-elimination/starshine-strategy.md). |
+| P09 | Build HOT planning context only when needed, advance scratch-local search, and avoid classifying uncalled ordinary-inlining bodies. | 1024 active functions: full planning 4.37 ms → 131.39 µs; uniform scratch allocation 235.91 → 13.10 µs. | Reference counts still scan all bodies/globals/RefFunc uses; partial and named-main paths retain full classification; delete only actually inlined helpers. [Inlining](../binaryen/passes/inlining/starshine-strategy.md). |
+| P10 | Gate dropped-result If candidates before scanning their pure prefixes; add active full SGO fixtures. | 256 unchanged candidates: 31.97 → 9.20 µs; active candidates: 32.00 → 21.97 µs. | Global constants, mutable aliases and nested cleanup effects remain. Large guard timing is a coverage control. [SGO](../binaryen/passes/simplify-globals-optimizing/starshine-strategy.md). |
+| P11 | Pop expected types directly, copy aliased initialization masks without element comparisons, and share an invocation-local CA module environment. | 1024 pops: 24.92 → 17.40 µs; 128 aliased 4096-bit intersections: 312.18 → 7.23 µs; 1024 CA refinalizations: 70.59 ms → 285.94 µs. | Returned masks remain owned; underflow/type/unreachable behavior and public TcState are unchanged; environment reuse follows existing dependency invalidation. [IR ownership](../ir2/architecture-rules.md#performance-reuse-ownership-contracts), [CA](../binaryen/passes/constraint-analysis/index.md). |
+| P12 | Shift root suffixes once, index large CFG membership, and read the maintained deletion bitmap before the small free-list fallback. | 4096 roots: 4.02 ms → 15.13 µs; CFG membership: 1.82 ms → 10.22 µs; 4096 node getters with sixteen tombstones: 55.94 → 41.67 µs. | Aliased replacement roots are snapshotted; CFG edges remain symmetric; liveness queries do not mutate or allocate nodes. [IR ownership](../ir2/architecture-rules.md#performance-reuse-ownership-contracts). |
+| P13 | Encode sequence leaves directly and allocate work-stack tasks for structured controls; measure empty/unchanged/active CLI paths separately. | 4096 flat instructions: 113.21 → 31.82 µs; nested control: 59.10 → 17.63 µs. | Exact opcode/immediate bytes and first errors remain; required decode, validation and output-selection behavior remain. [Encoder tests](../../../src/binary/encode_sequence_cursor_wbtest.mbt). |
+| P14 | Renew registry/verified-v133 coverage, add active named-main, policy, MergeLocals, CA and nested-handler fixtures, and profile CA's environment setup. | CA raw cleanup of 1024 functions: 35.40 ms → 182.09 µs; active CA artifact 2586 → 2202 bytes; handler artifact 6325 → 6197 bytes. | Assert real transformations or policy masks; unchanged/guarded inputs alone do not establish performance or transformation breadth. [CA](../binaryen/passes/constraint-analysis/fuzzing.md), [active controls](../../../src/passes/registry_active_perf_wbtest.mbt). |
+
+Existing ordered queues, sparse tuple states, thresholded joins, effect/type
+caches, immutable operand views, signature-prefix indexes and DFE type-root fusion
+were audited and retained. They are not counted as newly implemented mechanisms.
+The HOT getter already returns the existing node; profiling identified membership
+work, not a need for a new borrowed-node representation or a public API.
+
+Controls with costs remain explicit. The nested suffix helper measures
+2.17 → 2.28 µs, tiny dense source hazards 575.71 → 582.49 ns, and a four-instruction
+active Precompute tail 104.09 → 124.20 ns. The tail gate improves long active and
+simple-value cases; acceptance also requires the enclosing artifact controls
+below. A no-tombstone HOT getter adds approximately 2.4 µs per 4096 queries in
+one tiny control. Exact-size buffering alone is flat on the wide fixture. These
+results are not independent full-pass performance claims.
+
+A liveness instrumentation wrapper was rejected. Its v3→v4 paired large Coalesce
+change was +1.61% ± 1.52% MAD, and its small change +2.33% ± 2.29%; the uncertainty
+is substantial, but the production wrapper introduced unnecessary hot-call
+overhead. The retained direct path's v3→v5 large paired deltas are Coalesce
+−3.31% ± 0.34%, DAE2 −3.88% ± 0.95%, and OI −0.51% ± 0.38%. The full getter
+benchmark reference was corrected to include the original require/context calls;
+only `bench-ir-liveness-corrected.log` supports its final comparison. Both rejected
+and corrected checkpoints remain saved.
+
+DAE's proposed early exit after nonuniform actuals was rejected by source review:
+`None` and `Some([None])` represent different supported-plan states, and a later
+unsupported control can change admission. A reusable fallthrough summary must
+precede such an exit. Whole-HOT DAE2 retention remains rejected for its previously
+measured time/RSS losses; no production retention was restored. Public writable
+initialization arrays preclude unproved persistent-mask sharing. CA uses the
+existing lazy module environment rather than a second cache.
+
+Benchmark source inventory (reference and candidate cases are both counted):
+
+| Benchmark source | Cases |
+| --- | ---: |
+| [hot_root_splice_bulk_perf_wbtest.mbt](../../../src/ir/hot_root_splice_bulk_perf_wbtest.mbt) | 6 |
+| [local_graph_transfer_borrow_perf_wbtest.mbt](../../../src/ir/local_graph_transfer_borrow_perf_wbtest.mbt) | 18 |
+| [cfg_membership_perf_wbtest.mbt](../../../src/ir/cfg_membership_perf_wbtest.mbt) | 6 |
+| [tc_pop_expect_perf_wbtest.mbt](../../../src/validate/tc_pop_expect_perf_wbtest.mbt) | 4 |
+| [encoded_size_body_perf_wbtest.mbt](../../../src/binary/encoded_size_body_perf_wbtest.mbt) | 10 |
+| [encode_sequence_cursor_perf_wbtest.mbt](../../../src/binary/encode_sequence_cursor_perf_wbtest.mbt) | 8 |
+| [registry_active_perf_wbtest.mbt](../../../src/passes/registry_active_perf_wbtest.mbt) | 20 |
+| [dae_count_only_facts_perf_wbtest.mbt](../../../src/passes/dae_count_only_facts_perf_wbtest.mbt) | 18 |
+| [inlining_planning_setup_perf_wbtest.mbt](../../../src/passes/inlining_planning_setup_perf_wbtest.mbt) | 18 |
+| [dae_loop_signature_index_perf_wbtest.mbt](../../../src/passes/dae_loop_signature_index_perf_wbtest.mbt) | 6 |
+| [coalesce_source_hazards_perf_wbtest.mbt](../../../src/passes/coalesce_source_hazards_perf_wbtest.mbt) | 12 |
+| [sgo_full_pipeline_perf_wbtest.mbt](../../../src/passes/sgo_full_pipeline_perf_wbtest.mbt) | 6 |
+| [dae2_control_summary_perf_wbtest.mbt](../../../src/passes/dae2_control_summary_perf_wbtest.mbt) | 6 |
+| [local_group_identity_perf_wbtest.mbt](../../../src/passes/local_group_identity_perf_wbtest.mbt) | 24 |
+| [precompute_raw_identity_perf_wbtest.mbt](../../../src/passes/precompute_raw_identity_perf_wbtest.mbt) | 6 |
+| [value_suffix_reuse_perf_wbtest.mbt](../../../src/passes/value_suffix_reuse_perf_wbtest.mbt) | 18 |
+| [sgo_candidate_scan_perf_wbtest.mbt](../../../src/passes/sgo_candidate_scan_perf_wbtest.mbt) | 8 |
+| [inlining_called_planning_perf_wbtest.mbt](../../../src/passes/inlining_called_planning_perf_wbtest.mbt) | 12 |
+| [dae2_handler_admission_perf_wbtest.mbt](../../../src/passes/dae2_handler_admission_perf_wbtest.mbt) | 16 |
+| [tc_initialized_alias_perf_wbtest.mbt](../../../src/validate/tc_initialized_alias_perf_wbtest.mbt) | 12 |
+| [constraint_lower_module_env_perf_wbtest.mbt](../../../src/passes/constraint_lower_module_env_perf_wbtest.mbt) | 16 |
+| [hot_indexed_liveness_perf_wbtest.mbt](../../../src/ir/hot_indexed_liveness_perf_wbtest.mbt) | 42 |
+| [precompute_tail_admission_perf_wbtest.mbt](../../../src/passes/precompute_tail_admission_perf_wbtest.mbt) | 30 |
+
+
+### Frozen tools and validation
+
+The starting HEAD is `36df6b8f21908bec8f85fda35bcf472c53b389c6`, with the
+pre-existing dirty worktree captured separately in `initial/`. Both native
+snapshots include that work; this campaign did not reset it. Public `.mbti` files
+are unchanged relative to that snapshot, including the previously introduced
+`binary.encoded_module_sizes` API.
+
+- Starting CLI SHA-256: `4f2f6d0f4065aecb1723aca5af16a18d87e0c2a2710068429c12a2b2b819e871`.
+- Final CLI SHA-256: `394419949064dd22f1db3937de8300599a5ad0deadcd6b32130a3dc742efe631`.
+- Rebuilt generator SHA-256: `a694ff421e1200e774844b6341a5625bbaaf300b0f962063461bd704175337a2`.
+- Verified `wasm-opt version 133 (version_133)` SHA-256: `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+- Small input: 192,893 bytes / 45 functions; SHA-256 `06a9dd57ade8a4fd7c60cba2d1c97845b61e115a54f49ec484fd5a2d73b9f69c`.
+- Large input: 6,211,596 bytes / 12,904 functions; SHA-256 `98189860f95b4eb8464794eb9fab5f9fd8d16942c63a6e31ed9175e7e791cbbd`.
+- `moon info`, `moon fmt`, all **12,648 default wasm-gc tests**, and explicit native CLI/generator release builds and README/API sync pass. All **322 new benchmark cases** passed during their corresponding implementation checkpoints; final artifact evidence uses the final source. The performance-harness unit tests pass (13 tests, 47 assertions).
+
+Red logs capture ownership/work assertions only after real semantic assertions:
+read-only transfer identity, unchanged raw function reuse, affected DAE2 rewrite
+work, source-hazard traversal, suffix typing, exact encoder framing, count-only
+facts, lazy planning, mask ownership and environment acquisition. The liveness
+fixture failed with 1928 fallback membership checks instead of zero after actual
+tombstone mutation. Final Precompute scan admission failed four of five tests
+with excess full-tail/prefix visits before implementation. The grouped-local
+DAE2 framing regression also failed before its byte-preserving repair. Active
+[command regressions](../../../src/cmd/cmd.mbt) cover affected canonical dispatch.
+
+Environment: Moon 0.1.20260920 / moonc v0.10.14+7d59c7ec9, AMD Ryzen 7 8845HS,
+wasm-tools 1.251.0, Bun 1.4.2 and Node v26.10.0. Tool output is retained in
+`environment-final.json`. `perf` sampling is unavailable on this host; Callgrind
+uses self instruction counts for attribution, not wall-time phase fractions.
+Recursive inclusive counts must not be summed as pipeline shares. Peak RSS uses
+the separately pinned GNU time tool recorded in `gnu-time.json`.
+
+
+### Alternating artifact pairs
+
+Both snapshots use logical CPU 6, one warmup, alternating order and baseline
+Precompute reference brackets. Drift above 15% rejects a pair; rejected samples
+and observed unrelated project CPU activity remain saved. An idle host is not
+claimed. Small and active fixtures use 31 accepted pairs; large fixtures seven except
+optimizing inlining, whose 31-pair repeat supersedes the initial seven.
+Every before/after/traced/untraced output agrees byte-for-byte and independently
+validates. The enclosing `cmd:main-pipeline` timer is counted once.
+
+Percentages are medians of paired changes with their MAD, not ratios of separate
+medians. Near-noise observations are not established wins or regressions.
+
+| Input | Pass | Before pipeline ms ± MAD | Final pipeline ms ± MAD | Paired change ± MAD |
+| --- | --- | ---: | ---: | ---: |
+| small | `precompute` | 1.389 ± 0.012 | 1.279 ± 0.027 | -8.05% ± 1.88% |
+| small | `precompute-propagate` | 5.084 ± 0.081 | 4.714 ± 0.030 | -6.48% ± 1.57% |
+| small | `dae2` | 18.509 ± 0.199 | 15.397 ± 0.156 | -16.72% ± 1.51% |
+| small | `dae2-optimizing` | 28.241 ± 1.226 | 23.712 ± 0.703 | -14.17% ± 1.70% |
+| small | `coalesce-locals` | 12.166 ± 0.108 | 9.349 ± 0.130 | -23.50% ± 1.51% |
+| small | `simplify-locals` | 6.204 ± 0.087 | 5.600 ± 0.062 | -9.51% ± 2.05% |
+| small | `optimize-instructions` | 3.541 ± 0.100 | 3.393 ± 0.113 | -2.32% ± 2.74% |
+| small | `duplicate-function-elimination` | 0.495 ± 0.014 | 0.491 ± 0.011 | -0.84% ± 5.15% |
+| small | `dae` | 54.761 ± 0.623 | 52.938 ± 0.355 | -2.94% ± 1.48% |
+| small | `dae-optimizing` | 146.205 ± 1.772 | 135.005 ± 1.219 | -7.70% ± 1.17% |
+| small | `inlining` | 5.968 ± 0.087 | 2.422 ± 0.053 | -59.74% ± 0.94% |
+| small | `inlining-optimizing` | 109.628 ± 1.122 | 86.686 ± 0.549 | -20.95% ± 1.31% |
+| small | `simplify-globals-optimizing` | 20.956 ± 0.453 | 17.948 ± 0.341 | -13.95% ± 2.11% |
+| large | `precompute` | 737.437 ± 10.879 | 693.921 ± 8.906 | -5.59% ± 0.73% |
+| large | `precompute-propagate` | 1594.335 ± 12.434 | 1450.687 ± 13.781 | -8.93% ± 0.80% |
+| large | `dae2` | 5446.169 ± 49.700 | 4994.467 ± 101.264 | -8.29% ± 1.01% |
+| large | `dae2-optimizing` | 8999.020 ± 58.338 | 8386.827 ± 135.607 | -6.80% ± 0.84% |
+| large | `coalesce-locals` | 5294.614 ± 120.257 | 5043.884 ± 134.676 | -5.24% ± 2.03% |
+| large | `simplify-locals` | 2020.466 ± 18.691 | 1887.919 ± 12.143 | -6.29% ± 0.59% |
+| large | `optimize-instructions` | 2474.071 ± 5.927 | 2308.359 ± 53.026 | -8.74% ± 2.02% |
+| large | `duplicate-function-elimination` | 795.240 ± 9.508 | 700.123 ± 11.052 | -11.96% ± 2.14% |
+| large | `dae` | 890.173 ± 26.675 | 867.560 ± 8.528 | -1.50% ± 2.31% |
+| large | `dae-optimizing` | 1115.663 ± 16.480 | 1103.544 ± 32.467 | -1.77% ± 1.19% |
+| large | `inlining` | 1840.841 ± 26.612 | 1813.967 ± 64.658 | -1.35% ± 5.64% |
+| large | `inlining-optimizing` | 644.336 ± 14.824 | 665.637 ± 13.485 | +3.96% ± 1.11% |
+| large | `simplify-globals-optimizing` | 63.927 ± 5.187 | 63.721 ± 2.751 | -0.59% ± 9.68% |
+| active CA | `constraint-analysis` | 8.334 ± 0.147 | 6.527 ± 0.104 | -21.04% ± 1.72% |
+| nested handlers | `coalesce-locals` | 2.087 ± 0.044 | 2.001 ± 0.036 | -3.16% ± 3.40% |
+
+### Verified Binaryen 133 renewal
+
+The standard sweeps also use CPU 6, one warmup, seven small/active samples and
+five large samples, with raw/canonical output sizes and trace/untraced checks.
+Diagnostic pipeline columns include finer tracing than the alternating compiler
+pairs; their absolute values must not be mixed. Untraced command wall time,
+pass timers, diagnostic phases and measured trace overhead remain separate in
+the raw reports. Nested timers are not additive. Zero inner time means no
+recorded inner sample, not zero work. DAE2-optimizing's oracle sequence is DAE2,
+SimplifyLocals and Vacuum.
+
+| Input | Pass | Diagnostic pipeline ms | Inner Starshine ms | Binaryen pass ms | Inner ratio | Canonical byte delta |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| small | `precompute` | 1.266 | 0.000 | 1.318 | n/a | -70 |
+| small | `precompute-propagate` | 6.445 | 1.578 | 2.453 | 0.64× | -84 |
+| small | `dae2` | 15.378 | 15.263 | 1.028 | 14.85× | -97 |
+| small | `dae2-optimizing` | 24.562 | 24.509 | 3.159 | 7.76× | -250 |
+| small | `coalesce-locals` | 9.458 | 9.362 | 5.190 | 1.80× | -28 |
+| small | `simplify-locals` | 6.877 | 0.753 | 1.850 | 0.41× | +19 |
+| small | `optimize-instructions` | 4.776 | 0.999 | 0.680 | 1.47× | -28 |
+| small | `duplicate-function-elimination` | 0.535 | 0.503 | 0.233 | 2.16× | -53 |
+| small | `dae` | 52.637 | 52.552 | 0.636 | 82.69× | -134 |
+| small | `dae-optimizing` | 141.919 | 141.825 | 15.918 | 8.91× | -1,373 |
+| small | `inlining` | 2.620 | 2.589 | 2.512 | 1.03× | -6,504 |
+| small | `inlining-optimizing` | 95.349 | 95.179 | 56.851 | 1.67× | +461 |
+| small | `simplify-globals-optimizing` | 23.381 | 23.297 | 1.343 | 17.35× | -372 |
+| large | `precompute` | 888.873 | 56.436 | 199.837 | 0.28× | -5,153 |
+| large | `precompute-propagate` | 1963.404 | 604.918 | 828.021 | 0.73× | -9,535 |
+| large | `dae2` | 5362.162 | 5337.259 | 500.588 | 10.66× | -100,655 |
+| large | `dae2-optimizing` | 9297.582 | 9277.250 | 1798.420 | 5.16× | +422,019 |
+| large | `coalesce-locals` | 5320.311 | 5296.083 | 1267.020 | 4.18× | +90,915 |
+| large | `simplify-locals` | 2329.675 | 170.628 | 1141.790 | 0.15× | +428,416 |
+| large | `optimize-instructions` | 2637.530 | 168.124 | 254.311 | 0.66× | +47,825 |
+| large | `duplicate-function-elimination` | 751.263 | 731.389 | 77.894 | 9.39× | -31,031 |
+| large | `dae` | 902.947 | 882.093 | 467.477 | 1.89× | -3,626 |
+| large | `dae-optimizing` | 1127.127 | 1106.040 | 2065.690 | 0.54× | +41,427 |
+| large | `inlining` | 1838.314 | 1810.522 | 919.201 | 1.97× | -1,369,483 |
+| large | `inlining-optimizing` | 686.286 | 666.135 | 16270.500 | 0.04× | +933,016 |
+| large | `simplify-globals-optimizing` | 62.245 | 42.147 | 1233.810 | 0.03× | +173,229 |
+| active CA | `constraint-analysis` | 10.723 | 2.620 | 0.255 | 10.27× | +0 |
+| nested handlers | `coalesce-locals` | 2.065 | 1.971 | 0.252 | 7.82× | +384 |
+
+
+The optimizing-inlining large pipeline increase was investigated before fuzzing.
+A 31-pair repeat measures 644.336 → 665.637 ms, paired **+3.96% ± 1.11% MAD**.
+Checkpoint pairs place most of the increase around the direct liveness change,
+though that narrower 11-pair comparison is noisy (+3.18% ± 2.37%). It is retained
+as a measured tradeoff: an independent eleven-pair **untraced whole-command**
+control improves 1416.613 → 1368.239 ms, **−3.94% ± 0.73%**, with identical bytes
+and independent validation; the pipeline remains below one second. Large
+Coalesce/DAE2 benefit from direct liveness. The pipeline increase is not relabeled
+as noise or a pass-local win. Helper-removal references and remap-preserved body
+measurements were reviewed; they already have the proposed count/reuse behavior.
+No duplicate cache or unproved traversal shortcut was added.
+
+Small inlining improves by 59.74%, Coalesce by 23.50%, optimizing inlining by
+20.95%, DAE2 by 16.72%, and SGO by 13.95% in the paired pipeline controls. Large
+DFE improves by 11.96%, propagation by 8.93%, OI by 8.74%, DAE2 by 8.29%,
+SimplifyLocals by 6.29%, and plain Precompute by 5.59%. Changes comparable to
+MAD remain uncertain. Active CA improves by 21.04% ± 1.72%; the nested-handler
+Coalesce change (−3.16% ± 3.40%) remains uncertain. Favorable large DAE/DAEO, optimizing-inlining and SGO timings
+include guards/fallbacks and do not prove full nested-cleanup coverage.
+
+Large DAE2, optimizing DAE2, Coalesce, OI, propagation, SimplifyLocals and plain
+inlining remain multi-second. DFE and small DAE/SGO/CA/handler controls retain
+substantial oracle ratios. Large canonical gaps persist: Coalesce +90,915,
+OI +47,825, DAEO +41,427, SimplifyLocals +428,416 and optimizing inlining +933,016
+bytes. Active CA has equal canonical bytes; the nested-handler fixture remains
++384 canonical bytes. Validity and smaller Starshine checkpoint outputs do not
+justify accepting an unproved Binaryen shape gap.
+
+### Command, memory, coverage and attribution
+
+Empty, unchanged-Precompute fixed-point and active Precompute controls use both
+fixed sizes, seven alternating traced/untraced pairs, drift rejection and exact
+output/validation checks. Empty CLI reuses encoded input; it does not measure
+full optimizer decode/validation work. Fixed-point artifacts are retained.
+
+| Input | Control | Before / final untraced wall ms | Paired change ± MAD |
+| --- | --- | ---: | ---: |
+| small | empty | 3.370 / 3.236 | -2.29% ± 4.39% |
+| small | unchanged | 6.739 / 6.298 | -5.75% ± 2.02% |
+| small | active | 6.792 / 6.470 | -4.16% ± 1.17% |
+| large | empty | 8.351 / 8.352 | -0.62% ± 0.88% |
+| large | unchanged | 1437.082 / 1310.558 | -8.32% ± 0.61% |
+| large | active | 1493.396 / 1365.636 | -8.55% ± 0.05% |
+
+Peak RSS on the large artifact (KiB, one independently measured pair per owner):
+
+| Pass | Before / final peak RSS KiB | Change |
+| --- | ---: | ---: |
+| `dae2` | 302,380 / 287,292 | -4.99% |
+| `dae2-optimizing` | 307,320 / 312,280 | +1.61% |
+| `coalesce-locals` | 246,440 / 243,024 | -1.39% |
+| `precompute-propagate` | 163,536 / 157,392 | -3.76% |
+| `optimize-instructions` | 164,828 / 164,740 | -0.05% |
+| `inlining` | 302,300 / 302,452 | +0.05% |
+
+The largest RSS increase among these six pairs is 1.61% (optimizing DAE2); this is a limited
+single-pair memory control, not a precise allocation census or a proved memory
+regression. No final pair crosses the 5% repeat threshold. All six RSS pairs
+retain exact output bytes.
+
+Registry inventory: 74 direct names plus two presets, 67 paired names and seven
+unpaired Starshine names (CFG Coalesce, stable-binding DIE, the DAEO alias, three
+inlining policies and compiler facts). The verified v133 optimization-section
+help contains 171 flags; 115 have no exact paired name. This includes aliases,
+policies and tools, so it is not a count of 115 missing semantic implementations.
+The 67 small-input command probes succeed and independently validate, all with
+starting/final byte identity; 30 leave raw input bytes unchanged. A benchmark's
+presence or a partial function-skip trace does not establish active coverage.
+New active registry fixtures assert transformations or policy masks explicitly.
+
+Callgrind self instruction totals fall from 104,556,260 to 75,773,247 on active
+CA, 42,721,611 to 41,930,072 on nested-handler Coalesce, 870,020,561 to 829,832,249
+on small DAE, and 63,059,668 to 56,021,890 on small OI. Allocation/refcount/free,
+validation intersections and graph/lower queries remain important owners.
+The separate large Precompute checkpoint profile motivated its final raw tail
+and prefix admission changes. Self instruction shares are not wall-time phase
+shares; recursive inclusive attribution is not additive.
+
+The active named-main lane changes all 512 main bodies, retains all 512 helpers
+and preserves starting bytes. Fresh runtime checks pass **1920 three-way** and
+**640 original/Starshine** observations, with zero mismatches. Starshine's 512
+outputs and 384 successful oracle outputs independently validate. Verified v133
+rejects 128 tail-call fixtures with `all break targets must be valid`; these are
+separate tool/oracle coverage failures. The GenValid inlining aggregate alone
+has no equivalent named-helper coverage.
+
+### Final deferred correctness campaign
+
+All performance iteration and the optimizing-inlining control review finished
+before this final campaign. Each of 23 lanes compares 10,000 GenValid cases
+at seed `0x5eed`, using the explicit rebuilt native CLI/generator and verified
+v133, `--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`, independent
+validation and Node-v2 observations. Shared LocalGraph/validator/IR consumers,
+all five SimplifyLocals modes and CA are included. No external-generator
+campaign ran.
+
+| Lane | Aggregate | Canonical / cleanup matches | Residuals | Canonically larger | Original/Starshine matches / blocked |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `dae2` | `dae2` | 2,879 / 667 | 6,454 | 0 | 9,312 / 688 |
+| `dae2-closed` | `dae2` | 0 / 100 | 9,900 | 706 | 9,312 / 688 |
+| `dae2-optimizing` | `dae2` | 2,233 / 0 | 7,767 | 0 | 9,312 / 688 |
+| `precompute` | `precompute-all` | 3,238 / 6,762 | 0 | 0 | 9,551 / 449 |
+| `precompute-propagate` | `precompute-all` | 2,766 / 7,234 | 0 | 0 | 9,551 / 449 |
+| `inlining` | `pass-inlining` | 10,000 / 0 | 0 | 0 | 10,000 / 0 |
+| `inlining-optimizing` | `inlining-optimizing-all` | 10,000 / 0 | 0 | 0 | 10,000 / 0 |
+| `inline-main` | `pass-inlining` | 10,000 / 0 | 0 | 0 | 10,000 / 0 |
+| `dae` | `dead-argument-elimination` | 3,750 / 0 | 6,250 | 0 | 10,000 / 0 |
+| `dae-optimizing` | `dae-optimizing` | 5,153 / 0 | 4,847 | 0 | 10,000 / 0 |
+| `simplify-globals-optimizing` | `simplify-globals-optimizing-all` | 5,055 / 0 | 4,945 | 0 | 10,000 / 0 |
+| `optimize-instructions` | `pass-oi-all` | 8,920 / 403 | 677 | 0 | 8,910 / 1,090 |
+| `merge-locals` | `merge-locals-all` | 9,353 / 0 | 647 | 0 | 10,000 / 0 |
+| `ssa` | `ssa-all` | 8,713 / 640 | 647 | 0 | 9,335 / 665 |
+| `ssa-nomerge` | `ssa-nomerge-all` | 3,750 / 0 | 6,250 | 0 | 6,250 / 3,750 |
+| `coalesce-locals` | `coalesce-locals-all` | 3,750 / 5,000 | 1,250 | 0 | 8,750 / 1,250 |
+| `duplicate-function-elimination` | `duplicate-function-elimination` | 5,000 / 0 | 5,000 | 0 | 10,000 / 0 |
+| `simplify-locals` | `simplify-locals-all` | 380 / 0 | 9,620 | 0 | 10,000 / 0 |
+| `simplify-locals-notee` | `simplify-locals-notee-all` | 0 / 0 | 10,000 | 0 | 10,000 / 0 |
+| `simplify-locals-nonesting` | `simplify-locals-nonesting-all` | 5,026 / 0 | 4,974 | 0 | 10,000 / 0 |
+| `simplify-locals-nostructure` | `simplify-locals-nostructure-all` | 0 / 0 | 10,000 | 1,662 | 10,000 / 0 |
+| `simplify-locals-notee-nostructure` | `simplify-locals-notee-nostructure-all` | 0 / 0 | 10,000 | 0 | 10,000 / 0 |
+| `constraint-analysis` | `constraint-analysis` | 7,368 / 0 | 2,632 | 0 | 10,000 / 0 |
+
+All **230,000** comparisons completed: **220,283** matched observed original/Starshine behavior and **9,717** remain runtime-blocked. Validation, generator, command and observed original/Starshine semantic failures are zero. There are **101,860** residual shape observations and **2,368** canonically larger outputs. The campaign is not an all-parity-pass result; shape residuals give affected harness lanes exit status 1.
+
+Cache census: Binaryen 228,179 hits / 1,821 misses; Binaryen failure cache 0 hits / 0 misses; Node-v2 220,000 hits / 10,000 misses. Starshine optimized outputs are freshly generated and never cached.
+
+DAE/DAE2 and optimizing SimplifyGlobals normalize dropped constants and
+unreachable control debris; Precompute also normalizes local cleanup. OI uses
+drop/local cleanup, Coalesce local/unreachable cleanup, and SSA local/SSA
+allocation cleanup. Other lanes use no cleanup normalizers; closed DAE2 adds
+`--closed-world`. Exact commands and configuration identities are saved in
+`final-fuzz-campaign.json` and each lane’s `toolchain.json`. Hash-keyed runtime
+observations may be reused; these counts do not imply fresh execution of every
+case, full three-way agreement, or execution of every unexported body.
+Determinism, codec, idempotence and metamorphic campaigns are separate from
+this comparison run.
+
+### Residual review and runtime limits
+
+Classifications below are agent judgments. Baseline byte identity establishes
+provenance, not semantic equivalence or an acceptable output-shape gap.
+
+Every retained residual is baseline-identical (360/360); every canonical size-losing case is baseline-identical (2,368/2,368). All 220,000 inputs shared with the preceding campaign have identical recorded status, profile, raw/canonical sizes and semantic outcomes. This census does not establish byte identity outside the replayed outputs. CA has no preceding campaign cohort; its retained residuals are replayed against the frozen starting CLI.
+
+Exhaustive scoped residual replays use fresh verified-v133
+`-Oz --all-features --strip-debug` outputs with independent downstream
+validation:
+
+- `optimize-instructions`: 677 residuals, all baseline-identical and all downstream byte-identical; total canonical delta -27,497 bytes (per-case -104 to -26).
+- `merge-locals`: 647 residuals, all baseline-identical and all downstream byte-identical; total canonical delta -1,294 bytes (per-case -2 to -2).
+- `duplicate-function-elimination`: 5,000 residuals, all baseline-identical and all downstream byte-identical; total canonical delta -30,000 bytes (per-case -6 to -6).
+
+The [previously inspected contracts](#residual-and-runtime-coverage-review)
+support only the renewed scoped OI tuple, MergeLocals unread-tee and DFE
+fixed-point caller wins: preserved producer/effect order or private-call
+equivalence, measured canonical savings and identical downstream bytes.
+DFE’s generator exports no functions; runtime counters alone do not exercise
+its bodies. Residuals outside these scoped families and the CA examples below
+remain parity gaps; larger outputs remain size-losing quality gaps, and
+runtime-blocked cases remain unverified. The separate CA
+review below does not extrapolate inspected examples to unsampled families.
+
+Runtime limits from the full case census:
+
+- `dae2` original-runtime blocks: `dae2-continuations` 688.
+- `dae2-closed` original-runtime blocks: `dae2-continuations` 688.
+- `dae2-optimizing` original-runtime blocks: `dae2-continuations` 688.
+- `precompute` original-runtime blocks: `precompute-gc-atomic-boundary` 449.
+- `precompute-propagate` original-runtime blocks: `precompute-gc-atomic-boundary` 449.
+- `dae` Binaryen-side runtime limits: `dae-arg-type-refinement` 625, `dae-return-type-refinement` 625; original/Starshine observations are complete.
+- `optimize-instructions` original-runtime blocks: `pass-oi-descriptor-gc` 1,090.
+- `ssa` original-runtime blocks: `ssa-loop` 665.
+- `ssa-nomerge` original-runtime blocks: `ssa-nomerge-coverage` 2,500, `ssa-nomerge-stress` 1,250.
+- `coalesce-locals` original-runtime blocks: `coalesce-locals-legacy-eh` 625, `coalesce-locals-unreachable` 625.
+- `simplify-locals` Binaryen-side runtime limits: `simplify-locals-effect-order` 1,225, `simplify-locals-stress` 604; original/Starshine observations are complete.
+- `simplify-locals-notee` Binaryen-side runtime limits: `simplify-locals-effect-order` 1,250, `simplify-locals-stress` 625; original/Starshine observations are complete.
+- `simplify-locals-nonesting` Binaryen-side runtime limits: `simplify-locals-effect-order` 1,087, `simplify-locals-stress` 529; original/Starshine observations are complete.
+- `simplify-locals-nostructure` Binaryen-side runtime limits: `simplify-locals-nostructure-effect-order` 1,683; original/Starshine observations are complete.
+- `simplify-locals-notee-nostructure` Binaryen-side runtime limits: `simplify-locals-effect-order` 1,250, `simplify-locals-stress` 625; original/Starshine observations are complete.
+
+Detailed blocked-reason categories and examples are saved in
+`final-fuzz-details.json`. Original-runtime blocks remain outside semantic
+signoff. Binaryen-side runtime limits are separate from original/Starshine
+matches and do not establish complete three-way observations.
+
+#### CA residual inspection
+
+The fresh v133 CA aggregate has 7,368 canonical matches and 2,632 residuals,
+all canonically smaller, with 10,000 complete three-way Node-v2 matches and no
+runtime blocks. Its 10,000 semantic-cache misses distinguish this fresh execution
+from the reused observations in the other lanes. The aggregate canonical
+saving is 7,881 bytes; smaller output alone does not classify all residuals.
+
+The twenty retained examples were inspected against the
+[generator](../../../src/validate/gen_valid_constraint.mbt) and
+[constraint contract](../binaryen/passes/constraint-analysis/index.md).
+All preserve starting raw bytes and have complete original/Starshine/Binaryen
+observations. Fresh common-v133 Oz outputs independently validate:
+
+| Inspected examples | Cases | Raw / canonical total delta | Common-Oz total delta | Source-backed reason |
+| --- | ---: | ---: | ---: | --- |
+| Nonzero joins | 4 | −12 / −12 bytes | 0, identical bytes | Either arm assigns 3 or 5, so the subsequent comparison with zero is true; neither assignment is reordered. |
+| Boolean range proofs | 9 | −31 / −31 bytes | −29 bytes | The unsigned conjunction bounds x between 10 and 20, proving x nonzero; x ≥ 10 or x ≤ 20 covers the entire unsigned domain, making its false arm unreachable. Predicate evaluation remains. |
+| Effectful assigned constants / pending calls | 4 | −14 / −14 bytes | 0, identical bytes | The local is assigned before its comparison; global writes still execute. Pending-call cases retain the old global result before the later setter, removing only a redundant local copy and an infeasible arm. |
+| Signed minimum | 1 | −12 / −12 bytes | 0, identical bytes | An i64 value cannot be less than the signed i64 minimum; the tested predicate reads a local without effects. |
+| Dropped loop tees | 2 | −2 / −2 bytes | 0, identical bytes | Replace a tee whose value is immediately dropped with the same set; the increment, local write and loop control remain. |
+
+**Agent judgment:** these twenty examples are scoped Starshine wins: concrete
+transform proofs, 71 fewer raw/canonical bytes in total, complete observed
+behavior agreement, and no common-Oz size regression. Eleven common-Oz pairs
+are byte-identical; nine logical examples remain smaller by one or five bytes.
+This does not classify the other 2,612 CA residuals, including unsampled effect,
+integer and parameter-loop forms; keep them open as parity gaps pending complete
+family evidence. The matching historical v133 residual count is not proof of an
+unchanged cohort. Exact case/profile/diff/size data and agent judgments are in
+`ca-residual-inspection.json` and `ca-residual-judgments.json`.
+
+### Remaining work and local evidence
+
+This campaign tries the P01–P14 bottleneck owners and retains measured
+improvements; it does not establish release-wide Binaryen competitiveness.
+Remaining costs include write-heavy propagation state/CFG work, DAE2
+analysis/lift/lower, Coalesce CFG/interference/lowering, OI validation and
+encoding, SimplifyLocals cleanup and lift/lower, DAE uniform-actual/slice
+solving, called-body inlining/round updates, writable validator forks, and
+decode/final-validation/command encoding. The active
+[backlog](../../../agent-todo.md) records owners, contracts and exit criteria.
+Unmeasured passes, guarded typed-loop cleanup, canonical losses and parity
+gaps remain open. Neither a helper speedup nor a favorable inner ratio closes
+an enclosing pipeline cost or missing transformation breadth.
+
+Artifacts are under `.tmp/pass-perf-complete-20260927/`: the initial dirty
+snapshot, v1–v6 source/binary checkpoints, red/green and native benchmark
+logs, `standard-validation-v6.json`, `new-benchmarks.json`,
+`benchmark-results.json`, `environment-final.json`, `gnu-time.json`,
+`final-tool-identities.json`, paired/v133 summaries and complete raw/rejected
+samples, optimizing-inlining causal/repeat/untraced controls, command
+controls, `final-source-attribution/result.json`, coverage inventory,
+Callgrind/RSS files, active inline-main observations, every aggregate
+command/result/case, cohort census, retained/complete-size/scoped-downstream
+replays, CA inspection and the final preservation audit. The wiki owns durable
+conclusions; ignored files retain exact local evidence.
+
+
+## September 28, 2026 follow-up performance campaign
+
+The v7 candidate below was superseded during aggregate validation: its new
+physical-identity input-byte path skipped existing encoding cleanup on NaN
+modules. Seven complete lanes and 4,539 partial unnamed-main comparisons are
+preserved as provisional evidence, not final signoff. The v8 correction and
+renewed controls are recorded at the end of this section. In particular, v7's
+unchanged-command timing cannot be carried forward without remeasurement.
+
+This follow-up starts from the previous campaign's frozen `394419949064dd22f1db3937de8300599a5ad0deadcd6b32130a3dc742efe631`
+native executable. The previous 230,000-case signoff remains evidence for that
+binary, not automatic signoff for these changes. The v7 candidate passes 12,691
+default tests, interface generation, formatting, native CLI build and README/API
+sync. The six exact-size tests also pass after strengthening equality assertions.
+The v7 timing controls completed; its aggregate renewal was later stopped for
+the cleanup regression. The final v8 results supersede it.
+The [active backlog](../../../agent-todo.md) retains unresolved release costs.
+The v7 native SHA-256 is `31e1505a892e2471a9c02f0659ff9c2f332febf80f8cefe8ff46b8d3bf426a4e`;
+`candidate-v7.json` pins all 235 production source files. Nineteen new native
+benchmark files contain 380 cases completed during iteration. Generated native
+arity code contains no result-array allocation. The preceding v5 binary is
+`e249ba251a459c96c8855abccedfbba4c2b69b495b4293a303665be651ef1f1a`;
+v6 (`12d11be43cc601273fa861b6a56c9fb46c7803521ab1fb9a8159c977f58750cc`)
+changes only `validate/typecheck.mbt` from v5. v7 changes only
+`binary/encoded_size.mbt` from v6 in the production inventory.
+
+### Evidence and admission
+
+Local evidence is in `.tmp/pass-perf-rest-20260928/`. `initial/` preserves the
+starting dirty worktree. `candidate-v2.json` and `candidate-v3.json` identify
+235 production MoonBit source files and their frozen binaries; the corresponding
+`candidate-*-src/` directories preserve the full source trees. v3's executable is
+`082fbb3d1e30bab3f2ca2d6f01e86be9d624d22dbb9ed85610d5db6a7b48dd35`.
+
+Moon commands and heavy experiments serialize on
+`/tmp/starshine-perf-sweep-heavy.lock`; timing controls use logical CPU 6.
+Concurrent WAGO activity means these are not idle-host measurements. Alternating
+artifact pairs retain reference-drift rejections, medians, MAD, input/output
+hashes and untraced independent validation. Baseline and v3 output bytes match
+on both production fixtures for every measured pass. The user-requested pause
+terminated an unfinished suffix benchmark and a queued test; that partial run
+is excluded, as recorded in `stopped-at-user-request.json`.
+
+Fresh baseline Callgrind profiles attribute self instructions, not wall time:
+
+| Input/pass | Total self instructions | Principal costs |
+| --- | ---: | --- |
+| Large DAE2 | 71,393,103,877 | Runtime object destruction 18.89%, free 8.75%, object scan 5.48%, node getter 4.14%, initialization intersection 2.11%. |
+| Large Coalesce | 77,904,222,423 | Runtime destruction 12.76%, free 6.49%, node getter 5.05%, object scan 3.72%, branch-depth queries 3.35%. |
+| Large DFE | 14,878,449,520 | Runtime destruction 18.08%, free 12.36%, initialization intersection 4.84%, control encoding 1.83%, string collection 1.70%; shape-array hashing is only 0.72%. |
+| Small DAE, v2 | 830,173,373 | Runtime destruction 13.00%, free 8.61%, unreachable-root scans 5.73%, instruction equality 5.42%, call facts 5.07%. |
+
+The apparent `ProposalFeature::make_and_blit` allocator name is native
+identical-code folding of an integer-array reallocation; it does not prove
+proposal-feature lists are repeatedly copied. Whole-HOT retention remains a
+rejected design from the previous campaign.
+
+### Implemented mechanisms and regression controls
+
+Each work or ownership regression was observed failing before implementation.
+Semantic, opcode, byte and ownership assertions accompany operation counters;
+scaling cases remain in dedicated native benchmark tests.
+
+| Owner | Change and correctness boundary | Bounded test source |
+| --- | --- | --- |
+| P04 | One preorder control index answers Coalesce fallthrough/escaping-branch queries. Loop backedges and handler conservatism remain separate. | [control summaries](../../../src/passes/coalesce_control_summary_wbtest.mbt) |
+| P04 | Structured extra interference visits occupied matrix bits; plain interference maintains live members. Dense and parameter-conflict behavior is preserved. | [sparse interference](../../../src/passes/coalesce_sparse_extra_wbtest.mbt) |
+| P01 | Wide tuple branches lazily journal writes; joins visit changed locals, including conservative unknown-control writes. Outer arrays remain owned. | [write journals](../../../src/ir/local_graph_write_journal_wbtest.mbt) |
+| P11/P12 | Initialization masks share until the first false-to-true write in an expression; child expressions get independent owners. v6 control joins borrow identical masks; distinct masks retain exact owned intersections. HOT body forks retain definite-initialization facts. | [mask ownership](../../../src/validate/tc_initialization_cow_wbtest.mbt) |
+| P09 | Wide mixed-type inlining scratch pools retain bounded per-type cursors, reset per callsite. Small/uniform pools retain direct lookup. | [typed scratch](../../../src/passes/inlining_typed_scratch_wbtest.mbt) |
+| P08 | Dropped-result cleanup copies arrays only after a change, retaining separate rewrite-count and body-change facts. | [dropped-result identity](../../../src/passes/dae_dropped_result_identity_wbtest.mbt) |
+| P12 | The node getter proves ordinary live access directly and retains the canonical fallback for incomplete arenas; one final array read avoids extra native reference-count traffic. | [direct getter](../../../src/ir/hot_node_get_direct_wbtest.mbt) |
+| P07 | DFE remapping reuses unchanged instructions/functions and skips identity remap epochs. Exact collision checks, type normalization and roots remain. | [DFE identity](../../../src/passes/dfe_remap_identity_wbtest.mbt) |
+| P08 | Dead-suffix evidence borrows its source body with an explicit start offset; operand queries start with empty suffix-local state. | [suffix borrowing](../../../src/passes/dae_dead_suffix_borrow_wbtest.mbt) |
+| P08/P13 | DAE snapshot guards recognize shared code before structural equality; module comparison still checks every non-code field including compiler facts. CLI unchanged-input reuse handles clean shared NaNs under the v8 cleanup admission below. | [snapshot guards](../../../src/passes/dae_code_snapshot_identity_wbtest.mbt), [dispatcher](../../../src/cmd/cmd.mbt) |
+| P06/P13 | String collection builds a content-membership index after 32 unique literals. Emission and opcode-offset scans reuse that index; external pools build one only for a lookup beyond the first 32 entries. Scope restoration, first duplicates, declaration/global/control/catch order and 127/128/129 encodings remain exact. | [string pool](../../../src/binary/encode_string_pool_wbtest.mbt), [index scopes](../../../src/binary/encode_string_index_wbtest.mbt) |
+| P12 | Arity queries read type shape directly; public result-array queries remain owned. Small result-type tables reuse structural IDs before formatting keys; large tables retain indexed lookup. | [arity](../../../src/ir/hot_type_arity_wbtest.mbt), [interning](../../../src/ir/hot_type_intern_reuse_wbtest.mbt) |
+| P05 | Zero-read-set cleanup reuses unchanged bodies and siblings, including NaNs; active replacements preserve the old opcode sequence across structured controls. All five dispatch variants retain coverage. | [zero-read cleanup](../../../src/passes/sl_zero_read_identity_wbtest.mbt) |
+| P06/P07 | The v7 candidate reuses exact expression lengths across local-index remaps, adding unsigned-LEB deltas and re-encoding declarations and all framing. An iterative proof checks matching control structure; other changes and changed string pools retain full encoding. | [exact local remap sizes](../../../src/binary/encoded_size_local_remap_wbtest.mbt) |
+
+The sole public-interface addition is
+`tc_state_fork_body(TcState, Env, Array[ValType]) -> TcState`. Its supplied stack
+is caller-owned; unchanged local storage preserves initialization facts and a
+new body resets reachable-escape observations. Different local storage retains
+`tc_state_new`'s existing inference policy. Direct writers of public state
+arrays must clone first. See the [ownership contracts](../ir2/architecture-rules.md#performance-reuse-ownership-contracts).
+
+### Completed controls and provisional artifact results
+
+Selected completed helper controls (their full logs also retain tiny/dense costs):
+
+| Control | Reference | Follow-up |
+| --- | ---: | ---: |
+| Coalesce control collector, depth 512 | 108.13 ms | 15.34 µs |
+| Structured sparse interference, 1,024 locals | 2.33 ms | 6.02 µs |
+| Structured dense interference, 1,024 locals | 7.15 ms | 3.20 ms |
+| Wide tuple flow, 4,096 locals / 32 branches | 949.83 µs | 462.31 µs |
+| HOT body forks, 4,096 locals / 128 forks | 9.98 µs | 4.43 µs |
+| Mixed-type scratch, 1,024 slots | 403.20 µs | 14.61 µs |
+| DAE nested unchanged cleanup, 4,096 instructions | 225.82 µs | 43.71 µs |
+| DFE nested last-change remap, width 4,096 | 135.06 µs | 40.28 µs |
+
+Additional v5 controls retain the following measured tradeoffs:
+
+- Shared DAE code snapshots with 1,024 functions take 7.80 ns instead of 92.16 µs;
+  distinct bodies remain approximately flat (95.18 versus 94.98 µs).
+- Early-root suffix borrowing at width 4,096 takes 19.03 ns instead of 15.98 µs.
+  No-root and last-root scans are slower: 10.94 versus 9.23 µs and 11.77 versus
+  9.89 µs. Generated native loop code has the same predicate and reference-count
+  work; this remains a measured scan-path cost, not an algorithmic win.
+- Unchanged nested zero-read cleanup at width 4,096 takes 15.47 versus 56.19 µs;
+  dense active cleanup is flat (38.96 versus 38.78 µs). Tiny active controls add
+  about 3–9 ns.
+- Scalar arity takes 8.45 versus 21.33 ns; 1,024-result arity takes 10.14 ns
+  versus 1.78 µs. Small resolved-type reuse takes 17.91 versus 240.84 ns;
+  the 64-shape fallback remains approximately flat.
+- Collecting and looking up 4,096 unique strings takes 272.97 µs versus
+  30.92 ms. Tiny four-string scope controls add 15–27 ns, and the repeated
+  four-literal collection at width 4,096 takes 38.30 versus 33.87 µs. These costs
+  remain visible alongside the removal of quadratic unique/distant lookups.
+
+The initialized-branch production control has 256 functions, 1,024 locals each,
+and 64 assignments in each arm. Defaultable-local Coalesce changes from
+1,285.661 to 654.658 ms (−49.08%); the matched non-null control and DAE2 controls
+are approximately flat. Owned initialization still costs more in its isolated
+write loop: 64 previously-unset writes at width 1,024 take 227.17 ns versus
+69.19 ns for the old mutable reference. An always-copy-on-write prototype took
+2.64 µs and was rejected. Getter prototypes with early returns or optional
+wrappers added native reference-count traffic and were replaced by one shared
+array-read exit.
+
+The v6 join controls run 128 joins per sample. Aliased width-4 masks take
+0.961 µs versus 2.85 µs; width-4,096 masks take 0.985 µs versus 6.63 µs.
+Distinct width-4,096 masks retain the exact owned intersection and remain flat
+(299.41 versus 300.24 µs). Two bounded regressions also verify later assignments
+cannot change entry/sibling masks and nested joins retain uninitialized-local
+rejection. See [join benchmarks](../../../src/validate/tc_initialization_join_perf_wbtest.mbt).
+
+Against v5, the isolated v6 join change improves large DFE pipeline time
+1.80% paired (17 pairs, MAD 1.04%) and traced command time 3.17% (MAD 0.60%).
+OI improves 1.99% paired (seven pairs, MAD 0.35%). Coalesce and DAE2 remain
+within dispersion: −0.18% ± 0.69% and −0.48% ± 0.89%, five pairs each.
+All output bytes match v5. These causal controls do not replace the separate
+comparison against the campaign's original baseline.
+
+That direct 17-pair DFE comparison still regresses 3.03% (MAD 0.62%):
+631.956 → 650.631 ms. Broad v6 measurements were therefore deferred before
+starting, rather than treating the v5→v6 improvement as sufficient acceptance.
+The next candidate addresses repeated expression encoding in exact size guards.
+It records body/declaration lengths only within one size-pair invocation and
+reuses them only after proving that remaining encoded widths are unchanged.
+Local-index deltas use the existing unsigned-LEB sizing helper. Control traversal
+uses a worklist; legacy Try keeps full encoding. Reference-type and memory-zero
+semantic aliases have canonical identical encodings; unencodable resolved heap
+types cannot seed the cache. Complete module sections, encoding errors, body
+and section LEB framing, string-pool invalidation and final validation remain.
+
+Two reuse tests failed with one expression encoding instead of zero before
+implementation. The v7 default suite passes 12,691 tests; a focused follow-up
+strengthens the equality/encoding assertions. All 24 native
+[size-pair controls](../../../src/binary/encoded_size_local_remap_perf_wbtest.mbt)
+pass. With 32 functions and width 4,096, local remaps take 1.15 versus 2.15 ms;
+nested remaps take 1.23 versus 2.27 ms. Wide late fallback takes 2.25 versus
+2.21 ms. Tiny shared-body pairs add 47.53 ns (589.29 versus 541.76 ns), and tiny
+late fallback adds about 107 ns (1.00 µs versus 892.80 ns). The enclosing
+v6→v7 controls measure OI at
+−3.70% paired (five pairs, MAD 2.13%) and DFE at +2.43% (MAD 1.42%).
+Against the original baseline, large DFE is +4.05% paired (17 pairs, MAD 2.54%);
+OI is −2.60% (seven pairs, MAD 2.79%). Seven-pair small controls remain within
+dispersion. Thus the size-pair helper gain is not a demonstrated large DFE speedup.
+
+The separate 17-pair untraced DFE control measures 1,460.285 → 1,466.859 ms,
++1.20% paired with 1.30% MAD. Median peak RSS falls from 196,620 to 182,444 KiB
+(−7.21%). It retains alternating order, one warmup, a 15% reference bracket,
+foreign-process observations and exact output identity. The v7 Callgrind total
+is 13,797,535,604 instructions, −7.27% from the original baseline; initialization
+intersection no longer appears among the 95% self-instruction contributors.
+Agent decision: retain the memory/work reduction and the other measured gains,
+with untraced DFE time within dispersion; keep its adverse traced-pipeline result
+visible as a remaining cost. Lower instruction counts alone do not establish
+a wall-time improvement. Evidence: `untraced-v7-dfe/result.json`,
+`summary-pairs-v7.json` and `callgrind-v7-large-duplicate-function-elimination`.
+
+The v3 pilot uses 21 small and five large alternating pairs, plus warmup:
+
+| Pass | Small before → v3 ms | Change | Large before → v3 ms | Change |
+| --- | ---: | ---: | ---: | ---: |
+| DAE2 | 15.707 → 15.644 | −0.40% | 4,995.242 → 4,925.889 | −1.39% |
+| Coalesce | 9.360 → 9.395 | +0.37% | 5,124.469 → 5,007.293 | −2.29% |
+| DAE | 53.063 → 49.486 | −6.74% | 868.856 → 864.405 | −0.51% |
+| Inlining | 2.397 → 2.079 | −13.27% | 1,818.876 → 1,785.136 | −1.85% |
+| DFE | 0.512 → 0.498 | −2.73% | 732.942 → 750.532 | +2.40% |
+
+These are incremental changes from the previous campaign, not Binaryen ratios.
+The large DAE change is within dispersion; large DFE's adverse pilot result
+requires confirmation or rejection. Small DAE MAD is 1.089/0.921 ms; small
+inlining 0.040/0.072 ms; large Coalesce 24.820/16.336 ms; large DFE
+24.559/13.843 ms. `pairs-v3-pilot-{small,large}/result.json` owns the complete
+samples. The pilot predates string indexing, direct arity, type interning and
+zero-read cleanup, so it cannot establish their enclosing-pass benefit.
+
+The completed v5 run has 31 small and seven large alternating pairs for all
+thirteen listed passes, with exact before/after output bytes and independent
+validation. Small DAE improves 6.92% paired (MAD 1.13%), and inlining improves
+13.67% (MAD 5.77%). Large propagation improves 3.04% (MAD 0.79%), DAE2 3.35%
+(MAD 1.26%) and Coalesce 3.00% (MAD 0.68%). Large DFE instead regresses 4.81%
+(MAD 1.91%); its medians are 712.474/761.608 ms. OI's +2.37% paired result
+has 3.79% MAD. `summary-pairs-v5.json` preserves every row and dispersion.
+The DFE regression remains an implementation concern, not a dismissed noisy
+sample: its collision phase improves by about 11 ms, but encoding and validation
+grow. The v5 Callgrind total drops to 14,503,853,149 instructions (−2.52%);
+initialization intersection still consumes 646,638,132 self instructions (4.46%).
+This motivated v6's unchanged-join reuse, whose two ownership/semantic regressions
+failed before implementation; all 1,864 validator tests then passed.
+
+An active full-command string control uses two private duplicate functions and
+an exported wrapper that calls both. DFE must reduce three functions to two;
+both binaries produce identical bytes, and verified v133 independently validates
+the output. At 4,096 distinct literals, 21 alternating pairs measure 55.437 ms
+before and 5.896 ms after (−89.35% paired, MAD 0.28%). Peak RSS is
+13,220/13,292 KiB. Four- and 128-literal controls remain within dispersion
+(+1.04% ± 8.02%, +0.36% ± 3.11%). These command controls record foreign CPU
+activity but have no reference bracket. The initial two-function fixture exported
+one duplicate, preventing Starshine's identity-preserving merge; that inactive
+attempt is excluded. Evidence is `string-command-controls-active/result.json`.
+
+### Final v7 artifact and oracle measurements
+
+The frozen native CLI remains `31e1505a892e2471a9c02f0659ff9c2f332febf80f8cefe8ff46b8d3bf426a4e`.
+The rebuilt generator is `04cf8ca75c5e442ce202981b14b5578e7254f9ec75c4d8dc7237c3dadcbf1192`;
+verified Binaryen reports exactly `wasm-opt version 133 (version_133)` and retains
+SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+`final-tool-identities.json`, `final-api-audit.json` and `final-source-snapshot/`
+preserve tool identity, the sole API addition and the final formatted test/source
+snapshot. The earlier v7 snapshot predates a corrected test-constructor spelling;
+all 235 production hashes remain unchanged. The focused six-test equality audit
+passed after the full 12,691-test suite.
+
+The final sweep uses five small and three large samples, plus warmup and
+leading/trailing strip-debug controls, pinned to CPU 6. Both fixtures retain the
+first campaign's hashes. All 26 rows have stable Starshine/Binaryen outputs and
+exact traced/untraced Starshine byte identity. These are current measurements,
+not before/after speedup estimates; different tracing levels and host contention
+prevent subtracting historical absolute medians. Sources:
+`v133-v7-{small,large}/result.json` and `final-v133-summary.json`.
+
+Command columns show untraced Starshine/Binaryen median milliseconds and their
+ratio. Inner ratios omit pipeline and command overhead. A zero small Precompute
+sample means missing timer coverage, shown as n/a. Canonical size deltas are
+Starshine minus Binaryen bytes; smaller output alone is not semantic proof or
+an accepted output-shape exception.
+
+| Pass | Small command ms (ratio) | Large command ms (ratio) | Small / large inner ratio | Small / large canonical ΔB |
+| --- | ---: | ---: | ---: | ---: |
+| `precompute` | 4.897 / 7.404 (0.66×) | 1,415.754 / 1,115.138 (1.27×) | n/a / 0.29× | -70 / -5,153 |
+| `precompute-propagate` | 8.324 / 8.924 (0.93×) | 2,019.638 / 1,622.894 (1.24×) | 0.62× / 0.77× | -84 / -9,535 |
+| `dae2` | 20.489 / 6.893 (2.97×) | 5,598.296 / 1,403.017 (3.99×) | 14.90× / 9.89× | -97 / -100,655 |
+| `dae2-optimizing` | 27.828 / 10.187 (2.73×) | 8,575.378 / 2,749.061 (3.12×) | 7.76× / 4.87× | -250 / +422,019 |
+| `coalesce-locals` | 13.782 / 11.505 (1.20×) | 6,014.839 / 2,095.019 (2.87×) | 1.82× / 3.91× | -28 / +90,915 |
+| `simplify-locals` | 9.131 / 7.940 (1.15×) | 2,663.405 / 2,039.253 (1.31×) | 0.41× / 0.15× | +19 / +428,416 |
+| `optimize-instructions` | 7.282 / 6.904 (1.05×) | 2,802.580 / 1,182.479 (2.37×) | 1.35× / 0.68× | -28 / +47,825 |
+| `duplicate-function-elimination` | 4.135 / 6.102 (0.68×) | 1,534.940 / 1,027.195 (1.49×) | 2.85× / 8.66× | -53 / -31,031 |
+| `dae` | 55.190 / 6.589 (8.38×) | 1,695.700 / 1,388.552 (1.22×) | 77.13× / 1.97× | -134 / -3,626 |
+| `dae-optimizing` | 134.964 / 22.449 (6.01×) | 2,086.060 / 2,858.280 (0.73×) | 9.18× / 0.58× | -1,373 / +41,427 |
+| `inlining` | 6.212 / 8.974 (0.69×) | 2,708.401 / 1,881.761 (1.44×) | 1.13× / 2.01× | -6,504 / -1,369,483 |
+| `inlining-optimizing` | 90.280 / 68.359 (1.32×) | 1,486.275 / 16,204.316 (0.09×) | 1.64× / 0.04× | +461 / +933,016 |
+| `simplify-globals-optimizing` | 22.234 / 7.913 (2.81×) | 626.947 / 2,073.201 (0.30×) | 18.51× / 0.04× | -372 / +173,229 |
+
+Large DAE2, optimizing DAE2 and Coalesce still have material pass-local gaps;
+large OI, SimplifyLocals and propagation retain substantial surrounding pipeline
+costs despite competitive inner timers. Large optimizing inlining and SGO include
+guarded paths and size losses; their low time ratios do not establish equivalent
+cleanup breadth. Small DAE/DAEO and SGO also remain far from the oracle.
+
+The final seven-pair small artifact check confirms DAE at −8.12% paired
+(MAD 3.03%), DAEO at −4.05% (MAD 0.92%) and plain inlining at −14.71%
+(MAD 7.98%) against the starting binary. Other rows are small or within host
+dispersion; `pairs-v7-small/result.json` retains every row and rejected bracket.
+The dedicated large DFE/OI measurements and DFE tradeoff remain as recorded above.
+These gains are incremental to the first campaign, not gains against Binaryen.
+
+### Final command, active and memory controls
+
+Seven alternating pairs plus warmup compare empty, fixed-point Precompute and
+actively transforming Precompute commands on both inputs. A 15% reference bracket
+retains rejected samples; traced/untraced output bytes match and independent
+validation passes. Untraced command medians and paired dispersion are below.
+Empty commands reuse their encoded input and do not exercise the full optimizer.
+Source: `command-controls-v7/result.json`, summarized in `final-control-summary.json`.
+
+| Control | Before → v7 wall ms | Paired change (MAD) | Before → v7 peak RSS KiB |
+| --- | ---: | ---: | ---: |
+| small empty | 3.379 → 3.249 | -4.86% (7.39%) | 8,644 → 8,568 |
+| small unchanged | 6.442 → 6.169 | -9.05% (6.19%) | 14,344 → 14,200 |
+| small active | 6.898 → 6.605 | -6.88% (7.98%) | 14,428 → 14,420 |
+| large empty | 8.695 → 8.884 | +5.12% (4.37%) | 14,772 → 14,784 |
+| large unchanged | 1,401.582 → 1,142.180 | -18.51% (2.19%) | 150,212 → 142,732 |
+| large active | 1,431.454 → 1,427.857 | -2.00% (1.75%) | 167,180 → 159,740 |
+
+The large unchanged-command improvement is repeatable in these controls; most
+small differences and the large active time difference have substantial noise.
+
+The active string control repeated on the final v7 binary has 21 alternating
+pairs. At 4,096 literals, command wall changes from 53.891 to 6.068 ms:
+−88.62% paired, MAD 0.69%; peak RSS is 13,224/13,304 KiB. Four and 128 literals
+remain within dispersion (+10.26% ± 16.57% and −1.73% ± 11.80%). Three functions
+must become two, and before/final output bytes match. Verified v133 validates
+the active output. This is an end-to-end gain on the stated string-heavy fixture,
+not an estimate for arbitrary modules. Source: `string-command-controls-active-v7/result.json`.
+
+The seven-pair active CA pipeline stays flat: 6.547 → 6.541 ms, −0.76% paired
+with 4.94% MAD. Its current inner/v133 ratio is 10.39× and untraced command ratio
+2.80×; canonical sizes are equal. The nested-handler Coalesce pipeline instead
+adds 0.123 ms, 1.983 → 2.106 ms, +5.35% paired with 0.97% MAD. Traced command
+wall has +2.41% paired change with 16.25% MAD. Agent decision: retain this small
+absolute active-path cost alongside the sparse/deep-control gains and record it
+as an unresolved performance tradeoff, not a speedup. Its final inner/v133 ratio
+is 8.63×, command ratio 1.59× and canonical gap remains +384 bytes. Both fixtures
+must actively change their input, and their final output bytes match the starting
+binary. Sources: `pairs-v7-active-*`, `v133-v7-active-*`, `v7-active-identities.json`.
+
+All 67 paired registry names execute successfully on the small input, pass
+independent validation and retain exact before/final bytes. Thirty return the
+input bytes; this census does not establish active coverage for every name.
+The separately recorded large-input RSS samples are one before/after observation
+per pass, not a repeated memory distribution:
+
+| Pass | Before → v7 peak RSS KiB |
+| --- | ---: |
+| `dae2` | 287,292 → 281,528 |
+| `dae2-optimizing` | 312,416 → 291,916 |
+| `coalesce-locals` | 244,552 → 244,528 |
+| `precompute-propagate` | 161,280 → 171,684 |
+| `optimize-instructions` | 164,796 → 157,756 |
+| `inlining` | 303,060 → 302,564 |
+| `duplicate-function-elimination` | 196,468 → 184,800 |
+
+Propagation's +10,404 KiB sample remains visible; do not claim universal memory
+improvement. DFE's separate 17-pair RSS result above is stronger evidence than
+this one-pair inventory. Source: `v7-source-attribution/result.json`.
+
+### Provisional v7 correctness renewal
+
+After performance iteration, the explicitly rebuilt native tools run the same
+23 affected 10,000-case GenValid aggregates and normalizers as the first campaign,
+with eight subprocesses, independent validation, the deterministic oracle cache
+and Node-v2 observations. Starshine outputs are freshly generated. Semantic
+observations may be cached: the [cache key](../../../scripts/lib/optimizer-semantic-cache.ts)
+includes all three exact wasm hashes, seed, policy, runtime identity/version,
+execution contract and observation limits. Cache hits therefore reuse runtime
+evidence for identical bytes, not a newly executed runtime trial. No external
+wasm-smith lane is included. This v7 campaign was later stopped for the cleanup
+regression; the completed v8 renewal below supersedes it.
+
+A fresh 512-case named-main control already passes: every main body changes,
+every helper remains, and all final bytes match the starting binary. There are
+1,920 successful three-way runtime observations and 640 original/Starshine
+observations, with zero mismatches. Binaryen v133 rejects the same 128 tail-call
+cases with `all break targets must be valid`; these are tool/coverage failures,
+not semantic matches. Sources: `inline-main-runtime/manifest.json`,
+`inline-main-runtime/result.json` and `final-signoff-inline-main-runtime.log`.
+
+#### v8 cleanup correction
+
+The v7 unnamed-main aggregate exposed larger raw outputs despite equal canonical
+outputs and matching observed behavior. Inspection of cases 4, 7 and 8 found
+33–52 extra bytes: no-op instructions and flattenable control shells that the
+existing `encode_module_for_pipeline` cleanup would remove. Module identity
+proved the optimizer returned its input, but did not prove that bypassing the
+encoding cleanup preserved output quality. This is a rejected optimization
+admission, not an accepted representation difference.
+
+The v7 aggregate was stopped after seven complete 10k lanes and 4,539 partial
+unnamed-main cases, preserving all evidence in `.tmp/pass-perf-rest-20260928/`.
+Two bounded tests first failed on exact output bytes and cleanup admission.
+The v8 guard now uses an iterative candidate scan before its new identity path:
+no-ops, potentially flattenable control shells, terminal returns and removable
+empty sections retain the previous equality/encoding path. Conservative control
+candidates avoid duplicating the encoder's branch-rebasing proof. Clean NaN
+modules retain exact-byte reuse. Existing structural-equality behavior and final
+validation remain unchanged. Tests cover nested If/TryTable, blocks, loops,
+terminal returns, empty data/count sections and a complete command invocation:
+[cleanup regressions](../../../src/cmd/cmd_input_reuse_cleanup_wbtest.mbt).
+
+The corrected reuse benchmark adds six clean-input controls, retaining dirty
+controls and the original reference. v8 source, build, benchmark, targeted replay,
+artifact/oracle and correctness evidence is isolated in
+`.tmp/pass-perf-rest-v8-20260928/`; all pass, IR, validator and binary mechanisms retain their
+source unchanged. Final v8 validation is recorded below. The stopped v7 campaign and its favorable
+command timings are not release signoff.
+
+The v8 CLI SHA-256 is
+`bbde3e9e5c7dff18409fe37a560ec59299f177a3b81b1943e8a15e39d3138116`;
+the rebuilt generator remains `04cf8ca75c5e442ce202981b14b5578e7254f9ec75c4d8dc7237c3dadcbf1192`.
+All 12,693 default tests, interface generation, formatting, native builds and
+README/API sync pass. The 235-file production inventory differs from v7 only in
+`src/cmd/cmd.mbt`; the public API audit is unchanged. All 100 targeted unnamed-main
+replays match the original baseline bytes and independently validate.
+
+All 18 corrected CLI reuse benchmarks pass on CPU 6. Clean NaN bodies at width
+4 take 39.01 ns versus 66.95 ns for structural equality; width 128 takes
+227.10 versus 810.17 ns, and width 4,096 takes 6.26 versus 24.56 µs. Dirty
+width-4 controls add about 31–33 ns; dirty width-4,096 controls remain nearly flat
+at 11.77–11.78 versus 11.74 µs. Their required cleanup remains enabled. Including
+six additional clean controls, the follow-up now has 386 benchmark cases in
+19 files, completed during iteration. Source: `bench-input-reuse.log`,
+`bench-input-reuse-affinity.json`, `new-benchmarks-final.json`,
+`raw-cleanup-replay/result.json` and `standard-validation.json` under the v8 root.
+
+#### v8 final results
+
+The corrected candidate supersedes v7 for current command and oracle claims.
+The final sweep retains five small and three large samples, warmup, CPU 6,
+verified v133 and the same pinned inputs. All 26 production rows have stable
+outputs and exact traced/untraced bytes. The thirteen small before/after controls
+use seven alternating pairs. Small inlining improves 22.75% paired (MAD 6.73%),
+DAE 6.67% (MAD 2.79%) and DFE 4.96% (MAD 1.32%). Other small changes are limited
+or noisy. These are incremental gains from the first campaign's frozen binary,
+not Binaryen speedup claims. `summary-pairs-v8-small.json` owns the full pairs.
+
+The current diagnostic large pipeline and untraced command ratios are below.
+Inner timers and full commands measure different scopes; missing small
+Precompute timing remains n/a. Canonical deltas are Starshine minus Binaryen.
+
+| Pass | Large pipeline ms | Small / large command ratio | Small / large inner ratio | Small / large canonical ΔB |
+| --- | ---: | ---: | ---: | ---: |
+| `precompute` | 837.585 | 0.67× / 1.24× | n/a / 0.28× | -70 / -5,153 |
+| `precompute-propagate` | 1,736.038 | 0.96× / 1.23× | 0.65× / 0.75× | -84 / -9,535 |
+| `dae2` | 4,726.612 | 2.74× / 3.98× | 15.03× / 10.12× | -97 / -100,655 |
+| `dae2-optimizing` | 8,174.386 | 2.54× / 3.13× | 7.75× / 4.78× | -250 / +422,019 |
+| `coalesce-locals` | 4,844.430 | 1.09× / 2.81× | 1.72× / 3.93× | -28 / +90,915 |
+| `simplify-locals` | 2,186.084 | 1.18× / 1.28× | 0.39× / 0.15× | +19 / +428,416 |
+| `optimize-instructions` | 2,539.513 | 1.03× / 2.50× | 1.29× / 0.66× | -28 / +47,825 |
+| `duplicate-function-elimination` | 742.713 | 0.64× / 1.46× | 1.95× / 9.85× | -53 / -31,031 |
+| `dae` | 884.529 | 6.95× / 1.22× | 74.79× / 1.99× | -134 / -3,626 |
+| `dae-optimizing` | 1,117.779 | 5.78× / 0.65× | 8.69× / 0.56× | -1,373 / +41,427 |
+| `inlining` | 1,786.330 | 0.61× / 1.37× | 1.02× / 2.01× | -6,504 / -1,369,483 |
+| `inlining-optimizing` | 677.465 | 1.36× / 0.09× | 1.72× / 0.04× | +461 / +933,016 |
+| `simplify-globals-optimizing` | 62.529 | 2.76× / 0.30× | 17.55× / 0.04× | -372 / +173,229 |
+
+Source: `v133-v8-{small,large}/result.json`, summarized in
+`final-v133-summary.json`. Large DAE2/Coalesce and small DAE/DAEO/SGO still have
+substantial oracle gaps. Large OI, propagation and SimplifyLocals retain costly
+surrounding work. Guarded optimizing-inlining/SGO paths and larger canonical
+outputs do not demonstrate equivalent cleanup breadth.
+
+The final command controls use seven alternating pairs and the same 15%
+reference bracket, preserving rejected samples and foreign-process observations:
+
+| Control | Before → v8 wall ms | Paired change (MAD) | Before → v8 RSS KiB |
+| --- | ---: | ---: | ---: |
+| small empty | 3.452 → 3.470 | -0.65% (9.62%) | 8,548 → 8,616 |
+| small unchanged | 6.263 → 6.292 | +0.64% (2.22%) | 14,388 → 14,280 |
+| small active | 6.493 → 6.875 | +4.24% (5.92%) | 14,488 → 14,456 |
+| large empty | 8.535 → 8.588 | -0.27% (1.54%) | 14,796 → 14,720 |
+| large unchanged | 1,391.420 → 1,333.669 | -4.15% (1.34%) | 150,380 → 155,036 |
+| large active | 1,429.464 → 1,403.805 | -2.09% (1.20%) | 166,996 → 160,604 |
+
+The corrected unchanged-command improvement is 4.15%, not v7's rejected 18.51%
+claim. Its median RSS is higher than the baseline. Active large Precompute has
+a small gain; small-command differences remain within dispersion.
+
+The active 4,096-string command retains the principal encoding win: 55.456 →
+6.296 ms, −88.21% paired (21 pairs, MAD 0.84%), with RSS 13,148 → 13,316 KiB.
+Tiny four- and 128-string cases remain noisy (+1.79% ± 5.13%, +6.13% ± 12.37%).
+All output bytes match the starting binary; the fixture must remove one of the
+two private duplicate functions and verified v133 validates the result.
+
+Active-fixture pipeline controls remain distinct from guarded production paths:
+
+| Fixture | Before → v8 pipeline ms | Paired change (MAD) | Inner / command v133 ratio | Canonical ΔB |
+| --- | ---: | ---: | ---: | ---: |
+| `constraint-analysis` | 6.584 → 6.495 | -1.35% (2.65%) | 10.15× / 2.83× | +0 |
+| `coalesce-locals` | 2.016 → 2.119 | +4.11% (1.14%) | 9.13× / 1.63× | +384 |
+
+Both fixtures must change their input and retain baseline output bytes. The
+nested-handler Coalesce cost remains a measured tradeoff alongside sparse/deep
+control gains; its +384-byte canonical gap remains open.
+
+All 67 registry probes independently validate and retain baseline bytes; 30
+return input bytes, so this is not active coverage for every name. One RSS pair
+per large pass gives the following limited memory evidence:
+
+| Pass | Before → v8 peak RSS KiB |
+| --- | ---: |
+| `dae2` | 284,592 → 280,552 |
+| `dae2-optimizing` | 291,720 → 310,444 |
+| `coalesce-locals` | 243,288 → 244,492 |
+| `precompute-propagate` | 162,632 → 167,244 |
+| `optimize-instructions` | 165,472 → 158,376 |
+| `inlining` | 302,116 → 302,624 |
+| `duplicate-function-elimination` | 196,648 → 182,488 |
+
+Do not extrapolate these single RSS pairs into universal memory improvements.
+The adverse propagation and unchanged-command samples remain visible. Evidence:
+`command-controls-v8/result.json`, `pairs-v8-active-*`, `v133-v8-active-*`,
+`v8-source-attribution/result.json`, `string-command-controls-active-v8/result.json`
+and `final-control-summary.json` under `.tmp/pass-perf-rest-v8-20260928/`.
+
+The fresh 512-case named-main runtime control again has 512 changed main bodies,
+512 retained helpers and 512 baseline byte matches. All 1,920 three-way and 640
+original/Starshine observations match; the same 128 Binaryen tail-call failures
+remain separate tool/coverage limits. The completed matrix and replay audits
+follow below.
+
+#### v8 final correctness and residual review
+
+The full affected matrix completed after the corrected performance controls,
+using the frozen CLI/generator and verified Binaryen 133 above. Exact commands,
+normalizers, profiles and tool identities are in `final-fuzz-campaign.json` and
+each lane's `toolchain.json`; `--jobs auto --max-subprocesses 8` and the 20-artifact
+cap remain. No external-generator lane was used. Each row has 10,000 comparisons.
+
+| Lane | Canonical / cleanup matches | Residuals | Canonically larger | Observed original/Starshine matches / runtime blocks |
+| --- | ---: | ---: | ---: | ---: |
+| `dae2` | 2,879 / 667 | 6,454 | 0 | 9,312 / 688 |
+| `dae2-closed` | 0 / 100 | 9,900 | 706 | 9,312 / 688 |
+| `dae2-optimizing` | 2,233 / 0 | 7,767 | 0 | 9,312 / 688 |
+| `precompute` | 3,238 / 6,762 | 0 | 0 | 9,551 / 449 |
+| `precompute-propagate` | 2,766 / 7,234 | 0 | 0 | 9,551 / 449 |
+| `inlining` | 10,000 / 0 | 0 | 0 | 10,000 / 0 |
+| `inlining-optimizing` | 10,000 / 0 | 0 | 0 | 10,000 / 0 |
+| `inline-main` | 10,000 / 0 | 0 | 0 | 10,000 / 0 |
+| `dae` | 3,750 / 0 | 6,250 | 0 | 10,000 / 0 |
+| `dae-optimizing` | 5,153 / 0 | 4,847 | 0 | 10,000 / 0 |
+| `simplify-globals-optimizing` | 5,055 / 0 | 4,945 | 0 | 10,000 / 0 |
+| `optimize-instructions` | 8,920 / 403 | 677 | 0 | 8,910 / 1,090 |
+| `merge-locals` | 9,353 / 0 | 647 | 0 | 10,000 / 0 |
+| `ssa` | 8,713 / 640 | 647 | 0 | 9,335 / 665 |
+| `ssa-nomerge` | 3,750 / 0 | 6,250 | 0 | 6,250 / 3,750 |
+| `coalesce-locals` | 3,750 / 5,000 | 1,250 | 0 | 8,750 / 1,250 |
+| `duplicate-function-elimination` | 5,000 / 0 | 5,000 | 0 | 10,000 / 0 |
+| `simplify-locals` | 380 / 0 | 9,620 | 0 | 10,000 / 0 |
+| `simplify-locals-notee` | 0 / 0 | 10,000 | 0 | 10,000 / 0 |
+| `simplify-locals-nonesting` | 5,026 / 0 | 4,974 | 0 | 10,000 / 0 |
+| `simplify-locals-nostructure` | 0 / 0 | 10,000 | 1,662 | 10,000 / 0 |
+| `simplify-locals-notee-nostructure` | 0 / 0 | 10,000 | 0 | 10,000 / 0 |
+| `constraint-analysis` | 7,368 / 0 | 2,632 | 0 | 10,000 / 0 |
+
+All **230,000 comparisons** completed, with **zero validation,
+generator, property, command or observed original/Starshine semantic failures**.
+There are 220,283 observed original/Starshine matches and
+9,717 runtime-blocked cases. The 101,860
+residual shape observations and 2,368 canonical
+size losses remain open; affected harness lanes exit 1 for these residuals.
+This is not an all-parity-pass result.
+
+Cache census: Binaryen 230,000 hits /
+0 misses; semantic-v2
+230,000 hits / 0 misses.
+Starshine outputs were regenerated. Hash-keyed runtime evidence can be reused
+for identical wasm bytes, runtime identity, seed, policy and limits; these counts
+do not mean every runtime observation was freshly executed or every unexported
+body exercised. The separate 512-case named-main observations were fresh.
+
+All 230,000 shared cohort inputs and their recorded profile, status, raw/canonical
+sizes and semantic outcomes match the first campaign. In particular, the corrected
+unnamed-main lane restores every recorded raw size. This cohort comparison is not
+an all-case output-byte proof. Fresh replays establish baseline byte identity for
+all 360 retained residuals and every one of the 2,368 canonical
+size-losing cases. The additional 100-case cleanup replay also has exact baseline
+bytes and independent validation.
+
+Agent classification: these performance changes introduce no new recorded quality
+or semantic gap in this cohort. Previously inspected scoped wins retain their
+[source and downstream evidence](#residual-review-and-runtime-limits); this renewal
+adds no broader exception. Other residuals remain parity gaps, larger outputs
+remain size-losing quality gaps, and runtime-blocked cases remain unverified.
+Baseline identity establishes provenance, not semantic proof by itself. The full
+runtime-block/profile census and Binaryen-side observation limits are preserved
+in `final-fuzz-details.json`; the same 128 named-main Binaryen tail-call failures
+remain separate tool/coverage limits.
+
+Final local evidence is under `.tmp/pass-perf-rest-v8-20260928/`:
+`candidate-v8.json`, `candidate-v8-src/`, `final-tool-identities.json`,
+`standard-validation.json`, red/green provenance in `cleanup-regression-evidence.json`,
+`completed-helper-benchmarks-final.json`, the paired/oracle/command/active/RSS files,
+`final-evidence-summary.json`, all comparison and replay records, and source/API/link
+preservation audits. Earlier helper, profile and rejected-candidate evidence remains
+under `.tmp/pass-perf-rest-20260928/`. The [active backlog](../../../agent-todo.md)
+retains the multi-second costs, oracle gaps, memory/timing tradeoffs and missing
+coverage. This work does not establish release-wide Binaryen competitiveness.
+
+
+## September 28, 2026 next performance campaign
+
+This iteration follows the complete v8 checkpoint above. Its local evidence is
+`.tmp/pass-perf-next-20260928/`; earlier oracle and semantic counts apply only to
+their recorded source/binary snapshots. Three changes have real red-first work
+or ownership regressions plus behavior assertions:
+
+- DAE2 scans writes once when reads demand analysis. Parameters with no writes
+  anywhere in the function have a direct dependency; immutable default locals
+  need none. Mutable locals retain the previous flow analysis and conservative
+  fallback. [Tests](../../../src/passes/dae2_lazy_flow_wbtest.mbt) and
+  [six native controls](../../../src/passes/dae2_immutable_reads_perf_wbtest.mbt)
+  cover active argument pruning and mixed mutable reads at several widths.
+- HOT instruction typechecking reuses its owned stack for known pop counts;
+  generic inference retains a copy. Region-entry signatures remain isolated.
+  [Ownership/behavior tests](../../../src/ir/hot_lift_stack_reuse_wbtest.mbt) and
+  [six native controls](../../../src/ir/hot_lift_stack_reuse_perf_wbtest.mbt)
+  cover prefixes 0, 32 and 512. On this host, reference/owned means are
+  195.62/160.57 ns, 308.96/227.48 ns and 2.24/1.10 us, respectively; these are
+  helper measurements, not command-level gains.
+- Dense Coalesce coloring accumulates scores in reused arrays and stops at the
+  first legal slot attaining the maximum possible score. Ties, parameter slots,
+  types and conflicts retain the old deterministic result. The
+  [regression](../../../src/passes/coalesce_dense_score_wbtest.mbt) reduces the
+  bounded unweighted fixture from 192 visits to 24 while checking exact reference
+  coloring. [Twelve native controls](../../../src/passes/coalesce_dense_score_perf_wbtest.mbt)
+  cover weighted/conflicted and unweighted widths.
+
+### Provisional fixed-artifact measurements
+
+Before is v8 `bbde3e9e5c7dff18409fe37a560ec59299f177a3b81b1943e8a15e39d3138116`;
+next-v1 is `64186e9d0a5eb0bdcfb6159ab32dc3d43eac5e28ccd4804a58ed01e095c9494f`.
+These CPU-6 pipeline measurements use the same pinned small and large inputs as
+above, one warmup and three alternating pairs, bracketed by the unchanged
+reference. A separate WAGO process was active on another core; the host was not
+idle. They are preliminary iteration evidence. Paired percentage medians are
+computed per pair, not from the ratio of independently reported time medians.
+
+| Pass | Small paired change / MAD | Large paired change / MAD |
+| --- | ---: | ---: |
+| DAE2 | -6.03% / 0.92% | -3.46% / 1.08% |
+| DAE2 optimizing | -3.57% / 1.61% | -1.41% / 0.17% |
+| Coalesce locals | -0.18% / 5.30% | -2.96% / 0.87% |
+| Precompute propagate | -3.54% / 5.80% | -4.11% / 0.83% |
+| Simplify locals | -3.82% / 4.79% | +0.77% / 0.06% |
+| Optimize instructions | -2.70% / 2.72% | +0.18% / 0.11% |
+
+Every measured output is byte-identical before/after and traced/untraced, with
+independent validation. The small controls largely overlap dispersion. Preserve
+the two large regressions in later comparisons. These measurements do not renew
+Binaryen ratios, peak RSS or the complete active-coverage matrix, and do not
+establish release-wide competitiveness. `paired-summary-v1.json` and both
+`pairs-candidate-v1-*/result.json` files retain individual measurements.
+
+### Typed control and frontend correctness
+
+A new valid parameterized-if fixture exposed a preexisting lift/lower stack
+underflow. The repaired representation keeps entry operands after the three
+structural If children, but evaluates them before the condition. Arm lowering
+starts with those values already present. CFG and dataflow use the same order;
+constant selection carries entry operands into an explicit block prefix.
+[Architecture rules](../ir2/architecture-rules.md#typed-conditional-entry-operands-september-28-2026)
+own the contract. Nine [IR fixtures](../../../src/ir/hot_lower_if_parameters_wbtest.mbt)
+and three [dispatcher fixtures](../../../src/cmd/typed_if_entry_wbtest.mbt), each
+across ten passes, cover scalar/tuple producers, effects, implicit else, label
+payloads, CFG order and demotion. The initial failures and green replays are
+preserved in the local campaign logs.
+
+The [WAT function-label contract](../wast/control-flow-authoring.md) now admits
+numeric branches to the implicit function label; malformed depths remain invalid.
+[Name decoding](../binary/custom-and-name-sections.md) consumes exactly its bounded
+payload and cannot borrow bytes from a following custom section. Both have direct
+fixture assertions. Explicit branch-payload fixtures and the global function
+index documentation audit remain in the active backlog.
+
+`moon info`, `moon fmt` and all **12,716 default tests** pass for next-v2.
+The fresh native CLI SHA-256 is
+`e8451dabefb4a6c7ec54e1c549a43dc6f9ab45bd4ca3fb823a136ae9bd6d6725`;
+`candidate-v2.json` pins every source hash and `candidate-v2-src/` preserves it.
+All 24 native helper cases pass. Dense unweighted coloring reference/bounded
+means at 16/64/256 locals are 861.45/554.48 ns, 8.58/3.41 us and
+127.35/41.50 us; weighted/conflicted controls are 1.00/0.872 us, 8.12/6.98 us
+and 113.18/99.35 us. Active immutable/mixed DAE2 controls complete at
+43.58/56.27 us (one pair), 4.32/5.62 ms (128), and 57.51/62.38 ms (1,024).
+The DAE2 rows compare different workloads and are not before/after speedups.
+`completed-helper-benchmarks-v2.json` records the case census. Next-v1 timings precede the typed
+control repair and must not be presented as next-v2 performance or final signoff.
+Independent runtime controls, renewed artifact/RSS comparisons and final shared
+consumer GenValid renewal remain open; long fuzz stays deferred during iteration.
+
+### Next-v3 lowering iteration
+
+Lowering now borrows its private, read-only resolved parameter array and only
+queries block signatures for the block-specific path. The
+[ownership regression](../../../src/ir/hot_lower_signature_borrow_wbtest.mbt)
+first fails on the copied array. Its tuple fixture then exposed duplicated
+constant entry roots and four unnecessary scratch locals in each lowered
+function. Leading entry-result roots now remain in their existing stack slots;
+the fixture retains the original encoded body and the dispatcher regression
+retains zero scratch locals. Independent effectful scalar entries have an exact
+instruction-order control as well. Public owned-array queries are unchanged.
+
+The lowering input-prefix search now tries the largest candidate first and
+returns on its first match. It retains the old longest-suffix contract without
+allocating an index. A [bounded work regression](../../../src/ir/hot_lower_input_prefix_wbtest.mbt)
+first requires 528 comparisons for 32 identical tuple lanes; the implementation
+reduces this to 32. Partial, repeated, empty and mismatching lanes retain their
+expected overlap. [Signature controls](../../../src/ir/hot_lower_signature_borrow_perf_wbtest.mbt)
+and [prefix controls](../../../src/ir/hot_lower_input_prefix_perf_wbtest.mbt)
+add 32 passing native cases. Signature reference/borrow means at widths
+0/1/16/256 are 19.93/13.33, 31.11/13.35, 54.46/14.77 and 537.18/14.61 ns.
+Complete repeated-lane prefix matching improves 479.09/35.38 ns at width 32
+and 117.21/0.461 us at width 512. The mismatch controls retain quadratic
+worst-case work: width 32 increases 369.15 to 375.25 ns and width 512 changes
+95.66 to 91.30 us with noisy reference samples. Tiny controls overlap dispersion.
+These helper results do not establish enclosing-pass gains.
+
+The explicit function-label payload fixtures and [AUDIT]006 global function-index
+documentation/tests are complete. All 12,724 wasm-gc tests pass after interface generation and formatting.
+An accidentally selected linear-Wasm run was interrupted and
+is not a completed validation claim. The next-v3 native CLI hash is
+`bc4eb92eb1345ce4f7dc5a28a90536e824ed53c78358e833e6f82bc6b7c21ca0`.
+Nine explicit typed-control fixtures across ten passes produce **756 fresh
+runtime observations**, including originals, Starshine and verified Binaryen 133,
+with zero mismatches. Return values, tuple lanes, four condition values and import
+call order are compared. All 189 modules independently validate. Binaryen's
+`--all-features` output initially produced 20 Node compile blocks from compact
+imports; the successful lane adds `--disable-compact-imports` and retains the
+blocked outputs separately. `dae2-optimizing` uses the harness's upstream
+`dae2`/`simplify-locals`/`vacuum` expansion. Evidence is in
+`typed-runtime-v3-portable/result.json`; this bounded lane does not replace final
+aggregate signoff. Enclosing-pass measurements remain pending.
+
+Profile follow-up: compiler function folding shares the apparent
+`ProposalFeature` copy symbol with integer-array reallocation, and the apparent
+`oc_node_children` helper with owned HOT child spans. Caller edges, not those
+symbol names alone, identify 2,773,226 child-span calls from DAE2 analysis and
+4,152,576 integer-array reallocations from local-flow unions in the saved large
+v8 profile. Immutable analysis traversal and small ordered unions are the next
+allocation targets; mutation-time snapshots and public ownership contracts must
+remain intact. Local `integer-array-copy-callers.json` preserves attribution.
+
+### Next-v4 traversal and source-row allocation
+
+Read-only DAE2 analysis now visits child/root slots directly. The
+[regression](../../../src/passes/dae2_analysis_children_wbtest.mbt) checks real
+argument dependencies, unchanged IR/body ownership, and five removed child
+snapshots. Rewrite-time snapshots remain owned because that phase mutates nodes.
+LocalGraph initially borrowed immutable first observations and used a reserved
+ordered union for extensions. Its [source-row controls](../../../src/ir/local_graph_read_source_borrow_perf_wbtest.mbt)
+and [union-capacity controls](../../../src/ir/local_graph_join_capacity_perf_wbtest.mbt)
+add 36 passing native cases. First observations improve, but four-merge source
+controls regress by 76.7–212%: copying every extension is an unresolved performance
+regression in v4. The next repair must retain sibling/source isolation while
+reusing a row after its first private copy. It is not accepted on allocation
+counts alone. Reserved unions improve the width-1 and width-4 overlap controls
+by 27.3% and 20.5%; width-128 overlap costs 0.78% and small subset controls cost
+7.7–11.3%. Larger controls are mixed. These are ratios of helper means.
+
+Next-v4 passes all 12,728 wasm-gc tests, interface generation, formatting and a
+fresh native build. Its SHA-256 is
+`c711c4101d042750e3d38409baad199a7e9ecedeec2cd1d269b5f47417565e9c`.
+The iteration has 92 passing native helper cases at this checkpoint. Frozen v3
+versus v4 pipeline pairs use the same CPU/input/reference protocol as above:
+
+| Pass | Small paired change / MAD | Large paired change / MAD |
+| --- | ---: | ---: |
+| DAE2 | -2.53% / 0.40% | -1.45% / 0.70% |
+| Coalesce locals | -2.48% / 1.60% | +0.28% / 0.08% |
+| Precompute propagate | -6.54% / 3.25% | -0.08% / 0.50% |
+| Optimize instructions | -4.28% / 9.59% | +0.45% / 0.47% |
+
+Every measured output is byte-identical across candidates and traced/untraced
+runs and independently validates. The small OI set includes an anomalous -54.14%
+pair despite passing the reference bracket; it does not establish a repeatable
+small-pass improvement. Large results remain small/mixed. Evidence:
+`candidate-v4.json`, `helper-means-v4.json`, `pairs-v3-v4-*/result.json` and
+`paired-summary-v4-node-value.json` under the local campaign root.
+
+### Native HOT node value-layout experiment
+
+An isolated v4 copy marks the immutable eight-field `HotNode` as `#valtype`.
+The installed compiler accepts this layout and reduces direct generated native-C
+HotNode allocation sites from 49 to zero. All 467 IR tests pass; the generated
+human-readable public interface has no diff. This experiment retains field and
+query semantics; it does not change the HOT arena layout. Its native CLI hash is
+`8292c7ffad2c06b8aea1f29b9d8f822de2abf36af02a4786ecef0e4a869753e9`.
+The before/after pipeline comparisons against v4 are:
+
+| Pass | Small paired change / MAD | Large paired change / MAD |
+| --- | ---: | ---: |
+| DAE2 | -2.47% / 0.04% | -3.11% / 0.12% |
+| Coalesce locals | -0.83% / 2.13% | -2.28% / 0.23% |
+| Precompute propagate | +1.04% / 2.66% | -0.93% / 0.33% |
+| Optimize instructions | +1.04% / 2.23% | -0.66% / 0.51% |
+
+All measured bytes match and validate. The three-pair large Coalesce, propagation
+and OI sets each include a positive (slower) sample, so the modest medians need
+continued enclosing controls. The separate WAGO process remained active. RSS,
+full-suite integration and active-control renewal remain pending for this
+experiment; these results do not establish release-wide competitiveness.
+`candidate-node-value.json`, `value-node-layout-red.json`,
+`pairs-v4-node-value-*/result.json` and `paired-summary-v4-node-value.json` retain
+source/codegen provenance, individual pairs and dispersion.
+
+The node-layout experiment's three untraced RSS samples per pass/input are now
+complete. Median v4/value-layout peak RSS (KiB) is: small DAE2 18,000/17,748,
+Coalesce 15,836/15,880, propagation 16,324/16,456, OI 16,580/16,736; large DAE2
+279,984/270,936, Coalesce 244,492/244,544, propagation 171,520/171,632 and OI
+158,808/159,056. Thus large DAE2 saves 9,048 KiB; the other large controls add
+52–248 KiB. Every output in this lane is byte-identical and independently
+validates. The attribute is retained for integration into next-v5 based on the
+DAE2 timing/memory win and bounded costs elsewhere. `memory-node-value/result.json`
+retains all samples; integration validation is still pending.
+
+### Next-v5 ownership repair and integration
+
+Next-v5 integrates the retained HotNode value layout with private LocalGraph
+row ownership, shared empty rows and an ordered union that skips its already
+proved prefix. The repeat-merge/empty-row regressions fail first and then pass;
+all 12,731 wasm-gc tests, interface generation, formatting, native build and 60
+helper controls pass. This adds 24 union-prefix cases to the iteration (116 unique
+native cases). Its native CLI SHA-256 is
+`1f2a3b7705084277e3c8dcd8368e402a20abeae62bf7491defe0ce15bbe4b8e4`.
+The generated interface has no diff against v4 and the native HotNode allocation
+site count remains zero.
+
+The width-32/four-merge source controls now improve against the original union
+helper: 1.28/0.952 us for one read and 155.90/109.07 us for 128 reads. Singleton
+sources still regress: four merges cost 63.33/112.24 ns for one read and
+4.80/12.86 us for 128 reads. This is a remaining cost, not a completed acceptance
+claim. The first-observation 128-read controls improve 2.92/0.551 us (width 1)
+and 42.09/0.534 us (width 32). The original helper reference calls the union
+directly with no influence recording; a further benchmark retains the complete
+original recorder as a separate reference, without replacing these measurements.
+
+The prefix regression reduces eight right-hand membership queries to five while
+preserving order, duplicates and both input arrays. At width 128, a late extension
+changes 6.95/2.51 us; early extension is 11.36/11.27 us, subset 2.42/2.61 us.
+The wide indexed controls remain unchanged in algorithm and overlap noise.
+These helper ratios are not paired artifact timing improvements.
+
+| Pass | v4→v5 small paired change / MAD | Large paired change / MAD |
+| --- | ---: | ---: |
+| DAE2 | -3.58% / 3.05% | -4.11% / 0.11% |
+| Coalesce locals | -0.31% / 0.49% | -2.21% / 0.09% |
+| Precompute propagate | +0.26% / 0.61% | -2.99% / 0.33% |
+| Optimize instructions | -4.03% / 1.17% | -1.43% / 1.08% |
+
+All measured outputs remain byte-identical before/after and traced/untraced and
+independently validate. The small propagation set includes a -16.58% outlier;
+its median is a slight regression. The host still has separate WAGO activity.
+`candidate-v5.json`, `helper-means-v5.json`, `paired-summary-v5.json` and
+`pairs-v4-v5-*/result.json` retain provenance and individual observations.
+These results do not update whole-command Binaryen ratios or final shared-IR
+signoff. The singleton source controls are still being improved.
+
+### Next-v6 correctness and rejected predicate experiment
+
+A scalar ownership slot now handles the first privately extended LocalGraph
+row; the bitmap is deferred until a second row needs ownership. The bounded
+ownership regression fails first, then passes, including a sparse reset and a
+second independently extended row. The two private recorder layers carry `#inline`; this annotation alone does not
+prove native inlining. Eight additional controls preserve the complete original
+recorder separately from the existing direct-union reference. The completed
+24-case native run brings this iteration to 124 unique passing helper cases.
+
+The small-DAE native profile attributes 47,538,077 of 775,057,113 instructions to
+its simple unreachable-root predicate. A proposed common inline predicate delegated
+only singleton nested Blocks to recursive handling. Twelve helper controls retain
+the previous recursive implementation at depths 0/4/32 with both outcomes. The
+initial C-site estimate was superseded by final native disassembly below; the
+experiment required actual call elimination before accepting any speedup.
+This does not narrow the predicate's existing singleton-block semantics.
+
+The typed-control consumer audit reproduces missing operand ranges, local-read
+hazards and global-write hazards after cleanup removes unused arm-entry roots.
+Four focused regressions now pass, including a demoted Block. A fifth regression
+and dispatcher fixture expose Precompute deleting a producer still referenced
+by its conditional header. Batched physical-reference filtering preserves that
+producer and deletes detached debris. The [architecture contract](../ir2/architecture-rules.md#typed-entry-pass-consumers-and-tail-cleanup)
+records the traversal and deletion rules. All six dispatcher tests, five focused
+consumer tests and all **12,737 wasm-gc tests** pass. The native CLI builds and
+the expanded bounded runtime lane completes: 10 fixtures × 17 passes plus each
+original produce 350 validated modules and **1,400 fresh observations**, with
+zero return/trap, import-trace or exported-global mismatches. Binaryen 133 uses
+`--disable-compact-imports` for Node v26.10.0 compatibility. These
+changes extend final renewal to the dedicated HSO and broad random-all-profiles
+HSO lanes; long fuzz remains deferred during performance iteration.
+
+The v6 native build completes, but the reachability inlining experiment fails
+its code-generation gate: 26 C symbol references remain, and native disassembly
+shows 28 direct calls/jumps both before and after. `#inline` plus the helper split
+does not remove those calls with this toolchain. The predicate change is rejected;
+its source has been restored to the v5 predicate after the independent
+source-row benchmark completed.
+The dedicated predicate benchmark was prepared but has not been run or counted
+as passed. `dae-unreachable-inline-red.json`, `dae-unreachable-inline-green.json`
+(the latter records `gatePassed: false`) and `dae-unreachable-native-calls.json`
+preserve the failed experiment. The frozen v6 source/binary explicitly retains
+that unsuccessful split for provenance; it is not the accepted final candidate.
+
+
+The v6 source-row controls retain a singleton repeated-merge cost. Against the
+complete original recorder, four merges take 70.82 → 102.54 ns for one read
+(+44.79%) and 5.72 → 7.67 us for 128 reads (+34.09%). Width-32/four-merge cases
+improve 1.28 → 0.888 us and 156.71 → 109.09 us. The direct-union reference remains
+visible separately. `helper-means-v6.json`, `candidate-v6.json`, and
+`typed-runtime-v6-portable/result.json` retain raw evidence under the campaign
+directory. Concurrent WAGO activity makes these timing observations provisional.
+
+### Next-v7 fused DAE traversal and small observation-row capacity
+
+The [DAE topology regressions](../../../src/passes/dae_topology_fusion_wbtest.mbt)
+first fail with 30/29 redundant instruction visits. Graph construction and refresh
+now collect the seven topology fields during the required call-fact walk. Active
+and dead tails, imported numbering, direct/indirect/reference calls, nested arms
+and legacy handlers retain exact topology and call facts. Supplied topology stays
+borrowed; the typed-only batch path still omits unused extras. The
+[dispatcher fixture](../../../src/cmd/dae_topology_fusion_wbtest.mbt) retains a tail
+call while removing unused forwarded arguments in both DAE modes. Sixteen
+[benchmark cases](../../../src/passes/dae_topology_fusion_perf_wbtest.mbt) compare
+separate and fused scans at 1/128 functions, 8/128 calls and depth 0/8. These isolate
+scan removal; full-pass controls are required before claiming enclosing gains.
+
+A [capacity regression](../../../src/ir/local_graph_read_source_borrow_wbtest.mbt)
+first fails because the first private two-element observation row has no spare
+capacity. That row now reserves at least four entries. Immutable dataflow joins
+keep their existing policy; empty/subset observations keep borrowing, and later
+owned observations reuse the private row. The five ownership tests pass; existing
+source-row controls will measure whether the extra small capacity repairs the
+remaining singleton cost. Full v7 interface generation, formatting, **12,742 wasm-gc tests** and native
+CLI build pass, with no interface diff from v6. The native SHA-256 is
+`dfe4adbfdbced2f5bb6ba9813ed679fdf21cbe114ff545fccf043a5c0094ad92`.
+The 24 renewed source-row controls pass. Singleton/four-merge observations now
+take 70.73 → 92.01 ns for one read (+30.09%) and 6.01 → 6.40 us for 128 reads
+(+6.49%) against the complete old recorder. Thus the capacity repair reduces,
+but does not eliminate, the small-row cost. Width-32/four-merge observations take
+1.30 → 0.931 us and 159.88 → 109.47 us. All 16 native DAE controls pass, bringing this iteration to 140 unique passing
+helper cases. Fused/separate means for 128 functions × 128 calls are
+1.49 → 1.29 ms at depth 0 and 2.21 → 1.98 ms at depth 8. Small controls are mixed:
+1 function × 8 calls × depth 8 regresses 2.29 → 2.45 us (+6.99%), and
+128 functions × 8 calls × depth 0 regresses 109.70 → 111.28 us (+1.44%).
+The other four shapes improve 7.45–22.01%. Enclosing measurements remain pending;
+new external WAGO jobs still limit timing claims.
+
+
+The v7 bounded runtime lane renews all 1,400 observations across 17 passes with
+zero mismatches and 350 independently validated modules. The small DAE native
+instruction profile changes **775,057,113 → 741,585,749 (-4.32%)** against v5,
+with byte-identical output. The redundant topology scanner disappears; combined
+unreachable-root self instructions fall 47,538,077 → 32,734,382. This work
+reduction is separate from wall timing and remains meaningful under contention.
+
+| Pass | v6→v7 small paired change / MAD | Large paired change / MAD |
+| --- | ---: | ---: |
+| DAE | -13.16% / 7.64% | +1.85% / 11.97% |
+| DAE optimizing | -2.59% / 1.55% | +0.58% / 4.76% |
+| Simplify globals optimizing | +4.77% / 3.91% | not sampled |
+| DAE2 | -6.30% / 0.83% | +2.47% / 0.55% |
+| Coalesce locals | -0.24% / 7.69% | +1.60% / 2.14% |
+| Precompute propagate | -0.80% / 0.61% | +2.54% / 3.24% |
+| Optimize instructions | -6.13% / 7.63% | +8.51% / 6.37% |
+
+These are **contended diagnostics, not acceptance evidence for speedups**:
+WAGO, browser or other CPU activity is recorded in every pass cohort. The large
+regressions remain visible and require quiet renewal. All before/after and
+traced/untraced outputs are byte-identical and validate. `paired-summary-v6-v7.json`,
+`pairs-v6-v7-*/result.json`, `dae-topology-instructions-v5-v7.json` and
+`typed-runtime-v7-portable/result.json` retain the complete evidence.
+
+### Lowering value-layout compatibility gate
+
+The isolated `HotLowerStackValue` experiment copies frozen v7 sources and changes
+only its private immutable record to `#valtype`. All 471 wasm-gc IR tests and the
+native release CLI build pass, and four native heap construction sites become
+zero. Native **debug** IR compilation then fails in MoonBit
+`Machine_of_clam_lower.lower_array_make`: uninitialized non-null GC reference
+arrays are unsupported for this value record. This candidate is **rejected for
+the current toolchain**, never integrated into main, and its artifact timing,
+RSS and runtime jobs stop before running. Its binary hash is
+`5ccc46351ac0aa533480f900680c699257c60275a140d0c3abd80fc79fdeb52e`;
+`value-stack-v7-layout-red.json`, `candidate-v7-stack-value.json` and
+`stack-value-v7-ir-native.log` preserve the result. No compiler/toolchain source
+was changed to work around the failure.
+
+The separate `HotLowerInputs` query-result layout has six native heap construction
+sites before its value-type annotation. Its records are returned by value rather
+than stored in arrays. Next-v8 passes all 471 native debug IR tests, all 12,742 wasm-gc tests,
+interface generation, formatting and native release CLI build. Its six heap
+construction sites become zero, with no public interface diff. All 28 lowering
+helper controls pass, bringing the current campaign to 144 unique native cases
+(the four operand-view controls are renewed historical benchmarks, not newly
+written cases). The native hash is
+`dc64a096ebc72467627f62a5e9a6bb934272799bd3e72f04c173bfe87a51cf1f`.
+Small artifact instruction counts change Coalesce 181,251,492 → 180,505,490
+(-0.41%) and propagation 74,000,560 → 73,644,765 (-0.48%), with identical output
+bytes. All 471 release IR tests also pass, and the 17-pass bounded runtime lane renews
+1,400 observations without mismatch. This modest work reduction does not
+establish Binaryen parity. Operand order, borrowed child spans, absent-slot compaction and typed
+entry behavior retain their existing direct IR and dispatcher fixtures.
+
+
+| Pass | v7→v8 small paired change / MAD | Large paired change / MAD | Large median peak RSS, KiB v7→v8 |
+| --- | ---: | ---: | ---: |
+| DAE2 | +0.19% / 2.91% | -0.40% / 3.49% | 279,016 → 278,332 |
+| Coalesce locals | +1.62% / 1.51% | +2.42% / 4.26% | 244,804 → 244,744 |
+| Precompute propagate | -6.15% / 4.32% | -1.70% / 2.17% | 169,188 → 169,952 |
+| Optimize instructions | +1.47% / 1.56% | -0.08% / 1.15% | 158,120 → 158,340 |
+
+Wall-time samples remain diagnostics under recorded host activity; the small
+DAE2 cohort alone reports no >25% foreign process. All outputs match before/after
+and traced/untraced and independently validate. Peak RSS uses three alternating
+untraced samples. The largest median increase is 764 KiB in propagation.
+`paired-summary-v7-v8.json`, `memory-v7-v8/result.json`,
+`lower-inputs-instruction-results.json`, `native-helper-ledger-v8.json` and
+`typed-runtime-v8-portable/result.json` retain details.
+
+### Next-v9 lazy influence rows
+
+[Influence ownership regressions](../../../src/ir/local_graph_influence_borrow_wbtest.mbt)
+first fail because every HOT node gets a private empty observer list. All three
+LocalGraph builders now share immutable empty rows. Recording a write's first
+observer creates its private row with ordinary eight-entry growth room; subsequent
+observers preserve insertion order and deduplicate in place. Unobserved rows
+remain shared, and public influence queries stay owned. The
+[SSA-nomerge dispatcher fixture](../../../src/cmd/local_graph_influence_borrow_wbtest.mbt)
+keeps observers of successive writes on distinct local versions.
+
+Thirty [native controls](../../../src/ir/local_graph_influence_borrow_perf_wbtest.mbt)
+compare original eager allocation/recording against lazy rows at 32/2,048/32,768
+nodes, empty/sparse/dense observed writes and one/four observers. Fixtures are
+built outside the timed closure, verify the HOT arena and exact observer order,
+and reject contamination of unobserved rows. The two ownership tests and dispatcher fixture pass. Next-v9 passes all
+**12,745 wasm-gc tests**, **473 native debug IR tests**, interface generation,
+formatting and native release build, with no public interface diff. Its hash is
+`c2f20105e295367c7736dc5bb38700fe74e0d9502acf4497ae47aa28aaf689c2`.
+All 30 influence controls and 24 renewed source-row controls pass; this campaign
+now has 174 unique native helper cases. This optimization adds no public API.
+
+
+The influence helper improves in every measured shape: 58.61–87.41%. At 32 nodes,
+empty rows change 381.96 → 82.95 ns and dense four-observer rows
+506.87 → 197.34 ns. At 32,768 nodes, empty rows change 366.52 → 46.16 us,
+sparse four-observer rows 360.08 → 46.29 us, and dense four-observer rows
+507.97 → 188.60 us. These are helper measurements, not whole-compiler ratios.
+The separate singleton source-row control still costs 68.82 → 93.77 ns for one
+read/four merges; the 128-read control measures 6.97 → 6.41 us. Keep the earlier
+small-row regression visible rather than treating this one control as closure.
+
+Small artifact native instructions change DAE2 **232,389,132 → 230,085,924
+(-0.99%)** and propagation **73,643,791 → 73,361,574 (-0.38%)**, with identical
+output bytes. The bounded runtime lane expands to 11 fixtures and 18 passes,
+adding successive local writes and SSA-nomerge. All **407 modules validate** and
+**1,628 fresh observations** match original and verified Binaryen 133 return/trap,
+import-trace and exported-global behavior. This does not replace aggregate fuzz
+or establish complete oracle parity.
+
+| Pass | v8→v9 small paired change / MAD | Large paired change / MAD | Large median peak RSS, KiB v8→v9 |
+| --- | ---: | ---: | ---: |
+| DAE2 | +1.08% / 1.26% | -1.94% / 0.75% | 279,272 → 279,340 |
+| Precompute propagate | -0.83% / 3.42% | -0.51% / 0.80% | 169,588 → 169,092 |
+| Optimize instructions | -0.50% / 0.32% | +0.70% / 1.40% | 157,052 → 158,628 |
+
+All measured artifact outputs match before/after and traced/untraced and validate.
+No >25% foreign process is recorded in the small cohorts; large cohorts still
+record foreign activity. These wall-time samples remain diagnostic. The initial
+three-pair OI RSS increase (+1,576 KiB) does not repeat in seven additional
+alternating pairs: medians are **158,308 → 156,660 KiB**, with broad overlapping
+ranges. Preserve both runs; neither a firm RSS regression nor a firm RSS win is
+established. Small three-pair RSS deltas are DAE2 -64 KiB, propagation +88 KiB,
+and OI -76 KiB.
+
+`candidate-v9.json`, `native-helper-ledger-v9.json`, `helper-means-v9.json`,
+`influence-row-instruction-results.json`, `paired-summary-v8-v9.json`,
+`memory-v8-v9/result.json`, `memory-v8-v9-oi-renewal/result.json` and
+`typed-runtime-v9-portable/result.json` retain source pins and raw evidence.
+The current iteration adds 46 benchmark cases in the topology/influence files.
+Quiet enclosing/oracle timing, remaining owner bottlenecks and final aggregate
+renewal remain open in [the active backlog](../../../agent-todo.md).
+
+### v9 large DAE2 and Coalesce attribution
+
+The frozen v9 executable (`c2f20105…`) was profiled with Callgrind 3.24 on CPU
+6 against the same large input (`98189860…`); the saved v8 binary is pinned by
+`bbde3e9e5c7dff18409fe37a560ec59299f177a3b81b1943e8a15e39d3138116`. These
+whole-command instruction profiles include decode, validation, HOT lift/lower
+and output encoding; they are not pass-local wall-time measurements. DAE2 records
+59,486,224,808 instructions versus 67,548,321,537 for the saved `before.exe`
+profile (-11.9%); Coalesce records 69,294,061,478 versus 74,189,242,342
+(-6.6%). The source and input hashes, outputs, annotations and raw Callgrind
+data are in `.tmp/pass-perf-next-20260928/profile-v9-large.json` and the
+adjacent `callgrind-v9-large-*` artifacts. These totals summarize cumulative
+campaign work and do not attribute the reductions to the v9 influence-row
+change alone.
+
+Current DAE2 self costs are runtime object destruction 17.96%, `mi_free` 8.19%,
+HOT node reads 5.59%, object scanning 5.00%, and HOT liveness checks 1.41%.
+LocalGraph source extraction is 1.17%, sparse-flow construction 0.84%, and
+source joins 0.52%; DAE2 function analysis itself is 0.58%. Current Coalesce
+self costs include object destruction 12.34%, HOT node reads 6.28%, frees
+5.81%, object scanning 3.45%, HOT value/local-access conflict checks 2.09%,
+control-instruction analysis 1.94%, control-body boundaries 1.66%, and
+copy-forward scans 1.48%. Coalesce slot-interference queries are 1.14%, down
+from 1.74% in the saved profile. Together these measurements say the next P12
+work should test whether hot consumers can read only the needed HOT node fields
+without weakening liveness checks; the repeated source-row helper alone is no
+longer the dominant opportunity. P04 should measure control summaries and
+value/local conflict analysis against active full-pass artifacts. P03 should
+first separate HOT lift, DAE2 analysis, lower, and final validation costs before
+adding more graph metadata. The current profiles do not justify a broad arena
+or allocator redesign.
+
+Callgrind's recursive inclusive tree double-counts nested control walks, so the
+percentages above use `--inclusive=no` self costs. In particular, the
+RefFunc-declaration walker is only 0.38% self in the DAE2 profile; its recursive
+inclusive total is not evidence that it owns most runtime destruction. The
+v133 pass ratios in the preceding table remain the latest complete oracle
+sweep; these v9 profiles do not renew them.
+
+
+V13 (`f2991e5d…`) completes 12,850 default tests, 83 focused native checks and
+46 native benchmark cases. Its 67-fixture matrix validates 871 modules with
+3,900 matching results, effects and traps. Small three-pair DAE2/O pipeline
+medians improve 11.100 → 3.894 ms (-64.92%, MAD 0.014/0.041) and
+18.237 → 11.083 ms (-39.23%, MAD 0.090/0.089) against V12, with identical
+bytes. These are incomplete candidate measurements: large DAE2 adds 316 raw
+bytes across 86 functions, so the evidence runner stops at its size guard.
+Agent judgment classifies these unread local.tee additions as a size-losing
+parity gap. Large DAE2/O timings, RSS and fresh oracle ratios remain unfinished.
+V14's red-first repair matches HOT lowering's surviving-read rule and keeps
+prior measurements under V13. Sources: the [raw projection](../../../src/passes/dae2_raw_rewrite.mbt),
+[focused fixtures](../../../src/passes/dae2_raw_tee_captures_wbtest.mbt) and
+[dispatcher checks](../../../src/cmd/dae2_raw_tee_wbtest.mbt). Local artifacts:
+`evidence-v13-driver.log`, `v13-large-drift.json` and `pairs-v13-large/`
+under `.tmp/pass-perf-dae-priority-20260928/`.
+
+
+### V14 complete checkpoint and next cleanup targets
+
+V14 (`7d2273c17b0525891abd4ee5e05460a05431c7ccf3b8ce70db0b17735c4a1527`)
+completes 12,853 default wasm-gc tests, 86 focused native tests, 46 native
+benchmark cases, interface generation, formatting and the native CLI build.
+Its production-source fingerprint is
+`c225621db57e6886c5f7aa9347cb4fbb11affec94c0b70b682edd06e3daf7acd`
+over 261 files using the sweep's source definition. The 70-fixture bounded
+matrix independently validates 910 modules and matches 4,056 results, effects
+and traps against original, V12 and verified Binaryen 133 output. All V12/V14
+matrix bytes match. This closes the V13 unread-tee regression: large DAE2 and
+DAE2-O again emit exactly 6,114,805 and 5,956,034 raw bytes, identical to V12.
+It supersedes V13's partial candidate evidence without erasing that failed run.
+
+CPU-6 enclosing comparisons use one warmup and three alternating measured
+pairs, reference brackets capped at 1.15 and exact traced/untraced byte guards.
+The following are pipeline medians, separate from the oracle pass-local timers:
+
+| Fixture / pass | V12 → V14 ms | Change | MAD before / after ms |
+| --- | ---: | ---: | ---: |
+| small / `dae2` | 11.474 → 4.306 | -62.47% | 0.076 / 0.248 |
+| small / `dae2-optimizing` | 19.506 → 11.572 | -40.67% | 0.547 / 0.106 |
+| large / `dae2` | 4,297.992 → 4,256.530 | -0.96% | 9.896 / 37.143 |
+| large / `dae2-optimizing` | 7,349.547 → 7,234.680 | -1.56% | 29.647 / 35.667 |
+| tee / `dae2` | 46.634 → 3.781 | -91.89% | 0.071 / 0.013 |
+| tee / `dae2-optimizing` | 249.312 → 203.725 | -18.29% | 1.660 / 0.751 |
+| gc / `dae2` | 4.313 → 4.430 | +2.71% | 0.009 / 0.128 |
+| gc / `dae2-optimizing` | 28.148 → 28.800 | +2.32% | 0.134 / 0.061 |
+| entry / `dae2-optimizing` | 22.413 → 22.955 | +2.42% | 0.185 / 0.410 |
+| pure / `dae` | 29.326 → 29.929 | +2.06% | 0.001 / 0.037 |
+| pure / `dae-optimizing` | 41.484 → 41.914 | +1.04% | 0.061 / 0.259 |
+
+Eight of 24 retained large rows observe foreign CPU activity; their small
+movements remain diagnostic. All 120 retained small/active/GC/entry/store/tee/
+flat/pure rows have no observed foreign CPU. The quiet GC, entry and pure costs
+above remain open controls; a fast tee fixture does not resolve them. Five
+alternating large RSS pairs have overlapping ranges: DAE2 medians 268,588 →
+269,060 KiB; DAE2-O 314,740 → 292,140 KiB. Neither establishes a firm RSS change.
+
+The fresh V14 verified-v133 oracle sweep uses one warmup, three alternating
+samples and the same pinned small/large inputs and oracle hash documented
+above. Pass-local medians and ratios are:
+
+| Pass | Small Starshine / Binaryen ms | Ratio | Large Starshine / Binaryen ms | Ratio |
+| --- | ---: | ---: | ---: | ---: |
+| `dae` | 43.623 / 0.634 | 68.76× | 823.656 / 413.227 | 1.99× |
+| `dae-optimizing` | 124.767 / 15.273 | 8.17× | 1,048.609 / 1,800.840 | 0.58× |
+| `dae2` | 4.137 / 0.997 | 4.15× | 4,057.233 / 453.382 | 8.95× |
+| `dae2-optimizing` | 13.446 / 3.112 | 4.32× | 7,531.072 / 1,704.020 | 4.42× |
+
+Starshine pass MADs are 0.761/0.416/0.018/0.082 ms small and
+5.313/2.610/13.791/34.137 ms large, in table order. Large optimizing size gaps
+remain: DAEO +28,201 raw / +41,427 canonical bytes and DAE2-O +382,584 raw /
++422,019 canonical bytes versus v133. Agent judgment retains these as size-losing
+parity gaps. Bounded runtime agreement does not prove these shapes win or sign
+current source; aggregate renewal remains deferred until performance trials end.
+
+The unchanged V14 active-tee output has a focused whole-command Callgrind
+profile of 4,434,777,079 instructions. Self costs put first-use/intervening-local-
+write queries at 34.89%, HOT live-node reads at 14.85%, checked unreferenced-node
+assertions at 8.04%, node reads at 7.62%, capped child-use scans at 2.80% and
+subtree effect scans at 2.14%. This includes decode, validation, lift/lower and
+encoding; the percentages are not pass-local wall times. The tee benchmark's
+nested phase timers attribute most optimizing work to the main SL scan;
+inclusive pipeline totals must not be added to their child timers.
+
+V18 therefore tests three private SL mechanisms: identity/revision/local-count
+read-count snapshots, epoch-marked effect-scan scratch and memoized minimum
+value-producing node IDs for the exact older-value predicate. All retain
+mutation invalidation and tiny direct paths. The combined 24-fixture slice
+passes; full/native builds, helper timings, enclosing shared-consumer controls,
+size and RSS evidence are pending. Sources and benchmark contracts are in the
+[SL reuse dossier](../binaryen/passes/simplify-locals/raw-lane-and-writeback.md#september-29-2026-mutation-scoped-query-reuse).
+Reverse exact-literal DAE scans also reuse their existing graph snapshot's
+indexed function types; heap-type/import-offset active fixtures cover it.
+
+Artifacts under `.tmp/pass-perf-dae-priority-20260928/`:
+`candidate-v14.json`, `build-v14.json`, `runtime-v14/result.json`,
+`pairs-v14-*/result.json`, `memory-v14.json`, `oracle-v14-{small,large}/result.json`,
+`tee-profile-v14.callgrind` and `tee-profile-v14-annotated.txt`.
+Sources: [raw tee projection](../../../src/passes/dae2_raw_rewrite.mbt),
+[exact capture checks](../../../src/passes/dae2_raw_tee_captures_wbtest.mbt),
+[tee pipeline controls](../../../src/passes/dae2_raw_tee_perf_wbtest.mbt),
+[immutable graph controls](../../../src/passes/dae2_graph_fields_perf_wbtest.mbt),
+[reverse-signature fixtures](../../../src/passes/dae_reverse_signature_wbtest.mbt).
+
+
+### V18 cache controls and bounded shared-consumer validation
+
+V18 native `6ee7789427a8324f921c0d89333696eef385333b5e21de079e4014a2e7d79c88`
+passes 12,877 default wasm-gc tests, 112 focused native tests and 62 native
+benchmark cases. One failed benchmark setup read a child slot from a childless
+root; that fixture access is corrected and the failed attempt remains in
+`build-v18-first-attempt.json`. No production change was needed for that abort.
+
+The 79-fixture runtime matrix includes the four DAE passes, all five SL variants,
+SGO and optimizing inlining, plus four scalar NaN WAT frontend witnesses. All
+2,730 outputs independently validate and 12,008 results/effects/traps match
+original and verified v133 output; all binary-input V14/V18 bytes match.
+This bounded check does not replace final affected-consumer aggregate renewal.
+
+Native helper means (ten calibrated batches) isolate the mechanisms:
+
+| Control | Reference → V18 | Scope |
+| --- | ---: | --- |
+| two unchanged count stages, width 4,096 | about 53.6 → 26.9 µs | helper median from the standalone diagnostic run |
+| effect sweep, width 4,096 | 7.38 ms → 206.03 µs | masks/visit counts checked |
+| leaf effect sweep, width 4,096 | 7.32 ms → 66.58 µs | childless roots included |
+| independent later-root query, width 128 | 11.79 → 4.62 µs | one fresh minimum cache per query |
+| older-stack hazard query, width 128 | 11.81 → 4.70 µs | exact true predicate retained |
+| reverse nonconstant signatures, 256 types / 32 helpers | 39.45 → 32.02 µs | complete candidate scan/snapshot |
+| reverse active signatures, same scale | 1.07 → 1.06 ms | near dispersion, no strong active claim |
+
+Forced minimum caches cost more on tiny queries: 233.12 → 274.16 ns independent
+and 368.57 → 451.21 ns hazard. Production keeps the direct path below 16 roots;
+these forced helper costs are preserved rather than presented as tiny wins.
+The enclosing tee pipeline benchmark measures 144.23 ± 1.21 ms. Causal V14/V18
+pairs, RSS and a fresh verified-v133 sweep are complete below. Do not subtract
+historical absolute benchmark times or infer broad Binaryen competitiveness
+from these helpers.
+
+Sources: [count controls](../../../src/passes/sl_get_count_cache_perf_wbtest.mbt),
+[effect controls](../../../src/passes/sl_effect_scan_workspace_perf_wbtest.mbt),
+[minimum controls](../../../src/passes/sl_value_order_minimum_perf_wbtest.mbt),
+[signature controls](../../../src/passes/dae_reverse_signature_perf_wbtest.mbt).
+Artifacts: `build-v18.json`, `candidate-v18.json`, `runtime-v18/result.json`,
+`bench-dae-priority-v18.log`, `native-bench-v18-summary.json` and
+`native-bench-v18-diagnostic.log` under the priority artifact directory.
+### V18 complete enclosing evidence and remaining gaps
+
+The production source fingerprint is
+`de647bd3356cee3001c3ff1f73dda2c7fee82d4f3d34200fc6f996ce9131d447`
+(264 compiler files), recorded by both fresh oracle sweeps. One warmup and
+three alternating V14/V18 pairs use CPU 6, a 1.15 maximum reference bracket,
+exact traced/untraced output hashes and independent validation. Across the
+thirteen cohorts including the seven-pair pure renewal, 286 accepted timed
+rows include 22 observations of foreign CPU activity: large DAE 9/24,
+shared large 4/42, small DAE 4/24 and tee DAE2/O 5/12. The other 184 accepted
+rows observe none. Rejected attempts stay in the artifacts; these diagnostic
+cohorts do not establish a compiler-wide win.
+
+| Pipeline control | V14 → V18 median ms | MAD before / after ms | Change |
+| --- | ---: | ---: | ---: |
+| small DAE | 42.952 → 41.159 | 1.298 / 0.122 | -4.17% |
+| small DAE2 | 3.892 → 3.929 | 0.013 / 0.039 | +0.95% |
+| small DAE2-O | 11.221 → 11.114 | 0.470 / 0.034 | -0.95% |
+| large DAE2 | 3,898.518 → 3,888.051 | 0.627 / 1.580 | -0.27% |
+| large DAE2-O | 6,749.551 → 6,752.515 | 4.499 / 1.633 | +0.04% |
+| active tee DAE2-O | 206.742 → 142.062 | 3.956 / 0.632 | -31.29% |
+| active tee SL | 193.715 → 135.647 | 0.503 / 0.224 | -29.98% |
+| active tee SL nostructure | 198.906 → 136.593 | 2.288 / 4.185 | -31.33% |
+| active mutable DAE2 | 11.372 → 11.693 | 0.130 / 0.031 | +2.82% |
+| entry DAE2-O | 21.746 → 22.045 | 0.135 / 0.049 | +1.37% |
+| initial pure DAE | 28.996 → 35.830 | 0.024 / 4.659 | +23.57% |
+| renewed pure DAE, seven pairs | 30.877 → 30.569 | 0.523 / 0.617 | -1.00% |
+
+Keep the initial pure cost and its dispersion beside the renewal. The remaining
+SL tee variants improve 3.29–4.38%; small shared SL modes range -4.57% to
++2.25%, and large modes -2.11% to +0.33%. Shared SGO and optimizing inlining
+have no material large gain; their detailed medians, MAD and small changes are
+in `v18-paired-summary.json`. Reverse-signature reuse has no material large DAE
+or active mutable gain. Small/entry/mutable costs remain controls for the next
+candidate rather than being dismissed as safe representation differences.
+
+Fresh v133 pass-local medians (CPU 6, one warmup, three samples):
+
+| Pass | Small Starshine / Binaryen ms | Ratio | Large Starshine / Binaryen ms | Ratio |
+| --- | ---: | ---: | ---: | ---: |
+| DAE | 43.616 / 0.746 | 58.46× | 831.609 / 429.078 | 1.94× |
+| DAEO | 124.685 / 15.243 | 8.18× | 1,090.860 / 1,793.310 | 0.61× |
+| DAE2 | 4.546 / 1.023 | 4.44× | 4,169.155 / 461.853 | 9.03× |
+| DAE2-O | 13.152 / 3.224 | 4.08× | 7,538.402 / 1,706.020 | 4.42× |
+
+Absolute V14/V18 oracle sweeps are different cohorts, so their times are not
+causal speedup evidence. Large optimizing size gaps are unchanged: DAEO adds
+28,201 raw / 41,427 canonical bytes, DAE2-O 382,584 raw / 422,019 canonical.
+All paired artifact bytes match. Five alternating RSS pairs give DAE2 medians
+259,772 → 267,936 KiB (+8,164), ranges 259,060–281,340 / 256,496–279,796;
+DAE2-O gives 292,152 → 292,348 KiB (+196), ranges 291,828–324,840 /
+291,912–314,620. Overlapping ranges do not prove a memory win or regression.
+
+Artifacts under the priority directory: `evidence-v18-driver.log`,
+`v18-paired-summary.json`, `pairs-v18-*/result.json`, `memory-v18.json`,
+`oracle-v18-small/result.json` and `oracle-v18-large/result.json`. They preserve
+binary/input/oracle hashes, reference retries and timer scope. Long affected
+aggregate renewal remains deferred until the bottleneck trials finish.
+
+
+### V21 stacked-block runtime failure and V24 repair trial
+
+V21 native `8f6158cc0d64f536401f116cfe9b1e9a7ea2bdc6a872e27c3b4ead27a7a5cf64`
+passes 12,887 default tests, 122 focused native tests and 22 benchmark cases.
+The new branchless-block controls compare complete DAE2 cores: wide depth-1
+HOT/direct paths measure 9.93/1.70 ms, depth-16 paths 12.17/1.84 ms.
+Checked/fresh wrapper factories include identical lift work: width 4,096
+measures 1.52/1.42 ms. These helper observations do not establish an enclosing
+compiler-artifact gain.
+
+The expanded 92-fixture matrix validates 3,172 modules and records 13,776
+observations, but V21 has four true semantic failure rows in SL full and
+nostructure: an entry or earlier-written value stacked across a block overwrite
+is replaced by the overwritten value. Original execution and verified v133
+agree (entry plus 11, or constant 16); faulty SL returns 22. V18 has eight
+failing baseline rows in these new witnesses, also including DAE2/O.
+This supersedes any inference that V18's original 79-fixture matrix covered
+these shapes. V21's expanded operand-flow fix repairs DAE2/O; its extra
+1–4 canonical bytes in these witnesses are a correctness repair, not a size win.
+Enclosing pairs/RSS/oracle renewal stopped before measurement.
+
+The V24 trial guards earlier stacked reads and definitions in SL. Shared
+source-order dependency queries use preserved execution order rather than
+a wrapper's new allocation ID; this preserves both lowering and expanded CFG
+anti-dependencies. A reduced IR fixture covers direct and indexed root paths;
+pass and dispatcher fixtures cover all five SL policies and input ownership.
+Thirty-four focused checks pass. Exact-owner DAE reverse graph reuse passes
+active and unchanged controls, foreign-owner rebuild and commit-path fixtures.
+Full/native/runtime and enclosing evidence remain pending; the release blocker
+is open until native runtime confirmation.
+
+Sources: [IR wrapper regression](../../../src/ir/hot_source_order_wrapper_wbtest.mbt),
+[SL value regression](../../../src/passes/sl_stacked_block_order_wbtest.mbt),
+[dispatcher regression](../../../src/cmd/sl_stacked_block_order_wbtest.mbt),
+[reverse graph fixture](../../../src/passes/dae_reverse_graph_reuse_wbtest.mbt),
+[graph controls](../../../src/passes/dae_reverse_graph_reuse_perf_wbtest.mbt).
+Local replay artifacts are `build-v21.json`, `runtime-v21/result.json`,
+`bench-dae-priority-v21.log`, `dae-reverse-graph-v22-red.log`,
+`sl-stacked-block-v23-wrapper-corrected-red.log` and
+`sl-stacked-block-v23-focused-green.log` under
+`.tmp/pass-perf-dae-priority-20260928/`.
+
+The first V24 full-suite attempt rejects broader computed value-order
+substitution: it loses a forwarded old local read (7 becomes 99) and changes
+nested-if/store-call parity fixtures. No expectations are weakened. The
+corrected query uses an explicitly preserved earlier source position for an
+extracted wrapper and retains allocation-order bounds for ordinary inserted
+computations and existing consumer IDs. The three failed tests and rejected
+attempt remain in `test-v24-first-attempt.log` and `build-v24-first-attempt.json`.
+
+The remaining nested-if failure identifies a replacement conditional allocated
+after its existing read consumer. Both one-armed-if paths now rewrite the
+original conditional in place, attaching an else region through the existing
+checked `hot_build_region` builder, newly exported. This preserves the node,
+source position and label while avoiding a replacement conditional and then
+region. The additive `.mbti` signature needs review. All 1,561 affected IR, SL
+and OI checks pass; full/native and the expanded 95-fixture runtime matrix are
+pending. The latter adds conditional writes, branch exits and the consumed
+nested-result witness.
+
+
+V24 completes 12,893 default / 251 focused native tests, info/fmt/native CLI,
+30 native controls and README API sync. Candidate SHA-256 is
+`5c22e42461f8968b6237a894272c548f18aa26c59078744372fd3d76e5562891`.
+Matched fresh-wrapper controls retain their tiny-case cost/noise: 4.39 to
+4.65 us, versus width 4096 at 1.57 to 1.46 ms. Reverse exact-owner graph
+reuse reduces heavy nonconstant full rounds from 51.67 to 33.50 us; active
+2.03 to 2.00 ms remains near dispersion. These controls do not establish an
+enclosing pass improvement.
+
+The expanded conditional matrix exposes an additional branch-exit problem:
+V18 aborts on the reduced one-armed branch witness in DAE2-O, full SL and
+SL-notee; V24 public execution falls back to the original void if, while
+direct HOT verification rejects the result conversion. These are separate
+from the eight baseline stacked-read semantic failures. V25's red-first
+direct HOT and command tests preserve the original exit label as a void
+block around the new result-if capture, so a taken branch skips assignment.
+Non-branching result conversions retain the in-place source-position fix.
+See `src/passes/sl_stacked_block_order_wbtest.mbt` and
+`src/cmd/sl_stacked_block_order_wbtest.mbt`. The 110 focused checks plus
+12,895 default / 253 native checks pass; 30 controls and the expanded
+96-fixture matrix with seven fixed conditions are being renewed. Known V18
+SIGABRTs are recorded as baseline tool failures, never candidate successes
+or semantic matches. Candidate and oracle failures still reject evidence.
+
+V25 evidence uses `/tmp/starshine-v25-frozen-evidence/src`, copied from the
+saved candidate source and checked against all 1,295 source manifest entries.
+This preserves the candidate/evidence identity while the separately requested
+vacuum PR #9155 parity fix is developed. Historical V18 evidence and the
+failed V21/V24 replays remain preserved; long aggregate fuzz renewal is deferred.
+
+
+V25 bounded runtime completes: 3,302 independently validated modules and
+25,018 fixed observations across 96 fixtures / eleven passes. Candidate and
+verified v133 oracle match all original observations; eight V18 stacked-read
+semantic-failure rows and six known baseline SIGABRT rows remain archived.
+Candidate SHA-256 is
+`3ffbd021ee11a012235592b07e495b5bff72b8f85b242ca485f09ee107daaa63`.
+The first enclosing cohort preserves small DAE2/O regressions of
+18.61%/7.18% (4.213 to 4.997 ms / 11.539 to 12.367 ms); DAE/O are
+within dispersion at -0.53%/-0.66%. Large DAE2 byte drift rejects the
+measurement guard before full enclosing/RSS/oracle completion. Do not
+relax the guard or claim a new large-compiler speedup without classifying
+that artifact-level change and measuring its relevant deltas.
+
+
+The V25 large DAE2 drift is narrowed to code-section changes in 41 of 12,904
+defined functions, totaling +458 bytes (6,114,805 to 6,115,263). Types, function
+signatures and other non-custom sections match. This is not proof of semantic
+equivalence or an accepted representation difference: preserve the guard and
+inspect/replay these bodies before classifying the artifact change. The frozen
+V25 scope JSON retains each changed body index, size and hash.

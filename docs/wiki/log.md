@@ -1,3 +1,119 @@
+### 2026-09-29 — DAE priority performance iteration
+
+- V14 completes 12,853 default tests, 86 focused native checks, 46 benchmarks
+  and 4,056 matching bounded observations. It closes V13's +316-byte unread-tee
+  regression; large DAE2/O bytes match V12. Small pipelines improve
+  62.47%/40.67% and active tee pipelines 91.89%/18.29%. Fresh large v133 ratios
+  remain 8.95×/4.42× with optimizing size gaps, overlapping RSS and quiet control
+  costs. The [priority report](tooling/tracing-playbook.md#v14-complete-checkpoint-and-next-cleanup-targets)
+  preserves superseded candidates, hashes, dispersion and limits. The tee
+  profile identifies repeated SL stack-order queries; V18's read-count, effect
+  scratch, minimum-value and reverse-signature reuse complete 12,877 default /
+  112 native tests, 62 benchmarks and 12,008 bounded observations. Active tee
+  DAE2-O/SL improve 31.29%/29.98%, compiler large pipelines remain flat, and
+  fresh large v133 ratios are 9.03×/4.42×. The
+  [V18 evidence](tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
+  preserves control costs, interference, pure renewal and overlapping RSS.
+  Scalar-block admission and fresh wrapper retirement remain trials.
+
+- V10 completes 12,830 default tests, 61 focused native tests, 479 native IR
+  tests and 84 native benchmarks; 624 bounded modules yield 2,808 matching
+  observations. Mandatory producers improve active GC DAE2/O 7.53%/2.79%;
+  bulk replay restores the wide reset and borrowed multi-result prefixes improve
+  172.31 → 25.40 µs. Shared NaN global identity permits DAE/DAEO pruning with
+  sixteen fewer bytes. Fresh verified-v133 DAE2/O large ratios remain
+  9.34×/4.43×, with optimizing size gaps and a contended O regression open.
+  The [priority report](tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls)
+  preserves full dispersion, overlapping RSS and quiet V6/V10 DAE renewal.
+  V11 completes 12,840 default, 73 focused native and 52 benchmark checks;
+  741 bounded modules yield 3,380 matching observations with unchanged outputs.
+  Direct mutation improves active flat DAE2/O 81.45%/66.02% and GC
+  89.71%/56.97%; large v133 ratios remain 9.19×/4.39×. Quiet renewal reverses
+  the initial active O regression, while active DAEO +0.79% and overlapping RSS
+  costs remain visible. Signed-zero and copied-NaN transaction identity now
+  compares bits. V12 tests restoration admission and solved adjacency release.
+
+- Fused trap scanning and reusable callsite paths, compact DAE2 locations,
+  bounded shared-DAG entry proofs, validated pinned-call lift admission,
+  scalar source queries and private type append workspaces reduce repeated work.
+  The V5 checkpoint passes 12,788 default tests, 477 native IR tests and
+  nineteen focused native tests; 325 bounded runtime modules yield 1,560
+  matching observations against original/baseline/candidate/verified-v133.
+  Pinned-call DAE2/O improve 51.33%/18.88% in V4 controls; V5 active
+  conditional-write DAE/DAE2 improve 3.62%/3.99%. The
+  [priority report](tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls)
+  preserves rejected exponential traversal, tiny/reference regressions, memory
+  uncertainty and compiler stack requirements. Fresh v133 large DAE/DAEO
+  pass-local ratios are 1.90×/0.56×; DAE2/O remain 9.34×/4.44× with optimizing
+  size gaps. V6 readonly-store admission improves DAE2/O 57.26%/30.68% and
+  restores marked-reference helper costs. V7b passes 12,802 default tests;
+  1,872 priority and 2,420 shared-field runtime observations match. Pure unused
+  arithmetic arguments lose unread scratches and save 11/18 bytes in reduced
+  fixtures. Checked opcode/type queries avoid whole-header return traffic; the
+  original child benchmark comparison is withdrawn for unequal reference work.
+  V8 symbolic flat-body analysis passes 12,812 default tests and exact HOT-reference
+  output controls, 479 native IR tests, 43 focused native tests and 56 benchmarks.
+  Its 2,184 runtime observations match; quiet flat-body DAE2/O improve
+  10.37%/27.68%, while large DAE2 remains four seconds. Five RSS pairs add
+  median 15,796/6,060 KiB DAE2/O memory with wide variation. Active DAE/DAEO
+  +1.33%/+2.73% and contended small DAEO +7.01% remain open for renewal.
+  V9 flat assignments, lazy child snapshots, replay reuse and NaN-safe candidate
+  identity pass 12,819 default tests, 50 focused native tests, 479 native IR
+  tests and 64 benchmarks. All 2,444 runtime observations match; the shared
+  NaN-body fixture saves 16 bytes in both DAE modes. Short traces reduce
+  small/active DAE instructions 2.99%/4.68%. The wide replay helper adds
+  7.18% and remains an optimization target. V9 repeated RSS medians fall
+  6,648/16,496 KiB with overlapping ranges; fresh large DAE2/O ratios remain
+  9.28×/4.40× and optimizing output gaps remain. V10 mandatory producers,
+  owned section guards, bounded suffix borrowing and wide reset retuning are
+  under full validation. Long fuzz renewal follows performance work; earlier
+  aggregate results do not sign off current source. No commit or publication.
+
+- V21's expanded block matrix exposes preexisting stacked-read errors in DAE2/O
+  and SL; DAE2 operand flow repairs its witnesses. V24 shared wrapper execution
+  order and SL reaching-definition guards pass 34 focused checks, with full/native
+  runtime confirmation pending. Reverse module-graph reuse is under the same
+  trial. The [failure and repair evidence](tooling/tracing-playbook.md#v21-stacked-block-runtime-failure-and-v24-repair-trial)
+  preserves historical fixture limits and the open release blocker.
+
+### 2026-09-28 — Follow-up performance campaign
+
+  V25 repairs the reduced branch-exit/stacked-read failures: 12,895 default /
+  253 native tests and 25,018 observations across 3,302 validated modules.
+  The baseline eight semantic failures / six SIGABRTs remain archived.
+  Large DAE2 byte drift and small pipeline costs keep enclosing signoff open.
+
+- Added control/interference indexes, tuple journals, validator ownership/forks,
+  typed scratch, DAE/DFE reuse, string indexes, HOT queries and exact size reuse.
+  The final v8 candidate passes 12,693 default tests; 386 native controls completed
+  during iteration. Small inlining improves 22.75% paired, DAE 6.67%, and the active
+  string-heavy command 88.21%, with scope and dispersion in the
+  [report](tooling/tracing-playbook.md#v8-final-results). Aggregate validation caught
+  a raw-input reuse path that skipped encoding cleanup; two red-first regressions
+  and a conservative admission repair preserve that cleanup. The final 230,000
+  v133 comparisons have zero validation or observed original/Starshine semantic
+  failures. Existing 101,860 residuals, 2,368 canonical losses and 9,717 runtime
+  blocks remain explicit; all cohort outcomes and retained/size-losing replay bytes
+  match the first campaign. Timing/memory tradeoffs and remaining release gaps stay
+  in the backlog. No commit or publication occurred.
+
+### 2026-09-28 — Performance backlog campaign
+
+- P01–P14 improvements remove repeated transfer, scan, planning, validation,
+  IR-query and encoding work. All 322 native benchmark cases and 12,648 default
+  wasm-gc tests pass; native builds, README/API sync and harness unit tests pass.
+  Small inlining improves 59.74%, Coalesce 23.50%, and DAE2 16.72%; large DFE
+  improves 11.96%, propagation 8.93% and OI 8.74% on the fixed inputs. Large
+  optimizing-inlining retains a measured pipeline cost alongside an untraced
+  whole-command gain. The final 230,000 verified-v133 comparisons follow
+  performance iteration, with zero validation or observed original/Starshine
+  semantic failures; 9,717 runtime blocks, 101,860 residuals and 2,368
+  canonical size losses remain visible. No commits or publication occurred.
+  The [report](tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign) owns exact hashes, 28 paired
+  rows, 28 oracle rows, source/RSS attribution, complete residual/size reviews,
+  active runtime controls and limitations. The backlog and owner contracts are
+  aligned with the remaining release costs.
+
 ### 2026-09-27 — Bounded pass reuse campaign
 
 - Seven atomic optimizations cover exact encoded sizes, Coalesce copy/remap,
@@ -134,6 +250,26 @@
   [v133 shape catalog](binaryen/version-133-upgrade.md) records scope and open
   cases. Pass-targeted fuzzing follows the green-phase commit; these focused
   tests do not claim broad parity.
+
+### 2026-09-23 — Optimizer module-corruption audit continuation
+
+- Eight read-only agents split the optimizer surface; six exhausted the shared
+  usage allowance, while the interprocedural and module/global reviews
+  completed and reviewed the root-only implementation. The red/green campaign
+  repaired exact-reference, branch/handler, interval, atomic-read, empty-code,
+  annotation-union, name/index, compiler-fact, feature-gate, custom-metadata,
+  exported-global, table-initializer, label-name, and type-cleanup boundaries.
+  It also broadened safe per-local Untee and export-aware ReorderGlobals scoring.
+- `moon info`, formatting, focused suites, and the full default suite pass
+  **12,275/12,275** with no `.mbti` change. Fresh verified-v132 comparison ran
+  24 pass/profile lanes at 10,000 cases each only after deterministic tests:
+  **240,000** comparisons, **154,248** direct plus **17,163** cleanup-normalized
+  matches, zero validation/property/generator/command failures, and canonical
+  smaller/equal/larger counts **81,432/154,248/4,320**. The larger cases are
+  the existing MemoryPacking complete-preflight and ReorderGlobals host-order
+  correctness families; unproven residuals remain explicitly classified as
+  parity gaps. Full commands, hashes, per-pass counts, and evidence limits are
+  in [IR2 Architecture Rules](ir2/architecture-rules.md#september-23-optimizer-corruption-audit-continuation).
 
 ### 2026-09-23 — Binaryen 133 optimizer-shape intake
 
@@ -23031,7 +23167,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Tightened the seed, result-block, and scalar-forward collectors themselves to avoid the old per-candidate GC churn: they now use stamped local marks for duplicate-lane detection and write lane order directly instead of building temporary reverse arrays and calling `tuple_optimization_seen_local(...)` linearly on every lane.
 - Added focused white-box invariants in `src/passes/tuple_optimization_wbtest.mbt` proving that duplicate lane locals in both seed groups and result-block copy groups are still rejected under the new stamped-mark collectors.
 - Rechecked correctness on the kept tree: `moon test --package jtenner/starshine/passes --file tuple_optimization_wbtest.mbt` is `44 / 44`, `moon test --package jtenner/starshine/cmd --file cmd_native_wbtest.mbt --target native --filter '*tuple-optimization*'` is `15 / 15`, `moon test --package jtenner/starshine/cmd --file cmd_wbtest.mbt --filter '*tuple-optimization*'` is `7 / 7`, `/tmp/pass-fuzz-tuple-cleaned-genvalid-1000-2026-04-10` is `1000 / 1000`, and `/tmp/pass-fuzz-tuple-cleaned-smith-200-2026-04-10` is `199 / 200` with the same Binaryen-only `binaryen-rec-group-zero` command failure.
-- The full-artifact runtime moved materially, not just the reduced repros. `/tmp/self-opt-tuple-full-candidatefilter-2026-04-10` and `/tmp/self-opt-tuple-full-candidatefilter-rerun-2026-04-10` are both canonically green (`Canonical function compare equal: yes`, `Normalized WAT equal: yes`) while Starshine tuple-pass time dropped into a `325.221-361.452 ms` band from the earlier `~966 ms` band.
+- The full-artifact runtime moved materially, not just the reduced repros. `/tmp/self-opt-tuple-full-candidatefilter-2026-04-10` and `/tmp/self-opt-tuple-full-candidatefilter-rerun-2026-04-10` are both canonically green (`Canonical function compare equal: yes`, `Normalized WAT equal: yes`) while Starshine tuple-pass time dropped into a `260.361-361.452 ms` band from the earlier `~966 ms` band.
 - Fresh pass-trace evidence explains why the improvement is real: tuple-opt still visits `4462` functions but now changes only `18`, and total pass time on the cleaned kept tree is `277790 us` instead of `960971 us`, so the old unchanged-function hot quartet is gone and the remaining runtime debt is concentrated in `Func 1673` plus a smaller tail of candidate-heavy functions.
 - The current kept-tree split is now sharper too: `Func 1673` (`_M0FP37jtenner9starshine4wast17wt__lower__module`) is still the main tuple-pass outlier at `101831 us`, followed by a much smaller tail (`148`, `2389`, `1905`, `3660`, `147`), while the biggest `analysis:use-def` costs are still in different functions (`3612`, `1553`, `1525`). That means the next tuple-runtime slice should target `Func 1673`-style candidate/query work, while any wall-time reduction beyond the reported tuple pass timer will need separate use-def or pipeline work.
 
@@ -24634,3 +24770,32 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
   Node-v2 runtime limits, residual parity/size gaps and starting-binary replays.
 - Updated owner dossiers, the wiki index and the active timing checkpoint;
   historical oracle versions and unrelated user worktree changes are preserved.
+### 2026-09-28 — Next performance iteration and typed control repair
+
+- Immutable DAE2 reads avoid unused LocalGraph construction, HOT data typechecking
+  reuses its owned stack, and dense Coalesce coloring stops at a proved score
+  bound. Initial fixed-artifact pairs show modest gains and two small regressions;
+  the [next campaign](tooling/tracing-playbook.md#september-28-2026-next-performance-campaign)
+  preserves dispersion, host contention and incomplete signoff. Parameterized
+  `if` entries now survive lifting, CFG/dataflow, lowering and constant demotion;
+  function-label and name-payload boundaries are repaired. The v4 checkpoint
+  passes 12,728 wasm-gc tests and 92 native helper cases; v3 has 756 fresh
+  typed-control runtime observations without mismatch. V4 repeated-source
+  merges expose a helper regression; ownership repair, node value layout and
+  source-union work reduction pass 12,731 tests in v5 integration. V6 passes
+  12,737 tests, 124 unique helper controls and 1,400 fresh bounded runtime
+  observations. The failed DAE predicate inlining experiment is reverted. V7
+  removes the duplicate topology traversal and expands small private observation
+  rows after real work/capacity failures; 12,742 tests, native build and 140
+  unique helper controls pass. V8 retains the operand-query value record after
+  both native backends pass 471 IR tests and 1,400 fresh runtime observations
+  match; the stack value-array layout is rejected for a native debug compiler
+  limitation. Lazy influence rows pass new ownership and SSA dispatcher tests. V9 passes
+  12,745 default tests, 473 native IR tests, 54 renewed helper controls and
+  1,628 fresh runtime observations. All measured artifact bytes match; the
+  report records instruction reductions, contended wall times and the
+  non-repeating OI RSS increase.
+  The report retains exact source versions and timing/memory costs; final
+  shared-IR renewal remains open.
+
+- September 29, 2026: current-main [PR #9155 vacuum parity](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-29-2026--pr-9155-concrete-arm-drop-sinking) extends both drop-sinking paths, removes reverse packing, and preserves ordered effects/traps. Red-first scalar/reference, raw admission, nested cleanup and dispatcher regressions replace superseded packing expectations. All 12,907 default checks, native CLI build, API sync and six benchmarks pass; 60 validated modules match 744 fixed observations. Thirteen canonical outputs match main; nested cleanup is eight bytes smaller, while indexed input signatures remain an open transform gap. Wider sink scaling and repeated guard/deletion work remain a performance investigation and long fuzz stays deferred.

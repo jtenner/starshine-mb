@@ -41,15 +41,14 @@ Use it when you need to answer a basic question like:
 
 The newest public release is **`version_133`**, published **2026-09-21** at
 `fba5005a132d85d578be5bd010e0487ed8e2ce3e`. The repository's current
-comparison baseline remains **`version_132`**, published **2026-08-12**
-at `79dfe6b412a3c22bfdb190ed6a4d79adf734db5d`. New correctness and performance
-comparisons use a verified v132 binary. The [v132 upgrade](version-132-upgrade.md)
+comparison baseline is **`version_133`**. New correctness and performance
+comparisons use a verified v133 binary. The [v132 upgrade](version-132-upgrade.md)
 records the reproduced 59-commit / 220-file delta, implementation boundaries and
 the released transform-shape catalog. Use that catalog when a v132 question is
 about the input pattern or output form rather than the public release date.
 The [v133 intake](version-133-upgrade.md) records its 107-commit source delta,
-released optimizer shapes, and local red corpus without changing that oracle
-policy.
+released optimizer shapes, and local red corpus. The 2026-09-25 policy update
+supersedes that intake's v132 comparison-policy wording.
 Version 131 remains the historical source of existing measurements and signoffs;
 none of those results is silently relabeled v132. Post-tag fixes remain a separate
 intake, including DAE2 #8994 and constraint correctness guardrails. The v132 tag
@@ -68,7 +67,8 @@ The v131 baseline is substantive. Its changelog names `@binaryen.inline`, acqrel
 - 2026-07-18: research note 1573 audited the complete v130-to-v131 range, confirmed the default pass order is unchanged, added the new pass to the tracker, and reopened the six affected Starshine implementation areas. This superseded v130 for release-horizon decisions at that time; v132 is the current baseline.
 
 - 2026-09-10: the verified v132 tag and exact v131-to-v132 inventory supersede v131 as the comparison baseline; historical pass signoffs retain their original oracle.
-- 2026-09-21: Binaryen published `version_133`; the 2026-09-23 intake records its optimizer shapes while Starshine's comparison policy remains v132.
+- 2026-09-21: Binaryen published `version_133`; the 2026-09-23 intake recorded its optimizer shapes while Starshine's comparison policy remained v132.
+- 2026-09-25: the repository comparison policy moved to verified v133; v132 measurements remain historical evidence under their original version.
 
 ## Source hierarchy
 
@@ -97,16 +97,18 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 ## Current state
 
-Version 132 is the comparison baseline. Its implementation inventory is in
-[version-132-upgrade.md](version-132-upgrade.md); the newer public release's
-source-derived intake is in [version-133-upgrade.md](version-133-upgrade.md).
+Version 133 is the comparison baseline. Its source-derived intake is in
+[version-133-upgrade.md](version-133-upgrade.md); the historical v132
+implementation inventory is in [version-132-upgrade.md](version-132-upgrade.md).
 Keep detailed pass dossiers anchored to their actually reviewed source tags until
 they are re-audited. A newer comparison target is not proof of new optimizer or
 proposal support, nor does it invalidate historical measured v131 results.
 
-Use `.tmp/binaryen-version_132/bin/wasm-opt` or another explicitly verified v132
-binary. CI and performance sweeps require v132; compare-pass defaults to requiring
-132 and supports an explicit historical version for replay. Record the resolved
+Use `.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt` or another
+explicitly verified v133 binary. CI and performance sweeps require v133.
+Compare-pass still defaults to 132, so new evidence must pass both
+`--wasm-opt-bin <verified-v133-wasm-opt>` and `--require-binaryen-version 133`.
+Record the resolved
 path, version and executable hash. Bare PATH resolution is not evidence of the
 correct oracle version.
 

@@ -2,7 +2,7 @@
 kind: entity
 status: working
 starshine_status: active-partial
-last_reviewed: 2026-09-25
+last_reviewed: 2026-09-28
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/ConstraintAnalysis.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/ir/constraint.cpp
@@ -27,7 +27,9 @@ related:
 
 Parameterized-loop planning now reuses one node work array and generation-mark array across sibling loops. Each loop still traverses its own body and associated CFG blocks; the change removes a full node-sized visited allocation and clear per loop. The [native white-box benchmark](../../../../../src/passes/constraint_loop_plan_perf_wbtest.mbt) uses valid sibling loops with one carried i32 parameter and measures `ca_loop_plan` after HOT lifting and CFG construction. Mean time fell from **15.07 → 13.01 µs** (13.7%) for 32 loops and **35.81 → 29.29 µs** (18.2%) for 64. All 34 existing ConstraintAnalysis tests pass. Full-pass and Binaryen-v132 comparison impact remain unmeasured.
 
-`constraint-analysis` is a runnable, opt-in HOT pass targeting Binaryen **132**.
+`constraint-analysis` is a runnable, opt-in HOT pass initially ported against
+Binaryen **132**; current comparisons require verified **133**, including the
+[September 28 renewal](fuzzing.md#current-verified-v133-lane).
 This supersedes the July 18 upstream-only status. The original upstream pass
 appeared in v131; v132 substantially expands its solver. Default -O3/-Os/-Oz
 scheduling is the later #9010 change and has not been copied into Starshine.
@@ -76,3 +78,9 @@ It separates straight-line predicates, copy chains, branch joins, relational
 fusing, loop widening and unreachable cleanup from the solver's internal state
 normalization. The release page also records the exact v131-to-v132 commit
 families and the distinction between released behavior and post-tag guardrails.
+
+## September 28, 2026 performance reuse contracts
+
+Constraint-analysis lowering and raw cleanup share the dispatcher’s existing lazy module environment rather than rebuilding it per function or twice per refinalization. Type-changing pipeline operations retain the existing environment invalidation. Active integer fixtures prove a constrained comparison folds; i32/i64 typed-block and source-reuse tests guard refinalization correctness.
+
+Tests and native controls: [constraint_lower_module_env_wbtest.mbt](../../../../../src/passes/constraint_lower_module_env_wbtest.mbt), [constraint_lower_module_env_perf_wbtest.mbt](../../../../../src/passes/constraint_lower_module_env_perf_wbtest.mbt), [registry_active_perf_wbtest.mbt](../../../../../src/passes/registry_active_perf_wbtest.mbt). The [campaign report](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign) owns frozen-binary artifact timings, verified-v133 evidence and final correctness outcomes; helper timings alone do not close the remaining pipeline or parity gaps.
