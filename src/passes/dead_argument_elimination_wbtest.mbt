@@ -6736,7 +6736,9 @@ test "dae dead suffix evidence centralizes unreachable tails" {
     Some(evidence) => {
       assert_eq(evidence.root_idx, 1)
       assert_eq(evidence.suffix_start, 2)
-      assert_eq(evidence.suffix, [body[2], body[3]])
+      assert_eq(evidence.body, body)
+      assert_eq(evidence.body[evidence.suffix_start], body[2])
+      assert_eq(evidence.body[evidence.suffix_start + 1], body[3])
     }
     None => fail("expected dead suffix evidence")
   }

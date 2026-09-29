@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-26
+last_reviewed: 2026-09-29
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -25,6 +25,202 @@ related:
 ---
 
 # Starshine `dead-argument-elimination` strategy and status
+
+## September 29, 2026 reverse literal signature reuse
+
+Reverse exact-literal candidate scanning now reads function signatures from the
+call graph snapshot already built for that scan. It preserves global function
+indices across imports and unrelated heap types; body/boundary/type changes
+still rebuild the existing snapshot. No complete operand arrays or additional
+module-lifetime type cache are retained. Two red-first
+[active and unchanged fixtures](../../../../../src/passes/dae_reverse_signature_wbtest.mbt)
+require zero redundant type-section walks, exact reference bytes, uniform-literal
+parameter pruning, validation and source ownership. The
+[dispatcher](../../../../../src/cmd/dae_reverse_signature_wbtest.mbt) covers both DAE modes.
+[Native controls](../../../../../src/passes/dae_reverse_signature_perf_wbtest.mbt)
+compare snapshot reuse with the frozen resolver at tiny and heap-type-heavy
+scales. V18 passes its full/default and focused native suites; the heavy
+nonconstant scan improves 39.45 → 32.02 µs, while active 1.07 → 1.06 ms
+remains near dispersion. Causal V14/V18 small DAE/DAEO pipelines improve
+4.17%/0.84%, while large movements are below 0.5% and active mutable gains
+below 0.2%. The [complete V18 evidence](../../../tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
+preserves dispersion, pure renewal, RSS limits and fresh v133 ratios; this
+scan change does not close the small DAE oracle gap.
+
+## September 29, 2026 owned sections and bounded operand queries
+
+V11 strengthens distinct snapshot fallbacks to compare float bits, including
+every structured code body and initializer-bearing globals/tables/elements/data.
+Shared storage still proves identity immediately. Four
+[red-first tests](../../../../../src/passes/dae_snapshot_bits_wbtest.mbt)
+demonstrated acceptance of changed signed zero and rejection of identical copied
+NaNs before the fix; nested control and payload assertions cover the new rule.
+The old changed-payload fixture now constructs different binary bits directly
+because the text reader canonicalized its NaN spellings at that checkpoint;
+V18 adds exact scalar payload parsing and byte fixtures. The sixteen-byte
+pruning improvement below belongs to V10. V11 validates 741 bounded modules
+with 3,380 matching observations, including integer payload observations;
+outputs match V10. Seven quiet V10/V11 pairs show small DAE -0.44% and active
+DAEO +0.79%, so the bitwise fallback does not establish an enclosing DAE win.
+
+V12 admits restoration before escape and dead-suffix scans. Only a
+selected zero-parameter unreachable body with an original f64 parameter can
+restore the required operand. [Red-first work and behavior checks](../../../../../src/passes/dae_restore_admission_wbtest.mbt)
+require no scan for impossible candidates and preserve the reference's positive
+restoration, result signatures, bitmap filtering and source bytes.
+[Native controls](../../../../../src/passes/dae_restore_admission_perf_wbtest.mbt)
+compare the frozen pre-admission implementation: 264.65 → 38.31 ns tiny and
+24.08 µs → 62.32 ns wide. V12 completes 12,845 default tests, 78 focused native
+checks and 3,380 matching runtime observations with unchanged bytes. Its fresh
+small DAE ratio remains 69.82× v133; work reduction is not gap closure.
+
+V10 unwraps optional section payloads before recognizing shared owned storage.
+This permits pruning beside an unchanged NaN global and avoids rewalking shared
+metadata. Distinct fields retain their existing contract at this checkpoint;
+the next tests expose signed-zero and copied-NaN gaps in numeric equality.
+[Transaction and field fixtures](../../../../../src/passes/dae_owned_sections_wbtest.mbt)
+and the [dispatcher](../../../../../src/cmd/dae_owned_sections_wbtest.mbt)
+assert active pruning, initializer bits and rejection of changed declarations.
+
+Owned operand queries now carry both start and end, including marked references
+and constant trap lookback. Multi-result prefixes borrow those ranges instead of
+copying each shrinking prefix, then copy output once. The
+[bounds and effect-order tests](../../../../../src/passes/dae_operand_range_wbtest.mbt)
+preserve input bytes. Native prefix controls improve 172.31 → 25.40 µs for
+sixteen values. V10 validates 624 bounded modules with 2,808 matching observations;
+only the NaN-global DAE/DAEO fixture changes, shrinking 85 → 69 raw bytes and
+canonical sizes. The [priority report](../../../tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls)
+owns measurements and the remaining 67.28× small plain-DAE gap.
+
+## September 29, 2026 NaN-safe candidate commitment
+
+A pruning transaction reconstructed the expected candidate, then compared it
+with deep numeric equality. An unchanged NaN in a shared body made that guard
+nonreflexive and rejected a valid candidate. V9 uses the existing owned-code
+snapshot comparison, which recognizes shared instruction arrays and still
+checks distinct bodies, declarations and non-code fields. Candidate validation,
+epoch/caller checks and input ownership remain required.
+
+The [red-first transaction fixture](../../../../../src/passes/dae_nan_plans_wbtest.mbt)
+first fails because the valid pruning plan cannot commit, then asserts the
+reduced signature/caller, preserved NaN bits, valid output and immutable input.
+[Both dispatcher modes](../../../../../src/cmd/dae_nan_plans_wbtest.mbt) preserve
+the parsed NaN instruction while pruning. The expanded 451-test transaction
+and priority suite passes. V9's 50 focused native tests and 2,444 runtime
+observations match; both DAE modes shrink the NaN-body fixture 90 → 74 bytes
+while retaining its exact encoded payload. Short traces reduce small/active
+DAE instructions 2.99%/4.68%; enclosing and renewed oracle evidence remains
+pending. The existing [snapshot benchmarks](../../../../../src/passes/dae_code_snapshot_identity_perf_wbtest.mbt)
+already cover shared arrays/functions and distinct changed bodies.
+
+## September 29, 2026 pure argument removal before localization
+
+Typed callsite plans previously localized non-leaf arguments even when the
+whole unused expression was pure and nontrapping. That retained arithmetic,
+an unread caller scratch write and sometimes an unnecessary callee body local.
+Before allocating a scratch, application now borrows the operand's end offset
+and asks the existing pure-suffix proof for its start. Removal requires exact
+equality with the owned slice boundary. Observable producers, unknown control
+and possible traps retain the original localization path; constant trap and
+reference-root proofs keep their existing contracts. The proof uses no prefix
+copy. Localization flags are copied only when changed, preserving reusable plans.
+
+The [pass regressions](../../../../../src/passes/dae_pure_arguments_wbtest.mbt)
+first fail with one localization instead of zero, and the
+[dispatcher regression](../../../../../src/cmd/dae_pure_arguments_wbtest.mbt)
+first retains arithmetic and an unread `local.set`. Focused tests now cover
+effect prefixes, multiple removed operands around a live import call, potentially
+trapping division, borrowed endpoints, input ownership and plan reuse in both
+DAE modes. The [pipeline controls](../../../../../src/passes/dae_pure_arguments_perf_wbtest.mbt)
+exercise literal and wide arithmetic arguments with an observable prefix.
+The frozen V7b checkpoint passes 12,802 default tests, 479 native IR tests and
+33 focused native tests. Its 31-fixture, four-pass runtime matrix validates 403
+modules with 1,872 matching results, effects and traps against original/V6/V7b
+and verified v133. The reduced plain-DAE arithmetic argument falls from 83 to
+72 bytes; two arithmetic arguments around a live import fall from 87 to 69.
+Inspection confirms removal of pure arithmetic and unread scratch writes while
+preserving the import's execution order; canonical sizes also decrease. The
+separate shared-query matrix has 2,420 matching observations across 18 passes.
+The V6/V8 wide pure-argument fixture improves DAE 43.573 → 30.502 ms
+(-30.00%) and DAEO 74.091 → 41.008 ms (-44.65%) in three alternating pairs;
+three of twelve rows observe foreign CPU activity. Plain DAE falls from
+13,378 to 802 raw bytes; DAEO bytes already matched after cleanup. Quiet
+conditional-write DAE/DAEO instead change +1.33%/+2.73%, and contended small
+DAEO adds 7.01%; those costs remain open for renewal. This addresses the
+reduced capture gap; broader uniform-actual, slice and solver costs remain open.
+
+## September 29, 2026 scalar pure-suffix needs
+
+Ordinary pure, nontrapping expression suffixes now track pending operands in an
+integer rather than allocating a stack of zero markers. Proven pure leaves
+bypass cast and constant-trap checks. Reference-root proofs allocate an ordered
+marker stack lazily, copying the pending zeros once; nullable casts, i31 roots
+and null-trapping operations retain their existing proof contract. Constant
+division/truncation proofs still apply only to the outermost outstanding value.
+Returned suffix offsets and input ownership are unchanged.
+
+The [direct instruction regressions](../../../../../src/passes/dae_scalar_needs_wbtest.mbt)
+cover arithmetic, marked operand ordering, null traps, safe/unsafe constant
+division/truncation and effects. The
+[dispatcher fixture](../../../../../src/cmd/dae_scalar_needs_wbtest.mbt) checks
+argument removal beside an observable import call in both DAE modes.
+[Native controls](../../../../../src/passes/dae_scalar_needs_perf_wbtest.mbt)
+retain the V3 scanner and compare arithmetic widths 1/128/4,096 and reference
+widths 1/32, with ownership and proof checks outside timing. V5 arithmetic
+widths 1/128/4,096 improve 22.27 ns/1.81 µs/57.04 µs to
+9.05 ns/1.58 µs/50.41 µs. Reference widths 1/32 regress
+29.15 → 36.81 ns and 566.65 → 631.19 ns. V6's ordered-stack handoff restores
+28.33 → 28.52 ns at width one (near noise) and improves 583.59 → 536.81 ns
+at width 32; arithmetic controls retain their gains. V4/V5 active conditional-write DAE improves
+37.898 → 36.525 ms (-3.62%); the small compiler movement remains near noise.
+The pure-argument removal above subsequently closes the reduced unused-operand
+capture gap; the suffix allocation changes alone did not close it.
+
+## September 28, 2026 singleton-trap scan summary
+
+The mandatory call-fact traversal now reports whether a body is exactly an
+`unreachable` instruction or a singleton chain of `block` wrappers around it.
+The parent applies that summary to subsequent siblings, removing its separate
+recursive trap precheck. Such a chain contains no call or reference, so learning
+the summary after visiting its child preserves all call facts. Loops, conditionals,
+handlers and non-singleton blocks keep their existing conservative admission.
+Inactive ordinary calls still retain paths and callers; inactive tail calls stay
+excluded, and dead `ref.func` instructions still expose their targets.
+
+The [bounded regressions](../../../../../src/passes/dae_trap_summary_wbtest.mbt)
+and [dispatcher test](../../../../../src/cmd/dae_trap_summary_wbtest.mbt) pass.
+Sixteen [native before/after controls](../../../../../src/passes/dae_trap_summary_perf_wbtest.mbt)
+retain the previous scan: flat 4,096-instruction scanning improves 15.11 to
+6.66 µs, and 128 nested nontrapping singleton wrappers improve 29.22 to
+1.04 µs. All eight measured shapes improve. These helper results do not renew
+the oracle ratio on their own. V3 resolves the initial active DAE regression
+with reusable traversal path scratch: seven quiet pairs improve
+37.385 → 36.180 ms (-3.22%), and native instructions fall 3.38% with identical
+bytes. The complete V5 checkpoint passes 12,788 default wasm-gc tests and
+1,560 bounded runtime observations. Its fresh v133 ratio is 71.05× on the
+small fixture and 1.90× on the large fixture. Aggregate renewal remains open
+in the [campaign report](../../../tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls).
+
+## September 28, 2026 fused current topology scan
+
+Current graph construction and refresh collect outgoing indirect/reference call
+flags and direct tail-call edges during the mandatory call-fact traversal. This
+removes a second body walk and its repeated unreachable-root queries while
+retaining instruction order, inactive-tail exclusion and imported function
+numbering. Shape-valid supplied topology stays borrowed; typed-only boundary
+batches still omit extras. No duplicated mutable topology is added to function
+records. The independent collector remains available to other callers.
+
+The [regressions](../../../../../src/passes/dae_topology_fusion_wbtest.mbt)
+first fail at 30/29 redundant instruction visits, then pass exact seven-field,
+call-fact, refresh-epoch and ownership checks. The
+[dispatcher fixture](../../../../../src/cmd/dae_topology_fusion_wbtest.mbt)
+retains direct tail calls while removing forwarded dead arguments in both modes.
+Sixteen [native controls](../../../../../src/passes/dae_topology_fusion_perf_wbtest.mbt)
+cover small/wide call bodies and shallow/nested functions. All 12,742 default
+wasm-gc tests pass; the [current campaign](../../../tooling/tracing-playbook.md#next-v7-fused-dae-traversal-and-small-observation-row-capacity)
+owns native timing and pending aggregate renewal. This is not final parity or
+performance signoff.
 
 ## September 27 follow-up allocation campaign renewal
 
@@ -932,3 +1128,37 @@ controls measure **2.37 → 2.05 µs** at 64 functions/types and **415.91 →
 unused tail. These are snapshot lookup controls, not complete DAE timings.
 Evidence: `.tmp/pass-perf-reuse-20260927/dae-signature-unused-tail-{red,green}.log`
 and `final-dae-signature-bench-0.log`.
+
+## September 28, 2026 performance reuse contracts
+
+Count-only call facts use the existing instruction walker without allocating full callsite/path and loop-operand metadata. A module signature prefix serves typed-loop queries. Full call facts and the established literal/forwarding caches remain available where plans consume them. An early exit in uniform-actual discovery was rejected during source review: unsupported later control can change the required None-versus-unknown-vector result.
+
+Tests and native controls: [dae_count_only_facts_wbtest.mbt](../../../../../src/passes/dae_count_only_facts_wbtest.mbt), [dae_count_only_facts_perf_wbtest.mbt](../../../../../src/passes/dae_count_only_facts_perf_wbtest.mbt), [dae_loop_signature_index_wbtest.mbt](../../../../../src/passes/dae_loop_signature_index_wbtest.mbt), [dae_loop_signature_index_perf_wbtest.mbt](../../../../../src/passes/dae_loop_signature_index_perf_wbtest.mbt). The [campaign report](../../../tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign) owns frozen-binary artifact timings, verified-v133 evidence and final correctness outcomes; helper timings alone do not close the remaining pipeline or parity gaps.
+
+## September 28, 2026 follow-up performance contracts
+
+Dropped-result cleanup allocates at its first changed instruction and preserves
+untouched child arrays. Dead-suffix facts borrow the source body with an explicit
+start; nested queries reset their entry offset and keep empty operand origins.
+Owned code-snapshot identity now reaches scalar and component transaction guards,
+including shared NaN bodies. Distinct bodies, declarations and every non-code
+field in the existing Module equality contract remain checked. Uniform-actual
+admission and its conservative later-control behavior remain unchanged.
+
+The renewed artifact matrix and dedicated correctness lanes are recorded in the
+[follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign).
+
+## September 29, 2026 exact-owner reverse graph reuse trial
+
+Reverse exact-literal scanning and its surrounding transaction planning now
+share the same current-module boundary graph. Reuse requires exact module
+identity; a foreign owner rebuilds. Each productive iteration starts a fresh
+graph, and dependency graph reuse retains its existing cache contract.
+[Fixtures](../../../../../src/passes/dae_reverse_graph_reuse_wbtest.mbt)
+require active pruning and unchanged output, zero additional graph builds,
+foreign-owner rebuild, stable graph epochs and preserved input bytes.
+[Dispatcher coverage](../../../../../src/cmd/dae_reverse_graph_reuse_wbtest.mbt)
+keeps import effects in both modes. Seven focused checks pass.
+[Eight native controls](../../../../../src/passes/dae_reverse_graph_reuse_perf_wbtest.mbt)
+include complete scan/commit rounds at tiny and wide type/function counts.
+Native/enclosing confirmation is pending in V24; no speedup is established yet.

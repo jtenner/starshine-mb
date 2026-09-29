@@ -4,6 +4,10 @@ fn dae_literal_replay_fixture_run(
   original_boundary_snapshot : DaeOriginalBoundarySnapshot,
   original_builds : Array[Int],
   reference? : Bool = false,
+  supplied_graph? : DaeCurrentBoundaryGraph? = None,
+  graph_builds? : Array[Int]? = None,
+  type_resolutions? : Array[Int]? = None,
+  reuse_function_types? : Bool = true,
 ) -> DaePassResult {
   let original_param_counts = original_boundary_snapshot.param_counts
   let original_call_summary = original_boundary_snapshot.call_summary
@@ -65,7 +69,11 @@ fn dae_literal_replay_fixture_run(
       original_dead_suffix_calls_from_param_operand_self_result_callers,
       original_dead_suffix_escaped_result_operand_call_counts,
       original_dead_suffix_dropped_calls_from_parameterized_self_callers,
+      supplied_graph~,
+      graph_builds~,
       original_snapshot_builds=Some(original_builds),
+      type_resolutions~,
+      reuse_function_types~,
     )
   }
 }
