@@ -24,6 +24,10 @@
   A native getter inline annotation produces an identical binary and is removed.
   Its timing calibration exposes up to 9.85% small-input variation; later
   paired brackets use a separate reference executable and retain that limitation.
+  Reverse flow now appends each reader once: 2048-reader graph construction
+  improves 611.87 → 128.49µs, with 12,921 tests passing. Large DAE2 records
+  +1.61%; artifact gains remain unproven for this slice. Independent-reference
+  identical-binary controls and all measured costs stay explicit.
   Fuzz remains deferred by request until performance trials finish.
 
 ### 2026-09-29 — DAE priority performance iteration

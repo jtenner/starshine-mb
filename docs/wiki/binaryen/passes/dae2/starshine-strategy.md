@@ -25,6 +25,43 @@ related:
 
 # Starshine DAE2 implementation
 
+## September 29, 2026 append unique reverse-flow readers
+
+Reverse flow records each get once with a deduplicated source row. Its recorder
+now assigns that row directly and appends each write influence without searching
+all earlier readers. Dense/sparse iterative recording retains its merge and
+deduplication logic. This removes quadratic reader-list searches and the unused
+copy-on-write recorder on the reverse path, without adding an index or cache.
+
+The [bounded guards](../../../../../src/ir/local_graph_unique_reads_wbtest.mbt)
+pass before and after for ordered readers, branch-joined writes and shared-read
+fallback. [Full graph controls](../../../../../src/ir/local_graph_unique_reads_perf_wbtest.mbt)
+at 128/512/2048 readers improve 11.50 → 9.57µs / 68.77 → 32.84µs /
+611.87 → 128.49µs. The high-count case is 4.76× faster and scaling is now
+approximately linear. This is a graph-construction gain, not a compiler-wide
+speedup claim.
+
+Independent-reference paired medians retain a large DAE2 cost:
+4623.318 → 4697.854ms (+1.61%; MAD 78.203/38.001ms). DAE2-O is nearly
+flat at 7955.797 → 7918.754ms, MAD 21.181/66.549ms. Small medians are
+4.379 → 4.388ms / 11.641 → 11.566ms; active tee medians are
+3.819 → 3.788ms / 107.230 → 107.812ms. Preserve the observed costs; the
+asymptotic improvement does not close the compiler-artifact gap.
+
+Seven-pair identical-binary controls with the separate reference measure small
+DAE2/O variation of −1.08%/−2.61% and tee variation of −0.84%/−0.10%.
+The new bracket removes asymmetric reference invocation, but timing noise
+remains. These controls limit claims from small differences in later trials.
+
+Info, fmt, 12,921 tests, native build, three reader benchmarks and three next-stage
+cache controls pass. The 126-module / 1,029-observation original/v133 replay and
+all output byte checks pass. Candidate SHA-256 is
+`61a7017554e3ba466f22538b40c7fa90f9629c6c2e3e70ea7239f9b04efb2484`;
+local evidence uses `v9` and `calibration-independent-{small,tee}/`. A corrected
+runner-path argument error is preserved in `evidence-v9-harness-error.log`;
+completed runtime evidence was hash-checked and reused before the successful
+paired run. Fuzz remains deferred.
+
 ## September 29, 2026 rejected native getter annotation
 
 Adding `#inline` to `hot_node_get` produced an **identical native binary** to

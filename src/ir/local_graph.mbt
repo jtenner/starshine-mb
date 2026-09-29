@@ -1603,6 +1603,34 @@ fn local_graph_reverse_entry_sources(
 }
 
 ///|
+// Reverse flow visits each get once, and each source row is already unique.
+// Append influences directly instead of repeatedly searching prior readers.
+fn local_graph_record_unique_get_sources(
+  local_count : Int,
+  get_id : NodeId,
+  sources : Array[Int],
+  get_sources : Array[Array[Int]],
+  write_influences : Array[Array[NodeId]],
+) -> Unit {
+  get_sources[get_id] = sources
+  for source_id in sources {
+    if source_id >= local_count {
+      let set_id = source_id - local_count
+      if set_id >= 0 && set_id < write_influences.length() {
+        let observers = write_influences[set_id]
+        if observers.is_empty() {
+          let owned : Array[NodeId] = Array(capacity=8)
+          owned.push(get_id)
+          write_influences[set_id] = owned
+        } else {
+          observers.push(get_id)
+        }
+      }
+    }
+  }
+}
+
+///|
 fn local_graph_build_reverse_flow(
   func : HotFunc,
   cfg : HotCfg,
@@ -1673,7 +1701,6 @@ fn local_graph_build_reverse_flow(
   )
   let get_sources : Array[Array[Int]] = Array::make(node_count, [])
   let write_influences = local_graph_empty_influences(func)
-  let recorded_sources = LocalGraphSourceRecorder::new(get_sources)
   let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
     cfg_block_count(cfg),
     None,
@@ -1720,12 +1747,8 @@ fn local_graph_build_reverse_flow(
         cache_slots~,
       )
     }
-    local_graph_record_get_sources(
-      local_count,
-      node_id,
-      sources,
-      Some(recorded_sources),
-      Some(write_influences),
+    local_graph_record_unique_get_sources(
+      local_count, node_id, sources, get_sources, write_influences,
     )
   }
   {

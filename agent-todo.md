@@ -18,6 +18,9 @@
   DAE2-O is nearly flat, small/tee costs remain recorded, and 12,919 tests pass.
   SSA singleton summaries remove a quadratic union (512-write control
   48.72 → 6.47µs); large compiler times are near flat and 12,919 tests pass.
+  Unique reverse-flow reader recording removes another quadratic scan
+  (2048-reader graph 611.87 → 128.49µs; 12,921 tests). Large DAE2 costs +1.61%
+  in its paired cohort, so this is a scalability win rather than an artifact gain.
   Remaining targets include source-order scans, source-union churn, and lift/lower;
   opcode-based tuple preparation removes temporary strings and improves paired
   large DAE2/O a further 3.89%/2.90% with identical bytes (12,910 tests pass); fresh oracle ratios and deferred aggregate fuzz remain open.
