@@ -2,6 +2,9 @@
 // A bounded optional encoding cleanup. Whole recursion groups remain indivisible;
 // only global indices are renamed, preserving relative recursive identities.
 fn pass_cleanup_unused_type_groups(mod_ : @lib.Module) -> @lib.Module {
+  if !mod_.custom_secs.is_empty() {
+    return mod_
+  }
   let groups = match mod_.type_sec {
     Some(@lib.TypeSec(groups)) => groups
     None => return mod_

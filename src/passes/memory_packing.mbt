@@ -1364,6 +1364,67 @@ fn mp_name_map_from_entries(entries : Array[@lib.NameAssoc]) -> @lib.NameMap? {
 }
 
 ///|
+fn mp_imported_func_count(mod_ : @lib.Module) -> Int {
+  let mut count = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(_)) => count += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  count
+}
+
+///|
+fn mp_changed_defined_funcs(
+  before : @lib.CodeSec?,
+  after : @lib.CodeSec?,
+) -> Array[Bool] {
+  match (before, after) {
+    (Some(@lib.CodeSec(old_funcs)), Some(@lib.CodeSec(new_funcs))) => {
+      let changed : Array[Bool] = []
+      let count = old_funcs.length().min(new_funcs.length())
+      for idx = 0; idx < count; idx = idx + 1 {
+        changed.push(old_funcs[idx] != new_funcs[idx])
+      }
+      changed
+    }
+    _ => []
+  }
+}
+
+///|
+fn mp_drop_touched_label_names(
+  label_names : @lib.IndirectNameMap?,
+  imported_funcs : Int,
+  changed_defined_funcs : Array[Bool],
+) -> @lib.IndirectNameMap? {
+  let entries = match label_names {
+    Some(@lib.IndirectNameMap(entries)) => entries
+    None => return None
+  }
+  let kept : Array[@lib.IndirectNameAssoc] = []
+  for entry in entries {
+    let @lib.IndirectNameAssoc(raw_func_idx, _) = entry
+    let defined_idx = raw_func_idx.reinterpret_as_int() - imported_funcs
+    if defined_idx < 0 ||
+      defined_idx >= changed_defined_funcs.length() ||
+      !changed_defined_funcs[defined_idx] {
+      kept.push(entry)
+    }
+  }
+  if kept.is_empty() {
+    None
+  } else {
+    Some(@lib.IndirectNameMap::new(kept))
+  }
+}
+
+///|
 fn mp_suffixed_data_name(name : @lib.Name, suffix : Int) -> @lib.Name {
   @lib.Name::from_string(mp_name_to_string(name) + "." + suffix.to_string())
 }
@@ -1398,6 +1459,8 @@ fn mp_append_data_name_entries(
 fn mp_rewrite_name_sec(
   name_sec : @lib.NameSec?,
   data_name_entries : Array[@lib.NameAssoc],
+  imported_funcs : Int,
+  changed_defined_funcs : Array[Bool],
 ) -> @lib.NameSec? {
   match name_sec {
     Some(sec) => {
@@ -1419,7 +1482,9 @@ fn mp_rewrite_name_sec(
         module_name~,
         func_names~,
         local_names~,
-        label_names~,
+        label_names=mp_drop_touched_label_names(
+          label_names, imported_funcs, changed_defined_funcs,
+        ),
         type_names~,
         table_names~,
         memory_names~,
@@ -2972,10 +3037,21 @@ pub fn memory_packing_run_module_pass(
     (Some(_), None) => None
     (None, _) => None
   }
-  let next_name_sec = mp_rewrite_name_sec(mod_.name_sec, data_name_entries)
+  let next_name_sec = mp_rewrite_name_sec(
+    mod_.name_sec,
+    data_name_entries,
+    mp_imported_func_count(mod_),
+    mp_changed_defined_funcs(mod_.code_sec, next_code_sec),
+  )
+  let invalidates_compiler_facts = next_code_sec != mod_.code_sec ||
+    next_global_sec != mod_.global_sec
   @lib.Module::new(
     custom_secs=mod_.custom_secs,
-    compiler_fact_custom_section=mod_.compiler_fact_custom_section,
+    compiler_fact_custom_section=if invalidates_compiler_facts {
+      None
+    } else {
+      mod_.compiler_fact_custom_section
+    },
     type_sec=mod_.type_sec,
     import_sec=mod_.import_sec,
     func_annotation_sec=mod_.func_annotation_sec,

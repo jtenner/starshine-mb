@@ -1284,6 +1284,9 @@ pub fn global_refining_run_module_pass(
   mod_ : @lib.Module,
   closed_world? : Bool = false,
 ) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   let refined = gr_refine_module(mod_, closed_world~)
   // A module without candidate globals can still carry duplicate signatures
   // and fragmented numeric local runs. Reuse the guarded encoding cleanup.

@@ -31,6 +31,59 @@ fn msf_test_tail_call_disabled_module() -> @lib.Module {
 }
 
 ///|
+fn msf_test_call_ref_feature_disabled_module(payload : Bytes) -> @lib.Module {
+  pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $callee (func (result i32)))
+      #|  (func $callee0 (type $callee) (result i32) i32.const 0)
+      #|  (func $callee1 (type $callee) (result i32) i32.const 1)
+      #|  (elem declare func $callee0 $callee1)
+      #|  (func (result i32)
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    call $callee0)
+      #|  (func (result i32)
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    call $callee1))
+      #|
+    ),
+  ).with_custom_secs([
+    @lib.CustomSec::new(@lib.Name::new("target_features"), payload),
+  ])
+}
+
+///|
+fn msf_test_function_references_disabled_module() -> @lib.Module {
+  msf_test_call_ref_feature_disabled_module(
+    Bytes::from_array([
+      1, 0x2d, 19, 0x66, 0x75, 0x6e, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x2d, 0x72, 0x65,
+      0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x73,
+    ]),
+  )
+}
+
+///|
+fn msf_test_assert_no_function_reference_merge(
+  mod_ : @lib.Module,
+) -> Unit raise {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 4)
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        @debug.assert_eq(
+          audit_count(body, fn(instr) {
+            instr is @lib.CallRef(_) || instr is @lib.ReturnCallRef(_)
+          }),
+          0,
+        )
+      }
+    }
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "merge-similar-functions shares large literal-only siblings" {
   let optimized = try! msf_test_run(
     (
@@ -227,6 +280,58 @@ test "merge-similar-functions parameterizes same-type direct callees" {
       fail(
         "expected valid call-target merge, got \{@validate.validation_error_message(err)}",
       )
+  }
+}
+
+///|
+test "merge-similar-functions honors disabled function-references metadata" {
+  let input = msf_test_function_references_disabled_module()
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let output = merge_similar_functions_run_module_pass(input)
+  @debug.assert_eq(output.custom_secs, input.custom_secs)
+  assert_true(@validate.validate_module(output) is Ok(_))
+  msf_test_assert_no_function_reference_merge(output)
+}
+
+///|
+test "merge-similar-functions dispatcher honors disabled function-references metadata" {
+  let input = msf_test_function_references_disabled_module()
+  let output = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "merge-similar-functions",
+    ]) {
+    Ok(module_) => module_
+    Err(err) => fail("expected feature-gated MSF dispatch, got \{err}")
+  }
+  @debug.assert_eq(output.custom_secs, input.custom_secs)
+  assert_true(@validate.validate_module(output) is Ok(_))
+  msf_test_assert_no_function_reference_merge(output)
+}
+
+///|
+test "merge-similar-functions requires reference-types and gc for call_ref helpers" {
+  let disabled_features : Array[(String, Bytes)] = [
+    (
+      "reference-types",
+      Bytes::from_array([
+        1, 0x2d, 15, 0x72, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x2d,
+        0x74, 0x79, 0x70, 0x65, 0x73,
+      ]),
+    ),
+    ("gc", Bytes::from_array([1, 0x2d, 2, 0x67, 0x63])),
+  ]
+  for (feature, payload) in disabled_features {
+    let input = msf_test_call_ref_feature_disabled_module(payload)
+    let direct = merge_similar_functions_run_module_pass(input)
+    msf_test_assert_no_function_reference_merge(direct)
+    let dispatched = match
+      run_hot_pipeline(input, HotPipelineOptions::new(), [
+        "merge-similar-functions",
+      ]) {
+      Ok(module_) => module_
+      Err(err) => fail("expected \{feature}-gated MSF dispatch, got \{err}")
+    }
+    msf_test_assert_no_function_reference_merge(dispatched)
   }
 }
 

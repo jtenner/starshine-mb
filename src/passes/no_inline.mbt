@@ -212,7 +212,13 @@ fn no_inline_existing_annotation_map(
         let @lib.FuncAnnotationAssoc(raw_idx, annotations) = entry
         let slot = raw_idx.reinterpret_as_int()
         if slot >= 0 && slot < by_func.length() {
-          by_func[slot] = annotations
+          let merged = by_func[slot].copy()
+          for annotation in annotations {
+            if !merged.contains(annotation) {
+              merged.push(annotation)
+            }
+          }
+          by_func[slot] = merged
         }
       }
     None => ()

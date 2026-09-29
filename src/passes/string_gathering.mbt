@@ -15,6 +15,7 @@ priv struct SgRewritePlan {
   string_indices : Map[Bytes, Int]
   string_global_abs : Array[Int]
   old_defined_to_abs : Array[Int]
+  old_preserve_type : Array[Bool]
   entry_is_fresh : Array[Bool]
   entry_value : Array[Int]
 }
@@ -73,20 +74,6 @@ fn sg_collect_instrs(
 fn sg_collect_expr(expr : @lib.Expr, set : SgStringSet) -> Unit {
   let @lib.Expr(instrs) = expr
   sg_collect_instrs(instrs, set)
-}
-
-///|
-fn sg_collect_table_sec(table_sec : @lib.TableSec?, set : SgStringSet) -> Unit {
-  match table_sec {
-    Some(@lib.TableSec(tables)) =>
-      for table in tables {
-        match table {
-          @lib.Table(_, Some(init)) => sg_collect_expr(init, set)
-          _ => ()
-        }
-      }
-    None => ()
-  }
 }
 
 ///|
@@ -170,7 +157,6 @@ fn sg_collect_strings(mod_ : @lib.Module) -> SgStringSet {
   // constant expressions, then inserts gathered globals before existing defined
   // globals. Keep that order for normalized-WAT parity.
   sg_collect_code_sec(mod_.code_sec, set)
-  sg_collect_table_sec(mod_.table_sec, set)
   sg_collect_global_sec(mod_.global_sec, set)
   sg_collect_elem_sec(mod_.elem_sec, set)
   sg_collect_data_sec(mod_.data_sec, set)
@@ -308,13 +294,37 @@ fn sg_make_rewrite_plan(
   sg_sort_strings(set.strings)
   sg_reindex_strings(set)
   let globals = sg_defined_globals(mod_)
+  let exported_globals : Map[UInt, Unit] = Map([])
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(idx))) =>
+            exported_globals[idx] = ()
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let old_preserve_type = Array::make(globals.length(), false)
+  for old_idx = 0; old_idx < globals.length(); old_idx = old_idx + 1 {
+    let nullable = match globals[old_idx] {
+      @lib.Global(@lib.GlobalType(@lib.RefTypeValType(ref_type), _), _) =>
+        ref_type.is_nullable()
+      _ => false
+    }
+    old_preserve_type[old_idx] = nullable &&
+      exported_globals.contains(
+        (imported_globals + old_idx).reinterpret_as_uint(),
+      )
+  }
   let canonical_old = Array::make(set.strings.length(), -1)
   for old_idx = 0; old_idx < globals.length(); old_idx = old_idx + 1 {
     match sg_direct_string_init(globals[old_idx]) {
       Some(bytes) =>
         match sg_string_index(set, bytes) {
-          Some(string_idx) if canonical_old[string_idx] < 0 =>
-            canonical_old[string_idx] = old_idx
+          Some(string_idx) if canonical_old[string_idx] < 0 &&
+            !old_preserve_type[old_idx] => canonical_old[string_idx] = old_idx
           _ => ()
         }
       None => ()
@@ -370,6 +380,7 @@ fn sg_make_rewrite_plan(
     string_indices: set.indices,
     string_global_abs,
     old_defined_to_abs,
+    old_preserve_type,
     entry_is_fresh,
     entry_value,
   }
@@ -444,33 +455,6 @@ fn sg_rewrite_expr(
 }
 
 ///|
-fn sg_rewrite_table_sec(
-  table_sec : @lib.TableSec?,
-  plan : SgRewritePlan,
-  imported_globals : Int,
-) -> @lib.TableSec? {
-  match table_sec {
-    Some(@lib.TableSec(tables)) => {
-      let out : Array[@lib.Table] = []
-      for table in tables {
-        match table {
-          @lib.Table(table_type, Some(init)) =>
-            out.push(
-              @lib.Table::new(
-                table_type,
-                Some(sg_rewrite_expr(init, plan, imported_globals)),
-              ),
-            )
-          @lib.Table(_, _) => out.push(table)
-        }
-      }
-      Some(@lib.TableSec::new(out))
-    }
-    None => None
-  }
-}
-
-///|
 fn sg_rewrite_global_sec(
   global_sec : @lib.GlobalSec?,
   plan : SgRewritePlan,
@@ -518,7 +502,11 @@ fn sg_rewrite_global_sec(
       // original declaration used a nullable shorthand. Reused globals must
       // expose that proof to every rewritten literal consumer.
       let rewritten_type = if sg_direct_string_init(globals[value]) is Some(_) {
-        string_global_type
+        if plan.old_preserve_type[value] {
+          global_type
+        } else {
+          string_global_type
+        }
       } else {
         global_type
       }
@@ -675,6 +663,22 @@ fn sg_rewrite_global_name_map(
           out.push(entry)
         }
       }
+      let mut i = 1
+      while i < out.length() {
+        let current = out[i]
+        let @lib.NameAssoc(current_idx, _) = current
+        let mut j = i
+        while j > 0 {
+          let @lib.NameAssoc(previous_idx, _) = out[j - 1]
+          if previous_idx <= current_idx {
+            break
+          }
+          out[j] = out[j - 1]
+          j -= 1
+        }
+        out[j] = current
+        i += 1
+      }
       Some(@lib.NameMap::new(out))
     }
     None => None
@@ -736,7 +740,8 @@ fn sg_rewrite_code_sec(
 
 ///|
 pub fn string_gathering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
-  if pass_module_has_legacy_try(mod_) {
+  if pass_module_has_legacy_try(mod_) ||
+    pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
   }
   let set = sg_collect_strings(mod_)
@@ -751,7 +756,7 @@ pub fn string_gathering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     import_sec=mod_.import_sec,
     func_annotation_sec=mod_.func_annotation_sec,
     func_sec=mod_.func_sec,
-    table_sec=sg_rewrite_table_sec(mod_.table_sec, plan, imported_globals),
+    table_sec=mod_.table_sec,
     mem_sec=mod_.mem_sec,
     tag_sec=mod_.tag_sec,
     stringrefs_sec=mod_.stringrefs_sec,

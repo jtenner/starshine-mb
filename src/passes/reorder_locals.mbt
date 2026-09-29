@@ -687,6 +687,9 @@ pub fn reorder_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let imported_func_count = rl_imported_func_count(mod_)
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
+      if funcs.is_empty() {
+        return mod_
+      }
       let defined_func_params = rl_defined_func_param_cache(mod_)
       let rewritten_funcs : Array[@lib.Func] = Array::new(
         capacity=funcs.length(),

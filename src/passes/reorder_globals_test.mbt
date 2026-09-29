@@ -394,6 +394,39 @@ test "reorder-globals remaps exported global indices and global names" {
 }
 
 ///|
+test "reorder-globals counts exports when shrinking high global indices" {
+  let exports : Array[@lib.Export] = []
+  for name in ["hot-a", "hot-b", "hot-c", "hot-d"] {
+    exports.push(
+      @lib.Export::new(
+        @lib.Name::from_string(name),
+        @lib.ExternIdx::global(@lib.GlobalIdx::new(128U)),
+      ),
+    )
+  }
+  let input = @lib.Module::new()
+    .with_global_sec(@lib.GlobalSec::new(rg_test_globals(129)))
+    .with_export_sec(@lib.ExportSec::new(exports))
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let before_size = @binary.encode_module(input).unwrap().length()
+  let optimized = reorder_globals_run_module_pass_always(input)
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+  @debug.assert_eq(try! rg_test_global_const_value(optimized, 0), 128)
+  match optimized.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(idx))) =>
+            @debug.assert_eq(idx, 0U)
+          other => fail("expected global export, got \{other}")
+        }
+      }
+    None => fail("expected export section")
+  }
+  assert_true(@binary.encode_module(optimized).unwrap().length() < before_size)
+}
+
+///|
 fn rg_test_late_tail_fixture() -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")

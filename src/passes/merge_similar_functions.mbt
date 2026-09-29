@@ -4,7 +4,7 @@ pub fn merge_similar_functions_summary() -> String {
 }
 
 ///|
-fn msf_target_features_disallow_tail_call(payload : Bytes) -> Bool {
+fn msf_target_features_disallow(payload : Bytes, feature : String) -> Bool {
   let count_result : Result[(@lib.U32, Int), @binary.BinaryDecodeError] = @binary.Decode::decode(
     payload, 0,
   )
@@ -34,7 +34,7 @@ fn msf_target_features_disallow_tail_call(payload : Bytes) -> Bool {
       Err(_) => return true
     }
     cursor = next
-    if prefix == b'\x2d' && name == "tail-call" {
+    if prefix == b'\x2d' && name == feature {
       return true
     }
   }
@@ -46,8 +46,23 @@ fn msf_module_allows_tail_call_thunks(mod_ : @lib.Module) -> Bool {
   for custom in mod_.custom_secs {
     let @lib.CustomSec(@lib.Name(name), payload) = custom
     if name == "target_features" &&
-      msf_target_features_disallow_tail_call(payload) {
+      msf_target_features_disallow(payload, "tail-call") {
       return false
+    }
+  }
+  true
+}
+
+///|
+fn msf_module_allows_function_references(mod_ : @lib.Module) -> Bool {
+  for custom in mod_.custom_secs {
+    let @lib.CustomSec(@lib.Name(name), payload) = custom
+    if name == "target_features" {
+      for feature in ["function-references", "reference-types", "gc"] {
+        if msf_target_features_disallow(payload, feature) {
+          return false
+        }
+      }
     }
   }
   true
@@ -1269,6 +1284,7 @@ fn msf_run_module_pass_with_perf(
   let imported_count = run_hot_pipeline_imported_func_count(mod_)
   let base_type_count = signatures.length()
   let use_tail_call = msf_module_allows_tail_call_thunks(mod_)
+  let use_function_references = msf_module_allows_function_references(mod_)
   let ref_targets : Array[@lib.FuncIdx] = []
   let mut merged_count = 0
   for class_ in classes {
@@ -1282,6 +1298,10 @@ fn msf_run_module_pass_with_perf(
       msf_derive_params(funcs, class_, call_types) {
       Some(value) => value
       None => continue
+    }
+    if !use_function_references &&
+      params.any(fn(param) { param.call_type is Some(_) }) {
+      continue
     }
     if !msf_has_merge_benefit_for_count(
         summaries[primary_idx].instruction_count,

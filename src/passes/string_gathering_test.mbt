@@ -263,6 +263,41 @@ test "string-gathering does not reuse mutable string global" {
 }
 
 ///|
+test "string-gathering does not narrow exported nullable string globals" {
+  let base = pass_test_module_from_wat(
+    "(module (global stringref (string.const \"foo\")) (export \"text\" (global 0)) (func (result stringref) (string.const \"foo\")))",
+  )
+  let init = match base.global_sec {
+    Some(@lib.GlobalSec([@lib.Global(_, init)])) => init
+    other => fail("expected string global fixture, got \{other}")
+  }
+  let nullable_string = @lib.ValType::ref_null(
+    @lib.HeapType::abs(@lib.AbsHeapType::string_()),
+  )
+  let input = base.with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(@lib.GlobalType::new(nullable_string, false), init),
+    ]),
+  )
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let optimized = string_gathering_run_module_pass(input)
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+  let exported_idx = match optimized.export_sec {
+    Some(
+      @lib.ExportSec(
+        [@lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(idx))), ..]
+      )
+    ) => idx.reinterpret_as_int()
+    other => fail("expected remapped global export, got \{other}")
+  }
+  match optimized.global_sec.unwrap().0[exported_idx] {
+    @lib.Global(@lib.GlobalType(@lib.RefTypeValType(ref_type), false), _) =>
+      assert_true(ref_type.is_nullable())
+    other => fail("expected preserved exported global, got \{other}")
+  }
+}
+
+///|
 test "string-gathering does not use nested global initializers as canonical definitions" {
   let input = @lib.Module::new(
     global_sec=Some(
@@ -347,7 +382,7 @@ test "string-gathering reuses global initializer while collecting function const
 }
 
 ///|
-test "string-gathering rewrites table initializer expressions" {
+test "string-gathering preserves table initializer string constants" {
   let input = @lib.Module::new(
     table_sec=Some(
       @lib.TableSec::new([
@@ -361,17 +396,23 @@ test "string-gathering rewrites table initializer expressions" {
       ]),
     ),
   )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid table initializer fixture, got \{err}")
+  }
   let optimized = string_gathering_run_module_pass(input)
-  @debug.assert_eq(sg_test_global_count(optimized), 1)
+  @debug.assert_eq(sg_test_global_count(optimized), 0)
   match optimized.table_sec {
     Some(@lib.TableSec([@lib.Table(_, Some(@lib.Expr(instrs)))])) =>
-      @debug.assert_eq(instrs, [
-        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
-      ])
+      @debug.assert_eq(instrs, [@lib.Instruction::string_const(b"tab")])
     other =>
       fail(
-        "expected rewritten table initializer, got \{@debug.to_string(other)}",
+        "expected preserved table initializer, got \{@debug.to_string(other)}",
       )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid gathered module, got \{err}")
   }
 }
 
@@ -529,6 +570,50 @@ test "string-gathering remaps exported defined globals and structured global nam
           fail("expected rewritten global name, got \{@debug.to_string(other)}")
       }
     None => fail("expected name section")
+  }
+}
+
+///|
+test "string-gathering sorts global names after reordering canonical strings" {
+  let input = pass_test_module_from_wat(
+    (
+      #| (module
+      #|   (global (mut i32) (i32.const 0))
+      #|   (global stringref (string.const "x")))
+      #|
+    ),
+  ).with_name_sec(
+    @lib.NameSec::new(
+      global_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("counter")),
+          @lib.NameAssoc::new(1U, @lib.Name::from_string("text")),
+        ]),
+      ),
+    ),
+  )
+  let optimized = string_gathering_run_module_pass(input)
+  match optimized.name_sec {
+    Some(sec) =>
+      match sec.global_names {
+        Some(
+          @lib.NameMap(
+            [
+              @lib.NameAssoc(0U, @lib.Name("text")),
+              @lib.NameAssoc(1U, @lib.Name("counter")),
+            ]
+          )
+        ) => ()
+        other =>
+          fail(
+            "expected sorted remapped global names, got \{@debug.to_string(other)}",
+          )
+      }
+    None => fail("expected name section")
+  }
+  match @binary.encode_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected encodable gathered module, got \{err}")
   }
 }
 

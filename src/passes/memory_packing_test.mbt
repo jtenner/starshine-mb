@@ -1353,6 +1353,85 @@ test "memory-packing shared passive split keeps increasing byte order" {
 }
 
 ///|
+fn mp_test_passive_split_with_compiler_facts() -> @lib.Module {
+  let base = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32(1U)))
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::passive(),
+          b"A\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00B",
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(34)),
+            @lib.Instruction::memory_init(
+              @lib.DataIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let offset = @binary.compiler_fact_module_opcode_sites(base).unwrap()[0][0].0
+  base.with_compiler_fact_custom_section(
+    @representation.CompilerFactCustomSection::new(
+      @representation.OptimizationFactsSec::new(bodies=[
+        @representation.FunctionBodyFacts::new(0U, sites=[
+          @representation.ExpressionFact::new(
+            @representation.ValueSite::new(
+              @representation.CodeSite::new(0U, offset),
+            ),
+            @representation.ValueFacts::unsigned_range(
+              0UL,
+              0UL,
+              width=@representation.IntWidth::i32(),
+            ),
+          ),
+        ]),
+      ]),
+    ),
+  )
+}
+
+///|
+test "memory-packing direct passive split invalidates compiler facts" {
+  let input = mp_test_passive_split_with_compiler_facts()
+  mp_test_expect_valid(input, "passive split compiler-fact input")
+  let output = memory_packing_run_module_pass(input)
+  assert_true(mp_test_data_segments(output).length() > 1)
+  @debug.assert_eq(output.compiler_fact_custom_section, None)
+}
+
+///|
+test "memory-packing dispatcher passive split invalidates compiler facts" {
+  let input = mp_test_passive_split_with_compiler_facts()
+  let output = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
+    Ok(module_) => module_
+    Err(err) => fail("expected passive split dispatch, got \{err}")
+  }
+  assert_true(mp_test_data_segments(output).length() > 1)
+  @debug.assert_eq(output.compiler_fact_custom_section, None)
+}
+
+///|
 test "memory-packing allocates a temp local for dynamic passive memory.init destinations" {
   let input = @lib.Module::new()
     .with_type_sec(mp_test_i32_param_void_type_sec())
@@ -1397,6 +1476,101 @@ test "memory-packing allocates a temp local for dynamic passive memory.init dest
       "expected dynamic passive memory.init replacement to contain memory.fill",
     )
   }
+}
+
+///|
+fn mp_test_dynamic_split_with_named_label() -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(mp_test_i32_param_void_type_sec())
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32(1U)))
+  .with_data_sec(
+    @lib.DataSec::new([
+      @lib.Data::new(
+        @lib.DataMode::passive(),
+        b"A\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00B",
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::i32_const(@lib.I32(34)),
+          @lib.Instruction::memory_init(
+            @lib.DataIdx::new(0U),
+            @lib.MemIdx::new(0U),
+          ),
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([@lib.Instruction::nop()]),
+          ),
+        ]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([@lib.Instruction::nop()]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  .with_name_sec(
+    @lib.NameSec::new(
+      label_names=Some(
+        @lib.IndirectNameMap::new([
+          @lib.IndirectNameAssoc::new(
+            0U,
+            @lib.NameMap::new([
+              @lib.NameAssoc::new(0U, @lib.Name::from_string("after")),
+            ]),
+          ),
+          @lib.IndirectNameAssoc::new(
+            1U,
+            @lib.NameMap::new([
+              @lib.NameAssoc::new(0U, @lib.Name::from_string("keep")),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  )
+}
+
+///|
+test "memory-packing drops stale labels after dynamic passive split" {
+  let input = mp_test_dynamic_split_with_named_label()
+  let direct = memory_packing_run_module_pass(input)
+  @debug.assert_eq(
+    direct.name_sec.unwrap().label_names,
+    Some(
+      @lib.IndirectNameMap::new([
+        @lib.IndirectNameAssoc::new(
+          1U,
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("keep")),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let dispatched = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
+    Ok(module_) => module_
+    Err(err) => fail("expected named passive split dispatch, got \{err}")
+  }
+  @debug.assert_eq(dispatched.name_sec, direct.name_sec)
 }
 
 ///|

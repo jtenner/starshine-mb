@@ -132,6 +132,17 @@ fn rg_count_global_traffic(
       }
     None => ()
   }
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.GlobalExternIdx(idx)) =>
+            rg_note_global_use(counts, idx)
+          _ => ()
+        }
+      }
+    None => ()
+  }
   match mod_.elem_sec {
     Some(@lib.ElemSec(elems)) =>
       for elem in elems {
@@ -920,6 +931,9 @@ fn reorder_globals_run_module_pass_with_threshold(
   mod_ : @lib.Module,
   enforce_public_threshold : Bool,
 ) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   let globals = match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals
     None => []
