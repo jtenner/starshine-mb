@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-09-29
 sources:
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/signature_lookup_wbtest.mbt
+  - ../../../../../src/passes/signature_lookup_reference_wbtest.mbt
+  - ../../../../../src/passes/signature_lookup_perf_wbtest.mbt
   - ../../../../../src/ir/hot_source_order_minimum_wbtest.mbt
   - ../../../../../src/ir/hot_source_order_minimum_reference_wbtest.mbt
   - ../../../../../src/ir/hot_source_order_minimum_perf_wbtest.mbt
@@ -36,6 +40,116 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## September 29, 2026 cached raw signatures
+
+Function admission and raw cleanup previously flattened the complete recursive
+type section for each defined-function parameter lookup, even when the existing
+HOT module context already owned that table. Shared pipeline state now borrows
+the context's flattened subtype row. A replacement type-section object refreshes
+the raw table once, independently of the original context; unchanged type
+snapshots survive body edits. Lowering already copies the section before
+appending types. Lookup still reads the current function declaration and preserves
+import offsets, recursive groups, invalid-index boundaries and context fallback.
+There is no new node-sized cache or retained per-function HOT graph.
+
+The [five focused guards](../../../../../src/passes/signature_lookup_wbtest.mbt)
+first require the missing indexed seam, then the mechanically instrumented
+original fails **9 table builds != 1**, existing-context borrowing and unchanged-
+snapshot identity. Two semantic guards are initially green, not original
+semantic failures. Replacement/append, isolated states, empty sections, mixed
+imports and GC declarations match the
+[frozen section-only lookup](../../../../../src/passes/signature_lookup_reference_wbtest.mbt).
+An adjacent dispatcher guard runs both DAE2 modes and asserts valid live GC
+parameters, results and exact helper instructions after removing an unused
+scalar parameter. Generated native C confirms that the first cache-hit return
+allocates nothing, the disabled work counter is a null pointer, and snapshot
+identity compares the underlying RecType-array pointer.
+
+[Twelve native controls](../../../../../src/passes/signature_lookup_perf_wbtest.mbt)
+query every function in a validated module. Warm selection borrows the existing
+context table; cold selection includes fresh pipeline state and its first table
+build. Fixture construction is outside the timed loop:
+
+| Functions/types | Original → selected warm mean | Original → selected cold mean |
+| --- | --- | --- |
+| 8 | 472.26 → 123.31ns | 503.65 → 195.40ns |
+| 128 | 84.51 → 1.87µs | 84.17 → 2.56µs |
+| 1024 | 5.23ms → 15.14µs | 5.17ms → 20.11µs |
+
+This eliminates functions-times-types table materialization. A bounded V24b
+large optimizing profile scoped to the original section-only lookup collects
+**307,868,174 instructions**: object destruction 33.54%, subtype-array push
+25.86%, reference-array growth 18.85%, and flattening itself 13.50%. That is
+a helper scope, not total optimizer work. The candidate bypasses that wrapper;
+comparing its same-symbol toggle would be an unmatched profile, so no such
+before/after percentage is claimed.
+
+Matched V26/V27 compiler medians remain near flat: large plain **4156.151 →
+4189.225ms (0.80% cost)** and optimizing **7359.567 → 7319.885ms (0.54%
+gain)**, MAD 24.948/20.383ms and 5.000/31.758ms. Small 4.177 → 4.142ms /
+**11.933 → 12.248ms (2.64% optimizing cost)**, MAD 0.052/0.018ms and
+0.137/0.256ms. Tee 3.827 → 3.858ms / 108.063 → 106.887ms, MAD
+0.043/0.008ms and 0.381/0.423ms; joined readers 19.811 → 19.437ms /
+29.409 → 29.213ms; pure-tail 12.596 → 12.396ms /
+**12.271 → 12.765ms (4.03% optimizing cost)**. Small reference brackets
+1.166/1.256 and joined brackets 1.577/1.155 are rejected and retained.
+The wide helper gain does not establish a comparable compiler gain.
+
+The initial conditional-writer medians are 13.370 → 13.390ms /
+**18.168 → 22.292ms (22.70% optimizing cost)**, MAD 0.277/0.111ms and
+0.652/2.180ms. A rejected 1.601 reference bracket stays saved. One accepted
+candidate command takes 31.390ms wall versus 21.647ms CPU, showing a pause
+that stable leading/trailing brackets do not exclude. Seven-sample matched
+repeats retain, rather than erase, the initial record:
+
+| Workload | V26 → V27 plain median (MAD before/after) | V26 → V27 optimizing median (MAD before/after) |
+| --- | --- | --- |
+| Conditional writers | 11.979 → 11.755ms (0.121/0.172ms) | 16.799 → 17.356ms (0.058/0.292ms; **3.32% cost**) |
+| Pure tail | 12.093 → 12.412ms (0.048/0.105ms; **2.64% cost**) | 12.196 → 12.404ms (0.050/0.192ms; **1.71% cost**) |
+| Small compiler | 4.123 → 4.068ms (0.036/0.069ms) | 11.360 → 11.594ms (0.172/0.247ms; **2.06% cost**) |
+
+Repeated command CPU medians are 15.920 → 15.743ms / 21.069 → 21.673ms,
+15.732 → 16.060ms / 15.561 → 16.035ms, and 8.484 → 8.563ms /
+16.138 → 16.100ms, respectively. Additional rejected reference brackets
+remain in the review manifests. These controls do not prove that each timing
+cost is caused by signature lookup; costs remain visible rather than being
+dismissed as noise.
+
+Bounded whole-command instruction checks on those controls remain effectively
+unchanged: conditional writers **223,839,619 → 223,840,813** plain and
+**310,558,096 → 310,558,990** optimizing; pure tail **213,719,472 →
+213,716,839** / **214,103,227 → 214,098,515**. These validate unchanged
+bytes independently. Near-identical work counts do not establish identical
+wall time or dismiss the measured control costs.
+
+Plain dependency-analysis instructions stay near flat at **15,507,706,416 →
+15,509,334,518 (0.011% increase)**, with unchanged named incoming malloc/free
+calls **35,639,396 / 111,085,643**. This plain-pass scope does not measure
+optimizing raw-cleanup table reuse. Small whole-command instructions are
+77,710,218 → 77,711,474 / 169,373,687 → 169,306,686. Plain named allocator
+calls remain 307,635 / 305,968; optimizing requests/frees fall by **135 each**,
+487,682 → 487,547 / 486,015 → 485,880. Counts are incoming calls, not bytes
+or net live objects. Three-sample RSS medians are 274,592 → 254,920KiB
+plain, ranges 252,828–274,692 / 254,352–273,028; optimizing **289,616 →
+290,912KiB (0.45% increase)**, ranges 289,592–289,816 / 290,128–309,764.
+Three samples do not establish a causal memory win or regression.
+
+Info, fmt, five native guards, the dispatcher guard, **12,974 default tests**,
+release CLI and all controls pass. The fixed 126-module / 1,029-observation
+original/v133 replay and active joined/pure/conditional replays match; measured
+before/after and traced/untraced bytes stay identical and independently validate.
+Public interfaces are unchanged. Local `.tmp/dae2-lean-20260929/` `v27`
+records use candidate SHA-256
+`679a713e3328d84a17b6cdeb5d3a20037338ab40ff011c787cffc82e25c1c0a1`.
+Fresh verified-v133 pass medians are small 4.222/1.009660ms (**4.18×**)
+and 13.055/3.181020ms (**4.10×**), MAD 0.074/0.002370ms and
+0.502/0.011590ms; large **4001.091/503.817ms (7.94×)** and
+**7659.620/1784.100ms (4.29×)**, MAD 18.437/7.730ms and 52.911/13.830ms.
+One warmup, three samples and CPU 6 are retained; separate oracle cohorts do
+not establish causal before/after gains.
+The optimizing canonical size gap stays **422,470 bytes**. This is a quadratic
+scaling fix, not closure of the multi-second pass gap; long fuzz remains deferred.
 
 ## September 29, 2026 cached dependency minima
 

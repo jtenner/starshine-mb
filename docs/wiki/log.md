@@ -1,3 +1,16 @@
+### 2026-09-29 — DAE2 cached raw signatures
+
+- [Cached raw signatures](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-cached-raw-signatures)
+  borrow the existing context table and rebuild only after type-section
+  replacement, preserving current declarations, recursive GC types and imports.
+  The original materialization budget fails 9 != 1; five native guards,
+  a dispatcher guard, 12 controls and 12,974 default tests pass. Warm/cold
+  1024-function means fall 5.23/5.17ms → 15.14/20.11µs; compiler medians
+  remain near flat and small/control costs remain recorded. Bounded original/
+  v133 replays and measured bytes match. Fresh large v133 ratios are
+  7.94×/4.29× in a separate cohort; +422,470 optimizing bytes, remaining
+  field/scratch/cleanup work and deferred long fuzz remain open.
+
 ### 2026-09-29 — DAE2 cached dependency minima
 
 - [Cached dependency minima](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-cached-dependency-minima)

@@ -14,10 +14,11 @@
   core validation, complete-header return boundaries in operand queries and
   separate writer metadata scans/growing rows and repeated never-written-local
   reverse queries and quadratic admitted writer-source unions, plus repeated
-  source-order walks through subtrees with no eligible preceding value.
+  source-order walks through subtrees with no eligible preceding value and
+  full type-section materialization for each raw function-signature query.
   Accepted changes and rejected cache trials
   are recorded in the [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md).
-  All 12,968 default tests, 126 bounded modules / 1,029 original/v133
+  All 12,974 default tests, 126 bounded modules / 1,029 original/v133
   observations and measured before/after bytes pass. The new active-reader
   fixture adds one passing bounded guard and four dedicated native controls;
   its matched 8192-reader pipelines improve 57.40%/49.80%. This deliberate
@@ -30,7 +31,12 @@
   Cached dependency minima reduce dependency-analysis instructions 9.38% and
   matched large DAE2/O pass time 2.83%/1.91%; cold controls stay near flat,
   while tee/conditional/RSS costs remain explicit. The minimum row already
-  existed; no new node-sized cache is added. Compiler competitiveness remains open.
+  existed; no new node-sized cache is added. Raw signature lookup borrows the
+  existing context table and refreshes on replacement type sections, reducing
+  the 1024-function warm/cold controls from 5.23/5.17ms to 15.14/20.11µs.
+  Matched compiler times stay near flat and small/control costs remain recorded;
+  this fixes quadratic scaling without claiming a comparable compiler gain.
+  Compiler competitiveness remains open.
 - **Remaining DAE2/O work:** close the multi-second compiler gap by reducing
   source-order scans, CFG/reaching-definition work, lift/lower and optimizing
   cleanup. The 32-root dependency-index threshold trial is rejected; sparse
@@ -41,7 +47,7 @@
   production keeps the v13 query. Packed private CFG segments remove 490,847
   allocator requests in dependency analysis (1.19%) with near-flat compiler
   timings and recorded active-control costs. Fresh v133 ratios remain
-  8.26×/4.27× on the frozen large v26 input. Fixed-size CFG maps remove another
+  7.94×/4.29× in the frozen large v27 cohort. Fixed-size CFG maps remove another
   63,326 requests and 0.34% of dependency instructions, with recorded control
   costs and near-flat compiler timings. Own-effect reuse removes repeated
   descriptor work and another 0.99% of dependency instructions without an

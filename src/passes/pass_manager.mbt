@@ -7172,7 +7172,7 @@ fn run_hot_pipeline_raw_simplify_locals_deep_result_if_unread_tee_cleanup(
     mod_, module_state, options,
   )
   let params = run_hot_pipeline_required_raw_func_params(
-    mod_, module_ctx, func_idx,
+    mod_, module_ctx, func_idx, module_state,
   )
   let local_gets : Array[Int] = Array::make(
     params.length() + locals.length(),
@@ -12959,7 +12959,7 @@ fn run_hot_pipeline_raw_simplify_locals(
     mod_, module_state, options,
   )
   let params = run_hot_pipeline_required_raw_func_params(
-    mod_, module_ctx, func_idx,
+    mod_, module_ctx, func_idx, module_state,
   )
   let parameter_count = params.length()
   let allows_tee = descriptor.name != "simplify-locals-notee" &&
@@ -14383,7 +14383,7 @@ fn run_hot_pipeline_raw_simplify_locals(
         ),
       )
       let params = run_hot_pipeline_required_raw_func_params(
-        mod_, module_ctx, func_idx,
+        mod_, module_ctx, func_idx, module_state,
       )
       let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_structured_copy_call_tails_bounded(
         instrs,
@@ -15864,6 +15864,8 @@ priv struct HotPipelineModuleState {
   mut module_ctx : @ir.HotModuleContext?
   mut validation_module_env : @validate.Env?
   mut func_type_indices : Array[@lib.TypeIdx]?
+  mut raw_type_sec_snapshot : @lib.TypeSec?
+  mut raw_flat_subtypes : Array[@lib.SubType]?
   mut vacuum_raw_preclean_elapsed_us : UInt64
   mut vacuum_raw_preclean_count : Int
   mut vacuum_no_candidate_elapsed_us : UInt64
@@ -15884,6 +15886,8 @@ fn HotPipelineModuleState::new() -> HotPipelineModuleState {
     module_ctx: None,
     validation_module_env: None,
     func_type_indices: None,
+    raw_type_sec_snapshot: None,
+    raw_flat_subtypes: None,
     vacuum_raw_preclean_elapsed_us: 0UL,
     vacuum_raw_preclean_count: 0,
     vacuum_no_candidate_elapsed_us: 0UL,
@@ -16051,6 +16055,11 @@ fn run_hot_pipeline_require_module_ctx(
       let module_ctx = @ir.hot_module_context_from_module(mod_)
       perf_stop_timer_opt(options.perf, "analysis:module-context", start_us)
       module_state.module_ctx = Some(module_ctx)
+      // This table was flattened from the same immutable type-section object.
+      // Raw lookups can borrow it; lower-created replacement sections refresh
+      // the raw snapshot independently from the original HOT module context.
+      module_state.raw_type_sec_snapshot = mod_.type_sec
+      module_state.raw_flat_subtypes = Some(module_ctx.subtypes)
       module_ctx
     }
   }
@@ -16757,6 +16766,15 @@ fn run_hot_pipeline_defined_func_params_from_sections(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
 ) -> Array[@lib.ValType]? {
+  run_hot_pipeline_defined_func_params_indexed(mod_, func_idx, None)
+}
+
+///|
+fn run_hot_pipeline_defined_func_params_indexed(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  flattened_subtypes : Array[@lib.SubType]?,
+) -> Array[@lib.ValType]? {
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let @lib.FuncIdx(raw) = func_idx
   let code_idx = raw.reinterpret_as_int() - imported_func_count
@@ -16775,7 +16793,11 @@ fn run_hot_pipeline_defined_func_params_from_sections(
     @lib.TypeIdx(type_raw) => type_raw.reinterpret_as_int()
     @lib.RecIdx(_) => return None
   }
-  match run_hot_pipeline_raw_flatten_type_sec(mod_.type_sec).get(type_pos) {
+  let subtypes = match flattened_subtypes {
+    Some(subtypes) => subtypes
+    None => run_hot_pipeline_raw_flatten_type_sec(mod_.type_sec)
+  }
+  match subtypes.get(type_pos) {
     Some(subtype) =>
       match subtype.get_comptype() {
         @lib.FuncCompType(params, _) => Some(params)
@@ -16800,14 +16822,80 @@ fn run_hot_pipeline_required_func_params(
 }
 
 ///|
+fn run_hot_pipeline_require_raw_types(
+  mod_ : @lib.Module,
+  module_state : HotPipelineModuleState,
+  builds : Array[Int]?,
+) -> Array[@lib.SubType] {
+  let same_snapshot = match
+    (module_state.raw_type_sec_snapshot, mod_.type_sec) {
+    (None, None) => true
+    (Some(old), Some(current)) => physical_equal(old, current)
+    _ => false
+  }
+  match module_state.raw_flat_subtypes {
+    Some(subtypes) if same_snapshot => return subtypes
+    _ => ()
+  }
+  match builds {
+    Some(count) => count[0] += 1
+    None => ()
+  }
+  let subtypes = run_hot_pipeline_raw_flatten_type_sec(mod_.type_sec)
+  module_state.raw_type_sec_snapshot = mod_.type_sec
+  module_state.raw_flat_subtypes = Some(subtypes)
+  subtypes
+}
+
+///|
 fn run_hot_pipeline_required_raw_func_params(
   mod_ : @lib.Module,
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
 ) -> Array[@lib.ValType] {
-  match run_hot_pipeline_defined_func_params_from_sections(mod_, func_idx) {
+  let subtypes = run_hot_pipeline_require_raw_types(mod_, module_state, None)
+  match
+    run_hot_pipeline_defined_func_params_indexed(mod_, func_idx, Some(subtypes)) {
     Some(params) => params
     None => run_hot_pipeline_required_func_params(module_ctx, func_idx)
+  }
+}
+
+///|
+test "DAE2 dispatch keeps live GC parameters after raw signature lookup reuse" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $s (struct (field i32)))
+      #|  (import "m" "f" (func $f (param (ref null $s)) (result i32)))
+      #|  (func $helper (param i64 (ref null $s)) (result i32)
+      #|    local.get 1 call $f)
+      #|  (func (export "run") (param (ref null $s)) (result i32)
+      #|    i64.const 7 local.get 0 call $helper))
+    ),
+  )
+  for pass_name in ["dae2", "dae2-optimizing"] {
+    let output = run_hot_pipeline(input, HotPipelineOptions::new(), [pass_name]).unwrap()
+    @validate.validate_module(output).unwrap()
+    let context = @ir.hot_module_context_from_module(output)
+    let expected_ref = @lib.ValType::ref_null(
+      @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+    )
+    assert_eq(
+      @ir.hot_module_resolve_func_type(context, @lib.FuncIdx::new(1U)),
+      Some(@lib.FuncType::new([expected_ref], [@lib.ValType::i32()])),
+    )
+    assert_eq(
+      @ir.hot_module_resolve_func_type(context, @lib.FuncIdx::new(2U)),
+      Some(@lib.FuncType::new([expected_ref], [@lib.ValType::i32()])),
+    )
+    let @lib.CodeSec(funcs) = output.code_sec.unwrap()
+    let @lib.Func(_, @lib.Expr(helper_body)) = funcs[0]
+    assert_eq(helper_body, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    ])
   }
 }
 
@@ -31567,7 +31655,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     mod_, module_state, options,
   )
   let params = run_hot_pipeline_required_raw_func_params(
-    mod_, module_ctx, func_idx,
+    mod_, module_ctx, func_idx, module_state,
   )
   let base_local_count = params.length() + locals.length()
   let production_artifact = match mod_.code_sec {
@@ -32411,7 +32499,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
     mod_, module_state, options,
   )
   let params = run_hot_pipeline_required_raw_func_params(
-    mod_, module_ctx, func_idx,
+    mod_, module_ctx, func_idx, module_state,
   )
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(_, @lib.Expr(original_instrs)) = original
@@ -32664,7 +32752,7 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         mod_, module_state, options,
       )
       let params = run_hot_pipeline_required_raw_func_params(
-        mod_, module_ctx, func_idx,
+        mod_, module_ctx, func_idx, module_state,
       )
       let @lib.Func(original_locals, _) = run_hot_pipeline_original_func(
         mod_, func_idx,
@@ -32759,7 +32847,7 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         mod_, module_state, options,
       )
       let params = run_hot_pipeline_required_raw_func_params(
-        mod_, module_ctx, func_idx,
+        mod_, module_ctx, func_idx, module_state,
       )
       let original = run_hot_pipeline_original_func(mod_, func_idx)
       let @lib.Func(locals, @lib.Expr(instrs)) = original
@@ -32808,7 +32896,7 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         mod_, module_state, options,
       )
       let params = run_hot_pipeline_required_raw_func_params(
-        mod_, module_ctx, func_idx,
+        mod_, module_ctx, func_idx, module_state,
       )
       let repaired_func = run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
         raw_result.func,
@@ -78237,7 +78325,7 @@ fn run_hot_pipeline_raw_merge_locals(
     mod_, module_state, options,
   )
   let params = run_hot_pipeline_required_raw_func_params(
-    mod_, module_ctx, func_idx,
+    mod_, module_ctx, func_idx, module_state,
   )
   let rewrite = if pass_raw_instrs_have_legacy_try(instrs) {
     merge_locals_run_raw_legacy_func(original, params)
@@ -78581,7 +78669,7 @@ fn run_hot_pipeline_raw_heap2local_v131_unreachable_array_flow(
   }
   ignore(field)
   let params = run_hot_pipeline_required_raw_func_params(
-    mod_, module_ctx, func_idx,
+    mod_, module_ctx, func_idx, module_state,
   )
   let base_local = params.length() + locals.length()
   let rewritten_locals = locals.copy()
@@ -79069,7 +79157,7 @@ fn run_hot_pipeline_func(
       mod_, module_state, options,
     )
     let params = run_hot_pipeline_required_raw_func_params(
-      mod_, module_ctx, func_idx,
+      mod_, module_ctx, func_idx, module_state,
     )
     let has_stack_carried_tee_parameter_alias = match oi_index {
       Some(index) =>
