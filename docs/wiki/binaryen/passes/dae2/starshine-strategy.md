@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/balanced_tree_wbtest.mbt
+  - ../../../../../src/passes/balanced_tree_reference_wbtest.mbt
+  - ../../../../../src/passes/balanced_tree_perf_wbtest.mbt
+  - ../../../../../src/cmd/balanced_tree_wbtest.mbt
   - ../../../../../src/passes/terminal_ranges_wbtest.mbt
   - ../../../../../src/passes/terminal_ranges_reference_wbtest.mbt
   - ../../../../../src/passes/terminal_ranges_perf_wbtest.mbt
@@ -104,6 +108,121 @@ dependency-window-only. Toggled event collection scopes instruction totals;
 call counters retain the whole command. Historical values remain evidence under
 that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
+
+## September 30, 2026 balanced control storage
+
+Balanced raw local cleanup previously rebuilt every nested Block, Loop,
+TryTable and If and copied every body even when it made no edits. The trial
+retains unchanged instruction/array storage, copies a parent before its first
+changed child and builds only controls whose recursive rewrite count is
+positive. The flat scan still runs; zero rewrites return the borrowed body
+before copying its tail. Admission, traversal order and the four-round fixpoint
+bound are unchanged.
+
+This helper is private to its fixpoint and skipped-effectful-carrier cleanup.
+That caller passes the result through pure, carrier and effectful cleanup;
+those consumers read the borrowed input and construct their output. Tests run
+that chain, check original encoded bytes and mutate newly owned changed paths
+to prove that the original module is unaffected. Unchanged child storage is
+shared read-only; this is not a general mutable-output ownership guarantee.
+
+The focused tests compare exact instructions/counts against a frozen V51
+recursive/flat implementation. They cover all four control forms, active and
+blocked candidates, both changed if arms, mixed unchanged siblings, nested
+calls/traps and i32/i64/externref values. The dispatcher checks observable call
+order and input ownership. Native controls exercise 8/128 wide control trees
+and depth-32 trees, each with no candidates, blocked candidates or active edits.
+Setup, output validation and input-byte checks remain outside timed loops.
+
+Before implementation, two storage/ownership regressions fail on V51 while
+all active rewrite comparisons and the dispatcher guard pass. Afterward all
+three focused tests pass, with `moon info`, `moon fmt`, **13,060** default tests,
+the release native build and all **18** native controls. No public API changes
+or new warning categories occur.
+
+Native means (frozen V51 traversal → retained control storage):
+
+| Tree / candidates | Before µs | After µs | Change |
+| --- | ---: | ---: | ---: |
+| tiny no candidate | 0.7654 | 0.2224 | -70.94% |
+| tiny blocked | 2.5200 | 1.9000 | -24.60% |
+| tiny active | 3.8100 | 3.4200 | -10.24% |
+| wide no candidate | 11.7600 | 2.9300 | -75.09% |
+| wide blocked | 38.8600 | 28.9400 | -25.53% |
+| wide active | 59.5200 | 53.5400 | -10.05% |
+| deep no candidate | 2.6300 | 0.8462 | -67.83% |
+| deep blocked | 2.8600 | 1.0800 | -62.24% |
+| deep active | 2.9900 | 2.2900 | -23.41% |
+
+Frozen native V52 SHA-256: `85a68688f60413e34219af00000d6ee2ef66fd399793ea1a16c01ad88d39d98a`.
+
+Fresh verified release-v133 comparison (CPU 6, one warmup, three samples; pass-local medians):
+
+| Input / pass | Starshine ms | v133 ms | Ratio | Raw / canonical size gap |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 4.136 | 1.009 | 4.098× | -123 / -97 B |
+| small / `dae2-optimizing` | 12.291 | 3.250 | 3.782× | -386 / -284 B |
+| large / `dae2` | 3772.584 | 480.414 | 7.853× | -117,365 / -100,237 B |
+| large / `dae2-optimizing` | 7716.738 | 1722.850 | 4.479× | +168,047 / +299,275 B |
+
+Matched V51→V52 pipeline medians (same CPU/warmup, three accepted alternating pairs, independent reference bracket ≤1.15):
+
+| Input / pass | V51 ms | V52 ms | Change | MAD before / after ms |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 3.948 | 3.844 | -2.63% | 0.056 / 0.009 |
+| small / `dae2-optimizing` | 11.007 | 10.464 | -4.93% | 0.472 / 0.057 |
+| large / `dae2` | 3842.769 | 3893.695 | +1.33% | 70.387 / 47.239 |
+| large / `dae2-optimizing` | 7379.898 | 7192.429 | -2.54% | 165.668 / 16.021 |
+| tee / `dae2` | 2.950 | 3.005 | +1.86% | 0.008 / 0.021 |
+| tee / `dae2-optimizing` | 110.367 | 107.500 | -2.60% | 0.962 / 0.812 |
+
+Three alternating peak-RSS pairs, KiB (median [range]):
+
+- `dae2`: before 244,724 [244,308–281,096] → after 280,812 [280,632–280,880].
+- `dae2-optimizing`: before 290,280 [290,204–295,888] → after 290,064 [289,984–290,236].
+
+The matched optimizing pipeline medians improve 4.93% small / 2.54% large
+and 2.60% on active tee. The large before-MAD is 165.668 ms versus a
+187.469 ms median difference; small before-MAD is 0.472 ms versus a 0.543 ms
+difference. Retain this spread and avoid claiming those percentages as a
+stable release gain. Active-tee's 2.867 ms difference exceeds both MADs.
+Plain changes −2.63% small / +1.33% large / +1.86% active tee. The 50.926 ms
+large plain difference is below its 70.387 / 47.239 ms MADs. Keep plain/control
+costs open rather than using the independent oracle cohort as a causal gain.
+Two reference-drift rounds are rejected (one small plain, one optimizing tee).
+
+The small optimizing whole-command instruction comparison changes
+155,529,391 → 154,949,402 (−0.37%), with exact profiled output bytes. This
+includes startup, decoding, validation and encoding, not only pass work.
+The storage change removes allocation/reconstruction, not the full balanced
+traversal or typed suffix checks. Other recursive cleanup and single-leaf
+suffix state setup remain separate active targets.
+
+Initial plain peak-RSS medians are 244,724 → 280,812 KiB. The focused
+repeat retains a higher candidate median (244,456 → 280,716 KiB), with both
+sides spanning roughly 244,000–282,000 KiB. Identical-V51 calibration is
+281,628 → 279,720 KiB with a low after sample. Thus the higher plain median
+persists across the two candidate cohorts, while allocator/RSS bimodality
+limits attribution. Keep it as an unresolved cost; do not claim a memory win
+or assert that calibration disproves it. Optimizing RSS is close to flat
+(290,280 → 290,064 KiB), with overlapping ranges.
+
+All 469 bounded runtime modules / 2,891 observations agree with their originals,
+including effects, traps and reference identity. Frozen V51/V52 raw and canonical
+compiler artifact bytes are identical. The large optimizing gap remains
++168,047 raw / +299,275 canonical bytes; no output-shape family is closed here.
+
+Sources: [`pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt),
+[storage regressions](../../../../../src/passes/balanced_tree_wbtest.mbt),
+[frozen traversal](../../../../../src/passes/balanced_tree_reference_wbtest.mbt),
+[native controls](../../../../../src/passes/balanced_tree_perf_wbtest.mbt) and
+[dispatcher guard](../../../../../src/cmd/balanced_tree_wbtest.mbt).
+Local evidence under `.tmp/dae2-lean-20260929/`: `validation-v52.json`,
+`candidate-v52.json`, `v52-baseline.json`, `v52-bench.log`,
+`local-alias-runtime-v52/`, `parameter-alias-runtime-v52/`, `runtime-v52/`,
+`oracle-v52-{small,large}/`, `pairs-v52-{small,large,tee}/`, `profile-small-v52/`,
+`v52-plain-phase-comparison.json` and `memory-v52{,-plain-repeat,-plain-calibration}/`.
+Long fuzz, shared-consumer and release signoff remain deferred.
 
 ## September 30, 2026 terminal cleanup ranges
 

@@ -15,31 +15,37 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v51 passes 13,056 default tests and
+- **Current checkpoint:** lean-v52 passes 13,060 default tests and
   2,891 bounded original/v133 value, event, trap and GC-reference observations.
-  Terminal/producer ranges remove discarded copies; output bytes are unchanged.
+  Balanced cleanup retains unchanged control storage; output bytes are unchanged.
   The saved binary `ref.eq` defect is repaired; historical V32–V37 fixture counts
   are not general correctness evidence. Final aggregate/release signoff remains.
-  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-terminal-cleanup-ranges)
+  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-balanced-control-storage)
   owns hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v51 open-world compiler comparison uses verified release v133,
+The frozen v52 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.319 / 1.090 | 3.96× | 3,774.433 / 494.823 | 7.63× |
-| `dae2-optimizing` | 12.164 / 3.339 | 3.64× | 7,326.431 / 1,791.420 | 4.09× |
+| `dae2` | 4.136 / 1.009 | 4.10× | 3,772.584 / 480.414 | 7.85× |
+| `dae2-optimizing` | 12.291 / 3.250 | 3.78× | 7,716.738 / 1,722.850 | 4.48× |
 
 - **Release blockers:** large DAE2-O adds **299,275 canonical / 168,047 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** V51 removes terminal suffix searches and caller tail
+- **Evidence limits:** V52 retains unchanged balanced control storage with exact
+  artifact bytes. Matched optimizing is −4.93% small / −2.54% large /
+  −2.60% active tee, with material spread. Large plain is +1.33%, within
+  MAD; keep costs open. Plain RSS medians are higher in both cohorts
+  with bimodal ranges/calibration; this remains unresolved. The dossier
+  owns native and timing/RSS evidence.
+  V51 removes terminal suffix searches and caller tail
   copies with exact output bytes. Matched optimizing is −0.84% small /
   −0.29% large, with +0.81% active-tee cost. Large plain costs +8.93%;
   independent repeat is +1.76% with spread versus −1.74% identical-binary
@@ -232,12 +238,12 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - [ ] Attribute whole-code-section and per-function setup, raw Vacuum preclean,
   SimplifyLocals admission/mutation safety, child-use queries, lower and
   writeback guards separately from the actual transform timers.
-- [ ] Trial lazy reconstruction of unchanged recursive control bodies and
-  arrays; the V50 small instruction profile still highlights balanced/skipped
-  carrier traversal and object destruction. Prove input ownership and preserve
-  all active rewrite decisions. Reuse compact module/body facts and
-  mutation-scoped suffix/effect work where costs remain repeated. Refresh after splices or type/import/
-  signature changes; preserve all five SimplifyLocals variants.
+- [ ] Reduce remaining pure/effectful/carrier recursive control and array
+  reconstruction after V52 closes unchanged balanced storage. Prove input
+  ownership and preserve all active rewrites; measure enclosing gains before
+  generalizing reuse. Reuse compact module/body facts and mutation-scoped
+  suffix/effect work where costs remain repeated. Refresh after splices or
+  type/import/signature changes; preserve all five SimplifyLocals variants.
 - [ ] Keep Binaryen's cleanup breadth, including functions unchanged by DAE2.
   Guarded, unchanged or skipped cleanup does not count as a speedup. Coordinate
   remaining Vacuum indexed-input and label-guard work with IR2-VACUUM-9155.

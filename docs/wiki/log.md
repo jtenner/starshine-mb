@@ -1,3 +1,11 @@
+### 2026-09-30 — Balanced control storage
+
+- [Balanced cleanup](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-balanced-control-storage)
+  retains unchanged control/array storage and copies before editing children.
+  Storage, exact rewrite and ownership guards pass with all 13,060 tests,
+  18 native controls and 2,891 runtime observations. Exact compiler output
+  bytes are preserved; other recursive cleanup and suffix typing remain open.
+
 ### 2026-09-30 — Terminal cleanup ranges
 
 - [Terminal cleanup](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-terminal-cleanup-ranges)
