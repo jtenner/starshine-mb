@@ -72,20 +72,23 @@ test "dae2 immutable reads retain parameter dependencies without local flow" {
 }
 
 ///|
-test "dae2 mutable branch reads still retain reaching writes" {
+test "dae2 mutable branch reads retain reaching writes with raw joins or HOT flow" {
   let input = pass_test_module_from_wat(
     "(module (func $helper (param i32 i32 i32) (result i32) local.get 0 if local.get 1 local.set 2 end local.get 2) (func (export \"run\") (param i32 i32 i32) (result i32) local.get 0 local.get 1 local.get 2 call $helper))",
   )
-  let graphs = [0]
-  let output = dae2_run_module_pass(
-    input,
-    false,
-    local_graph_builds=Some(graphs),
-  ).unwrap()
-  @validate.validate_module(output).unwrap()
-  assert_eq(output.code_sec, input.code_sec)
-  assert_eq(output.func_sec, input.func_sec)
-  assert_eq(graphs[0], 1)
+  for raw_conditionals in [false, true] {
+    let graphs = [0]
+    let output = dae2_run_module_pass(
+      input,
+      false,
+      raw_conditionals~,
+      local_graph_builds=Some(graphs),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    assert_eq(output.code_sec, input.code_sec)
+    assert_eq(output.func_sec, input.func_sec)
+    assert_eq(graphs[0], if raw_conditionals { 0 } else { 1 })
+  }
 }
 
 ///|

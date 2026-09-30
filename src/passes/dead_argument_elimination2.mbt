@@ -124,6 +124,7 @@ priv struct Dae2Function {
   mut node_location_base : Int
   mut node_count : Int
   mut raw_analysis : Bool
+  mut raw_write_locations : Array[(Int, Int)]?
   call_infos : Array[Int]
   mut call_infos_ready : Bool
   control_type_infos : Array[Int]
@@ -143,6 +144,7 @@ fn Dae2Function::new(
     node_location_base: 0,
     node_count: 0,
     raw_analysis: false,
+    raw_write_locations: None,
     call_infos: [],
     call_infos_ready: false,
     control_type_infos: [],
@@ -1036,6 +1038,7 @@ fn dae2_run_module_pass(
   analysis_lifts? : Array[Int]? = None,
   perf? : HotPerfSession? = None,
   raw_analysis? : Bool = true,
+  raw_conditionals? : Bool = true,
   raw_rewrite? : Bool = true,
   stack_suffix_rewrite? : Bool = true,
 ) -> Result[@lib.Module, String] {
@@ -1155,6 +1158,7 @@ fn dae2_run_module_pass(
         original_func,
         intrinsic_imports,
         module_context=Some(context),
+        conditionals=raw_conditionals,
       )
       dependency_us += perf_elapsed_since_start_opt(perf, dependency_start)
       match plan {
@@ -1179,6 +1183,7 @@ fn dae2_run_module_pass(
           }
           plan.commit(graph)
           info.raw_analysis = true
+          info.raw_write_locations = plan.write_locations
           continue
         }
         None => ()

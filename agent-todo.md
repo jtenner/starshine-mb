@@ -15,31 +15,37 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v55 passes 13,076 default tests and
-  4,571 bounded original/v133 value, event, trap and GC-reference observations.
-  Alias discovery avoids intermediate trees; exact V54 output bytes match.
+- **Current checkpoint:** lean-v56 passes 13,087 default tests and
+  8,421 bounded original/v133 value, event, trap and GC-reference observations.
+  Raw control analysis avoids HOT/CFG work with sparse branch writes and
+  preserves structured replay; exact V55 output bytes match.
   The saved binary `ref.eq` defect is repaired; historical V32–V37 fixture counts
   are not general correctness evidence. Final aggregate/release signoff remains.
-  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-fused-alias-discovery-and-remap)
+  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-raw-fallthrough-control-dependencies)
   owns hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v55 open-world compiler comparison uses verified release v133,
+The frozen v56 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.220 / 1.190 | 3.55× | 3,756.280 / 469.084 | 8.01× |
-| `dae2-optimizing` | 14.443 / 3.447 | 4.19× | 6,969.606 / 1,733.970 | 4.02× |
+| `dae2` | 3.644 / 0.999 | 3.65× | 3,683.989 / 460.530 | 8.00× |
+| `dae2-optimizing` | 11.851 / 3.247 | 3.65× | 6,859.218 / 1,730.190 | 3.96× |
 
 - **Release blockers:** large DAE2-O adds **258,469 canonical / 128,886 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** V55 removes intermediate alias trees, improving wide
+- **Evidence limits:** V56 admits 2,767 raw fallthrough control plans on the
+  large compiler and improves active native rows 31–81%, with exact V55 bytes.
+  Initial large paired plain/O costs +3.87%/+0.75%; a seven-pair repeat retains
+  +4.18%/+1.90% with material spread. Analysis work falls, rewrite work grows;
+  prioritize the 399 replay resets that traverse 46,613 module boundaries each.
+  Smaller native flat/loop costs and plain RSS uncertainty remain open. V55 removes intermediate alias trees, improving wide
   active native controls 12–21% with exact artifact bytes. Enclosing optimizing
   time stays flat. Small plain and RSS cohorts are noisy; repeats retain
   dispersion and reverse RSS medians, so no general speed/memory win is claimed.
@@ -215,15 +221,20 @@ breadth. Shared changes require all affected consumers in the matrix below.
   implemented structured call-suffix replay. V43 small/tee optimizing controls
   cost 1.55%/1.06%; preserve exact writer demand, effects, control normalization
   and HOT fallback. Extend supported families only with a measured benefit.
-- [ ] Trial raw fallthrough conditionals with sparse local-write undo/join work;
-  avoid copying whole local arrays per branch and preserve conservative HOT
-  dependencies for exits, loops, handlers and unsupported signatures. The raw
-  compiler census bounds candidates at 2,774 functions / about 7% of instruction
-  lines before opcode/signature/stack admission; measure actual coverage first.
-  Keep the existing flat path and compare every solved boundary bit against
-  forced HOT, including unchanged functions that never replay. Observe the
-  condition, join unwritten entry values, enforce control stack floors and
-  keep raw rewrite admission separate; compare active native/pipeline costs.
+- [ ] Remove module-wide boundary initialization, queue seeding and comparison
+  from each raw HOT rewrite replay. V56 records 399 resets × 46,613 boundaries
+  and a repeated large plain/O cost of +4.18%/+1.90%. Reuse the fixed boundary
+  snapshot and visit only proven body/callee consumers; preserve complete HOT
+  expression and boundary liveness, ordered source-write demand, metadata
+  validity, scratch reset, and fail-closed fallback for underestimated demand.
+  Require failing work budgets, exact legacy graph/output/runtime equivalence,
+  active native scaling, paired artifacts and RSS before accepting the change.
+- [ ] Extend raw analysis beyond current no-input void/single-value fallthrough
+  controls only with a measured enclosing benefit. Loops, branches, handlers,
+  indexed controls, nested returns and unsupported opcodes/signatures remain
+  HOT. Preserve sparse branch writes, stack floors, observed conditions,
+  unwritten entry values and separate raw rewrite admission. Compare all solved
+  function/type and source-write demand bits, including unchanged bodies.
 - [ ] Reduce repeated body/revision queries and representation allocation;
   extend the read-source snapshot to demand only unresolved reads when measured
   gains justify it. Preserve

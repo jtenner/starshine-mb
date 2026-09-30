@@ -1,3 +1,12 @@
+### 2026-09-30 — Raw fallthrough control dependencies
+
+- [Conditional dependency planning](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-raw-fallthrough-control-dependencies)
+  uses sparse branch undo/join work and source-write demand to preserve suffix
+  replay. Native active controls improve 31–81%; 13,087 tests and 8,421 bounded
+  runtime observations pass with exact predecessor artifact bytes. Measured
+  large paired costs remain open. Native coverage admits 2,767 plans and exposes
+  399 module-wide replay resets as the next quadratic-work target.
+
 ### 2026-09-30 — Fused alias discovery and remap
 
 - [Read-only discovery](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-fused-alias-discovery-and-remap)

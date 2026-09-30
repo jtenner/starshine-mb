@@ -37,7 +37,14 @@ fn Dae2StackSuffixWriteDemand::new(
   graph : Dae2Graph,
   original_writes : Array[(Int, Int)]?,
 ) -> Dae2StackSuffixWriteDemand {
-  { base: info.node_location_base, original_writes, graph, cursor: 0, }
+  // HOT provenance uses relative node IDs; raw conditional provenance records
+  // absolute dependency locations. Both rows follow original source-write order.
+  match original_writes {
+    Some(_) =>
+      { base: info.node_location_base, original_writes, graph, cursor: 0, }
+    None =>
+      { base: 0, original_writes: info.raw_write_locations, graph, cursor: 0, }
+  }
 }
 
 ///|
@@ -515,7 +522,7 @@ fn dae2_rewrite_stack_suffix_function(
     ) {
     return None
   }
-  match state.original_writes[index] {
+  match writes.original_writes {
     Some(original) if writes.cursor != original.length() => return None
     _ => ()
   }

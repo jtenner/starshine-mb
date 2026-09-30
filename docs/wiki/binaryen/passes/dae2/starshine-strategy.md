@@ -3,6 +3,12 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/dae2_raw_conditionals.mbt
+  - ../../../../../src/passes/dae2_raw_conditionals_wbtest.mbt
+  - ../../../../../src/passes/dae2_raw_conditionals_perf_wbtest.mbt
+  - ../../../../../src/passes/dae2_raw_analysis.mbt
+  - ../../../../../src/passes/dae2_stack_suffix_rewrite.mbt
+  - ../../../../../src/cmd/dae2_raw_conditionals_wbtest.mbt
   - ../../../../../src/passes/fused_alias_wbtest.mbt
   - ../../../../../src/passes/fused_alias_reference_wbtest.mbt
   - ../../../../../src/passes/fused_alias_perf_wbtest.mbt
@@ -120,6 +126,150 @@ dependency-window-only. Toggled event collection scopes instruction totals;
 call counters retain the whole command. Historical values remain evidence under
 that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
+
+
+## September 30, 2026: raw fallthrough control dependencies
+
+The existing flat planner remains first. A separate preflight admits no-input
+void/single-value blocks and fallthrough conditionals, using the established
+pure/observer/trapping-producer opcode classifiers. It declines loops, branches,
+handlers, unreachable instructions, indexed control types, nested returns and
+intrinsics. Qualification and partial symbolic execution never mutate the
+module graph; existing function validation precedes commit.
+
+One function-local value array and a sparse undo journal replace branch-wide
+local copies. An arm allocates write rows only when it writes, restores entry
+values in reverse order, then joins distinct final definitions. Unwritten arms
+retain entry values. Nested controls enforce stack floors, and conditions remain
+observed even when arm results are dead, matching the current HOT contract.
+
+Each source write receives a symbolic demand location, including constant writes
+and tee results. Lexically ordered local/location rows feed structured suffix
+replay. This preserves its demanded-write proof without requiring an analysis
+lift. Missing these facts in the first trial rejected an existing replay and
+moved an initial constant behind the first conditional; the native write controls
+failed exact output equality. That trial was rejected and fixed, rather than
+retaining an unmeasured shape difference. Raw general rewrite admission is still
+separate and unchanged. Shared opcode classifiers avoid divergent leaf families;
+the existing flat execution loop is preserved to limit its control costs.
+
+TDD first recorded five failing admission/lift regressions out of six cases.
+A further producer-order/replay regression failed before write-demand support.
+The final ten focused families compare every solved function/type boundary and
+each conditional source-write demand against HOT in both worlds, including
+unchanged functions that never replay. Cases cover entry/default/overwritten and
+nested writes, tee results, scalar/reference/GC values, prefix stack slots,
+tuple results, direct/indirect/reference calls, effects and traps. Intentionally
+unsupported control and invalid stack/local fixtures preserve HOT fallback and
+atomic rejection. The dispatcher checks both DAE2 modes. Existing HOT work-count
+regressions retain explicit forced-HOT controls; current mutable branches also
+verify zero LocalGraph construction.
+
+`moon info`, `moon fmt`, all **13,087** default tests, the release CLI build and
+all **24** native controls pass. No public `.mbti` change or new warning was
+introduced. Bounded original/V55/release-v133 replay covers **1,134 modules /
+8,421 observations**, including **385 / 3,850** new conditional cases: both arms,
+repeated/overwritten/default stores, import exceptions and ordered effects,
+loads/division/stores and traps, tuple/reference calls, NaN/signed zero, i64 and
+GC/reference identity. Output bytes match V55 exactly on every replay and on
+both raw/canonical small and large compiler artifacts. Long aggregate fuzz and
+shared-consumer/release renewal remain deferred until bottleneck trials settle.
+
+Native controls compare conditional admission enabled/disabled in one binary,
+retaining the same flat raw analysis and rewrite on both sides. Setup, complete
+output equality, lift counts, signature/validation and input ownership checks
+are outside timing. Tiny rows use one helper/eight controls/eight locals; wide
+rows use 32 helpers/128 controls/eight locals; sparse rows use one helper/128
+controls/4,096 locals. Results and write cases expose avoided HOT/CFG work;
+flat and loop cases exercise the existing path and conservative fallback.
+
+| Control | Conditional off µs | Conditional on µs | Change |
+| --- | ---: | ---: | ---: |
+| tiny results | 42.88 | 29.47 | -31.27% |
+| tiny writes | 81.85 | 31.59 | -61.41% |
+| tiny flat | 20.46 | 19.80 | -3.23% |
+| tiny loop | 30.20 | 29.95 | -0.83% |
+| wide results | 14460.00 | 7410.00 | -48.76% |
+| wide writes | 48760.00 | 9580.00 | -80.35% |
+| wide flat | 2470.00 | 2480.00 | +0.40% |
+| wide loop | 4950.00 | 4930.00 | -0.40% |
+| sparse results | 433.92 | 223.69 | -48.45% |
+| sparse writes | 1480.00 | 281.12 | -81.01% |
+| sparse flat | 263.00 | 269.38 | +2.43% |
+| sparse loop | 191.62 | 193.44 | +0.95% |
+
+Frozen native V56 SHA-256: `ddbf89321f87824ccc7c8621188f83928e4f9e5fe62ca5fe5cd1dbb81eb166ae`.
+
+Fresh verified release-v133 comparison (CPU 6, one warmup, three samples; pass-local medians):
+
+| Input / pass | Starshine ms | v133 ms | Ratio | Raw / canonical size gap |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 3.644 | 0.999 | 3.649× | -123 / -97 B |
+| small / `dae2-optimizing` | 11.851 | 3.247 | 3.649× | -392 / -290 B |
+| large / `dae2` | 3683.989 | 460.530 | 7.999× | -117,365 / -100,237 B |
+| large / `dae2-optimizing` | 6859.218 | 1730.190 | 3.964× | +128,886 / +258,469 B |
+
+Matched V55→V56 pipeline medians (same CPU/warmup, three accepted alternating pairs, independent reference bracket ≤1.15):
+
+| Input / pass | V55 ms | V56 ms | Change | MAD before / after ms |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 4.230 | 3.500 | -17.26% | 0.360 / 0.045 |
+| small / `dae2-optimizing` | 11.762 | 11.413 | -2.97% | 0.048 / 0.517 |
+| large / `dae2` | 3749.917 | 3895.188 | +3.87% | 25.916 / 150.983 |
+| large / `dae2-optimizing` | 6615.352 | 6664.800 | +0.75% | 2.490 / 126.511 |
+| tee / `dae2` | 2.900 | 2.926 | +0.90% | 0.025 / 0.014 |
+| tee / `dae2-optimizing` | 104.995 | 103.898 | -1.04% | 0.513 / 0.496 |
+
+Three alternating peak-RSS pairs, KiB (median [range]):
+
+- `dae2`: before 280,576 [245,468–281,516] → after 267,264 [266,064–268,476].
+- `dae2-optimizing`: before 290,124 [290,096–290,180] → after 290,036 [290,016–290,172].
+
+The initial large medians do not establish an enclosing gain. A separate
+seven-pair repeat retains costs: plain **3945.220→4110.194 ms (+4.18%)**, MAD
+119.589/116.554 ms; optimizing **6665.418→6792.294 ms (+1.90%)**, MAD
+93.681/102.385 ms. Keep these costs open. The initial small plain improvement
+is larger than either MAD; small optimizing and tee changes remain limited
+controls. Native active rows improve 31–81%, but unchanged sparse flat/loop
+controls cost 2.43%/0.95%; no universal speed claim follows.
+
+Paired large-plain phase medians show less analysis work: initially analysis
+1903.414→1844.929 ms, lift 698.355→663.121 and dependency construction
+1155.384→1113.684. The repeat gives analysis 1933.366→1911.900, lift
+710.891→689.882 and dependencies 1170.642→1146.018 ms, while rewrite grows
+996.831→1124.892 ms. These overlapping scopes locate work; they do not prove
+that one routine causes the entire enclosing cost.
+
+A bounded native debugger probe counts actual planner returns on the large
+plain artifact: **10,721 attempts / 2,767 admissions / 7,954 rejections**.
+This replaces the earlier 2,774-function control-shape upper bound as coverage
+evidence; it does not certify unsupported families. Another probe counts
+**399 replay resets × 46,613 module boundaries = 18,598,587 boundary slots**,
+before counting the multiple initialization/seeding/check loops. The current
+workspace resets and checks all module boundaries for every rewritten raw body,
+although that body's consumers are its result and called signatures. This
+module-size-times-rewritten-body work is the next priority. Preserve full
+expression/boundary liveness, source-write demand, metadata validity and
+underestimated-projection fallback while making it sparse. The admission probe also
+counts 1,613 replacement-signature appends; that counts appends, not allocation
+bytes or proof that interning is the largest timing target. Debugger outputs
+match the unprofiled oracle artifacts exactly; debugger wall time is excluded.
+
+Plain peak RSS has a lower candidate median but the before range is wide and
+bimodal, so a stable memory-saving claim remains unproved. Optimizing RSS is
+flat. The **258,469 canonical / 128,886 raw-byte** optimizing gap and speed
+parity remain open.
+
+Local reproduction/evidence remains under `.tmp/dae2-lean-20260929/`:
+`validate-raw-conditionals-v56.py`, `finish-raw-conditionals-v56.py`,
+`validation-v56.json`, `v56-bench{.log,-summary.json}`, `raw-conditionals-runtime-v56/`,
+`local-alias-runtime-v56/`, `parameter-alias-runtime-v56/`, `runtime-v56/`,
+`oracle-v56-{small,large}/`, `pairs-v56-{small,large,tee,large-repeat}/`,
+`memory-v56/`, `raw-conditional-coverage-v56/`, `raw-replay-coverage-v56/`,
+`v56-plain{,-repeat}-phase-comparison.json` and the preserved rejected attempts.
+The probe asserts the frozen binary/source hashes and exact unprofiled bytes.
+CPU affinity, oracle hashes and reference brackets follow the preceding dossiers.
+
 
 ## September 30, 2026 fused alias discovery and remap
 

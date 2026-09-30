@@ -1,6 +1,6 @@
 ///|
-// Symbols name only boundary locations or joins of distinct dependencies.
-// Constants and default-initialized locals have symbol -1; unary operators
+// Symbols name boundaries, joins and conditional source writes. Constant
+// producers and default-initialized locals have symbol -1; unary operators
 // alias their operand. Qualification never mutates the module-wide graph.
 priv struct Dae2RawPlan {
   base : Int
@@ -8,11 +8,19 @@ priv struct Dae2RawPlan {
   consumers : Array[Int]
   sources : Array[Int]
   observations : Array[Int]
+  mut write_locations : Array[(Int, Int)]?
 }
 
 ///|
 fn Dae2RawPlan::new(base : Int) -> Dae2RawPlan {
-  { base, count: 0, consumers: [], sources: [], observations: [], }
+  {
+    base,
+    count: 0,
+    consumers: [],
+    sources: [],
+    observations: [],
+    write_locations: None,
+  }
 }
 
 ///|
@@ -36,6 +44,25 @@ fn Dae2RawPlan::join(self : Dae2RawPlan, left : Int, right : Int) -> Int {
   self.edge(value, left)
   self.edge(value, right)
   value
+}
+
+///|
+// Conditional replay needs demand for each source write, including constants.
+// Name only writes, preserving lexical order without a full expression graph.
+fn Dae2RawPlan::write(self : Dae2RawPlan, local_id : Int, source : Int) -> Int {
+  let location = self.base + self.count
+  self.count += 1
+  self.edge(location, source)
+  let writes = match self.write_locations {
+    Some(writes) => writes
+    None => {
+      let writes = []
+      self.write_locations = Some(writes)
+      writes
+    }
+  }
+  writes.push((local_id, location))
+  location
 }
 
 ///|
@@ -343,12 +370,20 @@ fn dae2_raw_dependency_plan(
   body : @lib.Func,
   intrinsic_imports : Array[Bool]?,
   module_context? : @ir.HotModuleContext? = None,
+  conditionals? : Bool = true,
 ) -> Dae2RawPlan? {
   let @lib.Func(locals, @lib.Expr(original_instructions)) = body
   let instructions = match
     dae2_raw_qualified_instructions(original_instructions, module_context) {
     Some(instructions) => instructions
-    None => return None
+    None => {
+      if !conditionals {
+        return None
+      }
+      return dae2_raw_conditional_dependency_plan(
+        graph, infos, index, type_infos, body, intrinsic_imports, module_context,
+      )
+    }
   }
   let info = infos[index]
   let plan = Dae2RawPlan::new(graph.used.length())

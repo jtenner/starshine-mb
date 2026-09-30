@@ -34,7 +34,7 @@ test "DAE2 single entry writes retain earlier parameter reads without building l
 }
 
 ///|
-test "DAE2 entry-write proof excludes conditional and repeated writes" {
+test "DAE2 HOT entry-write proof excludes conditional and repeated writes" {
   for
     body in [
       "local.get 0 if local.get 1 local.set 2 end local.get 2", "local.get 1 local.set 2 local.get 0 if local.get 0 local.set 2 end local.get 2",
@@ -46,6 +46,7 @@ test "DAE2 entry-write proof excludes conditional and repeated writes" {
     let output = dae2_run_module_pass(
       input,
       false,
+      raw_conditionals=false,
       local_graph_builds=Some(graphs),
     ).unwrap()
     @validate.validate_module(output).unwrap()
