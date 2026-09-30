@@ -3,6 +3,8 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/dae_stack_effect_ref_eq_wbtest.mbt
+  - ../../../../../src/cmd/dae_stack_effect_ref_eq_wbtest.mbt
   - ../../../../../src/passes/dae2_capture_callbacks_wbtest.mbt
   - ../../../../../src/passes/dae2_capture_callbacks_perf_wbtest.mbt
   - ../../../../../src/passes/dae2_capture_callbacks_reference_wbtest.mbt
@@ -63,6 +65,49 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+**Native counter scope correction (September 30):** the callback section below
+also supersedes earlier descriptions of allocator or query-call counts as
+dependency-window-only. Toggled event collection scopes instruction totals;
+call counters retain the whole command. Historical values remain evidence under
+that broader call domain. Direct code-site budgets and whole-command profiles
+retain their stated scope.
+
+## September 30, 2026 binary reference equality correction
+
+The shared `dae_instr_stack_effect` incorrectly groups `ref.eq` with unary
+instructions. Its actual stack effect is **two inputs, one output**. Extended
+capture cleanup can consequently consume its held capture while leaving an
+earlier stack reference behind. Both outputs validate, yet the earlier reference
+becomes the return value. Moving `RefEq` to the existing binary group restores
+the checked stack floor; the capture stays in a local when equality needs an
+operand below it. No other opcode family or cleanup ordering changes.
+
+The [arity and direct-capture regressions](../../../../../src/passes/dae_stack_effect_ref_eq_wbtest.mbt)
+fail **Some((1,1)) != Some((2,1))** and **zero locals instead of one**.
+The [public command fixture](../../../../../src/cmd/dae_stack_effect_ref_eq_wbtest.mbt)
+also fails zero versus one before implementation. All three focused wasm-gc
+tests pass after the correction. A bounded original/V35/verified-v133 runtime
+replay confirms a **true semantic mismatch**: original and Binaryen return the
+produced GC reference and observe equality **1**; V35 returns null and observes
+**0**, with the same ordered base/producer/observer calls. An earlier dropped
+equality variant also returns null incorrectly. Validation alone missed both.
+
+The V32–V37 capture checkpoints therefore retain a reference-equality correctness
+hole. Their previously documented runtime results cover their selected fixtures;
+they are not general correctness or release signoff. Corrected frozen V38 native replay returns the produced reference and observes
+**1**, matching the original and verified v133. Info/fmt, focused wasm-gc/native
+tests and **13,015 default tests** pass. The small and large compiler outputs
+contain no `ref.eq` instructions, so their historical artifact comparisons retain
+that limited scope. The current V38 CLI is SHA-256
+`5f93f13ab6609f8494637a45edbf9d3373213e5050ccc290f9a2e6b262b090e7`;
+it also includes the separately measured parameter-alias cleanup. Its fresh
+v133 oracle artifacts and size/timing evidence are retained. Long fuzz remains
+deferred while performance iteration continues. Evidence:
+`.tmp/dae2-lean-20260929/{ref-eq-{core,command}-{red,green}.log,
+ref-eq-initial-probe.json,ref-eq-initial-{original,v35,binaryen}.wasm,
+ref-eq-stack.{wat,mjs},ref-eq-stack-probe.json,ref-eq-stack-v38-result.json,
+ref-eq-macro-opcodes.json,validation-v38.json,oracle-v38-{small,large}}`.
 
 ## September 30, 2026 capture callback reuse
 

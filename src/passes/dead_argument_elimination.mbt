@@ -8074,7 +8074,6 @@ fn dae_instr_stack_effect(
     | @lib.I64Extend8S
     | @lib.I64Extend16S
     | @lib.I64Extend32S
-    | @lib.RefEq
     | @lib.AnyConvertExtern
     | @lib.ExternConvertAny
     | @lib.RefI31
@@ -8110,7 +8109,8 @@ fn dae_instr_stack_effect(
     | @lib.StructAtomicGetU(_, _, _)
     | @lib.MemoryGrow(_)
     | @lib.TableGet(_) => Some((1, 1))
-    @lib.I32Eq
+    @lib.RefEq
+    | @lib.I32Eq
     | @lib.I32Ne
     | @lib.I32LtS
     | @lib.I32LtU

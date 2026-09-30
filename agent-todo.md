@@ -15,12 +15,14 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v35 passes 13,000 default tests and
-  the bounded original/v133 replay controls. This is not final aggregate or
-  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-capture-callback-reuse)
+- **Current checkpoint:** the saved lean-v35 performance cohort passes 13,000
+  selected/default tests but has a subsequently repaired binary `ref.eq` capture
+  defect. Corrected V38 passes 13,015 default tests and the focused original/v133
+  GC-reference replay; its parameter-alias measurement unit is being saved
+  separately. Historical fixture counts are not final aggregate or release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-capture-callback-reuse)
   owns exact hashes, paired measurements, costs and limitations.
 
-### Latest DAE2/O baseline
+### Saved DAE2/O performance baseline
 
 The frozen v35 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
@@ -138,8 +140,8 @@ breadth. Shared changes require all affected consumers in the matrix below.
   where enclosing gains justify lifetime costs. Five loop-scoped raw visitors are
   now hoisted; the toggled native profile records 43,495,605 allocator calls
   across the large command, not solely final capture cleanup. Obtain honest
-  scoped allocation attribution before targeting individual query families. Sort queries still run 651,397
-  times in V29's dependency scope; any cached comparator must capture its order
+  scoped allocation attribution before targeting individual query families. V29's
+  toggled profile records 651,397 whole-command sort calls; any cached comparator must capture its order
   row without a facts backpointer or reference cycle.
 - [ ] Clear temporary state on every exit, avoid allocating it on no-work paths,
   bound retained high-water capacity and measure lifetime/RSS costs. Preserve
@@ -173,6 +175,12 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - [ ] Isolate remaining lift/admission, dependency solve, location lookup,
   rewrite/lower, capture repair, writeback and final-validation costs on the
   same frozen source. Do not add overlapping inclusive profile percentages.
+- [ ] Trial raw edits for pure discarded-call suffixes in structured bodies,
+  preserving the existing flat demand projection and HOT fallbacks for unknown
+  effects, used removed parameters and changed indexed control families.
+- [ ] Trial raw fallthrough conditionals with sparse local-write undo/join work;
+  avoid copying whole local arrays per branch and preserve conservative HOT
+  dependencies for exits, loops, handlers and unsupported signatures.
 - [ ] Reduce repeated body/revision queries and representation allocation;
   extend the read-source snapshot to demand only unresolved reads when measured
   gains justify it. Preserve
@@ -215,6 +223,10 @@ breadth. Shared changes require all affected consumers in the matrix below.
   ordered SimplifyLocals/Vacuum and
   downstream cleanup; close indirect-family, typed-control, parameter/result
   and local/capture debris gaps without weakening behavior.
+- [ ] Extend alias cleanup to dominated single-write locals where the same
+  dynamic value and a nonincreasing encoded size are proved. Preserve default
+  reads, iteration snapshots and existing overlapping stack-capture decisions;
+  measure this separately from immutable parameter forwarding.
 - [ ] Inspect and replay the **41 V25-changed functions / +458 bytes**, preserving
   the stacked-read and branch-exit repairs. Validity, byte provenance or smaller
   output alone cannot establish semantic equivalence or an intentional win.
