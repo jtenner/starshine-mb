@@ -591,6 +591,117 @@ original/optimized observations where supported, classified size deltas and
 fresh dedicated v133 aggregate evidence. No unexplained semantic or validation
 failure; no unproven output-shape exception.
 
+### Latest Binaryen main follow-ups
+
+The order below is the follow-up priority; current P03 DAE2/DAE2-O performance
+work stays first. Pin and identify a current-main oracle for the upstream probes;
+keep those results separate from verified release-v133 signoff.
+
+#### DAE never-returning reference results [IR2-DAE-BOTTOM-9169]
+
+- **Goal / why:** important semantic parity follow-up from Binaryen
+  [PR #9169](https://github.com/WebAssembly/binaryen/pull/9169),
+  [commit `13b6e64b`](https://github.com/WebAssembly/binaryen/commit/13b6e64b).
+  No reachable normal return is positive evidence for a non-null bottom
+  reference result. Current [DAE](src/passes/dead_argument_elimination.mbt)
+  appears to treat no reachable returned value as no refinement evidence:
+  `dae_direct_gc_result_candidate_body(...)` requires a value candidate, and
+  the single-result refinement path ignores `None`. Confirm against current
+  Binaryen main with reduced outputs before implementing.
+- **Tasks / APIs:** initially support only a single reference result. Reuse
+  existing DAE signature mutation, callsite repair, result refinement and
+  bottom-type machinery; consult hierarchy handling in
+  [RemoveUnusedBrs](src/passes/remove_unused_brs.mbt) and
+  [types](src/lib/types.mbt), preserving hierarchy, sharedness and non-nullability.
+- **Invariants / dependencies:** prove no reachable normal return rather than
+  interpreting unsupported analysis as bottom. Preserve fail-closed open or
+  unsafe boundaries. Coordinate P08; defer actual implementation until current
+  P03 DAE2/DAE2-O performance work is ready.
+- **Tests / exit:** bounded pass and dispatcher fixtures for `throw`, explicit
+  `unreachable`, infinite non-returning loops, `eq -> none`, `func -> nofunc`,
+  `extern -> noextern` and caller/tail-caller propagation; open-boundary and
+  multivalue negatives. Require valid repaired callers and reduced Binaryen
+  output comparisons; retain the gap until that evidence exists.
+
+#### ConstraintAnalysis sparse-state investigation [IR2-PERF-CA-SPARSE]
+
+- **Goal / why:** investigate the substantial upstream pass-time gains from
+  compact sorted state in
+  [PR #9154](https://github.com/WebAssembly/binaryen/pull/9154) /
+  [commit `53bf1f8e`](https://github.com/WebAssembly/binaryen/commit/53bf1f8e),
+  with sorted-order API protection in
+  [PR #9171](https://github.com/WebAssembly/binaryen/pull/9171) /
+  [commit `6f8d66d9`](https://github.com/WebAssembly/binaryen/commit/6f8d66d9).
+- **Tasks / APIs:** profile current
+  [ConstraintAnalysis](src/passes/constraint_analysis.mbt) structures first:
+  `CaState` uses dense local/version arrays and a relation array; joins scan
+  locals and intersect relations with `filter`/`contains`. Identify sparse
+  `HashMap` costs in proofs, conflicts and holder-slot accounting separately
+  from branch-join/state-copy costs. Coordinate P14 and its existing CA setup
+  controls rather than assuming Starshine has Binaryen's former map layout.
+- **Benchmarks / measures:** focused many-basic-block, many-locals/few-constrained,
+  sparse-state, repeated-branch-join and repeated-merge fixtures; measure pass
+  time and allocations where possible, with tiny/dense controls.
+- **Prototype / invariants:** only if profiling supports it, trial compact
+  contiguous sorted storage and linear merge/intersection without per-entry
+  heap allocation. Avoid quadratic insertion or merging; consider reusable
+  scratch or append-then-sort when direct sorted insertion is expensive. Protect
+  sorted order through the API and preserve branch ownership, reachability,
+  version invalidation and constraint precision. Choose a MoonBit-appropriate
+  representation; copying Binaryen's C++ container design is not required.
+- **Exit:** require before/after benchmark data and unchanged semantic behavior
+  before production adoption; upstream improvements alone do not prove a local gain.
+
+#### StackIR-equivalent local temporary elimination [IR2-LOCAL-TEMP-9162]
+
+- **Goal / why:** probe final-Wasm parity with
+  [PR #9162](https://github.com/WebAssembly/binaryen/pull/9162),
+  [commit `39cd18ac`](https://github.com/WebAssembly/binaryen/commit/39cd18ac),
+  even though Starshine has no component named StackIR. The target is removing
+  a `local.set` / `local.get` temporary across exactly one independent stack
+  value when their consumer safely permits operand interchange: for example,
+  `call $produce; local.set $tmp; i32.const 3; local.get $tmp; i32.add` can become
+  `call $produce; i32.const 3; i32.add` when the temporary has no other needed use.
+- **Tasks / APIs:** first trace whether
+  [SimplifyLocals](src/passes/simplify_locals.mbt),
+  [CoalesceLocals](src/passes/coalesce_locals.mbt), [RSE](src/passes/rse.mbt),
+  [expression reconstruction/lowering](src/ir/hot_lower.mbt), or another local
+  propagation/peephole stage already produces that final Wasm. Existing adjacent
+  set/get and SIMD-carrier rewrites in [raw cleanup](src/passes/pass_manager.mbt)
+  are starting points, not proof of full coverage. Coordinate P05/P04/P03f.
+- **Tests / invariants:** reduced probes based on upstream `optimize-stack-ir.wast`:
+  positive candidates `i32.add`, `ref.eq`, `f32.min`; negative cases `i32.sub`
+  and more than one intervening independent stack value. Preserve evaluation
+  order, producer timing, side effects and traps. Interchange operands only
+  when Wasm semantics permit it; check floating-point NaNs and signed zero
+  carefully rather than assuming apparent commutativity is sufficient.
+- **Exit:** compare reduced outputs against Binaryen and measure final Wasm byte
+  size, including local declarations and downstream cleanup. Add production
+  logic only if Starshine retains the unnecessary temporary, in its natural
+  IR/lowering layer; do not invent a StackIR subsystem.
+
+#### Waitqueue execution-fuzz safety audit [IR2-SAFETY-WAITQUEUE-9012]
+
+- **Goal / why:** small audit of existing support, following
+  [PR #9012](https://github.com/WebAssembly/binaryen/pull/9012),
+  [commit `6c1a3cb7`](https://github.com/WebAssembly/binaryen/commit/6c1a3cb7);
+  execution-oriented fuzzing must not hang indefinitely on generated `struct.wait`.
+- **Tasks / APIs:** the existing
+  [waitqueue generator](src/validate/gen_valid_waitqueue.mbt) already emits
+  timeout `0`, and the [Node-v2 executor](scripts/lib/optimizer-runtime-executor.ts)
+  kills workers at a deadline supplied by the
+  [compare harness](scripts/lib/pass-fuzz-compare-task.ts). Audit applicable
+  execution-oriented generators and replay paths for zero/other bounded wait
+  timeouts or a harness-level execution timeout; verify coverage of blocking
+  waits rather than assuming these starting protections cover every lane.
+- **Invariants / dependencies:** reuse existing generation/validation support
+  and the runtime-coverage owner above. Do not weaken validation coverage to
+  avoid blocking. If protection is incomplete, add a bounded strategy similar
+  in intent to Binaryen's zero-timeout approach, preserving timeout-operand effects.
+- **Exit / tests:** demonstrate bounded completion or worker termination in
+  focused execution probes. If current protection suffices, document the audit
+  evidence and close this TODO when performed; no feature reimplementation is needed.
+
 ## v0.1.1 — Frontend and index contracts [IR2-CORRECTNESS]
 
 - **Parameterized HOT if signoff:** finish current-source independent runtime
@@ -694,6 +805,27 @@ pass dossiers; historical green checkpoints do not replace current signoff.
   are insufficient, unknown/custom metadata roundtrips and smaller opaque-lowering
   boundaries. Require concrete fixtures and correctness evidence before widening;
   startup-specific work stays under `[O4Z-STARTUP]001`.
+
+### Future ReorderFunctions usage accounting [IR2-REORDER-REF-FUNC-9160]
+
+- **Goal / why:** future implementation requirement from
+  [PR #9160](https://github.com/WebAssembly/binaryen/pull/9160),
+  [commit `5bcf1359`](https://github.com/WebAssembly/binaryen/commit/5bcf1359).
+  `reorder-functions` remains [boundary-only](src/passes/optimize.mbt);
+  this is the fifth main-review follow-up, not an immediate pass implementation.
+- **Tasks / APIs:** when implementing the module-level reorder/remap pass,
+  count `ref.func` usage in function bodies, global initializers and other
+  applicable module expression locations, including expression-form elements.
+  Reuse the existing future
+  [port map](docs/wiki/binaryen/passes/reorder-functions/starshine-strategy.md).
+- **Stale research:** that port map and
+  [count-surfaces research](docs/wiki/binaryen/passes/reorder-functions/count-surfaces-ordering-and-omissions.md)
+  still say Binaryen does not count `ref.func`; those claims are stale for main
+  after this commit. Refresh them with versioned provenance when this work begins.
+- **Invariants / exit / tests:** preserve complete function-index remapping;
+  add body-only and initializer-only reference usage/order fixtures and reduced
+  Binaryen comparisons when the pass is implemented. Keep this deferred behind
+  the four v0.1.1 main follow-ups and current DAE2/O performance work.
 
 ## Backlog hygiene
 
