@@ -3,6 +3,8 @@ kind: entity
 status: working
 last_reviewed: 2026-09-29
 sources:
+  - ../../../../../src/ir/local_graph_entry_reads_wbtest.mbt
+  - ../../../../../src/ir/local_graph_entry_reads_reference_wbtest.mbt
   - ../../../../../src/ir/local_graph.mbt
   - ../../../../../src/ir/local_graph_sparse.mbt
   - ../../../../../src/ir/local_graph_write_facts_wbtest.mbt
@@ -29,6 +31,87 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## September 29, 2026 immutable entry reads
+
+Full reverse LocalGraph construction now admits each action once, records
+which locals have any write, and resolves never-written reads with one
+entry-origin reachability walk. It reuses the existing seen/visited/work and
+nearest-write vectors; only two local-count rows are new. Reached immutable
+reads share one completed entry row per local. Unknown/unreachable reads stay
+empty, including closed cycles and entries with admitted predecessors.
+Exceptional-edge filtering and shared-action sparse fallback are unchanged.
+All graph fields and source ordering remain complete; this is not a partial
+sources-only public API.
+
+Four [bounded guards](../../../../../src/ir/local_graph_entry_reads_wbtest.mbt)
+compare every graph field with the frozen preceding builder, including
+written definitions, default/parameter/reference locals, both operand modes,
+exceptional entry backedges, reachable/unreachable cycles, and shared actions.
+The actual per-block cache budget fails first, **67 != 51**, while the three
+semantic guards are initially green. Six
+[native full-build controls](../../../../../src/ir/local_graph_entry_reads_perf_wbtest.mbt)
+include all graph construction and consume the completed result:
+
+| Conditional writes | Original → immutable-entry build |
+| --- | --- |
+| 8 | 3.53 → 2.62µs |
+| 64 | 78.86 → 16.45µs |
+| 512 | 4.23ms → 154.94µs |
+
+These improve **26%, 79%, 96%**. The new dedicated 1024-conditional-write
+pipeline falls **29.287 → 11.745ms (59.90%)** / **33.833 → 16.797ms
+(50.35%)**, MAD 0.060/0.048ms and 0.034/0.020ms. Its seven original/before/
+after/v133 modules validate and match all 42 bounded runtime observations.
+Input is 16,441 bytes, SHA-256
+`d63812884c36c2742a24dd8dae7b8c4a27fb5dcd7e311dbd3545dc7f59960027`.
+This is a dedicated performance lane, not an artifact-scale default test.
+
+Three matched large compiler pairs fall **4044.453 → 3918.751ms (3.11%)**
+/ **7071.974 → 6895.721ms (2.49%)**, MAD 33.823/41.118ms and
+38.932/20.322ms. Small plain costs **4.037 → 4.077ms (0.99%)**, MAD
+0.011/0.002ms; optimizing 11.325 → 11.316ms, near flat. Tee medians are
+3.781 → 3.715ms / 108.483 → 107.940ms, MAD 0.041/0.017ms and
+1.538/0.011ms. Rejected reference brackets 1.228/1.316 remain in evidence.
+Joined-reader medians are 19.473 → 19.060ms / 29.753 → 28.947ms;
+pure-tail **12.025 → 12.198ms (1.44% plain cost)** / 12.182 → 12.102ms,
+MAD 0.056/0.340ms and 0.012/0.056ms. These controls and dispersion remain
+limits; separate timing cohorts are not cumulative causal gains.
+
+Dependency-analysis instructions fall **18,176,793,615 → 17,063,254,721
+(6.13%)**, and incoming allocator requests/frees by **298,741** each:
+35,974,921 → 35,676,180 / 111,421,168 → 111,122,427. Counts are named calls,
+not bytes/net objects. Small whole-command instructions fall 78,762,741 →
+78,683,467 / 170,418,104 → 170,356,583, with 150 fewer requests/frees in
+both modes.
+
+Untraced RSS medians are **281,536 → 282,212 KiB (0.24% plain cost)**,
+ranges 281,512–283,280 / 258,060–282,308; optimizing 304,336 → 292,140 KiB,
+ranges 292,104–314,440 / 292,020–314,496. Ranges overlap, so these three
+samples do not establish a causal memory improvement. Preserve the extra
+local-count storage and small/control costs for follow-up.
+
+Info/fmt, four native guards, **12,957 default wasm-gc tests**, release CLI
+and six controls pass. Fixed 126-module / 1,029-observation and both previous
+seven-module / 28-observation replays match original/v133 results. All
+before/after and traced/untraced bytes match and independently validate.
+Frozen SHA-256 is
+`916b6c74a5eac4d24146de60c0877185fa6b15c327712938349053f92d895ece`.
+Public interfaces are unchanged; aggregate fuzz remains deferred.
+
+Fresh verified-v133 medians are small 4.169 / 0.981300ms (**4.25×**) and
+12.680 / 3.155730ms (**4.02×**); large 4017.808 / 437.888ms (**9.18×**)
+and 7334.642 / 1718.580ms (**4.27×**). MADs are 0.089/0.003427ms,
+0.425/0.059750ms, 2.472/0.062ms and 22.521/16.740ms. The input, one warmup,
+three samples and CPU 6 are retained. The optimizing canonical size gap is
+still **422,470 bytes**; no shape-win classification is inferred.
+
+Evidence is local `.tmp/dae2-lean-20260929/` v23 manifests, red, validation,
+bench, fixed/active/conditional-write runtime records, matched compiler,
+work/allocator profiles and verified-v133 folders. Next are linear writer
+source union, scratch reuse, field reads and optimizing cleanup. The entry
+preflight can still walk for a never-read unwritten local; refine that trigger
+without changing unknown rows. Buffer lifetime/memory follow-up stays open.
 
 ## September 29, 2026 fused writer metadata
 

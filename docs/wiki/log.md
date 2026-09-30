@@ -1,3 +1,17 @@
+### 2026-09-29 — DAE2 immutable entry reads
+
+- [Immutable entry reads](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-immutable-entry-reads)
+  replace repeated never-written-local reverse walks with one admitted-origin
+  reach traversal, preserving complete source/influence/metadata and unknown
+  rows. The cache budget fails first (67 != 51). All 12,957 default tests,
+  native guards, six controls and bounded original/v133 replays pass with
+  unchanged bytes. The 512-write full graph improves 96%; conditional-write
+  pipelines 59.90%/50.35%, paired compiler pipelines 3.11%/2.49%.
+  Dependency instructions fall 6.13%, requests/frees by 298,741. Small/pure
+  costs and RSS limits remain explicit. Fresh v133 large ratios are still
+  9.18×/4.27×; optimizing size remains +422,470 bytes. Linear source union,
+  unused-local preflight, scratch/field/cleanup work remain open; fuzz is deferred.
+
 ### 2026-09-29 — DAE2 fused writer metadata
 
 - [Fused writer metadata](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-fused-writer-metadata)

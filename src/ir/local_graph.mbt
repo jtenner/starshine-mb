@@ -1705,6 +1705,7 @@ fn local_graph_build_reverse_flow(
   let node_blocks = Array::make(node_count, -1)
   let nearest_writes = Array::make(node_count, -1)
   let last_writes = Array::make(local_count, -1)
+  let written_anywhere = Array::make(local_count, false)
   let written_locals : Array[Int] = []
   for block_id = 0; block_id < actions.length(); block_id = block_id + 1 {
     for idx = 0; idx < actions[block_id].length(); idx = idx + 1 {
@@ -1718,12 +1719,20 @@ fn local_graph_build_reverse_flow(
         let node = hot_node_get(func, node_id)
         match node.op {
           HotOp::LocalSet | HotOp::LocalTee => {
+            written_anywhere[node.imm0] = true
             if last_writes[node.imm0] < 0 {
               written_locals.push(node.imm0)
             }
             last_writes[node.imm0] = node_id
           }
-          HotOp::LocalGet => nearest_writes[node_id] = last_writes[node.imm0]
+          HotOp::LocalGet =>
+            nearest_writes[node_id] = if last_writes[node.imm0] >= 0 {
+              last_writes[node.imm0]
+            } else {
+              // Keep the local in the existing per-node scratch row. -1
+              // remains a nonread; known writers retain their node IDs.
+              -node.imm0 - 2
+            }
           _ => ()
         }
       }
@@ -1754,6 +1763,52 @@ fn local_graph_build_reverse_flow(
   let seen = Array::make(cfg_block_count(cfg), false)
   let visited : Array[BlockId] = []
   let work : Array[BlockId] = []
+  let entry_rows : Array[Array[Int]] = Array::make(local_count, [])
+  if written_anywhere.any(fn(written) { !written }) {
+    let entry = cfg_entry_block(cfg)
+    // Match the reverse query's exact origin rule: entry contributes only
+    // when it has no admitted predecessors. Closed/unreachable cycles must
+    // retain unknown rows rather than inventing an entry definition.
+    let mut entry_origin = true
+    for edge in cfg_predecessor_edges(cfg, entry) {
+      if include_exceptional || edge.kind != CfgEdgeKind::ExceptionalEdge {
+        entry_origin = false
+        break
+      }
+    }
+    if entry_origin {
+      work.push(entry)
+      seen[entry] = true
+      visited.push(entry)
+      while !work.is_empty() {
+        let current = work.pop().unwrap()
+        for node_id in actions[current] {
+          let encoded = nearest_writes[node_id]
+          if encoded <= -2 {
+            let local_id = -encoded - 2
+            if !written_anywhere[local_id] {
+              // A disjoint negative range marks reachable immutable reads.
+              nearest_writes[node_id] = encoded - local_count
+            }
+          }
+        }
+        for edge in cfg_successor_edges(cfg, current) {
+          if !include_exceptional && edge.kind == CfgEdgeKind::ExceptionalEdge {
+            continue
+          }
+          if !seen[edge.block] {
+            seen[edge.block] = true
+            visited.push(edge.block)
+            work.push(edge.block)
+          }
+        }
+      }
+      for block in visited {
+        seen[block] = false
+      }
+      visited.clear()
+    }
+  }
   match cache_slots {
     Some(count) => count[0] += cache.length()
     None => ()
@@ -1771,6 +1826,17 @@ fn local_graph_build_reverse_flow(
     let write_id = nearest_writes[node_id]
     let sources = if write_id >= 0 {
       [local_graph_set_source_id(local_count, write_id)]
+    } else if !written_anywhere[local_id] {
+      if write_id <= -local_count - 2 {
+        if entry_rows[local_id].is_empty() {
+          entry_rows[local_id] = [local_graph_entry_source_id(local_id)]
+        }
+        // Source rows are immutable borrowed graph data, as with completed
+        // reverse-cache rows. Share one entry row across this local's reads.
+        entry_rows[local_id]
+      } else {
+        []
+      }
     } else {
       local_graph_reverse_entry_sources(
         write_local_ids,
