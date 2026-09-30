@@ -85,7 +85,12 @@ captures, cleanup improves **2.84 → 1.36µs / 21.04 → 8.62µs /
 The large final-capture-only native profile falls **5,075,747,935 →
 2,955,409,451 instructions (41.8%)**. Incoming `mi_malloc` calls fall
 **52,254,437 → 43,495,605**, `mi_free` **164,228,390 → 151,194,926**.
-These are scoped instruction/request counts, not allocated bytes or live objects.
+Instructions are capture-scoped; call counters cover the whole command even
+with event collection toggled. A deterministic counter check records 3,007
+allocator calls while only seven occur in the selected function. The request
+reduction therefore cannot be attributed solely to final capture cleanup; these
+are not allocated bytes or live objects. See the
+[Callgrind collection/instrumentation distinction](https://valgrind.org/docs/manual/cl-manual.html#cl-manual.limits).
 Both profiled outputs validate and are byte-identical.
 
 Matched CPU-6 V34/V35 medians (one warmup, three samples; before/after MAD) are
@@ -115,7 +120,8 @@ Oracle is verified release-v133 SHA-256
 Evidence: `.tmp/dae2-lean-20260929/{validation-v35.json,candidate-v35.json,
 callback-cost-{v34,v35}.json,callback-native-cost-v35.json,native-{v34,v35}.c,
 oracle-v35-{small,large},pairs-v35-{small,large,tee},runtime-v35,
-callbacks-memory-v35.log,callgrind-{v34,v35}-captures,v35-bench.log}`.
+callbacks-memory-v35.log,callgrind-{v34,v35}-captures,
+callgrind-counter-scope.{c,json},v35-bench.log}`.
 No public API changes. Long fuzz and final signoff remain deferred.
 
 ## September 30, 2026 scoped scalar forwarding cleanup

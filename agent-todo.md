@@ -136,8 +136,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - [ ] Attribute remaining source/reader/access rows, comparator closure
   construction, array growth and reference-count/destruction work. Trial reuse
   where enclosing gains justify lifetime costs. Five loop-scoped raw visitors are
-  now hoisted; remaining final-capture allocator requests still number
-  43,495,605 on the large input. Sort queries still run 651,397
+  now hoisted; the toggled native profile records 43,495,605 allocator calls
+  across the large command, not solely final capture cleanup. Obtain honest
+  scoped allocation attribution before targeting individual query families. Sort queries still run 651,397
   times in V29's dependency scope; any cached comparator must capture its order
   row without a facts backpointer or reference cycle.
 - [ ] Clear temporary state on every exit, avoid allocating it on no-work paths,
