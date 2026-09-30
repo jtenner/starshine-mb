@@ -1,3 +1,11 @@
+### 2026-09-30 — Reverse short-index aliases
+
+- [Scoped reverse copies](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-reverse-short-index-aliases)
+  preserve one-byte local indices and flatten aliases to dominating roots.
+  All 13,072 tests and 4,571 runtime observations pass. The large optimizing
+  artifact saves 39,161 raw / 40,806 canonical bytes with no raw function
+  growth; remaining v133 size gap, tee cost and traversal churn stay open.
+
 ### 2026-09-30 — Single-leaf suffix typing
 
 - [Leaf admission](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-single-leaf-suffix-typing)

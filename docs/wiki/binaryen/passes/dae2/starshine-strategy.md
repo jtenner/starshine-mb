@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/reverse_alias_wbtest.mbt
+  - ../../../../../src/passes/reverse_alias_reference_wbtest.mbt
+  - ../../../../../src/passes/reverse_alias_perf_wbtest.mbt
+  - ../../../../../src/cmd/reverse_alias_wbtest.mbt
   - ../../../../../src/passes/single_leaf_wbtest.mbt
   - ../../../../../src/passes/single_leaf_reference_wbtest.mbt
   - ../../../../../src/passes/single_leaf_perf_wbtest.mbt
@@ -112,6 +116,115 @@ dependency-window-only. Toggled event collection scopes instruction totals;
 call counters retain the whole command. Historical values remain evidence under
 that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
+
+## September 30, 2026 reverse short-index aliases
+
+Alias cleanup now admits higher-index sources below 128 as well as the
+existing lower-index sources. Both source and target stay one-byte local
+indices under monotone compaction; wider equal-width reverse edges remain
+unsupported because compaction can narrow only the target. The same private
+width predicate governs cheap admission and the actual transform.
+
+Single-writer and lexical-dominance rules remain: a source is unwritten or
+its ordinary writer precedes the alias in the active scope/iteration. Reads
+of active aliases resolve to their final root before copy recognition, and
+alias writers do not establish ordinary roots. Consequently admitted edges
+point to nonalias roots; retirement remains one linear pass without relying
+on descending local IDs. Earlier/default reads and sibling/handler reads
+retain their original target. Producer evaluation is never duplicated.
+
+Before implementation, six of seven focused regressions and the dispatcher
+regression fail on V53. Tests cover scalar and reference types, GC construction,
+partial/default reads, flattened mixed-order tee chains, future/multiple source
+writes, sibling/handler/loop scope and the 127/128 local-index boundary.
+
+Frozen V53/V54 native controls compare reverse-copy compaction with existing
+forward-copy and no-alias paths at widths 8 and 64. Setup, typing, input
+ownership and output-size checks occur outside timed loops. Artifact evidence
+uses verified Binaryen release v133, CPU 6, one warmup, three samples,
+alternating predecessor pairs with reference-drift rejection, MAD and RSS.
+Every compiler function is audited for raw growth and exact preservation of
+nonlocal opcode/immediate streams and non-code semantic sections. Bounded
+runtime replay compares originals with predecessor, candidate and v133,
+including changing per-iteration producers, thrown imports, memory traps,
+handler/default paths and GC object identity. Long fuzz remains deferred.
+
+All seven focused tests, dispatcher and related alias/suffix guards, `moon
+info`, `moon fmt`, **13,072** default tests, release native build and **12**
+native controls pass. No public API change or new warning category occurs.
+
+Native complete-compaction means:
+
+| Width / shape | V53 µs | V54 µs | Change |
+| --- | ---: | ---: | ---: |
+| 8 reverse copy | 0.32549 | 1.67000 | +413.07% |
+| 8 forward copy | 1.64000 | 1.66000 | +1.22% |
+| 8 no alias | 0.34862 | 0.34400 | -1.33% |
+| 64 reverse copy | 2.07000 | 11.10000 | +436.23% |
+| 64 forward copy | 10.98000 | 11.02000 | +0.36% |
+| 64 no alias | 2.35000 | 2.32000 | -1.28% |
+
+Frozen native V54 SHA-256: `15092f91dbb53c9ad69466c120b824d9984ebc51457989baa6ccc16407ccb9f1`.
+
+Fresh verified release-v133 comparison (CPU 6, one warmup, three samples; pass-local medians):
+
+| Input / pass | Starshine ms | v133 ms | Ratio | Raw / canonical size gap |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 4.026 | 1.006 | 4.000× | -123 / -97 B |
+| small / `dae2-optimizing` | 12.041 | 3.428 | 3.513× | -392 / -290 B |
+| large / `dae2` | 3682.545 | 469.123 | 7.850× | -117,365 / -100,237 B |
+| large / `dae2-optimizing` | 6998.603 | 1738.600 | 4.025× | +128,886 / +258,469 B |
+
+Matched V53→V54 pipeline medians (same CPU/warmup, three accepted alternating pairs, independent reference bracket ≤1.15):
+
+| Input / pass | V53 ms | V54 ms | Change | MAD before / after ms |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 3.935 | 3.934 | -0.03% | 0.063 / 0.074 |
+| small / `dae2-optimizing` | 10.564 | 10.625 | +0.58% | 0.050 / 0.154 |
+| large / `dae2` | 3774.807 | 3780.024 | +0.14% | 32.471 / 41.462 |
+| large / `dae2-optimizing` | 6646.683 | 6699.535 | +0.80% | 44.310 / 66.450 |
+| tee / `dae2` | 2.946 | 2.930 | -0.54% | 0.061 / 0.013 |
+| tee / `dae2-optimizing` | 102.487 | 104.185 | +1.66% | 0.111 / 0.108 |
+
+Three alternating peak-RSS pairs, KiB (median [range]):
+
+- `dae2`: before 280,320 [245,040–281,328] → after 281,324 [279,376–281,428].
+- `dae2-optimizing`: before 289,964 [289,604–290,108] → after 290,012 [289,784–292,276].
+
+Reverse-copy controls now perform cleanup that V53 skipped: their added
+cost is explicit, while existing forward/no-alias controls remain close to
+flat. Matched compiler optimizing costs +0.58% small / +0.80% large,
+within the candidate MADs; active tee costs +1.66%, greater than either MAD.
+Keep the tee cost open. Plain timings and RSS are close to flat in this
+cohort; historical plain costs remain unresolved. This unit proves an
+output-size improvement, not a general pass-speed win.
+
+The large artifact removes 9,023 set/get pairs and 1,386 tees. All 12,904
+functions preserve nonlocal opcode/immediate streams and non-code semantic
+sections, with no raw function growth. Raw output shrinks 39,161 bytes and
+canonical output shrinks 40,806 bytes. The remaining v133 gap is **128,886
+raw / 258,469 canonical bytes**; 7,884 canonical function bodies remain
+larger and 2,362 are smaller. Small optimizing shrinks six bytes. Plain
+artifact bytes remain identical to V53. These are measured predecessor
+improvements under the scoped-alias contract; overall v133 parity stays open.
+
+All **749 bounded runtime modules / 4,571 observations** agree with their
+originals, including effects, traps, changing loop values and reference identity.
+The reduced fixture and function audit support the transform contract; they
+do not replace deferred aggregate fuzz or final release/shared-consumer signoff.
+
+Sources: [alias implementation](../../../../../src/passes/dae2_parameter_aliases.mbt),
+[regressions](../../../../../src/passes/reverse_alias_wbtest.mbt),
+[frozen V53 path](../../../../../src/passes/reverse_alias_reference_wbtest.mbt),
+[native controls](../../../../../src/passes/reverse_alias_perf_wbtest.mbt) and
+[dispatcher](../../../../../src/cmd/reverse_alias_wbtest.mbt).
+Local evidence: `.tmp/dae2-lean-20260929/validation-v54.json`,
+`candidate-v54.json`, `v54-baseline.json`, `v54-bench.log`,
+`oracle-v54-{small,large}/`, `alias-shape-v54.json`, `remaining-size-v54.json`,
+`pairs-v54-{small,large,tee}/`, `memory-v54/`, `local-alias-runtime-v54/`,
+`parameter-alias-runtime-v54/` and `runtime-v54/`.
+
+Whole-command small optimizing instructions: 154,335,857 → 154,324,921 (-0.007%), with exact unprofiled output. This is not a pass-local timer. Local profile: `profile-small-v54/`.
 
 ## September 30, 2026 single-leaf suffix typing
 

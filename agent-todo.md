@@ -15,31 +15,35 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v53 passes 13,064 default tests and
-  2,891 bounded original/v133 value, event, trap and GC-reference observations.
-  Single-leaf suffix typing avoids state construction; output bytes are unchanged.
+- **Current checkpoint:** lean-v54 passes 13,072 default tests and
+  4,571 bounded original/v133 value, event, trap and GC-reference observations.
+  Reverse short-index aliases save 40,806 canonical bytes; plain bytes match.
   The saved binary `ref.eq` defect is repaired; historical V32–V37 fixture counts
   are not general correctness evidence. Final aggregate/release signoff remains.
-  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-single-leaf-suffix-typing)
+  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-reverse-short-index-aliases)
   owns hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v53 open-world compiler comparison uses verified release v133,
+The frozen v54 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.122 / 1.006 | 4.10× | 3,920.073 / 473.290 | 8.28× |
-| `dae2-optimizing` | 11.847 / 3.251 | 3.64× | 7,022.732 / 1,740.300 | 4.04× |
+| `dae2` | 4.026 / 1.006 | 4.00× | 3,682.545 / 469.123 | 7.85× |
+| `dae2-optimizing` | 12.041 / 3.428 | 3.51× | 6,998.603 / 1,738.600 | 4.03× |
 
-- **Release blockers:** large DAE2-O adds **299,275 canonical / 168,047 raw
+- **Release blockers:** large DAE2-O adds **258,469 canonical / 128,886 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** V53 avoids single-leaf suffix state construction. Large
+- **Evidence limits:** V54 saves 39,161 raw / 40,806 canonical bytes with no
+  raw function growth or nonlocal/semantic-section drift. Compiler optimizing
+  pairs cost +0.58% small / +0.80% large within candidate MADs; active tee
+  costs +1.66% beyond MAD and stays open. Plain timing/RSS is close to flat.
+  V53 avoids single-leaf suffix state construction. Large
   optimizing matched pairs improve 5.00%; small/tee optimizing stay flat.
   Large plain costs 1.44% and plain RSS has a higher median with wide ranges;
   keep these costs open. Fallback native controls cost about 2–8%.
@@ -258,7 +262,7 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
-- [ ] Reduce and attribute the remaining **299,275-byte canonical optimizing gap**
+- [ ] Reduce and attribute the remaining **258,469-byte canonical optimizing gap**
   by function/diff family. V32 removes 32,070 balanced capture pairs and saves
   147,876 raw / 53,470 canonical bytes without per-function pair regressions.
   V38 removes immutable parameter aliases without per-function raw size losses,
@@ -270,11 +274,14 @@ breadth. Shared changes require all affected consumers in the matrix below.
   ordered SimplifyLocals/Vacuum and
   downstream cleanup; close indirect-family, typed-control, parameter/result
   and local/capture debris gaps without weakening behavior.
-- [ ] Extend proved local-alias cleanup beyond the current lower-index,
-  lexical-dominance cases. The frozen V52 read-only census finds 11,542 reverse-index candidates
-  in 3,775 functions; this is not transform or byte-win evidence. Sources
-  below 128 may preserve one-byte indices, but prove alias-root ordering,
-  partial/default reads, iteration identity and per-function size first.
+- [ ] Reduce local-alias discovery/forwarding churn: V54 admits reverse sources
+  below 128, but rebuilds instruction/control trees before the required final
+  remap. Trial read-only discovery and scoped forwarding in that final remap;
+  prove exact output, partial/default reads, tee/root/loop/handler lifetime and
+  input ownership. Native active reverse-copy cost is now 11.10 µs / 64 copies.
+- [ ] Extend alias breadth beyond proved lexical dominance and nonwidening
+  indices only with per-function size and iteration/alias-root evidence. Wider
+  equal-width indices can diverge during compaction; retain that boundary.
   Keep the equal-size unused-declaration difference in reduced v133 examples
   explicit; fewer locals alone do not establish an output-shape win.
 - [ ] Inspect and replay the **41 V25-changed functions / +458 bytes**, preserving
