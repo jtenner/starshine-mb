@@ -8277,19 +8277,24 @@ fn run_hot_pipeline_raw_simplify_locals_func_env(
 }
 
 ///|
-fn run_hot_pipeline_raw_simplify_locals_take_value_suffix(
+// Scan the original prefix without materializing its unused head. Candidate
+// suffixes retain the same complete typecheck and unknown-opcode fallback.
+// Return the owned suffix directly; its length supplies the start index without
+// an extra tuple allocation at every existing split-wrapper call.
+fn sl_value_suffix_at(
   instrs : Array[@lib.Instruction],
+  end : Int,
   count : Int,
   env : @validate.Env,
   typed_instructions? : Array[Int]? = None,
-) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
+) -> Array[@lib.Instruction] {
   if count <= 0 {
-    return (instrs.copy(), [])
+    return []
   }
   let mut required = 0
   let mut net = 0
   let mut known = true
-  let mut start = instrs.length() - 1
+  let mut start = end - 1
   while start >= 0 {
     if known {
       match sl_value_suffix_stack_effect(instrs[start], env) {
@@ -8305,7 +8310,7 @@ fn run_hot_pipeline_raw_simplify_locals_take_value_suffix(
       }
     }
     let suffix : Array[@lib.Instruction] = []
-    for idx = start; idx < instrs.length(); idx = idx + 1 {
+    for idx = start; idx < end; idx = idx + 1 {
       suffix.push(instrs[idx])
     }
     match typed_instructions {
@@ -8318,17 +8323,41 @@ fn run_hot_pipeline_raw_simplify_locals_take_value_suffix(
         if state.reachable &&
           state.escape == @validate.tc_escape_none() &&
           state.stack.length() == count {
-          let head : Array[@lib.Instruction] = []
-          for idx = 0; idx < start; idx = idx + 1 {
-            head.push(instrs[idx])
-          }
-          return (head, suffix)
+          return suffix
         }
       Err(_) => ()
     }
     start = start - 1
   }
-  (instrs.copy(), [])
+  []
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_take_value_suffix(
+  instrs : Array[@lib.Instruction],
+  count : Int,
+  env : @validate.Env,
+  typed_instructions? : Array[Int]? = None,
+) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
+  if count <= 0 {
+    return (instrs.copy(), [])
+  }
+  let suffix = sl_value_suffix_at(
+    instrs,
+    instrs.length(),
+    count,
+    env,
+    typed_instructions~,
+  )
+  if suffix.is_empty() {
+    return (instrs.copy(), suffix)
+  }
+  let start = instrs.length() - suffix.length()
+  let head : Array[@lib.Instruction] = []
+  for index in 0..<start {
+    head.push(instrs[index])
+  }
+  (head, suffix)
 }
 
 ///|
@@ -10071,14 +10100,9 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fl
         continue
       }
     }
-    let producer_prefix : Array[@lib.Instruction] = []
-    for idx = 0; idx < scan_idx; idx = idx + 1 {
-      producer_prefix.push(instrs[idx])
-    }
-    let (producer_head, producer_suffix) = run_hot_pipeline_raw_simplify_locals_take_value_suffix(
-      producer_prefix, 1, env,
-    )
-    if producer_suffix.length() == 0 || producer_head.length() < cursor {
+    let producer_suffix = sl_value_suffix_at(instrs, scan_idx, 1, env)
+    let producer_start = scan_idx - producer_suffix.length()
+    if producer_suffix.length() == 0 || producer_start < cursor {
       scan_idx = scan_idx + 1
       continue
     }
@@ -10110,13 +10134,15 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fl
         rewritten_here = true
         break
       }
-      let remaining : Array[@lib.Instruction] = []
-      for idx = statement_start; idx < instrs.length(); idx = idx + 1 {
-        remaining.push(instrs[idx])
-      }
-      let (statement, _) = run_hot_pipeline_raw_simplify_locals_take_statement_prefix(
-        remaining, env,
+      let statement_end = run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
+        instrs,
+        env,
+        false,
+        start=statement_start,
       )
+      let statement = Array::makei(statement_end - statement_start, fn(index) {
+        instrs[statement_start + index]
+      })
       if statement.length() == 0 ||
         statement.any(fn(instr) {
           run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
@@ -10143,7 +10169,6 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fl
             _ => ()
           }
         }
-        let statement_end = statement_start + statement.length()
         if statement_conflict ||
           run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
             instrs, statement_end, target_local,
@@ -10176,7 +10201,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fl
       for instr in statement {
         middle.push(instr)
       }
-      statement_start = statement_start + statement.length()
+      statement_start = statement_end
     }
     if !rewritten_here {
       scan_idx = scan_idx + 1

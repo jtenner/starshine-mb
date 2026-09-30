@@ -24,21 +24,25 @@ oracle versions and checkpoints do not sign current source.
 
 ### Latest DAE2/O baseline
 
-The frozen v47 open-world compiler comparison uses verified release v133,
+The frozen v48 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 3.985 / 1.019 | 3.91× | 3,995.880 / 479.646 | 8.33× |
-| `dae2-optimizing` | 13.592 / 3.584 | 3.79× | 7,380.880 / 1,730.980 | 4.26× |
+| `dae2` | 4.471 / 1.128 | 3.97× | 4,398.904 / 604.036 | 7.28× |
+| `dae2-optimizing` | 12.682 / 3.323 | 3.82× | 8,372.674 / 1,887.200 | 4.44× |
 
 - **Release blockers:** large DAE2-O adds **299,275 canonical / 168,047 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** V47 saves 54,687 raw / 56,875 canonical bytes without
+- **Evidence limits:** V48 removes balanced-cleanup discarded copies, improving
+  wide native cases 95.2–98.8% with exact output bytes. Matched large optimizing
+  improves 1.44% within substantial variability; plain costs 2.42% large,
+  2.05% small and 6.47% tee. Shared suffix-wrapper costs remain active.
+  V47 saves 54,687 raw / 56,875 canonical bytes without
   per-function raw growth. Matched large optimizing is flat (−.41%), while
   large plain costs +5.75%; an independent repeat is +1.11% with substantial
   baseline variability. Both cohorts and phase attribution remain in the
@@ -199,7 +203,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
   and HOT fallback. Extend supported families only with a measured benefit.
 - [ ] Trial raw fallthrough conditionals with sparse local-write undo/join work;
   avoid copying whole local arrays per branch and preserve conservative HOT
-  dependencies for exits, loops, handlers and unsupported signatures.
+  dependencies for exits, loops, handlers and unsupported signatures. The raw
+  compiler census bounds candidates at 2,774 functions / about 7% of instruction
+  lines before opcode/signature/stack admission; measure actual coverage first.
 - [ ] Reduce repeated body/revision queries and representation allocation;
   extend the read-source snapshot to demand only unresolved reads when measured
   gains justify it. Preserve
@@ -218,11 +224,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   legacy and effect-spanning candidates. Optimizing admission now uses counted
   capture/unused-local/alias facts; plain still takes its original scan path.
   Preserve the V47 quality gain and resolve its measured plain-pipeline cost.
-- [ ] Remove quadratic prefix/tail copying in raw SimplifyLocals balanced-
-  statement cleanup. Use bounded source ranges while retaining exact typed
-  suffix admission, statement boundaries, local-read/write guards and rewrite
-  order. The frozen V45 native budget confirms both discarded split boundaries;
-  measure repeated captures, long intervening statements and blocked controls.
+- [ ] Remove remaining discarded producer-prefix/head copies in pure/effectful
+  raw SimplifyLocals and statement-tail copies in pure cleanup. V48 closes the
+  balanced-statement copies; preserve typed boundaries, guards and exact output.
+  Address shared suffix-wrapper costs with tiny/wide active/no-work controls;
+  retain repeated future-read scans as a separate possible quadratic cost.
 - [ ] Remove duplicated balanced-capture scan/materialization work while keeping
   legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
   matched small optimizing is +6.39%; retain these costs until measured away.

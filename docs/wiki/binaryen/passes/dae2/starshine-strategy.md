@@ -3,6 +3,11 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/balanced_ranges_wbtest.mbt
+  - ../../../../../src/passes/balanced_ranges_bounds_wbtest.mbt
+  - ../../../../../src/passes/balanced_ranges_reference_wbtest.mbt
+  - ../../../../../src/passes/balanced_ranges_perf_wbtest.mbt
+  - ../../../../../src/cmd/balanced_ranges_wbtest.mbt
   - ../../../../../src/passes/dae2_local_aliases_wbtest.mbt
   - ../../../../../src/passes/dae2_local_aliases_reference_wbtest.mbt
   - ../../../../../src/passes/dae2_local_aliases_perf_wbtest.mbt
@@ -91,6 +96,137 @@ dependency-window-only. Toggled event collection scopes instruction totals;
 call counters retain the whole command. Historical values remain evidence under
 that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
+
+## September 30, 2026 bounded raw cleanup ranges
+
+Balanced-statement local cleanup previously copied every candidate's entire
+producer prefix, then split it and discarded the head. It also copied the
+remaining tail for each intervening statement, split that copy and discarded
+the next tail. Repeated candidates therefore materialized quadratic amounts
+of irrelevant instruction storage even when a local could not be forwarded.
+
+`sl_value_suffix_at` now finds and copies only the accepted suffix within an
+exclusive end of the original instruction array. The statement-prefix scanner
+accepts a start offset and returns an absolute end. The balanced scan copies
+only that statement. Typed admission, the unknown-opcode fallback, read/write
+barriers, rewrite order and the bounded fixpoint remain unchanged. Existing
+split callers keep their original owned head/suffix interface and copy behavior.
+The helper returns its suffix array directly; the start follows from its length.
+This avoids adding an allocated tuple to every existing suffix-wrapper call.
+
+This removes quadratic *materialization*, not every repeated scan in raw
+cleanup. Pure/effectful producer-prefix copies and other pure-statement tail
+copies remain follow-up work. Repeated future-read checks may also still be
+superlinear.
+
+TDD uses the frozen native V47 implementation: its balanced scan has two
+unused-region split call sites, failing a zero-site work budget. Bounded
+behavior guards pass on that baseline. An initial tuple-return prototype
+failed a separate generated-native-code budget with three tuple-allocation
+return sites (one per executed return, not three allocations per invocation).
+The array-return refinement removes those sites. An early command fixture
+incorrectly expected standalone SimplifyLocals to compact declarations; its
+expectation was corrected before the implementation. That fixture mistake is
+not counted as the performance red.
+
+Three pass regressions cover 21 i32/i64/externref capture cases plus exclusive
+suffix ends, absolute statement starts, escape handling and deliberately
+invalid/incomplete prefixes. Frozen reference functions retain prior behavior.
+The dispatcher regression preserves producer/tick/consumer order in both
+SimplifyLocals and DAE2-O. Native controls compare tiny/wide repeated captures,
+intervening statements, blocked reads and no-candidate bodies; shared suffix
+wrapper controls cover present/absent values at widths 0, 8 and 512. Output
+validation and input ownership checks run outside timed loops.
+
+The final array-return candidate passes `moon info`, `moon fmt`, all **13,049**
+default tests, the focused native regression, native release build and all
+28 native benchmark cases. Native means (frozen reference → ranged helper):
+
+| Control | Before | After |
+| --- | ---: | ---: |
+| 8 repeated captures | 6.23 µs | 2.81 µs |
+| 8 intervening statements | 1.83 µs | 1.06 µs |
+| 8 blocked reads | 7.73 µs | 2.87 µs |
+| 512 repeated captures | 11.91 ms | 181.20 µs |
+| 512 intervening statements | 1.05 ms | 50.88 µs |
+| 512 blocked reads | 15.71 ms | 186.26 µs |
+| 512 no-candidate body | 7.39 µs | 7.41 µs |
+| shared suffix, 0-prefix present | 139.22 ns | 140.11 ns |
+| shared suffix, 0-prefix absent | 31.96 ns | 32.36 ns |
+| shared suffix, 8-prefix present | 163.95 ns | 170.75 ns |
+| shared suffix, 8-prefix absent | 93.70 ns | 97.09 ns |
+| shared suffix, 512-prefix present | 1.76 µs | 1.78 µs |
+| shared suffix, 512-prefix absent | 3.43 µs | 3.54 µs |
+
+The wide active/blocked cases improve 95.2–98.8%; no-candidate timing is flat.
+The shared wrapper is slightly slower: 4.15% on the 8-prefix present case and
+3.21% on the 512-prefix absent case. Their small absolute costs remain part of
+the adoption decision; the wide helper gain is not a whole-pass speedup claim.
+The earlier tuple-return trial remains local evidence only and is superseded
+by the final array-return measurements above.
+
+Frozen native V48 SHA-256: `06466c3121961400d431b10eb1cc8ac893f0e144eb90b3462536466032d653ae`.
+
+Fresh verified release-v133 comparison (CPU 6, one warmup, three samples; pass-local medians):
+
+| Input / pass | Starshine ms | v133 ms | Ratio | Raw / canonical size gap |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 4.471 | 1.128 | 3.965× | -123 / -97 B |
+| small / `dae2-optimizing` | 12.682 | 3.323 | 3.817× | -386 / -284 B |
+| large / `dae2` | 4398.904 | 604.036 | 7.283× | -117,365 / -100,237 B |
+| large / `dae2-optimizing` | 8372.674 | 1887.200 | 4.437× | +168,047 / +299,275 B |
+
+Matched V47→V48 pipeline medians (same CPU/warmup, three accepted alternating pairs, independent reference bracket ≤1.15):
+
+| Input / pass | V47 ms | V48 ms | Change | MAD before / after ms |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 3.797 | 3.875 | +2.05% | 0.013 / 0.003 |
+| small / `dae2-optimizing` | 11.075 | 10.891 | -1.66% | 0.143 / 0.054 |
+| large / `dae2` | 4473.855 | 4581.916 | +2.42% | 112.916 / 30.598 |
+| large / `dae2-optimizing` | 8226.962 | 8108.390 | -1.44% | 56.304 / 161.019 |
+| tee / `dae2` | 2.858 | 3.043 | +6.47% | 0.016 / 0.166 |
+| tee / `dae2-optimizing` | 103.930 | 103.810 | -0.12% | 0.328 / 0.415 |
+
+Three alternating peak-RSS pairs, KiB (median [range]):
+
+- `dae2`: before 280,864 [280,488–281,184] → after 280,808 [244,588–281,396].
+- `dae2-optimizing`: before 290,216 [289,988–312,552] → after 290,016 [289,908–290,320].
+
+The RSS ranges overlap; these samples do not establish a robust memory win.
+
+Original/V47/V48/v133 bounded replay passes **469 modules / 2,891 observations**,
+including values, side effects, traps and reference identity. All before/after
+fixture bytes match. Both small and large compiler artifacts retain exact raw
+and canonical bytes; the optimizing size gap remains +299,275 canonical bytes.
+This performance change does not close an output-quality family.
+
+The matched large optimizing reduction is 1.44%, smaller than the after-run
+MAD; active-tee optimizing is flat (−0.12%). Plain medians cost 2.05% small,
+2.42% large and 6.47% tee, with substantial tee and large-baseline variability.
+Two small-optimizing rounds and one tee-optimizing round were rejected by the
+reference-drift gate. These results establish the wide-case scaling improvement,
+not a robust general pipeline win. Retain the wrapper/control costs as active
+work. The independently timed oracle cohort must not be subtracted from earlier
+cohorts to claim a causal gain.
+
+The next producer cleanup experiment targets remaining prefix/head and
+statement-tail copies. A control-shape census also identifies at most 2,774
+conditional functions (195,613 of 2,807,768 WAT instruction/control lines) for a
+raw fallthrough-conditional analysis trial. This is an upper bound only:
+opcode/signature/stack/intrinsic admission and actual timing remain unmeasured.
+
+Sources: [`pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt),
+[`statement_prefix_reuse.mbt`](../../../../../src/passes/statement_prefix_reuse.mbt),
+[range regressions](../../../../../src/passes/balanced_ranges_wbtest.mbt),
+[boundary regressions](../../../../../src/passes/balanced_ranges_bounds_wbtest.mbt),
+[native controls](../../../../../src/passes/balanced_ranges_perf_wbtest.mbt) and
+[dispatcher regression](../../../../../src/cmd/balanced_ranges_wbtest.mbt).
+Local evidence under `.tmp/dae2-lean-20260929/`: `validation-v48.json`,
+`candidate-v48.json`, `v48-bench.log`, `balanced-ranges-{red-v47.log,work-v48.json}`,
+`suffix-range-return-{red.log,v48.json}`, `local-alias-runtime-v48/`,
+`parameter-alias-runtime-v48/`, `runtime-v48/`, `oracle-v48-{small,large}/`,
+`pairs-v48-{small,large,tee}/`, `memory-v48/` and `control-census.json`.
+Long fuzz and final shared-consumer/release signoff remain deferred.
 
 ## September 30, 2026 dominated local aliases
 

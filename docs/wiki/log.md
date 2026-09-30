@@ -1,3 +1,14 @@
+### 2026-09-30 — Bounded raw cleanup ranges
+
+- [Balanced cleanup ranges](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-bounded-raw-cleanup-ranges)
+  remove discarded producer-prefix and statement-tail copies without changing
+  typed admission or output. Wide native cases improve 95.2–98.8%; all 13,049
+  tests, 28 native controls and 2,891 bounded runtime observations pass. Raw and
+  canonical artifact bytes match. Matched large optimizing improves 1.44%
+  within substantial variability, while plain costs 2.42%; wrapper/control
+  costs remain explicit. Prune the completed balanced-copy task and retain
+  producer copies, dependency/lift work, output quality and deferred fuzz.
+
 ### 2026-09-30 — Dominated local aliases in DAE2 cleanup
 
 - [Dominated local aliases](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-dominated-local-aliases)

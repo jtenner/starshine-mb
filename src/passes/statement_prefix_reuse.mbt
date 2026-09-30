@@ -2,21 +2,23 @@
 // Expr typechecking is a left-to-right fold over Instruction. Once a prefix
 // fails, extending it cannot repair that earlier error. Keep the state only
 // within this scan; no cached result survives an instruction or environment edit.
+// Return an absolute end, or start when no complete statement is admitted.
 fn run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   allow_escape : Bool,
+  start? : Int = 0,
   typed_instructions? : Array[Int]? = None,
 ) -> Int {
   let mut state = @validate.make_state(env, [])
-  for index = 0; index < instrs.length(); index = index + 1 {
+  for index = start; index < instrs.length(); index = index + 1 {
     match typed_instructions {
       Some(count) => count[0] += 1
       None => ()
     }
     state = match @validate.Typecheck::typecheck(instrs[index], state) {
       Ok(next) => next
-      Err(_) => return 0
+      Err(_) => return start
     }
     let end = index + 1
     let reaches = state.reachable && state.escape == @validate.tc_escape_none()
@@ -30,5 +32,5 @@ fn run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
       return end
     }
   }
-  0
+  start
 }
