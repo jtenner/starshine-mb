@@ -1,3 +1,16 @@
+### 2026-09-30 — DAE2 carried dependency workspace
+
+- [Carried dependency workspace](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-carried-dependency-workspace)
+  reuses only temporary values, keeps selected rows owned by callers and avoids
+  scratch on pure/empty queries. Original guards fail 8 vectors != 1 and empty
+  workspace admission. Four native guards, 12 controls and 12,982 default tests
+  pass; bounded original/v133 observations and bytes match. Dependency requests/
+  frees fall by 1,310,672 and instructions by 0.84%; compiler medians remain
+  mostly flat, with cold/dense/control/RSS costs and repeats explicit. Fresh
+  v133 ratios remain 8.32×/4.15× and optimizing size remains +422,470 bytes.
+  Prune the completed carried-vector task; remaining closure/row, field, flow,
+  projection, cleanup, size and deferred final/fuzz work stay active.
+
 ### 2026-09-29 — DAE2 checked region fields
 
 - [Checked region fields](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-checked-region-fields)

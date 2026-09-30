@@ -23,6 +23,7 @@ priv struct HotSourceOrderScratch {
   consumer_bounds : Array[Int]
   anti_dependencies : @bitset.BitSet
   touched : Array[NodeId]
+  carried : Array[NodeId]
 }
 
 ///|
@@ -32,6 +33,7 @@ fn HotSourceOrderScratch::new(count : Int) -> HotSourceOrderScratch {
     consumer_bounds: Array::make(count, -1),
     anti_dependencies: @bitset.BitSet::new(count),
     touched: [],
+    carried: [],
   }
 }
 
@@ -178,6 +180,7 @@ fn hot_source_order_preceding_dependencies(
   facts : HotSourceOrderFacts,
   scratch_builds? : Array[Int]? = None,
   root_visits? : Array[Int]? = None,
+  carried_builds? : Array[Int]? = None,
 ) -> Array[NodeId] {
   // Extracting an existing value into a new statement preserves its execution
   // order. Its allocation ID can be newer than the consumer of an older read.
@@ -222,10 +225,17 @@ fn hot_source_order_preceding_dependencies(
     Some(slots) => slots.length()
     None => future_roots.length() - future_start
   }
+  if candidate_count <= 0 {
+    return []
+  }
   let scratch = match facts.dependency_scratch {
     Some(scratch) => scratch
     None => {
       match scratch_builds {
+        Some(count) => count[0] += 1
+        None => ()
+      }
+      match carried_builds {
         Some(count) => count[0] += 1
         None => ()
       }
@@ -236,7 +246,7 @@ fn hot_source_order_preceding_dependencies(
   }
   let seen_consumer = scratch.seen_consumer
   let consumer_bounds = scratch.consumer_bounds
-  let carried : Array[NodeId] = []
+  let carried = scratch.carried
   let minimum_cache = Some(facts.preceding_dependency_min_cache)
   // A newly inserted computation follows region order. A wrapper extracted
   // from an old value retains that value's order even with a new allocation ID.
@@ -348,6 +358,9 @@ fn hot_source_order_preceding_dependencies(
     anti_dependencies[node_id] = false
   }
   scratch.touched.clear()
+  // Selected rows belong to callers. Only the internal temporary vector is
+  // reused, retaining its high-water capacity for this immutable snapshot.
+  carried.clear()
   selected
 }
 

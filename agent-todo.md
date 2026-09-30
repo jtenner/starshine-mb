@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed September 29, 2026. Follow
+Active unreleased work only, reviewed September 30, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -15,21 +15,21 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v28 passes 12,978 default tests and
+- **Current checkpoint:** lean-v29 passes 12,982 default tests and
   the bounded original/v133 replay controls. This is not final aggregate or
-  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-29-2026-checked-region-fields)
+  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-carried-dependency-workspace)
   owns exact hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v28 open-world compiler comparison uses verified release v133,
+The frozen v29 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.302 / 0.998993 | 4.31× | 3,654.406 / 437.909 | 8.35× |
-| `dae2-optimizing` | 13.599 / 3.191740 | 4.26× | 6,907.248 / 1,658.680 | 4.16× |
+| `dae2` | 4.245 / 0.990528 | 4.29× | 3,632.536 / 436.392 | 8.32× |
+| `dae2-optimizing` | 12.916 / 3.147350 | 4.10× | 6,880.646 / 1,656.100 | 4.15× |
 
 - **Release blockers:** large DAE2-O adds **422,470 canonical / 383,027 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
@@ -37,8 +37,8 @@ untraced command times or a causal comparison with earlier cohorts.
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
 - **Evidence limits:** current small/control timing costs and retained-buffer
-  RSS tradeoffs remain open; V28 plain RSS has a 4.15% higher median with
-  overlapping ranges and no new retained cache. The [priority report](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
+  RSS tradeoffs remain open. V28's 4.15% higher plain median remains historical
+  evidence; V29 ranges overlap and its optimizing median rises 0.44%. The [priority report](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
   owns the superseded DAE/DAEO and thirteen-pass cohorts, V25 bounded repairs
   and historical failures; do not label those timings current.
 - **Fuzz scheduling:** long randomized/aggregate fuzz, broad artifact replays
@@ -133,13 +133,15 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03b — Query scratch and object churn [IR2-PERF-DAE2-SCRATCH]
 
-- [ ] Attribute remaining carried-value vectors, source/reader/access rows,
-  array growth, reference-count/destruction work and repeated query allocation.
-  Reuse the preceding-dependency carried buffer within its immutable facts
-  snapshot; keep returned selected rows independently owned and stable.
+- [ ] Attribute remaining source/reader/access rows, comparator closure
+  construction, array growth and reference-count/destruction work. Trial reuse
+  where enclosing gains justify lifetime costs. Sort queries still run 651,397
+  times in V29's dependency scope; any cached comparator must capture its order
+  row without a facts backpointer or reference cycle.
 - [ ] Clear temporary state on every exit, avoid allocating it on no-work paths,
-  bound retained high-water capacity and measure lifetime/RSS costs. Keep
-  expression/body revisions and concurrent workspaces isolated.
+  bound retained high-water capacity and measure lifetime/RSS costs. Preserve
+  carried-buffer clearing, independently owned selections and pure/empty fast
+  paths. Keep expression/body revisions and concurrent workspaces isolated.
 - **Tests / measures:** cold/warm and alternating-width queries, held prior
   results, pure/empty/early exits, sibling snapshots, effects/traps and ownership;
   native controls plus compiler/active pipelines. Allocation call counts are

@@ -1,8 +1,12 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-09-29
+last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/ir/hot_source_order_carried_wbtest.mbt
+  - ../../../../../src/ir/hot_source_order_carried_reference_wbtest.mbt
+  - ../../../../../src/ir/hot_source_order_carried_perf_wbtest.mbt
+  - ../../../../../src/ir/hot_source_order.mbt
   - ../../../../../src/ir/hot_region_fields_wbtest.mbt
   - ../../../../../src/ir/hot_region_fields_reference_wbtest.mbt
   - ../../../../../src/ir/hot_region_fields_perf_wbtest.mbt
@@ -46,6 +50,119 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## September 30, 2026 carried dependency workspace
+
+Nonempty preceding-dependency queries now reuse the carried-value vector in the
+existing immutable facts workspace. Each query clears its temporary values and
+visited flags before returning; selected rows remain independently owned.
+Pure roots and empty candidate sets return before creating the workspace.
+The collector appends a carried node only while its consumer bound is unset,
+so the retained vector's high-water length is bounded by the snapshot's node
+count. No per-query result row is retained or returned as workspace storage.
+
+The actual original construction point is instrumented before implementation:
+the reuse guard fails **8 vectors != 1**, and a fresh empty-future query wrongly
+creates scratch. A semantic effect/ownership guard is initially green. Four
+[focused guards](../../../../../src/ir/hot_source_order_carried_wbtest.mbt)
+now pass, including alternating widths, held/mutated caller results, pure/empty
+and indexed exits, independent facts, traps, local writes and reference values.
+They retain revision, source ordering, all consumer flags and empty temporary
+storage. The 32-value high-water fixture retains its capacity across narrower
+and empty queries; the sibling owns a different vector. The private work counter
+is a nullable native Int-array pointer; the emitted default wrapper maps an
+omitted counter to zero without constructing a counter object.
+
+An independent native allocation budget is also red on frozen V28. With the
+same **1,070,492 root-header checks**, direct query `mi_malloc` calls fall
+**3,092,437 → 1,788,660 (42.16%)**, passing the required 25% reduction.
+Sorting calls fall **977,587 → 651,397** because empty candidates avoid the
+old empty-vector sorting/selection setup; scratch construction falls
+12,718 → 12,393. The matched complete large dependency scope falls
+**15,059,317,658 → 14,932,874,985 instructions (0.84%)** and removes
+**1,310,672 incoming `mi_malloc` calls and 1,310,672 `mi_free` calls**
+(35,639,396 → 34,328,724 requests; 111,085,643 → 109,774,971 frees).
+Direct query counts exclude constructor descendants. None of these call counts
+are allocated bytes, live objects or optimizing-cleanup totals.
+
+[Twelve native controls](../../../../../src/ir/hot_source_order_carried_perf_wbtest.mbt)
+keep the original four-field scratch layout and fresh carried vectors in the
+reference. Cold controls include new facts and scratch; warm controls reuse
+facts and return a fresh selected row each time. Arena construction is outside
+timing. The reference passes its old scratch explicitly, so its helper ABI is
+not identical to the former CLI; compiler gains use frozen binaries below.
+The controls remain mostly flat and do not establish a helper speedup:
+
+| Carried values | Reference → selected warm mean | Reference → selected cold mean |
+| --- | --- | --- |
+| 8 | 380.48 → 379.66ns | 1.49 → 1.49µs |
+| 128 | 5.40 → 5.44µs | **18.36 → 19.44µs (5.88% cost)** |
+| 1024 | 42.21 → 42.32µs | 141.98 → 142.02µs |
+
+A repeated cached native run retains the initial cold cost: 128-value cold
+18.06 → 18.18µs, warm 5.35 → 5.43µs; 1024-value cold 140.44 → 141.70µs
+and **warm 41.91 → 43.64µs (4.13% cost)**. Both complete twelve-control
+logs stay saved. Fewer requests do not guarantee faster dense queries.
+
+Matched V28/V29 compiler medians use CPU 6, one warmup, three accepted
+alternating samples and stable leading/trailing reference brackets:
+
+| Workload | Plain median ms (MAD before/after) | Optimizing median ms (MAD before/after) |
+| --- | --- | --- |
+| Large compiler | 3644.091 → 3634.874 (10.951/20.050; 0.25% gain) | 6551.206 → 6556.749 (29.150/22.673; 0.08% cost) |
+| Small compiler | **3.961 → 4.033 (0.066/0.049; 1.82% cost)** | **10.857 → 11.283 (0.007/0.423; 3.92% cost)** |
+| Tee | 3.718 → 3.779 (0.021/0.060; 1.64% cost) | 103.783 → 103.037 (1.110/0.111) |
+| Joined readers | 18.946 → 18.934 (0.007/0.194) | **28.876 → 29.905 (0.328/0.434; 3.56% cost)** |
+| Pure tail | 11.876 → 11.814 (0.072/0.049) | 12.109 → 12.007 (0.037/0.115) |
+| Conditional writers | 11.508 → 11.276 (0.243/0.187) | 16.052 → 15.994 (0.112/0.037) |
+
+Seven-sample repeats preserve the initial small/joined costs: small **3.940 →
+3.910ms** (MAD 0.032/0.022) / **10.835 → 10.801ms** (0.066/0.052);
+joined **19.013 → 19.052ms** (0.134/0.068) / **28.727 → 28.667ms**
+(0.060/0.282). Small command CPU medians are 8.302 → 8.334ms /
+15.283 → 15.136ms; joined 23.069 → 23.048ms / 32.865 → 32.904ms.
+Rejected reference ratios 1.738, 1.878, 2.560, 2.454, 1.157 and 1.837,
+including warmups, remain saved. This is a heap-work reduction with modest
+compiler timing changes, not evidence that the Binaryen gap is closed.
+
+Whole small-command instructions fall 77,344,251 → 77,237,587 plain and
+168,261,163 → 168,149,251 optimizing. Small named allocator requests/frees
+fall by 825 plain and 951 optimizing. Three alternating large RSS samples are
+plain **259,636 → 255,680KiB**, ranges 258,964–281,368 / 255,212–282,892;
+optimizing **292,064 → 293,352KiB (0.44% cost)**, ranges
+291,796–292,268 / 292,208–302,424. Ranges overlap; reduced calls do not
+prove reduced peak memory. Carried capacity persists only for its existing
+facts lifetime, and downstream/high-water costs remain tracked.
+
+All **12,982 bounded default tests**, four focused native guards, 546 IR tests
+and twelve native controls pass after `moon info`/`moon fmt`; `.mbti` is unchanged.
+Fixed original/before/after/verified-v133 replay validates **126 modules / 1029
+observations**, plus three dedicated seven-module controls totaling **98
+observations**. There are no observation mismatches or Starshine byte changes.
+Traced, untraced, profile and RSS outputs independently validate and preserve
+saved bytes. Large canonical optimizing output remains **5,995,920 vs
+5,573,450 bytes (+422,470)**; raw remains +383,027. Long fuzz is deferred.
+
+Frozen lean-v29 native SHA-256:
+`eb63bbd7b170f33d5b6d2735dea1ee0c6bddf044970ffee9fed5679ba6d9e44d`.
+Both fresh-source oracle reports identify production-source digest
+`e26fd6977553625c0f2f4aa29cad78249f21296dfbfcfc4a4d23a81d372d18c2`
+and the verified release-v133 binary
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+The manifest hashes all 1360 `src` files. Fresh open-world pass-local medians
+are small **4.245 / 0.990528ms (4.29×)** and **12.916 / 3.147350ms
+(4.10×)**; large **3632.536 / 436.392ms (8.32×)** and
+**6880.646 / 1656.100ms (4.15×)**. These are a separate cohort from the
+matched gain/cost estimates, not untraced command times.
+
+Local evidence is `.tmp/dae2-lean-20260929/{validation-v29.json,candidate-v29.json,
+carried-work-{v28,v29}.json,carried-native-v29.json,oracle-v29-{small,large},
+pairs-v29-{small,large,tee},runtime-v29,conditional-writers-v29,joined-readers-v29,
+pure-tail-v29,dependency-cost-v29.json,small-instructions-v29,memory-v29,
+review-v29-{small,joined},v29-cold-review.log}` and associated drivers/logs.
+Remaining comparator closures, source/reader rows, field reads, flow scaling,
+read-only flow projection, optimizing cleanup, size-family investigations and
+cumulative/final release evidence remain active in the backlog.
 
 ## September 29, 2026 checked region fields
 
