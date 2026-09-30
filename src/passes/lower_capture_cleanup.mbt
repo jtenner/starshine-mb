@@ -181,6 +181,7 @@ fn pass_lower_compact_captures_with_map(
   original : @lib.Func,
   params : Array[@lib.ValType],
   stack_effects? : ((@lib.Instruction) -> (Int, Int)?)? = None,
+  propagate_parameter_aliases? : Bool = false,
 ) -> (@lib.Func, Array[Int]) {
   let @lib.Func(original_locals, _) = original
   let @lib.Func(locals, @lib.Expr(body)) = func
@@ -219,6 +220,14 @@ fn pass_lower_compact_captures_with_map(
     }
     None => body
   }
+  // Preserve the complete legacy capture plan before alias propagation.
+  // Moving even a pure parameter read can otherwise obstruct a smaller stack
+  // plan chosen for an overlapping computed value.
+  let (body, unread_aliases) = if propagate_parameter_aliases {
+    dae2_cleanup_parameter_aliases(body, start, params.length(), gets, writes)
+  } else {
+    (body, None)
+  }
   let indices = Array::makei(count, fn(i) { i })
   let retained : Array[@lib.ValType] = []
   for i = 0; i < locals.length(); i = i + 1 {
@@ -233,7 +242,12 @@ fn pass_lower_compact_captures_with_map(
   (
     @lib.Func::new(
       @lib.Locals::from_types(retained),
-      @lib.Expr::new(pass_lower_remap_locals(body, indices)),
+      @lib.Expr::new(
+        match unread_aliases {
+          Some(aliases) => dae2_parameter_aliases_remap(body, indices, aliases)
+          None => pass_lower_remap_locals(body, indices)
+        },
+      ),
     ),
     indices,
   )

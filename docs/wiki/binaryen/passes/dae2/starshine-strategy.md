@@ -3,6 +3,11 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/dae2_parameter_aliases.mbt
+  - ../../../../../src/passes/dae2_parameter_aliases_wbtest.mbt
+  - ../../../../../src/passes/dae2_parameter_aliases_reference_wbtest.mbt
+  - ../../../../../src/passes/dae2_parameter_aliases_perf_wbtest.mbt
+  - ../../../../../src/cmd/dae2_parameter_aliases_wbtest.mbt
   - ../../../../../src/passes/dae_stack_effect_ref_eq_wbtest.mbt
   - ../../../../../src/cmd/dae_stack_effect_ref_eq_wbtest.mbt
   - ../../../../../src/passes/dae2_capture_callbacks_wbtest.mbt
@@ -108,6 +113,91 @@ deferred while performance iteration continues. Evidence:
 ref-eq-initial-probe.json,ref-eq-initial-{original,v35,binaryen}.wasm,
 ref-eq-stack.{wat,mjs},ref-eq-stack-probe.json,ref-eq-stack-v38-result.json,
 ref-eq-macro-opcodes.json,validation-v38.json,oracle-v38-{small,large}}`.
+
+## September 30, 2026 immutable parameter aliases
+
+Final DAE2 capture cleanup now substitutes dominated reads of a singly written
+body-local alias with an unwritten parameter. Sources stay immutable across the
+whole function. Child regions inherit dominating aliases and undo their own
+definitions on exit; no full local-array copies or branch joins are introduced.
+Earlier/default reads, sibling arms, first loop iterations and catch paths keep
+their original local reads. A packed source/write-kind row removes unread alias
+stores during the existing local remap. `local.tee` removal preserves its original
+stack value. Shared lower cleanup enables this only for final DAE2 capture cleanup.
+
+The complete legacy leaf/effect-spanning capture plan runs first. The rejected
+V36 ordering moved pure reads before that plan and enlarged one small function
+**186 → 190 bytes**, despite a smaller large module. A reduced overlap fixture
+fails one local versus zero; legacy-first V37 fixes it. V38 additionally contains
+the binary-reference-equality correction above. Initial positive scalar/reference,
+branch, chain and metadata tests fail before implementation; tee and overlap
+fixtures expose subsequent gaps. Eleven [core tests](../../../../../src/passes/dae2_parameter_aliases_wbtest.mbt)
+and the [public command fixture](../../../../../src/cmd/dae2_parameter_aliases_wbtest.mbt)
+pass, with exact fields/opcodes/metadata and input-ownership assertions.
+
+Info/fmt, focused native/wasm-gc tests, **13,015 default tests**, the native CLI
+and sixteen [benchmarks](../../../../../src/passes/dae2_parameter_aliases_perf_wbtest.mbt)
+pass. The frozen V35 test reference copies the actual old helpers. At 8/64/512
+set aliases, means are **2.49 → 2.61µs / 11.89 → 11.92µs /
+85.21 → 84.51µs**; tee aliases are **2.87 → 2.88 / 13.29 → 12.72 /
+97.09 → 91.31µs**. No-alias controls cost **2.48 → 2.62µs** and
+**86.70 → 93.07µs**. Setup and correctness checks stay outside timed regions.
+These costs remain targets; this unit establishes an output-quality improvement.
+
+The strict V35/V38 artifact audit finds **329 changed large functions**, removes
+**610 set/get pairs and 3,487 tee writes**, and finds **no raw function-size
+regression**. Non-code semantic sections and nonlocal opcode/immediate streams
+remain unchanged; source indices change only through immutable substitution and
+remapping. Large optimizing output shrinks **5,808,601 → 5,796,184 raw bytes**
+and **5,942,450 → 5,929,600 canonical bytes**, saving **12,417 / 12,850**.
+All small functions and plain artifact bytes stay identical. Against verified
+v133's 5,573,450 bytes, the remaining gap is **222,734 raw / 356,150 canonical**.
+The reduced imported-call loop improves **260/272 → 244/248 raw/writer bytes**;
+v133 is **220/220**, and symmetric extra SimplifyLocals/Vacuum gives **220**
+on every output. The remaining difference is an open parity gap.
+
+Original-primary bounded replays match **126 modules / 1,029 observations**;
+alias-specific scalar, reference/GC, tee/set, branch/default, loop/chain, mutable
+snapshot, handler, signed-zero and trapping fixtures match **98 modules / 392
+observations**, and the loop matches **7 modules / 42 observations**. Current GC
+reference-equality replay separately repairs the historical V35 semantic bug.
+Repeated i32/f64/externref alias fixtures are **66 bytes versus v133's 70**, with
+matching values, reference identity, call/throw order and independently validated
+outputs. This is a measured Starshine win for that family, not a general semantic
+claim based on size or validation alone.
+
+Matched CPU-6 V35/V38 medians (one warmup, three samples; before/after MAD) are
+small plain **3.977 → 4.045ms** (0.031/0.040), optimizing
+**10.815 → 10.814ms** (0.110/0.163); large plain
+**4253.440 → 4490.821ms** (42.219/7.352), optimizing
+**7294.671 → 7220.300ms** (261.299/79.500). Tee is
+**3.060 → 3.106ms** (0.001/0.016) / **104.480 → 105.994ms**
+(0.323/0.112). The large plain **+5.58%** cost remains unresolved; the optimizing
+**−1.02%** median has substantial dispersion and is not an established speed win.
+The earlier V35/V37 quality cohort records **+2.54%** large optimizing cost;
+retain both cohorts rather than selecting the favorable result. Rejected tee
+reference bracket **1.206** is retained. Three-pair RSS medians/ranges (KiB) are
+plain **280,404 [269,120–281,588] → 282,012 [281,872–282,544]**;
+optimizing **290,104 [289,884–302,000] → 290,024 [289,808–303,760]**.
+There is no established RSS improvement.
+
+Fresh V38/v133 pass-local medians are small **4.424 / 1.002260ms (4.41×)**,
+optimizing **12.726 / 3.415470ms (3.73×)**; large
+**3806.409 / 495.202ms (7.69×)**, optimizing
+**7253.819 / 1764.950ms (4.11×)**. These oracle cohorts are separate from
+causal pairs. P03 remains open, with structured signature-only rewrites,
+conditional raw analysis, cleanup churn and broader copy aliases next.
+
+Frozen V38 SHA-256:
+`5f93f13ab6609f8494637a45edbf9d3373213e5050ccc290f9a2e6b262b090e7`.
+Oracle release-v133 SHA-256:
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+Evidence: `.tmp/dae2-lean-20260929/{v36-red.log,v36-command-tee-red.log,
+v36-tee-red.log,v37-overlap-red.log,validation-v38.json,candidate-v38.json,
+alias-shape-v38.json,parameter-alias-runtime-v38,forwarding-loop-v38,
+runtime-v38,oracle-v38-{small,large},pairs-v38-{small,large,tee},
+alias-memory-v38.log,v38-bench.log}`. No public API changes. Long fuzz and
+final aggregate signoff remain deferred until bottleneck trials are addressed.
 
 ## September 30, 2026 capture callback reuse
 

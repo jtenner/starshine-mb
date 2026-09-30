@@ -844,6 +844,7 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
       @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
       params[index],
       stack_effects~,
+      propagate_parameter_aliases=true,
     )
     bodies.push(body)
     remaps.push(Some(mapping))

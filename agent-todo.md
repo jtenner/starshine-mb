@@ -15,31 +15,33 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** the saved lean-v35 performance cohort passes 13,000
-  selected/default tests but has a subsequently repaired binary `ref.eq` capture
-  defect. Corrected V38 passes 13,015 default tests and the focused original/v133
-  GC-reference replay; its parameter-alias measurement unit is being saved
-  separately. Historical fixture counts are not final aggregate or release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-capture-callback-reuse)
+- **Current checkpoint:** corrected lean-v38 passes 13,015 default tests and
+  focused original/v133 value, event, trap and GC-reference controls. The saved
+  binary `ref.eq` defect is repaired; historical V32–V37 fixture counts are not
+  general correctness evidence. This is not final aggregate or release signoff.
+  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-immutable-parameter-aliases)
   owns exact hashes, paired measurements, costs and limitations.
 
-### Saved DAE2/O performance baseline
+### Latest DAE2/O baseline
 
-The frozen v35 open-world compiler comparison uses verified release v133,
+The frozen v38 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 3.828 / 0.957863 | 4.00× | 3,429.937 / 419.500 | 8.18× |
-| `dae2-optimizing` | 11.469 / 3.176240 | 3.61× | 6,552.495 / 1,615.990 | 4.05× |
+| `dae2` | 4.424 / 1.002260 | 4.41× | 3,806.409 / 495.202 | 7.69× |
+| `dae2-optimizing` | 12.726 / 3.415470 | 3.73× | 7,253.819 / 1,764.950 | 4.11× |
 
-- **Release blockers:** large DAE2-O adds **369,000 canonical / 235,151 raw
+- **Release blockers:** large DAE2-O adds **356,150 canonical / 222,734 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
 - **Evidence limits:** current small/control timing costs and retained-buffer
-  RSS tradeoffs remain open. V28's 4.15% higher plain median remains historical
+  RSS tradeoffs remain open. V38 adds a +5.58% matched large plain cost; its
+  optimizing −1.02% median has substantial dispersion, while V37 records
+  +2.54%. Alias no-work/tiny controls also cost more. V28's 4.15% higher plain median remains historical
   evidence; V29 ranges overlap and its optimizing median rises 0.44%. The [priority report](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
   owns the superseded DAE/DAEO and thirteen-pass cohorts, V25 bounded repairs
   and historical failures; do not label those timings current.
@@ -213,13 +215,13 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
-- [ ] Reduce and attribute the remaining **369,000-byte canonical optimizing gap**
+- [ ] Reduce and attribute the remaining **356,150-byte canonical optimizing gap**
   by function/diff family. V32 removes 32,070 balanced capture pairs and saves
   147,876 raw / 53,470 canonical bytes without per-function pair regressions.
-  Scalar forwarding cleanup is implemented; its artifact outputs are unchanged.
-  Reduce immutable parameter aliases and reused captures: the imported-call loop
-  remains 260 raw / 272 writer bytes versus 220, and direct alias guards fail
-  on locals and dominated reads. Compare direct DAE2,
+  V38 removes immutable parameter aliases without per-function raw size losses,
+  saving another 12,417 raw / 12,850 canonical bytes. Reduce reused/nonparameter
+  captures: the imported-call loop remains 244 raw / 248 writer bytes versus
+  220, while symmetric extra cleanup reaches 220 on all outputs. Compare direct DAE2,
   ordered SimplifyLocals/Vacuum and
   downstream cleanup; close indirect-family, typed-control, parameter/result
   and local/capture debris gaps without weakening behavior.
