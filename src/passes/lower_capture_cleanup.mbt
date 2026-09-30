@@ -61,6 +61,7 @@ fn pass_lower_remove_balanced_captures(
   start : Int,
   gets : Array[Int],
   writes : Array[Int],
+  stack_effects? : ((@lib.Instruction) -> (Int, Int)?)? = None,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let removed = Array::make(instrs.length(), false)
@@ -87,6 +88,18 @@ fn pass_lower_remove_balanced_captures(
               read_slot = j
             }
             break
+          }
+          match stack_effects {
+            Some(query) => {
+              match query(instrs[j]) {
+                Some((inputs, outputs)) if inputs >= 0 &&
+                  outputs >= 0 &&
+                  inputs <= height => height = height - inputs + outputs
+                _ => break
+              }
+              continue
+            }
+            None => ()
           }
           match instrs[j] {
             @lib.LocalGet(_)
@@ -126,7 +139,13 @@ fn pass_lower_remove_balanced_captures(
     }
     out.push(
       pass_lower_map_children(instrs[i], fn(body) {
-        pass_lower_remove_balanced_captures(body, start, gets, writes)
+        pass_lower_remove_balanced_captures(
+          body,
+          start,
+          gets,
+          writes,
+          stack_effects~,
+        )
       }),
     )
     i += 1
@@ -166,6 +185,7 @@ fn pass_lower_compact_captures_with_map(
   func : @lib.Func,
   original : @lib.Func,
   params : Array[@lib.ValType],
+  stack_effects? : ((@lib.Instruction) -> (Int, Int)?)? = None,
 ) -> (@lib.Func, Array[Int]) {
   let @lib.Func(original_locals, _) = original
   let @lib.Func(locals, @lib.Expr(body)) = func
@@ -177,7 +197,33 @@ fn pass_lower_compact_captures_with_map(
   let gets = Array::make(count, 0)
   let writes = Array::make(count, 0)
   pass_lower_count_locals(body, gets, writes)
+  // Keep the existing leaf plan first: an earlier effect-spanning capture can
+  // otherwise block several smaller overlapping captures. The second pass
+  // only deletes additional pairs from that already valid stack plan.
   let body = pass_lower_remove_balanced_captures(body, start, gets, writes)
+  let body = match stack_effects {
+    Some(_) => {
+      let mut remaining = false
+      for local in start..<count {
+        if gets[local] == 1 && writes[local] == 1 {
+          remaining = true
+          break
+        }
+      }
+      if remaining {
+        pass_lower_remove_balanced_captures(
+          body,
+          start,
+          gets,
+          writes,
+          stack_effects~,
+        )
+      } else {
+        body
+      }
+    }
+    None => body
+  }
   let indices = Array::makei(count, fn(i) { i })
   let retained : Array[@lib.ValType] = []
   for i = 0; i < locals.length(); i = i + 1 {

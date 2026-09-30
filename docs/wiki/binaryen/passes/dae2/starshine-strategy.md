@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/dae2_balanced_captures_wbtest.mbt
+  - ../../../../../src/passes/dae2_balanced_captures_perf_wbtest.mbt
+  - ../../../../../src/passes/dae2_balanced_captures_reference_wbtest.mbt
+  - ../../../../../src/cmd/dae2_balanced_captures_wbtest.mbt
   - ../../../../../src/ir/local_graph_read_flow_wbtest.mbt
   - ../../../../../src/ir/local_graph_read_flow_perf_wbtest.mbt
   - ../../../../../src/ir/hot_source_order_carried_wbtest.mbt
@@ -52,6 +56,75 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## September 30, 2026 balanced effect-spanning captures
+
+The final optimizing cleanup now removes a single-write/single-read capture
+across balanced calls, arithmetic and known trapping producers. The producer
+stays at its original position; its stack value remains below every intervening
+operand. A checked stack-height scan requires each operand to come from above
+that value. Unknown effects, structured regions, branches and unreachable
+instructions end the scan. Calls resolve through the shared module type snapshot;
+indirect/reference calls include their target operand. The interval remains
+bounded at 256 instruction slots. Other callers keep their existing leaf scan.
+
+The original scalar/reference fixtures fail with **one local instead of zero**.
+[Six focused tests](../../../../../src/passes/dae2_balanced_captures_wbtest.mbt)
+cover i32/f64/externref, trapping loads, indirect/reference/multivalue calls,
+consumption of an earlier stack operand, branch intervals, repeated reads and
+overlapping captures. The [command fixture](../../../../../src/cmd/dae2_balanced_captures_wbtest.mbt)
+checks the public optimizing route's exact opcodes and validity. The first
+extended-greedy prototype adds capture pairs in **25 artifact functions**; the
+reduced overlap test fails **2 != 1 locals**. Final V32 runs the original smaller
+leaf plan first, then removes additional balanced pairs. It preserves that test's
+one-local output. V31 is rejected evidence, not the final size checkpoint.
+
+All non-code semantic sections and nonlocal opcode/immediate streams of V30/V32
+are identical. Across 12,904 large defined functions, **6,444 functions lose
+32,070 set/get pairs**, none gain pairs, and tee counts stay unchanged. Small
+loses four pairs in two functions. Raw optimizing output falls
+**5,956,477 → 5,808,601 bytes (147,876 saved)**. The verified-v133 result is
+5,573,450, leaving **235,151 raw bytes**. The comparison writer expands Starshine's
+new held stack values: its canonical output is **5,942,450**, down 53,470 but
+still **369,000 bytes larger**. This writer rewrites Starshine; it is not a
+symmetric downstream optimization comparison. Plain DAE2 bytes stay unchanged.
+These reductions prove a win over the previous Starshine capture shape; they do
+not classify all remaining Binaryen drift or close the optimizing quality gap.
+
+Info/fmt, **12,992 default tests**, six native/debug cases, the command case,
+native CLI build and six native benchmarks pass. The bounded original/V30/V32/v133
+replay matches **126 modules / 1,029 observations**. Another **36 modules /
+108 observations** cover normal calls, side-effecting throws, out-of-bounds loads,
+divide-by-zero traps, references and signed zero. Every output validates. All
+producer/consumer event order, result and trap observations match the original.
+
+The legacy-first plan has a cost: 8/64/512 capture microbenchmarks are
+**4.24 → 4.76µs / 24.65 → 29.78µs / 193.45 → 222.34µs**. Matched CPU-6 V30/V32
+compiler medians (one warmup, three samples; before/after MAD) are large plain
+**3721.430 → 3753.686ms** (5.083/8.693), optimizing
+**6667.219 → 6729.063ms** (36.251/23.845); small **3.900 → 3.976ms**
+(0.015/0.068), optimizing **10.915 → 11.613ms** (0.051/0.096).
+Active tee is **3.896 → 3.767ms** (0.137/0.031) /
+**105.353 → 104.819ms** (0.303/0.477). A rejected small reference bracket
+(1.152) is retained. This is a quality improvement with measured control costs,
+not a demonstrated whole-pass speed improvement. Extra scan/materialization work
+and scalar forwarding blocks remain optimization targets; peak RSS and native
+allocation counts have not been renewed for this unit.
+
+Fresh release-v133 pass-local medians are small **4.136 / 1.020240ms** and
+**12.827 / 3.251740ms**; large **3679.039 / 451.402ms (8.15×)** and
+**7060.102 / 1686.680ms (4.19×)**. This separate cohort is not a causal
+comparison with V30. Long fuzz and final signoff remain deferred.
+
+Frozen V32 native SHA-256 is
+`3801863d728b9f07e166f0225a327597f150f91a3f88e4b8b310d494d3455c3c`;
+V30 baseline and verified release-v133 hashes are recorded in the next section.
+Both small and large oracle runs use the frozen source snapshot before the next
+forwarding-block tests are added. Evidence:
+`.tmp/dae2-lean-20260929/{validation-v32.json,candidate-v32.json,
+oracle-v32-{small,large},pairs-v32-{small,large,tee},runtime-v32,
+balanced-runtime-v32,capture-shape-v32.json,capture-shape-v31.json,
+v32-bench.log,v33-red.log}`. No public API changes.
 
 ## September 30, 2026 read-source flow projection
 
@@ -106,9 +179,9 @@ remains **+422,470 bytes**. Long fuzz and final signoff remain deferred.
 Size attribution now isolates **+422,257 bytes in function bodies**: 8,687
 positive functions add 432,374 bytes; 1,729 smaller bodies save 10,117. Compact
 samples contain retained local captures around calls and arithmetic. The
-imported-call loop reduction is **284 versus 215 raw bytes**. Balanced-call
-capture regressions now fail with one retained local instead of zero; their
-implementation is the next quality unit, not part of this projection.
+imported-call loop reduction is **284 versus 215 raw bytes**. At this checkpoint, balanced-call
+capture regressions failed with one retained local instead of zero. The later
+balanced-capture section above supersedes that gap and its size baseline.
 
 Evidence: `.tmp/dae2-lean-20260929/{validation-v30.json,candidate-v30.json,
 oracle-v30-{small,large},pairs-v30-{small,large,tee},runtime-v30,

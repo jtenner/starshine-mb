@@ -15,23 +15,23 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v30 passes 12,985 default tests and
+- **Current checkpoint:** lean-v32 passes 12,992 default tests and
   the bounded original/v133 replay controls. This is not final aggregate or
-  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-read-source-flow-projection)
+  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-balanced-effect-spanning-captures)
   owns exact hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v30 open-world compiler comparison uses verified release v133,
+The frozen v32 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.133 / 1.014870 | 4.07× | 3,695.418 / 447.885 | 8.25× |
-| `dae2-optimizing` | 13.222 / 3.195760 | 4.14× | 6,965.520 / 1,682.870 | 4.14× |
+| `dae2` | 4.136 / 1.020240 | 4.05× | 3,679.039 / 451.402 | 8.15× |
+| `dae2-optimizing` | 12.827 / 3.251740 | 3.94× | 7,060.102 / 1,686.680 | 4.19× |
 
-- **Release blockers:** large DAE2-O adds **422,470 canonical / 383,027 raw
+- **Release blockers:** large DAE2-O adds **369,000 canonical / 235,151 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
@@ -184,6 +184,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03e — Optimizing cleanup setup [IR2-PERF-DAE2-CLEANUP]
 
+- [ ] Remove duplicated balanced-capture scan/materialization work while keeping
+  legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
+  matched small optimizing is +6.39%; retain these costs until measured away.
 - [ ] Attribute whole-code-section and per-function setup, raw Vacuum preclean,
   SimplifyLocals admission/mutation safety, child-use queries, lower and
   writeback guards separately from the actual transform timers.
@@ -199,10 +202,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
-- [ ] Reduce and attribute the **422,470-byte canonical optimizing gap** by
-  function/diff family. V29 body attribution is +422,257 bytes across 8,687
-  size-losing functions; reduced call/alias captures are 284 vs 215 raw bytes.
-  Implement the red balanced-call capture regressions, then compare direct DAE2,
+- [ ] Reduce and attribute the remaining **369,000-byte canonical optimizing gap**
+  by function/diff family. V32 removes 32,070 balanced capture pairs and saves
+  147,876 raw / 53,470 canonical bytes without per-function pair regressions.
+  Scalar forwarding blocks still hide captures (new reduced cleanup test fails
+  one local instead of zero); implement that family, then compare direct DAE2,
   ordered SimplifyLocals/Vacuum and
   downstream cleanup; close indirect-family, typed-control, parameter/result
   and local/capture debris gaps without weakening behavior.

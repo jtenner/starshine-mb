@@ -758,6 +758,37 @@ fn dae2_cleanup_tuple_forwarding(
 }
 
 ///|
+// A retained stack capture stays below every intervening operand. Reject
+// control transfers and structured regions; ordinary calls and traps keep
+// their original execution point. Resolved calls use the shared type snapshot.
+fn dae2_capture_stack_effect(
+  instr : @lib.Instruction,
+  mod_ : @lib.Module,
+  module_ctx : @ir.HotModuleContext,
+) -> (Int, Int)? {
+  if instr is @lib.Unreachable ||
+    run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
+    dae_instr_has_branch(instr) {
+    return None
+  }
+  match instr {
+    @lib.Call(index) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, index) {
+        Some(@lib.FuncType(params, results)) =>
+          Some((params.length(), results.length()))
+        None => None
+      }
+    @lib.CallIndirect(index, _) | @lib.CallRef(index) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, index) {
+        Some(@lib.FuncType(params, results)) =>
+          Some((params.length() + 1, results.length()))
+        None => None
+      }
+    _ => dae_instr_stack_effect(instr, mod_, [])
+  }
+}
+
+///|
 // The optimizing variant removes redundant capture pairs after its cleanup
 // pipeline as well: SimplifyLocals may itself lift and materialize a stack
 // value. Compact source and generated locals together to make reruns bounded.
@@ -771,6 +802,9 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
   }
   let params = rl_defined_func_param_cache(mod_)
   let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let stack_effects = Some(fn(instr) {
+    dae2_capture_stack_effect(instr, mod_, module_ctx)
+  })
   let remaps : Array[Array[Int]?] = []
   let changed_labels : Array[Bool] = []
   let bodies : Array[@lib.Func] = []
@@ -785,6 +819,7 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
       input,
       @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
       params[index],
+      stack_effects~,
     )
     bodies.push(body)
     remaps.push(Some(mapping))
