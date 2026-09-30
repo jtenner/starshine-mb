@@ -1,3 +1,15 @@
+### 2026-09-29 — DAE2 cached dependency minima
+
+- [Cached dependency minima](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-cached-dependency-minima)
+  prune repeated irrelevant operand walks using the existing snapshot cache.
+  The collector work budget fails 33 != 2 before implementation. Four guards,
+  12 native controls and 12,968 default tests pass; bounded original/v133
+  replays and all measured output bytes match. Dependency instructions fall
+  9.38%, and matched large DAE2/O times improve 2.83%/1.91%. Cold, tee,
+  conditional-writer and RSS costs remain explicit. Fresh v133 large ratios
+  are 8.26×/4.27× in their separate cohort; +422,470 optimizing bytes,
+  broad performance targets and deferred long fuzz remain open.
+
 ### 2026-09-29 — DAE2 bounded and linear source union
 
 - [Bounded/linear source union](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-bounded-and-linear-source-union)

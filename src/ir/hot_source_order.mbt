@@ -237,6 +237,7 @@ fn hot_source_order_preceding_dependencies(
   let seen_consumer = scratch.seen_consumer
   let consumer_bounds = scratch.consumer_bounds
   let carried : Array[NodeId] = []
+  let minimum_cache = Some(facts.preceding_dependency_min_cache)
   // A newly inserted computation follows region order. A wrapper extracted
   // from an old value retains that value's order even with a new allocation ID.
   // Infer anti-dependence within the preserved value/current/consumer interval.
@@ -250,7 +251,7 @@ fn hot_source_order_preceding_dependencies(
         Some(count) => count[0] += 1
         None => ()
       }
-      hot_lower_impl_collect_preceding_dependency(
+      hot_lower_impl_collect_preceding_dependency_indexed(
         func,
         future_roots[idx],
         current_order,
@@ -261,6 +262,8 @@ fn hot_source_order_preceding_dependencies(
         consumer_bounds,
         scratch.touched,
         carried,
+        minimum_cache,
+        None,
       )
     }
   }
@@ -278,7 +281,7 @@ fn hot_source_order_preceding_dependencies(
         Some(count) => count[0] += 1
         None => ()
       }
-      hot_lower_impl_collect_preceding_dependency(
+      hot_lower_impl_collect_preceding_dependency_indexed(
         func,
         future_roots[idx],
         current_order,
@@ -289,6 +292,8 @@ fn hot_source_order_preceding_dependencies(
         consumer_bounds,
         scratch.touched,
         carried,
+        minimum_cache,
+        None,
       )
     }
   }

@@ -762,6 +762,37 @@ fn hot_lower_impl_collect_preceding_dependency(
   touched : Array[NodeId],
   out : Array[NodeId],
 ) -> Unit {
+  hot_lower_impl_collect_preceding_dependency_indexed(
+    func,
+    node_id,
+    before_node_id,
+    consumer_id,
+    value_orders,
+    node_effects,
+    seen_consumer,
+    consumer_bounds,
+    touched,
+    out,
+    None,
+    None,
+  )
+}
+
+///|
+fn hot_lower_impl_collect_preceding_dependency_indexed(
+  func : HotFunc,
+  node_id : NodeId,
+  before_node_id : NodeId,
+  consumer_id : NodeId,
+  value_orders : Array[Int],
+  node_effects : Array[EffectMask],
+  seen_consumer : Array[Int],
+  consumer_bounds : Array[Int],
+  touched : Array[NodeId],
+  out : Array[NodeId],
+  minimum_cache : Array[Int]?,
+  input_queries : Array[Int]?,
+) -> Unit {
   if node_id < 0 ||
     node_id >= seen_consumer.length() ||
     seen_consumer[node_id] <= consumer_id ||
@@ -773,24 +804,42 @@ fn hot_lower_impl_collect_preceding_dependency(
   if effects_is_pure(node_effects[node_id]) {
     return
   }
+  let carries_value = value_orders[node_id] < before_node_id &&
+    hot_node_result_arity(func, node_id) > 0
+  if !carries_value {
+    match minimum_cache {
+      Some(cache) =>
+        if hot_lower_impl_preceding_dependency_min_node(
+            func, node_id, cache, value_orders, node_effects,
+          ) >=
+          before_node_id {
+          // The minimum covers every eligible value in this operand subtree.
+          // No consumer can carry one of them across this source-order bound.
+          return
+        }
+      None => ()
+    }
+  }
   if seen_consumer[node_id] == seen_consumer.length() {
     touched.push(node_id)
   }
   seen_consumer[node_id] = consumer_id
-  if value_orders[node_id] < before_node_id &&
-    hot_node_result_arity(func, node_id) > 0 &&
-    !effects_is_pure(node_effects[node_id]) {
+  if carries_value {
     if consumer_bounds[node_id] < 0 {
       out.push(node_id)
     }
     consumer_bounds[node_id] = consumer_id
     return
   }
+  match input_queries {
+    Some(count) => count[0] += 1
+    None => ()
+  }
   let inputs = hot_lower_impl_input_info(func, node_id)
   for input_id in inputs.nodes {
-    hot_lower_impl_collect_preceding_dependency(
+    hot_lower_impl_collect_preceding_dependency_indexed(
       func, input_id, before_node_id, consumer_id, value_orders, node_effects, seen_consumer,
-      consumer_bounds, touched, out,
+      consumer_bounds, touched, out, minimum_cache, input_queries,
     )
   }
 }
@@ -845,6 +894,9 @@ fn hot_lower_impl_preceding_dependency_min_node(
   } else {
     none
   }
+  // An in-progress cycle has no proved lower bound. Preserve the collector's
+  // conservative traversal rather than allowing a recursive cache fill to loop.
+  cache[node_id] = -1
   for input_id in hot_lower_impl_input_info(func, node_id).nodes {
     let input_minimum = hot_lower_impl_preceding_dependency_min_node(
       func, input_id, cache, value_orders, node_effects,

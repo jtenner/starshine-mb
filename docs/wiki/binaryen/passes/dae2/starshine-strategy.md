@@ -3,6 +3,9 @@ kind: entity
 status: working
 last_reviewed: 2026-09-29
 sources:
+  - ../../../../../src/ir/hot_source_order_minimum_wbtest.mbt
+  - ../../../../../src/ir/hot_source_order_minimum_reference_wbtest.mbt
+  - ../../../../../src/ir/hot_source_order_minimum_perf_wbtest.mbt
   - ../../../../../src/ir/local_graph_source_union_wbtest.mbt
   - ../../../../../src/ir/local_graph_source_union_perf_wbtest.mbt
   - ../../../../../src/ir/local_graph_entry_reads_wbtest.mbt
@@ -33,6 +36,73 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## September 29, 2026 cached dependency minima
+
+The expanded CFG's preceding-dependency collector now consults the existing
+per-node minimum cache before walking an operand subtree that cannot itself be
+carried. A subtree whose earliest eligible value is at or after the current
+source-order bound cannot contribute a preceding value. Direct carried values
+keep their earlier fast path; selected value order and consumer bounds remain
+unchanged. The cache is filled lazily within the existing immutable facts
+snapshot, with no new node-sized storage. An in-progress minimum is conservative
+for malformed cyclic query inputs; normal facts construction still requires
+acyclic operand graphs.
+
+The [four focused guards](../../../../../src/ir/hot_source_order_minimum_wbtest.mbt)
+first expose a missing private kernel, then the instrumented original collector
+fails **33 operand queries != 2**. Two semantic guards are initially green;
+they are not claimed as original semantic failures. The work budget applies to
+collection with a populated minimum cache, excluding the one-time cache fill.
+Cold/repeated results match the [frozen V24b collector and query](../../../../../src/ir/hot_source_order_minimum_reference_wbtest.mbt),
+including calls, local state, loads/traps, references, typed control and shared
+inputs; scratch rows reset between queries.
+
+[Twelve native controls](../../../../../src/ir/hot_source_order_minimum_perf_wbtest.mbt)
+separate warm queries from cold facts construction plus the first query:
+
+| Effectful leaves | Original → selected warm mean | Original → selected cold mean |
+| --- | --- | --- |
+| 8 | 407.40 → 148.25ns | 1.60 → 1.60µs |
+| 128 | 4.71µs → 167.72ns | 17.63 → 17.81µs (1.02% cost) |
+| 1024 | 39.34µs → 152.45ns | 139.20 → 138.87µs |
+
+Matched V24b/V26 large compiler pass medians improve **4214.100 →
+4094.742ms (2.83%)** / **7355.494 → 7215.137ms (1.91%)**, MAD
+40.017/12.972ms and 23.468/12.770ms. Small medians are 4.146 → 4.064ms /
+11.933 → 11.199ms, MAD 0.013/0.005ms and 0.222/0.141ms. Rejected small
+reference brackets 1.337/1.458/1.386 remain saved. Tee plain costs **3.889 →
+3.933ms (1.13%)**, MAD 0.032/0.029ms; tee optimizing is 107.362 →
+106.651ms, MAD 0.084/0.267ms. Joined readers stay near flat at 19.432 →
+19.354ms / 29.512 → 29.559ms. Pure-tail medians are 12.213 → 11.984ms /
+13.098 → 13.008ms. Conditional writers are 11.687 → 11.716ms /
+**16.618 → 17.014ms (2.38% optimizing cost)**, MAD 0.225/0.019ms and
+0.159/0.105ms. These controls remain costs/limits rather than being hidden by
+the warm-helper gain.
+
+Dependency-analysis instructions fall **17,113,284,401 → 15,507,706,416
+(9.38%)**. Named incoming malloc/free calls fall by **36,784 each**,
+35,676,180 → 35,639,396 / 111,122,427 → 111,085,643; these are scoped
+calls, not allocation bytes or net live objects. Small whole-command instruction
+counts are 78,693,572 → 77,714,999 / 170,356,809 → 169,374,480.
+Three-sample RSS medians are 257,852 → 256,616KiB plain and **290,712 →
+302,024KiB optimizing (3.89% increase)**. Ranges 256,552–280,756 /
+256,228–268,952 and 289,796–302,228 / 290,028–313,304 overlap; this does
+not establish a causal memory gain or regression.
+
+Info, fmt, four native guards, **12,968 default tests**, release CLI and all
+controls pass. The 126-module / 1,029-observation original/v133 replay, two
+active 7-module / 28-observation lanes and conditional 7-module / 42-observation
+lane match, with unchanged before/after and traced/untraced bytes plus independent
+validation. Fresh verified-v133 medians are small 4.162/1.017660ms and
+13.704/3.195640ms; large **4042.251/489.438ms (8.26×)** and
+**7554.394/1767.560ms (4.27×)**. One warmup, three samples, CPU 6 and frozen
+hashes are retained. Oracle cohorts are not causal before/after experiments.
+Optimizing canonical output still adds **422,470 bytes**; neither pass is closed.
+Local `.tmp/dae2-lean-20260929/` evidence uses `v26`, candidate SHA-256
+`0786d1da42c7fd2e72e23c5d2b575e92a69282ad17993b4fdf8eba7066d46e8a`.
+Long fuzz remains deferred; operand/header reads, scratch churn, overlapping
+access lists, lift/lower and optimizing cleanup remain active targets.
 
 ## September 29, 2026 bounded and linear source union
 
