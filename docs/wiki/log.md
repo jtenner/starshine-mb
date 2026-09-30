@@ -1,3 +1,15 @@
+### 2026-09-30 — Read-only local counting in DAE2 cleanup
+
+- [Direct local counting](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-read-only-local-counting)
+  removes discarded control reconstruction and recursive visitor allocation.
+  The split helper resolves the initial flat-loop regression; the wide nested
+  native control improves 72%, while the wide flat control is unchanged within
+  dispersion. All 13,030 tests and 1,029 bounded runtime observations pass;
+  measured output bytes remain identical. Fresh v133, paired timings, RSS,
+  rejected trial and remaining small/tee costs are recorded in the dossier.
+  Prune the completed counting task; keep compaction, dependency work, output
+  quality, cumulative costs and deferred fuzz signoff active.
+
 ### 2026-09-30 — DAE2 read-source projection and size attribution
 
 - [Read-source projection](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-read-source-flow-projection)

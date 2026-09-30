@@ -3,6 +3,8 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/dae2_local_counting_wbtest.mbt
+  - ../../../../../src/passes/dae2_local_counting_perf_wbtest.mbt
   - ../../../../../src/cmd/dae2_stack_suffix_wbtest.mbt
   - ../../../../../src/passes/dae2_stack_suffix_perf_wbtest.mbt
   - ../../../../../src/passes/dae2_stack_suffix_admission_wbtest.mbt
@@ -82,6 +84,115 @@ dependency-window-only. Toggled event collection scopes instruction totals;
 call counters retain the whole command. Historical values remain evidence under
 that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
+
+## September 30, 2026 read-only local counting
+
+`pass_lower_count_locals` now descends directly through block, loop, if,
+try-table and legacy catch bodies. The previous generic child mapper rebuilt
+control and catch wrappers that the counter immediately discarded, and allocated
+a recursive visitor for each region. The direct walk preserves source traversal
+order, seeded count accumulation, and input ownership.
+
+Before implementation, the native V43 work budget fails with one body-mapper
+call site and one recursive-visitor allocation site; the required count is zero
+for each. These are generated-code sites, not dynamic allocations or heap bytes.
+Two behavior guards pass on both implementations, checking exact read/write
+counts and source bytes across nested control, tagged catches, try-table and
+empty siblings. The benchmark compares the unchanged historical counter against
+the new one for 8/512 flat and structured groups; parsing and setup are outside
+timing, and both reuse and reset the same count buffers.
+
+`moon info`, `moon fmt`, two native cases, the command fixture and all **13,030**
+default tests pass. There are no public interface changes. Enclosing comparisons
+require byte-identical before/after output, not merely validation or size parity.
+
+The first direct-walk trial V44 passes the native zero-site budget, but is not
+accepted: 8 flat groups improve 68.99 to 55.42 ns and structured 8/512 groups
+improve 465.64 to 120.11 ns / 28.55 to 6.92 us, while 512 flat groups regress
+2.69 to 8.93 us. Generated benchmark C grows the counter from a three-case
+local-access switch to a combined local/control switch, and the native loop
+uses an indirect jump table. That is a source-backed hypothesis for the flat
+regression, not established causality. The next trial separates recursive child
+handling from the hot local-access loop while retaining zero reconstruction and
+visitor-allocation sites. V44 samples and its native hash remain separate.
+
+V44's complete matched CPU-6 cohort (V43 baseline, one warmup, three valid
+samples) records small plain 3.749 to 3.725 ms (MAD .010/.093), small optimizing
+10.514 to 10.777 ms (MAD .101/.020; +2.50%), large plain 3692.442 to 3707.172 ms
+(MAD 27.334/14.479; +.40%), large optimizing 7040.839 to 6771.924 ms (MAD
+91.679/99.163; -3.82%), and tee plain 2.889 to 2.885 / optimizing 105.105 to
+104.410 ms. This shows a useful enclosing optimizing improvement but leaves the
+flat microbenchmark and small optimizing costs unresolved. All fixed 126
+modules / 1029 runtime observations match, and every before/after output is
+byte-identical. Frozen native V44 SHA-256:
+3475039477103f6bef32be57605c9cfcedce8f3380a22fb0db57c27d304675a9.
+
+V45 separates child-region recursion from the three-case local-access loop.
+Both functions have zero reconstruction/visitor-allocation sites. Generated
+native CLI code has one indirect hot-loop jump in V44 and none in V45; the
+revised loop calls the separate child helper for other instructions. Native
+benchmarks retain the nested win while resolving the flat regression:
+
+| Groups | Shape | Original | V45 |
+| --- | --- | ---: | ---: |
+| 8 | Flat | 73.93 ± 4.14 ns | 59.76 ± 2.05 ns |
+| 512 | Flat | 2.72 ± .064 µs | 2.69 ± .075 µs |
+| 8 | Structured | 486.22 ± 9.77 ns | 138.42 ± 4.34 ns |
+| 512 | Structured | 29.19 ± .115 µs | 8.18 ± .065 µs |
+
+The wide flat result is within dispersion; the wide structured case improves
+72.0%. All 13,030 default tests, the focused native and command cases, info/fmt,
+native build and eight benchmarks pass. Frozen V45 native SHA-256:
+`b6ba6b15aa44d6fe34c779cfdb668a48fb21b50cec524e26f932c290e777ba99`.
+
+V45's fresh release-v133 cohort uses CPU 6, one warmup and three samples.
+These are independent pass-local observations, not paired causal improvements:
+
+| Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
+| --- | ---: | ---: | ---: | ---: |
+| `dae2` | 3.902 / 1.009 | 3.87× | 3,642.904 / 457.079 | 7.97× |
+| `dae2-optimizing` | 12.369 / 3.216 | 3.85× | 7,010.621 / 1,714.600 | 4.09× |
+
+Small raw/canonical sizes remain 192,271/192,297 for plain and
+191,546/191,648 for optimizing. Large sizes remain 6,115,221/6,132,349
+and 5,796,184/5,929,600 respectively. The optimizing output still exceeds
+v133 by 222,734 raw / 356,150 canonical bytes. The fixed original/V43/V45/v133
+comparison passes all 126 modules / 1,029 runtime observations with no output
+byte differences between V43 and V45.
+
+The complete V43→V45 matched cohort records the following pipeline medians
+in milliseconds (one warmup, three accepted alternating CPU-6 pairs):
+
+| Input / pass | V43 | V45 | Change | MAD before / after |
+| --- | ---: | ---: | ---: | ---: |
+| Small plain | 3.985 | 3.921 | −1.61% | .029 / .077 |
+| Small optimizing | 11.287 | 11.469 | +1.61% | .164 / .246 |
+| Large plain | 3,947.059 | 3,764.711 | −4.62% | 283.460 / 77.596 |
+| Large optimizing | 6,696.781 | 6,686.157 | −.16% | 12.126 / 16.593 |
+| Tee plain | 2.934 | 2.940 | +.20% | .030 / .026 |
+| Tee optimizing | 114.332 | 115.729 | +1.22% | 1.031 / .979 |
+
+All measured outputs are byte-identical, including traced versus untraced runs.
+The reference bracket rejects two noisy large-plain pairs and retains them in
+the raw record. Large plain still has substantial dispersion; large optimizing
+is essentially flat. The local structured-counting gain does not establish a
+large whole-pass gain. Small/tee optimizing costs remain visible for cumulative
+review. No long fuzz campaign was run, as requested.
+
+Three matched RSS pairs record plain 280,988 KiB [280,876–281,376] →
+244,408 KiB [243,996–244,864] and optimizing 291,340 KiB
+[290,232–291,552] → 290,008 KiB [289,940–291,868]. Plain RSS falls in
+this cohort; optimizing ranges overlap. Earlier cohorts varied between lower
+and higher plain RSS plateaus, so these three samples do not establish a
+universal memory reduction. Every RSS output matches its frozen oracle artifact.
+
+Reproduction artifacts are local-only under `.tmp/dae2-lean-20260929`:
+`validation-v45.json`, `v45-bench.log`, `counting-work-v43.json`,
+`counting-work-v45.json`, `counting-dispatch-v45.json`, `candidate-v45.json`,
+`oracle-v45-{small,large}/result.json`, `pairs-v45-{small,large,tee}/result.json`,
+`runtime-v45/result.json` and `memory-v45/result.json`. The source controls
+listed above and explicit hashes preserve the contract when these local
+artifacts are absent.
 
 ## September 30, 2026 structured call-suffix replay
 

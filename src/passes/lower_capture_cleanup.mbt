@@ -39,17 +39,45 @@ fn pass_lower_count_locals(
   gets : Array[Int],
   writes : Array[Int],
 ) -> Unit {
-  let visit_body = fn(body) {
-    pass_lower_count_locals(body, gets, writes)
-    body
-  }
   for instr in instrs {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(index)) => gets[index.to_int()] += 1
       @lib.LocalSet(@lib.LocalIdx(index))
       | @lib.LocalTee(@lib.LocalIdx(index)) => writes[index.to_int()] += 1
-      _ => ignore(pass_lower_map_children(instr, visit_body))
+      _ => pass_lower_count_child_locals(instr, gets, writes)
     }
+  }
+}
+
+///|
+fn pass_lower_count_child_locals(
+  instr : @lib.Instruction,
+  gets : Array[Int],
+  writes : Array[Int],
+) -> Unit {
+  match instr {
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      pass_lower_count_locals(body, gets, writes)
+    @lib.If(_, yes, no) => {
+      pass_lower_count_locals(yes, gets, writes)
+      match no {
+        Some(body) => pass_lower_count_locals(body, gets, writes)
+        None => ()
+      }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      pass_lower_count_locals(body, gets, writes)
+      for catch_ in catches {
+        let body = match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(body))
+          | @lib.LegacyCatchAll(@lib.Expr(body)) => body
+        }
+        pass_lower_count_locals(body, gets, writes)
+      }
+    }
+    _ => ()
   }
 }
 

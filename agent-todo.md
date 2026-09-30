@@ -15,30 +15,34 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v43 passes 13,028 default tests and
+- **Current checkpoint:** lean-v45 passes 13,030 default tests and
   focused original/v133 value, event, trap and GC-reference controls. The saved
   binary `ref.eq` defect is repaired; historical V32–V37 fixture counts are not
   general correctness evidence. This is not final aggregate or release signoff.
-  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-structured-call-suffix-replay)
+  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-read-only-local-counting)
   owns exact hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v43 open-world compiler comparison uses verified release v133,
+The frozen v45 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 3.938 / 1.027 | 3.84× | 3,760.792 / 475.614 | 7.91× |
-| `dae2-optimizing` | 12.285 / 3.298 | 3.72× | 7,134.916 / 1,749.760 | 4.08× |
+| `dae2` | 3.902 / 1.009 | 3.87× | 3,642.904 / 457.079 | 7.97× |
+| `dae2-optimizing` | 12.369 / 3.216 | 3.85× | 7,010.621 / 1,714.600 | 4.09× |
 
 - **Release blockers:** large DAE2-O adds **356,150 canonical / 222,734 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** V43 structured suffix replay improves the wide native
+- **Evidence limits:** V45 removes counting-time wrapper reconstruction and
+  visitor allocation sites; its wide structured microbenchmark improves 72%.
+  Matched large optimizing is essentially flat (−.16%); plain improves 4.62%
+  with substantial dispersion, and small/tee optimizing cost 1.61%/1.22%.
+  V43 structured suffix replay improves the wide native
   benchmark 83.5% and matched large plain .57%; large optimizing improves 1.00%
   with dispersion, while small/tee optimizing cost 1.55%/1.06%. RSS has no robust
   win. Keep these costs and retained-buffer tradeoffs open. V38 adds a +5.58%
@@ -205,9 +209,6 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03e — Optimizing cleanup setup [IR2-PERF-DAE2-CLEANUP]
 
-- [ ] Count local reads/writes without rebuilding discarded control wrappers.
-  Native V38 contains one mapper call and one recursive-visitor allocation site
-  in the read-only counter; retain exact counts, traversal order and ownership.
 - [ ] Prove no-work compaction admission from read/write and alias facts. Skip
   scans/remapping only when no eligible capture, dead local or immutable alias
   can change; preserve every legacy and effect-spanning cleanup candidate.
