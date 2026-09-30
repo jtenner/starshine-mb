@@ -15,31 +15,34 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** corrected lean-v38 passes 13,015 default tests and
+- **Current checkpoint:** lean-v43 passes 13,028 default tests and
   focused original/v133 value, event, trap and GC-reference controls. The saved
   binary `ref.eq` defect is repaired; historical V32–V37 fixture counts are not
   general correctness evidence. This is not final aggregate or release signoff.
-  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-immutable-parameter-aliases)
+  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-structured-call-suffix-replay)
   owns exact hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v38 open-world compiler comparison uses verified release v133,
+The frozen v43 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.424 / 1.002260 | 4.41× | 3,806.409 / 495.202 | 7.69× |
-| `dae2-optimizing` | 12.726 / 3.415470 | 3.73× | 7,253.819 / 1,764.950 | 4.11× |
+| `dae2` | 3.938 / 1.027 | 3.84× | 3,760.792 / 475.614 | 7.91× |
+| `dae2-optimizing` | 12.285 / 3.298 | 3.72× | 7,134.916 / 1,749.760 | 4.08× |
 
 - **Release blockers:** large DAE2-O adds **356,150 canonical / 222,734 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** current small/control timing costs and retained-buffer
-  RSS tradeoffs remain open. V38 adds a +5.58% matched large plain cost; its
+- **Evidence limits:** V43 structured suffix replay improves the wide native
+  benchmark 83.5% and matched large plain .57%; large optimizing improves 1.00%
+  with dispersion, while small/tee optimizing cost 1.55%/1.06%. RSS has no robust
+  win. Keep these costs and retained-buffer tradeoffs open. V38 adds a +5.58%
+  matched large plain cost; its
   optimizing −1.02% median has substantial dispersion, while V37 records
   +2.54%. Alias no-work/tiny controls also cost more. V28's 4.15% higher plain median remains historical
   evidence; V29 ranges overlap and its optimizing median rises 0.44%. The [priority report](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
@@ -177,9 +180,14 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - [ ] Isolate remaining lift/admission, dependency solve, location lookup,
   rewrite/lower, capture repair, writeback and final-validation costs on the
   same frozen source. Do not add overlapping inclusive profile percentages.
-- [ ] Trial raw edits for pure discarded-call suffixes in structured bodies,
-  preserving the existing flat demand projection and HOT fallbacks for unknown
-  effects, used removed parameters and changed indexed control families.
+  Prioritize dependency construction, analysis/rewrite lifts, lower and final
+  validation: the September 30 diagnostic solver cost is too small for
+  solver-only changes to close the enclosing gap. Require complete graph-field
+  equivalence for a demand projection; retain conservative HOT fallback.
+- [ ] Reduce the remaining admission/provenance and scratch costs around the
+  implemented structured call-suffix replay. V43 small/tee optimizing controls
+  cost 1.55%/1.06%; preserve exact writer demand, effects, control normalization
+  and HOT fallback. Extend supported families only with a measured benefit.
 - [ ] Trial raw fallthrough conditionals with sparse local-write undo/join work;
   avoid copying whole local arrays per branch and preserve conservative HOT
   dependencies for exits, loops, handlers and unsupported signatures.
@@ -197,6 +205,12 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03e — Optimizing cleanup setup [IR2-PERF-DAE2-CLEANUP]
 
+- [ ] Count local reads/writes without rebuilding discarded control wrappers.
+  Native V38 contains one mapper call and one recursive-visitor allocation site
+  in the read-only counter; retain exact counts, traversal order and ownership.
+- [ ] Prove no-work compaction admission from read/write and alias facts. Skip
+  scans/remapping only when no eligible capture, dead local or immutable alias
+  can change; preserve every legacy and effect-spanning cleanup candidate.
 - [ ] Remove duplicated balanced-capture scan/materialization work while keeping
   legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
   matched small optimizing is +6.39%; retain these costs until measured away.

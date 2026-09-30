@@ -901,6 +901,8 @@ fn dae2_collect_control_type_infos(
   type_infos : Array[Int],
   out : Array[Int],
   call_infos? : Array[Int]? = None,
+  suffix_state? : Dae2StackSuffixState? = None,
+  function_index? : Int = 0,
 ) -> Bool {
   let mut has_calls = false
   for instruction in body {
@@ -913,6 +915,8 @@ fn dae2_collect_control_type_infos(
             type_infos,
             out,
             call_infos~,
+            suffix_state~,
+            function_index~,
           ) ||
           has_calls
         Some(block_type)
@@ -923,6 +927,8 @@ fn dae2_collect_control_type_infos(
             type_infos,
             out,
             call_infos~,
+            suffix_state~,
+            function_index~,
           ) ||
           has_calls
         if no is Some(child) {
@@ -931,18 +937,28 @@ fn dae2_collect_control_type_infos(
               type_infos,
               out,
               call_infos~,
+              suffix_state~,
+              function_index~,
             ) ||
             has_calls
         }
         Some(block_type)
       }
       @lib.Try(_, @lib.Expr(child), catches, _) => {
+        match suffix_state {
+          Some(state) =>
+            state.admissions[function_index] = state.admissions[function_index] |
+              3
+          None => ()
+        }
         out.push(-1)
         has_calls = dae2_collect_control_type_infos(
             child,
             type_infos,
             out,
             call_infos~,
+            suffix_state~,
+            function_index~,
           ) ||
           has_calls
         for catch_ in catches {
@@ -954,6 +970,8 @@ fn dae2_collect_control_type_infos(
               type_infos,
               out,
               call_infos~,
+              suffix_state~,
+              function_index~,
             ) ||
             has_calls
         }
@@ -971,6 +989,12 @@ fn dae2_collect_control_type_infos(
       | @lib.ReturnCallIndirect(index, _)
       | @lib.CallRef(index)
       | @lib.ReturnCallRef(index) => {
+        match suffix_state {
+          Some(state) =>
+            state.admissions[function_index] = state.admissions[function_index] |
+              2
+          None => ()
+        }
         has_calls = true
         match call_infos {
           Some(callees) => {
@@ -987,7 +1011,24 @@ fn dae2_collect_control_type_infos(
         }
         None
       }
+      @lib.Return => {
+        match suffix_state {
+          Some(state) =>
+            state.admissions[function_index] = state.admissions[function_index] |
+              2
+          None => ()
+        }
+        None
+      }
       _ => None
+    }
+    match (suffix_state, block_type) {
+      (Some(state), Some(block)) =>
+        // Bit 1 records structured control; bit 2 excludes static shapes
+        // requiring general HOT normalization. Reuse this mandatory scan.
+        state.admissions[function_index] = state.admissions[function_index] |
+          (if block is @lib.TypeIdxBlockType(_) { 3 } else { 1 })
+      _ => ()
     }
     if block_type is Some(@lib.TypeIdxBlockType(index)) {
       let slot = dae2_type_slot(index, 0)

@@ -1037,6 +1037,7 @@ fn dae2_run_module_pass(
   perf? : HotPerfSession? = None,
   raw_analysis? : Bool = true,
   raw_rewrite? : Bool = true,
+  stack_suffix_rewrite? : Bool = true,
 ) -> Result[@lib.Module, String] {
   let prepare_start = perf_start_timer_opt(perf, "detail:dae2:prepare")
   let original = mod_
@@ -1048,6 +1049,11 @@ fn dae2_run_module_pass(
   let imported = dae_imported_func_count(mod_)
   let indices = dae_collect_func_type_indices(mod_)
   let total_funcs = indices.length()
+  let suffix_state = if raw_rewrite && stack_suffix_rewrite {
+    Some(Dae2StackSuffixState::new(total_funcs))
+  } else {
+    None
+  }
   let graph = Dae2Graph::new()
   let infos : Array[Dae2Function] = []
   for index = 0; index < indices.length(); index = index + 1 {
@@ -1089,6 +1095,8 @@ fn dae2_run_module_pass(
         type_infos,
         info.control_type_infos,
         call_infos=Some(info.call_infos),
+        suffix_state~,
+        function_index=index,
       ),
     )
     info.call_infos_ready = true
@@ -1181,7 +1189,16 @@ fn dae2_run_module_pass(
       None => ()
     }
     let lift_start = perf_start_timer_opt(perf, "detail:dae2:analysis:lift")
-    let func = match dae2_lift_for_analysis(mod_, context, index) {
+    let func = match
+      dae2_lift_for_analysis(
+        mod_,
+        context,
+        index,
+        write_provenance=match suffix_state {
+          Some(state) if state.admissions[index] == 1 => Some(state)
+          _ => None
+        },
+      ) {
       Ok(func) => func
       Err(err) => return Err(err)
     }
@@ -1243,6 +1260,7 @@ fn dae2_run_module_pass(
   let mut rewrite_lift_us = 0UL
   let mut lower_us = 0UL
   let mut raw_rewrite_graph : Dae2Graph? = None
+  let mut stack_suffix_plan : Dae2StackSuffixPlan? = None
   for index = imported; index < total_funcs; index = index + 1 {
     let info = infos[index]
     let kept_params : Array[@lib.ValType] = []
@@ -1267,13 +1285,37 @@ fn dae2_run_module_pass(
       family >= infos.length() ||
       dae2_signature_changes(graph, infos[family])
     })
-    let direct = if raw_rewrite &&
-      needs_rewrite &&
-      info.raw_analysis &&
-      !control_rewrite {
-      dae2_rewrite_raw_function(
-        graph, infos, index, original_func, context, kept_params, removed_params,
-      )
+    let direct = if raw_rewrite && needs_rewrite && !control_rewrite {
+      // Keep the broader flat demand projection first. Structured suffix edits
+      // preserve original control headers when no general expression rewrite is
+      // required, including bodies that needed HOT only for dependency analysis.
+      let flat = if info.raw_analysis {
+        dae2_rewrite_raw_function(
+          graph, infos, index, original_func, context, kept_params, removed_params,
+        )
+      } else {
+        None
+      }
+      match flat {
+        Some(_) => flat
+        None =>
+          match suffix_state {
+            Some(state) if state.admissions[index] == 1 => {
+              let plan = match stack_suffix_plan {
+                Some(plan) => plan
+                None => {
+                  let plan = Dae2StackSuffixPlan::new(graph, infos)
+                  stack_suffix_plan = Some(plan)
+                  plan
+                }
+              }
+              dae2_rewrite_stack_suffix_function(
+                plan, graph, info, index, original_func, state,
+              )
+            }
+            _ => None
+          }
+      }
     } else {
       None
     }
@@ -1343,6 +1385,7 @@ fn dae2_run_module_pass(
             analysis_lifts~,
             perf~,
             raw_analysis=false,
+            stack_suffix_rewrite~,
           )
         }
         replay
@@ -1598,6 +1641,7 @@ fn dae2_lift_for_analysis(
   mod_ : @lib.Module,
   context : @ir.HotModuleContext,
   index : Int,
+  write_provenance? : Dae2StackSuffixState? = None,
 ) -> Result[@ir.HotFunc, String] {
   match
     @ir.hot_lift_func_with_context_result(
@@ -1609,7 +1653,18 @@ fn dae2_lift_for_analysis(
     ) {
     Ok(func) => {
       // Use the same deterministic capture preparation in both phases.
-      ignore(@ir.hot_repair_ordered_catch_payloads(func))
+      let repaired = @ir.hot_repair_ordered_catch_payloads(func)
+      if !repaired {
+        match write_provenance {
+          Some(state) =>
+            // Retain source write IDs only while the lift is unmodified.
+            // Catch localization can change that mapping and keeps HOT replay.
+            state.original_writes[index] = Some(
+              @ir.hot_lift_local_accesses(func).writes,
+            )
+          None => ()
+        }
+      }
       Ok(func)
     }
     Err(err) => Err("dae2: lift function \{index}: \{err}")

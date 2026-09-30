@@ -3,6 +3,11 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/cmd/dae2_stack_suffix_wbtest.mbt
+  - ../../../../../src/passes/dae2_stack_suffix_perf_wbtest.mbt
+  - ../../../../../src/passes/dae2_stack_suffix_admission_wbtest.mbt
+  - ../../../../../src/passes/dae2_stack_suffix_wbtest.mbt
+  - ../../../../../src/passes/dae2_stack_suffix_rewrite.mbt
   - ../../../../../src/passes/dae2_parameter_aliases.mbt
   - ../../../../../src/passes/dae2_parameter_aliases_wbtest.mbt
   - ../../../../../src/passes/dae2_parameter_aliases_reference_wbtest.mbt
@@ -78,6 +83,147 @@ call counters retain the whole command. Historical values remain evidence under
 that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
 
+## September 30, 2026 structured call-suffix replay
+
+The new private raw path removes an adjacent pure argument suffix in structured
+bodies after the complete module-wide DAE2 fixed point. The existing flat demand
+projection runs first. Control headers, branch depths, retained producers and
+observable operations keep their order. Removed result tuples require exact
+following drops or writes to unread body locals; their callee keeps HOT result
+rewriting. Unknown/interleaved producers, trapping discarded arguments, indexed
+control signatures, indirect calls, own removed results, returns and repaired
+catch-payload provenance keep the general HOT path. There is no retained HOT
+expression graph between functions.
+
+Source-order original write IDs from the checked unmodified lift are retained
+until solve. Qualification uses their actual demand to reject overwritten stores
+that a global read mask alone cannot distinguish. Synthetic captures have no raw
+entries. The cursor checks every original writer in lexical child order and
+rejects missing/polymorphic provenance. Raw liveness excludes discarded argument
+reads, removes unread tees while preserving their stack values, and drops unused
+stored results without removing their producer effects. General pure-expression
+deletion stays HOT. Monotonic suffix-call lookahead avoids quadratic rescanning
+or an instruction-sized marker array.
+
+TDD first fails two lift budgets (one versus zero). Later reduced regressions
+fail an unread-tee count, a tuple-store lift budget, encoded equality for a dead
+overwritten store and a return after `br`. Scalar-result/void return guards keep
+HOT control normalization. The full suite exposes a stale source map after catch
+payload localization; repaired lifts now retain HOT replay and that intake
+regression passes. Other exact opcode/type/local/ownership and trapping fallback
+fixtures are behavior guards rather than claimed red-first gaps.
+
+V39 is rejected despite an 84.4% wide synthetic improvement and a 5.7% matched
+large plain improvement: large raw output grows 15,338 plain / 12,038 optimizing
+bytes, with 663/519 larger functions. Missing unread tee/store cleanup explains
+the main family. V40 narrows this to four plain / three optimizing regressions:
+two unused result-if headers with trailing returns, one unreachable return and
+one overwritten initialization. Optimizing raw output still grows six bytes;
+its 3.0% matched optimizing improvement is rejected rather than accepted as
+representation drift. Both failed checkpoints and their complete samples stay
+under their original frozen hashes. Catch provenance invalidation also rejects
+the first V41 validation attempt (13,026 passing / one failing); the corrected
+checkpoint is separate evidence.
+
+V41 repairs all four byte regressions: three large plain functions save 42 raw
+bytes, optimizing bytes are unchanged, and no function grows. All 13,027 default
+tests, 11 native core cases, the command case and four native benchmarks pass.
+Runtime replay matches original/v133 in 133 modules / 532 observations plus the
+fixed 126 / 1,029 cohort. Wide synthetic replay improves 18.87 to 3.14 ms (83.4%).
+However matched V38-to-V41 optimizing grows 7,191.769 to 7,396.666 ms (2.85%), and
+tee optimizing grows 105.396 to 108.439 ms (2.89%). Plain improves 4,152.105 to
+4,012.866 ms (3.35%) with a large 206.224 ms baseline MAD. This checkpoint is
+rejected for those optimizing costs. Its source retains provenance for every HOT
+body and rescans unsupported return bodies before declining; the next trial
+shares static eligibility with existing mandatory call/control collection.
+The partial RSS driver validates output but incorrectly selects V35 as the
+optimizing baseline; preserve the valid plain samples and do not claim an
+optimizing RSS result from that failed comparison. The corrected driver derives
+its baseline from the actual frozen executable.
+
+V42 caches eligibility in the existing call/control scan and declines unsupported
+bodies before retaining provenance or allocating raw rewrite scratch. The new
+metadata regression fails zero versus one first, then verifies control/call
+fields, source ownership and independent function rows. All 13,028 default tests
+and native controls pass. The frozen executable is
+`c1a00cbeb23480e9ad3b8900dc29df2ce89c852a8f3e0e8f998b989a0fac024f`.
+Output remains exactly V41 across both artifacts; no raw function grows.
+Matched large optimizing still rises 6,631.143 to 6,728.035 ms (1.46%; MAD
+5.192/11.110), and tee optimizing 114.446 to 118.498 ms (3.54%; MAD .730/2.833).
+Small optimizing improves 10.907 to 10.683 ms (2.05%); large plain
+3,725.568 to 3,713.771 ms is within the 38.128 ms candidate MAD. This trial also
+remains unaccepted. Corrected three-pair RSS records plain 280,464 to 281,216 KiB
+and optimizing 290,268 to 290,384 KiB, with no demonstrated memory win. Native
+`sizeof` shows the dependency function payload grew 64 to 80 bytes, including
+irrelevant type-family records. A new actual red native layout budget requires
+64 bytes. The following trial stores optional metadata in two module-wide arrays
+and restores the original record layout; it does not assume the layout change
+causes the observed timing cost without a paired measurement.
+
+V43 keeps the same qualification contract but stores admissions and original
+write rows in module-wide arrays. The native function payload returns to its
+original **64 bytes**, satisfying the actual red 80-byte layout budget. This is
+a native declaration-size measurement, not a heap-byte or RSS claim. The
+mandatory call/control collector owns admission; no extra admission body walk is
+added. The private switch disables only this new path for focused benchmarks.
+
+The accepted candidate passes **13,028 default tests**, 11 focused native core
+cases, one admission case (eight subfixtures), one command case and four native
+benchmarks, plus `moon info`, `moon fmt` and the native release build. Public
+interfaces do not change. Native one-call replay improves **34.73 → 19.15 µs**;
+32 helpers with 128 calls each improve **19.81 → 3.26 ms (83.5%)**, with setup
+outside timing. Fresh small/large oracle cohorts retain source freeze and exact
+traced/untraced output agreement. Small outputs stay identical to V38. Large
+plain saves **42 raw / 40 canonical bytes** across three functions; large
+optimizing stays identical. All 12,904 large functions per pass have no raw size
+increase, and semantic non-code sections are unchanged. This narrow replay win
+does not close the wider output parity gap.
+
+CPU-6 matched V38/V43 medians use one warmup and three valid samples; reject and
+retain rounds with a reference bracket above 1.15. MAD follows each median:
+
+| Input / pass | V38 ms (MAD) | V43 ms (MAD) | Median change |
+| --- | ---: | ---: | ---: |
+| Small plain | 3.970 (.095) | 3.766 (.012) | −5.14% |
+| Small optimizing | 10.617 (.047) | 10.782 (.014) | +1.55% cost |
+| Large plain | 3,765.215 (.313) | 3,743.932 (.544) | −.57% |
+| Large optimizing | 6,894.869 (28.662) | 6,825.965 (29.211) | −1.00% |
+| Active tee plain | 2.925 (.011) | 2.881 (.010) | −1.50% |
+| Active tee optimizing | 103.845 (.650) | 104.944 (.274) | +1.06% cost |
+
+The large optimizing change is modest relative to dispersion. Accept the
+measured structured replay benefit and stable plain gain; keep small/tee costs
+and the wider cleanup bottleneck active rather than claim a dominant optimizing
+win. Three-pair peak RSS medians are plain **281,672 → 280,968 KiB**, ranges
+269,308–282,484 / 244,352–281,732; optimizing **290,128 → 290,088 KiB**, ranges
+289,984–292,332 / 290,008–312,472. There is no robust RSS win.
+
+The dedicated reduced runtime cohort compares original, corrected V38, V43 and
+verified v133: **133 modules / 532 observations**, with no value, reference
+identity, call-order or trap/throw mismatch. The fixed cohort adds **126 modules /
+1,029 observations**. These bounded controls and the transform contract support
+this replay family; validation and size alone are not semantic proof.
+
+Fresh V43/v133 pass-local medians in their own cohort are small plain
+**3.938 / 1.027 ms (3.836×)**, small optimizing **12.285 / 3.298 ms (3.724×)**,
+large plain **3,760.792 / 475.614 ms (7.907×)** and large optimizing
+**7,134.916 / 1,749.760 ms (4.078×)**. The optimizing canonical gap remains
+**356,150 bytes** (5,929,600 versus 5,573,450), raw gap **222,734**. Read-only
+local counting, no-work compaction admission, repeated flow-header queries and
+conditional raw analysis are next measured trials. Long fuzz and final
+aggregate/release gates remain deferred until those performance trials settle.
+
+Frozen V43 native SHA-256:
+`14db078506a705f270f1fe7387817efe9ed20272cbf77cbb663a81438d603e1a`.
+Oracle: verified release `wasm-opt version 133 (version_133)`, SHA-256
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+Local evidence stays under `.tmp/dae2-lean-20260929/`: `validation-v43.json`,
+`counting-work-v41.json`, `suffix-info-layout-work-v43.json`, native benchmark
+logs, `suffix-shape-v43.json`, runtime cohorts, matched pair samples, corrected
+RSS samples and both `oracle-v43-{small,large}` manifests. Rejected V39–V42
+samples retain their original versions; their absolute times are not causal
+comparisons across cohorts.
+
 ## September 30, 2026 binary reference equality correction
 
 The shared `dae_instr_stack_effect` incorrectly groups `ref.eq` with unary
@@ -143,6 +289,16 @@ set aliases, means are **2.49 → 2.61µs / 11.89 → 11.92µs /
 97.09 → 91.31µs**. No-alias controls cost **2.48 → 2.62µs** and
 **86.70 → 93.07µs**. Setup and correctness checks stay outside timed regions.
 These costs remain targets; this unit establishes an output-quality improvement.
+A full-collection dump-before/dump-after capture window for V38 records
+**3,076,607,165 instructions**, **9,720,615 `mi_malloc` calls** and
+**7,845,927 `mi_free` calls**. Unlike toggled collection, this part-2 window
+scopes both events and calls. Direct allocator callers include balanced cleanup
+(1,637,292), forwarding (1,418,060), local remapping (913,110), and read-only
+counting (280,180). Counting currently rebuilds and discards control wrappers;
+no-candidate compaction still walks/remaps bodies. These are allocation-request
+counts, not bytes or live objects, and require measured enclosing trials.
+Evidence: `capture-window-v38{,-callers}.json` and
+`callgrind-v38-captures-window.2`; no true-window V35 call baseline is claimed.
 
 The strict V35/V38 artifact audit finds **329 changed large functions**, removes
 **610 set/get pairs and 3,487 tee writes**, and finds **no raw function-size
