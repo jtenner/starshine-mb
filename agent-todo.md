@@ -15,30 +15,35 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v45 passes 13,030 default tests and
+- **Current checkpoint:** lean-v47 passes 13,045 default tests and
   focused original/v133 value, event, trap and GC-reference controls. The saved
   binary `ref.eq` defect is repaired; historical V32–V37 fixture counts are not
   general correctness evidence. This is not final aggregate or release signoff.
-  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-read-only-local-counting)
+  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-dominated-local-aliases)
   owns exact hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v45 open-world compiler comparison uses verified release v133,
+The frozen v47 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 3.902 / 1.009 | 3.87× | 3,642.904 / 457.079 | 7.97× |
-| `dae2-optimizing` | 12.369 / 3.216 | 3.85× | 7,010.621 / 1,714.600 | 4.09× |
+| `dae2` | 3.985 / 1.019 | 3.91× | 3,995.880 / 479.646 | 8.33× |
+| `dae2-optimizing` | 13.592 / 3.584 | 3.79× | 7,380.880 / 1,730.980 | 4.26× |
 
-- **Release blockers:** large DAE2-O adds **356,150 canonical / 222,734 raw
+- **Release blockers:** large DAE2-O adds **299,275 canonical / 168,047 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** V45 removes counting-time wrapper reconstruction and
+- **Evidence limits:** V47 saves 54,687 raw / 56,875 canonical bytes without
+  per-function raw growth. Matched large optimizing is flat (−.41%), while
+  large plain costs +5.75%; an independent repeat is +1.11% with substantial
+  baseline variability. Both cohorts and phase attribution remain in the
+  dossier. This is a quality checkpoint, not a general speed win. V45 removes
+  counting-time wrapper reconstruction and
   visitor allocation sites; its wide structured microbenchmark improves 72%.
   Matched large optimizing is essentially flat (−.16%); plain improves 4.62%
   with substantial dispersion, and small/tee optimizing cost 1.61%/1.22%.
@@ -209,9 +214,15 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03e — Optimizing cleanup setup [IR2-PERF-DAE2-CLEANUP]
 
-- [ ] Prove no-work compaction admission from read/write and alias facts. Skip
-  scans/remapping only when no eligible capture, dead local or immutable alias
-  can change; preserve every legacy and effect-spanning cleanup candidate.
+- [ ] Reduce remaining plain no-work compaction costs while retaining all
+  legacy and effect-spanning candidates. Optimizing admission now uses counted
+  capture/unused-local/alias facts; plain still takes its original scan path.
+  Preserve the V47 quality gain and resolve its measured plain-pipeline cost.
+- [ ] Remove quadratic prefix/tail copying in raw SimplifyLocals balanced-
+  statement cleanup. Use bounded source ranges while retaining exact typed
+  suffix admission, statement boundaries, local-read/write guards and rewrite
+  order. The frozen V45 native budget confirms both discarded split boundaries;
+  measure repeated captures, long intervening statements and blocked controls.
 - [ ] Remove duplicated balanced-capture scan/materialization work while keeping
   legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
   matched small optimizing is +6.39%; retain these costs until measured away.
@@ -230,20 +241,24 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
-- [ ] Reduce and attribute the remaining **356,150-byte canonical optimizing gap**
+- [ ] Reduce and attribute the remaining **299,275-byte canonical optimizing gap**
   by function/diff family. V32 removes 32,070 balanced capture pairs and saves
   147,876 raw / 53,470 canonical bytes without per-function pair regressions.
   V38 removes immutable parameter aliases without per-function raw size losses,
-  saving another 12,417 raw / 12,850 canonical bytes. Reduce reused/nonparameter
+  saving another 12,417 raw / 12,850 canonical bytes. V47 removes dominated
+  local copies, saving 54,687 raw / 56,875 canonical bytes. Reduce remaining
+  reused/nonparameter
   captures: the imported-call loop remains 244 raw / 248 writer bytes versus
   220, while symmetric extra cleanup reaches 220 on all outputs. Compare direct DAE2,
   ordered SimplifyLocals/Vacuum and
   downstream cleanup; close indirect-family, typed-control, parameter/result
   and local/capture debris gaps without weakening behavior.
-- [ ] Extend alias cleanup to dominated single-write locals where the same
-  dynamic value and a nonincreasing encoded size are proved. Preserve default
-  reads, iteration snapshots and existing overlapping stack-capture decisions;
-  measure this separately from immutable parameter forwarding.
+- [ ] Extend proved local-alias cleanup beyond the current lower-index,
+  lexical-dominance cases. Recount reverse-index candidates after V47; sources
+  below 128 may preserve one-byte indices, but prove alias-root ordering,
+  partial/default reads, iteration identity and per-function size first.
+  Keep the equal-size unused-declaration difference in reduced v133 examples
+  explicit; fewer locals alone do not establish an output-shape win.
 - [ ] Inspect and replay the **41 V25-changed functions / +458 bytes**, preserving
   the stacked-read and branch-exit repairs. Validity, byte provenance or smaller
   output alone cannot establish semantic equivalence or an intentional win.

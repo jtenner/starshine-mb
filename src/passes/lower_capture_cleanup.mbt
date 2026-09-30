@@ -221,15 +221,55 @@ fn pass_lower_compact_captures_with_map(
   let gets = Array::make(count, 0)
   let writes = Array::make(count, 0)
   pass_lower_count_locals(body, gets, writes)
+  let mut has_capture = !propagate_parameter_aliases
+  let mut has_unused = false
+  let mut has_single_write = false
+  // The plain lowerer keeps its existing path. Optimizing cleanup can also
+  // remove aliases, so prove whether either cleanup family has work here.
+  if propagate_parameter_aliases {
+    for local_id in start..<count {
+      if gets[local_id] == 1 && writes[local_id] == 1 {
+        has_capture = true
+        break
+      }
+      has_single_write = has_single_write || writes[local_id] == 1
+      has_unused = has_unused || (gets[local_id] == 0 && writes[local_id] == 0)
+    }
+  }
+  if !has_capture &&
+    !has_unused &&
+    (!has_single_write || !dae2_has_parameter_alias(body, start, writes)) {
+    // Both capture passes only remove single-read, single-write locals. With
+    // no such pair, no dead declaration and no alias, the exact map is identity.
+    let runs = locals.runs
+    let mut normalize = false
+    for index in 0..<runs.length() {
+      if runs[index].count == 0U ||
+        (index > 0 && runs[index - 1].vt == runs[index].vt) {
+        normalize = true
+        break
+      }
+    }
+    let func = if normalize {
+      @lib.Func::new(@lib.Locals::new(runs), @lib.Expr::new(body))
+    } else {
+      func
+    }
+    return (func, Array::makei(count, fn(i) { i }))
+  }
   // Keep the existing leaf plan first: an earlier effect-spanning capture can
   // otherwise block several smaller overlapping captures. The second pass
   // only deletes additional pairs from that already valid stack plan.
-  let body = pass_lower_remove_balanced_captures(body, start, gets, writes)
+  let body = if has_capture {
+    pass_lower_remove_balanced_captures(body, start, gets, writes)
+  } else {
+    body
+  }
   let body = match stack_effects {
-    Some(_) => {
+    Some(_) if has_capture => {
       let mut remaining = false
-      for local in start..<count {
-        if gets[local] == 1 && writes[local] == 1 {
+      for local_id in start..<count {
+        if gets[local_id] == 1 && writes[local_id] == 1 {
           remaining = true
           break
         }
@@ -246,13 +286,13 @@ fn pass_lower_compact_captures_with_map(
         body
       }
     }
-    None => body
+    _ => body
   }
   // Preserve the complete legacy capture plan before alias propagation.
   // Moving even a pure parameter read can otherwise obstruct a smaller stack
   // plan chosen for an overlapping computed value.
   let (body, unread_aliases) = if propagate_parameter_aliases {
-    dae2_cleanup_parameter_aliases(body, start, params.length(), gets, writes)
+    dae2_cleanup_parameter_aliases(body, start, gets, writes)
   } else {
     (body, None)
   }

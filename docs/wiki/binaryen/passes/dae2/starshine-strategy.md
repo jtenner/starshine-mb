@@ -3,6 +3,13 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/dae2_local_aliases_wbtest.mbt
+  - ../../../../../src/passes/dae2_local_aliases_reference_wbtest.mbt
+  - ../../../../../src/passes/dae2_local_aliases_perf_wbtest.mbt
+  - ../../../../../src/cmd/dae2_local_aliases_wbtest.mbt
+  - ../../../../../src/passes/dae2_compaction_admission_wbtest.mbt
+  - ../../../../../src/passes/dae2_compaction_admission_reference_wbtest.mbt
+  - ../../../../../src/passes/dae2_compaction_admission_perf_wbtest.mbt
   - ../../../../../src/passes/dae2_local_counting_wbtest.mbt
   - ../../../../../src/passes/dae2_local_counting_perf_wbtest.mbt
   - ../../../../../src/cmd/dae2_stack_suffix_wbtest.mbt
@@ -84,6 +91,219 @@ dependency-window-only. Toggled event collection scopes instruction totals;
 call counters retain the whole command. Historical values remain evidence under
 that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
+
+## September 30, 2026 dominated local aliases
+
+The optimizing capture cleanup now forwards a body-local copy when its source
+is unwritten or has one dominating static writer. Lexical children inherit
+facts and undo only their own definitions on exit. This proves the source has
+the same value in the active loop iteration; it does not infer that a static
+single writer executes only once. Earlier/default reads and sibling/handler
+reads keep their original target. A multiply-written or later-written source
+cannot supply a forwarded snapshot.
+
+The existing packed alias row and undo stack are reused. An established-writer
+bitmap is allocated lazily, only when ordinary single-writer definitions need
+tracking. Reads through active aliases are already resolved to the final source.
+The source index must be lower than the target, so partial forwarding cannot
+widen local-index encodings. Dead alias writers are retired in descending index
+order, then removed during the existing local remap. A removed `local.set`
+also removes only its adjacent `local.get`; a removed `local.tee` retains its
+value. Effectful producers are never moved or duplicated. The pre-existing
+balanced stack-capture plan runs before this alias rewrite.
+
+The counter-based no-work shortcut from V46 is retained only for optimizing
+cleanup; plain lowering keeps its previous balanced-scan path. The combined
+change is compared against accepted V45, not against the rejected V46
+compaction-only trial. Native references freeze both the V45 compactor and its
+old parameter-only alias helper.
+
+TDD began with four failing positive tests (two locals rather than one, and
+three retained target reads rather than one) plus a passing future-write guard.
+Ten focused regressions cover i32, i64, externref and GC structure identities;
+flat/nested/loop copies; pre-assignment defaults; later/multiple source writes;
+sibling and branch boundaries; parameter writes; and tee chains. The active
+CLI dispatcher has a separate i64 regression. All eleven original parameter
+alias tests remain in the validation set. Performance fixtures validate outputs
+and ownership outside their timed loop, including inactive and parameter-only
+controls. Long fuzz remains deferred by user instruction.
+
+The frozen V47 source passes `moon info`, `moon fmt`, all **13,045** default
+tests, ten native alias tests, the dispatcher regression, a release build and
+32 native benchmarks. The native no-work probe now records zero balanced-scan
+and remap calls. Original/V45/V47/v133 replay covers 245 local-alias modules /
+1,470 observations and 98 parameter-alias modules / 392 observations, including
+reference identity, changing per-iteration values, producer/consumer exceptions
+and traps. All observations match; no tested output grows and plain bytes stay
+identical. These are bounded controls, not aggregate fuzz signoff.
+
+The complete artifact audit verifies identical non-code semantic sections and
+nonlocal opcode/immediate streams, with no raw function-size regression. Small
+optimizing output removes four set/get pairs and five tee writes, saving 26 raw
+and canonical bytes. Large optimizing removes **2,293 set/get pairs and 16,634
+tee writes**, saving **54,687 raw / 56,875 canonical bytes**. The `changedFunctions`
+field counts only functions losing set/get pairs (984), not every tee-only or
+index-compaction change. The remaining large gap is **168,047 raw / 299,275
+canonical bytes** against release v133. Of 12,904 canonical functions, 8,282
+remain larger and 2,183 smaller; body payload accounts for +299,115 bytes.
+
+Reduced flat i32/i64/f64/externref/GC and loop examples now match v133's byte
+size. Exact bytes differ because v133 retains an extra unused local in the same
+declaration group; the instruction bytes match. Fewer declarations alone do not
+prove a Starshine performance win, so this distinction is not counted as closed
+output-shape parity. Original-primary replay establishes the tested behavior.
+
+Native full-compaction means, V45 reference → V47:
+
+| Control | Before | After |
+| --- | ---: | ---: |
+| 8 flat local aliases | 2.06 µs | 1.65 µs |
+| 128 flat local aliases | 31.71 µs | 22.06 µs |
+| 128 nested local aliases | 43.20 µs | 32.57 µs |
+| 128 no-alias groups | 31.44 µs | 4.56 µs |
+| 128 parameter-alias groups | 15.30 µs | 10.30 µs |
+| 512 active balanced captures | 18.93 µs | 18.87 µs |
+| 512 active parameter aliases | 59.04 µs | 38.70 µs |
+| 512 idle optimizing locals | 64.80 µs | 9.91 µs |
+| 8 idle plain locals | 1.16 µs | 1.19 µs |
+| 512 idle plain locals | 60.65 µs | 60.26 µs |
+
+The flat 128-group run has noticeable dispersion (σ .799 / .846 µs); the
+quieter precheck is 28.89 → 21.41 µs. Its nested control is 43.79 → 32.06 µs.
+Tiny plain costs 2.59% in the final run; the earlier precheck is 1.14 → 1.14 µs.
+These measure the combined alias and admission change, not the alias helper
+alone. Strong microbenchmark gains do not establish a full-pipeline speedup.
+
+Frozen native V47 SHA-256: `bd6e5bfdffaa2788504d6616216d55973800715d3ff53c32aac882be33cc91cd`.
+
+Fresh verified release-v133 comparison (CPU 6, one warmup, three samples; pass-local medians):
+
+| Input / pass | Starshine ms | v133 ms | Ratio | Raw / canonical size gap |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 3.985 | 1.019 | 3.913× | -123 / -97 B |
+| small / `dae2-optimizing` | 13.592 | 3.584 | 3.792× | -386 / -284 B |
+| large / `dae2` | 3995.880 | 479.646 | 8.331× | -117,365 / -100,237 B |
+| large / `dae2-optimizing` | 7380.880 | 1730.980 | 4.264× | +168,047 / +299,275 B |
+
+Matched V45→V47 pipeline medians (same CPU/warmup, three accepted alternating pairs, independent reference bracket ≤1.15):
+
+| Input / pass | V45 ms | V47 ms | Change | MAD before / after ms |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 4.111 | 4.155 | +1.07% | 0.009 / 0.037 |
+| small / `dae2-optimizing` | 10.783 | 10.791 | +0.07% | 0.073 / 0.071 |
+| large / `dae2` | 3706.226 | 3919.365 | +5.75% | 45.896 / 12.442 |
+| large / `dae2-optimizing` | 6864.440 | 6836.408 | -0.41% | 74.271 / 3.707 |
+| tee / `dae2` | 2.885 | 2.929 | +1.53% | 0.024 / 0.031 |
+| tee / `dae2-optimizing` | 106.887 | 105.963 | -0.86% | 0.709 / 0.540 |
+
+Three alternating peak-RSS pairs, KiB (median [range]):
+
+- `dae2`: before 273,492 [239,740–280,356] → after 241,228 [240,844–279,244].
+- `dae2-optimizing`: before 288,432 [288,352–300,860] → after 287,712 [287,108–289,700].
+
+The RSS ranges overlap; these runs do not establish a robust memory reduction.
+The oracle cohort is independent of the matched before/after cohort; do not
+subtract their times or treat the ratios as causal speedups.
+
+The unchanged fixed runtime lane also passes 126 modules / 1,029 observations,
+for 2,891 bounded observations across the three lanes. None of those fixed
+fixtures changes bytes. The two alias-specific lanes cover the new behavior.
+
+The initial matched large-plain run costs **5.75%** (3706.226 → 3919.365 ms;
+MAD 45.896 / 12.442). A separate three-pair repeat is **+1.11%** (4114.923 →
+4160.604 ms; MAD 109.272 / 11.568), with one rejected reference-drift round.
+Retain both cohorts: the repeat does not erase the first cost, and the first
+percentage is not stable across the two cohorts. Initial trace medians locate
+189.623 ms of the 213.139 ms enclosing difference in analysis, including
+99.315 ms in dependencies and 84.958 ms in analysis lift. These nested scopes
+must not be added again, and they do not establish why code outside the changed
+cleanup differs. Optimizing is essentially flat in the matched large run.
+The quality improvement is retained with this unresolved timing cost; it is not
+a general full-pipeline performance win or release signoff.
+
+Local evidence is retained under `.tmp/dae2-lean-20260929/`: `local-alias-before.log`,
+`validation-v47.json`, `candidate-v47.json`, both `v47-bench*.log` files,
+`compaction-admission-work-v47.json`, `local-alias-runtime-v47/result.json`,
+`parameter-alias-runtime-v47/result.json`, `alias-shape-v47.json`,
+`remaining-size-v47.json`, `v47-plain-phase-comparison.json`, the independent
+`pairs-v47-large-plain-repeat/` cohort, and the frozen oracle/pair/RSS reports.
+
+## September 30, 2026 capture-compaction admission trial
+
+**V46 is not accepted as a standalone change.** Its native controls improve,
+but the matched large plain compiler regresses 3.84% and optimizing is flat.
+V47 restricts this admission work to optimizing cleanup and compares the
+combined result against V45; its quality gain and remaining timing cost are
+recorded above.
+
+The V46 trial reuses its initial read/write counts to avoid balanced-pair
+scanning and body remapping when there is no eligible single-read/single-write
+capture, no unused declaration and no immutable parameter alias. It returns the
+identity local map and retains existing local-group normalization, including
+zero-sized groups. Functions with active aliases still run alias cleanup;
+functions with capture pairs preserve the original leaf-first, effect-spanning
+order. No producer or effect is reordered, and the input remains read-only.
+
+The pre-change V45 native work probe fails with two balanced-scan function
+entries (wrapper plus inner, not two independent scans) and one remap call in
+final capture cleanup. Its required counts are zero. Four bounded behavior
+cases cover multiply-read and multiply-written locals, loops, dead declarations,
+active set/tee/unread aliases, identity maps and redundant declaration groups.
+They are behavior guards, not claimed pre-change transform failures.
+
+Sixteen native controls compare the frozen pre-admission compactor using the
+same current counter and cleanup helpers. Setup, parsing, validation and output
+comparison are outside timing. A repeat was necessary because the first run's
+active-capture samples had high dispersion; retain both runs. The quieter
+repeat records:
+
+| Groups / workload | Original | Admission | Change |
+| --- | ---: | ---: | ---: |
+| 8 / no eligible capture | 1.14 µs | 159.23 ns | −86.0% |
+| 512 / no eligible capture | 57.98 µs | 5.64 µs | −90.3% |
+| 8 / unused-parameter alias guard | 1.24 µs | 159.02 ns | −87.2% |
+| 512 / unused-parameter alias guard | 63.42 µs | 5.58 µs | −91.2% |
+| 8 / active captures | 490.87 ns | 498.31 ns | +1.52% |
+| 512 / active captures | 19.84 µs | 20.13 µs | +1.46% |
+| 8 / active aliases | 1.25 µs | 864.78 ns | −30.8% |
+| 512 / active aliases | 59.87 µs | 39.37 µs | −34.2% |
+
+The active-capture cost remains an explicit tradeoff; it cannot be inferred away
+from the much larger idle/alias microbenchmark gains. V47 above extends the
+parameter-only admission proof to body locals, so the fast path does not
+conceal the new transform candidates.
+
+The V46 candidate passes all 13,034 default tests, four native cases, the
+command and admission fixtures, info/fmt, release build and 16 benchmarks.
+Its native work probe reaches zero balanced-scan entries and zero remaps with
+the same output hash. The final benchmark rerun retains the wide idle and
+alias improvements (58.35→5.64 µs / 62.96→39.27 µs) and the smaller active
+capture cost (19.70→19.89 µs). No public interface changes were required.
+Frozen native V46 SHA-256:
+`88af0bbcce56ee1fd82bd436170cffecaa45d78918cfc099aa61db1b91c0e39f`.
+
+V46's matched V45→V46 medians (CPU 6, one warmup, three accepted pairs)
+are small plain 3.869→3.886 ms (MAD .007/.053), small optimizing
+10.703→10.949 (.068/.107), large plain 3711.954→3854.337 (10.907/68.360),
+large optimizing 7013.212→7032.712 (47.773/33.876), tee plain 2.975→2.775
+(.031/.006) and tee optimizing 111.379→113.103 (4.476/1.360).
+The tee plain gain is 6.72%; the compiler and optimizing costs remain open.
+All measured before/after bytes match, and 126 modules / 1,029 original-primary
+runtime observations pass. Three RSS pairs give plain 281,408→245,436 KiB
+(ranges 280,100–281,476 / 243,612–282,308) and optimizing 290,124→290,304 KiB
+(289,840–290,384 / 290,120–308,048). These ranges do not establish a memory win.
+
+The separate fresh v133 cohort records small plain 4.198/1.04849 ms (4.004×),
+small optimizing 13.079/3.27961 (3.988×), large plain 3776.841/455.847 (8.285×)
+and large optimizing 7281.865/1793.410 (4.060×). Output sizes remain V45's;
+the 356,150 canonical / 222,734 raw optimizing gap is unchanged. These are
+historical V46 observations, not a replacement accepted baseline.
+
+Local-only evidence is under `.tmp/dae2-lean-20260929`: `validation-v46.json`,
+`v46-precheck-bench.log`, `v46-recheck-bench.log`, `v46-bench.log`,
+`compaction-admission-work-v{45,46}.json`, `candidate-v46.json`,
+`oracle-v46-{small,large}/result.json`, `pairs-v46-{small,large,tee}/result.json`,
+`runtime-v46/result.json` and `memory-v46/result.json`.
 
 ## September 30, 2026 read-only local counting
 

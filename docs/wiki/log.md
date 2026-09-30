@@ -1,3 +1,16 @@
+### 2026-09-30 — Dominated local aliases in DAE2 cleanup
+
+- [Dominated local aliases](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-dominated-local-aliases)
+  preserve same-iteration values, default reads, effects and reference identity.
+  Lazy scoped writer facts and optimizing-only admission remove 2,293 set/get
+  pairs and 16,634 tee writes from the large artifact, saving 54,687 raw /
+  56,875 canonical bytes without per-function raw growth. All 13,045 tests,
+  32 native controls and 2,891 bounded runtime observations pass. Optimizing
+  timing remains near flat; plain costs +5.75% initially and +1.11% in a noisy
+  repeat, with no robust RSS win. Keep those costs, the 299,275-byte remaining
+  canonical gap, reverse-index aliases, quadratic raw-cleanup copies and
+  deferred fuzz/release signoff active.
+
 ### 2026-09-30 — Read-only local counting in DAE2 cleanup
 
 - [Direct local counting](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-read-only-local-counting)
