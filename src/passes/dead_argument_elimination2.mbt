@@ -451,7 +451,7 @@ fn dae2_analyze_function(
   // This phase changes only the dependency graph; HOT child slots stay stable.
   ignore(analysis_child_snapshots)
   let info = infos[index]
-  let mut local_flow : @ir.HotLocalGraph? = None
+  let mut local_flow : @ir.HotLocalReadSources? = None
   let mut fallback_writes : Array[Array[Int]]? = None
   let mut written_locals : Array[Bool]? = None
   let mut entry_read_sources : Array[Int]? = None
@@ -512,7 +512,7 @@ fn dae2_analyze_function(
               Some(count) => count[0] += 1
               None => ()
             }
-            let locals = @ir.local_graph_build_full_flow(
+            let locals = @ir.local_graph_build_read_sources(
               func,
               // A stacked read can precede a later control root even when
               // its consuming parent follows that root. Expand operands so
@@ -523,9 +523,7 @@ fn dae2_analyze_function(
             locals
           }
         }
-        let source_count = @ir.local_graph_reaching_source_count_for_get(
-          locals, node,
-        )
+        let source_count = @ir.local_read_source_count_for_get(locals, node)
         // A get inside control not represented by LocalGraph has no recorded
         // sources. That is unknown, not proof that its entry value is unused.
         if source_count == 0 {
@@ -560,7 +558,7 @@ fn dae2_analyze_function(
           }
         }
         for source_index in 0..<source_count {
-          let source = @ir.local_graph_reaching_source_value_for_get(
+          let source = @ir.local_read_source_value_for_get(
             locals, node, source_index,
           )
           if source.is_entry {

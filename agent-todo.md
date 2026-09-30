@@ -15,21 +15,21 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v29 passes 12,982 default tests and
+- **Current checkpoint:** lean-v30 passes 12,985 default tests and
   the bounded original/v133 replay controls. This is not final aggregate or
-  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-carried-dependency-workspace)
+  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-read-source-flow-projection)
   owns exact hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v29 open-world compiler comparison uses verified release v133,
+The frozen v30 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.245 / 0.990528 | 4.29× | 3,632.536 / 436.392 | 8.32× |
-| `dae2-optimizing` | 12.916 / 3.147350 | 4.10× | 6,880.646 / 1,656.100 | 4.15× |
+| `dae2` | 4.133 / 1.014870 | 4.07× | 3,695.418 / 447.885 | 8.25× |
+| `dae2-optimizing` | 13.222 / 3.195760 | 4.14× | 6,965.520 / 1,682.870 | 4.14× |
 
 - **Release blockers:** large DAE2-O adds **422,470 canonical / 383,027 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
@@ -171,7 +171,8 @@ breadth. Shared changes require all affected consumers in the matrix below.
   rewrite/lower, capture repair, writeback and final-validation costs on the
   same frozen source. Do not add overlapping inclusive profile percentages.
 - [ ] Reduce repeated body/revision queries and representation allocation;
-  consider demand-built graph projections only through an honest API. Preserve
+  extend the read-source snapshot to demand only unresolved reads when measured
+  gains justify it. Preserve
   conservative dependencies when control/signature information is unknown.
 - [ ] Evaluate compact affected-function/revision summaries for remaining
   unavoidable work; invalidate on body, node/span/region/local/type/signature
@@ -199,7 +200,10 @@ breadth. Shared changes require all affected consumers in the matrix below.
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
 - [ ] Reduce and attribute the **422,470-byte canonical optimizing gap** by
-  function/diff family. Compare direct DAE2, ordered SimplifyLocals/Vacuum and
+  function/diff family. V29 body attribution is +422,257 bytes across 8,687
+  size-losing functions; reduced call/alias captures are 284 vs 215 raw bytes.
+  Implement the red balanced-call capture regressions, then compare direct DAE2,
+  ordered SimplifyLocals/Vacuum and
   downstream cleanup; close indirect-family, typed-control, parameter/result
   and local/capture debris gaps without weakening behavior.
 - [ ] Inspect and replay the **41 V25-changed functions / +458 bytes**, preserving

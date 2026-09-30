@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-29
+last_reviewed: 2026-09-30
 sources:
+  - ../../../src/ir/local_graph_read_flow_wbtest.mbt
   - ./test-matrix.md
   - ./local-ssa-policy.md
   - https://doi.org/10.1145/115372.115320
@@ -63,6 +64,16 @@ whole-header return traffic; `HotNode` was already a value record, so this is
 not removal of a record heap allocation.
 
 ## LocalGraph read-source ownership (September 28, 2026)
+
+DAE2's source-only consumer uses `HotLocalReadSources`, built by
+`local_graph_build_read_sources(...)`. This immutable snapshot exposes only
+checked source-count and scalar-source queries. It includes exceptional flow,
+preserves the full-flow solver's source order and sparse fallback, and keeps
+zero sources unknown. It does not publish writer influences, tee metadata,
+already-SSA classification or defaultability. Full `HotLocalGraph` builders
+continue to compute all of those fields. The two result types share the same
+flow solver; neither treats a projected result as a complete graph. See the
+[snapshot fixtures](../../../src/ir/local_graph_read_flow_wbtest.mbt).
 
 Transfer source sets are immutable. The private source recorder borrows a read's
 first observation, copies only when a later observation extends that borrowed

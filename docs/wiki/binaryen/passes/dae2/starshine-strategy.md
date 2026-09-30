@@ -3,6 +3,8 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/ir/local_graph_read_flow_wbtest.mbt
+  - ../../../../../src/ir/local_graph_read_flow_perf_wbtest.mbt
   - ../../../../../src/ir/hot_source_order_carried_wbtest.mbt
   - ../../../../../src/ir/hot_source_order_carried_reference_wbtest.mbt
   - ../../../../../src/ir/hot_source_order_carried_perf_wbtest.mbt
@@ -50,6 +52,72 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## September 30, 2026 read-source flow projection
+
+DAE2 now requests `HotLocalReadSources`, an immutable snapshot with checked
+count/scalar queries. The shared reverse/sparse solver preserves full-flow
+source order, exceptional edges, unknown rows and shared-action fallback.
+Only complete `HotLocalGraph` callers build writer influences, tee metadata,
+already-SSA classification and defaultability. The narrower type has private
+storage; no partial object is returned through the full graph API.
+
+The original native work guard fails on **749,781 influence publications** and
+**9,887 builds each** of already-SSA and defaultability metadata. Frozen V30
+reduces all three to zero. Dependency-only instructions fall
+**14,932,874,985 → 14,408,661,632 (3.51%)**; incoming allocator/free calls each
+fall **754,570**, to 33,574,154 / 109,020,401. These are call counts, not
+allocated bytes or whole optimizing-pipeline totals.
+
+[Three fixtures](../../../../../src/ir/local_graph_read_flow_wbtest.mbt) compare
+all ordered source rows and full graph fields against the frozen solver,
+including joins, loops, references, exceptional edges, shared fallback,
+unknown reads and snapshot ownership after mutation. Native/debug and wasm-gc
+checks pass, including **12,985 default tests** and **549 IR tests**.
+[Eight native controls](../../../../../src/ir/local_graph_read_flow_perf_wbtest.mbt)
+compare identical CFG work: 8/64/512 conditional writers improve
+2.68 → 2.28µs / 16.25 → 13.71µs / 128.33 → 106.20µs. The cold lift+CFG control
+is 10.21 → 10.12µs. These isolate the solver, not compiler gains.
+
+Matched V29/V30 CPU-6 compiler medians (one warmup, three samples; before/after
+MAD in parentheses) are large DAE2 **3724.037 → 3736.133ms**
+(17.523/4.853), optimizing **6650.038 → 6604.935ms** (6.424/37.735); small
+3.985 → 3.951ms (0.036/0.033), optimizing 11.104 → 10.991ms (0.016/0.087).
+Active tee is 3.783 → 3.852ms (0.004/0.105) / 104.228 → 104.248ms
+(0.378/1.168). Conditional writers are 11.294 → 11.311ms (0.026/0.133) /
+16.306 → 16.424ms (0.142/0.021), with a rejected 1.162 reference bracket kept.
+No large plain-pass wall-time win is established.
+
+Three-pair large peak-RSS medians are 281,020 → 268,772KiB for plain, with
+259,644–281,116 / 257,656–282,200 ranges; optimizing 291,908 → 292,088KiB,
+with 291,752–292,220 / 292,024–305,380 ranges. Overlapping ranges and the
+optimizing increase remain explicit. The bounded original/V29/V30/v133 replay
+matches **126 modules / 1,029 observations**, plus conditional-writer
+**7 modules / 42 observations**. Every measured output validates and Starshine
+bytes remain unchanged.
+
+Fresh verified release-v133 pass-local medians are small
+**4.133 / 1.014870ms** and **13.222 / 3.195760ms**; large
+**3695.418 / 447.885ms (8.25×)** and
+**6965.520 / 1682.870ms (4.14×)**. This separate cohort does not establish
+causal improvement over earlier oracle runs. Canonical optimizing output
+remains **+422,470 bytes**. Long fuzz and final signoff remain deferred.
+
+Size attribution now isolates **+422,257 bytes in function bodies**: 8,687
+positive functions add 432,374 bytes; 1,729 smaller bodies save 10,117. Compact
+samples contain retained local captures around calls and arithmetic. The
+imported-call loop reduction is **284 versus 215 raw bytes**. Balanced-call
+capture regressions now fail with one retained local instead of zero; their
+implementation is the next quality unit, not part of this projection.
+
+Evidence: `.tmp/dae2-lean-20260929/{validation-v30.json,candidate-v30.json,
+oracle-v30-{small,large},pairs-v30-{small,large,tee},runtime-v30,
+conditional-writers-v30,callgrind-v30-dependencies,dependency-cost-v30.json,
+flow-work-{v29,v30}.json,memory-v30.json,size-v29.json}`. Frozen V30 native SHA
+is `d8c339b06f04a18840a13acc5a05a144dcfba844ff11dcd85e31dd90d1e87af7`.
+After freezing evidence, the internal solver record was marked private to
+avoid an accidental opaque API export; the three source fixtures were rerun.
+The next native checkpoint will include that visibility-only cleanup.
 
 ## September 30, 2026 carried dependency workspace
 

@@ -814,6 +814,8 @@ pub fn local_graph_build(HotFunc, HotCfg) -> HotLocalGraph
 
 pub fn local_graph_build_full_flow(HotFunc, HotCfg) -> HotLocalGraph
 
+pub fn local_graph_build_read_sources(HotFunc, HotCfg) -> HotLocalReadSources
+
 pub fn local_graph_can_move_set_past_node(HotFunc, HotCfg, HotLocalGraph, Int, Int) -> Array[Int]
 
 pub fn local_graph_entry_source_has_legal_default(HotLocalGraph, Int) -> Bool
@@ -865,6 +867,10 @@ pub fn local_live_out(HotLiveness, Int, Int) -> Bool
 pub fn local_read_nodes(HotUseDef, Int) -> Array[Int]
 
 pub fn local_read_nodes_borrowed(HotUseDef, Int) -> Array[Int]
+
+pub fn local_read_source_count_for_get(HotLocalReadSources, Int) -> Int
+
+pub fn local_read_source_value_for_get(HotLocalReadSources, Int, Int) -> HotLocalGraphSourceValue
 
 pub fn local_write_block_ids(HotUseDef, Int) -> Array[Int]
 
@@ -1285,6 +1291,10 @@ pub struct HotLocalGraphSourceValue {
   is_entry : Bool
   index : Int
 } derive(Eq, @debug.Debug)
+
+pub struct HotLocalReadSources {
+  // private fields
+} derive(@debug.Debug)
 
 pub struct HotLocalSsa {
   revision : Int

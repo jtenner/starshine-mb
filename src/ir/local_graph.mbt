@@ -35,6 +35,113 @@ pub struct HotLocalGraph {
 } derive(Eq, Debug)
 
 ///|
+/// Immutable reaching-read sources, without writer influences or SSA facts.
+/// A zero source count remains unknown; consumers must keep their fallback.
+pub struct HotLocalReadSources {
+  priv local_count : Int
+  priv get_source_ids : Array[Array[Int]]
+} derive(Debug)
+
+///|
+fn HotLocalReadSources::new(
+  local_count : Int,
+  get_source_ids : Array[Array[Int]],
+) -> HotLocalReadSources {
+  { local_count, get_source_ids, }
+}
+
+///|
+// Shared solver result. Optional metadata is requested only by full graphs;
+// this internal type never masquerades as a complete HotLocalGraph.
+priv struct LocalGraphFlowRows {
+  get_source_ids : Array[Array[Int]]
+  write_influences : Array[Array[NodeId]]
+  write_facts : LocalGraphWriteFacts
+}
+
+///|
+fn LocalGraphFlowRows::new(
+  get_source_ids : Array[Array[Int]],
+  write_influences : Array[Array[NodeId]],
+  write_facts : LocalGraphWriteFacts,
+) -> LocalGraphFlowRows {
+  { get_source_ids, write_influences, write_facts, }
+}
+
+///|
+fn local_graph_finish_full_flow(
+  func : HotFunc,
+  rows : LocalGraphFlowRows,
+) -> HotLocalGraph {
+  let local_count = hot_local_count(func)
+  {
+    local_count,
+    param_count: hot_param_count(func),
+    get_source_ids: rows.get_source_ids,
+    set_influence_gets: rows.write_influences,
+    write_local_ids: rows.write_facts.local_ids,
+    write_is_tees: rows.write_facts.is_tees,
+    local_is_already_ssa: local_graph_build_local_already_ssa(
+      func,
+      local_count,
+      rows.get_source_ids,
+    ),
+    local_has_legal_default: local_graph_build_local_defaultability(
+      func, local_count,
+    ),
+  }
+}
+
+///|
+/// Include exceptional flow with the same ordered sources as the full graph.
+pub fn local_graph_build_read_sources(
+  func : HotFunc,
+  cfg : HotCfg,
+) -> HotLocalReadSources {
+  let rows = local_graph_build_reverse_rows(
+    func,
+    cfg,
+    true,
+    full_metadata=false,
+  )
+  HotLocalReadSources::new(hot_local_count(func), rows.get_source_ids)
+}
+
+///|
+#inline
+pub fn local_read_source_count_for_get(
+  graph : HotLocalReadSources,
+  node_id : NodeId,
+) -> Int {
+  if node_id < 0 || node_id >= graph.get_source_ids.length() {
+    abort("local graph query requires a valid node id")
+  }
+  graph.get_source_ids[node_id].length()
+}
+
+///|
+#inline
+pub fn local_read_source_value_for_get(
+  graph : HotLocalReadSources,
+  node_id : NodeId,
+  source_index : Int,
+) -> HotLocalGraphSourceValue {
+  if node_id < 0 || node_id >= graph.get_source_ids.length() {
+    abort("local graph query requires a valid node id")
+  }
+  let source_id = graph.get_source_ids[node_id][source_index]
+  let is_entry = source_id < graph.local_count
+  HotLocalGraphSourceValue::new(
+    is_entry,
+    if is_entry {
+      source_id
+    } else {
+      source_id - graph.local_count
+    },
+  )
+}
+
+///|
 fn local_graph_require_node_range(
   graph : HotLocalGraph,
   node_id : NodeId,
@@ -920,10 +1027,13 @@ fn LocalGraphWriteFacts::new(
 }
 
 ///|
-fn local_graph_build_write_facts(func : HotFunc) -> LocalGraphWriteFacts {
+fn local_graph_build_write_facts(
+  func : HotFunc,
+  include_tees? : Bool = true,
+) -> LocalGraphWriteFacts {
   let count = hot_node_count(func)
   let local_ids = Array::make(count, -1)
-  let is_tees = Array::make(count, false)
+  let is_tees = if include_tees { Array::make(count, false) } else { [] }
   // Both immutable graph fields cover the same arena. Build them together
   // at their final span, preserving sentinel rows for deleted nodes.
   for node_id in 0..<count {
@@ -935,7 +1045,9 @@ fn local_graph_build_write_facts(func : HotFunc) -> LocalGraphWriteFacts {
       HotOp::LocalSet => local_ids[node_id] = node.imm0
       HotOp::LocalTee => {
         local_ids[node_id] = node.imm0
-        is_tees[node_id] = true
+        if include_tees {
+          is_tees[node_id] = true
+        }
       }
       _ => ()
     }
@@ -1806,6 +1918,26 @@ fn local_graph_build_reverse_flow(
   include_exceptional : Bool,
   cache_slots? : Array[Int]? = None,
 ) -> HotLocalGraph {
+  local_graph_finish_full_flow(
+    func,
+    local_graph_build_reverse_rows(
+      func,
+      cfg,
+      include_exceptional,
+      cache_slots~,
+      full_metadata=true,
+    ),
+  )
+}
+
+///|
+fn local_graph_build_reverse_rows(
+  func : HotFunc,
+  cfg : HotCfg,
+  include_exceptional : Bool,
+  cache_slots? : Array[Int]? = None,
+  full_metadata~ : Bool,
+) -> LocalGraphFlowRows {
   let local_count = hot_local_count(func)
   let node_count = hot_node_count(func)
   // Reverse scans require a complete linear action list for every CFG block.
@@ -1824,7 +1956,12 @@ fn local_graph_build_reverse_flow(
             func,
             hot_child_get(func, root, slot),
           ) {
-          return local_graph_build_sparse_flow(func, cfg, include_exceptional)
+          return local_graph_build_sparse_rows(
+            func,
+            cfg,
+            include_exceptional,
+            full_metadata~,
+          )
         }
       }
     }
@@ -1841,7 +1978,12 @@ fn local_graph_build_reverse_flow(
       if node_id >= 0 && node_id < node_count {
         if node_blocks[node_id] >= 0 {
           // A shared expression can have several reaching contexts.
-          return local_graph_build_sparse_flow(func, cfg, include_exceptional)
+          return local_graph_build_sparse_rows(
+            func,
+            cfg,
+            include_exceptional,
+            full_metadata~,
+          )
         }
         node_blocks[node_id] = block_id
         let node = hot_node_get(func, node_id)
@@ -1873,13 +2015,20 @@ fn local_graph_build_reverse_flow(
 
   // The final graph already needs this immutable index. Reuse it for every
   // predecessor query instead of decoding the same node at each visit.
-  let write_facts = local_graph_build_write_facts(func)
+  let write_facts = local_graph_build_write_facts(
+    func,
+    include_tees=full_metadata,
+  )
   let write_local_ids = write_facts.local_ids
   let transparent_predecessors = local_graph_reverse_transparent_predecessors(
     write_local_ids, cfg, actions, include_exceptional,
   )
   let get_sources : Array[Array[Int]] = Array::make(node_count, [])
-  let write_influences = local_graph_empty_influences(func)
+  let write_influences = if full_metadata {
+    local_graph_empty_influences(func)
+  } else {
+    []
+  }
   let cache : Array[@hashmap.HashMap[Int, Array[Int]]?] = Array::make(
     cfg_block_count(cfg),
     None,
@@ -1988,24 +2137,15 @@ fn local_graph_build_reverse_flow(
         cache_slots,
       )
     }
-    local_graph_record_unique_get_sources(
-      local_count, node_id, sources, get_sources, write_influences,
-    )
+    if full_metadata {
+      local_graph_record_unique_get_sources(
+        local_count, node_id, sources, get_sources, write_influences,
+      )
+    } else {
+      get_sources[node_id] = sources
+    }
   }
-  {
-    local_count,
-    param_count: hot_param_count(func),
-    get_source_ids: get_sources,
-    set_influence_gets: write_influences,
-    write_local_ids,
-    write_is_tees: write_facts.is_tees,
-    local_is_already_ssa: local_graph_build_local_already_ssa(
-      func, local_count, get_sources,
-    ),
-    local_has_legal_default: local_graph_build_local_defaultability(
-      func, local_count,
-    ),
-  }
+  LocalGraphFlowRows::new(get_sources, write_influences, write_facts)
 }
 
 ///|

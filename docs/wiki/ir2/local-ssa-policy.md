@@ -1,8 +1,9 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-09-27
+last_reviewed: 2026-09-30
 sources:
+  - ../../../src/ir/local_graph_read_flow_wbtest.mbt
   - ../binaryen/passes/ssa-nomerge/index.md
   - https://doi.org/10.1145/115372.115320
   - ../../../src/ir/ssa_policy.mbt
@@ -106,6 +107,12 @@ Concrete locked examples live in [`ssa_local_test.mbt`](../../../src/ir/ssa_loca
 - `local_graph_write_has_merge_influences(...)` and `local_graph_write_is_no_merge_freshenable(...)` expose the next Binaryen `createNewIndexes(...)` no-merge policy fact per explicit write: already-SSA locals stay canonical, while writes to non-SSA locals are freshenable only when all influenced gets stay single-source;
 - `local_graph_entry_source_has_legal_default(...)` and `local_graph_source_is_defaultable_entry(...)` keep body-local default entries separate from parameter entries and explicit set/tee sources, and require `@lib.has_default(...)` before treating a default entry as a future replacement candidate. LocalGraph operates on Starshine HOT `ValType` locals; Binaryen's internal tuple value category is not a separate Starshine local type, so current defaultability fixtures cover WebAssembly locals: numeric, SIMD, and nullable GC/reference types versus non-null reference boundaries;
 - ordinary `local_graph_build(...)` skips exceptional edges for normal-flow consumers, while `local_graph_build_full_flow(...)` includes exceptional predecessors for the public full `ssa` pass;
+- `local_graph_build_read_sources(...)` returns the narrower immutable
+  `HotLocalReadSources` snapshot used by DAE2. Its checked count/scalar queries
+  preserve full-flow source order, exceptional edges, sparse fallback and
+  unknown zero-source rows, without computing unused writer/SSA metadata.
+  It is a distinct API; full graph callers keep all existing fields. See the
+  [snapshot fixtures](../../../src/ir/local_graph_read_flow_wbtest.mbt).
 - unreachable or detached nodes are excluded by the normal HOT liveness checks used while building the graph;
 - `local_graph_can_move_set_past_node(...)` ports the Binaryen `canMoveSet` test idea by reporting only influenced gets still reachable from a set when a candidate obstacle node blocks paths after that set.
 

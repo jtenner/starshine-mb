@@ -74,6 +74,26 @@ fn local_graph_build_sparse_flow(
   include_exceptional : Bool,
   query_builds? : Array[Int]? = None,
 ) -> HotLocalGraph {
+  local_graph_finish_full_flow(
+    func,
+    local_graph_build_sparse_rows(
+      func,
+      cfg,
+      include_exceptional,
+      query_builds~,
+      full_metadata=true,
+    ),
+  )
+}
+
+///|
+fn local_graph_build_sparse_rows(
+  func : HotFunc,
+  cfg : HotCfg,
+  include_exceptional : Bool,
+  query_builds? : Array[Int]? = None,
+  full_metadata~ : Bool,
+) -> LocalGraphFlowRows {
   let local_count = hot_local_count(func)
   let node_count = hot_node_count(func)
   let get_sources : Array[Array[Int]] = Array::make(node_count, [])
@@ -110,7 +130,16 @@ fn local_graph_build_sparse_flow(
     Some(count) => count[0] += 1
     None => ()
   }
-  let write_influences = local_graph_empty_influences(func)
+  let write_influences = if full_metadata {
+    local_graph_empty_influences(func)
+  } else {
+    []
+  }
+  let influence_recorder = if full_metadata {
+    Some(write_influences)
+  } else {
+    None
+  }
   for node = 0; node < node_count; node = node + 1 {
     if !hot_node_is_live(func, node) ||
       !(hot_node_get(func, node).op is HotOp::LocalGet) {
@@ -140,23 +169,13 @@ fn local_graph_build_sparse_flow(
         node,
         resolved,
         Some(recorded_sources),
-        Some(write_influences),
+        influence_recorder,
       )
     }
   }
-  let write_facts = local_graph_build_write_facts(func)
-  {
-    local_count,
-    param_count: hot_param_count(func),
-    get_source_ids: get_sources,
-    set_influence_gets: write_influences,
-    write_local_ids: write_facts.local_ids,
-    write_is_tees: write_facts.is_tees,
-    local_is_already_ssa: local_graph_build_local_already_ssa(
-      func, local_count, get_sources,
-    ),
-    local_has_legal_default: local_graph_build_local_defaultability(
-      func, local_count,
-    ),
-  }
+  let write_facts = local_graph_build_write_facts(
+    func,
+    include_tees=full_metadata,
+  )
+  LocalGraphFlowRows::new(get_sources, write_influences, write_facts)
 }

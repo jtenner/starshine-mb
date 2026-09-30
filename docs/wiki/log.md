@@ -1,3 +1,14 @@
+### 2026-09-30 — DAE2 read-source projection and size attribution
+
+- [Read-source projection](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-read-source-flow-projection)
+  preserves complete graph callers and skips unused metadata for DAE2. Native
+  work falls 3.51% and allocation/free requests by 754,570; 12,985 tests and
+  bounded original/v133 replays pass. Helper gains and mostly flat compiler
+  medians, control costs, RSS ranges and frozen-source limits remain explicit.
+  Body attribution locates +422,257 of the +422,470 optimizing gap. New red
+  balanced-call capture fixtures lead the next quality unit; speed/size parity
+  and deferred final/fuzz work remain active in the backlog.
+
 ### 2026-09-30 — DAE2 carried dependency workspace
 
 - [Carried dependency workspace](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-carried-dependency-workspace)
