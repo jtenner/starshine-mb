@@ -717,44 +717,48 @@ fn dae2_intrinsic_import_mask(context : @ir.HotModuleContext) -> Array[Bool]? {
 }
 
 ///|
-// Lowering can retain a tuple forwarding wrapper after SimplifyLocals. A
-// zero-parameter block containing only local reads cannot branch, trap or
-// consume the enclosing stack. Removing that wrapper exposes capture pairs.
-fn dae2_cleanup_tuple_forwarding(
+// Only a concrete forwarding wrapper triggers the broader block cleanup.
+// Most final artifacts have none, so preserve the existing lightweight walk.
+fn dae2_cleanup_forwarding(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
-) -> (Array[@lib.Instruction], Bool) {
+) -> (Array[@lib.Instruction], Bool, Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
+  let mut scalar = false
   for instr in instrs {
+    let instr = pass_lower_map_children(instr, fn(body) {
+      let (body, nested_changed, nested_scalar) = dae2_cleanup_forwarding(
+        body, module_ctx,
+      )
+      changed = changed || nested_changed
+      scalar = scalar || nested_scalar
+      body
+    })
     match instr {
-      @lib.Block(@lib.TypeIdxBlockType(index), @lib.Expr(body)) if body.all(fn(
-          instr,
-        ) {
-          instr is @lib.LocalGet(_)
-        }) =>
-        match @ir.hot_module_resolve_type_func_type(module_ctx, index) {
-          Some(@lib.FuncType([], results)) if results.length() > 1 &&
-            results.length() == body.length() => {
-            out.append(body)
-            changed = true
-            continue
-          }
-          _ => ()
+      @lib.Block(block_type, @lib.Expr(body)) if !body.is_empty() &&
+        body.all(fn(instr) { instr is @lib.LocalGet(_) }) => {
+        let results = match block_type {
+          @lib.ValTypeBlockType(_) => 1
+          @lib.TypeIdxBlockType(index) =>
+            match @ir.hot_module_resolve_type_func_type(module_ctx, index) {
+              Some(@lib.FuncType([], results)) => results.length()
+              _ => -1
+            }
+          _ => -1
         }
+        if results == body.length() {
+          out.append(body)
+          changed = true
+          scalar = scalar || results == 1
+          continue
+        }
+      }
       _ => ()
     }
-    out.push(
-      pass_lower_map_children(instr, fn(body) {
-        let (body, nested_changed) = dae2_cleanup_tuple_forwarding(
-          body, module_ctx,
-        )
-        changed = changed || nested_changed
-        body
-      }),
-    )
+    out.push(instr)
   }
-  (out, changed)
+  (out, changed, scalar)
 }
 
 ///|
@@ -802,6 +806,7 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
   }
   let params = rl_defined_func_param_cache(mod_)
   let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let mut module_env : @validate.Env? = None
   let stack_effects = Some(fn(instr) {
     dae2_capture_stack_effect(instr, mod_, module_ctx)
   })
@@ -810,11 +815,29 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
   let bodies : Array[@lib.Func] = []
   for index = 0; index < funcs.length(); index = index + 1 {
     let @lib.Func(locals, @lib.Expr(instrs)) = funcs[index]
-    let (instrs, labels_changed) = dae2_cleanup_tuple_forwarding(
+    let (instrs, forwarding_changed, scalar) = dae2_cleanup_forwarding(
       instrs, module_ctx,
     )
-    changed_labels.push(labels_changed)
     let input = @lib.Func::new(locals, @lib.Expr::new(instrs))
+    let (input, labels_changed) = if scalar {
+      let env = match module_env {
+        Some(env) => env
+        None => {
+          let env = @validate.Env::new().with_module(mod_)
+          module_env = Some(env)
+          env
+        }
+      }
+      let (input, blocks_changed) = pass_lower_cleanup_branchless_blocks(
+        input,
+        mod_,
+        module_env=Some(env),
+      )
+      (input, forwarding_changed || blocks_changed)
+    } else {
+      (input, forwarding_changed)
+    }
+    changed_labels.push(labels_changed)
     let (body, mapping) = pass_lower_compact_captures_with_map(
       input,
       @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),

@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/dae2_scalar_forwarding_wbtest.mbt
+  - ../../../../../src/passes/dae2_scalar_forwarding_perf_wbtest.mbt
+  - ../../../../../src/passes/dae2_scalar_forwarding_reference_wbtest.mbt
+  - ../../../../../src/cmd/dae2_scalar_forwarding_wbtest.mbt
   - ../../../../../src/passes/dae2_balanced_captures_wbtest.mbt
   - ../../../../../src/passes/dae2_balanced_captures_perf_wbtest.mbt
   - ../../../../../src/passes/dae2_balanced_captures_reference_wbtest.mbt
@@ -56,6 +60,61 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## September 30, 2026 scoped scalar forwarding cleanup
+
+The final optimizing cleanup now exposes scalar and nested local-read forwarding
+blocks, including nonnullable GC references. The reduced direct cleanup fails
+**one local instead of zero** before the change. A bottom-up forwarding walk uses
+the existing shared type snapshot; finding a scalar forwarding wrapper triggers
+`pass_lower_cleanup_branchless_blocks` for that function. Its environment is
+built lazily once. Blocks with inputs or control transfers retain their headers.
+Changed functions lose stale label maps; the metadata guard now retains an actual
+branch target instead of an obsolete scalar wrapper. The frozen V30 tuple helper
+moves into its test reference, keeping that earlier benchmark control unchanged.
+
+[Four fixtures](../../../../../src/passes/dae2_scalar_forwarding_wbtest.mbt)
+cover nested i32/f64/externref captures, loads, nonnullable GC forwarding and
+intentional input/branch fences. The [command guard](../../../../../src/cmd/dae2_scalar_forwarding_wbtest.mbt)
+checks f64 results and calls. **12,997 default tests**, native/debug, command,
+info/fmt, native release build and six native controls pass. Guarded V34 improves
+8/64/512 forwarding controls **12.07 → 10.18µs / 87.97 → 61.47µs /
+726.56 → 483.98µs**. The eager V33 trial is rejected: despite faster synthetic
+controls, it changes no artifact bytes and matched large optimizing rises 2.21%.
+
+V32/V34 raw artifact outputs are identical, including all 12,904 large functions;
+this latent forwarding improvement saves no additional artifact bytes. Bounded
+original/V32/V34/v133 replays match **126 modules / 1,029 observations**, plus
+**36 modules / 108 call/reference/trap observations** and a reduced imported-call
+loop's **7 modules / 42 observations**. Every output validates. That loop remains
+**260 raw / 272 writer bytes versus 220** for v133 optimizing; another symmetric
+SimplifyLocals/Vacuum round brings all three outputs to 220. The remaining loop
+family contains parameter aliases and reused local captures, not raw forwarding
+blocks. Writer-created expression wrappers must not be mistaken for raw blocks.
+
+Matched CPU-6 V32/V34 compiler medians (one warmup, three samples; before/after
+MAD) are large plain **3721.289 → 3668.633ms** (22.954/13.784), optimizing
+**6705.669 → 6755.573ms** (9.821/28.158); small **4.110 → 3.951ms**
+(0.030/0.006), optimizing **11.512 → 11.273ms** (0.055/0.036).
+Tee is **3.743 → 3.779ms** (0.000/0.018) / **102.939 → 105.275ms**
+(0.729/0.258). Rejected small reference brackets 1.186 and 1.180 stay recorded.
+The optimizing artifact and tee costs remain explicit; this does not establish a
+whole-pass win. Native C review finds per-instruction callback allocations in
+forwarding, local counting and balanced-capture traversal; hoisting them is the
+next allocation trial. Parameter-alias regressions also fail on retained locals
+and branch-dominated reads and remain pending implementation.
+
+Fresh v133 pass-local medians are small **4.142 / 0.999541ms** and
+**13.505 / 3.174240ms**; large **3707.065 / 466.812ms (7.94×)** and
+**7124.317 / 1690.510ms (4.21×)**. Output gaps remain **235,151 raw /
+369,000 canonical optimizing bytes**. V34 binary SHA-256 is
+`7b6e08f6af505a1b8dfe5f1fa19983448efd3d421568f3125bc4609f9b3c4725`.
+Both oracle runs precede the next uncommitted alias fixtures. Evidence:
+`.tmp/dae2-lean-20260929/{validation-v34.json,candidate-v34.json,
+oracle-v34-{small,large},pairs-v34-{small,large,tee},runtime-v34,
+forwarding-shape-v34.json,forwarding-runtime-v34,forwarding-loop-v34,
+v33-red.log,v34-bench.log,native-{count,balanced,forwarding}-v34.c}`.
+No public API changes; long fuzz and final signoff remain deferred.
 
 ## September 30, 2026 balanced effect-spanning captures
 

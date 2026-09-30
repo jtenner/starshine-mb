@@ -15,21 +15,21 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v32 passes 12,992 default tests and
+- **Current checkpoint:** lean-v34 passes 12,997 default tests and
   the bounded original/v133 replay controls. This is not final aggregate or
-  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-balanced-effect-spanning-captures)
+  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-scoped-scalar-forwarding-cleanup)
   owns exact hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v32 open-world compiler comparison uses verified release v133,
+The frozen v34 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.136 / 1.020240 | 4.05× | 3,679.039 / 451.402 | 8.15× |
-| `dae2-optimizing` | 12.827 / 3.251740 | 3.94× | 7,060.102 / 1,686.680 | 4.19× |
+| `dae2` | 4.142 / 0.999541 | 4.14× | 3,707.065 / 466.812 | 7.94× |
+| `dae2-optimizing` | 13.505 / 3.174240 | 4.25× | 7,124.317 / 1,690.510 | 4.21× |
 
 - **Release blockers:** large DAE2-O adds **369,000 canonical / 235,151 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
@@ -184,6 +184,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03e — Optimizing cleanup setup [IR2-PERF-DAE2-CLEANUP]
 
+- [ ] Hoist native per-instruction callbacks in counting, forwarding and capture
+  scans; generated C confirms loop-scoped allocation sites. Measure enclosing
+  allocator requests/instructions and small, tee and large costs.
 - [ ] Remove duplicated balanced-capture scan/materialization work while keeping
   legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
   matched small optimizing is +6.39%; retain these costs until measured away.
@@ -205,8 +208,10 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - [ ] Reduce and attribute the remaining **369,000-byte canonical optimizing gap**
   by function/diff family. V32 removes 32,070 balanced capture pairs and saves
   147,876 raw / 53,470 canonical bytes without per-function pair regressions.
-  Scalar forwarding blocks still hide captures (new reduced cleanup test fails
-  one local instead of zero); implement that family, then compare direct DAE2,
+  Scalar forwarding cleanup is implemented; its artifact outputs are unchanged.
+  Reduce immutable parameter aliases and reused captures: the imported-call loop
+  remains 260 raw / 272 writer bytes versus 220, and direct alias guards fail
+  on locals and dominated reads. Compare direct DAE2,
   ordered SimplifyLocals/Vacuum and
   downstream cleanup; close indirect-family, typed-control, parameter/result
   and local/capture debris gaps without weakening behavior.

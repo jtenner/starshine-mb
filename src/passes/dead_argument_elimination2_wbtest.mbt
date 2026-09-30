@@ -91,7 +91,7 @@ test "dae2 optimizing flattens a tuple forwarding block without cloning its prod
 ///|
 test "dae2 tuple cleanup drops stale labels only from changed functions" {
   let input = pass_test_module_from_wat(
-    "(module (func (param i32 i64) (result i32 i64) (block (result i32 i64) (local.get 0) (local.get 1))) (func (param i32) (result i32) (block (result i32) (local.get 0))))",
+    "(module (func (param i32 i64) (result i32 i64) (block (result i32 i64) (local.get 0) (local.get 1))) (func (param i32) (result i32) (block (result i32) (local.get 0) (br 0))))",
   )
   let entry = fn(index : UInt, name : String) {
     @lib.IndirectNameAssoc::new(
@@ -106,7 +106,7 @@ test "dae2 tuple cleanup drops stale labels only from changed functions" {
       label_names=Some(
         @lib.IndirectNameMap::new([
           entry(0U, "removed-forwarder"),
-          entry(1U, "retained-scalar"),
+          entry(1U, "retained-branch-target"),
         ]),
       ),
     ),
@@ -124,7 +124,7 @@ test "dae2 tuple cleanup drops stale labels only from changed functions" {
   @debug.assert_eq(names.module_name, Some(module_name))
   @debug.assert_eq(
     names.label_names,
-    Some(@lib.IndirectNameMap::new([entry(1U, "retained-scalar")])),
+    Some(@lib.IndirectNameMap::new([entry(1U, "retained-branch-target")])),
   )
 }
 

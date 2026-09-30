@@ -1,47 +1,8 @@
 ///|
-// Lowering can retain a tuple forwarding wrapper after SimplifyLocals. A
-// zero-parameter block containing only local reads cannot branch, trap or
-// consume the enclosing stack. Removing that wrapper exposes capture pairs.
-fn dae2_balanced_capture_reference_tuple_forwarding(
-  instrs : Array[@lib.Instruction],
-  module_ctx : @ir.HotModuleContext,
-) -> (Array[@lib.Instruction], Bool) {
-  let out : Array[@lib.Instruction] = []
-  let mut changed = false
-  for instr in instrs {
-    match instr {
-      @lib.Block(@lib.TypeIdxBlockType(index), @lib.Expr(body)) if body.all(fn(
-          instr,
-        ) {
-          instr is @lib.LocalGet(_)
-        }) =>
-        match @ir.hot_module_resolve_type_func_type(module_ctx, index) {
-          Some(@lib.FuncType([], results)) if results.length() > 1 &&
-            results.length() == body.length() => {
-            out.append(body)
-            changed = true
-            continue
-          }
-          _ => ()
-        }
-      _ => ()
-    }
-    out.push(
-      pass_lower_map_children(instr, fn(body) {
-        let (body, nested_changed) = dae2_balanced_capture_reference_tuple_forwarding(
-          body, module_ctx,
-        )
-        changed = changed || nested_changed
-        body
-      }),
-    )
-  }
-  (out, changed)
-}
-
-///|
-// Frozen V30 final capture cleanup for focused before/after controls.
-fn dae2_balanced_capture_reference_cleanup(mod_ : @lib.Module) -> @lib.Module {
+// The optimizing variant removes redundant capture pairs after its cleanup
+// pipeline as well: SimplifyLocals may itself lift and materialize a stack
+// value. Compact source and generated locals together to make reruns bounded.
+fn dae2_scalar_forwarding_reference_cleanup(mod_ : @lib.Module) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_
@@ -51,6 +12,9 @@ fn dae2_balanced_capture_reference_cleanup(mod_ : @lib.Module) -> @lib.Module {
   }
   let params = rl_defined_func_param_cache(mod_)
   let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let stack_effects = Some(fn(instr) {
+    dae2_capture_stack_effect(instr, mod_, module_ctx)
+  })
   let remaps : Array[Array[Int]?] = []
   let changed_labels : Array[Bool] = []
   let bodies : Array[@lib.Func] = []
@@ -65,6 +29,7 @@ fn dae2_balanced_capture_reference_cleanup(mod_ : @lib.Module) -> @lib.Module {
       input,
       @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
       params[index],
+      stack_effects~,
     )
     bodies.push(body)
     remaps.push(Some(mapping))
