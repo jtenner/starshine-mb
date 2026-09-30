@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/single_leaf_wbtest.mbt
+  - ../../../../../src/passes/single_leaf_reference_wbtest.mbt
+  - ../../../../../src/passes/single_leaf_perf_wbtest.mbt
+  - ../../../../../src/cmd/single_leaf_wbtest.mbt
   - ../../../../../src/passes/balanced_tree_wbtest.mbt
   - ../../../../../src/passes/balanced_tree_reference_wbtest.mbt
   - ../../../../../src/passes/balanced_tree_perf_wbtest.mbt
@@ -108,6 +112,107 @@ dependency-window-only. Toggled event collection scopes instruction totals;
 call counters retain the whole command. Historical values remain evidence under
 that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
+
+## September 30, 2026 single-leaf suffix typing
+
+Single-value suffix admission now returns numeric constants and valid local
+reads directly. The existing scanner and full typechecker still handle
+compound expressions, unknown/out-of-bounds locals, reference constants and
+other opcodes. The returned array is owned. This avoids constructing a type
+state and initialized-local mask for a leaf whose type is already known.
+
+Numeric-constant typechecking only pushes its fixed scalar type. Local reads
+use the same environment bounds check as the original typechecker, whose
+suffix state initializes every local. Complete module validation is retained.
+Exact floating bits, nullable and nonnullable reference locals, exclusive
+end offsets, invalid indices, compound/fallback typing and result ownership
+are checked against the frozen original helper. Two focused work assertions
+fail before the change, while the dispatcher guard passes.
+
+Measurements use 24 native old/new controls across 8- and 4,096-local
+environments, frozen release binaries, fresh verified Binaryen v133 small
+and large open-world cohorts, alternating matched pairs with reference-drift
+rejection, and matched RSS samples. Whole-command instruction profiles are
+reported separately from pass-local wall time. Long fuzz remains deferred.
+
+All three focused regressions, the dispatcher guard, related suffix/copy
+regressions, `moon info`, `moon fmt`, **13,064** default tests, the native
+release build and **24** native controls pass. No public API change or new
+warning category is introduced.
+
+Native means (frozen original helper → single-leaf admission):
+
+| Local count / shape | Before µs | After µs | Change |
+| --- | ---: | ---: | ---: |
+| 8 constant | 0.12678 | 0.02208 | -82.58% |
+| 8 local | 0.13601 | 0.02820 | -79.27% |
+| 8 compound | 0.18053 | 0.18511 | +2.54% |
+| 8 invalid local | 0.34066 | 0.36634 | +7.54% |
+| 8 reference fallback | 0.15104 | 0.15399 | +1.95% |
+| 8 empty | 0.01675 | 0.01719 | +2.63% |
+| 4096 constant | 0.16285 | 0.02227 | -86.32% |
+| 4096 local | 0.17109 | 0.02846 | -83.37% |
+| 4096 compound | 0.21396 | 0.22505 | +5.18% |
+| 4096 invalid local | 0.36216 | 0.38173 | +5.40% |
+| 4096 reference fallback | 0.18442 | 0.19094 | +3.54% |
+| 4096 empty | 0.01708 | 0.01695 | -0.76% |
+
+Frozen native V53 SHA-256: `d47c01e8ff54045880fad64173ab844bb9edf764cdaa5759e99f86589c13ad6b`.
+
+Fresh verified release-v133 comparison (CPU 6, one warmup, three samples; pass-local medians):
+
+| Input / pass | Starshine ms | v133 ms | Ratio | Raw / canonical size gap |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 4.122 | 1.006 | 4.097× | -123 / -97 B |
+| small / `dae2-optimizing` | 11.847 | 3.251 | 3.644× | -386 / -284 B |
+| large / `dae2` | 3920.073 | 473.290 | 8.283× | -117,365 / -100,237 B |
+| large / `dae2-optimizing` | 7022.732 | 1740.300 | 4.035× | +168,047 / +299,275 B |
+
+Matched V52→V53 pipeline medians (same CPU/warmup, three accepted alternating pairs, independent reference bracket ≤1.15):
+
+| Input / pass | V52 ms | V53 ms | Change | MAD before / after ms |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 3.944 | 3.781 | -4.13% | 0.011 / 0.003 |
+| small / `dae2-optimizing` | 10.480 | 10.482 | +0.02% | 0.037 / 0.007 |
+| large / `dae2` | 3709.607 | 3763.067 | +1.44% | 44.338 / 0.537 |
+| large / `dae2-optimizing` | 7209.969 | 6849.142 | -5.00% | 92.437 / 105.942 |
+| tee / `dae2` | 2.989 | 2.895 | -3.14% | 0.036 / 0.018 |
+| tee / `dae2-optimizing` | 107.989 | 108.128 | +0.13% | 0.745 / 1.137 |
+
+Three alternating peak-RSS pairs, KiB (median [range]):
+
+- `dae2`: before 240,480 [239,940–240,972] → after 273,908 [240,856–280,032].
+- `dae2-optimizing`: before 287,488 [287,368–287,836] → after 287,540 [287,496–287,588].
+
+Leaf controls improve 79–86%; fallback controls cost about 2–8% in these
+native means, so this is a narrow admission improvement. Matched large
+optimizing improves 5.00% (360.827 ms, larger than either MAD); small and
+active-tee optimizing remain flat. Large plain costs 1.44% (53.460 ms,
+before MAD 44.338 ms); keep that cost open. Plain peak RSS rises from
+240,480 to 273,908 KiB with a wide candidate range; optimizing RSS is flat.
+No general speed or memory parity is claimed. A whole-command small
+optimizing instruction profile falls from 154,949,402 to 154,335,857
+(−0.396%); its output exactly matches the unprofiled command. That profile
+is not a pass-local timer and does not explain large plain costs.
+
+All 469 bounded runtime modules / 2,891 observations match their originals,
+including events, traps and GC reference identity. V52/V53 raw and canonical
+compiler artifact bytes are identical; the large optimizing gap remains
++168,047 raw / +299,275 canonical bytes. Long fuzz and shared-consumer/
+release signoff remain deferred.
+
+Sources: [implementation](../../../../../src/passes/pass_manager.mbt),
+[leaf regressions](../../../../../src/passes/single_leaf_wbtest.mbt),
+[frozen helper](../../../../../src/passes/single_leaf_reference_wbtest.mbt),
+[native controls](../../../../../src/passes/single_leaf_perf_wbtest.mbt),
+[dispatcher guard](../../../../../src/cmd/single_leaf_wbtest.mbt),
+[constant/local typing](../../../../../src/validate/typecheck.mbt) and
+[environment bounds](../../../../../src/validate/env.mbt).
+Local evidence: `.tmp/dae2-lean-20260929/validation-v53.json`,
+`candidate-v53.json`, `v53-baseline.json`, `v53-bench.log`,
+`oracle-v53-{small,large}/`, `pairs-v53-{small,large,tee}/`, `memory-v53/`,
+`profile-small-v53/`, `local-alias-runtime-v53/`,
+`parameter-alias-runtime-v53/` and `runtime-v53/`.
 
 ## September 30, 2026 balanced control storage
 

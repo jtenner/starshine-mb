@@ -15,31 +15,35 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v52 passes 13,060 default tests and
+- **Current checkpoint:** lean-v53 passes 13,064 default tests and
   2,891 bounded original/v133 value, event, trap and GC-reference observations.
-  Balanced cleanup retains unchanged control storage; output bytes are unchanged.
+  Single-leaf suffix typing avoids state construction; output bytes are unchanged.
   The saved binary `ref.eq` defect is repaired; historical V32–V37 fixture counts
   are not general correctness evidence. Final aggregate/release signoff remains.
-  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-balanced-control-storage)
+  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-single-leaf-suffix-typing)
   owns hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v52 open-world compiler comparison uses verified release v133,
+The frozen v53 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.136 / 1.009 | 4.10× | 3,772.584 / 480.414 | 7.85× |
-| `dae2-optimizing` | 12.291 / 3.250 | 3.78× | 7,716.738 / 1,722.850 | 4.48× |
+| `dae2` | 4.122 / 1.006 | 4.10× | 3,920.073 / 473.290 | 8.28× |
+| `dae2-optimizing` | 11.847 / 3.251 | 3.64× | 7,022.732 / 1,740.300 | 4.04× |
 
 - **Release blockers:** large DAE2-O adds **299,275 canonical / 168,047 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** V52 retains unchanged balanced control storage with exact
+- **Evidence limits:** V53 avoids single-leaf suffix state construction. Large
+  optimizing matched pairs improve 5.00%; small/tee optimizing stay flat.
+  Large plain costs 1.44% and plain RSS has a higher median with wide ranges;
+  keep these costs open. Fallback native controls cost about 2–8%.
+  V52 retains unchanged balanced control storage with exact
   artifact bytes. Matched optimizing is −4.93% small / −2.54% large /
   −2.60% active tee, with material spread. Large plain is +1.33%, within
   MAD; keep costs open. Plain RSS medians are higher in both cohorts
@@ -229,9 +233,10 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - [ ] Reduce remaining shared suffix-wrapper and repeated future-read/next-if
   scans after V51 removes terminal searches and caller copies. Preserve source
   write/read barriers, typed admission and exact output; use active and no-work
-  controls before adopting cached facts or additional admission scans. Trial
-  exact single-leaf typing for constants/valid local reads to avoid repeated
-  initialized-local arrays; preserve full typing for compound/unknown cases.
+  controls before adopting cached facts or additional admission scans. V53 closes
+  numeric-constant/valid-local leaf state construction. Reduce remaining
+  compound/unknown initialized-local arrays without sharing mutable state
+  across callers; preserve full typing and measure fallback/enclosing costs.
 - [ ] Remove duplicated balanced-capture scan/materialization work while keeping
   legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
   matched small optimizing is +6.39%; retain these costs until measured away.
@@ -266,7 +271,8 @@ breadth. Shared changes require all affected consumers in the matrix below.
   downstream cleanup; close indirect-family, typed-control, parameter/result
   and local/capture debris gaps without weakening behavior.
 - [ ] Extend proved local-alias cleanup beyond the current lower-index,
-  lexical-dominance cases. Recount reverse-index candidates after V47; sources
+  lexical-dominance cases. The frozen V52 read-only census finds 11,542 reverse-index candidates
+  in 3,775 functions; this is not transform or byte-win evidence. Sources
   below 128 may preserve one-byte indices, but prove alias-root ordering,
   partial/default reads, iteration identity and per-function size first.
   Keep the equal-size unused-declaration difference in reduced v133 examples

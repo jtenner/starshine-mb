@@ -1,3 +1,11 @@
+### 2026-09-30 — Single-leaf suffix typing
+
+- [Leaf admission](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-single-leaf-suffix-typing)
+  avoids type-state construction for numeric constants and valid local reads.
+  Exact bits, references, bounds and ownership pass with all 13,064 tests and
+  2,891 runtime observations. Large optimizing matched pairs improve 5%;
+  plain timing/RSS costs and compound typing remain open. Artifact bytes match.
+
 ### 2026-09-30 — Balanced control storage
 
 - [Balanced cleanup](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-balanced-control-storage)

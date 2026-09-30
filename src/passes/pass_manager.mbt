@@ -8291,6 +8291,22 @@ fn sl_value_suffix_at(
   if count <= 0 {
     return []
   }
+  // These one-instruction producers have exact typing without constructing a
+  // full initialized-local mask. Compound/unknown suffixes keep full checking.
+  if count == 1 && end > 0 {
+    let last = instrs[end - 1]
+    let complete_leaf = match last {
+      @lib.I32Const(_)
+      | @lib.I64Const(_)
+      | @lib.F32Const(_)
+      | @lib.F64Const(_) => true
+      @lib.LocalGet(idx) => env.get_local_type(idx) is Some(_)
+      _ => false
+    }
+    if complete_leaf {
+      return [last]
+    }
+  }
   let mut required = 0
   let mut net = 0
   let mut known = true
