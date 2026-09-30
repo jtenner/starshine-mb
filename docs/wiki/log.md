@@ -1,3 +1,17 @@
+### 2026-09-29 — DAE2 bounded and linear source union
+
+- [Bounded/linear source union](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-bounded-and-linear-source-union)
+  reuses admitted owners/seen state after eight source lanes and hoists the
+  owner argument. Original search budgets fail first; the refinement's actual
+  tiny marking budget fails 2 != 0. All 12,964 tests, seven native guards,
+  eight controls and bounded original/v133 replays pass with unchanged bytes.
+  Wide controls improve 67%/97%; compiler pipelines stay near flat, with
+  eight-writer/small/tee/pure costs and a 0.29% instruction increase explicit.
+  Allocation calls are unchanged. The initial all-marking compiler cost is
+  superseded, not erased. Fresh v133 large ratios stay open at 8.73×/4.39×;
+  +422,470 optimizing bytes, scratch/field/preflight/cleanup and small-row
+  costs remain. Aggregate fuzz is deferred.
+
 ### 2026-09-29 — DAE2 immutable entry reads
 
 - [Immutable entry reads](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-immutable-entry-reads)

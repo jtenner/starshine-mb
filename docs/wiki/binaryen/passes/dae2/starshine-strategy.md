@@ -3,6 +3,8 @@ kind: entity
 status: working
 last_reviewed: 2026-09-29
 sources:
+  - ../../../../../src/ir/local_graph_source_union_wbtest.mbt
+  - ../../../../../src/ir/local_graph_source_union_perf_wbtest.mbt
   - ../../../../../src/ir/local_graph_entry_reads_wbtest.mbt
   - ../../../../../src/ir/local_graph_entry_reads_reference_wbtest.mbt
   - ../../../../../src/ir/local_graph.mbt
@@ -31,6 +33,90 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## September 29, 2026 bounded and linear source union
+
+Admitted reverse-flow actions already have one node-to-block owner. Source
+union now uses that existing index and seen workspace after eight source
+lanes; the first lanes keep bounded contiguous searches. Each writer block
+then contributes once, including a separately tracked query-root loop write.
+Completed sources reset writer marks in linear time before ordinary visited
+state resets. Entry sources remain disjoint and unique; unadmitted/shared
+query callers retain the original general union, while full graph admission
+still sends shared actions to sparse flow. No new node/block-sized storage or
+public graph field is added. Source order and immutable row borrowing remain.
+
+The nullable owner index is constructed once per build. Initial generated C
+showed its constructor increment/decrement around each query; final native C
+has **zero constructor increments in the query call branch**. This is
+reference-count work, not a heap-box/allocation claim; incoming allocator
+calls are unchanged. The automated native guard ran after C regeneration and
+is green refinement evidence, not an initial-trial red. Its local mistagged
+record was corrected rather than used as baseline evidence.
+
+Seven [bounded guards](../../../../../src/ir/local_graph_source_union_wbtest.mbt)
+cover ordered sources, cached-row identity, clean scratch, root loop writes,
+parallel/exceptional edges, shared-action fallback and complete graph fields
+in both operand modes. Initial zero-search work guards genuinely fail
+**22 != 0 / 3 != 0** while semantic guards are green. The first all-marking
+trial passes but costs **3.10%/1.65%** on matched compiler pipelines
+(4106.148 → 4233.424ms / 7342.394 → 7463.294ms), MAD 27.909/2.743ms and
+146.586/53.792ms. Its dependency instructions increase 0.18%; requests/frees
+are unchanged. Those results remain historical and do not sign the refinement.
+
+The refined contract uses at most eight-lane searches, with promotion for
+wide rows. Tiny-row actual mark-write/reset work fails first, **2 != 0**,
+then becomes zero; the wide 16-writer/two-edge guard proves bounded searches
+and actual promotion with the exact original row. The earlier zero-search
+expectations become bounded-search budgets; source/ownership assertions stay.
+Eight [native query controls](../../../../../src/ir/local_graph_source_union_perf_wbtest.mbt)
+force fresh rows, preserve indices/scratch and consume the complete result:
+
+| Writers | Original search → bounded/linear mean |
+| --- | --- |
+| 1 | 90.47 → 89.82ns |
+| 8 | 198.89 → 216.56ns (**8.88% cost**) |
+| 128 | 6.17 → 2.03µs (**67% gain**) |
+| 2048 | 977.16 → 27.24µs (**97% gain**) |
+
+Compiler pipelines stay near flat: **3928.146 → 3910.220ms (0.46%)** /
+**6707.366 → 6706.087ms (0.02%)**, MAD 72.691/41.775ms and
+43.367/10.613ms. Small 4.152 → 4.159ms / **11.085 → 11.350ms (2.39% cost)**,
+MAD 0.016/0.063ms and 0.025/0.242ms; tee 3.743 → 3.757ms /
+**104.962 → 106.491ms (1.46% cost)**, MAD 0.005/0.012ms and
+0.218/1.030ms. Joined-reader medians are 18.409 → 18.582ms /
+27.859 → 27.961ms. Pure-tail **11.435 → 11.941ms (4.43% plain cost)** /
+11.823 → 11.836ms, MAD 0.067/0.379ms and 0.162/0.274ms. Rejected brackets
+1.184/1.221/1.214 are retained. Conditional-write pipelines are near flat,
+11.312 → 11.206ms / 16.381 → 16.194ms, MAD 0.060/0.035ms and
+0.170/0.164ms. Keep costs/dispersion; helper gains are not compiler gains.
+
+Dependency instructions increase **17,063,254,721 → 17,113,284,401 (0.29%)**,
+while requests/frees stay **35,676,180 / 111,122,427**. Small command
+instructions increase 78,678,660 → 78,689,078 / 170,355,450 → 170,361,588,
+with unchanged requests/frees. RSS medians are 280,804 → 257,560 KiB,
+ranges 256,516–281,476 / 256,068–258,648; optimizing 292,200 → 292,004 KiB,
+ranges 292,096–314,712 / 291,928–302,000. Overlap and three samples do not
+establish a causal memory win. Retain this slice for bounded/linear scaling,
+not as a general compiler or allocation win; small-row costs remain open.
+
+Info/fmt, seven native guards, **12,964 default wasm-gc tests**, release CLI,
+eight controls, fixed 126 modules/1,029 observations, two seven-module/
+28-observation lanes and conditional seven-module/42-observation replay pass.
+All before/after and traced/untraced bytes match and independently validate.
+Public interfaces are unchanged. Frozen native SHA-256 is
+`ad7f6c03df341abcd1eb325115b1ef084d98c7bf5da3271b6be1a45be56d3660`.
+
+Fresh verified-v133 medians are small 4.588 / 1.027220ms (**4.47×**) and
+13.632 / 3.176530ms (**4.29×**); large 3895.690 / 446.419ms (**8.73×**)
+and 7325.910 / 1670.670ms (**4.39×**). MADs are 0.005/0.018150ms,
+0.845/0.026540ms, 7.389/0.639ms and 52.810/2.360ms. CPU 6, one warmup,
+three samples and unchanged canonical sizes retain the **422,470-byte
+optimizing gap**. Separate cohorts do not establish causal ratio gains.
+Local `.tmp/dae2-lean-20260929/` v24/v24b manifests, red/validation/bench,
+fixed/active/conditional/RSS/work/oracle and constructor records own evidence.
+Next are unused-local entry preflight, query header work, preceding-dependency
+scratch, field reads and optimizing cleanup. Aggregate fuzz remains deferred.
 
 ## September 29, 2026 immutable entry reads
 

@@ -13,10 +13,10 @@
   continuation-query allocations, vacuous catch-layout scans and duplicate
   core validation, complete-header return boundaries in operand queries and
   separate writer metadata scans/growing rows and repeated never-written-local
-  reverse queries.
+  reverse queries and quadratic admitted writer-source unions.
   Accepted changes and rejected cache trials
   are recorded in the [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md).
-  All 12,957 default tests, 126 bounded modules / 1,029 original/v133
+  All 12,964 default tests, 126 bounded modules / 1,029 original/v133
   observations and measured before/after bytes pass. The new active-reader
   fixture adds one passing bounded guard and four dedicated native controls;
   its matched 8192-reader pipelines improve 57.40%/49.80%. This deliberate
@@ -37,7 +37,7 @@
   production keeps the v13 query. Packed private CFG segments remove 490,847
   allocator requests in dependency analysis (1.19%) with near-flat compiler
   timings and recorded active-control costs. Fresh v133 ratios remain
-  9.18×/4.27× on the frozen large v23 input. Fixed-size CFG maps remove another
+  8.73×/4.39× on the frozen large v24b input. Fixed-size CFG maps remove another
   63,326 requests and 0.34% of dependency instructions, with recorded control
   costs and near-flat compiler timings. Own-effect reuse removes repeated
   descriptor work and another 0.99% of dependency instructions without an
@@ -62,9 +62,13 @@
   entry reachability preserves all graph fields and unknown rows, improves
   conditional-write pipelines 59.90%/50.35% and paired compiler pipelines
   3.11%/2.49%, removes 6.13% of dependency instructions and 298,741 requests/
-  frees, with small/pure/RSS limits recorded. Finish measuring linear source
-  union, refine unused-local entry preflight, reuse preceding-query buffers
-  and field-specific HOT reads. The initial proposal-feature allocation
+  frees, with small/pure/RSS limits recorded. Bounded/linear source union uses
+  existing owner/seen state, improves wide controls 67%/97% and keeps compiler
+  times near flat. The first all-marking cost is superseded; refined small/
+  tee/pure costs, eight-writer helper cost, 0.29% instruction increase and
+  unchanged allocator calls remain explicit. Refine small-row overhead,
+  unused-local entry preflight and repeated query headers; reuse preceding-
+  query buffers and field-specific HOT reads. The initial proposal-feature allocation
   interpretation is superseded by generic array-growth attribution. Verified-v133
   ratios, cumulative timing, memory and instruction
   attribution are owned by the strategy page. Keep small/control costs and

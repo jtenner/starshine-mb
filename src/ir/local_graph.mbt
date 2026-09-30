@@ -1579,6 +1579,45 @@ fn local_graph_reverse_entry_sources(
   local_count : Int,
   cache_slots? : Array[Int]? = None,
 ) -> Array[Int] {
+  local_graph_reverse_entry_sources_impl(
+    write_local_ids,
+    cfg,
+    actions,
+    transparent_predecessors,
+    block_id,
+    local_id,
+    include_exceptional,
+    cache,
+    last_writes,
+    seen,
+    visited,
+    work,
+    local_count,
+    None,
+    None,
+    cache_slots,
+  )
+}
+
+///|
+fn local_graph_reverse_entry_sources_impl(
+  write_local_ids : Array[LocalId],
+  cfg : HotCfg,
+  actions : Array[Array[NodeId]],
+  transparent_predecessors : Array[BlockId],
+  block_id : BlockId,
+  local_id : LocalId,
+  include_exceptional : Bool,
+  cache : Array[@hashmap.HashMap[Int, Array[Int]]?],
+  last_writes : Array[@hashmap.HashMap[Int, NodeId]?],
+  seen : Array[Bool],
+  visited : Array[BlockId],
+  work : Array[BlockId],
+  local_count : Int,
+  writer_blocks : Array[Int]?,
+  membership_queries : Array[Int]?,
+  cache_slots : Array[Int]?,
+) -> Array[Int] {
   if cache[block_id] is Some(row) {
     if row.get(local_id) is Some(sources) {
       // Completed rows are immutable; readers either borrow or copy on write.
@@ -1586,6 +1625,8 @@ fn local_graph_reverse_entry_sources(
     }
   }
   let sources : Array[Int] = []
+  let mut root_write_seen = false
+  let mut writer_marks = false
   work.push(block_id)
   seen[block_id] = true
   visited.push(block_id)
@@ -1604,8 +1645,71 @@ fn local_graph_reverse_entry_sources(
         ) {
         Some(write_id) => {
           let source_id = local_graph_set_source_id(local_count, write_id)
-          if !local_graph_array_contains(sources, source_id) {
-            sources.push(source_id)
+          match writer_blocks {
+            Some(_) => {
+              // Unique-action admission gives each writer one owning block.
+              // A writer stops this local's walk, so its block is never queued.
+              // The query root is already seen, but can contribute a loop write.
+              // Tiny rows stay on the bounded contiguous scan. Promote
+              // once, before the first search that could exceed eight lanes.
+              if !writer_marks && sources.length() >= 8 {
+                match writer_blocks {
+                  Some(owners) =>
+                    for source in sources {
+                      if source >= local_count {
+                        let owner = owners[source - local_count]
+                        if owner == block_id {
+                          root_write_seen = true
+                        } else {
+                          seen[owner] = true
+                          match membership_queries {
+                            Some(count) if count.length() > 1 => count[1] += 1
+                            _ => ()
+                          }
+                        }
+                      }
+                    }
+                  None => ()
+                }
+                writer_marks = true
+              }
+              if writer_marks {
+                let already_seen = if pred == block_id {
+                  root_write_seen
+                } else {
+                  seen[pred]
+                }
+                if !already_seen {
+                  if pred == block_id {
+                    root_write_seen = true
+                  } else {
+                    seen[pred] = true
+                    match membership_queries {
+                      Some(count) if count.length() > 1 => count[1] += 1
+                      _ => ()
+                    }
+                  }
+                  sources.push(source_id)
+                }
+              } else {
+                match membership_queries {
+                  Some(count) => count[0] += 1
+                  None => ()
+                }
+                if !local_graph_array_contains(sources, source_id) {
+                  sources.push(source_id)
+                }
+              }
+            }
+            None => {
+              match membership_queries {
+                Some(count) => count[0] += 1
+                None => ()
+              }
+              if !local_graph_array_contains(sources, source_id) {
+                sources.push(source_id)
+              }
+            }
           }
         }
         None =>
@@ -1618,9 +1722,33 @@ fn local_graph_reverse_entry_sources(
     }
     if !has_predecessor && current == cfg_entry_block(cfg) {
       let entry_source = local_graph_entry_source_id(local_id)
-      if !local_graph_array_contains(sources, entry_source) {
-        sources.push(entry_source)
+      match writer_blocks {
+        Some(_) => sources.push(entry_source)
+        None => {
+          match membership_queries {
+            Some(count) => count[0] += 1
+            None => ()
+          }
+          if !local_graph_array_contains(sources, entry_source) {
+            sources.push(entry_source)
+          }
+        }
       }
+    }
+  }
+  if writer_marks {
+    match writer_blocks {
+      Some(owners) =>
+        for source in sources {
+          if source >= local_count {
+            seen[owners[source - local_count]] = false
+            match membership_queries {
+              Some(count) if count.length() > 1 => count[1] += 1
+              _ => ()
+            }
+          }
+        }
+      None => ()
     }
   }
   for block in visited {
@@ -1813,6 +1941,9 @@ fn local_graph_build_reverse_flow(
     Some(count) => count[0] += cache.length()
     None => ()
   }
+  // Publish the admitted immutable owner index once. Constructing its
+  // nullable argument at every query otherwise repeats reference-count work.
+  let writer_blocks = Some(node_blocks)
   for node_id = 0; node_id < node_count; node_id = node_id + 1 {
     if !hot_node_is_live(func, node_id) ||
       !(hot_node_get(func, node_id).op is HotOp::LocalGet) {
@@ -1838,7 +1969,7 @@ fn local_graph_build_reverse_flow(
         []
       }
     } else {
-      local_graph_reverse_entry_sources(
+      local_graph_reverse_entry_sources_impl(
         write_local_ids,
         cfg,
         actions,
@@ -1852,7 +1983,9 @@ fn local_graph_build_reverse_flow(
         visited,
         work,
         local_count,
-        cache_slots~,
+        writer_blocks,
+        None,
+        cache_slots,
       )
     }
     local_graph_record_unique_get_sources(
