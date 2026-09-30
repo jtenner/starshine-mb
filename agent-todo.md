@@ -15,21 +15,21 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v34 passes 12,997 default tests and
+- **Current checkpoint:** lean-v35 passes 13,000 default tests and
   the bounded original/v133 replay controls. This is not final aggregate or
-  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-scoped-scalar-forwarding-cleanup)
+  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-capture-callback-reuse)
   owns exact hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v34 open-world compiler comparison uses verified release v133,
+The frozen v35 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.142 / 0.999541 | 4.14× | 3,707.065 / 466.812 | 7.94× |
-| `dae2-optimizing` | 13.505 / 3.174240 | 4.25× | 7,124.317 / 1,690.510 | 4.21× |
+| `dae2` | 3.828 / 0.957863 | 4.00× | 3,429.937 / 419.500 | 8.18× |
+| `dae2-optimizing` | 11.469 / 3.176240 | 3.61× | 6,552.495 / 1,615.990 | 4.05× |
 
 - **Release blockers:** large DAE2-O adds **369,000 canonical / 235,151 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
@@ -135,7 +135,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 - [ ] Attribute remaining source/reader/access rows, comparator closure
   construction, array growth and reference-count/destruction work. Trial reuse
-  where enclosing gains justify lifetime costs. Sort queries still run 651,397
+  where enclosing gains justify lifetime costs. Five loop-scoped raw visitors are
+  now hoisted; remaining final-capture allocator requests still number
+  43,495,605 on the large input. Sort queries still run 651,397
   times in V29's dependency scope; any cached comparator must capture its order
   row without a facts backpointer or reference cycle.
 - [ ] Clear temporary state on every exit, avoid allocating it on no-work paths,
@@ -184,9 +186,6 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03e — Optimizing cleanup setup [IR2-PERF-DAE2-CLEANUP]
 
-- [ ] Hoist native per-instruction callbacks in counting, forwarding and capture
-  scans; generated C confirms loop-scoped allocation sites. Measure enclosing
-  allocator requests/instructions and small, tee and large costs.
 - [ ] Remove duplicated balanced-capture scan/materialization work while keeping
   legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
   matched small optimizing is +6.39%; retain these costs until measured away.

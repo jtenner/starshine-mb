@@ -726,15 +726,16 @@ fn dae2_cleanup_forwarding(
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   let mut scalar = false
+  let visit_body = fn(body) {
+    let (body, nested_changed, nested_scalar) = dae2_cleanup_forwarding(
+      body, module_ctx,
+    )
+    changed = changed || nested_changed
+    scalar = scalar || nested_scalar
+    body
+  }
   for instr in instrs {
-    let instr = pass_lower_map_children(instr, fn(body) {
-      let (body, nested_changed, nested_scalar) = dae2_cleanup_forwarding(
-        body, module_ctx,
-      )
-      changed = changed || nested_changed
-      scalar = scalar || nested_scalar
-      body
-    })
+    let instr = pass_lower_map_children(instr, visit_body)
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) if !body.is_empty() &&
         body.all(fn(instr) { instr is @lib.LocalGet(_) }) => {

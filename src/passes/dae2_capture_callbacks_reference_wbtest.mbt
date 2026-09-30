@@ -1,60 +1,29 @@
 ///|
-// Lift captures local values before writes so analysis observes stack order.
-// A capture can remain on the stack if the intervening instructions form a
-// balanced prefix without consuming that value. Evaluation itself never moves.
-fn pass_lower_map_children(
-  instr : @lib.Instruction,
-  transform : (Array[@lib.Instruction]) -> Array[@lib.Instruction],
-) -> @lib.Instruction {
-  match instr {
-    @lib.Block(bt, @lib.Expr(body)) =>
-      @lib.Instruction::block(bt, @lib.Expr::new(transform(body)))
-    @lib.Loop(bt, @lib.Expr(body)) =>
-      @lib.Instruction::loop_(bt, @lib.Expr::new(transform(body)))
-    @lib.If(bt, yes, no) =>
-      @lib.Instruction::if_(bt, transform(yes), no.map(transform))
-    @lib.TryTable(bt, catches, @lib.Expr(body)) =>
-      @lib.Instruction::try_table(bt, catches, @lib.Expr::new(transform(body)))
-    @lib.Try(bt, @lib.Expr(body), catches, delegate) =>
-      @lib.Instruction::try_(
-        bt,
-        @lib.Expr::new(transform(body)),
-        catches.map(fn(catch_) {
-          match catch_ {
-            @lib.LegacyCatch(tag, @lib.Expr(body)) =>
-              @lib.LegacyCatch::tagged(tag, @lib.Expr::new(transform(body)))
-            @lib.LegacyCatchAll(@lib.Expr(body)) =>
-              @lib.LegacyCatch::all(@lib.Expr::new(transform(body)))
-          }
-        }),
-        delegate~,
-      )
-    _ => instr
-  }
-}
-
-///|
-fn pass_lower_count_locals(
+// Frozen V34 traversal, including its instruction-scoped callback.
+fn callback_reference_pass_lower_count_locals(
   instrs : Array[@lib.Instruction],
   gets : Array[Int],
   writes : Array[Int],
 ) -> Unit {
-  let visit_body = fn(body) {
-    pass_lower_count_locals(body, gets, writes)
-    body
-  }
   for instr in instrs {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(index)) => gets[index.to_int()] += 1
       @lib.LocalSet(@lib.LocalIdx(index))
       | @lib.LocalTee(@lib.LocalIdx(index)) => writes[index.to_int()] += 1
-      _ => ignore(pass_lower_map_children(instr, visit_body))
+      _ =>
+        ignore(
+          pass_lower_map_children(instr, fn(body) {
+            callback_reference_pass_lower_count_locals(body, gets, writes)
+            body
+          }),
+        )
     }
   }
 }
 
 ///|
-fn pass_lower_remove_balanced_captures(
+// Frozen V34 traversal, including its instruction-scoped callback.
+fn callback_reference_pass_lower_remove_balanced_captures(
   instrs : Array[@lib.Instruction],
   start : Int,
   gets : Array[Int],
@@ -63,15 +32,6 @@ fn pass_lower_remove_balanced_captures(
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let removed = Array::make(instrs.length(), false)
-  let visit_body = fn(body) {
-    pass_lower_remove_balanced_captures(
-      body,
-      start,
-      gets,
-      writes,
-      stack_effects~,
-    )
-  }
   let mut i = 0
   while i < instrs.length() {
     if removed[i] {
@@ -144,18 +104,28 @@ fn pass_lower_remove_balanced_captures(
       }
       _ => ()
     }
-    out.push(pass_lower_map_children(instrs[i], visit_body))
+    out.push(
+      pass_lower_map_children(instrs[i], fn(body) {
+        callback_reference_pass_lower_remove_balanced_captures(
+          body,
+          start,
+          gets,
+          writes,
+          stack_effects~,
+        )
+      }),
+    )
     i += 1
   }
   out
 }
 
 ///|
-fn pass_lower_remap_locals(
+// Frozen V34 traversal, including its instruction-scoped callback.
+fn callback_reference_pass_lower_remap_locals(
   instrs : Array[@lib.Instruction],
   indices : Array[Int],
 ) -> Array[@lib.Instruction] {
-  let visit_body = fn(body) { pass_lower_remap_locals(body, indices) }
   instrs.map(fn(instr) {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(index)) =>
@@ -170,13 +140,17 @@ fn pass_lower_remap_locals(
         @lib.Instruction::local_tee(
           @lib.LocalIdx::new(indices[index.to_int()].reinterpret_as_uint()),
         )
-      _ => pass_lower_map_children(instr, visit_body)
+      _ =>
+        pass_lower_map_children(instr, fn(body) {
+          callback_reference_pass_lower_remap_locals(body, indices)
+        })
     }
   })
 }
 
 ///|
-fn pass_lower_compact_captures_with_map(
+// Frozen V34 traversal, including its instruction-scoped callback.
+fn callback_reference_pass_lower_compact_captures_with_map(
   func : @lib.Func,
   original : @lib.Func,
   params : Array[@lib.ValType],
@@ -191,11 +165,13 @@ fn pass_lower_compact_captures_with_map(
   let start = params.length() + original_locals.length()
   let gets = Array::make(count, 0)
   let writes = Array::make(count, 0)
-  pass_lower_count_locals(body, gets, writes)
+  callback_reference_pass_lower_count_locals(body, gets, writes)
   // Keep the existing leaf plan first: an earlier effect-spanning capture can
   // otherwise block several smaller overlapping captures. The second pass
   // only deletes additional pairs from that already valid stack plan.
-  let body = pass_lower_remove_balanced_captures(body, start, gets, writes)
+  let body = callback_reference_pass_lower_remove_balanced_captures(
+    body, start, gets, writes,
+  )
   let body = match stack_effects {
     Some(_) => {
       let mut remaining = false
@@ -206,7 +182,7 @@ fn pass_lower_compact_captures_with_map(
         }
       }
       if remaining {
-        pass_lower_remove_balanced_captures(
+        callback_reference_pass_lower_remove_balanced_captures(
           body,
           start,
           gets,
@@ -233,23 +209,59 @@ fn pass_lower_compact_captures_with_map(
   (
     @lib.Func::new(
       @lib.Locals::from_types(retained),
-      @lib.Expr::new(pass_lower_remap_locals(body, indices)),
+      @lib.Expr::new(callback_reference_pass_lower_remap_locals(body, indices)),
     ),
     indices,
   )
 }
 
 ///|
-fn pass_lower_compact_captures(
-  func : @lib.Func,
-  original : @lib.Func,
-  params : Array[@lib.ValType],
-) -> @lib.Func {
-  pass_lower_compact_captures_with_map(func, original, params).0
+// Frozen V34 traversal, including its instruction-scoped callback.
+fn callback_reference_dae2_cleanup_forwarding(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Bool, Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut scalar = false
+  for instr in instrs {
+    let instr = pass_lower_map_children(instr, fn(body) {
+      let (body, nested_changed, nested_scalar) = callback_reference_dae2_cleanup_forwarding(
+        body, module_ctx,
+      )
+      changed = changed || nested_changed
+      scalar = scalar || nested_scalar
+      body
+    })
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) if !body.is_empty() &&
+        body.all(fn(instr) { instr is @lib.LocalGet(_) }) => {
+        let results = match block_type {
+          @lib.ValTypeBlockType(_) => 1
+          @lib.TypeIdxBlockType(index) =>
+            match @ir.hot_module_resolve_type_func_type(module_ctx, index) {
+              Some(@lib.FuncType([], results)) => results.length()
+              _ => -1
+            }
+          _ => -1
+        }
+        if results == body.length() {
+          out.append(body)
+          changed = true
+          scalar = scalar || results == 1
+          continue
+        }
+      }
+      _ => ()
+    }
+    out.push(instr)
+  }
+  (out, changed, scalar)
 }
 
 ///|
-fn pass_lower_flatten_branchless_blocks_into(
+// Frozen V34 branchless traversal.
+fn callback_reference_pass_lower_flatten_branchless_blocks_into(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   out : Array[@lib.Instruction],
@@ -257,17 +269,6 @@ fn pass_lower_flatten_branchless_blocks_into(
 ) -> (Bool, Bool) {
   let mut changed = false
   let mut branchless = true
-  let mut children_branchless = true
-  let visit_body = fn(body) {
-    let (next, child_changed, child_branchless) = pass_lower_flatten_branchless_blocks(
-      body,
-      env,
-      label_keep~,
-    )
-    changed = changed || child_changed
-    children_branchless = children_branchless && child_branchless
-    next
-  }
   for instr in instrs {
     let label_slot = match (label_keep, instr) {
       (
@@ -287,7 +288,7 @@ fn pass_lower_flatten_branchless_blocks_into(
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) => {
         let body_start = out.length()
-        let (body_changed, body_branchless) = pass_lower_flatten_branchless_blocks_into(
+        let (body_changed, body_branchless) = callback_reference_pass_lower_flatten_branchless_blocks_into(
           body,
           env,
           out,
@@ -331,8 +332,17 @@ fn pass_lower_flatten_branchless_blocks_into(
       }
       _ => ()
     }
-    children_branchless = true
-    let instr = pass_lower_map_children(instr, visit_body)
+    let mut children_branchless = true
+    let instr = pass_lower_map_children(instr, fn(body) {
+      let (next, child_changed, child_branchless) = callback_reference_pass_lower_flatten_branchless_blocks(
+        body,
+        env,
+        label_keep~,
+      )
+      changed = changed || child_changed
+      children_branchless = children_branchless && child_branchless
+      next
+    })
     let transfers_control = match instr {
       @lib.Br(_)
       | @lib.BrIf(_)
@@ -367,36 +377,17 @@ fn pass_lower_flatten_branchless_blocks_into(
 }
 
 ///|
-fn pass_lower_flatten_branchless_blocks(
+fn callback_reference_pass_lower_flatten_branchless_blocks(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   label_keep? : Array[Bool]? = None,
 ) -> (Array[@lib.Instruction], Bool, Bool) {
   let out : Array[@lib.Instruction] = []
-  let (changed, branchless) = pass_lower_flatten_branchless_blocks_into(
+  let (changed, branchless) = callback_reference_pass_lower_flatten_branchless_blocks_into(
     instrs,
     env,
     out,
     label_keep~,
   )
   (out, changed, branchless)
-}
-
-///|
-fn pass_lower_cleanup_branchless_blocks(
-  func : @lib.Func,
-  mod_ : @lib.Module,
-  module_env? : @validate.Env? = None,
-) -> (@lib.Func, Bool) {
-  let @lib.Func(locals, @lib.Expr(body)) = func
-  let env = match module_env {
-    Some(env) => env
-    None => @validate.Env::new().with_module(mod_)
-  }
-  let (body, changed, _) = pass_lower_flatten_branchless_blocks(body, env)
-  if changed {
-    (@lib.Func::new(locals, @lib.Expr::new(body)), true)
-  } else {
-    (func, false)
-  }
 }
