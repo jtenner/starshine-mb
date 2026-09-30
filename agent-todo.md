@@ -15,21 +15,21 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** `a53bb018f` / lean-v27 passes 12,974 default tests and
+- **Current checkpoint:** lean-v28 passes 12,978 default tests and
   the bounded original/v133 replay controls. This is not final aggregate or
-  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-29-2026-cached-raw-signatures)
+  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-29-2026-checked-region-fields)
   owns exact hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v27 open-world compiler comparison uses verified release v133,
+The frozen v28 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.222 / 1.009660 | 4.18× | 4,001.091 / 503.817 | 7.94× |
-| `dae2-optimizing` | 13.055 / 3.181020 | 4.10× | 7,659.620 / 1,784.100 | 4.29× |
+| `dae2` | 4.302 / 0.998993 | 4.31× | 3,654.406 / 437.909 | 8.35× |
+| `dae2-optimizing` | 13.599 / 3.191740 | 4.26× | 6,907.248 / 1,658.680 | 4.16× |
 
 - **Release blockers:** large DAE2-O adds **422,470 canonical / 383,027 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
@@ -37,7 +37,8 @@ untraced command times or a causal comparison with earlier cohorts.
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
 - **Evidence limits:** current small/control timing costs and retained-buffer
-  RSS tradeoffs remain open. The [priority report](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
+  RSS tradeoffs remain open; V28 plain RSS has a 4.15% higher median with
+  overlapping ranges and no new retained cache. The [priority report](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
   owns the superseded DAE/DAEO and thirteen-pass cohorts, V25 bounded repairs
   and historical failures; do not label those timings current.
 - **Fuzz scheduling:** long randomized/aggregate fuzz, broad artifact replays
@@ -120,9 +121,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03a — Remaining HOT field reads [IR2-PERF-DAE2-FIELDS]
 
-- [ ] Profile opcode/label/body-boundary and local-access queries still returning
-  complete node headers. Replace hot paths with checked field reads where the
-  caller needs only those fields; avoid repeating admission inside one query.
+- [ ] Profile remaining local-access/source and region-root queries returning
+  complete node headers. Extend checked field reads where the caller needs
+  only those fields; preserve single admission in shared label/body selection.
 - [ ] Prove generated native code removes the actual public **and private**
   complete-header boundary. Getter annotations or renamed calls are insufficient.
   Preserve deleted-node, invalid-index, incomplete-arena and error-order checks.

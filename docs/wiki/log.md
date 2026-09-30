@@ -1,3 +1,15 @@
+### 2026-09-29 — DAE2 checked region fields
+
+- [Checked region fields](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-checked-region-fields)
+  preserve admission, indexed inputs and body selection while removing
+  16,005,714 actual public/private native full-header calls. Four native guards,
+  12 controls and 12,978 default tests pass. Dependency instructions fall 2.90%;
+  matched large compiler gains remain 0.21%/0.83%. Small/shared-consumer costs,
+  seven-sample repeats and overlapping RSS ranges stay explicit. Bounded
+  original/v133 observations and measured bytes match. Fresh v133 ratios are
+  8.35×/4.16×; +422,470 optimizing bytes, remaining field/scratch/flow/projection/
+  cleanup work and deferred long fuzz remain open.
+
 ### 2026-09-29 — Active performance backlog reconciliation
 
 - [The active backlog](../../agent-todo.md) now separates remaining work from

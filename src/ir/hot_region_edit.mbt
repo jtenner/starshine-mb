@@ -46,11 +46,11 @@ fn hot_region_is_region_holder(func : HotFunc, holder : NodeId) -> Bool {
   if !hot_node_is_live(func, holder) {
     return false
   }
-  let node = hot_node_get(func, holder)
-  match node.op {
+  // The live admission above also covers incomplete deletion-index fixtures.
+  match func.nodes[holder].op {
     HotOp::Loop => true
     HotOp::Block => {
-      let label_id = hot_control_node_label(func, holder)
+      let label_id = func.nodes[holder].imm0
       if label_id < 0 || label_id >= func.labels.length() {
         return false
       }
@@ -87,14 +87,23 @@ fn hot_region_ref_from_holder(func : HotFunc, holder : NodeId) -> HotRegionRef {
 
 ///|
 fn hot_region_body_base(func : HotFunc, holder : NodeId) -> Int {
-  let node = hot_node_get(func, holder)
-  if node.op == HotOp::Block && node.imm1 > 0 {
-    return node.imm1
+  hot_node_require_live_read(func, holder)
+  hot_region_body_base_live(func, holder)
+}
+
+///|
+// Call only after checked live admission in this query. Region reads do not
+// mutate the arena between admission and selecting its body boundary.
+#inline
+fn hot_region_body_base_live(func : HotFunc, holder : NodeId) -> Int {
+  let op = func.nodes[holder].op
+  if op == HotOp::Block && func.nodes[holder].imm1 > 0 {
+    return func.nodes[holder].imm1
   }
-  if node.op != HotOp::Loop {
+  if op != HotOp::Loop {
     return 0
   }
-  let label_id = hot_control_node_label(func, holder)
+  let label_id = func.nodes[holder].imm0
   if label_id < 0 {
     return 0
   }
@@ -107,11 +116,11 @@ fn hot_region_optional_slot_ref(
   control_id : NodeId,
   slot : Int,
 ) -> HotRegionRef? {
-  let node = hot_node_get(func, control_id)
-  if slot >= node.child_count {
+  hot_node_require_live_read(func, control_id)
+  if slot >= func.nodes[control_id].child_count {
     return None
   }
-  let holder = func.children[node.child_base + slot]
+  let holder = func.children[func.nodes[control_id].child_base + slot]
   if holder == HOT_NONE_NODE {
     return None
   }
@@ -123,7 +132,7 @@ pub fn hot_region_body_ref(func : HotFunc, control_id : NodeId) -> HotRegionRef 
   // Blocks and loops own their body roots directly. Try-like nodes keep their
   // body in an explicit region-holder child so catch regions can be represented
   // uniformly beside it.
-  match hot_node_get(func, control_id).op {
+  match hot_node_op(func, control_id) {
     HotOp::Block | HotOp::Loop => hot_region_ref_from_holder(func, control_id)
     HotOp::Try | HotOp::TryTable =>
       hot_region_optional_slot_ref(func, control_id, 0).unwrap()
@@ -135,7 +144,7 @@ pub fn hot_region_body_ref(func : HotFunc, control_id : NodeId) -> HotRegionRef 
 
 ///|
 pub fn hot_region_then_ref(func : HotFunc, if_id : NodeId) -> HotRegionRef {
-  if hot_node_get(func, if_id).op != HotOp::If {
+  if hot_node_op(func, if_id) != HotOp::If {
     abort("hot_region_then_ref requires an if node")
   }
   hot_region_optional_slot_ref(func, if_id, 1).unwrap()
@@ -143,7 +152,7 @@ pub fn hot_region_then_ref(func : HotFunc, if_id : NodeId) -> HotRegionRef {
 
 ///|
 pub fn hot_region_else_ref(func : HotFunc, if_id : NodeId) -> HotRegionRef? {
-  if hot_node_get(func, if_id).op != HotOp::If {
+  if hot_node_op(func, if_id) != HotOp::If {
     abort("hot_region_else_ref requires an if node")
   }
   hot_region_optional_slot_ref(func, if_id, 2)
@@ -151,7 +160,7 @@ pub fn hot_region_else_ref(func : HotFunc, if_id : NodeId) -> HotRegionRef? {
 
 ///|
 pub fn hot_region_catch_ref(func : HotFunc, try_id : NodeId) -> HotRegionRef? {
-  if hot_node_get(func, try_id).op != HotOp::Try {
+  if hot_node_op(func, try_id) != HotOp::Try {
     abort("hot_region_catch_ref requires a try node")
   }
   hot_region_optional_slot_ref(func, try_id, 1)
@@ -162,7 +171,7 @@ pub fn hot_region_catch_list_ref(
   func : HotFunc,
   try_table_id : NodeId,
 ) -> HotRegionRef {
-  if hot_node_get(func, try_table_id).op != HotOp::TryTable {
+  if hot_node_op(func, try_table_id) != HotOp::TryTable {
     abort("hot_region_catch_list_ref requires a try_table node")
   }
   hot_region_optional_slot_ref(func, try_table_id, 1).unwrap()
@@ -224,7 +233,7 @@ pub fn hot_region_root_count(func : HotFunc, region_ref : HotRegionRef) -> Int {
     return hot_root_count(func)
   }
   let holder = hot_region_require_holder(func, region_ref)
-  hot_node_get(func, holder).child_count - hot_region_body_base(func, holder)
+  func.nodes[holder].child_count - hot_region_body_base_live(func, holder)
 }
 
 ///|
@@ -246,13 +255,14 @@ pub fn hot_region_get(
   region_ref : HotRegionRef,
   idx : Int,
 ) -> NodeId {
-  hot_region_require_index(hot_region_root_count(func, region_ref), idx)
   if hot_region_is_root(region_ref) {
+    hot_region_require_index(hot_root_count(func), idx)
     return hot_root_get(func, idx)
   }
   let holder = hot_region_require_holder(func, region_ref)
-  let node = hot_node_get(func, holder)
-  func.children[node.child_base + hot_region_body_base(func, holder) + idx]
+  let base = hot_region_body_base_live(func, holder)
+  hot_region_require_index(func.nodes[holder].child_count - base, idx)
+  func.children[func.nodes[holder].child_base + base + idx]
 }
 
 ///|

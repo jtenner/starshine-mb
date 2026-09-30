@@ -1,6 +1,6 @@
 ///|
 fn hot_query_op(func : HotFunc, node_id : NodeId) -> HotOp {
-  hot_node_get(func, node_id).op
+  hot_node_op(func, node_id)
 }
 
 ///|

@@ -61,10 +61,10 @@ pub fn hot_label_branch_arity(func : HotFunc, label_id : LabelId) -> Int {
 
 ///|
 pub fn hot_control_node_label(func : HotFunc, node_id : NodeId) -> LabelId {
-  let node = hot_node_get(func, node_id)
-  match node.op {
+  hot_node_require_live_read(func, node_id)
+  match func.nodes[node_id].op {
     HotOp::Block | HotOp::Loop | HotOp::If | HotOp::Try | HotOp::TryTable =>
-      node.imm0
+      func.nodes[node_id].imm0
     _ => -1
   }
 }

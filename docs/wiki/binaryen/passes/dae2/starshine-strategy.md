@@ -3,6 +3,12 @@ kind: entity
 status: working
 last_reviewed: 2026-09-29
 sources:
+  - ../../../../../src/ir/hot_region_fields_wbtest.mbt
+  - ../../../../../src/ir/hot_region_fields_reference_wbtest.mbt
+  - ../../../../../src/ir/hot_region_fields_perf_wbtest.mbt
+  - ../../../../../src/ir/hot_labels.mbt
+  - ../../../../../src/ir/hot_region_edit.mbt
+  - ../../../../../src/ir/hot_query.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/signature_lookup_wbtest.mbt
   - ../../../../../src/passes/signature_lookup_reference_wbtest.mbt
@@ -40,6 +46,115 @@ related:
 ---
 
 # Starshine DAE2 implementation
+
+## September 29, 2026 checked region fields
+
+Label, body-boundary, region-holder, optional-arm and opcode queries now read
+only the required fields after the existing checked live admission. Region count
+and selection reuse the admitted holder; selecting a root checks the holder,
+body boundary and slot in the original error order without validating the same
+holder twice. The private body-boundary helper requires prior live admission.
+No query caches a node header or adds retained node-sized storage. Indexed
+block inputs and loop branch arguments remain outside the selected body roots.
+
+The actual native work budget is red on frozen V27: **16,005,714 full-header
+return calls != 0** from the selected queries in the dependency scope. Both
+public and private getter names are included. V28 passes with **zero** calls;
+all twelve real generated query definitions, including the private body-boundary
+helper, also contain no full-header call. This verifies a removed boundary,
+not a renamed getter or an annotation. Four semantic guards are initially green,
+not original correctness failures. They compare all current control families,
+absent arms, shared roots, indexed block/loop inputs, root regions, incomplete
+deletion indexes, node replacement and intentionally invalid holder labels with
+[frozen query contracts](../../../../../src/ir/hot_region_fields_reference_wbtest.mbt).
+Revision and arena ownership remain unchanged; public interfaces do not change.
+
+[Twelve native controls](../../../../../src/ir/hot_region_fields_perf_wbtest.mbt)
+include 4096 queries per timed batch, with arena construction outside timing.
+They alternate blocks and loops and keep the complete descendant reference
+queries frozen:
+
+| Query | 16 holders, no deletions: header → fields | 4096 holders, 128 deletions: header → fields |
+| --- | --- | --- |
+| Label | 33.17 → 27.81µs | 39.02 → 33.16µs |
+| Body boundary | 52.62 → 43.44µs | 55.67 → 43.62µs |
+| Region root selection | 136.77 → 59.37µs | 169.48 → 57.27µs |
+
+Matched V27/V28 compiler medians remain mostly near flat. One warmup, three
+accepted samples, alternating order, CPU 6 and leading/trailing reference
+brackets are retained with rejected attempts:
+
+| Workload | Plain median ms (MAD before/after) | Optimizing median ms (MAD before/after) |
+| --- | --- | --- |
+| Large compiler | 3692.572 → 3684.686 (1.012/19.221; 0.21% gain) | 6611.134 → 6556.094 (8.584/11.077; 0.83% gain) |
+| Small compiler | 3.979 → 3.959 (0.088/0.002) | **10.997 → 11.773 (0.002/0.363; 7.06% cost)** |
+| Tee | 3.706 → 3.735 (0.009/0.021; 0.78% cost) | 108.308 → 103.424 (2.444/0.564; 4.51% gain) |
+| Joined readers | **18.955 → 19.310 (0.010/0.449; 1.87% cost)** | **28.223 → 29.216 (0.069/0.626; 3.52% cost)** |
+| Pure tail | 11.914 → 11.775 (0.161/0.080) | 12.007 → 12.035 (0.020/0.077; 0.23% cost) |
+| Conditional writers | 11.520 → 11.257 (0.014/0.057) | 16.322 → 16.268 (0.154/0.079) |
+
+Seven-sample repeats preserve the initial small/joined costs as evidence rather
+than erasing them: small **4.006 → 4.010ms** (MAD 0.039/0.041) /
+**11.179 → 11.098ms** (0.026/0.131); joined **19.425 → 19.337ms**
+(0.151/0.151) / **29.347 → 29.353ms** (0.140/0.678). Small command CPU
+medians are 8.408 → 8.234ms / 15.462 → 15.438ms; joined 23.668 →
+23.643ms / 33.528 → 33.772ms. These repeats do not establish a universal
+compiler speedup. Rejected reference ratios 2.445, 1.159, 1.230, 2.261 and
+1.681 remain saved, including rejected warmups.
+
+Direct shared-consumer controls also preserve bytes and validation. Initial
+small SimplifyLocals/Vacuum medians are 5.325 → 5.355ms / **1.672 →
+1.797ms (7.48% cost)**; conditional 1.285 → 1.327ms / 3.066 → 3.019ms.
+Seven-sample small repeats are 5.383 → 5.334ms (MAD 0.034/0.033) /
+1.651 → 1.667ms (0.015/0.045). Conditional SimplifyLocals/Vacuum repeats are
+1.335 → 1.356ms (0.010/0.010; 1.57% cost) / 3.119 → 3.026ms
+(0.022/0.022; 2.98% gain). Reference ratios 1.160 and 2.441 are rejected
+and retained. Original costs stay visible;
+these controls alone do not close P12 or its full artifact lanes.
+
+The matched large dependency scope falls **15,509,334,518 →
+15,059,317,658 instructions (2.90%)**. Incoming `mi_malloc`/`mi_free`
+calls remain **35,639,396 / 111,085,643**: this reduces header/validation
+work, not allocation requests. Whole small-command instructions fall
+77,714,235 → 77,341,580 plain and 169,301,017 → 168,263,868 optimizing;
+small named allocator calls are unchanged. Three alternating large RSS samples
+show plain **258,916 → 269,656KiB (4.15% cost)**, ranges 255,484–259,080 /
+258,440–270,260; optimizing 292,000 → 292,208KiB, ranges
+291,952–292,088 / 291,864–302,624. Ranges overlap and this introduces no
+new retained cache, but the measurements do not prove a memory improvement.
+
+All **12,978 bounded default tests**, four focused native guards, 542 IR tests
+and twelve native controls pass after `moon info`/`moon fmt`; `.mbti` is unchanged.
+The fixed original/before/after/v133 replay validates **126 modules / 1029
+observations**, plus three dedicated seven-module controls totaling **98
+observations**, with no observation mismatch or Starshine byte change. Traced,
+untraced, profile and RSS outputs independently validate and match saved bytes.
+Large canonical optimizing output remains **5,995,920 vs 5,573,450 bytes
+(+422,470)**; raw remains +383,027. Plain smaller output remains an open
+parity classification, not a declared win.
+
+Frozen lean-v28 native SHA-256:
+`89c643a8f5c66f1ab3725c98a612f8d873ddc367e4856591b64127551550d3a6`.
+Verified release-v133 oracle SHA-256:
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+Fresh-source open-world v133 pass-local medians, a separate cohort from the
+matched gain estimates, are small **4.302 / 0.998993ms (4.31×)** and
+**13.599 / 3.191740ms (4.26×)**; large **3654.406 / 437.909ms (8.35×)**
+and **6907.248 / 1658.680ms (4.16×)**. The candidate manifest hashes all
+1357 `src` files; both oracle reports identify the same 265 production compiler
+files and production-source digest
+`f9bf6d5981e0cc6ea83c05dbf52556c64476ab5de19397b30dfd08165ab1f36e`.
+
+Local evidence is `.tmp/dae2-lean-20260929/{validation-v28.json,candidate-v28.json,
+region-fields-work-{v27,v28}.json,region-fields-native-v28.json,oracle-v28-{small,large},
+pairs-v28-{small,large,tee},runtime-v28,conditional-writers-v28,joined-readers-v28,
+pure-tail-v28,dependency-cost-v28.json,small-instructions-v28,memory-v28,
+review-v28-{small,joined},affected-cleanup-v28-{small,conditional},
+review-cleanup-v28-{small,conditional}}` and the associated drivers/logs.
+Remaining source/local field queries, scratch vectors and repeated flow work,
+read-only flow projection, optimizing cleanup setup, size families, cumulative
+matched evidence and long aggregate/final release signoff remain open. Long fuzz
+is deferred while those performance trials continue.
 
 ## September 29, 2026 cached raw signatures
 
