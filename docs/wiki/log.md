@@ -1,3 +1,12 @@
+### 2026-09-30 — Fused alias discovery and remap
+
+- [Read-only discovery](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-fused-alias-discovery-and-remap)
+  eliminates intermediate instruction/control trees and reuses its restored
+  scope workspace during final remap. Wide active native controls improve
+  12–21%; all 13,076 tests and 4,571 runtime observations pass with exact V54
+  artifact bytes. Enclosing optimizing time is flat; noisy plain cohorts,
+  memory distributions and the 258,469-byte size gap remain explicit.
+
 ### 2026-09-30 — Reverse short-index aliases
 
 - [Scoped reverse copies](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-reverse-short-index-aliases)

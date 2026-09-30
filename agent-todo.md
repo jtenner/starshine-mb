@@ -15,31 +15,35 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v54 passes 13,072 default tests and
+- **Current checkpoint:** lean-v55 passes 13,076 default tests and
   4,571 bounded original/v133 value, event, trap and GC-reference observations.
-  Reverse short-index aliases save 40,806 canonical bytes; plain bytes match.
+  Alias discovery avoids intermediate trees; exact V54 output bytes match.
   The saved binary `ref.eq` defect is repaired; historical V32–V37 fixture counts
   are not general correctness evidence. Final aggregate/release signoff remains.
-  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-reverse-short-index-aliases)
+  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-fused-alias-discovery-and-remap)
   owns hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v54 open-world compiler comparison uses verified release v133,
+The frozen v55 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.026 / 1.006 | 4.00× | 3,682.545 / 469.123 | 7.85× |
-| `dae2-optimizing` | 12.041 / 3.428 | 3.51× | 6,998.603 / 1,738.600 | 4.03× |
+| `dae2` | 4.220 / 1.190 | 3.55× | 3,756.280 / 469.084 | 8.01× |
+| `dae2-optimizing` | 14.443 / 3.447 | 4.19× | 6,969.606 / 1,733.970 | 4.02× |
 
 - **Release blockers:** large DAE2-O adds **258,469 canonical / 128,886 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** V54 saves 39,161 raw / 40,806 canonical bytes with no
+- **Evidence limits:** V55 removes intermediate alias trees, improving wide
+  active native controls 12–21% with exact artifact bytes. Enclosing optimizing
+  time stays flat. Small plain and RSS cohorts are noisy; repeats retain
+  dispersion and reverse RSS medians, so no general speed/memory win is claimed.
+  V54 saves 39,161 raw / 40,806 canonical bytes with no
   raw function growth or nonlocal/semantic-section drift. Compiler optimizing
   pairs cost +0.58% small / +0.80% large within candidate MADs; active tee
   costs +1.66% beyond MAD and stays open. Plain timing/RSS is close to flat.
@@ -216,6 +220,10 @@ breadth. Shared changes require all affected consumers in the matrix below.
   dependencies for exits, loops, handlers and unsupported signatures. The raw
   compiler census bounds candidates at 2,774 functions / about 7% of instruction
   lines before opcode/signature/stack admission; measure actual coverage first.
+  Keep the existing flat path and compare every solved boundary bit against
+  forced HOT, including unchanged functions that never replay. Observe the
+  condition, join unwritten entry values, enforce control stack floors and
+  keep raw rewrite admission separate; compare active native/pipeline costs.
 - [ ] Reduce repeated body/revision queries and representation allocation;
   extend the read-source snapshot to demand only unresolved reads when measured
   gains justify it. Preserve
@@ -241,6 +249,10 @@ breadth. Shared changes require all affected consumers in the matrix below.
   numeric-constant/valid-local leaf state construction. Reduce remaining
   compound/unknown initialized-local arrays without sharing mutable state
   across callers; preserve full typing and measure fallback/enclosing costs.
+  Balanced flat cleanup repeatedly scans an immutable original tail, but the
+  simple distinct/reused/nested capture pipeline probe scales roughly linearly.
+  Profile actual compiler query density and preserve direct-write/recursive-read
+  and terminator semantics before adding sparse tail-event caches.
 - [ ] Remove duplicated balanced-capture scan/materialization work while keeping
   legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
   matched small optimizing is +6.39%; retain these costs until measured away.
@@ -274,11 +286,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   ordered SimplifyLocals/Vacuum and
   downstream cleanup; close indirect-family, typed-control, parameter/result
   and local/capture debris gaps without weakening behavior.
-- [ ] Reduce local-alias discovery/forwarding churn: V54 admits reverse sources
-  below 128, but rebuilds instruction/control trees before the required final
-  remap. Trial read-only discovery and scoped forwarding in that final remap;
-  prove exact output, partial/default reads, tee/root/loop/handler lifetime and
-  input ownership. Native active reverse-copy cost is now 11.10 µs / 64 copies.
+- [ ] Profile remaining alias admission/counting, replay and remap costs after
+  V55 removes intermediate trees and instruction-option roots. Wide native
+  active controls improve 12–21%, but enclosing optimizing times remain flat;
+  follow larger dependency/lift/cleanup costs rather than assuming more alias
+  micro-optimizations will close the compiler gap.
 - [ ] Extend alias breadth beyond proved lexical dominance and nonwidening
   indices only with per-function size and iteration/alias-root evidence. Wider
   equal-width indices can diverge during compaction; retain that boundary.

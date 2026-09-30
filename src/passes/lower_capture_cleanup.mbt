@@ -312,7 +312,7 @@ fn pass_lower_compact_captures_with_map(
       @lib.Locals::from_types(retained),
       @lib.Expr::new(
         match unread_aliases {
-          Some(aliases) => dae2_parameter_aliases_remap(body, indices, aliases)
+          Some(aliases) => aliases.remap(body, indices)
           None => pass_lower_remap_locals(body, indices)
         },
       ),

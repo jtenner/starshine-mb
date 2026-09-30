@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/fused_alias_wbtest.mbt
+  - ../../../../../src/passes/fused_alias_reference_wbtest.mbt
+  - ../../../../../src/passes/fused_alias_perf_wbtest.mbt
+  - ../../../../../src/cmd/fused_alias_wbtest.mbt
   - ../../../../../src/passes/reverse_alias_wbtest.mbt
   - ../../../../../src/passes/reverse_alias_reference_wbtest.mbt
   - ../../../../../src/passes/reverse_alias_perf_wbtest.mbt
@@ -116,6 +120,135 @@ dependency-window-only. Toggled event collection scopes instruction totals;
 call counters retain the whole command. Historical values remain evidence under
 that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
+
+## September 30, 2026 fused alias discovery and remap
+
+Alias discovery now walks the original instruction/control tree without
+materializing a forwarded copy. An integer virtual previous-read/root replaces
+instruction-option alias state. It updates read counts and records proven
+writer roots with the existing lexical undo discipline. The original body is
+borrowed unchanged; all three storage regressions fail on frozen V54 first.
+The generated native V54 path has two instruction-materialization sites:
+an Instruction-array allocation and a reconstructing child visitor.
+
+The required final compaction remap now replays writer activations, forwards
+reads to their resolved roots and deletes only aliases whose final local index
+is negative. Partial aliases retain their writes and earlier/default reads;
+forwarded reads still use the root. Each child/sibling/handler restores its
+active roots on exit. The discovery workspace is reused after undo restores
+it; ordinary-writer facts are released before remap. No extra graph traversal
+or producer duplication is introduced. The cheap no-alias path remains intact.
+
+The private discovery return carries a plan rather than a rewritten body;
+its sole production caller applies that plan during remap. Direct tests apply
+the new private contract and retain their exact final rewrite expectations.
+No public API is changed. Every admitted source is a nonalias root under the
+same one-writer/dominating-scope rules proved by V54; nonwidening index admission
+is unchanged. The remap always constructs the final output; borrowed input
+storage remains read-only.
+
+Three red-first storage/replay regressions plus existing root/default/tee/
+loop/handler/width tests compare complete compaction with frozen V54. Twenty
+native complete-compaction controls cover reverse/forward copies, no aliases,
+partial/default aliases and nested aliases at widths 8/64. Setup, exact output
+validation and input ownership checks occur outside timed loops. All artifact
+raw/canonical bytes and bounded runtime observations must remain identical to
+V54. Frozen release binaries are compared against verified release Binaryen
+v133 on small/large compiler inputs, and against each other with alternating
+pairs, independent reference brackets, MAD and RSS. Long fuzz remains deferred.
+
+`moon info`, `moon fmt`, **13,076** default tests, release native build,
+all **20** native controls and existing alias/suffix/dispatcher guards pass.
+No public API change or new warning category occurs. Native discovery's two
+instruction-materialization sites become **zero**, including the private
+child walker. Complete compaction preserves exact frozen-reference output.
+
+Native complete-compaction means:
+
+| Width / shape | V54 µs | V55 µs | Change |
+| --- | ---: | ---: | ---: |
+| 8 reverse copy | 1.61000 | 1.48000 | -8.07% |
+| 8 forward copy | 1.62000 | 1.51000 | -6.79% |
+| 8 no alias | 0.39511 | 0.33389 | -15.49% |
+| 8 partial alias | 2.04000 | 1.97000 | -3.43% |
+| 8 nested alias | 2.31000 | 1.90000 | -17.75% |
+| 64 reverse copy | 11.64000 | 9.96000 | -14.43% |
+| 64 forward copy | 11.15000 | 9.81000 | -12.02% |
+| 64 no alias | 2.23000 | 2.22000 | -0.45% |
+| 64 partial alias | 15.56000 | 12.89000 | -17.16% |
+| 64 nested alias | 16.43000 | 12.95000 | -21.18% |
+
+Frozen native V55 SHA-256: `14a531305a5a83b732d61fa4c1d86d2db588add421e526372c6119c112c5109e`.
+
+Fresh verified release-v133 comparison (CPU 6, one warmup, three samples; pass-local medians):
+
+| Input / pass | Starshine ms | v133 ms | Ratio | Raw / canonical size gap |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 4.220 | 1.190 | 3.548× | -123 / -97 B |
+| small / `dae2-optimizing` | 14.443 | 3.447 | 4.190× | -392 / -290 B |
+| large / `dae2` | 3756.280 | 469.084 | 8.008× | -117,365 / -100,237 B |
+| large / `dae2-optimizing` | 6969.606 | 1733.970 | 4.019× | +128,886 / +258,469 B |
+
+Matched V54→V55 pipeline medians (same CPU/warmup, three accepted alternating pairs, independent reference bracket ≤1.15):
+
+| Input / pass | V54 ms | V55 ms | Change | MAD before / after ms |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 6.116 | 3.938 | -35.61% | 1.938 / 0.051 |
+| small / `dae2-optimizing` | 10.513 | 10.431 | -0.78% | 0.205 / 0.081 |
+| large / `dae2` | 3748.956 | 3725.572 | -0.62% | 16.989 / 25.287 |
+| large / `dae2-optimizing` | 6603.478 | 6609.061 | +0.08% | 25.288 / 113.734 |
+| tee / `dae2` | 2.894 | 2.956 | +2.14% | 0.032 / 0.087 |
+| tee / `dae2-optimizing` | 103.539 | 103.663 | +0.12% | 0.179 / 0.405 |
+
+Three alternating peak-RSS pairs, KiB (median [range]):
+
+- `dae2`: before 244,204 [243,868–280,928] → after 281,120 [245,672–281,264].
+- `dae2-optimizing`: before 290,056 [289,928–290,308] → after 290,116 [290,108–290,132].
+
+Active width-64 native controls improve 12–21%, including partial and nested
+aliases. Compiler and tee optimizing pairs remain flat within dispersion:
+−0.78% small / +0.08% large / +0.12% tee. The first small plain cohort has
+three rejected rounds and very large baseline MAD; its −35.61% median change
+is not a stable gain. An independent seven-pair repeat gives 4.228→3.820 ms
+(−9.65%, MAD 0.446/0.062 ms), with two rejected rounds including warmup.
+Its optimizing repeat gives 10.335→10.411 ms (+0.74%, MAD 0.138/0.141 ms),
+with two rejected rounds. These repeats do not establish a general speed win.
+
+Initial plain RSS rises from 244,204 to 281,120 KiB with overlapping bimodal
+ranges. An independent repeat reverses the medians: 268,100 [244,692–281,124]
+→244,852 [243,864–281,320] KiB. There is no stable memory-saving direction;
+retain the initial cohort and historical plain memory costs. Optimizing RSS
+is close to flat. Small whole-command optimizing instructions fall from
+154,324,921 to 154,286,421 (−0.025%), with exact unprofiled output; this is
+not a pass-local timer. Most enclosing cost lies outside this alias visitor.
+
+All **749 bounded runtime modules / 4,571 observations** match their originals,
+including events, traps, loop values and reference identity. All small/large
+raw and canonical artifact bytes match V54 exactly, retaining its 39,161 raw /
+40,806 canonical byte saving and the remaining **128,886 raw / 258,469 canonical
+byte** v133 gap. No output-shape family is closed by this performance change.
+
+A separate bounded capture-scaling probe uses widths 8/128/1,024, distinct,
+reused and nested locals, on frozen V55 plus verified v133 outputs. The simple
+pipeline fixtures scale roughly linearly (DAE2-O at width1,024: 1.87–1.96 ms).
+They do not prove the balanced helper's repeated tail scans are an enclosing
+bottleneck. Profile actual compiler query density before adding tail caches.
+This exploratory probe validates outputs and sizes; it is not new runtime or
+oracle-timing parity evidence. Long fuzz/release signoff remain deferred.
+
+Sources: [discovery/remap](../../../../../src/passes/dae2_parameter_aliases.mbt),
+[sole caller](../../../../../src/passes/lower_capture_cleanup.mbt),
+[storage/replay regressions](../../../../../src/passes/fused_alias_wbtest.mbt),
+[frozen V54 path](../../../../../src/passes/fused_alias_reference_wbtest.mbt),
+[native controls](../../../../../src/passes/fused_alias_perf_wbtest.mbt),
+[retained alias guards](../../../../../src/passes/reverse_alias_wbtest.mbt) and
+[dispatcher](../../../../../src/cmd/fused_alias_wbtest.mbt).
+Local evidence: `.tmp/dae2-lean-20260929/validation-v55.json`,
+`candidate-v55.json`, `v55-baseline.json`, `alias-discovery-work-{v54,v55}.json`,
+`v55-bench.log`, `oracle-v55-{small,large}/`, `pairs-v55-{small,large,tee}/`,
+`pairs-v55-small-repeat/`, `memory-v55/`, `memory-v55-plain-repeat/`,
+`profile-small-v55/`, `tail-scaling-v55/`, `local-alias-runtime-v55/`,
+`parameter-alias-runtime-v55/` and `runtime-v55/`.
 
 ## September 30, 2026 reverse short-index aliases
 

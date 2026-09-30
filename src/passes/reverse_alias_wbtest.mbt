@@ -76,7 +76,7 @@ test "DAE2 reverse short-index defaults and tee chains resolve to nonalias roots
   let writes = Array::make(4, 0)
   pass_lower_count_locals(original, reads, writes)
   let (_, targets) = dae2_cleanup_parameter_aliases(original, 0, reads, writes)
-  let targets = targets.unwrap()
+  let targets = targets.unwrap().targets
   assert_eq(targets, [7L, 7L, 6L, -1L])
   for target in targets {
     if target >= 0L {
@@ -151,12 +151,13 @@ test "DAE2 reverse aliases preserve defaults in siblings and handlers" {
     let reads = [0, 0]
     let writes = [0, 0]
     pass_lower_count_locals(original, reads, writes)
-    let (forwarded, _) = dae2_cleanup_parameter_aliases(
+    let (borrowed, aliases) = dae2_cleanup_parameter_aliases(
       original, 0, reads, writes,
     )
     assert_eq(reads[0], 2)
     assert_eq(reads[1], 4)
-    assert_eq(forwarded, actual)
+    assert_true(physical_equal(borrowed, original))
+    assert_eq(aliases.unwrap().remap(borrowed, indices), actual)
   }
 }
 

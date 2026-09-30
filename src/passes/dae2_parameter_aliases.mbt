@@ -4,7 +4,8 @@ priv struct Dae2ParameterAliases {
   mut established : Array[Bool]?
   reads : Array[Int]
   writes : Array[Int]
-  active : Array[@lib.Instruction?]
+  active : Array[Int]
+  mut forwarded : Bool
   targets : Array[Int64]
   undo : Array[Int]
 }
@@ -20,7 +21,8 @@ fn Dae2ParameterAliases::new(
     established: None,
     reads,
     writes,
-    active: Array::make(reads.length(), None),
+    active: Array::make(reads.length(), -1),
+    forwarded: false,
     targets: Array::make(reads.length(), -1L),
     undo: [],
   }
@@ -39,59 +41,47 @@ fn dae2_alias_source_is_nonwidening(source : Int, target : Int) -> Bool {
 // joins are needed. A source is unwritten or its single writer dominates the
 // alias in the current lexical scope. A static writer may repeat in a loop,
 // so its definition must precede the alias in that same active iteration.
-fn Dae2ParameterAliases::replace_reads(
+fn Dae2ParameterAliases::discover(
   self : Dae2ParameterAliases,
   instrs : Array[@lib.Instruction],
-) -> Array[@lib.Instruction] {
+) -> Unit {
   let mark = self.undo.length()
-  let out = Array::new(capacity=instrs.length())
-  let visit_body = fn(body) { self.replace_reads(body) }
+  let mut previous_get = -1
   for instr in instrs {
-    let instr = match instr {
-      @lib.LocalGet(@lib.LocalIdx(raw)) =>
-        match self.active[raw.to_int()] {
-          Some(source) => {
-            let base = match source {
-              @lib.LocalGet(@lib.LocalIdx(base)) => base
-              _ => abort("invalid local alias")
-            }
-            self.reads[raw.to_int()] -= 1
-            self.reads[base.to_int()] += 1
-            source
-          }
-          None => instr
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let local_id = raw.to_int()
+        let source = self.active[local_id]
+        if source >= 0 {
+          self.reads[local_id] -= 1
+          self.reads[source] += 1
+          self.forwarded = true
+          previous_get = source
+        } else {
+          previous_get = local_id
         }
-      _ => pass_lower_map_children(instr, visit_body)
+        continue
+      }
+      _ => self.discover_children(instr)
     }
     match instr {
       @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) if self.writes[raw.to_int()] ==
         1 => {
         let local_id = raw.to_int()
-        let mut is_alias = false
-        if local_id >= self.start {
-          match out.last() {
-            Some(source) if source is @lib.LocalGet(@lib.LocalIdx(base)) &&
-              dae2_alias_source_is_nonwidening(base.to_int(), local_id) &&
-              (
-                self.writes[base.to_int()] == 0 ||
-                (
-                  self.writes[base.to_int()] == 1 &&
-                  self.is_established(base.to_int())
-                )
-              ) => {
-              self.active[local_id] = Some(source)
-              // The width guard also covers partial forwarding when an
-              // earlier/default read retains the alias declaration.
-              let kind = if instr is @lib.LocalTee(_) { 1L } else { 0L }
-              self.targets[local_id] = base.to_int().to_int64() * 2L + kind
-              is_alias = true
-            }
-            _ => ()
-          }
-        }
+        let source = previous_get
+        let is_alias = local_id >= self.start &&
+          source >= 0 &&
+          dae2_alias_source_is_nonwidening(source, local_id) &&
+          (
+            self.writes[source] == 0 ||
+            (self.writes[source] == 1 && self.is_established(source))
+          )
         if is_alias {
-          // Reads through active aliases are already resolved to their source,
-          // so alias targets need no separate established-definition entry.
+          self.active[local_id] = source
+          let kind = if instr is @lib.LocalTee(_) { 1L } else { 0L }
+          self.targets[local_id] = source.to_int64() * 2L + kind
+          // Roots are flattened before this writer; alias writers do not
+          // establish ordinary source definitions.
           self.undo.push(local_id)
         } else if self.reads[local_id] > 0 {
           let established = match self.established {
@@ -108,17 +98,46 @@ fn Dae2ParameterAliases::replace_reads(
       }
       _ => ()
     }
-    out.push(instr)
+    previous_get = -1
   }
   while self.undo.length() > mark {
     let entry = self.undo.pop().unwrap()
     if entry >= 0 {
-      self.active[entry] = None
+      self.active[entry] = -1
     } else {
       self.established.unwrap()[-entry - 1] = false
     }
   }
-  out
+}
+
+///|
+fn Dae2ParameterAliases::discover_children(
+  self : Dae2ParameterAliases,
+  instr : @lib.Instruction,
+) -> Unit {
+  match instr {
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) => self.discover(body)
+    @lib.If(_, yes, no) => {
+      self.discover(yes)
+      match no {
+        Some(body) => self.discover(body)
+        None => ()
+      }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      self.discover(body)
+      for catch_ in catches {
+        let body = match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(body))
+          | @lib.LegacyCatchAll(@lib.Expr(body)) => body
+        }
+        self.discover(body)
+      }
+    }
+    _ => ()
+  }
 }
 
 ///|
@@ -196,12 +215,12 @@ fn dae2_cleanup_parameter_aliases(
   start : Int,
   reads : Array[Int],
   writes : Array[Int],
-) -> (Array[@lib.Instruction], Array[Int64]?) {
+) -> (Array[@lib.Instruction], Dae2ParameterAliases?) {
   if !dae2_has_parameter_alias(instrs, start, writes) {
     return (instrs, None)
   }
   let aliases = Dae2ParameterAliases::new(start, reads, writes)
-  let body = aliases.replace_reads(instrs)
+  aliases.discover(instrs)
   let mut unread = false
   // Active reads are flattened before copy recognition. An admitted source is
   // unwritten or has an ordinary dominating writer: alias writers never enter
@@ -218,45 +237,59 @@ fn dae2_cleanup_parameter_aliases(
         reads[(definition >> 1).to_int()] -= 1
       }
       unread = true
-    } else {
-      aliases.targets[local_id] = -1L
     }
   }
-  (body, if unread { Some(aliases.targets) } else { None })
+  // Reuse the restored active/undo workspace in the required final remap.
+  // Keep metadata for partial aliases too: their writes stay, but later reads
+  // still need forwarding. Discovery never constructs instruction storage.
+  aliases.established = None
+  (instrs, if unread || aliases.forwarded { Some(aliases) } else { None })
 }
 
 ///|
-// Remove dead alias writes while performing the already-required local remap.
-// Other producers retain their order and position. The no-alias path continues
-// to use the original exact-sized map without allocating this visitor/output.
-fn dae2_parameter_aliases_remap(
+// Replay only proved aliases while performing the already-required local remap.
+// Discovery's active/undo workspace has been restored to its entry state. Each
+// original writer activates its resolved root only in that lexical scope.
+fn Dae2ParameterAliases::remap(
+  self : Dae2ParameterAliases,
   instrs : Array[@lib.Instruction],
   indices : Array[Int],
-  aliases : Array[Int64],
 ) -> Array[@lib.Instruction] {
+  let mark = self.undo.length()
   let out = Array::new(capacity=instrs.length())
-  let visit_body = fn(body) {
-    dae2_parameter_aliases_remap(body, indices, aliases)
-  }
+  let visit_body = fn(body) { self.remap(body, indices) }
   for instr in instrs {
     match instr {
-      @lib.LocalSet(@lib.LocalIdx(raw)) if aliases[raw.to_int()] >= 0L => {
-        match out.pop() {
-          Some(@lib.LocalGet(_)) => ()
-          _ => abort("missing local alias producer")
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) if self.targets[raw.to_int()] >=
+        0L => {
+        let local_id = raw.to_int()
+        self.active[local_id] = (self.targets[local_id] >> 1).to_int()
+        self.undo.push(local_id)
+        if indices[local_id] < 0 {
+          if instr is @lib.LocalSet(_) {
+            match out.pop() {
+              Some(@lib.LocalGet(_)) => ()
+              _ => abort("missing local alias producer")
+            }
+          }
+          continue
         }
-        continue
       }
-      @lib.LocalTee(@lib.LocalIdx(raw)) if aliases[raw.to_int()] >= 0L =>
-        continue
       _ => ()
     }
     out.push(
       match instr {
-        @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        @lib.LocalGet(@lib.LocalIdx(raw)) => {
+          let local_id = raw.to_int()
+          let source = if self.active[local_id] >= 0 {
+            self.active[local_id]
+          } else {
+            local_id
+          }
           @lib.Instruction::local_get(
-            @lib.LocalIdx::new(indices[raw.to_int()].to_uint()),
+            @lib.LocalIdx::new(indices[source].to_uint()),
           )
+        }
         @lib.LocalSet(@lib.LocalIdx(raw)) =>
           @lib.Instruction::local_set(
             @lib.LocalIdx::new(indices[raw.to_int()].to_uint()),
@@ -268,6 +301,9 @@ fn dae2_parameter_aliases_remap(
         _ => pass_lower_map_children(instr, visit_body)
       },
     )
+  }
+  while self.undo.length() > mark {
+    self.active[self.undo.pop().unwrap()] = -1
   }
   out
 }
