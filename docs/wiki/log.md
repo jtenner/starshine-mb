@@ -1,3 +1,11 @@
+### 2026-09-30 — Terminal cleanup ranges
+
+- [Terminal cleanup](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-terminal-cleanup-ranges)
+  checks the final target read before suffix work and removes two caller tail
+  copies. All 13,056 tests, 24 native controls and 2,891 runtime observations
+  pass with exact compiler artifact bytes. Retired split wrappers move into
+  test references. Recursive reconstruction and the output-size gap remain open.
+
 ### 2026-09-30 — Producer cleanup ranges
 
 - [Producer ranges](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-producer-cleanup-ranges)

@@ -437,3 +437,39 @@ fn sl_producer_reference_effectful_suffix_local_gets_flat(
   }
   (rewritten, rewrite_count)
 }
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_take_statement_prefix(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
+  let end = run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
+    instrs, env, false,
+  )
+  if end == 0 {
+    return ([], instrs.copy())
+  }
+  let prefix = Array::makei(end, fn(index) { instrs[index] })
+  let tail = Array::makei(instrs.length() - end, fn(index) {
+    instrs[end + index]
+  })
+  (prefix, tail)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_take_statement_prefix_allow_escape(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
+  let end = run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
+    instrs, env, true,
+  )
+  if end == 0 {
+    return ([], instrs.copy())
+  }
+  let prefix = Array::makei(end, fn(index) { instrs[index] })
+  let tail = Array::makei(instrs.length() - end, fn(index) {
+    instrs[end + index]
+  })
+  (prefix, tail)
+}

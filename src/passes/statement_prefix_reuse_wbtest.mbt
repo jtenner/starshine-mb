@@ -40,7 +40,7 @@ fn sl_prefix_fixture(width : Int) -> Array[@lib.Instruction] {
 }
 
 ///|
-test "statement prefix checks each instruction once and retains exact split" {
+test "statement prefix checks each instruction once and owns the exact statement" {
   let body = sl_prefix_fixture(16)
   body.push(@lib.Instruction::nop())
   let env = @validate.Env::new()
@@ -54,11 +54,12 @@ test "statement prefix checks each instruction once and retains exact split" {
   assert_eq(end, sl_prefix_reference(body, env, false))
   assert_eq(end, 32)
   assert_eq(visits[0], end)
-  let (prefix, tail) = run_hot_pipeline_raw_simplify_locals_take_statement_prefix(
-    body, env,
-  )
+  let saved = body.copy()
+  let prefix = sl_statement_at(body, 0, env)
   assert_eq(prefix.length(), end)
-  assert_eq(tail, [@lib.Instruction::nop()])
+  assert_eq(body[end], @lib.Instruction::nop())
+  prefix[0] = @lib.Instruction::nop()
+  assert_eq(body, saved)
 }
 
 ///|

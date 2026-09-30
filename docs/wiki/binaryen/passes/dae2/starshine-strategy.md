@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/terminal_ranges_wbtest.mbt
+  - ../../../../../src/passes/terminal_ranges_reference_wbtest.mbt
+  - ../../../../../src/passes/terminal_ranges_perf_wbtest.mbt
+  - ../../../../../src/cmd/terminal_ranges_wbtest.mbt
   - ../../../../../src/passes/producer_ranges_wbtest.mbt
   - ../../../../../src/passes/producer_ranges_reference_wbtest.mbt
   - ../../../../../src/passes/producer_ranges_perf_wbtest.mbt
@@ -100,6 +104,144 @@ dependency-window-only. Toggled event collection scopes instruction totals;
 call counters retain the whole command. Historical values remain evidence under
 that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
+
+## September 30, 2026 terminal cleanup ranges
+
+The terminal-copy helper can only accept one final `local.get` of the target.
+It now checks that shape before searching or copying anything, typechecks the
+single instruction with the same prevalidated local environment, and retains
+the structured-control, terminator, source-write and target-write barriers.
+The terminal and next-if helpers also accept a start offset into the original
+body; their callers no longer construct two complete remaining-tail arrays.
+Consumed lengths stay relative to that start, while future-read checks use
+absolute indices. No transform, traversal order or cleanup round is removed.
+
+The two statement-split wrappers left without production callers by V50 now
+live with the frozen test reference. The statement ownership regression calls
+the production array-only helper and checks that editing the extracted array
+does not edit its source. No public API changes are required.
+
+Before implementation, three focused tests and the dispatcher guard pass on
+V50; the native work budget fails with one full suffix-split site. The new
+implementation removes that site. The focused cases cover i32/i64/externref,
+prevalidated nonnullable locals, invalid local indices, side effects, control
+and source/target-write barriers. A fourth test compares offset terminal and
+next-if decisions against sliced reference inputs, including later reads and
+intervening writes. The dispatcher checks the resulting function signature and
+retained observable consumer call. An initial test incorrectly assumed suffix
+checking starts with uninitialized locals; it was corrected to reflect the
+prevalidated-prefix contract before the baseline was accepted.
+
+The 24 native controls compare 8/512/4096 instruction tails with an accepted
+final read, a final drop, an early conflicting source write and a wrong final
+local. They compare the frozen V50 helper, validate results outside timed loops
+and check that input arrays remain unchanged. The separate repeated-constant
+producer controls measure the enclosing path that motivated this change.
+
+The enclosing constant-copy repeat measures **8.48 µs** at width 8 and
+**557.47 µs** at width 512, versus V50's previous 12.67 µs / 14.09 ms.
+Those are separate native benchmark cohorts, not alternating binary pairs.
+The approximately 25× wide-case difference is consistent with eliminating the
+repeated full-tail search/copies; the separate compiler pairs below determine
+the enclosing artifact effect. All producer output/ownership checks pass.
+
+The candidate passes `moon info`, `moon fmt`, all **13,056** default tests,
+the release native build and all **24** native controls. The two V50 unused
+wrapper warnings are removed; no public API changes occur.
+
+Native means (frozen V50 helper → terminal range helper):
+
+| Tail / decision | Before µs | After µs | Change |
+| --- | ---: | ---: | ---: |
+| 8 accepted | 0.3025 | 0.2014 | -33.42% |
+| 8 final drop | 0.1183 | 0.0103 | -91.26% |
+| 8 early source write | 0.2321 | 0.1013 | -56.34% |
+| 8 wrong final local | 0.1771 | 0.0111 | -93.75% |
+| 512 accepted | 6.5800 | 4.9500 | -24.77% |
+| 512 final drop | 3.9700 | 0.0106 | -99.73% |
+| 512 early source write | 2.9800 | 0.1159 | -96.11% |
+| 512 wrong final local | 2.2200 | 0.0122 | -99.45% |
+| 4096 accepted | 53.3000 | 41.1000 | -22.89% |
+| 4096 final drop | 31.7200 | 0.0098 | -99.97% |
+| 4096 early source write | 24.8900 | 0.1025 | -99.59% |
+| 4096 wrong final local | 13.2600 | 0.0104 | -99.92% |
+
+Frozen native V51 SHA-256: `32f30c85a59b7c5283c6a27f73656924a87d70a5d8e1433516a5fb8d70814b3f`.
+
+Fresh verified release-v133 comparison (CPU 6, one warmup, three samples; pass-local medians):
+
+| Input / pass | Starshine ms | v133 ms | Ratio | Raw / canonical size gap |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 4.319 | 1.090 | 3.963× | -123 / -97 B |
+| small / `dae2-optimizing` | 12.164 | 3.339 | 3.643× | -386 / -284 B |
+| large / `dae2` | 3774.433 | 494.823 | 7.628× | -117,365 / -100,237 B |
+| large / `dae2-optimizing` | 7326.431 | 1791.420 | 4.090× | +168,047 / +299,275 B |
+
+Matched V50→V51 pipeline medians (same CPU/warmup, three accepted alternating pairs, independent reference bracket ≤1.15):
+
+| Input / pass | V50 ms | V51 ms | Change | MAD before / after ms |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 4.151 | 4.155 | +0.10% | 0.039 / 0.249 |
+| small / `dae2-optimizing` | 10.630 | 10.541 | -0.84% | 0.081 / 0.005 |
+| large / `dae2` | 3754.229 | 4089.598 | +8.93% | 62.721 / 138.292 |
+| large / `dae2-optimizing` | 6727.240 | 6707.700 | -0.29% | 32.394 / 32.183 |
+| tee / `dae2` | 3.304 | 2.961 | -10.38% | 0.091 / 0.001 |
+| tee / `dae2-optimizing` | 108.105 | 108.977 | +0.81% | 0.499 / 0.612 |
+
+Three alternating peak-RSS pairs, KiB (median [range]):
+
+- `dae2`: before 245,280 [245,020–281,500] → after 281,092 [280,532–281,756].
+- `dae2-optimizing`: before 290,152 [289,760–292,460] → after 290,156 [290,112–290,256].
+
+The small optimizing whole-command Callgrind comparison changes
+156,032,829 → 155,529,391 instructions (−0.32%), with byte identity against
+unprofiled output. These include startup/decode/validation/encoding and do not
+represent pass-only counts. Recursive balanced cleanup still accounts for
+10.72% inclusive work, overlapping the skipped-carrier scope; this motivates
+the next allocation trial rather than predicting its gain.
+
+The matched optimizing medians change −0.84% small / −0.29% large and +0.81%
+on active tee. Plain is +0.10% small, +8.93% large and −10.38% active tee.
+The independent large-plain repeat is +1.76% (3770.027 → 3836.350 ms;
+MAD 5.610 / 98.484). Identical-V50 calibration is −1.74%
+(4008.439 → 3938.515 ms; MAD 20.004 / 7.572). Neither erases the original
+plain cost, and the optimizing changes are small relative to spread. Keep
+plain and active-tee costs open; this is a targeted scaling win.
+
+Initial plain trace medians locate 88.884 ms in finalize, 36.534 ms in rewrite
+and 28.785 ms in analysis within the 335.369 ms pipeline delta. Lift and
+dependency construction are nested analysis scopes. Do not add overlapping
+medians or identify a cause from this attribution alone.
+
+Plain whole-command instructions are essentially flat: 73,070,097 →
+73,077,211 (+0.010%), with exact profiler output bytes. This small-fixture
+count does not explain or erase the large-fixture wall-time cost.
+
+The initial plain peak-RSS median rises 245,280 → 281,092 KiB, but the focused
+repeat is 280,692 → 280,464 KiB with both sides ranging near 244,000–282,000 KiB.
+Identical-V50 calibration itself changes 268,272 → 244,656 KiB with broad
+ranges. Preserve the initial cohort; the allocator/RSS bimodality does not
+establish a stable candidate-specific memory increase or a memory saving.
+Optimizing RSS is effectively flat (290,152 → 290,156 KiB).
+
+All 469 bounded runtime modules / 2,891 observations agree with their originals,
+including effects, traps and reference identity. Frozen V50/V51 raw and canonical
+compiler artifact bytes are identical. The remaining large optimizing gap is
++168,047 raw / +299,275 canonical bytes; this change closes no output-shape family.
+
+Sources: [`pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt),
+[terminal regressions](../../../../../src/passes/terminal_ranges_wbtest.mbt),
+[frozen helper](../../../../../src/passes/terminal_ranges_reference_wbtest.mbt),
+[native controls](../../../../../src/passes/terminal_ranges_perf_wbtest.mbt) and
+[dispatcher regression](../../../../../src/cmd/terminal_ranges_wbtest.mbt).
+Local evidence under `.tmp/dae2-lean-20260929/`: `validation-v51.json`,
+`candidate-v51.json`, `v51-baseline.json`, `terminal-copy-work-{v50,v51}.json`,
+`v51-bench.log`, `v51-producer-{tiny,wide}.log`, `local-alias-runtime-v51/`,
+`parameter-alias-runtime-v51/`, `runtime-v51/`, `oracle-v51-{small,large}/`,
+`pairs-v51-{small,large,tee,plain-repeat,plain-calibration}/`,
+`profile-small-v51{,-plain}/`, `v51-plain-phase-comparison.json` and
+`memory-v51{,-plain-repeat,-plain-calibration}/`.
+Long fuzz, shared-consumer and release signoff remain deferred.
 
 ## September 30, 2026 producer cleanup ranges
 

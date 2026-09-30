@@ -8361,42 +8361,6 @@ fn run_hot_pipeline_raw_simplify_locals_take_value_suffix(
 }
 
 ///|
-fn run_hot_pipeline_raw_simplify_locals_take_statement_prefix(
-  instrs : Array[@lib.Instruction],
-  env : @validate.Env,
-) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
-  let end = run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
-    instrs, env, false,
-  )
-  if end == 0 {
-    return ([], instrs.copy())
-  }
-  let prefix = Array::makei(end, fn(index) { instrs[index] })
-  let tail = Array::makei(instrs.length() - end, fn(index) {
-    instrs[end + index]
-  })
-  (prefix, tail)
-}
-
-///|
-fn run_hot_pipeline_raw_simplify_locals_take_statement_prefix_allow_escape(
-  instrs : Array[@lib.Instruction],
-  env : @validate.Env,
-) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
-  let end = run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
-    instrs, env, true,
-  )
-  if end == 0 {
-    return ([], instrs.copy())
-  }
-  let prefix = Array::makei(end, fn(index) { instrs[index] })
-  let tail = Array::makei(instrs.length() - end, fn(index) {
-    instrs[end + index]
-  })
-  (prefix, tail)
-}
-
-///|
 fn run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -8715,9 +8679,10 @@ fn run_hot_pipeline_raw_simplify_locals_try_rewrite_dupable_copy_into_next_if_co
   target_local : Int,
   replacement : @lib.Instruction,
   source_locals : Array[Int],
+  start? : Int = 0,
 ) -> (Array[@lib.Instruction], Int)? {
   let prefix : Array[@lib.Instruction] = []
-  let mut idx = 0
+  let mut idx = start
   while idx < remaining.length() {
     let instr = remaining[idx]
     if run_hot_pipeline_raw_simplify_locals_instr_writes_local(
@@ -8770,7 +8735,7 @@ fn run_hot_pipeline_raw_simplify_locals_try_rewrite_dupable_copy_into_next_if_co
           for rewritten_instr in rewritten_if {
             rewritten.push(rewritten_instr)
           }
-          return Some((rewritten, idx + 1))
+          return Some((rewritten, idx + 1 - start))
         } else {
           return None
         }
@@ -8796,41 +8761,46 @@ fn run_hot_pipeline_raw_simplify_locals_try_rewrite_dupable_copy_terminal_value_
   replacement : @lib.Instruction,
   source_locals : Array[Int],
   env : @validate.Env,
+  start? : Int = 0,
 ) -> (Array[@lib.Instruction], Int)? {
-  let (middle, value_suffix) = run_hot_pipeline_raw_simplify_locals_take_value_suffix(
-    remaining, 1, env,
-  )
-  if value_suffix.length() != 1 {
+  let last_index = remaining.length() - 1
+  if start > last_index {
     return None
   }
-  match value_suffix[0] {
-    @lib.LocalGet(@lib.LocalIdx(raw)) =>
-      if raw.reinterpret_as_int() != target_local {
-        None
-      } else if middle.any(fn(instr) {
-          run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
-          run_hot_pipeline_raw_simplify_locals_instr_is_early_terminator(instr) ||
-          run_hot_pipeline_raw_simplify_locals_instr_writes_local(
-            instr, target_local,
-          ) ||
-          source_locals.any(fn(local_id) {
-            run_hot_pipeline_raw_simplify_locals_instr_writes_local(
-              instr, local_id,
-            )
-          })
-        }) {
-        None
-      } else {
-        let rewritten : Array[@lib.Instruction] = []
-        rewritten.push(@lib.Instruction::nop())
-        for instr in middle {
-          rewritten.push(instr)
-        }
-        rewritten.push(replacement)
-        Some((rewritten, remaining.length()))
-      }
-    _ => None
+  let last = remaining[last_index]
+  match last {
+    @lib.LocalGet(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() ==
+      target_local => ()
+    _ => return None
   }
+  // Only a one-instruction local.get suffix can succeed. Preserve its complete
+  // typing and initialization checks, without constructing every other suffix.
+  match @validate.Typecheck::typecheck(last, @validate.make_state(env, [])) {
+    Ok(state) if state.reachable &&
+      state.escape == @validate.tc_escape_none() &&
+      state.stack.length() == 1 => ()
+    _ => return None
+  }
+  for index = start; index < last_index; index = index + 1 {
+    let instr = remaining[index]
+    if run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
+      run_hot_pipeline_raw_simplify_locals_instr_is_early_terminator(instr) ||
+      run_hot_pipeline_raw_simplify_locals_instr_writes_local(
+        instr, target_local,
+      ) ||
+      source_locals.any(fn(local_id) {
+        run_hot_pipeline_raw_simplify_locals_instr_writes_local(instr, local_id)
+      }) {
+      return None
+    }
+  }
+  let rewritten : Array[@lib.Instruction] = []
+  rewritten.push(@lib.Instruction::nop())
+  for index = start; index < last_index; index = index + 1 {
+    rewritten.push(remaining[index])
+  }
+  rewritten.push(replacement)
+  Some((rewritten, remaining.length() - start))
 }
 
 ///|
@@ -9390,17 +9360,14 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
             }
           }
           if !rewritten_here && producer_is_dupable_copy {
-            let remaining : Array[@lib.Instruction] = []
-            for idx = scan_idx + 1; idx < instrs.length(); idx = idx + 1 {
-              remaining.push(instrs[idx])
-            }
             match
               run_hot_pipeline_raw_simplify_locals_try_rewrite_dupable_copy_terminal_value_suffix(
-                remaining,
+                instrs,
                 target_local,
                 producer_suffix[0],
                 source_locals,
                 env,
+                start=scan_idx + 1,
               ) {
               Some((rewritten_terminal, consumed_len)) => {
                 for idx = cursor; idx < producer_start; idx = idx + 1 {
@@ -9418,16 +9385,13 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
             }
           }
           if !rewritten_here && producer_is_dupable_copy {
-            let remaining : Array[@lib.Instruction] = []
-            for idx = scan_idx + 1; idx < instrs.length(); idx = idx + 1 {
-              remaining.push(instrs[idx])
-            }
             match
               run_hot_pipeline_raw_simplify_locals_try_rewrite_dupable_copy_into_next_if_condition(
-                remaining,
+                instrs,
                 target_local,
                 producer_suffix[0],
                 source_locals,
+                start=scan_idx + 1,
               ) {
               Some((rewritten_condition, consumed_len)) => {
                 for idx = cursor; idx < producer_start; idx = idx + 1 {

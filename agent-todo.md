@@ -15,30 +15,36 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v47 passes 13,045 default tests and
-  focused original/v133 value, event, trap and GC-reference controls. The saved
-  binary `ref.eq` defect is repaired; historical V32–V37 fixture counts are not
-  general correctness evidence. This is not final aggregate or release signoff.
-  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-dominated-local-aliases)
-  owns exact hashes, paired measurements, costs and limitations.
+- **Current checkpoint:** lean-v51 passes 13,056 default tests and
+  2,891 bounded original/v133 value, event, trap and GC-reference observations.
+  Terminal/producer ranges remove discarded copies; output bytes are unchanged.
+  The saved binary `ref.eq` defect is repaired; historical V32–V37 fixture counts
+  are not general correctness evidence. Final aggregate/release signoff remains.
+  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-terminal-cleanup-ranges)
+  owns hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
 
-The frozen v50 open-world compiler comparison uses verified release v133,
+The frozen v51 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.134 / 1.051 | 3.94× | 4,188.636 / 467.031 | 8.97× |
-| `dae2-optimizing` | 13.029 / 3.241 | 4.02× | 7,880.098 / 1,920.370 | 4.10× |
+| `dae2` | 4.319 / 1.090 | 3.96× | 3,774.433 / 494.823 | 7.63× |
+| `dae2-optimizing` | 12.164 / 3.339 | 3.64× | 7,326.431 / 1,791.420 | 4.09× |
 
 - **Release blockers:** large DAE2-O adds **299,275 canonical / 168,047 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** V50 removes producer/statement copies, improving wide
+- **Evidence limits:** V51 removes terminal suffix searches and caller tail
+  copies with exact output bytes. Matched optimizing is −0.84% small /
+  −0.29% large, with +0.81% active-tee cost. Large plain costs +8.93%;
+  independent repeat is +1.76% with spread versus −1.74% identical-binary
+  calibration. Keep these costs open; the dossier retains all cohorts.
+  V50 removes producer/statement copies, improving wide
   native controls 66–99% with exact output bytes. Small optimizing instruction
   work falls 0.69%; matched compiler optimizing times remain flat (−0.04% small,
   +0.27% large), with +0.55% on active tee. Plain costs +1.66% small and +2.83%
@@ -214,12 +220,12 @@ breadth. Shared changes require all affected consumers in the matrix below.
   legacy and effect-spanning candidates. Optimizing admission now uses counted
   capture/unused-local/alias facts; plain still takes its original scan path.
   Preserve the V47 quality gain and resolve its measured plain-pipeline cost.
-- [ ] Remove remaining whole-tail copies in the terminal/next-if copy helpers.
-  Reject a terminal non-target opcode before repeated suffix searches; retain
-  local typing, source/write guards, offset bounds and exact output. The V50
-  wide constant-copy case still costs 14.09 ms. Move retired statement-split
-  wrappers into test references and retarget the production ownership guard.
-  Address shared suffix-wrapper costs and repeated future-read scans separately.
+- [ ] Reduce remaining shared suffix-wrapper and repeated future-read/next-if
+  scans after V51 removes terminal searches and caller copies. Preserve source
+  write/read barriers, typed admission and exact output; use active and no-work
+  controls before adopting cached facts or additional admission scans. Trial
+  exact single-leaf typing for constants/valid local reads to avoid repeated
+  initialized-local arrays; preserve full typing for compound/unknown cases.
 - [ ] Remove duplicated balanced-capture scan/materialization work while keeping
   legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
   matched small optimizing is +6.39%; retain these costs until measured away.
