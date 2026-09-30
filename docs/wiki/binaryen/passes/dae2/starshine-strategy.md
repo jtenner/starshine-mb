@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/producer_ranges_wbtest.mbt
+  - ../../../../../src/passes/producer_ranges_reference_wbtest.mbt
+  - ../../../../../src/passes/producer_ranges_perf_wbtest.mbt
+  - ../../../../../src/cmd/producer_ranges_wbtest.mbt
   - ../../../../../src/passes/balanced_ranges_wbtest.mbt
   - ../../../../../src/passes/balanced_ranges_bounds_wbtest.mbt
   - ../../../../../src/passes/balanced_ranges_reference_wbtest.mbt
@@ -96,6 +100,149 @@ dependency-window-only. Toggled event collection scopes instruction totals;
 call counters retain the whole command. Historical values remain evidence under
 that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
+
+## September 30, 2026 producer cleanup ranges
+
+Pure- and effectful-suffix cleanup now pass an exclusive producer end to the
+existing typed suffix scanner. They no longer copy the entire producer prefix
+or construct the discarded head. Pure cleanup also obtains only the statement
+it examines, instead of copying and splitting the remaining tail at three
+sites. The escape fallback still runs only after ordinary statement admission
+fails, with the same absolute boundary and rewrite order.
+
+The small `sl_statement_at` helper shares statement extraction across those
+sites and returns an owned array directly. It does not add a tuple for an
+unused tail. Typechecking, local source/write barriers, producer duplication
+rules, effects, traps and bounded cleanup rounds are unchanged. This removes
+additional quadratic materialization; it does not make all raw cleanup linear.
+The two terminal/condition helper callers still copy tails, and terminal
+admission still searches suffixes before rejecting an impossible final opcode.
+
+Before implementation, a native V48 work budget failed with six discarded
+split call sites: two value-suffix splits, three ordinary statement-prefix
+splits and one escape-prefix fallback. A new bounded regression covers 24
+pure/effectful i32/i64/externref cases against frozen previous functions, with
+input ownership and output validation checks. The active dispatcher regression
+preserves the producer/tick/consumer call order in SimplifyLocals and DAE2-O.
+
+The native controls compare 8/512 repeated constant copies, pure expressions,
+active effects and blocked effects, plus independent no-candidate controls for
+both producer scans. Setup, validation and ownership checks are outside the
+timed loops. Existing range-boundary and suffix/prefix typing tests remain in
+the validation set. Old statement-split wrappers currently have only test
+consumers; relocating these references out of production code is follow-up
+cleanup, not a public API change.
+
+The candidate passes `moon info`, `moon fmt`, all **13,051** default tests,
+the native release build and all **24** native benchmark cases. No public API
+changes occur. `moon info` reports two additional unused-function warnings for
+the now test-only split wrappers described above.
+
+Native means, frozen pre-change functions → range-based functions:
+
+| Control | Before | After |
+| --- | ---: | ---: |
+| 8 constant copies | 22.92 µs | 12.67 µs |
+| 8 pure expressions | 4.38 µs | 1.74 µs |
+| 8 active effects | 4.06 µs | 2.23 µs |
+| 8 blocked effects | 3.69 µs | 1.88 µs |
+| 512 constant copies | 41.86 ms | 14.09 ms |
+| 512 pure expressions | 8.21 ms | 107.32 µs |
+| 512 active effects | 6.27 ms | 144.49 µs |
+| 512 blocked effects | 5.90 ms | 130.36 µs |
+
+The 512 constant-copy control still costs 14.09 ms: its remaining terminal
+helper performs repeated suffix searches and copies. This is a concrete next
+bottleneck, not a claim that range extraction makes the entire path linear.
+
+The initial effectful no-candidate control costs 7.94% at width 8 and 25.45%
+at width 512; the wide after-run has substantial dispersion (8.43 ± 1.25 µs).
+A focused repeat on the unchanged executable measures 155.36 → 157.13 ns
+(+1.14%) and 6.61 → 6.66 µs (+0.76%). Keep both cohorts: the initial percentage
+is not stable. Pure no-candidate repeats improve 167.39 → 158.90 ns and
+8.33 → 6.93 µs. All eight repeated cases pass their behavior/ownership checks.
+These are helper measurements; enclosing gains require the separate paired
+compiler and active-tee comparisons below.
+
+A separate small-fixture Callgrind comparison uses the same frozen binaries
+and verifies byte identity against the unprofiled outputs. Whole-command
+native instructions change 73,073,790 → 73,070,097 for plain DAE2 (essentially
+flat), and 157,117,354 → 156,032,829 for DAE2-O (−0.69%). These include command
+startup, decoding, validation and encoding; they are not pass-only counts.
+
+The updated optimizing profile still locates 31.65% of inclusive instructions
+under raw SimplifyLocals, 12.11% under skipped-effectful-carrier cleanup and
+10.69% under recursive balanced cleanup. These scopes overlap and must not be
+added. The self profile attributes 16.02% to object destruction, 7.17% to free
+and 4.35% to reference-array copying. This motivates a separate investigation
+of unchanged control/array reconstruction and repeated cleanup traversals;
+it does not prove that eliminating any one helper saves those percentages.
+
+Frozen native V50 SHA-256: `940f179b84128ef253a0a7cafd9a048f2a0f094ecee24e7b530c9e33d3bb2f3a`.
+
+Fresh verified release-v133 comparison (CPU 6, one warmup, three samples; pass-local medians):
+
+| Input / pass | Starshine ms | v133 ms | Ratio | Raw / canonical size gap |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 4.134 | 1.051 | 3.935× | -123 / -97 B |
+| small / `dae2-optimizing` | 13.029 | 3.241 | 4.020× | -386 / -284 B |
+| large / `dae2` | 4188.636 | 467.031 | 8.969× | -117,365 / -100,237 B |
+| large / `dae2-optimizing` | 7880.098 | 1920.370 | 4.103× | +168,047 / +299,275 B |
+
+Matched V48→V50 pipeline medians (same CPU/warmup, three accepted alternating pairs, independent reference bracket ≤1.15):
+
+| Input / pass | V48 ms | V50 ms | Change | MAD before / after ms |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 3.904 | 3.969 | +1.66% | 0.041 / 0.012 |
+| small / `dae2-optimizing` | 10.871 | 10.867 | -0.04% | 0.257 / 0.065 |
+| large / `dae2` | 3879.328 | 3989.225 | +2.83% | 3.665 / 16.129 |
+| large / `dae2-optimizing` | 6694.417 | 6712.530 | +0.27% | 17.477 / 38.737 |
+| tee / `dae2` | 2.969 | 2.907 | -2.09% | 0.088 / 0.024 |
+| tee / `dae2-optimizing` | 106.282 | 106.866 | +0.55% | 0.245 / 0.458 |
+
+Three alternating peak-RSS pairs, KiB (median [range]):
+
+- `dae2`: before 244,124 [244,060–281,596] → after 244,984 [244,060–281,660].
+- `dae2-optimizing`: before 290,360 [290,184–292,156] → after 290,212 [290,100–292,544].
+
+Peak RSS ranges overlap in both passes; the small median differences do not
+establish a memory improvement.
+
+All 469 bounded runtime modules / 2,891 observations agree with their originals,
+including effects, traps and reference identity. V48/V50 raw fixture bytes are
+identical; both compiler artifacts also retain exact raw and canonical bytes.
+The remaining large optimizing gap is +168,047 raw / +299,275 canonical bytes.
+No output-quality family is closed by this change.
+
+The matched compiler optimizing runs are effectively flat (small −0.04%, large
++0.27%); active-tee optimizing costs 0.55%. Plain costs 1.66% small and 2.83%
+large in the initial cohort. A separate large-plain repeat is +1.59%
+(3734.210 → 3793.709 ms; MAD 15.721 / 64.289). An identical-V48 calibration is
++0.29% (3717.366 → 3728.029 ms; MAD 7.752 / 5.467). The repeat's spread exceeds
+its median difference, but neither it nor the calibration erases the initial
+cost. Three initial small reference-drift rounds were rejected; repeat and
+calibration had none. Retain the unresolved plain and control costs.
+
+Initial trace medians attribute 79.560 ms of the 109.897 ms plain pipeline
+difference to analysis, including 39.825 ms in lift and 33.404 ms in dependency
+construction. These nested scopes cannot be added to the enclosing total and
+precede the changed cleanup. They locate the difference, not its cause. The
+independent oracle cohort cannot be subtracted from historical runs to claim
+a causal speedup. This is a scaling/work-reduction checkpoint, not a general
+compiler-pipeline speed win.
+
+Sources: [`pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt),
+[`statement_prefix_reuse.mbt`](../../../../../src/passes/statement_prefix_reuse.mbt),
+[producer regressions](../../../../../src/passes/producer_ranges_wbtest.mbt),
+[native controls](../../../../../src/passes/producer_ranges_perf_wbtest.mbt) and
+[dispatcher regression](../../../../../src/cmd/producer_ranges_wbtest.mbt).
+Local evidence under `.tmp/dae2-lean-20260929/`: `validation-v50.json`,
+`candidate-v50.json`, `v50-baseline.json`, `producer-ranges-work-{v48,v50}.json`,
+`v50-bench.log`, `v50-repeat-{tiny,wide}.log`, `profile-small-v50/`,
+`local-alias-runtime-v50/`, `parameter-alias-runtime-v50/`, `runtime-v50/`,
+`oracle-v50-{small,large}/`, `pairs-v50-{small,large,tee,plain-repeat,plain-calibration}/`,
+`v50-plain-phase-comparison.json` and `memory-v50/`.
+Long fuzz and final shared-consumer/release signoff remain deferred.
 
 ## September 30, 2026 bounded raw cleanup ranges
 

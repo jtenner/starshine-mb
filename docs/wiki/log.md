@@ -1,3 +1,14 @@
+### 2026-09-30 — Producer cleanup ranges
+
+- [Producer ranges](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-producer-cleanup-ranges)
+  remove six discarded split sites while preserving exact output. All 13,051
+  tests, 24 native controls and 2,891 runtime observations pass. Wide controls
+  improve 66–99%; a focused repeat resolves the unstable no-work slowdown.
+  Small optimizing instruction work falls 0.69%, but compiler timings remain
+  nearly flat and plain costs persist in an independent repeat. Preserve the
+  repeat/calibration, remaining terminal searches, control reconstruction,
+  output-size gap and deferred fuzz signoff in the backlog.
+
 ### 2026-09-30 — Bounded raw cleanup ranges
 
 - [Balanced cleanup ranges](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-bounded-raw-cleanup-ranges)

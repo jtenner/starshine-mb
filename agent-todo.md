@@ -24,43 +24,33 @@ oracle versions and checkpoints do not sign current source.
 
 ### Latest DAE2/O baseline
 
-The frozen v48 open-world compiler comparison uses verified release v133,
+The frozen v50 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 4.471 / 1.128 | 3.97× | 4,398.904 / 604.036 | 7.28× |
-| `dae2-optimizing` | 12.682 / 3.323 | 3.82× | 8,372.674 / 1,887.200 | 4.44× |
+| `dae2` | 4.134 / 1.051 | 3.94× | 4,188.636 / 467.031 | 8.97× |
+| `dae2-optimizing` | 13.029 / 3.241 | 4.02× | 7,880.098 / 1,920.370 | 4.10× |
 
 - **Release blockers:** large DAE2-O adds **299,275 canonical / 168,047 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** V48 removes balanced-cleanup discarded copies, improving
-  wide native cases 95.2–98.8% with exact output bytes. Matched large optimizing
-  improves 1.44% within substantial variability; plain costs 2.42% large,
-  2.05% small and 6.47% tee. Shared suffix-wrapper costs remain active.
-  V47 saves 54,687 raw / 56,875 canonical bytes without
-  per-function raw growth. Matched large optimizing is flat (−.41%), while
-  large plain costs +5.75%; an independent repeat is +1.11% with substantial
-  baseline variability. Both cohorts and phase attribution remain in the
-  dossier. This is a quality checkpoint, not a general speed win. V45 removes
-  counting-time wrapper reconstruction and
-  visitor allocation sites; its wide structured microbenchmark improves 72%.
-  Matched large optimizing is essentially flat (−.16%); plain improves 4.62%
-  with substantial dispersion, and small/tee optimizing cost 1.61%/1.22%.
-  V43 structured suffix replay improves the wide native
-  benchmark 83.5% and matched large plain .57%; large optimizing improves 1.00%
-  with dispersion, while small/tee optimizing cost 1.55%/1.06%. RSS has no robust
-  win. Keep these costs and retained-buffer tradeoffs open. V38 adds a +5.58%
-  matched large plain cost; its
-  optimizing −1.02% median has substantial dispersion, while V37 records
-  +2.54%. Alias no-work/tiny controls also cost more. V28's 4.15% higher plain median remains historical
-  evidence; V29 ranges overlap and its optimizing median rises 0.44%. The [priority report](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
-  owns the superseded DAE/DAEO and thirteen-pass cohorts, V25 bounded repairs
-  and historical failures; do not label those timings current.
+- **Evidence limits:** V50 removes producer/statement copies, improving wide
+  native controls 66–99% with exact output bytes. Small optimizing instruction
+  work falls 0.69%; matched compiler optimizing times remain flat (−0.04% small,
+  +0.27% large), with +0.55% on active tee. Plain costs +1.66% small and +2.83%
+  large; an independent large repeat is +1.59% with substantial spread, while
+  identical-binary calibration is +0.29%. Keep the measured costs open.
+  V47's 54,687 raw / 56,875 canonical byte saving is retained. Earlier V32/V38/
+  V43/V45/V47 control, lifetime and plain-pipeline costs remain P03g concerns;
+  the [DAE2 dossier](docs/wiki/binaryen/passes/dae2/starshine-strategy.md) preserves
+  complete cohorts, rejected trials and uncertainty. The
+  [priority report](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
+  owns historical DAE/O cohorts and V25 correctness repairs; do not label
+  superseded timings current or use broken V18 behavior as a performance baseline.
 - **Fuzz scheduling:** long randomized/aggregate fuzz, broad artifact replays
   and final shared-consumer renewal remain deferred until the performance
   bottleneck trials are settled, as the user requested. Use focused regressions,
@@ -224,19 +214,23 @@ breadth. Shared changes require all affected consumers in the matrix below.
   legacy and effect-spanning candidates. Optimizing admission now uses counted
   capture/unused-local/alias facts; plain still takes its original scan path.
   Preserve the V47 quality gain and resolve its measured plain-pipeline cost.
-- [ ] Remove remaining discarded producer-prefix/head copies in pure/effectful
-  raw SimplifyLocals and statement-tail copies in pure cleanup. V48 closes the
-  balanced-statement copies; preserve typed boundaries, guards and exact output.
-  Address shared suffix-wrapper costs with tiny/wide active/no-work controls;
-  retain repeated future-read scans as a separate possible quadratic cost.
+- [ ] Remove remaining whole-tail copies in the terminal/next-if copy helpers.
+  Reject a terminal non-target opcode before repeated suffix searches; retain
+  local typing, source/write guards, offset bounds and exact output. The V50
+  wide constant-copy case still costs 14.09 ms. Move retired statement-split
+  wrappers into test references and retarget the production ownership guard.
+  Address shared suffix-wrapper costs and repeated future-read scans separately.
 - [ ] Remove duplicated balanced-capture scan/materialization work while keeping
   legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
   matched small optimizing is +6.39%; retain these costs until measured away.
 - [ ] Attribute whole-code-section and per-function setup, raw Vacuum preclean,
   SimplifyLocals admission/mutation safety, child-use queries, lower and
   writeback guards separately from the actual transform timers.
-- [ ] Reuse compact module/body facts and mutation-scoped suffix/effect work
-  where those costs remain repeated. Refresh after splices or type/import/
+- [ ] Trial lazy reconstruction of unchanged recursive control bodies and
+  arrays; the V50 small instruction profile still highlights balanced/skipped
+  carrier traversal and object destruction. Prove input ownership and preserve
+  all active rewrite decisions. Reuse compact module/body facts and
+  mutation-scoped suffix/effect work where costs remain repeated. Refresh after splices or type/import/
   signature changes; preserve all five SimplifyLocals variants.
 - [ ] Keep Binaryen's cleanup breadth, including functions unchanged by DAE2.
   Guarded, unchanged or skipped cleanup does not count as a speedup. Coordinate

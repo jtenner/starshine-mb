@@ -9297,14 +9297,8 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
     let mut rewritten_here = false
     match instrs[scan_idx] {
       @lib.LocalSet(@lib.LocalIdx(target_raw)) => {
-        let producer_instrs : Array[@lib.Instruction] = []
-        for prefix_idx = 0; prefix_idx < scan_idx; prefix_idx = prefix_idx + 1 {
-          producer_instrs.push(instrs[prefix_idx])
-        }
-        let (head, producer_suffix) = run_hot_pipeline_raw_simplify_locals_take_value_suffix(
-          producer_instrs, 1, env,
-        )
-        let producer_start = head.length()
+        let producer_suffix = sl_value_suffix_at(instrs, scan_idx, 1, env)
+        let producer_start = scan_idx - producer_suffix.length()
         if producer_suffix.length() > 0 &&
           producer_start >= cursor &&
           run_hot_pipeline_raw_simplify_locals_instrs_all_pure_movable_values(
@@ -9321,13 +9315,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
           let movable_middle : Array[@lib.Instruction] = []
           let mut sink_idx = scan_idx + 1
           while sink_idx < instrs.length() {
-            let remaining : Array[@lib.Instruction] = []
-            for idx = sink_idx; idx < instrs.length(); idx = idx + 1 {
-              remaining.push(instrs[idx])
-            }
-            let (statement, _) = run_hot_pipeline_raw_simplify_locals_take_statement_prefix(
-              remaining, env,
-            )
+            let statement = sl_statement_at(instrs, sink_idx, env)
             if statement.length() == 0 ||
               statement.any(fn(instr) {
                 run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
@@ -9378,13 +9366,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
                 producer_suffix[0],
               ) {
               Some(source_local) => {
-                let remaining : Array[@lib.Instruction] = []
-                for idx = scan_idx + 1; idx < instrs.length(); idx = idx + 1 {
-                  remaining.push(instrs[idx])
-                }
-                let (statement, _) = run_hot_pipeline_raw_simplify_locals_take_statement_prefix(
-                  remaining, env,
-                )
+                let statement = sl_statement_at(instrs, scan_idx + 1, env)
                 if run_hot_pipeline_raw_simplify_locals_statement_is_safe_copy_if_barrier(
                     statement, target_local, source_local,
                   ) {
@@ -9467,19 +9449,11 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
             let skipped_middle_statements : Array[Array[@lib.Instruction]] = []
             let mut sink_idx = scan_idx + 1
             while sink_idx < instrs.length() && !rewritten_here {
-              let remaining : Array[@lib.Instruction] = []
-              for idx = sink_idx; idx < instrs.length(); idx = idx + 1 {
-                remaining.push(instrs[idx])
-              }
-              let (statement0, _) = run_hot_pipeline_raw_simplify_locals_take_statement_prefix(
-                remaining, env,
-              )
-              let (statement, _) = if statement0.length() > 0 {
-                (statement0, [])
+              let statement0 = sl_statement_at(instrs, sink_idx, env)
+              let statement = if statement0.length() > 0 {
+                statement0
               } else {
-                run_hot_pipeline_raw_simplify_locals_take_statement_prefix_allow_escape(
-                  remaining, env,
-                )
+                sl_statement_at(instrs, sink_idx, env, allow_escape=true)
               }
               if statement.length() == 0 {
                 break
@@ -10304,14 +10278,8 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat
     let mut rewritten_here = false
     match instrs[scan_idx] {
       @lib.LocalSet(@lib.LocalIdx(target_raw)) => {
-        let producer_instrs : Array[@lib.Instruction] = []
-        for prefix_idx = 0; prefix_idx < scan_idx; prefix_idx = prefix_idx + 1 {
-          producer_instrs.push(instrs[prefix_idx])
-        }
-        let (head, producer_suffix) = run_hot_pipeline_raw_simplify_locals_take_value_suffix(
-          producer_instrs, 1, env,
-        )
-        let producer_start = head.length()
+        let producer_suffix = sl_value_suffix_at(instrs, scan_idx, 1, env)
+        let producer_start = scan_idx - producer_suffix.length()
         if producer_suffix.length() > 0 &&
           producer_start >= cursor &&
           !run_hot_pipeline_raw_simplify_locals_instrs_all_pure_movable_values(

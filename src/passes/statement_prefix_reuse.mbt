@@ -34,3 +34,20 @@ fn run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
   }
   start
 }
+
+///|
+// Own only the complete statement; callers do not need a copied remaining tail.
+fn sl_statement_at(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  env : @validate.Env,
+  allow_escape? : Bool = false,
+) -> Array[@lib.Instruction] {
+  let end = run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
+    instrs,
+    env,
+    allow_escape,
+    start~,
+  )
+  Array::makei(end - start, fn(index) { instrs[start + index] })
+}
