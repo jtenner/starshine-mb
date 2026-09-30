@@ -60,7 +60,7 @@ The fastest read-along path through the current Starshine status is:
   - [`../../no-dwarf-default-optimize-path.md#L35-L41`](../../no-dwarf-default-optimize-path.md#L35-L41)
     - the canonical no-DWARF late path uses `simplify-globals-optimizing`, not plain `simplify-globals`, and the optimizing sibling owns the extra nested default-function rerun
 - current backlog reality
-  - [`../../../../../agent-todo.md#L535-L547`](../../../../../agent-todo.md#L535-L547)
+  - [Active SGO performance slice](../../../../../agent-todo.md#p10--sgo-nested-cleanup-and-typed-loop-breadth-ir2-perf-sgo)
     - the repo has an `SGO` slice for `simplify-globals-optimizing`, but no separate plain-`simplify-globals` slice today
 - neighboring living dossiers a future port must line up with
   - [`../simplify-globals-optimizing/index.md`](../simplify-globals-optimizing/index.md)

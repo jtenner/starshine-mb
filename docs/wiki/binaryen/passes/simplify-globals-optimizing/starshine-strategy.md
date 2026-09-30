@@ -206,8 +206,8 @@ The fast read-along path is:
   - [`../../no-dwarf-default-optimize-path.md#L35-L48`](../../no-dwarf-default-optimize-path.md#L35-L48)
     - the no-DWARF late post-pass phase places `simplify-globals-optimizing` after `duplicate-import-elimination` and before `remove-unused-module-elements`; the nested rerun rule records that this sibling reruns default function passes without the `precompute-propagate` prefix
 - backlog slice
-  - [`../../../../../agent-todo.md#L546-L561`](../../../../../agent-todo.md#L546-L561)
-    - `SGO` is split into constant-global / mutation tracking and nested default-function rerun work
+  - [Active SGO performance slice](../../../../../agent-todo.md#p10--sgo-nested-cleanup-and-typed-loop-breadth-ir2-perf-sgo)
+    - remaining work targets changed-global users, nested cleanup and typed-loop breadth; completed planning stays in this dossier
 
 ## What Starshine currently does for this pass name
 

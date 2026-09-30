@@ -68,10 +68,8 @@ The fastest read-along path through the current Starshine status is:
 
 - [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md#L34-L35`](../../no-dwarf-default-optimize-path.md#L34-L35)
   - the late no-DWARF post-pass sequence still records `string-gathering` between `remove-unused-module-elements` and `reorder-globals`
-- [`agent-todo.md#L563-L569`](../../../../../agent-todo.md#L563-L569)
-  - `[SG]001 - String Collection and Canonicalization Rules`
-- [`agent-todo.md#L570-L577`](../../../../../agent-todo.md#L570-L577)
-  - `[SG]002 - Feature Gate, Global Order, and Artifact Parity`
+- Historical `[SG]001` / `[SG]002` implementation planning is absorbed by this dossier and the [string-constant surface](../../../strings/string-const-surface.md); completed entries are removed from the active backlog.
+- [Pipeline and artifact release gates](../../../../../agent-todo.md#v011--pipeline-artifacts-and-tooling-ir2-signoff) own current preset and artifact renewal.
 
 ### Current registry and dispatcher truth
 

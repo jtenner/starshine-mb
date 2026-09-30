@@ -55,7 +55,7 @@ The useful local status is:
 | Public pass name | known as boundary-only | [`src/passes/optimize.mbt#L127-L141`](../../../../../src/passes/optimize.mbt#L127-L141) |
 | Active request behavior | rejected honestly as boundary-only | [`src/passes/optimize.mbt#L518-L524`](../../../../../src/passes/optimize.mbt#L518-L524) |
 | Active presets | local `optimize` / `shrink` stop before the late Binaryen post-pass tail | [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md#L35-L41`](../../no-dwarf-default-optimize-path.md#L35-L41) |
-| Backlog | only the optimizing sibling has a dedicated slice today | [`agent-todo.md#L176-L182`](../../../../../agent-todo.md#L176-L182) |
+| Backlog | only the optimizing sibling has a dedicated slice today | [Active SGO performance slice](../../../../../agent-todo.md#p10--sgo-nested-cleanup-and-typed-loop-breadth-ir2-perf-sgo) |
 | Canonical placement | late global cleanup, before the module cleanup tail | [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) |
 
 That means the wiki should continue to teach the pass as a future boundary/module port, not as a HOT peephole already hiding in the local pass manager.

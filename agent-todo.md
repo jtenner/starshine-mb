@@ -1,242 +1,57 @@
 # Agent Tasks
 
+Active unreleased work only, reviewed September 29, 2026. Follow
+[the docs schema](docs/README.md). Completed mechanisms, measurements and
+rejected experiments belong in the linked wiki dossiers and git history.
+New comparisons require verified
+[Binaryen 133](docs/wiki/binaryen/release-horizon-and-oracles.md); historical
+oracle versions and checkpoints do not sign current source.
+
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
-- **Goal / why:** close the remaining command, pipeline and oracle gaps before
-  release while preserving active transformations, output quality and ownership.
-- **Current DAE2/O checkpoint:** reverse expanded flow repairs the dense-solver
-  regression introduced by the stacked-read correctness fix. Subsequent slices
-  remove repeated opcode formatting, predecessor walks, region-root lookup,
-  quadratic source unions and reader-list searches, source-row copies and a
-  duplicate operand-order traversal and walks through proven pure subtrees,
-  boxed private CFG segment rows, growth of fixed-size CFG maps and empty
-  continuation-query allocations, vacuous catch-layout scans and duplicate
-  core validation, complete-header return boundaries in operand queries and
-  separate writer metadata scans/growing rows and repeated never-written-local
-  reverse queries and quadratic admitted writer-source unions, plus repeated
-  source-order walks through subtrees with no eligible preceding value and
-  full type-section materialization for each raw function-signature query.
-  Accepted changes and rejected cache trials
-  are recorded in the [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md).
-  All 12,974 default tests, 126 bounded modules / 1,029 original/v133
-  observations and measured before/after bytes pass. The new active-reader
-  fixture adds one passing bounded guard and four dedicated native controls;
-  its matched 8192-reader pipelines improve 57.40%/49.80%. This deliberate
-  scalability workload does not establish a compiler-artifact gain. Pure-subtree
-  pruning reduces dependency-analysis instructions 0.77% and paired large
-  DAE2 time 1.44%; optimizing compiler time is near flat and control costs
-  remain recorded. The new active pure-tail pipeline fixture adds one focused
-  passing default guard and four native benchmarks; matching frozen-binary
-  DAE2/O comparisons improve 45.76%/45.33%, with 28 original/v133 observations.
-  Cached dependency minima reduce dependency-analysis instructions 9.38% and
-  matched large DAE2/O pass time 2.83%/1.91%; cold controls stay near flat,
-  while tee/conditional/RSS costs remain explicit. The minimum row already
-  existed; no new node-sized cache is added. Raw signature lookup borrows the
-  existing context table and refreshes on replacement type sections, reducing
-  the 1024-function warm/cold controls from 5.23/5.17ms to 15.14/20.11µs.
-  Matched compiler times stay near flat and small/control costs remain recorded;
-  this fixes quadratic scaling without claiming a comparable compiler gain.
-  Compiler competitiveness remains open.
-- **Remaining DAE2/O work:** close the multi-second compiler gap by reducing
-  source-order scans, CFG/reaching-definition work, lift/lower and optimizing
-  cleanup. The 32-root dependency-index threshold trial is rejected; sparse
-  helper wins did not carry into compiler pipelines. Single-predecessor row
-  reuse and its known-write revision are also rejected: helper gains accompany
-  near-flat active workloads and +2.41%/+1.77% revised large timings, with only
-  0.15% fewer dependency instructions. Dedicated candidate controls remain;
-  production keeps the v13 query. Packed private CFG segments remove 490,847
-  allocator requests in dependency analysis (1.19%) with near-flat compiler
-  timings and recorded active-control costs. Fresh v133 ratios remain
-  7.94×/4.29× in the frozen large v27 cohort. Fixed-size CFG maps remove another
-  63,326 requests and 0.34% of dependency instructions, with recorded control
-  costs and near-flat compiler timings. Own-effect reuse removes repeated
-  descriptor work and another 0.99% of dependency instructions without an
-  extra retained node array; compiler timings and standalone mask controls
-  remain near flat. Empty continuation guards remove 4,340,384 requests
-  (10.66%) and 2.62% of dependency instructions, with paired large gains
-  of 0.96%/1.46% and control costs recorded. Catch-layout preflight removes
-  another 2.05% of dependency instructions and 38,154 requests, with paired
-  large gains of 1.43%/1.27%. Single core validation removes another 3.57%
-  of dependency instructions and 290,548 requests, with 30–44% verifier
-  control gains and near-flat compiler timings; the default counter path has
-  zero forwarding allocations. Checked local input-header fields eliminate
-  15,921,704 complete-header return calls, with 11–14% query controls and a
-  paired 1.12% large DAE2 gain; optimizing and total instruction/heap work
-  remain near flat, with tee/RSS costs recorded. The original private-call
-  trial only renamed that boundary; strengthened native evidence supersedes
-  its public-name-only guard. Fused writer metadata improves native controls
-  62–65%, removes 1.37% of dependency instructions and 89,396 requests/frees,
-  with near-flat compiler timings. Plain tee/active optimizing control costs,
-  earlier tee-buffer lifetime and a 4.78% plain RSS median increase remain
-  recorded; overlapping ranges do not establish a causal memory win. Immutable
-  entry reachability preserves all graph fields and unknown rows, improves
-  conditional-write pipelines 59.90%/50.35% and paired compiler pipelines
-  3.11%/2.49%, removes 6.13% of dependency instructions and 298,741 requests/
-  frees, with small/pure/RSS limits recorded. Bounded/linear source union uses
-  existing owner/seen state, improves wide controls 67%/97% and keeps compiler
-  times near flat. The first all-marking cost is superseded; refined small/
-  tee/pure costs, eight-writer helper cost, 0.29% instruction increase and
-  unchanged allocator calls remain explicit. Refine small-row overhead,
-  unused-local entry preflight and repeated query headers; reuse preceding-
-  query buffers and field-specific HOT reads. The initial proposal-feature allocation
-  interpretation is superseded by generic array-growth attribution. Verified-v133
-  ratios, cumulative timing, memory and instruction
-  attribution are owned by the strategy page. Keep small/control costs and
-  identical-binary calibration limits explicit. Long aggregate fuzz remains
-  deferred at the user's request; earlier generated results do not sign current
-  source. Exit criteria remain valid output, measured improvement on active and
-  compiler workloads, classified size/parity differences, and final renewal.
-- **Correctness and size limits:** V25 repaired the stacked-read and one-armed
-  branch-exit failures exposed after V18. Its 96-fixture replay validates 3,302
-  modules / 25,018 observations with no candidate/oracle failures; eight V18
-  semantic failures and six V18 aborts remain historical evidence. V18's 79-
-  fixture results do not cover the new witnesses, and its faster timings are
-  not a correctness-equivalent baseline. The V25 large DAE2 output is 458 bytes
-  larger across 41 functions than V18; finish classifying that drift. Current
-  performance changes preserve V25-based bytes. Binaryen optimizing output-size
-  gaps remain open; smaller plain DAE2 output alone does not prove a win.
-  See the [priority evidence](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
-  and the strategy page for supersession, oracle hashes and unresolved limits.
-- **Historical next-v9 checkpoint:** next-v9 passes 12,745 wasm-gc tests,
-  473 native IR tests, interface generation, formatting and native CLI build.
-  The iteration has 174 unique passing native helper cases; this latest slice
-  adds 46 topology/influence benchmark cases. All measured artifact bytes match
-  before/after; 1,628 bounded runtime observations across 18 passes match original
-  and verified Binaryen 133 behavior. The
-  [next campaign](docs/wiki/tooling/tracing-playbook.md#september-28-2026-next-performance-campaign)
-  records source hashes, dispersion, RSS, rejected experiments and exact limits.
-- **Completed mechanisms / remaining scope:** fused DAE topology reduces small
-  DAE native instructions 4.32%; the private operand-query value record removes
-  six heap sites; small private source rows avoid an extra growth; influence
-  rows allocate only for observed writes. The latter improves helper controls
-  58–87% and reduces small DAE2/propagation instructions 0.99%/0.38%. These do not
-  close the remaining multi-second pipelines or establish Binaryen competitiveness.
-  The stack value-array layout is rejected for a native debug compiler limitation.
-- **Current large attribution:** fresh v9 Callgrind profiles against the pinned
-  large input reduce whole-command instructions 11.9% for DAE2 and 6.6% for
-  Coalesce against the saved `before.exe`, but include decode, validation,
-  lift/lower and encoding. DAE2's largest self costs are object destruction
-  17.96%, frees 8.19%, and HOT node reads 5.59%; Coalesce's are destruction
-  12.34%, HOT node reads 6.28%, frees 5.81%, and HOT value/local conflicts
-  2.09%. See the [v9 attribution](docs/wiki/tooling/tracing-playbook.md#v9-large-dae2-and-coalesce-attribution).
-  Next, isolate P03's lift/analysis/lower costs and evaluate field-specific HOT
-  reads in P12; don't extend graph metadata based only on helper timings.
-- **Active tradeoffs / renewal:** singleton/four-merge source observations still
-  cost 68.82 → 93.77 ns for one read; the current 128-read control improves, but
-  earlier costs remain relevant. Two small topology controls regress; large
-  wall-time cohorts record foreign CPU activity and remain diagnostic. An initial
-  +1,576 KiB large OI RSS change reverses in seven renewed pairs; preserve both
-  runs without claiming a firm RSS win or regression. Quiet timing and final
-  affected-consumer aggregate renewal remain required after performance work.
-- **Historical checkpoint:** the frozen v8 candidate passes 12,693 default tests, interface
-  generation, formatting, native CLI/generator builds and README/API sync.
-  The follow-up adds 386 native benchmark cases in 19 files. Completed mechanisms,
-  rejected experiments and their tradeoffs live in the
-  [follow-up report](docs/wiki/tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign);
-  the [first campaign](docs/wiki/tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign)
-  retains its original measurements and 230,000-case signoff.
-- **Historical v8 correctness checkpoint:** all 230,000 final v133 comparisons completed with
-  zero validation or observed original/Starshine semantic failures. The
-  101,860 shape residuals, 2,368 canonical size losses and 9,717 runtime
-  blocks remain unresolved. All 230,000 recorded cohort outcomes match the first
-  campaign; all 360 retained residual outputs and 2,368 size-losing outputs are
-  byte-identical to their first-campaign replays.
-  v8 fixes the v7 encoding-cleanup bypass; the rejected candidate remains in the
-  report, and its favorable unchanged-command timing is superseded.
-- **Measured tradeoff:** the v7 large DFE traced pipeline is 4.05% slower (MAD 2.54%)
-  than the first-campaign binary. Its 17-pair untraced command time is within
-  dispersion (+1.20%, MAD 1.30%), while median peak RSS falls 7.21%. Retained for
-  memory/work reduction and other measured gains; this is not a DFE speedup.
-  Final v8 active nested-handler Coalesce adds 0.103 ms (+4.11% paired, MAD 1.14%);
-  one large propagation RSS sample adds 4,612 KiB and DAE2-optimizing adds
-  18,724 KiB. Preserve these costs in future controls.
-- **Required APIs / invariants / exit:** use the owner contracts and affected
-  consumer matrix below. New public APIs include `tc_state_fork_body`, checked
-  LocalGraph source count/enum/scalar-value queries, and reusable module/body
-  validation accessors and `hot_node_op`; review their `.mbti` contracts. Shared masks require
-  expression-scoped ownership. Require material enclosing-pass or
-  command gains with bounded memory, active coverage, exact size guards and full
-  final validation. Long fuzz/perf checks remain outside default tests.
+- **Goal / why:** make Starshine competitive before release by closing pass,
+  pipeline, command and output-quality gaps without removing transformations.
+- **Execution priority:** finish P03 DAE2/DAE2-O first, especially remaining HOT
+  field reads, temporary-buffer churn, reaching-definition/source-order work and
+  optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
+  P08 DAE/DAEO and the other performance owners remain in scope afterward.
+- **Current checkpoint:** `a53bb018f` / lean-v27 passes 12,974 default tests and
+  the bounded original/v133 replay controls. This is not final aggregate or
+  release signoff. The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-29-2026-cached-raw-signatures)
+  owns exact hashes, paired measurements, costs and limitations.
 
-Active unreleased work only, reviewed September 29, 2026. Follow
-[the docs schema](docs/README.md). New comparisons require verified
-[Binaryen 133](docs/wiki/binaryen/release-horizon-and-oracles.md); older oracle
-versions and checkpoints retain their historical labels and scope.
+### Latest DAE2/O baseline
 
-### Latest measured baseline
+The frozen v27 open-world compiler comparison uses verified release v133,
+CPU 6, one warmup and three samples. These are pass-local medians, not
+untraced command times or a causal comparison with earlier cohorts.
 
-The latest complete DAE-priority oracle sweep is priority-v18 `6ee77894…`,
-using verified v133, CPU 6, one warmup and three alternating samples.
-Pass-local ratios are:
+| Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
+| --- | ---: | ---: | ---: | ---: |
+| `dae2` | 4.222 / 1.009660 | 4.18× | 4,001.091 / 503.817 | 7.94× |
+| `dae2-optimizing` | 13.055 / 3.181020 | 4.10× | 7,659.620 / 1,784.100 | 4.29× |
 
-| Pass | Small Starshine ms / v133 ratio | Large Starshine ms / v133 ratio |
-| --- | ---: | ---: |
-| `dae` | 43.616 / 58.46× | 831.609 / 1.94× |
-| `dae-optimizing` | 124.685 / 8.18× | 1,090.860 / 0.61× |
-| `dae2` | 4.546 / 4.44× | 4,169.155 / 9.03× |
-| `dae2-optimizing` | 13.152 / 4.08× | 7,538.402 / 4.42× |
-
-Large optimizing outputs remain size-losing against v133: DAEO adds 28,201
-raw / 41,427 canonical bytes; DAE2-O adds 382,584 raw / 422,019 canonical.
-Runtime checks do not close these parity gaps. Current source still requires
-affected aggregate renewal after performance work. The [priority report](docs/wiki/tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls)
-records exact source/binary/input hashes, timing scope and limitations.
-
-The historical complete thirteen-pass sweep is `bbde3e9e…` (v8). These diagnostic sweep medians use CPU 6,
-five small and three large samples, warmup and reference brackets. Inner ratios
-exclude surrounding pipeline/command work. The small Precompute timer is missing,
-shown as n/a. Different tracing and host conditions prevent subtracting historical
-absolute times. The [v8 results](docs/wiki/tooling/tracing-playbook.md#v8-final-results)
-own hashes, MAD, command ratios, canonical sizes and limitations.
-
-| Pass | Small pipeline ms | Large pipeline ms | Small inner/v133 | Large inner/v133 | Remaining owner |
-| --- | ---: | ---: | ---: | ---: | --- |
-| `precompute` | 1.663 | 837.585 | n/a | 0.28× | P02, P11, P12 |
-| `precompute-propagate` | 6.118 | 1,736.038 | 0.65× | 0.75× | P01, P02, P12 |
-| `dae2` | 15.224 | 4,726.612 | 15.03× | 10.12× | P03, P01, P12 |
-| `dae2-optimizing` | 25.040 | 8,174.386 | 7.75× | 4.78× | P03, P05 |
-| `coalesce-locals` | 9.591 | 4,844.430 | 1.72× | 3.93× | P04, P12 |
-| `simplify-locals` | 7.026 | 2,186.084 | 0.39× | 0.15× | P05, P02 |
-| `optimize-instructions` | 4.826 | 2,539.513 | 1.29× | 0.66× | P06, P11 |
-| `duplicate-function-elimination` | 0.510 | 742.713 | 1.95× | 9.85× | P07, P06 |
-| `dae` | 52.470 | 884.529 | 74.79× | 1.99× | P08 |
-| `dae-optimizing` | 143.095 | 1,117.779 | 8.69× | 0.56× | P08, P05 |
-| `inlining` | 2.712 | 1,786.330 | 1.02× | 2.01× | P09 |
-| `inlining-optimizing` | 98.710 | 677.465 | 1.72× | 0.04× | P09, P05 |
-| `simplify-globals-optimizing` | 23.151 | 62.529 | 17.55× | 0.04× | P10, P05 |
-
-Large DAE/DAEO, optimizing inlining and SGO include guarded/fallback work;
-these timings do not establish full cleanup breadth. Active CA and nested-handler
-controls remain separate. All five SimplifyLocals modes require independent
-active coverage. Significant canonical size losses remain even where an inner
-timer is competitive.
-
-### Priority readout
-
-The V18 four-pass oracle ratios are the last complete measurements; the full thirteen-pass
-v8 sweep remains historical until other owners and affected v133 aggregates are
-renewed. P08 plain DAE has the worst recorded
-small pass ratio (58.46×) at 44 ms; P10 SGO's historical ratio is 17.55× at 23 ms. P03 is
-the largest multi-second pass-local target: large DAE2 is 4.17 s at 9.03× and
-DAE2-optimizing is 7.54 s at 4.42×. P04 Coalesce's historical result is 4.84 s at 3.93×. P07 DFE
-is under one second but still 9.85× on the large input. These targets need
-active transforming fixtures; guarded or unchanged paths do not count as
-coverage.
-
-Pipeline time also remains high when the inner pass is faster than Binaryen:
-large Precompute is 838 ms at 0.28×, propagation 1.74 s at 0.75×, and OI
-2.54 s at 0.66×. Keep those on P02/P06/P11/P12/P13's shared lift, validation,
-lowering and command path rather than making the pass-local algorithms more
-complex without phase evidence. The v9 profiles below sharpen P03/P04/P12;
-they do not refresh these oracle ratios.
+- **Release blockers:** large DAE2-O adds **422,470 canonical / 383,027 raw
+  bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
+  Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
+  V18; preserve the correctness repairs and avoid using broken V18 behavior as
+  a performance baseline. Both investigations are explicit P03 tasks below.
+- **Evidence limits:** current small/control timing costs and retained-buffer
+  RSS tradeoffs remain open. The [priority report](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
+  owns the superseded DAE/DAEO and thirteen-pass cohorts, V25 bounded repairs
+  and historical failures; do not label those timings current.
+- **Fuzz scheduling:** long randomized/aggregate fuzz, broad artifact replays
+  and final shared-consumer renewal remain deferred until the performance
+  bottleneck trials are settled, as the user requested. Use focused regressions,
+  bounded runtime comparisons and measured performance commits during iteration.
 
 ## v0.1.1 — Remaining performance owners [IR2-PERF-NEXT]
 
 **Goal / why:** close the measured pipeline/oracle gaps while preserving active
 transformation breadth, valid output, runtime behavior and canonical output
 quality. The [follow-up campaign](docs/wiki/tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign)
-and its linked first campaign own completed P01–P14 mechanisms, all benchmark sources, rejected designs and
-measurement limits. The tasks below describe the remaining costs, rather than
+and its linked first campaign own completed P01–P14 mechanisms, benchmark
+sources, rejected designs and measurement limits. The tasks below describe the remaining costs, rather than
 asking another implementation run to repeat those mechanisms.
 
 **Shared requirements / APIs:** preserve input ownership, deterministic source
@@ -260,12 +75,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - **Deliverables / tasks:** profile remaining write-heavy transfer allocations
   and predecessor scans; try mutation-scoped changed-local sets only when all
   predecessor deltas can be represented. Keep exceptional/full-scan fallback,
-  ordered sources and semantic-change successor scheduling. Wide tuple branch
-  journals are implemented; remaining expanded predecessor work needs separate
-  evidence.
-- **Invariant / dependencies:** expanded read-only borrowing and first-write
-  ownership are implemented; do not reimplement queues, sparse tuples, borrowed
-  predecessors or thresholded unions. DAE2/OI/MergeLocals/SSA consume this owner.
+  ordered sources and semantic-change successor scheduling. Keep wide-tuple branch
+  journals while measuring remaining expanded predecessor work separately.
+- **Invariant / dependencies:** preserve expanded read-only borrowing, first-write
+  ownership, queues, sparse tuples, borrowed predecessors and thresholded
+  unions. DAE2/OI/MergeLocals/SSA consume this owner.
 - **Exit / suggested tests:** improve enclosing propagation/DAE2 artifacts with
   tiny, write-heavy, asymmetric-subset, join/backedge and sibling-isolation
   controls; extend [transfer controls](src/ir/local_graph_transfer_borrow_perf_wbtest.mbt).
@@ -279,63 +93,137 @@ breadth. Shared changes require all affected consumers in the matrix below.
   profile to target remaining raw cleanup, body allocation and lift/lower work.
   Reuse body-scoped facts only within a proved version, rebuilding after splices.
 - **Invariant / dependencies:** unchanged-function reuse, deferred statistics,
-  tail admission and streamed snapshot-prefix scans are implemented. Keep active
+  tail admission and streamed snapshot-prefix scans remain required. Keep active
   folds, infinite-loop tails, NaN/signed-zero, metadata and proposal boundaries.
   Propagation depends on P01; plain Precompute does not.
 - **Exit / suggested tests:** repeat an enclosing-pipeline gain without tiny
   active-body regression; extend [raw reuse](src/passes/precompute_raw_identity_perf_wbtest.mbt)
   and [tail/prefix controls](src/passes/precompute_tail_admission_perf_wbtest.mbt).
 
-### P03 — Remaining DAE2 graph, lift and lower costs [IR2-PERF-DAE2]
+### P03 — DAE2/O priority work [IR2-PERF-DAE2]
 
-- **Owner / why:** [DAE2](src/passes/dead_argument_elimination2.mbt); both large
-  modes remain multi-second with substantial verified-v133 gaps.
-- **Deliverables / tasks:** profile dependency solving, demanded LocalGraph,
-  location lookup and unavoidable lift/lower allocation separately. Reuse
-  compact affected-function/revision facts or bounded scratch only with measured
-  benefit; preserve conservative dependencies for unknown control information.
-  Lean-v5/v5b source-order caches are rejected: strong synthetic gains did
-  not improve compiler pipelines, and v5b regressed small/large DAE2. Preserve
-  the bidirectional controls; overlapping access lists remain an open quadratic
-  family. Existing CFG root snapshots are now reused (lean-v6); avoid
-  rebuilding region/label/type lookup per operand before adding more caches.
-  The fresh lean-v2 dependency-only profile puts CFG construction at 56.38%
-  and LocalGraph at 32.81% inclusive, with node reads at 15.46% self. Target
-  repeated last-write decoding and source-order scans next; do not confuse
-  this scoped profile with whole-command attribution.
-  The v9 large whole-command profile puts DAE2 analysis at 0.58% self and the
-  LocalGraph source/build/join helpers at 2.53% combined; isolate lift, analysis,
-  lower and final validation before pursuing more graph metadata.
-  Compact locations, fused metadata, validated first-lift admission, symbolic
-  flat-body dependencies, reusable replay scratch, mandatory scalar/GC producers
-  and direct scalar mutation including tees are implemented. V14 keeps exact
-  full-HOT output by retaining tees according to surviving local reads; immutable
-  solved-graph transfer releases adjacency without mutable-field edge overhead.
-  Their evidence and rejected experiments live in the priority report.
-  Branchless scalar-block admission is implemented under trial, retaining full
-  HOT for indexed/multivalue/branched control. Profile remaining HOT mutation safety,
-  child-use queries and final validation before adding more graph metadata.
-  P05 dominates the active tee optimizing fixture; its V18 reuse trials are
-  passes full/default (12,877), focused native (112) and 62 benchmark cases.
-  Its 79-fixture shared-consumer matrix validates 2,730 modules with 12,008
-  matching observations and unchanged V14/V18 bytes. Complete enclosing/oracle/RSS
-  evidence retains the large gaps and small/mutable/entry control costs.
-  Branchless-block trials expose old stacked-read errors in the full-HOT
-  reference; V21 expanded operand flow fixes DAE2/O in the new runtime matrix.
-  Shared SL/lowering fixes pass V25 full/native checks; bounded runtime and
-  enclosing performance confirmation remain pending.
-  Quiet GC/entry/pure costs require renewal.
-- **Invariant / dependencies:** compact control summaries, unaffected second-lift
-  admission, handler admission and immutable-local read admission are implemented.
-  Preserve grouped-local bytes,
-  recursive callers, signature/call remaps and open/closed-world behavior.
-  Whole-HOT retention and its smaller budget already lost pipeline/RSS controls;
-  do not restore them without a new work/memory model. Shared owners P01/P11/P12.
-- **Exit / suggested tests:** lower plain and optimizing artifact costs with
-  bounded RSS; cover distant reads, indirect/recursive calls, typed blocks,
-  multi-handler/continuation boundaries and source ownership in
-  [control](src/passes/dae2_control_summary_perf_wbtest.mbt) and
-  [handler controls](src/passes/dae2_handler_admission_perf_wbtest.mbt).
+- **Goal / owner:** reduce the multi-second compiler gap in
+  [DAE2](src/passes/dead_argument_elimination2.mbt),
+  [LocalGraph](src/ir/local_graph.mbt),
+  [source order](src/ir/hot_source_order.mbt) and
+  [pipeline cleanup](src/passes/pass_manager.mbt).
+- **Shared dependencies / APIs:** P01/P05/P11/P12/P13; prefer existing checked
+  field getters, immutable facts and owned scratch. A public projected/lazy
+  graph API needs an explicit contract and consumer review, not incomplete
+  fields presented as a complete LocalGraph.
+- **Invariants / exit:** preserve complete source/influence/writer metadata,
+  deterministic source order, unknown rows, exceptional edges, recursive and
+  indirect calls, open/closed worlds, scalar/GC producers, captures, metadata
+  and grouped-local bytes. Require measured enclosing gains, bounded memory,
+  valid output and classified size/parity differences before closing P03.
+  [Evidence and rejected designs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md).
+
+#### P03a — Remaining HOT field reads [IR2-PERF-DAE2-FIELDS]
+
+- [ ] Profile opcode/label/body-boundary and local-access queries still returning
+  complete node headers. Replace hot paths with checked field reads where the
+  caller needs only those fields; avoid repeating admission inside one query.
+- [ ] Prove generated native code removes the actual public **and private**
+  complete-header boundary. Getter annotations or renamed calls are insufficient.
+  Preserve deleted-node, invalid-index, incomplete-arena and error-order checks.
+- **Tests / measures:** bounded field/error equivalence and native work guards;
+  shallow/deep/shared inputs; both DAE2 modes and affected P12 consumers; scoped
+  instructions, allocator calls, enclosing time and RSS.
+
+#### P03b — Query scratch and object churn [IR2-PERF-DAE2-SCRATCH]
+
+- [ ] Attribute remaining carried-value vectors, source/reader/access rows,
+  array growth, reference-count/destruction work and repeated query allocation.
+  Reuse the preceding-dependency carried buffer within its immutable facts
+  snapshot; keep returned selected rows independently owned and stable.
+- [ ] Clear temporary state on every exit, avoid allocating it on no-work paths,
+  bound retained high-water capacity and measure lifetime/RSS costs. Keep
+  expression/body revisions and concurrent workspaces isolated.
+- **Tests / measures:** cold/warm and alternating-width queries, held prior
+  results, pure/empty/early exits, sibling snapshots, effects/traps and ownership;
+  native controls plus compiler/active pipelines. Allocation call counts are
+  not bytes or net live objects.
+
+#### P03c — Remaining quadratic and repeated flow work [IR2-PERF-DAE2-FLOW]
+
+- [ ] Reduce overlapping local-access-list rescans and repeated predecessor,
+  last-write and source queries on actively transforming inputs. Demand compact
+  facts only where full-pipeline evidence supports their storage cost.
+- [ ] Gate immutable-entry reachability on an observed never-written read,
+  rather than the presence of an unused never-written local. Reuse admission's
+  existing nearest-write/read tags to avoid a redundant final node-header scan.
+- [ ] Refine tiny-row overhead in the bounded/linear writer-source union while
+  retaining linear wide-row scaling, ordered uniqueness, loop-root writes and
+  clean workspace reset. Preserve shared-action sparse fallback and unknown
+  unreachable/closed-cycle rows.
+- **Tests / measures:** complete graph-field equivalence in both operand modes;
+  unused locals versus real entry reads; joins, loops, exceptional/backedges,
+  shared actions; tiny/wide writer rows and overlapping access-list pipelines.
+  Do not restore rejected eager source-order, region-threshold or predecessor
+  caches without a new enclosing-work and memory model.
+
+#### P03d — Lift, dependency planning and lower [IR2-PERF-DAE2-PIPELINE]
+
+- [ ] Isolate remaining lift/admission, dependency solve, location lookup,
+  rewrite/lower, capture repair, writeback and final-validation costs on the
+  same frozen source. Do not add overlapping inclusive profile percentages.
+- [ ] Reduce repeated body/revision queries and representation allocation;
+  consider demand-built graph projections only through an honest API. Preserve
+  conservative dependencies when control/signature information is unknown.
+- [ ] Evaluate compact affected-function/revision summaries for remaining
+  unavoidable work; invalidate on body, node/span/region/local/type/signature
+  changes. Whole-HOT retention and its smaller budget remain rejected.
+- **Tests / measures:** active signature changes, indirect/recursive calls,
+  indexed/multivalue/branched control, grouped locals, tuple/GC producers,
+  handlers/continuations and captures; frozen before/after bytes, phase time,
+  native work and RSS. Extend existing control/handler benchmark lanes.
+
+#### P03e — Optimizing cleanup setup [IR2-PERF-DAE2-CLEANUP]
+
+- [ ] Attribute whole-code-section and per-function setup, raw Vacuum preclean,
+  SimplifyLocals admission/mutation safety, child-use queries, lower and
+  writeback guards separately from the actual transform timers.
+- [ ] Reuse compact module/body facts and mutation-scoped suffix/effect work
+  where those costs remain repeated. Refresh after splices or type/import/
+  signature changes; preserve all five SimplifyLocals variants.
+- [ ] Keep Binaryen's cleanup breadth, including functions unchanged by DAE2.
+  Guarded, unchanged or skipped cleanup does not count as a speedup. Coordinate
+  remaining Vacuum indexed-input and label-guard work with IR2-VACUUM-9155.
+- **Tests / measures:** active tee, GC/entry/pure, nested/effectful/multivalue,
+  dirty rounds, one-arm branch exits and stacked operands; source-order,
+  branch-label and alias lifetimes; enclosing DAE2-O and standalone cleanup.
+
+#### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
+
+- [ ] Reduce and attribute the **422,470-byte canonical optimizing gap** by
+  function/diff family. Compare direct DAE2, ordered SimplifyLocals/Vacuum and
+  downstream cleanup; close indirect-family, typed-control, parameter/result
+  and local/capture debris gaps without weakening behavior.
+- [ ] Inspect and replay the **41 V25-changed functions / +458 bytes**, preserving
+  the stacked-read and branch-exit repairs. Validity, byte provenance or smaller
+  output alone cannot establish semantic equivalence or an intentional win.
+- [ ] Classify current open/closed-world residual families, including indirect
+  type-family retained parameters/dropped results. Keep legacy multi-handler
+  and descriptor representation/size gaps explicit; unsupported runtime cases
+  remain unverified.
+- **Tests / exit:** red-first reduced transform regressions, original-primary
+  runtime/state/trap observations, independent validation and raw/canonical/
+  downstream size deltas. Align to the oracle unless a documented measured
+  Starshine benefit justifies retaining the shape.
+
+#### P03g — Control costs and cumulative evidence [IR2-PERF-DAE2-EVIDENCE]
+
+- [ ] Resolve or justify remaining tiny-row, small-compiler, tee, joined-reader,
+  pure-tail, conditional-writer and GC/entry control costs; review buffer lifetime
+  and peak RSS alongside work reduction. Preserve rejected trials and dispersion.
+- [ ] Measure cumulative gains directly against a correctness-equivalent frozen
+  baseline; do not multiply percentages or subtract different oracle cohorts.
+  Refresh paired enclosing and untraced-command comparisons against v133 after
+  the next material changes and at the final performance checkpoint.
+- **Tests / exit:** existing active cold/warm controls plus pinned small/large
+  compiler artifacts, independent reference brackets, identical-binary
+  calibration, source/binary/input hashes, MAD, RSS and exact traced/untraced
+  bytes. No important hidden behavior, size, memory or active-coverage regression.
 
 ### P04 — Remaining Coalesce CFG, interference and lower work [IR2-PERF-COALESCE]
 
@@ -344,15 +232,14 @@ breadth. Shared changes require all affected consumers in the matrix below.
   still costs several seconds.
 - **Deliverables / tasks:** profile repeated dependency/action rows and query
   ordering on one revision; try demand-built facts or bounded scratch where
-  repeated work remains. v9 shows HOT value/local conflict checks at 2.09%,
-  control-instruction analysis at 1.94%, control-body boundaries at 1.66%, and
-  slot-interference queries at 1.14% self. Keep raw liveness's copy-weight contribution and
-  measure sparse/dense crossover across both fixture families.
+  repeated work remains. Refresh conflict, control-boundary and slot-query
+  attribution before extending metadata. Keep raw liveness's copy-weight
+  contribution; measure sparse/dense crossover across both fixture families.
 - **Invariant / dependencies:** compiled source-hazard replay, fused copy/remap,
   sparse cliques, preorder control summaries, occupied-bit/live-member extra
-  interference, direct indexed node liveness and dense score bounds are implemented. The final
-  nested-handler control retains a measured +0.103 ms pipeline cost; preserve
-  it alongside sparse/deep-control gains. Preserve parameter conflicts, tees, loop carriers,
+  interference, direct indexed liveness and dense score bounds remain required.
+  Recheck historical nested-handler costs alongside sparse/deep-control
+  controls. Preserve parameter conflicts, tees, loop carriers,
   handlers, capture-aware output and deterministic coloring; shared P12.
 - **Exit / suggested tests:** materially improve large pipeline time without
   enlarging the recorded canonical gap or losing the small control; extend
@@ -361,31 +248,22 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 ### P05 — Mutation-scoped SimplifyLocals cleanup [IR2-PERF-SL]
 
-- **Owner / why:** raw cleanup in [pass_manager.mbt](src/passes/pass_manager.mbt)
-  and lift/lower around [SimplifyLocals](src/passes/simplify_locals.mbt); the small
-  inner timer omits substantial pipeline work and existing shape gaps.
-- **Deliverables / tasks:** profile remaining suffix/effect rescans and unchanged
-  cleanup rounds. The V14 tee profile attributes 34.89% of whole-command
-  instructions to first-use/local-write stack-order queries and 8.04% to checked
-  unreferenced-node assertions. V18 tests revision-guarded read counts, retained
-  effect-scan visited rows and memoized minimum value-producing node IDs, with
-  tiny/sparse direct fallback. Complete native, enclosing all-variant/shared-owner, size and RSS evidence
-  establishes a 31.29% active tee DAE2-O gain, with large compiler DAE2/O flat
-  and other costs retained. Next address remaining
-  mutation safety and child-use scans while preserving checked API contracts.
-  Fresh wrapper retirement passes full/native tests and helper controls in V21;
-  enclosing evidence stopped at the new stacked-read semantic failures above.
-  V25 source-position/branch-label repairs pass full/native checks; bounded
-  runtime and enclosing measurements remain pending.
-- **Invariant / dependencies:** incremental prefixes and arity prechecks are
-  implemented, as is lazy zero-read-set cleanup; possible/unknown suffixes
-  retain full checking and earliest split.
-  Two eager continuation indexes already regressed full passes. Preserve all
-  five variant rules and typed-loop/call alias lifetimes. Optimizing P03/P08/P09/P10
-  depend on this owner.
-- **Exit / suggested tests:** reduce enclosing time and shape/size gaps with
-  [suffix controls](src/passes/value_suffix_reuse_perf_wbtest.mbt), candidate-free,
-  nested/multivalue/effectful, dirty-round and all-variant dispatcher fixtures.
+- **Owner / why:** [raw cleanup](src/passes/pass_manager.mbt) and lift/lower
+  around [SimplifyLocals](src/passes/simplify_locals.mbt); inner transform timers
+  omit substantial pipeline setup and existing shape gaps.
+- **Deliverables / tasks:** reduce remaining suffix/effect rescans, dirty/unchanged
+  rounds, mutation safety and child-use checking. Attribute setup separately;
+  reuse revision-scoped facts only after proving invalidation and full breadth.
+- **Invariants / dependencies:** preserve checked mutation APIs, earliest suffix
+  splits, all five variants, source positions, one-arm exit labels, typed-loop/
+  call aliases and capture lifetimes. Keep tiny/sparse fallbacks; eager
+  continuation indexes remain rejected. P03/P08/P09/P10 depend on this owner.
+  V25 bounded repair evidence is complete; final current-source shared-consumer
+  aggregate renewal remains deferred, not the old bounded repair replay.
+- **Exit / tests:** improve enclosing time and shape/size without regressing
+  candidate-free, nested/multivalue/effectful or dirty-round controls. Extend
+  [suffix controls](src/passes/value_suffix_reuse_perf_wbtest.mbt) and all-variant
+  dispatcher/runtime fixtures; P03e owns DAE2-O integration.
 
 ### P06 — Remaining OI validation and exact guard work [IR2-PERF-OI]
 
@@ -398,9 +276,8 @@ breadth. Shared changes require all affected consumers in the matrix below.
   unprofitable candidates. A counting sink requires shared opcode/immediate
   definitions and full exact-size/error equivalence.
 - **Invariant / dependencies:** identity admission, one-buffer body framing, exact
-  local-remap expression sizes and shared string-pool/index lookup are implemented;
-  one-buffer framing's
-  isolated wide control was flat. Keep exact names,
+  local-remap expression sizes and shared string-pool/index lookup remain required;
+  the previous framing control does not prove a speedup. Keep exact names,
   facts, strings, section LEB framing and complete final validation. Shared P11/P13.
 - **Exit / suggested tests:** lower enclosing time without worsening canonical
   output; extend [identity](src/passes/local_group_identity_perf_wbtest.mbt) and
@@ -416,60 +293,36 @@ breadth. Shared changes require all affected consumers in the matrix below.
   target/fixed-point facts only where repeated work is measured.
 - **Invariant / dependencies:** unchanged grouping admission, fused roots and
   incremental worklists, identity remap epochs and lazy body remapping are
-  implemented. The profile puts shape-array hashing below 1% of self instructions.
-  Retain exact collision checks, rec-group,
-  descriptor/tag/continuation roots and host-visible identity; guard work shares P06.
+  required. Profile hashing before extending caches; retain exact collision
+  checks, rec-group and descriptor/tag/continuation roots and host-visible identity; guard work shares P06.
 - **Exit / suggested tests:** improve large time without tiny cost or output loss;
   use unique bodies, adversarial collisions, recursive remaps and
   [fixed-point controls](src/passes/duplicate_function_fixed_point_perf_wbtest.mbt).
 
 ### P08 — Remaining DAE uniform-actual, slice and solver work [IR2-PERF-DAE]
 
-- **Owner / why:** [DAE](src/passes/dead_argument_elimination.mbt); count-only
-  facts and loop signature indexing do not close the small oracle gap.
+- **Owner / why:** [DAE](src/passes/dead_argument_elimination.mbt); the historical
+  small oracle gap and optimizing output-size gap need current-source renewal.
 - **Deliverables / tasks:** profile uniform actuals, parameterized operand/slice
-  construction and solving on actively transforming inputs. Establish a
-  fallthrough/admission summary before an early exit: `None` and `Some([None])`
-  differ, and later unsupported control can change eligibility. Reuse existing
-  literal/forwarding facts, not complete copied operand arrays.
-- **Invariant / dependencies:** count-only facts preserve all call/use counts;
-  rebuild on body, callee boundary, numbering, arity or relevant type changes.
-  Borrowed dead suffixes, lazy dropped-result cleanup and shared-code snapshot
-  guards are implemented; preserve their measured scan-path tradeoffs.
-  Singleton trap summaries now share the call scan and reduce small-artifact
-  instructions 3.97%, with identical output. V1's three-pair active mutable
-  fixture showed a 6.52% plain-DAE regression. V3's reusable recursive path scratch
-  resolves the selected candidate's regression: seven quiet pairs improve
-  37.385 → 36.180 ms (-3.22%), with 3.38% fewer native instructions and identical
-  bytes. Preserve both results. The active profile still spends 8.66% self in
-  the droppable pure-value suffix scanner; isolate its need-stack allocations.
-  V7b closes the reduced complex unused-argument capture gap: an owned operand
-  boundary plus borrowed nontrapping suffix proof removes arithmetic before
-  allocating scratch, preserving effects and plan reuse. The two runtime
-  fixtures save 11/18 raw bytes and lower canonical sizes. The V6/V8 wide
-  pure-argument fixture improves DAE/DAEO 30.00%/44.65% with three of twelve
-  rows observing foreign CPU activity; compiler DAE changes -0.41% in the
-  contended V8 renewal. Seven quiet V6/V10 pairs renew the earlier V8 costs:
-  small DAE/DAEO improve 2.71%/2.55%, and active improve 3.43%/0.43%.
-  The original directional costs remain in the report. V9 repairs shared-NaN candidate
-  identity so a valid pruning transaction can commit beside a NaN body.
-  V18 reuses the graph snapshot's indexed function signatures in reverse
-  exact-literal candidate scanning; active pruning and unchanged heap/import
-  fixtures pass. Native nonconstant scanning improves 39.45 → 32.02 µs,
-  active scanning remains near dispersion, and enclosing large DAE/DAEO gains
-  are below 0.5%; the small artifact improves 4.17%/0.84%.
-  Do not infer closure from faster scan microbenchmarks.
-  Reusing the exact module graph across reverse candidate scanning and commit
-  planning passes seven focused checks, including active pruning, foreign-owner
-  fallback, input ownership and unchanged graph epochs. Eight native controls
-  and enclosing confirmation remain pending. V24 native controls show
-  heavy nonconstant full-round work improves 51.67 to 33.50 us, while active
-  rounds are near dispersion (2.03 to 2.00 ms); no active speedup is claimed.
-  Large guarded DAEO does not prove cleanup breadth; P05 supplies nested cleanup.
-- **Exit / suggested tests:** improve active small and large parameterized cases
-  with effects, traps, recursive forwarding, multi-value and typed-loop fixtures;
+  construction, droppable pure-value need-stack allocation and solving on active
+  inputs. Reuse literal/forwarding facts and owned recursive scratch, rather
+  than complete copied operands.
+- **Admission invariant:** establish fallthrough eligibility before an early
+  exit: `None` and `Some([None])` differ, and later unsupported control can change
+  admission. Rebuild facts on body, callee boundary, numbering, arity or relevant
+  type changes. Preserve NaN identity, effects/traps and input ownership.
+- **Evidence still needed:** measure the enclosing benefit of existing exact-
+  owner graph reuse on active small/large rounds; its native nonconstant control
+  gain does not prove an active speedup. Renew DAE/DAEO artifact ratios and size
+  deltas; classify uniform-actual/capture and generated cleanup residuals.
+  [Priority evidence](docs/wiki/tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls)
+  owns completed fixes, native controls and prior tradeoffs. Large guarded DAEO
+  does not prove cleanup breadth; P05 supplies nested cleanup.
+- **Exit / tests:** active recursive forwarding, multi-value, typed loops,
+  foreign-owner fallback, effects/traps, unchanged epochs and plan reuse;
   extend [call facts](src/passes/dae_count_only_facts_perf_wbtest.mbt) and
-  [stable operands](src/passes/dae_stable_operands_perf_wbtest.mbt).
+  [stable operands](src/passes/dae_stable_operands_perf_wbtest.mbt). Require an
+  enclosing improvement and classified output gaps, then deferred final renewal.
 
 ### P09 — Remaining called-body planning and round updates [IR2-PERF-INLINING]
 
@@ -481,7 +334,7 @@ breadth. Shared changes require all affected consumers in the matrix below.
   remap cases and reconsider eligibility when a callee changes.
 - **Invariant / dependencies:** lazy context, scratch cursor, called-only ordinary
   classification, typed scratch cursors and plain body-measurement reuse are
-  implemented. Full partial/
+  required. Full partial/
   named-main classification and all global/RefFunc references remain required.
   Keep actual helper deletion, metadata, recursion and thresholds; optimizing P05.
 - **Exit / suggested tests:** reduce active costs without losing cleanup/size;
@@ -498,8 +351,8 @@ breadth. Shared changes require all affected consumers in the matrix below.
   users, with body-revision facts and conservative imported-alias invalidation.
   Broaden typed-loop cleanup only with path-sensitive runtime/lifetime proof.
 - **Invariant / dependencies:** early candidate admission and active full-pass
-  controls are implemented; imported-alias facts and runtime-trace reuse already
-  existed. Large unchanged/guarded timing is not an active optimization win;
+  controls, imported-alias facts and runtime-trace reuse remain required.
+  Large unchanged/guarded timing is not an active optimization win;
   plain SimplifyGlobals remains a boundary. Shared P05.
 - **Exit / suggested tests:** improve active global/local tails with mutable
   aliases, clean/dirty rounds and loop carriers; extend
@@ -516,7 +369,7 @@ breadth. Shared changes require all affected consumers in the matrix below.
   dependencies; retain all feature/error/metadata checks.
 - **Invariant / dependencies:** expression-scoped copy-on-write masks, unchanged
   join borrowing, HOT body forks, direct typed pops and CA environment reuse are
-  implemented. The standalone intersection helper still returns an owned array;
+  required. The standalone intersection helper still returns an owned array;
   writes must never leak initialization to a parent/sibling. Public-array writers
   must clone first. Larger allocated proofs already lost controls. Consumers
   P02/P06/P07/P14.
@@ -529,30 +382,21 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 - **Owner / why:** [lift](src/ir/hot_lift.mbt), [lower](src/ir/hot_lower.mbt),
   [source order](src/ir/hot_source_order.mbt) and [CFG](src/ir/cfg.mbt).
-- **Deliverables / tasks:** profile repeated immutable type/effect/dependency/
-  ordering queries and representation allocations; reuse compact facts or
-  bounded scratch by revision, invalidating node/span/region/local/type changes.
-  Lowered-output reuse needs unchanged captures, tuple producers and metadata too.
-  The v9 whole-command profiles put the inlined HOT node getter at 5.59% of
-  DAE2 and 6.28% of Coalesce self instructions. Its proven-live fast path is
-  already implemented, so first compare direct field reads with full-node reads
-  in bounded controls and the dominant consumer artifacts; keep deleted-node
-  and incomplete-arena checks exact. V7b scalar opcode/type/child reads pass
-  479 native IR tests and 2,420 shared-consumer runtime observations with
-  identical bytes. Corrected V8 child controls improve 34.09 → 29.66 µs at
-  width 16 and 38.69 → 30.44 µs at width 4,096. V8's quiet small shared
-  pipelines range from -7.19% to +0.52%; large shared changes range from
-  -1.96% to +1.55% with six of thirty rows observing foreign CPU activity.
-  These controls do not establish a material compiler-wide query win.
-- **Invariant / dependencies:** the getter already returns the existing node;
-  deletion-bitmap reads, bulk root splices, indexed CFG membership and prior
-  borrowed operands/effect caches, direct arity and small structural type-table
-  lookup are implemented. Avoid whole-arena retention
-  and production instrumentation wrappers. Separate P01/P03/P04 consumer controls.
-- **Exit / suggested tests:** reduce actual consumer time/RSS; extend
-  [liveness](src/ir/hot_indexed_liveness_perf_wbtest.mbt),
-  [root splice](src/ir/hot_root_splice_bulk_perf_wbtest.mbt), mutation invalidation,
-  deep/shared/effectful multivalue and handler fixtures.
+- **Deliverables / tasks:** reduce repeated immutable type/effect/dependency/
+  ordering queries and representation allocation. P03a–d specify immediate
+  DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
+  consumers before accepting shared changes.
+- **APIs / invariants:** use checked scalar field getters and complete admission
+  proofs; remove remaining full-header boundaries only with generated-native
+  evidence. Invalidate compact facts or scratch on node/span/region/local/type
+  changes; output reuse also needs unchanged captures, tuples and metadata.
+  Preserve deleted-node and incomplete-arena errors, deterministic source order
+  and result ownership. Avoid whole-arena retention and default-path boxing.
+- **Exit / tests:** material actual-consumer time/RSS gains, not only query
+  microbenchmarks; extend [liveness](src/ir/hot_indexed_liveness_perf_wbtest.mbt),
+  [root splice](src/ir/hot_root_splice_bulk_perf_wbtest.mbt), invalidation,
+  deep/shared/effectful multivalue and handler fixtures. Keep historical getter
+  controls and rejected annotation/value-layout trials in their dossiers.
 
 ### P13 — Remaining decode, validation and command encoding [IR2-PERF-COMMAND]
 
@@ -564,7 +408,7 @@ breadth. Shared changes require all affected consumers in the matrix below.
   proposal, metadata, portfolio and output-selection semantics.
 - **Invariant / dependencies:** direct sequence-leaf encoding, scoped string
   indexes and unchanged-NaN input-byte reuse with conservative encoding-cleanup
-  admission are implemented.
+  admission remain required.
   Empty CLI reuses encoded input and does not measure full optimizer decode/
   validation work. Shared P06/P11; tracing must preserve exact untraced bytes.
 - **Exit / suggested tests:** lower untraced command wall time without omitted
@@ -574,21 +418,19 @@ breadth. Shared changes require all affected consumers in the matrix below.
 ### P14 — Remaining active coverage and unmeasured owners [IR2-PERF-COVERAGE]
 
 - **Owner / why:** [registry](src/passes/optimize.mbt),
-  [performance sweep](scripts/lib/pass-performance-sweep.ts) and owner dossiers.
-  Current exact-name inventory is 74 direct names plus two presets, 67 paired
-  names, and 171 Binaryen optimization-section flags of which 115 are unpaired.
-  Aliases/policies/tool flags prevent interpreting that as 115 missing passes.
-- **Deliverables / tasks:** add valid asserted triggers before new performance
-  claims for uncovered families; preserve active small DAE/DAEO, SGO, optimizing
-  inlining, MergeLocals, named-main and nested-handler controls alongside guards.
-  Unknown owners remain unmeasured. Resolve CA/handler precision and proposal
-  parity separately from the completed CA environment setup work.
-- **Invariant / dependencies:** registry census, 67 small-input command probes,
-  active registry benchmarks and CA profiling/10k renewal are implemented.
-  Policy masks are observable in memory even when encoded bytes are unchanged.
-- **Exit / suggested tests:** each claim names input, owner and measured enclosing
-  cost; extend [active controls](src/passes/registry_active_perf_wbtest.mbt) and
-  [CA environment controls](src/passes/constraint_lower_module_env_perf_wbtest.mbt).
+  [performance sweep](scripts/lib/pass-performance-sweep.ts) and owner dossiers;
+  guarded or unchanged paths cannot establish active transformation coverage.
+- **Deliverables / tasks:** add valid asserted triggers for uncovered families;
+  retain active small DAE/DAEO, SGO, optimizing inlining, MergeLocals, named-main
+  and nested-handler controls. Renew the broader multi-pass performance readout
+  after owner work; historical inventories/timings stay in the campaign dossier.
+  Resolve CA/handler precision and proposal parity separately from setup costs.
+- **Invariants / dependencies:** keep policy masks observable in memory even
+  when encoded bytes are unchanged; aliases and tool/policy flags are not
+  automatically missing optimizer implementations. Shared P11/P12/P13.
+- **Exit / tests:** each claim names input, owner, active transformation and
+  enclosing cost; extend [active controls](src/passes/registry_active_perf_wbtest.mbt)
+  and [CA environment controls](src/passes/constraint_lower_module_env_perf_wbtest.mbt).
 
 ### Validation for further candidates
 
@@ -605,12 +447,16 @@ explicit `_build/native/release/build/cmd/cmd.exe` and
 `--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`, independent
 validation and Node-v2 observations. Keep the default deterministic oracle cache;
 Starshine outputs are regenerated. Do not add `--wasm-smith` unless requested.
-Exact commands and hashes for the completed campaign are in the report.
+Historical commands and hashes live in the campaign report; regenerate source
+and binary identities for the final candidate. Also complete the repository
+release gates after iteration: `bun validate full --profile ci --target wasm-gc`,
+README/API sync and applicable coverage checks. Review public `.mbti` diffs,
+refresh the owner docs/backlog, and preserve validation or runtime blockers.
 
 | Canonical pass/lane | GenValid aggregate | Cleanup normalizers / extra flags |
 | --- | --- | --- |
 | `precompute`, `precompute-propagate` | `precompute-all` | `drop-consts`, `unreachable-control-debris`, `local-cleanup-debris` |
-| `dae2`, `dae2-optimizing` | `dae2` | `drop-consts`, `unreachable-control-debris`; also `dae2 --closed-world` |
+| `dae2`, `dae2-optimizing` | `dae2` | `drop-consts`, `unreachable-control-debris`; each mode in open and `--closed-world` |
 | `dae` | `dead-argument-elimination` | `drop-consts`, `unreachable-control-debris` |
 | `dae-optimizing` | `dae-optimizing` | `drop-consts`, `unreachable-control-debris` |
 | `inlining`, `inline-main` | `pass-inlining` | none; active named-main runtime fixture also required |
@@ -627,8 +473,9 @@ Exact commands and hashes for the completed campaign are in the report.
 | `heap-store-optimization` | `heap-store-optimization` | `local-cleanup-debris` |
 | `heap-store-optimization` broad control | `random-all-profiles` | no dedicated cleanup normalizer |
 
-Shared P01/P11/P12 changes and the typed-control consumer repair require this
-25-lane matrix, including both HSO lanes below. Report validation,
+Shared P01/P11/P12 changes and typed-control repairs require the affected
+consumer matrix above, including both HSO lanes and both DAE2 modes/worlds.
+Report validation,
 command, semantic, parity and size outcomes separately. Runtime-blocked cases
 remain unverified; baseline byte identity establishes provenance. Classify
 residuals with source/semantic/downstream evidence and measured benefits, or
@@ -636,30 +483,29 @@ retain them as parity/size gaps.
 
 ## v0.1.1 — Parity and safety [IR2-PARITY / IR2-SAFETY]
 
-### Vacuum PR #9155 signoff and indexed inputs [IR2-VACUUM-9155]
+### Vacuum PR #9155 remaining gaps [IR2-VACUUM-9155]
 
-- **Goal / why:** keep dropped call results visible inside concrete If arms for
-  upstream cleanup and DAE; finish the requested current-main parity fix.
-- **Current:** HOT/raw two-arm sinking and guarded indexed-result admission
-  pass red-first checks, 12,907 default tests, native CLI build, API sync and six
-  benchmarks. Four superseded packing fixtures now lock the per-arm contract.
-  Sixty modules / 744 fixed observations match original and current main;
-  13/15 canonical modules match. Nested cleanup is eight bytes smaller in
-  Starshine; indexed input capture remains an open transform gap.
-  Active 128/256-root controls cost 1.50/5.06 ms, showing wider growth; attribute repeated label and detached-use checks
-  before broad performance signoff.
-- **Remaining tasks / APIs:** normalize/capture input parameters before
-  demoting indexed If signatures; reduce repeated label-guard scans with
-  validated ownership/branch evidence and repeat the matched active controls.
-  Reuse public HOT control/local builders and existing module type resolution.
-- **Invariants:** evaluate the condition once, execute only the selected arm,
-  preserve operand effects/traps/branch payloads, never re-hoist matching drops.
-- **Dependencies / exit:** frozen current-main PR commit for reduced parity and
-  verified release v133 for release evidence; default suite and bounded runtime
-  must pass. Long aggregate renewal follows the other performance trials.
-- **Tests:** existing/new `vacuum_pr9155_wbtest.mbt`, f2369/f3752/f4824/f1903,
-  indexed signatures with zero/input parameters, ordered imported calls,
-  integer/null traps, unreachable paths and nested downstream cleanup.
+- **Goal / why:** complete indexed-input drop sinking and eliminate repeated
+  whole-arena guard work. Concrete-arm HOT/raw sinking is already implemented;
+  its [evidence](docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md#september-29-2026--pr-9155-concrete-arm-drop-sinking)
+  owns the original failures, tests and fixed/runtime comparisons.
+- **Tasks / APIs:** capture indexed If input parameters before void demotion
+  through existing HOT control/local builders and module type resolution.
+  Reduce repeated label/detached-use checks with validated ownership and branch
+  evidence; renew matched 128/256-root controls, including cold lift cost.
+- **Invariants:** evaluate the condition once and only the selected arm; preserve
+  input/arm effects, traps, unreachable behavior and live branch-result payloads;
+  never re-hoist matching arm drops. Smaller bytes alone do not close the indexed
+  transform/downstream gap. Keep the established nested-cleanup win documented.
+- **Dependencies / exit:** retain the frozen PR-main oracle for reduced parity
+  and verified release v133 for release evidence. Resolve/classify remaining
+  shapes, pass default/bounded runtime checks and include original failure,
+  implementation, tests, oracle outputs and remaining gaps in the final report.
+  Long Vacuum aggregate renewal follows the performance trials.
+- **Tests:** extend existing pass/dispatcher PR9155 regressions with indexed
+  input signatures, ordered calls, scalar/GC inputs, traps, unreachable/branch
+  paths, ownership and nested downstream cleanup.
+
 
 
 **Goal:** resolve outstanding output-quality gaps and extend evidence without
@@ -717,18 +563,16 @@ failure; no unproven output-shape exception.
 
 ## v0.1.1 — Frontend and index contracts [IR2-CORRECTNESS]
 
-- **Parameterized HOT if signoff:** lift/lower now preserves entry operands,
-  evaluation order, tuple producers and both arm stacks; constant selection
-  retains entries through block demotion. Leading scalar entries now avoid
-  duplicated constants and scratch locals. Finish independent runtime checks and
-  shared-consumer aggregate renewal; the old stack-underflow regression is closed.
-- Function-label depth/payload and name-section boundary fixtures pass.
-  [AUDIT]006 global function-index documentation and fixtures are complete;
-  [validator documentation](docs/wiki/validate/type-section-and-subtyping.md)
-  owns their contract.
-- **Exit:** focused tests demonstrate the required behavior, malformed inputs
-  remain rejected, public interface diffs are reviewed and docs match the code.
-  [Source context](docs/wiki/ir2/architecture-rules.md).
+- **Parameterized HOT if signoff:** finish current-source independent runtime
+  checks and shared-consumer aggregate renewal for parameterized control,
+  tuple entries and constant selection/demotion. Preserve entry evaluation
+  order, both arm stacks and source positions; do not reimplement the closed
+  stack-underflow, duplicate-entry or function-index fixes.
+- **Dependencies / exit:** focused bounded IR/byte fixtures, exact supported
+  original/optimized observations, malformed-input rejection and reviewed
+  `.mbti` contracts. Shared long renewal is deferred until performance work
+  settles. [Source context](docs/wiki/ir2/architecture-rules.md) and
+  [index/validator contracts](docs/wiki/validate/type-section-and-subtyping.md).
 
 ## v0.1.1 — Pipeline, artifacts and tooling [IR2-SIGNOFF]
 
@@ -799,8 +643,7 @@ pass dossiers; historical green checkpoints do not replace current signoff.
 - **Inherited proposal/analysis gaps [IR2-V132]:** preserve legacy multi-handler
   DAE2 representation and descriptor size gaps; broaden descriptor/module-remap
   cases and classify residual fence/atomic shapes. Resolve remaining CA/handler
-  precision and parity gaps using the renewed [v133 evidence](docs/wiki/tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign); cost profiling is complete. Public source
-  spans and WAST continuation grammar remain tooling boundaries; distinguish
+  precision and parity gaps using the renewed [v133 evidence](docs/wiki/tooling/tracing-playbook.md#september-28-2026-performance-backlog-campaign); public source spans and WAST continuation grammar remain tooling boundaries; distinguish
   structural proposal checks from independent execution.
   [Historical intake](docs/wiki/binaryen/version-132-upgrade.md).
 - **Shared-Everything Threads:** finish missing WAST shared declarations/aggregate

@@ -1,3 +1,18 @@
+### 2026-09-29 — Active performance backlog reconciliation
+
+- [The active backlog](../../agent-todo.md) now separates remaining work from
+  completed performance/validation histories. The frozen lean-v27 readout
+  supersedes older timings as the DAE2/O checkpoint; owner dossiers retain the
+  original cohorts, rejected trials and tradeoffs. P03a–g list field reads,
+  scratch/churn, flow scaling, lift/lower, optimizing cleanup, output quality
+  and cumulative/control evidence with dependencies, invariants and tests.
+- Retain the 422,470-byte optimizing gap, V25's +458-byte/41-function inspection,
+  Vacuum indexed-input/guard work, other performance owners and deferred final
+  shared-consumer/runtime/release gates. Remove stale pending claims for the
+  completed V25 bounded replay and native controls. Live wiki backlog links
+  now use stable headings or durable dossiers; the old pause checklist is
+  explicitly superseded. Historical log links remain as audit provenance.
+
 ### 2026-09-29 — DAE2 cached raw signatures
 
 - [Cached raw signatures](binaryen/passes/dae2/starshine-strategy.md#september-29-2026-cached-raw-signatures)

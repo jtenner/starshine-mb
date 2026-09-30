@@ -56,9 +56,9 @@ The fastest local read-along path is:
 - active request rejection
   - [`src/passes/optimize.mbt#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
   - boundary-only entries return `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
-- adjacent backlog, but not a sibling-specific backlog
-  - [`agent-todo.md#L668-L680`](../../../../../agent-todo.md#L668-L680)
-  - `RG - Reorder Globals` covers the production late-tail pass and artifact parity plan; it does not define a separate `reorder-globals-always` slice
+- current artifact backlog, without a sibling-specific slice
+  - [Pipeline, artifact and transformation-breadth gates](../../../../../agent-todo.md#v011--pipeline-artifacts-and-tooling-ir2-signoff)
+  - historical `RG - Reorder Globals` planning is superseded by the active release gates; there is no separate `reorder-globals-always` slice
 - global representation surfaces a future module pass must understand
   - [`src/lib/types.mbt#L113`](../../../../../src/lib/types.mbt#L113) defines `GlobalIdx`
   - [`src/lib/types.mbt#L171`](../../../../../src/lib/types.mbt#L171) defines `GlobalType`

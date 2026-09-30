@@ -91,8 +91,8 @@ The fastest read-along path through the current Starshine status is:
   - [`src/ir/hot_lower.mbt#L197`](../../../../../src/ir/hot_lower.mbt#L197)
     - lowers HOT string constants back to library IR
 - planning context
-  - [`agent-todo.md#L552-L560`](../../../../../agent-todo.md#L552-L560)
-    - active string work is `SG - String Gathering`, not `string-lowering`
+  - [String Gathering implementation dossier](../string-gathering/starshine-strategy.md)
+    - owns the historical gathering work formerly tracked in the active backlog; it does not establish a `string-lowering` implementation
   - [`../../../strings/string-const-surface.md`](../../../strings/string-const-surface.md)
     - durable local docs for the existing `string.const` binary/textual surface
 

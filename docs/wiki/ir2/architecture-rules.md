@@ -4123,8 +4123,9 @@ raw/canonical/Oz artifacts, and `parity-dae2-exception-repair/result.json`.
 
 #### Usage-pause checkpoint
 
-The [active resume checklist](../../../agent-todo.md#resume-checkpoint--september-15-user-requested-usage-pause)
-is authoritative for pending work at the user's requested pause. Subsequent
+This historical pause checklist is superseded by the
+[active release backlog](../../../agent-todo.md). At the user's requested
+pause, the following checks were still pending. Subsequent
 local-subtyping, global-refining, grouped-local-name and DAE2 signature fixes
 have focused passing checks, but the last complete 11,978-test suite and
 80,000-comparison first renewal precede those follow-ups. Three bounded pass
