@@ -291,6 +291,7 @@ fn Dae2ParameterAliases::remap(
           continue
         }
       }
+      @lib.LocalTee(@lib.LocalIdx(raw)) if indices[raw.to_int()] < 0 => continue
       _ => ()
     }
     out.push(
@@ -307,9 +308,13 @@ fn Dae2ParameterAliases::remap(
           )
         }
         @lib.LocalSet(@lib.LocalIdx(raw)) =>
-          @lib.Instruction::local_set(
-            @lib.LocalIdx::new(indices[raw.to_int()].to_uint()),
-          )
+          if indices[raw.to_int()] < 0 {
+            @lib.Instruction::drop()
+          } else {
+            @lib.Instruction::local_set(
+              @lib.LocalIdx::new(indices[raw.to_int()].to_uint()),
+            )
+          }
         @lib.LocalTee(@lib.LocalIdx(raw)) =>
           @lib.Instruction::local_tee(
             @lib.LocalIdx::new(indices[raw.to_int()].to_uint()),

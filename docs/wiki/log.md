@@ -1,3 +1,16 @@
+### 2026-10-01 — Retire unread optimizing body writes
+
+- [Unread-write evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-retire-unread-optimizing-body-writes)
+  closes both remapper paths with red scalar/ref/GC, effectful multi-value, loop,
+  live-handler and alias fixtures. A compiler smoke catches the initial missing
+  alias-set fallback; its red regression and repair precede final signoff.
+  All 13,274 bounded tests and 1,524 fixed original/v133 observations pass.
+  4,968 functions shrink without growth or non-code changes, saving 79,962
+  canonical / 75,580 raw compiler bytes. Raw now wins 9,949 bytes against v133;
+  the canonical deficit falls 179,213→99,251. The compact loop matches 93 bytes,
+  and the larger loop improves to 231 vs 215. Large optimizing improves 1.18%;
+  added active helper work and repeated tee +.39% stay open. Fuzz is deferred.
+
 ### 2026-10-01 — Lazy legacy adaptation owners
 
 - [Lazy setup evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-lazy-legacy-adaptation-setup)

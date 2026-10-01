@@ -184,23 +184,36 @@ fn pass_lower_remap_locals(
   indices : Array[Int],
 ) -> Array[@lib.Instruction] {
   let visit_body = fn(body) { pass_lower_remap_locals(body, indices) }
-  instrs.map(fn(instr) {
+  let out = Array::new(capacity=instrs.length())
+  for instr in instrs {
     match instr {
-      @lib.LocalGet(@lib.LocalIdx(index)) =>
-        @lib.Instruction::local_get(
-          @lib.LocalIdx::new(indices[index.to_int()].reinterpret_as_uint()),
-        )
-      @lib.LocalSet(@lib.LocalIdx(index)) =>
-        @lib.Instruction::local_set(
-          @lib.LocalIdx::new(indices[index.to_int()].reinterpret_as_uint()),
-        )
-      @lib.LocalTee(@lib.LocalIdx(index)) =>
-        @lib.Instruction::local_tee(
-          @lib.LocalIdx::new(indices[index.to_int()].reinterpret_as_uint()),
-        )
-      _ => pass_lower_map_children(instr, visit_body)
+      @lib.LocalTee(@lib.LocalIdx(index)) if indices[index.to_int()] < 0 =>
+        continue
+      _ => ()
     }
-  })
+    out.push(
+      match instr {
+        @lib.LocalGet(@lib.LocalIdx(index)) =>
+          @lib.Instruction::local_get(
+            @lib.LocalIdx::new(indices[index.to_int()].reinterpret_as_uint()),
+          )
+        @lib.LocalSet(@lib.LocalIdx(index)) =>
+          if indices[index.to_int()] < 0 {
+            @lib.Instruction::drop()
+          } else {
+            @lib.Instruction::local_set(
+              @lib.LocalIdx::new(indices[index.to_int()].reinterpret_as_uint()),
+            )
+          }
+        @lib.LocalTee(@lib.LocalIdx(index)) =>
+          @lib.Instruction::local_tee(
+            @lib.LocalIdx::new(indices[index.to_int()].reinterpret_as_uint()),
+          )
+        _ => pass_lower_map_children(instr, visit_body)
+      },
+    )
+  }
+  out
 }
 
 ///|
@@ -228,18 +241,20 @@ fn pass_lower_compact_captures_with_map(
   // remove aliases, so prove whether either cleanup family has work here.
   if propagate_parameter_aliases {
     for local_id in start..<count {
-      if gets[local_id] == 1 && writes[local_id] == 1 {
+      let reads = gets[local_id]
+      let write_count = writes[local_id]
+      if reads == 1 && write_count == 1 {
         has_capture = true
         break
       }
-      has_single_write = has_single_write || writes[local_id] == 1
-      has_unused = has_unused || (gets[local_id] == 0 && writes[local_id] == 0)
+      has_single_write = has_single_write || write_count == 1
+      has_unused = has_unused || reads == 0
     }
   }
   if !has_capture &&
     !has_unused &&
     (!has_single_write || !dae2_has_parameter_alias(body, start, writes)) {
-    // Both capture passes only remove single-read, single-write locals. With
+    // Capture removal needs single-read, single-write locals. With
     // no such pair, no dead declaration and no alias, the exact map is identity.
     let runs = locals.runs
     let mut normalize = false
@@ -291,10 +306,21 @@ fn pass_lower_compact_captures_with_map(
   // Preserve the complete legacy capture plan before alias propagation.
   // Moving even a pure parameter read can otherwise obstruct a smaller stack
   // plan chosen for an overlapping computed value.
-  let (body, unread_aliases) = if propagate_parameter_aliases {
+  let (body, unread_aliases) = if propagate_parameter_aliases &&
+    (!has_unused || gets.any(fn(reads) { reads > 0 })) {
     dae2_cleanup_parameter_aliases(body, start, gets, writes)
   } else {
     (body, None)
+  }
+  if propagate_parameter_aliases {
+    // The complete census and alias demand transfers include every nested and
+    // legacy handler read. Retire only body-local writes with no remaining read;
+    // remapping preserves the produced value (tee) or consumes it (set/drop).
+    for local_id in start..<count {
+      if gets[local_id] == 0 {
+        writes[local_id] = 0
+      }
+    }
   }
   let indices = Array::makei(count, fn(i) { i })
   let retained : Array[@lib.ValType] = []

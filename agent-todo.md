@@ -146,14 +146,21 @@ untraced command times or a causal comparison with earlier cohorts.
   observations pass with exact bytes. Tiny +3.01 ns, leaf batch +49.66 ns and
   repeated large optimizing +1.21% remain active. See
   [compound query evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-reuse-compound-suffix-initialization-facts).
+- **Current unread-write checkpoint:** V83 removes unread optimizing body writes
+  with scalar/ref/GC, multi-value, loop, handler and alias replay coverage.
+  All 13,274 bounded tests and 1,524 fixed observations pass; compiler output
+  saves 79,962 canonical / 75,580 raw bytes across 4,968 shrinking functions,
+  with no growth or non-code changes. The canonical gap is 99,251; raw wins
+  9,949 against v133. Active helper and tee timing costs stay open. See
+  [unread-write evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-retire-unread-optimizing-body-writes).
 - **Current numeric-capture checkpoint:** V78 propagates sole root numeric
   literals across descendants and legacy handlers with complete writer census,
   root dominance and encoded non-growth. All 13,248 tests and 1,376 observations
   pass; compiler canonical bytes fall 931, large optimizing stays flat, and the
   four-byte legacy body gap closes. Remaining tee/control costs stay active. See
   [numeric-capture evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-propagate-sole-root-numeric-captures).
-- **Release blockers:** current large DAE2-O adds **179,213 canonical / 65,631 raw
-  bytes** against v133; V59 above retains its original writer scope. Smaller plain DAE2 output alone is not a proven win.
+- **Release blockers:** current large DAE2-O adds **99,251 canonical bytes**
+  against v133, while raw output wins **9,949 bytes**; V59 above retains its original writer scope. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
@@ -484,7 +491,7 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
-- [ ] Reduce and attribute the remaining **179,213-byte canonical optimizing gap**
+- [ ] Reduce and attribute the remaining **99,251-byte canonical optimizing gap**
   by function/diff family. V32 removes 32,070 balanced capture pairs and saves
   147,876 raw / 53,470 canonical bytes without per-function pair regressions.
   V38 removes immutable parameter aliases without per-function raw size losses,
@@ -495,7 +502,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
   248 writer bytes versus 220. A current frozen V80 / verified-v133 replay
   (`.tmp/dae2-loop-capture-probe-20261001/`) is 235 vs 215 canonical bytes;
   raw 325 vs 215 includes retained name metadata and is a separate scope.
-  Multiply-written counter snapshots into locals 11/16, unused tees 10/12,
+  V83 removes the unused tees 10/12: current output is 231 vs 215 canonical
+  bytes, with 148 fixed original/v133 observations and a smaller command loop
+  reaching 93 vs 93. Multiply-written counter snapshots into locals 11/16,
   set/get versus tee 18 and the load-result capture 9 survive. Close these
   families with original-primary event/trap/result replay and per-function
   non-growth; source-write and control barriers must preserve snapshot values.
@@ -528,15 +537,24 @@ breadth. Shared changes require all affected consumers in the matrix below.
   legacy-only read/count/bounds defect (100 → 1); current body/catch/catch-all
   replay matches original and v133. Keep the HOT guard;
   other large witnesses still need admission attribution.
-- [ ] Remove unread optimizing capture writes using the existing complete
-  read/write census. The loop witness retains unread tees 10/12. Retire only
-  eligible body locals after capture/alias demand adjustments; retain producer
-  evaluation/value for tees and producer evaluation plus Drop for sets in both
-  final remappers. Keep live handler/branch reads, original-local boundaries,
-  alias source demand, parameter behavior and plain lower mode. Add red tests
-  for side effects, traps, scalar/GC values, loops and legacy catches, then
-  validate original-primary replay, raw/canonical per-function non-growth and
-  cold/active costs. No new public API or second census is required.
+- [ ] Reduce the V83 added active unread-write cleanup work and tee control
+  cost while preserving its 79,962 canonical / 75,580 raw compiler-byte saving.
+  Both final remappers now retire unread body writes with complete handler/alias
+  demand, preserving producer effects, traps and stack values. 4,968 compiler
+  functions shrink without growth; raw output wins 9,949 bytes against v133,
+  while the canonical deficit remains 99,251. Native cold/handler controls are
+  approximately flat; active 64-tee/set controls add .931/.745 µs for new work.
+  Matched large O improves 1.18%; tee O initially costs 1.75% and
+  its bounded repeat costs .39%. See [unread-write evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-retire-unread-optimizing-body-writes).
+- [ ] Close multiply-written source snapshot aliases only within proved flat
+  source-value epochs. Account for every adjusted target read before a source
+  clobber, structured/branch/terminal barrier or a 256-instruction budget; keep
+  immutable discovery, source demand, LEB profit guards and exact remap replay.
+  Counter snapshots 11/16 remain in the 231-vs-215 canonical loop witness.
+  Test read-before-write, clobbers, other scopes/legacy handlers, repeated loops,
+  refs/GC and width/budget boundaries; measure full compaction, compiler time,
+  per-function non-growth and original/v133 events/traps. The local draft in
+  `.tmp/dae2-mutable-source-snapshots-20261001/` is not implemented or signoff.
 - [ ] Profile remaining alias admission/counting, replay and remap costs after
   V55 removes intermediate trees and instruction-option roots. Wide native
   active controls improve 12–21%, but enclosing optimizing times remain flat;

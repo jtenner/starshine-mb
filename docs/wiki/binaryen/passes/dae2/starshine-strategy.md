@@ -3,6 +3,12 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/passes/lower_capture_cleanup.mbt
+  - ../../../../../src/passes/dae2_parameter_aliases.mbt
+  - ../../../../../src/passes/unread_write_wbtest.mbt
+  - ../../../../../src/passes/unread_write_reference_wbtest.mbt
+  - ../../../../../src/passes/unread_write_perf_wbtest.mbt
+  - ../../../../../src/cmd/unread_write_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination2_legacy.mbt
   - ../../../../../src/passes/legacy_setup_wbtest.mbt
   - ../../../../../src/passes/legacy_setup_reference_wbtest.mbt
@@ -121,8 +127,6 @@ sources:
   - ../../../../../src/passes/dae2_stack_suffix_perf_wbtest.mbt
   - ../../../../../src/passes/dae2_stack_suffix_admission_wbtest.mbt
   - ../../../../../src/passes/dae2_stack_suffix_wbtest.mbt
-  - ../../../../../src/passes/dae2_stack_suffix_rewrite.mbt
-  - ../../../../../src/passes/dae2_parameter_aliases.mbt
   - ../../../../../src/passes/dae2_parameter_aliases_wbtest.mbt
   - ../../../../../src/passes/dae2_parameter_aliases_reference_wbtest.mbt
   - ../../../../../src/passes/dae2_parameter_aliases_perf_wbtest.mbt
@@ -172,14 +176,12 @@ sources:
   - ../../../../../src/ir/catch_payload_preflight_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/DeadArgumentElimination2.cpp
   - ../../../../../src/passes/dae2_module_env_wbtest.mbt
-  - ../../../../../src/passes/lower_capture_cleanup.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
   - https://github.com/WebAssembly/binaryen/pull/8994
   - ../../../../../src/passes/dead_argument_elimination2.mbt
   - ../../../../../src/passes/dae2_repeated_solve_perf_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination2_types.mbt
-  - ../../../../../src/passes/dead_argument_elimination2_legacy.mbt
   - ../../../../../src/passes/dead_argument_elimination2_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination2_intake_wbtest.mbt
 related:
@@ -6320,3 +6322,81 @@ predecessor, failing regression, native controls, source hashes, matched
 cohorts and validation/runtime/byte reports. The verified v133 deficit remains
 179,213 canonical / 65,631 raw bytes. Larger CFG/source work, mutable-source
 copies, unread tees and global speed/size parity remain active. Fuzz is deferred.
+
+## October 1, 2026: retire unread optimizing body writes
+
+V83's focused command loop retains unread load/counter tees and three locals
+where one is required; the direct compactor also retains unread numeric,
+reference and non-null GC producer tees. Six behavior regressions fail before
+implementation, while live-handler/other-arm and original/plain boundaries pass.
+
+Optimizing capture admission now includes zero-read writes, reusing the existing
+complete nested/legacy read census. After capture/alias demand adjustment, only
+eligible zero-read body locals retire. An unaliased retired tee disappears while
+its value stays on the stack; a retired set becomes a drop at the same point.
+Proved alias writers keep their established producer-removal rule before this
+fallback. No evaluation moves, new census or public API is introduced. Ordinary
+lowering preserves its original-local boundary; optimizing cleanup deliberately
+uses an empty boundary to compact every body local. Parameters retain indices.
+
+Direct fixtures assert instructions/maps/ownership/encoded size for scalar/ref/GC,
+side-effecting multi-value producers, nested loops, live catch/other-arm reads,
+original/plain boundaries and alias replay. The initial prototype in `.tmp/dae2-unread-writes-20261001/` passes 13,273
+bounded tests but fails the compiler fixture: the alias remapper leaves an
+unaliased retired set at index −1. A new regression fails with
+`LocalSet(4294967295) != Drop` before correcting that second remapper. The
+refined implementation also caches read/write census values and skips alias
+discovery when no local reads remain. Compiler smoke/validation precede native
+benchmarking; no invalid prototype is committed.
+
+Final `moon info`, `moon fmt`, 29 focused tests, all 13,274 bounded tests,
+the release native build, compiler smoke/validation and ten native controls
+pass. Frozen candidate SHA-256 is
+`485d74b5234f05e9091adcd30dc0aa1c29834a40d9ddc713a39c72accde90c35`.
+All 1,524 fixed original-primary/v133 observations match. The final two-loop
+replay initially cannot decode v133 compact imports in Node 26; its separate
+runtime oracle disables compact imports, preserving the original size evidence.
+No public `.mbti` changes.
+
+| Full compaction control | V82 | V83 | Interpretation |
+| --- | ---: | ---: | --- |
+| Cold, one live local | 90.60 ns | 90.37 ns | Flat |
+| Cold, 64 live locals | 1.08 µs | 1.09 µs | +.01 µs remains open |
+| 64 unread tees | 709.19 ns | 1.64 µs | +.931 µs for new cleanup |
+| 64 unread sets | 535.08 ns | 1.28 µs | +.745 µs for new cleanup |
+| 16 live-handler locals | 606.20 ns | 599.99 ns | Approximately flat |
+
+Refining the initial census/remap draft brings active tee/set controls from
+1.87/1.40 µs to 1.64/1.28 µs. Cold 64 improves from the initial 1.27 µs to
+1.09 µs. This comparison spans separate native cohorts; the final matched
+predecessor controls above are the causal comparison. Added active work remains
+a target rather than an assumed free transform.
+
+Three matched enclosing pairs, CPU 6, one warm-up, Precompute brackets ≤1.15
+and retained rejected samples measure small plain/O 3.547→3.492 ms (−1.55%) /
+10.182→10.129 ms (−.52%); large 3,721.189→3,611.613 ms (−2.94%) /
+6,953.939→6,872.133 ms (−1.18%); tee 3.241→3.187 ms (−1.67%) /
+115.730→117.756 ms (+1.75%). Large MADs are 149.842/.679 and
+66.279/20.717 ms. One bounded tee-only repeat is 108.374→108.801 ms
+(+.39%, MAD .883/.308 ms), still an open cost. These are enclosing command
+pipelines rather than pass-local attribution. RSS is flat: 294,124/294,572 KiB
+before and 294,288/294,124 KiB after.
+
+Compiler raw bytes fall **5,639,081→5,563,501 (−75,580)** and bounded canonical
+bytes **5,766,650→5,686,688 (−79,962)**. All **4,968** changed functions shrink,
+with no growth; code bodies save 75,525 bytes and non-code sections are exact.
+Against the same verified v133 oracle, raw output now wins **9,949 bytes**,
+while canonical output still loses **99,251 bytes** (previously 179,213).
+This is a measured byte win; it does not establish overall speed/size parity.
+
+The focused load/counter command loop drops from 97 to **93 canonical bytes**,
+matching v133's 93. The larger imported-call loop falls 235→**231**, versus
+v133's 215: unread tees 10/12 close, while mutable counter snapshots 11/16,
+set/get-versus-tee 18 and load capture 9 remain active. Results, ordered calls,
+injected exceptions and load traps match original/v133 in 148 observations.
+
+Artifacts are `.tmp/dae2-unread-writes-fixed-20261001/`: red logs are retained
+in the initial root, final source hashes, native controls, compiler smoke,
+matched cohorts/repeat, per-function/non-code bytes and original-primary replays
+are in the fixed root. Larger flow/lift/lower, cleanup costs, mutable-source
+snapshots and global canonical/speed parity remain active. Fuzz is deferred.
