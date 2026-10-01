@@ -1,3 +1,11 @@
+### 2026-10-01 — Reverse-flow admission tag reuse
+
+- [Flow evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-reuse-reverse-flow-admission-tags)
+  records red-first read admission, complete graph/reference checks, two removed
+  native header boundaries, 26 focused controls and preserved cold/enclosing
+  repeats. All 13,185 tests and 284 fixed observations pass with unchanged
+  artifact bytes. Small-plain/large-optimizing costs and the byte gap remain open.
+
 ### 2026-10-01 — Cheap alias admission and copy attribution
 
 - [Discovery bypass](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-cheap-alias-admission-at-discovery)

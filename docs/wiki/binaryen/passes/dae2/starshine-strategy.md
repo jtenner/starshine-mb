@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/ir/local_graph_flow_tags_wbtest.mbt
+  - ../../../../../src/ir/local_graph_flow_tags_perf_wbtest.mbt
+  - ../../../../../src/ir/local_graph_flow_tags_reference_wbtest.mbt
+  - ../../../../../src/cmd/dae2_flow_tags_wbtest.mbt
   - ../../../../../src/passes/profitable_alias_wbtest.mbt
   - ../../../../../src/passes/profitable_alias_perf_wbtest.mbt
   - ../../../../../src/passes/profitable_alias_reference_wbtest.mbt
@@ -4909,3 +4913,67 @@ values and control-result/tee formation are hypotheses to reduce, not proven
 transform classifications. Do not treat the larger canonical copy counts as
 raw immutable-alias coverage. Extracted functions/counts are saved under
 `.tmp/dae2-profitable-alias-20261001/writer-review/`.
+
+## October 1, 2026: reuse reverse-flow admission tags
+
+V64 uses the validated nearest-write/read tags during final read projection,
+instead of decoding every live arena header twice again. Positive tags recover
+the local from the existing writer index; negative tags retain the local and
+immutable-entry reachability marker. Writer node zero remains valid; nonreads,
+orphan reads and deleted nodes keep the nonread sentinel. Whole-arena writer
+metadata remains intact. Immutable-entry traversal now requires an observed
+never-written read in the compact action rows, rather than an unused local.
+No new persistent facts or scratch arrays are introduced.
+
+Two focused admission regressions fail first. Four bounded IR tests compare
+complete read rows, writer facts, influence order and finished graphs against
+the frozen V63 reference, with both metadata and operand modes, scalar/GC,
+loops, unreachable code, shared-action fallback, orphan/deleted nodes and
+revision ownership. A dispatcher regression validates parameter removal through
+a loop for both passes and scalar/indexed-GC unused parameters. Info/fmt,
+**13,185** default wasm-gc tests, **26** native controls and release CLI build
+pass; no public API changes. Generated native reverse-row code contains **two**
+complete-header calls instead of **four**, removing the final-loop boundaries.
+
+Native solver-row timings include scratch/cache construction but exclude CFG
+construction and final SSA/defaultability finishing. Eight-branch unused-local
+rows improve **3.30 → 2.95µs (10.6%)**; full metadata improves
+**3.63 → 3.26µs (10.2%)**. At 256 real immutable-entry reads, **59.10 →
+49.07µs (17.0%)**; a repeat gives **52.23 → 48.83µs (6.5%)**. The 256-branch
+written-selector case stays flat (**807.06 → 805.60µs**), retaining repeated
+writer-source traversal as a target. Shared fallback stays flat. Cold setup
+initially costs **9.38 → 9.77µs (+4.16%)**, while the independent repeat gives
+**9.23 → 8.96µs (−2.93%)**; preserve both, with no general cold/RSS claim.
+
+CPU-6 enclosing cohorts use one warmup, alternating pairs and reference-drift
+rejection. Artifact bytes remain exact predecessors for both passes:
+
+| Input | Plain before → after ms | Optimizing before → after ms |
+| --- | ---: | ---: |
+| Small, three pairs | 3.367 → 3.998 | 9.828 → 9.723 |
+| Small, seven-pair repeat | 3.438 → 3.537 | 9.766 → 9.687 |
+| Large, three pairs | 3,434.435 → 3,441.126 | 6,096.471 → 6,200.555 |
+| Active tee, three pairs | 2.826 → 6.810 | 103.079 → 102.583 |
+| Active tee, seven-pair repeat | 2.799 → 2.774 | 103.947 → 105.208 |
+
+Small plain repeat costs 2.88% with MAD 0.070/0.136ms; large optimizing costs
+1.71% with MAD 2.397/61.716ms. Keep these costs open: component gains do not
+establish an enclosing speed win. Plain tee uses raw analysis with zero HOT
+lift and the first large cost does not repeat; record both rather than claiming
+a causal LocalGraph regression or discarding that cohort. Small plain whole-
+command instructions fall **69,208,839 → 69,124,771 (0.12%)** with exact bytes;
+this is not pass-scoped allocation or RSS evidence.
+
+Fixed replay renews **32 candidate outputs / 96 retained reference modules /
+256 original-primary observations** for optimizing. An additional focused
+scalar/indexed-GC loop lane validates **14 modules / 28 observations** across
+original, predecessor, candidate and verified v133, both passes; result zero
+and ordered tick events `[2, 1]` agree. No aggregate fuzz is claimed. The current
+**210,159 canonical / 95,465 raw byte** gap retains V62's projection and stays
+open. Remaining headers, source ordering, overlapping queries, optimizing setup
+and broader pass gaps remain active.
+
+Artifacts: `.tmp/dae2-flow-tags-20261001/` retains red/green logs, native controls
+and repeat, matched cohorts/repeats, source manifests, generated-header budgets,
+small instruction counts and runtime evidence. Candidate SHA-256:
+`57f1d7986dc84888e1ea48d03b3157643d6216fb6d6b9221fcc816ed5318cf3c`.

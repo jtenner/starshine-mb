@@ -49,6 +49,13 @@ oracle versions and checkpoints do not sign current source.
   [Cheap-path and writer-origin evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-cheap-alias-admission-at-discovery)
   retains cohort limits and remaining gaps.
 
+- **Current flow checkpoint:** V64 reuses admitted read tags and gates entry
+  traversal on actual immutable reads. Native rows improve 5–17%; 256 written
+  selectors remain flat. All 13,185 tests and 284 fixed observations pass with
+  exact predecessor artifact bytes. Small-plain/large-optimizing control costs
+  remain open; enclosing speed and RSS gains are not established. See
+  [flow evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-reuse-reverse-flow-admission-tags).
+
 ### Historical V59 DAE2/O oracle baseline
 
 The frozen v59 open-world compiler comparison uses verified release v133,
@@ -230,9 +237,10 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - [ ] Reduce overlapping local-access-list rescans and repeated predecessor,
   last-write and source queries on actively transforming inputs. Demand compact
   facts only where full-pipeline evidence supports their storage cost.
-- [ ] Gate immutable-entry reachability on an observed never-written read,
-  rather than the presence of an unused never-written local. Reuse admission's
-  existing nearest-write/read tags to avoid a redundant final node-header scan.
+- [ ] Resolve V64 small-plain and large-optimizing control costs; preserve both
+  native/cold and enclosing repeats. Tag reuse removes two header boundaries
+  and improves native entry rows, but does not establish enclosing speed/RSS
+  gains. Continue reducing repeated writer-source traversal on written selectors.
 - [ ] Refine tiny-row overhead in the bounded/linear writer-source union while
   retaining linear wide-row scaling, ordered uniqueness, loop-root writes and
   clean workspace reset. Preserve shared-action sparse fallback and unknown

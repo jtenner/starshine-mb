@@ -2041,7 +2041,9 @@ fn local_graph_build_reverse_rows(
   let visited : Array[BlockId] = []
   let work : Array[BlockId] = []
   let entry_rows : Array[Array[Int]] = Array::make(local_count, [])
-  if written_anywhere.any(fn(written) { !written }) {
+  if local_graph_has_immutable_entry_read(
+      actions, nearest_writes, written_anywhere,
+    ) {
     let entry = cfg_entry_block(cfg)
     // Match the reverse query's exact origin rule: entry contributes only
     // when it has no admitted predecessors. Closed/unreachable cycles must
@@ -2094,16 +2096,24 @@ fn local_graph_build_reverse_rows(
   // nullable argument at every query otherwise repeats reference-count work.
   let writer_blocks = Some(node_blocks)
   for node_id = 0; node_id < node_count; node_id = node_id + 1 {
-    if !hot_node_is_live(func, node_id) ||
-      !(hot_node_get(func, node_id).op is HotOp::LocalGet) {
+    // Admission already validated every action and records only read tags.
+    // Unmapped/orphan/deleted/nonread nodes keep -1. Preserve node-ID order
+    // without decoding their headers again; writer facts still span the arena.
+    let write_id = nearest_writes[node_id]
+    if write_id == -1 {
       continue
     }
     let block_id = node_blocks[node_id]
     if block_id < 0 {
       continue
     }
-    let local_id = hot_node_get(func, node_id).imm0
-    let write_id = nearest_writes[node_id]
+    let local_id = if write_id >= 0 {
+      write_local_ids[write_id]
+    } else if write_id <= -local_count - 2 {
+      -write_id - local_count - 2
+    } else {
+      -write_id - 2
+    }
     let sources = if write_id >= 0 {
       [local_graph_set_source_id(local_count, write_id)]
     } else if !written_anywhere[local_id] {
@@ -2319,4 +2329,24 @@ fn local_graph_transfer_unknown_control(
       write_influences,
     )
   }
+}
+
+///|
+fn local_graph_has_immutable_entry_read(
+  actions : Array[Array[NodeId]],
+  nearest_writes : Array[Int],
+  written_anywhere : Array[Bool],
+) -> Bool {
+  // All writes are known now. Demand entry reachability only for an observed
+  // read with no writer anywhere; unused locals and orphan arena reads do not
+  // require a CFG walk. Borrow the already validated compact action tags.
+  for block in actions {
+    for node_id in block {
+      let encoded = nearest_writes[node_id]
+      if encoded <= -2 && !written_anywhere[-encoded - 2] {
+        return true
+      }
+    }
+  }
+  false
 }
