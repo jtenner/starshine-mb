@@ -32,14 +32,15 @@ oracle versions and checkpoints do not sign current source.
   enclosing large pipelines stay flat. See the
   [query-seed evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-immutable-statement-query-seeds).
 
-- **Current size checkpoint:** V69 saves 25,672 raw / 26,563 canonical compiler
-  bytes in 291 functions with no growth or non-code changes. The same V62 writer
-  scope leaves **183,596 canonical / 69,793 raw bytes** against v133. V59/V62
-  retain their historical checkpoints. All 13,200 tests, 256 retained replay
-  observations and 480 additional reduced observations pass. The large
-  optimizing quality cost is **+10.33%** and is the next cleanup target;
-  small control costs and aggregate speed/size parity stay open. See
-  [release cleanup evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-effectful-cleanup-beside-structured-releases).
+- **Current size checkpoint:** V73 sinks numeric constant assignments into their
+  first flat read as tees, closing the six-byte nested-release witness. It saves
+  **3,280 raw / 3,452 canonical bytes** across 105 shrinking functions with no
+  growth or non-code changes. The verified-v133 deficit is now **180,144
+  canonical / 66,513 raw bytes**. All 13,222 default tests and 1,376 focused
+  observations pass. Large optimizing costs +0.51%; tiny/barrier native feature
+  costs remain open. Tee timing cohorts disagree; a complete native probe
+  confirms zero calls to this new helper on tee. See
+  [constant-tee evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-sink-constant-stores-beside-structured-releases).
 
 - **Current cheap-path checkpoint:** V63 bypasses the larger alias-admission
   frame on proved nonwidening copies. The bounded active work guard goes from
@@ -108,7 +109,7 @@ untraced command times or a causal comparison with earlier cohorts.
 | `dae2` | 3.753 / 1.012 | 3.71× | 3,998.720 / 563.604 | 7.10× |
 | `dae2-optimizing` | 11.972 / 3.232 | 3.71× | 7,479.616 / 1,835.960 | 4.07× |
 
-- **Release blockers:** current large DAE2-O adds **183,596 canonical / 69,793 raw
+- **Release blockers:** current large DAE2-O adds **180,144 canonical / 66,513 raw
   bytes** against v133; V59 above retains its original writer scope. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
@@ -359,6 +360,14 @@ breadth. Shared changes require all affected consumers in the matrix below.
   simple distinct/reused/nested capture pipeline probe scales roughly linearly.
   Profile actual compiler query density and preserve direct-write/recursive-read
   and terminator semantics before adding sparse tail-event caches.
+- [ ] Reduce V73 constant-store scratch and no-work/barrier costs without losing
+  its 3,452 canonical-byte improvement. Equal-feature native prototypes show
+  154ns extra on eight pending stores and 660ns extra on blocked rows; those
+  are not shipped-predecessor comparisons. Trial bounded primitive pending
+  storage and active-candidate admission with sparse/high-index controls.
+  Matched large optimizing +0.51% remains open. The tee helper is never called
+  on the active tee fixture, so its disagreeing timing cohorts need separate
+  attribution rather than blaming this map.
 - [ ] Remove duplicated balanced-capture scan/materialization work while keeping
   legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
   matched small optimizing is +6.39%; retain these costs until measured away.
@@ -383,7 +392,7 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
-- [ ] Reduce and attribute the remaining **183,596-byte canonical optimizing gap**
+- [ ] Reduce and attribute the remaining **180,144-byte canonical optimizing gap**
   by function/diff family. V32 removes 32,070 balanced capture pairs and saves
   147,876 raw / 53,470 canonical bytes without per-function pair regressions.
   V38 removes immutable parameter aliases without per-function raw size losses,
@@ -408,10 +417,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   `call-argument-structured-release-simplify-locals-noop` on function 7318
   (extracted root 24). V69 closes raw effectful forwarding beside this guard while retaining release
   lifetimes and repairing nested read/legacy write barriers. Its scalar/reference
-  reductions match or beat v133 canonical size, but the reduced nested-read
-  case still loses six bytes: test sinking a constant assignment into the
-  first flat read as a tee, preserving later nested/release observations and
-  trapping/throwing prefix barriers, before broadening this guarded lane. V70 repairs the exposed
+  reductions match or beat v133 canonical size. V73 closes the six-byte
+  nested-read case by sinking numeric constant assignments into first flat reads
+  as tees; later nested/release reads and trap/throw barriers remain intact.
+  The legacy release-body witness still loses four canonical bytes (135 vs 131).
+  Keep that gap and the larger writer/capture families active. V70 repairs the exposed
   legacy-only read/count/bounds defect (100 → 1); current body/catch/catch-all
   replay matches original and v133. Keep the HOT guard;
   other large witnesses still need admission attribution.

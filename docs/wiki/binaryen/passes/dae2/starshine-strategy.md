@@ -3,6 +3,11 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/passes/constant_store_sink.mbt
+  - ../../../../../src/passes/constant_store_sink_wbtest.mbt
+  - ../../../../../src/passes/constant_store_sink_perf_wbtest.mbt
+  - ../../../../../src/passes/constant_store_sink_reference_wbtest.mbt
+  - ../../../../../src/cmd/constant_store_sink_wbtest.mbt
   - ../../../../../src/ir/local_graph_selected_reads_wbtest.mbt
   - ../../../../../src/ir/local_graph_selected_reads_perf_wbtest.mbt
   - ../../../../../src/passes/dae2_selected_flow.mbt
@@ -5528,3 +5533,87 @@ Frozen local evidence is `.tmp/dae2-selected-flow-20261001/`, including red,
 validation, cold controls, both matched cohorts, density cap/retry, replay,
 function bytes, canonical attribution and RSS. Candidate SHA256 is
 `71d5810cfa49bfacdc5cc023eea37cccdb57d95cc8877f1f5e527727c30bb486`.
+
+
+## October 1, 2026: sink constant stores beside structured releases
+
+V73 closes the six-byte nested-read failure in the guarded release cleanup:
+Starshine retained a parameter snapshot before assigning a constant, while
+v133 compared the original parameter first and used a constant tee at the
+later call argument. Three red-first helper/pass/dispatcher assertions fail
+before implementation (missing rewrite and wrong initial local read).
+
+The effectful raw cleanup now sinks i32/i64/f32/f64 constant stores to their
+first flat read, retaining the assignment as a tee for later reads. One forward
+scan tracks pending stores; writes invalidate the target, and calls, traps,
+throws and structured control invalidate the prefix with an O(1) instruction
+index epoch. No per-store suffix search or repeated map clear is used. Nested
+block/loop/if/try-table bodies are handled independently; legacy handlers stay
+opaque. The HOT release-lifetime guard remains. Only this guarded raw lane
+changes; unrelated cleanup admission is unchanged. Lazy records use unboxed
+8-byte value elements, and native Int map lookups do not allocate Option boxes.
+Unchanged bodies retain their original arrays.
+
+Tests cover all four numeric scalar types, repeated reads, target clobbers,
+independent siblings, intentionally blocking calls/division/load/truncation,
+control/unreachable, linear scan visits, source ownership and module validity.
+Info/fmt, **13,222** default tests, eleven focused native rows and release build
+pass. Existing replay contributes 256 observations; fourteen reduced fixtures /
+56 modules contribute another 1,120 original-primary observations, including
+observable calls and traps. Current Starshine and verified v133 match originals.
+This bounded evidence does not replace the deferred aggregate GenValid signoff.
+
+| Reduced canonical bytes | V72 | V73 | v133 |
+| --- | ---: | ---: | ---: |
+| Nested release read | 128 | 122 | 122 |
+| Observed i32 constant | 135 | 129 | 129 |
+| Observed i64 constant | 141 | 133 | 135 |
+| Observed f32 constant | 144 | 136 | 138 |
+| Observed f64 constant | 148 | 140 | 142 |
+| Legacy release body | 135 | 135 | 131 |
+
+Three scalar reductions win two canonical bytes; the legacy body retains a
+four-byte parity gap. An equal-size unused-local declaration difference is
+not independently established as a performance win. On the compiler, 105
+functions shrink with no growth or non-code changes. Raw bytes fall from
+5,643,243 to **5,639,963**; bounded eight-round first-valid canonical projection
+falls from 5,771,033 to **5,767,581**. Against the unchanged verified-v133 oracle,
+the remaining deficit is **180,144 canonical / 66,513 raw bytes**. Largest raw
+savings include function 7292 (1,470 bytes), 7293 (525) and 7294 (459).
+
+Native cold controls compare two implementations of this new feature, not
+shipped-predecessor performance: the test-only reference performs naive
+per-store suffix search. Parsing is excluded; pending storage and rewrite
+allocation are included. Eight pending stores cost 320.30 → 474.77ns; 32
+improve 2.50 → 1.82µs; 512 improve 465.87 → 29.61µs. A blocked 32-store row
+costs 1.09 → 1.75µs. Tiny/barrier scratch costs remain active next targets.
+Parsed whole-module widths 1/32/256 cost 16.56/84.21/821.66µs; comparisons
+against earlier nonalternating benchmark cohorts are not causal.
+
+CPU-6 enclosing pairs use one warmup, alternating order and reference
+Precompute brackets ≤1.15. Initial cohorts have three accepted pairs:
+
+| Input | Plain before → after ms | Optimizing before → after ms |
+| --- | ---: | ---: |
+| Small | 3.413 → 3.413 | 9.759 → 9.735 |
+| Large | 3,347.070 → 3,336.522 | 6,278.684 → 6,310.901 |
+| Active tee | 2.790 → 2.774 | 102.195 → 105.410 |
+
+The large optimizing +0.51% quality cost remains open (MAD 18.694/2.670ms).
+The seven-pair tee repeat is plain 2.868 → 2.825ms and optimizing
+103.757 → 104.542ms (+0.76%, MAD 1.577/1.461ms), much less than the initial
++3.15% and inside its spread. A bounded complete-command native probe counts
+**zero constant-sink helper calls on active tee**; its valid output exactly
+matches the frozen measured output. Therefore tee's timing difference is not
+attributed to pending-map work; code layout/host effects remain uncertain.
+Retain both cohorts and rejected reference brackets. Per-process wait4 large
+peaks are before 294,456/294,204KiB and after 304,604/294,284KiB, one higher
+band with no established sustained RSS change.
+
+Frozen local evidence is `.tmp/dae2-constant-tee-20261001/`, including red-first
+logs, field/encoded-byte fixtures, native layout, both timing cohorts, complete
+tee call count, runtime replay, per-function bytes, canonical projection and
+RSS. Candidate SHA256 is
+`2665b582cf027fb8253a3398ae5da3d2e718c84da235d7fe460ff2f130d3db97`.
+Overall speed/byte parity and all other pass owners remain open; long fuzz stays
+deferred while performance work continues.

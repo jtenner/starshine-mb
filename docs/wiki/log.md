@@ -1,3 +1,14 @@
+### 2026-10-01 — Constant tees beside structured releases
+
+- [Constant-store evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-sink-constant-stores-beside-structured-releases)
+  records red-first helper/pass/dispatcher failures, bounded linear tracking,
+  retained lifetime/trap barriers and all four scalar types. All 13,222 tests
+  and 1,376 focused observations pass. Save 3,452 canonical bytes in 105
+  shrinking functions; the remaining gap is 180,144 canonical / 66,513 raw.
+  Keep tiny/barrier native costs, large optimizing +0.51%, the four-byte legacy
+  witness and overall parity open. Tee timing cohorts disagree and the new
+  helper is never called on that fixture. Long fuzz remains deferred.
+
 ### 2026-10-01 — Unresolved DAE2 read-source projection
 
 - [Selected-source evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-demand-only-unresolved-dae2-read-sources)

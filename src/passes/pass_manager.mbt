@@ -11295,9 +11295,11 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
     ),
   )
   let (rewritten_instrs, rewrite_count) = if effectful_only {
-    run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
-      instrs, env,
+    let (constant_instrs, constant_count) = sl_sink_constant_stores(instrs)
+    let (rewritten, effectful_count) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
+      constant_instrs, env,
     )
+    (rewritten, constant_count + effectful_count)
   } else {
     let (balanced_instrs, balanced_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fixpoint(
       instrs, env,
