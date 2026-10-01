@@ -12405,15 +12405,32 @@ fn dae_collect_uniform_const_actuals_instrs(
       ) {
       Some(_) =>
         match
-          dae_callsite_value_slice_evidence(
-            instrs, idx, param_count, entry_stack_values, mod_, func_type_indices,
+          dae_uniform_callsite_operands_at(
+            mod_, instrs, idx, param_count, entry_stack_values, func_type_indices,
           ) {
-          Some(evidence) => {
+          Some(operands) => {
             let mut p = 0
             while p < param_count {
               if active_params[p] && !invalid[p] {
-                match
-                  dae_callsite_single_instruction_actual(evidence, p, instrs) {
+                let actual = match operands.direct_actual_start {
+                  Some(start) => {
+                    let actual_idx = start + p
+                    Some({
+                      param_idx: p,
+                      actual_idx,
+                      instr: instrs[actual_idx],
+                    })
+                  }
+                  None =>
+                    match operands.evidence {
+                      Some(evidence) =>
+                        dae_callsite_single_instruction_actual(
+                          evidence, p, instrs,
+                        )
+                      None => None
+                    }
+                }
+                match actual {
                   Some(actual) =>
                     match
                       dae_resolve_uniform_const_candidate(
@@ -12452,11 +12469,15 @@ fn dae_collect_uniform_const_actuals_instrs(
                     }
                   None =>
                     match
-                      dae_materializable_uniform_slice_candidate(
-                        instrs,
-                        evidence.slices[p],
-                        param_types[p],
-                      ) {
+                      (match operands.evidence {
+                        Some(evidence) =>
+                          dae_materializable_uniform_slice_candidate(
+                            instrs,
+                            evidence.slices[p],
+                            param_types[p],
+                          )
+                        None => None
+                      }) {
                       Some(candidate) =>
                         dae_record_uniform_const_candidate(
                           seen, invalid, candidates, p, candidate,
@@ -12716,29 +12737,21 @@ fn dae_resolve_uniform_callsite_operands(
     is None {
     return None
   }
-  let direct_actual_start = dae_callsite_contiguous_single_root_actual_start(
-    scope, call_idx, param_count, mod_, func_type_indices,
-  )
+  let value = match
+    dae_uniform_callsite_operands_at(
+      mod_, scope, call_idx, param_count, entry_stack_values, func_type_indices,
+    ) {
+    Some(value) => value
+    None => return None
+  }
   match resolutions {
     Some(count) if count.length() >= 3 =>
-      match direct_actual_start {
+      match value.direct_actual_start {
         Some(_) => count[1] += 1
         None => count[2] += 1
       }
     _ => ()
   }
-  let evidence = match direct_actual_start {
-    Some(_) => None
-    None =>
-      match
-        dae_callsite_value_slice_evidence(
-          scope, call_idx, param_count, entry_stack_values, mod_, func_type_indices,
-        ) {
-        Some(value) => Some(value)
-        None => return None
-      }
-  }
-  let value = { param_count, scope, direct_actual_start, evidence, }
   match cache {
     Some(entries) => entries.set((callee_abs, callsite_index), value)
     None => ()

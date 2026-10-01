@@ -1162,3 +1162,26 @@ keeps import effects in both modes. Seven focused checks pass.
 [Eight native controls](../../../../../src/passes/dae_reverse_graph_reuse_perf_wbtest.mbt)
 include complete scan/commit rounds at tiny and wide type/function counts.
 Native/enclosing confirmation is pending in V24; no speedup is established yet.
+
+
+## October 1, 2026 borrowed operands in recursive uniform discovery
+
+Recursive forwarding now shares the existing contiguous single-root operand
+proof with stable callsite recovery. It borrows the exact source scope and
+avoids value-slice arrays for zero-input/one-output roots; computed, multi-value,
+shared-stack and interleaved-effect cases retain the full slicer. No cross-body
+cache, admission shortcut, traversal early exit or verification reduction is
+introduced. Forwarded NaNs no longer fail the sliced single-instruction
+floating equality check; payload bits remain exact, with smaller plain output
+and original-primary/v133 execution evidence.
+
+[Implementing tests](../../../../../src/passes/dae_uniform_operands_wbtest.mbt),
+[dispatcher fixtures](../../../../../src/cmd/dae_uniform_operands_wbtest.mbt) and
+[native controls](../../../../../src/passes/dae_uniform_operands_perf_wbtest.mbt)
+cover ownership, recursion/exposure, later invalid control and complex fallback.
+The [bounded pilot and renewed matrix](../../../tooling/tracing-playbook.md#october-1-2026-small-dae-pilot-and-release-priorities)
+records seven untraced pairs: small DAE/O improves 4.93%/14.73%, exact fixed
+artifact bytes, 59.53% fewer slices and unchanged discovery/validation counts.
+Large timing stays within broad spread. Snapshot/transaction reuse, remaining
+uniform work, guarded optimizing cleanup and output parity remain active P08
+work; this does not replace the earlier historical cohorts or sign off release.

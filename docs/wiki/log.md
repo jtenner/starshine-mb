@@ -1,3 +1,13 @@
+### 2026-10-01 — Small DAE operand pilot and matched release checkpoint
+
+- [Bounded pilot evidence](tooling/tracing-playbook.md#october-1-2026-small-dae-pilot-and-release-priorities)
+  records source-frozen v133 comparisons: small untraced DAE/O paired gains
+  4.93%/14.73%, fewer slices/allocations with unchanged validation and discovery.
+  Borrowed scalar/GC roots retain complex fallback and exact NaN payloads.
+  All four V83 raw/canonical DAE2-O hashes are reproduced; symmetric writer
+  normalization confirms the 99,251-byte gap. P03 ownership stays intact;
+  Coalesce and shared command-envelope/quality priorities remain open.
+
 ### 2026-10-01 — Retire unread optimizing body writes
 
 - [Unread-write evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-retire-unread-optimizing-body-writes)

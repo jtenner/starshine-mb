@@ -4252,3 +4252,96 @@ signatures and other non-custom sections match. This is not proof of semantic
 equivalence or an accepted representation difference: preserve the guard and
 inspect/replay these bodies before classifying the artifact change. The frozen
 V25 scope JSON retains each changed body index, size and hash.
+
+
+## October 1, 2026 small DAE pilot and release priorities
+
+This bounded pilot starts from clean `d10a98e33d50a88060607a80b91a33243f1a2f62`
+on `perf/small-dae-pilot-20261001`, preserving the original checkout and active
+DAE2/O owner. Official Binaryen 133, native release/O2/mimalloc, Ryzen 7 8845HS
+CPU 6; build excluded. Frozen manifests, commands, all samples, rejected timers
+and source review live in `.tmp/dae-small-pilot-20261001/local-report.md`.
+Small/large inputs are 192,893/6,211,596 bytes with SHA prefixes `06a9dd57ade8` /
+`98189860f95b`. The sweep's automatic source identity describes its original
+checkout; the separate frozen candidate/final manifests identify the worktree.
+
+Small DAE has 45 functions, 1,715 direct callsites and 87 distinct edges.
+Five baseline traced samples attribute 23.757 ms to the fixed loop and 21.934 to
+selected lanes (21.409 reverse-literal is included); decode/encode are
+0.709/0.390 ms. Callgrind finds 66 snapshots, 21 graph refreshes, 29 core rounds,
+44 dependency builds, 35 module validations /1,575 body validations. Inclusive
+validation 39.47%, recursive uniform scanning 30.67%, snapshots 12.87% and
+slicing 12.26% overlap; they cannot be added. This confirms repeated work,
+without proving validation removal safe.
+
+[Shared operand recovery](../../../src/passes/dae_uniform_operands.mbt) now
+uses the established contiguous zero-input/one-output-root proof during raw
+recursive uniform forwarding; complex arguments retain full slicing and
+complete control admission. Seven alternating untraced CLI pairs, median±MAD:
+DAE **48.846±0.708→45.564±0.306 ms**, median paired **−4.93%**;
+optimizing **118.603±0.641→101.407±0.418**, **−14.73%**.
+Traced enclosing pairs improve 8.98%/14.59%; do not mix scopes.
+Small DAE instructions fall 682,420,343→623,846,235, slice calls 12,106→4,899
+and malloc calls 2,698,405→2,399,936. All snapshot, round, discovery and
+validation counts above stay intact. Two RSS samples per side show no material
+change. Frozen artifact bytes are identical before/after. A five-pair large
+repeat is flat in paired pipeline time (−0.06%/−0.17%), with broad optimizing
+spread and command +0.26%/+1.65%; no large speedup is claimed.
+
+[Proof/fallback regressions](../../../src/passes/dae_uniform_operands_wbtest.mbt)
+and [dispatcher tests](../../../src/cmd/dae_uniform_operands_wbtest.mbt) include
+scalar/GC roots, mutation, recursion/export exposure, multi-value/effect barriers,
+later invalid control and exact NaN payloads.
+[Native controls](../../../src/passes/dae_uniform_operands_perf_wbtest.mbt)
+compare 1/16 scalar roots with the frozen slicing reference and include a
+computed fallback control. The two separate warm pipeline cases require copying
+the pinned small artifact to `.tmp/dae-small-benchmark.wasm`; parsing is outside
+timing, verification remains. `moon bench --package jtenner/starshine/passes
+--file dae_uniform_operands_perf_wbtest.mbt --release --target native` runs this
+dedicated lane. Default tests exclude benchmarks.
+
+Fresh representative matrix: one warmup /three alternating samples; milliseconds
+below are same-host medians. Untraced command and traced inner samples are
+separate. Complete MAD/range/sample evidence is in `matrix-{small,large}`.
+
+| Large pass | Command S /133 | Inner S /133 | Symmetric bounded canonical S−133 bytes |
+| --- | ---: | ---: | ---: |
+| DAE | 1715.2 /1466.5 | 966.5 /447.5 | −17,900 |
+| DAE optimizing | 2098.3 /3151.0 | 1217.9 /2129.7 | +27,178 |
+| DAE2 | 4815.4 /1496.2 | 3795.3 /499.7 | −114,486 |
+| DAE2 optimizing | 7884.6 /2940.3 | 7211.1 /1814.6 | +99,251 |
+| CoalesceLocals | 5356.3 /2225.9 | 4167.7 /1311.2 | +78,800 |
+| SimplifyLocals | 2689.2 /2087.4 | 157.1 /1138.2 | +373,507 |
+| OptimizeInstructions | 2994.2 /1220.0 | 146.0 /255.8 | +33,497 |
+
+Large DAE optimizing explicitly uses the restricted typed-loop-safe batch and
+raw cleanup: productive output does not prove oracle cleanup breadth.
+All raw outputs are stable and match traced/untraced outputs; every pass changes
+its strip-debug control. Canonical differences remain open parity gaps unless
+separate contract/replay/quality evidence proves a Starshine win. Smaller bytes
+and validation alone do not prove equivalence.
+
+Size protocol correction: the sweep defaults to projected Starshine versus raw
+oracle bytes. This table instead projects both sides with
+[`canonicalizeWasm`](../../../scripts/lib/pass-fuzz-compare-task.ts): v133
+parse/write, all features, strip debug, **no optimization passes**, at most eight
+rounds, stable bytes or first writer encoding if growth persists. Both results
+are independently validated. Current DAE2-O matches all four V83 artifact
+hashes: raw 5,563,501/5,573,450, bounded canonical 5,686,688/5,587,437.
+Writer growth adds 123,187/13,987 total bytes, 123,808/13,982 code-body bytes,
+and 27,725/3,479 locals in 5,975/388 functions. Differential writer growth
+109,200 turns the raw 9,949-byte win into the 99,251-byte deficit; this is real
+body/capture legalization cost, not interchangeable encoding scopes.
+
+Release priorities: existing P03 DAE2/O first (about 3.3/5.4 seconds inner
+excess plus capture quality), P10 Coalesce (about 2.86 seconds), shared P12/P13
+pipeline envelope and P04/P06 quality, then remaining P08 small DAE work.
+SimplifyLocals/OptimizeInstructions optimizer non-pass diagnostics are
+2,075/2,377 ms; lift/lower are included and explain only a small fraction.
+Keep validation mandatory and isolate context/rebuild/check costs next.
+Preset source schedules optimizing DAE and repeated Coalesce, but production
+frequency is unmeasured. P08's next safe experiment is caller-local uniform
+fact reuse within an exact unchanged graph epoch, with body/signature/exposure
+invalidation proofs; compatible validation batching needs its own invariant.
+Long fuzz, coverage and full release gates are deferred; this pilot does not
+close release/parity blockers or change their gates.

@@ -15,6 +15,17 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
+- **October 1 bounded pilot:** the user requested independent small-module P08
+  work before resuming the existing P03 owner. The
+  [fresh checkpoint](docs/wiki/tooling/tracing-playbook.md#october-1-2026-small-dae-pilot-and-release-priorities)
+  uses frozen native binaries and verified v133: large inner excess is about
+  3.30/5.40 s DAE2/O, 2.86 s Coalesce; SimplifyLocals/OI instead have 2.08/2.38 s
+  optimizer non-pass envelopes despite fast inner passes. Prioritize P03, P10,
+  shared P12/P13 plus P04/P06 quality, then remaining P08 work, adjusted to actual
+  workload frequency. Current symmetric canonical gaps remain 99,251 DAE2-O,
+  78,800 Coalesce, 373,507 SimplifyLocals and 33,497 OI bytes. Do not mix raw
+  oracle output with projected Starshine sizes; current four DAE2-O hashes
+  exactly reproduce V83. Aggregate parity/coverage/full release gates remain.
 - **Historical performance checkpoint:** lean-v59 passes 13,101 default tests and
   10,269 bounded runtime observations across 1,442 modules. Final-index bounds
   save 26,177 canonical compiler bytes; sparse replay visits body/callee
@@ -687,11 +698,14 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 ### P08 — Remaining DAE snapshots, uniform actuals and transactions [IR2-PERF-DAE]
 
-- **Owner / why:** [DAE](src/passes/dead_argument_elimination.mbt); the renewed
-  September 30 diagnostic cohort retains the small oracle gap and large
-  optimizing output-size gap. Target at most 2× verified v133 pass time: about
-  1.322 / 28.835 ms on small DAE/O. Large DAE/O already meets this timing target
-  in that cohort; output parity and cleanup breadth remain open.
+- **Owner / why:** [DAE](src/passes/dead_argument_elimination.mbt); the October 1
+  isolated pilot removes recursive contiguous-root slicing (small untraced
+  DAE/O paired −4.93%/−14.73%, exact fixed artifact bytes). Current small traced
+  inner medians are 61.216/152.455 ms versus v133 0.890/18.193; these diagnostic
+  runs include trace overhead and are not the untraced improvement pairs.
+  Target at most 2× matched v133 time while preserving output/cleanup breadth.
+  Large optimizing takes the productive but restricted typed-loop-safe path.
+  Historical September 30 timings remain in their original evidence below.
 - [ ] Reduce full boundary/call-fact snapshot reconstruction across productive
   core and selected-lane rounds. Evaluate the existing
   `dae_refresh_changed_caller_function_infos` and lightweight batch-adoption
@@ -699,16 +713,19 @@ breadth. Shared changes require all affected consumers in the matrix below.
   and deterministic caller order as needed. Retain full rebuild for unproved
   body, signature, control-type, import, numbering or module-shape changes.
 - [ ] Investigate batching compatible rewrite plans and candidate validation.
-  The small whole-command profile records 66 / 125 full snapshots and 35 / 39
-  whole-module validations for DAE/O; wrapper and inner counts must not be
+  The October 1 plain small profile still records 66 full snapshots and 35
+  whole-module validations after the slicing fix (optimizing historical counts
+  125/39 are not renewed in this pilot); wrapper and inner counts must not be
   added. Preserve candidate rollback, stale-plan rejection, every intermediate
   state's required checks and complete final-module validation.
 - **Deliverables / tasks:** profile uniform actuals, parameterized operand/slice
   construction, droppable pure-value need-stack allocation and solving on active
   inputs. Reuse literal/forwarding facts and owned recursive scratch, rather
   than complete copied operands. Prioritize recursive forwarded-uniform answers
-  and value-slice reuse: the small full-command profiles record 12,106 / 52,033
-  slice-construction calls for DAE/O. Key reuse to relevant body/signature/type
+  and remaining value-slice reuse: the October 1 plain profile falls from
+  12,106 to 4,899 slices without fewer scans/checks; optimizing historical
+  52,033 calls remain a lead, not a new count. The contiguous-root mechanism
+  is complete; do not duplicate it. Key further reuse to body/signature/type
   revisions and preserve cycle handling and exact floating-point identities.
 - **Admission invariant:** establish fallthrough eligibility before an early
   exit: `None` and `Some([None])` differ, and later unsupported control can change
@@ -719,7 +736,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   gain does not prove an active speedup. Use
   `.tmp/dae-all-speed-20260930/investigation.md` and its frozen manifests for the
   renewed ratios, phase/native profiles and size deltas; require paired gain,
-  MAD and RSS evidence before adopting the next trial. Classify
+  MAD and RSS evidence before adopting the next trial. The October 1 pilot
+  records 2,698,405→2,399,936 malloc calls, near-flat two-sample RSS and a noisy
+  large command control (+0.26%/+1.65% paired); do not claim a large gain.
+  Next, test caller-local answers within an exact unchanged graph epoch before
+  broad retained reuse or compatible validation batching. Classify
   uniform-actual/capture and generated cleanup residuals.
   [Priority evidence](docs/wiki/tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls)
   owns completed fixes, native controls and prior tradeoffs. Large guarded DAEO
