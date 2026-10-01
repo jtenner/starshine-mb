@@ -312,9 +312,12 @@ breadth. Shared changes require all affected consumers in the matrix below.
   follow larger dependency/lift/cleanup costs rather than assuming more alias
   micro-optimizations will close the compiler gap.
   V59 closes the conservative wide-index admission trial. Its new prefix
-  builder uses two boxed scalar counters in generated native C; trial a
-  scalar loop if measured setup cost warrants it. Keep one scan per body and
-  release bounds before final remap. Investigate dead top-level partial-alias
+  builder uses two boxed scalar counters in generated native C. V60's zero-filled
+  scalar-loop trial is rejected: the 4096-copy native row costs 4.81% and a
+  seven-pair enclosing optimizing repeat is +0.59%, contradicting the early
+  -7.92% cohort. Consider avoiding both zero-fill and boxing only with renewed
+  local/enclosing evidence. Keep one scan per body and release bounds before
+  final remap. Investigate dead top-level partial-alias
   writes separately; preserve earlier default reads and nested-scope writes.
 - [ ] Extend alias breadth beyond proved lexical dominance and nonwidening
   indices only with per-function size and iteration/alias-root evidence. Wider

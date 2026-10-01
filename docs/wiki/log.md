@@ -1,3 +1,11 @@
+### 2026-09-30 — Prefix-counter allocation trial rejected
+
+- [Scalar prefix trial](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-rejected-scalar-prefix-counter-trial)
+  removes two heap boxes with exact output and full bounded validation, but
+  regresses the wide native control and fails to reproduce the early enclosing
+  speed reduction. Restore the accepted callback. Reject zero-activity tail
+  probes; retain actual compiler profiling and the remaining speed/size gaps.
+
 ### 2026-09-30 — Reverse aliases and final encoding bounds
 
 - [Final-index alias bounds](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-final-index-bounds-for-reverse-aliases)

@@ -137,6 +137,51 @@ retain their stated scope.
 
 
 
+## September 30, 2026: rejected scalar prefix-counter trial
+
+V60 replaces the prefix builder's `makei` callback with a scalar loop over a
+zero-filled array. A red generated-C budget detects two boxed counters in V59;
+the candidate has zero, with the same one lazy body scan and exact V59 output.
+The allocation count alone does not establish a performance win. Reject this
+trial and restore V59's accepted implementation.
+
+All 13,101 default tests, info/fmt/release build, ten native rows and existing
+work budgets pass. The 1,442-module / 10,269-observation original-primary replay
+has no mismatch or changed output. Small/large raw and canonical artifacts,
+every body and non-code section are byte-identical to V59. No public API changes.
+
+Native bounded-discovery means V59→V60, µs: short 8 0.351→0.367,
+two-byte 8 3.68→3.75, two-byte 512 28.17→26.34, two-byte 4096
+189.28→198.38 (+4.81%), three-byte 8 392.57→396.98. The 4096-copy
+regression is greater than the reported spread; the 512-copy benefit is mixed
+with a faster legacy control and larger predecessor spread. The replacement
+also zeroes the whole bounds array before writing every entry.
+
+The first three-pair large optimizing cohort gives 7560.015→6961.457 ms
+(-7.92%, MAD 221.539/144.142), despite the mixed local benchmarks. Retain it,
+but do not attribute it to removing two boxes. A separately retained seven-pair
+repeat gives 7456.854→7500.883 ms (+0.59%, MAD 46.976/116.907), with exact
+bytes. The early enclosing reduction is not reproduced. Three-pair small
+optimizing is 10.052→9.992 ms; tee is 105.427→106.120. Optimizing RSS is
+290124→290204 KiB; historical plain RSS bimodality remains. Do not multiply
+these percentages into earlier checkpoints or promote V60's fresh oracle to
+the current accepted baseline.
+
+A bounded balanced-tail probe on 8/32 imported produce/tick/consume groups
+records zero qualifying query/read calls; another cleanup path handles them
+first. Both outputs equal unprofiled runs, but the probe fails its activity
+assertion and is rejected as performance/coverage evidence. Do not use it to
+justify a suffix cache or conclude the compiler's repeated scans are absent.
+The actual compiler profile still motivates carrier/query ownership work.
+
+Local artifacts under `.tmp/dae2-lean-20260929/`: `candidate-v60.json`,
+`validation-v60.json`, `wide-bounds-allocation-v59.json` (red),
+`wide-bounds-allocation-v60.json`, `v60-bench.log`, `oracle-v60-*`,
+`pairs-v60-*`, `pairs-v60-large-repeat/`, `memory-v60/`,
+`balanced-tail-coverage-v59/`, and the restored V59 source manifest. Source
+hashes remain frozen through all trial cohorts and the repeat before restoration.
+The accepted size improvement and 232,292-byte gap remain at V59.
+
 ## September 30, 2026: final-index bounds for reverse aliases
 
 The focused regression initially retains 130 locals instead of 129 for a
