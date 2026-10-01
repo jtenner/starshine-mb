@@ -6399,10 +6399,16 @@ pub fn rume_extract_functions(
     rooted, used_funcs, referenced_funcs, used_globals, used_tables, used_mems, used_tags,
     used_elems, used_datas, decl_only_elems, used_types,
   )
-  let (final_used_funcs, _, _, _, _, _, _, _, _, _) = rume_collect_liveness_with_import_parent_policy(
+  let (final_used_funcs, final_referenced_funcs, _, _, _, _, _, _, _, _) = rume_collect_liveness_with_import_parent_policy(
     minimized, false,
   )
-  Ok(rume_rewrite_functions_only(minimized, final_used_funcs))
+  // Signature-filtered indirect calls can keep an element reference without
+  // making that function callable. Its nullified body is still required by
+  // active/passive element indices when roots are reordered below.
+  let final_keep_funcs = rume_merge_func_keep_set(
+    final_used_funcs, final_referenced_funcs,
+  )
+  Ok(rume_rewrite_functions_only(minimized, final_keep_funcs))
 }
 
 ///|

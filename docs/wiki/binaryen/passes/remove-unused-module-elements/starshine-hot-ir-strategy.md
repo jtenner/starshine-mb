@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-01
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ./index.md
@@ -227,3 +227,31 @@ When you need to validate or review current Starshine behavior, read the code in
 8. [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md) before changing table or elem retention
 
 That path gives the cleanest local explanation from registry -> dispatcher -> root policy -> liveness engine -> remap engine -> type cleanup -> proof tests.
+
+## October 1, 2026: reference-only extraction remapping
+
+The extraction utility's final root-ordering rewrite now merges used and
+referenced function keep sets with the existing `rume_merge_func_keep_set`.
+Signature-filtered indirect calls can retain table entries without making
+their bodies callable. The first module rewrite preserves those references
+and nullifies their bodies; previously the final function-only rewrite dropped
+them while retaining active element indices.
+
+A mixed-signature table reduction fails final validation before the fix with
+`elem.funcs: invalid function index`. Red-first direct IR and dispatcher tests
+now assert valid extraction, root-first ordering, exact function and `ref.func`
+element remaps, and the unchanged unreachable-body contract. The bounded large
+probe confirms zero missing element mappings in the first rewrite and three
+in the final rewrite. The repaired compiler extraction validates independently
+and retains its rooted dependency closure (5,261,501 bytes from 5,668,915).
+This is a debugging utility repair, not optimizer output-size savings.
+
+Info/fmt, all **13,192** default tests and the native CLI build pass. An
+original/Starshine/verified-v133 RUME reduction matches nine runtime observations:
+indirect-call result seven, signature-mismatch trap and bounds trap. Ordinary
+DAE2/O output bytes remain exact. No aggregate fuzz or general RUME parity
+renewal is claimed. Sources: [IR regression](../../../../../src/rume/extract_reference_wbtest.mbt),
+[dispatcher regression](../../../../../src/cmd/extract_reference_wbtest.mbt) and
+[implementation](../../../../../src/rume/remove_unused_module_elements.mbt).
+Local evidence: `.tmp/dae2-extraction-20261001/`, candidate SHA-256
+`48f8df7aa2167de21de9bd4574859534a0150947b2b9b1f75c7db7c49dc4b90b`.

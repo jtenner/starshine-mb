@@ -363,7 +363,12 @@ breadth. Shared changes require all affected consumers in the matrix below.
   observed projected-copy counts are not raw alias coverage. V65's simple
   load-order and changing-counter reductions already win two normalized bytes
   each; include their structural surroundings to reproduce large-function gaps.
-  Attribute actual raw carrier/no-op admission before changing HOT guards.
+  The repaired rooted compiler witness confirms
+  `call-argument-structured-release-simplify-locals-noop` on function 7318
+  (extracted root 24). Reduce that structural context and enable only proved
+  raw cleanup while retaining release lifetimes; do not remove the HOT guard
+  without repairing its hazard. Other large witnesses still need admission
+  attribution.
 - [ ] Profile remaining alias admission/counting, replay and remap costs after
   V55 removes intermediate trees and instruction-option roots. Wide native
   active controls improve 12–21%, but enclosing optimizing times remain flat;
@@ -392,15 +397,6 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - [ ] Inspect and replay the **41 V25-changed functions / +458 bytes**, preserving
   the stacked-read and branch-exit repairs. Validity, byte provenance or smaller
   output alone cannot establish semantic equivalence or an intentional win.
-- [ ] Repair or reduce the current large-artifact function-extraction failure:
-  `--extract-functions=7318` on V65's validated optimizing compiler output
-  fails final validation with `elem.funcs: invalid function index`. Preserve
-  table/element and compact-import remapping; do not bypass validation. This
-  blocks the built-in bounded giant-function reduction lane, not the accepted
-  DAE2/O output. The local repro is in
-  `.tmp/dae2-trivial-sort-20261001/giant-probe/extraction-failure.md`. Reduced
-  active-table-read and passive table-init fixtures both extract validly; the
-  reference-only final keep-set hypothesis is unconfirmed.
 - [ ] Classify current open/closed-world residual families, including indirect
   type-family retained parameters/dropped results. Keep legacy multi-handler
   and descriptor representation/size gaps explicit; unsupported runtime cases

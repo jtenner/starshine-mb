@@ -5102,3 +5102,26 @@ budgets, frozen source manifests, validation, matched cohorts and runtime
 evidence. Candidate SHA-256:
 `2732b45c7eeefb59d6fa50f33d0a09d9892a65ead03f12151ca4fd2e7462c37c`.
 Extraction evidence is in `.tmp/dae2-trivial-sort-20261001/giant-probe/`.
+
+## October 1, 2026: unblock rooted compiler byte reductions
+
+The [extraction repair](../remove-unused-module-elements/starshine-hot-ir-strategy.md#october-1-2026-reference-only-extraction-remapping)
+supersedes V66's unconfirmed keep-set hypothesis: a mixed-signature indirect-call
+reduction fails first, and the actual large remapping probe finds three lost
+reference-only element functions only in the final rewrite. Merging existing
+used/reference keep sets repairs extraction without bypassing validation. All
+13,192 default tests pass; three modules match nine fixed result/trap
+observations against original and verified v133 RUME.
+
+The large rooted module still retains a broad closure; its exported root is
+function 24. Stopping at that first selected body avoids the failed artifact-wide
+conditional-breakpoint campaign. Its raw SimplifyLocals result is unchanged with
+reason **`call-argument-structured-release-simplify-locals-noop`**, rather than
+the previously suspected giant-local or giant-carrier gate. Investigate exact
+raw cleanup admission around this gate while preserving structured release
+lifetimes. The 210,159 canonical / 95,465 raw byte gap stays open.
+
+Native sampling attempts collected zero samples and provide no profile evidence;
+the ordinary optimizing command completed with exact predecessor bytes. Use the
+bounded admission result, not those unsuccessful sampling attempts, to target
+the next byte trial. Evidence: `.tmp/dae2-extraction-20261001/`.
