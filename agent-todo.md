@@ -15,11 +15,12 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current performance checkpoint:** lean-v59 passes 13,101 default tests and
+- **Historical performance checkpoint:** lean-v59 passes 13,101 default tests and
   10,269 bounded runtime observations across 1,442 modules. Final-index bounds
   save 26,177 canonical compiler bytes; sparse replay visits body/callee
   consumers and owns only boundary bits. This frozen checkpoint predates the
-  remote correctness integration; renew measurements on the merged source.
+  remote correctness integration; V62 renews optimizing size and descriptive
+  timings below, while plain and broader signoff still need renewal.
   The saved binary `ref.eq` defect is repaired; historical V32–V37 fixture counts
   are not general correctness evidence. Final aggregate/release signoff remains.
   The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-final-index-bounds-for-reverse-aliases)
@@ -31,7 +32,16 @@ oracle versions and checkpoints do not sign current source.
   enclosing large pipelines stay flat. See the
   [query-seed evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-immutable-statement-query-seeds).
 
-### Latest frozen DAE2/O oracle baseline
+- **Current size checkpoint:** V62 saves 7,968 raw / 8,146 canonical compiler
+  bytes in 151 functions with no function growth. The renewed writer projection
+  leaves **210,159 canonical / 95,465 raw bytes** against v133. V59's 232,292-byte
+  gap uses its historical projection; only 8,146 bytes are saved by this fix.
+  All 13,180 tests and 256 fixed runtime observations pass. Small/large enclosing
+  times stay flat; the repeated active-tee cost (+1.40%) remains open.
+  [Sole-reader evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-profitable-sole-reader-reverse-copies)
+  records current descriptive DAE2-O ratios (3.29× small / 4.17× large) and scopes.
+
+### Historical V59 DAE2/O oracle baseline
 
 The frozen v59 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
@@ -42,8 +52,8 @@ untraced command times or a causal comparison with earlier cohorts.
 | `dae2` | 3.753 / 1.012 | 3.71× | 3,998.720 / 563.604 | 7.10× |
 | `dae2-optimizing` | 11.972 / 3.232 | 3.71× | 7,479.616 / 1,835.960 | 4.07× |
 
-- **Release blockers:** large DAE2-O adds **232,292 canonical / 103,433 raw
-  bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
+- **Release blockers:** current large DAE2-O adds **210,159 canonical / 95,465 raw
+  bytes** against v133; V59 above retains its original writer scope. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
@@ -303,7 +313,7 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
-- [ ] Reduce and attribute the remaining **232,292-byte canonical optimizing gap**
+- [ ] Reduce and attribute the remaining **210,159-byte canonical optimizing gap**
   by function/diff family. V32 removes 32,070 balanced capture pairs and saves
   147,876 raw / 53,470 canonical bytes without per-function pair regressions.
   V38 removes immutable parameter aliases without per-function raw size losses,
@@ -329,12 +339,15 @@ breadth. Shared changes require all affected consumers in the matrix below.
   final remap. The three largest size-losing functions show immutable
   sole-reader reverse copies, not multiwritten-source or top-level partial-copy
   witnesses. Prioritize those observed candidates.
-- [ ] Admit profitable immutable sole-reader reverse aliases when eliminated
-  copy bytes strictly exceed worst-case compacted index widening. Preserve
-  lexical dominance, root immutability and legacy benchmark controls; test
-  set/tee, earlier/default/out-of-scope reads and all LEB width bands.
-  Wider equal-width indices can diverge during compaction; retain bounded
-  final-index accounting and measure per-function size and enclosing costs.
+- [ ] Broaden remaining alias coverage only with root/dominance, iteration and
+  per-function byte evidence. V62 closes sole-reader width-changing admission
+  using strict eliminated-byte accounting; immutable/dominating guards still
+  leave compiler functions 7292/7293 unchanged and save only 137 bytes in 10435.
+  Multi-reader width-changing partial aliases remain unsupported; do not widen
+  them without proving retirement or accounting for retained writers.
+  Reduce the extra admission-wrapper cost on cheap nonwidening aliases: active
+  tee costs +1.57%, confirmed +1.40% in a seven-pair repeat; native wide/rejection
+  controls cost about 0.6–2.5%. Retain final-index bounds and one lazy scan.
   Keep the equal-size unused-declaration difference in reduced v133 examples
   explicit; fewer locals alone do not establish an output-shape win.
 - [ ] Inspect and replay the **41 V25-changed functions / +458 bytes**, preserving

@@ -106,3 +106,50 @@ fn Dae2ParameterAliases::source_is_nonwidening(
   let target_lower = (bounds[target] & 0xffffffffL).to_int()
   dae2_local_index_width(source_upper) <= dae2_local_index_width(target_lower)
 }
+
+///|
+fn dae2_alias_copy_pays_for_widening(
+  source_upper : Int,
+  target_lower : Int,
+  reads : Int,
+  tee : Bool,
+) -> Bool {
+  // One syntactic read can be forwarded or remain before/outside the alias.
+  // In the latter case there is no widening and the writer remains. Multiple
+  // reads are deliberately outside this new admission contract.
+  if reads < 0 || reads > 1 {
+    return false
+  }
+  let growth = dae2_local_index_width(source_upper) -
+    dae2_local_index_width(target_lower)
+  let removed = if tee { 2 } else { 4 }
+  // A set removes get+set (>=4 bytes); a tee removes only tee (>=2).
+  // Strict inequality requires a byte win even at the worst index bounds.
+  reads * growth < removed
+}
+
+///|
+fn Dae2ParameterAliases::source_is_profitable(
+  self : Dae2ParameterAliases,
+  source : Int,
+  target : Int,
+  tee : Bool,
+) -> Bool {
+  if self.source_is_nonwidening(source, target) {
+    return true
+  }
+  if source == target || self.reads[target] > 1 {
+    return false
+  }
+  let bounds = match self.index_bounds {
+    Some(bounds) => bounds
+    // Preserve the legacy control with no body/final-index proof.
+    None => return false
+  }
+  dae2_alias_copy_pays_for_widening(
+    (bounds[source] >> 32).to_int(),
+    (bounds[target] & 0xffffffffL).to_int(),
+    self.reads[target],
+    tee,
+  )
+}

@@ -1,3 +1,12 @@
+### 2026-10-01 — Profitable sole-reader reverse copies
+
+- [Strict alias byte budgets](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-profitable-sole-reader-reverse-copies)
+  remove immutable copies when writer savings exceed bounded read-index growth.
+  Red-first scalar/GC/scope/LEB tests, 13,180 default tests and 256 fixed runtime
+  observations pass. Save 8,146 canonical bytes across 151 functions without
+  growth. Preserve historical writer scopes, the 210,159-byte renewed gap and
+  the reproduced +1.40% tee cost; whole-pipeline speed parity remains open.
+
 ### 2026-10-01 — Immutable statement query seeds
 
 - [Scoped query seeds](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-immutable-statement-query-seeds)

@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/passes/profitable_alias_wbtest.mbt
+  - ../../../../../src/passes/profitable_alias_perf_wbtest.mbt
+  - ../../../../../src/passes/profitable_alias_reference_wbtest.mbt
+  - ../../../../../src/cmd/profitable_alias_wbtest.mbt
   - ../../../../../src/passes/statement_type_seed.mbt
   - ../../../../../src/passes/statement_type_seed_wbtest.mbt
   - ../../../../../src/passes/statement_type_seed_perf_wbtest.mbt
@@ -4773,3 +4777,78 @@ whole-pipeline costs and the byte gap remain open. The next size trial targets
 immutable sole-reader reverse copies whose eliminated writer pays for bounded
 index widening; the three largest inspected functions contain no motivating
 multiwritten-source or top-level partial-copy family.
+
+## October 1, 2026: profitable sole-reader reverse copies
+
+V62 extends final-index alias admission with a strict instruction-byte budget.
+The existing nonwidening path remains first. A width-changing target must have
+at most one read; the source retains the existing immutable-root and lexical
+dominance proof. The eliminated get+set saves at least four bytes, or tee alone
+saves at least two. Require worst-case read-index growth to be strictly smaller
+than that saving, using the existing source upper/target lower final-index
+bounds. No new body walk, graph, scratch array or rollback is added.
+
+If the sole read precedes or escapes the alias scope, none is forwarded and
+the writer stays. A forwarded sole read retires the writer. Roots cannot gain
+reads from an incoming admitted alias: ordinary established definitions and
+flattening keep alias writers out of the root set. Multi-reader width-changing
+partial copies remain intentionally unsupported. Source order, effects, traps,
+loop-iteration dominance, reference identity and protected slots retain their
+previous contracts. The legacy no-body benchmark still rejects wider copies.
+
+The regression first needs a nested read: an adjacent sole-read set/get was
+already eliminated by capture cleanup. The nested fixture fails at target
+retirement (`127 != -1`) before implementation. Three bounded pass tests cover
+i32/i64/f64/externref/indexed nullable GC, set/tee, all LEB width bands, nested
+reads, loop dominance, earlier defaults, out-of-scope/sibling reads and future/
+multiple root writes. A dispatcher test checks retirement and complete ordered
+calls through retained blocks. `moon info/fmt`, all **13,180** default wasm-gc
+tests, **12** native rows, release CLI build and README/API sync pass; no API diff.
+
+The frozen compiler output saves **7,968 raw / 8,146 canonical bytes** across
+**151 functions**, with no function-size regressions or non-code semantic
+section changes in either encoding. Small/active-tee outputs stay identical.
+Function 10435 saves 137 bytes; 7292 and 7293 remain unchanged, so simple static
+copy counts do not prove dominating alias coverage on the largest gaps. The
+new size trial is a measured byte win under the immutable-copy contract, not
+a general classification of the remaining shape differences.
+
+CPU-6 matched enclosing medians (one warmup/three pairs) are **10.413 → 10.373
+ms** small and **7,812.703 → 7,796.849 ms** large, effectively flat. Tee costs
+**102.234 → 103.838 ms (+1.57%)**; a separate seven-pair repeat is
+**104.235 → 105.698 ms (+1.40%)**. Retain rejected reference brackets and both
+cohorts. Native short controls stay flat, while wide discovery costs roughly
+0.6–2.5%, including the multi-reader rejection control. These costs remain open;
+there is no enclosing speed or RSS win. The extra admission wrapper on the
+existing cheap nonwidening path is a focused follow-up target.
+
+Current v133 size projection uses the merged harness's bounded fixed-point
+writer (eight rounds, first-valid fallback). Large canonical sizes are
+**5,797,596 Starshine / 5,587,437 v133**, a **210,159-byte** gap; raw sizes are
+**5,668,915 / 5,573,450**, a **95,465-byte** gap. Under this same projection the
+predecessor canonical gap is 218,305 bytes. Only 8,146 bytes are saved by V62;
+the other 13,987-byte difference from the historical V59 gap reflects renewed
+oracle writer projection. Preserve V59's original 232,292-byte scope.
+
+Fresh Starshine pass-local medians extracted from the candidate matched cohort
+are **10.338 ms** small / **7,768.290 ms** large; a separate verified v133 cohort
+(one warmup/three samples) is **3.145 / 1,864.780 ms**, about **3.29× / 4.17×**.
+These descriptive ratios are not paired causal improvements over V59. An
+initial oracle command incorrectly disabled compact-import parsing on the
+compiler input; reject that failure and use all features for artifact evidence.
+
+Original-primary fixed runtime replay passes **128 modules / 256 observations**
+across four scalar/reference types, set/tee, conditional reads, earlier default
+reads, a later memory trap, and two loop iterations with changed producers.
+Validate every output independently. Node 26 cannot instantiate compact imports;
+only the oracle outputs of these flat-import fixtures use
+`--disable-compact-imports` for engine replay. The compact oracle artifacts and
+failed engine attempt remain saved; artifact-size evidence uses all features.
+This bounded lane is not aggregate fuzz or full release signoff.
+
+Artifacts: `.tmp/dae2-profitable-alias-20261001/` holds red/green logs, native
+controls, matched/repeated cohorts, full source manifests, per-function quality
+rows and runtime observations. Candidate SHA-256 is
+`cbe32154a6eabec7795423ce16fd6e5d166e2d2e7b1e0e5f94f83fd81b0a6917`.
+Remaining byte families, the reproduced tee cost, source-query/header churn
+and all speed/aggregate/release gaps stay open.
