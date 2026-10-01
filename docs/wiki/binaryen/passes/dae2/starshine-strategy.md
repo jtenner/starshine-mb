@@ -5051,3 +5051,54 @@ Artifacts: `.tmp/dae2-trivial-sort-20261001/` contains red/green actual work
 counts, compiled guard evidence, native controls, complete source manifests,
 matched cohorts and runtime/byte probes. Candidate SHA-256:
 `b1aca9be204186628e491a828853bb95d75984e5c41eb004ae00aa12131f3123`.
+
+## October 1, 2026: checked local-access fields
+
+V66 replaces two full HOT node-header reads with the existing checked opcode
+getter: local-state child counting and source-order local-access enumeration.
+Child counting still runs first, and block/loop dead-tail rules, cache ownership,
+shared-node deduplication and deletion admission remain unchanged. No public API
+changes. Frozen-reference IR controls and both-pass dispatcher call-order tests
+pass. The actual native dispatcher guard fails before implementation (two
+scoped full-header calls in seven dependency queries) and passes afterward
+(zero), with exact unprofiled bytes. Compiled child counting has zero full-header
+calls and retains the checked opcode getter. This proves removed header work,
+not net heap or RSS savings.
+
+Info/fmt, **13,190** default tests, eight native benchmark controls and the
+release CLI build pass. Shallow/deep cold query means are **1.46 → 1.45µs**
+and **20.20 → 19.66µs**; 64 repeated fresh enumerations are **21.18 → 20.19µs**
+and **322.12 → 300.79µs** (4.7% and 6.6%). Repeated controls include one facts
+construction per 64 queries; cold controls include construction per query.
+
+CPU-6 matched enclosing medians, one warmup and three alternating accepted
+pairs with reference brackets ≤1.15, are:
+
+| Input | Plain before → after ms | Optimizing before → after ms |
+| --- | ---: | ---: |
+| Small | 3.348 → 3.440 | 9.610 → 9.666 |
+| Large | 3,410.762 → 3,421.493 | 6,042.275 → 6,040.771 |
+| Active tee | 3.040 → 2.750 | 104.966 → 105.193 |
+
+Large optimizing is flat (−0.02%); plain costs 0.31%. Small plain costs
+2.75% (MAD 0.017/0.065ms), optimizing 0.58%; retain these controls. Tee plain
+falls 9.54% with noisy predecessor MAD 0.293ms; this raw path does not establish
+a causal HOT-field gain. Rejected reference-drift brackets are retained. Both
+passes preserve all artifact bytes. Fixed optimizing replay renews **32 fresh
+candidate outputs / 96 retained references / 256 original-primary observations**,
+without mismatches. No enclosing compiler speed win, RSS gain or fuzz signoff
+is claimed. The **210,159 canonical / 95,465 raw byte** gap stays open.
+
+The built-in giant reduction lane also exposes an extraction blocker:
+`--extract-functions=7318` on validated V65 compiler output fails final validation
+with `elem.funcs: invalid function index`. Neither a reduced active-table-read
+fixture nor a passive `table.init` fixture reproduces it; both extract validly.
+The suspected final reference-only keep-set loss remains an unconfirmed
+hypothesis. Preserve table/element and compact-import remapping and final
+validation while reducing the failure; do not apply a speculative fix.
+
+Artifacts: `.tmp/dae2-access-fields-20261001/` retains native work guards, compiled
+budgets, frozen source manifests, validation, matched cohorts and runtime
+evidence. Candidate SHA-256:
+`2732b45c7eeefb59d6fa50f33d0a09d9892a65ead03f12151ca4fd2e7462c37c`.
+Extraction evidence is in `.tmp/dae2-trivial-sort-20261001/giant-probe/`.

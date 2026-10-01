@@ -850,7 +850,7 @@ fn hot_lower_impl_local_state_child_count(
   node_id : NodeId,
 ) -> Int {
   let count = hot_child_count(func, node_id)
-  match hot_node_get(func, node_id).op {
+  match hot_node_op(func, node_id) {
     HotOp::Block | HotOp::Loop => {
       // Dead region tails cannot observe or overwrite a carried value.
       for slot = 0; slot < count; slot = slot + 1 {

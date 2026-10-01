@@ -129,7 +129,7 @@ fn hot_source_order_local_access_nodes(
       return
     }
     facts.local_access_seen[id] = stamp
-    match hot_node_get(func, id).op {
+    match hot_node_op(func, id) {
       HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee => accesses.push(id)
       _ => ()
     }

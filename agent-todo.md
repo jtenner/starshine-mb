@@ -63,6 +63,12 @@ oracle versions and checkpoints do not sign current source.
   optimizing remains flat; the compiler speed/byte gaps stay open. See
   [sorting and reduced-byte evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-avoid-trivial-dependency-row-sorting).
 
+- **Current field checkpoint:** V66 replaces two full local-access headers with
+  checked opcode reads. Repeated native controls improve 5–7%; 13,190 tests and
+  256 fixed observations pass with exact predecessor bytes. Large optimizing
+  stays flat; small control costs and the unreduced extraction blocker remain
+  open. See [field evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-checked-local-access-fields).
+
 ### Historical V59 DAE2/O oracle baseline
 
 The frozen v59 open-world compiler comparison uses verified release v133,
@@ -386,6 +392,15 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - [ ] Inspect and replay the **41 V25-changed functions / +458 bytes**, preserving
   the stacked-read and branch-exit repairs. Validity, byte provenance or smaller
   output alone cannot establish semantic equivalence or an intentional win.
+- [ ] Repair or reduce the current large-artifact function-extraction failure:
+  `--extract-functions=7318` on V65's validated optimizing compiler output
+  fails final validation with `elem.funcs: invalid function index`. Preserve
+  table/element and compact-import remapping; do not bypass validation. This
+  blocks the built-in bounded giant-function reduction lane, not the accepted
+  DAE2/O output. The local repro is in
+  `.tmp/dae2-trivial-sort-20261001/giant-probe/extraction-failure.md`. Reduced
+  active-table-read and passive table-init fixtures both extract validly; the
+  reference-only final keep-set hypothesis is unconfirmed.
 - [ ] Classify current open/closed-world residual families, including indirect
   type-family retained parameters/dropped results. Keep legacy multi-handler
   and descriptor representation/size gaps explicit; unsupported runtime cases
