@@ -98,6 +98,12 @@ oracle versions and checkpoints do not sign current source.
   small/large host bands remain recorded. Shared-action fallback still solves
   complete joins. See [selected-source evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-demand-only-unresolved-dae2-read-sources).
 
+- **Current constant-scratch checkpoint:** V74 uses density-bounded primitive
+  pending rows and O(1) active-prefix epochs. All 13,224 default tests, nineteen
+  native controls and 1,376 observations pass; all compiler bytes stay exact.
+  Dense/barrier/no-work gains and sparse/control costs are recorded in
+  [pending-storage evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-bounded-primitive-constant-store-pending-rows).
+
 ### Historical V59 DAE2/O oracle baseline
 
 The frozen v59 open-world compiler comparison uses verified release v133,
@@ -360,14 +366,14 @@ breadth. Shared changes require all affected consumers in the matrix below.
   simple distinct/reused/nested capture pipeline probe scales roughly linearly.
   Profile actual compiler query density and preserve direct-write/recursive-read
   and terminator semantics before adding sparse tail-event caches.
-- [ ] Reduce V73 constant-store scratch and no-work/barrier costs without losing
-  its 3,452 canonical-byte improvement. Equal-feature native prototypes show
-  154ns extra on eight pending stores and 660ns extra on blocked rows; those
-  are not shipped-predecessor comparisons. Trial bounded primitive pending
-  storage and active-candidate admission with sparse/high-index controls.
-  Matched large optimizing +0.51% remains open. The tee helper is never called
-  on the active tee fixture, so its disagreeing timing cohorts need separate
-  attribution rather than blaming this map.
+- [ ] Refine sparse constant-store scratch and remaining enclosing costs. V74
+  closes dense pending-map allocation (one scoped map → zero) and improves
+  matched native dense rows 20–47%, barriers 64% and no-work 38–47%, retaining
+  exact V73 bytes. The sparse 32-store control costs 8.5%; keep it active.
+  Small optimizing improves 3.38% on repeat; large optimizing +1.34% in a
+  higher/noisy host band remains unresolved. Repeated plain tee costs 8.45%
+  with substantial spread; this helper is not called by plain DAE2 or active
+  tee, so attribute that control separately. Overall artifact parity remains.
 - [ ] Remove duplicated balanced-capture scan/materialization work while keeping
   legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
   matched small optimizing is +6.39%; retain these costs until measured away.

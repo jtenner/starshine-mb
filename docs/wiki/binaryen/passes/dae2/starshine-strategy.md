@@ -3,6 +3,9 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/passes/constant_store_pending_wbtest.mbt
+  - ../../../../../src/passes/constant_store_pending_perf_wbtest.mbt
+  - ../../../../../src/passes/constant_store_pending_reference_wbtest.mbt
   - ../../../../../src/passes/constant_store_sink.mbt
   - ../../../../../src/passes/constant_store_sink_wbtest.mbt
   - ../../../../../src/passes/constant_store_sink_perf_wbtest.mbt
@@ -5617,3 +5620,80 @@ RSS. Candidate SHA256 is
 `2665b582cf027fb8253a3398ae5da3d2e718c84da235d7fe460ff2f130d3db97`.
 Overall speed/byte parity and all other pass owners remain open; long fuzz stays
 deferred while performance work continues.
+
+
+## October 1, 2026: bounded primitive constant-store pending rows
+
+V74 removes dense pending-map construction while retaining every V73 constant
+tee. A cheap candidate-only census returns unchanged bodies immediately when
+there are no stores. Dense rows use one Int array, bounded by 4,096 slots and
+eight slots per candidate; sparse/high-index rows retain the map. This storage
+choice never limits transformation coverage. A current-candidate count skips
+read/write lookup and operand classification after all candidates are consumed
+or invalidated. Barriers still invalidate a complete prefix in O(1) via its
+instruction index, without clearing retained buckets.
+
+A native reduced-release allocation guard first fails with **one pending map**,
+then passes with **zero**, across three flat helper calls. Operand classifier
+calls fall six → one; probe outputs are valid and byte-identical. Initial
+constructor-wrapper probes incorrectly counted zero because native inlining
+removed those calls. Disassembly identifies the surviving `new_map` and raw
+operand-classifier boundaries; the corrected red baseline is retained. These
+are bounded scoped counts, not whole-command allocation or timing claims.
+
+Focused tests compare sparse/high-index writes, repeated clobbers, inactive
+prefixes and reactivation with the frozen shipped V73 map implementation. They
+preserve later reads, original arrays/encoded bytes and valid rewritten modules.
+The existing linear work guard now includes the census: two body walks on
+blocked rows and three including output emission on transforming rows.
+Info/fmt, **13,224** default tests, nineteen native rows and release build pass.
+All **1,376** original-primary fixed observations pass; all 32 retained replay
+outputs and compiler/tee outputs match the predecessor exactly. Canonical
+compiler deficit remains **180,144 bytes**, raw **66,513 bytes**.
+
+Cold native controls include all census/storage/rewrite allocation and compare
+the frozen shipped V73 implementation, unlike V73's naive new-feature prototype:
+
+| Pending stores | V73 map | V74 adaptive |
+| --- | ---: | ---: |
+| 1 | 134.30ns | 107.46ns |
+| 8 | 479.13ns | 327.71ns |
+| 32 | 1.78µs | 1.16µs |
+| 512 | 30.19µs | 15.99µs |
+| 32, blocked | 1.80µs | 648.27ns |
+| 32, sparse | 2.00µs | 2.17µs |
+| No-work, 8 arithmetic groups | 71.62ns | 44.76ns |
+| No-work, 512 groups | 3.51µs | 1.86µs |
+
+Dense rows improve **20–47%**, blocked **64%**, no-work **38–47%**. Sparse
+control costs **8.5%** and remains active; further changes must preserve sparse
+coverage and the bounded dense capacity. Parsed whole-module controls measure
+16.60/91.54/896.26µs at widths 1/32/256; prior nonalternating cohorts are not
+causal comparisons.
+
+CPU-6 enclosing cohorts use one warmup, alternating pairs and Precompute
+brackets ≤1.15. Initial three-pair results and seven-pair small/tee repeats are:
+
+| Input | Initial plain/O before → after ms | Repeat plain/O before → after ms |
+| --- | ---: | ---: |
+| Small | 3.494 → 3.579 / 10.881 → 10.085 | 3.493 → 3.525 / 10.301 → 9.953 |
+| Large | 4,755.853 → 4,851.182 / 6,927.918 → 7,020.972 | Not repeated |
+| Active tee | 3.739 → 4.132 / 158.835 → 157.972 | 3.017 → 3.272 / 104.730 → 104.584 |
+
+Small optimizing improves **3.38%** on repeat. Large optimizing costs **1.34%**,
+with MAD 88.464/103.673ms and materially higher host bands; no compiler speedup
+is established. Repeated plain tee costs **8.45%** with MAD 0.129/0.323ms,
+while optimizing stays flat (−0.14%). This helper is not called by plain DAE2
+or active tee, so those controls cannot be attributed to its pending-row work;
+code layout/host effects remain unresolved. Retain both cohorts and rejected
+brackets. Per-process wait4 large untraced peaks are before
+294,364/294,292KiB and after 294,156/294,500KiB, effectively flat despite
+widely varying wall times.
+
+Frozen local evidence is `.tmp/dae2-dense-constant-pending-20261001/`, including
+corrected red/green allocation probes, exact-output validation, native controls,
+both timing cohorts, runtime replay, canonical bytes and RSS. Candidate SHA256:
+`80ee89f8d441afb39dfe3a478d26220ab14ec74597220b24206830f43a50b3d4`.
+Unchanged continuation-array/control reconstruction, compound suffix typing,
+HOT dependency/lift/lower and remaining byte families stay active. Long fuzz
+remains deferred; this is not overall speed/size parity signoff.

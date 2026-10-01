@@ -38,67 +38,131 @@ fn sl_constant_store_prefix_is_nontrapping(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-// Track all pending constant assignments in one forward scan. First reads
-// consume their pending entry; writes and potentially trapping/throwing/control
-// instructions invalidate it. Retain the assignment as a tee for every later
-// read, including enclosing catches and structured releases. No repeated
-// per-store suffix search or candidate-size threshold is needed.
+fn sl_constant_pending_get(
+  dense : Array[Int]?,
+  sparse : Map[Int, Int]?,
+  local : Int,
+) -> Int {
+  match dense {
+    Some(row) =>
+      if local >= 0 && local < row.length() {
+        row[local]
+      } else {
+        -1
+      }
+    None => sparse.unwrap().get(local).unwrap_or(-1)
+  }
+}
+
+///|
+fn sl_constant_pending_set(
+  dense : Array[Int]?,
+  sparse : Map[Int, Int]?,
+  local : Int,
+  store : Int,
+) -> Unit {
+  match dense {
+    Some(row) => row[local] = store
+    None => sparse.unwrap()[local] = store
+  }
+}
+
+///|
+// Track all pending constant assignments in one forward scan after a cheap
+// candidate-only census. Dense storage is capped at 4096 Int slots and at eight
+// slots per candidate; sparse/high-index bodies retain the map. The choice never
+// limits rewrites. First reads consume entries; writes and trapping/throwing/
+// control instructions invalidate them. Retain each assignment as a tee for
+// later reads, including enclosing catches and structured releases.
 fn sl_sink_constant_stores_flat(
   instrs : Array[@lib.Instruction],
   scan_visits? : Array[Int]? = None,
 ) -> (Array[@lib.Instruction], Int) {
-  let mut pending : Map[Int, Int]? = None
+  let mut candidates = 0
+  let mut max_local = -1
+  let mut nonnegative = true
+  for idx in 0..<instrs.length() {
+    match scan_visits {
+      Some(visits) => visits[0] += 1
+      None => ()
+    }
+    if instrs[idx] is @lib.LocalSet(@lib.LocalIdx(raw)) &&
+      idx > 0 &&
+      sl_sinkable_numeric_constant(instrs[idx - 1]) {
+      candidates += 1
+      let local = raw.reinterpret_as_int()
+      nonnegative = nonnegative && local >= 0
+      max_local = Int::max(max_local, local)
+    }
+  }
+  if candidates == 0 {
+    return (instrs, 0)
+  }
+  let use_dense = nonnegative &&
+    max_local < 4096 &&
+    (max_local + 8) / 8 <= candidates
+  let dense = if use_dense {
+    Some(Array::make(max_local + 1, -1))
+  } else {
+    None
+  }
+  let sparse : Map[Int, Int]? = if use_dense { None } else { Some(Map([])) }
   let mut sinks : Array[SlConstantStoreSink]? = None
   let mut last_barrier = -1
+  let mut active = 0
   for idx in 0..<instrs.length() {
     match scan_visits {
       Some(visits) => visits[0] += 1
       None => ()
     }
     match instrs[idx] {
-      @lib.LocalGet(@lib.LocalIdx(raw)) =>
-        if pending is Some(entries) {
-          let local = raw.reinterpret_as_int()
-          if entries.get(local) is Some(store) && store > last_barrier {
-            let records = match sinks {
-              Some(records) => records
-              None => {
-                let records : Array[SlConstantStoreSink] = []
-                sinks = Some(records)
-                records
-              }
-            }
-            records.push(SlConstantStoreSink::new(store, idx))
-            entries[local] = -1
-          }
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        if active == 0 {
+          continue
         }
-      @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let local = raw.reinterpret_as_int()
-        if pending is Some(entries) && entries.get(local) is Some(_) {
-          entries[local] = -1
-        }
-        if idx > 0 && sl_sinkable_numeric_constant(instrs[idx - 1]) {
-          let entries = match pending {
-            Some(entries) => entries
+        let store = sl_constant_pending_get(dense, sparse, local)
+        if store > last_barrier {
+          let records = match sinks {
+            Some(records) => records
             None => {
-              let entries : Map[Int, Int] = Map([])
-              pending = Some(entries)
-              entries
+              let records : Array[SlConstantStoreSink] = []
+              sinks = Some(records)
+              records
             }
           }
-          entries[local] = idx
+          records.push(SlConstantStoreSink::new(store, idx))
+          sl_constant_pending_set(dense, sparse, local, -1)
+          active -= 1
         }
       }
-      @lib.LocalTee(@lib.LocalIdx(raw)) =>
-        if pending is Some(entries) &&
-          entries.get(raw.reinterpret_as_int()) is Some(_) {
-          entries[raw.reinterpret_as_int()] = -1
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        let local = raw.reinterpret_as_int()
+        if active > 0 &&
+          sl_constant_pending_get(dense, sparse, local) > last_barrier {
+          sl_constant_pending_set(dense, sparse, local, -1)
+          active -= 1
         }
+        if idx > 0 && sl_sinkable_numeric_constant(instrs[idx - 1]) {
+          sl_constant_pending_set(dense, sparse, local, idx)
+          active += 1
+        }
+      }
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        if active == 0 {
+          continue
+        }
+        let local = raw.reinterpret_as_int()
+        if sl_constant_pending_get(dense, sparse, local) > last_barrier {
+          sl_constant_pending_set(dense, sparse, local, -1)
+          active -= 1
+        }
+      }
       instr =>
-        if !sl_constant_store_prefix_is_nontrapping(instr) {
-          // Store positions are epochs. Invalidating a whole prefix is O(1),
-          // even after a wide row followed by many calls or other barriers.
+        if active > 0 && !sl_constant_store_prefix_is_nontrapping(instr) {
+          // Store positions are epochs: invalidate the whole prefix in O(1).
           last_barrier = idx
+          active = 0
         }
     }
   }

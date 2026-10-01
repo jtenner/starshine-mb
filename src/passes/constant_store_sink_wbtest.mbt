@@ -136,7 +136,7 @@ test "constant store sinking visits wide pending rows and repeated barriers line
       scan_visits=Some(visits),
     )
     assert_eq(count, if blocked { 0 } else { 32 })
-    assert_eq(visits[0], body.length() * (if blocked { 1 } else { 2 }))
+    assert_eq(visits[0], body.length() * (if blocked { 2 } else { 3 }))
     assert_eq(
       next.filter(fn(instr) { instr is @lib.LocalTee(_) }).length(),
       count,

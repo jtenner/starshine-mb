@@ -1,3 +1,12 @@
+### 2026-10-01 — Bounded primitive constant-store scratch
+
+- [Pending-storage evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-bounded-primitive-constant-store-pending-rows)
+  records the corrected red-first native map count (one → zero), dense storage
+  bounds and sparse/epoch safety. All 13,224 tests and 1,376 observations pass
+  with exact compiler bytes. Native dense/barrier/no-work controls improve
+  20–64%; small optimizing repeats −3.38%. Sparse +8.5%, noisy large +1.34%
+  and plain-tee controls remain active; overall parity and long fuzz stay open.
+
 ### 2026-10-01 — Constant tees beside structured releases
 
 - [Constant-store evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-sink-constant-stores-beside-structured-releases)
