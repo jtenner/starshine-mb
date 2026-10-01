@@ -1,3 +1,13 @@
+### 2026-10-01 — Lazy legacy adaptation owners
+
+- [Lazy setup evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-lazy-legacy-adaptation-setup)
+  closes eager cold environment/lowering/body-array setup with a linear immutable
+  arity census and exact recursive-group/error/grouped-sibling contracts.
+  Cold native controls improve 72–87%, active 1.6%; all 13,265 bounded tests
+  and 1,376 original-primary/v133 observations pass with exact V81 bytes.
+  Matched large plain improves 3.42%, optimizing is roughly flat. Small costs
+  and the 179,213 canonical / 65,631 raw deficit stay open; fuzz is deferred.
+
 ### 2026-10-01 — Compound suffix facts and query ownership
 
 - [Compound query evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-reuse-compound-suffix-initialization-facts)

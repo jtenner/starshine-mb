@@ -3,6 +3,11 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/passes/dead_argument_elimination2_legacy.mbt
+  - ../../../../../src/passes/legacy_setup_wbtest.mbt
+  - ../../../../../src/passes/legacy_setup_reference_wbtest.mbt
+  - ../../../../../src/passes/legacy_setup_perf_wbtest.mbt
+  - ../../../../../src/cmd/legacy_setup_wbtest.mbt
   - ../../../../../src/passes/single_entry_row_wbtest.mbt
   - ../../../../../src/passes/single_entry_row_reference_wbtest.mbt
   - ../../../../../src/passes/single_entry_row_perf_wbtest.mbt
@@ -6271,3 +6276,47 @@ parity. RSS before 294,416/293,956 KiB and after 304,728/294,400 is dispersed,
 not a demonstrated memory win. First-query unknown suffix candidates still
 build fresh facts per attempted suffix; cross-owner reuse also remains open.
 Long fuzz and final signoff remain deferred.
+
+## October 1, 2026: lazy legacy adaptation setup
+
+V82's cold regression first observes three unnecessary owners (full environment,
+lowering state and rewritten body vector). Preparation now computes a linear
+primitive function-arity table and allocates those owners only for an admitted
+legacy handler. The table preserves recursive-group lookup and omission of
+unresolved signatures; missing-signature errors remain unchanged. An active
+adaptation canonicalizes untouched prefix and suffix declaration groups exactly
+as before. Cold modules retain original identity. No public API changes.
+
+Focused imported/grouped types, invalid lookup, GC command dispatch and grouped
+sibling tests compare direct fields, original ownership and frozen V81 encoded
+bytes. Native cold 1/64/4096-function and active 64-function controls include
+complete preparation inside timing. Red: owner counts `[1, 1, 1]` fail the required `[0, 0, 0]` on a cold
+module. Green: `moon info`, `moon fmt`, 11 focused tests, all 13,265 bounded
+default tests, the release native build and all eight native controls pass.
+Frozen candidate SHA-256 is
+`8a36711a0605327835138815578ebf0b272d00400d2775c1bc96ad7b46942204`.
+The 1,376 fixed original-primary/v133 observations match; compiler raw, canonical,
+per-function and non-code bytes are exact V81. No public `.mbti` changes.
+
+| Complete preparation control | V81 | V82 | Change |
+| --- | ---: | ---: | ---: |
+| Cold, one function | 609.01 ns | 81.60 ns | −86.6% |
+| Cold, 64 functions | 6.07 µs | 1.69 µs | −72.2% |
+| Cold, 4,096 functions | 483.44 µs | 106.26 µs | −78.0% |
+| Active, 64 functions | 111.22 µs | 109.45 µs | −1.6% |
+
+Three matched enclosing pairs, CPU 6, one warm-up and Precompute brackets at
+most 1.15 retain rejected drift samples. Small plain/O medians are
+3.547→3.588 ms (+1.16%) / 10.102→10.241 ms (+1.38%). Large plain/O are
+3,658.506→3,533.290 ms (−3.42%) / 6,641.167→6,619.757 ms (−0.32%);
+large MADs are 37.003/19.001 and 89.876/7.093 ms. Tee plain/O are
+2.962→2.905 ms (−1.92%) / 105.313→104.774 ms (−0.51%). These are
+command pipelines, not isolated pass times; optimizing remains approximately
+flat and the small costs remain open. Optimizing RSS is also flat:
+294,324/294,140 KiB before and 294,468/294,260 KiB after.
+
+Artifacts are `.tmp/dae2-lazy-legacy-setup-20261001/`, including the frozen
+predecessor, failing regression, native controls, source hashes, matched
+cohorts and validation/runtime/byte reports. The verified v133 deficit remains
+179,213 canonical / 65,631 raw bytes. Larger CFG/source work, mutable-source
+copies, unread tees and global speed/size parity remain active. Fuzz is deferred.

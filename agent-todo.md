@@ -433,15 +433,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   simple distinct/reused/nested capture pipeline probe scales roughly linearly.
   Profile actual compiler query density and preserve direct-write/recursive-read
   and terminator semantics before adding sparse tail-event caches.
-- [ ] Avoid cold legacy-adaptation environment and rewrite-owner setup.
-  Current preparation eagerly scans module descriptor bodies and builds a full
-  environment, lowering state and body array even without legacy handlers.
-  Use a linear immutable type/declaration arity census and lazy owners; retain
-  exact missing-signature/recursive-group lookup behavior, unchanged module
-  identity and canonical grouped locals when any adaptation actually changes
-  the module. Compare cold/active/GC/legacy controls and compiler timings.
-  No new public API is required; `.tmp/dae2-lazy-legacy-setup-20261001/` contains
-  a pending draft, not a completed change.
+- [ ] Resolve V82's small enclosing plain/O costs (+1.16%/+1.38%) and
+  attribute larger remaining prepare/lift/typechecking work. Lazy legacy owners
+  close cold full-environment/lowering/body-array setup with exact V81 bytes;
+  cold controls improve 72–87%, active −1.6%, large plain −3.42% and optimizing
+  approximately flat. See [lazy setup evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-lazy-legacy-adaptation-setup).
 - [ ] Resolve V77 remaining deep/control costs. Root admission closes redundant
   normalization and pairing traversals with exact bytes; unchanged flat/shallow
   native rows improve 22–60%, active rows 3–6%. All 13,236 tests and 1,376

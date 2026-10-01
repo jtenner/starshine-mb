@@ -399,38 +399,145 @@ fn dae2_legacy_unchanged_func(func : @lib.Func) -> @lib.Func {
 }
 
 ///|
+#valtype
+priv struct Dae2LegacySetup {
+  env : @validate.Env
+  types : HotPipelineLowerState
+  bodies : Array[@lib.Func]
+}
+
+///|
+fn Dae2LegacySetup::new(mod_ : @lib.Module) -> Dae2LegacySetup {
+  {
+    env: @validate.Env::new().with_module(mod_),
+    types: { next_type_sec: mod_.type_sec, type_sec_changed: false, },
+    bodies: [],
+  }
+}
+
+///|
+fn dae2_legacy_signature_param_count(
+  idx : @lib.TypeIdx,
+  arities : Array[Int],
+  last_group_start : Int,
+) -> Int {
+  let slot = match idx {
+    @lib.TypeIdx(raw) => raw.reinterpret_as_int()
+    @lib.RecIdx(raw) => {
+      let relative = raw.reinterpret_as_int()
+      if relative < 0 || relative >= arities.length() - last_group_start {
+        return -1
+      }
+      last_group_start + relative
+    }
+  }
+  arities.get(slot).unwrap_or(-1)
+}
+
+///|
+// Match Env::with_module's ordered function table, including its omission of
+// unresolved/non-function signatures. This is O(types + declarations), without
+// body feature scans or unrelated imported/defined member environments.
+fn dae2_legacy_signature_param_counts(mod_ : @lib.Module) -> Array[Int] {
+  let arities : Array[Int] = []
+  let mut last_group_start = 0
+  if mod_.type_sec is Some(@lib.TypeSec(groups)) {
+    for group in groups {
+      last_group_start = arities.length()
+      match group {
+        @lib.SingleRecType(subtype) =>
+          arities.push(
+            match subtype.get_comptype() {
+              @lib.FuncCompType(params, _) => params.length()
+              _ => -1
+            },
+          )
+        @lib.GroupRecType(group) =>
+          for subtype in group {
+            arities.push(
+              match subtype.get_comptype() {
+                @lib.FuncCompType(params, _) => params.length()
+                _ => -1
+              },
+            )
+          }
+      }
+    }
+  }
+  let counts : Array[Int] = []
+  if mod_.import_sec is Some(@lib.ImportSec(imports)) {
+    for import_ in imports {
+      if import_ is @lib.Import(_, _, @lib.FuncExternType(idx)) {
+        let count = dae2_legacy_signature_param_count(
+          idx, arities, last_group_start,
+        )
+        if count >= 0 {
+          counts.push(count)
+        }
+      }
+    }
+  }
+  if mod_.func_sec is Some(@lib.FuncSec(indices)) {
+    for idx in indices {
+      let count = dae2_legacy_signature_param_count(
+        idx, arities, last_group_start,
+      )
+      if count >= 0 {
+        counts.push(count)
+      }
+    }
+  }
+  counts
+}
+
+///|
 fn dae2_prepare_legacy_handlers(
   mod_ : @lib.Module,
+  setup_counts? : Array[Int]? = None,
 ) -> Result[@lib.Module, String] {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Ok(mod_)
   }
-  let env = @validate.Env::new().with_module(mod_)
-  let types : HotPipelineLowerState = {
-    next_type_sec: mod_.type_sec,
-    type_sec_changed: false,
+  if funcs.is_empty() {
+    return Ok(mod_)
   }
-  let bodies : Array[@lib.Func] = []
+  let params_by_function = dae2_legacy_signature_param_counts(mod_)
+  let mut setup : Dae2LegacySetup? = None
   let imported = dae_imported_func_count(mod_)
   let mut changed = false
   for index = 0; index < funcs.length(); index = index + 1 {
     let @lib.Func(locals, @lib.Expr(body)) = funcs[index]
-    let params = match
-      env.get_functype_by_funcidx(
-        @lib.FuncIdx::new((index + imported).reinterpret_as_uint()),
-      ) {
-      Some(@lib.FuncType(params, _)) => params.length()
+    let params = match params_by_function.get(index + imported) {
+      Some(params) => params
       None => return Err("dae2: missing legacy function type")
     }
     if (dae2_handler_admission(body) & 2) == 0 {
-      bodies.push(dae2_legacy_unchanged_func(funcs[index]))
+      if setup is Some(owners) {
+        owners.bodies.push(dae2_legacy_unchanged_func(funcs[index]))
+      }
       continue
+    }
+    let owners = match setup {
+      Some(owners) => owners
+      None => {
+        if setup_counts is Some(counts) {
+          counts[0] += 1
+          counts[1] += 1
+          counts[2] += 1
+        }
+        let owners = Dae2LegacySetup::new(mod_)
+        for prefix in 0..<index {
+          owners.bodies.push(dae2_legacy_unchanged_func(funcs[prefix]))
+        }
+        setup = Some(owners)
+        owners
+      }
     }
     let local_types = locals.iter().to_array()
     let state : Dae2LegacyState = {
-      env,
-      types,
+      env: owners.env,
+      types: owners.types,
       locals: local_types,
       params,
       needs_exception_identity: dae2_legacy_has_rethrow(body),
@@ -441,7 +548,7 @@ fn dae2_prepare_legacy_handlers(
       Err(err) => return Err(err)
     }
     changed = changed || state.changed
-    bodies.push(
+    owners.bodies.push(
       if state.changed {
         @lib.Func::new(
           @lib.Locals::from_types(local_types),
@@ -455,8 +562,9 @@ fn dae2_prepare_legacy_handlers(
   if !changed {
     return Ok(mod_)
   }
-  let next = mod_.with_code_sec(@lib.CodeSec::new(bodies))
-  let next = match types.next_type_sec {
+  let owners = setup.unwrap()
+  let next = mod_.with_code_sec(@lib.CodeSec::new(owners.bodies))
+  let next = match owners.types.next_type_sec {
     Some(types) => next.with_type_sec(types)
     None => next
   }
