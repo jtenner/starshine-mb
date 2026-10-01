@@ -1040,6 +1040,7 @@ fn dae2_run_module_pass(
   raw_analysis? : Bool = true,
   raw_conditionals? : Bool = true,
   raw_rewrite? : Bool = true,
+  raw_sparse_replay? : Bool = true,
   stack_suffix_rewrite? : Bool = true,
 ) -> Result[@lib.Module, String] {
   let prepare_start = perf_start_timer_opt(perf, "detail:dae2:prepare")
@@ -1264,7 +1265,7 @@ fn dae2_run_module_pass(
   let rewrite_start = perf_start_timer_opt(perf, "detail:dae2:rewrite")
   let mut rewrite_lift_us = 0UL
   let mut lower_us = 0UL
-  let mut raw_rewrite_graph : Dae2Graph? = None
+  let mut raw_rewrite_state : Dae2RawReplayState? = None
   let mut stack_suffix_plan : Dae2StackSuffixPlan? = None
   for index = imported; index < total_funcs; index = index + 1 {
     let info = infos[index]
@@ -1347,20 +1348,24 @@ fn dae2_run_module_pass(
       }
       rewrite_lift_us += perf_elapsed_since_start_opt(perf, rewrite_lift_start)
       let rewrite_graph = if info.raw_analysis {
-        let replay = match raw_rewrite_graph {
+        let replay = match raw_rewrite_state {
           Some(replay) => {
-            replay.reset_for_raw_rewrite(graph, boundary_count)
+            replay.reset()
             replay
           }
           None => {
-            let replay = graph.for_raw_rewrite(boundary_count)
-            raw_rewrite_graph = Some(replay)
+            let replay = Dae2RawReplayState::new(
+              graph,
+              boundary_count,
+              sparse=raw_sparse_replay,
+            )
+            raw_rewrite_state = Some(replay)
             replay
           }
         }
-        info.assign_node_locations(replay, @ir.hot_node_count(func))
+        info.assign_node_locations(replay.graph, @ir.hot_node_count(func))
         dae2_analyze_function(
-          replay,
+          replay.graph,
           infos,
           index,
           type_infos,
@@ -1369,15 +1374,7 @@ fn dae2_run_module_pass(
           fallback_write_builds~,
           intrinsic_imports~,
         )
-        replay.solve()
-        let mut boundary_changed = false
-        for location in 0..<boundary_count {
-          if replay.used[location] != graph.used[location] {
-            boundary_changed = true
-            break
-          }
-        }
-        if boundary_changed {
+        if !replay.solve_function(info, infos) {
           // Qualification must reproduce the complete boundary fixed point.
           // Re-run the original module through HOT if a new dependency appears.
           return dae2_run_module_pass(
@@ -1393,7 +1390,7 @@ fn dae2_run_module_pass(
             stack_suffix_rewrite~,
           )
         }
-        replay
+        replay.graph
       } else {
         graph
       }

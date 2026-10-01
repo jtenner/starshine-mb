@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/cmd/dae2_sparse_replay_wbtest.mbt
+  - ../../../../../src/passes/dae2_sparse_replay_perf_wbtest.mbt
+  - ../../../../../src/passes/dae2_sparse_replay_wbtest.mbt
+  - ../../../../../src/passes/dae2_sparse_replay.mbt
   - ../../../../../src/passes/dae2_raw_conditionals.mbt
   - ../../../../../src/passes/dae2_raw_conditionals_wbtest.mbt
   - ../../../../../src/passes/dae2_raw_conditionals_perf_wbtest.mbt
@@ -126,6 +130,145 @@ dependency-window-only. Toggled event collection scopes instruction totals;
 call counters retain the whole command. Historical values remain evidence under
 that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
+
+
+
+## September 30, 2026: sparse replay boundaries and ownership
+
+A per-module workspace keeps an owned immutable boundary mask, reusable
+expression graph, epoch marks and distinct consumer rows. The existing HOT
+analysis emits boundary-consumer edges only for the function result and called
+parameter/results. Its original direct/indirect/reference/tail-call summary is
+complete before rewrites; captures introduce no calls. Register these consumers,
+seed live rows that have actual edges, and retain their heads for the next reset.
+Successful reset truncates expression storage and clears only those boundary
+rows. Original true bits stay true; every newly true bit enters the body's
+worklist, so checking that queue reproduces the old full-prefix comparison.
+Missing/invalid metadata or underestimated demand requests the existing complete
+HOT fallback. Failed workspace reuse restores the full mask; epoch wrap clears
+marks once. The normal graph edge/solver paths are unchanged.
+
+The first work-budget regression failed with 127 unrelated queued boundaries
+instead of zero. Focused tests require exact expression/boundary masks and
+adjacency against legacy replay, alternating bodies, duplicate consumers,
+recursive/indirect/reference/tail/tuple calls, GC values, branches/loops,
+underestimated demand, invalid metadata, failed reuse and forced epoch wrap.
+The dispatcher covers indirect conditional arms under both pass names.
+
+The V57 trial retained the entire solved expression mask in its source field.
+Its plain RSS pair measured 245,632→266,724 KiB; this trial was rejected as the
+final design. A retention regression then failed with 36 locations instead of
+four. V58 copies only the boundary prefix, owns that mask independently from
+both the source and mutable replay graph, and retains no source adjacency.
+A bounded native probe confirms **399 sparse resets / zero full resets**, no
+failed resets and exactly **46,613 retained mask locations** on the large plain
+artifact. Its output bytes equal the unprofiled frozen output. This eliminates
+the prior 399 × 46,613 boundary-reset work without retaining expression masks
+through finalization. Snapshot initialization remains O(boundaries) once per
+module; per-body work follows its consumers, expression edges and work queue.
+
+`moon info`, `moon fmt`, all **13,093** default tests, the release CLI and all
+**12** native controls pass with no public API change. Bounded original/V56/
+verified-release-v133 replay covers **1,134 modules / 8,421 observations**.
+Raw and canonical small/large compiler bytes and all bounded runtime outputs
+match V56 exactly. Long aggregate fuzz and release/shared-consumer renewal
+remain deferred until performance bottleneck trials settle.
+
+Native controls compare the previous full reset/seed/check against sparse
+replay in the same binary, over 16 alternating bodies. Setup, complete graph
+storage/liveness and source ownership checks stay outside timing. Boundary
+counts vary independently from expression counts to expose module-size × body
+work; the smaller case measures overhead and the larger bodies retain useful
+solve work rather than timing an empty graph.
+
+| Boundaries / expression nodes | Full µs | Sparse µs | Change |
+| --- | ---: | ---: | ---: |
+| 128 / 8 | 8.74 | 1.57 | -82.04% |
+| 128 / 128 | 25.18 | 18.42 | -26.85% |
+| 8,192 / 8 | 458.37 | 2.33 | -99.49% |
+| 8,192 / 128 | 484.84 | 18.48 | -96.19% |
+| 65,536 / 8 | 3630.00 | 1.81 | -99.95% |
+| 65,536 / 128 | 3670.00 | 19.05 | -99.48% |
+
+Frozen native V58 SHA-256: `48bfd6f3b15db2ed2077b6dc7b85eef76bfade46bd915d04779966d2e75a02f3`.
+
+Fresh verified release-v133 comparison (CPU 6, one warmup, three samples; pass-local medians):
+
+| Input / pass | Starshine ms | v133 ms | Ratio | Raw / canonical size gap |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 3.533 | 0.966 | 3.657× | -123 / -97 B |
+| small / `dae2-optimizing` | 11.725 | 3.041 | 3.856× | -392 / -290 B |
+| large / `dae2` | 3434.586 | 437.007 | 7.859× | -117,365 / -100,237 B |
+| large / `dae2-optimizing` | 6474.372 | 1645.450 | 3.935× | +128,886 / +258,469 B |
+
+Matched V56→V58 pipeline medians (same CPU/warmup, three accepted alternating pairs, independent reference bracket ≤1.15):
+
+| Input / pass | V56 ms | V58 ms | Change | MAD before / after ms |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 3.311 | 3.350 | +1.18% | 0.030 / 0.098 |
+| small / `dae2-optimizing` | 9.825 | 15.601 | +58.79% | 0.360 / 0.723 |
+| large / `dae2` | 3644.112 | 3599.451 | -1.23% | 1.568 / 52.560 |
+| large / `dae2-optimizing` | 6481.543 | 6486.935 | +0.08% | 48.764 / 0.834 |
+| tee / `dae2` | 2.937 | 2.866 | -2.42% | 0.066 / 0.003 |
+| tee / `dae2-optimizing` | 104.869 | 102.447 | -2.31% | 0.913 / 0.800 |
+
+Three alternating peak-RSS pairs, KiB (median [range]):
+
+- `dae2`: before 266,212 [265,876–267,636] → after 246,228 [245,860–255,964].
+- `dae2-optimizing`: before 289,860 [289,856–290,136] → after 290,072 [289,896–290,108].
+
+The initial small optimizing wall median is distorted by slow samples on both
+sides: roughly 23 ms command wall versus 14 ms CPU, compared with fast runs near
+14 ms wall/CPU. Keep those accepted samples; the reference bracket did not
+exclude them. A separate seven-pair repeat measures plain
+**3.779→3.524 ms (-6.75%)**, MAD 0.254/0.085, and optimizing
+**10.333→10.718 ms (+3.73%)**, MAD 0.200/0.310. Corresponding whole-command CPU
+medians are **8.296→8.261** and **15.039→15.119 ms**. The residual small optimizing
+cost stays open; do not describe the original +58.79% as a proved intrinsic
+regression or replace it silently with the repeat.
+
+Large plain rewrite improves **1003.414→911.989 ms (-91.425 ms)** while enclosing
+plain is -1.23% with candidate MAD 52.560 ms. The earlier V57 cohort measured
+-2.22% with low MAD but retained too much source storage. Large optimizing is
+flat (+0.08%). The current plain RSS median is lower, but prior cohorts are
+bimodal and this candidate ranges 245,860–255,964 KiB; the owned-prefix invariant
+is proven, while a universal RSS-saving claim is not. Optimizing RSS stays flat.
+Speed parity and the **258,469 canonical / 128,886 raw-byte** optimizing gap remain
+open. Smaller plain output alone does not prove a Starshine win.
+
+A separate bounded native stack sample contains **316** 20–26 ms samples,
+maximum 600, with 24-frame depth and exact unprofiled output. Inclusive counts
+overlap: DAE2 module work appears in 124, HOT function pipeline work in 63,
+Expr typechecking in 44, analysis in 42, raw SimplifyLocals in 36 and complete
+node reads in 12. Leaf samples include 36 object destructions, 27 allocator
+slow paths and 16 frees. Node-read callers span source/flow, CFG, lowering,
+verification and cleanup; this does not establish that one getter owns all
+costs. The original thread-timer sampler and the first signal configuration
+produced zero samples and are rejected, not profiling evidence. Debugger wall
+time is excluded from benchmark claims.
+
+Next output-quality trial: reverse aliases with wider original LEB indices
+need conservative **final-index** bounds; merely equal original widths can
+widen after compaction. Derive lower ranks from locals that cannot be alias
+writers and upper ranks from initially retained locals, preserving dominance,
+source order, effects/traps, defaults, lexical restoration and exact byte guards.
+Also retain remaining dependency/lift/lower, allocation/source queries and raw
+carrier cleanup costs. Use the sample to select targeted experiments, rather
+than summing overlapping percentages or claiming completion of P03.
+
+Sources: [workspace](../../../../../src/passes/dae2_sparse_replay.mbt),
+[graph and ownership regressions](../../../../../src/passes/dae2_sparse_replay_wbtest.mbt),
+[scaling controls](../../../../../src/passes/dae2_sparse_replay_perf_wbtest.mbt),
+[dispatcher](../../../../../src/cmd/dae2_sparse_replay_wbtest.mbt), and
+[caller](../../../../../src/passes/dead_argument_elimination2.mbt).
+Local evidence under `.tmp/dae2-lean-20260929/`: `validation-v58.json`,
+`validate-sparse-replay-v58.py`, `finish-sparse-replay-v58.py`,
+`v58-{retention-tdd,bench}.log`, `v57-tdd.log`, `v58-bench-summary.json`,
+`oracle-v58-{small,large}/`, `pairs-v58-{small,large,tee,small-repeat}/`,
+`memory-v58/`, `raw-replay-coverage-v58/`, `sample-large-v58-attempt3/`,
+`v58-plain-phase-comparison.json`, bounded runtime directories and preserved
+V57 retention/zero-sample attempts. Full source hashes are checked before/after
+both cohorts. The verified v133 oracle/input hashes remain those recorded below.
 
 
 ## September 30, 2026: raw fallthrough control dependencies

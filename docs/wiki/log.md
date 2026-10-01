@@ -1,3 +1,12 @@
+### 2026-09-30 — Sparse replay consumers and mask ownership
+
+- [Sparse replay](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-sparse-replay-boundaries-and-ownership)
+  replaces 399 full-boundary resets with body/callee consumer work and an owned
+  boundary-only snapshot. Reject the expression-mask-retaining trial. Native
+  rows improve 27–99.95%; 13,093 tests and 8,421 bounded runtime observations
+  pass with exact predecessor bytes. Large rewrite work falls, optimizing time
+  stays flat, and small timing/memory uncertainty plus speed/size parity remain.
+
 ### 2026-09-30 — Raw fallthrough control dependencies
 
 - [Conditional dependency planning](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-raw-fallthrough-control-dependencies)
