@@ -7,7 +7,7 @@ test "DAE2 selects every unresolved read and excludes complete entry proofs" {
   let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
   let entry = dae2_entry_read_sources(func)
   assert_true(entry is Some(_))
-  let written = [true, true, false]
+  let written = [0, 0, -1]
   let mask = dae2_unresolved_flow_reads(func, written, entry)
   let selected = Array::makei(mask.length(), fn(node) { node }).filter(fn(
     node,

@@ -200,11 +200,67 @@ fn dae2_removable_node(func : @ir.HotFunc, node : Int) -> Bool {
 }
 
 ///|
+#valtype
+priv struct Dae2WriteFacts {
+  sole : Array[Int]?
+  opaque : Bool
+}
+
+///|
+fn Dae2WriteFacts::new(sole : Array[Int]?, opaque : Bool) -> Dae2WriteFacts {
+  { sole, opaque, }
+}
+
+///|
+// Immutable per-analysis facts. Allocate a local row only on an actual writer;
+// -1 means unwritten, -2 means multiple live writers, otherwise the sole node.
+// Full analysis must finish the census even across opaque controls. Standalone
+// entry admission may retain its historical first-opaque early return.
+fn dae2_scan_write_facts(
+  func : @ir.HotFunc,
+  early_opaque? : Bool = false,
+  visits? : Array[Int]? = None,
+) -> Dae2WriteFacts {
+  let mut sole : Array[Int]? = None
+  let mut opaque = false
+  for node in 0..<@ir.hot_node_count(func) {
+    if visits is Some(visits) {
+      visits[0] += 1
+    }
+    if !@ir.hot_node_is_live(func, node) {
+      continue
+    }
+    let op = @ir.hot_node_op(func, node)
+    if op is @ir.Try || op is @ir.TryTable || op is @ir.Continuation {
+      opaque = true
+      if early_opaque {
+        return Dae2WriteFacts::new(None, true)
+      }
+    }
+    if op is @ir.LocalSet || op is @ir.LocalTee {
+      if sole is None {
+        sole = Some(Array::make(@ir.hot_local_count(func), -1))
+      }
+      let row = sole.unwrap()
+      let local = @ir.hot_node_get(func, node).imm0
+      row[local] = if row[local] == -1 { node } else { -2 }
+    }
+  }
+  Dae2WriteFacts::new(sole, opaque)
+}
+
+///|
 fn dae2_entry_read_sources(
   func : @ir.HotFunc,
   visits? : Array[Int]? = None,
   interval_builds? : Array[Int]? = None,
+  known_writes? : Array[Int]? = None,
+  opaque? : Bool = false,
+  write_census_visits? : Array[Int]? = None,
 ) -> Array[Int]? {
+  if opaque {
+    return None
+  }
   let root_writes : Array[Int] = []
   for root in @ir.hot_root_span(func) {
     if root >= 0 && @ir.hot_node_op(func, root) is @ir.LocalSet {
@@ -214,20 +270,19 @@ fn dae2_entry_read_sources(
   if root_writes.is_empty() {
     return None
   }
-  let writes = Array::make(@ir.hot_local_count(func), -1)
-  for node in 0..<@ir.hot_node_count(func) {
-    if !@ir.hot_node_is_live(func, node) {
-      continue
-    }
-    let data = @ir.hot_node_get(func, node)
-    // These control families retain the complete LocalGraph/unknown proof.
-    if data.op is @ir.Try ||
-      data.op is @ir.TryTable ||
-      data.op is @ir.Continuation {
-      return None
-    }
-    if data.op is @ir.LocalSet || data.op is @ir.LocalTee {
-      writes[data.imm0] = if writes[data.imm0] == -1 { node } else { -2 }
+  let writes = match known_writes {
+    Some(writes) => writes
+    None => {
+      let facts = dae2_scan_write_facts(
+        func,
+        early_opaque=true,
+        visits=write_census_visits,
+      )
+      if facts.opaque {
+        return None
+      }
+      guard facts.sole is Some(writes) else { return None }
+      writes
     }
   }
   let entry_writes = Array::make(writes.length(), -1)
@@ -449,13 +504,16 @@ fn dae2_analyze_function(
   fallback_write_builds? : Array[Int]? = None,
   analysis_child_snapshots? : Array[Int]? = None,
   intrinsic_imports? : Array[Bool]? = None,
+  write_census_visits? : Array[Int]? = None,
 ) -> Unit {
   // This phase changes only the dependency graph; HOT child slots stay stable.
   ignore(analysis_child_snapshots)
   let info = infos[index]
   let mut local_flow : @ir.HotLocalReadSources? = None
   let mut fallback_writes : Array[Array[Int]]? = None
-  let mut written_locals : Array[Bool]? = None
+  let mut written_locals : Array[Int]? = None
+  let mut writes_scanned = false
+  let mut opaque_writes = false
   let mut entry_read_sources : Array[Int]? = None
   let mut entry_source_attempted = false
   for node = 0; node < info.node_count; node = node + 1 {
@@ -466,33 +524,29 @@ fn dae2_analyze_function(
     let data = @ir.hot_node_get(func, node)
     match data.op {
       @ir.LocalGet => {
-        let written = match written_locals {
-          Some(written) => written
-          None => {
-            let written = Array::make(@ir.hot_local_count(func), false)
-            for write in 0..<info.node_count {
-              if @ir.hot_node_is_live(func, write) {
-                let data = @ir.hot_node_get(func, write)
-                if data.op is @ir.LocalSet || data.op is @ir.LocalTee {
-                  written[data.imm0] = true
-                }
-              }
-            }
-            written_locals = Some(written)
-            written
-          }
+        if !writes_scanned {
+          let facts = dae2_scan_write_facts(func, visits=write_census_visits)
+          written_locals = facts.sole
+          opaque_writes = facts.opaque
+          writes_scanned = true
         }
+        let written = written_locals
         // With no write anywhere in this body, every read has its entry value,
         // including reads in control regions not represented by LocalGraph.
         // Default-initialized body locals need no parameter dependency.
-        if !written[data.imm0] {
+        if written is None || written.unwrap()[data.imm0] == -1 {
           if data.imm0 < info.params.length() {
             graph.edge(value, info.param_locations[data.imm0])
           }
           continue
         }
         if !entry_source_attempted {
-          entry_read_sources = dae2_entry_read_sources(func)
+          entry_read_sources = dae2_entry_read_sources(
+            func,
+            known_writes=written,
+            opaque=opaque_writes,
+            write_census_visits~,
+          )
           entry_source_attempted = true
         }
         match entry_read_sources {
@@ -515,7 +569,9 @@ fn dae2_analyze_function(
               None => ()
             }
             let selected_gets = dae2_unresolved_flow_reads(
-              func, written, entry_read_sources,
+              func,
+              written.unwrap(),
+              entry_read_sources,
             )
             let locals = @ir.local_graph_build_read_sources(
               func,

@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/passes/dae2_write_facts_wbtest.mbt
+  - ../../../../../src/passes/dae2_write_facts_reference_wbtest.mbt
+  - ../../../../../src/passes/dae2_write_facts_perf_wbtest.mbt
+  - ../../../../../src/cmd/dae2_write_facts_wbtest.mbt
   - ../../../../../src/passes/root_constant_cleanup.mbt
   - ../../../../../src/passes/root_constant_cleanup_wbtest.mbt
   - ../../../../../src/passes/root_constant_cleanup_perf_wbtest.mbt
@@ -6023,4 +6027,91 @@ pipeline measurements, not pass-local v133 ratios. Tee and cumulative
 performance costs remain active; large flat time is not speed parity.
 Per-child peak RSS is 294,224/294,368 KiB before and 298,752/294,572 after;
 retain the higher first candidate sample rather than claiming a memory win.
+Long fuzz and final signoff remain deferred.
+
+
+## October 1, 2026: share immutable write admission facts
+
+V79 replaces the first-read Boolean written-local row with one lazy immutable
+sole-writer row: -1 unwritten, -2 multiple live writers, otherwise the sole node.
+A value record also captures excluded Try/TryTable/Continuation families.
+Analysis scans once on its first LocalGet, uses the same row for unwritten-read
+admission, root entry-source admission and unresolved LocalGraph selection.
+No-read functions never scan; no-write functions allocate no local row. Only
+actual writer nodes need full immediate fields; other census nodes use checked
+opcodes. Rows remain scoped to the immutable analysis snapshot.
+
+The standalone entry helper retains its root-write preflight and first-opaque
+census return. Full analysis completes its census across opaque families so
+later unrepresented writes cannot disappear. Both single-write and interval
+source algorithms, repeated/shared-root rejection, complete CFG and conservative
+fallback writer index remain intact. The fallback still includes its historical
+all-node writer set, separate from the live-node sole-writer facts. No public
+IR getter or API is added.
+
+The red regression observes **ten census visits for five nodes** and fails the
+one-arena bound. Frozen V78 comparisons check exact ordered edge/link arrays,
+used bits, worklist and cursor plus unchanged HOT revision/lowering. Controls
+cover immutable/default reads, single/multiple writes, branches, loops,
+try-table, repeated/shared write roots, intentionally detached reads and GC
+parameters. The dispatcher preserves exported mutable parameter results.
+Twelve native controls compare complete analysis/solve and graph construction,
+including tiny/wide immutable, single-writer, distinct-root and opaque bodies.
+Frozen evidence lives under `.tmp/dae2-shared-write-facts-20261001/`;
+native SHA-256 `eda53564604ffd1a397ba93d55eebabfead9ca58c22cabd90cf23a453ec0b1b3`. Info, formatting, 28 focused checks,
+all **13,253** default tests, native release, twelve native rows and 1,376
+original-primary observations pass. Compiler raw/canonical and individual
+function bytes/non-code sections remain exactly V78. The v133 deficit stays
+**179,213 canonical / 65,631 raw bytes**.
+
+| Complete native analysis control | Pinned repeat V78 → V79 | Change |
+| --- | ---: | ---: |
+| Immutable tiny | 329.13 → 320.17 ns | −2.7% |
+| Immutable width 512 | 11.10 → 10.33 µs | −6.9% |
+| Single writer tiny | 599.84 → 607.56 ns | +1.3% |
+| Single writer width 512 | 27.16 → 24.32 µs | −10.5% |
+| Distinct roots width 32 | 6.11 → 5.81 µs | −4.9% |
+| Opaque width 512 | 193.88 → 184.23 µs | −5.0% |
+
+Keep initial rows: immutable tiny +6.2%, immutable wide −3.4%, single tiny
+−8.4%, single wide −10.9%, distinct −4.9%, opaque −8.4%. Tiny results disagree;
+the small-path overhead remains open. Initial enclosing small plain/O is
+4.028 → 3.648 / 10.890 → 10.849 ms (−9.43% / −.38%); large
+3,840.543 → 3,930.860 / 8,599.279 → 7,482.425 ms (+2.35% / −12.99%);
+tee 3.205 → 4.838 / 113.360 → 113.961 ms (+50.95% / +.53%).
+The optimizing large MAD is 1,328.069/449.651 ms: its first apparent gain
+is dispersed, not a proved compiler win. Repeat seven small/tee and three
+large pairs: small 3.895 → 4.126 / 10.176 → 10.164 ms (+5.93% / −.12%);
+large 3,623.962 → 3,559.814 / 6,731.979 → 6,857.952 ms
+(−1.77% / +1.87%); tee 2.987 → 2.993 / 115.517 → 108.997 ms
+(+.20% / −5.64%). Repeat large MADs are 106.982/.056 and 31.988/132.104 ms;
+small plain .317/.517 and optimizing .095/.075; tee plain .051/.013 and
+optimizing 2.266/.824. All drift rejections/host bands remain preserved.
+These are enclosing pipeline medians. Large optimizing and small/common
+costs remain active. Peak RSS before 304,480/294,204 KiB and after
+304,492/294,392 is essentially flat.
+
+A fresh verified-v133 oracle has one warmup, three accepted measured samples,
+CPU 6 and matching Precompute brackets. The table uses accepted V79 repeat
+**pass timers**, excluding warmups/rejected pairs. Oracle and Starshine were
+measured separately, so these are descriptive ratios across host bands,
+not alternating causal speedups or final signoff:
+
+| Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
+| --- | ---: | ---: | ---: | ---: |
+| DAE2 | 4.082 / .979141 | 4.17× | 3,540.689 / 454.559 | 7.79× |
+| DAE2 optimizing | 10.128 / 3.103510 | 3.26× | 6,834.087 / 1,706.630 | 4.00× |
+
+A bounded V78 compiler stack sample completes with **256 stacks** and exact
+saved output. Top frames include drop/free/allocation (27/15/22), descriptor
+body scans (9), typechecking, node/child access and LocalGraph reverse/source
+work. This is descriptive interrupted sampling, not an instruction count or
+per-phase allocation measurement. Three earlier sampler attempts completed
+exact output but collected zero stacks; they provide no hotspot evidence.
+The corrected sampler sends SIGSTOP to the inferior with stop configured
+last, suppresses delivery and retains its logs. These findings prioritize
+larger allocation/validation/CFG owners beyond the closed duplicate census.
+
+The full local-index entry row still materializes for zero/one admitted writer;
+reduce that scratch without changing either source algorithm or fallbacks.
 Long fuzz and final signoff remain deferred.

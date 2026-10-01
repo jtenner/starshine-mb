@@ -4,7 +4,7 @@
 // including unrepresented control reads which need the existing fallback.
 fn dae2_unresolved_flow_reads(
   func : @ir.HotFunc,
-  written : Array[Bool],
+  written : Array[Int],
   entry_sources : Array[Int]?,
 ) -> Array[Bool] {
   Array::makei(@ir.hot_node_count(func), fn(node) {
@@ -15,6 +15,6 @@ fn dae2_unresolved_flow_reads(
       return false
     }
     let data = @ir.hot_node_get(func, node)
-    data.op is @ir.LocalGet && written[data.imm0]
+    data.op is @ir.LocalGet && written[data.imm0] != -1
   })
 }

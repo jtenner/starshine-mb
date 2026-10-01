@@ -130,6 +130,12 @@ untraced command times or a causal comparison with earlier cohorts.
   A complete native compiler probe observes zero indexed-mask builds, so this
   does not establish compiler parity. See
   [query evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-bound-repeated-normalized-future-read-queries).
+- **Current write-census checkpoint:** V79 closes duplicated live-node scans;
+  native wide controls improve 5–11%, with exact V78 bytes and 13,253 tests.
+  Repeated compiler plain/O is −1.77%/+1.87%; tiny/common costs remain active.
+  Fresh descriptive pass-timer ratios vs v133: small 4.17×/3.26×, large
+  7.79×/4.00×. Separate host bands and deferred signoff limit those ratios. See
+  [write-facts evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-share-immutable-write-admission-facts).
 - **Current numeric-capture checkpoint:** V78 propagates sole root numeric
   literals across descendants and legacy handlers with complete writer census,
   root dominance and encoded non-growth. All 13,248 tests and 1,376 observations
@@ -354,14 +360,19 @@ breadth. Shared changes require all affected consumers in the matrix below.
   Keep default graph facts complete, ordered selected sources and conservative
   dependencies when control/signature information is unknown. Shared-action
   fallback still computes complete forward rows before projection.
-- [ ] Share the immutable local-write census between `dae2_analyze_function`
-  and `dae2_entry_read_sources`. The first written-read query currently follows
-  the Boolean written-local scan with a second full arena scan for sole writers
-  and excluded control families. Preserve unknown/shared-root fallbacks and
-  both entry-source algorithms; measure no-write, tiny, many-write and exceptional
-  controls before replacing the Boolean row or retaining larger scratch. Use
-  checked opcode/immediate fields where complete headers are unnecessary, and
-  verify actual graph fields, source rows, source ownership and enclosing costs.
+- [ ] Reduce singleton/failed entry admission scratch and remaining V79 costs.
+  V79 shares one complete immutable write census (red ten visits / five nodes
+  → one arena), removes the Boolean row, and allocates no local row in no-write
+  functions. All 13,253 tests and 1,376 observations pass with exact V78 bytes.
+  Pinned native wide controls improve 5–11%; singleton tiny costs 1.3% on repeat.
+  Entry admission still materializes a full local-index row for zero/one admitted
+  writer and a root-write list. Specialize the singleton proof and allocate
+  interval rows only when needed; keep exact ordered sources, shared/repeated
+  root rejection, complete CFG and unknown/exceptional fallback. Measure tiny,
+  wide unused-local, zero/many admission and complete analysis controls. No new
+  public API is required. Repeated large plain/O −1.77%/+1.87% and dispersed
+  small controls remain unresolved; do not replace them with the noisy first
+  optimizing −12.99% result.
 - [ ] Evaluate compact affected-function/revision summaries for remaining
   unavoidable work; invalidate on body, node/span/region/local/type/signature
   changes. Whole-HOT retention and its smaller budget remain rejected.
@@ -422,6 +433,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - [ ] Attribute whole-code-section and per-function setup, raw Vacuum preclean,
   SimplifyLocals admission/mutation safety, child-use queries, lower and
   writeback guards separately from the actual transform timers.
+  A bounded V78 sample (256 stacks, exact output) identifies allocation/drop/free,
+  descriptor body scans, typechecking and CFG/reverse-row work. Treat it as
+  prioritization evidence, not per-phase counts. Preserve body-dependent
+  descriptor/inference invalidation; test any shared environment facts against
+  changed bodies and exact/descriptor signatures before avoiding full scans.
   Follow the native profile into skipped-effectful-carrier and balanced-
   statement-local-get scans; trial body-revision facts or owned scratch for
   repeated suffix/effect queries before tuning the much smaller inner rewrite.

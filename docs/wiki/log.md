@@ -1,3 +1,14 @@
+### 2026-10-01 — Shared immutable write admission
+
+- [Write-facts evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-share-immutable-write-admission-facts)
+  closes the red ten-visit/five-node duplicated census with unchanged exact
+  dependencies and bytes. All 13,253 tests and 1,376 observations pass;
+  pinned wide native controls improve 5–11%. Tiny/common costs and repeated
+  large optimizing +1.87% remain open. Fresh descriptive v133 pass-timer
+  ratios are small 4.17×/3.26× and large 7.79×/4.00×; byte deficit remains
+  179,213 canonical / 65,631 raw. A 256-stack exact-output sample prioritizes
+  allocation, validation and CFG owners. Long fuzz/signoff remain deferred.
+
 ### 2026-10-01 — Sole root numeric capture propagation
 
 - [Numeric-capture evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-propagate-sole-root-numeric-captures)
