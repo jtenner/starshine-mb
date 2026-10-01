@@ -8405,18 +8405,46 @@ fn run_hot_pipeline_raw_simplify_locals_instr_source_locals(
   instrs : Array[@lib.Instruction],
 ) -> Array[Int] {
   let source_locals : Array[Int] = []
+  sl_collect_producer_source_locals(instrs, source_locals)
+  source_locals
+}
+
+///|
+fn sl_collect_producer_source_locals(
+  instrs : Array[@lib.Instruction],
+  source_locals : Array[Int],
+) -> Unit {
   for instr in instrs {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
-        if !source_locals.any(fn(existing) { existing == local_id }) {
+        if !source_locals.contains(local_id) {
           source_locals.push(local_id)
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        sl_collect_producer_source_locals(body, source_locals)
+      @lib.If(_, yes, no) => {
+        sl_collect_producer_source_locals(yes, source_locals)
+        if no is Some(body) {
+          sl_collect_producer_source_locals(body, source_locals)
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        sl_collect_producer_source_locals(body, source_locals)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(body))
+            | @lib.LegacyCatchAll(@lib.Expr(body)) =>
+              sl_collect_producer_source_locals(body, source_locals)
+          }
         }
       }
       _ => ()
     }
   }
-  source_locals
 }
 
 ///|
@@ -8441,6 +8469,15 @@ fn run_hot_pipeline_raw_simplify_locals_instr_written_locals(
           match else_body {
             Some(nested) => collect(nested)
             None => ()
+          }
+        }
+        @lib.Try(_, @lib.Expr(body), catches, _) => {
+          collect(body)
+          for catch_ in catches {
+            match catch_ {
+              @lib.LegacyCatch(_, @lib.Expr(body))
+              | @lib.LegacyCatchAll(@lib.Expr(body)) => collect(body)
+            }
           }
         }
         _ => ()
@@ -10418,6 +10455,9 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat
               instr =>
                 if run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(
                     instr,
+                  ) ||
+                  sl_effectful_prefix_can_append_i64_extension(
+                    pure_prefix, instr, env,
                   ) {
                   pure_prefix.push(instr)
                 } else {
@@ -11235,6 +11275,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
   reason : String,
+  effectful_only? : Bool = false,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "simplify-locals" {
     return None
@@ -11253,22 +11294,31 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
       ),
     ),
   )
-  let (balanced_instrs, balanced_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fixpoint(
-    instrs, env,
-  )
-  let (pure_suffix_instrs, pure_suffix_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
-    balanced_instrs, env,
-  )
-  let (carrier_instrs, carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpoint(
-    pure_suffix_instrs,
-  )
-  let (rewritten_instrs, effectful_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
-    carrier_instrs, env,
-  )
-  let rewrite_count = balanced_rewrites +
-    pure_suffix_rewrites +
-    carrier_rewrites +
-    effectful_rewrites
+  let (rewritten_instrs, rewrite_count) = if effectful_only {
+    run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
+      instrs, env,
+    )
+  } else {
+    let (balanced_instrs, balanced_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fixpoint(
+      instrs, env,
+    )
+    let (pure_suffix_instrs, pure_suffix_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
+      balanced_instrs, env,
+    )
+    let (carrier_instrs, carrier_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_control_carrier_local_gets_fixpoint(
+      pure_suffix_instrs,
+    )
+    let (rewritten, effectful_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
+      carrier_instrs, env,
+    )
+    (
+      rewritten,
+      balanced_rewrites +
+      pure_suffix_rewrites +
+      carrier_rewrites +
+      effectful_rewrites,
+    )
+  }
   if rewrite_count == 0 {
     return None
   }
@@ -13087,6 +13137,23 @@ fn run_hot_pipeline_raw_simplify_locals(
     (stats.instr_count >= 6144 && stats.instr_count <= 16384)
   if run_hot_pipeline_raw_has_call_argument_structured_release(instrs) ||
     run_hot_pipeline_raw_has_call_argument_distinct_structured_releases(instrs) {
+    // The HOT lifetime guard still applies. Raw effectful suffix forwarding
+    // preserves later release reads with tees and crosses only pure prefixes.
+    match
+      run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
+        mod_,
+        func_idx,
+        module_state,
+        descriptor,
+        options,
+        locals,
+        instrs,
+        "structured-release-effectful-carrier",
+        effectful_only=true,
+      ) {
+      Some(result) => return Some(result)
+      None => ()
+    }
     let reason = if no_structure_variant {
       "call-argument-structured-release-simplify-locals-nostructure-noop"
     } else {

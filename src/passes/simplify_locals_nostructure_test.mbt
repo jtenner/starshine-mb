@@ -541,12 +541,53 @@ test "simplify-locals preserves consumers before distinct conditional releases" 
     Err(err) =>
       fail("expected conditional release ordering success, got \{err}")
   }
-  @debug.assert_eq(optimized, original)
+  @validate.validate_module(optimized).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0
+    .last()
+    .unwrap()
+  let @lib.Func(_, @lib.Expr(original_body)) = original.code_sec.unwrap().0
+    .last()
+    .unwrap()
+  assert_eq(
+    original_body.filter(fn(instr) { instr is @lib.LocalSet(_) }).length(),
+    2,
+  )
+  assert_eq(body.filter(fn(instr) { instr is @lib.LocalSet(_) }).length(), 0)
+  let calls : Array[@lib.Instruction] = []
+  let releases : Array[Array[@lib.Instruction]] = []
+  let mut load_position = -1
+  let mut make_position = -1
+  for i in 0..<body.length() {
+    match body[i] {
+      @lib.I32Load(_) => load_position = i
+      @lib.Call(index) => {
+        calls.push(body[i])
+        if index == @lib.FuncIdx::new(0U) {
+          make_position = i
+        }
+      }
+      @lib.If(_, arm, _) => releases.push(arm)
+      _ => ()
+    }
+  }
+  assert_true(load_position >= 0 && load_position < make_position)
+  assert_eq(
+    calls,
+    [0U, 1U].map(fn(i) { @lib.Instruction::call(@lib.FuncIdx::new(i)) }),
+  )
+  assert_eq(releases, [
+    [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+    ],
+    [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+    ],
+  ])
   assert_true(
     trace.any(fn(line) {
-      line.contains(
-        "reason=call-argument-structured-release-simplify-locals-noop",
-      )
+      line.contains("reason=structured-release-effectful-carrier")
     }),
     msg=trace.to_string(),
   )

@@ -1,3 +1,12 @@
+### 2026-10-01 — Release-safe effectful capture cleanup
+
+- [Release cleanup and byte attribution](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-effectful-cleanup-beside-structured-releases)
+  records the retained HOT lifetime guard, red-first scalar/reference/GC and
+  recursive read/legacy write safety repairs. All 13,200 default tests and
+  736 focused original-primary observations pass. Save 26,563 canonical bytes
+  across 291 shrinking functions; 183,596 canonical bytes remain. Keep the
+  measured +10.33% large optimizing cost open and target cleanup setup next.
+
 ### 2026-10-01 — Trivial dependency sorting bypass
 
 - [Sorting and byte evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-avoid-trivial-dependency-row-sorting)

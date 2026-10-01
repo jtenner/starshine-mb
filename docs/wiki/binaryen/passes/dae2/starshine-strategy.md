@@ -5202,3 +5202,87 @@ Artifacts: `.tmp/dae2-single-writer-index-20261001/` retains red/green work test
 rejected/refined native controls, frozen manifests, matched cohorts/repeat and
 runtime evidence. Candidate SHA-256:
 `974062884e5275beaef0b04da50b07e0e3cc7d5dd616f1a20a1f346c9a77127f`.
+
+
+## October 1, 2026: effectful cleanup beside structured releases
+
+V69 reduces the confirmed rooted compiler gate without removing its HOT
+lifetime protection. Normal SimplifyLocals runs the existing three-round raw
+effectful-suffix cleanup before returning the structured-release no-op. The
+shared skipped-carrier helper accepts an effectful-only mode; other routes
+retain their original cleanup sequence and the no-structure variants retain
+their guard. Later reads retain a tee; crossed prefixes remain pure, with
+checked, closed i32 leaves admitting nontrapping signed/unsigned i64 extension.
+The generic zero-input pure-leaf classifier is unchanged.
+
+Red-first scalar/reference/GC and dispatcher tests remove the load capture while
+preserving ordered calls and distinct releases. Two additional valid reductions
+expose pre-existing safety holes: nested producer reads were absent from source
+facts, and legacy try/catch writes were absent from writer facts. Recursive
+source collection and legacy writer collection repair both before broadening
+admission; their raw relocation tests fail first and then preserve the barriers.
+Direct fields/opcodes and input bytes are asserted. Info/fmt, **13,200** default
+tests, three native full-module benchmark controls and the release build pass.
+No public API changes or aggregate fuzz signoff are claimed.
+
+The same verified v133 oracle/input and bounded eight-round, first-valid writer
+projection as V62 produce:
+
+| Large compiler DAE2-O | Before | After | v133 |
+| --- | ---: | ---: | ---: |
+| Raw bytes | 5,668,915 | 5,643,243 | 5,573,450 |
+| Canonical bytes | 5,797,596 | 5,771,033 | 5,587,437 |
+
+This saves **25,672 raw / 26,563 canonical bytes**. All **291** changed functions
+shrink; no function grows and non-code sections match exactly. Code-body savings
+are 25,668 bytes, including 2,817 in code index 7292 and 2,510 in 7293. The
+remaining deficit is **183,596 canonical / 69,793 raw bytes**. Historical V59
+and V62 projections/checkpoints remain historical; this saving does not include
+writer-scope drift. Oracle canonical SHA-256:
+`639d0e044fe7663b056f8f254a3376c2ee5fc4fa841f71b7ef5e572d35802ff8`.
+
+CPU-6 matched medians, one warmup/three accepted alternating pairs with reference
+brackets ≤1.15, preserve a material quality cost:
+
+| Input | Plain before → after ms | Optimizing before → after ms |
+| --- | ---: | ---: |
+| Small | 3.272 → 3.322 | 9.495 → 9.580 |
+| Large | 3,449.205 → 3,412.478 | 6,049.080 → 6,673.766 |
+| Active tee | 2.786 → 2.791 | 103.444 → 101.485 |
+
+Large optimizing costs **10.33%** (MAD 0.407/29.257ms). This is a size improvement,
+not a speed win. Large plain's −1.06% has material spread (MAD 76.969/33.249ms).
+Small plain/optimizing cost 1.53%/0.90%; tee plain is flat. Native parsed-module
+cleanup scales at 16.01µs / 88.43µs / 868.58µs for 1/32/256 independent load
+captures, including real full-pipeline setup; these are candidate-only costs,
+not before/after gains. Target repeated compound suffix initialized-local setup,
+future-read scans and recursive reconstruction next without losing these bytes.
+Wide recursive source/writer deduplication also needs measured admission controls.
+
+The retained replay lane renews **32 fresh outputs / 96 references / 256
+original-primary observations**, with exact predecessor bytes. Six additional
+scalar, externref, indexed-GC, nested-read and legacy-write fixtures cover
+**24 modules / 480 original-primary observations**, including ordered imported
+side effects, load and import traps, reference identity and release traps;
+there are no mismatches. Canonical reduced i32 matches v133 at 123 bytes;
+i64 and externref are two bytes smaller (124 vs 126 and 147 vs 149). Indexed-GC
+is unchanged by this candidate and remains five bytes smaller (153 vs 158).
+Nested-read remains a six-byte parity gap (128 vs 122); legacy-write matches at
+131 bytes. Node observations and inspected relocation barriers support these
+reduced wins, not universal semantic equivalence or giant compiler execution.
+The runtime tool fixture needs flat legacy try and validation with all features;
+earlier fixture parsing/feature failures are not optimizer failures.
+
+Artifacts: `.tmp/dae2-release-carrier-20261001/` retains red/green tests, frozen
+manifests, native costs, pairs, runtime replay and per-function byte attribution.
+Candidate SHA-256:
+`53c86df5492d4fc7977e4328e87873e7cf646c2854bbe2b0d3e2a5c4400bdc18`.
+
+A corrected bounded GDB sampler records **305 samples in 7.687s**, unlike the
+zero-sample earlier attempts. Putting `stop` last in the signal handler restores
+stopping after `noprint`. This is descriptive whole-command sampling, not pass
+wall time. The recursive effectful cleanup appears in 32 recorded frames,
+compound suffix typing in three and future reads in two; allocator/drop work
+and `oc_contains_local` also appear prominently. The 12-frame truncation and
+single run prevent precise attribution. Retain `samples-after.json` and use
+focused query controls before adopting caches.

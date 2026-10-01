@@ -32,14 +32,14 @@ oracle versions and checkpoints do not sign current source.
   enclosing large pipelines stay flat. See the
   [query-seed evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-immutable-statement-query-seeds).
 
-- **Current size checkpoint:** V62 saves 7,968 raw / 8,146 canonical compiler
-  bytes in 151 functions with no function growth. The renewed writer projection
-  leaves **210,159 canonical / 95,465 raw bytes** against v133. V59's 232,292-byte
-  gap uses its historical projection; only 8,146 bytes are saved by this fix.
-  All 13,180 tests and 256 fixed runtime observations pass. Small/large enclosing
-  times stay flat; the repeated active-tee cost (+1.40%) remains open.
-  [Sole-reader evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-profitable-sole-reader-reverse-copies)
-  records current descriptive DAE2-O ratios (3.29× small / 4.17× large) and scopes.
+- **Current size checkpoint:** V69 saves 25,672 raw / 26,563 canonical compiler
+  bytes in 291 functions with no growth or non-code changes. The same V62 writer
+  scope leaves **183,596 canonical / 69,793 raw bytes** against v133. V59/V62
+  retain their historical checkpoints. All 13,200 tests, 256 retained replay
+  observations and 480 additional reduced observations pass. The large
+  optimizing quality cost is **+10.33%** and is the next cleanup target;
+  small control costs and aggregate speed/size parity stay open. See
+  [release cleanup evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-effectful-cleanup-beside-structured-releases).
 
 - **Current cheap-path checkpoint:** V63 bypasses the larger alias-admission
   frame on proved nonwidening copies. The bounded active work guard goes from
@@ -66,8 +66,8 @@ oracle versions and checkpoints do not sign current source.
 - **Current field checkpoint:** V66 replaces two full local-access headers with
   checked opcode reads. Repeated native controls improve 5–7%; 13,190 tests and
   256 fixed observations pass with exact predecessor bytes. Large optimizing
-  stays flat; small control costs and the unreduced extraction blocker remain
-  open. See [field evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-checked-local-access-fields).
+  stays flat; small control costs remain open; the subsequent extraction repair is
+  recorded in its owner dossier. See [field evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-checked-local-access-fields).
 
 - **Current repeated-query checkpoint:** V68 bounds repeated singleton conflict
   scans by twice the consumer width; wide cold/warm native controls improve
@@ -86,7 +86,7 @@ untraced command times or a causal comparison with earlier cohorts.
 | `dae2` | 3.753 / 1.012 | 3.71× | 3,998.720 / 563.604 | 7.10× |
 | `dae2-optimizing` | 11.972 / 3.232 | 3.71× | 7,479.616 / 1,835.960 | 4.07× |
 
-- **Release blockers:** current large DAE2-O adds **210,159 canonical / 95,465 raw
+- **Release blockers:** current large DAE2-O adds **183,596 canonical / 69,793 raw
   bytes** against v133; V59 above retains its original writer scope. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
@@ -319,7 +319,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
   controls before adopting cached facts or additional admission scans. V53 closes
   numeric-constant/valid-local leaf state construction. Reduce remaining
   compound/unknown suffix-query initialized-local arrays without sharing mutable
-  state across callers. V61 closes repeated wide balanced-statement mask setup
+  state across callers. V69 adds necessary release-safe effectful cleanup and
+  saves 26,563 canonical compiler bytes, but large optimizing costs 10.33%;
+  remove that measured cost without reducing cleanup coverage or byte savings. V61 closes repeated wide balanced-statement mask setup
   with immutable seeds; full-function native rows improve 5–24%, enclosing
   compiler times stay flat. Preserve full typing and measure other query owners.
   Balanced flat cleanup repeatedly scans an immutable original tail, but the
@@ -350,7 +352,7 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
-- [ ] Reduce and attribute the remaining **210,159-byte canonical optimizing gap**
+- [ ] Reduce and attribute the remaining **183,596-byte canonical optimizing gap**
   by function/diff family. V32 removes 32,070 balanced capture pairs and saves
   147,876 raw / 53,470 canonical bytes without per-function pair regressions.
   V38 removes immutable parameter aliases without per-function raw size losses,
@@ -373,12 +375,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   each; include their structural surroundings to reproduce large-function gaps.
   The repaired rooted compiler witness confirms
   `call-argument-structured-release-simplify-locals-noop` on function 7318
-  (extracted root 24). Reduce that structural context and enable only proved
-  raw cleanup while retaining release lifetimes. The V68 load/compare reduction
-  with a structured argument release reproduces the pair that v133 removes;
-  the earlier simple load reduction did not. Do not remove the HOT guard
-  without repairing its hazard. Other large witnesses still need admission
-  attribution.
+  (extracted root 24). V69 closes raw effectful forwarding beside this guard while retaining release
+  lifetimes and repairing nested read/legacy write barriers. Its scalar/reference
+  reductions match or beat v133 canonical size, but the reduced nested-read
+  case still loses six bytes and needs further cleanup. Keep the HOT guard;
+  other large witnesses still need admission attribution.
 - [ ] Profile remaining alias admission/counting, replay and remap costs after
   V55 removes intermediate trees and instruction-option roots. Wide native
   active controls improve 12–21%, but enclosing optimizing times remain flat;
