@@ -5286,3 +5286,111 @@ compound suffix typing in three and future reads in two; allocator/drop work
 and `oc_contains_local` also appear prominently. The 12-frame truncation and
 single run prevent precise attribution. Retain `samples-after.json` and use
 focused query controls before adopting caches.
+
+
+## October 1, 2026: compact cleanup live-out membership and legacy reads
+
+V70 replaces quadratic ordered-array deduplication in exact SimplifyLocals
+cleanup with a private read-set owner. Encounter order stays in the existing
+array. Rows of at most eight reads keep linear scans; wider rows cache their
+first 64-local word and use sparse bitmap words for other indices. Continuations
+are copied before suffix/loop accumulation, preserving original sibling reads
+and next-iteration observations. Visiting one instruction no longer builds a
+one-element array. No function backpointer or public API is added. A bounded
+32-read regression fails at **496** comparisons before implementation and then
+passes its 64-step membership bound. This counter counts comparisons/lookups,
+not index construction; cold native controls include that construction.
+
+The map-per-local prototype is rejected: cold 64 reads cost 644.63ns → 2.28µs
+although 512 reads improve 33.98 → 16.99µs. Its remaining validation is cancelled
+before freezing a candidate. Compact bitmap membership removes that moderate
+row regression. Final reference → compact means are:
+
+| Cold collector width | Reference | Compact |
+| --- | ---: | ---: |
+| 1 | 30.19ns | 43.59ns |
+| 8 | 51.54ns | 81.63ns |
+| 64 | 653.21ns | 435.32ns |
+| 512 | 30.28µs | 11.16µs |
+
+Wide rows improve **33–63%**. Tiny cold ownership costs **13/30ns** remain;
+there is no claim of a universal cold-query win. Parsed full-module release
+cleanup measures 15.70µs / 81.70µs / 779.75µs for widths 1/32/256; these are
+candidate costs rather than a matched whole-module gain. Ordered uniqueness,
+sparse/sign-bit/word boundaries, independent copies, original sibling reads and
+loop isolation have direct field/opcode/encoded-byte tests.
+
+A focused handler reduction exposes a real V69 admission defect: original and
+v133 return **100**, while the newly enabled raw release cleanup returns **1**.
+A local initialized to 99 is read only inside legacy `try`; omitted handler
+read facts let exact cleanup delete that store. V70 adds legacy bodies/catches
+to continuation collection, get counts and local-index bounds, and to shared
+raw future read/write queries. The shared legacy access helper avoids duplicated
+read-query logic. Direct top-level write predicates retain their existing
+contract. Six tests fail first, including the active dispatcher; no cleanup
+feature is disabled. **This supersedes any broad correctness interpretation of
+V69's narrower passing replay.** The earlier unconstrained legacy reduction did
+not reproduce the bug; the release context is necessary.
+
+Info/fmt, all **13,211** default tests, eleven native controls and the release
+build pass. The final replay renews 32 outputs/96 references/256 observations;
+nine reduced fixtures add **36 modules / 720 original-primary observations**.
+Current Starshine and v133 have zero mismatches. The frozen predecessor's
+**27** legacy body/tagged-catch/catch-all result failures are retained and
+classified as true semantic mismatches, rather than discarded. Tests preserve
+side effects, release/produce/load traps, reference identity and input ownership.
+Long fuzz remains deferred; this is not aggregate parity signoff.
+
+Final CPU-6 matched enclosing medians, one warmup and three accepted alternating
+pairs with Precompute brackets ≤1.15, are:
+
+| Input | Plain before → after ms | Optimizing before → after ms |
+| --- | ---: | ---: |
+| Small | 3.287 → 3.277 | 9.724 → 9.485 |
+| Large | 3,335.259 → 3,340.416 | 6,534.931 → 6,218.452 |
+| Active tee | 2.783 → 2.832 | 101.192 → 103.222 |
+
+Large optimizing improves **4.84%**, saving 316ms (MAD 4.993/0.097ms);
+plain is flat (+0.15%). Small optimizing improves 2.46%; tee costs 1.76% plain
+and **2.01% optimizing**, which stay open. All both-pass compiler/tee bytes
+match the predecessor. The 183,596 canonical / 69,793 raw byte deficit remains;
+all V69 savings are retained. The compiler input has **zero legacy try opcodes**,
+so those matched workloads do not exercise the broken predecessor family.
+Do not use the predecessor as a correctness baseline on handler modules.
+
+The fully measured pre-handler-fix bitmap candidate is preserved separately:
+large optimizing 6,733.663 → 6,344.130ms (−5.78%). Its initial noisy small
+optimizing cohort costs 14.89% (MAD 1.292/3.230ms); a seven-pair repeat is
+9.756 → 9.615ms (−1.45%). Tee optimizing changes −1.39% initially and +2.00%
+on repeat; plain tee costs +3.05% on repeat. Preserve rejected brackets and
+these control costs. That candidate fails the targeted handler fixture and
+is not the final signoff source.
+
+Contemporaneous verified v133 medians are descriptive, collected separately
+with CPU 6, one warmup/three samples and the same reference bracket bound;
+Starshine pass timers below exclude its outer command pipeline timer:
+
+| Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
+| --- | ---: | ---: | ---: | ---: |
+| `dae2` | 3.249 / 0.900 | 3.61× | 3,323.086 / 420.700 | 7.90× |
+| `dae2-optimizing` | 9.457 / 2.966 | 3.19× | 6,200.991 / 1,601.650 | 3.87× |
+
+These are current gaps, not alternating oracle causal comparisons or speed
+parity. The added V69 quality cost is only partly recovered; a same-cohort
+cumulative comparison is still required. Whole-command peak RSS via per-process
+Linux `wait4` is before 294,264/294,384KiB and after 304,564/294,236KiB. One
+candidate run enters the higher historical band; this does not prove a sustained
+memory gain or regression. An earlier bitmap cohort has the opposite high
+outlier (before 304,468/294,308, after 294,384/293,956KiB).
+
+A bounded native probe on a valid non-legacy release fixture observes **275
+successful scoped UInt64 map lookups**; generated C allocates an optional box
+for each. This is a remaining allocation target, not an allocation-free map
+claim. Trial unboxed overflow words and reduce tiny owner overhead next, while
+preserving the wide wins and legacy repair. Repeated ancestor/subtree scans,
+compound suffix mask setup, dependency/lift/lower and validation still remain.
+
+Final artifacts: `.tmp/dae2-liveout-membership-legacy-20261001/`.
+Rejected/provisional evidence and the allocation probe:
+`.tmp/dae2-liveout-membership-20261001/`. Final candidate SHA-256:
+`459db6d64486a20a5037cccc4ecee9d7ec0d2ec46c55de9a669f1497715d1826`.

@@ -268,3 +268,16 @@ ordering and other effect checks are unchanged.
 See [regressions](../../../../../src/passes/simplify_locals_audit_test.mbt) and the
 [host-alias runtime lane](../../../../../tests/optimizer/regressions/imported-global-alias.test.ts).
 The no-nesting variants retain their existing restrictions on global-read sinking.
+
+
+## October 1, 2026: legacy reads beside structured releases
+
+The [DAE2 cleanup investigation](../dae2/starshine-strategy.md#october-1-2026-compact-cleanup-live-out-membership-and-legacy-reads)
+finds an actual 100 → 1 result failure after raw release cleanup admission:
+continuation read collection, exact get counts and local bounds omitted legacy
+try/catch reads. Include legacy bodies and both catch forms in those facts and
+shared future-access queries; retain the HOT release guard and direct-statement
+write contracts. Red-first tests in `legacy_cleanup_reads_wbtest.mbt` and the
+active command dispatcher cover the repair. The final 36-module lane records
+27 failing predecessor observations and zero current/v133 mismatches. Passing
+older replay lanes did not cover this family; aggregate fuzz remains deferred.

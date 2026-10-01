@@ -75,6 +75,17 @@ oracle versions and checkpoints do not sign current source.
   pass with exact predecessor bytes. Compiler pipelines stay flat; small timing
   cohorts disagree. See [index evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-index-repeated-singleton-conflicts).
 
+- **Current cleanup checkpoint:** V70 indexes ordered live-out reads with compact
+  words, improving wide native collectors 33–63% and matched large optimizing
+  **4.84%**. All 13,211 tests and 976 focused observations complete; current/v133
+  outputs match originals, with 27 known predecessor legacy failures recorded.
+  The release-context **100 → 1** defect is repaired in legacy read/count/bounds
+  facts; narrow V69 replay was incomplete. Compiler bytes retain all V69 savings.
+  Tee optimizing costs 2.01%, tiny cold owners cost 13/30ns and boxed overflow
+  lookups remain open. Current descriptive pass ratios are small 3.61× / 3.19×
+  and large 7.90× / 3.87× for DAE2/O. See
+  [cleanup and handler evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-compact-cleanup-live-out-membership-and-legacy-reads).
+
 ### Historical V59 DAE2/O oracle baseline
 
 The frozen v59 open-world compiler comparison uses verified release v133,
@@ -242,6 +253,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   scoped allocation attribution before targeting individual query families. V29's
   toggled profile records 651,397 whole-command sort calls; any cached comparator must capture its order
   row without a facts backpointer or reference cycle.
+- [ ] Remove boxed UInt64 overflow lookups in cleanup read sets: a bounded
+  valid release fixture records 275 successful scoped lookups, each allocating
+  an optional box in generated native C. Trial unboxed word values with
+  cold/warm, sign-bit/sparse boundaries and enclosing controls. Reduce the
+  added 13/30ns tiny cold owner cost without reintroducing wide quadratic work.
 - [ ] Clear temporary state on every exit, avoid allocating it on no-work paths,
   bound retained high-water capacity and measure lifetime/RSS costs. Preserve
   carried-buffer clearing, independently owned selections and pure/empty fast
@@ -321,9 +337,13 @@ breadth. Shared changes require all affected consumers in the matrix below.
   compound/unknown suffix-query initialized-local arrays without sharing mutable
   state across callers. V69 adds necessary release-safe effectful cleanup and
   saves 26,563 canonical compiler bytes, but large optimizing costs 10.33%;
-  remove that measured cost without reducing cleanup coverage or byte savings. V61 closes repeated wide balanced-statement mask setup
+  V70 recovers 4.84% on the matched large optimizing pipeline with exact compiler
+  bytes, but tee costs 2.01% and cumulative quality cost is not closed. Remove
+  the remaining cost without reducing cleanup coverage or byte savings. V61 closes repeated wide balanced-statement mask setup
   with immutable seeds; full-function native rows improve 5–24%, enclosing
   compiler times stay flat. Preserve full typing and measure other query owners.
+  V70 closes quadratic ordered live-out deduplication with compact word
+  membership; ancestor/subtree rescans remain.
   Balanced flat cleanup repeatedly scans an immutable original tail, but the
   simple distinct/reused/nested capture pipeline probe scales roughly linearly.
   Profile actual compiler query density and preserve direct-write/recursive-read
@@ -378,7 +398,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
   (extracted root 24). V69 closes raw effectful forwarding beside this guard while retaining release
   lifetimes and repairing nested read/legacy write barriers. Its scalar/reference
   reductions match or beat v133 canonical size, but the reduced nested-read
-  case still loses six bytes and needs further cleanup. Keep the HOT guard;
+  case still loses six bytes and needs further cleanup. V70 repairs the exposed
+  legacy-only read/count/bounds defect (100 → 1); current body/catch/catch-all
+  replay matches original and v133. Keep the HOT guard;
   other large witnesses still need admission attribution.
 - [ ] Profile remaining alias admission/counting, replay and remap costs after
   V55 removes intermediate trees and instruction-option roots. Wide native

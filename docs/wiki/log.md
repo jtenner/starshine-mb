@@ -1,3 +1,14 @@
+### 2026-10-01 — Compact cleanup membership and legacy read repair
+
+- [Cleanup membership and handler evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-compact-cleanup-live-out-membership-and-legacy-reads)
+  records the red-first 496-comparison bound, rejected map-per-local trial,
+  compact cold controls and a real release-context 100 → 1 defect. Legacy
+  read/count/bounds facts repair it without disabling cleanup. All 13,211 tests
+  and 976 focused observations complete; 27 predecessor semantic failures stay
+  recorded, current/v133 mismatch counts are zero. Large optimizing improves
+  4.84% with exact compiler bytes; tee costs 2.01%, tiny cold and boxed-word
+  costs remain. The 183,596-byte canonical deficit and all pass gaps stay open.
+
 ### 2026-10-01 — Release-safe effectful capture cleanup
 
 - [Release cleanup and byte attribution](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-effectful-cleanup-beside-structured-releases)

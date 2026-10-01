@@ -19161,6 +19161,10 @@ fn run_hot_pipeline_raw_instrs_have_later_local_read(
           None => ()
         }
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) =>
+        if sl_legacy_try_has_local_access(body, catches, local_id, true) {
+          return true
+        }
       @lib.LocalGet(@lib.LocalIdx(raw)) =>
         if raw.reinterpret_as_int() == local_id {
           return true
@@ -19194,6 +19198,8 @@ fn run_hot_pipeline_raw_instr_reads_local(
         None => false
       }
     }
+    @lib.Try(_, @lib.Expr(body), catches, _) =>
+      sl_legacy_try_has_local_access(body, catches, local_id, true)
     _ => false
   }
 }
@@ -19253,6 +19259,10 @@ fn run_hot_pipeline_raw_instrs_have_later_local_write(
           None => ()
         }
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) =>
+        if sl_legacy_try_has_local_access(body, catches, local_id, false) {
+          return true
+        }
       @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) =>
         if raw.reinterpret_as_int() == local_id {
           return true
@@ -73138,6 +73148,20 @@ fn run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_instr(
         None => ()
       }
     }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
+        body, counts,
+      )
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(body))
+          | @lib.LegacyCatchAll(@lib.Expr(body)) =>
+            run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
+              body, counts,
+            )
+        }
+      }
+    }
     _ => ()
   }
 }
@@ -73170,6 +73194,21 @@ fn run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_instr(
       } else {
         else_max
       }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      let mut max_idx = run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
+        body,
+      )
+      for catch_ in catches {
+        let @lib.Expr(body) = match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+        }
+        max_idx = Int::max(
+          max_idx,
+          run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(body),
+        )
+      }
+      max_idx
     }
     _ => -1
   }
@@ -73574,36 +73613,9 @@ fn run_hot_pipeline_simplify_locals_lowered_cleanup_instr(
 fn run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
   instrs : Array[@lib.Instruction],
   reads : Array[Int],
+  membership_probes? : Array[Int]? = None,
 ) -> Unit {
-  for instr in instrs {
-    match instr {
-      @lib.LocalGet(@lib.LocalIdx(raw)) => {
-        let local_id = raw.reinterpret_as_int()
-        if !reads.contains(local_id) {
-          reads.push(local_id)
-        }
-      }
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
-          body, reads,
-        )
-      @lib.If(_, then_body, else_body) => {
-        run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
-          then_body, reads,
-        )
-        match else_body {
-          Some(body) =>
-            run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
-              body, reads,
-            )
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
+  SlCleanupReadSet::new(reads).collect(instrs, membership_probes~)
 }
 
 ///|
@@ -73620,6 +73632,21 @@ fn simplify_locals_cleanup_is_inert_separator(instr : @lib.Instruction) -> Bool 
 fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
   instrs : Array[@lib.Instruction],
   live_after : Array[Int],
+  child_liveout_contexts? : Array[Int]? = None,
+  suffix_root_visits? : Array[Int]? = None,
+) -> Array[@lib.Instruction] {
+  sl_cleanup_drop_dead_pairs_with_reads(
+    instrs,
+    SlCleanupReadSet::new(live_after),
+    child_liveout_contexts~,
+    suffix_root_visits~,
+  )
+}
+
+///|
+fn sl_cleanup_drop_dead_pairs_with_reads(
+  instrs : Array[@lib.Instruction],
+  live_after : SlCleanupReadSet,
   child_liveout_contexts? : Array[Int]? = None,
   suffix_root_visits? : Array[Int]? = None,
 ) -> Array[@lib.Instruction] {
@@ -73663,21 +73690,15 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pai
         @lib.Instruction::block(
           bt,
           @lib.Expr::new(
-            run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
-              body, child_live_after,
-            ),
+            sl_cleanup_drop_dead_pairs_with_reads(body, child_live_after),
           ),
         )
       @lib.Loop(bt, @lib.Expr(body)) => {
-        run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
-          body, child_live_after,
-        )
+        child_live_after.collect(body)
         @lib.Instruction::loop_(
           bt,
           @lib.Expr::new(
-            run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
-              body, child_live_after,
-            ),
+            sl_cleanup_drop_dead_pairs_with_reads(body, child_live_after),
           ),
         )
       }
@@ -73686,21 +73707,17 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pai
           bt,
           catches,
           @lib.Expr::new(
-            run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
-              body, child_live_after,
-            ),
+            sl_cleanup_drop_dead_pairs_with_reads(body, child_live_after),
           ),
         )
       @lib.If(bt, then_body, else_body) =>
         @lib.Instruction::if_(
           bt,
-          run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
-            then_body, child_live_after,
-          ),
+          sl_cleanup_drop_dead_pairs_with_reads(then_body, child_live_after),
           match else_body {
             Some(else_body) =>
               Some(
-                run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs_with_liveout(
+                sl_cleanup_drop_dead_pairs_with_reads(
                   else_body, child_live_after,
                 ),
               )
@@ -73716,10 +73733,7 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pai
       }
       // Use the original subtree even when child cleanup removed a read.
       // The old suffix analysis saw that original read as well.
-      run_hot_pipeline_simplify_locals_lowered_collect_local_reads(
-        [instr],
-        suffix_reads,
-      )
+      suffix_reads.collect_instr(instr)
     }
   }
   let rewritten : Array[@lib.Instruction] = []
