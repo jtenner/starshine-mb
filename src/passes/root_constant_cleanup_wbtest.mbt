@@ -24,7 +24,9 @@ test "sole root literal replaces a nested read across side effects and traps" {
     )
     assert_eq(next.length(), body.length() - 3)
     assert_eq(next[0], body[3])
-    let @lib.Block(_, @lib.Expr(nested)) = next[next.length() - 1]
+    guard next[next.length() - 1] is @lib.Block(_, @lib.Expr(nested)) else {
+      fail("expected propagated root literal block")
+    }
     assert_eq(nested, [body[0]])
   }
 }
@@ -36,7 +38,9 @@ test "sole root literal replaces legacy body tagged catch and catch-all reads" {
       "(module (tag $e) (func (param i32) (result i32) i32.const 99 local.set 0 (try (result i32) (do local.get 0 drop throw $e) (\{handler} local.get 0))))",
     )
     assert_eq(next.length(), 1)
-    let @lib.Try(_, @lib.Expr(nested), catches, _) = next[0]
+    guard next[0] is @lib.Try(_, @lib.Expr(nested), catches, _) else {
+      fail("expected propagated legacy try")
+    }
     assert_eq(nested[0], body[0])
     let @lib.Expr(handler_body) = match catches[0] {
       @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
@@ -82,8 +86,12 @@ test "root literal propagation preserves loops branches and independent arm owne
     "(module (func (param i32 i32) (result i32) i32.const 7 local.set 0 local.get 1 if (result i32) loop (result i32) local.get 0 end else local.get 0 end))",
   )
   assert_eq(next.length(), 2)
-  let @lib.If(_, yes, no) = next[1]
-  let @lib.Loop(_, @lib.Expr(nested)) = yes[0]
+  guard next[1] is @lib.If(_, yes, no) else {
+    fail("expected propagated conditional")
+  }
+  guard yes[0] is @lib.Loop(_, @lib.Expr(nested)) else {
+    fail("expected propagated loop in then arm")
+  }
   assert_eq(nested, [body[0]])
   assert_eq(no.unwrap(), [body[0]])
   let (body, next) = sl_root_constant_test(
@@ -139,7 +147,9 @@ test "root constant encoded budgets cover signed and unsigned LEB boundaries" {
     "(module (func (result i32) (local \{locals}) i32.const 64 local.set 128 block (result i32) local.get 128 end))",
   )
   assert_eq(next.length(), 1)
-  let @lib.Block(_, @lib.Expr(nested)) = next[0]
+  guard next[0] is @lib.Block(_, @lib.Expr(nested)) else {
+    fail("expected propagated high-index local block")
+  }
   assert_eq(nested, [body[0]])
 }
 
@@ -149,9 +159,15 @@ test "root constant propagation supports exact wrapped literals and try-table de
     "(module (func (param i32) (result i32) block i32.const 99 local.set 0 end block (result i32) try_table (result i32) local.get 0 end end))",
   )
   assert_eq(next.length(), 1)
-  let @lib.Block(_, @lib.Expr(nested)) = next[0]
-  let @lib.TryTable(_, _, @lib.Expr(nested)) = nested[0]
-  let @lib.Block(_, @lib.Expr(original)) = body[0]
+  guard next[0] is @lib.Block(_, @lib.Expr(nested)) else {
+    fail("expected propagated outer block")
+  }
+  guard nested[0] is @lib.TryTable(_, _, @lib.Expr(nested)) else {
+    fail("expected propagated try-table descendant")
+  }
+  guard body[0] is @lib.Block(_, @lib.Expr(original)) else {
+    fail("expected original wrapped literal block")
+  }
   assert_eq(nested, [original[0]])
   let (body, next) = sl_root_constant_test(
     "(module (func (param (ref null struct)) (result (ref null struct)) ref.null struct local.set 0 local.get 0))",
