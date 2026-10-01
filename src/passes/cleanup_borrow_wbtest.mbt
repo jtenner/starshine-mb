@@ -47,7 +47,9 @@ test "continuation cleanup replaces only changed children and owns changed outpu
     physical_equal(actual[0], body[0]),
     msg="unchanged sibling control was rebuilt",
   )
-  let @lib.Block(_, @lib.Expr(changed)) = actual[1]
+  guard actual[1] is @lib.Block(_, @lib.Expr(changed)) else {
+    fail("expected changed continuation block")
+  }
   assert_eq(changed, [
     @lib.Instruction::i32_const(@lib.I32(7)),
     @lib.Instruction::drop(),

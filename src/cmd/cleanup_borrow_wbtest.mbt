@@ -14,7 +14,9 @@ test "command continuation cleanup retains the result while removing dead nested
     if pass == "dae2-optimizing" {
       assert_eq(body.length(), 1)
     } else {
-      let @lib.Block(_, @lib.Expr(nested)) = body[0]
+      guard body[0] is @lib.Block(_, @lib.Expr(nested)) else {
+        fail("expected simplified continuation block")
+      }
       assert_true(nested.contains(@lib.Instruction::i32_const(@lib.I32(7))))
       assert_false(
         nested.contains(@lib.Instruction::local_set(@lib.LocalIdx::new(1U))),
