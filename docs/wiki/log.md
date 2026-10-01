@@ -1,3 +1,12 @@
+### 2026-10-01 — Scalar singleton entry proofs
+
+- [Scalar entry evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-keep-singleton-entry-proofs-scalar)
+  closes zero/singleton dense entry rows with a red allocation regression and
+  exact historical source/graph controls. Six native rows improve 12–86%; all
+  13,255 tests and 1,376 fixed observations pass. Compiler bytes stay exact;
+  large plain/O +.89%/+1.13% remain open, as do root lists and traversal costs.
+  The v133 byte deficit remains 179,213 canonical / 65,631 raw. Fuzz is deferred.
+
 ### 2026-10-01 — Shared immutable write admission
 
 - [Write-facts evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-share-immutable-write-admission-facts)

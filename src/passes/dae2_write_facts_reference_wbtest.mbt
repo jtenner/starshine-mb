@@ -44,7 +44,7 @@ fn dae2_writefacts_reference_entry_sources(
     return None
   }
   if admitted == 1 {
-    return dae2_entry_single_read_sources(func, entry_writes, visits~)
+    return dae2_writefacts_reference_single_sources(func, entry_writes, visits~)
   }
   match interval_builds {
     Some(count) => count[0] += 1
@@ -462,4 +462,81 @@ fn dae2_writefacts_reference_unresolved_reads(
     let data = @ir.hot_node_get(func, node)
     data.op is @ir.LocalGet && written[data.imm0]
   })
+}
+
+///|
+fn dae2_writefacts_reference_single_sources(
+  func : @ir.HotFunc,
+  entry_writes : Array[Int],
+  visits? : Array[Int]? = None,
+) -> Array[Int]? {
+  let mut completed = false
+  let sources = Array::make(@ir.hot_node_count(func), -2)
+  let stack : Array[Int] = []
+  let mut epoch = 0
+  for root in @ir.hot_root_span(func) {
+    if root < 0 {
+      continue
+    }
+    stack.push(root)
+    while !stack.is_empty() {
+      let item = stack.pop().unwrap()
+      if item >= 0 {
+        if !@ir.hot_node_is_live(func, item) {
+          continue
+        }
+        match visits {
+          Some(count) => count[0] += 1
+          None => ()
+        }
+        let data = @ir.hot_node_get(func, item)
+        if data.op is @ir.LocalSet &&
+          entry_writes[data.imm0] == item &&
+          item != root {
+          return None
+        }
+        if !(data.op is @ir.LocalGet) {
+          // HOT shares value subtrees. Visit each non-read once between root
+          // writes instead of expanding its tree once per incoming use. Read
+          // sources occupy their own nodes; other source slots cache the epoch.
+          let marker = -4 - epoch
+          if sources[item] == marker {
+            continue
+          }
+          sources[item] = marker
+        }
+        stack.push(-item - 1)
+        for slot = data.child_count - 1; slot >= 0; slot = slot - 1 {
+          let child = @ir.hot_child_get(func, item, slot)
+          if child >= 0 {
+            stack.push(child)
+          }
+        }
+      } else {
+        let node = -item - 1
+        let data = @ir.hot_node_get(func, node)
+        if data.op is @ir.LocalGet && entry_writes[data.imm0] >= 0 {
+          let source = if completed { entry_writes[data.imm0] } else { -1 }
+          sources[node] = if sources[node] == -2 || sources[node] == source {
+            source
+          } else {
+            -3
+          }
+        } else if data.op is @ir.LocalSet && entry_writes[data.imm0] == node {
+          // A sole top-level write dominates later roots. A write also shared
+          // under another root does not have that proof. Revisited reads that
+          // span the write remain unknown, preserving the complete fallback.
+          if node != root {
+            return None
+          }
+          if completed {
+            return None
+          }
+          completed = true
+          epoch += 1
+        }
+      }
+    }
+  }
+  Some(sources)
 }

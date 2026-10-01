@@ -3,6 +3,9 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/passes/single_entry_row_wbtest.mbt
+  - ../../../../../src/passes/single_entry_row_reference_wbtest.mbt
+  - ../../../../../src/passes/single_entry_row_perf_wbtest.mbt
   - ../../../../../src/passes/dae2_write_facts_wbtest.mbt
   - ../../../../../src/passes/dae2_write_facts_reference_wbtest.mbt
   - ../../../../../src/passes/dae2_write_facts_perf_wbtest.mbt
@@ -6112,6 +6115,51 @@ The corrected sampler sends SIGSTOP to the inferior with stop configured
 last, suppresses delivery and retains its logs. These findings prioritize
 larger allocation/validation/CFG owners beyond the closed duplicate census.
 
-The full local-index entry row still materializes for zero/one admitted writer;
-reduce that scratch without changing either source algorithm or fallbacks.
+The V79 full local-index entry row still materializes for zero/one admitted writer;
+V80 below supersedes that scratch requirement without changing fallbacks.
 Long fuzz and final signoff remain deferred.
+
+
+## October 1, 2026: keep singleton entry proofs scalar
+
+V80 keeps the one admitted local/node pair in scalar fields and materializes the
+local-index entry row only on a second distinct admitted writer. Failed and
+singleton admission allocate no entry row. The singleton source traversal now
+compares that exact local and node directly; its epochs, shared-read markers,
+source order and repeated/shared write rejection are unchanged. Multiple
+admission retains the original interval algorithm and local-index rows.
+The root-write list remains a separate future scratch target.
+
+The red regression allocates 64 local-index slots for a sole writer and fails
+its zero-row assertion after matching the original source vector and full
+LocalGraph flow. Tests retain revision/lowering ownership and multiple/
+repeated-root cases. Frozen V79 entry/single traversal controls compare tiny,
+64-local and 4096-local cached-fact queries with parsing outside timed work.
+The prior V78 analysis reference now freezes its own unchanged single traversal
+so historical baseline evidence retains its original implementation.
+Frozen evidence is saved under `.tmp/dae2-single-entry-row-20261001/`;
+candidate SHA-256 is
+`e9db0d8da3a2213e3736b7cd4d917993109ed55146b03758bc63e7304b80fbe6`.
+`moon info`, formatting, focused tests, all **13,255 default tests**, native
+release build and six native benchmark rows pass. All 1,376 original-primary
+fixed observations match. Compiler functions/non-code sections and raw /
+canonical output are exact V79 bytes; the v133 deficit remains **179,213
+canonical / 65,631 raw bytes**.
+
+| Cached-fact singleton query | V79 → V80 | Change |
+| --- | ---: | ---: |
+| One local | 172.03 → 151.68 ns | −11.8% |
+| 64 locals | 191.76 → 154.51 ns | −19.4% |
+| 4096 locals | 1.16 µs → 157.17 ns | −86.5% |
+
+Parsing and immutable write facts are outside these timed queries; query
+allocations remain inside. Three accepted alternating pairs, one warmup,
+CPU 6 and Precompute bracket ratio ≤1.15 give enclosing small plain/O
+3.530 → 3.552 / 10.489 → 10.182 ms (+.62% / −2.93%); large
+3,627.527 → 3,659.809 / 6,795.658 → 6,872.532 ms (+.89% / +1.13%);
+tee 2.987 → 2.928 / 106.127 → 107.407 ms (−1.98% / +1.21%).
+Large MADs are 48.851/57.348 and 2.999/39.172 ms; retain rejected host bands.
+These rows do not prove compiler parity or a large-artifact speedup. Peak RSS
+before 294,152/294,548 KiB and after 294,216/294,140 is flat. Remaining root
+list, traversal, allocation and enclosing costs stay open; long fuzz and
+final signoff remain deferred.

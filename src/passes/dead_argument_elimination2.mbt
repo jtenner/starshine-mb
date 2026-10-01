@@ -257,6 +257,7 @@ fn dae2_entry_read_sources(
   known_writes? : Array[Int]? = None,
   opaque? : Bool = false,
   write_census_visits? : Array[Int]? = None,
+  entry_row_slots? : Array[Int]? = None,
 ) -> Array[Int]? {
   if opaque {
     return None
@@ -285,23 +286,50 @@ fn dae2_entry_read_sources(
       writes
     }
   }
-  let entry_writes = Array::make(writes.length(), -1)
+  let mut entry_writes : Array[Int]? = None
+  let mut single_local = -1
+  let mut single_write = -1
   let mut admitted = 0
   for root in root_writes {
     let local = @ir.hot_node_get(func, root).imm0
-    if writes[local] == root {
-      if entry_writes[local] < 0 {
+    if writes[local] != root {
+      continue
+    }
+    if admitted == 0 {
+      single_local = local
+      single_write = root
+      admitted = 1
+    } else if local != single_local {
+      let row = match entry_writes {
+        Some(row) => row
+        None => {
+          if entry_row_slots is Some(slots) {
+            slots[0] += writes.length()
+          }
+          let row = Array::make(writes.length(), -1)
+          row[single_local] = single_write
+          entry_writes = Some(row)
+          row
+        }
+      }
+      if row[local] < 0 {
         admitted += 1
       }
-      entry_writes[local] = root
+      row[local] = root
     }
   }
   if admitted == 0 {
     return None
   }
   if admitted == 1 {
-    return dae2_entry_single_read_sources(func, entry_writes, visits~)
+    return dae2_entry_single_read_sources(
+      func,
+      single_local,
+      single_write,
+      visits~,
+    )
   }
+  let entry_writes = entry_writes.unwrap()
   match interval_builds {
     Some(count) => count[0] += 1
     None => ()
@@ -419,7 +447,8 @@ fn dae2_entry_read_sources(
 // DAG work while avoiding interval/postorder scratch on the common small path.
 fn dae2_entry_single_read_sources(
   func : @ir.HotFunc,
-  entry_writes : Array[Int],
+  local : Int,
+  write : Int,
   visits? : Array[Int]? = None,
 ) -> Array[Int]? {
   let mut completed = false
@@ -442,9 +471,7 @@ fn dae2_entry_single_read_sources(
           None => ()
         }
         let data = @ir.hot_node_get(func, item)
-        if data.op is @ir.LocalSet &&
-          entry_writes[data.imm0] == item &&
-          item != root {
+        if data.op is @ir.LocalSet && write == item && item != root {
           return None
         }
         if !(data.op is @ir.LocalGet) {
@@ -467,14 +494,14 @@ fn dae2_entry_single_read_sources(
       } else {
         let node = -item - 1
         let data = @ir.hot_node_get(func, node)
-        if data.op is @ir.LocalGet && entry_writes[data.imm0] >= 0 {
-          let source = if completed { entry_writes[data.imm0] } else { -1 }
+        if data.op is @ir.LocalGet && data.imm0 == local {
+          let source = if completed { write } else { -1 }
           sources[node] = if sources[node] == -2 || sources[node] == source {
             source
           } else {
             -3
           }
-        } else if data.op is @ir.LocalSet && entry_writes[data.imm0] == node {
+        } else if data.op is @ir.LocalSet && write == node {
           // A sole top-level write dominates later roots. A write also shared
           // under another root does not have that proof. Revisited reads that
           // span the write remain unknown, preserving the complete fallback.

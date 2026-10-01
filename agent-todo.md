@@ -136,6 +136,10 @@ untraced command times or a causal comparison with earlier cohorts.
   Fresh descriptive pass-timer ratios vs v133: small 4.17×/3.26×, large
   7.79×/4.00×. Separate host bands and deferred signoff limit those ratios. See
   [write-facts evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-share-immutable-write-admission-facts).
+- **Current singleton checkpoint:** V80 removes zero/singleton entry rows;
+  focused queries improve 12–86%, with 13,255 tests, 1,376 fixed observations
+  and exact bytes. Large plain/O +.89%/+1.13% remain open. See
+  [scalar entry evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-keep-singleton-entry-proofs-scalar).
 - **Current numeric-capture checkpoint:** V78 propagates sole root numeric
   literals across descendants and legacy handlers with complete writer census,
   root dominance and encoded non-growth. All 13,248 tests and 1,376 observations
@@ -360,19 +364,16 @@ breadth. Shared changes require all affected consumers in the matrix below.
   Keep default graph facts complete, ordered selected sources and conservative
   dependencies when control/signature information is unknown. Shared-action
   fallback still computes complete forward rows before projection.
-- [ ] Reduce singleton/failed entry admission scratch and remaining V79 costs.
-  V79 shares one complete immutable write census (red ten visits / five nodes
-  → one arena), removes the Boolean row, and allocates no local row in no-write
-  functions. All 13,253 tests and 1,376 observations pass with exact V78 bytes.
-  Pinned native wide controls improve 5–11%; singleton tiny costs 1.3% on repeat.
-  Entry admission still materializes a full local-index row for zero/one admitted
-  writer and a root-write list. Specialize the singleton proof and allocate
-  interval rows only when needed; keep exact ordered sources, shared/repeated
-  root rejection, complete CFG and unknown/exceptional fallback. Measure tiny,
-  wide unused-local, zero/many admission and complete analysis controls. No new
-  public API is required. Repeated large plain/O −1.77%/+1.87% and dispersed
-  small controls remain unresolved; do not replace them with the noisy first
-  optimizing −12.99% result.
+- [ ] Reduce remaining root-write list, source traversal and enclosing costs.
+  V79 closes duplicated live-node census; V80 closes zero/singleton local-index
+  entry-row allocation. All 13,255 tests and 1,376 observations pass with exact
+  bytes; singleton native queries improve 12–86%. Root-write list ownership,
+  multiple-admission interval rows and complete fallback still allocate.
+  Preserve exact ordered sources, shared/repeated root rejection, complete CFG
+  and exceptional fallback. Measure tiny, wide unused-local, zero/many admission
+  and complete analysis controls. No new public API is required. V80 enclosing
+  large plain/O +.89%/+1.13% and tee O +1.21% remain open; the focused gain does
+  not close the compiler gap. Retain V79 dispersed controls and host bands.
 - [ ] Evaluate compact affected-function/revision summaries for remaining
   unavoidable work; invalidate on body, node/span/region/local/type/signature
   changes. Whole-HOT retention and its smaller budget remain rejected.
