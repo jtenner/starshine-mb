@@ -11327,6 +11327,17 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
   let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
     @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
   )
+  let cleaned = if effectful_only {
+    let @lib.Func(cleaned_locals, @lib.Expr(body)) = cleaned
+    let next = sl_inline_root_constants(body)
+    if physical_equal(next, body) {
+      cleaned
+    } else {
+      @lib.Func::new(cleaned_locals, @lib.Expr::new(next))
+    }
+  } else {
+    cleaned
+  }
   Some({
     reason,
     func: cleaned,

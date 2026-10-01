@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/passes/root_constant_cleanup.mbt
+  - ../../../../../src/passes/root_constant_cleanup_wbtest.mbt
+  - ../../../../../src/passes/root_constant_cleanup_perf_wbtest.mbt
+  - ../../../../../src/cmd/root_constant_cleanup_wbtest.mbt
   - ../../../../../src/passes/no_write_cleanup_wbtest.mbt
   - ../../../../../src/passes/no_write_cleanup_reference_wbtest.mbt
   - ../../../../../src/passes/no_write_cleanup_perf_wbtest.mbt
@@ -5946,3 +5950,77 @@ remain open. Per-child peak RSS is 304,640/294,256 KiB before and
 The redundant root traversals are closed, while ancestor continuation scans,
 remaining query admission costs and byte parity remain active. Long fuzz
 remains deferred under the user's focused-performance instruction.
+
+
+## October 1, 2026: propagate sole root numeric captures
+
+V78 adds numeric-literal propagation to the already-admitted effectful raw
+SimplifyLocals carrier lane, after its existing exact cleanup. It recognizes
+root literal/set and literal/tee/drop, including exact void blocks containing
+only those instructions. One complete census includes unreachable tails,
+loops, both arms, try-table bodies and all legacy handlers. A candidate needs
+exactly one static writer; only reads in later root instructions are replaced.
+The root writer dominates those instructions, including their descendants.
+Earlier reads keep parameter/default values. Literals have no effects or
+traps, and other instructions retain order. Reference producers are excluded.
+
+Reuse original literal objects to retain precise NaN payloads and signed zero.
+Candidate-size budgets use signed LEB widths for integers, fixed float widths,
+unsigned local-index widths and exact removed block/tee/drop overhead. Reject
+encoded growth; saturating small budgets cannot overflow with many reads.
+Candidate storage is lazy and proportional to candidates, with no dense
+high-local-index row. Rewriting borrows unchanged arrays and control shells.
+No broader release lifetime guard is relaxed and plain DAE2 is unchanged.
+
+Red-first helper tests fail on nested scalar/legacy/loop reads; the dispatcher
+still starts with a block containing the captured 99. Focused tests cover all
+numeric types, imported effects, loads, earlier reads, legacy body/tagged and
+catch-all reads, nested loops/arms, exact float representations, signed/unsigned
+LEB boundaries, try-table descendants, clobbers (including unreachable writes),
+reference exclusion and intentional size-growth rejection. The existing legacy
+read regression now asserts the retained 99 directly in the try body rather
+than requiring its obsolete source-local location.
+
+Frozen evidence lives under `.tmp/dae2-root-constants-20261001/`, native SHA-256
+`15fb136e0105e4166ec1ce5857050e73ddee978feb4d3fc71356a1d01b6200d0`.
+Info, formatting, 27 focused checks, all **13,248** default tests, native release,
+seven native benchmark rows and 1,376 original-primary observations pass.
+Remote CI test repairs were merged before this suite; no public API changes.
+Compiler raw bytes **5,639,963 → 5,639,081**, canonical
+**5,767,581 → 5,766,650**: save **882 raw / 931 canonical bytes** in
+**87 shrinking functions**, no growing functions or non-code section changes.
+The remaining verified-v133 deficit is **179,213 canonical / 65,631 raw bytes**.
+
+The legacy body witness closes **135 → 131** canonical bytes against v133's
+131. Tagged-catch **150 → 146** and catch-all **149 → 145** beat v133 by
+four bytes each. This is a measured Starshine size win: root dominance plus
+one complete static-writer proof preserve literal values through every handler;
+fixed replay matches original and v133 results, trap behavior and events.
+Validation or smaller bytes alone would not establish that conclusion.
+
+| Native helper control | Mean |
+| --- | ---: |
+| No candidates, width 1 / 256 | 15.32 ns / 1.66 µs |
+| Active width 1 / 32 / 256 | .317 / 4.03 / 33.35 µs |
+| Sparse local 8192 | .279 µs |
+| Rejected float growth | .186 µs |
+
+These are new work costs, not predecessor speedups. Generated native C stores
+candidate records by value and cold admission initializes owner pointers to
+null; it creates no temporary candidate tuple. This does not count all pipeline
+allocations. Initial matched three-pair small plain/O medians are
+3.325 → 4.844 / 9.594 → 9.955 ms (+45.68% / +3.76%); plain has
+1.567 ms after MAD and never calls this helper. Retain that dispersed control.
+Large is **3,314.544 → 3,300.903 / 6,188.633 → 6,189.203 ms**
+(−.41% / +.01%): size savings with flat optimizing time. Tee is
+2.744 → 2.754 / 100.358 → 102.129 ms (+.36% / +1.76%).
+Seven-pair small/tee repeats: small 3.361 → 3.363 /
+9.925 → 9.604 ms (+.06% / −3.23%); tee 2.758 → 2.799 /
+102.122 → 102.635 ms (+1.49% / +.50%). Small/O repeat MADs are
+.010/.040 and .362/.078 ms; tee .044/.009 and .452/.765 ms.
+Keep every drift rejection and differing host band. These are enclosing
+pipeline measurements, not pass-local v133 ratios. Tee and cumulative
+performance costs remain active; large flat time is not speed parity.
+Per-child peak RSS is 294,224/294,368 KiB before and 298,752/294,572 after;
+retain the higher first candidate sample rather than claiming a memory win.
+Long fuzz and final signoff remain deferred.

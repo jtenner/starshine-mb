@@ -1,3 +1,13 @@
+### 2026-10-01 — Sole root numeric capture propagation
+
+- [Numeric-capture evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-propagate-sole-root-numeric-captures)
+  closes the four-byte legacy body witness, with tagged/catch-all shapes four
+  bytes smaller than v133 and 1,376 original-primary observations matching.
+  All 13,248 tests pass. Save 931 canonical / 882 raw compiler bytes in 87
+  functions without growth or non-code changes; remaining deficit is 179,213
+  canonical / 65,631 raw. Large optimizing stays flat; tiny helper work,
+  dispersed small controls and tee costs remain active. Long fuzz is deferred.
+
 ### 2026-10-01 — Root cleanup traversal admission
 
 - [Root traversal evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-admit-only-needed-root-cleanup-scans)

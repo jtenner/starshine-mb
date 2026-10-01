@@ -77,8 +77,13 @@ test "simplify-locals release cleanup retains the value read only in legacy try"
   ]).unwrap()
   @validate.validate_module(output).unwrap()
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
-  let reads : Array[Int] = []
-  run_hot_pipeline_simplify_locals_lowered_collect_local_reads(body, reads)
-  assert_true(reads.contains(5))
-  assert_true(run_hot_pipeline_raw_instrs_have_later_local_write(body, 0, 5))
+  let mut found = false
+  for instr in body {
+    if instr is @lib.Try(_, @lib.Expr(nested), _, _) {
+      assert_eq(nested, [@lib.Instruction::i32_const(@lib.I32(99))])
+      found = true
+    }
+  }
+  assert_true(found)
+  assert_false(run_hot_pipeline_raw_instrs_have_later_local_write(body, 0, 5))
 }

@@ -130,7 +130,13 @@ untraced command times or a causal comparison with earlier cohorts.
   A complete native compiler probe observes zero indexed-mask builds, so this
   does not establish compiler parity. See
   [query evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-bound-repeated-normalized-future-read-queries).
-- **Release blockers:** current large DAE2-O adds **180,144 canonical / 66,513 raw
+- **Current numeric-capture checkpoint:** V78 propagates sole root numeric
+  literals across descendants and legacy handlers with complete writer census,
+  root dominance and encoded non-growth. All 13,248 tests and 1,376 observations
+  pass; compiler canonical bytes fall 931, large optimizing stays flat, and the
+  four-byte legacy body gap closes. Remaining tee/control costs stay active. See
+  [numeric-capture evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-propagate-sole-root-numeric-captures).
+- **Release blockers:** current large DAE2-O adds **179,213 canonical / 65,631 raw
   bytes** against v133; V59 above retains its original writer scope. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
@@ -464,8 +470,12 @@ breadth. Shared changes require all affected consumers in the matrix below.
   reductions match or beat v133 canonical size. V73 closes the six-byte
   nested-read case by sinking numeric constant assignments into first flat reads
   as tees; later nested/release reads and trap/throw barriers remain intact.
-  The legacy release-body witness still loses four canonical bytes (135 vs 131).
-  Keep that gap and the larger writer/capture families active. V70 repairs the exposed
+  V78 closes the legacy body witness (135 → 131, v133 131), and its tagged/
+  catch-all variants beat v133 by four canonical bytes with original-primary
+  replay. Sole root numeric captures save 931 canonical / 882 raw compiler bytes
+  in 87 shrinking functions, with no growth or non-code changes. Large optimizing
+  is flat (+.01%); native added costs, tee +.50% on repeat and the larger writer/
+  capture families remain active. V70 repairs the exposed
   legacy-only read/count/bounds defect (100 → 1); current body/catch/catch-all
   replay matches original and v133. Keep the HOT guard;
   other large witnesses still need admission attribution.
