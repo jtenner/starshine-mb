@@ -122,6 +122,14 @@ untraced command times or a causal comparison with earlier cohorts.
 | `dae2` | 3.753 / 1.012 | 3.71× | 3,998.720 / 563.604 | 7.10× |
 | `dae2-optimizing` | 11.972 / 3.232 | 3.71× | 7,479.616 / 1,835.960 | 4.07× |
 
+- **Current query checkpoint:** V76 bounds repeated normalized suffix searches;
+  native 32/512 distinct captures improve 15%/92% with exact bytes. All 13,233
+  default tests, fourteen native rows and 1,376 observations pass. Same-local
+  root gets keep their proved linear path. Repeated large plain/O costs
+  .54%/1.22% in a higher host band; tiny/reused/no-work and tee costs stay open.
+  A complete native compiler probe observes zero indexed-mask builds, so this
+  does not establish compiler parity. See
+  [query evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-bound-repeated-normalized-future-read-queries).
 - **Release blockers:** current large DAE2-O adds **180,144 canonical / 66,513 raw
   bytes** against v133; V59 above retains its original writer scope. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
@@ -340,6 +348,14 @@ breadth. Shared changes require all affected consumers in the matrix below.
   Keep default graph facts complete, ordered selected sources and conservative
   dependencies when control/signature information is unknown. Shared-action
   fallback still computes complete forward rows before projection.
+- [ ] Share the immutable local-write census between `dae2_analyze_function`
+  and `dae2_entry_read_sources`. The first written-read query currently follows
+  the Boolean written-local scan with a second full arena scan for sole writers
+  and excluded control families. Preserve unknown/shared-root fallbacks and
+  both entry-source algorithms; measure no-write, tiny, many-write and exceptional
+  controls before replacing the Boolean row or retaining larger scratch. Use
+  checked opcode/immediate fields where complete headers are unnecessary, and
+  verify actual graph fields, source rows, source ownership and enclosing costs.
 - [ ] Evaluate compact affected-function/revision summaries for remaining
   unavoidable work; invalidate on body, node/span/region/local/type/signature
   changes. Whole-HOT retention and its smaller budget remain rejected.
@@ -368,15 +384,22 @@ breadth. Shared changes require all affected consumers in the matrix below.
   with immutable seeds; full-function native rows improve 5–24%, enclosing
   compiler times stay flat. Preserve full typing and measure other query owners.
   V70 closes quadratic ordered live-out deduplication with compact word
-  membership; ancestor/subtree rescans remain. V75 exposes a separate flat suffix
-  query cost: distinct adjacent captures still search the remaining normalized
-  body repeatedly. Replace those searches with demand-driven reachable-read
-  facts while preserving direct/nested terminators, original continuation reads,
-  legacy bodies/catches and single-query/no-work costs.
+  membership; ancestor/subtree rescans remain. V76 closes repeated normalized
+  future-read traversals within one body, preserving terminators, original
+  continuation and legacy facts. Its native wide rows improve 15–92%; retain
+  +6.67 ns tiny, +30/+810 ns reused, +170 ns unchanged and dispersed single-query
+  costs. Reduce remaining common-query admission overhead and repeated scans
+  between distinct cleanup owners. The compiler builds zero masks; its initial
+  +2.87%/+2.25% plain/O and repeated +.54%/+1.22% enclosing costs remain open.
   Balanced flat cleanup repeatedly scans an immutable original tail, but the
   simple distinct/reused/nested capture pipeline probe scales roughly linearly.
   Profile actual compiler query density and preserve direct-write/recursive-read
   and terminator semantics before adding sparse tail-event caches.
+- [ ] Avoid redundant normalization/flat scans when a body has no root writes
+  and no child transforms. The current continuation helper scans unchanged
+  leaves three times. Prove root-write absence survives control-shell retention,
+  keep every nested rewrite and original continuation collection, and measure
+  active/unchanged shallow/deep controls plus both enclosing DAE2 modes.
 - [ ] Refine sparse constant-store scratch and remaining enclosing costs. V74
   closes dense pending-map allocation (one scoped map → zero) and improves
   matched native dense rows 20–47%, barriers 64% and no-work 38–47%, retaining

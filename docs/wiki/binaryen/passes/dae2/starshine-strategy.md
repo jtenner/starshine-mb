@@ -3,6 +3,11 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/passes/cleanup_future_reads.mbt
+  - ../../../../../src/passes/future_read_mask_wbtest.mbt
+  - ../../../../../src/passes/future_read_mask_reference_wbtest.mbt
+  - ../../../../../src/passes/future_read_mask_perf_wbtest.mbt
+  - ../../../../../src/cmd/future_read_mask_wbtest.mbt
   - ../../../../../src/passes/cleanup_borrow_wbtest.mbt
   - ../../../../../src/passes/cleanup_borrow_perf_wbtest.mbt
   - ../../../../../src/passes/cleanup_borrow_reference_wbtest.mbt
@@ -5769,3 +5774,113 @@ failures, caller/dispatcher review, exact byte fixtures, native controls, both
 matched cohorts, runtime replay, canonical projection and RSS. Candidate SHA256:
 `a6b51665ea38ac7537f6e8b7e4e956766c27869c3f7f15ea6a880ba566da8804`.
 All broader speed/output and other-pass gaps remain open; long fuzz is deferred.
+
+
+## October 1, 2026: bound repeated normalized future-read queries
+
+V76 replaces repeated suffix searches in adjacent-capture cleanup with private
+facts for one immutable normalized body. Up to eight actual eligible queries
+retain the previous Boolean search. A repeated wide body publishes one reverse
+Boolean mask only when the queries include a dropped tee or distinct local IDs.
+The threshold controls scratch, never rewrite eligibility. Tiny bodies and
+bodies without candidates retain the original path.
+
+Repeated root-get queries for the same local stay on that original path: each
+search stops at the next queried get or an earlier read/terminator. Their search
+intervals are disjoint, so their total work is linear even when the local has
+many writes. A tee is a write, not a read, and does not have this proof. Mixed
+queries can spend eight complete input traversals before mask publication; the
+mask adds one reverse root traversal and independent nested-prefix collection.
+The flat fixture requires at most twelve times its input length. Ancestor and
+subtree revisits across separate cleanup owners remain open.
+
+The predecessor-style helper fails the final bounds with **2,016 visits** for
+32 distinct captures and **1,488 visits** for 32 dropped tees of one local.
+`gated-red.log` confirms both failures before the final implementation. Every
+fixture also checks exact transforms against frozen V75, validates rewritten
+modules, and checks original encoded bytes. Same-local gets retain a tighter
+two-times-input guard. Direct and masked query controls cover direct/nested
+terminators, independent if arms, loops, legacy bodies and both catch forms,
+scalar locals and a non-null GC parameter. Held-mask/source ownership and the
+active dispatcher retain their behavior. The mask identity control was already
+green; it is not a claimed new boxing failure.
+
+Mask construction collects reachable prefixes independently, preserving direct
+terminator segments and unreachable debris after them. The broader original
+continuation collector is unchanged, including loop-carried and legacy reads.
+Facts never outlive the immutable normalized body; output splices do not mutate
+it. The production query returns a Boolean and retains no budget/value owner;
+recursive work accounting is used only by the optional focused-test counter.
+
+Rejected first prototype:
+`.tmp/dae2-future-read-mask-20261001/`, SHA
+`f54b46ba0fd0e6d8348f7ce330ed3056169403c2f4ff1b250772dbea706cdbee`.
+It passes 13,231 tests, twelve native rows and 1,376 observations with exact
+bytes. Distinct 32/512 captures improve 3.32 → 2.30 µs /
+597.71 → 40.20 µs, but reused 32 captures cost 1.30 → 1.44 µs.
+Tiny/unchanged controls cost 2.15 ns / 140 ns. Three-pair compiler plain/O
+costs 2.19%/2.58%, small O 2.69%; tee O improves .88%. Peak RSS is
+295,788/294,288 KiB before versus 294,336/294,180 after. These costs prevent
+acceptance based on the wide microbenchmark alone.
+
+Rejected value-counter prototype:
+`.tmp/dae2-value-future-read-20261001/`, SHA
+`6818b116ff326085b246841b477c442960da919b390e3a50f0cbf167ee7db1fb`.
+Value records remove both heap budget objects, and the generated constructors
+allocate neither record. It passes 13,232 tests, twelve native rows and 1,376
+observations with exact bytes. Distinct 32/512 captures improve
+3.39 → 2.32 µs / 713.07 → 45.10 µs, reused 32 costs 70 ns;
+small O costs 1.50%, large plain/O 7.05%/1.44%, tee plain/O 5.40%/2.37%.
+The contended host cohorts and rejected samples remain intact. A complete native
+compiler probe observes only three mask builds (52/36/67 roots, 155 total),
+with exact measured output. That is a mask-boundary count, not total query work
+or whole-pass attribution. It supports removing recurring counter/result work
+from ordinary queries, rather than attributing the artifact cost to large masks.
+
+Final V76 evidence is under `.tmp/dae2-gated-future-read-20261001/`, SHA
+`8d9d3491c2e29b58c9c49602b362b8531e4e8beda77473cd4af2d0d37ce11a96`.
+`moon info`, formatting, focused/default wasm-gc tests, release CLI and all
+fourteen native rows pass: **13,233 default tests and 1,376 fixed observations**.
+Public `.mbti` files are unchanged. Raw/canonical bytes, every code body and
+non-code sections remain exact V75. The deficit stays **180,144 canonical /
+66,513 raw** against the same hash-verified v133 oracle and large input.
+
+Native rows include complete cold fact construction and held-input validation;
+parsing is outside both timed implementations. The reference is frozen V75:
+
+| Shape | Predecessor | V76 | Interpretation |
+| --- | ---: | ---: | --- |
+| 1 distinct capture | 78.56 ns | 85.23 ns | +6.67 ns remains open |
+| 32 distinct captures | 3.26 µs | 2.77 µs | −15.0% |
+| 512 distinct captures | 609.94 µs | 48.70 µs | −92.0% |
+| 32 same-local captures | 1.33 µs | 1.36 µs | +30 ns remains open |
+| 512 same-local captures | 19.69 µs | 20.50 µs | +810 ns remains open |
+| 512-width single query | 4.94 µs | 5.17 µs | +230 ns; σ .148/.218 µs |
+| 512 unchanged expressions | 7.51 µs | 7.68 µs | +170 ns remains open |
+
+The first matched three-pair compiler plain/O medians are
+3,661.001 → 3,766.130 ms / 6,849.027 → 7,003.186 ms (+2.87%/+2.25%).
+Small plain/O improves .93%/1.89%, tee plain improves 7.70%, tee O costs .40%.
+The repeated three-large/seven-small/seven-tee cohort retains the initial costs:
+large plain/O is 4,307.866 → 4,331.162 / 8,234.145 → 8,334.516 ms
+(+.54%/+1.22%), with MADs 21.012/129.955 and 41.072/115.411 ms.
+Small plain improves 1.91%, O stays flat (−.21%); tee plain costs 2.41%
+with MAD .030/.071 ms, O stays +.40% with MAD 1.232/1.288 ms.
+Different host bands and all drift-rejected samples remain in the evidence.
+These are enclosing `cmd:main-pipeline` medians, not pass-only v133 ratios.
+The wide query mechanism is closed; cumulative compiler/control speed is not.
+
+The final complete native mask-boundary probe observes **zero builds** on the
+large optimizing artifact, with exact measured output. This cannot attribute
+its timings to indexed masks, and does not count all query work. The initial
+probe wait cap expired before evidence completed; its retried thirty-second
+probe completes. Peak RSS is 294,232/304,384 KiB before and
+294,472/294,440 after; one predecessor band is higher, not a universal RSS win.
+
+A semantic-only predecessor stage inspection under
+`.tmp/dae2-legacy-stages-20261001/` retains the four-byte quality target:
+after SimplifyLocals, the numeric assignment is `const 99; tee 5; drop` and its
+later read is still inside legacy try. Final Vacuum exposes the remaining
+root get/set copy. Constant/sole-writer cleanup must preserve legacy reads and
+caught traps; this remains separate from the byte-identical V76 change.
+Long fuzz and full parity signoff remain deferred until performance work is lean.

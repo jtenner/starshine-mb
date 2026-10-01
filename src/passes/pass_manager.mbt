@@ -73651,6 +73651,7 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
   live_after : SlCleanupReadSet,
   child_liveout_contexts? : Array[Int]? = None,
   suffix_root_visits? : Array[Int]? = None,
+  future_read_visits? : Array[Int]? = None,
 ) -> Array[@lib.Instruction] {
   let has_children = instrs.any(fn(instr) {
     match instr {
@@ -73762,17 +73763,39 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
   let mut rewritten : Array[@lib.Instruction]? = None
   let mut cursor = 0
   let mut idx = 0
+  let mut future_queries = 0
+  let mut first_future_get = -1
+  let mut mixed_future_queries = false
+  let mut future_read_mask : Array[Bool]? = None
+  // Same-local root-get queries have disjoint search intervals: each stops at
+  // the next queried get or an earlier terminator/read. Their total is linear.
+  // Tees are not reads, so even same-local tee queries need the mixed path.
   while idx < normalized.length() {
     match normalized[idx] {
       @lib.LocalTee(@lib.LocalIdx(raw)) =>
         if idx + 1 < normalized.length() &&
           normalized[idx + 1] == @lib.Instruction::drop() &&
           !live_after.contains(raw.reinterpret_as_int()) &&
-          !run_hot_pipeline_raw_instrs_have_later_local_read(
-            normalized,
-            idx + 2,
-            raw.reinterpret_as_int(),
-          ) {
+          ({
+            mixed_future_queries = true
+            if future_queries < 8 {
+              future_queries += 1
+            } else if future_read_mask is None && normalized.length() >= 32 {
+              future_read_mask = Some(
+                sl_cleanup_build_future_read_mask(
+                  normalized, future_read_visits,
+                ),
+              )
+            }
+            !sl_cleanup_future_read_query(
+              normalized,
+              idx,
+              idx + 2,
+              raw.reinterpret_as_int(),
+              future_read_mask,
+              future_read_visits,
+            )
+          }) {
           let out = match rewritten {
             Some(out) => out
             None => {
@@ -73801,11 +73824,33 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
             @lib.LocalGet(@lib.LocalIdx(next_raw)) =>
               raw == next_raw &&
               !live_after.contains(raw.reinterpret_as_int()) &&
-              !run_hot_pipeline_raw_instrs_have_later_local_read(
-                normalized,
-                get_idx + 1,
-                raw.reinterpret_as_int(),
-              )
+              ({
+                let local = raw.reinterpret_as_int()
+                if first_future_get < 0 {
+                  first_future_get = local
+                } else if first_future_get != local {
+                  mixed_future_queries = true
+                }
+                if future_queries < 8 {
+                  future_queries += 1
+                } else if mixed_future_queries &&
+                  future_read_mask is None &&
+                  normalized.length() >= 32 {
+                  future_read_mask = Some(
+                    sl_cleanup_build_future_read_mask(
+                      normalized, future_read_visits,
+                    ),
+                  )
+                }
+                !sl_cleanup_future_read_query(
+                  normalized,
+                  get_idx,
+                  get_idx + 1,
+                  local,
+                  future_read_mask,
+                  future_read_visits,
+                )
+              })
             _ => false
           }
         } else {

@@ -1,3 +1,14 @@
+### 2026-10-01 — Bounded normalized future-read queries
+
+- [Query evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-bound-repeated-normalized-future-read-queries)
+  records red-first 2,016/1,488-visit failures, same-local get linearity, legacy
+  and terminator contracts, and two rejected owner/counter prototypes. All
+  13,233 tests, fourteen native rows and 1,376 observations pass with exact
+  bytes. Native distinct captures improve 15–92%; tiny/reused/unchanged costs,
+  initial/repeated compiler costs and ancestor scans stay open. The compiler
+  builds zero masks; the byte deficit remains 180,144 canonical / 66,513 raw.
+  Long fuzz and overall performance signoff remain deferred.
+
 ### 2026-10-01 — Unchanged continuation-cleanup storage
 
 - [Ownership evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-borrow-unchanged-continuation-cleanup-storage)
