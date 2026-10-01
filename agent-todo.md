@@ -69,6 +69,12 @@ oracle versions and checkpoints do not sign current source.
   stays flat; small control costs and the unreduced extraction blocker remain
   open. See [field evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-checked-local-access-fields).
 
+- **Current repeated-query checkpoint:** V68 bounds repeated singleton conflict
+  scans by twice the consumer width; wide cold/warm native controls improve
+  35–85% with tiny cold controls flat. All 13,195 tests and 256 fixed observations
+  pass with exact predecessor bytes. Compiler pipelines stay flat; small timing
+  cohorts disagree. See [index evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-index-repeated-singleton-conflicts).
+
 ### Historical V59 DAE2/O oracle baseline
 
 The frozen v59 open-world compiler comparison uses verified release v133,
@@ -248,7 +254,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
 #### P03c — Remaining quadratic and repeated flow work [IR2-PERF-DAE2-FLOW]
 
 - [ ] Reduce overlapping local-access-list rescans and repeated predecessor,
-  last-write and source queries on actively transforming inputs. Demand compact
+  last-write and source queries on actively transforming inputs. V68 closes
+  repeated singleton-writer scans of one wide consumer; overlapping subtree
+  enumeration and other writer-source walks remain. Demand compact
   facts only where full-pipeline evidence supports their storage cost.
 - [ ] Resolve V64 small-plain and large-optimizing control costs; preserve both
   native/cold and enclosing repeats. Tag reuse removes two header boundaries
@@ -366,7 +374,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
   The repaired rooted compiler witness confirms
   `call-argument-structured-release-simplify-locals-noop` on function 7318
   (extracted root 24). Reduce that structural context and enable only proved
-  raw cleanup while retaining release lifetimes; do not remove the HOT guard
+  raw cleanup while retaining release lifetimes. The V68 load/compare reduction
+  with a structured argument release reproduces the pair that v133 removes;
+  the earlier simple load reduction did not. Do not remove the HOT guard
   without repairing its hazard. Other large witnesses still need admission
   attribution.
 - [ ] Profile remaining alias admission/counting, replay and remap costs after

@@ -5125,3 +5125,80 @@ Native sampling attempts collected zero samples and provide no profile evidence;
 the ordinary optimizing command completed with exact predecessor bytes. Use the
 bounded admission result, not those unsuccessful sampling attempts, to target
 the next byte trial. Evidence: `.tmp/dae2-extraction-20261001/`.
+
+## October 1, 2026: index repeated singleton conflicts
+
+V68 closes a quadratic source-order conflict family: each singleton writer
+previously scanned every access of the same wide consumer, even though a
+minimum-access index already existed for multiwriter queries. A scalar marker
+in the immutable facts owner records the last qualifying wide consumer. Its
+first singleton query retains the allocation-free scan; a repeated consumer
+with more than eight accesses uses the existing minimum index. Completed
+indexes remain reusable across intervening roots. Multiwriter admission keeps
+its original threshold; consumers of at most eight accesses keep singleton
+scans. No function backpointer, public API or cross-snapshot cache is added.
+
+The two regressions fail first: 32 singleton writers exceed a 64-access work
+bound, and the repeated consumer never acquires its index. Afterward decisions
+match the frozen predicate, the repeated work is bounded by twice the consumer
+width, cold/filtered writers do not allocate an index, strict minimum bounds
+remain unchanged, and sibling snapshots stay independent. A third tiny-row
+control retains allocation-free scans. Info/fmt, all **13,195** default tests,
+ten native benchmark controls and the release CLI build pass.
+
+Native full-query means (reference → indexed) are:
+
+| Consumer / queries | Reference | Indexed | Change |
+| --- | ---: | ---: | ---: |
+| 8 / 8, cold facts | 1.76µs | 1.73µs | −1.7% |
+| 64 / 64, cold facts | 20.45µs | 13.20µs | −35.5% |
+| 512 / 512, cold facts | 665.20µs | 105.26µs | −84.2% |
+| 64 / 64, warm facts | 10.92µs | 1.62µs | −85.2% |
+| 512 / 1, cold facts | 55.38µs | 55.26µs | flat |
+
+Cold controls include facts construction and query materialization. The initial
+prototype promoted consumers above four accesses and cost **5.6%** on the
+eight-access cold row (1.78 → 1.88µs). Its remaining suite/build validation was
+cancelled before any candidate freeze. The refined threshold removes that
+setup cost; preserve the rejected trial, rather than claiming its wider gains
+justify the tiny regression.
+
+CPU-6 matched enclosing medians, one warmup and three accepted alternating
+pairs with reference brackets ≤1.15, are:
+
+| Input | Plain before → after ms | Optimizing before → after ms |
+| --- | ---: | ---: |
+| Small | 3.402 → 3.398 | 9.612 → 9.705 |
+| Large | 3,383.919 → 3,391.326 | 6,046.161 → 6,038.485 |
+| Active tee | 2.742 → 2.758 | 102.519 → 102.132 |
+
+Large pipelines remain flat (plain +0.22%, optimizing −0.13%). Initial small
+optimizing costs 0.97%; a seven-pair repeat is **9.947 → 9.595ms (−3.54%)**,
+with MAD 0.361/0.089ms and two rejected reference brackets. Preserve both
+cohorts and do not infer a compiler speed win from the native scaling result.
+All both-pass artifact bytes match predecessors; optimizing replay renews
+**32 fresh candidate outputs / 96 retained references / 256 original-primary
+observations**, without mismatches. Long fuzz stays deferred.
+
+Whole untraced command peak RSS, CPU 6 and Linux per-process `wait4`, does not
+establish a memory win. Initial plain pairs are before **266,600 / 245,428KiB**
+and after **266,948 / 267,060KiB**. Three fresh plain pairs are before
+**246,720 / 245,936 / 266,576KiB** and after **245,916 / 267,284 / 245,636KiB**:
+both sides occupy overlapping bands, so preserve the initial high candidate
+cohort without attributing a sustained increase. Optimizing is flat: before
+**290,308 / 290,116KiB**, after **290,124 / 290,328KiB**. This is whole-command
+peak memory, not scoped allocation bytes or proof about individual map costs.
+
+A reduced structural-release module now reproduces an actual raw byte gap:
+Starshine keeps `load; set; get-param; get-temp; compare`, while verified v133
+sinks the load after the pure parameter read and removes the temporary pair.
+Unlike the earlier unconstrained load reduction, this body hits the confirmed
+structured-release guard. Trial bounded raw cleanup while preserving the
+existing HOT lifetime guard. The full **210,159 canonical / 95,465 raw byte**
+gap stays open. An additional bounded baseline sampler again records zero
+samples and is not usable profile evidence.
+
+Artifacts: `.tmp/dae2-single-writer-index-20261001/` retains red/green work tests,
+rejected/refined native controls, frozen manifests, matched cohorts/repeat and
+runtime evidence. Candidate SHA-256:
+`974062884e5275beaef0b04da50b07e0e3cc7d5dd616f1a20a1f346c9a77127f`.

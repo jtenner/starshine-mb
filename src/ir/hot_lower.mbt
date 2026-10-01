@@ -1030,7 +1030,19 @@ fn hot_lower_impl_carried_local_write_conflicts(
       let accesses = hot_source_order_local_access_nodes(
         func, current_root, facts,
       )
-      if writes.length() > 1 && accesses.length() > 4 {
+      let use_index = accesses.length() > 4 &&
+        (
+          writes.length() > 1 ||
+          (accesses.length() > 8 && facts.last_wide_access_root == current_root) ||
+          facts.first_local_access_orders.contains(current_root)
+        )
+      if accesses.length() > 8 {
+        // A sequence of singleton writers otherwise rescans the same wide
+        // consumer once per writer. Keep the first query allocation-free;
+        // repeated consumers use the existing snapshot-owned minimum index.
+        facts.last_wide_access_root = current_root
+      }
+      if use_index {
         // Cache the minimum for each local, not merely an access that happens
         // to fall inside this query's interval. Later accesses cannot replace
         // an earlier conflicting access when applying the order bounds.

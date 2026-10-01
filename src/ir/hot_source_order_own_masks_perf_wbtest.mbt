@@ -11,6 +11,7 @@ fn source_order_own_masks_reference_facts(
     preceding_dependency_min_cache: Array::make(hot_node_count(func), -2),
     local_access_nodes: Array::make(hot_node_count(func), None),
     first_local_access_orders: @hashmap.new(),
+    last_wide_access_root: -1,
     local_access_seen: Array::make(hot_node_count(func), 0),
     local_access_stamp: 0,
     dependency_scratch: None,
