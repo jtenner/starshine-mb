@@ -307,9 +307,11 @@ fn hot_source_order_preceding_dependencies(
       )
     }
   }
-  carried.sort_by(fn(left, right) {
-    facts.value_orders[left].compare(facts.value_orders[right])
-  })
+  if carried.length() > 1 {
+    carried.sort_by(fn(left, right) {
+      facts.value_orders[left].compare(facts.value_orders[right])
+    })
+  }
   let selected : Array[NodeId] = []
   for node_id in carried {
     if (

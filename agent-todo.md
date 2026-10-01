@@ -56,6 +56,13 @@ oracle versions and checkpoints do not sign current source.
   remain open; enclosing speed and RSS gains are not established. See
   [flow evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-reuse-reverse-flow-admission-tags).
 
+- **Current sorting checkpoint:** V65 skips empty/singleton carried-row sorting
+  callbacks. The active guard removes three empty sorts from seven queries;
+  native warm empty/singleton controls improve 28%/10%. All 13,187 tests and
+  276 fixed observations pass with exact predecessor artifact bytes. Large
+  optimizing remains flat; the compiler speed/byte gaps stay open. See
+  [sorting and reduced-byte evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-avoid-trivial-dependency-row-sorting).
+
 ### Historical V59 DAE2/O oracle baseline
 
 The frozen v59 open-world compiler comparison uses verified release v133,
@@ -215,8 +222,8 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03b — Query scratch and object churn [IR2-PERF-DAE2-SCRATCH]
 
-- [ ] Attribute remaining source/reader/access rows, comparator closure
-  construction, array growth and reference-count/destruction work. Trial reuse
+- [ ] Attribute remaining source/reader/access rows, wider-row comparator closure
+  construction after V65 bypasses empty/singleton sorts, array growth and reference-count/destruction work. Trial reuse
   where enclosing gains justify lifetime costs. Five loop-scoped raw visitors are
   now hoisted; the toggled native profile records 43,495,605 allocator calls
   across the large command, not solely final capture cleanup. Obtain honest
@@ -347,7 +354,10 @@ breadth. Shared changes require all affected consumers in the matrix below.
   adds none in those functions. Reduce raw get/set versus tee differences and
   inspect statement-spanning stack/control-result shapes and downstream
   cleanup. Require raw/canonical/per-function and runtime evidence; the
-  observed projected-copy counts are not raw alias coverage.
+  observed projected-copy counts are not raw alias coverage. V65's simple
+  load-order and changing-counter reductions already win two normalized bytes
+  each; include their structural surroundings to reproduce large-function gaps.
+  Attribute actual raw carrier/no-op admission before changing HOT guards.
 - [ ] Profile remaining alias admission/counting, replay and remap costs after
   V55 removes intermediate trees and instruction-option roots. Wide native
   active controls improve 12–21%, but enclosing optimizing times remain flat;

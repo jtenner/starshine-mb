@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/ir/hot_source_order_trivial_sort_wbtest.mbt
+  - ../../../../../src/ir/hot_source_order_trivial_sort_perf_wbtest.mbt
+  - ../../../../../src/ir/hot_source_order_trivial_sort_reference_wbtest.mbt
+  - ../../../../../src/cmd/trivial_sort_wbtest.mbt
   - ../../../../../src/ir/local_graph_flow_tags_wbtest.mbt
   - ../../../../../src/ir/local_graph_flow_tags_perf_wbtest.mbt
   - ../../../../../src/ir/local_graph_flow_tags_reference_wbtest.mbt
@@ -4977,3 +4981,73 @@ Artifacts: `.tmp/dae2-flow-tags-20261001/` retains red/green logs, native contro
 and repeat, matched cohorts/repeats, source manifests, generated-header budgets,
 small instruction counts and runtime evidence. Candidate SHA-256:
 `57f1d7986dc84888e1ea48d03b3157643d6216fb6d6b9221fcc816ed5318cf3c`.
+
+## October 1, 2026: avoid trivial dependency-row sorting
+
+V65 sorts the carried dependency row only when it has more than one value.
+Empty/singleton rows already have exact source order. This avoids constructing
+and releasing a native comparator closure and its retained facts for those
+queries. Wider rows keep the original sorting and all dependency,
+effect/local-state bounds, selected-row ownership and scratch reset rules.
+No comparator cache or facts backpointer is added.
+
+The bounded actual dispatcher work guard fails on V64: seven dependency calls
+perform three empty-row sorts. The same active optimizing fixture afterward
+performs seven queries and zero trivial sorts, with exact validated unprofiled
+bytes. Generated C places callback allocation and the public/private sort call
+inside the length guard. This establishes removed work, not debugger timing or
+net allocated-byte/RSS savings. A new IR test compares empty/singleton/eight-value
+rows with the frozen V64 query, including reversed discovery, shared consumers,
+held result ownership and cleared reused scratch. A dispatcher test preserves
+producer/barrier/consumer order while removing a private loop parameter.
+Info/fmt, **13,187** default tests, **12** native controls and release CLI build
+pass; there is no API change.
+
+Native query means (reference → guarded) are **51.24 → 36.91ns (28.0%)**
+empty/warm and **122.88 → 111.09ns (9.6%)** singleton/warm. Cold facts/scratch
+setup controls are **393.83 → 368.23ns (6.5%)** empty and **645.34 → 632.25ns
+(2.0%)** singleton. Eight-value controls stay near flat: warm **448.24 →
+440.87ns**, cold **1.66 → 1.67µs**. All selection work is measured, rather than
+sorting an isolated already-built vector.
+
+CPU-6 matched enclosing medians (one warmup, three alternating accepted pairs,
+reference bracket ≤1.15) are:
+
+| Input | Plain before → after ms | Optimizing before → after ms |
+| --- | ---: | ---: |
+| Small | 3.420 → 3.354 | 9.691 → 9.635 |
+| Large | 3,417.969 → 3,405.664 | 6,071.154 → 6,089.483 |
+| Active tee | 2.811 → 2.739 | 104.171 → 103.739 |
+
+Small plain improves 1.93%, optimizing 0.58%; tee plain improves 2.56%.
+Large optimizing costs 0.30% with MAD 6.087/21.942ms, effectively flat;
+plain improves 0.36% with MAD 2.964/5.281ms. Preserve rejected brackets and
+control dispersion, with no claim of closing the compiler speed or RSS gap.
+All both-pass artifact bytes remain exact predecessors. Fixed optimizing replay
+renews **32 candidate outputs / 96 retained reference modules / 256**
+original-primary observations. Long fuzz remains deferred.
+
+### Reduced raw byte witnesses
+
+Fresh load-order and changing-counter copy reductions already optimize fully
+on V64 and V65. Under a verified v133 writer/strip-debug projection, Starshine
+is **58 versus 60 bytes** for load order and **74 versus 76** for counter copy.
+The instruction sequences match; Starshine omits an unused declaration, saving
+two bytes in each. Original/predecessor/candidate/v133 replay matches **eight
+modules / 20 observations**, including load traps and ordered loop consumers.
+These reduced shape differences are measured Starshine wins, not open alias
+parity failures. The counter's initial raw 93 versus 76 bytes includes preserved
+name metadata; do not misclassify it as a transform deficit. This single-writer
+reduced scope does not renew the full compiler's bounded eight-round projection.
+
+The large raw witnesses still require structural context and raw admission
+attribution. Giant structured functions can follow raw carrier cleanup or a
+protected no-op; absence from HOT function traces alone does not identify which
+route ran. Do not assume raw adjacent-copy counts or a small reduction proves
+that missing giant cleanup is merely alias admission. The **210,159 canonical /
+95,465 raw byte** compiler gap and all broader performance owners remain open.
+
+Artifacts: `.tmp/dae2-trivial-sort-20261001/` contains red/green actual work
+counts, compiled guard evidence, native controls, complete source manifests,
+matched cohorts and runtime/byte probes. Candidate SHA-256:
+`b1aca9be204186628e491a828853bb95d75984e5c41eb004ae00aa12131f3123`.

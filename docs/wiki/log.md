@@ -1,3 +1,12 @@
+### 2026-10-01 — Trivial dependency sorting bypass
+
+- [Sorting and byte evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-avoid-trivial-dependency-row-sorting)
+  records three removed actual empty-row sorts, native callback admission,
+  cold/warm/ordered controls and frozen both-pass pairs. All 13,187 default
+  tests and 276 fixed observations pass with unchanged compiler bytes. Two
+  reduced witnesses win two normalized bytes each; their simple alias shapes
+  do not reproduce the large-function deficit. All compiler gaps remain open.
+
 ### 2026-10-01 — Reverse-flow admission tag reuse
 
 - [Flow evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-reuse-reverse-flow-admission-tags)
