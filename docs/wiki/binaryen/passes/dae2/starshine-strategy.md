@@ -53,6 +53,10 @@ sources:
   - ../../../../../src/passes/profitable_alias_reference_wbtest.mbt
   - ../../../../../src/cmd/profitable_alias_wbtest.mbt
   - ../../../../../src/passes/statement_type_seed.mbt
+  - ../../../../../src/passes/compound_suffix_seed_wbtest.mbt
+  - ../../../../../src/passes/compound_suffix_seed_reference_wbtest.mbt
+  - ../../../../../src/passes/compound_suffix_seed_perf_wbtest.mbt
+  - ../../../../../src/cmd/compound_suffix_seed_wbtest.mbt
   - ../../../../../src/passes/statement_type_seed_wbtest.mbt
   - ../../../../../src/passes/statement_type_seed_perf_wbtest.mbt
   - ../../../../../src/cmd/statement_type_seed_wbtest.mbt
@@ -6163,3 +6167,107 @@ These rows do not prove compiler parity or a large-artifact speedup. Peak RSS
 before 294,152/294,548 KiB and after 294,216/294,140 is flat. Remaining root
 list, traversal, allocation and enclosing costs stay open; long fuzz and
 final signoff remain deferred.
+
+
+## October 1, 2026: reuse compound suffix initialization facts
+
+V81 extends the existing private immutable statement-type seed to compound
+value-suffix queries in the pure, balanced and effectful raw cleanup scans.
+The original body/environment remain fixed throughout each scan. The first
+compound query retains fresh setup; a repeated compound query with at least
+128 locals admits one seed. Scalar/local leaves still use their exact fast
+path. Balanced statement and suffix queries share the same admitted seed.
+Each query owns a fresh stack and starts with fresh reachability/escape facts;
+full operand/control typing and unknown-opcode fallback remain unchanged.
+Both existing `make_state` and `make_state_owned` use the same all-initialized
+local policy in the current validator; this does not change that policy.
+
+The focused red counter reports three fresh state builds despite a supplied
+seed, then passes with zero redundant builds. Frozen V80 suffix controls test
+scalar/GC values, trapping division, multivalue arity, If/Block/TryTable,
+terminal and intentionally invalid expressions, changed local environments,
+input ownership and seed isolation. Dispatcher coverage retains dependent
+compound division/addition with 128 local slots. Native batch controls include
+admission and seed allocation inside timed work, plus tiny/single-query and
+leaf-only controls. Evidence is pending under
+`.tmp/dae2-compound-suffix-seed-20261001/` for the first candidate and
+`.tmp/dae2-compound-suffix-seed-refined-20261001/` for refinement.
+The first candidate passes all 13,259 default tests, ten native rows and 1,376
+fixed observations, with exact compiler bytes and flat optimizing large
+6,775.812 → 6,770.302 ms (−.08%). Its wide 32-query batches improve 7.9% at
+128 locals and 37.0% at 8192 locals, including seed setup. However, tiny eight-
+local single queries cost 18.63 ns and 32 leaf queries grow .734 → 1.14 µs;
+retain those costs. Numerous host-drift rejections accompany small plain/O
+5.627 → 6.036 / 16.970 → 15.952 ms, large plain
+3,607.087 → 3,712.231 ms, and tee plain/O
+3.136 → 3.413 / 108.531 → 108.978 ms. No enclosing speedup is established.
+The reduced replay initially fails because its local fixture was not copied;
+restoring that fixture and rerunning only unfinished stages passes. The
+refinement inlines the existing leaf classifier and checks the wide-environment
+threshold before cache classification. Its evidence is pending; no final
+acceptance claim precedes measurement. Long fuzz/signoff remain deferred.
+
+A focused frozen V80 / verified-v133 loop replay under
+`.tmp/dae2-loop-capture-probe-20261001/` refreshes the historical imported-call
+witness: canonical **235 vs 215 bytes**. Raw 325 vs 215 includes name metadata;
+that is a separate encoding scope. Mutable counter snapshots into 11/16, dead
+tees 10/12, set/get versus tee 18 and load-result capture 9 remain. Fewer locals
+alone does not prove a win. The gap stays open pending bounded original-primary
+semantic replay and a proved transform. The simpler field-copy probe already
+forwards captures in Starshine, so it is not evidence of a missing root-copy
+transform.
+
+The first refinement keeps the same exact bytes and all 13,259 tests / 1,376
+observations pass, but its pinned leaf control grows 528.59 → 956.36 ns per
+32 queries. Generated C identifies the cause: explicitly forwarding the
+nullable optional seed creates a boxed outer `Some(None)` on every query.
+The next candidate uses a required private nullable-seed argument, preserving
+the old optional test/wrapper entry separately. It caches the immutable
+wide-environment decision once per scan. Evidence is pending under
+`.tmp/dae2-compound-suffix-seed-required-20261001/`; retain both prior artifacts.
+
+A bounded exact-output V80 compiler call-count probe under
+`.tmp/dae2-graph-counts-20261001/` completes in 10.04 seconds with 8,354 HOT
+dependency functions, 8,187 entry-proof attempts and 7,926 read-source graph
+builds. These are descriptive GDB counts, not wall-time percentages; remaining
+CFG/source work is a larger target than singleton admission alone.
+
+The required-argument candidate also uses `make_state_owned` for its freshly
+created empty query stack, avoiding an unnecessary empty-stack copy. Full
+query ownership and initialization policy are unchanged. The optional wrapper
+remains for existing test instrumentation; production scans call the required
+private seed boundary directly.
+
+The final required-boundary candidate SHA-256 is
+`81763eb0722b9c2641374a6a6179df7a8203b90f2087d6779ca3dc3d05a109ae`.
+All **13,259 default tests**, twelve focused tests, ten native rows, native
+release build and 1,376 original-primary fixed observations pass. Compiler
+function/non-code sections and raw/canonical bytes are exact V80. The verified
+v133 deficit remains **179,213 canonical / 65,631 raw bytes**. Generated C at
+all three production suffix call sites passes nullable pointers directly,
+removing the per-query boxed optional-seed argument.
+
+| Final pinned batch control | V80 → V81 | Change |
+| --- | ---: | ---: |
+| 8 locals, one compound query | 191.60 → 194.61 ns | +1.6% / +3.01 ns |
+| 128 locals, one compound query | 190.10 → 188.31 ns | −.9% |
+| 128 locals, 32 compound queries | 5.75 → 4.61 µs | −19.8% |
+| 8192 locals, 32 compound queries | 8.37 → 4.76 µs | −43.1% |
+| 8192 locals, 32 leaf queries | 522.32 → 571.98 ns | +9.5% / +49.66 ns |
+
+Admission and seed setup remain inside timed batches; the predecessor excludes
+new admission work. Retain the final tiny/leaf costs as active, rather than
+reporting the closed boxed-argument mechanism as universal speedup.
+Three accepted alternating pairs, one warmup, CPU 6 and Precompute bracket
+ratio ≤1.15 give enclosing small plain/O 3.640 → 3.573 / 10.220 → 10.277 ms
+(−1.84% / +.56%); large 3,518.751 → 3,533.601 /
+6,720.714 → 7,054.372 ms (+.42% / +4.96%); tee
+2.959 → 3.032 / 107.023 → 103.679 ms (+2.47% / −3.12%).
+Large MADs are 54.714/37.712 and 169.824/91.296 ms; retain all drift rejections.
+A bounded three-pair large optimizing repeat gives
+6,580.304 → 6,660.163 ms (**+1.21%**), MAD 8.374/56.095 ms.
+The compiler cost remains open; these focused gains do not establish pass
+parity. RSS before 294,416/293,956 KiB and after 304,728/294,400 is dispersed,
+not a demonstrated memory win. First-query unknown suffix candidates still
+build fresh facts per attempted suffix; cross-owner reuse also remains open.
+Long fuzz and final signoff remain deferred.

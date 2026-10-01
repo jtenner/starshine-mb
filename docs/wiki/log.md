@@ -1,3 +1,15 @@
+### 2026-10-01 — Compound suffix facts and query ownership
+
+- [Compound query evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-reuse-compound-suffix-initialization-facts)
+  closes repeated wide initialization masks and per-query boxed nullable-seed
+  arguments after rejecting two costly boundaries. Final native batches improve
+  20–43%; 13,259 tests and 1,376 fixed observations pass with exact bytes.
+  Keep tiny/leaf costs and repeated large optimizing +1.21% open. The v133 byte
+  deficit stays 179,213 canonical / 65,631 raw; a current loop reduction is
+  235 vs 215 canonical bytes. A bounded exact-output compiler probe counts
+  7,926 read-source graph builds, prioritizing broader CFG/source work alongside
+  pending cold legacy setup and unread tee cleanup. Fuzz remains deferred.
+
 ### 2026-10-01 — Scalar singleton entry proofs
 
 - [Scalar entry evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-keep-singleton-entry-proofs-scalar)

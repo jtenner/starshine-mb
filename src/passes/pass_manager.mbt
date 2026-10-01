@@ -8279,6 +8279,8 @@ fn run_hot_pipeline_raw_simplify_locals_func_env(
 ///|
 // Scan the original prefix without materializing its unused head. Candidate
 // suffixes retain the same complete typecheck and unknown-opcode fallback.
+// An optional seed belongs to this exact immutable environment; every query
+// owns its stack and starts from the existing all-initialized local policy.
 // Return the owned suffix directly; its length supplies the start index without
 // an extra tuple allocation at every existing split-wrapper call.
 fn sl_value_suffix_at(
@@ -8287,6 +8289,23 @@ fn sl_value_suffix_at(
   count : Int,
   env : @validate.Env,
   typed_instructions? : Array[Int]? = None,
+  typed_seed? : SlStatementTypeSeed? = None,
+  state_builds? : Array[Int]? = None,
+) -> Array[@lib.Instruction] {
+  sl_value_suffix_at_with_seed(
+    instrs, end, count, env, typed_seed, typed_instructions, state_builds,
+  )
+}
+
+///|
+fn sl_value_suffix_at_with_seed(
+  instrs : Array[@lib.Instruction],
+  end : Int,
+  count : Int,
+  env : @validate.Env,
+  typed_seed : SlStatementTypeSeed?,
+  typed_instructions : Array[Int]?,
+  state_builds : Array[Int]?,
 ) -> Array[@lib.Instruction] {
   if count <= 0 {
     return []
@@ -8333,7 +8352,15 @@ fn sl_value_suffix_at(
       Some(visits) => visits[0] += suffix.length()
       None => ()
     }
-    let init_state = @validate.make_state(env, [])
+    let init_state = match typed_seed {
+      Some(seed) => seed.fresh_state()
+      None => {
+        if state_builds is Some(builds) {
+          builds[0] += 1
+        }
+        @validate.make_state_owned(env, [])
+      }
+    }
     match @validate.Typecheck::typecheck(@lib.Expr::new(suffix), init_state) {
       Ok(state) =>
         if state.reachable &&
@@ -8377,6 +8404,7 @@ fn run_hot_pipeline_raw_simplify_locals_take_value_suffix(
 }
 
 ///|
+#inline
 fn run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -9316,11 +9344,34 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
   let mut cursor = 0
   let mut scan_idx = 0
   let mut rewrite_count = 0
+  let mut typed_seed : SlStatementTypeSeed? = None
+  let wide_environment = env.locals.length() >= 128
+  let mut checked_compound_suffix = false
   while scan_idx < instrs.length() {
     let mut rewritten_here = false
     match instrs[scan_idx] {
       @lib.LocalSet(@lib.LocalIdx(target_raw)) => {
-        let producer_suffix = sl_value_suffix_at(instrs, scan_idx, 1, env)
+        let compound_suffix = wide_environment &&
+          scan_idx > 0 &&
+          !run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(
+            instrs[scan_idx - 1],
+          )
+        if compound_suffix &&
+          checked_compound_suffix &&
+          typed_seed is None &&
+          wide_environment {
+          typed_seed = Some(SlStatementTypeSeed::new(env))
+        }
+        let producer_suffix = sl_value_suffix_at_with_seed(
+          instrs,
+          scan_idx,
+          1,
+          env,
+          typed_seed,
+          None,
+          None,
+        )
+        checked_compound_suffix = checked_compound_suffix || compound_suffix
         let producer_start = scan_idx - producer_suffix.length()
         if producer_suffix.length() > 0 &&
           producer_start >= cursor &&
@@ -10086,6 +10137,8 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fl
   // Keep tiny and single-query paths free of cached-state allocation.
   let mut checked_statement = false
   let mut typed_seed : SlStatementTypeSeed? = None
+  let wide_environment = env.locals.length() >= 128
+  let mut checked_compound_suffix = false
   while scan_idx < instrs.length() {
     let mut rewritten_here = false
     let target_local = match instrs[scan_idx] {
@@ -10095,7 +10148,27 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fl
         continue
       }
     }
-    let producer_suffix = sl_value_suffix_at(instrs, scan_idx, 1, env)
+    let compound_suffix = wide_environment &&
+      scan_idx > 0 &&
+      !run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(
+        instrs[scan_idx - 1],
+      )
+    if compound_suffix &&
+      checked_compound_suffix &&
+      typed_seed is None &&
+      wide_environment {
+      typed_seed = Some(SlStatementTypeSeed::new(env))
+    }
+    let producer_suffix = sl_value_suffix_at_with_seed(
+      instrs,
+      scan_idx,
+      1,
+      env,
+      typed_seed,
+      None,
+      None,
+    )
+    checked_compound_suffix = checked_compound_suffix || compound_suffix
     let producer_start = scan_idx - producer_suffix.length()
     if producer_suffix.length() == 0 || producer_start < cursor {
       scan_idx = scan_idx + 1
@@ -10129,7 +10202,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fl
         rewritten_here = true
         break
       }
-      if checked_statement && typed_seed is None && env.locals.length() >= 128 {
+      if checked_statement && typed_seed is None && wide_environment {
         typed_seed = Some(SlStatementTypeSeed::new(env))
       }
       let statement_end = run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
@@ -10333,11 +10406,34 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat
   let mut cursor = 0
   let mut scan_idx = 0
   let mut rewrite_count = 0
+  let mut typed_seed : SlStatementTypeSeed? = None
+  let wide_environment = env.locals.length() >= 128
+  let mut checked_compound_suffix = false
   while scan_idx < instrs.length() {
     let mut rewritten_here = false
     match instrs[scan_idx] {
       @lib.LocalSet(@lib.LocalIdx(target_raw)) => {
-        let producer_suffix = sl_value_suffix_at(instrs, scan_idx, 1, env)
+        let compound_suffix = wide_environment &&
+          scan_idx > 0 &&
+          !run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(
+            instrs[scan_idx - 1],
+          )
+        if compound_suffix &&
+          checked_compound_suffix &&
+          typed_seed is None &&
+          wide_environment {
+          typed_seed = Some(SlStatementTypeSeed::new(env))
+        }
+        let producer_suffix = sl_value_suffix_at_with_seed(
+          instrs,
+          scan_idx,
+          1,
+          env,
+          typed_seed,
+          None,
+          None,
+        )
+        checked_compound_suffix = checked_compound_suffix || compound_suffix
         let producer_start = scan_idx - producer_suffix.length()
         if producer_suffix.length() > 0 &&
           producer_start >= cursor &&

@@ -140,6 +140,12 @@ untraced command times or a causal comparison with earlier cohorts.
   focused queries improve 12–86%, with 13,255 tests, 1,376 fixed observations
   and exact bytes. Large plain/O +.89%/+1.13% remain open. See
   [scalar entry evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-keep-singleton-entry-proofs-scalar).
+- **Current compound-query checkpoint:** V81 borrows immutable initialization
+  facts across repeated wide suffix queries and removes per-query optional-seed
+  boxes. Native batches improve 20–43%; all 13,259 tests and 1,376 fixed
+  observations pass with exact bytes. Tiny +3.01 ns, leaf batch +49.66 ns and
+  repeated large optimizing +1.21% remain active. See
+  [compound query evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-reuse-compound-suffix-initialization-facts).
 - **Current numeric-capture checkpoint:** V78 propagates sole root numeric
   literals across descendants and legacy handlers with complete writer census,
   root dominance and encoded non-growth. All 13,248 tests and 1,376 observations
@@ -374,6 +380,16 @@ breadth. Shared changes require all affected consumers in the matrix below.
   and complete analysis controls. No new public API is required. V80 enclosing
   large plain/O +.89%/+1.13% and tee O +1.21% remain open; the focused gain does
   not close the compiler gap. Retain V79 dispersed controls and host bands.
+- [ ] Reduce remaining CFG/source work on locally ordered mutable writes.
+  A bounded exact-output V80 compiler probe counts 8,354 HOT dependency
+  functions, 8,187 entry-proof attempts and 7,926 read-source graph builds
+  (`.tmp/dae2-graph-counts-20261001/`); these are counts, not timing percentages.
+  Evaluate conservative per-region/root source proofs before graph construction,
+  comparing every proved read against complete LocalGraph flow. Preserve shared
+  node epochs, loops/backedges, branches, source-write order, exception handlers
+  and unknown reads; keep complete CFG fallback for all unproved reads. Avoid
+  dense row clearing per region or rescanning each subtree/read. Measure actual
+  compiler graph admission and enclosing pass time, not only helper speed.
 - [ ] Evaluate compact affected-function/revision summaries for remaining
   unavoidable work; invalidate on body, node/span/region/local/type/signature
   changes. Whole-HOT retention and its smaller budget remain rejected.
@@ -393,8 +409,12 @@ breadth. Shared changes require all affected consumers in the matrix below.
   write/read barriers, typed admission and exact output; use active and no-work
   controls before adopting cached facts or additional admission scans. V53 closes
   numeric-constant/valid-local leaf state construction. Reduce remaining
-  compound/unknown suffix-query initialized-local arrays without sharing mutable
-  state across callers. V69 adds necessary release-safe effectful cleanup and
+  first-query unknown suffix-candidate initialized-local arrays and repeated
+  setup between cleanup owners without sharing mutable state across callers.
+  V81 closes repeated wide compound query masks and boxed optional-seed
+  arguments; native batches improve 20–43%, with exact bytes and 13,259 tests.
+  Keep +3.01 ns tiny and +49.66 ns leaf-batch costs, plus repeated large
+  optimizing +1.21%, active until measured away. V69 adds necessary release-safe effectful cleanup and
   saves 26,563 canonical compiler bytes, but large optimizing costs 10.33%;
   V70 recovers 4.84% on the matched large optimizing pipeline with exact compiler
   bytes, but tee costs 2.01% and cumulative quality cost is not closed. Remove
@@ -413,6 +433,15 @@ breadth. Shared changes require all affected consumers in the matrix below.
   simple distinct/reused/nested capture pipeline probe scales roughly linearly.
   Profile actual compiler query density and preserve direct-write/recursive-read
   and terminator semantics before adding sparse tail-event caches.
+- [ ] Avoid cold legacy-adaptation environment and rewrite-owner setup.
+  Current preparation eagerly scans module descriptor bodies and builds a full
+  environment, lowering state and body array even without legacy handlers.
+  Use a linear immutable type/declaration arity census and lazy owners; retain
+  exact missing-signature/recursive-group lookup behavior, unchanged module
+  identity and canonical grouped locals when any adaptation actually changes
+  the module. Compare cold/active/GC/legacy controls and compiler timings.
+  No new public API is required; `.tmp/dae2-lazy-legacy-setup-20261001/` contains
+  a pending draft, not a completed change.
 - [ ] Resolve V77 remaining deep/control costs. Root admission closes redundant
   normalization and pairing traversals with exact bytes; unchanged flat/shallow
   native rows improve 22–60%, active rows 3–6%. All 13,236 tests and 1,376
@@ -459,15 +488,22 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
-- [ ] Reduce and attribute the remaining **180,144-byte canonical optimizing gap**
+- [ ] Reduce and attribute the remaining **179,213-byte canonical optimizing gap**
   by function/diff family. V32 removes 32,070 balanced capture pairs and saves
   147,876 raw / 53,470 canonical bytes without per-function pair regressions.
   V38 removes immutable parameter aliases without per-function raw size losses,
   saving another 12,417 raw / 12,850 canonical bytes. V47 removes dominated
   local copies, saving 54,687 raw / 56,875 canonical bytes. Reduce remaining
   reused/nonparameter
-  captures: the imported-call loop remains 244 raw / 248 writer bytes versus
-  220, while symmetric extra cleanup reaches 220 on all outputs. Compare direct DAE2,
+  captures: preserve the historical imported-call loop evidence at 244 raw /
+  248 writer bytes versus 220. A current frozen V80 / verified-v133 replay
+  (`.tmp/dae2-loop-capture-probe-20261001/`) is 235 vs 215 canonical bytes;
+  raw 325 vs 215 includes retained name metadata and is a separate scope.
+  Multiply-written counter snapshots into locals 11/16, unused tees 10/12,
+  set/get versus tee 18 and the load-result capture 9 survive. Close these
+  families with original-primary event/trap/result replay and per-function
+  non-growth; source-write and control barriers must preserve snapshot values.
+  Compare direct DAE2,
   ordered SimplifyLocals/Vacuum and
   downstream cleanup; close indirect-family, typed-control, parameter/result
   and local/capture debris gaps without weakening behavior.
@@ -496,6 +532,15 @@ breadth. Shared changes require all affected consumers in the matrix below.
   legacy-only read/count/bounds defect (100 → 1); current body/catch/catch-all
   replay matches original and v133. Keep the HOT guard;
   other large witnesses still need admission attribution.
+- [ ] Remove unread optimizing capture writes using the existing complete
+  read/write census. The loop witness retains unread tees 10/12. Retire only
+  eligible body locals after capture/alias demand adjustments; retain producer
+  evaluation/value for tees and producer evaluation plus Drop for sets in both
+  final remappers. Keep live handler/branch reads, original-local boundaries,
+  alias source demand, parameter behavior and plain lower mode. Add red tests
+  for side effects, traps, scalar/GC values, loops and legacy catches, then
+  validate original-primary replay, raw/canonical per-function non-growth and
+  cold/active costs. No new public API or second census is required.
 - [ ] Profile remaining alias admission/counting, replay and remap costs after
   V55 removes intermediate trees and instruction-option roots. Wide native
   active controls improve 12–21%, but enclosing optimizing times remain flat;
