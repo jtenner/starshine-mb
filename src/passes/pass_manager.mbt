@@ -10045,6 +10045,10 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fl
   let mut cursor = 0
   let mut scan_idx = 0
   let mut rewrite_count = 0
+  // One original body and environment remain immutable throughout this scan.
+  // Keep tiny and single-query paths free of cached-state allocation.
+  let mut checked_statement = false
+  let mut typed_seed : SlStatementTypeSeed? = None
   while scan_idx < instrs.length() {
     let mut rewritten_here = false
     let target_local = match instrs[scan_idx] {
@@ -10088,12 +10092,17 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fl
         rewritten_here = true
         break
       }
+      if checked_statement && typed_seed is None && env.locals.length() >= 128 {
+        typed_seed = Some(SlStatementTypeSeed::new(env))
+      }
       let statement_end = run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
         instrs,
         env,
         false,
         start=statement_start,
+        typed_seed~,
       )
+      checked_statement = true
       let statement = Array::makei(statement_end - statement_start, fn(index) {
         instrs[statement_start + index]
       })

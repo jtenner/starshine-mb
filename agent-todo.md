@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed September 30, 2026. Follow
+Active unreleased work only, reviewed October 1, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -25,7 +25,13 @@ oracle versions and checkpoints do not sign current source.
   The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-final-index-bounds-for-reverse-aliases)
   owns hashes, paired measurements, costs and limitations.
 
-### Latest DAE2/O baseline
+- **Post-integration component checkpoint:** V61 passes 13,176 default tests,
+  16 native rows and 160 bounded runtime observations. Immutable statement
+  seeds improve wide balanced cleanup 5–24% with exact predecessor bytes;
+  enclosing large pipelines stay flat. See the
+  [query-seed evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-immutable-statement-query-seeds).
+
+### Latest frozen DAE2/O oracle baseline
 
 The frozen v59 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
@@ -265,8 +271,10 @@ breadth. Shared changes require all affected consumers in the matrix below.
   write/read barriers, typed admission and exact output; use active and no-work
   controls before adopting cached facts or additional admission scans. V53 closes
   numeric-constant/valid-local leaf state construction. Reduce remaining
-  compound/unknown initialized-local arrays without sharing mutable state
-  across callers; preserve full typing and measure fallback/enclosing costs.
+  compound/unknown suffix-query initialized-local arrays without sharing mutable
+  state across callers. V61 closes repeated wide balanced-statement mask setup
+  with immutable seeds; full-function native rows improve 5–24%, enclosing
+  compiler times stay flat. Preserve full typing and measure other query owners.
   Balanced flat cleanup repeatedly scans an immutable original tail, but the
   simple distinct/reused/nested capture pipeline probe scales roughly linearly.
   Profile actual compiler query density and preserve direct-write/recursive-read
@@ -318,11 +326,15 @@ breadth. Shared changes require all affected consumers in the matrix below.
   seven-pair enclosing optimizing repeat is +0.59%, contradicting the early
   -7.92% cohort. Consider avoiding both zero-fill and boxing only with renewed
   local/enclosing evidence. Keep one scan per body and release bounds before
-  final remap. Investigate dead top-level partial-alias
-  writes separately; preserve earlier default reads and nested-scope writes.
-- [ ] Extend alias breadth beyond proved lexical dominance and nonwidening
-  indices only with per-function size and iteration/alias-root evidence. Wider
-  equal-width indices can diverge during compaction; retain that boundary.
+  final remap. The three largest size-losing functions show immutable
+  sole-reader reverse copies, not multiwritten-source or top-level partial-copy
+  witnesses. Prioritize those observed candidates.
+- [ ] Admit profitable immutable sole-reader reverse aliases when eliminated
+  copy bytes strictly exceed worst-case compacted index widening. Preserve
+  lexical dominance, root immutability and legacy benchmark controls; test
+  set/tee, earlier/default/out-of-scope reads and all LEB width bands.
+  Wider equal-width indices can diverge during compaction; retain bounded
+  final-index accounting and measure per-function size and enclosing costs.
   Keep the equal-size unused-declaration difference in reduced v133 examples
   explicit; fewer locals alone do not establish an output-shape win.
 - [ ] Inspect and replay the **41 V25-changed functions / +458 bytes**, preserving

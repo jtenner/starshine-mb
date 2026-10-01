@@ -1,3 +1,12 @@
+### 2026-10-01 — Immutable statement query seeds
+
+- [Scoped query seeds](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-immutable-statement-query-seeds)
+  remove repeated wide initialized-mask setup with independently owned stacks.
+  Red-first ownership/type/control regressions, 13,176 default tests, 16 native
+  rows and 160 original-primary observations pass. Balanced cleanup improves
+  5–24%; large compiler pipelines stay flat. Initial small/tee costs and their
+  independent flat repeats remain recorded. Byte and overall speed parity stay open.
+
 ### 2026-09-30 — Performance and remote correctness integration
 
 - Integrate remote correctness, engine-profile and binding updates through

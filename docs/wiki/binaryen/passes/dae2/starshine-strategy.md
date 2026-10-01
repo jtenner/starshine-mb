@@ -1,8 +1,12 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/passes/statement_type_seed.mbt
+  - ../../../../../src/passes/statement_type_seed_wbtest.mbt
+  - ../../../../../src/passes/statement_type_seed_perf_wbtest.mbt
+  - ../../../../../src/cmd/statement_type_seed_wbtest.mbt
   - ../../../../../src/passes/dae2_alias_index_bounds.mbt
   - ../../../../../src/passes/wide_reverse_alias_wbtest.mbt
   - ../../../../../src/passes/wide_reverse_alias_perf_wbtest.mbt
@@ -4720,3 +4724,52 @@ V18 incorrectly returned 11. SL full/nostructure still return 22, so shared
 cleanup signoff remains blocked. The V24 shared source-order repair is under
 full/native/runtime confirmation; see the [failure and repair trial](../../../tooling/tracing-playbook.md#v21-stacked-block-runtime-failure-and-v24-repair-trial).
 Historical 79-fixture V18 evidence does not cover these new witnesses.
+
+## October 1, 2026: immutable statement query seeds
+
+V61 removes repeated initialized-local mask construction from balanced flat
+SimplifyLocals statement queries. A private seed belongs to one immutable body
+and environment; each query owns a new stack and borrows the all-true initialized
+mask. Typechecking initialization writes only false bits and copies before
+changing them; escape/control updates remain isolated. Allocate the seed only
+on the second actual query with at least 128 locals. The fallback owns its
+empty stack directly. No public API or transform shape changes.
+
+The physical-mask-sharing regression fails before implementation. Five bounded
+pass tests cover stack ownership, reset after invalid/escaping prefixes, separate
+environments, indexed GC/control/type boundaries, and exact balanced cleanup.
+A dispatcher fixture preserves ordered imported calls across nine consumers.
+`moon info`, `moon fmt`, all **13,176** default wasm-gc tests, **16** native release
+benchmark rows and the native release CLI build pass. No `.mbti` changes.
+
+Native repeated-query controls improve **4.95 → 3.84 µs** at 128 locals and
+**7.36 → 4.06 µs** at 8,192 locals. Full balanced-cleanup functions improve
+**6.97 → 6.62 µs (5.0%)** and **9.47 → 7.23 µs (23.7%)** respectively. These
+are component measurements, not compiler pass-local speedups. Tiny and
+single-query controls retain their allocation admission. Generated C confirms
+that the fresh query uses the existing owned-stack fork without rebuilding masks.
+
+The frozen post-integration predecessor and candidate produce identical raw
+bytes on small/large compiler and active-tee fixtures. Three-pair CPU-6 enclosing
+cohorts (one warmup, reference bracket ≤1.15) are flat on large plain/O
+(**−0.02% / −0.08%**), small O (**+0.10%**), and tee plain (**−2.17%**, noisy).
+Initial small plain costs **+1.27%**; an independent seven-pair repeat gives
+**−0.77%**, while small O repeat is **−0.71%**. Initial tee O costs **+4.85%**;
+a seven-pair repeat is **+0.002%**. Preserve both cohorts and rejected brackets;
+no enclosing speed or RSS win is established.
+
+Original-primary fixed replay validates **80 modules / 160 observations**,
+covering i32/i64/f64 negative zero/externref identity, independent side-effecting
+calls, default reads and a later memory trap. All before/after consumer outputs
+are identical; four verified v133 outputs also preserve runtime observations.
+This is bounded fixture evidence, not aggregate fuzz or general signoff.
+
+Artifacts: `.tmp/dae2-query-seed-20260930/` contains red/green logs, final native
+rows, full source manifests, matched cohorts/repeats and runtime evidence.
+Candidate SHA-256 is `fd6015e29ccc40a274b8b3b98ec37978151cdc622adc9aaeed6c93334d1135e4`.
+The V59 oracle speed/size table predates correctness integration and remains
+historical; V61 does not renew it. Compound suffix queries, broader ownership,
+whole-pipeline costs and the byte gap remain open. The next size trial targets
+immutable sole-reader reverse copies whose eliminated writer pays for bounded
+index widening; the three largest inspected functions contain no motivating
+multiwritten-source or top-level partial-copy family.

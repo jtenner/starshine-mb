@@ -9,8 +9,12 @@ fn run_hot_pipeline_raw_simplify_locals_statement_prefix_end(
   allow_escape : Bool,
   start? : Int = 0,
   typed_instructions? : Array[Int]? = None,
+  typed_seed? : SlStatementTypeSeed? = None,
 ) -> Int {
-  let mut state = @validate.make_state(env, [])
+  let mut state = match typed_seed {
+    Some(seed) => seed.fresh_state()
+    None => @validate.make_state_owned(env, [])
+  }
   for index = start; index < instrs.length(); index = index + 1 {
     match typed_instructions {
       Some(count) => count[0] += 1
