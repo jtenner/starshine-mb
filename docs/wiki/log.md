@@ -7,6 +7,9 @@
   All four V83 raw/canonical DAE2-O hashes are reproduced; symmetric writer
   normalization confirms the 99,251-byte gap. P03 ownership stays intact;
   Coalesce and shared command-envelope/quality priorities remain open.
+  Final 13,283 bounded tests, eight native controls and 987 fixed observations
+  pass; rebuilt native bytes match the measured executable. Computed fallback
+  overhead remains explicit, and long fuzz/coverage/release gates are deferred.
 
 ### 2026-10-01 — Retire unread optimizing body writes
 

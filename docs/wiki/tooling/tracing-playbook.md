@@ -4345,3 +4345,20 @@ fact reuse within an exact unchanged graph epoch, with body/signature/exposure
 invalidation proofs; compatible validation batching needs its own invariant.
 Long fuzz, coverage and full release gates are deferred; this pilot does not
 close release/parity blockers or change their gates.
+
+
+Final pilot validation: all **13,283 bounded tests**, `moon info/fmt/check`, native
+release rebuild, eight native cases, README/API sync and **987 fixed runtime
+observations** pass. Rebuilt native SHA `2fcf0c810692b5b89a4d6565aed38c6d7e2fdc4d11d470bac81857aac64c98ec`
+exactly matches the frozen measured candidate. No public API changes.
+Native controls report mean±σ over ten batches: scalar1 **211.76±1.92→32.10±0.53 ns**;
+scalar16 **2.53±0.059 µs→161.69±1.74 ns**. Computed fallback costs
+**306.24±4.03→349.68±46.46 ns**; three short repeats are noisy, with the quietest
+306.00→318.93 ns. Keep this bounded proof/wrapper cost explicit; no all-input
+helper win is claimed. Separate warm pipeline means are **47.45±0.539 /111.96±0.998 ms**
+(ten batches of three/one runs), with no comparable warm v133 baseline.
+Plain NaN forwarding canonical bytes improve **66→61 versus v133 74**, with exact
+payload replay; optimizing remains 62 versus 79. Fine exclusive candidate
+validation/transform wall timers were unavailable; use instruction attribution,
+not inferred milliseconds. Aggregate fuzz/coverage/full release signoff and
+independent human code review remain unavailable/deferred for this pilot.

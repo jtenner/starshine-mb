@@ -1185,3 +1185,11 @@ artifact bytes, 59.53% fewer slices and unchanged discovery/validation counts.
 Large timing stays within broad spread. Snapshot/transaction reuse, remaining
 uniform work, guarded optimizing cleanup and output parity remain active P08
 work; this does not replace the earlier historical cohorts or sign off release.
+
+Final evidence: all 13,283 bounded tests, eight native controls and 987 fixed
+original/predecessor/v133 runtime observations pass. Native scalar1/16 recovery
+improves 84.84%/93.61%; computed fallback has a bounded, noisy extra proof/wrapper
+cost retained as P08 work. The rebuilt native binary matches the measured SHA.
+Plain forwarded NaN canonical output is 61 bytes versus predecessor 66 / v133 74;
+optimizing bytes remain unchanged. Aggregate fuzz/coverage/release signoff is
+still deferred; no separate human code review is claimed.

@@ -727,6 +727,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   52,033 calls remain a lead, not a new count. The contiguous-root mechanism
   is complete; do not duplicate it. Key further reuse to body/signature/type
   revisions and preserve cycle handling and exact floating-point identities.
+- [ ] Reduce computed-operand proof/wrapper overhead if enclosing evidence
+  justifies it. Native full-slice/fallback means are 306.24/349.68 ns with large
+  fallback spread; three bounded repeats remain noisy (quietest 306.00/318.93).
+  Keep complex slicing and ownership/admission intact; scalar1/16 controls gain
+  84.84%/93.61%, but do not claim every operand family improves.
 - **Admission invariant:** establish fallthrough eligibility before an early
   exit: `None` and `Some([None])` differ, and later unsupported control can change
   admission. Rebuild facts on body, callee boundary, numbering, arity or relevant
