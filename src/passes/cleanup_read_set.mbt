@@ -5,7 +5,7 @@ priv struct SlCleanupReadSet {
   reads : Array[Int]
   mut word : Int
   mut bits : UInt64
-  mut members : Map[Int, UInt64]?
+  mut members : Map[Int, UInt]?
 }
 
 ///|
@@ -43,7 +43,11 @@ fn SlCleanupReadSet::contains(
       return (self.bits & bit) != 0UL
     }
     return match self.members {
-      Some(members) => (members.get(word).unwrap_or(0UL) & bit) != 0UL
+      Some(members) => {
+        let bucket = local_id >> 5
+        let bit = 1U << (local_id & 31)
+        (members.get(bucket).unwrap_or(0U) & bit) != 0U
+      }
       None => false
     }
   }
@@ -76,12 +80,16 @@ fn SlCleanupReadSet::index_read(
     let members = match self.members {
       Some(members) => members
       None => {
-        let members : Map[Int, UInt64] = Map([])
+        let members : Map[Int, UInt] = Map([])
         self.members = Some(members)
         members
       }
     }
-    members[word] = members.get(word).unwrap_or(0UL) | bit
+    // UInt options use an unboxed native result; a UInt64 option allocates a
+    // Some box on every successful map lookup. Only overflow uses 32-bit words.
+    let bucket = local_id >> 5
+    let bit = 1U << (local_id & 31)
+    members[bucket] = members.get(bucket).unwrap_or(0U) | bit
   }
 }
 

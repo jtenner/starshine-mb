@@ -5394,3 +5394,55 @@ Final artifacts: `.tmp/dae2-liveout-membership-legacy-20261001/`.
 Rejected/provisional evidence and the allocation probe:
 `.tmp/dae2-liveout-membership-20261001/`. Final candidate SHA-256:
 `459db6d64486a20a5037cccc4ecee9d7ec0d2ec46c55de9a669f1497715d1826`.
+
+
+## October 1, 2026: unboxed cleanup overflow membership
+
+V71 keeps the first cached 64-local word and changes only sparse overflow to
+32-bit `UInt` words. Native `Option[UInt]` returns unboxed; the former
+`Option[UInt64]` allocated a `Some` for each successful lookup. A bounded native
+probe on the same valid release fixture fails its zero-box guard on V70 with
+**275** successful boxed lookups. The frozen candidate records **zero boxed /
+275 unboxed** scoped lookups; the boxed getter is absent from the binary and
+the generated unboxed getter has no allocation. This proves removal of this
+specific option allocation, not an allocation-free cleanup or map. More overflow
+buckets can be retained, so map construction and whole-command RSS remain costs.
+
+The new regression fails first at a 32-bit overflow boundary. Direct fields and
+ordered reads cover bit 31, bucket boundaries, sparse positive/negative ids and
+absent neighbours. Info/fmt, **13,212** default tests, eleven native controls and
+the release build pass. All 256 retained plus 720 reduced original-primary
+observations match, including legacy handlers. Compiler/tee outputs are exact
+predecessor bytes; all code bodies and non-code sections remain identical.
+The **183,596 canonical / 69,793 raw** byte gap is unchanged.
+
+Cold native 512-read collection is **7.54µs**, against the frozen quadratic
+reference's 30.54µs. The previous compact candidate measured 11.16µs in a
+separate cohort; that is not an alternating causal comparison. The 64-read
+candidate is 451.03ns versus the preceding cohort's 435.32ns. Parsed module
+widths 1/32/256 cost 15.84/82.43/783.48µs. Tiny ownership costs remain open.
+
+Initial three-pair enclosing cohorts are small plain/O +5.87%/+2.09%, large
+plain/O +1.66%/−1.05%, tee plain/O +1.21%/−7.74%. Preserve those results rather
+than selecting the attractive tee cohort. Focused repeats use seven accepted
+pairs on small/tee and three on large, CPU 6, alternating order, one warmup and
+Precompute brackets ≤1.15:
+
+| Input | Plain before → after ms | Optimizing before → after ms |
+| --- | ---: | ---: |
+| Small | 3.283 → 3.286 | 9.510 → 9.653 |
+| Large | 3,342.036 → 3,324.937 | 6,242.090 → 6,191.777 |
+| Active tee | 2.794 → 2.832 | 102.481 → 103.718 |
+
+Large optimizing improves **0.81%** (MAD 3.924/20.068ms), confirming a modest
+benefit alongside the scoped allocation removal. Small/tee optimizing cost
+**1.50%/1.21%**, plain tee costs 1.36%; those control gaps stay active. There is
+no whole-pipeline speed-parity claim. Per-process `wait4` large untraced peaks
+are before 294,220/294,416KiB and after 294,188/294,324KiB, effectively flat.
+
+Frozen local artifacts are `.tmp/dae2-unboxed-overflow-20261001/`, including
+red-first native/field logs, generated-C proof, allocation counters, both timing
+cohorts, rejected brackets, replay, exact function bytes and RSS. Candidate SHA256
+is `ef10a376429a074af6649782b3b6e0be57844863d17b673d05be2d9ec006d87b`.
+Long fuzz remains deferred. Repeated ancestor scans, compound suffix typing,
+dependency planning/lift/lower, validation and byte cleanup remain active.

@@ -81,8 +81,11 @@ oracle versions and checkpoints do not sign current source.
   outputs match originals, with 27 known predecessor legacy failures recorded.
   The release-context **100 → 1** defect is repaired in legacy read/count/bounds
   facts; narrow V69 replay was incomplete. Compiler bytes retain all V69 savings.
-  Tee optimizing costs 2.01%, tiny cold owners cost 13/30ns and boxed overflow
-  lookups remain open. Current descriptive pass ratios are small 3.61× / 3.19×
+  V71 removes all 275 scoped boxed overflow lookups and improves matched large
+  optimizing another 0.81%; 13,212 tests and 976 observations pass with exact
+  bytes. Repeated small/tee optimizing costs 1.50%/1.21%, plain tee 1.36% and
+  tiny cold owners 13/30ns remain open. See
+  [unboxed overflow evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-unboxed-cleanup-overflow-membership). Current descriptive pass ratios are small 3.61× / 3.19×
   and large 7.90× / 3.87× for DAE2/O. See
   [cleanup and handler evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-compact-cleanup-live-out-membership-and-legacy-reads).
 
@@ -253,11 +256,10 @@ breadth. Shared changes require all affected consumers in the matrix below.
   scoped allocation attribution before targeting individual query families. V29's
   toggled profile records 651,397 whole-command sort calls; any cached comparator must capture its order
   row without a facts backpointer or reference cycle.
-- [ ] Remove boxed UInt64 overflow lookups in cleanup read sets: a bounded
-  valid release fixture records 275 successful scoped lookups, each allocating
-  an optional box in generated native C. Trial unboxed word values with
-  cold/warm, sign-bit/sparse boundaries and enclosing controls. Reduce the
-  added 13/30ns tiny cold owner cost without reintroducing wide quadratic work.
+- [ ] Reduce tiny cleanup owner overhead (13/30ns cold) without reintroducing
+  wide quadratic work. V71 removes the 275 scoped optional boxes with unboxed
+  overflow words; follow remaining map construction/bucket retention and
+  small/tee control costs (optimizing +1.50%/+1.21%, plain tee +1.36%).
 - [ ] Clear temporary state on every exit, avoid allocating it on no-work paths,
   bound retained high-water capacity and measure lifetime/RSS costs. Preserve
   carried-buffer clearing, independently owned selections and pure/empty fast

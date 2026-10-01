@@ -1,3 +1,12 @@
+### 2026-10-01 — Unboxed cleanup overflow membership
+
+- [Overflow allocation evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-unboxed-cleanup-overflow-membership)
+  records a red-first 275-box native probe, zero candidate boxes with 275
+  unboxed lookups and direct sign-bit/sparse boundaries. All 13,212 tests and
+  976 focused observations pass; compiler bytes stay exact. Repeated large
+  optimizing improves 0.81%, while small/tee optimizing costs 1.50%/1.21%.
+  Preserve those costs and the 183,596-byte canonical deficit as open work.
+
 ### 2026-10-01 — Compact cleanup membership and legacy read repair
 
 - [Cleanup membership and handler evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-compact-cleanup-live-out-membership-and-legacy-reads)

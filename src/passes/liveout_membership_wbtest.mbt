@@ -126,3 +126,22 @@ test "cleanup wide read membership packs adjacent locals without conflating word
   assert_eq(set.members.unwrap().length(), 1)
   assert_eq(reads, Array::makei(32, fn(index) { index }) + [32, 63, 64])
 }
+
+///|
+test "cleanup overflow membership uses bounded words across unsigned sign bits" {
+  let set = SlCleanupReadSet::new(Array::makei(9, fn(index) { index }))
+  let overflow = [64, 95, 96, 127, 2147483647, -1]
+  for local_id in overflow {
+    set.insert(local_id)
+  }
+  for local_id in overflow {
+    assert_true(set.contains(local_id))
+  }
+  for absent in [63, 65, 94, 97, 126, 128, 2147483646, -2] {
+    assert_false(set.contains(absent))
+  }
+  let members = set.members.unwrap()
+  assert_eq(members.get(2).unwrap_or(0).to_int64(), 2147483649L)
+  assert_eq(members.get(3).unwrap_or(0).to_int64(), 2147483649L)
+  assert_eq(set.reads, Array::makei(9, fn(index) { index }) + overflow)
+}
