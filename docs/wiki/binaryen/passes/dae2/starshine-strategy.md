@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-09-30
 sources:
+  - ../../../../../src/passes/dae2_alias_index_bounds.mbt
+  - ../../../../../src/passes/wide_reverse_alias_wbtest.mbt
+  - ../../../../../src/passes/wide_reverse_alias_perf_wbtest.mbt
+  - ../../../../../src/cmd/wide_reverse_alias_wbtest.mbt
   - ../../../../../src/cmd/dae2_sparse_replay_wbtest.mbt
   - ../../../../../src/passes/dae2_sparse_replay_perf_wbtest.mbt
   - ../../../../../src/passes/dae2_sparse_replay_wbtest.mbt
@@ -132,6 +136,118 @@ that broader call domain. Direct code-site budgets and whole-command profiles
 retain their stated scope.
 
 
+
+## September 30, 2026: final-index bounds for reverse aliases
+
+The focused regression initially retains 130 locals instead of 129 for a
+source 129 → target 128 copy with 128 stable producer locals. The old guard cannot
+prove a wider reverse edge safe: equal original LEB widths may diverge when
+compaction puts the target at 127 and source at 128.
+
+[Final-index bounds](../../../../../src/passes/dae2_alias_index_bounds.mbt)
+extend [alias discovery](../../../../../src/passes/dae2_parameter_aliases.mbt)
+without changing dominance, single-write, lexical restoration or remap rules.
+Initially retained prefix ranks bound the root's final index above. Protected
+slots and guaranteed noncopy writers bound a retained target's index below.
+Admit the reverse edge only when the source's upper LEB width is no greater
+than the target's lower width. Potential copy writers are excluded from the
+lower bound even when actual discovery will reject them. Discovery retires no
+writes and introduces reads only on already retained roots, so lazy construction
+does not invalidate the upper bound. Facts require one body/local scan, are
+reused across candidates, and are released before the final remap. Short-index
+and forward edges use the existing cheap proof.
+
+[Regressions](../../../../../src/passes/wide_reverse_alias_wbtest.mbt) cover
+i32/i64/f64/externref, indexed GC references, sets/tees, sparse final indices,
+127/128 compaction rejection, all five unsigned LEB bands, nested/loop
+dominance, future and sibling writers, validation and input ownership. The
+[active dispatcher](../../../../../src/cmd/wide_reverse_alias_wbtest.mbt)
+checks retained locals and producer/consumer calls. All 13,101 default tests,
+info/fmt/native build, and existing generated-C work/storage guards pass; no
+public `.mbti` changes. Long randomized signoff remains deferred by the user.
+
+The 44 new fixtures execute 308 original/previous/current/v133 modules and 1,848
+observations, including imported-call exceptions, traps, defaults, branches,
+loop iterations and GC/reference identity. All match the original; 38 optimizing
+outputs change, none grows in raw or canonical bytes. Existing bounded replay
+also passes: 1,134 modules and 8,421 observations. Together this checkpoint has
+1,442 modules and 10,269 observations, not a randomized-fuzz signoff.
+
+The large optimizing artifact loses 25,453 raw and 26,177 canonical bytes across
+238 functions, with no per-function size increase and exact non-code section
+identity against V58. This closes 10.13% of its previous canonical gap. Small
+and large plain outputs remain byte-identical to V58. The remaining canonical
+gap is 232,292 bytes; 7,866 functions remain larger and 2,380 smaller than v133.
+The largest body gaps are defined 7292: +8,454 bytes,10435: +4,702,7293: +3,997.
+
+This is an artifact size win with flat enclosing optimizing timing, not a speed
+parity claim. The reduced i32 flat fixture shrinks 1,381 → 1,378 bytes and ties
+v133 at 1,378. Explicit nonempty normalized WAT still differs: Starshine removes
+an unused declaration and renumbers the root, while v133 retains it. Fewer
+locals alone do not prove a win; this equal-size shape remains a parity gap.
+Among the 44 optimizing fixtures, 32 tie v133 canonical size, 11 remain larger
+and one is smaller. Tee cases retain 257-byte gaps, future-write cases 3 bytes;
+these pre-existing cleanup families remain open and do not grow against V58.
+The corrected comparison has 44/44 plain normalized matches and 0/44 optimizing
+matches (previous 10/44). Do not substitute byte validity or runtime replay for
+that output-quality gap. An earlier empty-stdout comparison is invalid and
+retained as `normalized-empty-invalid.json`; explicit `-S -o` files plus a
+nonempty module assertion replace it.
+
+The [dedicated native controls](../../../../../src/passes/wide_reverse_alias_perf_wbtest.mbt)
+measure the extra admission cost against the old rejecting guard. Fixtures,
+validation, actual compaction and ownership checks sit outside timing.
+
+| Prefix / copies | Legacy discovery µs | Bounded discovery µs |
+| --- | ---: | ---: |
+| Short indices / 8 | 0.348 | 0.351 |
+| 128 stable / 8 | 2.36 | 3.68 |
+| 128 stable / 512 | 16.91 | 28.17 |
+| 128 stable / 4096 | 115.85 | 189.28 |
+| 16384 stable / 8 | 241.12 | 392.57 |
+
+All ten rows pass. Additional work scales linearly; it is not a native speedup.
+Generated C currently boxes the two prefix counters; this is a possible setup
+follow-up, not an attributed compiler bottleneck. The unchanged plain control
+and small timing differences below are not causal gains. Historical plain RSS
+bimodality remains; optimizing RSS is approximately flat.
+
+Frozen native V59 SHA-256: `c3c9c97e610bf31c5572392c47eac488687372a3098af98c9fff90c9e008605b`.
+
+Fresh verified release-v133 comparison (CPU 6, one warmup, three samples; pass-local medians):
+
+| Input / pass | Starshine ms | v133 ms | Ratio | Raw / canonical size gap |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 3.753 | 1.012 | 3.707× | -123 / -97 B |
+| small / `dae2-optimizing` | 11.972 | 3.232 | 3.705× | -392 / -290 B |
+| large / `dae2` | 3998.720 | 563.604 | 7.095× | -117,365 / -100,237 B |
+| large / `dae2-optimizing` | 7479.616 | 1835.960 | 4.074× | +103,433 / +232,292 B |
+
+Matched V58→V59 pipeline medians (same CPU/warmup, three accepted alternating pairs, independent reference bracket ≤1.15):
+
+| Input / pass | V58 ms | V59 ms | Change | MAD before / after ms |
+| --- | ---: | ---: | ---: | ---: |
+| small / `dae2` | 3.693 | 3.654 | -1.06% | 0.096 / 0.109 |
+| small / `dae2-optimizing` | 10.220 | 10.118 | -1.00% | 0.058 / 0.096 |
+| large / `dae2` | 3767.740 | 3718.861 | -1.30% | 35.385 / 19.452 |
+| large / `dae2-optimizing` | 6541.373 | 6551.199 | +0.15% | 11.222 / 80.654 |
+| tee / `dae2` | 2.888 | 2.898 | +0.35% | 0.006 / 0.006 |
+| tee / `dae2-optimizing` | 104.378 | 105.037 | +0.63% | 0.781 / 0.830 |
+
+Three alternating peak-RSS pairs, KiB (median [range]):
+
+- `dae2`: before 265,584 [245,864–265,784] → after 246,752 [245,508–265,928].
+- `dae2-optimizing`: before 290,160 [290,100–290,200] → after 290,368 [290,056–291,288].
+
+Local provenance under `.tmp/dae2-lean-20260929/`: `candidate-v59.json`,
+`validation-v59.json`, `validate-wide-alias-v59.py`, `finish-wide-alias-v59.py`,
+`wide-alias-runtime-v59/`, `wide-alias-normalized-v59.py`,
+`artifact-quality-v59.json`, `remaining-size-v59.json`, `pairs-v59-*`,
+`memory-v59/`, and the preserved predecessor controls. Both artifact cohorts,
+extra probes and full source hashes finish before the next source mutation.
+Next larger targets remain repeated carrier/balanced-suffix scans, validation
+stack-copy churn and the remaining optimizing body gaps. Keep all-DAE timing
+renewal, aggregate fuzz and release signoff open.
 
 ## September 30, 2026: sparse replay boundaries and ownership
 

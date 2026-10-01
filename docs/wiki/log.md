@@ -1,3 +1,13 @@
+### 2026-09-30 — Reverse aliases and final encoding bounds
+
+- [Final-index alias bounds](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-final-index-bounds-for-reverse-aliases)
+  admit wider reverse copies without widening compacted local accesses. Red-first
+  scalar/GC/threshold/dominance tests, native scaling and original-primary replay
+  pass. The compiler saves 26,177 canonical bytes in 238 functions without growth;
+  enclosing optimizing timing remains flat. Equal-size declaration drift, the
+  remaining 232,292-byte gap and speed/fuzz/release signoff stay open. Reject the
+  empty-output text comparison in favor of explicit nonempty WAT artifacts.
+
 ### 2026-09-30 — Sparse replay consumers and mask ownership
 
 - [Sparse replay](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-sparse-replay-boundaries-and-ownership)

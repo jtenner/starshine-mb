@@ -26,21 +26,26 @@ oracle versions and checkpoints do not sign current source.
 
 ### Latest DAE2/O baseline
 
-The frozen v58 open-world compiler comparison uses verified release v133,
+The frozen v59 open-world compiler comparison uses verified release v133,
 CPU 6, one warmup and three samples. These are pass-local medians, not
 untraced command times or a causal comparison with earlier cohorts.
 
 | Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| `dae2` | 3.533 / 0.966 | 3.66× | 3,434.586 / 437.007 | 7.86× |
-| `dae2-optimizing` | 11.725 / 3.041 | 3.86× | 6,474.372 / 1,645.450 | 3.93× |
+| `dae2` | 3.753 / 1.012 | 3.71× | 3,998.720 / 563.604 | 7.10× |
+| `dae2-optimizing` | 11.972 / 3.232 | 3.71× | 7,479.616 / 1,835.960 | 4.07× |
 
-- **Release blockers:** large DAE2-O adds **258,469 canonical / 128,886 raw
+- **Release blockers:** large DAE2-O adds **232,292 canonical / 103,433 raw
   bytes** against v133. Smaller plain DAE2 output alone is not a proven win.
   Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
   V18; preserve the correctness repairs and avoid using broken V18 behavior as
   a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** V58 replaces all 399 full-boundary replay resets on the
+- **Evidence limits:** V59 proves wider reverse aliases with final-index
+  bounds, saving 25,453 raw / 26,177 canonical bytes in 238 functions without
+  per-function growth or non-code section changes. Matched large optimizing
+  time is +0.15% (MAD 11.222 / 80.654 ms); this is a size win, not an enclosing
+  speedup. Wider admission adds one lazy body/local scan; short-index controls
+  remain flat. V58 replaces all 399 full-boundary replay resets on the
   large plain artifact and retains exactly 46,613 boundary bits. Native rows
   improve 27–99.95%; large rewrite saves 91 ms, but enclosing plain is -1.23%
   with material spread and optimizing stays flat. The first small optimizing
@@ -289,7 +294,7 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
-- [ ] Reduce and attribute the remaining **258,469-byte canonical optimizing gap**
+- [ ] Reduce and attribute the remaining **232,292-byte canonical optimizing gap**
   by function/diff family. V32 removes 32,070 balanced capture pairs and saves
   147,876 raw / 53,470 canonical bytes without per-function pair regressions.
   V38 removes immutable parameter aliases without per-function raw size losses,
@@ -301,18 +306,16 @@ breadth. Shared changes require all affected consumers in the matrix below.
   ordered SimplifyLocals/Vacuum and
   downstream cleanup; close indirect-family, typed-control, parameter/result
   and local/capture debris gaps without weakening behavior.
-- [ ] Trial wider reverse aliases using conservative final-index bounds.
-  Equal original LEB widths may diverge after compaction. Bound source ranks
-  with initially retained locals and target ranks with guaranteed nonalias
-  writers; preserve dominance, lexical restoration, defaults, effects/traps,
-  parameter/name metadata and non-growing encoded bodies. Require a failing
-  two-byte fixture plus widening/threshold controls, native scaling, bounded
-  runtime parity and artifact size/time/RSS before accepting the trial.
 - [ ] Profile remaining alias admission/counting, replay and remap costs after
   V55 removes intermediate trees and instruction-option roots. Wide native
   active controls improve 12–21%, but enclosing optimizing times remain flat;
   follow larger dependency/lift/cleanup costs rather than assuming more alias
   micro-optimizations will close the compiler gap.
+  V59 closes the conservative wide-index admission trial. Its new prefix
+  builder uses two boxed scalar counters in generated native C; trial a
+  scalar loop if measured setup cost warrants it. Keep one scan per body and
+  release bounds before final remap. Investigate dead top-level partial-alias
+  writes separately; preserve earlier default reads and nested-scope writes.
 - [ ] Extend alias breadth beyond proved lexical dominance and nonwidening
   indices only with per-function size and iteration/alias-root evidence. Wider
   equal-width indices can diverge during compaction; retain that boundary.

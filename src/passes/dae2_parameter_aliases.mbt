@@ -8,6 +8,8 @@ priv struct Dae2ParameterAliases {
   mut forwarded : Bool
   targets : Array[Int64]
   undo : Array[Int]
+  mut width_body : Array[@lib.Instruction]?
+  mut index_bounds : Array[Int64]?
 }
 
 ///|
@@ -15,6 +17,7 @@ fn Dae2ParameterAliases::new(
   start : Int,
   reads : Array[Int],
   writes : Array[Int],
+  width_body? : Array[@lib.Instruction]? = None,
 ) -> Dae2ParameterAliases {
   {
     start,
@@ -25,6 +28,8 @@ fn Dae2ParameterAliases::new(
     forwarded: false,
     targets: Array::make(reads.length(), -1L),
     undo: [],
+    width_body,
+    index_bounds: None,
   }
 }
 
@@ -71,11 +76,11 @@ fn Dae2ParameterAliases::discover(
         let source = previous_get
         let is_alias = local_id >= self.start &&
           source >= 0 &&
-          dae2_alias_source_is_nonwidening(source, local_id) &&
           (
             self.writes[source] == 0 ||
             (self.writes[source] == 1 && self.is_established(source))
-          )
+          ) &&
+          self.source_is_nonwidening(source, local_id)
         if is_alias {
           self.active[local_id] = source
           let kind = if instr is @lib.LocalTee(_) { 1L } else { 0L }
@@ -164,10 +169,7 @@ fn dae2_has_parameter_alias(
         target.to_int() >= start &&
         writes[target.to_int()] == 1 =>
         match instrs[position - 1] {
-          @lib.LocalGet(@lib.LocalIdx(source)) if dae2_alias_source_is_nonwidening(
-              source.to_int(),
-              target.to_int(),
-            ) &&
+          @lib.LocalGet(@lib.LocalIdx(source)) if source != target &&
             writes[source.to_int()] <= 1 => return true
           _ => ()
         }
@@ -219,7 +221,12 @@ fn dae2_cleanup_parameter_aliases(
   if !dae2_has_parameter_alias(instrs, start, writes) {
     return (instrs, None)
   }
-  let aliases = Dae2ParameterAliases::new(start, reads, writes)
+  let aliases = Dae2ParameterAliases::new(
+    start,
+    reads,
+    writes,
+    width_body=Some(instrs),
+  )
   aliases.discover(instrs)
   let mut unread = false
   // Active reads are flattened before copy recognition. An admitted source is
@@ -243,6 +250,8 @@ fn dae2_cleanup_parameter_aliases(
   // Keep metadata for partial aliases too: their writes stay, but later reads
   // still need forwarding. Discovery never constructs instruction storage.
   aliases.established = None
+  aliases.width_body = None
+  aliases.index_bounds = None
   (instrs, if unread || aliases.forwarded { Some(aliases) } else { None })
 }
 
