@@ -814,7 +814,7 @@ pub fn local_graph_build(HotFunc, HotCfg) -> HotLocalGraph
 
 pub fn local_graph_build_full_flow(HotFunc, HotCfg) -> HotLocalGraph
 
-pub fn local_graph_build_read_sources(HotFunc, HotCfg) -> HotLocalReadSources
+pub fn local_graph_build_read_sources(HotFunc, HotCfg, selected_gets? : Array[Bool]?) -> HotLocalReadSources
 
 pub fn local_graph_can_move_set_past_node(HotFunc, HotCfg, HotLocalGraph, Int, Int) -> Array[Int]
 

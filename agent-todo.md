@@ -85,9 +85,17 @@ oracle versions and checkpoints do not sign current source.
   optimizing another 0.81%; 13,212 tests and 976 observations pass with exact
   bytes. Repeated small/tee optimizing costs 1.50%/1.21%, plain tee 1.36% and
   tiny cold owners 13/30ns remain open. See
-  [unboxed overflow evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-unboxed-cleanup-overflow-membership). Current descriptive pass ratios are small 3.61× / 3.19×
+  [unboxed overflow evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-unboxed-cleanup-overflow-membership). Last V70 oracle-cohort pass ratios are small 3.61× / 3.19×
   and large 7.90× / 3.87× for DAE2/O. See
   [cleanup and handler evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-compact-cleanup-live-out-membership-and-legacy-reads).
+
+- **Current demand checkpoint:** V72 publishes LocalGraph sources only for
+  unresolved DAE2 reads. Resolved-heavy native controls improve 75–96%; matched
+  large plain improves 2.41% (repeat 3.69%) and optimizing 1.47% (repeat 1.28%).
+  All 13,216 tests and 1,056 observations pass with exact compiler bytes.
+  All-selected cold costs 1.22%, repeated tee optimizing costs 1.67%, and noisy
+  small/large host bands remain recorded. Shared-action fallback still solves
+  complete joins. See [selected-source evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-demand-only-unresolved-dae2-read-sources).
 
 ### Historical V59 DAE2/O oracle baseline
 
@@ -313,10 +321,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   HOT. Preserve sparse branch writes, stack floors, observed conditions,
   unwritten entry values and separate raw rewrite admission. Compare all solved
   function/type and source-write demand bits, including unchanged bodies.
-- [ ] Reduce repeated body/revision queries and representation allocation;
-  extend the read-source snapshot to demand only unresolved reads when measured
-  gains justify it. Preserve
-  conservative dependencies when control/signature information is unknown.
+- [ ] Reduce remaining body/revision queries, representation allocation and
+  selected-mask setup; V72 closes eager source rows for DAE2-resolved reads.
+  Keep default graph facts complete, ordered selected sources and conservative
+  dependencies when control/signature information is unknown. Shared-action
+  fallback still computes complete forward rows before projection.
 - [ ] Evaluate compact affected-function/revision summaries for remaining
   unavoidable work; invalidate on body, node/span/region/local/type/signature
   changes. Whole-HOT retention and its smaller budget remain rejected.
@@ -400,7 +409,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
   (extracted root 24). V69 closes raw effectful forwarding beside this guard while retaining release
   lifetimes and repairing nested read/legacy write barriers. Its scalar/reference
   reductions match or beat v133 canonical size, but the reduced nested-read
-  case still loses six bytes and needs further cleanup. V70 repairs the exposed
+  case still loses six bytes: test sinking a constant assignment into the
+  first flat read as a tee, preserving later nested/release observations and
+  trapping/throwing prefix barriers, before broadening this guarded lane. V70 repairs the exposed
   legacy-only read/count/bounds defect (100 → 1); current body/catch/catch-all
   replay matches original and v133. Keep the HOT guard;
   other large witnesses still need admission attribution.

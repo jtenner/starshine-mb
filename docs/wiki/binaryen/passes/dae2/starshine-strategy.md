@@ -3,6 +3,11 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/ir/local_graph_selected_reads_wbtest.mbt
+  - ../../../../../src/ir/local_graph_selected_reads_perf_wbtest.mbt
+  - ../../../../../src/passes/dae2_selected_flow.mbt
+  - ../../../../../src/passes/dae2_selected_flow_wbtest.mbt
+  - ../../../../../src/cmd/dae2_selected_flow_wbtest.mbt
   - ../../../../../src/ir/hot_source_order_trivial_sort_wbtest.mbt
   - ../../../../../src/ir/hot_source_order_trivial_sort_perf_wbtest.mbt
   - ../../../../../src/ir/hot_source_order_trivial_sort_reference_wbtest.mbt
@@ -5446,3 +5451,80 @@ cohorts, rejected brackets, replay, exact function bytes and RSS. Candidate SHA2
 is `ef10a376429a074af6649782b3b6e0be57844863d17b673d05be2d9ec006d87b`.
 Long fuzz remains deferred. Repeated ancestor scans, compound suffix typing,
 dependency planning/lift/lower, validation and byte cleanup remain active.
+
+
+## October 1, 2026: demand only unresolved DAE2 read sources
+
+V72 extends `local_graph_build_read_sources` with an optional arena-sized
+`selected_gets` mask. DAE2 already resolves unwritten locals and proven entry or
+sole-write reads independently; it now requests LocalGraph rows only for its
+remaining unresolved reads. Complete action/write admission, CFG joins,
+exceptional edges and writer facts stay intact. Unselected rows publish empty
+unknown results. Shared-action/hidden-control fallback still solves complete
+forward joins before projecting rows. Default full read-source and full graph
+APIs retain their complete facts. The mask is borrowed during construction and
+never mutated or retained; analysis uses one immutable HOT snapshot. Unknown
+selected reads retain the original conservative parameter/all-writes fallback.
+
+The red-first ordered-row regression fails **2 != 0** before selection. Tests
+compare every selected source with the complete solver in both operand modes,
+cover loops, reference writes, exceptional joins and shared-action fallback,
+and preserve masks/revisions. A DAE2 fixture selects one unresolved read while
+excluding proven selectors; dispatcher tests retain both required parameters
+and remove the third argument. The `.mbti` diff adds only the optional mask.
+Info/fmt, **13,216** default tests, eight native controls and the release build
+pass. Existing 256 observations plus ten reduced fixtures / 40 modules / 800
+original-primary observations match current Starshine and verified v133.
+Compiler/tee bytes match the predecessor; every code body and non-code section
+is exact. No transformation is skipped to obtain the gain.
+
+Cold native controls include selection construction and all solver scratch;
+CFG/HOT construction is excluded equally:
+
+| Resolved selector reads | Complete sources | Selected sources |
+| --- | ---: | ---: |
+| 1 | 794.66ns | 753.75ns |
+| 32 | 23.05µs | 5.87µs |
+| 256 | 1.11ms | 41.67µs |
+| 32, all requested | 22.95µs | 23.23µs |
+
+Resolved-heavy rows improve **75–96%**; the all-requested control costs 1.22%.
+These are solver/query controls, not compiler-wide speedups. A bounded native
+probe on the first 64 large-compiler mask builds records **7,162 arena read
+nodes / 5,992 selected reads**, 16.3% fewer selected rows. Arena reads include
+unrepresented nodes, so this is not an exact removed-predecessor-query count or
+a whole-module density claim. An attempted full-command debugger count hits
+its 40-second cap; retain that failure and use the bounded prefix instead.
+
+CPU-6 matched enclosing medians, one warmup, alternating pairs and Precompute
+brackets ≤1.15, are:
+
+| Input | Initial plain/O before → after ms | Repeat plain/O before → after ms |
+| --- | ---: | ---: |
+| Small | 3.265 → 3.296 / 9.431 → 9.489 | 4.502 → 4.427 / 13.742 → 13.370 |
+| Large | 3,327.323 → 3,247.192 / 9,018.616 → 8,886.199 | 3,805.958 → 3,665.336 / 9,137.385 → 9,020.818 |
+| Active tee | 2.949 → 2.962 / 105.154 → 103.784 | 2.944 → 2.969 / 104.859 → 106.606 |
+
+Initial cohorts use three accepted pairs; repeats use seven on small/tee and
+three on large. Large plain improves **2.41%**, repeated **3.69%**; optimizing
+improves **1.47%**, repeated **1.28%**. Host bands and optimizing spread are
+higher than V71 (initial optimizing MAD 216.050/356.265ms; repeat 61.861/86.999ms),
+so do not compare their absolute times causally across commits. Small cohorts
+change sign (+0.95%/+0.61% initially, −1.67%/−2.71% on repeat); tee optimizing
+changes −1.30% initially to **+1.67%** on repeat, which remains an open control
+cost. Preserve all rejected reference brackets. Per-process `wait4` untraced
+peaks are before 294,276/294,208KiB and after 294,212/304,472KiB: one higher
+candidate band, no established sustained RSS gain/regression.
+
+Canonical byte attribution now confirms 183,470 of the **183,596** module-byte
+deficit is in code bodies. Largest remaining deficits are code indices 7292
+(**5,517 bytes**), 10435 (4,565), 4101 (2,292) and 7294 (2,193). This is the same
+bounded eight-round first-valid writer projection and verified oracle, with
+12,904 matching function indices. Raw deficit remains **69,793**. Reduce the
+six-byte nested-read witness and writer-added captures next; overall speed,
+output quality and other pass gaps remain open. Long fuzz stays deferred.
+
+Frozen local evidence is `.tmp/dae2-selected-flow-20261001/`, including red,
+validation, cold controls, both matched cohorts, density cap/retry, replay,
+function bytes, canonical attribution and RSS. Candidate SHA256 is
+`71d5810cfa49bfacdc5cc023eea37cccdb57d95cc8877f1f5e527727c30bb486`.

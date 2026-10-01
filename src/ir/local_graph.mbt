@@ -69,6 +69,23 @@ fn LocalGraphFlowRows::new(
 }
 
 ///|
+fn LocalGraphFlowRows::select_gets(
+  self : LocalGraphFlowRows,
+  selected_gets : Array[Bool]?,
+) -> LocalGraphFlowRows {
+  match selected_gets {
+    Some(mask) =>
+      for node in 0..<self.get_source_ids.length() {
+        if !mask[node] {
+          self.get_source_ids[node] = []
+        }
+      }
+    None => ()
+  }
+  self
+}
+
+///|
 fn local_graph_finish_full_flow(
   func : HotFunc,
   rows : LocalGraphFlowRows,
@@ -94,15 +111,34 @@ fn local_graph_finish_full_flow(
 
 ///|
 /// Include exceptional flow with the same ordered sources as the full graph.
+/// An optional arena-sized read mask limits published rows to selected gets.
+/// Unselected rows are empty/unknown; every selected row keeps full-flow sources.
+/// The mask is borrowed only during construction, never retained or mutated.
 pub fn local_graph_build_read_sources(
   func : HotFunc,
   cfg : HotCfg,
+  selected_gets? : Array[Bool]? = None,
 ) -> HotLocalReadSources {
+  match selected_gets {
+    Some(mask) => {
+      if mask.length() != hot_node_count(func) {
+        abort("selected read mask requires one lane per arena node")
+      }
+      if !mask.any(fn(selected) { selected }) {
+        return HotLocalReadSources::new(
+          hot_local_count(func),
+          Array::make(hot_node_count(func), []),
+        )
+      }
+    }
+    None => ()
+  }
   let rows = local_graph_build_reverse_rows(
     func,
     cfg,
     true,
     full_metadata=false,
+    selected_gets~,
   )
   HotLocalReadSources::new(hot_local_count(func), rows.get_source_ids)
 }
@@ -1937,6 +1973,7 @@ fn local_graph_build_reverse_rows(
   include_exceptional : Bool,
   cache_slots? : Array[Int]? = None,
   full_metadata~ : Bool,
+  selected_gets? : Array[Bool]? = None,
 ) -> LocalGraphFlowRows {
   let local_count = hot_local_count(func)
   let node_count = hot_node_count(func)
@@ -1961,7 +1998,7 @@ fn local_graph_build_reverse_rows(
             cfg,
             include_exceptional,
             full_metadata~,
-          )
+          ).select_gets(selected_gets)
         }
       }
     }
@@ -1983,7 +2020,7 @@ fn local_graph_build_reverse_rows(
             cfg,
             include_exceptional,
             full_metadata~,
-          )
+          ).select_gets(selected_gets)
         }
         node_blocks[node_id] = block_id
         let node = hot_node_get(func, node_id)
@@ -1995,7 +2032,12 @@ fn local_graph_build_reverse_rows(
             }
             last_writes[node.imm0] = node_id
           }
-          HotOp::LocalGet =>
+          HotOp::LocalGet => {
+            // Keep complete action/write admission and CFG flow. Only selected
+            // reads need nearest/source rows; unselected reads remain unknown.
+            if selected_gets is Some(mask) && !mask[node_id] {
+              continue
+            }
             nearest_writes[node_id] = if last_writes[node.imm0] >= 0 {
               last_writes[node.imm0]
             } else {
@@ -2003,6 +2045,7 @@ fn local_graph_build_reverse_rows(
               // remains a nonread; known writers retain their node IDs.
               -node.imm0 - 2
             }
+          }
           _ => ()
         }
       }

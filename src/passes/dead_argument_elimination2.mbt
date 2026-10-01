@@ -514,12 +514,16 @@ fn dae2_analyze_function(
               Some(count) => count[0] += 1
               None => ()
             }
+            let selected_gets = dae2_unresolved_flow_reads(
+              func, written, entry_read_sources,
+            )
             let locals = @ir.local_graph_build_read_sources(
               func,
               // A stacked read can precede a later control root even when
               // its consuming parent follows that root. Expand operands so
               // both entry reads and earlier writes keep their actual sources.
               @ir.cfg_build(func, expand_operand_control=true),
+              selected_gets=Some(selected_gets),
             )
             local_flow = Some(locals)
             locals

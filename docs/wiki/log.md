@@ -1,3 +1,13 @@
+### 2026-10-01 — Unresolved DAE2 read-source projection
+
+- [Selected-source evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-demand-only-unresolved-dae2-read-sources)
+  records red-first ordered selection, shared/exceptional fallback and the
+  optional-mask API. All 13,216 tests and 1,056 focused observations pass with
+  exact compiler bytes. Cold resolved-heavy queries improve 75–96%; repeated
+  large plain/O improve 3.69%/1.28%. Retain noisy bands and repeated tee +1.67%.
+  The 183,596-byte canonical gap includes 183,470 code-body bytes; top function
+  deficits and the six-byte nested-read case remain active. Long fuzz is deferred.
+
 ### 2026-10-01 — Unboxed cleanup overflow membership
 
 - [Overflow allocation evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-unboxed-cleanup-overflow-membership)
