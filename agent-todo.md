@@ -104,6 +104,13 @@ oracle versions and checkpoints do not sign current source.
   Dense/barrier/no-work gains and sparse/control costs are recorded in
   [pending-storage evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-bounded-primitive-constant-store-pending-rows).
 
+- **Current continuation checkpoint:** V75 borrows unchanged cleanup bodies and
+  control shells, copying only changed parents/outputs. All 13,228 tests,
+  twelve native controls and 1,376 observations pass with exact compiler bytes.
+  Repeated large DAE2/O improves 2.39%/3.03%; tee optimizing +1.35% and noisy
+  small controls remain active. See
+  [ownership evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-borrow-unchanged-continuation-cleanup-storage).
+
 ### Historical V59 DAE2/O oracle baseline
 
 The frozen v59 open-world compiler comparison uses verified release v133,
@@ -361,7 +368,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   with immutable seeds; full-function native rows improve 5–24%, enclosing
   compiler times stay flat. Preserve full typing and measure other query owners.
   V70 closes quadratic ordered live-out deduplication with compact word
-  membership; ancestor/subtree rescans remain.
+  membership; ancestor/subtree rescans remain. V75 exposes a separate flat suffix
+  query cost: distinct adjacent captures still search the remaining normalized
+  body repeatedly. Replace those searches with demand-driven reachable-read
+  facts while preserving direct/nested terminators, original continuation reads,
+  legacy bodies/catches and single-query/no-work costs.
   Balanced flat cleanup repeatedly scans an immutable original tail, but the
   simple distinct/reused/nested capture pipeline probe scales roughly linearly.
   Profile actual compiler query density and preserve direct-write/recursive-read
@@ -384,9 +395,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   statement-local-get scans; trial body-revision facts or owned scratch for
   repeated suffix/effect queries before tuning the much smaller inner rewrite.
 - [ ] Reduce remaining pure/effectful/carrier recursive control and array
-  reconstruction after V52 closes unchanged balanced storage. Prove input
-  ownership and preserve all active rewrites; measure enclosing gains before
-  generalizing reuse. Reuse compact module/body facts and mutation-scoped
+  reconstruction after V52 closes unchanged balanced storage and V75 closes
+  unchanged continuation-cleanup arrays/control shells. V75 retains exact bytes,
+  improves native unchanged rows 51–64% and repeated large plain/O 2.39%/3.03%;
+  repeated tee optimizing +1.35% remains open. Prove input ownership and
+  preserve all active rewrites before generalizing reuse. Reuse compact module/body facts and mutation-scoped
   suffix/effect work where costs remain repeated. Refresh after splices or
   type/import/signature changes; preserve all five SimplifyLocals variants.
 - [ ] Keep Binaryen's cleanup breadth, including functions unchanged by DAE2.

@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/passes/cleanup_borrow_wbtest.mbt
+  - ../../../../../src/passes/cleanup_borrow_perf_wbtest.mbt
+  - ../../../../../src/passes/cleanup_borrow_reference_wbtest.mbt
+  - ../../../../../src/cmd/cleanup_borrow_wbtest.mbt
   - ../../../../../src/passes/constant_store_pending_wbtest.mbt
   - ../../../../../src/passes/constant_store_pending_perf_wbtest.mbt
   - ../../../../../src/passes/constant_store_pending_reference_wbtest.mbt
@@ -5697,3 +5701,71 @@ both timing cohorts, runtime replay, canonical bytes and RSS. Candidate SHA256:
 Unchanged continuation-array/control reconstruction, compound suffix typing,
 HOT dependency/lift/lower and remaining byte families stay active. Long fuzz
 remains deferred; this is not overall speed/size parity signoff.
+
+
+## October 1, 2026: borrow unchanged continuation-cleanup storage
+
+V75 removes unconditional array and control-shell reconstruction from
+`sl_cleanup_drop_dead_pairs_with_reads`. A child returns its original body when
+unchanged; its block/loop/if/try-table shell is then retained. Parents copy once
+at the first changed child, and the flat output is allocated only at an actual
+tee/drop or set/get rewrite. Original continuation reads, independent loop
+facts, normalized later-read checks and all active rewrites remain unchanged.
+The two production callers treat results as read-only: raw admission wraps a
+changed body, and exact cleanup builds fresh downstream output. No pass or
+candidate is skipped to obtain the gain.
+
+Two red-first ownership assertions fail on the predecessor: unchanged bodies
+are copied, and an unchanged sibling shell is rebuilt. Tests cover scalar/GC
+bodies, block/loop/if/try-table, changed-parent ownership, source encoded bytes,
+NaN payloads and signed zero. Existing loop/original-sibling/legacy regressions
+pass. Dispatcher checks preserve the result and remove dead nested captures
+in DAE2-O and SimplifyLocals. Its first expectation incorrectly required
+Vacuum's complete dropped-constant cleanup from standalone SimplifyLocals;
+predecessor replay confirms the distinct contract, and direct field assertions
+replace that expectation. This is not a newly implemented cleanup family.
+Info/fmt, **13,228** default tests, twelve native rows and the release build pass.
+All **1,376** original-primary observations match current/v133/original results,
+events and traps. Every compiler body, non-code section and canonical byte is
+identical to V74; the **180,144 canonical / 66,513 raw** deficit remains.
+
+Cold controls include all helper scratch and output allocation, with parsing
+excluded equally. The reference is the frozen shipped V74 implementation:
+
+| Body | Rebuild | Borrow |
+| --- | ---: | ---: |
+| One unchanged flat group | 96.89ns | 47.30ns |
+| 256 unchanged flat groups | 9.45µs | 3.75µs |
+| 32 unchanged blocks | 3.41µs | 1.22µs |
+| 32 unchanged chains, depth 16 | 83.85µs | 56.60µs |
+| 32 actively changed blocks | 3.77µs | 2.82µs |
+| 32 active distinct flat captures | 3.44µs | 3.48µs |
+
+Unchanged rows improve **51–64%**, deep chains 32%, active blocks 25%. Active
+flat captures remain flat within spread and still perform repeated suffix
+queries; they are the next quadratic-work target. The ownership optimization
+does not close ancestor/subtree rescans or compound suffix typing.
+
+CPU-6 enclosing pairs use one warmup, alternating order and reference brackets
+≤1.15. Initial three-pair cohorts and repeats (seven small/tee, three large):
+
+| Input | Initial plain/O before → after ms | Repeat plain/O before → after ms |
+| --- | ---: | ---: |
+| Small | 4.040 → 3.564 / 10.306 → 10.079 | 3.887 → 4.125 / 11.852 → 11.490 |
+| Large | 3,694.509 → 3,587.106 / 6,765.026 → 6,945.417 | 4,138.310 → 4,039.284 / 7,633.275 → 7,402.170 |
+| Active tee | 2.949 → 3.008 / 105.752 → 108.036 | 3.170 → 3.219 / 113.769 → 115.308 |
+
+Large plain improves **2.91%**, repeated **2.39%**. Optimizing changes from an
+initial +2.67% to repeated **−3.03%**, with higher host bands and candidate MAD
+149.435ms; retain both rather than presenting a universal compiler speedup.
+Small plain changes sign and its repeat has substantial spread; small
+optimizing repeats −3.05%. Tee optimizing still costs **1.35%** on repeat
+(MAD 1.109/0.239ms), and stays active. Preserve rejected reference brackets.
+Per-process wait4 large untraced peaks are before 304,464/294,232KiB and after
+294,344/293,928KiB. One higher predecessor band is not a general RSS win.
+
+Frozen evidence is `.tmp/dae2-cleanup-borrow-20261001/`, including red ownership
+failures, caller/dispatcher review, exact byte fixtures, native controls, both
+matched cohorts, runtime replay, canonical projection and RSS. Candidate SHA256:
+`a6b51665ea38ac7537f6e8b7e4e956766c27869c3f7f15ea6a880ba566da8804`.
+All broader speed/output and other-pass gaps remain open; long fuzz is deferred.

@@ -73661,7 +73661,7 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
       _ => false
     }
   })
-  let normalized = Array::make(instrs.length(), @lib.Instruction::nop())
+  let mut normalized = instrs
   let suffix_reads = if has_children { live_after.copy() } else { live_after }
   // Children use the original continuation's reads. Accumulate those reads
   // once in reverse order, preserving the original instruction order in the
@@ -73687,46 +73687,65 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
       }
       _ => live_after
     }
-    normalized[idx] = match instr {
-      @lib.Block(bt, @lib.Expr(body)) =>
-        @lib.Instruction::block(
-          bt,
-          @lib.Expr::new(
-            sl_cleanup_drop_dead_pairs_with_reads(body, child_live_after),
-          ),
+    let next = match instr {
+      @lib.Block(bt, @lib.Expr(body)) => {
+        let next_body = sl_cleanup_drop_dead_pairs_with_reads(
+          body, child_live_after,
         )
+        if physical_equal(next_body, body) {
+          instr
+        } else {
+          @lib.Instruction::block(bt, @lib.Expr::new(next_body))
+        }
+      }
       @lib.Loop(bt, @lib.Expr(body)) => {
         child_live_after.collect(body)
-        @lib.Instruction::loop_(
-          bt,
-          @lib.Expr::new(
-            sl_cleanup_drop_dead_pairs_with_reads(body, child_live_after),
-          ),
+        let next_body = sl_cleanup_drop_dead_pairs_with_reads(
+          body, child_live_after,
         )
+        if physical_equal(next_body, body) {
+          instr
+        } else {
+          @lib.Instruction::loop_(bt, @lib.Expr::new(next_body))
+        }
       }
-      @lib.TryTable(bt, catches, @lib.Expr(body)) =>
-        @lib.Instruction::try_table(
-          bt,
-          catches,
-          @lib.Expr::new(
-            sl_cleanup_drop_dead_pairs_with_reads(body, child_live_after),
-          ),
+      @lib.TryTable(bt, catches, @lib.Expr(body)) => {
+        let next_body = sl_cleanup_drop_dead_pairs_with_reads(
+          body, child_live_after,
         )
-      @lib.If(bt, then_body, else_body) =>
-        @lib.Instruction::if_(
-          bt,
-          sl_cleanup_drop_dead_pairs_with_reads(then_body, child_live_after),
-          match else_body {
-            Some(else_body) =>
-              Some(
-                sl_cleanup_drop_dead_pairs_with_reads(
-                  else_body, child_live_after,
-                ),
-              )
-            None => None
-          },
+        if physical_equal(next_body, body) {
+          instr
+        } else {
+          @lib.Instruction::try_table(bt, catches, @lib.Expr::new(next_body))
+        }
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let next_then = sl_cleanup_drop_dead_pairs_with_reads(
+          then_body, child_live_after,
         )
+        let mut next_else = else_body
+        if else_body is Some(body) {
+          let next_body = sl_cleanup_drop_dead_pairs_with_reads(
+            body, child_live_after,
+          )
+          if !physical_equal(next_body, body) {
+            next_else = Some(next_body)
+          }
+        }
+        if physical_equal(next_then, then_body) &&
+          physical_equal(next_else, else_body) {
+          instr
+        } else {
+          @lib.Instruction::if_(bt, next_then, next_else)
+        }
+      }
       _ => instr
+    }
+    if !physical_equal(next, instr) {
+      if physical_equal(normalized, instrs) {
+        normalized = instrs.copy()
+      }
+      normalized[idx] = next
     }
     if has_children {
       match suffix_root_visits {
@@ -73738,7 +73757,10 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
       suffix_reads.collect_instr(instr)
     }
   }
-  let rewritten : Array[@lib.Instruction] = []
+  // Borrow unchanged arrays. All callers treat these results as read-only;
+  // allocate an owned output only when a pair is actually changed.
+  let mut rewritten : Array[@lib.Instruction]? = None
+  let mut cursor = 0
   let mut idx = 0
   while idx < normalized.length() {
     match normalized[idx] {
@@ -73751,11 +73773,22 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
             idx + 2,
             raw.reinterpret_as_int(),
           ) {
-          rewritten.push(@lib.Instruction::local_set(@lib.LocalIdx::new(raw)))
-          idx = idx + 2
+          let out = match rewritten {
+            Some(out) => out
+            None => {
+              let out : Array[@lib.Instruction] = []
+              rewritten = Some(out)
+              out
+            }
+          }
+          for kept = cursor; kept < idx; kept = kept + 1 {
+            out.push(normalized[kept])
+          }
+          out.push(@lib.Instruction::local_set(@lib.LocalIdx::new(raw)))
+          idx += 2
+          cursor = idx
         } else {
-          rewritten.push(normalized[idx])
-          idx = idx + 1
+          idx += 1
         }
       @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let mut get_idx = idx + 1
@@ -73779,26 +73812,42 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
           false
         }
         if removable {
+          let out = match rewritten {
+            Some(out) => out
+            None => {
+              let out : Array[@lib.Instruction] = []
+              rewritten = Some(out)
+              out
+            }
+          }
+          for kept = cursor; kept < idx; kept = kept + 1 {
+            out.push(normalized[kept])
+          }
           if get_idx + 1 >= normalized.length() ||
             normalized[get_idx + 1] != @lib.Instruction::drop() {
-            rewritten.push(@lib.Instruction::nop())
+            out.push(@lib.Instruction::nop())
           }
           for nop_idx = idx + 1; nop_idx < get_idx; nop_idx = nop_idx + 1 {
-            rewritten.push(normalized[nop_idx])
+            out.push(normalized[nop_idx])
           }
           idx = get_idx + 1
+          cursor = idx
         } else {
-          rewritten.push(normalized[idx])
-          idx = idx + 1
+          idx += 1
         }
       }
-      _ => {
-        rewritten.push(normalized[idx])
-        idx = idx + 1
-      }
+      _ => idx += 1
     }
   }
-  rewritten
+  match rewritten {
+    Some(out) => {
+      for kept = cursor; kept < normalized.length(); kept = kept + 1 {
+        out.push(normalized[kept])
+      }
+      out
+    }
+    None => normalized
+  }
 }
 
 ///|

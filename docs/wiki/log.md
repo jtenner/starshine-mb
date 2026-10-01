@@ -1,3 +1,13 @@
+### 2026-10-01 — Unchanged continuation-cleanup storage
+
+- [Ownership evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-borrow-unchanged-continuation-cleanup-storage)
+  records red-first array/sibling ownership, read-only callers, unchanged loop
+  and original-continuation facts, and exact compiler bytes. All 13,228 tests
+  and 1,376 observations pass; native unchanged rows improve 51–64%, active
+  blocks 25%. Repeated large plain/O improves 2.39%/3.03%, while tee optimizing
+  +1.35%, noisy host bands and repeated flat suffix queries remain active.
+  Byte deficit remains 180,144 canonical / 66,513 raw; long fuzz is deferred.
+
 ### 2026-10-01 — Bounded primitive constant-store scratch
 
 - [Pending-storage evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-bounded-primitive-constant-store-pending-rows)
