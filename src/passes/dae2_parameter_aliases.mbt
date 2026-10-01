@@ -80,7 +80,14 @@ fn Dae2ParameterAliases::discover(
             self.writes[source] == 0 ||
             (self.writes[source] == 1 && self.is_established(source))
           ) &&
-          self.source_is_profitable(source, local_id, instr is @lib.LocalTee(_))
+          (
+            dae2_alias_source_is_nonwidening(source, local_id) ||
+            self.source_is_profitable(
+              source,
+              local_id,
+              instr is @lib.LocalTee(_),
+            )
+          )
         if is_alias {
           self.active[local_id] = source
           let kind = if instr is @lib.LocalTee(_) { 1L } else { 0L }

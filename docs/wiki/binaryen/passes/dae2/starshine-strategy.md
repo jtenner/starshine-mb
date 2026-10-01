@@ -4852,3 +4852,60 @@ rows and runtime observations. Candidate SHA-256 is
 `cbe32154a6eabec7795423ce16fd6e5d166e2d2e7b1e0e5f94f83fd81b0a6917`.
 Remaining byte families, the reproduced tee cost, source-query/header churn
 and all speed/aggregate/release gaps stay open.
+
+## October 1, 2026: cheap alias admission at discovery
+
+V63 checks the existing pure nonwidening predicate at the discovery call site
+before calling the larger profitable-admission method. This is the same boolean
+admission: the latter already returns true for that predicate, without changing
+facts. Retain every wide/final-bound/profitable case. Native code had already
+inlined the small check inside the method, but its six-register prologue still
+ran before checking cheap copies; duplicating it inside the method would not
+address the cost. Discovery now bypasses that frame entirely.
+
+A bounded actual dispatcher work guard fails before the change: one cheap copy
+calls the profitable helper. Afterward the same active transform produces exact
+predecessor bytes and zero helper calls. Preserve unprofiled/debugger equality
+and independent validation; debugger wall time is not benchmark evidence.
+All **13,180** default wasm-gc tests, focused pass/dispatcher checks, info/fmt,
+release native build and README/API sync pass. No API changes.
+
+CPU-6 matched enclosing medians are **9.691 → 9.753 ms (+0.64%)** small
+(MAD 0.057/0.114), **6,140.699 → 6,087.850 ms (−0.86%)** large
+(MAD 1.578/19.955), and **103.453 → 101.589 ms (−1.80%)** active tee
+(MAD 1.511/0.345; seven pairs). Retain rejected reference brackets. The small
+control is effectively flat; the tee result addresses the preceding wrapper
+cost. The large absolute times differ materially from V62 even for the same
+predecessor executable: do not call the cross-cohort difference a speedup or
+combine this cohort with V62 oracle timings to invent a new ratio.
+
+All small/large/tee artifact outputs remain byte-identical to V62. Replay
+**32 fresh candidate outputs / 96 retained reference modules**, comparing exact
+predecessor bytes and **256** fresh original-primary runtime observations.
+Defaults, effects, traps, reference identity and changed loop producers agree.
+The 210,159-byte canonical gap is retained under V62's explicit projection;
+wide/rejection native costs and broader speed/size parity remain open.
+
+Artifacts: `.tmp/dae2-alias-cheap-20261001/` contains the red/green work guard,
+full source manifest, validation, matched cohorts and replay. Candidate SHA-256
+is `4817c213a214f545c38039acc42f5311d244c3d9d291edfc0868122765ef2d0a`.
+
+### Raw versus projected copy attribution
+
+The V62 raw and projected artifact review changes the next byte target. In
+function 7292, projection adds **762 local.get / local.set pairs**; 7293 adds
+**227** and 10435 **458**. Binaryen's own raw-to-projected operation counts stay
+unchanged in all three. Starshine raw function 10435 contains **no adjacent
+get→set/tee copies**, although its projected output contains 432. Raw and
+projected call/control counts remain equal within each Starshine function.
+These writer-added copies cannot be removed by broadening a raw alias matcher.
+
+Raw output still has more get/set operations and fewer tees than v133: 7292
+is **8,186/2,666/602** get/set/tee versus **7,182/1,662/1,228**, and 10435
+is **11,380/2,281/2,092** versus **10,838/1,739/2,498**. Thus both raw cleanup
+and writer-origin stack/control shapes need work. Inspect raw witnesses first,
+then compare downstream cleanup and projected deltas; statement-spanning stack
+values and control-result/tee formation are hypotheses to reduce, not proven
+transform classifications. Do not treat the larger canonical copy counts as
+raw immutable-alias coverage. Extracted functions/counts are saved under
+`.tmp/dae2-profitable-alias-20261001/writer-review/`.

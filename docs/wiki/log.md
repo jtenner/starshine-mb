@@ -1,3 +1,12 @@
+### 2026-10-01 — Cheap alias admission and copy attribution
+
+- [Discovery bypass](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-cheap-alias-admission-at-discovery)
+  skips the larger profitable-admission frame for nonwidening copies. A red-first
+  active native work guard and 13,180 tests pass. Matched tee improves 1.80%
+  and large optimizing 0.86%; 256 runtime observations agree with exact V62
+  bytes. Preserve host/cohort limits. Attribute projected writer copies
+  separately from raw aliases before addressing the remaining byte gap.
+
 ### 2026-10-01 — Profitable sole-reader reverse copies
 
 - [Strict alias byte budgets](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-profitable-sole-reader-reverse-copies)

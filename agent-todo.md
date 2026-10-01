@@ -41,6 +41,14 @@ oracle versions and checkpoints do not sign current source.
   [Sole-reader evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-profitable-sole-reader-reverse-copies)
   records current descriptive DAE2-O ratios (3.29× small / 4.17× large) and scopes.
 
+- **Current cheap-path checkpoint:** V63 bypasses the larger alias-admission
+  frame on proved nonwidening copies. The bounded active work guard goes from
+  one helper call to zero with exact output. Matched tee improves 1.80% and
+  large optimizing 0.86%; small is flat within spread. All 13,180 tests and
+  256 replay observations pass; artifact bytes stay identical to V62.
+  [Cheap-path and writer-origin evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-cheap-alias-admission-at-discovery)
+  retains cohort limits and remaining gaps.
+
 ### Historical V59 DAE2/O oracle baseline
 
 The frozen v59 open-world compiler comparison uses verified release v133,
@@ -325,6 +333,13 @@ breadth. Shared changes require all affected consumers in the matrix below.
   ordered SimplifyLocals/Vacuum and
   downstream cleanup; close indirect-family, typed-control, parameter/result
   and local/capture debris gaps without weakening behavior.
+- [ ] Separate raw cleanup gaps from writer-added captures before broadening
+  aliases. Projection adds 762 get/set pairs in function 7292, 227 in 7293 and
+  458 in 10435; the latter has no raw adjacent get→set/tee copies. Binaryen
+  adds none in those functions. Reduce raw get/set versus tee differences and
+  inspect statement-spanning stack/control-result shapes and downstream
+  cleanup. Require raw/canonical/per-function and runtime evidence; the
+  observed projected-copy counts are not raw alias coverage.
 - [ ] Profile remaining alias admission/counting, replay and remap costs after
   V55 removes intermediate trees and instruction-option roots. Wide native
   active controls improve 12–21%, but enclosing optimizing times remain flat;
@@ -345,9 +360,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
   leave compiler functions 7292/7293 unchanged and save only 137 bytes in 10435.
   Multi-reader width-changing partial aliases remain unsupported; do not widen
   them without proving retirement or accounting for retained writers.
-  Reduce the extra admission-wrapper cost on cheap nonwidening aliases: active
-  tee costs +1.57%, confirmed +1.40% in a seven-pair repeat; native wide/rejection
-  controls cost about 0.6–2.5%. Retain final-index bounds and one lazy scan.
+  V63 closes the cheap admission-frame bypass, improving matched tee 1.80%.
+  Attribute remaining wide/rejection costs (V62 native rows cost about
+  0.6–2.5%) with renewed native controls; keep final-index bounds and one lazy scan.
   Keep the equal-size unused-declaration difference in reduced v133 examples
   explicit; fewer locals alone do not establish an output-shape win.
 - [ ] Inspect and replay the **41 V25-changed functions / +458 bytes**, preserving
