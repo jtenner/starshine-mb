@@ -20,7 +20,9 @@ test "single entry proof does not allocate a full local-index row" {
     if @ir.hot_node_op(func, node) is @ir.LocalGet {
       let reaching = @ir.local_graph_reaching_sources_for_get(flow, node)
       assert_eq(reaching.length(), 1)
-      let @ir.SetSource(write) = reaching[0]
+      guard reaching[0] is @ir.SetSource(write) else {
+        fail("expected a reaching local write")
+      }
       assert_eq(write, actual[node])
     }
   }
