@@ -174,6 +174,11 @@ files=1
 
 In CI (`CI=true`), an increased uncovered-line count versus the baseline is fatal. Outside CI, the same command reports the delta without failing unless the underlying Moon command or parser fails.
 
+The [compiler-facts boundary tests](../../../src/binary/compiler_facts_boundary_wbtest.mbt)
+check canonical scalar/vector roundtrips and reject every strict truncation of
+fixed valid payloads. These deterministic codec checks exercise malformed-input
+paths without weakening the uncovered-line baseline.
+
 ## Trace Benchmark Gate
 
 `bun validate trace-benchmark` dispatches to:
