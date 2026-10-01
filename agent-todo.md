@@ -271,6 +271,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - [ ] Attribute whole-code-section and per-function setup, raw Vacuum preclean,
   SimplifyLocals admission/mutation safety, child-use queries, lower and
   writeback guards separately from the actual transform timers.
+  Follow the native profile into skipped-effectful-carrier and balanced-
+  statement-local-get scans; trial body-revision facts or owned scratch for
+  repeated suffix/effect queries before tuning the much smaller inner rewrite.
 - [ ] Reduce remaining pure/effectful/carrier recursive control and array
   reconstruction after V52 closes unchanged balanced storage. Prove input
   ownership and preserve all active rewrites; measure enclosing gains before
@@ -336,6 +339,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   baseline; do not multiply percentages or subtract different oracle cohorts.
   Refresh paired enclosing and untraced-command comparisons against v133 after
   the next material changes and at the final performance checkpoint.
+  Use the all-DAE diagnostic freeze in `.tmp/dae-all-speed-20260930/` to select
+  experiments, not to replace corrected-v38 correctness evidence or claim a
+  causal speedup. Its v133-based 2× targets are about 2.004 / 6.914 ms on small
+  DAE2/O and 924.872 / 3,419.400 ms on large DAE2/O. Renew after the in-progress
+  structured-suffix work changes; retain output-size and cleanup-breadth gates.
 - **Tests / exit:** existing active cold/warm controls plus pinned small/large
   compiler artifacts, independent reference brackets, identical-binary
   calibration, source/binary/input hashes, MAD, RSS and exact traced/untraced
@@ -415,22 +423,42 @@ breadth. Shared changes require all affected consumers in the matrix below.
   use unique bodies, adversarial collisions, recursive remaps and
   [fixed-point controls](src/passes/duplicate_function_fixed_point_perf_wbtest.mbt).
 
-### P08 — Remaining DAE uniform-actual, slice and solver work [IR2-PERF-DAE]
+### P08 — Remaining DAE snapshots, uniform actuals and transactions [IR2-PERF-DAE]
 
-- **Owner / why:** [DAE](src/passes/dead_argument_elimination.mbt); the historical
-  small oracle gap and optimizing output-size gap need current-source renewal.
+- **Owner / why:** [DAE](src/passes/dead_argument_elimination.mbt); the renewed
+  September 30 diagnostic cohort retains the small oracle gap and large
+  optimizing output-size gap. Target at most 2× verified v133 pass time: about
+  1.322 / 28.835 ms on small DAE/O. Large DAE/O already meets this timing target
+  in that cohort; output parity and cleanup breadth remain open.
+- [ ] Reduce full boundary/call-fact snapshot reconstruction across productive
+  core and selected-lane rounds. Evaluate the existing
+  `dae_refresh_changed_caller_function_infos` and lightweight batch-adoption
+  helpers for proved same-shape mutations, extending topology/exposure facts
+  and deterministic caller order as needed. Retain full rebuild for unproved
+  body, signature, control-type, import, numbering or module-shape changes.
+- [ ] Investigate batching compatible rewrite plans and candidate validation.
+  The small whole-command profile records 66 / 125 full snapshots and 35 / 39
+  whole-module validations for DAE/O; wrapper and inner counts must not be
+  added. Preserve candidate rollback, stale-plan rejection, every intermediate
+  state's required checks and complete final-module validation.
 - **Deliverables / tasks:** profile uniform actuals, parameterized operand/slice
   construction, droppable pure-value need-stack allocation and solving on active
   inputs. Reuse literal/forwarding facts and owned recursive scratch, rather
-  than complete copied operands.
+  than complete copied operands. Prioritize recursive forwarded-uniform answers
+  and value-slice reuse: the small full-command profiles record 12,106 / 52,033
+  slice-construction calls for DAE/O. Key reuse to relevant body/signature/type
+  revisions and preserve cycle handling and exact floating-point identities.
 - **Admission invariant:** establish fallthrough eligibility before an early
   exit: `None` and `Some([None])` differ, and later unsupported control can change
   admission. Rebuild facts on body, callee boundary, numbering, arity or relevant
   type changes. Preserve NaN identity, effects/traps and input ownership.
 - **Evidence still needed:** measure the enclosing benefit of existing exact-
   owner graph reuse on active small/large rounds; its native nonconstant control
-  gain does not prove an active speedup. Renew DAE/DAEO artifact ratios and size
-  deltas; classify uniform-actual/capture and generated cleanup residuals.
+  gain does not prove an active speedup. Use
+  `.tmp/dae-all-speed-20260930/investigation.md` and its frozen manifests for the
+  renewed ratios, phase/native profiles and size deltas; require paired gain,
+  MAD and RSS evidence before adopting the next trial. Classify
+  uniform-actual/capture and generated cleanup residuals.
   [Priority evidence](docs/wiki/tooling/tracing-playbook.md#dae-priority-scan-and-source-query-controls)
   owns completed fixes, native controls and prior tradeoffs. Large guarded DAEO
   does not prove cleanup breadth; P05 supplies nested cleanup.
