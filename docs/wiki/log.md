@@ -1,3 +1,13 @@
+### 2026-10-01 — Root cleanup traversal admission
+
+- [Root traversal evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-admit-only-needed-root-cleanup-scans)
+  closes the red 384-visit / 128-root failure while retaining all nested
+  rewrites. All 13,236 tests and 1,376 observations pass with exact bytes.
+  Flat/shallow native rows improve 22–60%; repeated large plain/O improves
+  .75%/2.58%. Initial large, small optimizing, plain tee and dispersed deep
+  controls stay open. The gap remains 180,144 canonical / 66,513 raw bytes;
+  long fuzz and overall signoff remain deferred.
+
 ### 2026-10-01 — Bounded normalized future-read queries
 
 - [Query evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-bound-repeated-normalized-future-read-queries)

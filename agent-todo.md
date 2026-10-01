@@ -395,11 +395,13 @@ breadth. Shared changes require all affected consumers in the matrix below.
   simple distinct/reused/nested capture pipeline probe scales roughly linearly.
   Profile actual compiler query density and preserve direct-write/recursive-read
   and terminator semantics before adding sparse tail-event caches.
-- [ ] Avoid redundant normalization/flat scans when a body has no root writes
-  and no child transforms. The current continuation helper scans unchanged
-  leaves three times. Prove root-write absence survives control-shell retention,
-  keep every nested rewrite and original continuation collection, and measure
-  active/unchanged shallow/deep controls plus both enclosing DAE2 modes.
+- [ ] Resolve V77 remaining deep/control costs. Root admission closes redundant
+  normalization and pairing traversals with exact bytes; unchanged flat/shallow
+  native rows improve 22–60%, active rows 3–6%. All 13,236 tests and 1,376
+  observations pass. Repeated large plain/O improves .75%/2.58%, but initial
+  large costs, small optimizing +1.51%, plain tee +2.34% and dispersed depth-16
+  controls remain active. Preserve all child rewrites and original continuation
+  facts; remove ancestor/subtree repetition without narrowing cleanup.
 - [ ] Refine sparse constant-store scratch and remaining enclosing costs. V74
   closes dense pending-map allocation (one scoped map → zero) and improves
   matched native dense rows 20–47%, barriers 64% and no-work 38–47%, retaining

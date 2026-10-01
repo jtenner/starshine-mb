@@ -3,6 +3,10 @@ kind: entity
 status: working
 last_reviewed: 2026-10-01
 sources:
+  - ../../../../../src/passes/no_write_cleanup_wbtest.mbt
+  - ../../../../../src/passes/no_write_cleanup_reference_wbtest.mbt
+  - ../../../../../src/passes/no_write_cleanup_perf_wbtest.mbt
+  - ../../../../../src/cmd/no_write_cleanup_wbtest.mbt
   - ../../../../../src/passes/cleanup_future_reads.mbt
   - ../../../../../src/passes/future_read_mask_wbtest.mbt
   - ../../../../../src/passes/future_read_mask_reference_wbtest.mbt
@@ -5884,3 +5888,61 @@ later read is still inside legacy try. Final Vacuum exposes the remaining
 root get/set copy. Constant/sole-writer cleanup must preserve legacy reads and
 caught traps; this remains separate from the byte-identical V76 change.
 Long fuzz and full parity signoff remain deferred until performance work is lean.
+
+
+## October 1, 2026: admit only needed root cleanup scans
+
+V77 replaces the child-only callback admission scan with one direct root scan
+for child controls and local writes. Neither present means the adjacent-pair
+helper returns its original body immediately. Flat bodies with writes retain
+all pairing and suffix queries but omit the no-op normalization traversal.
+Bodies with children retain the original reverse normalization and original
+continuation facts. Root-control shells remain control shells after child
+cleanup, so a body without root sets/tees can return its normalized child
+rewrites without an additional flat scan. No eligible rewrite is removed.
+
+The red regression records **384 root visits for 128 unchanged instructions**
+and fails a one-pass bound. The fixture validates modules, checks source
+encoded-byte ownership, compares exact transforms to frozen V76, and also
+covers unchanged children and 32 independently active nested captures. Additional
+controls retain imported effects, GC reads, legacy scopes and active dispatcher
+results. The counter counts actual root traversal work for its owner, not all
+recursive descendants or whole-pass instruction counts.
+
+Frozen evidence lives under `.tmp/dae2-no-write-cleanup-20261001/`;
+V77 native SHA-256 is
+`97660e9b050c2d0dd5b26137985d3e8166847ae042711fb41e1f5d29bab3cf16`.
+`moon info`, formatting, focused tests, all **13,236** default tests, native
+release and twelve native benchmark rows pass. The original-primary runtime
+checks cover 1,376 observations with no mismatches. Compiler raw/canonical
+bytes, individual function bodies and non-code sections are exactly V76;
+the v133 deficit remains **180,144 canonical / 66,513 raw bytes**.
+
+| Native control | V76 → V77, repeated mean | Change |
+| --- | ---: | ---: |
+| Flat unchanged width 1 | 43.59 → 34.10 ns | −22% |
+| Flat unchanged width 256 | 3.76 → 1.50 µs | −60% |
+| Unchanged width 32 depth 1 | 1.25 → .908 µs | −27% |
+| Unchanged width 32 depth 16 | 58.16 → 56.53 µs | −2.8% |
+| Active width 32 depth 1 | 2.80 → 2.71 µs | −3.2% |
+| Active flat width 32 | 2.67 → 2.52 µs | −5.6% |
+
+Retain the initial depth-16 **56.04 → 59.82 µs (+6.7%)** alongside its repeat;
+that deep control is dispersed, not a proved speed win. Initial three-pair
+small plain/O medians are 3.713 → 3.599 / 10.312 → 10.474 ms
+(−3.07% / +1.57%); large 4,383.388 → 4,439.762 /
+8,301.410 → 8,363.515 ms (+1.29% / +.75%); tee
+3.197 → 3.145 / 104.025 → 105.184 ms (−1.63% / +1.11%).
+Repeat seven small/tee and three large pairs: small
+3.821 → 3.786 / 10.337 → 10.493 ms (−.92% / +1.51%);
+large 4,502.593 → 4,468.987 / 8,405.524 → 8,188.942 ms
+(−.75% / −2.58%); tee 3.078 → 3.150 / 103.782 → 103.407 ms
+(+2.34% / −.36%). All drift-rejected samples and the differing host bands
+remain preserved. These are enclosing pipeline timings, not v133 pass-local
+ratios. Small optimizing, plain tee, deep controls and cumulative performance
+remain open. Per-child peak RSS is 304,640/294,256 KiB before and
+294,216/294,048 after; this is not a universal allocation/RSS win.
+
+The redundant root traversals are closed, while ancestor continuation scans,
+remaining query admission costs and byte parity remain active. Long fuzz
+remains deferred under the user's focused-performance instruction.
