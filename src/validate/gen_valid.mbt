@@ -805,6 +805,18 @@ pub enum GenValidProfile {
   EngineStateRecursiveMultivalueProfile
   EngineStateSubtypeCastGraphProfile
   EngineStateAllProfile
+  EngineCompileShapesProfile
+  EngineProposalMatrixProfile
+  EngineStateCoreProfile
+  EngineTieringLoopProfile
+  EngineTieringLargeFunctionProfile
+  EngineTieringCallChainProfile
+  EngineTieringCallFanoutProfile
+  EngineTieringIndirectProfile
+  EngineTieringLocalsStackProfile
+  EngineTieringMemoryProfile
+  EngineTieringGcProfile
+  EngineTieringStressProfile
   SemanticEffectsProfile
   SemanticImportEventsProfile
   SemanticTrapFrontierProfile
@@ -1304,6 +1316,18 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     EngineStateRecursiveMultivalueProfile => "engine-state-recursive-multivalue"
     EngineStateSubtypeCastGraphProfile => "engine-state-subtype-cast-graph"
     EngineStateAllProfile => "engine-state-all"
+    EngineCompileShapesProfile => "engine-compile-shapes"
+    EngineProposalMatrixProfile => "engine-proposal-matrix"
+    EngineStateCoreProfile => "engine-state-core"
+    EngineTieringLoopProfile => "engine-tiering-loop"
+    EngineTieringLargeFunctionProfile => "engine-tiering-large-function"
+    EngineTieringCallChainProfile => "engine-tiering-call-chain"
+    EngineTieringCallFanoutProfile => "engine-tiering-call-fanout"
+    EngineTieringIndirectProfile => "engine-tiering-indirect"
+    EngineTieringLocalsStackProfile => "engine-tiering-locals-stack"
+    EngineTieringMemoryProfile => "engine-tiering-memory"
+    EngineTieringGcProfile => "engine-tiering-gc"
+    EngineTieringStressProfile => "engine-tiering-stress"
     SemanticEffectsProfile => "semantic-effects"
     SemanticImportEventsProfile => "semantic-import-events"
     SemanticTrapFrontierProfile => "semantic-trap-frontier"
@@ -1682,6 +1706,10 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | FlattenAllProfile
     | DirectizeAllProfile
     | EngineStateAllProfile
+    | EngineCompileShapesProfile
+    | EngineProposalMatrixProfile
+    | EngineStateCoreProfile
+    | EngineTieringStressProfile
     | SemanticOptimizerAllProfile
     | RandomAllProfilesProfile => true
     _ => false
@@ -2260,6 +2288,111 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(EngineStateRecursiveMultivalueProfile, 4),
         GenValidProfileMember::new(EngineStateSubtypeCastGraphProfile, 4),
       ]
+    EngineCompileShapesProfile =>
+      [
+        GenValidProfileMember::new(FlattenBlocksProfile, 1),
+        GenValidProfileMember::new(FlattenIfsProfile, 1),
+        GenValidProfileMember::new(FlattenLoopsProfile, 1),
+        GenValidProfileMember::new(FlattenBrTableProfile, 1),
+        GenValidProfileMember::new(FlattenMultivalueProfile, 1),
+        GenValidProfileMember::new(MergeBlocksStructuralProfile, 1),
+        GenValidProfileMember::new(MergeBlocksExpressionProfile, 1),
+        GenValidProfileMember::new(MergeBlocksEffectProfile, 1),
+        GenValidProfileMember::new(Dae2ForwardedResultsProfile, 1),
+        GenValidProfileMember::new(Dae2CyclesProfile, 1),
+        GenValidProfileMember::new(Dae2ControlFlowProfile, 1),
+        GenValidProfileMember::new(Dae2TupleResultsProfile, 1),
+        GenValidProfileMember::new(Dae2IndirectProfile, 1),
+        GenValidProfileMember::new(Dae2LocalsProfile, 1),
+        GenValidProfileMember::new(InliningOptimizingDirectWrapperProfile, 1),
+        GenValidProfileMember::new(InliningOptimizingParamSpillProfile, 1),
+        GenValidProfileMember::new(InliningOptimizingCleanupPayoffProfile, 1),
+        GenValidProfileMember::new(SsaFreshSetProfile, 1),
+        GenValidProfileMember::new(SsaFreshTeeProfile, 1),
+        GenValidProfileMember::new(SsaMergeExplicitProfile, 1),
+        GenValidProfileMember::new(SsaLoopProfile, 1),
+        GenValidProfileMember::new(SsaBranchProfile, 1),
+        GenValidProfileMember::new(SsaTypedControlProfile, 1),
+        GenValidProfileMember::new(SsaNestedValueProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsStraightLineProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsStructuredProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsLoopCopyThroughProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsInterBlockProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsExactTypesProfile, 1),
+        GenValidProfileMember::new(MergeLocalsForwardProfile, 1),
+        GenValidProfileMember::new(MergeLocalsReverseProfile, 1),
+        GenValidProfileMember::new(MergeLocalsControlProfile, 1),
+        GenValidProfileMember::new(MergeLocalsTeeProfile, 1),
+        GenValidProfileMember::new(MergeLocalsNestedCopiesProfile, 1),
+        GenValidProfileMember::new(MemoryPackingActiveRangesProfile, 1),
+        GenValidProfileMember::new(MemoryPackingDefinedOverlapProfile, 1),
+        GenValidProfileMember::new(MemoryPackingPassiveSplitsProfile, 1),
+        GenValidProfileMember::new(MemoryPackingSegmentOpsProfile, 1),
+        GenValidProfileMember::new(MemoryPackingBoundariesProfile, 1),
+        GenValidProfileMember::new(ReorderGlobalsHotTrafficProfile, 1),
+        GenValidProfileMember::new(ReorderGlobalsDependencySearchProfile, 1),
+        GenValidProfileMember::new(ReorderGlobalsModuleCodeProfile, 1),
+        GenValidProfileMember::new(ReorderGlobalsMetadataRemapProfile, 1),
+        GenValidProfileMember::new(ReorderGlobalsThresholdProfile, 1),
+        GenValidProfileMember::new(CampaignSegmentStateProfile, 1),
+        GenValidProfileMember::new(EngineStateDecoderTopologyProfile, 1),
+        GenValidProfileMember::new(EngineStateLebIndexBoundariesProfile, 1),
+        GenValidProfileMember::new(EngineStateCompilerBoundariesProfile, 1),
+      ]
+    EngineProposalMatrixProfile =>
+      [
+        GenValidProfileMember::new(CampaignSimdNumericProfile, 1),
+        GenValidProfileMember::new(CampaignGcRefSubtypesProfile, 1),
+        GenValidProfileMember::new(CampaignEhControlProfile, 1),
+        GenValidProfileMember::new(CampaignMemory64MultiMemoryProfile, 1),
+        GenValidProfileMember::new(CampaignCallTopologyProfile, 1),
+        GenValidProfileMember::new(EngineStateTailCallsProfile, 1),
+        GenValidProfileMember::new(EngineStateTypedFunctionReferencesProfile, 1),
+        GenValidProfileMember::new(EngineStateMemory64Profile, 1),
+        GenValidProfileMember::new(EngineStateExceptionsProfile, 1),
+        GenValidProfileMember::new(EngineStateGcProfile, 1),
+        GenValidProfileMember::new(EngineStateTypeCallMatrixProfile, 2),
+        GenValidProfileMember::new(EngineStateExceptionUnwindProfile, 2),
+        GenValidProfileMember::new(EngineStateGcGraphProfile, 2),
+        GenValidProfileMember::new(EngineStateTableReferenceMatrixProfile, 2),
+        GenValidProfileMember::new(EngineStateMemory64MultiMemoryProfile, 2),
+        GenValidProfileMember::new(EngineStateRecursiveMultivalueProfile, 2),
+        GenValidProfileMember::new(EngineStateSubtypeCastGraphProfile, 2),
+      ]
+    EngineStateCoreProfile =>
+      [
+        GenValidProfileMember::new(EngineStateScalarControlProfile, 3),
+        GenValidProfileMember::new(EngineStateCallsProfile, 2),
+        GenValidProfileMember::new(EngineStateMemoryProfile, 2),
+        GenValidProfileMember::new(EngineStateTableProfile, 1),
+        GenValidProfileMember::new(EngineStateImportsProfile, 2),
+        GenValidProfileMember::new(EngineStateInitializationProfile, 1),
+        GenValidProfileMember::new(EngineStateTopologyProfile, 4),
+        GenValidProfileMember::new(EngineStateEffectsProfile, 4),
+        GenValidProfileMember::new(EngineStateResourcesProfile, 4),
+        GenValidProfileMember::new(EngineStateBoundariesProfile, 3),
+        GenValidProfileMember::new(EngineStateOptimizerShapesProfile, 3),
+        GenValidProfileMember::new(EngineStateEquivalentFamiliesProfile, 6),
+        GenValidProfileMember::new(EngineStatePassiveSegmentsProfile, 4),
+        GenValidProfileMember::new(EngineStateStackPressureProfile, 4),
+        GenValidProfileMember::new(EngineStateMemoryAliasingProfile, 4),
+        GenValidProfileMember::new(EngineStateResourceExhaustionProfile, 3),
+        GenValidProfileMember::new(EngineStateDecoderTopologyProfile, 4),
+        GenValidProfileMember::new(EngineStateLebIndexBoundariesProfile, 2),
+        GenValidProfileMember::new(EngineStateCompilerBoundariesProfile, 4),
+        GenValidProfileMember::new(EngineStateNanProfile, 4),
+      ]
+    EngineTieringStressProfile =>
+      [
+        GenValidProfileMember::new(EngineTieringLoopProfile, 4),
+        GenValidProfileMember::new(EngineTieringLargeFunctionProfile, 2),
+        GenValidProfileMember::new(EngineTieringCallChainProfile, 2),
+        GenValidProfileMember::new(EngineTieringCallFanoutProfile, 2),
+        GenValidProfileMember::new(EngineTieringIndirectProfile, 3),
+        GenValidProfileMember::new(EngineTieringLocalsStackProfile, 2),
+        GenValidProfileMember::new(EngineTieringMemoryProfile, 3),
+        GenValidProfileMember::new(EngineTieringGcProfile, 1),
+      ]
     SemanticOptimizerAllProfile =>
       [
         GenValidProfileMember::new(SemanticEffectsProfile, 3),
@@ -2324,13 +2457,24 @@ pub fn gen_valid_case_seed(seed : UInt64, case_index : Int) -> UInt64 {
 }
 
 ///|
+fn gen_valid_profile_uses_exact_weighted_cycle(
+  profile : GenValidProfile,
+) -> Bool {
+  profile == EngineStateAllProfile ||
+  profile == EngineCompileShapesProfile ||
+  profile == EngineProposalMatrixProfile ||
+  profile == EngineStateCoreProfile ||
+  profile == EngineTieringStressProfile
+}
+
+///|
 pub fn gen_valid_profile_leaf_for_case(
   profile : GenValidProfile,
   seed : UInt64,
   case_index : Int,
 ) -> GenValidProfile {
   let members = gen_valid_profile_members(profile)
-  if profile == EngineStateAllProfile && !members.is_empty() {
+  if gen_valid_profile_uses_exact_weighted_cycle(profile) && !members.is_empty() {
     let normalized_index = if case_index <= 0 { 1 } else { case_index }
     let mut total_weight = 0
     for entry in members {
@@ -2559,6 +2703,16 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     EngineStateRecursiveMultivalueProfile,
     EngineStateSubtypeCastGraphProfile,
     EngineStateAllProfile,
+    EngineStateCoreProfile,
+    EngineTieringLoopProfile,
+    EngineTieringLargeFunctionProfile,
+    EngineTieringCallChainProfile,
+    EngineTieringCallFanoutProfile,
+    EngineTieringIndirectProfile,
+    EngineTieringLocalsStackProfile,
+    EngineTieringMemoryProfile,
+    EngineTieringGcProfile,
+    EngineTieringStressProfile,
     SemanticEffectsProfile,
     SemanticImportEventsProfile,
     SemanticTrapFrontierProfile,
@@ -2857,6 +3011,8 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CampaignSimdNumericProfile,
     CampaignCallTopologyProfile,
     CampaignSegmentStateProfile,
+    EngineCompileShapesProfile,
+    EngineProposalMatrixProfile,
   ]
 }
 
@@ -5817,8 +5973,22 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         },
       }
     }
-    EngineStateAllProfile =>
+    EngineStateAllProfile | EngineStateCoreProfile =>
       GenValidConfig::for_profile(EngineStateScalarControlProfile)
+    EngineCompileShapesProfile =>
+      GenValidConfig::for_profile(FlattenBlocksProfile)
+    EngineProposalMatrixProfile =>
+      GenValidConfig::for_profile(CampaignSimdNumericProfile)
+    EngineTieringLoopProfile
+    | EngineTieringLargeFunctionProfile
+    | EngineTieringCallChainProfile
+    | EngineTieringCallFanoutProfile
+    | EngineTieringIndirectProfile
+    | EngineTieringLocalsStackProfile
+    | EngineTieringMemoryProfile
+    | EngineTieringGcProfile => gen_valid_engine_tiering_config(profile)
+    EngineTieringStressProfile =>
+      GenValidConfig::for_profile(EngineTieringLoopProfile)
     SemanticEffectsProfile => {
       let base = GenValidConfig::portable_coverage_forced_default()
       GenValidConfig::{
@@ -34599,6 +34769,9 @@ fn gen_valid_duplicate_import_elimination_profile_module(
 ///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
+  if gen_valid_is_engine_tiering_config(config) {
+    return gen_valid_engine_tiering_profile_module(ctx)
+  }
   if config == gen_valid_campaign_memory64_config() {
     return gen_valid_campaign_memory64_module(ctx)
   }

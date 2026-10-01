@@ -15,13 +15,14 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current checkpoint:** lean-v58 passes 13,093 default tests and
-  8,421 bounded original/v133 value, event, trap and GC-reference observations.
-  Sparse replay visits body/callee consumers and owns only boundary bits;
-  raw control planning preserves source-write replay. Exact V56 bytes match.
+- **Current performance checkpoint:** lean-v59 passes 13,101 default tests and
+  10,269 bounded runtime observations across 1,442 modules. Final-index bounds
+  save 26,177 canonical compiler bytes; sparse replay visits body/callee
+  consumers and owns only boundary bits. This frozen checkpoint predates the
+  remote correctness integration; renew measurements on the merged source.
   The saved binary `ref.eq` defect is repaired; historical V32–V37 fixture counts
   are not general correctness evidence. Final aggregate/release signoff remains.
-  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-sparse-replay-boundaries-and-ownership)
+  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-final-index-bounds-for-reverse-aliases)
   owns hashes, paired measurements, costs and limitations.
 
 ### Latest DAE2/O baseline
@@ -633,6 +634,43 @@ retain them as parity/size gaps.
 
 ## v0.1.1 — Parity and safety [IR2-PARITY / IR2-SAFETY]
 
+### Engine-profile follow-up [FZG036 / IR2-PARITY]
+
+- **Goal / why:** resolve the actionable Starshine findings from the September
+  23 [engine-profile deep dive](docs/wiki/fuzzing/engine-profile-deep-dive.md)
+  without treating validation or sampled semantic agreement as parity proof.
+  The exact 59-pass/four-profile matrix leaves 1,984 unclassified structural
+  differences. The original scaled OptimizeInstructions property lane found
+  48 one-invocation fixed-point failures across three leaves; focused pass and
+  dispatcher tests and repairs landed in `7fe999fcc`, `204114e05`, and
+  `373c4fbc7`. The scaled aggregate has not been rerun. Its other 657 strict
+  differences are unclassified because the broad lane suppressed artifacts.
+- **Deliverables / tasks:** after the performance trials settle, rerun the
+  scaled OptimizeInstructions property lane on the repaired build, then rerun
+  targeted pass/profile cells with retained
+  mismatch artifacts. Group the 1,984 historical structural rows by
+  fingerprint, and either align each family or document a measured Starshine
+  size/performance/downstream win with semantic proof.
+- **Required APIs / invariants:** all outputs validate and preserve results,
+  traps, effects, imports/exports, and state. Semantic equality does not close
+  structural parity. Binaryen's `try_table` Flatten assertion, Node compact-
+  import rejection, and the intentional `ssa-loop` timeout remain separately
+  classified external/workload boundaries rather than Starshine failures.
+- **Dependencies / exit:** local evidence is under
+  `.tmp/engine-profile-deep-dive/`. Exit the OptimizeInstructions slice with
+  structural and semantic idempotence plus convergence on a renewed scaled
+  aggregate. Exit the parity slice only when every retained fingerprint is
+  fixed or has a source-,
+  runtime-, size-, and downstream-backed classification; finish with the
+  repository's required verified-v133 10,000-case lanes for changed passes.
+  Historical v132 counts retain their original scope and do not sign the merged
+  source; long aggregate renewal remains deferred during performance work.
+- **Suggested tests:** exact `flatten:if-results`, loop, and SSA merge IR/byte
+  fixtures; one-pass-versus-two-pass canonical equality; Node result/state
+  replay; independent validation; targeted compare-pass lanes with
+  `--max-mismatch-artifacts 20` and no automatic reduction.
+
+
 ### Vacuum PR #9155 remaining gaps [IR2-VACUUM-9155]
 
 - **Goal / why:** complete indexed-input drop sinking and eliminate repeated
@@ -891,10 +929,13 @@ pass dossiers; historical green checkpoints do not replace current signoff.
 
 ## v0.2.0 or later — Oracle and proposal follow-ups [IR2-V133]
 
-- **v133 residuals:** classify the historical 1,253 GTO, 2,216 shared-object, 2,632 CA
-  and 1,080 OI differences with semantic and size evidence; reduce GTO's 935
-  canonical size losses. Shared-object-specific differences need proof or
-  alignment; its 86 historical size losses came from older RemoveUnusedBrs
+- **v133 residuals:** classify the historical GTO, 2,216 shared-object, 2,632 CA
+  and 1,080 OI differences with semantic and size evidence. The remote GTO
+  renewal supersedes the older 1,253/935 counts with 1,201 random-all mismatches
+  and 864 canonical size losses; the historical v132 subtype lane has 10,000
+  mismatches and 6,250 losses. Hierarchy-aware fixes have since landed; renew
+  those families against verified v133 before treating the counts as current.
+  Shared-object-specific differences need proof or alignment; its 86 historical size losses came from older RemoveUnusedBrs
   profiles. Keep the 167 released-oracle command failures separate from comparisons.
   The current CA renewal classifies twenty scoped wins; its other 2,612 residuals
   remain open in the [current review](docs/wiki/tooling/tracing-playbook.md#ca-residual-inspection).

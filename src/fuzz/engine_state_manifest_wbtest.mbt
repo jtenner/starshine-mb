@@ -29,6 +29,7 @@ test "engine-state aggregate manifest records complete deterministic case contra
     manifest.contains("\"schema\":\"starshine.gen-valid.batch.v2\""),
     msg=manifest,
   )
+  assert_true(manifest.contains("\"weighted_cycle_cases\":136"), msg=manifest)
   assert_true(manifest.contains("\"case_seed\":"), msg=manifest)
   assert_true(manifest.contains("\"wasm_hash\":\"fnv1a64-"), msg=manifest)
   assert_true(
@@ -99,6 +100,35 @@ test "engine-state aggregate manifest records complete deterministic case contra
     assert_true(
       manifest.contains("\"selected_leaf\":\"\{profile}\""),
       msg=profile,
+    )
+  }
+}
+
+///|
+test "engine-state core manifest records its exact weighted cycle" {
+  let profile = match @validate.gen_valid_profile_by_name("engine-state-core") {
+    Ok(value) => value
+    Err(msg) => fail(msg)
+  }
+  let members = @validate.gen_valid_profile_members(profile)
+  let cycle_length = members.fold(init=0, fn(total, entry) {
+    total + (if entry.weight > 0 { entry.weight } else { 0 })
+  })
+  let (args, selection) = engine_state_manifest_test_selection(
+    "engine-state-core", cycle_length, 0xC0AEUL,
+  )
+  @debug.assert_eq(selection.manifest.length(), cycle_length)
+  let manifest = format_gen_valid_batch_manifest_json(args, selection)
+  assert_true(
+    manifest.contains("\"weighted_cycle_cases\":\{cycle_length}"),
+    msg=manifest,
+  )
+  for entry in members {
+    assert_true(
+      selection.manifest.any(fn(item) {
+        item.selected_profile == @validate.gen_valid_profile_name(entry.profile)
+      }),
+      msg=@validate.gen_valid_profile_name(entry.profile),
     )
   }
 }

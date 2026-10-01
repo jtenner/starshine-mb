@@ -751,6 +751,7 @@ interface core-ir {
     memory-init: static func(p0: borrow<data-idx>, p1: borrow<mem-idx>) -> instruction;
     memory-size: static func(p0: borrow<mem-idx>) -> instruction;
     nop: static func() -> instruction;
+    publish: static func() -> instruction;
     ref-as-non-null: static func() -> instruction;
     ref-cast: static func(p0: bool, p1: borrow<heap-type>) -> instruction;
     ref-cast-desc-eq: static func(p0: bool, p1: borrow<heap-type>) -> instruction;
@@ -761,6 +762,7 @@ interface core-ir {
     ref-func: static func(p0: borrow<func-idx>) -> instruction;
     ref-get-desc: static func(p0: borrow<type-idx>) -> instruction;
     ref-i31: static func() -> instruction;
+    ref-i31-shared: static func() -> instruction;
     ref-is-null: static func() -> instruction;
     ref-null: static func(p0: borrow<heap-type>) -> instruction;
     ref-null-type: static func(p0: borrow<ref-type>) -> instruction;

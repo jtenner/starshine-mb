@@ -15599,11 +15599,15 @@ fn optimize_instructions_try_sink_same_local_set_if_then_revisit_condition(
     return false
   }
   // Sinking keeps this exact If node alive but changes its arms and result
-  // type. Give the later condition canonicalizer its one normal opportunity on
-  // that new shape instead of requiring another whole pass invocation.
-  ignore(
-    optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id),
-  )
+  // type. Reconsider the new value If immediately, including a constant
+  // condition exposed by the already visited children.
+  if !optimize_instructions_try_fold_constant_if_condition(
+      ctx, func, dead, node_id,
+    ) {
+    ignore(
+      optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id),
+    )
+  }
   true
 }
 

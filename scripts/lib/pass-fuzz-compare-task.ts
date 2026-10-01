@@ -1624,18 +1624,40 @@ function comparisonProjectionFlags(passFlags: string[]): string[] {
   ];
 }
 
-async function canonicalizeWasm(
+export async function canonicalizeWasm(
   wasmOptBin: string,
   inputPath: string,
   outputPath: string,
   repoRoot: string,
   passFlags: string[],
 ): Promise<void> {
-  await runOrThrowAsync(
-    wasmOptBin,
-    [inputPath, ...comparisonProjectionFlags(passFlags), "-o", outputPath],
-    { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot) },
-  );
+  // Binaryen's writer legalizes multivalue expressions using new locals.
+  // A single projection can therefore depend on how many encodings preceded
+  // it. Prefer a stable representation, but some multivalue branch shapes
+  // grow new copy locals on every encoding. For those shapes, retain the
+  // first valid encoding so writer growth cannot become a command failure.
+  const scratch = `${outputPath}.projection-input`;
+  let source = inputPath;
+  let previous = fs.readFileSync(source);
+  let first: Buffer | undefined;
+  try {
+    for (let round = 0; round < 8; round += 1) {
+      await runOrThrowAsync(
+        wasmOptBin,
+        [source, ...comparisonProjectionFlags(passFlags), "-o", outputPath],
+        { cwd: repoRoot, env: makeRepoTmpEnv(repoRoot) },
+      );
+      const next = fs.readFileSync(outputPath);
+      first ??= next;
+      if (next.equals(previous)) return;
+      previous = next;
+      fs.copyFileSync(outputPath, scratch);
+      source = scratch;
+    }
+    fs.writeFileSync(outputPath, first!);
+  } finally {
+    fs.rmSync(scratch, { force: true });
+  }
 }
 
 function parenDelta(line: string): number {
@@ -2140,7 +2162,7 @@ function normalizeUnreachableControlDebris(wat: string): string {
       normalizeUnreachableAfterInfiniteSelfLoop(
         normalizeConstantSelfBranchControlDebris(
           normalizeVoidBranchUnreachableBlockDebris(
-            normalizeLocalUnreachableControlDebris(wat),
+            normalizeLocalUnreachableControlDebris(normalizeStandaloneNops(wat)),
           ),
         ),
       ),
@@ -3031,7 +3053,7 @@ function binaryenSuccessCacheIsComplete(cacheDir: string): boolean {
       canonicalSha256?: unknown;
       watSha256?: unknown;
     };
-    return done.ok === true && done.schema === 2 &&
+    return done.ok === true && done.schema === 4 &&
       done.rawSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.raw.wasm"))) &&
       done.canonicalSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.wasm"))) &&
       done.watSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.wat")));
@@ -3070,7 +3092,7 @@ function makeBinaryenCacheDir(
   return path.join(
     cacheDir,
     "binaryen",
-    identity.preserveDebug ? "schema-v2-debug-preserving" : "schema-v1",
+    identity.preserveDebug ? "schema-v4-bounded-debug-preserving" : "schema-v4-bounded",
     `wasm-opt-${toolHash}`,
     `passes-${identity.passFlagsHash.slice(0, 16)}`,
     `input-${inputHash}`,
@@ -3130,7 +3152,7 @@ async function runBinaryenOracleWithCache(
       fs.writeFileSync(path.join(stagingDir, "binaryen.wat"), wat);
       fs.writeFileSync(path.join(stagingDir, "done.json"), JSON.stringify({
         ok: true,
-        schema: 2,
+        schema: 4,
         rawSha256: sha256Hex(fs.readFileSync(binaryenRawPath)),
         canonicalSha256: sha256Hex(fs.readFileSync(binaryenPath)),
         watSha256: sha256Hex(wat),
@@ -3710,12 +3732,27 @@ function canonicalizeWasmSync(
   env: NodeJS.ProcessEnv,
   passFlags: string[],
 ): boolean {
-  return runSyncOk(
-    wasmOptBin,
-    [inputPath, ...comparisonProjectionFlags(passFlags), "-o", outputPath],
-    repoRoot,
-    env,
-  );
+  const scratch = `${outputPath}.projection-input`;
+  let source = inputPath;
+  let previous = fs.readFileSync(source);
+  let first: Buffer | undefined;
+  try {
+    for (let round = 0; round < 8; round += 1) {
+      if (!runSyncOk(wasmOptBin,
+        [source, ...comparisonProjectionFlags(passFlags), "-o", outputPath],
+        repoRoot, env)) return false;
+      const next = fs.readFileSync(outputPath);
+      first ??= next;
+      if (next.equals(previous)) return true;
+      previous = next;
+      fs.copyFileSync(outputPath, scratch);
+      source = scratch;
+    }
+    fs.writeFileSync(outputPath, first!);
+    return true;
+  } finally {
+    fs.rmSync(scratch, { force: true });
+  }
 }
 
 function candidateStillHasPassFuzzMismatch(

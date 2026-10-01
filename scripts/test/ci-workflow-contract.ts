@@ -69,6 +69,8 @@ export function runCiWorkflowContractTest(): void {
   const differentialJob = workflow.split("  dae-differential:\n")[1]?.split(/\n  [a-z][a-z-]*:\n/)[0];
   if (differentialJob === undefined) fail("required CI is missing the DAE differential job body");
   for (const [fragment, label] of [
+    ["uses: actions/setup-node@v5", "explicit semantic Node runtime installation"],
+    ['node-version: "26.10.0"', "Node version supporting memory64 and experimental reference proposals"],
     ["moon build --target native --release src/fuzz", "fresh GenValid build"],
     ["--gen-valid-profile semantic-optimizer-all", "required semantic profile"],
     ["--semantic-oracle node-v2", "required runtime oracle"],
@@ -85,6 +87,10 @@ export function runCiWorkflowContractTest(): void {
   }
 
   const fuzzWorkflow = fs.readFileSync(path.join(workflowDir, "fuzz.yml"), "utf8");
+  const semanticJob = fuzzWorkflow.split("  semantic-optimizer-smoke:\n")[1]?.split(/\n  [a-z][a-z-]*:\n/)[0];
+  if (semanticJob === undefined) fail("fuzz CI is missing the semantic optimizer job body");
+  requireText(semanticJob, "uses: actions/setup-node@v5", "semantic smoke Node runtime installation");
+  requireText(semanticJob, 'node-version: "26.10.0"', "semantic smoke Node version supporting proposal tests");
   for (const [fragment, label] of [
     ['WASM_TOOLS_VERSION: "1.251.0"', "pinned semantic wasm-tools"],
     ['BINARYEN_VERSION: "132"', "pinned semantic Binaryen"],

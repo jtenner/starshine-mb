@@ -1,3 +1,12 @@
+### 2026-09-30 — Performance and remote correctness integration
+
+- Integrate remote correctness, engine-profile and binding updates through
+  `8ca3dee82` with the accepted DAE2 performance work. Preserve both command
+  regression sets and historical oracle evidence. The
+  [active backlog](../../agent-todo.md) retains unresolved engine-profile work
+  under verified v133 and the deferred-fuzz policy. Frozen V59 measurements
+  predate this integration; renew speed and size evidence on the merged source.
+
 ### 2026-09-30 — Prefix-counter allocation trial rejected
 
 - [Scalar prefix trial](binaryen/passes/dae2/starshine-strategy.md#september-30-2026-rejected-scalar-prefix-counter-trial)
@@ -610,6 +619,33 @@
   with 12 existing ReorderGlobals tests; production throughput remains unmeasured.
   See [ReorderGlobals strategy](binaryen/passes/reorder-globals/starshine-strategy.md#repeated-extended-const-dependencies-september-25-2026).
 
+### 2026-09-23 — Binaryen 133 full-signoff attempt and private GTO fields
+
+- A clean worktree merged remote `origin/master` at `2d66d47a2` with the local
+  v133 corpus. The final full CI gate passed **12,304/12,304** Moon tests,
+  5,000 valid-validator cases, 86,820 binary roundtrips, 4,096 command-harness
+  cases, and the other CI fuzz suites. README/API sync passed. The official
+  v132 and v133 archives were checksum verified, preserving v132 as the
+  ordinary comparison target.
+- Official v133 GTO removes an unread field from a private struct and retains
+  effects of its constructor operand. Two adjacent tests were red on the
+  prior implementation, then green after a conservative rewrite; a command
+  dispatcher test covers the same active path. The rewrite is restricted to
+  one isolated struct type, removes pure literal operands, and validates the
+  candidate module before return. A named-field boundary test confirms that
+  stale field-name metadata makes the candidate roll back. The final native
+  CLI preserved an effectful constructor's observable global write: Node
+  returned `9` before and after the pass.
+- Full v133 signoff remains open: fresh 10,000-case GTO random-all lanes
+  against verified v132 and v133 each have 1,201 output mismatches and 864
+  canonical size losses. The rewrite closed 52 previous mismatch indices and
+  introduced none. A separate 10,000-case GC-subtype lane against v132 has
+  10,000 mismatches and 6,250 canonical size losses, with saved examples of
+  missing hierarchy-aware field removal. Shared objects, constraint analysis,
+  and optimize instructions also have large unclassified parity families. See the
+  [v133 investigation](binaryen/version-133-upgrade.md#post-commit-fuzz-investigation)
+  and [GTO status](binaryen/passes/global-type-optimization/fuzzing.md).
+
 ### 2026-09-23 — Binaryen 133 post-commit optimizer fuzz
 
 - The v133 focused corpus was green and committed as `00ba1836a` before
@@ -673,6 +709,48 @@
   are already green.
   Remaining source-backed variants and prerequisite feature gaps stay open in
   the catalog. The normal comparison target remains verified Binaryen v132.
+
+### 2026-09-23 — Engine-profile optimizer deep dive and incident ledger
+
+- Ran one exact weighted cycle from each of `engine-compile-shapes`,
+  `engine-proposal-matrix`, `engine-state-core`, and `engine-tiering-stress`
+  through all 59 direct comparison passes with verified Binaryen 132. The 236
+  cells requested 9,145 cases and compared 9,141: 7,157 strict normalized
+  matches, 1,984 unclassified structural differences, and four Binaryen
+  Flatten assertions. All 9,145 determinism and codec checks were stable, with
+  zero Starshine validation or generator failures.
+- Stateful Node comparison found 9,086 original-vs-Starshine semantic matches,
+  zero observed semantic mismatches, and 59 expected original-runtime blocks
+  from the intentional `ssa-loop` leaf. The 6,255 `binaryen-discrepancy`
+  patterns include a dominant inspected Compact Import Section/Node capability
+  boundary; they are not all individually classified.
+- Reduced the external Binaryen failure to an independently valid 83-byte
+  result-typed `try_table` module. Pinned v132 still aborts in
+  `Flatten.cpp:231`, matching upstream issue #8325; Starshine succeeds.
+- Opened `[FZG036]` for the actual Starshine findings: recurring
+  OptimizeInstructions one-pass idempotence failures on three compile-shape
+  leaves and targeted classification of the 1,984 structural differences.
+  The completed scaled lane requested 2,480 cases and found 48 property
+  failures, exactly 16 per affected leaf, plus 657 unclassified strict
+  differences. All 2,480 determinism and codec checks were stable; semantic
+  idempotence and convergence passed 2,464 and were blocked only by 16
+  intentional infinite loops. One additional direct semantic observation hit
+  the one-second Starshine worker limit on a byte-identical 56-byte output and
+  remains classified as tool-resource uncertainty pending isolated replay.
+  The [central incident record](fuzzing/engine-profile-deep-dive.md) also owns
+  the full toolchain, runtime boundary, intentional timeout, `/tmp` exhaustion,
+  fresh-output-directory contract, local artifact map, and replay guidance.
+
+Subsequent commits `7fe999fcc`, `204114e05`, and `373c4fbc7` added red-first
+pass/dispatcher coverage for the three OptimizeInstructions profile cases and
+repaired their one-invocation fixed points. The scaled aggregate still needs a
+fresh run; the 1,984 plus 657 strict differences remain unclassified.
+
+### 2026-09-23 — Engine-oriented GenValid profile matrices
+
+- Added `engine-compile-shapes`, `engine-proposal-matrix`, `engine-state-core`, and `engine-tiering-stress` as seed-rotated exact weighted aggregates. Their cycles contain 48 structural compiler leaves, 24 proposal/multi-proposal slots, 64 successful portable engine-state slots, and 19 tiering slots across eight focused leaves.
+- Tiering generation now emits scaled 256–16,384-trip hot loops, 8–64-deep/wide call graphs, monomorphic or polymorphic indirect loops, large function/local boundaries, stack pressure, memory growth/bounds-check loops, and repeatable GC allocation graphs. Workloads execute from start and remain exported for harness-driven repeated invocation; manifests record scale and dispatch labels.
+- Red-first validate tests cover registration, exclusions, exact weights, deterministic valid generation, graph scaling, and case labels. Red-first fuzz tests make engine-state acceptance metadata derive cycle length from profile members, correcting the stale `128` value to `136` for `engine-state-all` and recording `64` for `engine-state-core`. No fuzz campaign or engine execution was run.
 
 ### 2026-09-23 — Local CSE non-null cast result materialization
 

@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import {
+  canonicalizeWasm,
   classifyRuntimeExportInvocationMatrix,
   classifyRuntimeInvocationPair,
   deterministicExportArgumentVector,
@@ -1023,6 +1024,35 @@ describe("pass-fuzz compare normalizers", () => {
 
     expect(applyCompareNormalizersForTest(binaryenWat, ["unreachable-control-debris"])).toBe(
       applyCompareNormalizersForTest(starshineWat, ["unreachable-control-debris"]),
+    );
+  });
+
+  test("unreachable-control-debris removes standalone nops while preserving live branch effects", () => {
+    const withNop = `(module
+ (import "env" "effect" (func $effect))
+ (func $run (export "run") (param $condition i32)
+  (if
+   (local.get $condition)
+   (then
+    (call $effect)
+   )
+   (else
+    (nop)
+   )
+  )
+ )
+)`;
+    const withoutNop = withNop.replace("    (nop)\n", "");
+    const withElseEffect = withNop.replace("(nop)", "(call $effect)");
+    const normalizers = ["unreachable-control-debris"];
+    expect(applyCompareNormalizersForTest(withNop, normalizers)).toBe(
+      applyCompareNormalizersForTest(withoutNop, normalizers),
+    );
+    expect(applyCompareNormalizersForTest(withElseEffect, normalizers)).not.toBe(
+      applyCompareNormalizersForTest(withoutNop, normalizers),
+    );
+    expect(applyCompareNormalizersForTest(withNop, [])).not.toBe(
+      applyCompareNormalizersForTest(withoutNop, []),
     );
   });
 
@@ -2081,6 +2111,46 @@ describe("resume source and configuration identity", () => {
 
       expect(resumed.status).not.toBe(0);
       expect(resumed.stderr).toContain("--resume identity is missing or obsolete");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("Binaryen comparison projection", () => {
+  test("multivalue legalization reaches stable bytes before comparison", async () => {
+    // Reduced remove-unused-brs-multivalue-drop case. Binaryen's binary writer
+    // introduces locals that need another read/write to reach a stable form.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-projection-"));
+    try {
+      const input = path.join(root, "input.wasm");
+      const first = path.join(root, "first.wasm");
+      const second = path.join(root, "second.wasm");
+      fs.writeFileSync(input, Buffer.from("0061736d010000000109026000006000027f7e030201000a0d010b000201410b420d0b1a1a0b", "hex"));
+      const oracle = process.env.WASM_OPT_BIN ?? "wasm-opt";
+      await canonicalizeWasm(oracle, input, first, process.cwd(), []);
+      await canonicalizeWasm(oracle, first, second, process.cwd(), []);
+      expect(fs.readFileSync(first).equals(fs.readFileSync(second))).toBeTrue();
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("bounded comparison projection", () => {
+  test("keeps the first valid encoding when multivalue locals grow indefinitely", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-growing-projection-"));
+    try {
+      const input = path.join(root, "input.wasm");
+      const expected = path.join(root, "single.wasm");
+      const actual = path.join(root, "canonical.wasm");
+      fs.writeFileSync(input, Buffer.from("0061736d01000000010d0360000060017f006000027f7f030201000d0502000000010a1a0118000202020241d6d60341d60041010e020001010b0b1a1a0b", "hex"));
+      const oracle = process.env.WASM_OPT_BIN ?? "wasm-opt";
+      const once = spawnSync(oracle, [input, "--all-features", "--strip-debug", "-o", expected], { encoding: "utf8" });
+      expect(once.status, once.stderr).toBe(0);
+      await canonicalizeWasm(oracle, input, actual, process.cwd(), []);
+      expect(fs.readFileSync(actual).equals(fs.readFileSync(expected))).toBeTrue();
+      expect(fs.existsSync(`${actual}.projection-input`)).toBeFalse();
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

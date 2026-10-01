@@ -9834,3 +9834,135 @@ test "unchanged NaN input reuses its exact encoded bytes after an optimizer pass
   @validate.validate_module(mod_).unwrap()
   assert_eq(@binary.encode_module(mod_).unwrap(), bytes)
 }
+
+///|
+test "Binaryen 133 command GTO removes an unread private struct field" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $t (struct (field (mut i32)))) (func (export \"run\") (result i32) (drop (struct.new $t (i32.const 1))) (i32.const 7)))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["global-type-optimization"],
+    OptimizeOptions::new(closed_world=true),
+  ).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  let @lib.TypeSec(types) = output.type_sec.unwrap()
+  let fields : Array[@lib.FieldType] = []
+  let found = [false]
+  for rec in types {
+    let group = match rec {
+      @lib.SingleRecType(t) => [t]
+      @lib.GroupRecType(g) => g
+    }
+    for subtype in group {
+      match subtype.get_comptype() {
+        @lib.StructCompType(fs) => {
+          fields.append(fs)
+          found[0] = true
+        }
+        _ => ()
+      }
+    }
+  }
+  assert_true(found[0])
+  assert_eq(fields.length(), 0)
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_true(body.any(fn(instr) { instr is @lib.StructNewDefault(_) }))
+}
+
+///|
+test "Binaryen 133 command shared objects lowers indirect calls" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $f (func (result i32))) (table 1 funcref) (elem (i32.const 0) func $target) (func $target (type $f) (i32.const 7)) (func (export \"run\") (result i32) (call_indirect (type $f) (i32.const 0))))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["make-shared-objects"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  assert_eq(output.table_sec.unwrap().0.length(), 2)
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+  assert_true(body.any(fn(i) { i is @lib.CallIndirect(_, @lib.TableIdx(1U)) }))
+}
+
+///|
+test "Binaryen 133 command GTO remaps inherited fields" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $a (sub (struct (field (mut i32))))) (type $b (sub final $a (struct (field (mut i32)) (field (mut i32))))) (func (export \"run\") (result i32) (struct.get $b 1 (struct.new $b (i32.const 7) (i32.const 9)))))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["global-type-optimization"],
+    OptimizeOptions::new(closed_world=true),
+  ).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_true(body.any(fn(i) { i is @lib.StructGet(_, @lib.U32(0U)) }))
+  assert_eq(body.filter(fn(i) { i is @lib.I32Const(_) }).length(), 1)
+}
+
+///|
+test "Binaryen 133 command tail-call lowers an indirect table64 exit" {
+  let input = @binary.decode_module(
+    Bytes::from_array([
+      0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x04, 0x01, 0x60, 0x00,
+      0x00, 0x03, 0x03, 0x02, 0x00, 0x00, 0x04, 0x05, 0x01, 0x70, 0x05, 0x02, 0x02,
+      0x09, 0x0b, 0x01, 0x06, 0x00, 0x42, 0x01, 0x0b, 0x70, 0x01, 0xd2, 0x00, 0x0b,
+      0x0a, 0x0d, 0x02, 0x03, 0x00, 0x01, 0x0b, 0x07, 0x00, 0x42, 0x01, 0x11, 0x00,
+      0x00, 0x0b,
+    ]),
+  ).unwrap()
+  assert_true(@validate.validate_module(input).is_ok())
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["tail-call"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+  assert_true(body.any(fn(i) { i is @lib.ReturnCallIndirect(_, _) }))
+}
+
+///|
+test "Binaryen 133 command GTO preserves canonical packed array identities" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $s (struct (field i32))) (type $a (array (mut i8))) (type $b (array (mut i16))) (func (export \"run\") (local (ref null $s) (ref null $a) (ref null $b))))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["global-type-optimization"],
+    OptimizeOptions::new(closed_world=true),
+  ).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  let groups = output.type_sec.unwrap().0
+  assert_eq(groups.length(), 4)
+  assert_true(groups.all(fn(g) { g is @lib.SingleRecType(_) }))
+}
+
+///|
+test "Binaryen 133 command shared objects refines nested null branch chains" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (drop (block (result funcref) (block ref.null func i32.const 1 br_if 1 br 1 unreachable) unreachable))))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["make-shared-objects"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let result = match body[0] {
+    @lib.Block(@lib.ValTypeBlockType(vt), _) => vt
+    _ => fail("expected reference block")
+  }
+  assert_eq(
+    result,
+    @lib.ValType::ref_type(
+      @lib.RefType::new(
+        true,
+        @lib.HeapType::shared_abs(@lib.AbsHeapType::none()),
+      ),
+    ),
+  )
+}

@@ -10,11 +10,13 @@ sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../scripts/test/pass-fuzz-normalization-fixtures.ts
   - ../../../../../src/validate/gen_valid.mbt
+  - https://github.com/WebAssembly/binaryen/issues/8325
 related:
   - ./index.md
   - ./starshine-strategy.md
   - ./implementation-structure-and-tests.md
   - ../../../tooling/pass-fuzz-compare.md
+  - ../../../fuzzing/engine-profile-deep-dive.md
 ---
 
 # `flatten` Fuzzing Status
@@ -24,6 +26,32 @@ related:
 ## September 26, 2026 catch-repair preflight renewal
 
 The [shared catch-repair preflight](../dae2/starshine-strategy.md#september-26-2026-catch-payload-analysis-preflight) now skips node-use graph construction when the existing scan finds no typed payloads. Actual typed-payload repair and rejection rules are unchanged; 969 focused IR, DAE2 and Flatten tests pass. Fresh verified Binaryen 133 `flatten-all` signoff compares 10,000 cases with seed `0x5eed`, explicit native binaries, eight subprocesses and all three documented debris normalizers: 837 normalized, 5,057 cleanup-normalized and 4,106 residuals. There are zero canonical size losses and zero validation/property/generator/command failures. Runtime execution was not enabled. All 20 saved raw residual outputs are identical to the pre-change compiler. Agent judgment keeps these v133 residuals open as parity gaps; the historical v131 cleanup-win classifications below are not renewed by output identity alone. Artifacts: `.tmp/pass-fuzz-flatten-catch-preflight-v133-10000-20260926/`; the DAE2 owner records exact compiler hashes and shared implementation evidence.
+
+## September 23 Binaryen-132 `try_table` oracle failure
+
+The four-profile exact-cycle matrix confirms that result-typed `try_table`
+remains unusable as a Binaryen Flatten oracle in the pinned v132 executable.
+Four valid `engine-proposal-matrix` inputs select
+`engine-state-exceptions` (case 1), `engine-state-exception-unwind` (cases 5
+and 6), and `campaign-eh-control` (case 19). Each aborts
+`wasm-opt --all-features --flatten` with `unexpected expr type` at
+`Flatten.cpp:231`. Starshine Flatten succeeds on all four and its outputs pass
+independent validation.
+
+The reduced 83-byte module contains one i32 tag, a result-i32 block targeted by
+`catch`, a `try_table` that throws an i32 payload, an unreachable fallthrough,
+and a final drop. `wasm-tools validate --features all` accepts it while the
+pinned Binaryen v132 command exits 134. This is an external oracle failure, not
+a Starshine mismatch. It matches the family already reported in upstream
+[Binaryen issue #8325](https://github.com/WebAssembly/binaryen/issues/8325),
+which was opened against older releases; the new result shows it still present
+in this v132 build.
+
+The exact WAT, tool hashes, four case identities, and replay command are in the
+[engine-profile deep-dive incident record](../../../fuzzing/engine-profile-deep-dive.md#epd-bin-001-binaryen-flatten-abort).
+The broader matrix still reports 142 strict Flatten differences among 151
+comparable cases. Those differences are not classified because the broad run
+retained no mismatch artifacts.
 
 ## September runtime renewal remains open
 

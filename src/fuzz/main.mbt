@@ -3672,6 +3672,11 @@ fn emit_gen_valid_batch_profile_case_label(
     Some(label) => return Some(label)
     None => ()
   }
+  match
+    @validate.gen_valid_engine_tiering_profile_case_label(leaf_profile, seed) {
+    Some(label) => return Some(label)
+    None => ()
+  }
   gen_valid_oi_trigger_profile_case_label(leaf_profile, seed)
 }
 
@@ -5500,7 +5505,7 @@ fn gen_valid_engine_state_selection_contract_error(
       complete_cycle_weight += entry.weight
     }
   }
-  if profile_name == "engine-state-all" &&
+  if @validate.gen_valid_profile_is_composite(profile) &&
     complete_cycle_weight > 0 &&
     manifest.length() >= complete_cycle_weight {
     for entry in members {
@@ -5515,6 +5520,21 @@ fn gen_valid_engine_state_selection_contract_error(
     }
   }
   None
+}
+
+///|
+fn gen_valid_profile_weighted_cycle_cases(profile_name : String) -> Int {
+  let profile = match @validate.gen_valid_profile_by_name(profile_name) {
+    Ok(value) => value
+    Err(_) => return 0
+  }
+  let mut total = 0
+  for entry in @validate.gen_valid_profile_members(profile) {
+    if entry.weight > 0 {
+      total += entry.weight
+    }
+  }
+  total
 }
 
 ///|
@@ -5920,8 +5940,11 @@ fn format_gen_valid_batch_manifest_json(
   selection : GenValidCoverageSelection,
 ) -> String {
   let out = StringBuilder::new()
+  let weighted_cycle_cases = gen_valid_profile_weighted_cycle_cases(
+    args.profile,
+  )
   let acceptance_contract = if args.profile.starts_with("engine-state-") {
-    "{\"generation_floor_status\":\"met\",\"weighted_cycle_cases\":128,\"runtime_floor_keys\":[\"successful_starts\",\"intended_traps_by_family\",\"instantiation_failures_by_family\",\"compile_failures_by_family\",\"distinct_state_hashes\",\"scalar_result_types\",\"multi_value_calls\",\"direct_calls\",\"indirect_calls\",\"call_ref\",\"taken_and_untaken_branches\",\"bounded_loop_execution\",\"deep_call_chains\",\"call_diamonds\",\"ordered_effects\",\"global_mutations\",\"memory_mutations\",\"table_mutations\",\"memory_growth\",\"table_growth\",\"memory_copy\",\"table_copy\",\"passive_segment_lifecycle\",\"initialization_graphs\",\"multi_memory\",\"multi_table\",\"stack_pressure\",\"memory_aliasing\",\"link_graphs\",\"cross_instance_resources\",\"resource_exhaustion\",\"decoder_topology\",\"leb_index_boundaries\",\"tail_calls\",\"typed_function_references\",\"table_reference_matrix\",\"memory64\",\"exceptions\",\"exception_unwind\",\"gc\",\"gc_graphs\",\"compiler_boundaries\",\"metamorphic_twins\",\"nan_classification\",\"import_calls\",\"imported_return_values\",\"active_data_initialization\",\"active_element_initialization\",\"overlapping_segments\",\"integer_boundaries\",\"float_bit_boundaries\",\"unaligned_memory\",\"exact_memory_end\",\"optimizer_shapes\",\"equivalent_family_self_checks\",\"simd_results\",\"post_effect_traps\",\"complete_observations\",\"every_singleton_leaf\"]}"
+    "{\"generation_floor_status\":\"met\",\"weighted_cycle_cases\":\{weighted_cycle_cases},\"runtime_floor_keys\":[\"successful_starts\",\"intended_traps_by_family\",\"instantiation_failures_by_family\",\"compile_failures_by_family\",\"distinct_state_hashes\",\"scalar_result_types\",\"multi_value_calls\",\"direct_calls\",\"indirect_calls\",\"call_ref\",\"taken_and_untaken_branches\",\"bounded_loop_execution\",\"deep_call_chains\",\"call_diamonds\",\"ordered_effects\",\"global_mutations\",\"memory_mutations\",\"table_mutations\",\"memory_growth\",\"table_growth\",\"memory_copy\",\"table_copy\",\"passive_segment_lifecycle\",\"initialization_graphs\",\"multi_memory\",\"multi_table\",\"stack_pressure\",\"memory_aliasing\",\"link_graphs\",\"cross_instance_resources\",\"resource_exhaustion\",\"decoder_topology\",\"leb_index_boundaries\",\"tail_calls\",\"typed_function_references\",\"table_reference_matrix\",\"memory64\",\"exceptions\",\"exception_unwind\",\"gc\",\"gc_graphs\",\"compiler_boundaries\",\"metamorphic_twins\",\"nan_classification\",\"import_calls\",\"imported_return_values\",\"active_data_initialization\",\"active_element_initialization\",\"overlapping_segments\",\"integer_boundaries\",\"float_bit_boundaries\",\"unaligned_memory\",\"exact_memory_end\",\"optimizer_shapes\",\"equivalent_family_self_checks\",\"simd_results\",\"post_effect_traps\",\"complete_observations\",\"every_singleton_leaf\"]}"
   } else {
     "null"
   }

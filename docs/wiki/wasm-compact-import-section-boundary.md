@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-09-23
 sources:
   - https://github.com/WebAssembly/proposals/blob/main/README.md
   - https://github.com/WebAssembly/compact-import-section/blob/main/proposals/compact-import-section/Overview.md
@@ -16,6 +16,7 @@ sources:
   - ../../src/wast/module_wast.mbt
   - ../../src/validate/validate.mbt
 related:
+  - fuzzing/engine-profile-deep-dive.md
   - wasm-feature-status-and-proposal-boundaries.md
   - binary/module-section-map.md
   - binary/function-import-export-and-code-sections.md
@@ -90,10 +91,29 @@ Source and regression evidence:
 ## Remaining signoff boundaries
 
 The tests establish represented grouping and logical order, not full proposal
-conformance or preservation of source formatting/locations. Exact-function imports, source-span tooling and independent runtime execution
+conformance or preservation of source formatting/locations. Exact-function imports,
+source-span tooling, and execution in a proposal-capable independent runtime
 remain separate coverage work. Mixed function/global/table/memory/tag imports
 have direct logical-index fixtures; this is not full per-kind proposal signoff. Use ordinary import validation after
 expansion, and record external runtime support separately.
+
+## September 23 Node capability evidence
+
+The [engine-profile optimizer deep dive](fuzzing/engine-profile-deep-dive.md)
+found a recurring three-way runtime boundary. Binaryen 132 with
+`--all-features` emitted or preserved Compact Import Section groups in many
+optimized outputs. In an inspected representative, `wasm-tools` and Starshine
+accepted the proposal `0x7f` shared-module marker, while Node 24.21.0 rejected
+the module with `unknown import kind 0x7f`.
+
+The campaign classified 6,255 cases as `binaryen-discrepancy`; compact imports
+were the dominant inspected explanation, but each row was not independently
+classified. Do not infer 6,255 Binaryen miscompilations or assign every row to
+compact imports. For Node-based semantic comparison, either project grouped
+imports to ordinary imports without changing logical order or use a runtime
+that advertises support for the proposal encoding. Node rejection is runtime
+capability evidence, not a Starshine validation or Binaryen correctness
+failure.
 
 ## Related Boundaries
 

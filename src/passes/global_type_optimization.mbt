@@ -187,6 +187,7 @@ fn global_type_optimization_run_module_pass(
   if !closed_world {
     return mod_
   }
+  let mod_ = gto_optimize_fields(mod_)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_

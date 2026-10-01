@@ -228,6 +228,19 @@ arose from the shared random-all-profiles generator mix. These samples do not
 settle GTO's broad field/type-pruning parity gap or the shared-object
 representation differences.
 
+A later clean-worktree full-signoff attempt added red-first GTO cases for one
+isolated unread private struct field and effectful constructor operands, then
+matched the verified v132/v133 field-removal shape. Its final native CLI and
+GenValid binaries completed fresh 10,000-case random-all comparisons against
+both official oracles: **8,799 normalized matches, 1,201 mismatches, zero
+validation or command failures, and 864 canonical size losses** in each lane.
+Compared with the first v133 GTO row above, 52 mismatch indices were fixed and
+none were introduced. A 10,000-case v132 `campaign-gc-ref-subtypes` lane still
+had **10,000 mismatches and 6,250 canonical size losses**. Saved examples show
+missing hierarchy-aware field pruning and type remapping. These are open
+parity/size gaps; [GTO fuzzing status](passes/global-type-optimization/fuzzing.md)
+records the binary identities and remaining signoff work.
+
 The `i64-to-i32-lowering` compare-pass lane cannot provide ordinary parity
 evidence with random GenValid modules: the released Binaryen pass expects
 flattened input and lowers all i64 values, while this intake only implements

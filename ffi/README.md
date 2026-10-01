@@ -20,6 +20,11 @@ Verify checked-in artifacts are current:
 bun ffi check
 ```
 
+The generated exports include waitqueue heap types, relaxed atomic ordering,
+aggregate atomic setters, and the current array load/store memory arguments.
+Keep wrapper source and export-name metadata in the same revision: consumers
+check that metadata against the exact provider binary before generating bindings.
+
 Naming rules:
 
 - methods use `Type::method` when that name is unique across packages;

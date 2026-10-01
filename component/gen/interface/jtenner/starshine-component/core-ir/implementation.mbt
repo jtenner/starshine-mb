@@ -8435,6 +8435,11 @@ pub fn Instruction::nop() -> Instruction {
 }
 
 ///|
+pub fn Instruction::publish() -> Instruction {
+  core_ir_instruction_store(@lib.Instruction::publish())
+}
+
+///|
 pub fn Instruction::ref_as_non_null() -> Instruction {
   core_ir_instruction_store(@lib.Instruction::ref_as_non_null())
 }
@@ -8499,6 +8504,11 @@ pub fn Instruction::ref_get_desc(
 ///|
 pub fn Instruction::ref_i31() -> Instruction {
   core_ir_instruction_store(@lib.Instruction::ref_i31())
+}
+
+///|
+pub fn Instruction::ref_i31_shared() -> Instruction {
+  core_ir_instruction_store(@lib.Instruction::ref_i31_shared())
 }
 
 ///|
