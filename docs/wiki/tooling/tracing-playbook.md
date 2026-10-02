@@ -4713,3 +4713,32 @@ peakRSS is flat. All13,352 wasm-gc tests,12 native controls and 1224 fixed obser
 across423 validated modules pass with exact bytes. Prior plain/
 OI matrix keeps1c/f111 source provenance. Full release gates and canonical byte
 quality remain open; larger shared lift/validation owners still take priority.
+
+
+## October 2, 2026: main checked lift-read checkpoint
+
+[Checked arena read proof](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-checked-arena-reads-for-lift-local-conflicts)
+records actual native boundary removal with unchanged admission/traversal and no
+new object/cache/API. Main c2aec5040/native08382360… baseline, candidate e57d9b45…;
+same6.21MB compiler SHA98189860…, verified v133, CPU6/GCC14.2/O2/mimalloc.
+Complete CL instructions47,745,254,152→47,506,930,728 (−0.49916%);
+nonrecursive conflict entry−6.7014%. Corrected getter symbol supersedes the earlier
+empty/self0 row; nested costs are not additive or allocation measurements.
+
+One warmup/n5 alternating normal fresh-process commands, median±MAD ms:
+DAE2 3816.061±7.324/B1120.057±8.250; CL4486.629±9.747/B1778.481±7.655;
+optimizing6589.943±199.950/B2440.277±121.585. Every row flags foreign activity;
+paired changes−0.216/+0.190/+0.853%, no causal command win. Full ranges and
+independent traced diagnostics are in the existing dossier/local report.
+OI retains its earlier four-pass source. Raw hashes/V83 unchanged; bounded
+canonical optimizing+99,251 B remains distinct from raw−9,949 B.
+
+PeakRSS has no measured win. Plain's initial n5 median+9736KiB is retained;
+one-warmup/n3 alternating normal repeat268160±84→268196±76KiB shows lower
+memory modes on either binary. Phase/lifetime cause and optimizing≈138MiB excess
+remain open. Full13,355 default tests plus subsequent new dispatcher1/1,
+twelve native controls and447 validated modules/1296 fixed observations pass;
+no .mbti change. Manual review, no independent agent. Broader current matrix,
+quiet clocks, canonical gaps and final aggregate/CI/coverage remain release work.
+No long fuzz campaign. Full reproducible local report:
+`.tmp/large-pass-hotspots-20261001/main-lift-access-fields-performance-20261002.md`.

@@ -32,15 +32,19 @@ oracle versions and checkpoints do not sign current source.
   leaves about136MiB excess; phase cause remains unknown. Outputs remain exact;
   raw optimizing−9949 B does not close bounded canonical+99,251 B.
   [Scopes, commands, hashes and historical matrices](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-weightless-member-checkpoint).
-- **Latest targeted CL / optimizing checkpoint:** subsequent spill-storage
-  candidate08382360… keeps bytes and13,352 bounded wasm-gc tests. Complete CL
-  instructions48,137,746,501→47,745,254,152 (−.81535%), spill entry−61.49%.
-  Five normal pairs CL5289.570±115.064→4980.679±60.348ms/B1990.480±16.113,
-  paired−3.457%; optimizing7301.133±116.990→7379.340±56.890/B2559.307±34.185,
-  paired+.868%. All samples contended; optimizing has no command win and RSS
-  is flat. Earlier scalar-clique fallback+10.47ns stays open. Plain/OI rows
-  above retain their original1c/f111 binary. No quiet-host parity claim.
-  [Proof, scope and next targets](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-retain-unchanged-binary-constant-spill-cleanup-storage).
+- **Latest targeted DAE2 / CL / optimizing checkpoint:** checked lift reads
+  candidate e57d9b45… preserve exact bytes. Full13,355 wasm-gc tests plus one
+  subsequently added dispatcher test pass separately;447 validated modules and
+  1296 fixed observations pass. CL instructions47,745,254,152→47,506,930,728
+  (−0.49916%), nonrecursive conflict entry−6.7014%. One warmup/n5 alternating
+  normal medians±MAD ms: DAE2 3816.061±7.324/B1120.057±8.250 (3.41×),
+  CL4486.629±9.747/B1778.481±7.655 (2.52×),
+  optimizing6589.943±199.950/B2440.277±121.585 (2.70×).
+  All rows contended; paired changes−0.216/+0.190/+0.853%, no causal command
+  win. OI above retains its original1c/f111 binary. Plain initial RSS median
+  +9736KiB does not recur consistently in a bounded n3 repeat; memory modes
+  remain unexplained. Optimizing excess≈138MiB, canonical gap+99,251 B open.
+  [Proof, spread and remaining targets](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-checked-arena-reads-for-lift-local-conflicts).
 - **Optimizing cleanup / rejected-cache checkpoint:** accepted storage and
   bounded-discovery fixes reduce complete matched cleanup instructions
   22,691,343,936→20,107,910,056 (−11.385%); not a summed command gain.
@@ -348,6 +352,11 @@ excess open. [Full spread, size and scope](docs/wiki/tooling/tracing-playbook.md
 
 #### P03a — Remaining HOT field reads [IR2-PERF-DAE2-FIELDS]
 
+- **Completed scope:** the two private lift local-access workers now read the
+  existing arena record after unchanged checked admission; actual native
+  public/private complete-header calls disappear, with no new view or cache.
+  [Consumer evidence](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-checked-arena-reads-for-lift-local-conflicts)
+  records CL instruction savings and flat normal clocks. Do not duplicate it.
 - [ ] Profile remaining local-access/source and region-root queries returning
   complete node headers. Extend checked field reads where the caller needs
   only those fields; preserve single admission in shared label/body selection.
@@ -894,17 +903,17 @@ excess open. [Full spread, size and scope](docs/wiki/tooling/tracing-playbook.md
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
-- **Next measured shared target:** current CL root47.745b instructions;
-  lower-body entry9.061b includes spill entry.190b. Earlier db1412a75 lift
-  local-access conflict entry3.437b still returns32-byte complete node headers
-  for op/imm0/child_count; generated native code confirms both mask/conflict
-  worker calls. Trial checked compact reads only with actual consumer/native
-  proof. Getter cost itself is not attributed from counters alone. Remaining
-  canonicalization/control shells and masked traversal stay active. Unchanged
-  strip and binary-spill storage reuse are complete; preserve public ownership
-  and their recorded tradeoffs. Existing64-bit negative masks remain required;
-  prove collision density/benefit before widening. Separate drop work from
-  allocated bytes/RSS; optimizing's ≈138MiB excess has no proved phase cause.
+- **Next measured shared targets:** current CL root47.507b instructions;
+  checked lift conflict entry3.207b remains substantial after complete-header
+  boundary removal. Exact positive-mask traversal, source/dependency queries
+  and lower-body/canonicalization/control storage remain active. Earlier
+  lower-body9.061b includes spill.190b; those counts keep their original source.
+  Unchanged strip/spill storage and checked lift reads are complete; preserve
+  public ownership and recorded tradeoffs. Corrected getter attribution
+  supersedes the old wrong-symbol self0 row. Existing64-bit negative masks
+  remain required; prove collision density/benefit before widening. Separate
+  object-drop work from allocation bytes/RSS. Plain's bimodal RSS and optimizing's
+  ≈138MiB excess need phase attribution; no retained-arena cache is justified.
 - **APIs / invariants:** use checked scalar field getters and complete admission
   proofs; remove remaining full-header boundaries only with generated-native
   evidence. Invalidate compact facts or scratch on node/span/region/local/type

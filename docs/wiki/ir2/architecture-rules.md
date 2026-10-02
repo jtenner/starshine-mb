@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-02
 sources:
   - ../../../src/ir/local_graph_read_flow_wbtest.mbt
   - ./test-matrix.md
@@ -650,6 +650,14 @@ separates helper gains from full-pipeline evidence.
   It returns through one array-read path: early-return variants introduced extra
   native reference-count traffic and lost helper controls. See
   [getter tests](../../../src/ir/hot_node_get_direct_wbtest.mbt).
+- Lift's private local-access mask/conflict workers perform the same checked
+  arena admission before reading the existing node's op, local id and child
+  count. No new node/view object or cache is created. Native machine code
+  removes the complete-header return boundary while preserving Unit admission,
+  deletion/index fallback, recursion and exact mask-collision checks. This is
+  a read-only query; fresh masks remain required after semantic mutation. See
+  [bounded mask/traversal tests](../../../src/ir/hot_lift_access_fields_wbtest.mbt)
+  and [whole-consumer evidence and memory limits](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-checked-arena-reads-for-lift-local-conflicts).
 - HOT result arity reads the stored shape directly; `hot_type_results` still
   returns independently writable result arrays. Small type tables compare
   immutable structural shapes before formatting keys, with the existing map

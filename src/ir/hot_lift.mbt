@@ -1734,7 +1734,10 @@ fn hot_lift_impl_collect_local_access_masks(
     Some(count) => count[0] += 1
     None => ()
   }
-  let node = hot_node_get(func, node_id)
+  // Preserve checked admission while projecting the existing arena record
+  // here, without a complete-node return boundary or a new view allocation.
+  hot_node_require_live_read(func, node_id)
+  let node = func.nodes[node_id]
   let mut reads = 0UL
   let mut writes = 0UL
   match node.op {
@@ -1774,7 +1777,10 @@ fn hot_lift_impl_value_conflicts_with_local_access(
     Some(count) => count[0] += 1
     None => ()
   }
-  let node = hot_node_get(func, node_id)
+  // Preserve checked admission while projecting the existing arena record
+  // here, without a complete-node return boundary or a new view allocation.
+  hot_node_require_live_read(func, node_id)
+  let node = func.nodes[node_id]
   if node.imm0 == local_id {
     match node.op {
       HotOp::LocalSet | HotOp::LocalTee => return true

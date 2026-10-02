@@ -723,8 +723,11 @@ Root49,112,542,755 instructions. Source-backed nonrecursive entry edges:
 These edges overlap; neither summing them nor using recursively inflated
 inclusive totals is a phase breakdown. `moonbit_drop_object` exclusive work
 6,645,403,035 (13.53% root) indicates significant destruction work; it is not
-an allocation count or byte/RSS measurement. Getter self0 does not establish
-that inlined getter copies are free. [Lowering](../../../../../src/ir/hot_lower.mbt),
+an allocation count or byte/RSS measurement. **Attribution correction:** the
+original getter self0 row matched the wrong symbol (`get__hot__node` instead of
+`hot__node__get`); it was not evidence of inlining or free copies. The subsequent
+[checked arena read checkpoint](#october-2-2026-checked-arena-reads-for-lift-local-conflicts)
+records corrected getter attribution and actual native call boundaries. [Lowering](../../../../../src/ir/hot_lower.mbt),
 [lift masks/capture](../../../../../src/ir/hot_lift.mbt) and
 [interference](../../../../../src/passes/coalesce_locals.mbt) remain the larger
 source-backed targets, ahead of already repaired reachability/tee admission.
@@ -947,3 +950,89 @@ review, fixed runtime rows and original logs. Source/binary/input/v133 hashes,
 flags/backend/CPU, spreads and raw/canonical protocols remain explicit. Next
 measured candidate: lift conflict/mask full-header reads; neither their removal
 nor a performance benefit has been implemented or assumed yet.
+
+
+## October 2, 2026: checked arena reads for lift local conflicts
+
+Source: [lift workers](../../../../../src/ir/hot_lift.mbt),
+[shared checked admission](../../../../../src/ir/hot_mutate.mbt),
+[bounded regressions](../../../../../src/ir/hot_lift_access_fields_wbtest.mbt),
+[frozen predecessor](../../../../../src/ir/hot_lift_access_fields_reference_wbtest.mbt),
+[native controls](../../../../../src/ir/hot_lift_access_fields_perf_wbtest.mbt),
+[dispatcher](../../../../../src/cmd/cmd.mbt). Local full evidence:
+`.tmp/large-pass-hotspots-20261001/main-lift-access-fields-performance-20261002.md`
+and `lift-access-fields-*` manifests/results/profile/machine-code artifacts.
+
+Main c2aec5040 baseline native08382360…; candidate e57d9b45…;
+same 6,211,596 B compiler SHA98189860… and verified v133 SHA8f25e9fd….
+Two private reads now use the same checked admission followed by the existing
+arena record, rather than returning all eight fields through a native 32-byte
+HotNode boundary. Actual baseline machine code has one full-header getter call
+per worker; the candidate has zero public/private complete-header calls in both.
+The Unit admission call remains. No new view object, helper, cache, allocation,
+API or IR representation; wasm-gc still reads the existing object.
+
+Every early return, visit, liveness/error/fallback check, recursive child query,
+mask/readiness operation and exact collision fallback is retained. No positive
+mask shortcut or verification omission. New tests compare every mask/ready row
+and traversal count against the frozen worker, including fresh facts after
+mutation, incomplete deletion-index fallback and local0/64 collisions. The
+canonical dispatcher covers pending local values across writes. Actual native
+boundary assertions fail on the predecessor before implementation and pass on
+candidate machine code; the change does not repair a semantic behavior gap.
+
+Corrected baseline exclusive getter work is1,718,793,946 instructions across
+all CL consumers; candidate1,186,522,179. Conflict→getter inclusive523,890,855
+is nested and cannot be added to conflict/root. Earlier getter self0 used a
+wrong-name filter and is superseded, not evidence of compiler elimination.
+Complete CL scope47,745,254,152→47,506,930,728 instructions (−0.49916%);
+nonrecursive capture→conflict3,437,447,864→3,207,090,539 (−6.7014%).
+Bounded delayed Callgrind exits normally with exact validated output;
+parse/final CLI validation/encoding excluded. Recursive inclusive totals overlap.
+These instructions justify the narrow change; they are not allocation bytes or
+an equivalent percentage command-speed gain.
+
+CPU6, GCC14.2/O2/mimalloc, build outside timing; one warmup/n5 alternating
+normal fresh processes with warm filesystem. Median±MAD milliseconds:
+
+| Pass | Before | After | Binaryen133 | Paired change |
+| --- | ---: | ---: | ---: | ---: |
+| dae2 | 3826.450±33.139 | 3816.061±7.324 | 1120.057±8.250 | −0.216% |
+| coalesce-locals | 4484.109±7.269 | 4486.629±9.747 | 1778.481±7.655 | +0.190% |
+| dae2-optimizing | 6862.454±377.852 | 6589.943±199.950 | 2440.277±121.585 | +0.853% |
+
+All rows flag foreign CPU activity. DAE2/CL differences are within spread;
+optimizing median reduction is not a causal win given paired change/contention.
+Normal ranges/raw rows are in the local report/results. Separately traced n3
+S inner medians: plain3082.533→3066.548ms; CL3512.402→3501.260;
+optimizing5581.497→5563.897. These are diagnostics, not a matched B inner matrix.
+
+Normal peakRSS KiB: CL244892±44→244752±100/B217568±28;
+optimizing294464±48→294396±108/B153096±0. Plain n5 initially shows
+255740±9900→265476±464; retain this apparent9736KiB median rise. A separate
+one-warmup/n3 alternating CPU6 repeat gives268160±84→268196±76,
+ranges266364–268244 versus248080–268272. Lower memory modes appear on either
+binary; no consistent regression or peak-memory win established. Phase/lifetime
+cause remains open, as does optimizing's about138MiB excess.
+
+Twelve CPU6 native controls (ten-batch means, setup/equality outside timing):
+uncached negative32 520.40→471.23ns, cold negative32 including masks1.18→1.10µs,
+collision negative32 558.71→520.68ns and warm positive32 326.39→294.00ns;
+leaf17.73→17.01ns, warm negative20.05→19.81ns (within spread). Full batch spread
+is retained. Local gains do not establish whole-command/Binaryen parity.
+
+Full wasm-gc13,355/13,355 passes before the late dispatcher is compiled; that
+new test then passes separately1/1. Do not report a single full13,356 run.
+moon info/fmt/check, native release build, twelve native controls and API sync
+pass; no .mbti change. Three fixed runtime lanes validate447 modules/check1296
+observations total, original/before/after/v133, including effects/traps, state,
+memory, GC and permitted floating-point behavior. Node26's compact-import
+rejection uses the documented runtime-only v133 text expansion; raw outputs
+remain exact. Manual source/frozen review; independent agents unavailable.
+No long fuzz campaign. Final aggregate/CI/coverage and quiet timings remain open.
+
+Raw plain/CL/optimizing bytes remain6,115,221/5,706,503/5,563,501, preserving
+V83 and previous fixes. Raw optimizing−9,949 B does not close separately bounded
+canonical+99,251 B. Larger DAE2 dependency/CFG work, cleanup setup, exact positive
+mask traversal, shared validation/lowering and OI command envelope remain next;
+retain earlier tiny/tee/weighted/wide controls as active tradeoffs.

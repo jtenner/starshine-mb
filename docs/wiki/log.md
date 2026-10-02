@@ -1,3 +1,13 @@
+### 2026-10-02 — Read lift local fields after checked arena admission
+
+- [Lift checked-read proof and tradeoffs](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-checked-arena-reads-for-lift-local-conflicts)
+  removes two native complete-header boundaries without new storage or changed
+  checks/traversal. Complete CL instructions fall0.49916%, conflict entry6.7014%;
+  normal command gains remain unproved. Corrected getter attribution supersedes
+  an earlier wrong-symbol row.13,355 default tests plus a later dispatcher1/1,
+  twelve native controls and1296 fixed observations pass with exact bytes.
+  Bimodal plain RSS and optimizing memory/byte/pipeline gaps remain open.
+
 ### 2026-10-02 — Retain unchanged binary spill cleanup storage
 
 - [Lowering spill storage](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-retain-unchanged-binary-constant-spill-cleanup-storage)
