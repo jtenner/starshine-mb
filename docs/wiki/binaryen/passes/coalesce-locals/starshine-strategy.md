@@ -1036,3 +1036,78 @@ V83 and previous fixes. Raw optimizing−9,949 B does not close separately bound
 canonical+99,251 B. Larger DAE2 dependency/CFG work, cleanup setup, exact positive
 mask traversal, shared validation/lowering and OI command envelope remain next;
 retain earlier tiny/tee/weighted/wide controls as active tradeoffs.
+
+
+## October 2, 2026: use compact counts throughout lowering
+
+[Lowering](../../../../../src/ir/hot_lower.mbt) only reads exact use counts at
+its two count-query sites. Replace its full use-site/local graph with existing
+`HotNodeUseCounts`; pass it through eleven private workers, without changing
+public analyses, transforms, IR, API or mandatory verification. The complete
+reachable live root/child walk counts every reference and visits each producer
+once. Site kind/user/slot and local/block overlays are unused by lowering.
+Region-root and child references retain identical multiplicities. Fresh counts
+remain required after mutation; orphan/deleted nodes stay zero.
+
+[Three bounded regressions](../../../../../src/ir/hot_lower_use_counts_wbtest.mbt)
+compare all counts with full use sites, including block/loop/if/TryTable, typed
+parameters/results, GC, shared operands, repeated roots and snapshot independence.
+The [dispatcher](../../../../../src/cmd/cmd.mbt) retains nested results while
+both DAE2 modes actively remove an unused helper parameter; CL also validates.
+[Six native controls](../../../../../src/ir/hot_lower_use_counts_perf_wbtest.mbt)
+exclude construction/equality from timing. Actual native regression is red first:
+predecessor lowering calls the full builder once; candidate calls it zero times
+and the compact builder exactly once. No annotation/C-only inference.
+
+Main86fc89961/e57d9b45… baseline, candidate c93901ee…;
+same6,211,596 B compiler SHA98189860… and verified v133 SHA8f25e9fd….
+Complete CL module profile, bounded300s/normal exit/exact validated hash:
+47,506,930,728→45,745,669,624 instructions (−3.7074%). Direct lowering entry
+9,059,207,915→7,283,301,643 (−19.6033%); nested analysis construction
+1,354,964,981→275,647,919 (−79.6565%). Lowering's direct object destruction
+1,169,138,988→479,207,794 is nested too, not an additional phase. Neither sum
+nested edges nor infer allocated bytes/RSS from instructions/shared call counts.
+Parse/final CLI validation/encoding are excluded from this profile.
+
+CPU6/GCC14.2/O2/mimalloc release, build outside timing, one warmup/n5 alternating
+normal fresh-process/warm-filesystem commands. Median±MAD milliseconds:
+
+| Pass | Before | After | Binaryen133 | Paired change | After/B |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3845.083±7.476 | 3768.526±15.606 | 1121.804±1.798 | −2.181% | 3.36× |
+| dae2-optimizing | 6422.674±34.933 | 6320.913±8.961 | 2410.442±21.913 | −1.584% | 2.62× |
+| coalesce-locals | 4579.288±7.001 | 4459.136±34.020 | 1790.915±9.380 | −2.692% | 2.49× |
+| optimize-instructions | 2348.396±52.903 | 2278.473±71.614 | 1028.363±61.973 | −2.996% | 2.22× |
+
+All normal rows flag foreign CPU activity; work reduction corroborates the
+observed paired gains, without establishing quiet-host1× parity. Raw ranges,
+exact commands/input/tool hashes/flags and wait4 CPU/RSS remain in local results.
+Traced diagnostics are separate: n3 plain, n1 CL/OO/OI, not matched B inner scopes.
+Explicit native release repeat (ten-batch means): tiny853.86→71.71ns,
+medium3.69µs→530.14ns, wide60.92±12.65→10.88±1.71µs. Larger wide spread is retained;
+initial controls47.20±.445→7.94±.087µs corroborate, not whole-pass ratios.
+
+PeakRSS KiB median±MAD n5: plain266268±1832→266744±1084;
+OO294572±24→294528±64; CL244740±112→244744±140; OI156412±176→156356±80.
+No material peak-memory win. Fewer constructed site/local objects follow the
+source/native contract; allocation-byte counts are not measured. Plain memory
+modes and optimizing's≈138MiB excess remain. Raw hashes stay exact:
+plain6,115,221/B6,232,586; OO5,563,501/B5,573,450;
+CL5,706,503/B5,627,625; OI6,205,998/B6,172,971 B. V83 retained;
+raw OO−9,949 B does not close separately bounded canonical+99,251 B.
+
+All13,360 default wasm-gc tests, info/fmt/check/native release/API sync pass;
+no .mbti change. Four fixed original/before/after/v133 lanes validate628 modules
+and check1824 runtime observations: state, memory, GC, ordered effects/trap
+occurrence and finite FP, including nested helper results/typed loops. Compact
+import expansion is runtime-only; raw evidence untouched. Manual source/consumer/
+native review; independent agents unavailable. No long fuzz. Final aggregates,
+CI/coverage, canonical gaps and the1× pass/command target remain active.
+
+Next direct lower owners: emitted roots2,964,843,620 and label/source setup
+1,329,439,032 instructions, both within the7.283b entry. Measure deferred facts
+and temporary result arrays with full ordering/effect/buried-value checks before
+retaining another cache. Existing DAE2 CFG/read-source and cleanup/validation/OI
+owners remain. Local report and all exact manifests/results:
+`.tmp/large-pass-hotspots-20261001/main-lower-use-counts-performance-20261002.md`,
+`lower-use-counts-*`. Completed mechanisms move here; active tasks stay in backlog.

@@ -19,32 +19,29 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Latest matched large four-pass checkpoint:** exact main1c8485122,
-  nativef111fea4…, verified v133, one warmup/three alternating normal CLI rows:
-  DAE2 5008.383±313.869/1296.329±56.102 ms (3.86×),
-  DAE2-O7436.486±351.151/2504.557±3.812 (2.97×),
-  CL5065.838±171.368/2629.070±611.023 (1.93×),
-  OI2498.174±22.068/994.902±3.777 (2.51×), median±MAD.
-  All rows flag foreign activity; particularly broad CL oracle spread makes
-  that ratio fragile. No fresh matched inner matrix or quiet-host signoff.
-  Absolute normal excess: optimizing4931.929ms, plain/shared3712.054ms,
-  CL2436.768ms (uncertain), OI1503.272ms. RSS optimizing294444/155148KiB
-  leaves about136MiB excess; phase cause remains unknown. Outputs remain exact;
-  raw optimizing−9949 B does not close bounded canonical+99,251 B.
-  [Scopes, commands, hashes and historical matrices](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-weightless-member-checkpoint).
-- **Latest targeted DAE2 / CL / optimizing checkpoint:** checked lift reads
-  candidate e57d9b45… preserve exact bytes. Full13,355 wasm-gc tests plus one
-  subsequently added dispatcher test pass separately;447 validated modules and
-  1296 fixed observations pass. CL instructions47,745,254,152→47,506,930,728
-  (−0.49916%), nonrecursive conflict entry−6.7014%. One warmup/n5 alternating
-  normal medians±MAD ms: DAE2 3816.061±7.324/B1120.057±8.250 (3.41×),
-  CL4486.629±9.747/B1778.481±7.655 (2.52×),
-  optimizing6589.943±199.950/B2440.277±121.585 (2.70×).
-  All rows contended; paired changes−0.216/+0.190/+0.853%, no causal command
-  win. OI above retains its original1c/f111 binary. Plain initial RSS median
-  +9736KiB does not recur consistently in a bounded n3 repeat; memory modes
-  remain unexplained. Optimizing excess≈138MiB, canonical gap+99,251 B open.
-  [Proof, spread and remaining targets](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-checked-arena-reads-for-lift-local-conflicts).
+- **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
+  active pass-local timings; track full-command time independently. Neither a
+  helper gain nor a guarded/no-op path closes this target.
+- **Latest matched large four-pass checkpoint:** compact lowering counts,
+  base86fc89961/native e57d9b45…→candidate c93901ee…. One warmup/n5 alternating
+  normal fresh-process commands, median±MAD milliseconds:
+  DAE2 3768.526±15.606/B1121.804±1.798 (3.36×),
+  DAE2-O6320.913±8.961/B2410.442±21.913 (2.62×),
+  CL4459.136±34.020/B1790.915±9.380 (2.49×),
+  OI2278.473±71.614/B1028.363±61.973 (2.22×).
+  Paired before/after changes−2.181/−1.584/−2.692/−2.996%; every sample flags
+  foreign activity. CL instructions47,506,930,728→45,745,669,624 (−3.7074%),
+  direct lower9,059,207,915→7,283,301,643 (−19.6033%) corroborate reduced work.
+  No quiet-host1× signoff or matched B inner matrix.13,360 bounded tests and
+  628 validated modules/1824 fixed observations pass; all bytes/API unchanged.
+  PeakRSS effectively flat, plain memory modes and optimizing≈138MiB excess
+  unresolved. Raw OO−9949 B remains distinct from canonical+99,251 B.
+  [Exact scopes/spread/hashes](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-compact-lowering-count-checkpoint).
+- **Completed shared mechanisms:** checked lift reads, scalar CL clique updates,
+  retained unchanged strip/spill storage and compact lowering counts are
+  implemented; do not repeat them. Existing tiny/tee/weighted/wide microcosts
+  remain visible in P03/P04 and the
+  [consumer dossier](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-use-compact-counts-throughout-lowering).
 - **Optimizing cleanup / rejected-cache checkpoint:** accepted storage and
   bounded-discovery fixes reduce complete matched cleanup instructions
   22,691,343,936→20,107,910,056 (−11.385%); not a summed command gain.
@@ -291,14 +288,13 @@ or active-coverage regression. A subsecond inner timer does not close a
 multi-second pipeline cost. Guarded or unchanged paths do not establish cleanup
 breadth. Shared changes require all affected consumers in the matrix below.
 
-**Latest matched large-command checkpoint:** frozenf111fea4… after lowering
-and weightless CL search; one warmup/n3, all host-contended. S/B medians ms:
-DAE2 5008.383/1296.329, optimizing7436.486/2504.557,
-CL5065.838/2629.070 (B MAD611.023), OI2498.174/994.902. These do not establish
-quiet-host wins or renew the inner scopes. Optimizing/shared CFG/lift/validation
-remain the largest absolute targets, then CL interference/hazards and OI's
-command envelope; keep canonical optimizing+99,251 B and about136MiB peakRSS
-excess open. [Full spread, size and scope](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-weightless-member-checkpoint).
+**Latest matched large-command checkpoint:** compact counts c93901ee…;
+one warmup/n5, all contended. Current S/B medians ms: DAE2 3768.526/1121.804,
+optimizing6320.913/2410.442, CL4459.136/1790.915, OI2278.473/1028.363.
+Approximate normal excess optimizing3910ms, CL2668ms, plain2647ms, OI1250ms.
+Prioritize shared lower setup, dependency/cleanup/validation and OI envelope;
+keep canonical OO+99,251 B, ≈138MiB excess and the1× pass target active.
+[Full spread, scope and exact source](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-compact-lowering-count-checkpoint).
 
 ### P01 — Write-heavy propagation state [IR2-PERF-PC-FLOW]
 
@@ -914,17 +910,18 @@ excess open. [Full spread, size and scope](docs/wiki/tooling/tracing-playbook.md
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
-- **Next measured shared targets:** current CL root47.507b instructions;
-  checked lift conflict entry3.207b remains substantial after complete-header
-  boundary removal. Exact positive-mask traversal, source/dependency queries
-  and lower-body/canonicalization/control storage remain active. Earlier
-  lower-body9.061b includes spill.190b; those counts keep their original source.
-  Unchanged strip/spill storage and checked lift reads are complete; preserve
-  public ownership and recorded tradeoffs. Corrected getter attribution
-  supersedes the old wrong-symbol self0 row. Existing64-bit negative masks
-  remain required; prove collision density/benefit before widening. Separate
-  object-drop work from allocation bytes/RSS. Plain's bimodal RSS and optimizing's
-  ≈138MiB excess need phase attribution; no retained-arena cache is justified.
+- **Next measured shared targets:** current CL root45.746b instructions,
+  direct lower7.283b after compact counts remove unused full use-site/local
+  overlays. Direct emitted roots2.965b and label/source setup1.329b remain;
+  measure deferred facts and temporary result arrays with complete order/effect/
+  buried-value checks. Earlier result-push.578b is a lead, not a fresh phase.
+  Checked lift conflict3.207b and DAE2 dependency9.909b retain original source
+  snapshots. Unchanged strip/spill storage, checked lift reads and compact
+  counts are complete; preserve public ownership and recorded tradeoffs.
+  Positive-mask traversal and region/canonicalization storage stay active.
+  Existing64-bit masks remain required; prove benefits before widening. Separate
+  object-drop work from allocated bytes/RSS. Plain memory modes and optimizing
+  ≈138MiB excess need attribution; no retained whole-arena cache is justified.
 - [ ] Measure high-degree CFG reciprocal-edge verification: nested neighbor
   scans can be quadratic on wide joins/switches. Current dependency snapshot
   attributes.280b instructions to all CFG verification, without proving degree

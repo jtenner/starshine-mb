@@ -10277,3 +10277,29 @@ test "command DAE2 modes and Coalesce preserve pending local values across write
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command DAE2 modes and Coalesce retain nested results with compact lowering counts" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func $helper (param i32 i32) (result i32) local.get 0 i32.const 7 i32.add) (func (export \"run\") (param i32) (result i32) (local i32) local.get 0 i32.const 99 call $helper local.set 1 block (result i32) local.get 0 if (result i32) local.get 1 else i32.const 0 end end))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for pass in ["dae2", "dae2-optimizing", "coalesce-locals"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    let env = @validate.empty_env().with_module(output)
+    guard env.get_functype_by_funcidx(@lib.FuncIdx::new(0U))
+      is Some(@lib.FuncType(params, results)) else {
+      fail("helper signature must remain present")
+    }
+    assert_eq(results, [@lib.ValType::i32()])
+    if pass != "coalesce-locals" {
+      assert_eq(params, [@lib.ValType::i32()])
+    }
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

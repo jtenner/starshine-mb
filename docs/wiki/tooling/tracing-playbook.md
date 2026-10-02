@@ -4755,3 +4755,36 @@ shared off-scope allocator counts are omitted. This is attribution, not a new
 before/after claim or wall-time measurement. Existing predecessor compression is
 linear; prospective wide-edge symmetry indexing needs degree/work/allocation
 measurement before implementation. Larger storage/lifetime owners remain active.
+
+
+## October 2, 2026: main compact lowering-count checkpoint
+
+[Compact counts and ownership proof](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-use-compact-counts-throughout-lowering)
+removes unused use-site/local overlays while retaining complete count/transform/
+verification work. Main86fc89961/e57d9b45… baseline, candidate c93901ee…;
+fixed compiler SHA98189860… and verified v133 SHA8f25e9fd…. Complete CL
+instructions47,506,930,728→45,745,669,624 (−3.7074%), nested lower−19.6033%.
+Bounded300s profile exits normally with exact validated output; no allocator-byte
+or summed nested-phase claim. Actual native full-builder call1→0, compact call1.
+
+CPU6/native GCC14.2/O2/mimalloc; build outside timing, one warmup/n5 alternating
+normal CLI commands, median±MAD milliseconds:
+
+| Pass | Starshine | Binaryen133 | S/B |
+| --- | ---: | ---: | ---: |
+| dae2 | 3768.526±15.606 | 1121.804±1.798 | 3.36× |
+| dae2-optimizing | 6320.913±8.961 | 2410.442±21.913 | 2.62× |
+| coalesce-locals | 4459.136±34.020 | 1790.915±9.380 | 2.49× |
+| optimize-instructions | 2278.473±71.614 | 1028.363±61.973 | 2.22× |
+
+Every normal row flags foreign CPU activity. Paired changes−2.181/−1.584/−2.692/
+−2.996% respectively, corroborated by reduced CL work; not quiet-host1× signoff.
+Older four-pass1c/f111 measurements above retain their source/date/scope.
+Separate traced diagnostics n3 plain/n1 others do not renew a matched B inner
+matrix. RSS essentially flat; memory modes and optimizing≈138MiB excess remain.
+Raw hashes/V83 unchanged; canonical byte gaps remain distinct and active.
+All13,360 default tests, six native controls/explicit release repeat and628
+validated modules/1824 fixed observations pass, no API change or long fuzz.
+Exact range/flags/source/output hashes/rows in the dossier and local
+`.tmp/large-pass-hotspots-20261001/main-lower-use-counts-performance-20261002.md`.
+Final aggregates/CI/coverage and the1× target remain open.

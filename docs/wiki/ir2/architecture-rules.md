@@ -658,6 +658,12 @@ separates helper gains from full-pipeline evidence.
   a read-only query; fresh masks remain required after semantic mutation. See
   [bounded mask/traversal tests](../../../src/ir/hot_lift_access_fields_wbtest.mbt)
   and [whole-consumer evidence and memory limits](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-checked-arena-reads-for-lift-local-conflicts).
+- Lowering uses complete `HotNodeUseCounts` instead of allocating full use-site
+  and local overlays for two count-only queries. Exact root/child multiplicities
+  and fresh snapshot lifetime remain required; other consumers keep complete
+  `HotUseDef`. No graph fields are silently omitted from a full graph API. See
+  [control/sharing/snapshot regressions](../../../src/ir/hot_lower_use_counts_wbtest.mbt)
+  and [enclosing performance evidence](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-use-compact-counts-throughout-lowering).
 - HOT result arity reads the stored shape directly; `hot_type_results` still
   returns independently writable result arrays. Small type tables compare
   immutable structural shapes before formatting keys, with the existing map

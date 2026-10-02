@@ -1089,7 +1089,7 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   future_roots : Array[NodeId],
   future_start : Int,
   future_dependency_suffix_minima : HotSourceOrderRootIndex?,
-  use_def : HotUseDef,
+  use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   stack : Array[HotLowerStackValue],
@@ -1119,7 +1119,7 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
 fn hot_lower_impl_body_items(
   func : HotFunc,
   id : NodeId,
-  use_def : HotUseDef,
+  use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   extra_locals : Array[ValType],
@@ -1275,7 +1275,7 @@ fn hot_lower_impl_body_items(
 fn hot_lower_impl_region_body(
   func : HotFunc,
   id : NodeId,
-  use_def : HotUseDef,
+  use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   extra_locals : Array[ValType],
@@ -1414,7 +1414,7 @@ fn hot_lower_impl_result_only_block_type(
 fn hot_lower_impl_drop_dead_nonfinal_root_results(
   func : HotFunc,
   id : NodeId,
-  use_def : HotUseDef,
+  use_def : HotNodeUseCounts,
   preserve_region_result : Bool,
   is_final_root : Bool,
   stack : Array[HotLowerStackValue],
@@ -1424,7 +1424,7 @@ fn hot_lower_impl_drop_dead_nonfinal_root_results(
     return
   }
   let result_arity = hot_node_result_arity(func, id)
-  if result_arity == 0 || node_use_count(use_def, id) != 1 {
+  if result_arity == 0 || hot_node_use_count(use_def, id) != 1 {
     return
   }
   for _ in 0..<result_arity {
@@ -1632,7 +1632,7 @@ fn hot_lower_impl_finalize_region_stack(
 ///|
 fn hot_lower_impl_preserve_region_result_roots(
   func : HotFunc,
-  use_def : HotUseDef,
+  use_def : HotNodeUseCounts,
   root_ids : Array[NodeId],
   region_result_arity : Int,
 ) -> @bitset.BitSet {
@@ -1647,7 +1647,7 @@ fn hot_lower_impl_preserve_region_result_roots(
     if remaining <= 0 {
       break
     }
-    if node_use_count(use_def, root_id) != 1 {
+    if hot_node_use_count(use_def, root_id) != 1 {
       continue
     }
     let result_arity = hot_node_result_arity(func, root_id)
@@ -1668,7 +1668,7 @@ fn hot_lower_impl_preserve_region_result_roots(
 fn hot_lower_impl_emit_instruction(
   func : HotFunc,
   id : NodeId,
-  use_def : HotUseDef,
+  use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   out : Array[Instruction],
@@ -2312,7 +2312,7 @@ fn hot_lower_impl_emit_instruction(
 fn hot_lower_impl_emit_value(
   func : HotFunc,
   id : NodeId,
-  use_def : HotUseDef,
+  use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   stack : Array[HotLowerStackValue],
@@ -2339,7 +2339,7 @@ fn hot_lower_impl_emit_value(
 fn hot_lower_impl_emit_inputs(
   func : HotFunc,
   inputs : ArrayView[NodeId],
-  use_def : HotUseDef,
+  use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   stack : Array[HotLowerStackValue],
@@ -2380,7 +2380,7 @@ fn hot_lower_impl_emit_inputs(
 fn hot_lower_impl_emit_typed_param_block_with_entry_prefix(
   func : HotFunc,
   id : NodeId,
-  use_def : HotUseDef,
+  use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   stack : Array[HotLowerStackValue],
@@ -2568,7 +2568,7 @@ fn hot_lower_impl_emit_typed_param_block_with_entry_prefix(
 fn hot_lower_impl_emit_transparent_param_block(
   func : HotFunc,
   id : NodeId,
-  use_def : HotUseDef,
+  use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   stack : Array[HotLowerStackValue],
@@ -2805,7 +2805,7 @@ fn hot_lower_impl_reuse_buried_scalar(
 fn hot_lower_impl_emit_root(
   func : HotFunc,
   id : NodeId,
-  use_def : HotUseDef,
+  use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   stack : Array[HotLowerStackValue],
@@ -5469,7 +5469,8 @@ fn hot_lower_body_with_extras_unverified_with_options(
   func : HotFunc,
   options : HotLowerOptions,
 ) -> HotLowerBodyResult {
-  let use_def = use_def_build_node_uses(func)
+  // Lowering only needs exact multiplicities, not use-site or local overlays.
+  let use_def = hot_node_use_counts_build(func)
   let label_frames = hot_lower_impl_new_label_frames(func)
   let out : Array[Instruction] = []
   let value_stack : Array[HotLowerStackValue] = []

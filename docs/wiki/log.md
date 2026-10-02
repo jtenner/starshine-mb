@@ -1,3 +1,13 @@
+### 2026-10-02 — Use compact counts throughout lowering
+
+- [Complete count contract and measurements](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-use-compact-counts-throughout-lowering)
+  replaces unused full use-site/local overlays with existing exact counts.
+  Complete CL work falls3.7074%, nested lower19.6033%; matched paired large
+  DAE2/OO/CL/OI clocks improve2.181/1.584/2.692/2.996% under recorded contention.
+  All13,360 tests and1824 fixed observations pass with exact bytes/API. Native
+  regression is red first; peakRSS is flat. Keep1× speed, canonical quality,
+  memory and broader release gates open; next target shared lower setup.
+
 ### 2026-10-02 — Renew large DAE2 dependency attribution
 
 - [Current dependency scope](binaryen/passes/dae2/starshine-strategy.md#october-2-2026-current-large-dependency-cost-after-checked-lift-reads)
