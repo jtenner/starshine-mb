@@ -1,3 +1,14 @@
+### 2026-10-02 — Bound weightless Coalesce member searches
+
+- [Member-search proof and tradeoffs](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-stop-weightless-member-searches-after-the-first-valid-slot)
+  preserves all weighted choices and validation with no new storage. Actual
+  red,13,341 bounded tests and348 fixed observations pass with exact bytes.
+  Real member work falls20.04%, whole CL.2925%; no command/RSS win is claimed,
+  and the repeated weighted+.34µs cost remains. The
+  [current four-pass matrix](tooling/tracing-playbook.md#october-2-2026-main-weightless-member-checkpoint)
+  preserves host/spread and raw/canonical distinctions; larger pipeline/CL/OI,
+  byte quality and release gates remain open.
+
 ### 2026-10-02 — Retain unchanged lowering cleanup rows
 
 - [Lowering storage checkpoint](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-retain-unchanged-lowering-cleanup-rows)

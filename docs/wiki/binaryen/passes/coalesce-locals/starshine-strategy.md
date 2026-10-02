@@ -794,3 +794,55 @@ Artifacts: `.tmp/large-pass-hotspots-20261001/main-lower-strip-performance-20261
 `lower-strip-cl-costs.json`, `lower-strip-optimizing-costs.json`, original logs.
 The next measured targets are CFG/lift/capture and interference/coloring;
 already-retained unchanged strip rows need no repeat implementation.
+
+
+## October 2, 2026: stop weightless member searches after the first valid slot
+
+Below64 locals, [member coloring](../../../../../src/passes/coalesce_locals.mbt)
+kept searching after its first valid zero-score choice even with an empty
+immutable copy-weight row. All later scores are zero and earliest slots win
+strict-greater ties. Five lines stop only that case; every nonempty weighted row
+retains the complete search. Types/interferences/parameters, source hazards,
+captures, coloring/remap, dense path and complete verification remain. No new
+storage, helper/cache/API or assumptions about positive weights/overflow.
+
+Actual red: exact output/input assertions pass before22 !=10 work-bound failure.
+The [regressions](../../../../../src/passes/coalesce_member_zero_score_wbtest.mbt)
+retain weighted later-slot preference, type/conflict checks, ties and reverse
+order. The existing slot reference exactly matches predecessor ef3e10438's
+worker; no duplicate reference is added. Dispatcher fixture transforms an
+ordered, imported-effect loop with a carried copy and later independent value.
+
+Frozen nativefd2abde6…→f111fea4…, same6,211,596 B compiler: complete CL
+module-pass instructions48,469,710,862→48,327,939,076 (−.2925%). Nonrecursive
+color-with-order→member edge714,957,651→571,703,733 (−20.04%); nested
+interference339,264,760→265,272,920 and score51,342,670→33,686,308 overlap.
+Never sum these or translate instruction savings into wall/allocated bytes.
+Across both lowering/search changes CL root falls1.598% from49,112,542,755.
+Complete bounded profile exits normally with validated identical bytes.
+
+Five normal alternating pairs, one warmup, CPU6, all foreign-activity flagged:
+median±MAD S5043.340±208.991→5108.202±71.587ms, v1332023.686±29.593ms,
+paired+2.706%. No large command win. Separate three traced inner diagnostics
+3997.629±140.450→4036.230±44.300ms are inconclusive. PeakRSS KiB n5
+244648±256→244760±120, B217560±16 is flat. Eight
+[native controls](../../../../../src/passes/coalesce_member_zero_score_perf_wbtest.mbt)
+show weightless32/63 3.83→1.51 /9.60→6.05µs; weighted63 instead costs
+9.12→9.26µs, repeat8.61→8.95µs (+.34µs,+3.95%). This observed weighted cost
+stays open. Remaining member queries are bounded below64; no global linearity
+claim. Score-zero accumulation still runs, with no second saving counted.
+
+Info/fmt/check/native build,13,341 bounded wasm-gc tests, eight native controls
+plus two weighted repeats, README/API sync and121 validated modules/348 fixed
+runtime observations pass. No interface diff; exact output5706503 B preserves
+all existing byte quality, not canonical parity. Build-only/tmp exhaustion is
+recovered using ignored repository-local compiler TMPDIR, with failed logs kept
+and no foreign data/process touched. Full aggregate fuzz/CI/coverage and
+independent review remain open. Larger CFG/lift/interference/command owners take
+priority over ratios or guard microtuning; quiet-host evidence is still needed.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/main-member-zero-performance-20261002.md`,
+`member-zero-*-manifest.json`, `member-zero-*-costs.json`,
+`member-zero-coalesce-locals-pairs/result.json`, original gate/control/runtime logs.
+[Current four-pass command matrix](../../../tooling/tracing-playbook.md#october-2-2026-main-weightless-member-checkpoint)
+keeps all host flags and the broad Binaryen CL spread explicit.

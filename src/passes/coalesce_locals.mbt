@@ -7558,6 +7558,11 @@ fn cl_cfg_sparse_color_members(
         if score > best_score {
           best_score = score
           best_slot = slot
+          // An empty weight row gives every admissible slot score zero.
+          // Earlier slots win ties, so later slots cannot improve this choice.
+          if best_score == 0 && weights.rows[local_idx].length() == 0 {
+            break
+          }
         }
       }
     }

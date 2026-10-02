@@ -300,6 +300,15 @@ or active-coverage regression. A subsecond inner timer does not close a
 multi-second pipeline cost. Guarded or unchanged paths do not establish cleanup
 breadth. Shared changes require all affected consumers in the matrix below.
 
+**Latest matched large-command checkpoint:** frozenf111fea4… after lowering
+and weightless CL search; one warmup/n3, all host-contended. S/B medians ms:
+DAE2 5008.383/1296.329, optimizing7436.486/2504.557,
+CL5065.838/2629.070 (B MAD611.023), OI2498.174/994.902. These do not establish
+quiet-host wins or renew the inner scopes. Optimizing/shared CFG/lift/validation
+remain the largest absolute targets, then CL interference/hazards and OI's
+command envelope; keep canonical optimizing+99,251 B and about136MiB peakRSS
+excess open. [Full spread, size and scope](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-weightless-member-checkpoint).
+
 ### P01 — Write-heavy propagation state [IR2-PERF-PC-FLOW]
 
 - **Owner / why:** [local_graph.mbt](src/ir/local_graph.mbt), transfer and
@@ -803,6 +812,14 @@ breadth. Shared changes require all affected consumers in the matrix below.
   work6,645,403,035 (13.53% root), not allocation counts. Control-index .368b and
   tee cleanup .136b are smaller targets. All nested edges overlap: never sum.
   [Scope and remaining owners](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-complete-main-module-pass-attribution).
+- **Weightless member-search checkpoint:** first valid zero-score slot now
+  ends an empty copy-weight-row search; nonempty rows remain complete. Complete
+  CL instructions48.470b→48.328b (−.2925%), member edge−20.04%, exact bytes;
+  13,341 bounded tests/348 fixed observations. Five normal pairs show no clock
+  gain (paired+2.706%, broad host spread); weighted63's repeated+.34µs cost
+  stays open. No new storage. Preserve this rule; profile larger owners and
+  the weighted path rather than duplicating the completed zero-weight search.
+  [Proof and tradeoffs](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-stop-weightless-member-searches-after-the-first-valid-slot).
 - **Deliverables / tasks:** profile repeated dependency/action rows and query
   ordering on one revision; try demand-built facts or bounded scratch where
   repeated work remains. Refresh conflict, control-boundary and slot-query

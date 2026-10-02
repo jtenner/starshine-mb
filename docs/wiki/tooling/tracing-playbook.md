@@ -4644,3 +4644,39 @@ normal-exit logs and actual output equality, not by accepting partial data.
 optimizing+99,251 B and all release aggregate/coverage/full gates remain open.
 Plain DAE2/OI keep the preceding matched matrix's exact older binary/date/scope;
 these two renewed rows do not relabel the earlier four-pass matrix.
+
+
+## October 2, 2026: main weightless member checkpoint
+
+The [bounded CL search](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-stop-weightless-member-searches-after-the-first-valid-slot)
+reduces the real member worker20.04% and complete CL instructions.2925%, with
+no new storage or changed bytes. Five normal paired commands have no clock win;
+weighted63's repeated+.34µs cost stays visible. This is not full parity signoff.
+Current frozenf111fea4… follows ef3e10438/fd2abde6… lowering storage. Fixed
+6,211,596 B compiler SHA98189860… and verified v133 SHA8f25e9fd…; CPU6,
+release GCC14.2/O2/mimalloc, build outside timing, one warmup/n3 alternating
+normal fresh-process commands with warm filesystem:
+
+| Pass | Starshine median±MAD ms | Binaryen133 | S/B | Raw S / B bytes |
+| --- | ---: | ---: | ---: | ---: |
+| dae2 | 5008.383±313.869 | 1296.329±56.102 | 3.86× | 6,115,221 / 6,232,586 |
+| dae2-optimizing | 7436.486±351.151 | 2504.557±3.812 | 2.97× | 5,563,501 / 5,573,450 |
+| coalesce-locals | 5065.838±171.368 | 2629.070±611.023 | 1.93× | 5,706,503 / 5,627,625 |
+| optimize-instructions | 2498.174±22.068 | 994.902±3.777 | 2.51× | 6,205,998 / 6,172,971 |
+
+All rows flag foreign activity. Particularly broad Binaryen CL spread makes its
+1.93× ratio fragile; do not call it a causal improvement from earlier cohorts.
+The same-cohort normal excess medians are optimizing4931.929ms, plain DAE2
+3712.054ms, CL2436.768ms (broad B spread), OI1503.272ms. DAE2/O are separate
+from DAE/O. Full ranges, raw rows, exact process wait4 CPU/peakRSS and command/
+input/tool hashes are in `.tmp/large-pass-hotspots-20261001/large-matrix-main-member-zero-20261002/result.json`.
+No current matched inner matrix is implied; older timers retain original scopes.
+
+All four output hashes remain exact, preserving earlier fixes/V83. Raw optimizing
+S−9949 B does not close the separately verified bounded canonical+99,251 B gap.
+Optimizing peakRSS n3 S294444/B155148 KiB leaves about136MiB; no phase cause is
+proved. Current13,341 bounded tests, eight native controls/two weighted repeats
+and348 fixed observations pass. The build's full/tmp failure is recovered with
+repository-local compiler temp storage; timing begins only after successful gates.
+Quiet matched clocks, size families, larger shared pipeline/CL/OI owners and full
+aggregate/coverage/CI remain release blockers. No long fuzz campaign was run.
