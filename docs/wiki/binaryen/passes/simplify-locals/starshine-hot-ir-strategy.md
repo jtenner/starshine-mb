@@ -11,6 +11,9 @@ sources:
   - ../../../../../src/passes/cleanup_read_copy_wbtest.mbt
   - ../../../../../src/passes/suffix_storage_wbtest.mbt
   - ../../../../../src/passes/suffix_storage_perf_wbtest.mbt
+  - ../../../../../src/passes/pure_middle_bound_wbtest.mbt
+  - ../../../../../src/passes/pure_middle_perf_wbtest.mbt
+  - ../../../../../src/passes/pure_middle_reference_wbtest.mbt
 related:
   - ./index.md
   - ./wat-shapes.md
@@ -647,3 +650,84 @@ pure dupable-copy middle scan: after one safe complete statement, only its
 zero/nonzero length affects decisions, yet the original loop keeps typing and
 materializing later statements before other helpers scan the tail again.
 This is a source-backed quadratic pattern to measure, not an accepted fix.
+
+
+## October 2, 2026: bound dupable-copy middle discovery
+
+The initial pure suffix worker typed and materialized every safe subsequent
+statement for each store. For dupable local/constant producers, only whether
+that middle is empty affects its decisions; its contents and final end are
+consumed only by nondupable moves. All subsequent terminal/conditional/copy
+helpers restart at the original store boundary. Repeated blocked uses therefore
+caused repeated whole-tail queries without a rewrite.
+
+The [collector](../../../../../src/passes/pass_manager.mbt) preserves the exact
+old predicates and caller-owned scratch row, but stops after one admitted
+complete statement for a dupable producer. Nondupable discovery remains complete.
+The private `#inline` helper returns an Int; no tuple, collection or cache is
+added. Target read/write, source write, control, escape, typing, later helpers,
+fixed-point limits and mandatory verification remain unchanged. This bounds
+only the first discovery loop; later copy searches are still quadratic.
+
+Three [regressions](../../../../../src/passes/pure_middle_bound_wbtest.mbt) first
+prove the original collector returns end4 rather than1, then verify full
+nondupable middles, barriers, exact outputs/counts, effects/traps, duplicate reads
+and source writes against the [frozen8fb worker](../../../../../src/passes/pure_middle_reference_wbtest.mbt).
+Dispatcher coverage verifies imported effects and ordered global state.
+The original loop is source-matched modulo formatting and the documented break.
+
+Twelve [native release controls](../../../../../src/passes/pure_middle_perf_wbtest.mbt),
+CPU6, ten batches, mean±standard deviation, setup/assertions outside timing:
+
+| Control | Original | Bounded initial discovery |
+| --- | ---: | ---: |
+| Blocked repeated uses8 |25.53±.303µs|15.41±.138µs|
+| Blocked repeated uses64 |1.57±.00657ms|.882±.01038ms|
+| Blocked repeated uses256 |25.70±.238ms|14.21±.145ms|
+| Active1 |566.70±1.96ns|573.67±7.75ns|
+| Active8 |3.50±.053µs|2.41±.017µs|
+| Active64 |25.84±.405µs|16.35±.133µs|
+
+The tiny active control was repeated:568.24±4.04→578.54±3.68ns, ranges
+563.50–574.44 /575.73–588.52ns. The+10.30ns cost is a measured tradeoff, not
+noise dismissed as a universal win. Blocked controls measure unchanged raw-helper
+work, not Binaryen-equivalent transformation activity. Their remaining≈16× cost
+for4× width is evidence for further tail/query work; no linearity claim is made.
+
+Base main8fb4ebd30 native331bf0d4… versus candidate366ed01c…, unchanged
+6,211,596-byte compiler input, verified v133, one warmup/five alternating normal
+CLI pairs. Before/after/oracle medians±MAD are6346.596±14.516 /6319.850±43.716 /
+2283.413±7.101ms; ranges6316.990–6570.331 /6274.700–6363.566 /
+2275.239–2378.967ms. Paired−.44% remains within spread; all samples record
+foreign CPU activity. A robust enclosing command improvement is not established.
+Separate three-sample traced inner medians5538.991±9.872→5502.523±6.937ms,
+ranges5529.119–5570.287 /5489.096–5509.460ms, are diagnostic only; these are
+not normal CLI or Binaryen timer scopes.
+
+Matched complete cleanup instructions20,626,352,801→20,126,748,368 (−2.42%),
+499,604,433 fewer. Nested raw SL12,911,357,071→12,409,552,904 and fixed-point→pure
+worker1,832,599,587→1,353,840,603 are not additive to the root. The baseline
+retains its original331bf executable/profile/manifest; the candidate completes
+under the same delayed instrumentation/300s bound and validates exact bytes.
+Across the three independent main fixes the complete root falls11.30%, measured
+from22,691,343,936; wall-time percentages must not be summed. Source proves
+omitted repeated typing and temporary middle materialization, but mixed call
+counters are not allocated-byte or peak-RSS evidence.
+
+All13,333 bounded wasm-gc tests, info/fmt/check/native build, README API sync and
+twelve native controls pass, plus the two repeated tiny controls. Two fixed SL/optimizing
+runtime lanes validate170 modules (160 raw plus ten encoding-only compact-import
+expansions) and match480 original/before/after/v133 observations: results, calls,
+global/memory state, GC and traps. Wide duplicate-use, source-write and
+state-before-trap fixtures join the existing scalar/reference/nested cases.
+Before/after fixture and compiler outputs are byte-exact; compiler5,563,501 B,
+SHA256 `a2cfeaf22bab817cbcd0e97048bddd6723e258ba25eec3375e96b08230676e1d`.
+The raw9,949-byte advantage and preserved bounded-canonical99,251-byte deficit
+remain distinct. Manual invariant/consumer review is complete; independent-agent
+review, long fuzz and full CI/coverage/release signoff remain deferred.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/pure-middle-*`,
+`dae2-cleanup-pure-middle-*`, `main-pure-middle-performance-20261002.md`.
+The [current full-command matrix](../../../tooling/tracing-playbook.md#october-2-2026-main-bounded-middle-checkpoint)
+renews priorities by absolute cost. Remaining repeated query/copy scans, tiny
+tradeoff, shared CFG/lower, CL/OI envelope and canonical quality gaps stay open.

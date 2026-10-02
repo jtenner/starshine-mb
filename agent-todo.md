@@ -19,7 +19,18 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current main large matrix:** base7f8cc5b3b plus read-index pilot, final
+- **Current main large matrix:** base8fb4ebd30 plus bounded-middle pilot,
+  native366ed01c…, verified v133, one warmup/three alternating normal CLI rows:
+  DAE2 3931.213/1106.453 ms (3.55×), DAE2-O6336.743/2316.345 (2.74×),
+  CL4536.558/1756.782 (2.58×), OI2161.347/911.040 (2.37×).
+  All rows flag foreign activity; no fresh inner matrix or quiet-host signoff.
+  Absolute excess: optimizing4020.397ms, plain/shared CFG/lower2824.760ms,
+  CL2779.776ms, OI1250.307ms. Outputs remain exact; do not credit differences
+  against earlier host bands to individual fixes. Three independent cleanup
+  fixes reduce matched complete instruction work22,691,343,936→20,126,748,368
+  (11.30%); this is not a command-wall or allocated-byte reduction.
+  [Current commands, spreads and provenance](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-bounded-middle-checkpoint).
+- **Earlier main read-index matrix:** base7f8cc5b3b plus read-index pilot, final
   binary75dd44c3…, verified v133, one warmup/three alternating normal CLI rows:
   DAE2 4403.601/1292.056 ms (3.41×), DAE2-O7238.023/2428.617 (2.98×),
   CL5057.458/2030.738 (2.49×), OI2631.101/1032.556 (2.55×). All rows flag
@@ -521,12 +532,26 @@ breadth. Shared changes require all affected consumers in the matrix below.
   is claimed. Other recursive workers and repeated query/typechecking stay open.
   [Storage proof and controls](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reuse-unchanged-pure-and-effectful-suffix-storage).
 
-- [ ] Measure and bound the pure dupable-copy middle scan: after the first safe
-  complete statement, later initial-loop queries cannot affect its zero/nonzero
-  decision, but repeatedly typecheck/materialize tails. Keep every subsequent
-  terminal/conditional/copy helper, source/target barrier, validation and rewrite
-  count; test width scaling, mixed values, effects/traps and unchanged bytes.
+  Initial dupable-copy middle discovery is now bounded after one safe complete
+  statement; nondupable moves retain complete middles and every later helper.
+  Red end/row assertions and13,333 wasm-gc tests pass;170 validated modules and
+  480 fixed observations retain exact bytes. Complete cleanup instructions
+  fall20,626,352,801→20,126,748,368 (2.42%). Native blocked width64/256 costs
+  1.57→.882ms /25.70→14.21ms; active width64 improves25.84→16.35µs.
+  Normal optimizing pairs6346.596→6319.850ms (paired−.44%) remain within spread
+  under contention. Repeated active width1 costs568.24→578.54ns (+10.30ns);
+  retain this small-path tradeoff rather than claiming every path improves.
+  [Proof, timing scopes and controls](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-bound-dupable-copy-middle-discovery).
 
+- [ ] Profile and reduce remaining pure-copy tail scans/typechecking: after the
+  bounded initial scan, blocked width64→256 still costs.882→14.21ms (≈16× for
+  4× width). Measure repeated statement starts and exact typing/materialization
+  cost before choosing bounded per-body reuse. Preserve escaping statements,
+  source/target writes, terminal/conditional helpers, env/label/init facts,
+  validation and exact output. No cache survives mutation or an invocation.
+  Test active/blocked dense and nested scalar/reference/trapping cases, ownership,
+  stale-query barriers and tiny controls; recover the recorded+10.30ns tiny cost
+  where safely justified. Do not claim the whole worker is linear yet.
 
 - [ ] Reduce remaining plain no-work compaction costs while retaining all
   legacy and effect-spanning candidates. Optimizing admission now uses counted

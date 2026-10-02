@@ -1,3 +1,15 @@
+### 2026-10-02 — Bound dupable-copy middle discovery
+
+- [Bounded middle discovery](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-bound-dupable-copy-middle-discovery)
+  preserves all later helpers and full nondupable scans. Red regressions,
+  13,333 wasm-gc tests, twelve native controls and480 fixed observations pass
+  with exact bytes. Complete cleanup instructions fall2.42%; normal command
+  differences remain within spread. The repeated tiny+10.30ns tradeoff and
+  remaining quadratic tail scans stay visible. The
+  [renewed four-pass matrix](tooling/tracing-playbook.md#october-2-2026-main-bounded-middle-checkpoint)
+  retains substantial optimizing/shared CFG/CL/OI and canonical-byte gaps;
+  no full parity or release signoff is claimed.
+
 ### 2026-10-02 — Reuse unchanged pure and effectful suffix storage
 
 - [Suffix storage ownership](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reuse-unchanged-pure-and-effectful-suffix-storage)

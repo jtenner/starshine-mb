@@ -4545,3 +4545,54 @@ output. Neither nested edge sums nor mixed call counters are allocation/RSS
 percentages. Compiler bytes and the prior canonical protocol remain unchanged.
 Artifacts: `.tmp/large-pass-hotspots-20261001/suffix-storage-*`,
 `dae2-cleanup-suffix-storage-*`, commands, manifests and local report.
+
+
+## October 2, 2026: main bounded-middle checkpoint
+
+Base main8fb4ebd30 plus the independently tested bounded-middle pilot; exact
+native SHA256 `366ed01cb3ba34077004c9d830b28d8f11b5ae807a12dc5894a3b7520e720d18`.
+The input, verified v133 oracle, features, toolchain, CPU6 and command mappings
+match the preceding main checkpoint. One warmup/three alternating normal
+fresh-process rows per tool/pass, tracing/debug unset, build outside timing.
+These are filesystem-warm CLI measurements, not cold-cache or resident pass
+measurements. Every row records foreign activity; the newer host band is not
+causal evidence for a particular fix. Earlier matrices retain source/date/scope.
+
+| Pass | Starshine ms±MAD | Binaryen133 ms±MAD | Ratio | Excess ms | Raw bytes S / B |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3931.213±35.727 | 1106.453±0.282 | 3.55× | 2824.760 | 6115221 / 6232586 |
+| dae2-optimizing | 6336.743±7.430 | 2316.345±6.822 | 2.74× | 4020.397 | 5563501 / 5573450 |
+| coalesce-locals | 4536.558±17.041 | 1756.782±4.067 | 2.58× | 2779.776 | 5706503 / 5627625 |
+| optimize-instructions | 2161.347±0.552 | 911.040±2.729 | 2.37× | 1250.307 | 6205998 / 6172971 |
+
+Ranges, n=3 each:
+
+- dae2: Starshine3817.563–3966.941; oracle1106.171–1107.785ms.
+- dae2-optimizing: Starshine6329.313–6355.548; oracle2309.523–2359.910ms.
+- coalesce-locals: Starshine4509.125–4553.599; oracle1747.945–1760.849ms.
+- optimize-instructions: Starshine2160.794–2246.462; oracle908.311–915.377ms.
+
+All outputs validate, differ from input, are deterministic and match previous
+output hashes. Transformation activity is aggregate; some functions remain
+unchanged or guarded. No fresh inner/debug matrix was run for these four passes.
+The optimizing command remains≈4.02s behind, plain/shared CFG/lower≈2.82s,
+CL≈2.78s, OI≈1.25s. Prioritize those absolute costs rather than ratios alone.
+Raw optimizing9,949-byte advantage is distinct from the preserved symmetric
+bounded-canonical99,251-byte deficit. CL/OI raw deficits78,878/33,027 B are not
+their historical canonical deficits. Broad speed/output parity remains open.
+
+The [independent bounded-middle experiment](../binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-bound-dupable-copy-middle-discovery)
+uses native331bf baseline and366ed candidate, five normal alternating pairs:
+6346.596±14.516→6319.850±43.716ms, oracle2283.413±7.101ms. Paired−.44% remains
+within spread under contention; separate traced inner5538.991±9.872→
+5502.523±6.937ms is diagnostic only. Complete cleanup instructions fall2.42%,
+20,626,352,801→20,126,748,368. Across three independently reviewed main fixes,
+root instructions fall11.30% from22,691,343,936; neither nested edge sums nor
+added wall-time percentages nor allocation/RSS savings are asserted.
+Native repeated-use controls improve≈40–45%, but the later loop remains
+quadratic and the repeated active1 control costs+10.30ns. Both remain active.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/large-matrix-main-pure-middle-20261002/`,
+`measure-main-pure-middle-matrix.py`, `pure-middle-*`, `dae2-cleanup-pure-middle-*`.
+Manifests retain exact source/dirty state, executable/oracle/input hashes,
+commands, runtime features, all rows, profiles and compact-import replay notes.

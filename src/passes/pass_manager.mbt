@@ -9362,6 +9362,54 @@ fn run_hot_pipeline_raw_simplify_locals_has_pure_suffix_local_set_candidates_nes
 }
 
 ///|
+#inline
+fn sl_collect_pure_suffix_movable_middle(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  env : @validate.Env,
+  target_local : Int,
+  source_locals : Array[Int],
+  movable_middle : Array[@lib.Instruction],
+  producer_is_dupable_copy : Bool,
+) -> Int {
+  let mut sink_idx = start
+  while sink_idx < instrs.length() {
+    let statement = sl_statement_at(instrs, sink_idx, env)
+    if statement.length() == 0 ||
+      statement.any(fn(instr) {
+        run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
+        run_hot_pipeline_raw_simplify_locals_instr_is_early_terminator(instr)
+      }) ||
+      run_hot_pipeline_raw_instrs_have_later_local_read(
+        statement, 0, target_local,
+      ) ||
+      run_hot_pipeline_raw_instrs_have_later_local_write(
+        statement, 0, target_local,
+      ) ||
+      source_locals.any(fn(local_id) {
+        run_hot_pipeline_raw_instrs_have_later_local_write(
+          statement, 0, local_id,
+        )
+      }) {
+      break
+    }
+    let statement_len = statement.length()
+    for instr in statement {
+      movable_middle.push(instr)
+    }
+    sink_idx = sink_idx + statement_len
+    // Dupable copies only use the zero/nonzero middle decision. Their later
+    // terminal/conditional helpers restart from the original store boundary.
+    // One admitted statement proves nonempty; further typing/copies cannot
+    // change that decision. Nondupable moves still need the complete middle.
+    if producer_is_dupable_copy {
+      break
+    }
+  }
+  sink_idx
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
@@ -9413,35 +9461,15 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
               producer_suffix[0],
             )
           let movable_middle : Array[@lib.Instruction] = []
-          let mut sink_idx = scan_idx + 1
-          while sink_idx < instrs.length() {
-            let statement = sl_statement_at(instrs, sink_idx, env)
-            if statement.length() == 0 ||
-              statement.any(fn(instr) {
-                run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
-                run_hot_pipeline_raw_simplify_locals_instr_is_early_terminator(
-                  instr,
-                )
-              }) ||
-              run_hot_pipeline_raw_instrs_have_later_local_read(
-                statement, 0, target_local,
-              ) ||
-              run_hot_pipeline_raw_instrs_have_later_local_write(
-                statement, 0, target_local,
-              ) ||
-              source_locals.any(fn(local_id) {
-                run_hot_pipeline_raw_instrs_have_later_local_write(
-                  statement, 0, local_id,
-                )
-              }) {
-              break
-            }
-            let statement_len = statement.length()
-            for instr in statement {
-              movable_middle.push(instr)
-            }
-            sink_idx = sink_idx + statement_len
-          }
+          let sink_idx = sl_collect_pure_suffix_movable_middle(
+            instrs,
+            scan_idx + 1,
+            env,
+            target_local,
+            source_locals,
+            movable_middle,
+            producer_is_dupable_copy,
+          )
           if movable_middle.length() > 0 && !producer_is_dupable_copy {
             for idx = cursor; idx < producer_start; idx = idx + 1 {
               rewritten.push(instrs[idx])

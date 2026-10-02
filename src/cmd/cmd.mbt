@@ -10138,3 +10138,29 @@ test "command simplify locals and DAE2 optimizing retain nested suffix cleanup" 
     }
   }
 }
+
+///|
+test "command simplify locals and DAE2 optimizing preserve repeated copy uses and source writes" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (import \"host\" \"consume\" (func $consume (param i32))) (global (export \"state\") (mut i32) (i32.const 0)) (func (export \"run\") (param i32) (result i32) (local i32 i32 i32) i32.const 17 global.set 0 local.get 0 local.set 1 i32.const 7 local.set 2 i32.const 9 local.set 3 local.get 0 i32.const 1 i32.add local.set 0 local.get 1 call $consume local.get 2 call $consume local.get 3 call $consume local.get 1 call $consume local.get 0 global.set 0 global.get 0))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for pass in ["simplify-locals", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    assert_eq(output.import_sec, input.import_sec)
+    assert_eq(output.global_sec, input.global_sec)
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_eq(body[0], @lib.Instruction::i32_const(@lib.I32(17)))
+    assert_eq(body[1], @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)))
+    assert_eq(
+      body[body.length() - 1],
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    )
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
