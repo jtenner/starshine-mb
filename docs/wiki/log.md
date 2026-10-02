@@ -1,3 +1,12 @@
+### 2026-10-02 — Renew large DAE2 dependency attribution
+
+- [Current dependency scope](binaryen/passes/dae2/starshine-strategy.md#october-2-2026-current-large-dependency-cost-after-checked-lift-reads)
+  validates exact main output and attributes direct CFG52.72%, reaching reads
+  20.37% and entry proof7.97% of9.909b instructions. Nested costs are not summed,
+  shared allocation counters omitted. Keep mandatory verification; next work
+  targets region storage/reverse-query lifetimes and measures prospective wide
+  reciprocal-edge scans before adding indexes. This is diagnosis, not a new win.
+
 ### 2026-10-02 — Read lift local fields after checked arena admission
 
 - [Lift checked-read proof and tradeoffs](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-checked-arena-reads-for-lift-local-conflicts)

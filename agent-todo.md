@@ -413,6 +413,17 @@ excess open. [Full spread, size and scope](docs/wiki/tooling/tracing-playbook.md
 
 #### P03d — Lift, dependency planning and lower [IR2-PERF-DAE2-PIPELINE]
 
+- **Current attribution:** main ddd0053b9/e57d9b45… plain dependency-only
+  capture exits normally with exact validated output: root9.909b instructions,
+  direct CFG5.224b (52.72%), read sources2.018b (20.37%), entry proof.790b
+  (7.97%). CFG's nested region3.742b, mandatory HOT/CFG verification.971/.280b
+  and read rows' nested reverse-query.915b remain. Getter exclusive1.064b and
+  destruction.896b are not additional phase totals or allocation bytes.
+  [Current source breakdown and next experiments](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-2-2026-current-large-dependency-cost-after-checked-lift-reads).
+  Prioritize region storage and reverse-query lifetimes; existing predecessor
+  compression is linear, long last-write rows already indexed. Do not duplicate
+  those repairs or remove verification to improve timers.
+
 - **October 2 CFG checkpoint:** an immutable operand-order proof retains all
   7,926 CFG/read-source builds while reducing source-order factories 7,926→411.
   Scoped dependency instructions fall 19.60%; shared-call-site allocation
@@ -914,6 +925,12 @@ excess open. [Full spread, size and scope](docs/wiki/tooling/tracing-playbook.md
   remain required; prove collision density/benefit before widening. Separate
   object-drop work from allocation bytes/RSS. Plain's bimodal RSS and optimizing's
   ≈138MiB excess need phase attribution; no retained-arena cache is justified.
+- [ ] Measure high-degree CFG reciprocal-edge verification: nested neighbor
+  scans can be quadratic on wide joins/switches. Current dependency snapshot
+  attributes.280b instructions to all CFG verification, without proving degree
+  dominance. Add bounded dedicated wide-edge controls and invalid/asymmetric/
+  duplicate-kind correctness tests before choosing an index; retain every check,
+  error admission and sparse no-map path. Avoid speculative heap caches.
 - **APIs / invariants:** use checked scalar field getters and complete admission
   proofs; remove remaining full-header boundaries only with generated-native
   evidence. Invalidate compact facts or scratch on node/span/region/local/type

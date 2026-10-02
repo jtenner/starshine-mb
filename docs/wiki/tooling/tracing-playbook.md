@@ -4742,3 +4742,16 @@ no .mbti change. Manual review, no independent agent. Broader current matrix,
 quiet clocks, canonical gaps and final aggregate/CI/coverage remain release work.
 No long fuzz campaign. Full reproducible local report:
 `.tmp/large-pass-hotspots-20261001/main-lift-access-fields-performance-20261002.md`.
+
+
+## October 2, 2026: current DAE2 dependency attribution
+
+[Current source-backed breakdown](../binaryen/passes/dae2/starshine-strategy.md#october-2-2026-current-large-dependency-cost-after-checked-lift-reads)
+uses main ddd0053b9/e57d9b45… and the same pinned compiler input. One bounded180s
+delayed dependency-wrapper capture exits normally with exact validated output.
+Root9,908,757,394 instructions; direct CFG5,224,349,718, read sources2,018,098,328,
+entry proof789,531,719. Nested verification/region/query edges are not additive;
+shared off-scope allocator counts are omitted. This is attribution, not a new
+before/after claim or wall-time measurement. Existing predecessor compression is
+linear; prospective wide-edge symmetry indexing needs degree/work/allocation
+measurement before implementation. Larger storage/lifetime owners remain active.

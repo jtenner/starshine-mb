@@ -6619,3 +6619,66 @@ exact-wrapper and exact-child parsers, complete profile/manifest, and the
 not the saved October 1 report and not a full-command benchmark. Continue with
 verified single-change wall/byte evidence; remaining Vacuum unreachable/control
 rescans and recurrent raw array construction are independently visible owners.
+
+
+## October 2, 2026: current large dependency cost after checked lift reads
+
+Current source main ddd0053b9, native e57d9b45…; fixed6,211,596 B compiler
+SHA98189860… and verified v133 remain as documented in the
+[checked lift checkpoint](../coalesce-locals/starshine-strategy.md#october-2-2026-checked-arena-reads-for-lift-local-conflicts).
+A single bounded180s delayed Callgrind capture collects all nonrecursive
+`dae2_analyze_function` wrappers, CPU6, normal process exit. Output validates
+and matches exact current plain DAE2 SHA7c07b51c…. This is a current attribution
+snapshot, not a before/after claim for the lift change. Analysis lifting,
+raw-plan lanes, solving, rewriting and final validation are outside collection.
+Shared-site off-scope call counts are not allocation evidence.
+
+| Source owner / edge | Instructions | Scope |
+| --- | ---: | --- |
+| Dependency wrappers | 9,908,757,394 | Complete collected root |
+| Analyze→CFG construction | 5,224,349,718 | Inclusive direct child, 52.72% root |
+| Analyze→reaching-read sources | 2,018,098,328 | Inclusive direct child, 20.37% root |
+| Analyze→entry-read proof | 789,531,719 | Inclusive direct child, 7.97% root |
+| CFG→region construction | 3,741,538,561 | Nested inclusive child |
+| CFG→HOT verification | 971,059,439 | Nested inclusive child; mandatory |
+| CFG→CFG verification | 279,575,044 | Nested inclusive child; mandatory |
+| Read rows→reverse predecessor queries | 914,660,870 | Nested inclusive child |
+| Getter | 1,064,427,470 | Exclusive across collected consumers |
+| Object destruction | 896,326,963 | Exclusive; not allocated bytes or RSS |
+
+Do not add nested edges to their parents or exclusive getter/destruction to
+the direct-child totals. These are instructions, not phase milliseconds.
+[DAE2 analysis](../../../../../src/passes/dead_argument_elimination2.mbt),
+[CFG](../../../../../src/ir/cfg.mbt) and
+[read-source rows](../../../../../src/ir/local_graph.mbt) support this breakdown.
+LocalGraph's transparent-predecessor compression already resolves each functional
+chain once; its existence is not a new quadratic issue. Tiny last-write searches
+are bounded at four actions; long rows already use a lazy index. Do not duplicate
+those fixes or replace them with speculative retained caches.
+
+Next experiments, before implementation:
+
+- Attribute selected-read/action/last-write query density and scratch lifetimes
+  within the reverse-query entry. Preserve exact source ordering, exceptional
+  edges, loop-root writes, unknown closed cycles and full sparse fallback.
+- Measure CFG region root/operand/control row construction and object destruction;
+  prefer eliminating unchanged temporary storage over retaining entire arenas.
+  Keep complete public CFG fields, verification, source-order and result ownership.
+- CFG verification's reciprocal edge checks scan neighbor rows. Source confirms
+  potentially quadratic work on high-degree joins/switches, but this profile does
+  not prove those shapes dominate the compiler. Use a bounded dedicated wide-edge
+  benchmark plus small invalid/asymmetric/duplicate-kind behavior regressions,
+  then measure compiler degree distribution before choosing a lazy index.
+  Any index must retain all checks and original error admission, avoid adding
+  heap maps to ordinary sparse graphs, and demonstrate enclosing gain.
+- Remaining full-node boundary work spans many consumers; target the actual
+  caller and generated code, rather than assuming getter self cost is free or
+  widening admission. Largest getter edge here is entry-read proof152,379,880;
+  it is nested in that proof's789,531,719 and must not be counted twice.
+
+No further production change is justified by attribution alone. Larger shared
+pipeline/optimizing cleanup setup and OI command envelope remain release owners;
+canonical gaps, memory modes and final aggregate/CI/coverage remain open.
+Exact commands, source/binary/output identities, normal-exit logs, parsed exclusive
+and inclusive costs: `.tmp/large-pass-hotspots-20261001/current-dae2-dependencies-current-*`
+and `current-dae2-dependency-costs.json`. No long fuzz campaign.
