@@ -6567,3 +6567,55 @@ bytes. Native no-if controls improve 86.07→16.85 ns (tiny) and
 22.39 µs→20.89 ns (nested), but matched large optimizing command remains flat
 (paired +.16%, all host-contended): this does not close P03e or establish speed
 parity. Broader cleanup scans, recurrence storage and validation remain targets.
+
+## October 2, 2026: complete optimizing cleanup instruction attribution
+
+A bounded complete native profile of the 6,211,596-byte compiler fixture now
+captures all `run_hot_pipeline_func` calls in the optimizing SL/Vacuum suffix.
+The frozen predecessor is `8ed642e1…` (exact-sized CFG, before the leaf census
+guard). Its 26,744,494,316 collected instructions split at the nonrecursive
+wrapper's direct child boundaries as follows:
+
+| Owner | Collected instructions | Scope |
+| --- | ---: | --- |
+| Raw SimplifyLocals entry | 18,260,234,664 | inclusive child, 68.28% of wrapper |
+| Raw Vacuum preclean | 5,694,289,310 | inclusive child, 21.29% |
+| Other children and wrapper self work | 2,789,970,342 | remaining 10.43% |
+
+These direct root children are disjoint. Their nested children must not be
+added: the raw SL entry includes 9,192,415,199 instructions in skipped-effectful
+carrier rewriting, and that contains balanced cleanup and exact cleanup.
+Across exact statement-prefix helper entry calls, 4,168,237,590 instructions
+include 4,060,312,174 in instruction typechecking. These are instruction costs,
+not wall milliseconds or exclusive allocation counts. Recursive incoming edges
+can exceed the root total through repeated inclusive accounting; do not turn
+them into percentages or add them. Shared allocator-call totals remain mixed.
+
+Source inspection finds balanced forwarding typechecks a candidate statement
+before rejecting any statement containing its existing structured-control or
+terminal predicates. This performs unnecessary recursive validation and may
+render discarded error context. The validator's
+[`Expr` error context](../../../../../src/validate/typecheck.mbt) formats full
+instructions only on errors; public diagnostic behavior must remain intact.
+Large string-construction costs motivate this source-backed investigation,
+without attributing every string event to this one probe. The early-rejection
+pilot retains complete typechecking for eligible statements and every other
+prefix client, and leaves mandatory function/module verification unchanged.
+Its enclosing before/after measurements and acceptance are tracked separately.
+
+The earlier instrumentation-on-at-start profile exceeded its six-minute bound
+under host contention; no partial totals were accepted. The successful run
+starts Callgrind instrumentation in the enclosing hot-pass dispatcher before
+its first function call, then toggles collection only at the exact nonrecursive
+function wrapper. A four-call/two-scope C control matches the original 254
+collected instructions; enabling instrumentation inside the target incorrectly
+misses its first scope (127), and those probe variants are retained as rejected.
+No production instrumentation or policy/settings change is needed. Final
+output independently validates and matches the frozen predecessor hash.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/dae2-cleanup-delayed-*`, GDB/driver,
+exact-wrapper and exact-child parsers, complete profile/manifest, and the
+`vgdb-parent-probe.*` control. This phase attribution is a new complete cohort,
+not the saved October 1 report and not a full-command benchmark. Continue with
+verified single-change wall/byte evidence; remaining Vacuum unreachable/control
+rescans and recurrent raw array construction are independently visible owners.

@@ -10237,18 +10237,17 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_balanced_statement_local_gets_fl
         false,
         start=statement_start,
         typed_seed~,
+        flat_only=true,
       )
       checked_statement = true
+      // The prefix helper enforces the same flat/control boundary. An empty
+      // rejected statement needs neither storage nor another control scan.
+      if statement_end == statement_start {
+        break
+      }
       let statement = Array::makei(statement_end - statement_start, fn(index) {
         instrs[statement_start + index]
       })
-      if statement.length() == 0 ||
-        statement.any(fn(instr) {
-          run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
-          run_hot_pipeline_raw_simplify_locals_instr_is_early_terminator(instr)
-        }) {
-        break
-      }
       let first_reads_target = match statement[0] {
         @lib.LocalGet(@lib.LocalIdx(raw)) =>
           raw.reinterpret_as_int() == target_local

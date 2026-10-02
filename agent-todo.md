@@ -446,10 +446,18 @@ breadth. Shared changes require all affected consumers in the matrix below.
   recurrence/adjacent/effectful rewrites. The October 2 trace has about 2.4 s of
   inclusive function work versus about 89 ms of named SL+Vacuum transforms;
   these are nested scopes, not exclusive/additive costs. One six-minute
-  host-contended profile was stopped without accepting partial totals. Use a
-  bounded complete profile or temporary diagnostic timers before choosing the
-  next scan/clone guard; preserve SIMD recurrence candidates, deep ownership,
-  full transformation coverage and byte improvements.
+  host-contended profile was stopped without accepting partial totals. A new
+  complete delayed-instrumentation profile attributes 18.260 billion raw SL /
+  5.694 billion raw Vacuum instructions inside a 26.744-billion function envelope;
+  skipped-effectful carriers and statement-prefix typing are nested SL owners.
+  [Complete attribution](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-2-2026-complete-optimizing-cleanup-instruction-attribution).
+  The single-caller early flat-statement rejection pilot is complete: identical
+  predicates and eligible typechecks, 13,307 tests/192 fixed observations, exact
+  bytes; matched cleanup instructions −9.94%, five large CLI pairs −3.04%
+  (all host-contended). Continue with remaining owners rather than repeating
+  that fix; preserve SIMD recurrence candidates, deep ownership, full coverage
+  and byte improvements.
+  [Proof and measurements](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reject-existing-flat-statement-control-boundaries-before-typechecking).
 
 - [ ] Reduce remaining plain no-work compaction costs while retaining all
   legacy and effect-spanning candidates. Optimizing admission now uses counted

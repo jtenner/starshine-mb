@@ -323,3 +323,69 @@ release gate and independent review remain deferred; local source/diff review
 is recorded. Artifacts: `.tmp/large-pass-hotspots-20261001/sl-leaf-census-*`,
 source audit, native-entry excerpt, exact frozen manifest, eight native controls,
 two-mode runtime matrices and five-pair/three-trace cohort.
+
+## October 2, 2026: reject existing flat statement control boundaries before typechecking
+
+Balanced local forwarding already excludes completed statements containing its
+structured-control or early-terminator predicates. The private prefix helper
+now accepts `flat_only=true` for this one caller and applies those same predicates
+before typechecking each instruction. It returns the original start on rejection;
+complete eligible prefixes still use the original left-to-right typecheck and
+all later effect/initialization proofs. Other prefix clients keep default behavior.
+The caller avoids an empty statement allocation and the redundant post-check.
+Legacy Try classification, public error diagnostics, final function/module
+verification and optimization coverage are unchanged. No cached analysis, new
+allocation or public API is introduced.
+
+Sources: [prefix helper](../../../../../src/passes/statement_prefix_reuse.mbt),
+[balanced caller](../../../../../src/passes/pass_manager.mbt),
+[boundary and active rewrite regressions](../../../../../src/passes/flat_statement_admission_wbtest.mbt),
+[native controls](../../../../../src/passes/flat_statement_admission_perf_wbtest.mbt).
+The first regression run fails because the private admission option is absent;
+this is a red API/work-contract test, not a demonstrated semantic defect.
+Tests compare complete boundaries to the original gate, retain invalid-flat
+checking, preserve nonzero starts, and exercise later actual forwarding after a
+structured boundary for i32/i64/externref while checking input ownership and
+output validation. Existing dispatcher tests also pass.
+
+Frozen native predecessor `a1a06e2e…` versus candidate `8b4ee1ea…`, identical
+6,211,596-byte input, CPU 6, one warmup, five alternating release CLI pairs:
+
+| Scope | Before | After | Binaryen 133 |
+| --- | ---: | ---: | ---: |
+| DAE2 optimizing full command, median ± MAD ms | 7651.716 ± 28.354 | 7489.234 ± 74.687 | 2503.784 ± 13.284 |
+| Separate traced Starshine inner pass, three samples, median ± MAD ms | 7087.029 ± 130.900 | 6909.190 ± 133.157 | not measured here |
+
+Command ranges are 7623.363–7875.010 / 7385.271–7809.481 / 2462.777–2584.385 ms.
+Paired median change is −3.04%; all rows record foreign CPU activity, so this is
+an observed improvement under contention, not a quiet-host parity result.
+Builds are outside timing; traced scopes are separate and nested timers are not
+added. Equivalent Binaryen work is `--all-features --dae2 --simplify-locals
+--vacuum`, not DAE/O. All large Starshine outputs remain exactly 5,563,501 bytes,
+SHA-256 `a2cfeaf22bab817cbcd0e97048bddd6723e258ba25eec3375e96b08230676e1d`.
+
+Complete matched nonrecursive cleanup wrapper profiles collect
+26,733,676,648→24,075,360,577 instructions (−9.94%). Within that scope, prefix
+entry instruction-typechecking edges fall 4,060,249,089→1,455,815,645 (−64.14%).
+These nested costs must not be added to the root reduction. Shared incoming call
+counters remain mixed across collected/uncollected contexts and are not an
+allocation measurement. Instrumentation is absent from release timing. The
+[complete cleanup attribution](../dae2/starshine-strategy.md#october-2-2026-complete-optimizing-cleanup-instruction-attribution)
+records the delayed-instrumentation protocol and its accepted C control.
+
+Eight native controls pass (ten batches, mean ± sigma): rejected structured
+width 1 costs 364.63±21.77→10.58±.51 ns; width 1024 costs
+28.84±.118 µs→10.27±.04 ns. Eligible flat width 1 stays
+108.19±.46→106.92±1.07 ns; width 1024 stays 32.92±.232→32.33±.181 µs.
+These are same-compiler original-gate versus early-gate controls, not frozen
+whole-command binaries. All 13,307 bounded tests, info/fmt/check and native
+release build pass. SL and DAE2 optimizing runtime lanes validate 64 modules and
+match 192 fixed original/before/after/v133 observations (ordered imported calls,
+mutable state, memory, references and traps), with exact before/after bytes.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/flat-statement-*`,
+`dae2-cleanup-census-before-*`, `dae2-cleanup-flat-statement-*`, manifests,
+commands, raw samples and local report. Full fuzz/coverage gates remain deferred
+at the user's request; this is a focused performance checkpoint, not release
+signoff. Remaining raw Vacuum unreachable rescans, recurrence arrays, CFG/lower,
+validation and the canonical byte gap remain active.
