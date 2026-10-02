@@ -12224,6 +12224,12 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_set_gets(
 fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences_flat(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Int) {
+  // Both patterns require two complete ten-instruction recurrences. An
+  // unchanged result borrows this read-only row; changed results keep their
+  // original owned construction and the recursive caller's deep ownership.
+  if instrs.length() < 20 {
+    return (instrs, 0)
+  }
   let rewritten : Array[@lib.Instruction] = []
   let mut copy_start = 0
   let mut idx = 0
@@ -12337,6 +12343,9 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences
     copy_start = recurrence_end
     idx = recurrence_end
   }
+  if rewrite_count == 0 {
+    return (instrs, 0)
+  }
   for copy_idx = copy_start; copy_idx < instrs.length(); copy_idx = copy_idx + 1 {
     rewritten.push(instrs[copy_idx])
   }
@@ -12347,6 +12356,12 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_three_local_additive_recurrences
 fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_bitselect_recurrences_flat(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Int) {
+  // Both patterns require two complete ten-instruction recurrences. An
+  // unchanged result borrows this read-only row; changed results keep their
+  // original owned construction and the recursive caller's deep ownership.
+  if instrs.length() < 20 {
+    return (instrs, 0)
+  }
   let rewritten : Array[@lib.Instruction] = []
   let mut copy_start = 0
   let mut idx = 0
@@ -12457,6 +12472,9 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_alternating_bitselect_recurrence
     rewrite_count = rewrite_count + recurrence_count
     copy_start = recurrence_end
     idx = recurrence_end
+  }
+  if rewrite_count == 0 {
+    return (instrs, 0)
   }
   for copy_idx = copy_start; copy_idx < instrs.length(); copy_idx = copy_idx + 1 {
     rewritten.push(instrs[copy_idx])

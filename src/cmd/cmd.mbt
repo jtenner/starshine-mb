@@ -10063,3 +10063,26 @@ test "command simplify locals and DAE2 optimizing retain leaf selects and ordere
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command simplify locals and DAE2 optimizing keep active additive recurrence reductions" {
+  let step = "local.get 0 local.get 2 i32.add local.tee 1 local.get 3 i32.add local.tee 2 local.get 1 i32.add local.set 3"
+  let input = @passes.pass_test_module_from_wat(
+    "(module (global (export \"state\") (mut i32) (i32.const 0)) (func (export \"run\") (param i32) (result i32) (local i32 i32 i32) i32.const 17 global.set 0 \{step} \{step} \{step} local.get 3 global.set 0 local.get 3))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for pass in ["simplify-locals", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_eq(body.filter(fn(instr) { instr is @lib.GlobalSet(_) }).length(), 2)
+    assert_true(
+      @binary.encode_module(output).unwrap().length() < saved.length(),
+    )
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

@@ -474,6 +474,18 @@ breadth. Shared changes require all affected consumers in the matrix below.
   nested 99.84 µs→25.12 ns, complete matching gates retained. Optimizing CLI
   paired −.36% is within spread under contention; a command win is not proved.
   [Proof and controls](docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md#october-2-2026-bound-indexed-tag-wrapper-admission-before-deep-scans).
+  Flat additive/bitselect unchanged rows now avoid two copies while recursive
+  changed-tree ownership and positive transforms stay identical. 13,314 tests,
+  288 fixed observations and exact bytes pass; complete cleanup instructions
+  −2.72%. Large CLI −.52% is within spread; repeated active controls and the
+  initial SIMD slowdown remain recorded. Profile other raw recurrence rows and
+  eager normalization next rather than reopening these completed flat copies.
+  [Ownership and measurements](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-retain-unchanged-flat-recurrence-rows).
+  A separate combined three-change cohort observes 8379.033→7545.154 ms
+  (three alternating CLI pairs, paired −9.95%, all foreign-activity flagged),
+  with 15.10% less complete cleanup instruction work. This preserves individual
+  inconclusive rows and does not establish speed parity or quiet-host signoff.
+
 
 - [ ] Reduce remaining plain no-work compaction costs while retaining all
   legacy and effect-spanning candidates. Optimizing admission now uses counted

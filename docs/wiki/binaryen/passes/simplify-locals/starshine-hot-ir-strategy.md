@@ -389,3 +389,82 @@ commands, raw samples and local report. Full fuzz/coverage gates remain deferred
 at the user's request; this is a focused performance checkpoint, not release
 signoff. Remaining raw Vacuum unreachable rescans, recurrence arrays, CFG/lower,
 validation and the canonical byte gap remain active.
+
+## October 2, 2026: retain unchanged flat recurrence rows
+
+The three-local additive and alternating-bitselect flat helpers always allocated
+and copied their entire input after discovering no recurrence. They now return
+their read-only input with count zero: before allocation when length is below
+the original two-times-ten minimum, and after the unchanged complete discovery
+otherwise. Positive construction is source-audited identical. The recursive
+worker still builds its owned normalized tree; changed siblings and nested
+results retain that existing deep ownership. This does not introduce general
+borrowed changed results, a cache, a new admission bypass or less verification.
+
+Sources: [flat helpers and recursive owner](../../../../../src/passes/pass_manager.mbt),
+[red identity and positive ownership/validation regressions](../../../../../src/passes/recurrence_unchanged_row_wbtest.mbt),
+[frozen-original native controls](../../../../../src/passes/recurrence_unchanged_row_perf_wbtest.mbt),
+[active dispatcher coverage](../../../../../src/cmd/cmd.mbt).
+The unchanged-row identity assertion fails before implementation; both positive
+scalar/SIMD tests already pass and continue to verify actual rewrite counts,
+encoded input preservation and valid owned output. Dispatcher SL/optimizing
+fixtures retain active byte reductions and ordered global writes.
+
+All 13,314 bounded tests, info/fmt/check and native release build pass. Eight
+native controls pass twice (ten batches, mean ± sigma; fixtures/assertions outside
+timing). Initial wide unchanged additive cost is 5.81±.365→1.62±.052 µs;
+repeat 4.61±.015→1.35±.001 µs. Bitselect costs 4.36±.106→1.35±.002 µs,
+repeat 4.38±.034→1.36±.005 µs. Active additive128 stays
+8.04±.042→8.03±.073 µs initially, repeat 8.00±.013→8.06±.023 µs
+(+.06 µs retained as a small cost). Initial active bitselect128
+10.03±.192→11.61±.746 µs is slower and variable; repeat
+9.65±.149→9.51±.026 µs does not reproduce that slowdown. Preserve both cohorts;
+do not claim a general active-kernel speedup or hide the first result.
+
+Frozen predecessor `833e27c8…` versus candidate `db187830…`, fixed large compiler
+input, CPU6, one warmup/five alternating normal optimizing CLI pairs:
+median ± MAD 7367.606±90.825→7334.925±111.276 ms, v1332455.192±33.879 ms.
+Ranges are7263.055–7492.981 /7223.648–7542.529 /2421.313–2525.889 ms.
+Paired change −.52% lies within spread; all rows record foreign activity and a
+normal command improvement is not established. Separate three traced inner
+samples are6601.018±11.980→6788.242±194.775 ms, with broad ranges
+6589.038–7143.182 /6351.738–6983.017; they likewise do not prove a timing win.
+Builds and Callgrind instrumentation are excluded from normal samples.
+
+Complete matched optimizing cleanup profiles reduce
+23,332,741,822→22,697,100,543 collected instructions (−2.72%). The nested raw SL
+recurrence child falls1,120,775,663→452,833,981 (−59.60%); root and child must
+not be added. Shared call counters are not scoped allocation counts. Source
+inspection proves absent copies/row allocations on short unchanged inputs;
+no exclusive allocation percentage or RSS saving is measured. There is no new
+production heap allocation and supported matching work remains complete.
+
+Two fixed runtime lanes (SL and optimizing) validate100 modules (96 raw and four
+expanded compact-import oracle encodings) and match288 differential observations,
+including active scalar and SIMD recurrences, ordered calls, global/memory state,
+references and traps. Exact before/after compiler bytes remain5,563,501 with hash
+`a2cfeaf22bab817cbcd0e97048bddd6723e258ba25eec3375e96b08230676e1d`.
+Oracle compact-import replay uses the documented
+[encoding-only protocol](../vacuum/starshine-hot-ir-strategy.md#october-2-2026-bound-indexed-tag-wrapper-admission-before-deep-scans);
+normal v133 flags stay `--all-features --dae2 --simplify-locals --vacuum`.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/recurrence-row-*`,
+`dae2-cleanup-recurrence-row-*`, source/kernel reviews, both native batches,
+commands, frozen manifests and local report. The wider recursive normalization,
+other recurrence/SIMD rows, exact cleanup, shared CFG/lower and byte gaps remain
+active. Full fuzz/coverage and release signoff are deferred; this is a scoped
+storage/work improvement with limited enclosing wall evidence.
+
+A distinct combined three-change comparison uses the frozen leaf-census
+predecessor `a1a06e2e…` and final `db187830…`: one warmup, three alternating
+normal optimizing CLI pairs on CPU6. Before/after/v133 median ± MAD is
+8379.033±175.850 /7545.154±227.149 /2579.124±82.160 ms; ranges
+8203.182–8703.332 /7318.004–8271.640 /2482.402–2661.284 ms. Paired changes
+are−9.95%,−4.96%,−10.79%, median−9.95%; all rows retain foreign CPU flags.
+This is an observed combined improvement under contention, not a quiet-host
+result or a replacement for the individual inconclusive cohorts. Three-change
+cleanup instruction work falls26,733,676,648→22,697,100,543 (−15.10%) under the
+identical complete wrapper scope. This percentage is computed from the two
+root totals, not summed from nested/per-change percentages. Raw compiler bytes
+and all quality gains remain identical. Artifacts:
+`combined-cleanup-dae2-optimizing-pairs/` and `measure-combined-cleanup.py`.
