@@ -60826,12 +60826,9 @@ fn run_hot_pipeline_raw_vacuum_indexed_tag_cascade_expected_offset(
 fn run_hot_pipeline_raw_vacuum_body_is_indexed_call_local_set_tag_cascade_if_wrapper_candidate(
   body : Array[@lib.Instruction],
 ) -> Bool {
-  let non_nops : Array[@lib.Instruction] = []
-  for instr in body {
-    match instr {
-      @lib.Nop => ()
-      _ => non_nops.push(instr)
-    }
+  let non_nops = match vacuum_indexed_tag_candidate_non_nops(body) {
+    Some(row) => row
+    None => return false
   }
   if run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
     return false

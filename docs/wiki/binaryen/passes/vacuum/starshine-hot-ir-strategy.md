@@ -505,3 +505,87 @@ includes HOT lifting and measured 64 nested `i32.clz` wrappers around an
 effectful call at `48.32 → 19.97 µs`, 128 at `142.10 → 36.07 µs`, and 256 at
 `455.66 → 66.44 µs`. Focused tests cover the retained call and removal of a
 pure constant terminal. Full-pass impact remains unmeasured.
+
+## October 2, 2026: bound indexed tag wrapper admission before deep scans
+
+The indexed tag-cascade wrapper candidate accepts exactly 51 or 57 top-level
+non-Nop instructions. It previously owned a growable row and recursively checked
+unreachable before rejecting every other size. The private admission helper now
+counts first, stops at non-Nop 58, and rejects impossible sizes without row
+allocation or nested traversal. Possible sizes receive an exact-sized owned row
+and every original unreachable/opcode/local/index/offset check. This reorders
+read-only necessary predicates; no transform, broader admission or mandatory
+verification changes. Only top-level Nops are omitted, exactly as before.
+
+Sources: [admission helper](../../../../../src/passes/vacuum_candidate_admission.mbt),
+[unchanged full matcher and preclean caller](../../../../../src/passes/pass_manager.mbt),
+[regressions](../../../../../src/passes/vacuum_tag_admission_wbtest.mbt),
+[bounded native controls](../../../../../src/passes/vacuum_tag_admission_perf_wbtest.mbt).
+An exact-row ownership/capacity regression fails with the original growable
+extraction (`64 != 51`) before the fix. Both supported shapes, extra Nops,
+wrong sizes/prefixes and nested unreachable rejection remain covered, alongside
+the existing active wrapper-flattening regressions. The native helper represents
+None as null and returns its admitted row directly; rejected paths have no
+new heap allocation or Some box. Possible rows retain the same shallow ownership
+as the former filter, with nested instructions untouched.
+
+Single-change complete cleanup profiles, frozen predecessor `8b4ee1ea…` versus
+candidate `833e27c8…`, collect 24,075,360,577→23,332,741,822 instructions
+(−3.08%) across all nonrecursive optimizing function wrappers. The nested edge
+from this candidate to the unreachable scan falls 759,732,285→20,569,485
+instructions (−97.29%); do not add this edge to the root saving or report shared
+incoming allocator counters as exclusive allocations. The full original matcher
+following row extraction is source-audited identical, and profile output validates
+with the exact original compiler output hash.
+
+Eight same-compiler original-gate/current-gate native controls pass (ten batches,
+mean ± sigma): tiny rejected 38.61±.23→10.24±.17 ns; width4096 rejected
+30.80±2.74 µs→33.11±2.93 ns; width32 with 1024-instruction children
+99.84±2.04 µs→25.12±4.30 ns; supported gate 450.70±1.56→329.70±1.02 ns.
+These measure the admission sequence before its unchanged full shape matcher,
+not a native whole-command or Binaryen ratio.
+
+On the 6,211,596-byte fixture, CPU6, one warmup and five alternating optimizing
+CLI pairs, median ± MAD is 7438.604±184.303→7389.136±22.844 ms; v133 is
+2507.184±15.355 ms. Ranges are 7235.283–7858.206 / 7265.112–7411.980 /
+2454.173–2522.539 ms. Paired median change is −.36%, within baseline dispersion,
+and all rows record foreign CPU activity: no clear normal command win is proved.
+Separate three-sample traced Starshine inner medians are
+6654.647±78.714→6411.541±2.495 ms; those diagnostics include tracing and cannot
+replace the normal command comparison. Matched work is Binaryen133
+`--all-features --dae2 --simplify-locals --vacuum`. Builds stay outside timing.
+All Starshine large optimizing bytes remain exactly 5,563,501, SHA-256
+`a2cfeaf22bab817cbcd0e97048bddd6723e258ba25eec3375e96b08230676e1d`.
+
+Info/fmt/check, all 13,310 bounded tests and native release CLI build pass.
+Artifacts: `.tmp/large-pass-hotspots-20261001/vacuum-tag-*`,
+`dae2-cleanup-vacuum-tag-*`, frozen manifests, source/native reviews and local
+report. This is scoped work reduction with preserved output quality, not speed
+parity or release signoff. Long fuzz/full coverage remain deferred by request;
+other raw wrapper scans, deletion and guard costs remain active.
+
+A separate standalone Vacuum cohort (same CPU/input, one warmup, five alternating
+pairs) observes median ± MAD command time 1535.940±33.749→1405.066±13.222 ms,
+v133 866.527±2.058 ms; paired change −6.25%. Ranges are
+1486.484–1570.963 / 1391.844–1638.505 / 850.454–868.585 ms, all foreign-activity
+flagged. This is an observed standalone command gain; optimizing integration
+remains inconclusive. Three separate traced pipeline samples improve
+722.821±7.921→663.359±7.948 ms. The named HOT Vacuum timer remains
+1.651→1.668 ms and omits the substantial raw preclean and guards, so it is not
+an equivalent standalone Vacuum time. Exact before/after output stays 6,201,183
+bytes. The raw core's guarded paths must not be counted as equivalent work to a
+complete Binaryen pass solely from this small inner timer.
+
+Two bounded executable lanes (Vacuum and DAE2 optimizing) cover ten fixtures,
+including both supported indexed tag cascades with observable imported calls,
+branch decisions and memory. They validate 84 modules (80 raw plus four expanded
+oracle encodings), match 240 original/before/after/v133 observations and retain
+exact Starshine before/after bytes. On two fixtures per lane, Node26 cannot load
+Binaryen's valid compact-import output (`unknown import kind 0x7f`). Oracle replay
+uses verified v133 `--all-features -S` without any passes followed by wasm-tools
+parse/validate, expanding imports for Node; normal benchmark flags are unchanged.
+Raw oracle outputs and engine errors remain recorded. The rejected wasm-tools
+print/parse attempt preserves compact text groups; disabling compact imports
+while reading raw compact bytes fails parsing. Neither failed normalization is
+accepted as execution evidence. This is an engine encoding limitation, not a
+Starshine semantic mismatch or permission to ignore observations.

@@ -458,6 +458,11 @@ breadth. Shared changes require all affected consumers in the matrix below.
   that fix; preserve SIMD recurrence candidates, deep ownership, full coverage
   and byte improvements.
   [Proof and measurements](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reject-existing-flat-statement-control-boundaries-before-typechecking).
+  Indexed tag admission now rejects impossible 51/57-instruction shapes before
+  deep unreachable scans: matched cleanup instructions −3.08%, native rejected
+  nested 99.84 µs→25.12 ns, complete matching gates retained. Optimizing CLI
+  paired −.36% is within spread under contention; a command win is not proved.
+  [Proof and controls](docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md#october-2-2026-bound-indexed-tag-wrapper-admission-before-deep-scans).
 
 - [ ] Reduce remaining plain no-work compaction costs while retaining all
   legacy and effect-spanning candidates. Optimizing admission now uses counted
