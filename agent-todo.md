@@ -30,6 +30,16 @@ oracle versions and checkpoints do not sign current source.
   fixes reduce matched complete instruction work22,691,343,936→20,126,748,368
   (11.30%); this is not a command-wall or allocated-byte reduction.
   [Current commands, spreads and provenance](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-bounded-middle-checkpoint).
+- **Current main memory / targeted optimizing checkpoint:** exact699648988
+  native366ed01c…, five alternating normal samples/one warmup, verified v133:
+  main6345.666±13.890ms versus2288.298±8.772ms. PeakRSS294448±132KiB versus
+  153104±4KiB (median±MAD), about138MiB main excess. All samples flag foreign
+  activity. This is a separate cohort from the four-pass matrix; parsing,
+  pipeline and encoding memory attribution remains unknown. A scoped boundary
+  cache trial is rejected: large cleanup instructions+0.175%, peakRSS flat,
+  despite56–61% gains on wide unchanged synthetic controls. No rejected code
+  remains on main; source/binaries and all evidence remain locally archived.
+  [Rejection and memory evidence](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-rejected-per-flat-statement-boundary-cache).
 - **Earlier main read-index matrix:** base7f8cc5b3b plus read-index pilot, final
   binary75dd44c3…, verified v133, one warmup/three alternating normal CLI rows:
   DAE2 4403.601/1292.056 ms (3.41×), DAE2-O7238.023/2428.617 (2.98×),
@@ -543,10 +553,18 @@ breadth. Shared changes require all affected consumers in the matrix below.
   retain this small-path tradeoff rather than claiming every path improves.
   [Proof, timing scopes and controls](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-bound-dupable-copy-middle-discovery).
 
+  A per-flat statement-end cache trial is rejected: root20,126,748,368→
+  20,161,975,875 (+.175%), normal CLI paired−.108% within spread, RSS flat.
+  Typed-prefix work falls only43,243 of1,085,825,152 instructions. The selected
+  wide-copy lane barely reduces whole-prefix work on the compiler fixture;
+  constructor cost alone is not an established cause. Do not reopen this cache
+  based solely on synthetic wins. Larger measured CFG/lower owners take priority.
+
 - [ ] Profile and reduce remaining pure-copy tail scans/typechecking: after the
   bounded initial scan, blocked width64→256 still costs.882→14.21ms (≈16× for
-  4× width). Measure repeated statement starts and exact typing/materialization
-  cost before choosing bounded per-body reuse. Preserve escaping statements,
+  4× width). Measure actual reuse across unchanged bodies/epochs and exact
+  materialization cost before choosing another cache; the per-flat owner above
+  is rejected. Preserve escaping statements,
   source/target writes, terminal/conditional helpers, env/label/init facts,
   validation and exact output. No cache survives mutation or an invocation.
   Test active/blocked dense and nested scalar/reference/trapping cases, ownership,
@@ -770,6 +788,13 @@ breadth. Shared changes require all affected consumers in the matrix below.
   changes are within noise. Focus next on CFG/lift/lower and interference;
   do not reopen the completed nested-prefix proof or claim its helper gain
   as another command saving. Aggregate signoff and canonical quality remain.
+- **Fresh complete module-pass attribution:** exact699648988/native366ed01c,
+  fixed6.21MB compiler; root49,112,542,755 instructions. CFG lane35,333,371,034;
+  its lower child10,895,209,932, interference child3,273,565,935; lift local-access
+  conflict edge3,437,443,491 is nested inside lift. Runtime object-drop exclusive
+  work6,645,403,035 (13.53% root), not allocation counts. Control-index .368b and
+  tee cleanup .136b are smaller targets. All nested edges overlap: never sum.
+  [Scope and remaining owners](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-complete-main-module-pass-attribution).
 - **Deliverables / tasks:** profile repeated dependency/action rows and query
   ordering on one revision; try demand-built facts or bounded scratch where
   repeated work remains. Refresh conflict, control-boundary and slot-query
@@ -969,6 +994,13 @@ breadth. Shared changes require all affected consumers in the matrix below.
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
+- **Next measured shared target:** CL lower10.895b instructions and lift
+  local-access conflict3.437b, nested in the49.113b module-pass root. Inspect
+  unchanged lowering/canonicalization ownership and masked conflict traversal
+  before extending caches. The existing64-bit lift masks remain required; prove
+  collision frequency/consumer benefit before widening them. Separate object
+  drop work from allocated bytes and peakRSS; attribute the138MiB optimizing
+  command RSS excess by phase rather than assuming a cause.
 - **APIs / invariants:** use checked scalar field getters and complete admission
   proofs; remove remaining full-header boundaries only with generated-native
   evidence. Invalidate compact facts or scratch on node/span/region/local/type

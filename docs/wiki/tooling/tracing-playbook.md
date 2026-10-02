@@ -4596,3 +4596,25 @@ Artifacts: `.tmp/large-pass-hotspots-20261001/large-matrix-main-pure-middle-2026
 `measure-main-pure-middle-matrix.py`, `pure-middle-*`, `dae2-cleanup-pure-middle-*`.
 Manifests retain exact source/dirty state, executable/oracle/input hashes,
 commands, runtime features, all rows, profiles and compact-import replay notes.
+
+
+### Subsequent cache rejection and memory checkpoint
+
+The [per-flat statement cache](../binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-rejected-per-flat-statement-boundary-cache)
+is rejected: complete cleanup instructions+0.175%, normal CLI paired−.108%
+within spread, peakRSS flat, despite wide synthetic wins. Its code is archived
+and removed from main; accepted source remains699648988/native366ed01c.
+Five normal baseline/oracle samples, one warmup, give6345.666±13.890 /
+2288.298±8.772ms, and peakRSS294448±132 /153104±4KiB (median±MAD). Every row
+flags foreign activity. These are separate cohorts from the four-pass matrix;
+no trace/debug timer or raw/canonical byte scope is relabeled. Kernel wait4
+measures exact per-process CPU/RSS after posix_spawn/taskset; the unavailable
+GNU time attempt is preserved as failed evidence before any accepted timing.
+No peak-memory win or phase-specific RSS cause is established.
+
+A [fresh complete CL module profile](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-complete-main-module-pass-attribution)
+collects49,112,542,755 instructions; CFG lane35.333b includes lower10.895b and
+interferences3.274b. Lift local-access conflict3.437b and object-drop exclusive
+6.645b expose larger candidates than tee/control guards. All nested costs overlap;
+old partial profiles remain historical. Parsing/final CLI validation/encoding
+are outside this collection. No new CL timing improvement is claimed.

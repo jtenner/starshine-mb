@@ -731,3 +731,61 @@ Artifacts: `.tmp/large-pass-hotspots-20261001/pure-middle-*`,
 The [current full-command matrix](../../../tooling/tracing-playbook.md#october-2-2026-main-bounded-middle-checkpoint)
 renews priorities by absolute cost. Remaining repeated query/copy scans, tiny
 tradeoff, shared CFG/lower, CL/OI envelope and canonical quality gaps stay open.
+
+
+## October 2, 2026: rejected per-flat statement-boundary cache
+
+A subsequent experiment retained scalar statement ends within one immutable
+flat invocation/body/environment, with separate normal/escape results and owned
+materialization. It added at most two Int buffers per instruction row, creating
+its owner after a second actual copy scan in128+ instructions. Every cache miss
+retained the original full typing; no transform/admission/verification changed.
+
+The large compiler rejects this design as a performance improvement: matched
+complete cleanup20,126,748,368→20,161,975,875 instructions (+35,227,507, +.175%).
+The pure fixed-point edge is essentially flat1,353,840,603→1,353,831,493; the
+combined typed-prefix inner edge1,085,825,152→1,085,781,909 saves only43,243.
+The constructor edge9,776 and cache-query edge1,862,914 are small. Do not blame
+buffer construction alone or infer a cause from counters. This selected
+wide-copy lane barely reduces measured whole-prefix work on the compiler. Low
+coverage versus insufficient within-lane reuse needs further query attribution;
+other scopes remain hypotheses, requiring their own measured invalidation proof.
+
+Twelve frozen699 native controls pass. Blocked64 .885±.010→.384±.003ms;
+blocked25614.12±.480→5.44±.045ms, mean±sigma ten batches. Active1
+554.94±5.04→555.74±2.36ns is within spread. Blocked8 costs15.49±.074→
+15.60±.116µs, repeated15.63±.110→15.88±.270µs; both cohorts remain recorded.
+The wide unchanged-helper gains do not establish large-pass benefit.
+
+Native366ed01c… main versus rejectedb9860e51…, verified v133, one warmup/five
+alternating normal filesystem-warm CLI samples, CPU6, every row foreign-activity
+flagged. Before/candidate/oracle medians±MAD6345.666±13.890 /6317.656±29.718 /
+2288.298±8.772ms; ranges6299.546–6359.556 /6287.938–6362.295 /
+2278.096–2298.672ms. Paired−.108% is within spread. Three separate traced inner
+rows5543.357±.648→5504.581±23.380ms (5542.709–5556.731 /5481.201–5598.861)
+are diagnostic, with different scopes. No enclosing speed improvement claimed.
+
+Linux per-process `wait4` peakRSS, median±MADKiB n5: main294448±132,
+candidate294400±88, oracle153104±4; ranges294288–294612 /294312–295960 /
+153100–155144. The cache does not establish a peak-memory saving. The main
+baseline is about138MiB above the oracle; phase attribution is still unknown.
+The initial unavailable `/usr/bin/time` attempt failed before any accepted
+native timing, is archived separately, and was replaced by posix_spawn/taskset
+plus wait4. Native command flags and independent tracing scopes stay unchanged.
+
+On the experimental source, info/fmt/check/native build,13,338 bounded wasm-gc
+tests, twelve controls plus two repeated small controls pass. Two24-fixture
+runtime lanes validate202 modules (192raw+10encoding-only compact-import
+expansions) and match576 observations: results/calls/state/memory/GC/traps.
+All before/after compiler and fixture bytes are exact; the canonical gap remains.
+The experiment's complete source/patch/manifests/binaries are preserved locally,
+then only its uncommitted changes were restored. No existing committed test or
+behavior was removed. Accepted main remains699648988 with13,333 bounded tests;
+its native CLI is rebuilt after restoration. No long fuzz/full CI/coverage or
+independent-agent signoff is claimed.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/statement-boundary-*`,
+`dae2-cleanup-statement-boundary-*`, `rejected-statement-boundary/`, local report.
+Follow the [fresh CL/shared lower attribution](../coalesce-locals/starshine-strategy.md#october-2-2026-complete-main-module-pass-attribution)
+for larger costs. Tail materialization/hazards remain quadratic on synthetic
+controls; cross-invocation reuse remains a hypothesis rather than an adopted cache.

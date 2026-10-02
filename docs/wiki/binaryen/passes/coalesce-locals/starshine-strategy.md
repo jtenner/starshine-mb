@@ -692,3 +692,51 @@ Sources: [implementation](../../../../../src/passes/coalesce_locals.mbt),
 [native controls](../../../../../src/passes/cl_tee_control_perf_wbtest.mbt),
 [dispatcher](../../../../../src/cmd/cmd.mbt). CFG/lift/lower, interference,
 other repeated source queries and canonical parity remain P04 work.
+
+
+## October 2, 2026: complete main module-pass attribution
+
+The frozen main699648988 CLI366ed01c… profiles the unchanged6,211,596-byte
+compiler under CPU6. Instrumentation starts at `run_hot_pipeline_apply_module_pass`
+before its first child; collection covers one complete
+`coalesce_locals_run_module_pass`, including internal guards. Parsing and final
+CLI validation/encoding remain outside this scope. The debugger driver has a300s
+deadline, completes and validates exact output5706503B, SHA256
+`de0757b5f756efcad9ffccaa5dcc575fd11647820dcca09eb721bd61f63162ca`.
+This replaces no historical partial profile: earlier parts/scopes keep their
+original source/version. The matched normal v133 matrix remains a separate run.
+
+Root49,112,542,755 instructions. Source-backed nonrecursive entry edges:
+
+| Owner / edge | Inclusive instructions |
+| --- | ---: |
+| Module→CFG loop lane |35,333,371,034|
+| Module→ordinary function lane |10,264,331,735|
+| CFG lane→HOT lower |10,895,209,932|
+| CFG lane→interferences |3,273,565,935|
+| Lift capture→local-access conflicts |3,437,443,491|
+| CFG build→region builder |2,231,127,567|
+| Safe copy interference→forward scan |1,111,227,302|
+| Control index→body boundary |368,112,118|
+| Tee cleanup→worker |135,936,789|
+
+These edges overlap; neither summing them nor using recursively inflated
+inclusive totals is a phase breakdown. `moonbit_drop_object` exclusive work
+6,645,403,035 (13.53% root) indicates significant destruction work; it is not
+an allocation count or byte/RSS measurement. Getter self0 does not establish
+that inlined getter copies are free. [Lowering](../../../../../src/ir/hot_lower.mbt),
+[lift masks/capture](../../../../../src/ir/hot_lift.mbt) and
+[interference](../../../../../src/passes/coalesce_locals.mbt) remain the larger
+source-backed targets, ahead of already repaired reachability/tee admission.
+
+Inspect unchanged canonicalization/row ownership and exact masked conflict
+traversal before choosing an optimization. Existing64-bit masks, full typing,
+side-effect/trap ordering, handlers, valid coloring and deterministic bytes
+remain required. Do not widen masks solely because collisions are possible;
+measure the consumer and storage tradeoff. The rejected per-flat SL cache
+shows large synthetic gains can leave the compiler worse. The separate
+optimizing command baseline's138MiB peakRSS deficit requires phase attribution,
+not a guessed cause. Speed, canonical quality and aggregate gates remain open.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/main-cl-scope-candidate.*`,
+`main-cl-scope-costs.json`, `profile-main-cl-scope.py`, original manifests/hash.

@@ -1,3 +1,15 @@
+### 2026-10-02 — Reject scoped statement cache and renew CL attribution
+
+- [Cache rejection and memory evidence](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-rejected-per-flat-statement-boundary-cache)
+  records large cleanup+0.175% instructions, flat normal time/RSS, and little
+  typed-prefix reuse despite synthetic wins. Only the uncommitted experiment
+  is restored; all source/evidence is archived. Main's optimizing peakRSS is
+  about138MiB above v133; its phase cause remains unknown.
+- [Complete main CL attribution](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-complete-main-module-pass-attribution)
+  prioritizes CFG/lower, lift conflict traversal and object churn using one
+  bounded completed profile. Scope, hashes and nested/exclusive distinctions
+  remain explicit. No new speed fix or full signoff is manufactured.
+
 ### 2026-10-02 — Bound dupable-copy middle discovery
 
 - [Bounded middle discovery](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-bound-dupable-copy-middle-discovery)
