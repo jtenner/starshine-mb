@@ -44,7 +44,7 @@ fn encode_control_work(
               break
             }
             _ =>
-              if encode_leaf_instruction(instruction, buf) is Err(err) {
+              if encode_leaf_instruction_error(instruction, buf) is Some(err) {
                 return Err(err)
               }
           }
@@ -122,7 +122,7 @@ fn encode_control_work(
             work.push(ControlSequence(body, 0))
           }
           _ =>
-            if encode_leaf_instruction(instruction, buf) is Err(err) {
+            if encode_leaf_instruction_error(instruction, buf) is Some(err) {
               return Err(err)
             }
         }

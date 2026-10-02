@@ -2020,15 +2020,12 @@ fn encode_atomic_memarg(
 }
 
 ///|
-fn simd_inst(
-  id : UInt,
-  buf : @buffer.Buffer,
-) -> Result[Unit, BinaryEncodeError] {
+fn encode_simd_error(id : UInt, buf : @buffer.Buffer) -> BinaryEncodeError? {
   buf.write_byte(0xFD)
   if Encode::encode(@lib.U32(id), buf) is Err(t) {
-    return Err(t)
+    return Some(t)
   }
-  Ok(())
+  None
 }
 
 ///|
@@ -2174,6 +2171,19 @@ fn encode_leaf_instruction(
   val : Instruction,
   buf : @buffer.Buffer,
 ) -> Result[Unit, BinaryEncodeError] {
+  match encode_leaf_instruction_error(val, buf) {
+    None => Ok(())
+    Some(err) => Err(err)
+  }
+}
+
+///|
+// Sequence encoding consumes an error only. None avoids one success Result
+// allocation per leaf; the public Encode boundary retains its Result contract.
+fn encode_leaf_instruction_error(
+  val : Instruction,
+  buf : @buffer.Buffer,
+) -> BinaryEncodeError? {
   match val {
     Unreachable => buf.write_byte(0x00)
     Nop => buf.write_byte(0x01)
@@ -2186,78 +2196,78 @@ fn encode_leaf_instruction(
     Throw(t) => {
       buf.write_byte(0x08)
       if Encode::encode(t, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ThrowRef => buf.write_byte(0x0A)
     Rethrow(depth) => {
       buf.write_byte(0x09)
       if Encode::encode(depth, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     Br(i) => {
       buf.write_byte(0x0C)
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     BrIf(i) => {
       buf.write_byte(0x0D)
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     BrTable(ls, i) => {
       buf.write_byte(0x0E)
       if Encode::encode(ls, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     Return => buf.write_byte(0x0F)
     Call(i) => {
       buf.write_byte(0x10)
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     CallIndirect(ty, ta) => {
       buf.write_byte(0x11)
       if Encode::encode(ty, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ta, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ReturnCall(f) => {
       buf.write_byte(0x12)
       if Encode::encode(f, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ReturnCallIndirect(ty, ta) => {
       buf.write_byte(0x13)
       if Encode::encode(ty, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ta, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     CallRef(t) => {
       buf.write_byte(0x14)
       if Encode::encode(t, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ReturnCallRef(t) => {
       buf.write_byte(0x15)
       if Encode::encode(t, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     WaitqueueNew => {
@@ -2276,72 +2286,72 @@ fn encode_leaf_instruction(
       buf.write_byte(0xfe)
       buf.write_byte(0x05)
       match Encode::encode(type_idx, buf) {
-        Err(err) => return Err(err)
+        Err(err) => return Some(err)
         Ok(_) => ()
       }
       match Encode::encode(field, buf) {
-        Err(err) => return Err(err)
+        Err(err) => return Some(err)
         Ok(_) => ()
       }
     }
     ContNew(type_idx) => {
       buf.write_byte(0xE0)
       if Encode::encode(type_idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ContBind(source_type, target_type) => {
       buf.write_byte(0xE1)
       if Encode::encode(source_type, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(target_type, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     Suspend(tag) => {
       buf.write_byte(0xE2)
       if Encode::encode(tag, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     Resume(type_idx, handlers) => {
       buf.write_byte(0xE3)
       if Encode::encode(type_idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(handlers, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ResumeThrow(type_idx, tag, handlers) => {
       buf.write_byte(0xE4)
       if Encode::encode(type_idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(tag, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(handlers, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ResumeThrowRef(type_idx, handlers) => {
       buf.write_byte(0xE5)
       if Encode::encode(type_idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(handlers, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StackSwitch(type_idx, tag) => {
       buf.write_byte(0xE6)
       if Encode::encode(type_idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(tag, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     Drop => buf.write_byte(0x1A)
@@ -2349,383 +2359,383 @@ fn encode_leaf_instruction(
     Select(Some(vts)) => {
       buf.write_byte(0x1C)
       if Encode::encode(vts, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     LocalGet(l) => {
       buf.write_byte(0x20)
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     LocalSet(l) => {
       buf.write_byte(0x21)
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     LocalTee(l) => {
       buf.write_byte(0x22)
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     GlobalGet(g) => {
       buf.write_byte(0x23)
       if Encode::encode(g, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     GlobalSet(g) => {
       buf.write_byte(0x24)
       if Encode::encode(g, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     TableGet(i) => {
       buf.write_byte(0x25)
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     TableSet(i) => {
       buf.write_byte(0x26)
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32Load(m) => {
       buf.write_byte(0x28)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64Load(m) => {
       buf.write_byte(0x29)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     F32Load(m) => {
       buf.write_byte(0x2A)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     F64Load(m) => {
       buf.write_byte(0x2B)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32Load8S(m) => {
       buf.write_byte(0x2C)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32Load8U(m) => {
       buf.write_byte(0x2D)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32Load16S(m) => {
       buf.write_byte(0x2E)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32Load16U(m) => {
       buf.write_byte(0x2F)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64Load8S(m) => {
       buf.write_byte(0x30)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64Load8U(m) => {
       buf.write_byte(0x31)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64Load16S(m) => {
       buf.write_byte(0x32)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64Load16U(m) => {
       buf.write_byte(0x33)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64Load32S(m) => {
       buf.write_byte(0x34)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64Load32U(m) => {
       buf.write_byte(0x35)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32Store(m) => {
       buf.write_byte(0x36)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64Store(m) => {
       buf.write_byte(0x37)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     F32Store(m) => {
       buf.write_byte(0x38)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     F64Store(m) => {
       buf.write_byte(0x39)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32Store8(m) => {
       buf.write_byte(0x3A)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32Store16(m) => {
       buf.write_byte(0x3B)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64Store8(m) => {
       buf.write_byte(0x3C)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64Store16(m) => {
       buf.write_byte(0x3D)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64Store32(m) => {
       buf.write_byte(0x3E)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     MemorySize(m) => {
       buf.write_byte(0x3F)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     MemoryGrow(m) => {
       buf.write_byte(0x40)
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     MemoryAtomicNotify(m) => {
       if atomic_inst(0, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     MemoryAtomicWait32(m) => {
       if atomic_inst(1, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     MemoryAtomicWait64(m) => {
       if atomic_inst(2, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     AtomicFence(order) => {
       if atomic_inst(3, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(order, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32AtomicLoad(order, m) => {
       if atomic_inst(16, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64AtomicLoad(order, m) => {
       if atomic_inst(17, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32AtomicLoad8U(order, m) => {
       if atomic_inst(18, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32AtomicLoad16U(order, m) => {
       if atomic_inst(19, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64AtomicLoad8U(order, m) => {
       if atomic_inst(20, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64AtomicLoad16U(order, m) => {
       if atomic_inst(21, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64AtomicLoad32U(order, m) => {
       if atomic_inst(22, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32AtomicStore(order, m) => {
       if atomic_inst(23, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64AtomicStore(order, m) => {
       if atomic_inst(24, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32AtomicStore8(order, m) => {
       if atomic_inst(25, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32AtomicStore16(order, m) => {
       if atomic_inst(26, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64AtomicStore8(order, m) => {
       if atomic_inst(27, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64AtomicStore16(order, m) => {
       if atomic_inst(28, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64AtomicStore32(order, m) => {
       if atomic_inst(29, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, false) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     AtomicRmw(order, op, m) => {
       if atomic_inst(atomic_rmw_op_id(op), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, true) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     AtomicCmpxchg(order, op, m) => {
       if atomic_inst(atomic_cmpxchg_op_id(op), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_atomic_memarg(order, m, buf, true) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32Const(c) => {
       buf.write_byte(0x41)
       if Encode::encode(c, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64Const(c) => {
       buf.write_byte(0x42)
       if Encode::encode(c, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     F32Const(c) => {
       buf.write_byte(0x43)
       if Encode::encode(c, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     F64Const(c) => {
       buf.write_byte(0x44)
       if Encode::encode(c, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32Eqz => buf.write_byte(0x45)
@@ -2859,14 +2869,14 @@ fn encode_leaf_instruction(
     RefNull(rt) => {
       buf.write_byte(0xD0)
       if encode_ref_null_immediate(rt, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefIsNull => buf.write_byte(0xD1)
     RefFunc(i) => {
       buf.write_byte(0xD2)
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefEq => buf.write_byte(0xD3)
@@ -2874,145 +2884,145 @@ fn encode_leaf_instruction(
     BrOnNull(i) => {
       buf.write_byte(0xD5)
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     BrOnNonNull(i) => {
       buf.write_byte(0xD6)
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructNew(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructNewDefault(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(1), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructNewDesc(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(32), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructNewDefaultDesc(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(33), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructGet(i, idx) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(2), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructGetS(i, idx) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(3), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructGetU(i, idx) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(4), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructAtomicSet(order, i, idx) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x5F), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(order, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructAtomicGet(order, i, idx) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x5C), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(order, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructAtomicGetS(order, i, idx) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x5D), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(order, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructAtomicGetU(order, i, idx) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x5E), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(order, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructAtomicRmw(order, op, i, idx) => {
@@ -3026,177 +3036,177 @@ fn encode_leaf_instruction(
       }
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(id), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       encode_aggregate_atomic_rmw_order(order, buf)
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructAtomicCmpxchg(order, i, idx) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x66), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       encode_aggregate_atomic_rmw_order(order, buf)
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StructSet(i, idx) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(5), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayNew(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(6), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayNewDefault(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(7), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayNewFixed(i, n) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(8), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(n, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayNewData(i, idx) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(9), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayNewElem(i, idx) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(10), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayGet(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(11), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayGetS(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(12), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayGetU(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(13), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayAtomicSet(order, i) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x6A), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(order, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayAtomicGet(order, i) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x67), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(order, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayAtomicGetS(order, i) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x68), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(order, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayAtomicGetU(order, i) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x69), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(order, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArraySet(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(14), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayAtomicRmw(order, op, i) => {
@@ -3210,392 +3220,392 @@ fn encode_leaf_instruction(
       }
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(id), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       encode_aggregate_atomic_rmw_order(order, buf)
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayAtomicCmpxchg(order, i) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x71), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       encode_aggregate_atomic_rmw_order(order, buf)
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayLoad(op, i, memarg) => {
       if encode_backing_array_load_opcode(op, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_array_memory_argument(memarg, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayStore(op, i, memarg) => {
       if encode_backing_array_store_opcode(op, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_array_memory_argument(memarg, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayLen => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(15), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayFill(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(16), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(i, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayCopy(x0, x1) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(17), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(x0, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(x1, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayInitData(x, y) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(18), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(x, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(y, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ArrayInitElem(x, y) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(19), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(x, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(y, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringConst(bytes) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0x82), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       let idx = match encode_string_const_index(bytes) {
         Ok(idx) => idx
-        Err(err) => return Err(err)
+        Err(err) => return Some(err)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringMeasureWtf16 => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0x85), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringConcat => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0x88), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringEq => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0x89), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringAsWtf16 => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0x98), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringViewWtf16GetCodeunit => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0x9A), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringViewWtf16Slice => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0x9C), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringNewUtf8Array => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0xB0), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringNewWtf16Array => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0xB1), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringEncodeUtf8Array => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0xB2), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringEncodeWtf16Array => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0xB3), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringNewLossyUtf8Array => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0xB4), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringNewWtf8Array => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0xB5), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringEncodeLossyUtf8Array => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0xB6), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     StringEncodeWtf8Array => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(0xB7), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefTest(false, exact, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(20), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(exact, ht, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefTest(true, exact, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(21), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(exact, ht, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefCast(false, exact, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(22), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(exact, ht, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefCast(true, exact, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(23), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(exact, ht, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefGetDesc(ti) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(34), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ti, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefTestDesc(false, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(35), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ht, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefTestDesc(true, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(36), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ht, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefCastDescEq(false, exact, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(35), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(exact, ht, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefCastDescEq(true, exact, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(36), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(exact, ht, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     BrOnCast(l, castop, ht0, ht1) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(24), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(castop, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(castop.source_exact(), ht0, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(castop.target_exact(), ht1, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     BrOnCastFail(l, castop, ht0, ht1) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(25), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(castop, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(castop.source_exact(), ht0, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(castop.target_exact(), ht1, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     BrOnCastDescEq(l, source, target) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(37), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(
           CastOp::new(source.is_nullable(), target.is_nullable()),
           buf,
         )
         is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(source.is_exact(), source.get_heap_type(), buf)
         is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(target.is_exact(), target.get_heap_type(), buf)
         is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     BrOnCastDescEqFail(l, source, target) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(38), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(
           CastOp::new(source.is_nullable(), target.is_nullable()),
           buf,
         )
         is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(source.is_exact(), source.get_heap_type(), buf)
         is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if encode_ref_heap_type(target.is_exact(), target.get_heap_type(), buf)
         is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     AnyConvertExtern => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(26), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ExternConvertAny => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(27), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefI31 => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(28), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     RefI31Shared => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(31), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I31GetS => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(29), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I31GetU => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(30), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32TruncSatF32S => buf.write_bytes(b"\xFC\x00")
@@ -3609,211 +3619,211 @@ fn encode_leaf_instruction(
     MemoryInit(di, mi) => {
       buf.write_byte(0xFC)
       if Encode::encode(@lib.U32(8), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(di, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(mi, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     DataDrop(di) => {
       buf.write_byte(0xFC)
       if Encode::encode(@lib.U32(9), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(di, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     MemoryCopy(mi0, mi1) => {
       buf.write_byte(0xFC)
       if Encode::encode(@lib.U32(10), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(mi0, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(mi1, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     MemoryFill(mi) => {
       buf.write_byte(0xFC)
       if Encode::encode(@lib.U32(11), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(mi, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     TableInit(ei, ti) => {
       buf.write_byte(0xFC)
       if Encode::encode(@lib.U32(12), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ei, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ti, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     ElemDrop(ei) => {
       buf.write_byte(0xFC)
       if Encode::encode(@lib.U32(13), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ei, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     TableCopy(ti0, ti1) => {
       buf.write_byte(0xFC)
       if Encode::encode(@lib.U32(14), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ti0, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ti1, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     TableGrow(ti) => {
       buf.write_byte(0xFC)
       if Encode::encode(@lib.U32(15), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ti, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     TableSize(ti) => {
       buf.write_byte(0xFC)
       if Encode::encode(@lib.U32(16), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ti, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     TableFill(ti) => {
       buf.write_byte(0xFC)
       if Encode::encode(@lib.U32(17), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(ti, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(0), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load8x8S(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(1), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load8x8U(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(2), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load16x4S(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(3), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load16x4U(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(4), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load32x2S(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(5), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load32x2U(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(6), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load8Splat(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(7), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load16Splat(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(8), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load32Splat(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(9), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load64Splat(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(10), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Store(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(11), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Const(
@@ -3836,7 +3846,7 @@ fn encode_leaf_instruction(
     ) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(12), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       buf.write_byte(b0)
       buf.write_byte(b1)
@@ -3875,517 +3885,517 @@ fn encode_leaf_instruction(
     ) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(13), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b0, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b1, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b2, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b3, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b4, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b5, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b6, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b7, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b8, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b9, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b10, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b11, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b12, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b13, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b14, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(b15, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
-    I8x16Swizzle => return simd_inst(14, buf)
-    I8x16Splat => return simd_inst(15, buf)
-    I16x8Splat => return simd_inst(16, buf)
-    I32x4Splat => return simd_inst(17, buf)
-    I64x2Splat => return simd_inst(18, buf)
-    F32x4Splat => return simd_inst(19, buf)
-    F64x2Splat => return simd_inst(20, buf)
+    I8x16Swizzle => return encode_simd_error(14, buf)
+    I8x16Splat => return encode_simd_error(15, buf)
+    I16x8Splat => return encode_simd_error(16, buf)
+    I32x4Splat => return encode_simd_error(17, buf)
+    I64x2Splat => return encode_simd_error(18, buf)
+    F32x4Splat => return encode_simd_error(19, buf)
+    F64x2Splat => return encode_simd_error(20, buf)
     I8x16ExtractLaneS(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(21), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I8x16ExtractLaneU(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(22), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I8x16ReplaceLane(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(23), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I16x8ExtractLaneS(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(24), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I16x8ExtractLaneU(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(25), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I16x8ReplaceLane(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(26), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32x4ExtractLane(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(27), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I32x4ReplaceLane(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(28), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64x2ExtractLane(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(29), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     I64x2ReplaceLane(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(30), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     F32x4ExtractLane(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(31), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     F32x4ReplaceLane(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(32), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     F64x2ExtractLane(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(33), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     F64x2ReplaceLane(l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(34), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
-    I8x16Eq => return simd_inst(35, buf)
-    I8x16Ne => return simd_inst(36, buf)
-    I8x16LtS => return simd_inst(37, buf)
-    I8x16LtU => return simd_inst(38, buf)
-    I8x16GtS => return simd_inst(39, buf)
-    I8x16GtU => return simd_inst(40, buf)
-    I8x16LeS => return simd_inst(41, buf)
-    I8x16LeU => return simd_inst(42, buf)
-    I8x16GeS => return simd_inst(43, buf)
-    I8x16GeU => return simd_inst(44, buf)
-    I16x8Eq => return simd_inst(45, buf)
-    I16x8Ne => return simd_inst(46, buf)
-    I16x8LtS => return simd_inst(47, buf)
-    I16x8LtU => return simd_inst(48, buf)
-    I16x8GtS => return simd_inst(49, buf)
-    I16x8GtU => return simd_inst(50, buf)
-    I16x8LeS => return simd_inst(51, buf)
-    I16x8LeU => return simd_inst(52, buf)
-    I16x8GeS => return simd_inst(53, buf)
-    I16x8GeU => return simd_inst(54, buf)
-    I32x4Eq => return simd_inst(55, buf)
-    I32x4Ne => return simd_inst(56, buf)
-    I32x4LtS => return simd_inst(57, buf)
-    I32x4LtU => return simd_inst(58, buf)
-    I32x4GtS => return simd_inst(59, buf)
-    I32x4GtU => return simd_inst(60, buf)
-    I32x4LeS => return simd_inst(61, buf)
-    I32x4LeU => return simd_inst(62, buf)
-    I32x4GeS => return simd_inst(63, buf)
-    I32x4GeU => return simd_inst(64, buf)
-    F32x4Eq => return simd_inst(65, buf)
-    F32x4Ne => return simd_inst(66, buf)
-    F32x4Lt => return simd_inst(67, buf)
-    F32x4Gt => return simd_inst(68, buf)
-    F32x4Le => return simd_inst(69, buf)
-    F32x4Ge => return simd_inst(70, buf)
-    F64x2Eq => return simd_inst(71, buf)
-    F64x2Ne => return simd_inst(72, buf)
-    F64x2Lt => return simd_inst(73, buf)
-    F64x2Gt => return simd_inst(74, buf)
-    F64x2Le => return simd_inst(75, buf)
-    F64x2Ge => return simd_inst(76, buf)
-    V128Not => return simd_inst(77, buf)
-    V128And => return simd_inst(78, buf)
-    V128Andnot => return simd_inst(79, buf)
-    V128Or => return simd_inst(80, buf)
-    V128Xor => return simd_inst(81, buf)
-    V128Bitselect => return simd_inst(82, buf)
-    V128AnyTrue => return simd_inst(83, buf)
+    I8x16Eq => return encode_simd_error(35, buf)
+    I8x16Ne => return encode_simd_error(36, buf)
+    I8x16LtS => return encode_simd_error(37, buf)
+    I8x16LtU => return encode_simd_error(38, buf)
+    I8x16GtS => return encode_simd_error(39, buf)
+    I8x16GtU => return encode_simd_error(40, buf)
+    I8x16LeS => return encode_simd_error(41, buf)
+    I8x16LeU => return encode_simd_error(42, buf)
+    I8x16GeS => return encode_simd_error(43, buf)
+    I8x16GeU => return encode_simd_error(44, buf)
+    I16x8Eq => return encode_simd_error(45, buf)
+    I16x8Ne => return encode_simd_error(46, buf)
+    I16x8LtS => return encode_simd_error(47, buf)
+    I16x8LtU => return encode_simd_error(48, buf)
+    I16x8GtS => return encode_simd_error(49, buf)
+    I16x8GtU => return encode_simd_error(50, buf)
+    I16x8LeS => return encode_simd_error(51, buf)
+    I16x8LeU => return encode_simd_error(52, buf)
+    I16x8GeS => return encode_simd_error(53, buf)
+    I16x8GeU => return encode_simd_error(54, buf)
+    I32x4Eq => return encode_simd_error(55, buf)
+    I32x4Ne => return encode_simd_error(56, buf)
+    I32x4LtS => return encode_simd_error(57, buf)
+    I32x4LtU => return encode_simd_error(58, buf)
+    I32x4GtS => return encode_simd_error(59, buf)
+    I32x4GtU => return encode_simd_error(60, buf)
+    I32x4LeS => return encode_simd_error(61, buf)
+    I32x4LeU => return encode_simd_error(62, buf)
+    I32x4GeS => return encode_simd_error(63, buf)
+    I32x4GeU => return encode_simd_error(64, buf)
+    F32x4Eq => return encode_simd_error(65, buf)
+    F32x4Ne => return encode_simd_error(66, buf)
+    F32x4Lt => return encode_simd_error(67, buf)
+    F32x4Gt => return encode_simd_error(68, buf)
+    F32x4Le => return encode_simd_error(69, buf)
+    F32x4Ge => return encode_simd_error(70, buf)
+    F64x2Eq => return encode_simd_error(71, buf)
+    F64x2Ne => return encode_simd_error(72, buf)
+    F64x2Lt => return encode_simd_error(73, buf)
+    F64x2Gt => return encode_simd_error(74, buf)
+    F64x2Le => return encode_simd_error(75, buf)
+    F64x2Ge => return encode_simd_error(76, buf)
+    V128Not => return encode_simd_error(77, buf)
+    V128And => return encode_simd_error(78, buf)
+    V128Andnot => return encode_simd_error(79, buf)
+    V128Or => return encode_simd_error(80, buf)
+    V128Xor => return encode_simd_error(81, buf)
+    V128Bitselect => return encode_simd_error(82, buf)
+    V128AnyTrue => return encode_simd_error(83, buf)
     V128Load8Lane(m, l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(84), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load16Lane(m, l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(85), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load32Lane(m, l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(86), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load64Lane(m, l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(87), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Store8Lane(m, l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(88), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Store16Lane(m, l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(89), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Store32Lane(m, l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(90), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Store64Lane(m, l) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(91), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(l, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load32Zero(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(92), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
     V128Load64Zero(m) => {
       buf.write_byte(0xFD)
       if Encode::encode(@lib.U32(93), buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
       if Encode::encode(m, buf) is Err(t) {
-        return Err(t)
+        return Some(t)
       }
     }
-    F32x4DemoteF64x2Zero => return simd_inst(94, buf)
-    F64x2PromoteLowF32x4 => return simd_inst(95, buf)
-    I8x16Abs => return simd_inst(96, buf)
-    I8x16Neg => return simd_inst(97, buf)
-    I8x16Popcnt => return simd_inst(98, buf)
-    I8x16AllTrue => return simd_inst(99, buf)
-    I8x16Bitmask => return simd_inst(100, buf)
-    I8x16NarrowI16x8S => return simd_inst(101, buf)
-    I8x16NarrowI16x8U => return simd_inst(102, buf)
-    F32x4Ceil => return simd_inst(103, buf)
-    F32x4Floor => return simd_inst(104, buf)
-    F32x4Trunc => return simd_inst(105, buf)
-    F32x4Nearest => return simd_inst(106, buf)
-    I8x16Shl => return simd_inst(107, buf)
-    I8x16ShrS => return simd_inst(108, buf)
-    I8x16ShrU => return simd_inst(109, buf)
-    I8x16Add => return simd_inst(110, buf)
-    I8x16AddSatS => return simd_inst(111, buf)
-    I8x16AddSatU => return simd_inst(112, buf)
-    I8x16Sub => return simd_inst(113, buf)
-    I8x16SubSatS => return simd_inst(114, buf)
-    I8x16SubSatU => return simd_inst(115, buf)
-    F64x2Ceil => return simd_inst(116, buf)
-    F64x2Floor => return simd_inst(117, buf)
-    I8x16MinS => return simd_inst(118, buf)
-    I8x16MinU => return simd_inst(119, buf)
-    I8x16MaxS => return simd_inst(120, buf)
-    I8x16MaxU => return simd_inst(121, buf)
-    F64x2Trunc => return simd_inst(122, buf)
-    I8x16AvgrU => return simd_inst(123, buf)
-    I16x8ExtaddPairwiseI8x16S => return simd_inst(124, buf)
-    I16x8ExtaddPairwiseI8x16U => return simd_inst(125, buf)
-    I32x4ExtaddPairwiseI16x8S => return simd_inst(126, buf)
-    I32x4ExtaddPairwiseI16x8U => return simd_inst(127, buf)
-    I16x8Abs => return simd_inst(128, buf)
-    I16x8Neg => return simd_inst(129, buf)
-    I16x8Q15mulrSatS => return simd_inst(130, buf)
-    I16x8AllTrue => return simd_inst(131, buf)
-    I16x8Bitmask => return simd_inst(132, buf)
-    I16x8NarrowI32x4S => return simd_inst(133, buf)
-    I16x8NarrowI32x4U => return simd_inst(134, buf)
-    I16x8ExtendLowI8x16S => return simd_inst(135, buf)
-    I16x8ExtendHighI8x16S => return simd_inst(136, buf)
-    I16x8ExtendLowI8x16U => return simd_inst(137, buf)
-    I16x8ExtendHighI8x16U => return simd_inst(138, buf)
-    I16x8Shl => return simd_inst(139, buf)
-    I16x8ShrS => return simd_inst(140, buf)
-    I16x8ShrU => return simd_inst(141, buf)
-    I16x8Add => return simd_inst(142, buf)
-    I16x8AddSatS => return simd_inst(143, buf)
-    I16x8AddSatU => return simd_inst(144, buf)
-    I16x8Sub => return simd_inst(145, buf)
-    I16x8SubSatS => return simd_inst(146, buf)
-    I16x8SubSatU => return simd_inst(147, buf)
-    F64x2Nearest => return simd_inst(148, buf)
-    I16x8Mul => return simd_inst(149, buf)
-    I16x8MinS => return simd_inst(150, buf)
-    I16x8MinU => return simd_inst(151, buf)
-    I16x8MaxS => return simd_inst(152, buf)
-    I16x8MaxU => return simd_inst(153, buf)
-    I16x8AvgrU => return simd_inst(155, buf)
-    I16x8ExtmulLowI8x16S => return simd_inst(156, buf)
-    I16x8ExtmulHighI8x16S => return simd_inst(157, buf)
-    I16x8ExtmulLowI8x16U => return simd_inst(158, buf)
-    I16x8ExtmulHighI8x16U => return simd_inst(159, buf)
-    I32x4Abs => return simd_inst(160, buf)
-    I32x4Neg => return simd_inst(161, buf)
-    I32x4AllTrue => return simd_inst(163, buf)
-    I32x4Bitmask => return simd_inst(164, buf)
-    I32x4ExtendLowI16x8S => return simd_inst(167, buf)
-    I32x4ExtendHighI16x8S => return simd_inst(168, buf)
-    I32x4ExtendLowI16x8U => return simd_inst(169, buf)
-    I32x4ExtendHighI16x8U => return simd_inst(170, buf)
-    I32x4Shl => return simd_inst(171, buf)
-    I32x4ShrS => return simd_inst(172, buf)
-    I32x4ShrU => return simd_inst(173, buf)
-    I32x4Add => return simd_inst(174, buf)
-    I32x4Sub => return simd_inst(177, buf)
-    I32x4Mul => return simd_inst(181, buf)
-    I32x4MinS => return simd_inst(182, buf)
-    I32x4MinU => return simd_inst(183, buf)
-    I32x4MaxS => return simd_inst(184, buf)
-    I32x4MaxU => return simd_inst(185, buf)
-    I32x4DotI16x8S => return simd_inst(186, buf)
-    I32x4ExtmulLowI16x8S => return simd_inst(188, buf)
-    I32x4ExtmulHighI16x8S => return simd_inst(189, buf)
-    I32x4ExtmulLowI16x8U => return simd_inst(190, buf)
-    I32x4ExtmulHighI16x8U => return simd_inst(191, buf)
-    I64x2Abs => return simd_inst(192, buf)
-    I64x2Neg => return simd_inst(193, buf)
-    I64x2AllTrue => return simd_inst(195, buf)
-    I64x2Bitmask => return simd_inst(196, buf)
-    I64x2ExtendLowI32x4S => return simd_inst(199, buf)
-    I64x2ExtendHighI32x4S => return simd_inst(200, buf)
-    I64x2ExtendLowI32x4U => return simd_inst(201, buf)
-    I64x2ExtendHighI32x4U => return simd_inst(202, buf)
-    I64x2Shl => return simd_inst(203, buf)
-    I64x2ShrS => return simd_inst(204, buf)
-    I64x2ShrU => return simd_inst(205, buf)
-    I64x2Add => return simd_inst(206, buf)
-    I64x2Sub => return simd_inst(209, buf)
-    I64x2Mul => return simd_inst(213, buf)
-    I64x2Eq => return simd_inst(214, buf)
-    I64x2Ne => return simd_inst(215, buf)
-    I64x2LtS => return simd_inst(216, buf)
-    I64x2GtS => return simd_inst(217, buf)
-    I64x2LeS => return simd_inst(218, buf)
-    I64x2GeS => return simd_inst(219, buf)
-    I64x2ExtmulLowI32x4S => return simd_inst(220, buf)
-    I64x2ExtmulHighI32x4S => return simd_inst(221, buf)
-    I64x2ExtmulLowI32x4U => return simd_inst(222, buf)
-    I64x2ExtmulHighI32x4U => return simd_inst(223, buf)
-    F32x4Abs => return simd_inst(224, buf)
-    F32x4Neg => return simd_inst(225, buf)
-    F32x4Sqrt => return simd_inst(227, buf)
-    F32x4Add => return simd_inst(228, buf)
-    F32x4Sub => return simd_inst(229, buf)
-    F32x4Mul => return simd_inst(230, buf)
-    F32x4Div => return simd_inst(231, buf)
-    F32x4Min => return simd_inst(232, buf)
-    F32x4Max => return simd_inst(233, buf)
-    F32x4Pmin => return simd_inst(234, buf)
-    F32x4Pmax => return simd_inst(235, buf)
-    F64x2Abs => return simd_inst(236, buf)
-    F64x2Neg => return simd_inst(237, buf)
-    F64x2Sqrt => return simd_inst(239, buf)
-    F64x2Add => return simd_inst(240, buf)
-    F64x2Sub => return simd_inst(241, buf)
-    F64x2Mul => return simd_inst(242, buf)
-    F64x2Div => return simd_inst(243, buf)
-    F64x2Min => return simd_inst(244, buf)
-    F64x2Max => return simd_inst(245, buf)
-    F64x2Pmin => return simd_inst(246, buf)
-    F64x2Pmax => return simd_inst(247, buf)
-    I32x4TruncSatF32x4S => return simd_inst(248, buf)
-    I32x4TruncSatF32x4U => return simd_inst(249, buf)
-    F32x4ConvertI32x4S => return simd_inst(250, buf)
-    F32x4ConvertI32x4U => return simd_inst(251, buf)
-    I32x4TruncSatF64x2SZero => return simd_inst(252, buf)
-    I32x4TruncSatF64x2UZero => return simd_inst(253, buf)
-    F64x2ConvertLowI32x4S => return simd_inst(254, buf)
-    F64x2ConvertLowI32x4U => return simd_inst(255, buf)
-    I8x16RelaxedSwizzle => return simd_inst(256, buf)
-    I32x4RelaxedTruncF32x4S => return simd_inst(257, buf)
-    I32x4RelaxedTruncF32x4U => return simd_inst(258, buf)
-    I32x4RelaxedTruncZeroF64x2S => return simd_inst(259, buf)
-    I32x4RelaxedTruncZeroF64x2U => return simd_inst(260, buf)
-    F32x4RelaxedMadd => return simd_inst(261, buf)
-    F32x4RelaxedNmadd => return simd_inst(262, buf)
-    F64x2RelaxedMadd => return simd_inst(263, buf)
-    F64x2RelaxedNmadd => return simd_inst(264, buf)
-    I8x16RelaxedLaneselect => return simd_inst(265, buf)
-    I16x8RelaxedLaneselect => return simd_inst(266, buf)
-    I32x4RelaxedLaneselect => return simd_inst(267, buf)
-    I64x2RelaxedLaneselect => return simd_inst(268, buf)
-    F32x4RelaxedMin => return simd_inst(269, buf)
-    F32x4RelaxedMax => return simd_inst(270, buf)
-    F64x2RelaxedMin => return simd_inst(271, buf)
-    F64x2RelaxedMax => return simd_inst(272, buf)
-    I16x8RelaxedQ15mulrS => return simd_inst(273, buf)
-    I16x8RelaxedDotI8x16I7x16S => return simd_inst(274, buf)
-    I32x4RelaxedDotI8x16I7x16AddS => return simd_inst(275, buf)
+    F32x4DemoteF64x2Zero => return encode_simd_error(94, buf)
+    F64x2PromoteLowF32x4 => return encode_simd_error(95, buf)
+    I8x16Abs => return encode_simd_error(96, buf)
+    I8x16Neg => return encode_simd_error(97, buf)
+    I8x16Popcnt => return encode_simd_error(98, buf)
+    I8x16AllTrue => return encode_simd_error(99, buf)
+    I8x16Bitmask => return encode_simd_error(100, buf)
+    I8x16NarrowI16x8S => return encode_simd_error(101, buf)
+    I8x16NarrowI16x8U => return encode_simd_error(102, buf)
+    F32x4Ceil => return encode_simd_error(103, buf)
+    F32x4Floor => return encode_simd_error(104, buf)
+    F32x4Trunc => return encode_simd_error(105, buf)
+    F32x4Nearest => return encode_simd_error(106, buf)
+    I8x16Shl => return encode_simd_error(107, buf)
+    I8x16ShrS => return encode_simd_error(108, buf)
+    I8x16ShrU => return encode_simd_error(109, buf)
+    I8x16Add => return encode_simd_error(110, buf)
+    I8x16AddSatS => return encode_simd_error(111, buf)
+    I8x16AddSatU => return encode_simd_error(112, buf)
+    I8x16Sub => return encode_simd_error(113, buf)
+    I8x16SubSatS => return encode_simd_error(114, buf)
+    I8x16SubSatU => return encode_simd_error(115, buf)
+    F64x2Ceil => return encode_simd_error(116, buf)
+    F64x2Floor => return encode_simd_error(117, buf)
+    I8x16MinS => return encode_simd_error(118, buf)
+    I8x16MinU => return encode_simd_error(119, buf)
+    I8x16MaxS => return encode_simd_error(120, buf)
+    I8x16MaxU => return encode_simd_error(121, buf)
+    F64x2Trunc => return encode_simd_error(122, buf)
+    I8x16AvgrU => return encode_simd_error(123, buf)
+    I16x8ExtaddPairwiseI8x16S => return encode_simd_error(124, buf)
+    I16x8ExtaddPairwiseI8x16U => return encode_simd_error(125, buf)
+    I32x4ExtaddPairwiseI16x8S => return encode_simd_error(126, buf)
+    I32x4ExtaddPairwiseI16x8U => return encode_simd_error(127, buf)
+    I16x8Abs => return encode_simd_error(128, buf)
+    I16x8Neg => return encode_simd_error(129, buf)
+    I16x8Q15mulrSatS => return encode_simd_error(130, buf)
+    I16x8AllTrue => return encode_simd_error(131, buf)
+    I16x8Bitmask => return encode_simd_error(132, buf)
+    I16x8NarrowI32x4S => return encode_simd_error(133, buf)
+    I16x8NarrowI32x4U => return encode_simd_error(134, buf)
+    I16x8ExtendLowI8x16S => return encode_simd_error(135, buf)
+    I16x8ExtendHighI8x16S => return encode_simd_error(136, buf)
+    I16x8ExtendLowI8x16U => return encode_simd_error(137, buf)
+    I16x8ExtendHighI8x16U => return encode_simd_error(138, buf)
+    I16x8Shl => return encode_simd_error(139, buf)
+    I16x8ShrS => return encode_simd_error(140, buf)
+    I16x8ShrU => return encode_simd_error(141, buf)
+    I16x8Add => return encode_simd_error(142, buf)
+    I16x8AddSatS => return encode_simd_error(143, buf)
+    I16x8AddSatU => return encode_simd_error(144, buf)
+    I16x8Sub => return encode_simd_error(145, buf)
+    I16x8SubSatS => return encode_simd_error(146, buf)
+    I16x8SubSatU => return encode_simd_error(147, buf)
+    F64x2Nearest => return encode_simd_error(148, buf)
+    I16x8Mul => return encode_simd_error(149, buf)
+    I16x8MinS => return encode_simd_error(150, buf)
+    I16x8MinU => return encode_simd_error(151, buf)
+    I16x8MaxS => return encode_simd_error(152, buf)
+    I16x8MaxU => return encode_simd_error(153, buf)
+    I16x8AvgrU => return encode_simd_error(155, buf)
+    I16x8ExtmulLowI8x16S => return encode_simd_error(156, buf)
+    I16x8ExtmulHighI8x16S => return encode_simd_error(157, buf)
+    I16x8ExtmulLowI8x16U => return encode_simd_error(158, buf)
+    I16x8ExtmulHighI8x16U => return encode_simd_error(159, buf)
+    I32x4Abs => return encode_simd_error(160, buf)
+    I32x4Neg => return encode_simd_error(161, buf)
+    I32x4AllTrue => return encode_simd_error(163, buf)
+    I32x4Bitmask => return encode_simd_error(164, buf)
+    I32x4ExtendLowI16x8S => return encode_simd_error(167, buf)
+    I32x4ExtendHighI16x8S => return encode_simd_error(168, buf)
+    I32x4ExtendLowI16x8U => return encode_simd_error(169, buf)
+    I32x4ExtendHighI16x8U => return encode_simd_error(170, buf)
+    I32x4Shl => return encode_simd_error(171, buf)
+    I32x4ShrS => return encode_simd_error(172, buf)
+    I32x4ShrU => return encode_simd_error(173, buf)
+    I32x4Add => return encode_simd_error(174, buf)
+    I32x4Sub => return encode_simd_error(177, buf)
+    I32x4Mul => return encode_simd_error(181, buf)
+    I32x4MinS => return encode_simd_error(182, buf)
+    I32x4MinU => return encode_simd_error(183, buf)
+    I32x4MaxS => return encode_simd_error(184, buf)
+    I32x4MaxU => return encode_simd_error(185, buf)
+    I32x4DotI16x8S => return encode_simd_error(186, buf)
+    I32x4ExtmulLowI16x8S => return encode_simd_error(188, buf)
+    I32x4ExtmulHighI16x8S => return encode_simd_error(189, buf)
+    I32x4ExtmulLowI16x8U => return encode_simd_error(190, buf)
+    I32x4ExtmulHighI16x8U => return encode_simd_error(191, buf)
+    I64x2Abs => return encode_simd_error(192, buf)
+    I64x2Neg => return encode_simd_error(193, buf)
+    I64x2AllTrue => return encode_simd_error(195, buf)
+    I64x2Bitmask => return encode_simd_error(196, buf)
+    I64x2ExtendLowI32x4S => return encode_simd_error(199, buf)
+    I64x2ExtendHighI32x4S => return encode_simd_error(200, buf)
+    I64x2ExtendLowI32x4U => return encode_simd_error(201, buf)
+    I64x2ExtendHighI32x4U => return encode_simd_error(202, buf)
+    I64x2Shl => return encode_simd_error(203, buf)
+    I64x2ShrS => return encode_simd_error(204, buf)
+    I64x2ShrU => return encode_simd_error(205, buf)
+    I64x2Add => return encode_simd_error(206, buf)
+    I64x2Sub => return encode_simd_error(209, buf)
+    I64x2Mul => return encode_simd_error(213, buf)
+    I64x2Eq => return encode_simd_error(214, buf)
+    I64x2Ne => return encode_simd_error(215, buf)
+    I64x2LtS => return encode_simd_error(216, buf)
+    I64x2GtS => return encode_simd_error(217, buf)
+    I64x2LeS => return encode_simd_error(218, buf)
+    I64x2GeS => return encode_simd_error(219, buf)
+    I64x2ExtmulLowI32x4S => return encode_simd_error(220, buf)
+    I64x2ExtmulHighI32x4S => return encode_simd_error(221, buf)
+    I64x2ExtmulLowI32x4U => return encode_simd_error(222, buf)
+    I64x2ExtmulHighI32x4U => return encode_simd_error(223, buf)
+    F32x4Abs => return encode_simd_error(224, buf)
+    F32x4Neg => return encode_simd_error(225, buf)
+    F32x4Sqrt => return encode_simd_error(227, buf)
+    F32x4Add => return encode_simd_error(228, buf)
+    F32x4Sub => return encode_simd_error(229, buf)
+    F32x4Mul => return encode_simd_error(230, buf)
+    F32x4Div => return encode_simd_error(231, buf)
+    F32x4Min => return encode_simd_error(232, buf)
+    F32x4Max => return encode_simd_error(233, buf)
+    F32x4Pmin => return encode_simd_error(234, buf)
+    F32x4Pmax => return encode_simd_error(235, buf)
+    F64x2Abs => return encode_simd_error(236, buf)
+    F64x2Neg => return encode_simd_error(237, buf)
+    F64x2Sqrt => return encode_simd_error(239, buf)
+    F64x2Add => return encode_simd_error(240, buf)
+    F64x2Sub => return encode_simd_error(241, buf)
+    F64x2Mul => return encode_simd_error(242, buf)
+    F64x2Div => return encode_simd_error(243, buf)
+    F64x2Min => return encode_simd_error(244, buf)
+    F64x2Max => return encode_simd_error(245, buf)
+    F64x2Pmin => return encode_simd_error(246, buf)
+    F64x2Pmax => return encode_simd_error(247, buf)
+    I32x4TruncSatF32x4S => return encode_simd_error(248, buf)
+    I32x4TruncSatF32x4U => return encode_simd_error(249, buf)
+    F32x4ConvertI32x4S => return encode_simd_error(250, buf)
+    F32x4ConvertI32x4U => return encode_simd_error(251, buf)
+    I32x4TruncSatF64x2SZero => return encode_simd_error(252, buf)
+    I32x4TruncSatF64x2UZero => return encode_simd_error(253, buf)
+    F64x2ConvertLowI32x4S => return encode_simd_error(254, buf)
+    F64x2ConvertLowI32x4U => return encode_simd_error(255, buf)
+    I8x16RelaxedSwizzle => return encode_simd_error(256, buf)
+    I32x4RelaxedTruncF32x4S => return encode_simd_error(257, buf)
+    I32x4RelaxedTruncF32x4U => return encode_simd_error(258, buf)
+    I32x4RelaxedTruncZeroF64x2S => return encode_simd_error(259, buf)
+    I32x4RelaxedTruncZeroF64x2U => return encode_simd_error(260, buf)
+    F32x4RelaxedMadd => return encode_simd_error(261, buf)
+    F32x4RelaxedNmadd => return encode_simd_error(262, buf)
+    F64x2RelaxedMadd => return encode_simd_error(263, buf)
+    F64x2RelaxedNmadd => return encode_simd_error(264, buf)
+    I8x16RelaxedLaneselect => return encode_simd_error(265, buf)
+    I16x8RelaxedLaneselect => return encode_simd_error(266, buf)
+    I32x4RelaxedLaneselect => return encode_simd_error(267, buf)
+    I64x2RelaxedLaneselect => return encode_simd_error(268, buf)
+    F32x4RelaxedMin => return encode_simd_error(269, buf)
+    F32x4RelaxedMax => return encode_simd_error(270, buf)
+    F64x2RelaxedMin => return encode_simd_error(271, buf)
+    F64x2RelaxedMax => return encode_simd_error(272, buf)
+    I16x8RelaxedQ15mulrS => return encode_simd_error(273, buf)
+    I16x8RelaxedDotI8x16I7x16S => return encode_simd_error(274, buf)
+    I32x4RelaxedDotI8x16I7x16AddS => return encode_simd_error(275, buf)
   }
-  Ok(())
+  None
 }
 
 ///|

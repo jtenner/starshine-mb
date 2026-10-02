@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-01
+last_reviewed: 2026-10-02
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize_instructions.mbt
@@ -1877,3 +1877,76 @@ re-encodes declarations and retains whole-module sections/framing and final
 validation. Changed string pools and unsupported differences use full encoding;
 [bounded tests](../../../../../src/binary/encoded_size_local_remap_wbtest.mbt)
 cover index/body boundaries, nested controls and error preservation.
+
+
+## October 2, 2026: avoid boxed success in sequence leaf encoding
+
+The next OI envelope cost is exact body/module encoding, not its already-fast
+HOT rewrite. Generated native code allocates a success `Result[Unit, Error]`
+for each ordinary leaf. [The encoder](../../../../../src/binary/encode.mbt)
+now exposes a private error-only worker to
+[the control cursor](../../../../../src/binary/encode_control.mbt): `None`
+means success, emitted as a null pointer, while `Some(error)` preserves errors.
+The existing public `Encode` contract still returns `Result`. SIMD opcode
+emission shares one error-only helper; the opcode table is not duplicated.
+An automated protocol-normalized source comparison confirms every leaf byte
+write, immediate operation and error/delegation order matches the predecessor.
+No transformation, exact-size guard or verification is removed.
+
+A direct-worker Callgrind comparison collects the old leaf worker and new
+error-only worker respectively. Valid instruction totals fall
+1,666,366,181→1,470,149,983 (−11.78%) **inside those workers**, not the command.
+The old leaf/SIMD workers make 6,985,631 + 162 direct allocator calls; the new
+worker makes 390, for retained cold errors. These direct sites execute only
+inside the toggled workers. Public instruction/result boundaries still box
+results and must not be described as allocation-free. Summed incoming allocator
+edges (14,912,400→7,926,997) include shared off-scope call sites and do **not**
+establish a scoped allocation percentage; see the
+[corrected profiling rule](../../../tooling/tracing-playbook.md#callgrind-collection-scope-and-allocation-counters).
+Both profiled outputs validate independently and match exact hashes.
+
+| Large input / command | Before CLI ms | After CLI ms | Paired change | Binaryen 133 CLI ms |
+| --- | ---: | ---: | ---: | ---: |
+| OI | 2502.266 ± 83.214 | 2521.679 ± 88.363 | −2.37% | 976.750 ± 6.527 |
+| CL | 5401.151 ± 56.188 | 5521.505 ± 84.949 | +.49% | 2022.532 ± 36.804 |
+| DAE2 | 4262.855 ± 37.900 | 4362.239 ± 169.492 | +1.45% | 1223.579 ± 2.362 |
+| DAE2 optimizing | 7589.929 ± 96.470 | 7354.078 ± 51.483 | −1.91% | 2524.873 ± 3.140 |
+
+Median ± MAD, five alternating pairs after one warmup, same host/CPU6,
+release-native GCC O2/mimalloc, builds excluded. These cohorts compare frozen
+`f33c222b4f38df32d1be72cce8513cfc39500c3769c646347bd355a2b18dcfa5`
+to encoder candidate
+`81e386e8da97d51d468e053d82785ce723c6828950a8552c0ecbfd09274d003b`.
+OI has foreign CPU flags in 2/5 before and 1/5 after rows; the other three
+commands have flags in every row. OI's three pairs without observed foreign flags
+improve 4.23%, 1.41% and 2.37%; the aggregate median times overlap and must also
+remain visible. DAE2 optimizing suggests a modest benefit; CL/plain DAE2 do not
+establish command wins. These are bounded diagnostic results, not a broad
+performance-parity claim. Renew CL/plain DAE2 under a quiet matched cohort.
+Separate OI traced inner times 86.953→87.697 ms do not indicate a rewrite gain.
+Do not mix those times with command medians or add prior cohort improvements.
+
+Two [red-first regressions](../../../../../src/binary/encode_leaf_error_wbtest.mbt)
+assert exact scalar/SIMD/GC bytes, signed zero and NaN payload bits, public result
+compatibility, intentionally unsupported recursive/type/memory immediates,
+partial bytes and first-error sequence order. Six
+[native controls](../../../../../src/binary/encode_leaf_error_perf_wbtest.mbt)
+compare the current boxed public boundary with the error-only cursor, keeping
+fixtures and exact-byte checks outside timing. Ten-batch means: nop width8
+150.64→124.46 ns, nop4096 35.76→12.46 µs, const4096 67.15→46.16 µs.
+The boxed control delegates to the new worker; it is a result-boundary control,
+not a frozen copy of the complete old kernel. Frozen CLI/profile comparisons
+provide predecessor evidence instead.
+
+`moon info`, `moon fmt`, all 13,297 bounded default wasm-gc tests,
+`moon check`, native release build and README API sync pass. No `.mbti` change.
+Four-pass fixed original/before/after/v133 execution matrices validate 112 modules
+and compare 336 observations without mismatch, preserving state, memory, GC,
+ordered effects and trap occurrence. All large compiler outputs are exact before/
+after, including prior DAE2 optimizing byte improvements. Canonical gaps remain.
+No independent review, coverage, aggregate fuzz or full release gate is claimed.
+Artifacts: `.tmp/large-pass-hotspots-20261001/`, encoder manifest, per-mode pairs,
+six-case benchmark, four runtime matrices, direct-worker profiles and scope probe.
+Remaining priorities are type-remap validation (the unchanged-environment local
+guard cannot apply), unsigned/immediate success boxing, decoder/validator churn,
+complete CFG/read-source work, optimizing cleanup and canonical quality.

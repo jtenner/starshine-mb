@@ -1,3 +1,14 @@
+### 2026-10-02 — Error-only sequence leaf encoding
+
+- [Encoder evidence](binaryen/passes/optimize-instructions/starshine-strategy.md#october-2-2026-avoid-boxed-success-in-sequence-leaf-encoding)
+  preserves the single opcode table and public results while eliminating boxed
+  success in bulk leaf/SIMD encoding. Direct worker instructions fall 11.78%;
+  cold errors and public boxes remain. All 13,297 bounded tests, six native
+  controls and 336 fixed execution observations pass with exact four-pass
+  compiler bytes. OI paired −2.37% is modest; command medians overlap, and CL/
+  plain DAE2 gains are unproved. Global validation, canonical quality, quiet
+  renewal and postponed aggregate signoff remain open.
+
 ### 2026-10-02 — Qualify Callgrind allocation scope
 
 - [Collection and counter rule](tooling/tracing-playbook.md#callgrind-collection-scope-and-allocation-counters)

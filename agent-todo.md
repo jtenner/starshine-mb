@@ -857,6 +857,20 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 ### P13 — Remaining decode, validation and command encoding [IR2-PERF-COMMAND]
 
+- **October 2 encoder checkpoint:** bulk leaf/SIMD success no longer boxes a
+  Result; public boundaries and cold errors remain. Direct worker instructions
+  fall 11.78%; roughly seven million worker success boxes disappear on the
+  compiler OI fixture. Five OI pairs improve 2.37% paired, but overlapping
+  command medians and host flags remain explicit. DAE2-O paired −1.91% is
+  diagnostic; CL/plain DAE2 gain is unproved. All four output hashes are exact,
+  13,297 default tests and 336 fixed execution observations pass.
+  [Scope, controls and limits](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-2-2026-avoid-boxed-success-in-sequence-leaf-encoding).
+- [ ] Renew quiet CL/plain DAE2 controls and profile remaining unsigned/signed
+  immediate result boxing, declaration-validation scans and stack iterator
+  churn. Keep every LEB width/range/error check, exact NaN bits, complete
+  verification and unchanged public result contracts; do not infer exclusive
+  allocation totals from shared Callgrind counters.
+
 - **Owner / why:** [cmd.mbt](src/cmd/cmd.mbt) and [encoder](src/binary/encode.mbt);
   end-to-end costs must include work outside optimizer timers.
 - **Deliverables / tasks:** use renewed empty/unchanged/active phase controls to
