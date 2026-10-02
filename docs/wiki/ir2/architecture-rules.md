@@ -670,6 +670,13 @@ separates helper gains from full-pipeline evidence.
   unchanged. No temporary result array is needed; stack-value objects still
   allocate. See [field/ownership tests](../../../src/ir/hot_lower_result_stack_wbtest.mbt)
   and [consumer evidence and RSS limits](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-avoid-temporary-arrays-in-lower-result-stacks).
+- `liveness_build_from_func` produces complete owned liveness from the existing
+  block scanner, shape checks and solver without unused node/local use-site
+  graphs. Its CFG must match the current immutable function snapshot; rebuild
+  after mutation. Full `HotUseDef` and `liveness_build` APIs stay complete and
+  mandatory CFG/HOT verification remains unchanged. See
+  [equivalence/snapshot tests](../../../src/ir/liveness_from_func_wbtest.mbt) and
+  [Coalesce evidence](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-build-coalesce-liveness-without-unused-use-site-graphs).
 - HOT result arity reads the stored shape directly; `hot_type_results` still
   returns independently writable result arrays. Small type tables compare
   immutable structural shapes before formatting keys, with the existing map

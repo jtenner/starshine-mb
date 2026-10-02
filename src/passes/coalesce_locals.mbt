@@ -7889,8 +7889,8 @@ fn cl_rewrite_loop_func_cfg(
     )
   }
   let cfg = @ir.cfg_build(hot, expand_operand_control=true)
-  let use_def = @ir.use_def_build(hot, cfg=Some(cfg))
-  let liveness = @ir.liveness_build(cfg, use_def)
+  // This consumer needs complete block liveness, not node/local use-site rows.
+  let liveness = @ir.liveness_build_from_func(hot, cfg)
   let block_actions = cl_cfg_collect_block_actions(hot, cfg)
   let raw_actions : Array[CLAction] = []
   cl_collect_instrs(original_instrs, raw_actions, total_locals)
@@ -8849,4 +8849,20 @@ pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
     None => mod_
   }
+}
+
+///|
+test "coalesce block-only liveness preserves GC loop carriers and removes unused scalar locals" {
+  let input = pass_test_module_from_wat(
+    "(module (type $s (struct (field i32))) (func (export \"run\") (param i32) (result i32) (local i32 (ref null $s) i64) local.get 0 i32.const 3 i32.and local.set 1 i32.const 7 struct.new $s local.set 2 block loop local.get 1 i32.eqz br_if 1 local.get 2 struct.get $s 0 drop local.get 1 i32.const 1 i32.sub local.set 1 br 0 end end local.get 2 struct.get $s 0))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let output = coalesce_locals_run_module_pass(input)
+  @validate.validate_module(output).unwrap()
+  guard output.code_sec is Some(@lib.CodeSec(funcs)) else {
+    fail("GC loop function must remain present")
+  }
+  let @lib.Func(locals, _) = funcs[0]
+  assert_true(locals.length() < 3)
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
 }

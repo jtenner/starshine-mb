@@ -1,3 +1,12 @@
+### 2026-10-02 — Build Coalesce liveness without unused use-site graphs
+
+- [Block-only constructor evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-build-coalesce-liveness-without-unused-use-site-graphs)
+  retains the complete scanner/checks/solver and snapshot contract; native
+  full-builder call1→0. Complete CL work−4.4869%, paired normal CLI−4.8926%
+  (4431→4215ms versus v1331790ms), exact bytes.13,367 tests and492 fixed
+  observations pass. Observed RSS median+4200KiB remains unresolved amid
+  overlapping modes;1× speed, byte quality and release gates stay open.
+
 ### 2026-10-02 — Use compact counts throughout lowering
 
 - **2026-10-02 — Direct lowering result rows:** removed temporary result arrays

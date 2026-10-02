@@ -1176,3 +1176,70 @@ must reuse the complete block scanner/shape validation/solver and retain full
 HotUseDef APIs, fresh-snapshot and exceptional-edge behavior. Do not disguise an
 incomplete overlay as a complete graph. DAE2 dependency/lift and optimizing
 cleanup remain larger campaign owners;1× parity is not achieved.
+
+
+## October 2, 2026: build Coalesce liveness without unused use-site graphs
+
+Coalesce's CFG path used full `HotUseDef` solely to build liveness. The old
+builder collected node/local use sites that this consumer never read. Main
+`d4541bb83` / native `c4165396…` is the frozen baseline; candidate `02637b4c…`.
+[`liveness_build_from_func`](../../../../../src/ir/liveness.mbt) now invokes the
+same complete block scanner, shape checks and fixed-point solver directly.
+The old full graph and owned liveness APIs remain complete. No persistent cache,
+new view or verification shortcut is introduced. The CFG must represent the same
+current function snapshot, rebuilt after mutation. Existing block scanning still
+constructs unused local-write-block scratch; that is a remaining measured lead.
+
+The actual native Coalesce CFG rewrite's full-builder call goes from one to zero,
+replaced by exactly one new constructor call: the native work contract fails on
+the frozen baseline and passes on the candidate. Added bounded
+[liveness regressions](../../../../../src/ir/liveness_from_func_wbtest.mbt) compare
+all live-in/out rows with the full path in both operand/exceptional-edge modes:
+no-op, branch, loop, typed control, GC, exception edges, shared operands, 96 locals
+and fresh facts after mutation while retaining old facts. Implementing-file and
+active dispatcher tests validate GC and loop carrier cleanup. These behavioral
+controls protect equivalence; they do not demonstrate a prior semantic defect.
+
+Same6,211,596B /12,904-function compiler SHA98189860…, verified Binaryen133
+SHA8f25e9fd…, CPU6 Ryzen78845HS, native GCC14.2/O2/mimalloc. Build excluded.
+One warmup/n5 alternating normal fresh-process CLI commands, warm filesystem;
+median±MAD and range in milliseconds:
+
+| CL command | Median±MAD ms | Range ms |
+| --- | ---: | ---: |
+| Before | 4431.467±34.244 | 4353.523–4814.550 |
+| After | 4214.653±25.652 | 4186.341–5013.043 |
+| Binaryen133 | 1789.610±17.290 | 1772.320–1879.403 |
+
+Paired median−4.8926%; current command ratio2.36×, so1× remains open. Every row
+flags foreign CPU activity. Independent traced n1 is diagnostic only: CL module
+pass3390.306→3212.553ms, including lift/lower/checks, not an equivalent Binaryen
+inner comparison. The complete matched CL Callgrind scope exits normally within
+300s with exact validated output:45,477,394,646→43,436,953,845 instructions
+(−4.4869%). Direct old builder2,094,065,353 plus liveness1,188,734,059 becomes
+new constructor2,203,269,455; its nested block scan707,357,481 and solver
+1,187,411,377 are included, not additional costs. No allocation-byte/count claim
+from off-scope allocator instrumentation. Native controls, ten-batch mean±σ:
+tiny4.49µs±73.42ns→1.82µs±17.92ns; medium8.16µs±102.12ns→2.52µs±54.04ns;
+wide64.02µs±747.08ns→14.61µs±94.68ns. Helper ratios do not sign the full pass.
+
+PeakRSS KiB median±MAD245012±128→249212±52; ranges244808–249556 versus
+244576–249488 overlap. The observed median+4200KiB is unresolved; both native
+binaries show low/high modes. No RSS win or causal explanation is established.
+Raw CL output remains exactly5,706,503B/SHAde0757b5… versus B5,627,625B;
+all predecessor hashes and V83 savings stay intact. The78,800B canonical CL gap
+and99,251B optimizing gap remain distinct, active quality work.
+
+`moon info/fmt/check`,13,367/13,367 default wasm-gc tests, native release CLI,
+six explicit release controls and README/API sync pass. Fixed v133 runtime lane:
+169 validated modules,492 observations across41 fixtures (state/memory/GC,
+effect order, trap occurrence and finite FP). Runtime-only v133 text expansion
+handles Node's unsupported compact imports without changing timed raw artifacts.
+`.mbti` adds only the narrow constructor. Manual source/API review completed;
+independent agent unavailable. Aggregate fuzz/full CI/coverage remain deferred
+under the bounded performance campaign; default coverage gates stay unchanged.
+Other pass timings are still the frozen c416 checkpoint, not renewed by this CL
+cohort. DAE2 dependencies/lift, optimizing cleanup, shared lower label/source
+facts and OI envelope are the next larger owners; parity is not achieved.
+Exact commands, hashes, source manifest, normal/traced rows and bounded profile:
+`.tmp/large-pass-hotspots-20261001/main-cl-block-liveness-performance-20261002.md`.

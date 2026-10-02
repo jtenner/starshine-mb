@@ -10332,3 +10332,23 @@ test "command large-module pass routes preserve mixed tuple results while elimin
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command Coalesce block liveness retains loop-carried results and removes unused locals" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func (export \"run\") (param i32) (result i32) (local i32 i32) local.get 0 local.set 1 block loop local.get 1 i32.eqz br_if 1 local.get 1 i32.const 1 i32.sub local.set 1 br 0 end end local.get 1))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["coalesce-locals"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  guard output.code_sec is Some(@lib.CodeSec(funcs)) else {
+    fail("loop function must remain present")
+  }
+  let @lib.Func(locals, _) = funcs[0]
+  assert_true(locals.length() < 2)
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}

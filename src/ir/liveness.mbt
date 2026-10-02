@@ -80,9 +80,13 @@ fn liveness_require_local_range(
 }
 
 ///|
-fn liveness_require_use_def_shape(cfg : HotCfg, use_def : HotUseDef) -> Int {
-  if use_def.block_defs.length() != cfg_block_count(cfg) ||
-    use_def.block_uses.length() != cfg_block_count(cfg) {
+fn liveness_require_block_sets_shape(
+  cfg : HotCfg,
+  block_defs : Array[Bitset],
+  block_uses : Array[Bitset],
+) -> Int {
+  if block_defs.length() != cfg_block_count(cfg) ||
+    block_uses.length() != cfg_block_count(cfg) {
     abort(
       "liveness_build requires block-local use-def summaries for the same cfg",
     )
@@ -90,10 +94,10 @@ fn liveness_require_use_def_shape(cfg : HotCfg, use_def : HotUseDef) -> Int {
   if cfg_block_count(cfg) == 0 {
     return 0
   }
-  let local_count = use_def.block_defs[0].size
+  let local_count = block_defs[0].size
   for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
-    if use_def.block_defs[block_id].size != local_count ||
-      use_def.block_uses[block_id].size != local_count {
+    if block_defs[block_id].size != local_count ||
+      block_uses[block_id].size != local_count {
       abort(
         "liveness_build requires use-def bitsets with one shared local count",
       )
@@ -103,12 +107,15 @@ fn liveness_require_use_def_shape(cfg : HotCfg, use_def : HotUseDef) -> Int {
 }
 
 ///|
-pub fn liveness_build(
+fn liveness_build_from_block_sets(
   cfg : HotCfg,
-  use_def : HotUseDef,
-  include_exceptional_edges? : Bool = false,
+  block_defs : Array[Bitset],
+  block_uses : Array[Bitset],
+  include_exceptional_edges : Bool,
 ) -> HotLiveness {
-  let local_count = liveness_require_use_def_shape(cfg, use_def)
+  let local_count = liveness_require_block_sets_shape(
+    cfg, block_defs, block_uses,
+  )
   let live_in_sets : Array[Bitset] = []
   let live_out_sets : Array[Bitset] = []
   let block_count = cfg_block_count(cfg)
@@ -130,8 +137,8 @@ pub fn liveness_build(
     let (out_changed, in_changed) = liveness_update_block_words(
       block.succs,
       live_in_sets,
-      use_def.block_defs[block_id],
-      use_def.block_uses[block_id],
+      block_defs[block_id],
+      block_uses[block_id],
       live_out_sets[block_id],
       live_in_sets[block_id],
       include_exceptional_edges,
@@ -151,6 +158,35 @@ pub fn liveness_build(
   }
 
   { include_exceptional_edges, live_in_sets, live_out_sets, }
+}
+
+///|
+pub fn liveness_build(
+  cfg : HotCfg,
+  use_def : HotUseDef,
+  include_exceptional_edges? : Bool = false,
+) -> HotLiveness {
+  liveness_build_from_block_sets(
+    cfg,
+    use_def.block_defs,
+    use_def.block_uses,
+    include_exceptional_edges,
+  )
+}
+
+///|
+/// Build complete liveness without unused node-use and per-local use-site overlays.
+/// The CFG must describe the same current function snapshot; rebuild after mutation.
+/// Uses the same block scan, shape checks and fixed-point solver as liveness_build.
+pub fn liveness_build_from_func(
+  func : HotFunc,
+  cfg : HotCfg,
+  include_exceptional_edges? : Bool = false,
+) -> HotLiveness {
+  let (block_defs, block_uses, _) = use_def_build_block_sets(func, cfg)
+  liveness_build_from_block_sets(
+    cfg, block_defs, block_uses, include_exceptional_edges,
+  )
 }
 
 ///|

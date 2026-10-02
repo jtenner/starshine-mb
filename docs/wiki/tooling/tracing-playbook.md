@@ -4824,3 +4824,19 @@ from its narrow timer. Full raw rows/ranges/phase/bytes/RSS/source/binary hashes
 Next CL lead is unused full use-def discovery; DAE2 dependency/lift, optimizing
 cleanup and OI command envelope remain priorities. Canonical quality,1× and
 final aggregate/CI/coverage gates remain open.
+
+
+## October 2, 2026: main block-only Coalesce liveness checkpoint
+
+[Constructor proof and measurements](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-build-coalesce-liveness-without-unused-use-site-graphs)
+freeze maind4541bb83/c4165396…→02637b4c… with the same large input/v133/CPU6.
+CL normal one-warmup/n5 alternating median±MAD4431.467±34.244→4214.653±25.652ms,
+B1789.610±17.290ms; paired−4.8926%, remaining2.36× command ratio. Every row
+flags foreign activity. Complete CL instructions45.477b→43.437b (−4.4869%)
+corroborate reduced work. Traced n1 module3390.306→3212.553ms is diagnostic;
+no renewed B inner comparison or quiet-host/parity claim. Other pass numbers
+above retain c416 provenance. RSS median+4200KiB has overlapping low/high modes;
+no memory win.13,367 tests/169 validated modules/492 observations and API sync
+pass; one narrow public constructor, complete graph/validation semantics and
+exact raw hashes retained. Canonical quality and aggregate/release gates remain.
+Local report: `.tmp/large-pass-hotspots-20261001/main-cl-block-liveness-performance-20261002.md`.

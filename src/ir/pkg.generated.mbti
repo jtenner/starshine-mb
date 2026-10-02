@@ -810,6 +810,8 @@ pub fn live_out(HotLiveness, Int) -> Bitset
 
 pub fn liveness_build(HotCfg, HotUseDef, include_exceptional_edges? : Bool) -> HotLiveness
 
+pub fn liveness_build_from_func(HotFunc, HotCfg, include_exceptional_edges? : Bool) -> HotLiveness
+
 pub fn local_graph_build(HotFunc, HotCfg) -> HotLocalGraph
 
 pub fn local_graph_build_full_flow(HotFunc, HotCfg) -> HotLocalGraph
