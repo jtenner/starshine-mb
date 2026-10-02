@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-28
+last_reviewed: 2026-10-02
 sources:
   - ./index.md
   - ../../../../../src/passes/coalesce_locals.mbt
@@ -633,3 +633,62 @@ rules. Bounded reference tests cover all three kernels.
 
 The renewed artifact matrix and dedicated correctness lanes are recorded in the
 [follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign).
+
+
+## October 2, 2026 — Shared reachability for cleanup and backward liveness
+
+The large native profile confirms repeated nested control proofs in
+`cl_remove_ineffective_tees` and `cl_mark_structured_liveness_backward`.
+Both previously computed a recursive reachable prefix at every child body.
+The structured rewriter now builds one immutable `CLControlIndex` and shares
+it with action collection, backward liveness, local remapping and tee cleanup.
+Reverse liveness records only reachable sibling starts; then/else offsets
+include dead tails, while dead instructions consume no action ordinals.
+Local-only edits cannot change control transfer. Existing catch/branch/loop
+facts, suffix-read tee checks, final validation and tiny/flat fallback remain.
+No public API changes.
+
+On the fixed 6,211,596-byte compiler fixture, one warmup and five alternating
+untraced pairs give **5,182.892 ± 36.137 → 5,043.683 ± 16.215 ms** (median ±
+MAD). The paired median change is **−3.81%**; the difference of medians is
+139.209 ms. Matched Binaryen 133 is **1,989.742 ± 32.610 ms**; the remaining
+full-command ratio is **2.53×**. Three separate traced pairs give inner CL
+**4,099.385 ± 20.466 → 3,891.449 ± 14.895 ms**. These timer scopes are not
+additive. Foreign CPU activity occurs in some rows; retain their flags.
+The small paired change is −.15%, within noise, and traced inner increases
+9.041→9.157 ms. Do not claim a small-module gain.
+
+The first tee-only trial did not prove a large-command gain (paired +1.11%);
+it is superseded by the shared-index trial, not counted as another saving.
+Native ten-batch tee controls remove the quadratic trend: depth 64 is
+29.75→5.53 µs and depth 256 is 460.63→20.60 µs; depth 0/8 overhead remains
+explicit (80.45→87.17 ns and .985→1.31 µs). These first-trial helper numbers
+are not the final shared-index command timings or allocation evidence.
+
+Large raw output remains **5,706,503 bytes**, small **191,046**, with exact
+predecessor/candidate hashes in every traced and untraced row. This preserves
+existing quality but does not close the canonical gap. Two work-bound
+regressions first fail after output, ownership and action assertions pass.
+All **13,290 bounded default wasm-gc tests**, info/fmt/check and native release
+build pass. A dispatcher regression retains imported calls and a nested trap.
+All 14 final native controls pass: tee depth 64/256 improves
+27.85→5.05 / 435.25→20.20 µs; backward liveness improves
+38.72→20.11 / 653.14→212.75 µs (ten-batch mean). Tiny costs remain:
+tee depth 0/8 is 76.64→86.51 ns / .938→1.17 µs; backward depth 8 is
+1.42→1.73 µs. The reverse sibling rows add bounded per-body storage, and
+remaining label-live copies mean the entire liveness walk is not claimed
+linear. A bounded original/predecessor/candidate/v133 execution matrix
+independently validates 24 modules and compares 72 observations of returns,
+state/memory, effects and trap occurrence, with no mismatch and exact
+predecessor/candidate bytes. Aggregate fuzz/coverage/full release signoff
+remain deferred; no independent agent/human review is available.
+
+Evidence: local `.tmp/large-pass-hotspots-20261001/{cl-v2-pairs/result.json,
+cl-liveness-red.log,cl-red.log,cl-v2-suite.log,cl-v2-candidate-manifest.json}`.
+Frozen before SHA `71046b0c50308aea3dc15a8599d21bfe86602cf6bca1d2f7d57ec650be7f8269`,
+after `199d293ba755f14cd0e94b82f8d018cb8dc4ed71ee63c87432e906d53023efe1`.
+Sources: [implementation](../../../../../src/passes/coalesce_locals.mbt),
+[regressions](../../../../../src/passes/cl_tee_control_wbtest.mbt),
+[native controls](../../../../../src/passes/cl_tee_control_perf_wbtest.mbt),
+[dispatcher](../../../../../src/cmd/cmd.mbt). CFG/lift/lower, interference,
+other repeated source queries and canonical parity remain P04 work.

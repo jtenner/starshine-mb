@@ -9941,6 +9941,37 @@ test "Binaryen 133 command GTO preserves canonical packed array identities" {
 }
 
 ///|
+test "command Coalesce retains calls and trap after nested terminal control" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (import \"host\" \"f\" (func (result i32))) (func (export \"run\") (param i32) (result i32) (local i32 i32) local.get 0 if block call 0 local.tee 1 drop i32.const 7 return end else call 0 local.tee 2 drop unreachable end i32.const 99))",
+  )
+  let bytes = @binary.encode_module(input).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["coalesce-locals"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let @lib.Func(_, @lib.Expr(before)) = input.code_sec.unwrap().0[0]
+  assert_eq(@binary.encode_module(input).unwrap(), bytes)
+  assert_eq(output.import_sec, input.import_sec)
+  assert_true(body.length() <= before.length())
+  match body[1] {
+    @lib.If(_, yes, Some(no)) => {
+      assert_true(no.any(fn(i) { i is @lib.Call(@lib.FuncIdx(0U)) }))
+      assert_true(no.any(fn(i) { i is @lib.Unreachable }))
+      assert_true(
+        yes.any(fn(i) {
+          i is @lib.Block(_, _) || i is @lib.Call(@lib.FuncIdx(0U))
+        }),
+      )
+    }
+    _ => fail("expected retained conditional effects")
+  }
+}
+
+///|
 test "command OI local grouping preserves imported call and untouched body" {
   let input = @passes.pass_test_module_from_wat(
     "(module (import \"host\" \"f\" (func (param i32) (result i32))) (func (export \"run\") (result i32) (local i32 f64 i32) i32.const 41 local.set 2 local.get 2 call 0) (func (result i32) i32.const 7))",

@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed October 1, 2026. Follow
+Active unreleased work only, reviewed October 2, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -627,6 +627,14 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - **Owner / why:** [Coalesce](src/passes/coalesce_locals.mbt), expanded CFG,
   liveness, interference and raw branch-depth/lowering queries; the large pass
   still costs several seconds.
+- **Current measured remainder:** the [shared reachability checkpoint](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026--shared-reachability-for-cleanup-and-backward-liveness)
+  closes repeated tee-cleanup/backward-liveness prefix proofs: large CLI
+  5,182.892→5,043.683 ms (five pairs, paired −3.81%), separate inner
+  4,099.385→3,891.449 ms (three pairs), exact bytes. Verified v133 command
+  1,989.742 ms leaves 2.53×; some host-contended rows remain flagged. Small
+  changes are within noise. Focus next on CFG/lift/lower and interference;
+  do not reopen the completed nested-prefix proof or claim its helper gain
+  as another command saving. Aggregate signoff and canonical quality remain.
 - **Deliverables / tasks:** profile repeated dependency/action rows and query
   ordering on one revision; try demand-built facts or bounded scratch where
   repeated work remains. Refresh conflict, control-boundary and slot-query

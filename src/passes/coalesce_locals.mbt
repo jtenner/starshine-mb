@@ -741,9 +741,12 @@ fn cl_instr_makes_rest_unreachable(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn cl_reachable_prefix_len(instrs : Array[@lib.Instruction]) -> Int {
+fn cl_reachable_prefix_len(
+  instrs : Array[@lib.Instruction],
+  instruction_visits? : Array[Int]? = None,
+) -> Int {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
-    if cl_instr_makes_rest_unreachable(instrs[idx]) {
+    if cl_instr_never_falls_through(instrs[idx], instruction_visits~) {
       return idx + 1
     }
   }
@@ -2306,14 +2309,18 @@ fn cl_rewrite_func_structured_conservative(
   let total_locals = types.length()
   let actions : Array[CLAction] = []
   let @lib.Expr(original_instrs) = body
-  cl_collect_instrs(original_instrs, actions, total_locals)
+  let control_index = cl_control_index_for_body(original_instrs, None)
+  cl_collect_instrs(original_instrs, actions, total_locals, control_index~)
   let liveness = cl_compute_liveness(actions, total_locals)
   // Keep flattened liveness for Binaryen-shaped coloring/profitability, but use
   // branch-aware effective-write facts when rewriting structured cleanup so one
   // arm's live side-carrier write is not dropped by a sibling arm's later write
   // in flattened action order.
   let (rewrite_liveness, structured_write_hazards, _) = cl_compute_structured_liveness_with_write_hazards(
-    original_instrs, actions, total_locals,
+    original_instrs,
+    actions,
+    total_locals,
+    control_index~,
   )
   let interferences = cl_compute_interferences(
     actions,
@@ -2410,12 +2417,14 @@ fn cl_rewrite_func_structured_conservative(
     coloring.old_to_new,
     rewrite_liveness.effective,
     [0],
+    control_index~,
   )
   let ineffective_tee_changed = cl_remove_ineffective_tees(
     rewritten_instrs,
     original_instrs,
     rewrite_liveness.effective,
     [0],
+    control_index~,
   )
   let rewritten_total_locals = params.length() + coloring.slot_types.length()
   let rewritten_gets = Array::make(rewritten_total_locals, 0)
@@ -2713,14 +2722,44 @@ fn cl_mark_structured_liveness_backward(
   label_lives : Array[Array[Bool]],
   action_cursor : Array[Int],
   exception_live? : Array[Bool] = [],
+  control_visits? : Array[Int]? = None,
+  control_index? : CLControlIndex? = None,
+  control_start? : Int = 0,
 ) -> Array[Bool] {
   let live = live_after.copy()
-  let reachable_len = cl_reachable_prefix_len(instrs)
+  let control_index = match control_index {
+    Some(index) => Some(index)
+    None => cl_control_index_for_body(instrs, control_visits)
+  }
+  // A reverse walk needs sibling starts, not a recursive control reproof.
+  // These short rows contain only the reachable prefix and are body-owned.
+  let positions : Array[Int] = []
+  if control_index is Some(index) {
+    let mut position = control_start
+    for instr in instrs {
+      ignore(instr)
+      positions.push(position)
+      let no_fallthrough = cl_control_no_fallthrough(index.facts[position])
+      position = index.ends[position]
+      if no_fallthrough {
+        break
+      }
+    }
+  }
+  let reachable_len = match control_index {
+    Some(_) => positions.length()
+    None => cl_reachable_prefix_len(instrs, instruction_visits=control_visits)
+  }
   let mut idx = instrs.length() - 1
   while idx >= 0 {
     if idx >= reachable_len {
       idx -= 1
       continue
+    }
+    let child_start = if control_index is Some(_) {
+      positions[idx] + 1
+    } else {
+      0
     }
     match instrs[idx] {
       @lib.Block(_, @lib.Expr(body)) => {
@@ -2734,12 +2773,22 @@ fn cl_mark_structured_liveness_backward(
           cl_push_label_live(live, label_lives),
           action_cursor,
           exception_live~,
+          control_visits~,
+          control_index~,
+          control_start=child_start,
         )
         cl_replace_live(live, body_live)
       }
       @lib.If(_, then_body, else_body) => {
         let live_after_if = live.copy()
         let child_label_lives = cl_push_label_live(live_after_if, label_lives)
+        let mut else_start = child_start
+        if control_index is Some(index) {
+          for instr in then_body {
+            ignore(instr)
+            else_start = index.ends[else_start]
+          }
+        }
         let else_live = match else_body {
           Some(body) =>
             cl_mark_structured_liveness_backward(
@@ -2752,6 +2801,9 @@ fn cl_mark_structured_liveness_backward(
               child_label_lives,
               action_cursor,
               exception_live~,
+              control_visits~,
+              control_index~,
+              control_start=else_start,
             )
           None => live_after_if.copy()
         }
@@ -2765,6 +2817,9 @@ fn cl_mark_structured_liveness_backward(
           child_label_lives,
           action_cursor,
           exception_live~,
+          control_visits~,
+          control_index~,
+          control_start=child_start,
         )
         let merged_live = cl_union_live(then_live, else_live)
         cl_replace_live(live, merged_live)
@@ -2780,6 +2835,9 @@ fn cl_mark_structured_liveness_backward(
           cl_push_label_live(live, label_lives),
           action_cursor,
           exception_live~,
+          control_visits~,
+          control_index~,
+          control_start=child_start,
         )
         cl_replace_live(live, body_live)
       }
@@ -2811,6 +2869,9 @@ fn cl_mark_structured_liveness_backward(
           cl_push_label_live(live, label_lives),
           action_cursor,
           exception_live=caught_live,
+          control_visits~,
+          control_index~,
+          control_start=child_start,
         )
         cl_replace_live(live, body_live)
       }
@@ -2902,6 +2963,7 @@ fn cl_compute_structured_liveness_with_write_hazards(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
   total_locals : Int,
+  control_index? : CLControlIndex? = None,
 ) -> (CLLiveness, CLBitMatrix, Int) {
   let effective = Array::make(actions.length(), false)
   let write_live_hazards = CLBitMatrix::new(total_locals)
@@ -2916,6 +2978,7 @@ fn cl_compute_structured_liveness_with_write_hazards(
     live_after,
     [],
     [actions.length() - 1],
+    control_index~,
   )
   ({ effective, live_at_entry, }, write_live_hazards, visited_actions[0])
 }
@@ -5721,24 +5784,61 @@ fn cl_remove_ineffective_tees(
   original_instrs : Array[@lib.Instruction],
   effective : Array[Bool],
   action_cursor : Array[Int],
+  control_visits? : Array[Int]? = None,
+  control_index? : CLControlIndex? = None,
+  control_cursor? : Array[Int]? = None,
 ) -> Bool {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
-  let reachable_len = cl_reachable_prefix_len(original_instrs)
+  // Local remapping and tee removal cannot change control transfer. Keep one
+  // immutable preorder index of the original body while descendants are edited.
+  let control_index = match control_index {
+    Some(index) => Some(index)
+    None => cl_control_index_for_body(original_instrs, control_visits)
+  }
+  let control_cursor = match (control_index, control_cursor) {
+    (Some(_), None) => Some([0])
+    (_, cursor) => cursor
+  }
+  let mut reachable = true
   for idx = 0; idx < rewritten_instrs.length(); idx = idx + 1 {
     // Collection and rewriting assign action ordinals only to reachable code.
-    if idx >= reachable_len {
+    let position = match control_cursor {
+      Some(cursor) => cursor[0]
+      None => -1
+    }
+    if !reachable {
       out.push(rewritten_instrs[idx])
+      if control_index is Some(index) {
+        control_cursor.unwrap()[0] = index.ends[position]
+      }
       continue
     }
     let original = original_instrs[idx]
+    let no_fallthrough = match control_index {
+      Some(index) => cl_control_no_fallthrough(index.facts[position])
+      None =>
+        cl_instr_never_falls_through(
+          original,
+          instruction_visits=control_visits,
+        )
+    }
+    if control_cursor is Some(cursor) {
+      cursor[0] += 1
+    }
     let mut rewritten = rewritten_instrs[idx]
     match original {
       @lib.Block(_, @lib.Expr(original_body)) =>
         match rewritten {
           @lib.Block(block_type, @lib.Expr(body)) => {
             changed = cl_remove_ineffective_tees(
-                body, original_body, effective, action_cursor,
+                body,
+                original_body,
+                effective,
+                action_cursor,
+                control_visits~,
+                control_index~,
+                control_cursor~,
               ) ||
               changed
             rewritten = @lib.Instruction::block(
@@ -5752,7 +5852,13 @@ fn cl_remove_ineffective_tees(
         match rewritten {
           @lib.Loop(block_type, @lib.Expr(body)) => {
             changed = cl_remove_ineffective_tees(
-                body, original_body, effective, action_cursor,
+                body,
+                original_body,
+                effective,
+                action_cursor,
+                control_visits~,
+                control_index~,
+                control_cursor~,
               ) ||
               changed
             rewritten = @lib.Instruction::loop_(
@@ -5766,13 +5872,25 @@ fn cl_remove_ineffective_tees(
         match rewritten {
           @lib.If(block_type, then_body, else_body) => {
             changed = cl_remove_ineffective_tees(
-                then_body, original_then, effective, action_cursor,
+                then_body,
+                original_then,
+                effective,
+                action_cursor,
+                control_visits~,
+                control_index~,
+                control_cursor~,
               ) ||
               changed
             match (else_body, original_else) {
               (Some(body), Some(original_body)) =>
                 changed = cl_remove_ineffective_tees(
-                    body, original_body, effective, action_cursor,
+                    body,
+                    original_body,
+                    effective,
+                    action_cursor,
+                    control_visits~,
+                    control_index~,
+                    control_cursor~,
                   ) ||
                   changed
               _ => ()
@@ -5785,7 +5903,13 @@ fn cl_remove_ineffective_tees(
         match rewritten {
           @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
             changed = cl_remove_ineffective_tees(
-                body, original_body, effective, action_cursor,
+                body,
+                original_body,
+                effective,
+                action_cursor,
+                control_visits~,
+                control_index~,
+                control_cursor~,
               ) ||
               changed
             rewritten = @lib.Instruction::try_table(
@@ -5818,6 +5942,12 @@ fn cl_remove_ineffective_tees(
       _ => ()
     }
     out.push(rewritten)
+    if control_index is Some(index) {
+      control_cursor.unwrap()[0] = index.ends[position]
+    }
+    if no_fallthrough {
+      reachable = false
+    }
   }
   if changed {
     rewritten_instrs.clear()

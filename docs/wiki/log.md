@@ -1,3 +1,15 @@
+### 2026-10-02 — Large CL repeated reachability checkpoint
+
+- [Coalesce reachability evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026--shared-reachability-for-cleanup-and-backward-liveness)
+  records one original-body index shared across action collection, backward
+  liveness, local remapping and tee cleanup. Red work bounds preserve output,
+  dead action ordinals and ownership; all 13,290 bounded tests pass. Five large
+  untraced pairs improve 3.81% with exact bytes, while the remaining v133
+  command gap is 2.53×. The tee-only trial was inconclusive and is superseded;
+  small costs, host activity, other CFG/lower work and canonical gaps remain.
+  Native/runtime renewal is recorded in the dossier; aggregate signoff is
+  deferred while the large-module performance work continues.
+
 ### 2026-10-01 — Small DAE operand pilot and matched release checkpoint
 
 - [Bounded pilot evidence](tooling/tracing-playbook.md#october-1-2026-small-dae-pilot-and-release-priorities)
