@@ -6499,3 +6499,58 @@ Aggregate fuzz, coverage and the full release gate remain deferred at the user's
 request; local source/diff review is available, independent review is not.
 Remaining priorities are full CFG/read-source construction, repeated lift/lower,
 optimizing cleanup, precise final guards and the canonical quality gap.
+
+## October 2, 2026: exact-sized owned CFG segment copies
+
+`cfg_builder_region_segments` knows each segment extent before copying node IDs.
+It now allocates one exact-sized owned primitive row instead of growing an empty
+array with per-node pushes. A singleton uses an array literal: the first generic
+slice-copy trial made that common control slower (33.38→51.81 ns) and was not
+accepted. The final helper retains independent segment/source ownership and
+all node order, block/edge fields, operand expansion and verification.
+
+[Focused regressions](../../../../../src/ir/cfg_segment_copy_wbtest.mbt) cover
+exact ranges, empty/full/tail and singleton copies, capacity, source/sibling
+mutation isolation, complete graph fields in both operand modes, and revision
+stability against the retained original segmentation reference. `moon info`,
+`moon fmt`, all 13,299 default wasm-gc tests, `moon check` and the native release
+build pass. The final binary SHA-256 is
+`8ed642e1ded338acf9ad07d4b013e5097bc8aac4b0b97828ac28e75b59f84ba5`.
+
+Eight [native controls](../../../../../src/ir/cfg_segment_copy_perf_wbtest.mbt)
+pass, ten batches, mean±sigma: singleton 37.10±2.34→27.41±4.42 ns;
+8 nodes 39.70±6.01→29.51±.17 ns; 128 nodes
+176.49±2.56→36.57±1.18 ns; 2,048 nodes
+1.92±.165 µs→106.02±1.02 ns. These compare the frozen push algorithm to the
+new copy helper, outside fixture setup; they are not full-pass timings.
+
+A complete large DAE2 profile toggles the exact nonrecursive segmentation
+wrapper on every invocation. Collected instructions fall
+3,075,064,059→2,972,151,065 (−3.35%, segmentation only); output hashes match
+and `wasm-tools validate --features all` passes. Shared allocator call totals
+are **not** exclusive scoped allocation evidence. No allocated-byte or RSS
+improvement is claimed.
+
+Full-command benefit remains unproved. Five alternating large DAE2 pairs on
+CPU 6 give before 4671.442±116.936 / after 5190.276±605.866 ms (median±MAD),
+paired +13.99%; v133 1287.204±6.001 ms. A second distinct CPU-2 cohort gives
+5692.497±395.075 / 4869.940±294.147 ms, paired −.05%; v133
+1366.726±115.678 ms. Every row flags foreign CPU work; the second cohort's
+traced medians also remain noisy. Preserve both cohorts and the first trial,
+rather than using the lower candidate median as a command improvement. Renew
+quiet enclosing measurements and memory controls before closing the release
+performance item. The scoped instruction and helper improvements justify this
+small storage change; they do not establish Binaryen speed parity.
+
+Both DAE2 modes and CoalesceLocals pass 84 validated fixed modules and 252
+original/before/after/v133 execution observations with exact before/after
+bytes. Fixtures exercise mutable loops, shared/carried reads, imports, traps,
+global/memory state, conditional arms and GC siblings. Large plain output stays
+6,115,221 B. Optimizing byte improvements and the 99,251-byte symmetric
+canonical deficit remain unchanged. No public API changes. Aggregate fuzz,
+coverage/full release gates and independent review remain deferred; local
+source/staged-diff review is available.
+
+Local artifacts: `.tmp/large-pass-hotspots-20261001/`, `cfg-copy-v2-*` manifest,
+eight-case benchmark, three-mode runtime matrices, validated exact-wrapper
+profile, CPU-6 and CPU-2 pair cohorts. The directory name predates these runs.

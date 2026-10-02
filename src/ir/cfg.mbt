@@ -380,6 +380,21 @@ fn cfg_region_may_need_source_order(
 }
 
 ///|
+// The segment extent is already known. Copy once into its own exact-sized
+// primitive row instead of growing an empty array one node at a time.
+fn cfg_copy_segment_nodes(
+  nodes : Array[NodeId],
+  start : Int,
+  end : Int,
+) -> Array[NodeId] {
+  if end == start + 1 {
+    [nodes[start]]
+  } else {
+    nodes[start:end].to_owned()
+  }
+}
+
+///|
 fn cfg_builder_region_segments(
   builder : CfgBuilder,
   func : HotFunc,
@@ -483,10 +498,7 @@ fn cfg_builder_region_segments(
       }
       end = end + 1
     }
-    let nodes : Array[NodeId] = []
-    for slot = start; slot < end; slot = slot + 1 {
-      nodes.push(ordered_nodes[slot])
-    }
+    let nodes = cfg_copy_segment_nodes(ordered_nodes, start, end)
     let block_id = cfg_builder_add_block(
       builder,
       nodes,

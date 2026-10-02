@@ -1,3 +1,12 @@
+### 2026-10-02 — Owned exact-sized CFG segment storage
+
+- [Segment evidence](binaryen/passes/dae2/starshine-strategy.md#october-2-2026-exact-sized-owned-cfg-segment-copies)
+  records a singleton refinement after rejecting its initial helper regression.
+  Eight native controls improve and complete large segmentation instructions
+  fall 3.35%; all 13,299 bounded tests and 252 execution observations pass with
+  exact output. Two contended command cohorts do not establish a speed gain;
+  quiet enclosing/memory renewal, broader analysis and cleanup remain open.
+
 ### 2026-10-02 — Error-only sequence leaf encoding
 
 - [Encoder evidence](binaryen/passes/optimize-instructions/starshine-strategy.md#october-2-2026-avoid-boxed-success-in-sequence-leaf-encoding)

@@ -371,6 +371,14 @@ breadth. Shared changes require all affected consumers in the matrix below.
   remain open; this does not implement projected or incomplete flow facts.
   [Proof and evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-2-2026-prove-empty-cfg-ordering-demand-before-constructing-facts).
 
+- **Segment storage checkpoint:** exact-sized owned copies reduce measured large
+  segmentation instructions 3.35% and improve all eight helper controls.
+  Both-mode/CL bytes and 252 execution observations remain exact. Enclosing
+  timing is **not closed**: two fully host-contended plain cohorts give paired
+  +13.99% and −.05%, with wide spread. Renew quiet full-pass/command and memory
+  evidence; do not promote scoped work savings into a command-speed claim.
+  [Storage evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-2-2026-exact-sized-owned-cfg-segment-copies).
+
 - [ ] Isolate remaining lift/admission, dependency solve, location lookup,
   rewrite/lower, capture repair, writeback and final-validation costs on the
   same frozen source. Do not add overlapping inclusive profile percentages.
