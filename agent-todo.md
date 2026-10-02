@@ -15,6 +15,17 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
+- **October 2 renewed large matrix:** production `971cd0b68`, verified v133,
+  three alternating normal CLI samples: DAE2 4303.065/1195.969 ms (3.60×),
+  DAE2-O 7460.968/2423.250 (3.08×), CL5056.280/1937.773 (2.61×),
+  OI2398.466/973.832 (2.46×). All rows record foreign activity; these are
+  observed cohorts, not quiet release signoff. Prioritize the ≈5.04s optimizing
+  command excess, ≈3.12s CL/≈3.11s plain/shared CFG/lower work, then ≈1.42s OI
+  envelope. Independent named/debug timers have different scopes; do not charge
+  omitted guards to Binaryen or call OI's86ms core full-pass parity. Exact output
+  hashes preserve earlier raw/canonical quality checkpoints. The unchanged-row
+  recurrence pilot is subsequent work with separate acceptance evidence.
+  [Commands, spreads, phases and scope definitions](docs/wiki/tooling/tracing-playbook.md#october-2-2026-large-four-pass-checkpoint-and-timer-scopes).
 - **October 1 bounded pilot:** the user requested independent small-module P08
   work before resuming the existing P03 owner. The
   [fresh checkpoint](docs/wiki/tooling/tracing-playbook.md#october-1-2026-small-dae-pilot-and-release-priorities)
@@ -43,7 +54,7 @@ oracle versions and checkpoints do not sign current source.
   enclosing large pipelines stay flat. See the
   [query-seed evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-immutable-statement-query-seeds).
 
-- **Current size checkpoint:** V73 sinks numeric constant assignments into their
+- **Historical V73 size checkpoint (superseded by V83 above):** V73 sinks numeric constant assignments into their
   first flat read as tees, closing the six-byte nested-release witness. It saves
   **3,280 raw / 3,452 canonical bytes** across 105 shrinking functions with no
   growth or non-code changes. The verified-v133 deficit is now **180,144

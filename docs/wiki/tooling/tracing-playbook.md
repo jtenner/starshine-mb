@@ -4387,3 +4387,86 @@ The October 2 DAE2 proof retains its scoped instruction reduction (19.60%) and
 source-order factory reduction. Its initial 2.93% **scoped allocation** claim is
 superseded by this accounting correction. The October 1 OI full-command
 instruction/allocation comparisons retain their full-command scope.
+
+## October 2, 2026: large four-pass checkpoint and timer scopes
+
+A renewed fixed-fixture matrix uses production source `971cd0b682259297e438d2046b330feb88fdbe46`
+(native SHA-256 `833e27c8881d85daa673998518b4093721ecb78dfe61dfa19e1b34ea376c9243`),
+verified v133 oracle SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`,
+and the 6,211,596-byte / 12,904-function compiler fixture SHA-256
+`98189860f95b4eb8464794eb9fab5f9fd8d16942c63a6e31ed9175e7e791cbbd`.
+Moon0.1.20260920/moonc0.10.14+7d59c7ec9, native release GCC14.2/O2/mimalloc,
+Bun1.4.2 and wasm-tools1.251 remain the saved toolchain. Ryzen7 8845HS CPU6,
+performance governor, build outside timing, shared heavy lock, one warmup and
+three alternating same-host samples per side; temperature/turbo uncontrolled.
+Every measured row records foreign activity. These are observed diagnostic
+cohorts, not a quiet-host release signoff, and supersede older timing leads only
+for this fixture/source/scope. Preserve original cohorts and rejected trials.
+
+Normal fresh-process CLI with warm filesystem (median ± MAD milliseconds):
+
+| Pass | Starshine | Binaryen133 | Ratio | Absolute excess ms | Raw bytes S / B |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| DAE2 | 4303.065 ± 16.192 | 1195.969 ± 12.683 | 3.60× | 3107.096 | 6115221 / 6232586 |
+| DAE2 optimizing | 7460.968 ± 97.709 | 2423.250 ± 6.537 | 3.08× | 5037.718 | 5563501 / 5573450 |
+| CoalesceLocals | 5056.280 ± 7.271 | 1937.773 ± 23.110 | 2.61× | 3118.507 | 5706503 / 5627625 |
+| OptimizeInstructions | 2398.466 ± 11.892 | 973.832 ± 2.667 | 2.46× | 1424.634 | 6205998 / 6172971 |
+
+Starshine ranges: DAE2 4286.873–4321.569, optimizing7363.259–7572.342,
+CL5049.009–5074.773, OI2386.574–2473.927 ms. Oracle ranges:
+1183.286–1236.917 / 2416.713–2484.855 / 1914.663–2024.695 /
+955.831–976.499 ms. Commands are `taskset -c 6 <frozen-native> --<pass>
+--out <output> <input>` and `taskset -c 6 <verified-wasm-opt> --all-features
+--<pass> <input> -o <output>`; optimizing maps to `--dae2 --simplify-locals
+--vacuum`. It is distinct from DAE and dae-optimizing. All outputs validate,
+every side is deterministic across normal/debug samples, and outputs differ
+from the input: this is actual aggregate transformation activity, not proof that
+every function takes an active path. Existing admission guards remain visible.
+
+Independent three-sample timer diagnostics (milliseconds, not normal CLI):
+
+| Pass | Starshine named timer median ± MAD | Binaryen debug timer median ± MAD |
+| --- | ---: | ---: |
+| DAE2 | 3519.933 ± 80.675 | 469.100 ± 8.292 |
+| DAE2 optimizing | 6556.497 ± 58.139 | 1851.615 ± 9.856 (per-row sum of three top-level pass timers) |
+| CoalesceLocals | 4171.480 ± 157.309 | 1226.080 ± 1.880 |
+| OptimizeInstructions | 86.298 ± .212 | 260.895 ± .578 |
+
+These scopes differ. Starshine's DAE2 timer includes lift/lower and mandatory
+module verification; HOT named function timers omit wrapper/guard/encoding
+cleanup. Binaryen debug=1 times top-level passes with verification outside those
+timers and serial function-pass execution, unlike normal worker batching.
+See [v133 PassRunner](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/pass.cpp#L854).
+Debug command wall must never replace normal command wall; no cross-scope speed
+parity conclusion follows from OI's fast named timer. Separate Starshine main
+pipeline medians are 3539.113 / 6575.991 / 4190.477 / 1769.863 ms. Filesystem
+warmup is not an in-process resident warm-pass benchmark or a cold-cache run.
+
+Optimizing diagnostic owners include DAE2 analysis1616.779 ms (lift689.303,
+dependencies851.913), rewrite1004.150 (lift281.288, lower540.833), finalize609.362
+(including validation362.493), and suffix function wrappers2164.583. These are
+nested inclusive scopes; do not add children and parents or force medians into
+an exact total. Complete cleanup instruction profiles and single-change cohorts
+are in the [DAE2 dossier](../binaryen/passes/dae2/starshine-strategy.md#october-2-2026-complete-optimizing-cleanup-instruction-attribution)
+and [Vacuum gate evidence](../binaryen/passes/vacuum/starshine-hot-ir-strategy.md#october-2-2026-bound-indexed-tag-wrapper-admission-before-deep-scans).
+OI's 1769.863 ms pipeline versus86.298 ms named transform leaves substantial
+lift/lower and encoding-cleanup work. Its code-section837.278 ms includes
+function806.669 ms; final CLI validation289.639, encoding168.389 and post-encode
+validation43.791 are separate. The remaining pipeline remainder is not an
+exclusive direct measurement of `oi_cleanup_module_encoding`; profile that
+source owner before proposing another validation change.
+
+Prioritize optimizing's ≈5.04s command gap, shared DAE2/CL CFG/lift/lower and
+CL's ≈3.12s gap, then OI's ≈1.42s envelope by actual frequency and safety cost.
+CL's historical label-row copy edge is a real depth-squared source pattern but
+only≈.129b inclusive profile instructions; it does not outrank the large CFG/
+lower/interference owners. No mandatory verification or optimization coverage
+may be removed. Raw size and canonical size remain distinct: optimizing raw is
+9949bytes smaller but the preserved bounded canonical gap is99251bytes larger.
+The normalizer contract, byte gaps and release gates remain active.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/large-matrix-20261002/{result,rows}.json`,
+`measure-large-matrix.py`, all command stderr/wasm rows, frozen manifests and
+local report. This source checkpoint precedes the separate unchanged-recurrence
+row pilot; that pilot needs its own before/after evidence. No long fuzz,
+coverage/full CI gate or independent-agent review was run for this checkpoint.
