@@ -9622,6 +9622,10 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
       scan_idx = scan_idx + 1
     }
   }
+  // Unchanged input remains borrowed; no tail copy is needed.
+  if rewrite_count == 0 {
+    return (instrs, 0)
+  }
   for idx = cursor; idx < instrs.length(); idx = idx + 1 {
     rewritten.push(instrs[idx])
   }
@@ -9633,67 +9637,84 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
 ) -> (Array[@lib.Instruction], Int) {
-  let normalized : Array[@lib.Instruction] = []
+  let mut normalized = instrs
   let mut rewrite_count = 0
-  for instr in instrs {
+  for index, instr in instrs {
     match instr {
       @lib.Block(bt, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+        let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
           body, env,
         )
-        normalized.push(
-          @lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)),
-        )
-        rewrite_count = rewrite_count + nested_rewrites
+        if count > 0 {
+          if rewrite_count == 0 {
+            normalized = instrs.copy()
+          }
+          normalized[index] = @lib.Instruction::block(bt, @lib.Expr::new(next))
+          rewrite_count += count
+        }
       }
       @lib.Loop(bt, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+        let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
           body, env,
         )
-        normalized.push(
-          @lib.Instruction::loop_(bt, @lib.Expr::new(rewritten_body)),
-        )
-        rewrite_count = rewrite_count + nested_rewrites
+        if count > 0 {
+          if rewrite_count == 0 {
+            normalized = instrs.copy()
+          }
+          normalized[index] = @lib.Instruction::loop_(bt, @lib.Expr::new(next))
+          rewrite_count += count
+        }
       }
       @lib.TryTable(bt, catches, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+        let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
           body, env,
         )
-        normalized.push(
-          @lib.Instruction::try_table(
+        if count > 0 {
+          if rewrite_count == 0 {
+            normalized = instrs.copy()
+          }
+          normalized[index] = @lib.Instruction::try_table(
             bt,
             catches,
-            @lib.Expr::new(rewritten_body),
-          ),
-        )
-        rewrite_count = rewrite_count + nested_rewrites
+            @lib.Expr::new(next),
+          )
+          rewrite_count += count
+        }
       }
       @lib.If(bt, then_body, else_body) => {
-        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+        let (next_then, then_count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
           then_body, env,
         )
-        rewrite_count = rewrite_count + then_rewrites
-        let rewritten_else = match else_body {
-          Some(else_body) => {
-            let (rewritten_else, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
-              else_body, env,
+        let mut count = then_count
+        let next_else = match else_body {
+          Some(body) => {
+            let (next, else_count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+              body, env,
             )
-            rewrite_count = rewrite_count + else_rewrites
-            Some(rewritten_else)
+            count += else_count
+            if else_count > 0 {
+              Some(next)
+            } else {
+              else_body
+            }
           }
           None => None
         }
-        normalized.push(
-          @lib.Instruction::if_(bt, rewritten_then, rewritten_else),
-        )
+        if count > 0 {
+          if rewrite_count == 0 {
+            normalized = instrs.copy()
+          }
+          normalized[index] = @lib.Instruction::if_(bt, next_then, next_else)
+          rewrite_count += count
+        }
       }
-      _ => normalized.push(instr)
+      _ => ()
     }
   }
-  let (rewritten, flat_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
+  let (rewritten, flat_count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
     normalized, env,
   )
-  (rewritten, rewrite_count + flat_rewrites)
+  (rewritten, rewrite_count + flat_count)
 }
 
 ///|
@@ -10598,6 +10619,10 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat
       scan_idx = scan_idx + 1
     }
   }
+  // Unchanged input remains borrowed; no tail copy is needed.
+  if rewrite_count == 0 {
+    return (instrs, 0)
+  }
   for idx = cursor; idx < instrs.length(); idx = idx + 1 {
     rewritten.push(instrs[idx])
   }
@@ -10609,67 +10634,84 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
 ) -> (Array[@lib.Instruction], Int) {
-  let normalized : Array[@lib.Instruction] = []
+  let mut normalized = instrs
   let mut rewrite_count = 0
-  for instr in instrs {
+  for index, instr in instrs {
     match instr {
       @lib.Block(bt, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+        let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
           body, env,
         )
-        normalized.push(
-          @lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)),
-        )
-        rewrite_count = rewrite_count + nested_rewrites
+        if count > 0 {
+          if rewrite_count == 0 {
+            normalized = instrs.copy()
+          }
+          normalized[index] = @lib.Instruction::block(bt, @lib.Expr::new(next))
+          rewrite_count += count
+        }
       }
       @lib.Loop(bt, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+        let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
           body, env,
         )
-        normalized.push(
-          @lib.Instruction::loop_(bt, @lib.Expr::new(rewritten_body)),
-        )
-        rewrite_count = rewrite_count + nested_rewrites
+        if count > 0 {
+          if rewrite_count == 0 {
+            normalized = instrs.copy()
+          }
+          normalized[index] = @lib.Instruction::loop_(bt, @lib.Expr::new(next))
+          rewrite_count += count
+        }
       }
       @lib.TryTable(bt, catches, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+        let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
           body, env,
         )
-        normalized.push(
-          @lib.Instruction::try_table(
+        if count > 0 {
+          if rewrite_count == 0 {
+            normalized = instrs.copy()
+          }
+          normalized[index] = @lib.Instruction::try_table(
             bt,
             catches,
-            @lib.Expr::new(rewritten_body),
-          ),
-        )
-        rewrite_count = rewrite_count + nested_rewrites
+            @lib.Expr::new(next),
+          )
+          rewrite_count += count
+        }
       }
       @lib.If(bt, then_body, else_body) => {
-        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+        let (next_then, then_count) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
           then_body, env,
         )
-        rewrite_count = rewrite_count + then_rewrites
-        let rewritten_else = match else_body {
-          Some(else_body) => {
-            let (rewritten_else, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
-              else_body, env,
+        let mut count = then_count
+        let next_else = match else_body {
+          Some(body) => {
+            let (next, else_count) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+              body, env,
             )
-            rewrite_count = rewrite_count + else_rewrites
-            Some(rewritten_else)
+            count += else_count
+            if else_count > 0 {
+              Some(next)
+            } else {
+              else_body
+            }
           }
           None => None
         }
-        normalized.push(
-          @lib.Instruction::if_(bt, rewritten_then, rewritten_else),
-        )
+        if count > 0 {
+          if rewrite_count == 0 {
+            normalized = instrs.copy()
+          }
+          normalized[index] = @lib.Instruction::if_(bt, next_then, next_else)
+          rewrite_count += count
+        }
       }
-      _ => normalized.push(instr)
+      _ => ()
     }
   }
-  let (rewritten, flat_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat(
+  let (rewritten, flat_count) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat(
     normalized, env,
   )
-  (rewritten, rewrite_count + flat_rewrites)
+  (rewritten, rewrite_count + flat_count)
 }
 
 ///|

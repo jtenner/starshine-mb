@@ -1,3 +1,13 @@
+### 2026-10-02 — Reuse unchanged pure and effectful suffix storage
+
+- [Suffix storage ownership](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reuse-unchanged-pure-and-effectful-suffix-storage)
+  extends the existing read-only unchanged-row contract to two suffix workers.
+  Red root/sibling tests, 13,329 wasm-gc tests, sixteen native controls and
+  408 fixed observations pass with exact bytes. Complete cleanup instructions
+  fall 1.36%; the paired normal command cohort remains flat within spread.
+  The remaining dupable-copy middle scan is the next candidate to measure, with
+  no new admission, verification or fixed-point shortcut.
+
 ### 2026-10-02 — Retain initialized continuation read indexes
 
 - [Owned read-index reuse](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-retain-initialized-continuation-read-indexes)

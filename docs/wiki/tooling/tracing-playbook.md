@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-28
+last_reviewed: 2026-10-02
 sources:
   - ../../../src/passes/constraint_lower.mbt
   - ../../../src/validate/typecheck.mbt
@@ -4523,3 +4523,25 @@ Artifacts: `.tmp/large-pass-hotspots-20261001/large-matrix-main-readset-20261002
 paired pilot executable4565f45c… in44 text bytes within command repro-note
 routines; all read-set method machine-code bytes are identical. Their hashes
 remain distinct. Current four-pass numbers use the exact final executable.
+
+
+### Subsequent main suffix-storage pilot
+
+The [independent suffix storage pilot](../binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reuse-unchanged-pure-and-effectful-suffix-storage)
+uses base main7b9a83c82 native75dd44c3… and candidate331bf0d4… with the same
+large input, oracle, flags, CPU6 and toolchain. One warmup/five alternating normal
+optimizing CLI samples give6383.282±14.001→6374.044±3.062ms; v1332277.007±5.074
+(median±MAD). Ranges6328.438–6397.283 /6342.562–6633.037 /2271.933–2375.374ms;
+paired −.10% is within spread. All rows flag foreign activity. Newer lower host
+bands must not be credited to this fix against older unpaired cohorts.
+Separate traced inner medians5571.157±11.261→5577.765±35.657ms are inconclusive.
+
+Same-scope complete cleanup instructions20,910,594,832→20,626,352,801 (−1.36%);
+source/frozen native controls establish omitted unchanged row/control copies.
+The baseline profile remains labeled with its original4565 native hash; the
+current75dd baseline has identical pass machine code and only off-scope command
+repro-note changes. Candidate profile completes under300s and validates exact
+output. Neither nested edge sums nor mixed call counters are allocation/RSS
+percentages. Compiler bytes and the prior canonical protocol remain unchanged.
+Artifacts: `.tmp/large-pass-hotspots-20261001/suffix-storage-*`,
+`dae2-cleanup-suffix-storage-*`, commands, manifests and local report.

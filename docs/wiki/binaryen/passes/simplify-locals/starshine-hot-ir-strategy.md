@@ -9,6 +9,8 @@ sources:
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/cleanup_read_set.mbt
   - ../../../../../src/passes/cleanup_read_copy_wbtest.mbt
+  - ../../../../../src/passes/suffix_storage_wbtest.mbt
+  - ../../../../../src/passes/suffix_storage_perf_wbtest.mbt
 related:
   - ./index.md
   - ./wat-shapes.md
@@ -558,3 +560,90 @@ all timing rows and both runtime lanes. Work now uses the primary checkout on
 `main`; historical branch evidence retains its original source/version.
 Remaining exact cleanup, raw recurrence/normalization, Vacuum guards, CFG/lower
 and command/output-quality gaps stay active in P03/P04/P05/P06/P12/P13.
+
+
+## October 2, 2026: reuse unchanged pure and effectful suffix storage
+
+The current cleanup profile has 5.520 billion inclusive instructions in skipped
+effectful carriers. Its pure/effectful recursive suffix workers rebuilt every
+visited row and control shell; their flat helpers then copied unchanged tails.
+These are confirmed avoidable allocations and copies, distinct from the
+remaining repeated query/typechecking work.
+
+The [two workers](../../../../../src/passes/pass_manager.mbt) now follow the
+existing balanced-cleanup ownership contract: unchanged rows and siblings remain
+read-only, the parent row copies before its first child replacement, and changed
+control shells/arms remain owned. Flat workers retain every matching/query loop
+and return input only after a zero rewrite count. Every splice increments that
+count. Private production consumers inspect or construct arrays; they never
+write borrowed rows. No admission, validation, environment facts, fixed-point
+limits, public API or production helper/collection is added or removed.
+This does not skip candidate discovery or transform work.
+
+Real red [regressions](../../../../../src/passes/suffix_storage_wbtest.mbt) prove
+original root and unchanged sibling identities were lost. Three ownership tests
+compare exact output/count with four
+[frozen original workers](../../../../../src/passes/suffix_storage_reference_wbtest.mbt),
+cover flat/deep no-op and blocked paths, i32/i64/reference and trapping
+producers, Block/Loop/TryTable, one/both conditional arms, owned changed leaves
+and downstream consumers. Direct arm mutations preserve encoded input.
+A command regression exercises active nested SL and DAE2 optimizing cleanup.
+Reference nulls retain the existing nonnumeric worker admission; no predicate
+was widened to satisfy a fixture.
+
+Sixteen dedicated [native release controls](../../../../../src/passes/suffix_storage_perf_wbtest.mbt),
+CPU6, ten batches, inputs/assertions outside timing, mean ± standard deviation:
+
+| Control | Frozen original | Borrowed unchanged storage |
+| --- | ---: | ---: |
+| Pure tiny | 87.76 ± .16 ns | 36.23 ± .11 ns |
+| Pure wide128 | 3.92 ± .033 µs | .473 ± .002 µs |
+| Pure nested128 | 44.15 ± .502 µs | 14.79 ± .112 µs |
+| Pure active16 | 14.62 ± .072 µs | 13.87 ± .080 µs |
+| Effectful tiny | 88.11 ± 1.41 ns | 36.89 ± .12 ns |
+| Effectful wide128 | 3.94 ± .024 µs | .464 ± .002 µs |
+| Effectful nested128 | 44.09 ± .631 µs | 15.48 ± .188 µs |
+| Effectful active16 | 5.34 ± .045 µs | 4.63 ± .068 µs |
+
+Base main7b9a83c82 native75dd44c3… versus candidate331bf0d4…; unchanged large
+compiler input, verified v133, one warmup/five alternating normal CLI samples.
+Before/after/oracle medians ± MAD are 6383.282 ± 14.001 / 6374.044 ± 3.062 /
+2277.007 ± 5.074 ms; ranges 6328.438–6397.283 / 6342.562–6633.037 /
+2271.933–2375.374 ms. Paired median −.10% is within spread, with all rows
+foreign-activity flagged: an enclosing command improvement is not established.
+Separate three-sample traced inner medians are 5571.157 ± 11.261 →
+5577.765 ± 35.657 ms; these also remain inconclusive. The newer lower host band
+must not be credited to this fix by comparison with earlier cohorts.
+
+Complete cleanup instructions fall 20,910,594,832 → 20,626,352,801 (−1.36%).
+Nested fixed-point→pure worker cost falls 1,881,758,906 → 1,832,599,587;
+effectful falls 1,638,132,086 → 1,455,072,451. These nested edges are not additive
+to the root. Baseline reuses the completed original4565f45c… profile: native75dd
+has identical pass machine code and only command repro-note text differs,
+outside the collected cleanup scope. Its original hash/manifest is preserved.
+The candidate completes under the same delayed instrumentation/300s protocol,
+validates and preserves the output hash. Source proves omitted row/control
+allocations; shared call counters remain mixed, so no allocation-byte or peak-RSS
+saving is claimed. No new production collection is introduced.
+
+All 13,329 bounded wasm-gc tests, info/fmt/check/native CLI build, sixteen native
+controls and README API sync pass. SL and optimizing runtime lanes validate
+146 modules (136 raw plus ten encoding-only compact-import expansions) and
+match 408 original/predecessor/candidate/v133 observations: results, ordered
+calls, state, memory, GC and traps. New fixtures exercise nested constant/call
+carriers, state-before-trap and GC producers. Before/after output is byte-exact
+for every fixture and the compiler remains 5,563,501 bytes, SHA256
+`a2cfeaf22bab817cbcd0e97048bddd6723e258ba25eec3375e96b08230676e1d`.
+Raw9,949-byte advantage and preserved canonical99,251-byte deficit remain
+distinct and unchanged. Compact-import replay uses the existing encoding-only
+protocol; raw command flags stay unchanged. Manual source/consumer review is
+complete; independent-agent review and long fuzz/full CI/coverage are deferred.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/suffix-storage-*`,
+`dae2-cleanup-suffix-storage-*`, `main-suffix-storage-performance-20261002.md`.
+Remaining normalization workers, suffix query/typechecking scans, shared CFG/
+lower, OI envelope and byte gaps stay open. A specific next candidate is the
+pure dupable-copy middle scan: after one safe complete statement, only its
+zero/nonzero length affects decisions, yet the original loop keeps typing and
+materializing later statements before other helpers scan the tail again.
+This is a source-backed quadratic pattern to measure, not an accepted fix.

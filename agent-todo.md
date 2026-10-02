@@ -511,6 +511,23 @@ breadth. Shared changes require all affected consumers in the matrix below.
   [Ownership, costs and controls](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-retain-initialized-continuation-read-indexes).
 
 
+  Pure/effectful suffix walkers now reuse read-only unchanged rows and copy
+  parents before child replacement. Exact rewrites/counts and changed ownership
+  remain; complete cleanup instructions20,910,594,832→20,626,352,801 (−1.36%).
+  Sixteen native controls improve tiny/wide/deep and active paths; five paired
+  large normal optimizing commands6383.282→6374.044ms (−.10% paired) are flat
+  within spread, all flagged. All13,329 wasm-gc tests and408 runtime observations
+  pass with exact bytes. No allocation/RSS percentage or enclosing speed win
+  is claimed. Other recursive workers and repeated query/typechecking stay open.
+  [Storage proof and controls](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reuse-unchanged-pure-and-effectful-suffix-storage).
+
+- [ ] Measure and bound the pure dupable-copy middle scan: after the first safe
+  complete statement, later initial-loop queries cannot affect its zero/nonzero
+  decision, but repeatedly typecheck/materialize tails. Keep every subsequent
+  terminal/conditional/copy helper, source/target barrier, validation and rewrite
+  count; test width scaling, mixed values, effects/traps and unchanged bytes.
+
+
 - [ ] Reduce remaining plain no-work compaction costs while retaining all
   legacy and effect-spanning candidates. Optimizing admission now uses counted
   capture/unused-local/alias facts; plain still takes its original scan path.

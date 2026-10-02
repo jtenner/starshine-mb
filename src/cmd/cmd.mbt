@@ -10115,3 +10115,26 @@ test "command simplify locals and DAE2 optimizing preserve wide continuation sta
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command simplify locals and DAE2 optimizing retain nested suffix cleanup" {
+  for producer in ["i32.const 7", "call $produce"] {
+    let input = @passes.pass_test_module_from_wat(
+      "(module (import \"env\" \"produce\" (func $produce (result i32))) (import \"env\" \"consume\" (func $consume (param i32))) (import \"env\" \"tick\" (func $tick)) (func (export \"run\") (param i32) (local i32) block call $tick end block loop local.get 0 if \{producer} local.set 1 nop local.get 1 call $consume else \{producer} local.set 1 nop local.get 1 call $consume end end end block call $tick end))",
+    )
+    let saved = @binary.encode_module(input).unwrap()
+    for pass in ["simplify-locals", "dae2-optimizing"] {
+      let output = optimize_module_with_pass_flags(
+        input,
+        [pass],
+        OptimizeOptions::new(),
+      ).unwrap()
+      @validate.validate_module(output).unwrap()
+      assert_eq(output.import_sec, input.import_sec)
+      assert_true(
+        @binary.encode_module(output).unwrap().length() < saved.length(),
+      )
+      assert_eq(@binary.encode_module(input).unwrap(), saved)
+    }
+  }
+}
