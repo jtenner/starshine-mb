@@ -893,3 +893,57 @@ Artifacts: `.tmp/large-pass-hotspots-20261001/main-scalar-clique-performance-202
 storage/source reviews, command pairs and runtime rows. Other passes keep the
 preceding1c/f111 matrix provenance. Larger shared CFG/lift/lower/verification,
 CL capture/conflict traversal, weighted/wider work and size gaps remain active.
+
+
+## October 2, 2026: retain unchanged binary-constant spill cleanup storage
+
+The private lowering spill cleanup keeps all recursive visits, original later-read/
+type/control checks and exact five-entry permutations. Unchanged rows/control
+shells are retained; copy the parent on its first child change and the complete
+nested row before its first flat edit. Scan guards keep reading original nested
+input. No new helper/cache/API, mandatory-check removal or skipped optimization.
+Public lowering owns preceding emitted/canonicalized rows and performs recursive
+final canonicalization; root/nested mutation preserves input and later lowering.
+Native code has two change-guarded Array.copy sites and no unconditional array
+constructor. This is not an allocated-byte or peak-memory percentage claim.
+
+Main db1412a75/ddc2b774… versus08382360… candidate, same fixed compiler and
+complete normally finished300s-bounded module profile: CL root
+**48,137,746,501→47,745,254,152 (−.81535%)**. Nonrecursive lowering→spill entry
+493,491,749→190,043,937 (−61.49%); lower-body entry9.454b→9.061b overlaps it.
+Recursive edges are not added to phases; parsing/final CLI validation/encoding
+are outside scope. Last four CL fixes together reduce49.113b→47.745b (−2.784%).
+
+One warmup/five alternating CPU6 normal commands, median±MAD ms:
+
+| Command | Starshine before | After | Binaryen133 | Paired change |
+| --- | ---: | ---: | ---: | ---: |
+| CL |5289.570±115.064|4980.679±60.348|1990.480±16.113|−3.457%|
+| DAE2-O |7301.133±116.990|7379.340±56.890|2559.307±34.185|+.868%|
+
+All samples flag foreign activity. CL shows an observed paired gain with lower
+complete instruction work; quiet-host signoff is open. Optimizing has no command
+win: older ef3 optimizing cleanup attributes only20.845m at this entry, and many
+preserve-flat paths skip it. That historical scope is a lead, not a new phase
+measurement. Separate traced CL inner3963.465→4038.779ms has broad spread and is
+inconclusive. Exact wait4 peakRSS KiB CL244752±32→244648±60/B217600±0;
+optimizing294296±16→294192±76/B153100±0: no peak win, phase cause unknown.
+
+Twelve CPU6 native controls improve tiny73.68→16.62ns, wide1283.28→1.62µs,
+nested1283.67→1.67µs, all16 active permutations2.84→2.19µs, fully guarded128
+12.05→6.45µs and changed-arm/unchanged-sibling3.50→1.78µs. Later-read query
+scaling stays open. Five [direct regressions](../../../../../src/ir/hot_lower_spill_storage_wbtest.mbt),
+[frozen predecessor](../../../../../src/ir/hot_lower_spill_storage_reference_wbtest.mbt),
+[controls](../../../../../src/ir/hot_lower_spill_storage_perf_wbtest.mbt), dispatcher,
+13,352 wasm-gc tests, info/fmt/check/build/API sync pass. Three fixed lanes validate423 modules/compare1224 observations with exact
+CL/plain/optimizing bytes. Scalar/i64/f64, GC/effects/traps and
+public ownership covered. An unfinished default-WASM run is archived as incomplete;
+the replacement wasm-gc suite fully passes. No public API change; independent
+review/aggregate fuzz/full CI/coverage remain open. Byte-quality gaps are unchanged.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/main-spill-storage-performance-20261002.md`,
+`spill-storage-*-pairs/result.json`, manifests, completed CL costs, native-storage
+review, fixed runtime rows and original logs. Source/binary/input/v133 hashes,
+flags/backend/CPU, spreads and raw/canonical protocols remain explicit. Next
+measured candidate: lift conflict/mask full-header reads; neither their removal
+nor a performance benefit has been implemented or assumed yet.

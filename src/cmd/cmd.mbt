@@ -10231,3 +10231,26 @@ test "command Coalesce preserves simultaneous loop lifetimes and ordered effects
   assert_true(@binary.encode_module(output).unwrap() != saved)
   assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
+
+///|
+test "command Coalesce and DAE2 modes preserve binary spill effects and nested traps" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (import \"host\" \"tick\" (func $tick)) (global (export \"state\") (mut i32) (i32.const 0)) (func (export \"run\") (param i32) (result i32) (local i32 i32) i32.const 17 global.set 0 call $tick block (result i32) local.get 0 i32.const 7 i32.div_s local.set 1 local.get 1 end local.set 2 local.get 2))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for pass in ["coalesce-locals", "dae2", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    assert_eq(output.import_sec, input.import_sec)
+    assert_eq(output.global_sec, input.global_sec)
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_eq(body[0], @lib.Instruction::i32_const(@lib.I32(17)))
+    assert_eq(body[1], @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)))
+    assert_eq(body[2], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

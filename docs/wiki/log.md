@@ -1,3 +1,13 @@
+### 2026-10-02 — Retain unchanged binary spill cleanup storage
+
+- [Lowering spill storage](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-retain-unchanged-binary-constant-spill-cleanup-storage)
+  copies only changed paths while retaining all original guards/transforms.
+  Red-first regressions,13,352 wasm-gc tests and focused runtime/native controls
+  pass with exact bytes. Complete CL work falls.81535%, spill entry61.49%;
+  paired normal CL improves3.457% under recorded contention, while optimizing
+  has no command win and peakRSS remains flat. Completed P03e history moves
+  to existing dossiers; active tasks, quality and release blockers remain.
+
 ### 2026-10-02 — Update small Coalesce cliques by scalar word
 
 - [Small-clique proof and evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-scalar-words-for-small-single-word-cliques)

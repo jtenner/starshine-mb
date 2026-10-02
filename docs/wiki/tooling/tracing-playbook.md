@@ -4697,3 +4697,19 @@ Previous four-pass matrix above remains1c/f111, not this candidate. Larger
 shared DAE2/O/CL/OI owners, canonical byte gaps and aggregate/CI/coverage remain
 open; no long fuzz campaign. Full commands/ranges/hashes/source/native proof
 are in the existing dossier and local scalar-clique report.
+
+
+## October 2, 2026: main binary-spill storage checkpoint
+
+[Spill storage proof and measurements](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-retain-unchanged-binary-constant-spill-cleanup-storage)
+reduce complete CL work.81535% and the nonrecursive spill entry61.49%, with
+unchanged output and no new collection/API. Main db1412a75/ddc2b774… baseline,
+candidate08382360…, same6.21MB compiler, verified v133 and CPU6. Five normal
+alternating pairs: CL5289.570±115.064→4980.679±60.348ms/B1990.480±16.113,
+paired−3.457%; optimizing7301.133±116.990→7379.340±56.890/B2559.307±34.185,
+paired+.868%. Foreign activity on every sample; optimizing has no clock win,
+CL's observed gain is not quiet-host signoff. Separate traced timers overlap;
+peakRSS is flat. All13,352 wasm-gc tests,12 native controls and 1224 fixed observations
+across423 validated modules pass with exact bytes. Prior plain/
+OI matrix keeps1c/f111 source provenance. Full release gates and canonical byte
+quality remain open; larger shared lift/validation owners still take priority.

@@ -5308,42 +5308,55 @@ fn hot_lower_impl_rewrite_binary_const_result_spill_in_instr(
   instr : Instruction,
 ) -> Instruction {
   match instr {
-    Block(bt, Expr(body)) =>
-      Instruction::block(
-        bt,
-        Expr::new(
-          hot_lower_impl_rewrite_binary_const_result_spills_in_body(func, body),
-        ),
+    Block(bt, Expr(body)) => {
+      let next = hot_lower_impl_rewrite_binary_const_result_spills_in_body(
+        func, body,
       )
-    Loop(bt, Expr(body)) =>
-      Instruction::loop_(
-        bt,
-        Expr::new(
-          hot_lower_impl_rewrite_binary_const_result_spills_in_body(func, body),
-        ),
+      if physical_equal(next, body) {
+        instr
+      } else {
+        Instruction::block(bt, Expr::new(next))
+      }
+    }
+    Loop(bt, Expr(body)) => {
+      let next = hot_lower_impl_rewrite_binary_const_result_spills_in_body(
+        func, body,
       )
-    If(bt, then_, else_) =>
-      Instruction::if_(
-        bt,
-        hot_lower_impl_rewrite_binary_const_result_spills_in_body(func, then_),
-        match else_ {
-          Some(else_body) =>
-            Some(
-              hot_lower_impl_rewrite_binary_const_result_spills_in_body(
-                func, else_body,
-              ),
-            )
-          None => None
-        },
+      if physical_equal(next, body) {
+        instr
+      } else {
+        Instruction::loop_(bt, Expr::new(next))
+      }
+    }
+    If(bt, then_, else_) => {
+      let next_then = hot_lower_impl_rewrite_binary_const_result_spills_in_body(
+        func, then_,
       )
-    TryTable(bt, catches, Expr(body)) =>
-      Instruction::try_table(
-        bt,
-        catches,
-        Expr::new(
-          hot_lower_impl_rewrite_binary_const_result_spills_in_body(func, body),
-        ),
+      let mut next_else = else_
+      if else_ is Some(body) {
+        let next = hot_lower_impl_rewrite_binary_const_result_spills_in_body(
+          func, body,
+        )
+        if !physical_equal(next, body) {
+          next_else = Some(next)
+        }
+      }
+      if physical_equal(next_then, then_) && physical_equal(next_else, else_) {
+        instr
+      } else {
+        Instruction::if_(bt, next_then, next_else)
+      }
+    }
+    TryTable(bt, catches, Expr(body)) => {
+      let next = hot_lower_impl_rewrite_binary_const_result_spills_in_body(
+        func, body,
       )
+      if physical_equal(next, body) {
+        instr
+      } else {
+        Instruction::try_table(bt, catches, Expr::new(next))
+      }
+    }
     _ => instr
   }
 }
@@ -5353,13 +5366,22 @@ fn hot_lower_impl_rewrite_binary_const_result_spills_in_body(
   func : HotFunc,
   body : Array[Instruction],
 ) -> Array[Instruction] {
-  let nested : Array[Instruction] = []
-  for instr in body {
-    nested.push(
-      hot_lower_impl_rewrite_binary_const_result_spill_in_instr(func, instr),
+  // This private cleanup reads owned lowering rows. Copy only the first
+  // changed path; every flat rewrite permutes exactly five existing entries.
+  let mut nested = body
+  for index = 0; index < body.length(); index = index + 1 {
+    let instr = body[index]
+    let next = hot_lower_impl_rewrite_binary_const_result_spill_in_instr(
+      func, instr,
     )
+    if !physical_equal(next, instr) {
+      if physical_equal(nested, body) {
+        nested = body.copy()
+      }
+      nested[index] = next
+    }
   }
-  let rewritten : Array[Instruction] = []
+  let mut rewritten = nested
   let mut i = 0
   while i < nested.length() {
     if i + 4 < nested.length() {
@@ -5400,11 +5422,14 @@ fn hot_lower_impl_rewrite_binary_const_result_spills_in_body(
                           ) {
                           (Some(source_ty), Some(target_ty)) if source_ty ==
                             target_ty => {
-                            rewritten.push(lhs)
-                            rewritten.push(set_instr)
-                            rewritten.push(get_instr)
-                            rewritten.push(rhs)
-                            rewritten.push(op_instr)
+                            if physical_equal(rewritten, nested) {
+                              rewritten = nested.copy()
+                            }
+                            rewritten[i] = lhs
+                            rewritten[i + 1] = set_instr
+                            rewritten[i + 2] = get_instr
+                            rewritten[i + 3] = rhs
+                            rewritten[i + 4] = op_instr
                             i = i + 5
                             continue
                           }
@@ -5420,7 +5445,6 @@ fn hot_lower_impl_rewrite_binary_const_result_spills_in_body(
         }
       }
     }
-    rewritten.push(nested[i])
     i = i + 1
   }
   rewritten

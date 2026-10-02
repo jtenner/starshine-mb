@@ -32,13 +32,15 @@ oracle versions and checkpoints do not sign current source.
   leaves about136MiB excess; phase cause remains unknown. Outputs remain exact;
   raw optimizing−9949 B does not close bounded canonical+99,251 B.
   [Scopes, commands, hashes and historical matrices](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-weightless-member-checkpoint).
-- **Subsequent CL scalar-clique checkpoint:** candidate ddc2b774… preserves
-  bytes,13,346 bounded tests and360 fixed observations. Complete CL instructions
-  48,327,939,076→48,137,746,501 (−.39355%); clique entry−17.85%.
-  Five normal pairs5044.567±55.049→5053.472±109.127ms, B2036.637±15.455;
-  paired+1.282%, all contended: no clock/RSS win. Wide fallback+10.47ns stays
-  visible. The four-pass matrix above retains its preceding exact source hash.
-  [Proof, controls and next targets](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-scalar-words-for-small-single-word-cliques).
+- **Latest targeted CL / optimizing checkpoint:** subsequent spill-storage
+  candidate08382360… keeps bytes and13,352 bounded wasm-gc tests. Complete CL
+  instructions48,137,746,501→47,745,254,152 (−.81535%), spill entry−61.49%.
+  Five normal pairs CL5289.570±115.064→4980.679±60.348ms/B1990.480±16.113,
+  paired−3.457%; optimizing7301.133±116.990→7379.340±56.890/B2559.307±34.185,
+  paired+.868%. All samples contended; optimizing has no command win and RSS
+  is flat. Earlier scalar-clique fallback+10.47ns stays open. Plain/OI rows
+  above retain their original1c/f111 binary. No quiet-host parity claim.
+  [Proof, scope and next targets](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-retain-unchanged-binary-constant-spill-cleanup-storage).
 - **Optimizing cleanup / rejected-cache checkpoint:** accepted storage and
   bounded-discovery fixes reduce complete matched cleanup instructions
   22,691,343,936→20,107,910,056 (−11.385%); not a summed command gain.
@@ -475,177 +477,59 @@ excess open. [Full spread, size and scope](docs/wiki/tooling/tracing-playbook.md
 
 #### P03e — Optimizing cleanup setup [IR2-PERF-DAE2-CLEANUP]
 
-- **October 2 leaf census checkpoint:** the existing complete SimplifyLocals
-  census proves no-if conditional cleanup empty; that path no longer clones
-  arrays. Possible candidates keep the original owned worker and verification.
-  All 13,304 bounded tests and 168 fixed observations pass with exact bytes;
-  nested native no-if cost falls 22.39 µs→20.89 ns. Large optimizing remains
-  flat (five pairs +.16%, all flagged), so the enclosing cost stays open.
-  [Proof and controls](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reuse-the-current-census-for-absent-leaf-conditionals).
-- [ ] Profile the remaining optimizing cleanup function envelope and eager raw
-  recurrence/adjacent/effectful rewrites. The October 2 trace has about 2.4 s of
-  inclusive function work versus about 89 ms of named SL+Vacuum transforms;
-  these are nested scopes, not exclusive/additive costs. One six-minute
-  host-contended profile was stopped without accepting partial totals. A new
-  complete delayed-instrumentation profile attributes 18.260 billion raw SL /
-  5.694 billion raw Vacuum instructions inside a 26.744-billion function envelope;
-  skipped-effectful carriers and statement-prefix typing are nested SL owners.
-  [Complete attribution](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-2-2026-complete-optimizing-cleanup-instruction-attribution).
-  The single-caller early flat-statement rejection pilot is complete: identical
-  predicates and eligible typechecks, 13,307 tests/192 fixed observations, exact
-  bytes; matched cleanup instructions −9.94%, five large CLI pairs −3.04%
-  (all host-contended). Continue with remaining owners rather than repeating
-  that fix; preserve SIMD recurrence candidates, deep ownership, full coverage
-  and byte improvements.
-  [Proof and measurements](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reject-existing-flat-statement-control-boundaries-before-typechecking).
-  Indexed tag admission now rejects impossible 51/57-instruction shapes before
-  deep unreachable scans: matched cleanup instructions −3.08%, native rejected
-  nested 99.84 µs→25.12 ns, complete matching gates retained. Optimizing CLI
-  paired −.36% is within spread under contention; a command win is not proved.
-  [Proof and controls](docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md#october-2-2026-bound-indexed-tag-wrapper-admission-before-deep-scans).
-  Flat additive/bitselect unchanged rows now avoid two copies while recursive
-  changed-tree ownership and positive transforms stay identical. 13,314 tests,
-  288 fixed observations and exact bytes pass; complete cleanup instructions
-  −2.72%. Large CLI −.52% is within spread; repeated active controls and the
-  initial SIMD slowdown remain recorded. Profile other raw recurrence rows and
-  eager normalization next rather than reopening these completed flat copies.
-  [Ownership and measurements](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-retain-unchanged-flat-recurrence-rows).
-  A separate combined three-change cohort observes 8379.033→7545.154 ms
-  (three alternating CLI pairs, paired −9.95%, all foreign-activity flagged),
-  with 15.10% less complete cleanup instruction work. This preserves individual
-  inconclusive rows and does not establish speed parity or quiet-host signoff.
-  Initialized continuation read indexes now survive owned row copies; shared
-  overflow maps detach before writes in either owner. Current matched cleanup
-  instructions fall 22,691,343,936→20,910,594,832 (−7.85%). Five normal optimizing
-  pairs observe 7257.114→7059.562 ms, paired −2.72%, v1332434.423 ms; all rows
-  are contended and the separate traced inner cohort is inconclusive. The native
-  set payload stays32 B; parent/child updates incur measured detachment work.
-  All13,325 wasm-gc tests,14 native controls and312 fixed observations pass;
-  exact compiler bytes remain unchanged. Continue with raw normalization,
-  effectful/pure suffix work, Vacuum admission and shared CFG/lower owners.
-  [Ownership, costs and controls](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-retain-initialized-continuation-read-indexes).
-
-
-  Pure/effectful suffix walkers now reuse read-only unchanged rows and copy
-  parents before child replacement. Exact rewrites/counts and changed ownership
-  remain; complete cleanup instructions20,910,594,832→20,626,352,801 (−1.36%).
-  Sixteen native controls improve tiny/wide/deep and active paths; five paired
-  large normal optimizing commands6383.282→6374.044ms (−.10% paired) are flat
-  within spread, all flagged. All13,329 wasm-gc tests and408 runtime observations
-  pass with exact bytes. No allocation/RSS percentage or enclosing speed win
-  is claimed. Other recursive workers and repeated query/typechecking stay open.
-  [Storage proof and controls](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reuse-unchanged-pure-and-effectful-suffix-storage).
-
-  Initial dupable-copy middle discovery is now bounded after one safe complete
-  statement; nondupable moves retain complete middles and every later helper.
-  Red end/row assertions and13,333 wasm-gc tests pass;170 validated modules and
-  480 fixed observations retain exact bytes. Complete cleanup instructions
-  fall20,626,352,801→20,126,748,368 (2.42%). Native blocked width64/256 costs
-  1.57→.882ms /25.70→14.21ms; active width64 improves25.84→16.35µs.
-  Normal optimizing pairs6346.596→6319.850ms (paired−.44%) remain within spread
-  under contention. Repeated active width1 costs568.24→578.54ns (+10.30ns);
-  retain this small-path tradeoff rather than claiming every path improves.
-  [Proof, timing scopes and controls](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-bound-dupable-copy-middle-discovery).
-
-  A per-flat statement-end cache trial is rejected: root20,126,748,368→
-  20,161,975,875 (+.175%), normal CLI paired−.108% within spread, RSS flat.
-  Typed-prefix work falls only43,243 of1,085,825,152 instructions. The selected
-  wide-copy lane barely reduces whole-prefix work on the compiler fixture;
-  constructor cost alone is not an established cause. Do not reopen this cache
-  based solely on synthetic wins. Larger measured CFG/lower owners take priority.
-
-- [ ] Profile and reduce remaining pure-copy tail scans/typechecking: after the
-  bounded initial scan, blocked width64→256 still costs.882→14.21ms (≈16× for
-  4× width). Measure actual reuse across unchanged bodies/epochs and exact
-  materialization cost before choosing another cache; the per-flat owner above
-  is rejected. Preserve escaping statements,
-  source/target writes, terminal/conditional helpers, env/label/init facts,
-  validation and exact output. No cache survives mutation or an invocation.
-  Test active/blocked dense and nested scalar/reference/trapping cases, ownership,
-  stale-query barriers and tiny controls; recover the recorded+10.30ns tiny cost
-  where safely justified. Do not claim the whole worker is linear yet.
-
-- [ ] Reduce remaining plain no-work compaction costs while retaining all
-  legacy and effect-spanning candidates. Optimizing admission now uses counted
-  capture/unused-local/alias facts; plain still takes its original scan path.
-  Preserve the V47 quality gain and resolve its measured plain-pipeline cost.
-- [ ] Reduce remaining shared suffix-wrapper and repeated future-read/next-if
-  scans after V51 removes terminal searches and caller copies. Preserve source
-  write/read barriers, typed admission and exact output; use active and no-work
-  controls before adopting cached facts or additional admission scans. V53 closes
-  numeric-constant/valid-local leaf state construction. Reduce remaining
-  first-query unknown suffix-candidate initialized-local arrays and repeated
-  setup between cleanup owners without sharing mutable state across callers.
-  V81 closes repeated wide compound query masks and boxed optional-seed
-  arguments; native batches improve 20–43%, with exact bytes and 13,259 tests.
-  Keep +3.01 ns tiny and +49.66 ns leaf-batch costs, plus repeated large
-  optimizing +1.21%, active until measured away. V69 adds necessary release-safe effectful cleanup and
-  saves 26,563 canonical compiler bytes, but large optimizing costs 10.33%;
-  V70 recovers 4.84% on the matched large optimizing pipeline with exact compiler
-  bytes, but tee costs 2.01% and cumulative quality cost is not closed. Remove
-  the remaining cost without reducing cleanup coverage or byte savings. V61 closes repeated wide balanced-statement mask setup
-  with immutable seeds; full-function native rows improve 5–24%, enclosing
-  compiler times stay flat. Preserve full typing and measure other query owners.
-  V70 closes quadratic ordered live-out deduplication with compact word
-  membership; ancestor/subtree rescans remain. V76 closes repeated normalized
-  future-read traversals within one body, preserving terminators, original
-  continuation and legacy facts. Its native wide rows improve 15–92%; retain
-  +6.67 ns tiny, +30/+810 ns reused, +170 ns unchanged and dispersed single-query
-  costs. Reduce remaining common-query admission overhead and repeated scans
-  between distinct cleanup owners. The compiler builds zero masks; its initial
-  +2.87%/+2.25% plain/O and repeated +.54%/+1.22% enclosing costs remain open.
-  Balanced flat cleanup repeatedly scans an immutable original tail, but the
-  simple distinct/reused/nested capture pipeline probe scales roughly linearly.
-  Profile actual compiler query density and preserve direct-write/recursive-read
-  and terminator semantics before adding sparse tail-event caches.
-- [ ] Resolve V82's small enclosing plain/O costs (+1.16%/+1.38%) and
-  attribute larger remaining prepare/lift/typechecking work. Lazy legacy owners
-  close cold full-environment/lowering/body-array setup with exact V81 bytes;
-  cold controls improve 72–87%, active −1.6%, large plain −3.42% and optimizing
-  approximately flat. See [lazy setup evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-lazy-legacy-adaptation-setup).
-- [ ] Resolve V77 remaining deep/control costs. Root admission closes redundant
-  normalization and pairing traversals with exact bytes; unchanged flat/shallow
-  native rows improve 22–60%, active rows 3–6%. All 13,236 tests and 1,376
-  observations pass. Repeated large plain/O improves .75%/2.58%, but initial
-  large costs, small optimizing +1.51%, plain tee +2.34% and dispersed depth-16
-  controls remain active. Preserve all child rewrites and original continuation
-  facts; remove ancestor/subtree repetition without narrowing cleanup.
-- [ ] Refine sparse constant-store scratch and remaining enclosing costs. V74
-  closes dense pending-map allocation (one scoped map → zero) and improves
-  matched native dense rows 20–47%, barriers 64% and no-work 38–47%, retaining
-  exact V73 bytes. The sparse 32-store control costs 8.5%; keep it active.
-  Small optimizing improves 3.38% on repeat; large optimizing +1.34% in a
-  higher/noisy host band remains unresolved. Repeated plain tee costs 8.45%
-  with substantial spread; this helper is not called by plain DAE2 or active
-  tee, so attribute that control separately. Overall artifact parity remains.
-- [ ] Remove duplicated balanced-capture scan/materialization work while keeping
-  legacy smaller-overlap decisions. V32 native controls cost 12–21% more and
-  matched small optimizing is +6.39%; retain these costs until measured away.
-- [ ] Attribute whole-code-section and per-function setup, raw Vacuum preclean,
-  SimplifyLocals admission/mutation safety, child-use queries, lower and
-  writeback guards separately from the actual transform timers.
-  A bounded V78 sample (256 stacks, exact output) identifies allocation/drop/free,
-  descriptor body scans, typechecking and CFG/reverse-row work. Treat it as
-  prioritization evidence, not per-phase counts. Preserve body-dependent
-  descriptor/inference invalidation; test any shared environment facts against
-  changed bodies and exact/descriptor signatures before avoiding full scans.
-  Follow the native profile into skipped-effectful-carrier and balanced-
-  statement-local-get scans; trial body-revision facts or owned scratch for
-  repeated suffix/effect queries before tuning the much smaller inner rewrite.
-- [ ] Reduce remaining pure/effectful/carrier recursive control and array
-  reconstruction after V52 closes unchanged balanced storage and V75 closes
-  unchanged continuation-cleanup arrays/control shells. V75 retains exact bytes,
-  improves native unchanged rows 51–64% and repeated large plain/O 2.39%/3.03%;
-  repeated tee optimizing +1.35% remains open. Prove input ownership and
-  preserve all active rewrites before generalizing reuse. Reuse compact module/body facts and mutation-scoped
-  suffix/effect work where costs remain repeated. Refresh after splices or
-  type/import/signature changes; preserve all five SimplifyLocals variants.
-- [ ] Keep Binaryen's cleanup breadth, including functions unchanged by DAE2.
-  Guarded, unchanged or skipped cleanup does not count as a speedup. Coordinate
-  remaining Vacuum indexed-input and label-guard work with IR2-VACUUM-9155.
-- **Tests / measures:** active tee, GC/entry/pure, nested/effectful/multivalue,
-  dirty rounds, one-arm branch exits and stacked operands; source-order,
-  branch-label and alias lifetimes; enclosing DAE2-O and standalone cleanup.
+- **Goal / owners:** reduce remaining raw SimplifyLocals/Vacuum normalization,
+  query/typechecking and function-envelope work without losing V47/V69/V83
+  quality gains. Complete profiles have nested scopes: named pass transforms
+  omit substantial preparation; never sum inclusive edges with roots.
+  [Attribution](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-2-2026-complete-optimizing-cleanup-instruction-attribution),
+  [accepted mechanisms and rejected cache](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-rejected-per-flat-statement-boundary-cache).
+- [ ] Profile remaining recurrence/adjacent/effectful rewrites, raw Vacuum
+  preclean, preparation, mutation safety, child-use queries and writeback on
+  one frozen source. Completed absent-if census, initial control rejection,
+  tag size bounds, flat recurrence storage, initialized read indexes, unchanged
+  suffix storage and bounded initial dupable-copy discovery must not be repeated.
+- [ ] Reduce remaining pure-copy tail scans/typechecking: blocked width64→256
+  still costs.882→14.21ms (≈16× for4× width). Measure actual query reuse and
+  materialization cost on compiler bodies before another cache. The per-flat
+  statement-end cache lost whole cleanup work (+.175%) and is rejected.
+  Preserve escaping statements, source/target writes, terminal/conditional
+  helpers and env/label/init facts; never retain facts across mutations/callers.
+- [ ] Reduce plain no-work compaction costs while retaining legacy/effect-spanning
+  candidates. Optimizing counted capture/unused-local/alias admission must not
+  narrow the original plain scan or remove necessary V69 effectful cleanup.
+- [ ] Reduce first-query initialized-local/suffix-candidate setup, repeated
+  future-read/next-if and ancestor/subtree scans between distinct cleanup owners.
+  Existing immutable query seeds, wide compound masks, unboxed optional words,
+  terminal-search removal and normalized continuation reuse remain required.
+  The compiler currently builds zero future-read masks: prove actual query
+  density before adding sparse event caches. Keep direct-write/recursive-read,
+  terminator, original continuation and legacy semantics.
+- [ ] Resolve remaining tiny/tee/deep costs under matched controls: bounded
+  discovery+10.30ns; shared suffix-seed tiny+3.01ns/leaf-batch+49.66ns;
+  normalized future-query tiny+6.67ns, reused+30/+810ns, unchanged+170ns;
+  sparse32 constant-store scratch+8.5%; duplicated capture scans12–21%.
+  Historical enclosing control costs retain source/date in the DAE2 dossier;
+  attribution is required when the suspected helper is never called by a lane.
+- [ ] Measure lazy adaptation and normalization prepare/lift/typechecking costs
+  on tiny/tee and deep/shared-control pipelines. Preserve every child rewrite,
+  original continuation, balanced-capture overlap decisions and stored-byte win.
+  Demand-built proof/scratch requires an enclosing time/RSS benefit; whole-HOT
+  retention and the rejected eager/per-flat caches remain rejected.
+- [ ] Attribute descriptor/inference whole-body scans, skipped-effectful-carrier
+  and balanced-statement-local-get queries. Body-dependent facts must invalidate
+  on changed bodies and type/import/exact-or-descriptor signatures; historical
+  bounded stack samples are leads, not per-phase counts or allocation bytes.
+- [ ] Reduce remaining recursive pure/effectful/carrier array/control rebuilding
+  only with proved input ownership and all active rewrites retained. Preserve
+  all five SimplifyLocals variants and cleanup on functions unchanged by DAE2;
+  guarded/no-op/skipped cleanup does not count as equivalent faster work.
+  Coordinate remaining Vacuum indexed/label guards with IR2-VACUUM-9155.
+- **Invariants / tests / exit:** no cleanup-coverage reduction, mutable-state
+  sharing, verification shortcut or byte regression. Test active/blocked dense,
+  nested scalar/reference/SIMD, handlers, traps/effect order, stale-query barriers,
+  sibling snapshots and tiny controls. Require complete matched consumer gains,
+  bounded storage and both DAE2 modes; focused measurements now, aggregate
+  parity/full CI/coverage after the performance campaign.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
@@ -1010,14 +894,17 @@ excess open. [Full spread, size and scope](docs/wiki/tooling/tracing-playbook.md
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
-- **Next measured shared target:** CL lower10.895b instructions and lift
-  local-access conflict3.437b, nested in the49.113b module-pass root. Inspect
-  remaining canonicalization/control-shell ownership and masked conflict traversal
-  before extending caches. Unchanged strip-row reuse is complete; preserve its
-  owned public-output invariant and measured active-rewrite tradeoff. The existing64-bit lift masks remain required; prove
-  collision frequency/consumer benefit before widening them. Separate object
-  drop work from allocated bytes and peakRSS; attribute the138MiB optimizing
-  command RSS excess by phase rather than assuming a cause.
+- **Next measured shared target:** current CL root47.745b instructions;
+  lower-body entry9.061b includes spill entry.190b. Earlier db1412a75 lift
+  local-access conflict entry3.437b still returns32-byte complete node headers
+  for op/imm0/child_count; generated native code confirms both mask/conflict
+  worker calls. Trial checked compact reads only with actual consumer/native
+  proof. Getter cost itself is not attributed from counters alone. Remaining
+  canonicalization/control shells and masked traversal stay active. Unchanged
+  strip and binary-spill storage reuse are complete; preserve public ownership
+  and their recorded tradeoffs. Existing64-bit negative masks remain required;
+  prove collision density/benefit before widening. Separate drop work from
+  allocated bytes/RSS; optimizing's ≈138MiB excess has no proved phase cause.
 - **APIs / invariants:** use checked scalar field getters and complete admission
   proofs; remove remaining full-header boundaries only with generated-native
   evidence. Invalidate compact facts or scratch on node/span/region/local/type
