@@ -4510,24 +4510,34 @@ fn hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
   options : HotLowerOptions,
 ) -> Array[Instruction] {
   let stripped : Array[Instruction] = []
+  let mut cursor = 0
   let mut i = 0
   while i < body.length() {
     match body[i] {
       Unreachable => {
-        stripped.push(body[i])
-        i = i + 1
+        let after_unreachable = i + 1
+        i = after_unreachable
         while i < body.length() {
           match body[i] {
             Nop | Drop | Block(_, Expr([])) => i = i + 1
             _ => break
           }
         }
+        if i > after_unreachable {
+          for prefix = cursor; prefix < after_unreachable; prefix = prefix + 1 {
+            stripped.push(body[prefix])
+          }
+          cursor = i
+        }
         continue
       }
       Nop => {
-        if (options.preserve_nontrailing_nops && i + 1 < body.length()) ||
-          (options.preserve_trailing_nops && i + 1 == body.length()) {
-          stripped.push(body[i])
+        if !((options.preserve_nontrailing_nops && i + 1 < body.length()) ||
+          (options.preserve_trailing_nops && i + 1 == body.length())) {
+          for prefix = cursor; prefix < i; prefix = prefix + 1 {
+            stripped.push(body[prefix])
+          }
+          cursor = i + 1
         }
         i = i + 1
         continue
@@ -4536,25 +4546,35 @@ fn hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
         match body[i + 1] {
           Drop => {
             if options.preserve_dead_local_tee_drops {
-              stripped.push(body[i])
               i = i + 1
               continue
             }
             if hot_lower_impl_body_has_later_local_get(body, i + 2, local_) {
-              stripped.push(body[i])
               i = i + 1
               continue
             }
+            for prefix = cursor; prefix < i; prefix = prefix + 1 {
+              stripped.push(body[prefix])
+            }
             stripped.push(Instruction::local_set(local_))
             i = i + 2
+            cursor = i
             continue
           }
           _ => ()
         }
       _ => ()
     }
-    stripped.push(body[i])
     i = i + 1
+  }
+  // A rewrite always advances cursor past at least one removed instruction.
+  // Unchanged rows remain read-only; changed rows are independently owned.
+  // Public lowering still owns the preceding emitted/canonicalized rows.
+  if cursor == 0 {
+    return body
+  }
+  for tail = cursor; tail < body.length(); tail = tail + 1 {
+    stripped.push(body[tail])
   }
   stripped
 }

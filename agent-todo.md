@@ -788,7 +788,15 @@ breadth. Shared changes require all affected consumers in the matrix below.
   changes are within noise. Focus next on CFG/lift/lower and interference;
   do not reopen the completed nested-prefix proof or claim its helper gain
   as another command saving. Aggregate signoff and canonical quality remain.
-- **Fresh complete module-pass attribution:** exact699648988/native366ed01c,
+- **Lowering storage checkpoint:** unchanged strip rows now retain storage;
+  complete CL instructions49.113b→48.470b (−1.309%), optimizing cleanup
+  20.127b→20.108b (−.094%), exact bytes and13,338 bounded tests/672 fixed
+  observations. Five normal pairs under foreign activity show no CL gain
+  (+.715% paired); optimizing observes−2.459% with broad overlapping spread.
+  PeakRSS is flat and active-tee16 costs+30.90ns. Continue larger owners rather
+  than repeating this completed row-copy change; full parity gates remain.
+  [Measurements and ownership](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-retain-unchanged-lowering-cleanup-rows).
+- **Pre-storage complete module-pass attribution:** exact699648988/native366ed01c,
   fixed6.21MB compiler; root49,112,542,755 instructions. CFG lane35,333,371,034;
   its lower child10,895,209,932, interference child3,273,565,935; lift local-access
   conflict edge3,437,443,491 is nested inside lift. Runtime object-drop exclusive
@@ -996,8 +1004,9 @@ breadth. Shared changes require all affected consumers in the matrix below.
   consumers before accepting shared changes.
 - **Next measured shared target:** CL lower10.895b instructions and lift
   local-access conflict3.437b, nested in the49.113b module-pass root. Inspect
-  unchanged lowering/canonicalization ownership and masked conflict traversal
-  before extending caches. The existing64-bit lift masks remain required; prove
+  remaining canonicalization/control-shell ownership and masked conflict traversal
+  before extending caches. Unchanged strip-row reuse is complete; preserve its
+  owned public-output invariant and measured active-rewrite tradeoff. The existing64-bit lift masks remain required; prove
   collision frequency/consumer benefit before widening them. Separate object
   drop work from allocated bytes and peakRSS; attribute the138MiB optimizing
   command RSS excess by phase rather than assuming a cause.

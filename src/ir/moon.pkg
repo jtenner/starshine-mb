@@ -12,4 +12,5 @@ import {
 
 import {
   "jtenner/starshine/binary",
+  "moonbitlang/core/bench",
 } for "wbtest"

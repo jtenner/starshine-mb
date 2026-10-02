@@ -740,3 +740,57 @@ not a guessed cause. Speed, canonical quality and aggregate gates remain open.
 
 Artifacts: `.tmp/large-pass-hotspots-20261001/main-cl-scope-candidate.*`,
 `main-cl-scope-costs.json`, `profile-main-cl-scope.py`, original manifests/hash.
+
+
+## October 2, 2026: retain unchanged lowering cleanup rows
+
+The private [lower strip worker](../../../../../src/ir/hot_lower.mbt) now returns
+its read-only input when the complete scan makes no edit. On the first and later
+edits, a scalar cursor emits disjoint unchanged prefixes and the final tail.
+It retains all preservation options, later-local-read queries and unreachable
+behavior. No new collection/cache/API or verification shortcut; the existing
+empty scratch row remains. Public lowering's preceding emitted/canonicalized
+rows are owned: direct root/arm mutation preserves the input and later lowering.
+The root-identity regression genuinely failed before implementation.
+
+Exact main45df918c9 baseline CLI366ed01c… versus candidatefd2abde6… on the fixed
+6,211,596 B compiler: complete CL module-pass instructions
+**49,112,542,755→48,469,710,862 (−1.309%)**, complete optimizing cleanup
+**20,126,748,368→20,107,910,056 (−.094%)**. CL strip exclusive instructions
+237,890,824→124,740,504 are nested, not another additive saving. Parsing/final
+CLI validation/encoding are excluded; both bounded profiles complete with exact
+validated outputs. A stale verifier artifact path failed after CL completion;
+normal-exit logs and the actual paired output recover verification without
+rerunning or treating a partial capture as complete.
+
+One warmup/five alternating normal pairs, median±MAD ms:
+
+| Command | Starshine before | After | Binaryen133 | Paired change |
+| --- | ---: | ---: | ---: | ---: |
+| CL |4595.264±46.602|4763.210±84.057|1763.781±9.522|+.715%|
+| DAE2-O |7495.994±120.762|7162.457±266.091|2521.723±62.640|−2.459%|
+
+All rows flag foreign activity; CL has no command win, and the optimizing gain
+has broad overlapping spread. Three separate traced inner diagnostics are
+inconclusive for CL. Do not claim quiet-host speed parity or add unlike scopes.
+Exact wait4 peakRSS KiB(n5) is CL244824±136→244912±16, B217556±24;
+optimizing294328±72→294248±44, B155140±8: no peak-memory win. Full ranges,
+commands, CPU/version/source/input hashes and rows remain in the local report.
+
+Twelve native controls include wide unchanged1.17µs→184.59ns and preserved
+nops2.05µs→353.17ns. Active tee16 instead costs809.44→840.34ns (+30.90ns);
+a noisy repeat does not dismiss this tradeoff. Existing suffix queries can
+still be quadratic. Four [direct regressions](../../../../../src/ir/hot_lower_strip_storage_wbtest.mbt),
+[frozen controls](../../../../../src/ir/hot_lower_strip_storage_perf_wbtest.mbt),
+dispatcher fixture,13,338 bounded wasm-gc tests, info/fmt/check/native build,
+README/API sync and234 validated modules/672 fixed differential observations
+pass. Scalar/i64/GC/traps/order and public root/nested ownership are covered.
+No public interface diff; full aggregate fuzz/coverage/CI and independent
+review remain open. Output hashes stay exact: CL5706503 B, optimizing5563501 B.
+This preserves existing byte improvements, not canonical parity.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/main-lower-strip-performance-20261002.md`,
+`lower-strip-*-pairs/result.json`, `lower-strip-*-manifest.json`,
+`lower-strip-cl-costs.json`, `lower-strip-optimizing-costs.json`, original logs.
+The next measured targets are CFG/lift/capture and interference/coloring;
+already-retained unchanged strip rows need no repeat implementation.

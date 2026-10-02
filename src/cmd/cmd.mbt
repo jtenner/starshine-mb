@@ -10164,3 +10164,26 @@ test "command simplify locals and DAE2 optimizing preserve repeated copy uses an
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command coalesce and DAE2 optimizing preserve lowered nop tee effects and GC reads" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $s (struct (field i32))) (import \"host\" \"tick\" (func $tick)) (global (export \"state\") (mut i32) (i32.const 0)) (func (export \"run\") (param i32) (local i32 i64 (ref null $s)) i32.const 17 global.set 0 call $tick block i32.const 7 local.tee 1 drop nop i64.const 9 local.tee 2 drop end i32.const 7 struct.new $s local.tee 3 drop nop local.get 3 struct.get $s 0 global.set 0 call $tick))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for pass in ["coalesce-locals", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    assert_eq(output.import_sec, input.import_sec)
+    assert_eq(output.global_sec, input.global_sec)
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_eq(body[0], @lib.Instruction::i32_const(@lib.I32(17)))
+    assert_eq(body[1], @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)))
+    assert_eq(body.filter(fn(i) { i is @lib.Call(_) }).length(), 2)
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

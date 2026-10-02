@@ -1,3 +1,12 @@
+### 2026-10-02 — Retain unchanged lowering cleanup rows
+
+- [Lowering storage checkpoint](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-retain-unchanged-lowering-cleanup-rows)
+  retains complete matching/verification and owned public output. Actual red
+  regressions,13,338 bounded tests and672 fixed observations pass with exact
+  bytes. Complete CL instructions fall1.309%, optimizing cleanup.094%; CL
+  command/RSS gains remain unproved, optimizing timing is contended, and the
+  active-tee+30.90ns cost stays visible. Larger owners and release gates remain.
+
 ### 2026-10-02 — Reject scoped statement cache and renew CL attribution
 
 - [Cache rejection and memory evidence](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-rejected-per-flat-statement-boundary-cache)

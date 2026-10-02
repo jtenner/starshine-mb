@@ -4618,3 +4618,29 @@ interferences3.274b. Lift local-access conflict3.437b and object-drop exclusive
 6.645b expose larger candidates than tee/control guards. All nested costs overlap;
 old partial profiles remain historical. Parsing/final CLI validation/encoding
 are outside this collection. No new CL timing improvement is claimed.
+
+
+## October 2, 2026: main lowering storage checkpoint
+
+The [lowering ownership and evidence](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-retain-unchanged-lowering-cleanup-rows)
+reduces complete CL instructions1.309% and optimizing cleanup.094% with exact
+bytes, without new collections or omitted verification. Candidatefd2abde6…,
+baseline366ed01c…, fixed6,211,596 B compiler and verified v133; one warmup/five
+alternating normal commands on CPU6, all foreign-activity flagged:
+
+| Pass | S before median±MAD ms | S after | B133 | Paired change |
+| --- | ---: | ---: | ---: | ---: |
+| CL |4595.264±46.602|4763.210±84.057|1763.781±9.522|+.715%|
+| DAE2-O |7495.994±120.762|7162.457±266.091|2521.723±62.640|−2.459%|
+
+CL has no command win; optimizing's observed gain overlaps spread. The higher
+host band does not establish a regression from earlier accepted commits.
+Separate traced timers are diagnostic. Neither peakRSS improves measurably;
+the active-tee native cost+30.90ns is retained. Source/input/binary/option hashes,
+full ranges, RSS rows and runtime import normalization are in the existing pass
+dossier/local report. A post-profile stale verifier-path error is recovered by
+normal-exit logs and actual output equality, not by accepting partial data.
+13,338 bounded tests and672 fixed observations pass; bytes stay exact, canonical
+optimizing+99,251 B and all release aggregate/coverage/full gates remain open.
+Plain DAE2/OI keep the preceding matched matrix's exact older binary/date/scope;
+these two renewed rows do not relabel the earlier four-pass matrix.
