@@ -1,3 +1,14 @@
+### 2026-10-02 — Bound speculative branch-payload work
+
+- [Branch-value cost admission](binaryen/passes/remove-unused-brs/branch-exit-and-payload-rewrites.md#branch-value-speculation-cost-october-2-2026)
+  applies Binaryen #9187's unconditional-cost policy to Starshine's direct and
+  prefixed payload-bearing `if` to `br_if` paths. Cheap work remains eligible;
+  costly arithmetic and allocation stay conditional below the permitted shrink
+  levels. Red tests precede the fix; 269 pass-file and 76 command tests
+  pass, plus three short native pipeline controls. New admission guards add no
+  collections or HOT nodes. This bounded slice does not close broad pass
+  signoff; no v133 executable oracle or long fuzz matrix was run.
+
 ### 2026-10-01 — Retire unread optimizing body writes
 
 - [Unread-write evidence](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-retire-unread-optimizing-body-writes)
