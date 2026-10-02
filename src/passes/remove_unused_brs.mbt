@@ -2121,6 +2121,37 @@ fn remove_unused_brs_selectify_cost(func : @ir.HotFunc, node_id : Int) -> Int {
 }
 
 ///|
+fn remove_unused_brs_unconditional_cost_too_high(
+  ctx : HotPassContext,
+  cost : Int,
+) -> Bool {
+  if ctx.shrink_level <= 0 {
+    cost > 4
+  } else {
+    ctx.shrink_level < 2 && cost >= 8
+  }
+}
+
+///|
+fn remove_unused_brs_branch_payload_too_costly(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  branch_id : Int,
+) -> Bool {
+  if ctx.shrink_level >= 2 {
+    return false
+  }
+  let mut cost = 0
+  for slot = 0; slot < @ir.hot_child_count(func, branch_id); slot = slot + 1 {
+    cost += remove_unused_brs_selectify_cost(
+      func,
+      @ir.hot_child_get(func, branch_id, slot),
+    )
+  }
+  remove_unused_brs_unconditional_cost_too_high(ctx, cost)
+}
+
+///|
 fn remove_unused_brs_selectify_too_costly(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2133,11 +2164,7 @@ fn remove_unused_brs_selectify_too_costly(
   let then_cost = remove_unused_brs_selectify_cost(func, then_root)
   let else_cost = remove_unused_brs_selectify_cost(func, else_root)
   let max_cost = if then_cost > else_cost { then_cost } else { else_cost }
-  if ctx.shrink_level <= 0 {
-    max_cost > 4
-  } else {
-    max_cost >= 8
-  }
+  remove_unused_brs_unconditional_cost_too_high(ctx, max_cost)
 }
 
 ///|
@@ -6753,6 +6780,9 @@ fn remove_unused_brs_try_rewrite_one_arm_payload_branch_if(
     if @ir.hot_label_branch_arity(func, target) != 1 {
       return false
     }
+    if remove_unused_brs_branch_payload_too_costly(ctx, func, branch_root) {
+      return false
+    }
     let payloads : Array[Int] = []
     for child_idx = 0
         child_idx < @ir.hot_child_count(func, branch_root)
@@ -6841,6 +6871,22 @@ fn remove_unused_brs_try_rewrite_prefixed_one_arm_payload_branch_if_suffix(
   }
   let target = @ir.hot_control_node_label(func, holder)
   let then_ref = @ir.hot_region_then_ref(func, if_id)
+  if @ir.hot_region_root_count(func, then_ref) != 1 {
+    return false
+  }
+  let branch_root = @ir.hot_region_get(func, then_ref, 0)
+  if branch_root < 0 || !@ir.hot_node_is_live(func, branch_root) {
+    return false
+  }
+  let branch_node = @ir.hot_node_get(func, branch_root)
+  match branch_node.op {
+    @ir.HotOp::Br if branch_node.imm0 == target => ()
+    _ => return false
+  }
+  // Check existing payload children before the value builder can allocate.
+  if remove_unused_brs_branch_payload_too_costly(ctx, func, branch_root) {
+    return false
+  }
   let result_type = @ir.hot_type_results(func, @ir.hot_node_type(func, holder))[0]
   let payload_value = match
     remove_unused_brs_build_stack_exit_region_value_expr(

@@ -1,13 +1,14 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-02
 sources:
   - ./index.md
   - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/cmd/cmd.mbt
+  - https://github.com/WebAssembly/binaryen/commit/b125d2e19542df72458bc916a2d0aa4bf72500fd
 related:
   - ./pattern-catalog.md
   - ./select-and-condition-rewrites.md
@@ -121,6 +122,48 @@ The replacement shape is:
 - followed by the surviving body roots
 
 This is the main direct one-arm payload family, but not the only one. More complicated carried-wrapper versions live on the carried-guards page.
+
+### Branch-value speculation cost (October 2, 2026)
+
+The direct helper and
+`remove_unused_brs_try_rewrite_prefixed_one_arm_payload_branch_if_suffix`
+check branch-value cost before moving a conditional payload ahead of `br_if`.
+They reuse the existing selectify cost walk and threshold policy: reject costs
+above 4 at shrink level 0, reject costs of at least 8 at shrink level 1, and
+bypass the cost walk at shrink levels 2 and higher. This is the narrow local
+counterpart of [Binaryen #9187 / b125d2e](https://github.com/WebAssembly/binaryen/commit/b125d2e19542df72458bc916a2d0aa4bf72500fd).
+
+Admission sums existing branch children without new arrays, worklists or HOT
+nodes. The prefixed path first verifies a sole live branch to its holder, then
+checks cost before its region-value builder; rejected payloads do not create a
+temporary result block. Generated native C has no direct allocation calls in
+the new cost/threshold guards; total allocations inside the reused estimator
+were not measured. Existing legality checks and payload-free branch handling
+remain separate.
+
+Bounded public-pipeline tests cover costs 0/4/5/7/8 at shrink levels 0/1/2,
+with no else, a then-arm branch and an else-arm branch. Nontrapping `i32.rem_u`
+and `struct.new_default` witnesses catch unwanted unconditional work; an active
+CLI-dispatch test protects option propagation. These are executable local
+regressions against the previously eager paths, not full pass closeout or
+Binaryen-v133 executable-oracle signoff. A verified v133 oracle is unavailable
+in this checkout; long fuzzing and artifact-wide comparisons are outside this
+bounded update.
+
+Final focused validation passes `moon info`, `moon fmt`, all 269 tests in
+`remove_unused_brs_test.mbt`, and all 76 tests in `src/cmd/cmd.mbt`. Five new
+pass tests and one dispatcher test cover 52 bounded fixture/option combinations.
+The red-test commit records four intended pass failures and one dispatcher
+failure before the implementation.
+
+A short native-release benchmark runs 32 identical branch-payload functions per
+sample, with fixtures prepared and validated before measurement. Pipeline
+means are 1.15 ms (cost 0, shrink 0), 934.26 µs (cost 8, shrink 0), and 1.82 ms
+(cost 8, shrink 2), across ten measured batches per control. Timings include
+lift/pass/lower with final module validation disabled after preflight. They
+are descriptive post-change controls, not before/after, pass-local, or Binaryen
+speed comparisons. Moon 0.1.20260920 and GCC 14.2.0 were used on x86_64.
+
 
 The direct rewrite now also has one whole-function negative parity guard.
 
