@@ -4788,3 +4788,39 @@ validated modules/1824 fixed observations pass, no API change or long fuzz.
 Exact range/flags/source/output hashes/rows in the dossier and local
 `.tmp/large-pass-hotspots-20261001/main-lower-use-counts-performance-20261002.md`.
 Final aggregates/CI/coverage and the1× target remain open.
+
+
+## October 2, 2026: main direct result-stack checkpoint
+
+[Complete result-stack evidence](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-avoid-temporary-arrays-in-lower-result-stacks)
+uses main43da34011/c93901ee…→c4165396…, same6.21MB compiler/v133/CPU6.
+Actual owned-result native call1→0; complete CL instructions−.586449%, nested
+lower−3.706198%. All13,362 tests, six release controls,660 validated modules/
+1920 observations and API sync pass; raw hashes/V83 unchanged.
+
+Normal one-warmup/n5 alternating median±MAD ms; latest CL repeat is separate
+from the initial four-pass cohort retained in the dossier:
+
+| Pass | S | B133 | S/B |
+| --- | ---: | ---: | ---: |
+| DAE2 | 4000.468±71.176 | 1174.730±32.875 | 3.41× |
+| DAE2-O | 6351.003±35.572 | 2335.604±8.912 | 2.72× |
+| CL repeat | 4351.828±26.160 | 1787.193±4.291 | 2.44× |
+| OI | 2215.836±6.229 | 928.787±3.496 | 2.39× |
+
+Initial paired changes+2.102/+.792/+2.996/+.274%; justified CL repeat−1.042%.
+Foreign activity on every row, no consistent/quiet-host clock claim. RSS is not
+a win: repeat CL+4076KiB median, both binaries also reach≈249MB initially;
+plain/CL pool/lifetime modes and optimizing≈138MiB excess remain unexplained.
+
+Independent matched one-warmup/n3 tracing/debug1 timers and exact traced-vs-normal
+hash checks renew named scopes: DAE2 S3005.985/B431.100ms; CL3359.694/B1137.040;
+OI79.059/B239.510; OO S5480.129, B explicit DAE2/SL/Vacuum per-row sum recorded
+locally. Binaryen debug1 serializes function passes and adds verification outside
+timers; Starshine module and narrow HOT timers include different surrounding
+work. Never compare debug command wall to normal CLI or infer OI overall parity
+from its narrow timer. Full raw rows/ranges/phase/bytes/RSS/source/binary hashes:
+`.tmp/large-pass-hotspots-20261001/main-lower-result-stack-performance-20261002.md`.
+Next CL lead is unused full use-def discovery; DAE2 dependency/lift, optimizing
+cleanup and OI command envelope remain priorities. Canonical quality,1× and
+final aggregate/CI/coverage gates remain open.

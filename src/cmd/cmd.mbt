@@ -10303,3 +10303,32 @@ test "command DAE2 modes and Coalesce retain nested results with compact lowerin
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command large-module pass routes preserve mixed tuple results while eliminating dead arguments" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func $helper (param i32 i32) (result i32 i64) local.get 0 i64.const 9) (func (export \"run\") (param i32) (result i32) (local i64 i32) local.get 0 i32.const 99 call $helper local.set 1 local.set 2 local.get 2 local.get 1 i32.wrap_i64 i32.add))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for
+    pass in [
+      "dae2", "dae2-optimizing", "coalesce-locals", "optimize-instructions",
+    ] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    let env = @validate.empty_env().with_module(output)
+    guard env.get_functype_by_funcidx(@lib.FuncIdx::new(0U))
+      is Some(@lib.FuncType(params, results)) else {
+      fail("tuple helper signature must remain present")
+    }
+    assert_eq(results, [@lib.ValType::i32(), @lib.ValType::i64()])
+    if pass == "dae2" || pass == "dae2-optimizing" {
+      assert_eq(params, [@lib.ValType::i32()])
+    }
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

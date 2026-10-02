@@ -1,5 +1,14 @@
 ### 2026-10-02 — Use compact counts throughout lowering
 
+- **2026-10-02 — Direct lowering result rows:** removed temporary result arrays
+  with owned public queries unchanged; actual native call1→0 and complete CL
+  instructions−.586449%.13,362 tests/660 validated modules/1920 observations
+  pass with exact bytes. Initial normal clocks do not consistently improve;
+  justified CL repeat−1.042%, RSS-mode shift remains unresolved. Renewed four
+  named pass timers separately from normal CLI;1×/quality/release gates open.
+  [Evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-avoid-temporary-arrays-in-lower-result-stacks).
+
+
 - [Complete count contract and measurements](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-use-compact-counts-throughout-lowering)
   replaces unused full use-site/local overlays with existing exact counts.
   Complete CL work falls3.7074%, nested lower19.6033%; matched paired large

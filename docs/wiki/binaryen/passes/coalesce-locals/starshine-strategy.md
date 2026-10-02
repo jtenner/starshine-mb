@@ -1111,3 +1111,68 @@ retaining another cache. Existing DAE2 CFG/read-source and cleanup/validation/OI
 owners remain. Local report and all exact manifests/results:
 `.tmp/large-pass-hotspots-20261001/main-lower-use-counts-performance-20261002.md`,
 `lower-use-counts-*`. Completed mechanisms move here; active tasks stay in backlog.
+
+
+## October 2, 2026: avoid temporary arrays in lower result stacks
+
+[`hot_lower_impl_push_results`](../../../../../src/ir/hot_lower.mbt) reads stored
+result shapes directly, preserving scalar/tuple lane order, all checks, the
+unresolved-block error and independently writable public `hot_type_results`.
+No new object/cache/API/IR representation; stack-value objects still allocate.
+[Field/ownership tests](../../../../../src/ir/hot_lower_result_stack_wbtest.mbt),
+[dedicated controls](../../../../../src/ir/hot_lower_result_stack_perf_wbtest.mbt)
+and the mixed-tuple dispatcher fixture cover repeated pushes, void/scalar/GC,
+resolved blocks and active DAE2 removal. Actual native owned-query call1→0
+fails on the predecessor and passes on the candidate.
+
+Main43da34011/c93901ee… baseline, candidate c4165396…; same compiler
+SHA98189860…/verified v133 SHA8f25e9fd…, CPU6/GCC14.2/O2/mimalloc.
+Accepted bounded300s full CL capture exits normally with exact validated output:
+root45,745,669,624→45,477,394,646 (−.586449%); nested lower7,283,301,643→
+7,013,368,094 (−3.706198%); nested result-push574,473,589→301,119,321
+(−47.583435%). Do not sum nested costs or use off-scope allocator counts.
+Explicit release native controls, ten-batch mean±σ ns: void16.19±.16→11.64±.06;
+scalar32.43±.13→21.53±.20; tuple73.43±.26→50.63±.09.
+
+Normal one-warmup/n5 alternating CLI medians±MAD ms:
+
+| Pass | Before | After | B133 | Paired change |
+| --- | ---: | ---: | ---: | ---: |
+| DAE2 | 3911.495±121.598 | 4000.468±71.176 | 1174.730±32.875 | +2.102% |
+| DAE2-O | 6325.451±17.035 | 6351.003±35.572 | 2335.604±8.912 | +.792% |
+| CL | 4400.999±20.867 | 4691.291±92.225 | 1801.694±18.412 | +2.996% |
+| OI | 2205.672±3.265 | 2215.836±6.229 | 928.787±3.496 | +.274% |
+
+Every row flags foreign CPU activity; this cohort has no consistent clock win.
+One justified bounded CL repeat retains all original data:4398.143±25.927→
+4351.828±26.160ms/B1787.193±4.291, paired−1.042%; reduced instructions
+corroborate a small consumer gain, not quiet-host1× signoff. RSS is not a win:
+repeat median244744±732→248820±408KiB (+4076KiB); both binaries reach≈249MB
+in the initial cohort. Phase/lifetime/pool-mode cause remains unresolved.
+
+Independent one-warmup/n3 alternating traced/debug timers, all hashes equal
+normal artifacts: DAE2 S3005.985±23.209/B431.100±.522ms;
+CL3359.694±3.030/B1137.040±2.870; OI79.059±.011/B239.510±2.282.
+OO S5480.129±6.657ms; v133 runs explicit DAE2/SL/Vacuum. Binaryen debug1
+runs function passes serially and verifies outside timers; Starshine module
+DAE2/CL include lift/lower/checks, while OI narrow timer excludes substantial
+raw setup/cleanup. These scopes are not equivalent total-work ratios or normal
+command walls. Exact OO per-row sums and all spread/phase rows live in the report.
+OI's narrow gain does not close its≈2.39× normal CLI gap.
+
+All13,362 default wasm-gc tests, six native controls, info/fmt/check/native
+release build and README/API sync pass; no .mbti changes. Four fixed v133 lanes
+validate660 modules/check1920 observations, including mixed numeric/GC tuples,
+effects/state/memory/traps/finite FP. Before/after raw hashes remain exact; V83
+and all size improvements preserved. Canonical gaps, memory modes and final
+aggregate/CI/coverage remain open; no long fuzz. Manual review, no independent
+agent. Local exact report:
+`.tmp/large-pass-hotspots-20261001/main-lower-result-stack-performance-20261002.md`.
+
+Next larger CL lead is unnecessary full use-def construction: baseline c939
+attributes1.384b instructions to node/local-use discovery inside the2.094b
+builder, though liveness consumes only block sets. A narrow actual constructor
+must reuse the complete block scanner/shape validation/solver and retain full
+HotUseDef APIs, fresh-snapshot and exceptional-edge behavior. Do not disguise an
+incomplete overlay as a complete graph. DAE2 dependency/lift and optimizing
+cleanup remain larger campaign owners;1× parity is not achieved.

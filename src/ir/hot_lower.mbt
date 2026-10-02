@@ -363,8 +363,20 @@ fn hot_lower_impl_push_results(
   id : NodeId,
   stack : Array[HotLowerStackValue],
 ) -> Unit {
-  for val_type in hot_type_results(func, hot_node_type(func, id)) {
-    stack.push({ node_id: id, val_type, })
+  // Stack bookkeeping only reads interned result rows. Keep the public
+  // hot_type_results query owned, but avoid its scalar arrays and tuple copies.
+  match hot_type_get(func, hot_node_type(func, id)) {
+    VoidType | BlockResult(VoidBlockType) => ()
+    Value(val_type) | BlockResult(ValTypeBlockType(val_type)) =>
+      stack.push({ node_id: id, val_type, })
+    BlockResult(TypeIdxBlockType(_)) =>
+      abort(
+        "type-index block types are not supported by the current hot type queries",
+      )
+    BlockResultResolved(_, _, values) | Results(values) =>
+      for val_type in values {
+        stack.push({ node_id: id, val_type, })
+      }
   }
 }
 

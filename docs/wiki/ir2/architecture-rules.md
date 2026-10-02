@@ -664,6 +664,12 @@ separates helper gains from full-pipeline evidence.
   `HotUseDef`. No graph fields are silently omitted from a full graph API. See
   [control/sharing/snapshot regressions](../../../src/ir/hot_lower_use_counts_wbtest.mbt)
   and [enclosing performance evidence](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-use-compact-counts-throughout-lowering).
+- Private lowering result-stack bookkeeping reads stored scalar/tuple/control
+  result rows directly without returning a borrowed mutable view. Lane order,
+  unresolved-type errors and independently writable public result queries remain
+  unchanged. No temporary result array is needed; stack-value objects still
+  allocate. See [field/ownership tests](../../../src/ir/hot_lower_result_stack_wbtest.mbt)
+  and [consumer evidence and RSS limits](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-avoid-temporary-arrays-in-lower-result-stacks).
 - HOT result arity reads the stored shape directly; `hot_type_results` still
   returns independently writable result arrays. Small type tables compare
   immutable structural shapes before formatting keys, with the existing map
