@@ -4362,3 +4362,28 @@ payload replay; optimizing remains 62 versus 79. Fine exclusive candidate
 validation/transform wall timers were unavailable; use instruction attribution,
 not inferred milliseconds. Aggregate fuzz/coverage/full release signoff and
 independent human code review remain unavailable/deferred for this pilot.
+
+
+## Callgrind collection scope and allocation counters
+
+`--collect-atstart=no --toggle-collect=<exact-nonrecursive-worker>` bounds
+instruction events, but does not bound every call count in the shared call
+graph. A callee invoked inside and outside the collected scope can retain all
+calls while its instruction cost counts only collected executions. A local
+four-call `malloc` probe, with two calls inside the toggled wrapper, reports
+`calls=4` with the instruction cost of two executions. Retained source, executable
+and raw dump: `.tmp/large-pass-hotspots-20261001/callgrind-scope-probe.*`.
+
+Consequently, summing incoming `mi_malloc` edges from a toggled profile is not
+an exclusive scoped allocation count. Label those totals as mixed shared-call-site
+counts, and do not turn them into scoped allocation percentages. Full-command
+collection remains suitable for whole-command totals. A directly toggled leaf
+worker's own allocation site has no off-scope invocations; its direct edge can
+support that worker's allocation count. Public wrapper allocations outside a
+new worker must still be accounted for. Preserve instruction/counter scopes in
+manifests and distinguish calls, allocated bytes and peak live objects.
+
+The October 2 DAE2 proof retains its scoped instruction reduction (19.60%) and
+source-order factory reduction. Its initial 2.93% **scoped allocation** claim is
+superseded by this accounting correction. The October 1 OI full-command
+instruction/allocation comparisons retain their full-command scope.

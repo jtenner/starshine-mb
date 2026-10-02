@@ -6451,14 +6451,23 @@ Binaryen optimizing uses `--dae2 --simplify-locals --vacuum`, all features;
 Starshine uses its canonical `--dae2-optimizing` dispatcher.
 
 A second exact-wrapper Callgrind run independently reduces analyzed instructions
-12,454,268,953→10,013,628,335 (−19.60%) and scoped allocator calls
-30,810,544→29,907,661 (−2.93%). CFG falls to 5,328,564,736 instructions
+12,454,268,953→10,013,628,335 (−19.60%). CFG falls to 5,328,564,736 instructions
 (−31.42%); read-source work stays 2,018,300,839. All 8,354 analyzed functions and
 7,926 CFG/read-source builds remain. Source-order factories fall 7,926→411;
 the conservative proof costs 478,937,128 instructions, already included in the
-candidate total. Counts describe executed work and allocator calls, not allocated
-bytes or peak live objects. Both profile outputs independently validate and
-match exact hashes.
+candidate total. Both profile outputs independently validate and match exact hashes.
+
+**Profiler-scope correction:** the initially recorded allocator-call totals
+30,810,544→29,907,661 come from shared call sites in the collected call graph;
+they do **not** establish a scoped 2.93% allocation reduction. Callgrind keeps
+call counts while collection is off: a four-call retained `malloc` probe, with
+only two calls inside the toggled wrapper, reports `calls=4` and instructions
+for two calls. The instruction totals above remain correctly scoped. Use a
+full-command profile for global allocation totals, or a directly toggled worker
+whose allocation site cannot execute outside collection. See the
+[profiling rule](../../../tooling/tracing-playbook.md#callgrind-collection-scope-and-allocation-counters).
+This explicitly supersedes the initial allocation-scope claim; allocator call
+counts are also not allocated bytes or peak live objects.
 
 [Red-first regressions](../../../../../src/ir/cfg_lazy_source_order_wbtest.mbt)
 cover no-future and forward regions, real carried reads across writes, shared-DAG

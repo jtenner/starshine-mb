@@ -1,3 +1,12 @@
+### 2026-10-02 — Qualify Callgrind allocation scope
+
+- [Collection and counter rule](tooling/tracing-playbook.md#callgrind-collection-scope-and-allocation-counters)
+  records a four-call/two-collected-call probe. Shared call-site allocation
+  counters are not exclusive scoped totals; the DAE2 dossier and backlog
+  correct that claim explicitly. Scoped instruction evidence remains valid,
+  as do the prior whole-command OI counters. Future worker allocation claims
+  require direct-site or full-command attribution.
+
 ### 2026-10-02 — DAE2 CFG ordering demand checkpoint
 
 - [CFG ordering proof and evidence](binaryen/passes/dae2/starshine-strategy.md#october-2-2026-prove-empty-cfg-ordering-demand-before-constructing-facts)
