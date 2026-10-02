@@ -4470,3 +4470,56 @@ Artifacts: `.tmp/large-pass-hotspots-20261001/large-matrix-20261002/{result,rows
 local report. This source checkpoint precedes the separate unchanged-recurrence
 row pilot; that pilot needs its own before/after evidence. No long fuzz,
 coverage/full CI gate or independent-agent review was run for this checkpoint.
+
+
+## October 2, 2026: main read-index checkpoint
+
+This subsequent checkpoint follows the main integration and
+[initialized read-index reuse](../binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-retain-initialized-continuation-read-indexes).
+Base commit7f8cc5b3b plus the recorded dirty pilot uses final native SHA-256
+`75dd44c3bb8e211724989144bccb550bd1316cbb880203d3b630f9274d7e2ef7`;
+production read-set source SHA-256
+`deee264cdbffb154f6973c1d0d7bf88025814204774472707bd16c2920a24263`.
+Toolchain, input, verified v133 oracle, CPU6 and command mappings match the
+preceding checkpoint. Build is excluded; one warmup and three alternating
+normal fresh-process samples per tool/pass, tracing and Binaryen debug unset.
+These are filesystem-warm CLI times, not cold-cache or resident warm-pass times.
+All measured rows record foreign CPU activity, including a large unrelated
+compile during the final CL row. Do not interpret this as quiet-host signoff
+or estimate this single fix from differences against the earlier matrix.
+
+| Pass | Starshine ms ± MAD | Binaryen133 ms ± MAD | Ratio | Excess ms | Raw bytes S / B |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 4403.601 ± 33.059 | 1292.056 ± 44.009 | 3.41× | 3111.545 | 6115221 / 6232586 |
+| dae2-optimizing | 7238.023 ± 91.216 | 2428.617 ± 16.123 | 2.98× | 4809.406 | 5563501 / 5573450 |
+| coalesce-locals | 5057.458 ± 65.304 | 2030.738 ± 28.268 | 2.49× | 3026.719 | 5706503 / 5627625 |
+| optimize-instructions | 2631.101 ± 8.543 | 1032.556 ± 3.744 | 2.55× | 1598.544 | 6205998 / 6172971 |
+
+Ranges, n=3 each:
+
+- dae2: Starshine4370.542–4514.779; oracle1244.269–1336.065 ms.
+- dae2-optimizing: Starshine7146.807–7405.003; oracle2412.494–2460.961 ms.
+- coalesce-locals: Starshine4992.153–6781.249; oracle2002.470–2121.866 ms.
+- optimize-instructions: Starshine2622.558–2718.422; oracle1002.674–1036.301 ms.
+
+All normal outputs validate, are deterministic and differ from input; their
+hashes match the earlier quality checkpoint. Activity is aggregate: unchanged
+and guarded functions still exist and no work coverage is reduced. No fresh
+inner/debug matrix was run here; the earlier diagnostic scopes retain their
+source/date and must not be relabeled current. The independently paired pilot
+measures the fix itself: complete cleanup instruction work −7.85%, normal
+optimizing paired median −2.72% under contention, traced inner wall inconclusive.
+
+Current command priorities by absolute excess remain optimizing≈4.81s,
+DAE2/shared CFG/lift/lower≈3.11s, CL≈3.03s, OI≈1.60s. The raw optimizing
+9,949-byte win and preserved canonical99,251-byte deficit are separate.
+CL and OI raw deficits are78,878 and33,027bytes respectively; historical
+canonical deficits are separate normalization evidence, not these raw rows.
+No allocation/RSS saving or general speed/output parity is asserted.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/large-matrix-main-readset-20261002/`,
+`measure-main-readset-matrix.py`, final/measured native manifests and
+`readset-copy-final-source-review.json`. The final rebuild differs from the
+paired pilot executable4565f45c… in44 text bytes within command repro-note
+routines; all read-set method machine-code bytes are identical. Their hashes
+remain distinct. Current four-pass numbers use the exact final executable.

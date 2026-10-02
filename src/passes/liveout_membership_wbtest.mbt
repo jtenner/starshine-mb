@@ -50,7 +50,7 @@ test "cleanup read sets keep tiny scans, sparse membership and independent copie
   assert_true(tiny.members is Some(_))
   assert_false(tiny.contains(-1))
   let sibling = tiny.copy()
-  assert_true(sibling.members is None)
+  assert_true(sibling.members is Some(_))
   sibling.insert(-1)
   assert_true(sibling.contains(-1))
   assert_false(tiny.contains(-1))

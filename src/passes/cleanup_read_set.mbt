@@ -4,18 +4,30 @@
 priv struct SlCleanupReadSet {
   reads : Array[Int]
   mut word : Int
+  mut members_shared : Bool
   mut bits : UInt64
   mut members : Map[Int, UInt]?
 }
 
 ///|
 fn SlCleanupReadSet::new(reads : Array[Int]) -> SlCleanupReadSet {
-  { reads, word: 0, bits: 0UL, members: None, }
+  { reads, word: 0, bits: 0UL, members: None, members_shared: false, }
 }
 
 ///|
 fn SlCleanupReadSet::copy(self : SlCleanupReadSet) -> SlCleanupReadSet {
-  SlCleanupReadSet::new(self.reads.copy())
+  let copied = SlCleanupReadSet::new(self.reads.copy())
+  copied.word = self.word
+  copied.bits = self.bits
+  // Keep initialized membership instead of rebuilding it from every read.
+  // Both owners detach before updating an overflow word. Read-only copies
+  // need no map allocation; the ordered rows and first-word bits stay owned.
+  if self.members is Some(_) {
+    self.members_shared = true
+    copied.members = self.members
+    copied.members_shared = true
+  }
+  copied
 }
 
 ///|
@@ -78,7 +90,15 @@ fn SlCleanupReadSet::index_read(
     self.bits = self.bits | bit
   } else {
     let members = match self.members {
-      Some(members) => members
+      Some(members) =>
+        if self.members_shared {
+          let owned = members.copy()
+          self.members = Some(owned)
+          self.members_shared = false
+          owned
+        } else {
+          members
+        }
       None => {
         let members : Map[Int, UInt] = Map([])
         self.members = Some(members)

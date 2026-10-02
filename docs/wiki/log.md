@@ -1,3 +1,14 @@
+### 2026-10-02 — Retain initialized continuation read indexes
+
+- [Owned read-index reuse](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-retain-initialized-continuation-read-indexes)
+  removes repeated membership rebuilding while preserving owned ordered rows
+  and detaching shared maps before either owner writes. Real red regressions,
+  13,325 wasm-gc tests,14 native controls and312 fixed observations pass; bytes
+  stay exact. Current complete large cleanup instructions fall7.85%; five
+  normal optimizing pairs observe2.72% improvement under contention, with
+  inconclusive separate traced timings. The native payload remains32 B;
+  mutation overhead and remaining release gaps are explicit. Work is on main.
+
 ### 2026-10-02 — Bound speculative branch-payload work
 
 - [Branch-value cost admission](binaryen/passes/remove-unused-brs/branch-exit-and-payload-rewrites.md#branch-value-speculation-cost-october-2-2026)

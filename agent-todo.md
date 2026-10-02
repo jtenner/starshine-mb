@@ -11,11 +11,25 @@ oracle versions and checkpoints do not sign current source.
 
 - **Goal / why:** make Starshine competitive before release by closing pass,
   pipeline, command and output-quality gaps without removing transformations.
+- **Current execution checkout:** work directly on `main` in the primary local
+  repository, as requested October 2. The performance branch and latest remote
+  correctness fixes are integrated; preserve historical branch measurements
+  under their frozen source versions. Do not create another performance worktree.
 - **Execution priority:** finish P03 DAE2/DAE2-O first, especially remaining HOT
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **October 2 renewed large matrix:** production `971cd0b68`, verified v133,
+- **Current main large matrix:** base7f8cc5b3b plus read-index pilot, final
+  binary75dd44c3…, verified v133, one warmup/three alternating normal CLI rows:
+  DAE2 4403.601/1292.056 ms (3.41×), DAE2-O7238.023/2428.617 (2.98×),
+  CL5057.458/2030.738 (2.49×), OI2631.101/1032.556 (2.55×). All rows flag
+  foreign activity; final CL row has substantial unrelated compile contention.
+  Absolute excess priorities: optimizing≈4.81s, plain/shared CFG/lower≈3.11s,
+  CL≈3.03s, OI≈1.60s. Outputs remain exact; no fresh inner matrix or quiet-host
+  parity claim. Keep the separate paired read-index evidence below distinct
+  from this cohort and all earlier matrices.
+  [Current commands, spreads and provenance](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-read-index-checkpoint).
+- **Earlier October 2 large matrix:** production `971cd0b68`, verified v133,
   three alternating normal CLI samples: DAE2 4303.065/1195.969 ms (3.60×),
   DAE2-O 7460.968/2423.250 (3.08×), CL5056.280/1937.773 (2.61×),
   OI2398.466/973.832 (2.46×). All rows record foreign activity; these are
@@ -485,6 +499,16 @@ breadth. Shared changes require all affected consumers in the matrix below.
   (three alternating CLI pairs, paired −9.95%, all foreign-activity flagged),
   with 15.10% less complete cleanup instruction work. This preserves individual
   inconclusive rows and does not establish speed parity or quiet-host signoff.
+  Initialized continuation read indexes now survive owned row copies; shared
+  overflow maps detach before writes in either owner. Current matched cleanup
+  instructions fall 22,691,343,936→20,910,594,832 (−7.85%). Five normal optimizing
+  pairs observe 7257.114→7059.562 ms, paired −2.72%, v1332434.423 ms; all rows
+  are contended and the separate traced inner cohort is inconclusive. The native
+  set payload stays32 B; parent/child updates incur measured detachment work.
+  All13,325 wasm-gc tests,14 native controls and312 fixed observations pass;
+  exact compiler bytes remain unchanged. Continue with raw normalization,
+  effectful/pure suffix work, Vacuum admission and shared CFG/lower owners.
+  [Ownership, costs and controls](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-retain-initialized-continuation-read-indexes).
 
 
 - [ ] Reduce remaining plain no-work compaction costs while retaining all

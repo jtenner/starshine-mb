@@ -10086,3 +10086,32 @@ test "command simplify locals and DAE2 optimizing keep active additive recurrenc
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command simplify locals and DAE2 optimizing preserve wide continuation state writes" {
+  let locals = Array::make(128, "i32").join(" ")
+  let reads = Array::makei(64, fn(index) { "local.get \{index} drop" }).join(
+    " ",
+  )
+  let input = @passes.pass_test_module_from_wat(
+    "(module (global (export \"state\") (mut i32) (i32.const 0)) (func (export \"run\") (param i32) (result i32) (local \{locals}) i32.const 17 global.set 0 local.get 0 i32.const 1 i32.and if loop local.get 65 global.set 0 end else local.get 0 local.set 65 local.get 65 global.set 0 end \{reads} local.get 64 drop local.get 128 drop global.get 0))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for pass in ["simplify-locals", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_eq(body[0], @lib.Instruction::i32_const(@lib.I32(17)))
+    assert_eq(body[1], @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)))
+    assert_eq(
+      body[body.length() - 1],
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    )
+    assert_eq(output.global_sec, input.global_sec)
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

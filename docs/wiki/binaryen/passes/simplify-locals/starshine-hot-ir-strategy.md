@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-10-02
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/cleanup_read_set.mbt
+  - ../../../../../src/passes/cleanup_read_copy_wbtest.mbt
 related:
   - ./index.md
   - ./wat-shapes.md
@@ -23,7 +25,7 @@ related:
 
 # `simplify-locals` Starshine Strategy
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — September 25, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 The v131 renewal preserves this three-layer design. The new parity work deliberately places HOT region-splice behavior in `simplify_locals.mbt` and exact stackifier-sensitive cleanup/finalization in `pass_manager.mbt`, rather than broadening either layer beyond its proof surface.
 
@@ -468,3 +470,91 @@ identical complete wrapper scope. This percentage is computed from the two
 root totals, not summed from nested/per-change percentages. Raw compiler bytes
 and all quality gains remain identical. Artifacts:
 `combined-cleanup-dae2-optimizing-pairs/` and `measure-combined-cleanup.py`.
+
+
+## October 2, 2026: retain initialized continuation read indexes
+
+The current complete large optimizing cleanup profile attributes14.972 billion
+instructions to raw SimplifyLocals. Its exact cleanup includes repeated
+`SlCleanupReadSet::copy` calls: the ordered rows were owned, but every copy
+threw away initialized membership, rebuilding the index on its first query.
+The `contains`→`index_read` edge alone costs1,691,777,352 instructions.
+This is a confirmed repeated-analysis cost, not a claim that all remaining
+quadratic subtree traversal is solved.
+
+[`cleanup_read_set.mbt`](../../../../../src/passes/cleanup_read_set.mbt) keeps
+owned ordered rows, copies the first64-local word by value and shares an
+initialized overflow map read-only. Both source and copy mark that map shared;
+either detaches with `Map::copy` before its first overflow update. Later updates
+to an owned map remain in place. Read-only forks allocate no membership map.
+The private invariant is that a live owner's row changes only through `insert`,
+which updates membership together with the row. Production callers never mutate
+that row externally; the array-only collector creates a fresh owner per call.
+No facts survive a cleanup invocation, and no admission, validation, fixed-point
+limit or transformation changes. The Boolean fills existing native padding:
+independently compiled matching C layouts remain32-byte payloads before/after.
+This is not a peak-RSS or total allocation measurement.
+
+New [regressions](../../../../../src/passes/cleanup_read_copy_wbtest.mbt) first
+fail on discarded bits (`0 != 4294967295`, `0 != 511`). Positive tests cover
+lazy/tiny rows, ordered ownership, signed/overflow boundaries, both parent and
+child mutation, grandchildren, and cached loop continuations whose reads must
+not leak into sibling cleanup. The latter checks scalar, trapping and GC
+reference producers directly and validates encoded output/input ownership.
+The existing sparse-copy test now expects retained membership; its independence
+assertions remain. A command regression covers wide continuations and ordered
+global writes through SL and DAE2 optimizing.
+
+Fourteen dedicated native release controls freeze the predecessor copy logic
+against the current constructor, ten batches each, CPU6. Mean±standard deviation:
+
+| Copy/query/update control | Original | Retained |
+| --- | ---: | ---: |
+| Tiny1 |58.67±.58 ns|58.41±.68 ns|
+| Tiny8 |63.63±2.97 ns|63.99±3.23 ns|
+| Dense64, child update |194.90±3.39 ns|106.80±3.50 ns|
+| Dense512, child update |4.46±.146 µs|.329±.003 µs|
+| Sparse64, child update |2.21±.022 µs|.816±.013 µs|
+| Dense512, read-only query |3.96±.037 µs|60.78±1.04 ns|
+| Dense512, unused copy |53.38±2.20 ns|52.95±1.26 ns|
+
+Current frozen main predecessor `a17c6ed3…` (base7f8cc5b3b) versus candidate
+`4565f45c…`, unchanged6,211,596-byte compiler input, one warmup/five alternating
+normal CLI samples: before/after/v133 median±MAD
+7257.114±253.049 /7059.562±259.504 /2434.423±21.467 ms; ranges
+7004.065–8769.032 /6800.057–7858.538 /2409.254–2773.521 ms.
+Paired median−2.72% is an observed improvement under contention; all rows record
+foreign CPU activity. The separate traced inner medians
+6703.722±58.480→6743.143±105.072 ms are inconclusive; do not claim an inner
+wall-time win or mix these scopes with normal command time.
+
+Current matched, complete cleanup instructions decrease
+22,691,343,936→20,910,594,832 (−7.85%). Nested raw SL decreases
+14,972,493,037→13,192,379,717; the cold-index edge drops
+1,691,777,352→2,350,099. These nested costs must not be added.
+Copy-on-write has a real cost: the two collection→index-update edges rise
+108,716,658→148,491,946 instructions (+39,775,288), and direct copy edges rise
+15,788,424→17,393,053. A first write may conservatively clone even when an earlier
+fork has finished; no claim that every mutation path gets faster is made.
+The complete root gain includes those costs. Shared Callgrind call counters
+remain mixed; they are not scoped allocation counts. Both profiles validate
+and preserve the exact output hash. An initial debugger-attachment race is
+archived as failed evidence; the corrected driver waits for readiness, uses
+batch error status and accepts only a completed validated run within300 s.
+
+All13,325 bounded wasm-gc tests, info/fmt/check/native build and fourteen native
+controls pass. Two fixed runtime lanes validate108 modules (104 raw plus four
+encoding-only compact-import conversions) and compare312 original/predecessor/
+candidate/v133 observations: calls, results, global/memory state, references and
+traps. Normal oracle flags remain `--all-features --dae2 --simplify-locals
+--vacuum`; SL uses its single flag. Compiler bytes remain5,563,501, SHA256
+`a2cfeaf22bab817cbcd0e97048bddd6723e258ba25eec3375e96b08230676e1d`.
+The earlier raw9,949-byte win and canonical99,251-byte deficit remain distinct
+and unchanged. Full fuzz/coverage/release signoff remains deferred.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/readset-copy-*`,
+`dae2-cleanup-readset-copy-*`, frozen manifests, complete profiles, native layouts,
+all timing rows and both runtime lanes. Work now uses the primary checkout on
+`main`; historical branch evidence retains its original source/version.
+Remaining exact cleanup, raw recurrence/normalization, Vacuum guards, CFG/lower
+and command/output-quality gaps stay active in P03/P04/P05/P06/P12/P13.
