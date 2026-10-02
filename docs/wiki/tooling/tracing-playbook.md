@@ -4680,3 +4680,20 @@ and348 fixed observations pass. The build's full/tmp failure is recovered with
 repository-local compiler temp storage; timing begins only after successful gates.
 Quiet matched clocks, size families, larger shared pipeline/CL/OI owners and full
 aggregate/coverage/CI remain release blockers. No long fuzz campaign was run.
+
+
+## October 2, 2026: main scalar-clique checkpoint
+
+The [small clique proof](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-scalar-words-for-small-single-word-cliques)
+reduces complete CL instructions.39355% and the nonrecursive clique entry17.85%
+with no new allocations or changed bytes. Main1c8485122/f111fea4… baseline,
+candidate ddc2b774…, fixed compiler SHA98189860…, verified v133 and CPU6.
+Five alternating normal commands: S5044.567±55.049→5053.472±109.127ms,
+B2036.637±15.455ms, paired+1.282%; foreign CPU activity on every row, no
+command-speed or RSS win. Traced inner rows are independent and inconclusive.
+Pinned native repeats confirm small single-word savings while wide fallback
++10.47ns remains.13,346 tests/360 fixed observations pass; raw CL bytes exact.
+Previous four-pass matrix above remains1c/f111, not this candidate. Larger
+shared DAE2/O/CL/OI owners, canonical byte gaps and aggregate/CI/coverage remain
+open; no long fuzz campaign. Full commands/ranges/hashes/source/native proof
+are in the existing dossier and local scalar-clique report.

@@ -7146,6 +7146,38 @@ fn cl_cfg_sparse_add_live_member_interferences(
   interferences : CLCfgSparseInterferences,
   live_members : Array[Int],
 ) -> Int {
+  // Three to fifteen members used pair insertion even for a single word.
+  // Validate the selected row shapes before any update; noncanonical private
+  // rows retain the original checked pair path and error/update ordering.
+  if live_members.length() >= 3 && live_members.length() < 16 {
+    let size = interferences.rows.length()
+    if size <= 64 {
+      let mut mask = 0UL
+      let mut compatible = true
+      for member in live_members {
+        if member >= 0 && member < size {
+          let row = interferences.rows[member]
+          if row.size != size || row.words.length() != 1 {
+            compatible = false
+            break
+          }
+          mask = mask | (1UL << member)
+        }
+      }
+      if compatible {
+        for member in live_members {
+          if member >= 0 && member < size {
+            let row = interferences.rows[member]
+            // Pair insertion never writes the diagonal. Excluding this bit
+            // preserves it, including preexisting bits and duplicate members.
+            let additions = mask & UInt64::lnot(1UL << member)
+            row.words[0] = row.words[0] | additions
+          }
+        }
+        return 0
+      }
+    }
+  }
   // Sparse small sets avoid allocating a mask. Larger cliques update each
   // valid row a word at a time; source membership order does not affect bits.
   if live_members.length() >= 16 {

@@ -19,48 +19,33 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
-- **Current main large matrix:** base8fb4ebd30 plus bounded-middle pilot,
-  native366ed01c…, verified v133, one warmup/three alternating normal CLI rows:
-  DAE2 3931.213/1106.453 ms (3.55×), DAE2-O6336.743/2316.345 (2.74×),
-  CL4536.558/1756.782 (2.58×), OI2161.347/911.040 (2.37×).
-  All rows flag foreign activity; no fresh inner matrix or quiet-host signoff.
-  Absolute excess: optimizing4020.397ms, plain/shared CFG/lower2824.760ms,
-  CL2779.776ms, OI1250.307ms. Outputs remain exact; do not credit differences
-  against earlier host bands to individual fixes. Three independent cleanup
-  fixes reduce matched complete instruction work22,691,343,936→20,126,748,368
-  (11.30%); this is not a command-wall or allocated-byte reduction.
-  [Current commands, spreads and provenance](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-bounded-middle-checkpoint).
-- **Current main memory / targeted optimizing checkpoint:** exact699648988
-  native366ed01c…, five alternating normal samples/one warmup, verified v133:
-  main6345.666±13.890ms versus2288.298±8.772ms. PeakRSS294448±132KiB versus
-  153104±4KiB (median±MAD), about138MiB main excess. All samples flag foreign
-  activity. This is a separate cohort from the four-pass matrix; parsing,
-  pipeline and encoding memory attribution remains unknown. A scoped boundary
-  cache trial is rejected: large cleanup instructions+0.175%, peakRSS flat,
-  despite56–61% gains on wide unchanged synthetic controls. No rejected code
-  remains on main; source/binaries and all evidence remain locally archived.
-  [Rejection and memory evidence](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-rejected-per-flat-statement-boundary-cache).
-- **Earlier main read-index matrix:** base7f8cc5b3b plus read-index pilot, final
-  binary75dd44c3…, verified v133, one warmup/three alternating normal CLI rows:
-  DAE2 4403.601/1292.056 ms (3.41×), DAE2-O7238.023/2428.617 (2.98×),
-  CL5057.458/2030.738 (2.49×), OI2631.101/1032.556 (2.55×). All rows flag
-  foreign activity; final CL row has substantial unrelated compile contention.
-  Absolute excess priorities: optimizing≈4.81s, plain/shared CFG/lower≈3.11s,
-  CL≈3.03s, OI≈1.60s. Outputs remain exact; no fresh inner matrix or quiet-host
-  parity claim. Keep the separate paired read-index evidence below distinct
-  from this cohort and all earlier matrices.
-  [Current commands, spreads and provenance](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-read-index-checkpoint).
-- **Earlier October 2 large matrix:** production `971cd0b68`, verified v133,
-  three alternating normal CLI samples: DAE2 4303.065/1195.969 ms (3.60×),
-  DAE2-O 7460.968/2423.250 (3.08×), CL5056.280/1937.773 (2.61×),
-  OI2398.466/973.832 (2.46×). All rows record foreign activity; these are
-  observed cohorts, not quiet release signoff. Prioritize the ≈5.04s optimizing
-  command excess, ≈3.12s CL/≈3.11s plain/shared CFG/lower work, then ≈1.42s OI
-  envelope. Independent named/debug timers have different scopes; do not charge
-  omitted guards to Binaryen or call OI's86ms core full-pass parity. Exact output
-  hashes preserve earlier raw/canonical quality checkpoints. The unchanged-row
-  recurrence pilot is subsequent work with separate acceptance evidence.
-  [Commands, spreads, phases and scope definitions](docs/wiki/tooling/tracing-playbook.md#october-2-2026-large-four-pass-checkpoint-and-timer-scopes).
+- **Latest matched large four-pass checkpoint:** exact main1c8485122,
+  nativef111fea4…, verified v133, one warmup/three alternating normal CLI rows:
+  DAE2 5008.383±313.869/1296.329±56.102 ms (3.86×),
+  DAE2-O7436.486±351.151/2504.557±3.812 (2.97×),
+  CL5065.838±171.368/2629.070±611.023 (1.93×),
+  OI2498.174±22.068/994.902±3.777 (2.51×), median±MAD.
+  All rows flag foreign activity; particularly broad CL oracle spread makes
+  that ratio fragile. No fresh matched inner matrix or quiet-host signoff.
+  Absolute normal excess: optimizing4931.929ms, plain/shared3712.054ms,
+  CL2436.768ms (uncertain), OI1503.272ms. RSS optimizing294444/155148KiB
+  leaves about136MiB excess; phase cause remains unknown. Outputs remain exact;
+  raw optimizing−9949 B does not close bounded canonical+99,251 B.
+  [Scopes, commands, hashes and historical matrices](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-weightless-member-checkpoint).
+- **Subsequent CL scalar-clique checkpoint:** candidate ddc2b774… preserves
+  bytes,13,346 bounded tests and360 fixed observations. Complete CL instructions
+  48,327,939,076→48,137,746,501 (−.39355%); clique entry−17.85%.
+  Five normal pairs5044.567±55.049→5053.472±109.127ms, B2036.637±15.455;
+  paired+1.282%, all contended: no clock/RSS win. Wide fallback+10.47ns stays
+  visible. The four-pass matrix above retains its preceding exact source hash.
+  [Proof, controls and next targets](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-scalar-words-for-small-single-word-cliques).
+- **Optimizing cleanup / rejected-cache checkpoint:** accepted storage and
+  bounded-discovery fixes reduce complete matched cleanup instructions
+  22,691,343,936→20,107,910,056 (−11.385%); not a summed command gain.
+  Per-flat statement-boundary cache is rejected: cleanup instructions+0.175%
+  and peakRSS flat despite synthetic wins. No rejected code remains on main.
+  Preserve its frozen evidence and avoid repeating it without a new cost model.
+  [Rejection and phase-memory uncertainty](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-rejected-per-flat-statement-boundary-cache).
 - **October 1 bounded pilot:** the user requested independent small-module P08
   work before resuming the existing P03 owner. The
   [fresh checkpoint](docs/wiki/tooling/tracing-playbook.md#october-1-2026-small-dae-pilot-and-release-priorities)
@@ -825,6 +810,12 @@ excess open. [Full spread, size and scope](docs/wiki/tooling/tracing-playbook.md
   repeated work remains. Refresh conflict, control-boundary and slot-query
   attribution before extending metadata. Keep raw liveness's copy-weight
   contribution; measure sparse/dense crossover across both fixture families.
+- **Small-clique checkpoint:** selected canonical one-word rows now avoid
+ 3–15-entry checked pair loops with a scalar word; complete CL work−.39355%,
+ exact bytes,13,346 tests/360 observations. Normal clock/RSS remains inconclusive,
+ wide fallback+10.47ns open. This mechanism is complete; target remaining
+ capture/conflict scans, larger CFG/lift/lower owners and weighted/wider work.
+ [Proof and guarded paths](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-scalar-words-for-small-single-word-cliques).
 - **Invariant / dependencies:** compiled source-hazard replay, fused copy/remap,
   sparse cliques, preorder control summaries, occupied-bit/live-member extra
   interference, direct indexed liveness and dense score bounds remain required.

@@ -846,3 +846,50 @@ Artifacts: `.tmp/large-pass-hotspots-20261001/main-member-zero-performance-20261
 `member-zero-coalesce-locals-pairs/result.json`, original gate/control/runtime logs.
 [Current four-pass command matrix](../../../tooling/tracing-playbook.md#october-2-2026-main-weightless-member-checkpoint)
 keeps all host flags and the broad Binaryen CL spread explicit.
+
+
+## October 2, 2026: scalar words for small single-word cliques
+
+`cl_cfg_sparse_add_live_member_interferences` now handles3–15 live entries in
+at-most64 rows using one scalar UInt64 word. Precheck all selected valid row
+shapes before mutation, then OR the mask excluding each diagonal into its row.
+Duplicates, invalid-member filtering, preexisting diagonals/unrelated edges and
+selected noncanonical-row fallback are preserved. Tiny/wide/16+ paths remain
+complete. No new heap container/cache/helper/API or verification shortcut;
+generated native code uses uint64_t and the same two-argument ABI. The original
+small path allocated no scratch either; no allocated-byte/RSS saving is claimed.
+
+Complete baseline profile finds7,156,158 checked-pair calls/744,240,432 nested
+instructions versus32,956 mask constructors/4,408,350: repeated pair work is the
+confirmed target, not mask allocations alone. Exact main1c8485122/f111fea4… versus
+candidate ddc2b774…: complete CL instructions48,327,939,076→48,137,746,501
+(−.39355%); nonrecursive compute→clique entry1,068,151,059→877,462,663 (−17.85%).
+Nested pair/interference edges overlap. Collection completes normally under300s,
+validates exact output, and excludes parsing/final CLI validation/encoding.
+Three accepted CL fixes together reduce49,112,542,755→48,137,746,501 (−1.985%).
+
+One warmup/five alternating CPU6 normal CL commands, median±MAD ms:
+S5044.567±55.049→5053.472±109.127, B1332036.637±15.455; paired+1.282%.
+Every row flags foreign activity; the range reaches10.427s amid unrelated Go
+compilation. No full-command speedup is established. Three separate traced inner
+rows3953.689±20.478→3950.424±47.251ms are inconclusive. Exact wait4 peakRSS
+KiB244800±72→244836±96, B217472±8: no peak win.
+
+Twelve initial unpinned native controls plus eight CPU6 repeats pass. Repeat
+row32/live8 improves166.56→34.34ns and row64/live15 592.08→48.09ns;
+wide65/live8 costs159.52→169.99ns (+10.47ns), tiny2 21.29→22.38ns. Keep these
+fallback tradeoffs visible; the measured complete-consumer reduction supports
+this bounded branch, not a universal shape win. Four [direct regressions](../../../../../src/passes/coalesce_scalar_clique_wbtest.mbt),
+[frozen predecessor](../../../../../src/passes/coalesce_scalar_clique_reference_wbtest.mbt),
+[controls](../../../../../src/passes/coalesce_scalar_clique_perf_wbtest.mbt), active
+dispatcher loop fixture,13,346 wasm-gc tests, info/fmt/check/build/API sync and
+125 validated modules/360 fixed observations pass with byte-exact CL5706503 B.
+No public interface changes; ordered effects/traps/GC and input ownership covered.
+Manual review completes; independent review/full aggregate fuzz/CI/coverage stay
+open. Binaryen133 and runtime-only compact-import expansion retain prior protocol.
+
+Artifacts: `.tmp/large-pass-hotspots-20261001/main-scalar-clique-performance-20261002.md`,
+`scalar-clique-*-manifest.json`, `scalar-clique-costs-{before,after}.json`, native
+storage/source reviews, command pairs and runtime rows. Other passes keep the
+preceding1c/f111 matrix provenance. Larger shared CFG/lift/lower/verification,
+CL capture/conflict traversal, weighted/wider work and size gaps remain active.

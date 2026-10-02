@@ -10209,3 +10209,25 @@ test "command Coalesce preserves weighted loop carriers and later weightless val
   assert_true(@binary.encode_module(output).unwrap() != saved)
   assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
+
+///|
+test "command Coalesce preserves simultaneous loop lifetimes and ordered effects" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (import \"host\" \"tick\" (func $tick)) (global (export \"state\") (mut i32) (i32.const 0)) (func (export \"run\") (param i32) (result i32) (local i32 i32 i32) i32.const 17 global.set 0 call $tick local.get 0 i32.const 3 i32.and local.set 1 i32.const 7 local.set 2 i32.const 9 local.set 3 block loop local.get 1 i32.eqz br_if 1 local.get 2 local.get 3 i32.add global.set 0 call $tick local.get 1 i32.const 1 i32.sub local.set 1 br 0 end end local.get 2 local.get 3 i32.add))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["coalesce-locals"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  assert_eq(output.import_sec, input.import_sec)
+  assert_eq(output.global_sec, input.global_sec)
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_eq(body[0], @lib.Instruction::i32_const(@lib.I32(17)))
+  assert_eq(body[1], @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)))
+  assert_eq(body[2], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  assert_true(@binary.encode_module(output).unwrap() != saved)
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}

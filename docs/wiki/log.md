@@ -1,3 +1,12 @@
+### 2026-10-02 — Update small Coalesce cliques by scalar word
+
+- [Small-clique proof and evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-scalar-words-for-small-single-word-cliques)
+  reduces repeated pair insertion without new containers or changed edges.
+  Actual red,13,346 bounded tests and360 fixed observations pass with exact
+  bytes. Complete CL work falls.39355%, real clique entry17.85%; normal
+  command/RSS gains remain unproved and wide fallback+10.47ns stays visible.
+  Larger pipeline/CL/OI owners, byte quality and release gates remain active.
+
 ### 2026-10-02 — Bound weightless Coalesce member searches
 
 - [Member-search proof and tradeoffs](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-stop-weightless-member-searches-after-the-first-valid-slot)
