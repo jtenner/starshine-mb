@@ -4643,13 +4643,39 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments(
   instrs : Array[@lib.Instruction],
   params : Array[@lib.ValType],
   locals : @lib.Locals,
+  stats? : RawSimplifyLocalsGateStats,
+) -> (Array[@lib.Instruction], Int) {
+  // The entry census covers the complete current body, including both arms,
+  // loops and handlers. Only If can enable this rewrite. Its absence proves
+  // zero rewrites before allocating normalized or rewritten storage. The raw
+  // dispatcher supplies its existing census; recursive workers never rescan.
+  let if_count = match stats {
+    Some(stats) => stats.if_count
+    None =>
+      run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs).if_count
+  }
+  if if_count == 0 {
+    return (instrs, 0)
+  }
+  // Keep the original full owned rewrite for possible candidates. Borrowing
+  // unchanged children here would let later cleanup mutate the input module.
+  run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments_worker(
+    instrs, params, locals,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments_worker(
+  instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
 ) -> (Array[@lib.Instruction], Int) {
   let normalized : Array[@lib.Instruction] = []
   let mut rewrites = 0
   for instr in instrs {
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) => {
-        let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments(
+        let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments_worker(
           body, params, locals,
         )
         rewrites += count
@@ -4658,7 +4684,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments(
         )
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
-        let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments(
+        let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments_worker(
           body, params, locals,
         )
         rewrites += count
@@ -4667,14 +4693,14 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments(
         )
       }
       @lib.If(block_type, then_body, else_body) => {
-        let (next_then, then_count) = run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments(
+        let (next_then, then_count) = run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments_worker(
           then_body, params, locals,
         )
         let mut next_else : Array[@lib.Instruction]? = None
         let mut else_count = 0
         match else_body {
           Some(body) => {
-            let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments(
+            let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments_worker(
               body, params, locals,
             )
             next_else = Some(next)
@@ -4686,7 +4712,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments(
         normalized.push(@lib.Instruction::if_(block_type, next_then, next_else))
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments(
+        let (next, count) = run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments_worker(
           body, params, locals,
         )
         rewrites += count
@@ -13223,7 +13249,10 @@ fn run_hot_pipeline_raw_simplify_locals(
   let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
   if descriptor.name == "simplify-locals" {
     let (conditional_instrs, conditional_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_leaf_conditional_assignments(
-      instrs, params, locals,
+      instrs,
+      params,
+      locals,
+      stats~,
     )
     if conditional_rewrites > 0 {
       let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(

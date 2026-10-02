@@ -1,3 +1,13 @@
+### 2026-10-02 — Reuse no-if leaf cleanup census
+
+- [Leaf cleanup proof](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reuse-the-current-census-for-absent-leaf-conditionals)
+  closes unused conditional-rewrite array cloning using the existing complete
+  body census. A real red ownership failure precedes the fix; the original
+  owned worker remains identical for possible candidates. All 13,304 bounded
+  tests, eight native controls and 168 fixed execution observations pass with
+  exact bytes. Nested no-if helper time falls 22.39 µs→20.89 ns; large optimizing
+  stays flat. Broader cleanup profiling, command parity and byte gaps remain.
+
 ### 2026-10-02 — Owned exact-sized CFG segment storage
 
 - [Segment evidence](binaryen/passes/dae2/starshine-strategy.md#october-2-2026-exact-sized-owned-cfg-segment-copies)

@@ -435,6 +435,22 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03e — Optimizing cleanup setup [IR2-PERF-DAE2-CLEANUP]
 
+- **October 2 leaf census checkpoint:** the existing complete SimplifyLocals
+  census proves no-if conditional cleanup empty; that path no longer clones
+  arrays. Possible candidates keep the original owned worker and verification.
+  All 13,304 bounded tests and 168 fixed observations pass with exact bytes;
+  nested native no-if cost falls 22.39 µs→20.89 ns. Large optimizing remains
+  flat (five pairs +.16%, all flagged), so the enclosing cost stays open.
+  [Proof and controls](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reuse-the-current-census-for-absent-leaf-conditionals).
+- [ ] Profile the remaining optimizing cleanup function envelope and eager raw
+  recurrence/adjacent/effectful rewrites. The October 2 trace has about 2.4 s of
+  inclusive function work versus about 89 ms of named SL+Vacuum transforms;
+  these are nested scopes, not exclusive/additive costs. One six-minute
+  host-contended profile was stopped without accepting partial totals. Use a
+  bounded complete profile or temporary diagnostic timers before choosing the
+  next scan/clone guard; preserve SIMD recurrence candidates, deep ownership,
+  full transformation coverage and byte improvements.
+
 - [ ] Reduce remaining plain no-work compaction costs while retaining all
   legacy and effect-spanning candidates. Optimizing admission now uses counted
   capture/unused-local/alias facts; plain still takes its original scan path.

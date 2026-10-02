@@ -10042,3 +10042,24 @@ test "Binaryen 133 command shared objects refines nested null branch chains" {
     ),
   )
 }
+
+///|
+test "command simplify locals and DAE2 optimizing retain leaf selects and ordered global writes" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (global (export \"state\") (mut i32) (i32.const 0)) (func (export \"run\") (param i32) (result i32) local.get 0 global.set 0 local.get 0 if (result i32) i32.const 7 else i32.const 9 end))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for pass in ["simplify-locals", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_true(body.any(fn(instr) { instr is @lib.Select }))
+    assert_eq(body[0], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+    assert_eq(body[1], @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)))
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

@@ -263,3 +263,63 @@ one all-live-node traversal and rejects as soon as either reaches two uses.
 The native helper benchmark measured 1,024 trailing leaf nodes at
 `2.30 → 1.12 µs` and 4,096 at `8.85 → 4.29 µs`; single-target controls stayed
 near 1.14 and 4.43 µs. A focused test rejects either shared target.
+
+## October 2, 2026: reuse the current census for absent leaf conditionals
+
+The raw canonical SimplifyLocals dispatcher already computes a complete current
+`RawSimplifyLocalsGateStats`. Its `if_count == 0` now proves that the leaf
+conditional-to-select cleanup cannot rewrite anything. The entry returns the
+original body and zero rewrites before allocating either rewrite array or any
+cloned control/Expr. The dispatcher already ignores the body when the rewrite
+count is zero. All possible candidates still use the unchanged recursive owned
+worker; this is not a new pass admission/skip gate. Recursive workers do not
+rescan the census. A private direct call without supplied stats computes one
+fresh entry census; production supplies its existing immutable-body census.
+
+[Red-first ownership regression](../../../../../src/passes/sl_leaf_census_wbtest.mbt)
+failed on the original implementation's real no-`if` cloning. Four focused
+contracts cover flat/block/loop/try_table bodies, GC/NaN/signed-zero bytes,
+ordered global writes and traps, ownership of changed output including unchanged
+siblings, fresh nested candidates after mutation, and intentionally unadmitted
+reference/effectful/unreachable arms. The [command test](../../../../../src/cmd/cmd.mbt)
+requires actual select creation and ordered global writes through both canonical
+SimplifyLocals and DAE2 optimizing. A source-normalized audit proves the worker
+algorithm is identical apart from its private name. Generated native C confirms
+supplied stats are a nullable pointer with no added box; the negative path still
+allocates its existing return tuple, not normalized/rewritten body storage.
+
+`moon info`, `moon fmt`, all 13,304 bounded wasm-gc tests, `moon check` and native
+release build pass, with no public API change. Final binary SHA-256:
+`a1a06e2e0d7745deb92d6fb48d930e95adbb470a1bc8486ee111add5f93fd68a`.
+Eight [native controls](../../../../../src/passes/sl_leaf_census_perf_wbtest.mbt)
+pass (ten batches, mean±sigma; existing census and fixture setup outside timing):
+
+| Body | Original owned worker | Census entry |
+| --- | ---: | ---: |
+| No if, width 1, depth 0 | 86.07±1.44 ns | 16.85±.50 ns |
+| No if, width 256, depth 0 | 9.47±.529 µs | 16.44±.32 ns |
+| No if, width 32, depth 8 | 22.39±.546 µs | 20.89±3.41 ns |
+| Active, width 32, depth 8 | 28.97±3.31 µs | 26.89±.205 µs |
+
+The active spread does not establish an improvement; retain the possible-case
+control rather than claiming that the guard accelerates real rewrites. No new
+persistent facts, cache invalidation, cross-revision reuse or dense rows exist.
+
+Matched large DAE2/O command evidence is essentially flat: five alternating
+pairs before 7827.891±55.344 / after 7849.162±51.696 ms (median±MAD), paired
++.16%, v133 2516.327±43.522 ms. Every row flags foreign CPU work. Three separate
+traced inner pairs give 6883.159±48.735→6870.953±23.287 ms, within dispersion.
+These compare the exact-sized-CFG predecessor to this guard, excluding builds.
+Do not promote the large helper improvement into a full-command or Binaryen
+speed-parity claim. The remaining cleanup envelope and repeated raw scans,
+recurrence cloning, verification, lift/lower and byte-quality work stay open.
+
+SimplifyLocals and DAE2/O fixed execution matrices validate 56 modules and
+compare 168 original/before/after/v133 observations, including loops, carried
+reads, imported effects, traps, globals, memory and GC. All before/after bytes
+match. Compiler optimizing output remains 5,563,501 B, with existing raw wins
+and the symmetric canonical deficit preserved. Aggregate fuzz, coverage/full
+release gate and independent review remain deferred; local source/diff review
+is recorded. Artifacts: `.tmp/large-pass-hotspots-20261001/sl-leaf-census-*`,
+source audit, native-entry excerpt, exact frozen manifest, eight native controls,
+two-mode runtime matrices and five-pair/three-trace cohort.

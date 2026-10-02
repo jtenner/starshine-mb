@@ -6554,3 +6554,16 @@ source/staged-diff review is available.
 Local artifacts: `.tmp/large-pass-hotspots-20261001/`, `cfg-copy-v2-*` manifest,
 eight-case benchmark, three-mode runtime matrices, validated exact-wrapper
 profile, CPU-6 and CPU-2 pair cohorts. The directory name predates these runs.
+
+## October 2, 2026: avoid provably empty leaf conditional cleanup
+
+The optimizing dispatcher benefits from SimplifyLocals' already-computed
+complete current-body census: with zero ifs its leaf conditional rewrite now
+returns without constructing unused cloned arrays. Possible candidates keep
+all owned recursive work, transforms and final verification. See the
+[implementation, red regression and evidence](../simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-reuse-the-current-census-for-absent-leaf-conditionals).
+All 13,304 bounded tests and 168 fixed execution observations pass with exact
+bytes. Native no-if controls improve 86.07→16.85 ns (tiny) and
+22.39 µs→20.89 ns (nested), but matched large optimizing command remains flat
+(paired +.16%, all host-contended): this does not close P03e or establish speed
+parity. Broader cleanup scans, recurrence storage and validation remain targets.
