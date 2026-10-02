@@ -9941,6 +9941,28 @@ test "Binaryen 133 command GTO preserves canonical packed array identities" {
 }
 
 ///|
+test "command OI local grouping preserves imported call and untouched body" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (import \"host\" \"f\" (func (param i32) (result i32))) (func (export \"run\") (result i32) (local i32 f64 i32) i32.const 41 local.set 2 local.get 2 call 0) (func (result i32) i32.const 7))",
+  )
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["optimize-instructions"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_eq(locals.runs().length(), 2)
+  assert_eq(body, [
+    @lib.Instruction::i32_const(41),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+  assert_eq(output.code_sec.unwrap().0[1], input.code_sec.unwrap().0[1])
+}
+
+///|
 test "Binaryen 133 command shared objects refines nested null branch chains" {
   let input = @passes.pass_test_module_from_wat(
     "(module (func (drop (block (result funcref) (block ref.null func i32.const 1 br_if 1 br 1 unreachable) unreachable))))",

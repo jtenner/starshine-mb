@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-28
+last_reviewed: 2026-10-01
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize_instructions.mbt
@@ -22,6 +22,75 @@ related:
 ---
 
 # Current Starshine `optimize-instructions` strategy
+
+## October 1, 2026 large-module local-group validation
+
+[Numeric local grouping](../../../../../src/passes/optimize_instructions_cleanup.mbt)
+now validates only replaced bodies against the unchanged module environment,
+using the existing batch validator. The grouping helper retains all signatures,
+imports, types, globals, segments and initializers; it changes scalar body-local
+indices, decoded local names and stale compiler facts. Each replaced body still
+receives full body validation. Exact whole-module sizing and the independent
+complete final-module validation remain required. No transform, admission or
+byte-size decision changes.
+
+The frozen baseline is `2fcf0c810692b5b89a4d6565aed38c6d7e2fdc4d11d470bac81857aac64c98ec`,
+from `aef5523b627f995bd9bf258f5fdedf886d809a2c`. Candidate native release SHA is
+`71046b0c50308aea3dc15a8599d21bfe86602cf6bca1d2f7d57ec650be7f8269`.
+On the AMD Ryzen 7 8845HS, CPU 6, Moon 0.1.20260920, GCC native release,
+6,211,596-byte input SHA
+`98189860f95b4eb8464794eb9fab5f9fd8d16942c63a6e31ed9175e7e791cbbd`:
+
+| Scope | Before median ± MAD ms | After median ± MAD ms | Samples |
+| --- | ---: | ---: | ---: |
+| Untraced fresh-process command | 2,832.710 ± 35.371 | 2,510.143 ± 16.320 | 5 pairs |
+| Separately traced pipeline | 2,267.164 ± 4.379 | 1,930.861 ± 11.484 | 3 pairs |
+| Separately traced inner rewrite | 101.591 ± .539 | 99.621 ± 2.040 | 3 pairs |
+
+One warmup precedes each lane; builds, validation tools and profiling are outside
+wall measurements. Alternating paired command change is -11.96% (median
+command saving 322.567 ms). The inner rewrite is unchanged; the gain comes from
+its cleanup guard. Matched verified Binaryen **133** command is
+982.686 ± 1.152 ms, so the remaining command gap is 2.55x. All Starshine large
+samples record foreign CPU activity; retain the raw samples and treat timings as
+contended evidence. Deterministic Callgrind instruction evidence independently
+corroborates the work reduction: 26,012,695,346 → 22,893,074,568 (-11.99%).
+Whole-command `mi_malloc` calls fall 113,606,240 → 98,395,060 (-13.39%); these
+counts are allocator calls, not allocated bytes or peak live objects. The scoped
+local-group guard no longer rechecks every unchanged function in this
+12,904-function module. Baseline profile dump parts sum exactly to its total;
+inclusive recursive frames are not added to phase totals.
+
+Before/after raw outputs are exactly 6,205,998 bytes with identical hashes on
+all traced/untraced repeats. The existing canonical output gap remains open;
+this change preserves output shape. The small command control is noisy
+(10.778 ± 3.004 → 7.469 ± .070 ms, three pairs), while traced pipeline is
+3.581 → 3.660 ms; no small-module speedup is claimed.
+
+The focused [selection and stale-local tests](../../../../../src/passes/oi_local_group_validation_wbtest.mbt)
+first fail without the new helper contract, then pass. The dispatcher tests
+preserve imported calls and untouched bodies; all 13,286 bounded wasm-gc tests,
+`moon info`, `moon fmt`, `moon check` and native release build pass for this unit.
+Five reduced execution fixtures validate 20 original/baseline/candidate/v133
+modules and compare 60 observations (returns, imported effects, memory/global
+state and trap occurrence), with no mismatch. They include a GC sibling, both
+arms and division traps. [Focused benchmarks](../../../../../src/passes/oi_local_group_validation_perf_wbtest.mbt)
+cover mixed and entirely changed body batches against complete validation.
+All four native release controls pass (fixtures constructed/validated outside
+closures, CPU 6). Ten-batch mean ± standard deviation for 128 functions × 128
+instructions improves 297.01 ± 1.31 → 23.98 ± .265 µs with 16 changed bodies,
+and 320.40 ± 11.18 → 173.63 ± 18.94 µs with all 128 changed. These helper
+measurements are separate from command medians and do not add to them.
+Local evidence and runnable drivers are in `.tmp/large-pass-hotspots-20261001/`.
+Current aggregate fuzz/coverage/full release signoff remains deferred while the
+requested large-module performance work continues. There is no independent
+human/subagent review; implementation and staged diff receive local review.
+
+The next evidenced OI cost is simple type cleanup's separate exact-size and
+whole-module validation round (4.78 billion baseline inclusive instructions),
+plus body encoding. Type remapping changes the environment, so the local-group
+invariant cannot be reused for it. P06 stays open. The pilot priority labels
+are corrected to P04 Coalesce and P05 SimplifyLocals; P10 remains SGO.
 
 ## September 27 follow-up allocation campaign renewal
 

@@ -20,8 +20,8 @@ oracle versions and checkpoints do not sign current source.
   [fresh checkpoint](docs/wiki/tooling/tracing-playbook.md#october-1-2026-small-dae-pilot-and-release-priorities)
   uses frozen native binaries and verified v133: large inner excess is about
   3.30/5.40 s DAE2/O, 2.86 s Coalesce; SimplifyLocals/OI instead have 2.08/2.38 s
-  optimizer non-pass envelopes despite fast inner passes. Prioritize P03, P10,
-  shared P12/P13 plus P04/P06 quality, then remaining P08 work, adjusted to actual
+  optimizer non-pass envelopes despite fast inner passes. Prioritize P03, P04,
+  shared P12/P13 plus P05/P06 quality, then remaining P08 work, adjusted to actual
   workload frequency. Current symmetric canonical gaps remain 99,251 DAE2-O,
   78,800 Coalesce, 373,507 SimplifyLocals and 33,497 OI bytes. Do not mix raw
   oracle output with projected Starshine sizes; current four DAE2-O hashes
@@ -667,9 +667,17 @@ breadth. Shared changes require all affected consumers in the matrix below.
 - **Owner / why:** [OI cleanup](src/passes/optimize_instructions_cleanup.mbt),
   [exact sizing](src/binary/encoded_size.mbt) and full validation; the pipeline
   remains much larger than its rewrite timer.
-- **Deliverables / tasks:** attribute compatible candidate batching, remaining
-  body encoding and final validation. Try one assembled body-only batch under
-  an unchanged environment, retaining individual fallback for invalid or
+- **Current large checkpoint:** local grouping's changed-body guard reduces
+  matched untraced command median 2,832.710 → 2,510.143 ms (five pairs;
+  paired median -11.96%), with exact output bytes. Verified v133 command is
+  982.686 ms; the remaining 2.55x command gap stays open. Callgrind instructions
+  fall 12.0% and allocator calls 13.4%. Every timing row observes background
+  activity; instruction evidence corroborates the improvement. See the
+  [OI dossier](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-1-2026-large-module-local-group-validation).
+- **Deliverables / tasks:** reduce the remaining type-cleanup sizing/validation
+  round and exact body encoding. Preserve global validation for type-index
+  remaps and complete final validation. Profile compatible candidate batching
+  outside local grouping, retaining individual fallback for invalid or
   unprofitable candidates. A counting sink requires shared opcode/immediate
   definitions and full exact-size/error equivalence.
 - **Invariant / dependencies:** identity admission, one-buffer body framing, exact

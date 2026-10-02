@@ -65,12 +65,51 @@ fn oi_group_numeric_locals_if_smaller(
   }
   match @binary.encoded_module_sizes(size_baseline, grouped) {
     Ok((old_size, new_size)) if new_size < old_size =>
-      if @validate.validate_module(grouped) is Ok(_) {
+      if oi_validate_local_group_changed_bodies(mod_, grouped) {
         return grouped
       }
     _ => ()
   }
   mod_
+}
+
+///|
+// The grouping helper changes only scalar body locals, their accesses, decoded
+// local names and stale compiler facts. Every declaration and initializer stays
+// in the same index space; unchanged bodies retain their already checked code.
+// Validate every replaced body against that unchanged module environment. The
+// pipeline's complete final-module validation remains independent of this guard.
+fn oi_local_group_changed_bodies(
+  before : @lib.Module,
+  grouped : @lib.Module,
+) -> Array[(@lib.FuncIdx, @lib.Func)] {
+  let old = before.code_sec.unwrap().0
+  let next = grouped.code_sec.unwrap().0
+  let imported = run_hot_pipeline_imported_func_count(before)
+  let changed : Array[(@lib.FuncIdx, @lib.Func)] = []
+  for index in 0..<next.length() {
+    if !physical_equal(old[index], next[index]) {
+      changed.push(
+        (@lib.FuncIdx::new((imported + index).to_uint()), next[index]),
+      )
+    }
+  }
+  changed
+}
+
+///|
+fn oi_validate_local_group_changed_bodies(
+  before : @lib.Module,
+  grouped : @lib.Module,
+) -> Bool {
+  match
+    @validate.validate_defined_funcs_against_module(
+      before,
+      oi_local_group_changed_bodies(before, grouped),
+    ) {
+    Ok(errors) => errors.is_empty()
+    Err(_) => false
+  }
 }
 
 ///|

@@ -4334,8 +4334,8 @@ and 27,725/3,479 locals in 5,975/388 functions. Differential writer growth
 body/capture legalization cost, not interchangeable encoding scopes.
 
 Release priorities: existing P03 DAE2/O first (about 3.3/5.4 seconds inner
-excess plus capture quality), P10 Coalesce (about 2.86 seconds), shared P12/P13
-pipeline envelope and P04/P06 quality, then remaining P08 small DAE work.
+excess plus capture quality), P04 Coalesce (about 2.86 seconds), shared P12/P13
+pipeline envelope and P05/P06 quality, then remaining P08 small DAE work.
 SimplifyLocals/OptimizeInstructions optimizer non-pass diagnostics are
 2,075/2,377 ms; lift/lower are included and explain only a small fraction.
 Keep validation mandatory and isolate context/rebuild/check costs next.
