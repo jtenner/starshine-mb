@@ -7662,3 +7662,98 @@ test "remove-unused-brs preserves division traps in same-target if conditions" {
   assert_true(pretty.contains("i32.div_s"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
 }
+
+///|
+fn remove_unused_brs_test_assert_branch_payload_shape(
+  source : String,
+  shrink_level : Int,
+  keep_conditional : Bool,
+) -> Unit raise {
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(shrink_level~),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected conditional branch payload fixture: \{err}")
+  }
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let mut if_count = 0
+  let mut br_if_count = 0
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::If => if_count += 1
+        @ir.HotOp::BrIf => br_if_count += 1
+        _ => ()
+      }
+    }
+  }
+  assert_eq(if_count, if keep_conditional { 1 } else { 0 })
+  assert_eq(br_if_count, if keep_conditional { 0 } else { 1 })
+}
+
+///|
+fn remove_unused_brs_test_branch_payload_costs(
+  shrink_level : Int,
+) -> Unit raise {
+  for cost in [0, 4, 5, 7, 8] {
+    let mut payload = "(local.get 1)"
+    for index = 0; index < cost; index = index + 1 {
+      payload = "(i32.add \{payload} (i32.const 1))"
+    }
+    // Exercise the prefixed no-else path and both orientations of the direct
+    // one-arm payload path. The prefix keeps the branch from becoming a tail if.
+    for arm in [0, 1, 2] {
+      let branch = "(br $carry \{payload})"
+      let arms = if arm == 0 {
+        "(then \{branch})"
+      } else if arm == 1 {
+        "(then \{branch}) (else (drop (i32.const 0)))"
+      } else {
+        "(then (drop (i32.const 0))) (else \{branch})"
+      }
+      let source = "(module (func (param i32 i32) (result i32) (local i32) (block $carry (result i32) (local.set 2 (i32.const 7)) (if (local.get 0) \{arms}) (local.get 2))))"
+      let keep_conditional = if shrink_level == 0 {
+        cost > 4
+      } else if shrink_level == 1 {
+        cost >= 8
+      } else {
+        false
+      }
+      remove_unused_brs_test_assert_branch_payload_shape(
+        source, shrink_level, keep_conditional,
+      )
+    }
+  }
+}
+
+///|
+test "remove-unused-brs branch payload cost boundaries at speed level" {
+  remove_unused_brs_test_branch_payload_costs(0)
+}
+
+///|
+test "remove-unused-brs branch payload cost boundaries at balanced shrink level" {
+  remove_unused_brs_test_branch_payload_costs(1)
+}
+
+///|
+test "remove-unused-brs branch payload cost bypass at maximum shrink level" {
+  remove_unused_brs_test_branch_payload_costs(2)
+}
+
+///|
+test "remove-unused-brs keeps costly rem branch payload conditional at speed level" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32) (block $carry (result i32) (local.set 2 (i32.const 7)) (if (local.get 0) (then (br $carry (i32.rem_u (local.get 1) (i32.const 3))))) (local.get 2))))"
+  remove_unused_brs_test_assert_branch_payload_shape(source, 0, true)
+  remove_unused_brs_test_assert_branch_payload_shape(source, 1, false)
+}
+
+///|
+test "remove-unused-brs keeps allocating branch payload conditional below maximum shrink" {
+  let source = "(module (type $box (struct (field i32))) (func (param i32) (result (ref null $box)) (local i32) (block $carry (result (ref null $box)) (local.set 1 (i32.const 7)) (if (local.get 0) (then (br $carry (struct.new_default $box))) (else (drop (local.get 1)))) (ref.null $box))))"
+  remove_unused_brs_test_assert_branch_payload_shape(source, 0, true)
+  remove_unused_brs_test_assert_branch_payload_shape(source, 1, true)
+}
