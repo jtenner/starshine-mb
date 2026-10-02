@@ -7,7 +7,7 @@ sources:
   - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
-  - ../../../../../src/cmd/cmd.mbt
+  - ../../../../../src/cmd/rub_branch_value_cost_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/commit/b125d2e19542df72458bc916a2d0aa4bf72500fd
 related:
   - ./pattern-catalog.md
@@ -151,8 +151,11 @@ in this checkout; long fuzzing and artifact-wide comparisons are outside this
 bounded update.
 
 Final focused validation passes `moon info`, `moon fmt`, all 269 tests in
-`remove_unused_brs_test.mbt`, and all 76 tests in `src/cmd/cmd.mbt`. Five new
-pass tests and one dispatcher test cover 52 bounded fixture/option combinations.
+`remove_unused_brs_test.mbt`, and all 76 tests in `src/cmd/cmd.mbt` before the
+new dispatcher regression was moved unchanged to the isolated
+`rub_branch_value_cost_wbtest.mbt` to avoid concurrent append-only edits.
+The relocated dispatcher regression also passes independently. Five new pass
+tests and one dispatcher test cover 52 bounded fixture/option combinations.
 The red-test commit records four intended pass failures and one dispatcher
 failure before the implementation.
 

@@ -4,7 +4,7 @@
   applies Binaryen #9187's unconditional-cost policy to Starshine's direct and
   prefixed payload-bearing `if` to `br_if` paths. Cheap work remains eligible;
   costly arithmetic and allocation stay conditional below the permitted shrink
-  levels. Red tests precede the fix; 269 pass-file and 76 dispatcher-file tests
+  levels. Red tests precede the fix; 269 pass-file and 76 command tests
   pass, plus three short native pipeline controls. New admission guards add no
   collections or HOT nodes. This bounded slice does not close broad pass
   signoff; no v133 executable oracle or long fuzz matrix was run.
