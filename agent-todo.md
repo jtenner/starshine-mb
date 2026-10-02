@@ -362,6 +362,15 @@ breadth. Shared changes require all affected consumers in the matrix below.
 
 #### P03d — Lift, dependency planning and lower [IR2-PERF-DAE2-PIPELINE]
 
+- **October 2 CFG checkpoint:** an immutable operand-order proof retains all
+  7,926 CFG/read-source builds while reducing source-order factories 7,926→411.
+  Scoped dependency instructions fall 19.60%, allocator calls 2.93%; large
+  plain CLI paired −2.56% with exact bytes. Optimizing −1.40% is diagnostic
+  under heavy foreign CPU load; renew that cohort. Tiny carried fallback
+  costs 1.97→2.28 µs. Complete graph/verification, lift/lower and cleanup costs
+  remain open; this does not implement projected or incomplete flow facts.
+  [Proof and evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-2-2026-prove-empty-cfg-ordering-demand-before-constructing-facts).
+
 - [ ] Isolate remaining lift/admission, dependency solve, location lookup,
   rewrite/lower, capture repair, writeback and final-validation costs on the
   same frozen source. Do not add overlapping inclusive profile percentages.

@@ -1,8 +1,11 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-10-01
+last_reviewed: 2026-10-02
 sources:
+  - ../../../../../src/ir/cfg.mbt
+  - ../../../../../src/ir/cfg_lazy_source_order_wbtest.mbt
+  - ../../../../../src/ir/cfg_lazy_source_order_perf_wbtest.mbt
   - ../../../../../src/passes/lower_capture_cleanup.mbt
   - ../../../../../src/passes/dae2_parameter_aliases.mbt
   - ../../../../../src/passes/unread_write_wbtest.mbt
@@ -6400,3 +6403,90 @@ in the initial root, final source hashes, native controls, compiler smoke,
 matched cohorts/repeat, per-function/non-code bytes and original-primary replays
 are in the fixed root. Larger flow/lift/lower, cleanup costs, mutable-source
 snapshots and global canonical/speed parity remain active. Fuzz is deferred.
+
+
+## October 2, 2026: prove empty CFG ordering demand before constructing facts
+
+The large dependency-analysis profile collects only the nonrecursive
+`dae2_analyze_function` wrapper. Of 12,454,268,953 instructions, its direct CFG
+child costs 7,770,097,432 (62.39%) and read-source child 2,017,338,851 (16.20%).
+Source-order construction costs 1,862,981,602 **inside CFG**; these inclusive
+costs must not be added. This identifies redundant ordering setup, rather than
+proving that discovery or fixed-point solving is the dominant remaining cost.
+
+[CFG segmentation](../../../../../src/ir/cfg.mbt) retains all operand expansion,
+blocks, edges, root mappings and full verification. A builder owns lazy
+source-order facts and a single bounded operand-minimum row. A region with at
+most one root has no future ordering demand. For other regions, every selected
+carried value must satisfy `value_order < current_order`; source-order summaries
+start at the node's own order and take maxima over the same operand edges.
+Therefore, if every later operand's minimum own order is at least all earlier
+roots' `min(root_id, root.order)`, the selected dependency row is provably empty.
+Regions with old/shared/carried values retain complete facts and selection.
+Nested regions receive their own checks; no control edge or optimization work
+is omitted. Minima are memoized once per operand in an immutable builder, never
+shared across revisions; invalid/cyclic operands conservatively demand facts.
+
+The frozen candidate is
+`f33c222b4f38df32d1be72cce8513cfc39500c3769c646347bd355a2b18dcfa5`,
+against CL checkpoint `199d293ba755f14cd0e94b82f8d018cb8dc4ed71ee63c87432e906d53023efe1`.
+The original factory-only lazy trial was inconclusive: large plain paired
++1.00%, optimizing −.66%. It does not independently establish a compiler win.
+The operand proof supersedes that trial.
+
+| Large 6,211,596-byte input | Before CLI ms | After CLI ms | Paired change | Binaryen 133 CLI ms |
+| --- | ---: | ---: | ---: | ---: |
+| DAE2 | 4612.107 ± 32.589 | 4493.978 ± 51.241 | −2.56% | 1221.608 ± 7.661 |
+| DAE2 optimizing | 7876.453 ± 52.457 | 7750.352 ± 95.202 | −1.40% | 2547.295 ± 24.754 |
+
+These are medians ± MAD, five alternating same-host fresh-process samples after
+one warmup, CPU 6, native release; builds are excluded. All rows observe foreign
+CPU work. Optimizing's late samples and separate traced cohort overlap a Java
+gametest using over six cores, so those wall times remain **diagnostic**, not a
+clean causal estimate. Plain's three separate traced pairs reduce dependency
+work 1037.438→887.144 ms and inclusive analysis 1792.942→1638.117 ms;
+inner pass 3733.270→3663.895 ms has wide candidate MAD (115.321 ms).
+Do not mix scopes, sum parent/child timers, or add gains from prior cohorts.
+Binaryen optimizing uses `--dae2 --simplify-locals --vacuum`, all features;
+Starshine uses its canonical `--dae2-optimizing` dispatcher.
+
+A second exact-wrapper Callgrind run independently reduces analyzed instructions
+12,454,268,953→10,013,628,335 (−19.60%) and scoped allocator calls
+30,810,544→29,907,661 (−2.93%). CFG falls to 5,328,564,736 instructions
+(−31.42%); read-source work stays 2,018,300,839. All 8,354 analyzed functions and
+7,926 CFG/read-source builds remain. Source-order factories fall 7,926→411;
+the conservative proof costs 478,937,128 instructions, already included in the
+candidate total. Counts describe executed work and allocator calls, not allocated
+bytes or peak live objects. Both profile outputs independently validate and
+match exact hashes.
+
+[Red-first regressions](../../../../../src/ir/cfg_lazy_source_order_wbtest.mbt)
+cover no-future and forward regions, real carried reads across writes, shared-DAG
+work bounds, snapshot ownership and mutation. Retained original segmentation
+references explicitly retain eager initialization. The command dispatcher tests
+both DAE2 modes with mutable finite loops and imported effects. `moon info`,
+`moon fmt`, all 13,295 bounded wasm-gc tests, `moon check` and native release
+build pass; no public API changed.
+
+All twelve [native controls](../../../../../src/ir/cfg_lazy_source_order_perf_wbtest.mbt)
+pass, ten batches, mean times: single-root widths 8/128 improve
+1.73→.581 / 18.88→4.01 µs; forward widths 8/64 improve
+6.00→3.40 / 42.60→25.45 µs. The carried width-8 fallback costs
+1.97→2.28 µs; width 128 is noisy (16.26→15.57 µs), not a gain claim.
+The extra owned integer row is bounded by arena length and absent on
+single-root/no-expansion paths. Its remaining tiny/fallback setup cost is open.
+
+Large raw outputs remain exact: DAE2 6,115,221 B and optimizing 5,563,501 B.
+V83's raw win and 99,251-byte symmetric canonical deficit remain unchanged.
+Artifacts: `.tmp/large-pass-hotspots-20261001/`, forward manifests, per-mode
+`*-pairs/result.json`, twelve-case benchmark, exact-wrapper profiles and parser.
+Both-mode fixed execution matrices validate 56 modules and compare 168
+original/before/after/v133 observations without mismatch, including mutable
+loops, imported effects, global state, memory, GC siblings and trap occurrence.
+Two alternating per-process `wait4` RSS observations per side (KiB) are plain
+[264840, 246144]→[267388, 245036] and optimizing [304532, 294460]→[294100, 294260]. Their large spread does not establish a memory gain
+or a confidence interval; the one-row arena bound is the storage invariant.
+Aggregate fuzz, coverage and the full release gate remain deferred at the user's
+request; local source/diff review is available, independent review is not.
+Remaining priorities are full CFG/read-source construction, repeated lift/lower,
+optimizing cleanup, precise final guards and the canonical quality gap.

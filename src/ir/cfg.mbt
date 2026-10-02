@@ -60,7 +60,8 @@ priv struct CfgBuilder {
   label_targets : Array[BlockId]
   conservative_exception_entries : Bool
   operand_seen : Array[Bool]?
-  source_order : HotSourceOrderFacts?
+  mut source_order : HotSourceOrderFacts?
+  mut operand_minima : Array[Int]?
   continuation_targets : Array[Array[LabelId]?]
 }
 
@@ -166,11 +167,10 @@ fn cfg_builder_new(
     } else {
       None
     },
-    source_order: if expand_operand_control {
-      Some(HotSourceOrderFacts::new(func))
-    } else {
-      None
-    },
+    // A region with no later root cannot select a preceding dependency.
+    // Delay the whole-function walk until an actual multi-root query.
+    source_order: None,
+    operand_minima: None,
     continuation_targets: if has_continuations {
       Array::make(node_count, None)
     } else {
@@ -327,6 +327,59 @@ fn cfg_dropped_branch_operand(func : HotFunc, node_id : NodeId) -> NodeId? {
 }
 
 ///|
+// Every selected carried value has value_order < current_order, and its own
+// allocation order is <= value_order. If all future operand orders are at
+// least every earlier root's current_order, no dependency can be selected.
+// Memoize only operand minima, without effects/local rows, for one immutable
+// CFG build. Shared operands are visited once; -2 is conservative on a cycle.
+fn cfg_operand_minimum_order(
+  func : HotFunc,
+  node_id : NodeId,
+  minima : Array[Int],
+  visits? : Array[Int]? = None,
+) -> Int {
+  if node_id == HOT_NONE_NODE {
+    return hot_node_count(func)
+  }
+  if node_id < 0 || !hot_node_is_live(func, node_id) {
+    return -2
+  }
+  if minima[node_id] != -1 {
+    return minima[node_id]
+  }
+  minima[node_id] = -2
+  if visits is Some(count) {
+    count[0] += 1
+  }
+  let mut minimum = hot_node_get(func, node_id).order
+  for child in hot_lower_impl_input_info(func, node_id).nodes {
+    minimum = minimum.min(
+      cfg_operand_minimum_order(func, child, minima, visits~),
+    )
+  }
+  minima[node_id] = minimum
+  minimum
+}
+
+///|
+fn cfg_region_may_need_source_order(
+  func : HotFunc,
+  roots : Array[NodeId],
+  minima : Array[Int],
+) -> Bool {
+  let mut previous_order = 0
+  for root in roots {
+    if cfg_operand_minimum_order(func, root, minima) < previous_order {
+      return true
+    }
+    previous_order = previous_order.max(
+      hot_node_get(func, root).order.min(root),
+    )
+  }
+  false
+}
+
+///|
 fn cfg_builder_region_segments(
   builder : CfgBuilder,
   func : HotFunc,
@@ -339,13 +392,37 @@ fn cfg_builder_region_segments(
   let ordered_nodes : Array[NodeId] = []
   let root_slots : Array[Int] = []
   let roots : Array[NodeId] = []
-  let suffix_minima = match builder.source_order {
-    Some(facts) => {
-      for slot = 0; slot < root_count; slot = slot + 1 {
-        roots.push(hot_region_get(func, region_ref, slot))
-      }
-      hot_source_order_future_suffix_minima(func, roots, facts)
+  if expanded {
+    for slot = 0; slot < root_count; slot = slot + 1 {
+      roots.push(hot_region_get(func, region_ref, slot))
     }
+  }
+  let facts = if expanded && root_count > 1 {
+    match builder.source_order {
+      Some(facts) => Some(facts)
+      None => {
+        let minima = match builder.operand_minima {
+          Some(minima) => minima
+          None => {
+            let minima = Array::make(hot_node_count(func), -1)
+            builder.operand_minima = Some(minima)
+            minima
+          }
+        }
+        if cfg_region_may_need_source_order(func, roots, minima) {
+          let facts = HotSourceOrderFacts::new(func)
+          builder.source_order = Some(facts)
+          Some(facts)
+        } else {
+          None
+        }
+      }
+    }
+  } else {
+    None
+  }
+  let suffix_minima = match facts {
+    Some(facts) => hot_source_order_future_suffix_minima(func, roots, facts)
     None => None
   }
   for slot = 0; slot < root_count; slot = slot + 1 {
@@ -356,19 +433,23 @@ fn cfg_builder_region_segments(
     }
     match builder.operand_seen {
       Some(seen) => {
-        let facts = builder.source_order.unwrap()
-        for
-          dependency in hot_source_order_preceding_dependencies(
-            func,
-            root_id,
-            roots,
-            slot + 1,
-            suffix_minima,
-            facts,
-          ) {
-          cfg_builder_collect_operand_nodes(
-            func, dependency, slot, seen, ordered_nodes, root_slots,
-          )
+        // Even after another region initialized facts, the final root has
+        // no future statement to constrain. Operand expansion still runs.
+        if slot + 1 < root_count && facts is Some(_) {
+          let facts = facts.unwrap()
+          for
+            dependency in hot_source_order_preceding_dependencies(
+              func,
+              root_id,
+              roots,
+              slot + 1,
+              suffix_minima,
+              facts,
+            ) {
+            cfg_builder_collect_operand_nodes(
+              func, dependency, slot, seen, ordered_nodes, root_slots,
+            )
+          }
         }
         cfg_builder_collect_operand_nodes(
           func, root_id, slot, seen, ordered_nodes, root_slots,

@@ -12,6 +12,10 @@ fn cfg_segment_storage_reference(
   func : HotFunc,
   region_ref : HotRegionRef,
 ) -> Array[CfgSegmentBoxedReference] {
+  // Retained original reference includes eager source-order initialization.
+  if builder.operand_seen is Some(_) && builder.source_order is None {
+    builder.source_order = Some(HotSourceOrderFacts::new(func))
+  }
   let segments : Array[CfgSegmentBoxedReference] = []
   let region_holder = cfg_builder_region_holder(region_ref)
   let root_count = hot_region_root_count(func, region_ref)

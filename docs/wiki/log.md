@@ -1,3 +1,14 @@
+### 2026-10-02 — DAE2 CFG ordering demand checkpoint
+
+- [CFG ordering proof and evidence](binaryen/passes/dae2/starshine-strategy.md#october-2-2026-prove-empty-cfg-ordering-demand-before-constructing-facts)
+  keeps complete CFG/read-source work and verification, while source-order
+  factories fall 7,926→411. Scoped analysis instructions fall 19.60%; plain
+  large CLI paired −2.56%. Optimizing wall evidence remains host-contended.
+  Red snapshot/carried-read/shared-DAG contracts, all 13,295 bounded tests,
+  twelve native controls and 168 fixed execution observations pass, with exact
+  compiler bytes. Tiny fallback cost, RSS spread, broader graph/lift/cleanup
+  work, canonical quality and deferred aggregate signoff remain open.
+
 ### 2026-10-02 — Large CL repeated reachability checkpoint
 
 - [Coalesce reachability evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026--shared-reachability-for-cleanup-and-backward-liveness)

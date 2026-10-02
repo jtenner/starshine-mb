@@ -100,6 +100,7 @@ fn cfg_fixed_workspace_reference_new(
     } else {
       None
     },
+    operand_minima: None,
     continuation_targets: if has_continuations {
       Array::make(hot_node_count(func), None)
     } else {

@@ -59,6 +59,10 @@ fn cfg_continuation_guard_reference_segments(
   func : HotFunc,
   region_ref : HotRegionRef,
 ) -> CfgRegionSegments {
+  // Retained original reference includes eager source-order initialization.
+  if builder.operand_seen is Some(_) && builder.source_order is None {
+    builder.source_order = Some(HotSourceOrderFacts::new(func))
+  }
   let segments = CfgRegionSegments::new()
   let region_holder = cfg_builder_region_holder(region_ref)
   let root_count = hot_region_root_count(func, region_ref)

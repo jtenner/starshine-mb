@@ -9941,6 +9941,29 @@ test "Binaryen 133 command GTO preserves canonical packed array identities" {
 }
 
 ///|
+test "command DAE2 modes retain mutable loop sources and imported effects" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (import \"host\" \"f\" (func (param i32) (result i32))) (global (export \"state\") (mut i32) (i32.const 666)) (func $target (param i32 i32) (result i32) (local i32) local.get 0 local.set 2 block loop local.get 2 i32.eqz br_if 1 local.get 2 call 0 drop local.get 2 i32.const 1 i32.sub local.set 2 local.get 2 global.set 0 br 0 end end local.get 2) (func (export \"run\") (param i32) (result i32) local.get 0 i32.const 3 i32.and i32.const 9 call $target))",
+  )
+  let bytes = @binary.encode_module(input).unwrap()
+  for pass in ["dae2", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    assert_eq(output.import_sec, input.import_sec)
+    assert_eq(@binary.encode_module(input).unwrap(), bytes)
+    let env = @validate.Env::new().with_module(output)
+    assert_eq(
+      env.get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+      Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+    )
+  }
+}
+
+///|
 test "command Coalesce retains calls and trap after nested terminal control" {
   let input = @passes.pass_test_module_from_wat(
     "(module (import \"host\" \"f\" (func (result i32))) (func (export \"run\") (param i32) (result i32) (local i32 i32) local.get 0 if block call 0 local.tee 1 drop i32.const 7 return end else call 0 local.tee 2 drop unreachable end i32.const 99))",
