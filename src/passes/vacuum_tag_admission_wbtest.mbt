@@ -46,7 +46,9 @@ test "indexed tag candidates retain both shapes nop padding and unreachable reje
     assert_true(admits(padded))
     let last = body.length() - 1
     let changed = body.copy()
-    let @lib.If(type_, then_body, else_body) = changed[last]
+    guard changed[last] is @lib.If(type_, then_body, else_body) else {
+      fail("expected final indexed tag conditional")
+    }
     changed[last] = @lib.Instruction::if_(
       type_,
       then_body + [@lib.Instruction::unreachable_()],

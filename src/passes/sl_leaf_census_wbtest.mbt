@@ -9,7 +9,9 @@ test "leaf conditional cleanup borrows complete bodies with no conditional" {
     let input = pass_test_module_from_wat(wat)
     let saved = @binary.encode_module(input).unwrap()
     let @lib.Func(locals, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
-    let @lib.TypeIdx(type_idx) = input.func_sec.unwrap().0[0]
+    guard input.func_sec.unwrap().0[0] is @lib.TypeIdx(type_idx) else {
+      fail("expected indexed function signature")
+    }
     let params = match
       input.type_sec.unwrap().0[type_idx.reinterpret_as_int()] {
       @lib.SingleRecType(subtype) =>
