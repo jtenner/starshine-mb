@@ -26,28 +26,29 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** verified empty CFG continuation arena,
-  main2af3566fa/native c4b08d28…→62e79f73…. Complete DAE2 work−.481743%,
-  2,161,289 fewer node probes; allocation count unchanged80,379,471.
+- **Latest matched large checkpoint:** zero-child direct-lift construction,
+  main435239e72/native62e79f73…→6c31b0ca…. Complete DAE2 work−1.084942%,
+  1,393,373 fewer requests, unchanged checks/bytes. OI whole-command work−.039%.
   CPU6 n5/warmup1 normal CLI medians±MAD (milliseconds):
-  dae2 3787.851±113.847/B1229.090±17.222;
-  dae2-optimizing 6486.703±24.644/B2489.494±31.941;
-  coalesce-locals 4079.786±69.745/B1910.801±13.077;
-  optimize-instructions 2270.293±25.726/B964.935±3.357.
-  Paired changes−1.764/−1.435/+.030/−.016%; traced/paired disagreements,
-  foreign load and RSS overlap remain explicit.13,435 tests/2400 observations
+  dae2 3658.377±57.878/B1191.762±6.590;
+  dae2-optimizing 6483.375±44.209/B2491.149±24.871;
+  coalesce-locals 4066.139±73.039/B1920.410±7.932;
+  optimize-instructions 2278.996±27.146/B964.601±7.998.
+  Paired changes−1.652/+.742/+.097/−.627%; traced/paired disagreements,
+  foreign load and RSS overlap remain explicit.13,437 tests/2400 observations
   pass; no universal clock/RSS or1× claim.
-  [Scopes, spreads and limits](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-prove-absent-cfg-continuations-from-verified-side-tables).
+  [Scopes, spreads and limits](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-build-zero-operand-lift-nodes-without-a-default-child-row).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Current DAE2 cost ownership:** native62e79f73… complete pass31.144b
-  instructions. Inclusive lift9.033b/10,422 calls; dependency analysis9.419b/8,354,
-  containing CFG5.102b/7,926, read sources1.975b/7,926 and entry proof.790b/8,187.
-  Lowering4.645b/2,468 and mandatory final validation3.032b/1 remain. These are
-  instruction scopes, not time; do not sum nested owners. Prioritize result/array
-  churn and repeated dependency work before speculative whole-arena retention.
+- **Current DAE2 cost ownership:** native6c31b0ca… complete pass30.806b
+  instructions/78,986,098 direct allocation requests. Dependency construction,
+  lift, lower and final validation remain the dominant owners; preceding62e79
+  nested attribution retains its source/date in the dossier. Do not combine
+  earlier nested figures with this root total or sum inclusive scopes as time.
+  Prioritize remaining result/array churn and repeated dependency work before
+  speculative whole-arena retention.
 - **Preserved quality and completed work:** V83 saves 79,962 canonical bytes
   across 4,968 shrinking functions. DAE2-O remains **99,251 canonical bytes
   larger** than v133 despite **9,949 fewer raw bytes**; CL/SL/OI canonical
@@ -392,6 +393,13 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03f — Output quality and artifact correctness [IR2-PERF-DAE2-QUALITY]
 
+- [ ] Reduce the continuation fixture's3B raw code-shape excess (84/81B after
+  name removal), preserving resume handler target depths and nullable/GC types.
+  Verified133 one-write strip-debug output is exactly81B on both sides; this is
+  not a new canonical/semantic gap.46B of retained name metadata is separate.
+  No measured Starshine raw-shape benefit; keep the writer lead open.
+  [Inspected sections and normalization](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#continuation-probe-follow-up).
+
 - [ ] Reduce and attribute the remaining **99,251-byte canonical optimizing gap**
   by function/diff family. V32 removes 32,070 balanced capture pairs and saves
   147,876 raw / 53,470 canonical bytes without per-function pair regressions.
@@ -578,6 +586,13 @@ quality gates. Keep traced inner and normal command measurements separate.
   dispatcher/runtime fixtures; P03e owns DAE2-O integration.
 
 ### P06 — Remaining OI validation and exact guard work [IR2-PERF-OI]
+
+- [ ] Trial inline private immutable root/flow records: native6c31b0ca… attributes
+  3,852,088 OI requests to RawOiTopLevelRootFact::from_instr, including inlined
+  children. Confirm exact constructor ownership and row layout; preserve all
+  root/flow kinds, instruction identity/order, index reuse/invalidation and
+  admission/effect/trap proofs. No mutation/identity use found so far; still
+  require native elimination and complete consumer/control measurements.
 
 - **Current complete-command attribution:** native62e79f73…20.611b instructions;
   module encoding cleanup5.826b inclusive (simple type cleanup3.938b, numeric
@@ -801,10 +816,10 @@ quality gates. Keep traced inner and normal command measurements separate.
 - [ ] Reduce remaining empty-child and generic/multi-result storage only with
   actual native elimination. Private lift validation wrapping is now inline;
   scalar/empty result rows already borrow function-owned scratch. Preserve
-  owned multi-results and generic fallback. Next verify and specialize default
-  empty child rows in zero-operand building (complete DAE2 hot_build_node has
-  1,635,530 attributed requests), without changing payload/flag/order/revision
-  or free-node behavior. Do not repeat rejected annotation trials. Preserve
+  owned multi-results and generic fallback. Direct zero-child lift now removes1,393,373 requests; do not repeat it.
+  Remaining exact/generic/public default sites account for242,157 requests in
+  the current DAE2 profile; measure them before extending the private factory.
+  Preserve payload/flag/order/revision and append/free-node behavior. Do not repeat rejected annotation trials. Preserve
   all cold/multi/error and enclosing costs in the [adapter evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-the-private-lift-validation-adapter).
 - [ ] Measure the checked HotNode return boundary: the earlier snapshot's
   getter-exclusive1.482b instructions includes a full32-byte native return.
@@ -841,6 +856,12 @@ quality gates. Keep traced inner and normal command measurements separate.
   diagnostic; CL/plain DAE2 gain is unproved. All four output hashes are exact,
   13,297 default tests and 336 fixed execution observations pass.
   [Scope, controls and limits](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-2-2026-avoid-boxed-success-in-sequence-leaf-encoding).
+- [ ] Trial nullable-error unsigned/signed LEB workers in measured leaf consumers:
+  native6c31b0ca… OI attributes6,011,833/975,957 requests to these encoders.
+  Preserve public adapters, every width/range/limit/error and write order;
+  prove native removal with byte-prefix/extrema/error controls, then all4
+  raw hashes/runtime fixtures and complete command profiles. No guessed byte
+  or RSS gain. [Source-backed leads](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-build-zero-operand-lift-nodes-without-a-default-child-row).
 - [ ] Renew quiet CL/plain DAE2 controls and profile remaining unsigned/signed
   immediate result boxing, declaration-validation scans and stack iterator
   churn. Keep every LEB width/range/error check, exact NaN bits, complete

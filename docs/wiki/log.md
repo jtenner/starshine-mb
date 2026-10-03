@@ -25869,3 +25869,18 @@ arrays/typecheck wrappers from the completed return packaging change.
   Clarification supersedes prior log wording: extra post-encode decoding is
   debug-serial-only; normal final-module validation stays active. No validation
   removal or1×/release signoff; next are zero-child rows and lazy type-remap storage.
+
+### 2026-10-03 — Zero-child lift construction
+
+- [Checked factory and complete evidence](binaryen/passes/dae2/starshine-strategy.md#october-3-2026-build-zero-operand-lift-nodes-without-a-default-child-row)
+  remove1.393m DAE2 requests and1.085% instructions; checked append/payload/
+  revision semantics unchanged.13,437 tests/2400 observations and exact hashes/
+  API pass. Paired DAE2−1.652%, OO+.742%, CL+.097%, OI−.627%; contradictory
+  traces and overlapping RSS remain. OI full-command work only−.039%, preventing
+  extrapolation. Next measured owners: LEB successes and immutable root records;
+  independent lazy type-remap trial in progress, release/size/1× gates stay open.
+
+- Continuation follow-up supersedes the earlier raw-only classification:
+  matched133 no-optimizer strip-debug gives identical81B;46B name metadata and
+  a3B raw core-shell lead are separate. The raw writer lead remains active,
+  without a new canonical/semantic or runtime-engine claim.

@@ -89,6 +89,28 @@ pub fn hot_build_node(
 }
 
 ///|
+// Match hot_build_node's empty-child branch without allocating its default row.
+// Keep allocation, type/span checks, append order and revision in hot_alloc_node.
+fn hot_build_node0(
+  func : HotFunc,
+  op : HotOp,
+  ty : TypeId,
+  imm0? : Int = 0,
+  imm1? : Int = 0,
+) -> NodeId {
+  hot_alloc_node(func, {
+    op,
+    ty,
+    flags: hot_default_flags_for_op(op),
+    order: -1,
+    imm0,
+    imm1,
+    child_base: 0,
+    child_count: 0,
+  })
+}
+
+///|
 fn hot_build_node1(
   func : HotFunc,
   op : HotOp,

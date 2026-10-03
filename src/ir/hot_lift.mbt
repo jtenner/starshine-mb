@@ -3546,7 +3546,7 @@ fn hot_lift_impl_lift_instruction(
           let { op: build_op, ty, imm0, imm1, } = hot_lift_impl_direct_node_shape(
             func, op, instr, pushed_types,
           )
-          hot_build_node(func, build_op, ty, imm0~, imm1~)
+          hot_build_node0(func, build_op, ty, imm0~, imm1~)
         }
         1 => {
           let child0 = hot_lift_impl_pop_value(values, concrete_values)

@@ -3,6 +3,9 @@ kind: entity
 status: working
 last_reviewed: 2026-10-03
 sources:
+  - ../../../../../src/ir/hot_builders.mbt
+  - ../../../../../src/ir/hot_build_node0_wbtest.mbt
+  - ../../../../../src/ir/hot_build_node0_perf_wbtest.mbt
   - ../../../../../src/ir/cfg.mbt
   - ../../../../../src/ir/cfg_presence_wbtest.mbt
   - ../../../../../src/ir/cfg_presence_perf_wbtest.mbt
@@ -7427,3 +7430,87 @@ still prevents assuming its earlier validation applies to the final result.
 Exact sources, hashes, RED/GREEN logs, microcontrols, command samples/spreads,
 runtime rows and complete profiles:
 `.tmp/large-pass-hotspots-20261001/main-cfg-presence-performance-20261003.md`.
+
+
+## October 3, 2026: build zero-operand lift nodes without a default child row
+
+Main435239e72, native62e79f73…→6c31b0ca…; same6,211,596B fixture SHA98189860…,
+verified133 SHA8f25e9fd…, GCC14.2/O2/mimalloc, Ryzen8845HS and CPU6.
+`hot_build_node` allocates its optional default empty Array[NodeId] even when no
+child exists. New private `hot_build_node0` matches that branch's exact header,
+flags, type/span checks, append order and revision through the same
+`hot_alloc_node`. Only the direct lift family's zero-child case uses it. Other
+fixed arities, exact/generic families and public builder contracts stay intact.
+No mutable analysis reuse, admission or validation change; no new heap storage.
+
+Native RED records one default-row allocation; GREEN records no direct worker
+allocation and the actual production caller. Native emits `_inner` after
+optional-argument wrapper optimization: the first checker expected a different
+symbol, failed, and was corrected before measurement. The initial profile
+waiter exceeded its build-freeze deadline, then was resumed after freeze; its
+failed log is preserved. A fixture initially used a nonexistent reference
+constructor and was corrected, not counted as a product regression. Two focused
+field/payload/revision tests compare valid Nop, Const and nullable-reference
+nodes and append behavior after a deleted child span, including whole HOT
+verification.13,437 default tests/API sync pass. Six native controls (same
+capacity reset on both paths, no unbounded node growth): Nop37.42±.46→30.53±.20ns;
+Const37.09±.48→30.64±.24ns; RefNull38.68±.44→30.49±.19ns,10 batches each.
+
+Complete normally exited DAE2 work31,143,999,404→30,806,104,978 instructions
+(−1.084942%); direct allocation requests80,379,471→78,986,098 (−1,393,373).
+Public default-row requests1,635,530→242,157, exactly matching the eliminated
+production calls; remaining exact/generic/public sites still allocate. Checked
+node allocation and transformation activity remain. Native executable+80B.
+A separate whole OI command capture20,611,236,125→20,603,177,806 instructions
+(−.039097%) establishes that DAE2's gain cannot be extrapolated to OI.
+
+Normal fresh-process CLI/warm filesystem, build/profile excluded, one warmup/n5
+alternating same-host median±MAD milliseconds:
+
+| Pass | Before | After | Binaryen133 | S/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3687.765±26.796 | 3658.377±57.878 | 1191.762±6.590 | 3.070× | -1.652% |
+| dae2-optimizing | 6482.809±57.867 | 6483.375±44.209 | 2491.149±24.871 | 2.603× | +0.742% |
+| coalesce-locals | 4047.625±39.032 | 4066.139±73.039 | 1920.410±7.932 | 2.117× | +0.097% |
+| optimize-instructions | 2284.702±40.845 | 2278.996±27.146 | 964.601±7.998 | 2.363× | -0.627% |
+
+All normal rows flag foreign CPU activity. OO paired+.742% and CL+.097% remain
+costs, not hidden by DAE2's−1.652%. Independent traced n1 inner DAE22919.221→
+2927.553, OO5588.429→5722.324, CL3062.307→3019.794, OI84.767→85.470ms are
+separate diagnostics, not refreshed matched Binaryen inner evidence. DAE2 RSS
+median257760→248056KiB with overlapping255784–267428/245404–266264 ranges;
+OO/CL/OI effectively flat. No consistent peak-memory or universal clock win.
+Four large raw hashes, V83 and canonical gaps remain exact;820 fixed validations
+and2400 runtime observations pass, API unchanged. Full CI/coverage/aggregate/
+independent review and1× remain open; long fuzz remains deferred.
+
+The current OI whole-command profile attributes6,011,833 direct allocation
+requests to unsigned LEB encoding,975,957 to signed encoding and3,852,088 to
+`RawOiTopLevelRootFact::from_instr` (including inlined children). The private
+root and five-boolean flow records have no mutation or identity use found.
+Next experiments: nullable-error LEB workers for measured immediate consumers,
+then inline immutable OI records with native/layout/full-consumer proof. These
+are hypotheses for improvements, not accepted changes or allocated-byte/RSS
+claims. Lazy unchanged type-remap output storage is the current independent
+unit; do not duplicate it. Ordinary Block/Loop/If lift processes children once;
+only guarded legacy Try has a separate full typecheck, so repeated common
+control validation is not established as the dominant source.
+
+Exact commands, source/binary/input hashes, initial failures, controls,
+normal/traced samples/spreads/RSS, runtime rows and full profiles:
+`.tmp/large-pass-hotspots-20261001/main-node-zero-performance-20261003.md`.
+
+
+### Continuation probe follow-up
+
+The earlier raw-only130/81B classification now has matched normalization
+ evidence:46B of Starshine's output is the retained `name` section and the
+remaining raw84/81B core differs by an untargeted nested block and nominal
+versus bottom continuation-null spelling. A single verified133 `--all-features
+--strip-debug` no-optimizer writer maps both outputs to exactly81B/SHAf7e68dc8…,
+with both externally validated. This is canonical byte equality for this small
+fixture, not a renewed large canonical protocol or a continuation execution
+oracle. The raw3B writer-shape reduction remains a quality lead with no measured
+Starshine benefit; keep it separate from name metadata and the99,251B large gap.
+Exact sections and commands: `cfg-presence-continuation-oracle/section-comparison.json`
+and `matched-strip-debug.json` under the local campaign directory.
