@@ -1403,3 +1403,70 @@ cold/wide fallbacks, mutation/append/collision safety and allocations/bytes.
 Exact source/binary/input hashes, commands, all ranges/RSS/raw rows and
 trial failures are in local
 `.tmp/large-pass-hotspots-20261001/main-payload-direct-match-performance-20261002.md`.
+
+
+## October 2, 2026: completed local-band proofs in lift
+
+Supersedes the unimplemented Byte pilot above; main177be8505/native6e22e72f…
+→d08c0fdb…. The old modulo64 masks recurse for every positive or colliding bit.
+[The private lift cache](../../../../../src/ir/hot_lift.mbt) replaces its
+readiness byte with complete single-band/mixed-maximum proofs.0 cold,1 empty,
+2..129 single bands0..127,130..254 mixed max bands0..124,255 unknown. A single
+band makes low-six-bit identities unique, proving positives or cross-band
+negatives. A known mixed maximum rejects queries above it; all other positive
+queries keep full recursive checks. Read/write masks, checked Unit admission,
+negative/deleted/incomplete-index behavior and immutable operand lifetime stay
+complete. Append-only reuse is permitted; semantic mutation needs fresh masks.
+No new cache arrays, public API, graph view or verification omission. Native
+Bool uint8_t and Byte moonbit_bytes_t elements share width; their allocator
+headers may differ, so this is not allocated-byte or peak-memory evidence.
+
+[Red-first bounded regressions](../../../../../src/ir/hot_lift_byte_extent_wbtest.mbt)
+fail on repeated warm positive/high-id walks, including the first max-only
+prototype's high-local positive failure. Selected coverage includes read/write
+queries, band collisions, mixed/shared DAGs, append, mutation freshness and
+intentionally invalid negative-local fallback. Historical field controls keep
+the original Bool cache separately. Active DAE2 and command fixtures actually
+prune a callee argument while preserving held pre-write imported-call values.
+13,386 default tests, info/fmt/check/native build/API sync and32 native controls
+pass. Four original/before/after/v133 runtime lanes validate724 modules/check2112
+observations across44 fixed fixtures; calls/state/memory/traps/finite FP agree.
+Raw compiler hashes, public API and V83 size improvements remain exact.
+
+Complete CL instructions42,321,757,023→42,055,017,035 (−.630267%). Nested conflict
+wrapper3,207,151,555→2,941,538,817 (−8.281889%), recursive visits16,899,160→
+14,418,574. Never sum overlapping recursive/parent edges or infer cause from
+counts alone; complete matched work and bounded exact-answer regressions support
+this gain. Significant mixed/unknown repeated walks remain. Native ten-batch
+mean±σ warm positive32 333.60±14.28→21.52±.50ns, collision32
+547.46±3.57→20.65±.83ns; cold positive1.47→1.25µs and collision1.65→1.29µs.
+Saturated positive307.41→316.96ns and collision534.75→626.79ns regress; warm
+negative20.58→21.32ns remains visible. Wide512 positives5.45µs→24.27ns and
+collisions10.38µs→23.37ns. These helper gains do not close enclosing parity.
+
+Normal n5 alternating CPU6, one warmup, fresh CLI/warm filesystem, median±MADms:
+
+| Pass | Before | After | B133 | Paired % | After/B |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| DAE2 | 4213.773±73.882 | 4426.975±213.283 | 1301.502±14.096 | +4.736 | 3.401× |
+| DAE2-O | 7238.873±479.252 | 7108.224±176.857 | 2526.604±25.495 | +2.541 | 2.813× |
+| CL | 4448.593±24.922 | 4599.278±72.573 | 1949.186±45.078 | −.022 | 2.360× |
+| OI | 2485.738±35.372 | 2427.675±38.118 | 969.681±2.776 | −3.490 | 2.504× |
+
+Every row flags foreign activity, including concurrent external compilation.
+Mixed clock changes establish neither a command win nor quiet-host1× signoff.
+RSS medians before→afterKiB:265092→264928,294364→294412,244232→244744,
+157108→157884; modes and optimizing excess remain unexplained. Independent
+traced n1 is diagnostic, not a refreshed B inner comparison. The prior n3
+named checkpoint retains its original source/scopes; do not equate it with
+current normal wall. Exact commands/sources/input/binary hashes, ranges/all
+samples, layout proof and failures:
+`.tmp/large-pass-hotspots-20261001/main-lift-byte-extent-performance-20261002.md`.
+Manual review; independent agent unavailable. Full CI/coverage/aggregate GenValid
+remain deferred by the focused campaign; gates unchanged. Canonical OO+99,251B
+remains separate from raw−9949B. Remaining priorities: DAE2 dependency/cleanup,
+OI envelope, Coalesce copy-pair structural scans and unused block-write rows.
+The prior complete CL profile attributes1.255b inclusive instructions/81,738
+initial scans to safe copy forwarding: its existing global-barrier proof can
+potentially eliminate repeated guaranteed-false scans without changing answers.
+That next pilot is unimplemented here and needs complete consumer evidence.

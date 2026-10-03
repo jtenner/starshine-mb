@@ -4905,3 +4905,36 @@ stay active. Next targets remain DAE2 dependencies/lift, optimizing cleanup,
 OI envelope and bounded conflict queries. Exact protocols/source hashes/all
 samples and rejected trial failures live in
 `.tmp/large-pass-hotspots-20261001/main-payload-direct-match-performance-20261002.md`.
+
+
+## October 2, 2026: main completed lift band checkpoint
+
+[Source, invariant, controls and consumer evidence](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-completed-local-band-proofs-in-lift)
+freeze main177be8505/native6e22e72f…→d08c0fdb… on the same compiler/v133/CPU6.
+Build excluded; normal n5 alternating, one warmup, fresh CLI/warm filesystem.
+Median±MAD milliseconds:
+
+| Pass | Starshine normal CLI | B133 normal CLI | Ratio |
+| --- | ---: | ---: | ---: |
+| DAE2 | 4426.975±213.283 | 1301.502±14.096 | 3.401× |
+| DAE2-O | 7108.224±176.857 | 2526.604±25.495 | 2.813× |
+| CL | 4599.278±72.573 | 1949.186±45.078 | 2.360× |
+| OI | 2427.675±38.118 | 969.681±2.776 | 2.504× |
+
+Paired+4.736/+2.541/−.022/−3.490%; every row flags foreign activity. Mixed
+clock results do not establish a command win or quiet-host1× signoff. Complete
+matched CL instructions−.630267%, nested conflict wrapper−8.281889% independently
+support removed traversal work; recursive/parent edges overlap and are not
+summed.13,386 tests/724 runtime modules/2112 observations/32 native controls
+pass with exact raw hashes/public API/V83 savings. Saturated fallback controls
+regress and remain active; native array width/layout is not an allocation-byte
+or RSS proof. RSS modes/optimizing excess and canonical quality remain open.
+
+Independent traced n1 diagnostics do not refresh B inner evidence; the prior
+n3 checkpoint retains native6e22/date and different validation/lift/lower/timer
+scopes. Raw and canonical artifacts stay distinct: OO−9949 raw versus+99251
+bounded canonical bytes. Exact manifest/source hashes, normal/traced ranges,
+flags/all samples, layout and red/green evidence:
+`.tmp/large-pass-hotspots-20261001/main-lift-byte-extent-performance-20261002.md`.
+Next: DAE2 dependency/cleanup, OI envelope, Coalesce guaranteed-false pair scans
+and unused block-write scratch. Aggregate/full CI/coverage gates remain open.

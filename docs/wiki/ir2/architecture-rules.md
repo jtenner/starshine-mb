@@ -666,6 +666,16 @@ separates helper gains from full-pipeline evidence.
   complete. This removes whole-header return traffic, not a node allocation;
   payload ids were already unboxed in native code. See
   [payload regressions](../../../src/ir/hot_payload_fields_wbtest.mbt).
+- Completed lift operands may prove a local conflict directly from their private
+  modulo64 masks when every local access lies in one known64-local band. The
+  old readiness row now carries a bounded Byte proof:0 cold,1 empty,2..129 single
+  bands0..127,130..254 mixed bands with maximum0..124,255 unknown. Unknown or
+  remaining mixed-band positive queries retain exact recursive checks. Both
+  native Bool and Byte elements are uint8; three arrays remain, without a claim
+  about allocator headers or peak memory. Checked admission and immutable
+  completed-operand lifetime are unchanged; semantic mutation requires fresh
+  masks. See [bounds/collision/snapshot regressions](../../../src/ir/hot_lift_byte_extent_wbtest.mbt)
+  and [consumer evidence and saturated costs](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-completed-local-band-proofs-in-lift).
 - Lowering uses complete `HotNodeUseCounts` instead of allocating full use-site
   and local overlays for two count-only queries. Exact root/child multiplicities
   and fresh snapshot lifetime remain required; other consumers keep complete

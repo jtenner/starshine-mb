@@ -12,7 +12,7 @@ fn lift_access_fields_bench(
     },
   )
   let masks = HotLiftLocalAccessMasks::new()
-  let old_masks = HotLiftLocalAccessMasks::new()
+  let old_masks = HotLiftLocalAccessReferenceMasks::new()
   let cached = kind >= 2
   let local = if kind == 0 || kind == 5 {
     0
@@ -43,15 +43,13 @@ fn lift_access_fields_bench(
   it.bench(fn() {
     // Cold rows include complete first-use construction. Other cached rows
     // query the same immutable completed value with equivalent warm summaries.
-    let query_masks = if kind == 3 {
-      Some(HotLiftLocalAccessMasks::new())
-    } else if original {
-      original_masks
-    } else {
-      actual_masks
-    }
     it.keep(
       if original {
+        let query_masks = if kind == 3 {
+          Some(HotLiftLocalAccessReferenceMasks::new())
+        } else {
+          original_masks
+        }
         lift_access_fields_original_value_conflicts_with_local_access(
           func,
           value,
@@ -60,6 +58,11 @@ fn lift_access_fields_bench(
           masks=query_masks,
         )
       } else {
+        let query_masks = if kind == 3 {
+          Some(HotLiftLocalAccessMasks::new())
+        } else {
+          actual_masks
+        }
         hot_lift_impl_value_conflicts_with_local_access(
           func,
           value,

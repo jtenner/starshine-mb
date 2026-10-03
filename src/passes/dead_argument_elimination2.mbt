@@ -1816,3 +1816,21 @@ test "dae2 checked payload queries preserve numeric GC and trapping memory opera
   )
   assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
+
+///|
+test "dae2 local-band masks retain pre-write operands and imported call order" {
+  let input = pass_test_module_from_wat(
+    "(module (import \"host\" \"f\" (func $f (param i32) (result i32))) (func $callee (param i32 i32) (result i32) local.get 0) (func (export \"run\") (param i32) (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 ) local.get 0 call $f i32.const 1 i32.add i32.const 1 i32.add i32.const 1 i32.add i32.const 1 i32.add i32.const 1 i32.add i32.const 1 i32.add i32.const 1 i32.add i32.const 1 i32.add i32.const 7 local.set 64 local.get 0 i32.const 1 i32.add local.set 0 local.get 0 call $f drop i32.const 99 call $callee))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let output = dae2_run_module_pass(input, false).unwrap()
+  @validate.validate_module(output).unwrap()
+  assert_eq(
+    @ir.hot_module_resolve_func_type(
+      @ir.hot_module_context_from_module(output),
+      @lib.FuncIdx::new(1U),
+    ),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+  )
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}

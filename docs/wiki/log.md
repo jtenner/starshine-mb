@@ -25733,3 +25733,17 @@ renew both normal CLI and named v133 comparisons without conflating their
 validation/optimization envelopes. Raw/canonical gaps and memory modes remain
 open; backlog prunes the payload pilot and adds bounded lift-conflict metadata
 with saturation and allocation/correctness gates.
+
+
+## October 2, 2026 — completed lift local-band proofs
+
+[Invariant and consumer evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-completed-local-band-proofs-in-lift)
+replace the existing private readiness byte with exact single-band/mixed-max
+proofs, retaining complete recursive fallback and checked admission. Red warm
+bounds,13,386 tests,32 controls and724 validated modules/2112 observations pass;
+raw/API/V83 quality stays exact. Complete CL work−.630267%, nested conflict
+queries−8.281889%; mixed noisy CLI results and saturated costs keep1× open.
+[Current checkpoint](tooling/tracing-playbook.md#october-2-2026-main-completed-lift-band-checkpoint)
+keeps normal and named scopes separate. Backlog prunes the completed pilot and
+retains remaining mixed/unknown walks, memory/quality gates and the next
+source-proved Coalesce global-barrier experiment.

@@ -2,7 +2,7 @@
 test "lift local-access projection preserves completed masks and fresh mutation facts" {
   let (func, value) = hot_lift_local_mask_fixture(4)
   let actual = HotLiftLocalAccessMasks::new()
-  let prior = HotLiftLocalAccessMasks::new()
+  let prior = HotLiftLocalAccessReferenceMasks::new()
   let revision = hot_revision_current(func)
   hot_lift_impl_collect_local_access_masks(func, value, actual, None)
   lift_access_fields_original_collect_local_access_masks(
@@ -13,7 +13,7 @@ test "lift local-access projection preserves completed masks and fresh mutation 
   )
   assert_eq(actual.reads, prior.reads)
   assert_eq(actual.writes, prior.writes)
-  assert_eq(actual.ready, prior.ready)
+  assert_eq(actual.extent.map(fn(x) { x != (0).to_byte() }), prior.ready)
   assert_eq(actual.reads[value], 1UL)
   assert_eq(actual.writes[value], 0UL)
   assert_eq(hot_revision_current(func), revision)
@@ -26,7 +26,7 @@ test "lift local-access projection preserves completed masks and fresh mutation 
   assert_eq(fresh.reads[value], 1UL)
   assert_eq(fresh.writes[value], 0UL)
   assert_eq(actual.reads, saved)
-  assert_eq(fresh.ready.filter(fn(ready) { ready }).length(), 1)
+  assert_eq(fresh.extent.filter(fn(x) { x != (0).to_byte() }).length(), 1)
 }
 
 ///|
@@ -77,7 +77,7 @@ test "lift local-access projection retains incomplete deletion-index fallback an
 }
 
 ///|
-test "lift local-access projection retains mask collisions exact dependencies and identical traversal" {
+test "lift local-access projection retains mask collisions exact dependencies and completed summaries" {
   let (func, value) = hot_lift_local_mask_fixture(8)
   let write = hot_build_local_tee(
     func,
@@ -86,7 +86,7 @@ test "lift local-access projection retains mask collisions exact dependencies an
   )
   let joined = hot_build_binary(func, @lib.ValType::i32(), value, write)
   let actual = HotLiftLocalAccessMasks::new()
-  let prior = HotLiftLocalAccessMasks::new()
+  let prior = HotLiftLocalAccessReferenceMasks::new()
   let revision = hot_revision_current(func)
   for root in [value, write, joined] {
     for local in [0, 1, 63, 64, 65, 127] {
@@ -111,10 +111,10 @@ test "lift local-access projection retains mask collisions exact dependencies an
             node_visits=Some(pv),
           ),
         )
-        assert_eq(av, pv)
+        assert_true(av[0] <= pv[0])
         assert_eq(actual.reads, prior.reads)
         assert_eq(actual.writes, prior.writes)
-        assert_eq(actual.ready, prior.ready)
+        assert_eq(actual.extent.map(fn(x) { x != (0).to_byte() }), prior.ready)
       }
     }
   }

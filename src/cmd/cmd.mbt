@@ -10406,3 +10406,31 @@ test "command checked payload queries preserve numeric GC and memory pass routes
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command local-band masks retain call snapshots across large pass routes" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (import \"host\" \"f\" (func $f (param i32) (result i32))) (func $callee (param i32 i32) (result i32) local.get 0) (func (export \"run\") (param i32) (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 ) local.get 0 call $f i32.const 1 i32.add i32.const 1 i32.add i32.const 1 i32.add i32.const 1 i32.add i32.const 1 i32.add i32.const 1 i32.add i32.const 1 i32.add i32.const 1 i32.add i32.const 7 local.set 64 local.get 0 i32.const 1 i32.add local.set 0 local.get 0 call $f drop i32.const 99 call $callee))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for
+    flag in [
+      "dae2", "dae2-optimizing", "coalesce-locals", "optimize-instructions",
+    ] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [flag],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    if flag == "dae2" || flag == "dae2-optimizing" {
+      assert_eq(
+        @validate.Env::new()
+        .with_module(output)
+        .get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+        Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+      )
+    }
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

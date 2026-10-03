@@ -37,17 +37,19 @@ pub fn hot_lift_local_accesses(func : HotFunc) -> HotLiftLocalAccesses {
 
 ///|
 // Only completed stack values are queried while lifting. Their operand trees
-// remain immutable as later nodes are appended. Bits are a negative filter:
-// colliding local IDs still use the exact recursive conflict check.
+// remain immutable as later nodes are appended. A byte extent shares the old
+// readiness row: 0 cold, 1 no locals, 2..129 single band 0..127,
+// 130..254 mixed bands with maximum 0..124, and 255 unknown.
+// Saturated or colliding masks retain the exact recursive conflict check.
 priv struct HotLiftLocalAccessMasks {
   reads : Array[UInt64]
   writes : Array[UInt64]
-  ready : Array[Bool]
+  extent : Array[Byte]
 }
 
 ///|
 fn HotLiftLocalAccessMasks::new() -> HotLiftLocalAccessMasks {
-  { reads: [], writes: [], ready: [], }
+  { reads: [], writes: [], extent: [], }
 }
 
 ///|
@@ -1716,18 +1718,42 @@ fn hot_lift_impl_build_exact_node3(
 }
 
 ///|
+#inline
+fn hot_lift_impl_merge_local_extent(left : Byte, right : Byte) -> Byte {
+  if left == (1).to_byte() {
+    return right
+  }
+  if right == (1).to_byte() || left == right {
+    return left
+  }
+  let lhs = left.to_int()
+  let rhs = right.to_int()
+  if lhs == 255 || rhs == 255 {
+    return (255).to_byte()
+  }
+  let left_band = if lhs < 130 { lhs - 2 } else { lhs - 130 }
+  let right_band = if rhs < 130 { rhs - 2 } else { rhs - 130 }
+  let max_band = if left_band > right_band { left_band } else { right_band }
+  if max_band <= 124 {
+    (max_band + 130).to_byte()
+  } else {
+    (255).to_byte()
+  }
+}
+
+///|
 fn hot_lift_impl_collect_local_access_masks(
   func : HotFunc,
   node_id : NodeId,
   masks : HotLiftLocalAccessMasks,
   node_visits : Array[Int]?,
 ) -> Unit {
-  while masks.ready.length() <= node_id {
+  while masks.extent.length() <= node_id {
     masks.reads.push(0UL)
     masks.writes.push(0UL)
-    masks.ready.push(false)
+    masks.extent.push((0).to_byte())
   }
-  if masks.ready[node_id] {
+  if masks.extent[node_id] != (0).to_byte() {
     return
   }
   match node_visits {
@@ -1740,9 +1766,21 @@ fn hot_lift_impl_collect_local_access_masks(
   let node = func.nodes[node_id]
   let mut reads = 0UL
   let mut writes = 0UL
+  let mut extent = (1).to_byte()
   match node.op {
     HotOp::LocalGet => reads = 1UL << (node.imm0 & 63)
     HotOp::LocalSet | HotOp::LocalTee => writes = 1UL << (node.imm0 & 63)
+    _ => ()
+  }
+  match node.op {
+    HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee => {
+      let band = node.imm0 >> 6
+      extent = if node.imm0 >= 0 && band <= 127 {
+        (band + 2).to_byte()
+      } else {
+        (255).to_byte()
+      }
+    }
     _ => ()
   }
   for slot = 0; slot < node.child_count; slot = slot + 1 {
@@ -1751,11 +1789,12 @@ fn hot_lift_impl_collect_local_access_masks(
       hot_lift_impl_collect_local_access_masks(func, child, masks, node_visits)
       reads = reads | masks.reads[child]
       writes = writes | masks.writes[child]
+      extent = hot_lift_impl_merge_local_extent(extent, masks.extent[child])
     }
   }
   masks.reads[node_id] = reads
   masks.writes[node_id] = writes
-  masks.ready[node_id] = true
+  masks.extent[node_id] = extent
 }
 
 ///|
@@ -1796,6 +1835,14 @@ fn hot_lift_impl_value_conflicts_with_local_access(
       hot_lift_impl_collect_local_access_masks(
         func, node_id, masks, node_visits,
       )
+      let extent = masks.extent[node_id].to_int()
+      if extent < 130 {
+        if extent == 1 || local_id < 0 || local_id >> 6 != extent - 2 {
+          return false
+        }
+      } else if extent < 255 && local_id >> 6 > extent - 130 {
+        return false
+      }
       let mask = if is_write {
         masks.reads[node_id] | masks.writes[node_id]
       } else {
@@ -1803,6 +1850,10 @@ fn hot_lift_impl_value_conflicts_with_local_access(
       }
       if (mask & (1UL << (local_id & 63))) == 0UL {
         return false
+      }
+      // All accesses in one band have unique low-six-bit local identities.
+      if extent < 130 {
+        return true
       }
     }
     None => ()

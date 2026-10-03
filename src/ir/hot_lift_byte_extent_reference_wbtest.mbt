@@ -1,19 +1,5 @@
 ///|
-// Keep historical getter controls on their original Bool cache geometry.
-priv struct HotLiftLocalAccessReferenceMasks {
-  reads : Array[UInt64]
-  writes : Array[UInt64]
-  ready : Array[Bool]
-}
-
-///|
-fn HotLiftLocalAccessReferenceMasks::new() -> HotLiftLocalAccessReferenceMasks {
-  { reads: [], writes: [], ready: [], }
-}
-
-///|
-// Frozen c2aec5040 mask/conflict workers; preserve complete-node reads.
-fn lift_access_fields_original_collect_local_access_masks(
+fn lift_extent_reference_collect(
   func : HotFunc,
   node_id : NodeId,
   masks : HotLiftLocalAccessReferenceMasks,
@@ -31,7 +17,10 @@ fn lift_access_fields_original_collect_local_access_masks(
     Some(count) => count[0] += 1
     None => ()
   }
-  let node = hot_node_get(func, node_id)
+  // Preserve checked admission while projecting the existing arena record
+  // here, without a complete-node return boundary or a new view allocation.
+  hot_node_require_live_read(func, node_id)
+  let node = func.nodes[node_id]
   let mut reads = 0UL
   let mut writes = 0UL
   match node.op {
@@ -42,9 +31,7 @@ fn lift_access_fields_original_collect_local_access_masks(
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     let child = hot_child_get(func, node_id, slot)
     if child >= 0 && hot_node_is_live(func, child) {
-      lift_access_fields_original_collect_local_access_masks(
-        func, child, masks, node_visits,
-      )
+      lift_extent_reference_collect(func, child, masks, node_visits)
       reads = reads | masks.reads[child]
       writes = writes | masks.writes[child]
     }
@@ -55,7 +42,10 @@ fn lift_access_fields_original_collect_local_access_masks(
 }
 
 ///|
-fn lift_access_fields_original_value_conflicts_with_local_access(
+// Preserve both directions of a pending stack value's local dependency. A
+// later write must not change its reads; a later read must see its writes.
+// Explicit captures make these edges visible to every tree transform.
+fn lift_extent_reference_conflict(
   func : HotFunc,
   node_id : NodeId,
   local_id : Int,
@@ -70,7 +60,10 @@ fn lift_access_fields_original_value_conflicts_with_local_access(
     Some(count) => count[0] += 1
     None => ()
   }
-  let node = hot_node_get(func, node_id)
+  // Preserve checked admission while projecting the existing arena record
+  // here, without a complete-node return boundary or a new view allocation.
+  hot_node_require_live_read(func, node_id)
+  let node = func.nodes[node_id]
   if node.imm0 == local_id {
     match node.op {
       HotOp::LocalSet | HotOp::LocalTee => return true
@@ -83,9 +76,7 @@ fn lift_access_fields_original_value_conflicts_with_local_access(
   }
   match masks {
     Some(masks) => {
-      lift_access_fields_original_collect_local_access_masks(
-        func, node_id, masks, node_visits,
-      )
+      lift_extent_reference_collect(func, node_id, masks, node_visits)
       let mask = if is_write {
         masks.reads[node_id] | masks.writes[node_id]
       } else {
@@ -98,7 +89,7 @@ fn lift_access_fields_original_value_conflicts_with_local_access(
     None => ()
   }
   for slot = 0; slot < node.child_count; slot = slot + 1 {
-    if lift_access_fields_original_value_conflicts_with_local_access(
+    if lift_extent_reference_conflict(
         func,
         hot_child_get(func, node_id, slot),
         local_id,

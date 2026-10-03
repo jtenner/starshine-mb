@@ -22,26 +22,28 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** checked payload queries, mainbc6f6ea3b/
-  nativee7529ee2…→6e22e72f…. Normal n5 alternating, one warmup, median±MADms:
-  DAE24081.539±83.697/B1226.426±27.000 (3.328×),
-  OO6993.348±74.721/B2508.565±40.995 (2.788×),
-  CL4535.650±60.614/B1978.689±32.228 (2.292×),
-  OI2443.540±37.293/B979.768±2.775 (2.494×).
-  Paired+1.440/−1.342/−1.715/+1.650%; every row flags foreign activity,
-  no command-level win or quiet-host1× signoff. CL instructions−.131286%,
-  nested payload verification−22.203%; actual three getter boundaries removed.
-  13,379 tests/708 modules/2064 observations/24 native controls pass; public API,
-  raw hashes/V83 retained. RSS modes/optimizing≈138MiB excess remain open.
-  Fresh n3 named diagnostics DAE23190.564/B491.551ms,
-  OO6026.947/B explicit row-sum1778.100, CL3423.120/B1270.190,
-  OI90.380/B253.911 have differing scopes; OI envelope remains costly.
+- **Latest matched large checkpoint:** completed lift band proofs,
+  main177be8505/native6e22e72f…→d08c0fdb…. Normal n5 alternating,
+  one warmup, median±MADms: DAE24426.975±213.283/B1301.502±14.096 (3.401×),
+  OO7108.224±176.857/B2526.604±25.495 (2.813×),
+  CL4599.278±72.573/B1949.186±45.078 (2.360×),
+  OI2427.675±38.118/B969.681±2.776 (2.504×).
+  Paired+4.736/+2.541/−.022/−3.490%; every row flags foreign activity,
+  no command-level win or quiet-host1× signoff. Complete CL instructions
+  −.630267%, nested conflict queries−8.281889%; recursive visits16.899m→14.419m.
+  13,386 tests/724 modules/2112 observations/32 native controls pass;
+  raw hashes/API/V83 retained. Saturated+9.55/+92.04ns and negative+.74ns
+  controls remain open; RSS modes/optimizing excess unexplained.
+  Prior matched n3 named diagnostics retain native6e22/date/scope:
+  DAE23190.564/B491.551ms, OO6026.947/B explicit row-sum1778.100,
+  CL3423.120/B1270.190, OI90.380/B253.911; OI envelope remains costly.
   Raw OO−9949B versus canonical+99,251B remains open.
-  [Exact protocols/scopes/hashes](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-checked-payload-query-checkpoint).
+  [Exact protocols/scopes/hashes](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-completed-lift-band-checkpoint).
 - **Completed shared mechanisms:** checked lift reads, scalar CL clique updates,
   retained unchanged strip/spill storage, compact lowering counts and direct
   result-stack rows, block-only CL liveness and separate effect/ordering demand are
-  implemented, including checked exact-payload reads; do not repeat them.
+  implemented, including checked exact-payload reads and completed lift band
+  proofs; do not repeat them.
   Existing tiny/tee/weighted/wide microcosts
   remain visible in P03/P04 and the
   [consumer dossier](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-use-compact-counts-throughout-lowering).
@@ -680,12 +682,18 @@ separate from normal commands and differ in surrounding work.
 - **Owner / why:** [Coalesce](src/passes/coalesce_locals.mbt), expanded CFG,
   liveness, interference and raw branch-depth/lowering queries; the large pass
   still costs several seconds.
-- **Current measured remainder:** normal CL4601.658ms/B2083.079 (2.21×),
-  complete module instructions42.377b; direct lift8.466b, lower6.761b,
-  CFG3.187b, interference3.085b, liveness constructor2.203b remain. Edges are
-  inclusive; no summed phase percentage. Most recent fix removes unused full
-  use-site discovery with the same complete block scanner/checks/solver.
-  [Current evidence and ownership](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-build-coalesce-liveness-without-unused-use-site-graphs).
+- **Current measured remainder:** normal CL4599.278ms/B1949.186 (2.360×),
+  complete module instructions42.055b. Nested conflict wrapper2.942b still
+  performs14.419m recursive visits; unknown/mixed masks retain exact checks.
+  Prior native6e22 safe-copy owner1.255b inclusive instructions/81,738 initial
+  scans identifies repeated structural walking; recursive edges overlap.
+  [Current evidence and ownership](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-completed-local-band-proofs-in-lift).
+- [ ] Trial the existing global-barrier predicate before safe copy-pair scans.
+  The scanner unconditionally rejects Br/BrIf/BrTable/Return/Loop/TryTable in
+  traversed Block/If bodies. Prove all pair answers/matrix mutations unchanged,
+  preserve positive barrier-free forwarding/chains and ignored opaque shells,
+  and measure complete CL/native no-barrier/no-edge costs before acceptance.
+  Native actual-consumer guard absence is recorded red; no fix is signed yet.
 - **Tasks:** profile repeated dependency/action rows, source-order/label setup,
   capture/conflict walks and weighted/wider coloring on the current revision.
   Reduce unused block-write metadata only with complete full-graph semantics.
@@ -894,7 +902,7 @@ separate from normal commands and differ in surrounding work.
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
-- **Next measured shared targets:** current CL root42.322b instructions,
+- **Next measured shared targets:** current CL root42.055b instructions,
   nested lower5.956b after explicit effect/ordering demand removes unused rows.
   Full lower source factories4565→297; no duplicate implementation of that
   completed mechanism. Reduce measured carried fallback+140ns/+6.93µs without
@@ -902,14 +910,13 @@ separate from normal commands and differ in surrounding work.
   objects and unused block-write metadata still allocate. DAE2 dependency/lift
   and optimizing cleanup remain larger owners; field attribution retains its
   exact earlier snapshots.
-- [ ] Trial a bounded per-value Byte extent in lift's existing readiness row
-  against the measured1.529b exclusive conflict recursion. Known maxima may
-  reject high-id mask collisions and prove positive masks below64; saturation,
-  negative queries and unknown/wide values retain full recursive fallback.
-  Native Bool arrays are uint8_t: Int rows would add bytes, while Byte keeps
-  width. Require red warm-reuse bounds, complete consumer work/timings, faithful
-  current-field controls, cold/saturated costs, collision/append/shared/fresh
-  mutation tests and checked admission; no extra rows or persistent cache.
+- [ ] Reduce remaining mixed/unknown lift-conflict walks only with measured
+  complete consumers: completed single-band proofs are implemented. Current
+  recursive visits14.419m and saturated native costs+9.55/+92.04ns remain.
+  Investigate bit-negative query ordering or a stronger bounded summary only
+  after attribution; retain exact fallback, immutable snapshot lifetime,
+  collision/read/write/append/mutation/admission checks and width/allocations.
+  No speculative extra per-node array or persistent cache is justified.
 - [ ] Bound remaining descending stack-prefix mismatch work after proving a
   wide active consumer: repeated lanes with final mismatch remain quadratic,
   but current CL entry work25.405m instructions (~.0585%) is lower priority.
