@@ -1569,3 +1569,16 @@ observations pass; raw hashes/canonical gap78,800B remain. DAE2 work improves
 2.070902%, but its repeat CLI is flat. Memory modes, command/quality gaps and
 release gates remain open. Private declaration-walker allocation work belongs
 to validation outside this CL module-pass scope; do not extrapolate a gain here.
+
+
+## October 3, 2026: inline lift node shapes
+
+The [shared private representation change](../dae2/starshine-strategy.md#october-3-2026-inline-private-lift-node-shapes)
+removes1,350,276 CL allocation requests with every factory call/payload retained.
+Complete CL instructions 40,007,028,213→39,883,336,242
+(-0.309176%). Initial normal n5 CLI is3830.191→3848.662ms
+(paired+0.824%); the separately retained n3 repeat is
+3851.585±38.221→3846.790±26.032ms,
+paired-0.840%. Foreign activity, RSS overlap and
+canonical+78,800B remain. Instruction/allocation gains do not prove universal
+throughput parity. All four raw hashes and 2352 runtime observations are retained.

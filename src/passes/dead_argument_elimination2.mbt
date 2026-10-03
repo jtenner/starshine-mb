@@ -1888,3 +1888,21 @@ test "dae2 declaration validation retains reference calls and active pruning" {
   )
   assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
+
+///|
+test "dae2 lift shape fields preserve indirect calls and memory while pruning" {
+  let input = pass_test_module_from_wat(
+    "(module (type $sig (func (param i32) (result i32))) (table 1 funcref) (memory (export \"memory\") 1) (func $target (type $sig) local.get 0 i32.const 1 i32.add) (elem (i32.const 0) $target) (func $callee (param i32 i32) (result i32) local.get 0) (func (export \"run\") (param i32) (result i32) (local i32 i32) i32.const 0 local.get 0 i32.store i32.const 0 i32.load local.set 1 local.get 1 local.set 2 local.get 2 i32.const 0 call_indirect (type $sig) i32.const 99 call $callee i32.const 0 i32.add))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let output = dae2_run_module_pass(input, false).unwrap()
+  @validate.validate_module(output).unwrap()
+  assert_eq(
+    @ir.hot_module_resolve_func_type(
+      @ir.hot_module_context_from_module(output),
+      @lib.FuncIdx::new(1U),
+    ),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+  )
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}

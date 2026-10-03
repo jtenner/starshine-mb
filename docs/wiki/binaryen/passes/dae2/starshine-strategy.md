@@ -6906,3 +6906,82 @@ no independent review of this patch is claimed.
 Exact commands, CPU/tools/input/source/binary hashes, dirty state, all samples,
 spreads, profiles, native guard and tests:
 `.tmp/large-pass-hotspots-20261001/main-ref-decl-performance-20261003.md`.
+
+
+## October 3, 2026: inline private lift node shapes
+
+The two private shape factories in [HOT lifting](../../../../../src/ir/hot_lift.mbt)
+return one four-scalar `#valtype` record instead of heap tuples. All ten callers
+immediately consume those fields. Type interning, constant/call-signature/memory/
+instruction payload construction and operand order stay unchanged; no public API,
+cache, validation or optimization-admission change. Both factories share the same
+private record. Required payload allocation remains.
+
+Frozen native 20ffcd71…→6c0783bd… on cbb68ea91, same release native
+O2/mimalloc, Ryzen 7 8845HS/CPU 6, 6,211,596-byte compiler input and verified Binaryen 133.
+Actual native CLI factory return-tuple sites go **22/5→0/0**; the record returns
+inline. Complete normally exited, output-matched profiles:
+
+| Scope | Before instructions | After instructions | Change | Removed allocator calls |
+| --- | ---: | ---: | ---: | ---: |
+| DAE2 module pass | 33,335,245,043 | 33,077,462,265 | -0.773304% | 2,827,170 |
+| CL module pass | 40,007,028,213 | 39,883,336,242 | -0.309176% | 1,350,276 |
+
+Direct/exact factory calls remain 2,320,525/506,645 in DAE2 and
+1,096,576/253,700 in CL. The total allocation reduction is exactly one request
+per factory call. Direct DAE2 payload requests remain 392,628 and exact 749,293;
+the old 2,713,153 direct-factory requests were not all removable tuples. These
+are allocation counts, not net bytes or peak RSS; inclusive nested costs are not added.
+
+Normal fresh-process CLI with warm filesystem, rotating before/after/133 order,
+n=5 after one warmup, milliseconds median±MAD; all rows flag foreign activity:
+
+| Pass | Before CLI (ms) | After CLI (ms) | B133 CLI (ms) | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| DAE2 | 3564.684±14.868 | 3533.282±29.494 | 1115.990±9.002 | 3.166× | -0.466% |
+| DAE2-O | 6111.902±61.623 | 6032.188±44.023 | 2354.697±49.686 | 2.562× | -0.779% |
+| CL | 3830.191±12.153 | 3848.662±27.805 | 1775.686±1.656 | 2.167× | +0.824% |
+| OI | 2094.510±4.850 | 2092.284±2.212 | 915.218±4.061 | 2.286× | -0.106% |
+
+CL's initial clock cost (+0.824%) prompted one retained n=3 repeat with the same
+binaries/options/CPU, also after one warmup: 3851.585±38.221
+→3846.790±26.032 ms, Binaryen
+1785.227±23.414 ms; paired
+-0.840%. This does not replace the first cohort.
+Do not claim a universal command-time win from helper or instruction counts.
+Initial RSS medians (KiB) are DAE2 266176→265636, optimizing 294448→294332,
+CL 249276→244784 and OI 156192→156488. Distributions overlap and allocator modes
+remain unresolved; all ranges/MAD are retained locally. Native executable size is
+14,629,704→14,629,776 bytes.
+
+Twelve pinned native controls preserve the original factory bodies and compare
+fields/payloads outside timing, with bounded payload storage per iteration.
+128-item means: indices 1.56µs→929.33ns, constants 2.41→1.77µs, signatures 2.85→2.17µs,
+memory 3.87→3.07µs and exact opcode 2.57→1.85µs; empty 9.61→9.96ns is noisy.
+Full standard deviations/ranges are in lift-shape-native-pilot.log. A guard first
+inspected a stale release/test C file; the corrected release/bench artifact and
+fresh CLI artifact both prove zero tuple sites. Stale output is not signoff evidence.
+
+[Three field/payload tests](../../../../../src/ir/hot_lift_shape_value_wbtest.mbt)
+pass before/after. New implementing/dispatcher fixtures preserve memory and
+indirect calls with active DAE2 argument removal. 13,413 default wasm-gc tests,
+info/fmt/check/native build/API sync and twelve controls pass; no .mbti change.
+Four runtime lanes validate 804 modules and compare 2352 original/before/after/133
+observations. All four large raw hashes are identical, preserving V83 and all
+known canonical gaps; no new normalization is claimed. The separate P00 DAE
+control-operand repair is not part of this performance snapshot. Existing audit
+failures and full CI/coverage/10,000 GenValid gates remain; long fuzz is deferred.
+Manual source/native review only, no independent patch review.
+
+Current complete DAE2 attribution: lift 10,756,411,581 instructions/10,422 calls;
+dependency analysis 9,568,879,881/8,354, including CFG 5,101,044,999/7,926,
+read sources 1,974,341,007/7,926 and entry proof 789,524,430/8,187. Lowering remains
+4,645,667,526/2,468, final module validation 3,088,822,166/1. These are inclusive
+instruction scopes, not elapsed milliseconds; do not sum nested owners. Next
+priorities remain lifting/typechecking result/array churn, dependency CFG/source
+work, optimizing cleanup, CL lowering and OI command validation. Every mandatory
+check and the corrected control-operand model must remain.
+
+Exact source/binary/input/tool hashes, commands, all samples/spreads, native guards,
+complete profiles and runtime artifacts:
+`.tmp/large-pass-hotspots-20261001/main-lift-shape-performance-20261003.md`.

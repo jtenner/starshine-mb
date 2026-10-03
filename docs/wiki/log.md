@@ -25802,3 +25802,13 @@ unchanged checks/output hashes, 13,408 tests and 2304 fixed observations.
 Normal command, helper, allocation and RSS scopes stay distinct; no 1× or release
 claim. The backlog prunes this pilot and superseded checkpoint prose while
 retaining all active tradeoffs, historical dossier links and P00 blockers.
+
+
+## 2026-10-03 — Inline private lift result fields
+
+[Complete-consumer evidence](binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-private-lift-node-shapes)
+records DAE2/CL instruction changes -0.773%/-0.309% and
+2,827,170/1,350,276 fewer allocator calls with all payloads/output bytes retained.
+13,413 tests and 2352 observations pass; initial CL clock cost and one
+bounded repeat stay explicit. Backlog prunes the shape trial, refreshes current
+cost ownership and retains typecheck/container churn, canonical and P00 work.

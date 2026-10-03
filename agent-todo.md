@@ -26,28 +26,25 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** declaration success boxes removed,
-  main 6f1bbff76/native 8bfe3761…→20ffcd71…. Complete DAE2
-  instructions -0.762865%, whole OI command -2.397004%; worker allocation
-  requests fall 4,948,080→0 in DAE2. No check or scan removed.
-  Current normal CPU 6 n=5 after one warmup, median±MAD:
-  DAE2 3586.333±36.645/B1124.879±12.804 ms (3.188×).
-  DAE2-O 6063.896±13.679/B2308.920±5.633 ms (2.626×).
-  CL 5301.057±229.196/B1778.561±28.860 ms (2.981×).
-  OI 2104.223±4.268/B917.756±5.662 ms (2.293×).
-  All cohorts flag foreign activity; no universal RSS or 1× signoff.
-  13,408 tests, ten controls, 788 runtime validations/2304 observations
-  and exact four-pass output hashes pass. P00 failures and canonical quality
-  gaps remain open. [Scopes, tradeoffs and evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-allocation-free-declaration-scan-success).
-- **Confirmed DAE2 attribution on native6e22→d08c:** complete matched
-  module work34,604,264,255→34,604,091,968 (−.000498%), effectively unchanged.
-  The lift-band fix helps CL and does not establish DAE2 throughput gains.
-  At that earlier snapshot inclusive lift11.397b (10,422 calls), dependency analysis9.881b;
-  nested dependency CFG5.186b (7926 calls), read sources2.019b, entry proof.790b.
-  Rewriting also lowers2468 functions (4.647b); final module validation3.639b
-  remains mandatory. Do not sum nested costs or treat traversal counts alone
-  as a cause. Reduce arena/CFG temporary objects before speculative retention
-  of all first-lift functions; preserve explicit immutable-snapshot invariants.
+- **Latest matched large checkpoint:** private inline lift shapes,
+  main cbb68ea91/native20ffcd71…→6c0783bd…. Complete DAE2/CL instruction
+  work -0.773304%/-0.309176%; allocation requests fall exactly
+  2,827,170/1,350,276 with identical factory calls/checks/outputs.
+  CPU6 n5/warmup1 normal medians±MAD:
+  DAE2 3533.282±29.494/B1115.990±9.002 ms.
+  DAE2-O 6032.188±44.023/B2354.697±49.686 ms.
+  CL 3848.662±27.805/B1775.686±1.656 ms.
+  OI 2092.284±2.212/B915.218±4.061 ms.
+  Initial CL paired+0.824% is retained; justified n3 repeat paired
+  -0.840%. All cohorts flag foreign activity; no universal
+  clock/RSS or 1× signoff. 13,413 tests, twelve controls and 2352 runtime
+  observations pass. [Full evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-private-lift-node-shapes).
+- **Current DAE2 cost ownership:** native6c0783bd… complete pass33.077b
+  instructions. Inclusive lift10.756b/10,422 calls; dependency analysis9.569b/8,354,
+  containing CFG5.101b/7,926, read sources1.974b/7,926 and entry proof.790b/8,187.
+  Lowering4.646b/2,468 and mandatory final validation3.089b/1 remain. These are
+  instruction scopes, not time; do not sum nested owners. Prioritize result/array
+  churn and repeated dependency work before speculative whole-arena retention.
 - **Preserved quality and completed work:** V83 saves 79,962 canonical bytes
   across 4,968 shrinking functions. DAE2-O remains **99,251 canonical bytes
   larger** than v133 despite **9,949 fewer raw bytes**; CL/SL/OI canonical
@@ -777,12 +774,17 @@ quality gates. Keep traced inner and normal command measurements separate.
   a nullable error; external Result contracts and all validation remain. Complete
   DAE2 and OI-command evidence is in the [current checkpoint](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-allocation-free-declaration-scan-success).
   Do not repeat this pilot or infer a CL-inner gain from command validation work.
-- [ ] Trial inline value storage for the private lift direct-node shape tuple.
-  Its four fields are scalar; the exact CFG checkpoint attributes 2,713,153
-  direct allocator calls to that factory in complete DAE2. Check every immediate
-  mapping, constant/call-signature payload identity and active consumers before
-  accepting a representation change. These counts alone do not establish a
-  speedup or whole-module allocation-byte saving.
+- **Completed lift shape storage:** both private direct/exact factories return
+  an inline scalar record with payload construction/order intact. The [current
+  evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-private-lift-node-shapes)
+  proves one allocation removed per factory call; do not count required constant
+  or signature payloads as removed. Keep CL's clock/control tradeoffs visible.
+- [ ] Trial the remaining private typecheck result boundaries and pushed-result
+  arrays only with actual native elimination. Current DAE2 allocates8,478,961
+  times directly in typecheck_data_instruction and2,925,466 in its typecheck
+  wrapper. Distinguish required payloads from result/array containers; preserve
+  error order, stack ownership and owned multi-result type signatures. Earlier
+  pop_expect annotation trials failed and remain rejected, not proven fixes.
 - [ ] Measure the checked HotNode return boundary: the earlier snapshot's
   getter-exclusive1.482b instructions includes a full32-byte native return.
   Test compiler inlining/scalar use with every range/deleted/incomplete fallback

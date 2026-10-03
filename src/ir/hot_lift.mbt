@@ -1435,82 +1435,126 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
 }
 
 ///|
+// Immediate build metadata is four scalar fields; it never needs heap identity.
+#valtype
+priv struct HotLiftNodeShape {
+  op : HotOp
+  ty : TypeId
+  imm0 : Int
+  imm1 : Int
+}
+
+///|
+fn HotLiftNodeShape::new(
+  op : HotOp,
+  ty : TypeId,
+  imm0 : Int,
+  imm1 : Int,
+) -> HotLiftNodeShape {
+  { op, ty, imm0, imm1, }
+}
+
+///|
 fn hot_lift_impl_direct_node_shape(
   func : HotFunc,
   op : HotOp,
   instr : Instruction,
   result_types : Array[ValType],
-) -> (HotOp, TypeId, Int, Int) {
+) -> HotLiftNodeShape {
   let ty = hot_lift_impl_result_type(func, result_types)
   match instr {
     Instruction::LocalGet(LocalIdx(raw))
     | Instruction::LocalSet(LocalIdx(raw))
     | Instruction::LocalTee(LocalIdx(raw)) =>
-      (op, ty, raw.reinterpret_as_int(), 0)
+      HotLiftNodeShape::new(op, ty, raw.reinterpret_as_int(), 0)
     Instruction::GlobalGet(GlobalIdx(raw))
     | Instruction::GlobalSet(GlobalIdx(raw)) =>
-      (op, ty, raw.reinterpret_as_int(), 0)
+      HotLiftNodeShape::new(op, ty, raw.reinterpret_as_int(), 0)
     Instruction::TableGet(TableIdx(raw))
     | Instruction::TableSet(TableIdx(raw))
     | Instruction::TableSize(TableIdx(raw))
     | Instruction::TableGrow(TableIdx(raw))
     | Instruction::TableFill(TableIdx(raw)) =>
-      (op, ty, raw.reinterpret_as_int(), 0)
+      HotLiftNodeShape::new(op, ty, raw.reinterpret_as_int(), 0)
     Instruction::TableCopy(TableIdx(dst), TableIdx(src)) =>
-      (op, ty, dst.reinterpret_as_int(), src.reinterpret_as_int())
+      HotLiftNodeShape::new(
+        op,
+        ty,
+        dst.reinterpret_as_int(),
+        src.reinterpret_as_int(),
+      )
     Instruction::TableInit(ElemIdx(elem), TableIdx(table)) =>
-      (op, ty, elem.reinterpret_as_int(), table.reinterpret_as_int())
-    Instruction::ElemDrop(ElemIdx(raw)) => (op, ty, raw.reinterpret_as_int(), 0)
+      HotLiftNodeShape::new(
+        op,
+        ty,
+        elem.reinterpret_as_int(),
+        table.reinterpret_as_int(),
+      )
+    Instruction::ElemDrop(ElemIdx(raw)) =>
+      HotLiftNodeShape::new(op, ty, raw.reinterpret_as_int(), 0)
     Instruction::MemorySize(MemIdx(raw))
     | Instruction::MemoryGrow(MemIdx(raw))
     | Instruction::MemoryFill(MemIdx(raw)) =>
-      (op, ty, raw.reinterpret_as_int(), 0)
+      HotLiftNodeShape::new(op, ty, raw.reinterpret_as_int(), 0)
     Instruction::MemoryCopy(MemIdx(dst), MemIdx(src)) =>
-      (op, ty, dst.reinterpret_as_int(), src.reinterpret_as_int())
+      HotLiftNodeShape::new(
+        op,
+        ty,
+        dst.reinterpret_as_int(),
+        src.reinterpret_as_int(),
+      )
     Instruction::MemoryInit(DataIdx(data), MemIdx(mem)) =>
-      (op, ty, data.reinterpret_as_int(), mem.reinterpret_as_int())
-    Instruction::DataDrop(DataIdx(raw)) => (op, ty, raw.reinterpret_as_int(), 0)
+      HotLiftNodeShape::new(
+        op,
+        ty,
+        data.reinterpret_as_int(),
+        mem.reinterpret_as_int(),
+      )
+    Instruction::DataDrop(DataIdx(raw)) =>
+      HotLiftNodeShape::new(op, ty, raw.reinterpret_as_int(), 0)
     Instruction::Call(FuncIdx(raw)) | Instruction::ReturnCall(FuncIdx(raw)) =>
-      (op, ty, raw.reinterpret_as_int(), 0)
+      HotLiftNodeShape::new(op, ty, raw.reinterpret_as_int(), 0)
     Instruction::CallIndirect(type_idx, table_idx)
     | Instruction::ReturnCallIndirect(type_idx, table_idx) => {
       let sig_id = hot_alloc_call_sig(
         func,
         HotCallSig::new(type_idx, table_idx=Some(table_idx)),
       )
-      (op, ty, sig_id, 0)
+      HotLiftNodeShape::new(op, ty, sig_id, 0)
     }
     Instruction::CallRef(type_idx) | Instruction::ReturnCallRef(type_idx) => {
       let sig_id = hot_alloc_call_sig(func, HotCallSig::new(type_idx))
-      (op, ty, sig_id, 0)
+      HotLiftNodeShape::new(op, ty, sig_id, 0)
     }
     Instruction::I32Const(v) => {
       let const_id = hot_alloc_const(func, HotConstPayload::i32_const(v))
-      (HotOp::Const, ty, const_id, 0)
+      HotLiftNodeShape::new(HotOp::Const, ty, const_id, 0)
     }
     Instruction::I64Const(v) => {
       let const_id = hot_alloc_const(func, HotConstPayload::i64_const(v))
-      (HotOp::Const, ty, const_id, 0)
+      HotLiftNodeShape::new(HotOp::Const, ty, const_id, 0)
     }
     Instruction::F32Const(v) => {
       let const_id = hot_alloc_const(func, HotConstPayload::f32_const(v))
-      (HotOp::Const, ty, const_id, 0)
+      HotLiftNodeShape::new(HotOp::Const, ty, const_id, 0)
     }
     Instruction::F64Const(v) => {
       let const_id = hot_alloc_const(func, HotConstPayload::f64_const(v))
-      (HotOp::Const, ty, const_id, 0)
+      HotLiftNodeShape::new(HotOp::Const, ty, const_id, 0)
     }
     Instruction::RefNull(rt) => {
       let const_id = hot_alloc_const(func, HotConstPayload::ref_null_const(rt))
-      (HotOp::RefNull, ty, const_id, 0)
+      HotLiftNodeShape::new(HotOp::RefNull, ty, const_id, 0)
     }
     Instruction::StringConst(bytes) => {
       let const_id = hot_alloc_const(func, HotConstPayload::string_const(bytes))
-      (HotOp::Const, ty, const_id, 0)
+      HotLiftNodeShape::new(HotOp::Const, ty, const_id, 0)
     }
-    Instruction::RefFunc(FuncIdx(raw)) => (op, ty, raw.reinterpret_as_int(), 0)
-    Instruction::Throw(TagIdx(raw)) => (op, ty, raw.reinterpret_as_int(), 0)
-    _ => (op, ty, 0, 0)
+    Instruction::RefFunc(FuncIdx(raw)) =>
+      HotLiftNodeShape::new(op, ty, raw.reinterpret_as_int(), 0)
+    Instruction::Throw(TagIdx(raw)) =>
+      HotLiftNodeShape::new(op, ty, raw.reinterpret_as_int(), 0)
+    _ => HotLiftNodeShape::new(op, ty, 0, 0)
   }
 }
 
@@ -1522,7 +1566,7 @@ fn hot_lift_impl_build_direct_node(
   result_types : Array[ValType],
   children : Array[NodeId],
 ) -> NodeId {
-  let (build_op, ty, imm0, imm1) = hot_lift_impl_direct_node_shape(
+  let { op: build_op, ty, imm0, imm1, } = hot_lift_impl_direct_node_shape(
     func, op, instr, result_types,
   )
   hot_build_node(func, build_op, ty, imm0~, imm1~, children~)
@@ -1536,7 +1580,7 @@ fn hot_lift_impl_build_direct_node1(
   result_types : Array[ValType],
   child0 : NodeId,
 ) -> NodeId {
-  let (build_op, ty, imm0, imm1) = hot_lift_impl_direct_node_shape(
+  let { op: build_op, ty, imm0, imm1, } = hot_lift_impl_direct_node_shape(
     func, op, instr, result_types,
   )
   hot_build_node1(func, build_op, ty, child0, imm0~, imm1~)
@@ -1551,7 +1595,7 @@ fn hot_lift_impl_build_direct_node2(
   child0 : NodeId,
   child1 : NodeId,
 ) -> NodeId {
-  let (build_op, ty, imm0, imm1) = hot_lift_impl_direct_node_shape(
+  let { op: build_op, ty, imm0, imm1, } = hot_lift_impl_direct_node_shape(
     func, op, instr, result_types,
   )
   hot_build_node2(func, build_op, ty, child0, child1, imm0~, imm1~)
@@ -1567,7 +1611,7 @@ fn hot_lift_impl_build_direct_node3(
   child1 : NodeId,
   child2 : NodeId,
 ) -> NodeId {
-  let (build_op, ty, imm0, imm1) = hot_lift_impl_direct_node_shape(
+  let { op: build_op, ty, imm0, imm1, } = hot_lift_impl_direct_node_shape(
     func, op, instr, result_types,
   )
   hot_build_node3(func, build_op, ty, child0, child1, child2, imm0~, imm1~)
@@ -1579,7 +1623,7 @@ fn hot_lift_impl_exact_node_shape(
   op : HotOp,
   instr : Instruction,
   result_types : Array[ValType],
-) -> (HotOp, TypeId, Int, Int) {
+) -> HotLiftNodeShape {
   let ty = hot_lift_impl_result_type(func, result_types)
   let payload_id = hot_alloc_instr_payload(func, HotInstrPayload::new(instr))
   match instr {
@@ -1607,7 +1651,7 @@ fn hot_lift_impl_exact_node_shape(
     | Instruction::I64Store16(memarg)
     | Instruction::I64Store32(memarg) => {
       let memarg_id = hot_alloc_memarg(func, HotMemArg::new(memarg))
-      (op, ty, memarg_id, payload_id)
+      HotLiftNodeShape::new(op, ty, memarg_id, payload_id)
     }
     Instruction::AtomicFence(_)
     | Instruction::WaitqueueNotify
@@ -1623,7 +1667,8 @@ fn hot_lift_impl_exact_node_shape(
     | Instruction::ArrayAtomicGetS(_, _)
     | Instruction::ArrayAtomicGetU(_, _)
     | Instruction::ArrayAtomicRmw(_, _, _)
-    | Instruction::ArrayAtomicCmpxchg(_, _) => (op, ty, 0, payload_id)
+    | Instruction::ArrayAtomicCmpxchg(_, _) =>
+      HotLiftNodeShape::new(op, ty, 0, payload_id)
     Instruction::MemoryAtomicNotify(memarg)
     | Instruction::MemoryAtomicWait32(memarg)
     | Instruction::MemoryAtomicWait64(memarg)
@@ -1644,7 +1689,7 @@ fn hot_lift_impl_exact_node_shape(
     | Instruction::AtomicRmw(_, _, memarg)
     | Instruction::AtomicCmpxchg(_, _, memarg) => {
       let memarg_id = hot_alloc_memarg(func, HotMemArg::new(memarg))
-      (op, ty, memarg_id, payload_id)
+      HotLiftNodeShape::new(op, ty, memarg_id, payload_id)
     }
     Instruction::RefTest(_, _, _)
     | Instruction::RefCast(_, _, _)
@@ -1653,8 +1698,9 @@ fn hot_lift_impl_exact_node_shape(
     | Instruction::BrOnCast(_, _, _, _)
     | Instruction::BrOnCastFail(_, _, _, _)
     | Instruction::BrOnCastDescEq(_, _, _)
-    | Instruction::BrOnCastDescEqFail(_, _, _) => (op, ty, 0, payload_id)
-    _ => (op, ty, payload_id, 0)
+    | Instruction::BrOnCastDescEqFail(_, _, _) =>
+      HotLiftNodeShape::new(op, ty, 0, payload_id)
+    _ => HotLiftNodeShape::new(op, ty, payload_id, 0)
   }
 }
 
@@ -1666,7 +1712,7 @@ fn hot_lift_impl_build_exact_node(
   result_types : Array[ValType],
   children : Array[NodeId],
 ) -> NodeId {
-  let (build_op, ty, imm0, imm1) = hot_lift_impl_exact_node_shape(
+  let { op: build_op, ty, imm0, imm1, } = hot_lift_impl_exact_node_shape(
     func, op, instr, result_types,
   )
   hot_build_node(func, build_op, ty, imm0~, imm1~, children~)
@@ -1680,7 +1726,7 @@ fn hot_lift_impl_build_exact_node1(
   result_types : Array[ValType],
   child0 : NodeId,
 ) -> NodeId {
-  let (build_op, ty, imm0, imm1) = hot_lift_impl_exact_node_shape(
+  let { op: build_op, ty, imm0, imm1, } = hot_lift_impl_exact_node_shape(
     func, op, instr, result_types,
   )
   hot_build_node1(func, build_op, ty, child0, imm0~, imm1~)
@@ -1695,7 +1741,7 @@ fn hot_lift_impl_build_exact_node2(
   child0 : NodeId,
   child1 : NodeId,
 ) -> NodeId {
-  let (build_op, ty, imm0, imm1) = hot_lift_impl_exact_node_shape(
+  let { op: build_op, ty, imm0, imm1, } = hot_lift_impl_exact_node_shape(
     func, op, instr, result_types,
   )
   hot_build_node2(func, build_op, ty, child0, child1, imm0~, imm1~)
@@ -1711,7 +1757,7 @@ fn hot_lift_impl_build_exact_node3(
   child1 : NodeId,
   child2 : NodeId,
 ) -> NodeId {
-  let (build_op, ty, imm0, imm1) = hot_lift_impl_exact_node_shape(
+  let { op: build_op, ty, imm0, imm1, } = hot_lift_impl_exact_node_shape(
     func, op, instr, result_types,
   )
   hot_build_node3(func, build_op, ty, child0, child1, child2, imm0~, imm1~)
@@ -3397,7 +3443,7 @@ fn hot_lift_impl_lift_instruction(
     Some(op) => {
       let node_id = match child_count {
         0 => {
-          let (build_op, ty, imm0, imm1) = hot_lift_impl_direct_node_shape(
+          let { op: build_op, ty, imm0, imm1, } = hot_lift_impl_direct_node_shape(
             func, op, instr, pushed_types,
           )
           hot_build_node(func, build_op, ty, imm0~, imm1~)
@@ -3457,7 +3503,7 @@ fn hot_lift_impl_lift_instruction(
         Some(op) => {
           let node_id = match child_count {
             0 => {
-              let (build_op, ty, imm0, imm1) = hot_lift_impl_exact_node_shape(
+              let { op: build_op, ty, imm0, imm1, } = hot_lift_impl_exact_node_shape(
                 func, op, instr, pushed_types,
               )
               hot_build_node(func, build_op, ty, imm0~, imm1~)

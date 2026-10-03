@@ -10539,3 +10539,31 @@ test "command declaration validation retains reference calls across routes" {
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command lift shapes retain memory immediates and indirect signatures" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $sig (func (param i32) (result i32))) (table 1 funcref) (memory (export \"memory\") 1) (func $target (type $sig) local.get 0 i32.const 1 i32.add) (elem (i32.const 0) $target) (func $callee (param i32 i32) (result i32) local.get 0) (func (export \"run\") (param i32) (result i32) (local i32 i32) i32.const 0 local.get 0 i32.store i32.const 0 i32.load local.set 1 local.get 1 local.set 2 local.get 2 i32.const 0 call_indirect (type $sig) i32.const 99 call $callee i32.const 0 i32.add))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for
+    flag in [
+      "dae2", "dae2-optimizing", "coalesce-locals", "optimize-instructions",
+    ] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [flag],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    if flag == "dae2" || flag == "dae2-optimizing" {
+      assert_eq(
+        @validate.Env::new()
+        .with_module(output)
+        .get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+        Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+      )
+    }
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
