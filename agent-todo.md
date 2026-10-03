@@ -691,18 +691,18 @@ separate from normal commands and differ in surrounding work.
 - **Owner / why:** [Coalesce](src/passes/coalesce_locals.mbt), expanded CFG,
   liveness, interference and raw branch-depth/lowering queries; the large pass
   still costs several seconds.
-- **Current measured remainder:** normal CL4599.278ms/B1949.186 (2.360×),
-  complete module instructions42.055b. Nested conflict wrapper2.942b still
-  performs14.419m recursive visits; unknown/mixed masks retain exact checks.
-  Prior native6e22 safe-copy owner1.255b inclusive instructions/81,738 initial
-  scans identifies repeated structural walking; recursive edges overlap.
-  [Current evidence and ownership](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-completed-local-band-proofs-in-lift).
-- [ ] Trial the existing global-barrier predicate before safe copy-pair scans.
-  The scanner unconditionally rejects Br/BrIf/BrTable/Return/Loop/TryTable in
-  traversed Block/If bodies. Prove all pair answers/matrix mutations unchanged,
-  preserve positive barrier-free forwarding/chains and ignored opaque shells,
-  and measure complete CL/native no-barrier/no-edge costs before acceptance.
-  Native actual-consumer guard absence is recorded red; no fix is signed yet.
+- **Current measured remainder:** main7a5676ba9/natived08c→dbbaefbe CL normal
+  4416.546±70.418ms/B1963.489±27.857 (2.249×), n5 alternating/one warmup;
+  paired−.699%, foreign activity every row. Complete CL work40.823b (−2.930209%).
+  Safe-copy owner−98.240377%, structural visits12.219m→12209; exact outputs.
+  13,391 tests/10 controls/185 modules/540 observations pass. No quiet-host1×
+  or memory win; raw/canonical quality unchanged. DAE2/O/OI retain the d08c
+  checkpoint above; do not claim a CL-only source change fixes their costs.
+  [Current evidence and ownership](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-reject-globally-blocked-copy-pairs-once).
+- [ ] Reduce or justify current safe-copy clear/no-edge control costs without
+  regressing the large consumer: clear8+1.21µs (overlapping dispersion), no-edge
+  512+29.02ns. Lazy preflight already preserves O(locals) with no body scan when
+  rows are empty; do not repeat the completed global rejection mechanism.
 - **Tasks:** profile repeated dependency/action rows, source-order/label setup,
   capture/conflict walks and weighted/wider coloring on the current revision.
   Reduce unused block-write metadata only with complete full-graph semantics.
@@ -911,7 +911,7 @@ separate from normal commands and differ in surrounding work.
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
-- **Next measured shared targets:** current CL root42.055b instructions,
+- **Next measured shared targets:** current CL root40.823b instructions,
   nested lower5.956b after explicit effect/ordering demand removes unused rows.
   Full lower source factories4565→297; no duplicate implementation of that
   completed mechanism. Reduce measured carried fallback+140ns/+6.93µs without

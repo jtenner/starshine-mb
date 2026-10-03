@@ -1488,3 +1488,59 @@ Exact complete profiles/parent edges are local
 `lift-byte-extent-dae2-exclusive-costs.json` in the existing evidence root.
 Prioritize those actual DAE2 owners, including immutable scalar CFG object churn;
 retaining all first-lift functions would add memory and is not justified.
+
+
+## October 2, 2026: reject globally blocked copy pairs once
+
+Main7a5676ba9/natived08c0fdb…→dbbaefbe….
+[Safe-copy forwarding](../../../../../src/passes/coalesce_locals.mbt) previously
+repeated a complete structural scan for each reachable source/destination pair.
+Every scan unconditionally rejects Br/BrIf/BrTable/Return/Loop/TryTable in
+traversed Block/If arms. Reuse the existing exact global-barrier predicate once
+at the first nonempty source row; functions without candidates keep their
+source-row-only path. Barrier-free pairs retain the original full proof,
+recursion depth, candidate discovery, type checks and matrix mutations. Opaque
+shells follow the same existing predicate/scanner policy. No new allocation,
+cache, public API, admission widening or verification omission.
+
+Native actual-consumer work contract fails before (zero guard calls) and passes
+after (one static call; private flag permits at most one execution).
+[Bounded matrix/chain/ownership regressions](../../../../../src/passes/coalesce_copy_barrier_wbtest.mbt)
+compare a faithful pre-fix consumer over direct/nested/either-arm barriers,
+positive chained forwarding, pending failures and type/parameter boundaries.
+Active implementing/dispatcher fixtures reduce locals while retaining imported
+call effects behind a branch. All13,391 default tests/info/fmt/check/native
+build/API sync and10 dedicated native controls pass;185 modules/540 original/
+before/after/v133 observations across45 fixed fixtures agree. Public API and
+large raw bytes/hashes remain exact; canonical CL+78,800B stays open.
+
+Complete matched CL instructions42,055,017,035→40,822,716,968 (−2.930209%).
+Nested safe-copy owner1,254,988,260→22,083,059 (−98.240377%), initial pair scans
+81,738→5917, recursive structural visits12,218,641→12209. Costs are nested,
+not additive; counts alone are not a causal timing proof. Full work reduction,
+exact matrix answers and actual native consumer corroborate the removed scans.
+
+Normal one-warmup/n5 alternating CPU6 fresh CLI/warm filesystem, median±MADms:
+before4491.022±56.275, after4416.546±70.418, B1331963.489±27.857; paired−.699%,
+after/B2.249×. Range4432.538–4547.297→4290.693–4486.964ms; every row flags
+foreign activity, so no quiet-host1× claim. Separate traced n1 module3394.961→
+3289.098ms is diagnostic, without a renewed B named comparison. Traced/normal
+hashes match. PeakRSS244540→244608KiB medians overlap; no memory win.
+
+Ten-batch native mean±σ: flat guarded32.77µs±168.69ns→160.75±.18ns; nested
+71.07µs±257.16ns→424.19±3.06ns. Clear8 21.41±.563→22.62±1.21µs,
+clear51271.19±.402→69.71±5.80µs; keep dispersion and added proof costs visible.
+No-edge51255.32±2.41→84.34±13.73ns costs29.02ns while retaining O(locals),
+with no added body scan. That bounded control remains in the backlog; do not
+claim every input improves. Full release/coverage/aggregate gates remain open.
+
+The evidence driver initially retained the preceding measurement filename;
+it stopped before timing at the existing-directory protection. No old result
+was overwritten/accepted. Corrected measurements/runtime/profile resumed
+without repeating passing gates; original failure is retained. Manual source/
+API review, independent agent unavailable. Exact hashes/commands/dirty state,
+all normal/traced/RSS rows, red/green and control logs:
+`.tmp/large-pass-hotspots-20261001/main-copy-barrier-performance-20261002.md`.
+DAE2/O/OI values above retain their d08c source and scopes. Actual DAE2 owners
+remain lift/dependency CFG/read sources/lower/validation; next allocation pilot
+is immutable scalar CFG edges, currently two native objects per builder call.

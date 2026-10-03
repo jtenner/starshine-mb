@@ -3337,9 +3337,19 @@ fn cl_remove_safe_copy_forward_interferences(
   interferences : CLBitMatrix,
   weights : CLCopyWeights,
 ) -> Unit {
+  // Every pair scan rejects these barriers unconditionally, including inside
+  // both Block/If arms. Prove that once before repeating the same failed walk.
+  // Barrier-free candidates still use the complete original pair proof.
+  let mut checked_barriers = false
   for source = param_count; source < types.length(); source = source + 1 {
     if weights.rows[source].length() == 0 {
       continue
+    }
+    if !checked_barriers {
+      if cl_pair_forward_scans_have_global_barrier(instrs) {
+        return
+      }
+      checked_barriers = true
     }
     let (reachable, _) = cl_copy_weight_reachable_destinations(
       weights, source, 4,
@@ -8861,6 +8871,23 @@ test "coalesce block-only liveness preserves GC loop carriers and removes unused
   @validate.validate_module(output).unwrap()
   guard output.code_sec is Some(@lib.CodeSec(funcs)) else {
     fail("GC loop function must remain present")
+  }
+  let @lib.Func(locals, _) = funcs[0]
+  assert_true(locals.length() < 3)
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}
+
+///|
+test "coalesce global copy barrier retains imported effects and active coloring" {
+  let input = pass_test_module_from_wat(
+    "(module (import \"host\" \"f\" (func $f (param i32) (result i32))) (func (export \"run\") (param i32) (result i32) (local i32 i32 i32) local.get 0 local.set 1 local.get 1 local.set 2 block local.get 0 br_if 0 local.get 2 call $f local.set 3 end local.get 2))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let output = coalesce_locals_run_module_pass(input)
+  @validate.validate_module(output).unwrap()
+  let funcs = match output.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => abort("missing code")
   }
   let @lib.Func(locals, _) = funcs[0]
   assert_true(locals.length() < 3)

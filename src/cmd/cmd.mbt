@@ -10434,3 +10434,24 @@ test "command local-band masks retain call snapshots across large pass routes" {
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command Coalesce copy barrier preserves active branch and call route" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (import \"host\" \"f\" (func $f (param i32) (result i32))) (func (export \"run\") (param i32) (result i32) (local i32 i32 i32) local.get 0 local.set 1 local.get 1 local.set 2 block local.get 0 br_if 0 local.get 2 call $f local.set 3 end local.get 2))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["coalesce-locals"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let funcs = match output.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => abort("missing code")
+  }
+  let @lib.Func(locals, _) = funcs[0]
+  assert_true(locals.length() < 3)
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}

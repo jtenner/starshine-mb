@@ -25754,3 +25754,15 @@ source-proved Coalesce global-barrier experiment.
   separates CL's gain from actual DAE2 lift/CFG/source/lower/validation costs and
   adds a measured scalar-edge representation pilot; no retained arena cache is
   accepted from a hypothesis.
+
+
+## October 2, 2026 — one proof for globally blocked Coalesce copy pairs
+
+[Consumer evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-reject-globally-blocked-copy-pairs-once)
+reuses the exact barrier predicate at the first actual candidate row. All matrix
+answers/positive forwarding remain; no-candidate paths avoid a body scan.
+Complete CL work−2.930209%, nested owner−98.240377%; native guard red/green,
+13,391 tests/10 controls/185 modules/540 observations and exact raw hashes pass.
+Normal matched CL4416.546ms/B1963.489 remains2.249× with foreign activity;
+small/no-edge costs and release gates stay open. Backlog prunes the completed
+pair-scan pilot and directs DAE2 allocation work to its actual CFG/lift owners.

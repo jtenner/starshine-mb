@@ -4945,3 +4945,19 @@ unchanged:34.604264b→34.604092b instructions (−.000498%).
 [Exact parent/child attribution](../binaryen/passes/coalesce-locals/starshine-strategy.md#dae2-consumer-attribution-follow-up)
 places its costs in lift, dependency CFG/source analysis, rewrite lower and
 mandatory validation. The CL benefit cannot be extrapolated to DAE2.
+
+
+## October 2, 2026: main Coalesce global-barrier checkpoint
+
+[Exact predicate and consumer evidence](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-reject-globally-blocked-copy-pairs-once)
+freeze main7a5676ba9/natived08c→dbbaefbe. Normal CPU6 one-warmup/n5 alternating
+fresh CLI/warm filesystem CL4491.022±56.275→4416.546±70.418ms,
+B1963.489±27.857ms; paired−.699%, remaining2.249×. Every row flags foreign
+activity. Complete CL instructions−2.930209%, nested safe-copy owner−98.240377%
+support reduced work without summing parent/recursive edges. Traced n1 module
+3394.961→3289.098ms is diagnostic; no refreshed B inner comparison. PeakRSS
+medians overlap; raw hashes/canonical gap78,800B unchanged.13,391 tests/10
+native controls/185 validated runtime modules/540 observations pass; tiny clear/
+no-edge costs,1× and release gates remain. DAE2/O/OI retain the preceding frozen
+source; no extrapolation from CL. Exact evidence/driver correction:
+`.tmp/large-pass-hotspots-20261001/main-copy-barrier-performance-20261002.md`.
