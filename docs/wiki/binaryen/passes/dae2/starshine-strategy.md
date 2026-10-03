@@ -4,6 +4,8 @@ status: working
 last_reviewed: 2026-10-03
 sources:
   - ../../../../../src/ir/cfg.mbt
+  - ../../../../../src/ir/cfg_presence_wbtest.mbt
+  - ../../../../../src/ir/cfg_presence_perf_wbtest.mbt
   - ../../../../../src/ir/cfg_lazy_source_order_wbtest.mbt
   - ../../../../../src/ir/cfg_lazy_source_order_perf_wbtest.mbt
   - ../../../../../src/passes/lower_capture_cleanup.mbt
@@ -7327,12 +7329,101 @@ CL/SL/OI+78,800/+373,507/+33,497B remain open.
 
 Next work is continuation-presence scanning in CFG setup and empty child-array
 construction in zero-operand node building. Validation cannot simply be shared:
-DAE2 performs type cleanup after its internal validate call, while CLI output
-checking decodes and validates the encoded bytes, a distinct artifact. Keep
-those mandatory checks. See [DAE2 finalization](../../../../../src/passes/dead_argument_elimination2.mbt)
+DAE2 performs type cleanup after its internal validate call, while CLI final-module checking sees that later result. Extra post-encode
+decode/validation is **debug-serial-only**, not active in these normal commands.
+Keep existing checks in their enabled modes. See [DAE2 finalization](../../../../../src/passes/dead_argument_elimination2.mbt)
 and [post-encode checking](../../../../../src/cmd/cmd.mbt).
 
 Manual source/native review only; independent review, full CI/coverage and long
 GenValid signoff are outstanding. Known validator/merge-blocks/OI ordering
 failures and the1× target remain open. Exact manifests, commands and samples:
 `.tmp/large-pass-hotspots-20261001/main-lift-check-performance-20261003.md`.
+
+Validation-scope clarification: the earlier adapter note described the optional
+post-encode checker without its guard. `should_validate_encoded_module_after_encode`
+returns `debug_serial_passes`; normal commands do not execute that decoder/checker.
+A nonzero `cmd:post-encode-validate` timer alone does not prove it ran. The normal
+final-module validator remains active, and DAE2's intervening type cleanup still
+prevents simply transferring its earlier validation result. No checks were removed.
+
+
+## October 3, 2026: prove absent CFG continuations from verified side tables
+
+Main2af3566fa, native c4b08d28…→62e79f73…; same6,211,596B compiler
+fixture (SHA98189860…), verified Binaryen133 (SHA8f25e9fd…), GCC14.2/O2/
+mimalloc, Ryzen8845HS and CPU6. Full manifests retain dirty state and commands.
+
+`cfg_build` verifies all HOT nodes before `cfg_builder_new`. Both `Continuation`
+and `BrTable` require a branch-table side entry (`hot_side_tables.mbt`,
+`hot_verify_core.mbt`). An empty branch-table arena therefore proves there is
+no live continuation, even when handlers would be empty. Skip only that initial
+presence scan. Nonempty arenas, including unused/deleted entries and br_table,
+retain the complete live-node scan. No cache, allocation or verification change;
+both operand-expanded and conservative graphs retain exact fields/edge order.
+
+The native regression first lacks the metadata read and then guards the typed
+side-arena read plus retained fallback. The initial green checker used field
+names that native C lowers to positional fields; it was corrected before
+measurements, with the failed build-driver log preserved. Two field/whole-graph
+regressions cover branch mutation, br_table, resume handlers, deleted nodes,
+unused tables and independent storage; existing continuation/workspace tests
+also pass.13,435 bounded default tests and README/API sync pass. Twelve native
+controls retain both absent and fallback cases. Empty83.83→86.01ns; absent
+32/512 nodes210.92→91.65ns and1.93µs→108.76ns; unused table196.87→209.88ns
+and1.86→2.09µs; resume169.60→176.50ns. The earlier trial without an empty-node
+guard remains recorded; tiny/fallback regressions are not hidden.
+
+Complete normally exited DAE2 instruction profile31,294,759,765→31,143,999,404
+(−.481743%); direct allocator requests unchanged80,379,471. Constructor incoming
+cost190,511,541→37,120,472 (7,926 calls unchanged), exclusive46,553,193→7,681,695.
+Outgoing live/getter checks each2,524,643→363,354:2,161,289 node probes avoided;
+the retained363,354 prove the conservative fallback executes. Dependency owner
+9,570,125,580→9,418,524,479 instructions/8,354 calls. These are nested inclusive
+owners, never additive times. Public verification remains before/after CFG;
+mandatory module validation remains one call. No native executable-size change.
+
+Normal CLI, one warmup/n5 alternating fresh processes with warm filesystem;
+median±MAD milliseconds (build/profile excluded):
+
+| Pass | Before | After | Binaryen133 | S/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3855.883±68.303 | 3787.851±113.847 | 1229.090±17.222 | 3.082× | -1.764% |
+| dae2-optimizing | 6581.130±52.625 | 6486.703±24.644 | 2489.494±31.941 | 2.606× | -1.435% |
+| coalesce-locals | 4078.572±23.496 | 4079.786±69.745 | 1910.801±13.077 | 2.135× | +0.030% |
+| optimize-instructions | 2301.117±29.198 | 2270.293±25.726 | 964.935±3.357 | 2.353× | -0.016% |
+
+Every normal row flags foreign CPU activity; DAE2 traced n1 inner3038.446→
+3067.618ms contradicts its normal improvement, CL/OI medians and paired results
+also differ. Independent OO/CL/OI traced inner5662.848→5618.358,
+3178.939→3121.230,87.947→85.027ms are diagnostics, not refreshed matched B
+pass-local evidence. All n5 ranges/RSS modes are retained; DAE2 RSS median
+257408→265976KiB and overlapping ranges are not a memory win. Four raw output
+hashes are exact, with820 fixture validations/2400 runtime observations passing.
+The separate resume fixture validates and has exact before/after130B bytes;
+Binaryen writes81B. This remains an output-shape parity gap, not a demonstrated
+Starshine win or a continuation runtime-equivalence proof. No continuation
+runtime-engine oracle is claimed. Canonical gaps/V83 savings stay
+unchanged, not newly normalized. Aggregate/full CI/coverage/independent review
+and1× remain open; no long fuzz ran.
+
+A complete OI command profile on62e79f73… executes20,611,236,125 instructions.
+The module encoding-cleanup owner accounts for5,826,414,859 inclusive instructions:
+simple type cleanup3,938,411,003, numeric local grouping1,142,372,070 and control
+cleanup658,858,137. Two full module validations together5,058,030,295 are nested
+inside cleanup and final command scopes, not extra additive costs. This confirms
+material work outside the narrow OI timer, including validation and destruction;
+it does not identify an invalidation-safe shortcut. Type-remapping arrays still
+allocate capacity before any actual change; investigate lazy storage before
+broad validation reuse. Descriptor bridges already have revision-index guards;
+do not propose an absent-descriptor scan shortcut that is already implemented.
+
+**Validation-scope clarification:** normal commands run final-module validation.
+Extra post-encode decode/validation is enabled only by debug serial passes
+(`cmd.mbt:should_validate_encoded_module_after_encode`). A timer named
+`cmd:post-encode-validate` alone does not prove the branch ran. This supersedes
+the prior log's unqualified post-encode wording; intervening DAE2 type cleanup
+still prevents assuming its earlier validation applies to the final result.
+
+Exact sources, hashes, RED/GREEN logs, microcontrols, command samples/spreads,
+runtime rows and complete profiles:
+`.tmp/large-pass-hotspots-20261001/main-cfg-presence-performance-20261003.md`.

@@ -26,24 +26,24 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** inline private lift validation adapter,
-  main e1b1b231b/native a167be6a…→c4b08d28…. Complete DAE2 work−.509638%,
-  allocations−2,925,466 with every validation call and large output hash retained.
-  CPU6 n5/warmup1 CLI medians±MAD (milliseconds):
-  dae2 3764.677±33.171/B1184.931±8.928;
-  dae2-optimizing 6529.919±103.678/B2481.562±41.096;
-  coalesce-locals 4253.110±136.577/B1980.969±59.332;
-  optimize-instructions 2344.358±20.633/B988.914±4.683.
-  Paired DAE2/O−.550/−2.625%, CL/OI+.782/−.816%; median/paired disagreements,
-  foreign load and RSS overlap remain explicit.13,433 tests/2400 observations
+- **Latest matched large checkpoint:** verified empty CFG continuation arena,
+  main2af3566fa/native c4b08d28…→62e79f73…. Complete DAE2 work−.481743%,
+  2,161,289 fewer node probes; allocation count unchanged80,379,471.
+  CPU6 n5/warmup1 normal CLI medians±MAD (milliseconds):
+  dae2 3787.851±113.847/B1229.090±17.222;
+  dae2-optimizing 6486.703±24.644/B2489.494±31.941;
+  coalesce-locals 4079.786±69.745/B1910.801±13.077;
+  optimize-instructions 2270.293±25.726/B964.935±3.357.
+  Paired changes−1.764/−1.435/+.030/−.016%; traced/paired disagreements,
+  foreign load and RSS overlap remain explicit.13,435 tests/2400 observations
   pass; no universal clock/RSS or1× claim.
-  [Scopes, spreads and limits](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-the-private-lift-validation-adapter).
+  [Scopes, spreads and limits](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-prove-absent-cfg-continuations-from-verified-side-tables).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Current DAE2 cost ownership:** native c4b08d28… complete pass31.295b
-  instructions. Inclusive lift9.032b/10,422 calls; dependency analysis9.570b/8,354,
+- **Current DAE2 cost ownership:** native62e79f73… complete pass31.144b
+  instructions. Inclusive lift9.033b/10,422 calls; dependency analysis9.419b/8,354,
   containing CFG5.102b/7,926, read sources1.975b/7,926 and entry proof.790b/8,187.
   Lowering4.645b/2,468 and mandatory final validation3.032b/1 remain. These are
   instruction scopes, not time; do not sum nested owners. Prioritize result/array
@@ -245,6 +245,12 @@ quality gates. Keep traced inner and normal command measurements separate.
   caches without a new enclosing-work and memory model.
 
 #### P03d — Lift, dependency planning and lower [IR2-PERF-DAE2-PIPELINE]
+
+- **Completed presence scan:** verified empty branch-table arena skips the initial
+  continuation search; nonempty arena retains the full fallback.2.161m fewer
+  node probes, no allocation/verification omission and complete DAE2 work−.482%.
+  Keep empty/table/resume costs and mixed clocks visible; do not reimplement.
+  [Proof and evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-prove-absent-cfg-continuations-from-verified-side-tables).
 
 - **Current attribution:** main ddd0053b9/e57d9b45… plain dependency-only
   capture exits normally with exact validated output: root9.909b instructions,
@@ -573,6 +579,14 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 ### P06 — Remaining OI validation and exact guard work [IR2-PERF-OI]
 
+- **Current complete-command attribution:** native62e79f73…20.611b instructions;
+  module encoding cleanup5.826b inclusive (simple type cleanup3.938b, numeric
+  local grouping1.142b, control cleanup.659b). These include nested checks and
+  destruction, not just OI rewrite. Inspect eager unchanged type-remap storage
+  and complete cleanup owners; descriptor bridges already use revision guards.
+  Retain both enabled module validations; do not add nested scopes as time.
+  [Source-backed profile](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-prove-absent-cfg-continuations-from-verified-side-tables).
+
 - **Owner / why:** [OI cleanup](src/passes/optimize_instructions_cleanup.mbt),
   [exact sizing](src/binary/encoded_size.mbt) and full validation; the pipeline
   remains much larger than its rewrite timer.
@@ -840,9 +854,10 @@ quality gates. Keep traced inner and normal command measurements separate.
   facts only under invocation-local unchanged-result contracts; preserve option,
   proposal, metadata, portfolio and output-selection semantics.
 - **Validation reuse constraint:** DAE2 prunes/cleans types after its internal
-  validation; CLI post-encode validation checks decoded bytes. These are distinct
-  artifacts, not an established redundant check. Retain both until an explicit
-  correctness invariant covers the intervening transformations and encoding.
+  validation; normal CLI final-module validation sees that later result. Extra
+  post-encode decode/validation is debug-serial-only, not part of normal-command
+  work. Retain checks in their enabled modes; timer labels alone do not prove
+  a branch executed. No redundant-check removal is justified by current evidence.
 - **Invariant / dependencies:** direct sequence-leaf encoding, scoped string
   indexes and unchanged-NaN input-byte reuse with conservative encoding-cleanup
   admission remain required.

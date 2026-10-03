@@ -25858,3 +25858,14 @@ arrays/typecheck wrappers from the completed return packaging change.
   clock disagreements and RSS overlap remain. DAE2 post-validation type cleanup
   and CLI post-encode decoding prevent assuming redundant validation. Next:
   CFG presence scans and zero-operand node storage; release gates remain open.
+
+### 2026-10-03 — Verified CFG continuation absence
+
+- [Constructor proof and complete consumer](binaryen/passes/dae2/starshine-strategy.md#october-3-2026-prove-absent-cfg-continuations-from-verified-side-tables)
+  remove2.161m live/getter probes, complete DAE2 work−.482%, unchanged allocations
+  and checks.13,435 tests/2400 observations pass, exact outputs/API. Paired
+  DAE2/O−1.764/−1.435%; tiny/fallback costs, conflicting trace and RSS modes
+  remain. Whole OI cleanup accounts for5.826b inclusive command instructions.
+  Clarification supersedes prior log wording: extra post-encode decoding is
+  debug-serial-only; normal final-module validation stays active. No validation
+  removal or1×/release signoff; next are zero-child rows and lazy type-remap storage.

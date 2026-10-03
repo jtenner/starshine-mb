@@ -144,10 +144,16 @@ fn cfg_builder_new(
   let node_count = hot_node_count(func)
   let node_to_block = Array::make(node_count, -1)
   let mut has_continuations = false
-  for node in 0..<node_count {
-    if hot_node_is_live(func, node) &&
-      hot_node_get(func, node).op == HotOp::Continuation {
-      has_continuations = true
+  // cfg_build verifies side-table references before reaching this constructor.
+  // Every valid Continuation owns a branch-table entry, including empty handlers.
+  // Nonempty tables remain conservative: br_table and retired payloads also use
+  // this arena, so retain the full live-node scan in that case.
+  if node_count > 0 && !func.branch_tables.is_empty() {
+    for node in 0..<node_count {
+      if hot_node_is_live(func, node) &&
+        hot_node_get(func, node).op == HotOp::Continuation {
+        has_continuations = true
+      }
     }
   }
   let label_targets = Array::make(func.labels.length(), -1)
