@@ -1614,3 +1614,11 @@ v1331923.455ms; paired−.116% and overlapping RSS are effectively flat under
 foreign activity. Complete DAE2 allocation savings are not CL measurements.
 All2400 four-pass observations agree. Keep CL's canonical+78,800B and speed gap
 open; the next measured owner is lift result wrapping.
+
+## October 3, 2026: private lift validation adapter
+
+[Inline adapter evidence](../dae2/starshine-strategy.md#october-3-2026-inline-the-private-lift-validation-adapter)
+retains checks and CL bytes. Normal CPU6 n5 CLI4277.978→4253.110ms,
+v1331980.969ms, paired+.782% disagrees with the median within wide foreign-load
+spreads. RSS overlaps. DAE2's2.925m allocation saving is not a CL allocation
+measurement. All2400 observations agree; canonical+78,800B and1× stay open.

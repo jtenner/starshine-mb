@@ -25849,3 +25849,12 @@ arrays/typecheck wrappers from the completed return packaging change.
   retained.13,431 tests/2400 observations pass, exact bytes/API. Normal commands
   remain mixed, including OO+1.062%; no universal clock or memory win. Preserve
   those costs and known release blockers; continue private lift-result work.
+
+### 2026-10-03 — Inline the private lift validation adapter
+
+- [Native return/state evidence](binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-the-private-lift-validation-adapter)
+  removes2.925m DAE2 requests with every validation call retained; work−.510%.
+  13,433 tests/2400 observations pass, exact bytes/API. Paired OO−2.625%, other
+  clock disagreements and RSS overlap remain. DAE2 post-validation type cleanup
+  and CLI post-encode decoding prevent assuming redundant validation. Next:
+  CFG presence scans and zero-operand node storage; release gates remain open.

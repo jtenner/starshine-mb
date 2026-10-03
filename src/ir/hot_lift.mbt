@@ -2067,13 +2067,38 @@ fn hot_lift_impl_push_node(
 }
 
 ///|
-fn hot_lift_impl_typecheck(
+#valtype
+priv struct HotLiftTypecheck {
+  state : TcState
+  error : HotLiftError?
+}
+
+///|
+fn HotLiftTypecheck::success(state : TcState) -> HotLiftTypecheck {
+  { state, error: None, }
+}
+
+///|
+fn HotLiftTypecheck::failure(
+  state : TcState,
+  error : HotLiftError,
+) -> HotLiftTypecheck {
+  { state, error: Some(error), }
+}
+
+///|
+// Immediate private result; success does not re-box the validator's state.
+fn hot_lift_impl_check_instruction(
   instr : Instruction,
   tc_state : TcState,
-) -> Result[TcState, HotLiftError] {
+) -> HotLiftTypecheck {
   match Typecheck::typecheck(instr, tc_state) {
-    Ok(next) => Ok(next)
-    Err(err) => Err(hot_lift_impl_fail_typecheck(instr, err))
+    Ok(next) => HotLiftTypecheck::success(next)
+    Err(err) =>
+      HotLiftTypecheck::failure(
+        tc_state,
+        hot_lift_impl_fail_typecheck(instr, err),
+      )
   }
 }
 
@@ -2167,10 +2192,11 @@ fn hot_lift_impl_typecheck_data_instruction(
   let before_count = tc_state.stack.length()
   match hot_lift_impl_known_pop_count(instr, tc_state.env) {
     Some(count) if count >= 0 && count <= before_count => {
-      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
-        Ok(next) => next
-        Err(err) => return HotLiftDataCheck::failure(tc_state, err)
+      let checked = hot_lift_impl_check_instruction(instr, tc_state)
+      if checked.error is Some(err) {
+        return HotLiftDataCheck::failure(tc_state, err)
       }
+      let after_state = checked.state
       let pushed : Array[ValType] = match scalar_results {
         Some(row) if after_state.stack.length() - (before_count - count) <= 1 =>
           row
@@ -2188,10 +2214,11 @@ fn hot_lift_impl_typecheck_data_instruction(
   let before_types = tc_state.stack
   let before_state = tc_state
   let typecheck_state = tc_state_with_stack(tc_state, before_types)
-  let after_state = match hot_lift_impl_typecheck(instr, typecheck_state) {
-    Ok(next) => next
-    Err(err) => return HotLiftDataCheck::failure(tc_state, err)
+  let checked = hot_lift_impl_check_instruction(instr, typecheck_state)
+  if checked.error is Some(err) {
+    return HotLiftDataCheck::failure(tc_state, err)
   }
+  let after_state = checked.state
   match hot_lift_impl_known_pop_count(instr, tc_state.env) {
     Some(count) if count <= before_types.length() =>
       HotLiftDataCheck::success(
@@ -2622,11 +2649,14 @@ fn hot_lift_impl_lift_control(
       if catches.length() > 1 || (catches.length() > 0 && delegate is Some(_)) {
         return Err(HotLiftError::UnsupportedInstruction(instr.to_string()))
       }
-      let checked_state = match
-        hot_lift_impl_typecheck(instr, tc_state_clone(tc_state)) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      let checked = hot_lift_impl_check_instruction(
+        instr,
+        tc_state_clone(tc_state),
+      )
+      if checked.error is Some(err) {
+        return Err(err)
       }
+      let checked_state = checked.state
       let (params, results) = match
         hot_lift_impl_block_results(tc_state.env, block_type) {
         Ok(types) => types
@@ -2936,10 +2966,11 @@ fn hot_lift_impl_lift_instruction(
         func, instr, tc_state, label_frames, label_stack_head, roots, values, concrete_values,
       )
     Instruction::Br(label_idx) => {
-      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      let checked = hot_lift_impl_check_instruction(instr, tc_state)
+      if checked.error is Some(err) {
+        return Err(err)
       }
+      let after_state = checked.state
       let target = match
         hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
         Ok(label_id) => label_id
@@ -2975,10 +3006,11 @@ fn hot_lift_impl_lift_instruction(
       return Ok(after_state)
     }
     Instruction::BrIf(label_idx) => {
-      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      let checked = hot_lift_impl_check_instruction(instr, tc_state)
+      if checked.error is Some(err) {
+        return Err(err)
       }
+      let after_state = checked.state
       let target = match
         hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
         Ok(label_id) => label_id
@@ -3019,10 +3051,11 @@ fn hot_lift_impl_lift_instruction(
       return Ok(after_state)
     }
     Instruction::BrTable(targets, default_target) => {
-      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      let checked = hot_lift_impl_check_instruction(instr, tc_state)
+      if checked.error is Some(err) {
+        return Err(err)
       }
+      let after_state = checked.state
       let default_label = match
         hot_lift_impl_resolve_label(
           label_frames, label_stack_head, default_target,
@@ -3081,10 +3114,11 @@ fn hot_lift_impl_lift_instruction(
       return Ok(after_state)
     }
     Instruction::Return => {
-      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      let checked = hot_lift_impl_check_instruction(instr, tc_state)
+      if checked.error is Some(err) {
+        return Err(err)
       }
+      let after_state = checked.state
       let return_types = match tc_state.env.return_type {
         Some(types) => types
         None =>
@@ -3126,10 +3160,11 @@ fn hot_lift_impl_lift_instruction(
       return Ok(after_state)
     }
     Instruction::Rethrow(@lib.LabelIdx(raw_depth)) => {
-      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      let checked = hot_lift_impl_check_instruction(instr, tc_state)
+      if checked.error is Some(err) {
+        return Err(err)
       }
+      let after_state = checked.state
       roots.push(
         hot_build_node(
           func,
@@ -3143,10 +3178,11 @@ fn hot_lift_impl_lift_instruction(
       return Ok(after_state)
     }
     Instruction::Throw(tag_idx) => {
-      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      let checked = hot_lift_impl_check_instruction(instr, tc_state)
+      if checked.error is Some(err) {
+        return Err(err)
       }
+      let after_state = checked.state
       let payload_types = match tc_state.env.resolve_tag_functype(tag_idx) {
         Some(@lib.FuncType(params, _)) => params
         None =>
@@ -3190,10 +3226,11 @@ fn hot_lift_impl_lift_instruction(
       return Ok(after_state)
     }
     Instruction::ThrowRef => {
-      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      let checked = hot_lift_impl_check_instruction(instr, tc_state)
+      if checked.error is Some(err) {
+        return Err(err)
       }
+      let after_state = checked.state
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr, tc_state, concrete_values, 1,
         ) {
@@ -3215,10 +3252,11 @@ fn hot_lift_impl_lift_instruction(
     }
     Instruction::BrOnNull(label_idx) => {
       let before_types = tc_state.stack
-      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      let checked = hot_lift_impl_check_instruction(instr, tc_state)
+      if checked.error is Some(err) {
+        return Err(err)
       }
+      let after_state = checked.state
       let target = match
         hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
         Ok(label_id) => label_id
@@ -3266,10 +3304,11 @@ fn hot_lift_impl_lift_instruction(
     }
     Instruction::BrOnNonNull(label_idx) => {
       let before_types = tc_state.stack
-      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      let checked = hot_lift_impl_check_instruction(instr, tc_state)
+      if checked.error is Some(err) {
+        return Err(err)
       }
+      let after_state = checked.state
       let target = match
         hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
         Ok(label_id) => label_id
@@ -3324,10 +3363,11 @@ fn hot_lift_impl_lift_instruction(
     Instruction::BrOnCastDescEq(label_idx, _, _)
     | Instruction::BrOnCastDescEqFail(label_idx, _, _) => {
       let before_types = hot_lift_impl_copy_val_types(tc_state.stack)
-      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      let checked = hot_lift_impl_check_instruction(instr, tc_state)
+      if checked.error is Some(err) {
+        return Err(err)
       }
+      let after_state = checked.state
       let target = match
         hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
         Ok(label_id) => label_id
@@ -3393,10 +3433,11 @@ fn hot_lift_impl_lift_instruction(
     Instruction::BrOnCast(label_idx, _, _, _)
     | Instruction::BrOnCastFail(label_idx, _, _, _) => {
       let before_types = tc_state.stack
-      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
-        Ok(next) => next
-        Err(err) => return Err(err)
+      let checked = hot_lift_impl_check_instruction(instr, tc_state)
+      if checked.error is Some(err) {
+        return Err(err)
       }
+      let after_state = checked.state
       let target = match
         hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
         Ok(label_id) => label_id

@@ -7257,3 +7257,82 @@ optimization work were removed. Manual review only; independent review, full
 CI/coverage and long GenValid signoff remain outstanding. Known validator,
 merge-blocks and OI ordering failures still block release; 1× is not met.
 Exact evidence: `.tmp/large-pass-hotspots-20261001/main-typed-pop-performance-20261003.md`.
+
+## October 3, 2026: Inline the private lift validation adapter
+
+The private lift adapter rewrapped every validator success into another Result.
+It now returns a private16-byte `HotLiftTypecheck` value with state and nullable
+error. All14 production consumers check the error before taking the state.
+The original boxed helper lives only in white-box test support, preserving
+existing benchmark references and error/state comparisons. Underlying validation,
+message construction, stack ownership, ordering and fallback remain unchanged.
+Sources: [lift](../../../../../src/ir/hot_lift.mbt),
+[contracts/frozen adapter](../../../../../src/ir/hot_lift_typecheck_result_wbtest.mbt),
+[six native controls](../../../../../src/ir/hot_lift_typecheck_result_perf_wbtest.mbt).
+
+The generated-C regression first finds a success allocation in the old adapter;
+afterward the production boxed helper is absent and the new adapter returns an
+inline record with zero direct allocator sites. Seven focused tests cover state
+identity/replacement, metadata, partial failure, owned stacks and mixed GC call
+results. A constructor spelling in the new test was corrected before its seven
+passing checks; that compilation mistake is not classified as a product failure.
+Native controls (ten batches×100000), mean±SD ns: empty59.25±3.24→54.38±1.29,
+scalar81.32±.48→75.91±.87, invalid121.52±1.44→116.94±.60. Underlying typechecking
+and fresh state creation are present on both sides.
+
+Complete DAE2 profiles on base **e1b1b231b**, native **a167be6a…→c4b08d28…**:
+
+- Instructions **31,455,066,883→31,294,759,765 (−.509638%)**.
+- Allocations **83,304,937→80,379,471**, exactly **2,925,466 fewer**.
+- All **2,925,466** adapter calls remain; one success allocation disappears per
+  call on this valid fixture. This does not count retained validation work as
+  eliminated, or confuse allocation requests with bytes/peak memory.
+- Normally exited, exact validated output; public API unchanged. Executable+160B.
+
+Normal command evidence uses CPU6/Ryzen7 8845HS, release native O2/mimalloc,
+6,211,596-byte input, verified v133, n5 after one warmup and rotating
+before/after/oracle order. Build/profile/tracing are excluded; foreign activity
+is recorded. OO's oracle work is `--dae2 --simplify-locals --vacuum`.
+
+| Pass | Before CLI ms median±MAD [min,max] | After CLI ms median±MAD [min,max] | Binaryen133 ms median±MAD [min,max] | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3788.901±13.987 [3665.076,3812.826] | 3764.677±33.171 [3638.326,3797.848] | 1184.931±8.928 [1176.003,1235.951] | 3.177× | -0.550% |
+| dae2-optimizing | 6731.294±149.610 [6564.157,6968.796] | 6529.919±103.678 [6426.241,6786.176] | 2481.562±41.096 [2435.128,2668.325] | 2.631× | -2.625% |
+| coalesce-locals | 4277.978±153.791 [4123.974,4438.892] | 4253.110±136.577 [4111.358,4466.431] | 1980.969±59.332 [1919.117,2092.915] | 2.147× | +0.782% |
+| optimize-instructions | 2334.202±41.024 [2244.318,2404.330] | 2344.358±20.633 [2304.710,2364.991] | 988.914±4.683 [968.705,1026.239] | 2.371× | -0.816% |
+
+Separate traced inner diagnostics (n1, ms; not normal CLI samples):
+dae2: before 2959.376, after 2977.508
+dae2-optimizing: before 5660.357, after 5706.357
+coalesce-locals: before 3409.575, after 3125.322
+optimize-instructions: before 87.964, after 91.058
+
+Peak RSS KiB:
+dae2: before {'median': 266208, 'mad': 188, 'min': 255348, 'max': 266396, 'samples': 5}, after {'median': 266408, 'mad': 1084, 'min': 246168, 'max': 268860, 'samples': 5}
+dae2-optimizing: before {'median': 294340, 'mad': 56, 'min': 294284, 'max': 294596, 'samples': 5}, after {'median': 294368, 'mad': 8, 'min': 292384, 'max': 294460, 'samples': 5}
+coalesce-locals: before {'median': 244724, 'mad': 20, 'min': 243892, 'max': 244884, 'samples': 5}, after {'median': 244568, 'mad': 156, 'min': 243868, 'max': 244748, 'samples': 5}
+optimize-instructions: before {'median': 157480, 'mad': 1116, 'min': 156192, 'max': 158684, 'samples': 5}, after {'median': 156436, 'mad': 400, 'min': 156036, 'max': 157832, 'samples': 5}
+
+Paired DAE2/OO CLI changes are−.550/−2.625%; CL/OI+.782/−.816% have median
+movements of the opposite sign. Single traced diagnostics remain separate;
+foreign activity, broad spreads and overlapping RSS prohibit a universal clock
+or peak-memory claim. DAE2 allocation counts do not measure CL/OI allocations.
+
+13,433 default wasm-gc tests, info/fmt/check/native release/API sync, seven focused
+contracts and six native controls pass. Four50-fixture runtime lanes validate820
+artifacts and match2400 original/before/after/v133 observations; all four large
+raw hashes and .mbti files are unchanged. Prior V83 savings and canonical gaps
+are preserved, not newly normalized: OO+99,251B despite−9,949 raw B;
+CL/SL/OI+78,800/+373,507/+33,497B remain open.
+
+Next work is continuation-presence scanning in CFG setup and empty child-array
+construction in zero-operand node building. Validation cannot simply be shared:
+DAE2 performs type cleanup after its internal validate call, while CLI output
+checking decodes and validates the encoded bytes, a distinct artifact. Keep
+those mandatory checks. See [DAE2 finalization](../../../../../src/passes/dead_argument_elimination2.mbt)
+and [post-encode checking](../../../../../src/cmd/cmd.mbt).
+
+Manual source/native review only; independent review, full CI/coverage and long
+GenValid signoff are outstanding. Known validator/merge-blocks/OI ordering
+failures and the1× target remain open. Exact manifests, commands and samples:
+`.tmp/large-pass-hotspots-20261001/main-lift-check-performance-20261003.md`.
