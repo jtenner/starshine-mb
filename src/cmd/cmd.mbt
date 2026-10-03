@@ -10352,3 +10352,30 @@ test "command Coalesce block liveness retains loop-carried results and removes u
   assert_true(locals.length() < 2)
   assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
+
+///|
+test "command lazy lower ordering preserves call snapshots across large pass routes" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (func $callee (param i32 i32) (result i32) local.get 0) (func (export \"run\") (param i32) (result i32) (local i32) local.get 0 local.set 1 local.get 1 local.get 0 i32.const 1 i32.add local.set 1 i32.const 7 call $callee))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for
+    flag in [
+      "dae2", "dae2-optimizing", "coalesce-locals", "optimize-instructions",
+    ] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [flag],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    if flag == "dae2" || flag == "dae2-optimizing" {
+      let context = @validate.Env::new().with_module(output)
+      assert_eq(
+        context.get_functype_by_funcidx(@lib.FuncIdx::new(0U)),
+        Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+      )
+    }
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

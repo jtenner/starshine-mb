@@ -1243,3 +1243,101 @@ cohort. DAE2 dependencies/lift, optimizing cleanup, shared lower label/source
 facts and OI envelope are the next larger owners; parity is not achieved.
 Exact commands, hashes, source manifest, normal/traced rows and bounded profile:
 `.tmp/large-pass-hotspots-20261001/main-cl-block-liveness-performance-20261002.md`.
+
+
+## October 2, 2026: separate effect-only lowering from ordering demand
+
+Main5ec1e3556/native02637b4c… is the baseline; candidatee7529ee2…. Lowering
+previously built all source-order/local-query rows eagerly. A first lazy-factory
+trial skipped only225/4565 factories and saved merely.114528% CL instructions:
+scalar stack reuse still constructed full facts to read only `node_effects[id]`.
+Its plain CLI paired+.650% and carried native controls regressed; that trial
+was not committed independently. Frozen7861595d… and exact evidence remain in
+`.tmp/large-pass-hotspots-20261001/lower-lazy-order-v1-diagnosis.md`.
+
+[`hot_lower.mbt`](../../../../../src/ir/hot_lower.mbt) now separates private
+immutable effect-mask demand from complete ordering demand. It uses the existing
+complete mask builder, memoized CFG operand-order proof and full source-order
+fallback. An explicit per-region dependency plan records proved empty selection;
+a `None` suffix index alone never means empty. All unproved regions construct
+complete facts and retain the same dependency selection/emission. Buried scalar
+reuse still checks the complete composed effects; it does not rescan the stack
+for pure values. Result arity is read once; impossible buried-scalar cases and
+final roots avoid irrelevant queries. No transform or verification is removed.
+
+[`HotSourceOrderFacts::new`](../../../../../src/ir/hot_source_order.mbt) can adopt
+already-composed private masks from the same immutable lower. The sole optional
+caller passes its existing mask row, checked for arena length; ordinary callers
+keep the default complete construction. No public borrowed view escapes.
+Minima retire before full facts are built; transferred masks retire from the
+frame after adoption. Facts/masks never survive semantic mutation or another
+function/lower. The small native plan uses `#valtype`; no replacement IR,
+persistent cache or broad pipeline refactor is introduced. New scratch is
+bounded by one function's nodes and shared operand minima are visited once.
+
+TDD: eager single/forward-root field regressions fail before the initial change;
+the buried scalar regression then fails on v1 while retaining exact emitted
+instructions/stack checks. Revised
+[tests](../../../../../src/ir/hot_lower_lazy_order_wbtest.mbt) compare lazy/eager
+instruction and extra-local arrays for no-op, nested/typed control, loops, GC,
+traps/memory and exception edges; verify cold siblings, fresh analysis after
+mutation, single construction, complete mask equivalence and physical adoption
+without copying. Active DAE2 and command-dispatcher tests prune an unused call
+parameter while retaining the pre-write argument snapshot. All13,374 default
+wasm-gc tests, info/fmt/check/native release CLI, eight native controls and
+README/API sync pass, with no public `.mbti` change. Four v133 runtime lanes
+validate692 modules/check2016 observations across42 fixtures. Runtime-only
+compact-import expansion remains separate from raw timed/size artifacts.
+
+Same6,211,596B /12,904-function compiler SHA98189860…, verified v133
+SHA8f25e9fd…, CPU6 Ryzen78845HS/GCC14.2/O2/mimalloc. Build excluded; one warmup,
+n5 alternating normal fresh-process CLI commands with warm filesystem.
+Median±MAD milliseconds, with all ranges/raw rows retained locally:
+
+| Pass | Before ms | After ms | B133 ms | Paired change | After/B |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| DAE2 | 4300.668±36.596 | 4244.746±50.739 | 1291.718±16.741 | −.533% | 3.29× |
+| DAE2-O | 7562.007±23.739 | 7299.012±80.794 | 2594.935±29.086 | −2.380% | 2.81× |
+| CL | 4773.114±22.751 | 4601.658±62.996 | 2083.079±6.779 | −4.372% | 2.21× |
+| OI | 2690.061±100.418 | 2633.724±30.778 | 1034.079±3.749 | −2.785% | 2.55× |
+
+Every row flags foreign activity. Host conditions differ from prior checkpoints;
+retain them under their own cohorts rather than treating absolute cross-cohort
+changes as regressions/gains. Small plain clock gain is within spread; no quiet
+host or1× signoff. Independent traced n1 before→after module timers:
+DAE23468.551→3274.795ms, OO6322.982→6104.684, CL3600.958→3407.232;
+OI narrow86.429→88.850 while its pipeline1738.538→1734.833. These are diagnostic
+scopes, not renewed matched B inner comparisons. OI's envelope remains a priority.
+
+Complete matched CL profile exits normally within300s with exact validated hash:
+43,436,953,845→42,377,392,745 instructions (−2.439308%); nested lower
+7,014,296,576→5,956,325,888 (−15.083062%). Actual lower full-fact factories
+4565→297 (79,147,192 instructions);4083 effect-only builds cost596,655,907.
+CFG retains its297 complete factories; its default wrapper and inner edges
+are nested, not separate calls. Forty lower full builds adopt existing masks.
+Do not sum nested costs or derive scoped allocation bytes from shared allocators.
+
+Native controls, ten-batch mean±σ: forward tiny1.45µs±37.95ns→985.20ns±9.03ns;
+forward wide236.33µs±6.18µs→164.18µs±357.55ns. Carried full fallback costs remain
+open: tiny1.15µs±4.51ns→1.29µs±3.67ns; wide117.21µs±239.51ns→124.14µs±181.83ns.
+The reference/selected component lanes share final-root handling and exclude
+fixture/verification setup; they do not sign a whole-pass ratio.
+
+PeakRSS KiB medians: DAE2265752→255680 (−10072, ranges overlap),
+OO294192→294244, CL244776→244676, OI156232→156380. Lower private source rows
+are avoided by construction, but no causal whole-command RSS win is established;
+plain/CL low/high modes and optimizing≈138MiB excess remain open. All raw
+predecessor hashes and V83 savings remain exact: OO5,563,501B versus B5,573,450B
+is distinct from bounded canonical5,686,688B versus5,587,437B (+99,251B).
+CL/SL/OI canonical gaps and broader release signoff remain active.
+
+Manual source/API review, independent agent unavailable; no long fuzz. Aggregate
+GenValid/full CI/coverage stay deferred under the performance campaign with gates
+unchanged. Next measured targets are DAE2 dependencies/lift/reverse-query
+lifetimes, optimizing cleanup and OI envelope, plus exact-payload header copies.
+Native IDs are already unboxed: do not manufacture a boxed-ID heap fix. The
+remaining descending prefix search is quadratic on repeated-lane final mismatch,
+but current CL direct entry work25,405,350 instructions (~.0585%) makes it a lower
+compiler priority; prove a wide active consumer before adding linear-fallback
+scratch. Exact report/protocols/hashes/ranges:
+`.tmp/large-pass-hotspots-20261001/main-lower-demand-effects-performance-20261002.md`.

@@ -677,6 +677,14 @@ separates helper gains from full-pipeline evidence.
   mandatory CFG/HOT verification remains unchanged. See
   [equivalence/snapshot tests](../../../src/ir/liveness_from_func_wbtest.mbt) and
   [Coalesce evidence](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-build-coalesce-liveness-without-unused-use-site-graphs).
+- Lowering keeps effect-only masks separate from complete source-order facts.
+  Both describe the same immutable function snapshot and remain private to one
+  lower. Existing complete masks may transfer to later full facts without a
+  copy; operand minima retire first. Explicit region plans distinguish proved
+  empty dependency demand from an absent suffix index. Every unproved region
+  retains complete ordering/verification/emission. See
+  [eager/lazy and ownership regressions](../../../src/ir/hot_lower_lazy_order_wbtest.mbt)
+  and [whole-consumer evidence and fallback costs](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-separate-effect-only-lowering-from-ordering-demand).
 - HOT result arity reads the stored shape directly; `hot_type_results` still
   returns independently writable result arrays. Small type tables compare
   immutable structural shapes before formatting keys, with the existing map

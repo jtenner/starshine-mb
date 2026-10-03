@@ -1,3 +1,13 @@
+### 2026-10-02 — Separate effect-only lowering from ordering demand
+
+- [Demand proof and consumer tradeoffs](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-separate-effect-only-lowering-from-ordering-demand)
+  replace unused ordering/local rows for effect-only queries while retaining
+  complete fallback and snapshot ownership. CL work−2.4393%, nested lower−15.0831%;
+  paired large OO/CL/OI clocks−2.380/−4.372/−2.785% under flagged foreign load.
+  13,374 tests/2016 observations pass, exact bytes/API. A first mere factory
+  deferral trial was not independently committed; measured demand explains the
+  refinement. Carried fallback costs, memory/byte gaps and1× target remain.
+
 ### 2026-10-02 — Build Coalesce liveness without unused use-site graphs
 
 - [Block-only constructor evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-build-coalesce-liveness-without-unused-use-site-graphs)

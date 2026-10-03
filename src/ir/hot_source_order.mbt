@@ -90,17 +90,28 @@ fn HotSourceOrderOrders::new(func : HotFunc) -> HotSourceOrderOrders {
 }
 
 ///|
-fn HotSourceOrderFacts::new(func : HotFunc) -> HotSourceOrderFacts {
+fn HotSourceOrderFacts::new(
+  func : HotFunc,
+  node_effects? : Array[EffectMask]? = None,
+) -> HotSourceOrderFacts {
   let orders = HotSourceOrderOrders::new(func)
   {
     local_access_cache: Array::make(hot_node_count(func), -1),
     value_orders: orders.value_orders,
     // The operand-order walk already computed each node's own mask. Compose
     // all live child edges into that owned buffer without rereading payloads.
-    node_effects: effects_build_node_masks(
-      func,
-      own_masks=Some(orders.own_effects),
-    ),
+    node_effects: match node_effects {
+      Some(masks) => {
+        if masks.length() != hot_node_count(func) {
+          abort(
+            "source-order effect masks must describe the same function snapshot",
+          )
+        }
+        // Private immutable masks from this same lower, never a public view.
+        masks
+      }
+      None => effects_build_node_masks(func, own_masks=Some(orders.own_effects))
+    },
     first_effect_orders: orders.first_effect_orders,
     preceding_dependency_min_cache: Array::make(hot_node_count(func), -2),
     local_access_nodes: Array::make(hot_node_count(func), None),

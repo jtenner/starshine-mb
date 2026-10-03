@@ -1784,3 +1784,19 @@ fn dae2_replace_children_if_changed(
   ignore(@ir.hot_replace_child_span(func, node, children))
   true
 }
+
+///|
+test "dae2 lazy lower ordering preserves pre-write call operands during signature pruning" {
+  let input = pass_test_module_from_wat(
+    "(module (func $callee (param i32 i32) (result i32) local.get 0) (func (export \"run\") (param i32) (result i32) (local i32) local.get 0 local.set 1 local.get 1 local.get 0 i32.const 1 i32.add local.set 1 i32.const 7 call $callee))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let output = dae2_run_module_pass(input, false).unwrap()
+  @validate.validate_module(output).unwrap()
+  let context = @ir.hot_module_context_from_module(output)
+  assert_eq(
+    @ir.hot_module_resolve_func_type(context, @lib.FuncIdx::new(0U)),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+  )
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}

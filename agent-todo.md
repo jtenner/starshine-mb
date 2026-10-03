@@ -22,25 +22,25 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** block-only CL liveness, base d4541bb83/
-  native c4165396…→02637b4c…. One-warmup/n5 alternating normal CLI CL
-  4431.467±34.244→4214.653±25.652ms/B1789.610±17.290 (2.36×), paired−4.8926%.
-  Complete CL instructions45.477b→43.437b (−4.4869%); exact bytes,13,367 tests,
-  169 validated modules/492 observations pass. RSS median+4200KiB with
-  overlapping low/high modes remains unresolved, no memory win. Every timing
-  row flags foreign activity; no quiet-host1× signoff. Traced n1 CL module
-  3390.306→3212.553ms is diagnostic, not a matched B inner renewal.
-  Other passes retain the separate c416 checkpoint: DAE2 normal4000.468±71.176/
-  B1174.730±32.875 (3.41×), OO6351.003±35.572/B2335.604±8.912 (2.72×),
-  OI2215.836±6.229/B928.787±3.496 (2.39×). Independent n3 named DAE2
-  S3005.985/B431.100ms; OI79.059/B239.510; OO S5480.129/B explicit3-pass
-  sums in report. These scopes include different work; no equivalent-total
-  ratio. Preserve optimizing≈138MiB excess and raw OO−9949B versus canonical
-  +99,251B as distinct open findings.
-  [Exact protocols/scopes/hashes](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-block-only-coalesce-liveness-checkpoint).
+- **Latest matched large checkpoint:** effect-only lowering, main5ec1e3556/
+  native02637b4c…→e7529ee2…. One-warmup/n5 alternating normal CLI median±MAD
+  ms: DAE24244.746±50.739/B1291.718±16.741 (3.29×),
+  OO7299.012±80.794/B2594.935±29.086 (2.81×),
+  CL4601.658±62.996/B2083.079±6.779 (2.21×),
+  OI2633.724±30.778/B1034.079±3.749 (2.55×).
+  Paired changes−.533/−2.380/−4.372/−2.785%; every row flags foreign activity,
+  plain within spread and no quiet-host1× signoff. Complete CL instructions
+  43.437b→42.377b (−2.439308%), nested lower−15.083062%; full lower factories
+  4565→297 plus4083 effect-only builds.13,374 tests/692 modules/2016
+  observations pass, API/raw hashes/V83 retained. RSS plain median−10072KiB
+  with overlapping modes, other medians nearly flat; no causal memory win.
+  Carried fallback native+140ns/+6.93µs and optimizing≈138MiB excess remain.
+  Independent traced n1 scopes are diagnostic; prior matched B inner values
+  retain c416 source/date. Raw OO−9949B versus canonical+99,251B remains open.
+  [Exact protocols/scopes/hashes](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-effect-only-lowering-checkpoint).
 - **Completed shared mechanisms:** checked lift reads, scalar CL clique updates,
   retained unchanged strip/spill storage, compact lowering counts and direct
-  result-stack rows and block-only CL liveness are
+  result-stack rows, block-only CL liveness and separate effect/ordering demand are
   implemented; do not repeat them. Existing tiny/tee/weighted/wide microcosts
   remain visible in P03/P04 and the
   [consumer dossier](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-use-compact-counts-throughout-lowering).
@@ -679,9 +679,9 @@ separate from normal commands and differ in surrounding work.
 - **Owner / why:** [Coalesce](src/passes/coalesce_locals.mbt), expanded CFG,
   liveness, interference and raw branch-depth/lowering queries; the large pass
   still costs several seconds.
-- **Current measured remainder:** normal CL4214.653ms/B1789.610 (2.36×),
-  complete module instructions43.437b; direct lift8.466b, lower7.819b,
-  CFG3.187b, interference3.086b, liveness constructor2.203b remain. Edges are
+- **Current measured remainder:** normal CL4601.658ms/B2083.079 (2.21×),
+  complete module instructions42.377b; direct lift8.466b, lower6.761b,
+  CFG3.187b, interference3.085b, liveness constructor2.203b remain. Edges are
   inclusive; no summed phase percentage. Most recent fix removes unused full
   use-site discovery with the same complete block scanner/checks/solver.
   [Current evidence and ownership](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-build-coalesce-liveness-without-unused-use-site-graphs).
@@ -893,16 +893,30 @@ separate from normal commands and differ in surrounding work.
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
-- **Next measured shared targets:** current CL root43.437b instructions,
-  direct lower7.819b; emitted roots and label/source setup remain candidates.
-  Measure deferred facts with complete order/effect/buried-value checks; result
-  arrays and unused full-use-site graphs are already removed. Stack-value objects
-  and block scanner's unused local-write-block rows still allocate. Checked lift
-  and DAE2 dependency attribution retain their exact earlier source snapshots.
-  Preserve checked admission, full graph APIs, independently owned outputs,
-  recorded control costs and RSS modes. Positive-mask traversal and region/
-  canonicalization storage remain active; prove benefits before widening.
-  Separate destruction work from allocated bytes/RSS. Plain/CL memory modes and
+- **Next measured shared targets:** current CL root42.377b instructions,
+  nested lower5.956b after explicit effect/ordering demand removes unused rows.
+  Full lower source factories4565→297; no duplicate implementation of that
+  completed mechanism. Reduce measured carried fallback+140ns/+6.93µs without
+  regressing large consumers or adding speculative region caches. Stack-value
+  objects and unused block-write metadata still allocate. DAE2 dependency/lift
+  and optimizing cleanup remain larger owners; field attribution retains its
+  exact earlier snapshots.
+- [ ] Trial checked exact-payload scalar field reads: native payload ID,
+  verification and instruction queries each cross a complete node-header
+  boundary for only op/imm0/imm1. Preserve checked Unit admission, all payload
+  lanes and malformed/deleted/incomplete-arena errors. IDs are already unboxed;
+  do not add a new view/record or claim boxed-ID churn. Measure actual three
+  native bodies, both DAE2 modes and whole affected consumers.
+- [ ] Bound remaining descending stack-prefix mismatch work after proving a
+  wide active consumer: repeated lanes with final mismatch remain quadratic,
+  but current CL entry work25.405m instructions (~.0585%) is lower priority.
+  Keep full matches/tiny cases allocation-free and longest-suffix semantics.
+  Existing dedicated512-lane mismatch controls are available; no new cache is
+  justified merely by synthetic ratio.
+- **Memory / contracts:** keep immutable function lifetimes, complete graphs,
+  public ownership and recorded controls/RSS modes. Positive-mask traversal and
+  region/canonicalization storage remain active; prove benefits before widening.
+  Separate destruction work from allocated bytes/RSS. Plain/CL modes and
   optimizing≈138MiB excess require attribution; no whole-arena cache is justified.
 - [ ] Measure high-degree CFG reciprocal-edge verification: nested neighbor
   scans can be quadratic on wide joins/switches. Current dependency snapshot

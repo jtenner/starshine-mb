@@ -52,7 +52,9 @@ priv struct HotLowerLabelFrames {
   depths : Array[Int]
   legacy_rethrow_locals : Array[LocalIdx?]
   used_labels : @bitset.BitSet
-  source_order : HotSourceOrderFacts
+  mut source_order : HotSourceOrderFacts?
+  mut node_effects : Array[EffectMask]?
+  mut operand_minima : Array[Int]?
 }
 
 ///|
@@ -62,8 +64,66 @@ fn hot_lower_impl_new_label_frames(func : HotFunc) -> HotLowerLabelFrames {
     depths: [],
     legacy_rethrow_locals: [],
     used_labels: hot_lower_impl_build_used_labels(func),
-    source_order: HotSourceOrderFacts::new(func),
+    source_order: None,
+    node_effects: None,
+    operand_minima: None,
   }
+}
+
+///|
+fn hot_lower_impl_source_order(
+  func : HotFunc,
+  frames : HotLowerLabelFrames,
+) -> HotSourceOrderFacts {
+  match frames.source_order {
+    Some(facts) => facts
+    None => {
+      // Minima are no longer queried after full facts exist. Retire this scratch
+      // before building the larger rows; both are private to this immutable lower.
+      frames.operand_minima = None
+      let facts = HotSourceOrderFacts::new(
+        func,
+        node_effects=frames.node_effects,
+      )
+      frames.node_effects = None
+      frames.source_order = Some(facts)
+      facts
+    }
+  }
+}
+
+///|
+fn hot_lower_impl_node_effects(
+  func : HotFunc,
+  frames : HotLowerLabelFrames,
+) -> Array[EffectMask] {
+  match frames.source_order {
+    Some(facts) => facts.node_effects
+    None =>
+      match frames.node_effects {
+        Some(masks) => masks
+        None => {
+          let masks = effects_build_node_masks(func)
+          frames.node_effects = Some(masks)
+          masks
+        }
+      }
+  }
+}
+
+///|
+#valtype
+priv struct HotLowerFutureDependencies {
+  required : Bool
+  suffix_minima : HotSourceOrderRootIndex?
+}
+
+///|
+fn HotLowerFutureDependencies::new(
+  required : Bool,
+  suffix_minima? : HotSourceOrderRootIndex? = None,
+) -> HotLowerFutureDependencies {
+  { required, suffix_minima, }
 }
 
 ///|
@@ -1009,12 +1069,37 @@ fn hot_lower_impl_roots_may_need_future_dependencies(
 }
 
 ///|
-fn hot_lower_impl_future_dependency_suffix_minima(
+fn hot_lower_impl_future_dependencies(
   func : HotFunc,
   roots : Array[NodeId],
   label_frames : HotLowerLabelFrames,
-) -> HotSourceOrderRootIndex? {
-  hot_source_order_future_suffix_minima(func, roots, label_frames.source_order)
+) -> HotLowerFutureDependencies {
+  if roots.length() < 2 {
+    return HotLowerFutureDependencies::new(false)
+  }
+  if label_frames.source_order is None {
+    let minima = match label_frames.operand_minima {
+      Some(minima) => minima
+      None => {
+        let minima = Array::make(hot_node_count(func), -1)
+        label_frames.operand_minima = Some(minima)
+        minima
+      }
+    }
+    // Reuse the complete CFG operand-order proof for this immutable lower.
+    // Shared operands are visited once; all unproved regions keep full facts.
+    if !cfg_region_may_need_source_order(func, roots, minima) {
+      return HotLowerFutureDependencies::new(false)
+    }
+  }
+  HotLowerFutureDependencies::new(
+    true,
+    suffix_minima=hot_source_order_future_suffix_minima(
+      func,
+      roots,
+      hot_lower_impl_source_order(func, label_frames),
+    ),
+  )
 }
 
 ///|
@@ -1100,7 +1185,7 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   current_root : NodeId,
   future_roots : Array[NodeId],
   future_start : Int,
-  future_dependency_suffix_minima : HotSourceOrderRootIndex?,
+  future_dependency_suffix_minima : HotLowerFutureDependencies,
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
@@ -1109,14 +1194,23 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   extra_locals : Array[ValType],
   options : HotLowerOptions,
 ) -> Unit {
+  if !future_dependency_suffix_minima.required ||
+    future_start >= future_roots.length() {
+    return
+  }
+  // A missing suffix index alone is not an empty-demand proof. Required plans
+  // always own complete ordering facts, regardless of earlier effect-only work.
+  guard label_frames.source_order is Some(facts) else {
+    abort("required future dependency plan must own complete ordering facts")
+  }
   for
     node_id in hot_source_order_preceding_dependencies(
       func,
       current_root,
       future_roots,
       future_start,
-      future_dependency_suffix_minima,
-      label_frames.source_order,
+      future_dependency_suffix_minima.suffix_minima,
+      facts,
     ) {
     if !hot_lower_impl_stack_has_node(stack, node_id) {
       hot_lower_impl_emit_value(
@@ -1202,7 +1296,7 @@ fn hot_lower_impl_body_items(
   let preserve_region_results = hot_lower_impl_preserve_region_result_roots(
     func, use_def, root_ids, region_keep_count,
   )
-  let future_dependency_suffix_minima = hot_lower_impl_future_dependency_suffix_minima(
+  let future_dependency_suffix_minima = hot_lower_impl_future_dependencies(
     func, root_ids, label_frames,
   )
   // An arm can forward its earlier entry lanes as leading result roots. They
@@ -2826,14 +2920,21 @@ fn hot_lower_impl_emit_root(
   options : HotLowerOptions,
   allow_stack_top_reuse? : Bool = true,
 ) -> Unit {
-  if allow_stack_top_reuse && hot_node_result_arity(func, id) > 0 {
+  let result_arity = if allow_stack_top_reuse {
+    hot_node_result_arity(func, id)
+  } else {
+    0
+  }
+  if result_arity > 0 {
     match stack.last() {
       Some(top) if top.node_id == id => return
       _ => ()
     }
     // Pure values can be rematerialized cheaply. A saved effectful value
     // must be reused even when a later operand has covered it on the stack.
-    if !effects_is_pure(label_frames.source_order.node_effects[id]) &&
+    if stack.length() >= 2 &&
+      result_arity == 1 &&
+      !effects_is_pure(hot_lower_impl_node_effects(func, label_frames)[id]) &&
       hot_lower_impl_reuse_buried_scalar(func, id, stack, out, extra_locals) {
       return
     }
@@ -5494,7 +5595,7 @@ fn hot_lower_body_with_extras_unverified_with_options(
     root_ids,
     hot_type_result_arity(func, hot_body_result_type(func)),
   )
-  let future_dependency_suffix_minima = hot_lower_impl_future_dependency_suffix_minima(
+  let future_dependency_suffix_minima = hot_lower_impl_future_dependencies(
     func, root_ids, label_frames,
   )
   for i = 0; i < hot_root_count(func); i = i + 1 {

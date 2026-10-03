@@ -4840,3 +4840,28 @@ no memory win.13,367 tests/169 validated modules/492 observations and API sync
 pass; one narrow public constructor, complete graph/validation semantics and
 exact raw hashes retained. Canonical quality and aggregate/release gates remain.
 Local report: `.tmp/large-pass-hotspots-20261001/main-cl-block-liveness-performance-20261002.md`.
+
+
+## October 2, 2026: main effect-only lowering checkpoint
+
+[Demand and ownership evidence](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-separate-effect-only-lowering-from-ordering-demand)
+freeze main5ec1e3556/02637b4c…→e7529ee2… on the same compiler/v133/CPU6.
+Normal n5 alternating median±MAD milliseconds:
+
+| Pass | Starshine | B133 | Ratio |
+| --- | ---: | ---: | ---: |
+| DAE2 | 4244.746±50.739 | 1291.718±16.741 | 3.29× |
+| DAE2-O | 7299.012±80.794 | 2594.935±29.086 | 2.81× |
+| CL | 4601.658±62.996 | 2083.079±6.779 | 2.21× |
+| OI | 2633.724±30.778 | 1034.079±3.749 | 2.55× |
+
+Paired changes−.533/−2.380/−4.372/−2.785%; every row flags foreign activity.
+Complete CL instructions−2.439308%, nested lower−15.083062% corroborate reduced
+work; lower full factories4565→297 with4083 effect-only builds. No summed nested
+phase, allocation-byte or quiet-host1× claim. Raw hashes/API/V83 retained;
+13,374 tests/692 modules/2016 observations pass. Native carried fallback costs
++140ns/+6.93µs remain open. RSS modes/optimizing excess and canonical quality
+remain. Independent traced n1 scopes are diagnostic; matched B inner values
+above retain their earlier c416 source and dates. Exact commands/source/binaries,
+normal/traced range/RSS rows and accepted profile:
+`.tmp/large-pass-hotspots-20261001/main-lower-demand-effects-performance-20261002.md`.
