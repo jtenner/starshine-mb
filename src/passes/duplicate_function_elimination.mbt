@@ -1139,32 +1139,40 @@ fn dfe_try_rewrite_instruction_array_type_idxs(
   instrs : Array[@lib.Instruction],
   remap : Map[UInt, UInt],
 ) -> Array[@lib.Instruction]? {
-  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
-  let mut changed = false
+  // Most regions mention no remapped type. Allocate output capacity only at
+  // the first actual rewrite, preserving the original prefix and input storage.
+  let mut rewritten : Array[@lib.Instruction]? = None
   let mut idx = 0
   while idx < instrs.length() {
     let instr = instrs[idx]
     match dfe_try_rewrite_instruction_type_idxs(instr, remap) {
       Some(next) => {
-        if !changed {
-          let mut prefix = 0
-          while prefix < idx {
-            rewritten.push(instrs[prefix])
-            prefix += 1
+        let out = match rewritten {
+          Some(out) => out
+          None => {
+            let out : Array[@lib.Instruction] = Array::new(
+              capacity=instrs.length(),
+            )
+            let mut prefix = 0
+            while prefix < idx {
+              out.push(instrs[prefix])
+              prefix += 1
+            }
+            rewritten = Some(out)
+            out
           }
-          changed = true
         }
-        rewritten.push(next)
+        out.push(next)
       }
-      None => if changed { rewritten.push(instr) }
+      None =>
+        match rewritten {
+          Some(out) => out.push(instr)
+          None => ()
+        }
     }
     idx += 1
   }
-  if changed {
-    Some(rewritten)
-  } else {
-    None
-  }
+  rewritten
 }
 
 ///|

@@ -26,23 +26,24 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** zero-child direct-lift construction,
-  main435239e72/native62e79f73…→6c31b0ca…. Complete DAE2 work−1.084942%,
-  1,393,373 fewer requests, unchanged checks/bytes. OI whole-command work−.039%.
+- **Latest matched large checkpoint:** lazy type-remap output storage,
+  native6c31b0ca…→11e04de3… (freeze435239e72 plus independent zero-child unit,
+  nowb226d67d7). Complete OI command work−.637721%,599,151 fewer requests;
+  all2,516,565 visits/checks and four hashes retained.
   CPU6 n5/warmup1 normal CLI medians±MAD (milliseconds):
-  dae2 3658.377±57.878/B1191.762±6.590;
-  dae2-optimizing 6483.375±44.209/B2491.149±24.871;
-  coalesce-locals 4066.139±73.039/B1920.410±7.932;
-  optimize-instructions 2278.996±27.146/B964.601±7.998.
-  Paired changes−1.652/+.742/+.097/−.627%; traced/paired disagreements,
-  foreign load and RSS overlap remain explicit.13,437 tests/2400 observations
-  pass; no universal clock/RSS or1× claim.
-  [Scopes, spreads and limits](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-build-zero-operand-lift-nodes-without-a-default-child-row).
+  dae2 3763.014±82.591/B1201.945±12.323;
+  dae2-optimizing 6411.027±90.492/B2431.329±10.142;
+  coalesce-locals 3983.176±6.401/B1907.883±27.411;
+  optimize-instructions 2295.909±49.997/B990.318±19.392.
+  Paired changes+.862/+.030/−4.145/−.294%; CL's observation is not attributed
+  to this OI/DFE helper. Trace/median disagreements, foreign load and RSS
+  overlap remain.13,439 tests/2400 observations pass; no universal win or1×.
+  [Scopes, spreads and limits](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-3-2026-allocate-type-remap-output-only-after-a-rewrite).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Current DAE2 cost ownership:** native6c31b0ca… complete pass30.806b
+- **Latest complete DAE2 profile:** native6c31b0ca… pass30.806b
   instructions/78,986,098 direct allocation requests. Dependency construction,
   lift, lower and final validation remain the dominant owners; preceding62e79
   nested attribution retains its source/date in the dossier. Do not combine
@@ -597,8 +598,8 @@ quality gates. Keep traced inner and normal command measurements separate.
 - **Current complete-command attribution:** native62e79f73…20.611b instructions;
   module encoding cleanup5.826b inclusive (simple type cleanup3.938b, numeric
   local grouping1.142b, control cleanup.659b). These include nested checks and
-  destruction, not just OI rewrite. Inspect eager unchanged type-remap storage
-  and complete cleanup owners; descriptor bridges already use revision guards.
+  destruction, not just OI rewrite. Unchanged type-remap output storage is now lazy; do not repeat it.
+  Inspect remaining complete cleanup owners; descriptor bridges already use revision guards.
   Retain both enabled module validations; do not add nested scopes as time.
   [Source-backed profile](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-prove-absent-cfg-continuations-from-verified-side-tables).
 
@@ -628,6 +629,14 @@ quality gates. Keep traced inner and normal command measurements separate.
   rejected candidates, string 127→128 and body/count/section LEB boundaries.
 
 ### P07 — Remaining DFE hashing, remapping and type cleanup [IR2-PERF-DFE]
+
+- **Completed type-output storage:** allocate only after an actual change;
+  all visitor/reference/identity-map contracts retained. OI complete command
+  work−.638%,599,151 fewer requests with13,439 tests/2400 observations passing.
+  Tiny sparse/dense controls and normal clock costs stay visible. Remaining
+  type/reference scans and separately duplicated rume work require actual
+  consumer evidence; no blanket cross-package refactor or validation elision.
+  [Constructor proof and cost scope](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-3-2026-allocate-type-remap-output-only-after-a-rewrite).
 
 - **Owner / why:** [DFE](src/passes/duplicate_function_elimination.mbt); subsecond
   absolute time still has a substantial large oracle ratio.

@@ -3,6 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-10-02
 sources:
+  - ../../../../../src/passes/duplicate_function_elimination.mbt
+  - ../../../../../src/passes/type_remap_lazy_wbtest.mbt
+  - ../../../../../src/passes/type_remap_lazy_perf_wbtest.mbt
   - ./index.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
@@ -1963,3 +1966,75 @@ versus verified133 917.756±5.662 ms.
 All samples flag foreign activity, all large output hashes remain exact and the
 canonical deficit remains 33,497 bytes. P00's independently reproduced effect
 ordering error remains a release blocker; this allocation change does not repair it.
+
+
+## October 3, 2026: allocate type-remap output only after a rewrite
+
+Frozen native6c31b0ca…→11e04de3…, Binaryen133, same6,211,596B fixture/hash,
+CPU6/GCC14.2/O2/mimalloc. Freeze base435239e72 includes the independent
+zero-child unit subsequently committed asb226d67d7; the matched binaries differ
+only by this production type-remap patch. Full dirty/source manifests retained.
+
+`dfe_try_rewrite_instruction_array_type_idxs` previously allocated full output
+capacity before inspecting any instruction. Keep a nullable output pointer
+until the first actual rewrite, then allocate once and copy the original prefix
+in order. Subsequent instructions append as before; unchanged regions return
+None and preserve all input storage. Same full visitor, map lookups, explicit
+identity-map behavior, recursive/GC/control reference remapping and validation;
+no cache, traversal admission shortcut, new API or cross-package refactor.
+The separately duplicated `rume` helper stays outside this measured pilot.
+
+Native RED sees output allocation before the first loop; GREEN sees allocation
+inside the changed-instruction arm. Two focused original/after contracts prove
+unchanged/sparse/dense/nested/GC remaps, prefix/call order and input/snapshot
+ownership; the initial identity-map expectation was corrected before production
+change because the existing contract rebuilds explicitly present identity keys.
+It was a test error, not a product failure.12 separate wasm-gc release controls
+are unpinned (10 batches), not native pass timing: width4 unchanged42.68→38.84ns,
+last-change53.93→60.57ns, dense65.23→64.43ns; width128 unchanged998.27→958.24ns,
+last1.26→1.23µs, dense1.84→1.86µs. Tiny sparse and dense-wide costs remain.
+Native microcontrols were deferred to avoid another monolithic benchmark build;
+actual native release CLI and complete native instruction profiles were measured.
+
+Complete normally exited OI command20,603,177,806→20,471,786,923 instructions
+(−.637721%); direct allocator requests79,218,816→78,619,665 (−599,151).
+Output-array constructor calls300,872→39 (12,904/287,968 root/nested before,
+10/29 after), while all2,516,565 instruction-remap visits remain. No uniform
+bytes-per-constructor inference: capacities and native lowering vary. Inclusive
+encoding cleanup5,825,776,706→5,693,376,428 instructions; its mandatory candidate
+validation remains one call,2,528,735,460→2,528,743,912 instructions, and normal
+CLI final-module validation remains enabled. Nested owners are not additive.
+Executable size unchanged14,630,216B; no public API change.
+
+Normal fresh-process CLI/warm filesystem, build/profile excluded, one warmup/n5
+alternating same-host median±MAD milliseconds:
+
+| Pass | Before | After | Binaryen133 | S/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3654.601±8.682 | 3763.014±82.591 | 1201.945±12.323 | 3.131× | +0.862% |
+| dae2-optimizing | 6329.457±29.954 | 6411.027±90.492 | 2431.329±10.142 | 2.637× | +0.030% |
+| coalesce-locals | 4150.492±91.104 | 3983.176±6.401 | 1907.883±27.411 | 2.088× | -4.145% |
+| optimize-instructions | 2252.532±24.807 | 2295.909±49.997 | 990.318±19.392 | 2.318× | -0.294% |
+
+All normal rows flag foreign CPU activity. DAE2+.862% and OO+.030% paired
+costs and OI's median regression despite paired−.294% are retained. CL−4.145%
+is an observation, not an attributed code win: no Coalesce production caller of
+the changed remapper/type-cleanup entrypoint was found; do not transfer the OI
+profile to CL or credit this source fix with its clock change. Independent
+traced n1 inner DAE22881.061→2923.168, OO5589.311→5645.015,
+CL3021.492→3005.332, OI91.452→84.742ms are diagnostics; no renewed matched B
+inner claim. RSS medians DAE2/OO/CL essentially flat or overlap earlier modes;
+OI157732→156240KiB is a small observation with overlapping ranges, not a proven
+memory win. All ranges, MAD, raw samples and foreign rows are retained locally.
+
+`moon info/fmt/check`,13,439 default wasm-gc tests,12 controls, README/API sync,
+820 fixed module validations/2400 differential observations pass. Four large
+raw hashes are exact; V83 savings and large canonical gaps unchanged, not newly
+normalized. No long fuzz; full CI/coverage/aggregate and independent review
+remain deferred/open.1× is not achieved. The larger next measured allocation
+owners are LEB successes and private immutable OI root/flow rows; field/scanning
+and output-quality owners remain in the backlog.
+
+Exact manifests, RED/GREEN/source review, controls, commands, full samples/spreads/
+RSS, runtime rows and complete profiles:
+`.tmp/large-pass-hotspots-20261001/main-type-remap-performance-20261003.md`.

@@ -25884,3 +25884,13 @@ arrays/typecheck wrappers from the completed return packaging change.
   matched133 no-optimizer strip-debug gives identical81B;46B name metadata and
   a3B raw core-shell lead are separate. The raw writer lead remains active,
   without a new canonical/semantic or runtime-engine claim.
+
+### 2026-10-03 — Lazy type-remap output storage
+
+- [Native construction and complete consumer](binaryen/passes/optimize-instructions/starshine-strategy.md#october-3-2026-allocate-type-remap-output-only-after-a-rewrite)
+  avoid300,833 output-array constructors with all2.517m visits retained; OI
+  command instructions−.638%, requests−599,151.13,439 tests/12 wasm-gc controls/
+  2400 observations pass, exact bytes/API. Tiny sparse cost, contradictory
+  median/paired clocks, DAE2/O costs and RSS overlap remain. CL−4.145% is not
+  attributed to this helper, with no Coalesce caller found. Next LEB/root-record
+  experiments stay measured leads; no validation removal or1×/release claim.
