@@ -1950,3 +1950,16 @@ six-case benchmark, four runtime matrices, direct-worker profiles and scope prob
 Remaining priorities are type-remap validation (the unchanged-environment local
 guard cannot apply), unsigned/immediate success boxing, decoder/validator churn,
 complete CFG/read-source work, optimizing cleanup and canonical quality.
+
+
+## October 3, 2026: shared declaration validation allocation
+
+The [shared validator change](../dae2/starshine-strategy.md#october-3-2026-allocation-free-declaration-scan-success)
+removes successful recursive Result boxes without changing validation. Complete
+OI **command** instructions change -2.397004%; its narrow rewrite timer is not
+this scope. Normal alternating n5/warmup1 CLI is
+2150.872±8.404→2104.223±4.268 ms,
+versus verified133 917.756±5.662 ms.
+All samples flag foreign activity, all large output hashes remain exact and the
+canonical deficit remains 33,497 bytes. P00's independently reproduced effect
+ordering error remains a release blocker; this allocation change does not repair it.

@@ -10511,3 +10511,31 @@ test "command typed pop boundaries preserve GC table and SIMD routes" {
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command declaration validation retains reference calls across routes" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $sig (func (result i32))) (func $target (type $sig) i32.const 7) (func $callee (param i32 i32) (result i32) local.get 0) (elem declare func $target) (func (export \"run\") (param i32) (result i32) local.get 0 ref.func $target call_ref $sig i32.add i32.const 99 call $callee))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for
+    flag in [
+      "dae2", "dae2-optimizing", "coalesce-locals", "optimize-instructions",
+    ] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [flag],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    if flag == "dae2" || flag == "dae2-optimizing" {
+      assert_eq(
+        @validate.Env::new()
+        .with_module(output)
+        .get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+        Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+      )
+    }
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

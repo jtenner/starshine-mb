@@ -26,19 +26,19 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** indexed reverse signature validation,
-  main 3d46f7e52/native 43feef6e…→8bfe3761…. Complete matched DAE2/CL
-  instructions−2.070902/−1.176357%, direct allocation calls−5,634,510/−4,331,346,
-  with all 5,654,980/4,146,538 typed-pop checks and all four output hashes retained.
-  Normal CPU6 n5 first medians(ms): DAE2 10046.601/B2302.340,
-  OO12274.750/B3953.546, CL5348.326/B2323.327, OI2890.100/B1156.685,
-  all heavily contended. Preserve that cohort and its regressions. Justified n3
-  DAE2/OI repeats:4762.781±26.670/B1425.710±14.176 (3.341×),
-  2825.212±17.848/B1151.825±10.469 (2.453×); paired+.430/−1.874%.
-  No general CLI or peak-RSS win and no 1× signoff.13,403 default tests,
-  3 focused native tests,10+2 controls,772 runtime validations/2256 observations
-  pass. V83 savings/canonical OO+99,251B and all other quality/release gates
-  remain. [Source, all spreads/scopes and rejected trials](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-indexed-reverse-signature-validation).
+- **Latest matched large checkpoint:** declaration success boxes removed,
+  main 6f1bbff76/native 8bfe3761…→20ffcd71…. Complete DAE2
+  instructions -0.762865%, whole OI command -2.397004%; worker allocation
+  requests fall 4,948,080→0 in DAE2. No check or scan removed.
+  Current normal CPU 6 n=5 after one warmup, median±MAD:
+  DAE2 3586.333±36.645/B1124.879±12.804 ms (3.188×).
+  DAE2-O 6063.896±13.679/B2308.920±5.633 ms (2.626×).
+  CL 5301.057±229.196/B1778.561±28.860 ms (2.981×).
+  OI 2104.223±4.268/B917.756±5.662 ms (2.293×).
+  All cohorts flag foreign activity; no universal RSS or 1× signoff.
+  13,408 tests, ten controls, 788 runtime validations/2304 observations
+  and exact four-pass output hashes pass. P00 failures and canonical quality
+  gaps remain open. [Scopes, tradeoffs and evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-allocation-free-declaration-scan-success).
 - **Confirmed DAE2 attribution on native6e22→d08c:** complete matched
   module work34,604,264,255→34,604,091,968 (−.000498%), effectively unchanged.
   The lift-band fix helps CL and does not establish DAE2 throughput gains.
@@ -48,232 +48,24 @@ oracle versions and checkpoints do not sign current source.
   remains mandatory. Do not sum nested costs or treat traversal counts alone
   as a cause. Reduce arena/CFG temporary objects before speculative retention
   of all first-lift functions; preserve explicit immutable-snapshot invariants.
-- **Completed shared mechanisms:** checked lift reads, scalar CL clique updates,
-  retained unchanged strip/spill storage, compact lowering counts and direct
-  result-stack rows, block-only CL liveness and separate effect/ordering demand are
-  implemented, including checked exact-payload reads and completed lift band
-  proofs; do not repeat them.
-  Existing tiny/tee/weighted/wide microcosts
-  remain visible in P03/P04 and the
-  [consumer dossier](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-use-compact-counts-throughout-lowering).
-- **Optimizing cleanup / rejected-cache checkpoint:** accepted storage and
-  bounded-discovery fixes reduce complete matched cleanup instructions
-  22,691,343,936→20,107,910,056 (−11.385%); not a summed command gain.
-  Per-flat statement-boundary cache is rejected: cleanup instructions+0.175%
-  and peakRSS flat despite synthetic wins. No rejected code remains on main.
-  Preserve its frozen evidence and avoid repeating it without a new cost model.
-  [Rejection and phase-memory uncertainty](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-rejected-per-flat-statement-boundary-cache).
-- **October 1 bounded pilot:** the user requested independent small-module P08
-  work before resuming the existing P03 owner. The
-  [fresh checkpoint](docs/wiki/tooling/tracing-playbook.md#october-1-2026-small-dae-pilot-and-release-priorities)
-  uses frozen native binaries and verified v133: large inner excess is about
-  3.30/5.40 s DAE2/O, 2.86 s Coalesce; SimplifyLocals/OI instead have 2.08/2.38 s
-  optimizer non-pass envelopes despite fast inner passes. Prioritize P03, P04,
-  shared P12/P13 plus P05/P06 quality, then remaining P08 work, adjusted to actual
-  workload frequency. Current symmetric canonical gaps remain 99,251 DAE2-O,
-  78,800 Coalesce, 373,507 SimplifyLocals and 33,497 OI bytes. Do not mix raw
-  oracle output with projected Starshine sizes; current four DAE2-O hashes
-  exactly reproduce V83. Aggregate parity/coverage/full release gates remain.
-- **Historical performance checkpoint:** lean-v59 passes 13,101 default tests and
-  10,269 bounded runtime observations across 1,442 modules. Final-index bounds
-  save 26,177 canonical compiler bytes; sparse replay visits body/callee
-  consumers and owns only boundary bits. This frozen checkpoint predates the
-  remote correctness integration; V62 renews optimizing size and descriptive
-  timings below, while plain and broader signoff still need renewal.
-  The saved binary `ref.eq` defect is repaired; historical V32–V37 fixture counts
-  are not general correctness evidence. Final aggregate/release signoff remains.
-  The [DAE2 strategy](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#september-30-2026-final-index-bounds-for-reverse-aliases)
-  owns hashes, paired measurements, costs and limitations.
-
-- **Post-integration component checkpoint:** V61 passes 13,176 default tests,
-  16 native rows and 160 bounded runtime observations. Immutable statement
-  seeds improve wide balanced cleanup 5–24% with exact predecessor bytes;
-  enclosing large pipelines stay flat. See the
-  [query-seed evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-immutable-statement-query-seeds).
-
-- **Historical V73 size checkpoint (superseded by V83 above):** V73 sinks numeric constant assignments into their
-  first flat read as tees, closing the six-byte nested-release witness. It saves
-  **3,280 raw / 3,452 canonical bytes** across 105 shrinking functions with no
-  growth or non-code changes. The verified-v133 deficit is now **180,144
-  canonical / 66,513 raw bytes**. All 13,222 default tests and 1,376 focused
-  observations pass. Large optimizing costs +0.51%; tiny/barrier native feature
-  costs remain open. Tee timing cohorts disagree; a complete native probe
-  confirms zero calls to this new helper on tee. See
-  [constant-tee evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-sink-constant-stores-beside-structured-releases).
-
-- **Current cheap-path checkpoint:** V63 bypasses the larger alias-admission
-  frame on proved nonwidening copies. The bounded active work guard goes from
-  one helper call to zero with exact output. Matched tee improves 1.80% and
-  large optimizing 0.86%; small is flat within spread. All 13,180 tests and
-  256 replay observations pass; artifact bytes stay identical to V62.
-  [Cheap-path and writer-origin evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-cheap-alias-admission-at-discovery)
-  retains cohort limits and remaining gaps.
-
-- **Current flow checkpoint:** V64 reuses admitted read tags and gates entry
-  traversal on actual immutable reads. Native rows improve 5–17%; 256 written
-  selectors remain flat. All 13,185 tests and 284 fixed observations pass with
-  exact predecessor artifact bytes. Small-plain/large-optimizing control costs
-  remain open; enclosing speed and RSS gains are not established. See
-  [flow evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-reuse-reverse-flow-admission-tags).
-
-- **Current sorting checkpoint:** V65 skips empty/singleton carried-row sorting
-  callbacks. The active guard removes three empty sorts from seven queries;
-  native warm empty/singleton controls improve 28%/10%. All 13,187 tests and
-  276 fixed observations pass with exact predecessor artifact bytes. Large
-  optimizing remains flat; the compiler speed/byte gaps stay open. See
-  [sorting and reduced-byte evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-avoid-trivial-dependency-row-sorting).
-
-- **Current field checkpoint:** V66 replaces two full local-access headers with
-  checked opcode reads. Repeated native controls improve 5–7%; 13,190 tests and
-  256 fixed observations pass with exact predecessor bytes. Large optimizing
-  stays flat; small control costs remain open; the subsequent extraction repair is
-  recorded in its owner dossier. See [field evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-checked-local-access-fields).
-
-- **Current repeated-query checkpoint:** V68 bounds repeated singleton conflict
-  scans by twice the consumer width; wide cold/warm native controls improve
-  35–85% with tiny cold controls flat. All 13,195 tests and 256 fixed observations
-  pass with exact predecessor bytes. Compiler pipelines stay flat; small timing
-  cohorts disagree. See [index evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-index-repeated-singleton-conflicts).
-
-- **Current cleanup checkpoint:** V70 indexes ordered live-out reads with compact
-  words, improving wide native collectors 33–63% and matched large optimizing
-  **4.84%**. All 13,211 tests and 976 focused observations complete; current/v133
-  outputs match originals, with 27 known predecessor legacy failures recorded.
-  The release-context **100 → 1** defect is repaired in legacy read/count/bounds
-  facts; narrow V69 replay was incomplete. Compiler bytes retain all V69 savings.
-  V71 removes all 275 scoped boxed overflow lookups and improves matched large
-  optimizing another 0.81%; 13,212 tests and 976 observations pass with exact
-  bytes. Repeated small/tee optimizing costs 1.50%/1.21%, plain tee 1.36% and
-  tiny cold owners 13/30ns remain open. See
-  [unboxed overflow evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-unboxed-cleanup-overflow-membership). Last V70 oracle-cohort pass ratios are small 3.61× / 3.19×
-  and large 7.90× / 3.87× for DAE2/O. See
-  [cleanup and handler evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-compact-cleanup-live-out-membership-and-legacy-reads).
-
-- **Current demand checkpoint:** V72 publishes LocalGraph sources only for
-  unresolved DAE2 reads. Resolved-heavy native controls improve 75–96%; matched
-  large plain improves 2.41% (repeat 3.69%) and optimizing 1.47% (repeat 1.28%).
-  All 13,216 tests and 1,056 observations pass with exact compiler bytes.
-  All-selected cold costs 1.22%, repeated tee optimizing costs 1.67%, and noisy
-  small/large host bands remain recorded. Shared-action fallback still solves
-  complete joins. See [selected-source evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-demand-only-unresolved-dae2-read-sources).
-
-- **Current constant-scratch checkpoint:** V74 uses density-bounded primitive
-  pending rows and O(1) active-prefix epochs. All 13,224 default tests, nineteen
-  native controls and 1,376 observations pass; all compiler bytes stay exact.
-  Dense/barrier/no-work gains and sparse/control costs are recorded in
-  [pending-storage evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-bounded-primitive-constant-store-pending-rows).
-
-- **Current continuation checkpoint:** V75 borrows unchanged cleanup bodies and
-  control shells, copying only changed parents/outputs. All 13,228 tests,
-  twelve native controls and 1,376 observations pass with exact compiler bytes.
-  Repeated large DAE2/O improves 2.39%/3.03%; tee optimizing +1.35% and noisy
-  small controls remain active. See
-  [ownership evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-borrow-unchanged-continuation-cleanup-storage).
-
-### Historical V59 DAE2/O oracle baseline
-
-The frozen v59 open-world compiler comparison uses verified release v133,
-CPU 6, one warmup and three samples. These are pass-local medians, not
-untraced command times or a causal comparison with earlier cohorts.
-
-| Pass | Small Starshine / v133 ms | Ratio | Large Starshine / v133 ms | Ratio |
-| --- | ---: | ---: | ---: | ---: |
-| `dae2` | 3.753 / 1.012 | 3.71× | 3,998.720 / 563.604 | 7.10× |
-| `dae2-optimizing` | 11.972 / 3.232 | 3.71× | 7,479.616 / 1,835.960 | 4.07× |
-
-- **Current query checkpoint:** V76 bounds repeated normalized suffix searches;
-  native 32/512 distinct captures improve 15%/92% with exact bytes. All 13,233
-  default tests, fourteen native rows and 1,376 observations pass. Same-local
-  root gets keep their proved linear path. Repeated large plain/O costs
-  .54%/1.22% in a higher host band; tiny/reused/no-work and tee costs stay open.
-  A complete native compiler probe observes zero indexed-mask builds, so this
-  does not establish compiler parity. See
-  [query evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-bound-repeated-normalized-future-read-queries).
-- **Current write-census checkpoint:** V79 closes duplicated live-node scans;
-  native wide controls improve 5–11%, with exact V78 bytes and 13,253 tests.
-  Repeated compiler plain/O is −1.77%/+1.87%; tiny/common costs remain active.
-  Fresh descriptive pass-timer ratios vs v133: small 4.17×/3.26×, large
-  7.79×/4.00×. Separate host bands and deferred signoff limit those ratios. See
-  [write-facts evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-share-immutable-write-admission-facts).
-- **Current singleton checkpoint:** V80 removes zero/singleton entry rows;
-  focused queries improve 12–86%, with 13,255 tests, 1,376 fixed observations
-  and exact bytes. Large plain/O +.89%/+1.13% remain open. See
-  [scalar entry evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-keep-singleton-entry-proofs-scalar).
-- **Current compound-query checkpoint:** V81 borrows immutable initialization
-  facts across repeated wide suffix queries and removes per-query optional-seed
-  boxes. Native batches improve 20–43%; all 13,259 tests and 1,376 fixed
-  observations pass with exact bytes. Tiny +3.01 ns, leaf batch +49.66 ns and
-  repeated large optimizing +1.21% remain active. See
-  [compound query evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-reuse-compound-suffix-initialization-facts).
-- **Current unread-write checkpoint:** V83 removes unread optimizing body writes
-  with scalar/ref/GC, multi-value, loop, handler and alias replay coverage.
-  All 13,274 bounded tests and 1,524 fixed observations pass; compiler output
-  saves 79,962 canonical / 75,580 raw bytes across 4,968 shrinking functions,
-  with no growth or non-code changes. The canonical gap is 99,251; raw wins
-  9,949 against v133. Active helper and tee timing costs stay open. See
-  [unread-write evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-retire-unread-optimizing-body-writes).
-- **Current numeric-capture checkpoint:** V78 propagates sole root numeric
-  literals across descendants and legacy handlers with complete writer census,
-  root dominance and encoded non-growth. All 13,248 tests and 1,376 observations
-  pass; compiler canonical bytes fall 931, large optimizing stays flat, and the
-  four-byte legacy body gap closes. Remaining tee/control costs stay active. See
-  [numeric-capture evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-propagate-sole-root-numeric-captures).
-- **Release blockers:** current large DAE2-O adds **99,251 canonical bytes**
-  against v133, while raw output wins **9,949 bytes**; V59 above retains its original writer scope. Smaller plain DAE2 output alone is not a proven win.
-  Classify the V25 plain-output drift of **+458 bytes in 41 functions** against
-  V18; preserve the correctness repairs and avoid using broken V18 behavior as
-  a performance baseline. Both investigations are explicit P03 tasks below.
-- **Evidence limits:** V59 proves wider reverse aliases with final-index
-  bounds, saving 25,453 raw / 26,177 canonical bytes in 238 functions without
-  per-function growth or non-code section changes. Matched large optimizing
-  time is +0.15% (MAD 11.222 / 80.654 ms); this is a size win, not an enclosing
-  speedup. Wider admission adds one lazy body/local scan; short-index controls
-  remain flat. V58 replaces all 399 full-boundary replay resets on the
-  large plain artifact and retains exactly 46,613 boundary bits. Native rows
-  improve 27–99.95%; large rewrite saves 91 ms, but enclosing plain is -1.23%
-  with material spread and optimizing stays flat. The first small optimizing
-  wall cohort costs 58.79% with substantial wall/CPU separation; a seven-pair
-  repeat retains +3.73% versus +0.53% whole-command CPU. Keep this cost open.
-  Plain RSS is lower in this cohort; historical bimodality prevents a universal
-  memory win. The rejected V57 retaining trial and zero-sample profiles remain
-  documented. V56 active controls improve 31–81%; its repeated large cost and
-  smaller native flat/loop costs remain historical tradeoffs to resolve.
-  V55 removes intermediate alias trees, improving wide
-  active native controls 12–21% with exact artifact bytes. Enclosing optimizing
-  time stays flat. Small plain and RSS cohorts are noisy; repeats retain
-  dispersion and reverse RSS medians, so no general speed/memory win is claimed.
-  V54 saves 39,161 raw / 40,806 canonical bytes with no
-  raw function growth or nonlocal/semantic-section drift. Compiler optimizing
-  pairs cost +0.58% small / +0.80% large within candidate MADs; active tee
-  costs +1.66% beyond MAD and stays open. Plain timing/RSS is close to flat.
-  V53 avoids single-leaf suffix state construction. Large
-  optimizing matched pairs improve 5.00%; small/tee optimizing stay flat.
-  Large plain costs 1.44% and plain RSS has a higher median with wide ranges;
-  keep these costs open. Fallback native controls cost about 2–8%.
-  V52 retains unchanged balanced control storage with exact
-  artifact bytes. Matched optimizing is −4.93% small / −2.54% large /
-  −2.60% active tee, with material spread. Large plain is +1.33%, within
-  MAD; keep costs open. Plain RSS medians are higher in both cohorts
-  with bimodal ranges/calibration; this remains unresolved. The dossier
-  owns native and timing/RSS evidence.
-  V51 removes terminal suffix searches and caller tail
-  copies with exact output bytes. Matched optimizing is −0.84% small /
-  −0.29% large, with +0.81% active-tee cost. Large plain costs +8.93%;
-  independent repeat is +1.76% with spread versus −1.74% identical-binary
-  calibration. Keep these costs open; the dossier retains all cohorts.
-  V50 removes producer/statement copies, improving wide
-  native controls 66–99% with exact output bytes. Small optimizing instruction
-  work falls 0.69%; matched compiler optimizing times remain flat (−0.04% small,
-  +0.27% large), with +0.55% on active tee. Plain costs +1.66% small and +2.83%
-  large; an independent large repeat is +1.59% with substantial spread, while
-  identical-binary calibration is +0.29%. Keep the measured costs open.
-  V47's 54,687 raw / 56,875 canonical byte saving is retained. Earlier V32/V38/
-  V43/V45/V47 control, lifetime and plain-pipeline costs remain P03g concerns;
-  the [DAE2 dossier](docs/wiki/binaryen/passes/dae2/starshine-strategy.md) preserves
-  complete cohorts, rejected trials and uncertainty. The
-  [priority report](docs/wiki/tooling/tracing-playbook.md#v18-complete-enclosing-evidence-and-remaining-gaps)
-  owns historical DAE/O cohorts and V25 correctness repairs; do not label
-  superseded timings current or use broken V18 behavior as a performance baseline.
+- **Preserved quality and completed work:** V83 saves 79,962 canonical bytes
+  across 4,968 shrinking functions. DAE2-O remains **99,251 canonical bytes
+  larger** than v133 despite **9,949 fewer raw bytes**; CL/SL/OI canonical
+  deficits remain 78,800 / 373,507 / 33,497 bytes. Keep the normalization
+  protocol explicit and do not classify smaller raw DAE2 output as a proven win.
+  Completed storage, discovery, replay, source-query and cleanup mechanisms,
+  rejected trials and all historical timing cohorts are retained in the
+  [DAE2 dossier](docs/wiki/binaryen/passes/dae2/starshine-strategy.md),
+  [CL dossier](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md)
+  and [tracing history](docs/wiki/tooling/tracing-playbook.md).
+- **Remaining tradeoffs:** P03b/c/g retain tiny, empty, tee, reused-capture,
+  small-compiler and large plain/optimizing control costs from V32–V83;
+  retain original spread, contradictory repeats and RSS modes when renewing.
+  P03f owns plain-output drift (+458 bytes in 41 functions against V18) and
+  the canonical gap; preserve correctness repairs and never use broken V18
+  behavior as a performance baseline. P03/P04/P12/P13 own dependency/lift,
+  cleanup, CFG/lower and command-envelope costs. Completed mechanisms must
+  not be reimplemented from old checkpoint descriptions.
 - **Fuzz scheduling:** long randomized/aggregate fuzz, broad artifact replays
   and final shared-consumer renewal remain deferred until the performance
   bottleneck trials are settled, as the user requested. Use focused regressions,
@@ -302,16 +94,12 @@ or active-coverage regression. A subsecond inner timer does not close a
 multi-second pipeline cost. Guarded or unchanged paths do not establish cleanup
 breadth. Shared changes require all affected consumers in the matrix below.
 
-**Latest matched large-command checkpoint:** direct result rows c4165396…;
-one warmup/n5, all contended. Current S/B medians ms: DAE2 4000.468/1174.730,
-optimizing6351.003/2335.604, CL repeat4351.828/1787.193, OI2215.836/928.787.
-CL repeat is separate from the initial four-pass cohort; all original rows retained.
-Approximate normal excess optimizing4015ms, plain2826ms, CL2565ms, OI1287ms.
-Prioritize dependency/cleanup, unused CL use-def discovery, lower setup,
-validation and OI envelope; keep canonical OO+99,251B, ≈138MiB excess,
-plain/CL RSS modes and the1× pass target active. Named n3 inner scopes remain
-separate from normal commands and differ in surrounding work.
-[Full spread, scope and exact source](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-direct-result-stack-checkpoint).
+**Current comparison:** use the latest matched checkpoint at the top of this
+file and its linked dossier. Earlier direct-result-row/CFG/iterator cohorts have
+different source and host conditions; they remain historical evidence, not
+current speedup totals. Prioritize absolute large-module dependency/cleanup,
+CFG/lower and validation-envelope costs, preserving the 1× target and canonical
+quality gates. Keep traced inner and normal command measurements separate.
 
 ### P00 — Correctness blockers from the October 3 baseline audit [IR2-RELEASE-CORRECTNESS]
 
@@ -985,14 +773,10 @@ separate from normal commands and differ in surrounding work.
   Preserve subtype/type/underflow/unreachable checks, stack consumption and
   error behavior. Require complete-consumer work, bytes, code-size and RSS
   evidence; do not repeat either rejected trial or reduce verification.
-- [ ] Remove per-instruction success boxes from the private reference-declaration
-  walker if a nullable-error worker proves cheaper. Current native C allocates
-  Result[Unit,String].Ok on leaf/control success; complete DAE2 attributes
-  4,948,080 direct allocator calls across all walker recursion contexts, zero
-  in the CL module-pass scope. Preserve every
-  declaration check/traversal and first-error order, with the external Result
-  contract unchanged. Require native-path, nested/invalid declaration tests and
-  enclosing work/clock/output evidence before accepting the representation.
+- **Completed declaration success storage:** the private walker now returns
+  a nullable error; external Result contracts and all validation remain. Complete
+  DAE2 and OI-command evidence is in the [current checkpoint](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-allocation-free-declaration-scan-success).
+  Do not repeat this pilot or infer a CL-inner gain from command validation work.
 - [ ] Trial inline value storage for the private lift direct-node shape tuple.
   Its four fields are scalar; the exact CFG checkpoint attributes 2,713,153
   direct allocator calls to that factory in complete DAE2. Check every immediate

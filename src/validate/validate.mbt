@@ -2686,51 +2686,53 @@ fn is_declared_ref_func(declared : @bitset.BitSet, f : FuncIdx) -> Bool {
 }
 
 ///|
+// Successful recursive scans carry no payload. Keep the Result wrapper at
+// the expression boundary instead of allocating an Ok(unit) per instruction.
 fn validate_ref_func_declarations_in_instr(
   instr : Instruction,
   env : Env,
   declared : @bitset.BitSet,
-) -> Result[Unit, String] {
+) -> String? {
   match instr {
     RefFunc(f) => {
       if env.has_func(f) && !is_declared_ref_func(declared, f) {
-        return Err("undeclared function reference: \{f}")
+        return Some("undeclared function reference: \{f}")
       }
-      Ok(())
+      None
     }
     Block(_, Expr(body)) | Loop(_, Expr(body)) => {
       for inner in body {
         if validate_ref_func_declarations_in_instr(inner, env, declared)
-          is Err(e) {
-          return Err(e)
+          is Some(e) {
+          return Some(e)
         }
       }
-      Ok(())
+      None
     }
     If(_, then_body, else_body) => {
       for inner in then_body {
         if validate_ref_func_declarations_in_instr(inner, env, declared)
-          is Err(e) {
-          return Err(e)
+          is Some(e) {
+          return Some(e)
         }
       }
       match else_body {
         Some(branch) =>
           for inner in branch {
             if validate_ref_func_declarations_in_instr(inner, env, declared)
-              is Err(e) {
-              return Err(e)
+              is Some(e) {
+              return Some(e)
             }
           }
         None => ()
       }
-      Ok(())
+      None
     }
     Try(_, Expr(body), catches, _) => {
       for inner in body {
         if validate_ref_func_declarations_in_instr(inner, env, declared)
-          is Err(e) {
-          return Err(e)
+          is Some(e) {
+          return Some(e)
         }
       }
       for catch_ in catches {
@@ -2739,23 +2741,23 @@ fn validate_ref_func_declarations_in_instr(
         }
         for inner in catch_body {
           if validate_ref_func_declarations_in_instr(inner, env, declared)
-            is Err(e) {
-            return Err(e)
+            is Some(e) {
+            return Some(e)
           }
         }
       }
-      Ok(())
+      None
     }
     TryTable(_, _, Expr(body)) => {
       for inner in body {
         if validate_ref_func_declarations_in_instr(inner, env, declared)
-          is Err(e) {
-          return Err(e)
+          is Some(e) {
+          return Some(e)
         }
       }
-      Ok(())
+      None
     }
-    _ => Ok(())
+    _ => None
   }
 }
 
@@ -2767,7 +2769,7 @@ fn validate_ref_func_declarations_in_expr(
 ) -> Result[Unit, String] {
   let Expr(instrs) = expr
   for instr in instrs {
-    if validate_ref_func_declarations_in_instr(instr, env, declared) is Err(e) {
+    if validate_ref_func_declarations_in_instr(instr, env, declared) is Some(e) {
       return Err(e)
     }
   }

@@ -25792,3 +25792,13 @@ and final release gates. Long fuzz remains deferred.
 A separately authored baseline audit arrived during this iteration. Focused
 replay confirms the same validator, DAE and OI failures before/after the iterator
 fix; [release blockers and reduced inputs](tooling/validation-gates.md#october-3-2026-reproduced-baseline-correctness-blockers) are now P00. Other report families remain unverified; the author's report stays untracked and untouched.
+
+
+## 2026-10-03 — Remove declaration-walker success allocations
+
+[Matched evidence](binaryen/passes/dae2/starshine-strategy.md#october-3-2026-allocation-free-declaration-scan-success)
+records complete DAE2/OI-command instruction changes -0.763%/-2.397%,
+unchanged checks/output hashes, 13,408 tests and 2304 fixed observations.
+Normal command, helper, allocation and RSS scopes stay distinct; no 1× or release
+claim. The backlog prunes this pilot and superseded checkpoint prose while
+retaining all active tradeoffs, historical dossier links and P00 blockers.

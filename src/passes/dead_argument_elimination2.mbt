@@ -1870,3 +1870,21 @@ test "dae2 typed pop boundaries preserve numeric SIMD and reference operands" {
   )
   assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
+
+///|
+test "dae2 declaration validation retains reference calls and active pruning" {
+  let input = pass_test_module_from_wat(
+    "(module (type $sig (func (result i32))) (func $target (type $sig) i32.const 7) (func $callee (param i32 i32) (result i32) local.get 0) (elem declare func $target) (func (export \"run\") (param i32) (result i32) local.get 0 ref.func $target call_ref $sig i32.add i32.const 99 call $callee))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let output = dae2_run_module_pass(input, false).unwrap()
+  @validate.validate_module(output).unwrap()
+  assert_eq(
+    @ir.hot_module_resolve_func_type(
+      @ir.hot_module_context_from_module(output),
+      @lib.FuncIdx::new(1U),
+    ),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+  )
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}

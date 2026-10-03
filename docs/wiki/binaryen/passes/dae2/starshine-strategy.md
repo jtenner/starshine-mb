@@ -6833,3 +6833,76 @@ reproduces validator, DAE and OI failures on both frozen binaries; these remain
 Exact commands, versions/CPU/input/source hashes, dirty state, all samples and
 spreads, complete profiles and rejection evidence:
 `.tmp/large-pass-hotspots-20261001/main-reverse-types-performance-20261003.md`.
+
+
+## October 3, 2026: allocation-free declaration scan success
+
+The private recursive [reference-declaration worker](../../../../../src/validate/validate.mbt)
+returns a nullable error instead of allocating Result.Ok(unit) at every successful
+instruction. The expression/module Result APIs, every declaration and index
+check, traversal order and first error remain unchanged. This is independent of
+P00's unresolved control-frame validation defects; no verification is removed.
+
+Frozen native 8bfe3761…→20ffcd71… on main 6f1bbff76,
+release O2/mimalloc, Ryzen 7 8845HS/CPU 6, same 6,211,596-byte input and verified
+Binaryen 133. Actual generated C success allocation sites go **6→0**, failing the
+native guard before and passing afterward. Complete DAE2 instruction work is
+**33,591,502,988→33,335,245,043 (-0.762865%)**;
+direct allocator calls **104,676,351→99,728,271**,
+including worker **4,948,080→0**.
+These totals cover every recursive worker context, not just the largest one.
+Worker invocations remain 4,948,080→4,948,080;
+full traversal is retained.
+Complete OI command work is **21,312,562,509→20,801,699,479
+(-2.397004%)**, with direct allocator calls
+**86,798,264→81,761,870** (worker
+5,036,394→0). Both profiles exit normally and reproduce
+measured output hashes. OI includes startup, parsing, validation, encoding and
+teardown; it is not its narrow pass timer. This worker has zero allocation calls
+inside the earlier CL module-pass scope; no CL-inner improvement is inferred.
+Allocation requests are not allocated bytes or peak RSS; nested costs are not added.
+
+Normal fresh-process/warm-filesystem CLI, alternating n=5 after one warmup,
+build excluded; milliseconds median±MAD. Foreign activity is flagged in all
+cohorts; retain every sample and do not compare causally with earlier host bands.
+
+| Pass | Before CLI (ms) | After CLI (ms) | B133 CLI (ms) | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| DAE2 | 3634.517±11.463 | 3586.333±36.645 | 1124.879±12.804 | 3.188× | -1.636% |
+| DAE2-O | 6134.001±13.262 | 6063.896±13.679 | 2308.920±5.633 | 2.626× | -0.845% |
+| CL | 5566.959±13.272 | 5301.057±229.196 | 1778.561±28.860 | 2.981× | -1.317% |
+| OI | 2150.872±8.404 | 2104.223±4.268 | 917.756±5.662 | 2.293× | -2.367% |
+
+RSS distributions and separate n1 traced diagnostics remain in the local report;
+no general peak-memory or 1× claim. The native executable remains
+14,629,704 bytes.
+Ten native controls retain the original recursive Result worker. Empty, flat128,
+declared-reference128, nested16/128 and late-error128 cases include setup and
+answer checks outside timing; full means, standard deviations and ranges are
+retained in ref-decl-bench.log alongside the earlier unpinned pilot. Current
+pinned means: empty 13.37→13.13ns, flat 888.06→295.14ns, references 1.08µs→439.35ns,
+nested 1.02µs→367.89ns and late error 1.10µs→399.65ns. The earlier empty
+15.37→15.72ns small cost is retained rather than replaced by this cohort.
+DAE2 RSS median 255848→265924KiB is higher, with overlapping
+247812–270048/245656–268668 ranges; optimizing 294264→294260, CL 244768→244724
+and OI 156332→156140 do not establish a universal memory win. CL's clock ranges
+3880.366–5580.230/3842.292–5530.252ms are especially broad.
+
+[Three focused tests](../../../../../src/validate/ref_declaration_results_wbtest.mbt)
+pass before/after: first error through every control/handler, changed declaration
+membership and invalid-index rejection by the mandatory module validator. New
+implementing and dispatcher fixtures preserve reference calls while actively
+pruning a DAE2 argument. 13,408 default wasm-gc tests, info/fmt/check,
+native release build, ten controls and README API sync pass; no public API diff.
+Four fixed original/before/after/133 lanes validate 788 modules and compare
+2304 result/effect/state/memory/trap observations. Runtime-only Binaryen compact-import
+expansion is separate from timing and raw size. All four large raw hashes remain
+identical, retaining V83 and the 99,251-byte canonical DAE2-O gap; normalization
+was not rerun. Existing audit failures remain release blockers, not covered by
+this positive cohort. Full CI/coverage/10,000 GenValid signoff remains outstanding;
+long fuzz is deferred by user direction. Manual source/native review completed;
+no independent review of this patch is claimed.
+
+Exact commands, CPU/tools/input/source/binary hashes, dirty state, all samples,
+spreads, profiles, native guard and tests:
+`.tmp/large-pass-hotspots-20261001/main-ref-decl-performance-20261003.md`.
