@@ -2038,3 +2038,120 @@ and output-quality owners remain in the backlog.
 Exact manifests, RED/GREEN/source review, controls, commands, full samples/spreads/
 RSS, runtime rows and complete profiles:
 `.tmp/large-pass-hotspots-20261001/main-type-remap-performance-20261003.md`.
+
+## October 3, 2026: pack immutable OI root records
+
+The private `RawOiTopLevelRootFact` in
+[pass_manager.mbt](../../../../../src/passes/pass_manager.mbt) now uses `#valtype`.
+Native region arrays store the immutable records directly. Classification,
+positions, instruction references, flow, pure-operand tests, every region/index
+scan and revision invalidation are unchanged. The six root-flow classifications
+already use static native records; they remain shared. Constructor inspection
+supersedes the earlier hypothesis that both root and flow allocated per row:
+there was one root allocation per call, no dynamic flow allocation.
+
+Frozen baseline `11e04de3ff743b8f35dab7f7df860e935335770dcb2ba45cb9e702de747cfc45`
+is main `bed1dcd8d8d7138b309d8ce591317b0a7ce259aa`; candidate
+`f3167b004a35a3a957be17daa44a1c1a375df0766dbd74bd205de439c9d323d8`.
+AMD Ryzen 7 8845HS, CPU 6, native GCC 14.2/O2/mimalloc, Moon
+0.1.20260920; fixed 6,211,596-byte input SHA
+`98189860f95b4eb8464794eb9fab5f9fd8d16942c63a6e31ed9175e7e791cbbd`.
+Verified Binaryen 133 executable SHA
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+Builds are outside measurements; exact commands, dirty state, source hashes,
+versions and failures are saved in the local manifests.
+
+The native allocation guard fails before with one constructor allocation site,
+then passes with zero and a packed array buffer (`RootFact*`, previously
+`RootFact**`). Complete normally exited OI command profiles, including teardown:
+
+| Cost | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| Complete command instructions | 20,471,786,923 | 20,123,390,213 | -1.701838% |
+| Direct allocation requests | 78,619,665 | 74,767,577 | -3,852,088 (-4.899649%) |
+| Root constructor exclusive instructions | 198,617,816 | 167,801,112 | -30,816,704 |
+| Region constructor exclusive instructions | 104,166,262 | 150,554,666 | +46,388,404 |
+
+All 3,852,088 root and flow classifications and 465,408 region constructions
+remain. Flow work is identical (50,621,308 instructions). Native row-array
+construction changes from `moonbit_make_ref_array` (33,813,516 inclusive
+instructions) to `unsafe_make_uninit` (134,177,953); generated code initializes
+packed reference-containing values with `moonbit_make_ref_valtype_array`.
+The complete function-index owner also increases 878,933,532 → 887,195,925.
+These nested costs are not additive. This is a reduction in complete allocation
+and lifetime work, with a construction/copy cost, rather than uniformly faster
+region analysis. Request counts do not establish allocated bytes or peak memory.
+
+Two [contract tests](../../../../../src/passes/oi_root_storage_wbtest.mbt) pass
+before and after: exact fields/positions, instruction identity, flow/control
+barriers, nested regions, call anchors, pure prefixes and fresh rebuilding after
+edits. Existing dispatcher, GC, descriptor-branch and effect tests remain enabled.
+A frozen boxed constructor matches the original source after type-name
+substitution; eight [bounded controls](../../../../../src/passes/oi_root_storage_perf_wbtest.mbt)
+construct and consume both representations with identical region wrappers.
+These controls use **wasm-gc release**, not native: width 4 flat
+57.88±.16 → 59.48±.23 ns, mixed 60.14±.15 → 61.11±.20 ns; width 128 flat
+1.33±.029 → 1.41±.027 µs, mixed 1.39±.018 → 1.40±.019 µs (10 batches).
+The small and wide-flat wasm-gc costs remain explicit; no native helper-clock
+win is inferred from these controls. Actual native complete-command work is
+measured separately above.
+
+One warmup and five alternating same-host normal command samples per executable;
+fresh processes with warm filesystem, builds and profiles excluded. Median ± MAD
+**milliseconds**, complete command scope:
+
+| Pass | Before | After | Binaryen 133 | S/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3306.533 ± 7.794 | 3315.990 ± 5.941 | 1094.161 ± 2.698 | 3.031× | +0.287% |
+| dae2-optimizing | 5739.528 ± 13.845 | 5783.461 ± 30.588 | 2346.284 ± 77.612 | 2.465× | +0.355% |
+| coalesce-locals | 3678.409 ± 15.219 | 3671.899 ± 3.911 | 1732.647 ± 3.386 | 2.119× | -0.177% |
+| optimize-instructions | 2039.368 ± 4.716 | 2010.081 ± 5.738 | 902.056 ± 0.518 | 2.228× | -1.383% |
+
+OI saves 29.287 ms in command medians; paired change -1.383% corroborates the
+complete instruction reduction. No OI-root factory runs in the DAE2/O or CL
+production paths; their renewed clocks are controls, not attributed gains.
+Foreign-activity flags out of five (before/after/Binaryen): DAE2 0/3/1, DAE2-O
+2/4/2, CL 3/2/0, OI 0/1/2. Keep every flagged sample; no universal quiet-host
+claim. Previous all-contended cohorts are historical, not interchangeable with
+these renewed comparisons.
+
+Separate n=1 traced inner diagnostics, before → after milliseconds: DAE2
+2635.862 → 2642.604, DAE2-O 5175.263 → 5228.462, CL 2812.469 → 2800.497,
+OI 78.746 → 79.105. They do not establish a pass-local speedup or a matched
+Binaryen inner ratio; OI's complete benefit includes lifetime/destruction work.
+Peak RSS before → after medians (KiB): DAE2 257856 → 265196, DAE2-O 294428 →
+294436, CL 249224 → 249368, OI 157324 → 155724. OI ranges 156060–157992 and
+155624–157980 overlap; DAE2 crosses earlier modes. No proven peak-memory win.
+Full ranges, spreads, CPU times and samples remain in the local evidence.
+
+`moon info/fmt/check`, all **13,441** default wasm-gc tests, eight controls,
+native release build and README/API sync pass. Four fixed runtime matrices give
+**820 module validations and 2,400 differential observations**, including host
+calls, state/memory, GC, traps and ordering. All four large output hashes are
+identical before/after: DAE2 6,115,221 B, DAE2-O 5,563,501 B, CL 5,706,503 B,
+OI 6,205,998 B. Binaryen raw sizes are respectively 6,232,586 / 5,573,450 /
+5,627,625 / 6,172,971 B. The executable stays 14,630,216 B; no public API diff.
+The V83 savings and +99,251 B DAE2-O / +78,800 B CL / +33,497 B OI bounded
+canonical gaps are preserved by exact raw hashes, **not newly normalized**.
+Raw and canonical sizes remain separate.
+
+The first command attempt failed because the copied baseline lacked its
+executable bit. It produced no timing evidence; preserve its directory/log,
+correct the bit and use the successful fresh runs above. The native allocation
+guard's original failure is intentional RED evidence, not that harness failure.
+
+Release remains blocked by the recorded correctness/validation audit, output
+quality gaps and ratios above 1×. Full CI/coverage and aggregate GenValid were
+not run in this focused performance lane; long fuzz remains deferred by the
+user. No callable independent local review tool was available. The next measured
+allocation owner is unchanged LEB success packaging (6,011,833 unsigned and
+975,957 signed requests); P11/P13 retain mandatory validation and encoding work.
+Do not repeat the completed root/flow storage hypothesis.
+
+Local exact commands, hashes, RED/GREEN C layouts, frozen reference review,
+controls, complete profiles, measurements and runtime rows:
+`.tmp/large-pass-hotspots-20261001/main-oi-root-inline-performance-20261003.md`.
+Artifacts use prefix `oi-root-inline-`; baseline complete profile is
+`type-remap-oi-command-candidate.callgrind`. Inclusive construction tradeoffs are
+in `oi-root-inline-region-before.txt` / `oi-root-inline-region-after.txt` and
+`oi-root-inline-packed-array.c`.

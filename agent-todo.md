@@ -588,14 +588,17 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 ### P06 — Remaining OI validation and exact guard work [IR2-PERF-OI]
 
-- [ ] Trial inline private immutable root/flow records: native6c31b0ca… attributes
-  3,852,088 OI requests to RawOiTopLevelRootFact::from_instr, including inlined
-  children. Confirm exact constructor ownership and row layout; preserve all
-  root/flow kinds, instruction identity/order, index reuse/invalidation and
-  admission/effect/trap proofs. No mutation/identity use found so far; still
-  require native elimination and complete consumer/control measurements.
+- **Completed root-storage experiment:** native11e04de3…→f3167b00… packs
+  immutable private root rows while retaining the six already-static flow facts.
+  All3,852,088 classifications remain; exactly3,852,088 requests disappear.
+  Complete OI work−1.702%, command2039.368→2010.081ms/B902.056ms (2.228×,
+  n5, paired−1.383%). Packed array/index construction and wasm-gc controls
+  cost more; no pass-local or peak-memory win claimed.13,441 tests/2400
+  observations and exact outputs/API pass. Do not repeat the root/flow boxing
+  hypothesis; flow never dynamically allocated in this native baseline.
+  [Full construction/lifetime tradeoffs and matched four-pass checkpoint](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-3-2026-pack-immutable-oi-root-records).
 
-- **Current complete-command attribution:** native62e79f73…20.611b instructions;
+- **Historical complete-command attribution:** native62e79f73…20.611b instructions;
   module encoding cleanup5.826b inclusive (simple type cleanup3.938b, numeric
   local grouping1.142b, control cleanup.659b). These include nested checks and
   destruction, not just OI rewrite. Unchanged type-remap output storage is now lazy; do not repeat it.
@@ -866,7 +869,8 @@ quality gates. Keep traced inner and normal command measurements separate.
   13,297 default tests and 336 fixed execution observations pass.
   [Scope, controls and limits](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-2-2026-avoid-boxed-success-in-sequence-leaf-encoding).
 - [ ] Trial nullable-error unsigned/signed LEB workers in measured leaf consumers:
-  native6c31b0ca… OI attributes6,011,833/975,957 requests to these encoders.
+  Native11e04de3… and f3167b00… OI both attribute6,011,833/975,957 requests
+  to these encoders; actual C confirms boxed success. Root storage is separate.
   Preserve public adapters, every width/range/limit/error and write order;
   prove native removal with byte-prefix/extrema/error controls, then all4
   raw hashes/runtime fixtures and complete command profiles. No guessed byte

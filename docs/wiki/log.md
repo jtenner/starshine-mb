@@ -25894,3 +25894,14 @@ arrays/typecheck wrappers from the completed return packaging change.
   median/paired clocks, DAE2/O costs and RSS overlap remain. CL−4.145% is not
   attributed to this helper, with no Coalesce caller found. Next LEB/root-record
   experiments stay measured leads; no validation removal or1×/release claim.
+
+### 2026-10-03 — Packed immutable OI root storage
+
+- [Native ownership and complete consumer evidence](binaryen/passes/optimize-instructions/starshine-strategy.md#october-3-2026-pack-immutable-oi-root-records)
+  supersede the root/flow boxing hypothesis: flows were static, roots allocated.
+  Packing root rows removes3,852,088 requests and1.702% command instructions;
+  OI2039.368→2010.081ms/B902.056ms (2.228×, n5). Region/index construction,
+  wasm-gc controls and inner-clock costs are retained.13,441 tests/2400 fixed
+  observations and exact bytes/API pass. No gain attributed to DAE2/O or CL;
+  renewed ratios3.031/2.465/2.119× and all byte/correctness/release gates remain.
+  Next are measured LEB successes; no fuzz, verification removal or1× claim.

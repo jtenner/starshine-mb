@@ -35912,6 +35912,9 @@ fn RawOiRootFlowFact::blocks_branch_free_value_region(
 }
 
 ///|
+// Region arrays own immutable root values. Keep flow facts shared: the native
+// compiler emits their six classifications as static constants already.
+#valtype
 priv struct RawOiTopLevelRootFact {
   position : Int
   kind : RawOiRootKind
