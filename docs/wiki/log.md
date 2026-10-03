@@ -25812,3 +25812,14 @@ records DAE2/CL instruction changes -0.773%/-0.309% and
 13,413 tests and 2352 observations pass; initial CL clock cost and one
 bounded repeat stay explicit. Backlog prunes the shape trial, refreshes current
 cost ownership and retains typecheck/container churn, canonical and P00 work.
+
+
+## 2026-10-03 — DAE carried parameter reads
+
+[Expanded operand-control liveness](binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands)
+repairs branch-result, constant self-tee and GC payload failures without retaining
+overwritten entries. Red regressions, 13,419 green tests, 16 execution rows and
+six unchanged large hashes support the repair. The backlog prunes reproduced
+DAE audit #5–6 while preserving other release blockers and broad parity gates.
+The six-pass command refresh includes spreads and separate traced diagnostics;
+no speedup is claimed for this correctness change.

@@ -7738,7 +7738,13 @@ fn dae_hot_param_entry_liveness(
     Ok(func) => func
     Err(_) => return None
   }
-  let cfg = @ir.cfg_build(hot, conservative_exception_entries=false)
+  // Capturing a carried block or if value can place its control beneath a
+  // local/global write. Its branch payloads still read parameter entry values.
+  let cfg = @ir.cfg_build(
+    hot,
+    conservative_exception_entries=false,
+    expand_operand_control=true,
+  )
   let use_def = @ir.use_def_build(hot, cfg=Some(cfg))
   let liveness = @ir.liveness_build(
     cfg,
@@ -51208,4 +51214,23 @@ fn dae_scan_current_call_facts_child(
     path.resize(parent_length, 0)
   }
   singleton_trap
+}
+
+///|
+test "DAE retains entry parameter carried out by a branch before a later write" {
+  let input = pass_test_module_from_wat(
+    "(module (global $g (mut i32) (i32.const 1)) (func (export \"run\") (result i32) global.get $g call $callee) (func $callee (param i32) (result i32) block (result i32) local.get 0 br 0 end i32.const 5 local.set 0))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for optimize in [false, true] {
+    let output = dae_run_module_pass(input, optimize~)
+    @validate.validate_module(output).unwrap()
+    assert_eq(
+      @validate.Env::new()
+      .with_module(output)
+      .get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+      Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+    )
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
 }

@@ -312,3 +312,16 @@ unchanged. Performance work does not close these blockers.
 Exact frozen commands, input/output hashes, diagnostics and Node observations:
 `.tmp/large-pass-hotspots-20261001/review-reductions/result.json` and
 `frame-results.json`; generator/replay is `replay-review-reductions.py`.
+
+
+### DAE reduced cases repaired; other blockers remain
+
+The [operand-control liveness repair](../binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands)
+supersedes the DAE failure status above for audit #5–6. Both were independently
+reproduced, including the constant self-tee case and an additional GC payload
+trap. Three focused tests fail before the fix, then all four pass; 16 reduced
+DAE/O runtime rows now agree with original and verified v133 (previously 10
+mismatched), with 13,419 default tests passing. Six large outputs retain their
+hashes and measured DAE/O command cost is essentially unchanged.
+This does not close validator, merge-blocks, OI effect ordering or other reported
+families, nor substitute for deferred full validation/coverage/fuzz signoff.

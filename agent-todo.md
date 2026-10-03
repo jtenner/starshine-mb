@@ -39,6 +39,13 @@ oracle versions and checkpoints do not sign current source.
   -0.840%. All cohorts flag foreign activity; no universal
   clock/RSS or 1× signoff. 13,413 tests, twelve controls and 2352 runtime
   observations pass. [Full evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-private-lift-node-shapes).
+- **Correctness follow-up:** native de85d92e… passes 13,419 tests and all 16
+  reduced DAE/O runtime rows, with six large output hashes retained. Refreshed
+  n3 CLI medians are DAE 1420.340/B1063.695, DAE-O 1656.129/B2425.725,
+  DAE2 3541.926/B1106.746, DAE2-O 6017.710/B2302.415,
+  CL 3822.236/B1761.169 and OI 2089.284/B913.158 ms.
+  [Spreads, scopes and limitations](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands);
+  do not attribute clock movement in unchanged passes to the correctness fix.
 - **Current DAE2 cost ownership:** native6c0783bd… complete pass33.077b
   instructions. Inclusive lift10.756b/10,422 calls; dependency analysis9.569b/8,354,
   containing CFG5.101b/7,926, read sources1.974b/7,926 and entry proof.790b/8,187.
@@ -111,8 +118,10 @@ quality gates. Keep traced inner and normal command measurements separate.
 - [ ] Repair merge-blocks invalid carried-value/drop output (reproduced). Triage
   reported code-folding/vacuum/DAE2/DAE2-O invalid-output families and DAE2
   rewritten-module aborts (#2–4); obtain the review's reduced d93r artifact.
-- [ ] Repair DAE branch-value parameter reads (reproduced 1→0); triage the
-  related reported constant-argument materialization loss (#5–6).
+- DAE audit #5–6 reduced cases are repaired by expanded operand-control CFGs;
+  [regressions and original/v133 execution](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands)
+  cover scalar branch values, constant self-tee and GC payload traps. Other
+  audit families and final DAE signoff remain open.
 - [ ] Repair OI effect ordering around intervening local.set/select (reproduced
   [1,2]→[2,1]); triage SL/notee/inlining-optimizing ordering (#7–8).
 - [ ] Triage remaining reported precompute/SGO semantic errors (#9–11), native

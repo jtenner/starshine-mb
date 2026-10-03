@@ -10567,3 +10567,26 @@ test "command lift shapes retain memory immediates and indirect signatures" {
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command DAE routes preserve parameter values carried through branches" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (global $g (mut i32) (i32.const 1)) (func (export \"run\") (result i32) global.get $g call $callee) (func $callee (param i32) (result i32) block (result i32) local.get 0 br 0 end i32.const 5 local.set 0))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for flag in ["dae", "dae-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [flag],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    assert_eq(
+      @validate.Env::new()
+      .with_module(output)
+      .get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+      Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+    )
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

@@ -1193,3 +1193,69 @@ cost retained as P08 work. The rebuilt native binary matches the measured SHA.
 Plain forwarded NaN canonical output is 61 bytes versus predecessor 66 / v133 74;
 optimizing bytes remain unchanged. Aggregate fuzz/coverage/release signoff is
 still deferred; no separate human code review is claimed.
+
+
+## October 3, 2026: parameter reads in control operands
+
+The DAE HOT fallback now builds its CFG with `expand_operand_control=true`.
+Lifting a carried block value can put that control beneath a scratch local write;
+a value-producing if can similarly sit beneath a global write. The default CFG
+and use/def scan skip these regions. A later parameter write also defeats the
+syntactic supplement for parameters with no writes, losing a real entry read.
+DAE2 already requests expanded operand control; its implementation is unchanged.
+
+This repairs the independently reproduced audit #5 branch result (1 became 0),
+#6 self-tee/constant argument (127 became 0), and a GC branch payload (23 became
+a null trap). The overwritten-before-use control stays dead, so this does not
+retain every parameter or bypass optimization. Checks and exception-edge policy
+remain unchanged. Sources: [DAE entry liveness](../../../../../src/passes/dead_argument_elimination.mbt),
+[CFG expansion](../../../../../src/ir/cfg.mbt), [focused regressions](../../../../../src/passes/dae_branch_payload_liveness_wbtest.mbt)
+and [dispatcher tests](../../../../../src/cmd/cmd.mbt).
+
+Four focused tests were written first: three failed and the dead-entry control
+passed on the prior code; all four now pass. Coverage includes br/br_if/br_table,
+reads before later writes, writes before reads, nested if/self-tee and GC values.
+Implementing and dispatcher tests cover both DAE modes and input immutability.
+13,419 default wasm-gc tests, info/fmt/check/native build and API sync pass;
+no public API changes. Eight execution fixtures in both modes changed from
+10/16 failing rows to 16/16 agreement with original and verified Binaryen 133:
+48 validation runs and 128 observation comparisons. Values and trap occurrence
+are compared on fresh instances for inputs -1/0/1/2. Node 26 requires
+`--experimental-wasm-custom-descriptors` for Binaryen's refined GC output; the
+same flag is applied to all modules. The initial engine-feature failure remains
+recorded and is not counted as successful evidence.
+
+Frozen native 6c0783bd…→de85d92e… includes the prior inline-lift work
+(commit bcedc9d29). Build-time manifests say cbb68ea91 plus exact dirty source
+hashes because the independent lift commit had not yet been saved. Sources were
+hash-checked after formatting. This is a correctness fix, with bounded cost
+checks; no timing gain is attributed to it.
+
+Fresh-process, warm-filesystem large CLI measurements: release native O2/mimalloc,
+Ryzen 7 8845HS/CPU 6, 6,211,596-byte compiler input, verified v133, n=3 after one
+warmup, rotating before/after/oracle order. Values are milliseconds median±MAD.
+Every cohort flags foreign activity; retain ranges in local result.json files.
+
+| Pass | Before CLI (ms) | After CLI (ms) | Binaryen 133 CLI (ms) | After/B |
+| --- | ---: | ---: | ---: | ---: |
+| dae | 1425.628±3.535 | 1420.340±6.108 | 1063.695±0.316 | 1.335× |
+| dae-optimizing | 1656.172±1.156 | 1656.129±16.026 | 2425.725±5.599 | 0.683× |
+| dae2 | 3513.376±0.015 | 3541.926±0.073 | 1106.746±7.008 | 3.200× |
+| dae2-optimizing | 6039.843±10.999 | 6017.710±6.900 | 2302.415±13.120 | 2.614× |
+| coalesce-locals | 3824.766±7.895 | 3822.236±8.676 | 1761.169±6.915 | 2.170× |
+| optimize-instructions | 2189.340±20.089 | 2089.284±6.331 | 913.158±1.943 | 2.288× |
+
+All six large output hashes are identical before/after, including DAE/O; reduced
+failing fixtures intentionally change to restore results. Raw and bounded
+canonical sizes remain separate: DAE2-O still saves 9,949 raw bytes but loses
+99,251 canonical bytes against v133. Existing V83 savings are retained by exact
+raw hash identity, not a fresh normalization claim. DAE/O and DAE2/O are distinct
+passes; a favorable DAE-O command ratio does not close transformation/size gaps.
+
+No independent patch review, full CI/coverage or long GenValid campaign was run;
+focused work follows the user's deferral of long fuzz. Validator, merge-blocks,
+OI ordering and untriaged audit families remain release blockers. This closes
+these reproduced DAE cases, not release or general DAE parity signoff.
+
+Exact source/input/tool hashes, commands, spreads, RSS, observations and artifacts:
+`.tmp/large-pass-hotspots-20261001/main-dae-branch-liveness-20261003.md`.
