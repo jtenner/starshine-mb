@@ -25833,3 +25833,11 @@ unchanged helper calls/bytes. The rejected annotation trial, mixed normal clocks
 and polymorphic helper cost are retained. 13,423 tests, six native controls and
 2352 fixed observations pass. The backlog now distinguishes remaining pushed
 arrays/typecheck wrappers from the completed return packaging change.
+
+### 2026-10-03 — Borrow scalar lift result storage
+
+- [Ownership and complete-consumer evidence](binaryen/passes/dae2/starshine-strategy.md#october-3-2026-borrow-scalar-lift-result-storage)
+  retain all checking and owned multi-results while removing5.011m DAE2
+  allocations and3.64% instructions. Paired DAE2/O commands−1.3/−1.4%; CL/OI
+  flat under foreign activity.13,428 tests/2400 observations pass, exact bytes.
+  Multi/error helper costs, overlapping RSS and all release/1× gaps remain.

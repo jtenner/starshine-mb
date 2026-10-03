@@ -64,6 +64,7 @@ priv struct HotLiftLabelFrames {
   pending_effects : Array[Int]
   first_effect_orders : Array[Int]
   mut local_access_masks : HotLiftLocalAccessMasks?
+  mut scalar_result_scratch : Array[ValType]?
 }
 
 ///|
@@ -83,6 +84,24 @@ fn hot_lift_impl_new_label_frames(
     pending_effects: [],
     first_effect_orders: [],
     local_access_masks: None,
+    scalar_result_scratch: None,
+  }
+}
+
+///|
+// This function-owned row is borrowed only until the current data instruction
+// has been built. Empty/scalar types are copied by their consumers; multi-result
+// type interning retains an owned row and must never receive this scratch.
+fn hot_lift_impl_scalar_result_scratch(
+  frames : HotLiftLabelFrames,
+) -> Array[ValType] {
+  match frames.scalar_result_scratch {
+    Some(row) => row
+    None => {
+      let row : Array[ValType] = []
+      frames.scalar_result_scratch = Some(row)
+      row
+    }
   }
 }
 
@@ -2135,7 +2154,13 @@ fn hot_lift_impl_typecheck_data_instruction(
   instr : Instruction,
   tc_state : TcState,
   concrete_before_types? : Array[ValType] = [],
+  scalar_results? : Array[ValType]? = None,
 ) -> HotLiftDataCheck {
+  // The optional row is disjoint from state/signature storage. Clear it even
+  // on failure; a borrowed result must be consumed before the next call.
+  if scalar_results is Some(row) {
+    row.clear()
+  }
   // The region owns this stack. Known arity only needs its old length, so the
   // ordinary typechecker can consume it directly. Generic inference below
   // retains its snapshot because it replays suffix candidates.
@@ -2146,7 +2171,11 @@ fn hot_lift_impl_typecheck_data_instruction(
         Ok(next) => next
         Err(err) => return HotLiftDataCheck::failure(tc_state, err)
       }
-      let pushed : Array[ValType] = []
+      let pushed : Array[ValType] = match scalar_results {
+        Some(row) if after_state.stack.length() - (before_count - count) <= 1 =>
+          row
+        _ => []
+      }
       for index = before_count - count
           index < after_state.stack.length()
           index = index + 1 {
@@ -3429,6 +3458,7 @@ fn hot_lift_impl_lift_instruction(
     instr,
     tc_state,
     concrete_before_types=concrete_values,
+    scalar_results=Some(hot_lift_impl_scalar_result_scratch(label_frames)),
   )
   match checked.error {
     Some(err) => return Err(err)

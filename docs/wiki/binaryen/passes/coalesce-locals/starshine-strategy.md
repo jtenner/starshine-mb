@@ -1595,3 +1595,13 @@ spread and foreign activity. Complete DAE2 allocation evidence must not be
 presented as a measured CL allocation reduction; no new CL instruction profile
 was run. All 2352 fixed four-pass observations agree. Canonical +78,800 B and
 command-time parity remain open.
+
+## October 3, 2026: shared scalar lift result storage
+
+[Borrowed scalar storage](../dae2/starshine-strategy.md#october-3-2026-borrow-scalar-lift-result-storage)
+preserves owned tuples, checking and all CL bytes. Normal CPU6 n5 CLI medians
+4110.753→4082.557 ms (v1331923.753), paired −0.003%, are effectively flat;
+foreign activity and opposite n1 traced movement remain explicit. Median RSS
+244676→244636KiB with overlapping ranges. DAE2's measured5.011m allocation
+reduction is not a CL allocation measurement. 2400 fixed four-pass observations
+agree; canonical +78,800B and command-time parity remain open.

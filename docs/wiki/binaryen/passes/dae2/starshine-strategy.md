@@ -7064,3 +7064,100 @@ Validator/merge-blocks/OI ordering and untriaged audit failures still block rele
 this performance slice closes none of those defects or the 1× target.
 Exact commands, source/tool/input hashes, samples/spreads and runtime/profile
 artifacts: `.tmp/large-pass-hotspots-20261001/main-lift-data-performance-20261003.md`.
+
+## October 3, 2026: Borrow scalar lift result storage
+
+The known-arity data checker was allocating an owned result row for every
+instruction, including empty and single-value results. A lazy private row now
+belongs to each `HotLiftLabelFrames` function owner. The checker clears it at
+entry (also on errors), uses it only for empty/scalar known-arity results, and
+retains owned rows for multi-value results and the generic fallback.
+
+This is a storage change, not an admission shortcut. Every prior typecheck,
+underflow, trap and reachability rule still runs. The row is disjoint from the
+validation stack and consumed before the next data check. Scalar interning and
+concrete-stack insertion copy its type; multi-result interning retains the
+input array and therefore must never receive this borrowed row. Nested control
+is lifted separately before data checking; it cannot reenter lifting with an
+outstanding borrowed result. Default standalone calls still return owned rows.
+Sources: [implementation](../../../../../src/ir/hot_lift.mbt),
+[ownership/error/tuple regressions](../../../../../src/ir/hot_lift_scalar_results_wbtest.mbt),
+[native controls](../../../../../src/ir/hot_lift_scalar_results_perf_wbtest.mbt),
+[DAE2](../../../../../src/passes/dead_argument_elimination2.mbt) and
+[dispatcher](../../../../../src/cmd/cmd.mbt).
+
+The focused tests first fail 2/3 on scratch identity/content and clearing, then
+pass 3/3. The tuple test proves interned multi-result types survive subsequent
+scratch reuse. Implementing/dispatcher regressions require actual argument
+pruning through nested GC tuple arms in both DAE2 modes. The native controls
+retain the owned-result baseline and compare equal errors, stacks, types,
+reachability and pop counts outside timing.
+
+Ten native controls, ten batches of 100,000, mean±SD nanoseconds:
+empty 132.13±0.64→126.65±0.43; scalar 163.14±0.57→144.66±0.70;
+multi 165.16±0.79→168.70±0.83; polymorphic 236.52±1.57→235.88±1.23;
+invalid underflow 188.73±0.86→201.30±6.05. Retain the multi/error costs;
+the helper does not establish a universal gain. These controls exclude the
+production lazy-owner lookup, which is included in complete-pass measurements.
+
+Complete normally exited DAE2 profiles on base **8e2106157**, frozen native
+**e84e9ce8…→e49a80b5…**, preserve exact raw bytes:
+
+- Instructions **32,786,518,187→31,593,019,927 (−3.640210%)**.
+- Allocation requests **91,244,831→86,233,646**, **5,011,185 fewer**.
+- Data-check calls stay **2,828,135**. Direct result-row allocations fall
+  **2,822,691→1,315**; the new lazy owner allocates **10,422** rows.
+  Remaining savings include backing storage, not eliminated checking work.
+- Inclusive lift falls **10,462,826,364→9,268,390,416** instructions with
+  **10,422** calls. Required lowering remains **2,468** calls and final module
+  validation **one**. Inclusive scopes are not additive or milliseconds.
+- Generated native C uses nullable pointers for optional scratch, adding no
+  Some allocation per instruction. The executable grows **88 bytes**.
+  Counts measure requests, not allocated bytes, retained memory or RSS.
+
+Normal fresh-process warm-filesystem commands use release native O2/mimalloc,
+Ryzen 7 8845HS/CPU6, fixed 6,211,596-byte input, verified v133, one warmup and
+five rotating before/after/oracle samples. Build, Callgrind and traced probes
+are outside normal timing. All cohorts flag foreign activity. DAE2-O's oracle
+work is explicitly `--dae2 --simplify-locals --vacuum`.
+
+| Pass | Before CLI ms median±MAD [min,max] | After CLI ms median±MAD [min,max] | Binaryen133 ms median±MAD [min,max] | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3783.525±5.818 [3777.708,3972.200] | 3729.058±15.841 [3689.949,3793.261] | 1207.932±18.182 [1189.319,1257.112] | 3.087× | -1.288% |
+| dae2-optimizing | 6547.408±50.960 [6420.809,6598.368] | 6432.517±25.225 [6407.291,6584.904] | 2443.735±12.309 [2414.993,2456.165] | 2.632× | -1.397% |
+| coalesce-locals | 4110.753±31.319 [4079.433,4187.426] | 4082.557±62.386 [4020.171,4216.255] | 1923.753±13.087 [1900.254,1952.705] | 2.122× | -0.003% |
+| optimize-instructions | 2279.020±25.456 [2253.564,2372.876] | 2272.608±14.873 [2257.735,2347.967] | 1002.980±3.014 [983.134,1005.994] | 2.266× | +0.252% |
+
+Separate traced inner diagnostics (n1, ms; not normal CLI samples):
+dae2: before 3065.561, after 2976.012
+dae2-optimizing: before 5654.091, after 5799.173
+coalesce-locals: before 3171.163, after 3252.704
+optimize-instructions: before 86.775, after 84.472
+
+Peak RSS KiB:
+dae2: before {'median': 265592, 'mad': 336, 'min': 245860, 'max': 265928, 'samples': 5}, after {'median': 265744, 'mad': 496, 'min': 255360, 'max': 268332, 'samples': 5}
+dae2-optimizing: before {'median': 294408, 'mad': 24, 'min': 294384, 'max': 294624, 'samples': 5}, after {'median': 294228, 'mad': 128, 'min': 292252, 'max': 294356, 'samples': 5}
+coalesce-locals: before {'median': 244676, 'mad': 60, 'min': 244144, 'max': 244776, 'samples': 5}, after {'median': 244636, 'mad': 32, 'min': 244400, 'max': 244668, 'samples': 5}
+optimize-instructions: before {'median': 156148, 'mad': 96, 'min': 155800, 'max': 157560, 'samples': 5}, after {'median': 156428, 'mad': 64, 'min': 156364, 'max': 158144, 'samples': 5}
+
+DAE2/DAE2-O paired normal commands improve about 1.3/1.4%; CL is flat and OI
+has a +0.25% paired movement despite a slightly lower median. Traced n1 OO/CL
+samples move oppositely to the normal medians; do not infer a universal speedup.
+RSS ranges overlap; no peak-memory win is established. No CL-specific allocation
+profile was run, and DAE2 counts must not be attributed to CL.
+
+13,428 default wasm-gc tests, info/fmt/check/native release build/API sync and
+ten controls pass with no .mbti changes. Four fixed 50-fixture runtime lanes
+validate 820 artifacts and compare 2400 original/before/after/v133 observations,
+including nested GC tuples, effects, memory, exceptions and traps. All four
+large raw hashes are unchanged. V83's 79,962-byte saving and canonical gaps are
+preserved, not remeasured: DAE2-O +99,251 B despite −9,949 raw B; CL +78,800 B,
+SL +373,507 B and OI +33,497 B remain open.
+
+Next work targets remaining typed-pop success wrappers and dependency/CFG
+scans. Generic/multi-result storage remains owned; do not widen scratch reuse
+across retention boundaries. Manual source/native review only; independent
+patch review, full CI/coverage and long GenValid signoff remain outstanding.
+The known validator/merge-blocks/OI ordering defects still block release.
+The 1× target is not met. Exact manifests, commands and samples:
+`.tmp/large-pass-hotspots-20261001/main-lift-scalar-performance-20261003.md`.

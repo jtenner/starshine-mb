@@ -26,24 +26,24 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** inline private lift data results,
-  main 859df3181/native de85d92e…→e84e9ce8…. Complete DAE2 instructions
-  −0.884482%, allocation requests −5,656,270 with identical calls/bytes.
-  Normal CPU6 n5/warmup1 medians±MAD (milliseconds):
-  dae2 3533.632±28.974/B1110.311±1.031;
-  dae2-optimizing 6028.618±23.550/B2359.435±49.714;
-  coalesce-locals 3815.997±18.325/B1773.719±10.120;
-  optimize-instructions 2106.633±5.772/B938.518±22.487;
-  foreign activity, mixed clock movement and a ~5 ns polymorphic helper cost
-  remain explicit. No universal wall/RSS or 1× win. 13,423 tests, six controls,
-  2352 runtime observations and four exact hashes pass.
-  [Scopes, tradeoffs and evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-private-lift-data-results).
+- **Latest matched large checkpoint:** borrowed scalar lift storage,
+  main 8e2106157/native e84e9ce8…→e49a80b5…. Complete DAE2 instructions
+  −3.640210%, allocations −5,011,185; identical data-check calls and bytes.
+  CPU6 n5/warmup1 CLI medians±MAD (milliseconds):
+  dae2 3729.058±15.841/B1207.932±18.182;
+  dae2-optimizing 6432.517±25.225/B2443.735±12.309;
+  coalesce-locals 4082.557±62.386/B1923.753±13.087;
+  optimize-instructions 2272.608±14.873/B1002.980±3.014.
+  Paired DAE2/O−1.288/−1.397%, CL/OI−.003/+.252%; foreign activity,
+  opposite traced samples and multi/error helper costs remain explicit.
+  13,428 tests, ten controls, 2400 observations and four exact hashes pass.
+  [Scopes, spreads and tradeoffs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-borrow-scalar-lift-result-storage).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Current DAE2 cost ownership:** native e84e9ce8… complete pass32.787b
-  instructions. Inclusive lift10.463b/10,422 calls; dependency analysis9.571b/8,354,
+- **Current DAE2 cost ownership:** native e49a80b5… complete pass31.593b
+  instructions. Inclusive lift9.268b/10,422 calls; dependency analysis9.571b/8,354,
   containing CFG5.103b/7,926, read sources1.975b/7,926 and entry proof.790b/8,187.
   Lowering4.646b/2,468 and mandatory final validation3.089b/1 remain. These are
   instruction scopes, not time; do not sum nested owners. Prioritize result/array
@@ -784,17 +784,17 @@ quality gates. Keep traced inner and normal command measurements separate.
   evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-private-lift-node-shapes)
   proves one allocation removed per factory call; do not count required constant
   or signature payloads as removed. Keep CL's clock/control tradeoffs visible.
-- [ ] Reduce the remaining private typecheck wrapper and pushed-result arrays
-  only with actual native elimination. The data-result tuple/success boxes are
-  now removed; current complete DAE2 retains 2,822,691 direct data-helper
-  allocations and 2,925,466 typecheck-wrapper allocations. Preserve error order,
-  owned stack/multi-result signatures and generic fallback. The data helper's
-  annotation-only trial retained all boxes and was rejected; earlier pop_expect
-  annotation trials remain rejected too. Current polymorphic helper cost is
-  documented in the [data-result evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-private-lift-data-results).
+- [ ] Reduce the remaining private typecheck wrapper and generic/multi-result
+  storage only with actual native elimination. Scalar/empty rows now borrow
+  function-owned scratch; complete DAE2 retains1,315 direct result-row
+  allocations plus10,422 lazy owners and2,925,466 typecheck wrappers. Preserve
+  error order, stack ownership, retained multi-result types and generic fallback.
+  Do not repeat rejected annotation trials. Retain multi/error helper costs and
+  unchanged CL/OI clocks in the [scratch evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-borrow-scalar-lift-result-storage).
 - [ ] Measure the checked HotNode return boundary: the earlier snapshot's
   getter-exclusive1.482b instructions includes a full32-byte native return.
-  Test compiler inlining/scalar use with every range/deleted/incomplete fallback
+  The annotation-only getter trial produced an identical native binary and is
+  rejected; test other scalar-use changes with every range/deleted/incomplete fallback
   intact, fresh mutation reads, actual consumers and complete pass measurements.
   No widened admission or persistent snapshots; wrapper disappearance alone
   does not prove a throughput win.

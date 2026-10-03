@@ -1930,3 +1930,22 @@ test "dae2 lift data results preserve mixed call result lanes" {
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "dae2 scalar scratch retains nested GC tuple types" {
+  let input = pass_test_module_from_wat(
+    "(module (type $s (struct (field i32))) (func $pair (param i32 i32) (result (ref $s) i64) local.get 0 struct.new $s i64.const 9) (func (export \"run\") (param i32) (result i32) (local i64 (ref null $s)) local.get 0 if (result (ref $s) i64) local.get 0 i32.const 99 call $pair else i32.const 7 i32.const 99 call $pair end local.set 1 local.set 2 i32.const 0 drop local.get 2 struct.get $s 0 local.get 1 i32.wrap_i64 i32.add))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for optimize in [false, true] {
+    let output = dae2_run_module_pass(input, optimize).unwrap()
+    @validate.validate_module(output).unwrap()
+    let @lib.FuncType(params, results) = @validate.Env::new()
+      .with_module(output)
+      .get_functype_by_funcidx(@lib.FuncIdx::new(0U))
+      .unwrap()
+    assert_eq(params, [@lib.ValType::i32()])
+    assert_eq(results.length(), 2)
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
