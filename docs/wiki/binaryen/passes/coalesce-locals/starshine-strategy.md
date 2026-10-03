@@ -1544,3 +1544,15 @@ all normal/traced/RSS rows, red/green and control logs:
 DAE2/O/OI values above retain their d08c source and scopes. Actual DAE2 owners
 remain lift/dependency CFG/read sources/lower/validation; next allocation pilot
 is immutable scalar CFG edges, currently two native objects per builder call.
+
+
+## October 3, 2026: shared scalar CFG edge storage
+
+[Shared source/contracts/evidence](../dae2/starshine-strategy.md#october-3-2026-inline-scalar-cfg-edge-storage)
+retain all479,079 Coalesce edge-builder invocations while eliminating958,158
+separate record requests. Complete matched CL work40.822717b→40.482683b
+(−.832954%). Normal n5 CPU6 CL4375.941±34.693→4311.431±54.395ms,
+B1947.387±23.953; paired−1.157%, remaining2.214×, all contended. Output hashes
+and78,800 canonical-byte gap remain;13,395 tests/10 controls/756 modules/2208
+observations pass. RSS ranges overlap and empty-row control adds.75ns. This is
+a measured shared representation gain, not completion of CL or release gates.

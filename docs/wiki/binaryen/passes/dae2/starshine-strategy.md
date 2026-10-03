@@ -6682,3 +6682,78 @@ canonical gaps, memory modes and final aggregate/CI/coverage remain open.
 Exact commands, source/binary/output identities, normal-exit logs, parsed exclusive
 and inclusive costs: `.tmp/large-pass-hotspots-20261001/current-dae2-dependencies-current-*`
 and `current-dae2-dependency-costs.json`. No long fuzz campaign.
+
+
+## October 3, 2026: inline scalar CFG edge storage
+
+[CfgEdge](../../../../../src/ir/cfg.mbt) gains only `#valtype`: its immutable
+kind/block fields remain unchanged. Native array slots now hold contiguous
+8-byte records rather than pointers to separately allocated records. Owned
+successor/predecessor queries and explicit borrowed edge rows retain their
+contracts; ordering, duplicate policy, exceptional edges and every CFG/HOT
+verification check remain. Generated .mbti has no diff (this compiler also
+omits existing HotNode's value annotation); native C representation changes,
+and all package consumers are rebuilt.
+
+Freeze main3631c1d0c/nativedbbaefbe…→43feef6e… against verified133 and the same
+6,211,596-byte/12,904-function input. Performance TDD checks the actual native
+builder: two direct16-byte record requests become zero, with backing-array
+growth retained. Complete DAE2/CL factory counts remain729,911/479,079,
+removing1,459,822/958,158 record requests (23,357,152/15,330,528 requested bytes).
+These are isolated native record requests, excluding allocator overhead/reuse,
+backing arrays and net whole-module allocation/RSS evidence.
+
+Complete normally exited, hash-matched DAE2 work34,609,136,479→34,301,861,068
+(−.887845%); CL40,822,716,968→40,482,682,526 (−.832954%). DAE2 dependency
+owner becomes9.573b; nested CFG5.103b, read sources1.976b, entry proof.790b.
+All7,926 CFG/source builds remain. Lift11.401b (10,422 calls), rewrite lower
+4.647b (2,468 calls) and mandatory validation remain larger costs. Inclusive
+children overlap their parents and are not summed. Constructor/native layout
+and complete-consumer work support reduced allocation/traversal overhead;
+counts alone would not establish the cause or clock gain.
+
+CPU6 fresh-process/warm-filesystem normal n5 alternating after one warmup,
+build excluded, median±MAD milliseconds:
+
+| Pass | Before CLI | After CLI | B133 CLI | After/B |
+| --- | ---: | ---: | ---: | ---: |
+| DAE2 | 4259.442±53.494 | 4437.228±267.521 | 1382.867±140.725 | 3.209× |
+| DAE2-O | 9328.056±2234.735 | 7184.540±270.244 | 2567.837±43.839 | 2.798× |
+| CL | 4375.941±34.693 | 4311.431±54.395 | 1947.387±23.953 | 2.214× |
+| OI | 2443.104±23.258 | 2424.382±13.781 | 981.942±9.450 | 2.469× |
+
+All rows flag foreign activity. Paired−1.940/−22.979/−1.157/−.263%; OO before
+11.142/14.075s outliers prevent attributing its apparent23% gain to this fix.
+D2 median regresses while paired samples improve. No quiet-host1× or universal
+command win. PeakRSS D2 median266736→256252KiB has overlapping ranges/modes;
+OO/CL/OI medians294352→294392/244828→244644/156496→157684KiB do not establish
+a general RSS win. Native controls (mean): construct1/32/512 edges72.31→54.95ns,
+572.93→194.04ns,8.36→1.90µs; read512234.46→136.89ns. Empty-row30.48→31.23ns
+adds.75ns. Retain spread/ranges and the small tradeoff in local evidence.
+
+[IR storage tests](../../../../../src/ir/cfg_edge_value_wbtest.mbt) cover every
+kind, growth, held snapshots, owned/borrowed rows and reciprocal verification.
+[DAE2](../../../../../src/passes/dead_argument_elimination2.mbt) and
+[dispatcher](../../../../../src/cmd/cmd.mbt) prove active pruning through GC,
+loops, calls and caught tags; default suite13,395/10 dedicated native controls
+pass with info/fmt/check/build/API sync. Four original/before/after/133 execution
+lanes pass756 validated modules/2208 fixed observations (results, effects,
+state, memory, trap occurrence; runtime-only compact-import normalization stays
+separate). All four large raw hashes are exact: output quality/V83 savings and
+canonical deficits remain unchanged, without claiming renewed normalization.
+
+Next measured candidates: typed-pop boxed success results and checked-node
+return boundaries, before speculative arena retention. Canonical gaps, memory
+modes, optimizing cleanup/OI envelope and full CI/coverage/10000 GenValid gates
+remain open; long fuzz is deferred under the user's focused campaign direction.
+Manual source/native review is recorded; no independent agent review was run.
+Exact commands/source/tool/input/binary identities, all samples, red/green,
+requests/layout, control spreads, profiles and runtime evidence:
+`.tmp/large-pass-hotspots-20261001/main-cfg-edge-value-performance-20261003.md`.
+
+
+Fresh named diagnostics for this binary are recorded in the
+[tracing checkpoint](../../../tooling/tracing-playbook.md#october-3-2026-main-inline-cfg-edge-checkpoint):
+DAE23275.024/B502.812ms, OO6107.553/B explicit stage-sum1828.087,
+CL3335.802/B1278.750, OI94.693/B262.355 (n3/warmup1). Different verification
+and pipeline scopes remain explicit; these do not replace the normal CLI table.

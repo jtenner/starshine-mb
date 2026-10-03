@@ -4961,3 +4961,33 @@ native controls/185 validated runtime modules/540 observations pass; tiny clear/
 no-edge costs,1× and release gates remain. DAE2/O/OI retain the preceding frozen
 source; no extrapolation from CL. Exact evidence/driver correction:
 `.tmp/large-pass-hotspots-20261001/main-copy-barrier-performance-20261002.md`.
+
+
+## October 3, 2026: main inline CFG edge checkpoint
+
+[Source, invariants and full evidence](../binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-scalar-cfg-edge-storage)
+freeze main3631c1d0c/nativedbbaefbe→43feef6e, verified133, same input/CPU6.
+Normal n5 alternating after warmup1, fresh CLI/warm filesystem, median±MADms:
+DAE24437.228±267.521/B1382.867±140.725; OO7184.540±270.244/B2567.837±43.839;
+CL4311.431±54.395/B1947.387±23.953; OI2424.382±13.781/B981.942±9.450.
+Ratios3.209/2.798/2.214/2.469× remain open. Every row flags foreign activity;
+OO before11.142/14.075s outliers invalidate a causal23% clock-gain claim.
+Complete matched DAE2/CL work−.887845/−.832954%, unchanged builder counts
+and native allocation red/green establish a smaller storage improvement.
+
+Separate n3 named diagnostics after warmup1, median±MADms:
+DAE23275.024±38.347/B502.812±3.511;
+OO6107.553±91.745/B explicit per-row stage sum1828.087±20.570;
+CL3335.802±39.340/B1278.750±8.540;
+OI94.693±4.552/B262.355±2.146.
+Binaryen debug1 serializes function passes and adds verification outside timers;
+Starshine module/narrow pass scopes have different setup/lift/lower/validation.
+Debug hashes match normal outputs; debug wall never substitutes for normal wall.
+OI's narrow pass advantage still leaves a costly command envelope.
+
+13,395 tests/10 controls/756 runtime modules/2208 observations pass. Raw hashes,
+canonical deficits and V83 savings remain exact; no new normalization is claimed.
+RSS ranges/modes and tiny empty-row+.75ns remain explicit. Full CI/coverage/
+aggregate release gates stay open. Exact manifests, commands, samples, spreads,
+profiles and allocation scope:
+`.tmp/large-pass-hotspots-20261001/main-cfg-edge-value-performance-20261003.md`.

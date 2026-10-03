@@ -1,4 +1,5 @@
 ///|
+#valtype
 pub struct CfgEdge {
   kind : CfgEdgeKind
   block : BlockId

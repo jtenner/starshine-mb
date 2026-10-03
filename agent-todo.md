@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed October 2, 2026. Follow
+Active unreleased work only, reviewed October 3, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -22,27 +22,28 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** completed lift band proofs,
-  main177be8505/native6e22e72f…→d08c0fdb…. Normal n5 alternating,
-  one warmup, median±MADms: DAE24426.975±213.283/B1301.502±14.096 (3.401×),
-  OO7108.224±176.857/B2526.604±25.495 (2.813×),
-  CL4599.278±72.573/B1949.186±45.078 (2.360×),
-  OI2427.675±38.118/B969.681±2.776 (2.504×).
-  Paired+4.736/+2.541/−.022/−3.490%; every row flags foreign activity,
-  no command-level win or quiet-host1× signoff. Complete CL instructions
-  −.630267%, nested conflict queries−8.281889%; recursive visits16.899m→14.419m.
-  13,386 tests/724 modules/2112 observations/32 native controls pass;
-  raw hashes/API/V83 retained. Saturated+9.55/+92.04ns and negative+.74ns
-  controls remain open; RSS modes/optimizing excess unexplained.
-  Prior matched n3 named diagnostics retain native6e22/date/scope:
-  DAE23190.564/B491.551ms, OO6026.947/B explicit row-sum1778.100,
-  CL3423.120/B1270.190, OI90.380/B253.911; OI envelope remains costly.
-  Raw OO−9949B versus canonical+99,251B remains open.
-  [Exact protocols/scopes/hashes](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-completed-lift-band-checkpoint).
+- **Latest matched large checkpoint:** immutable scalar CFG edge storage,
+  main3631c1d0c/nativedbbaefbe…→43feef6e…. CPU6 normal n5 alternating,
+  warmup1, median±MADms: DAE24437.228±267.521/B1382.867±140.725 (3.209×),
+  OO7184.540±270.244/B2567.837±43.839 (2.798×),
+  CL4311.431±54.395/B1947.387±23.953 (2.214×),
+  OI2424.382±13.781/B981.942±9.450 (2.469×).
+  All rows flag foreign activity; OO before outliers11.142/14.075s prevent
+  attributing its observed paired−22.979% to this change. D2/CL/OI paired
+  −1.940/−1.157/−.263%; no quiet1× or general command-speed signoff.
+  Complete matched DAE2 instructions34.609136b→34.301861b (−.887845%),
+  CL40.822717b→40.482683b (−.832954%). All729911/479079 edge-builder
+  invocations remain; separate edge-record allocations fall2→0 per invocation.
+  This removes1,459,822/958,158 record requests (23,357,152/15,330,528 requested
+  bytes), excluding backing arrays, allocator overhead and net whole-module/RSS.
+  13,395 behavior tests/10 controls/756 runtime modules/2208 observations pass;
+  all four raw hashes and V83 savings remain. RSS modes/tiny empty-row+.75ns,
+  canonical OO+99,251B, other quality and release gates remain open.
+  [Source, scopes and exact evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-scalar-cfg-edge-storage).
 - **Confirmed DAE2 attribution on native6e22→d08c:** complete matched
   module work34,604,264,255→34,604,091,968 (−.000498%), effectively unchanged.
   The lift-band fix helps CL and does not establish DAE2 throughput gains.
-  Current inclusive lift11.397b (10,422 calls), dependency analysis9.881b;
+  At that earlier snapshot inclusive lift11.397b (10,422 calls), dependency analysis9.881b;
   nested dependency CFG5.186b (7926 calls), read sources2.019b, entry proof.790b.
   Rewriting also lowers2468 functions (4.647b); final module validation3.639b
   remains mandatory. Do not sum nested costs or treat traversal counts alone
@@ -691,14 +692,18 @@ separate from normal commands and differ in surrounding work.
 - **Owner / why:** [Coalesce](src/passes/coalesce_locals.mbt), expanded CFG,
   liveness, interference and raw branch-depth/lowering queries; the large pass
   still costs several seconds.
-- **Current measured remainder:** main7a5676ba9/natived08c→dbbaefbe CL normal
+- **Historical copy-barrier checkpoint:** main7a5676ba9/natived08c→dbbaefbe CL normal
   4416.546±70.418ms/B1963.489±27.857 (2.249×), n5 alternating/one warmup;
   paired−.699%, foreign activity every row. Complete CL work40.823b (−2.930209%).
   Safe-copy owner−98.240377%, structural visits12.219m→12209; exact outputs.
   13,391 tests/10 controls/185 modules/540 observations pass. No quiet-host1×
   or memory win; raw/canonical quality unchanged. DAE2/O/OI retain the d08c
-  checkpoint above; do not claim a CL-only source change fixes their costs.
-  [Current evidence and ownership](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-reject-globally-blocked-copy-pairs-once).
+  checkpoint at that date; do not extrapolate the CL-only gain.
+  [Copy-barrier evidence and ownership](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-reject-globally-blocked-copy-pairs-once).
+- **Current shared CFG checkpoint:** main3631c1d0c/native43feef6e CL normal
+  4311.431±54.395ms/B1947.387±23.953 (2.214×), all contended. Complete work
+  40.483b (−.832954%) with identical bytes and graph counts; P12 owns this
+  completed representation change. Remaining interference/lower work stays open.
 - [ ] Reduce or justify current safe-copy clear/no-edge control costs without
   regressing the large consumer: clear8+1.21µs (overlapping dispersion), no-edge
   512+29.02ns. Lazy preflight already preserves O(locals) with no body scan when
@@ -911,8 +916,8 @@ separate from normal commands and differ in surrounding work.
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
-- **Next measured shared targets:** current CL root40.823b instructions,
-  nested lower5.956b after explicit effect/ordering demand removes unused rows.
+- **Next measured shared targets:** current CL root40.483b instructions;
+  prior nested lower5.956b after explicit effect/ordering demand removes unused rows.
   Full lower source factories4565→297; no duplicate implementation of that
   completed mechanism. Reduce measured carried fallback+140ns/+6.93µs without
   regressing large consumers or adding speculative region caches. Stack-value
@@ -937,14 +942,26 @@ separate from normal commands and differ in surrounding work.
   region/canonicalization storage remain active; prove benefits before widening.
   Separate destruction work from allocated bytes/RSS. Plain/CL modes and
   optimizing≈138MiB excess require attribution; no whole-arena cache is justified.
-- [ ] Trial value representation for immutable scalar CFG edge records.
-  Native CfgEdge currently allocates a separate two-int32 object for each row;
-  array slots hold pointers, unlike existing value-type HotNode storage.
-  Confirm actual construction/free costs before accepting #valtype, review
-  the public .mbti/ABI annotation, and preserve fields, edge kinds, reciprocal
-  verification, duplicates/order, owned public arrays and exceptional flow.
-  Require native allocation red/green and matched complete DAE2/O/CL/OI work,
-  times/RSS/output bytes plus default/active dispatcher/runtime checks.
+- **Completed scalar CFG storage:** immutable CfgEdge values now occupy inline
+  eight-byte array slots. Fields, kinds/order/duplicates, owned and borrowed
+  queries, all verification and exceptional flow remain. Public .mbti has no
+  diff; native representation changes and cross-package consumers are rebuilt.
+  [Measured complete consumers](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-scalar-cfg-edge-storage) preserve graph counts/output bytes.
+  Do not repeat this allocation trial or infer a universal RSS/clock win.
+- [ ] Trial eliminating immediately matched typed-pop result boundaries.
+  Non-inline TcState.pop_expect builds a boxed Ok(state) on its native success
+  path; the earlier complete DAE2 snapshot has5,654,980 inner calls, not a new
+  dynamic allocation-byte measurement. Confirm success-path allocation removal
+  in numeric/reference/SIMD/local consumers before accepting an inline trial.
+  Retain all subtype/type/underflow/unreachable checks, stack consumption and
+  error behavior; measure faithful boxed-reference controls, complete DAE2/O/
+  CL/OI work, code size, RSS and bytes. No validation or coverage reduction.
+- [ ] Measure the checked HotNode return boundary: the earlier snapshot's
+  getter-exclusive1.482b instructions includes a full32-byte native return.
+  Test compiler inlining/scalar use with every range/deleted/incomplete fallback
+  intact, fresh mutation reads, actual consumers and complete pass measurements.
+  No widened admission or persistent snapshots; wrapper disappearance alone
+  does not prove a throughput win.
 - [ ] Measure high-degree CFG reciprocal-edge verification: nested neighbor
   scans can be quadratic on wide joins/switches. Current dependency snapshot
   attributes.280b instructions to all CFG verification, without proving degree

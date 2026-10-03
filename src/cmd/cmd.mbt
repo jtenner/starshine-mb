@@ -10455,3 +10455,31 @@ test "command Coalesce copy barrier preserves active branch and call route" {
   assert_true(locals.length() < 3)
   assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
+
+///|
+test "command value CFG edges retain active GC and exception routes" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $s (struct (field i32))) (import \"host\" \"tick\" (func $tick)) (tag $t (param i32)) (func $callee (param i32 i32) (result i32) local.get 0) (func (export \"run\") (param i32) (result i32) (local i32 (ref null $s)) block (result i32) try_table (catch $t 0) local.get 0 i32.const 0 i32.lt_s if i32.const 9 throw $t end local.get 0 i32.const 3 i32.and local.set 1 local.get 0 struct.new $s local.set 2 block loop local.get 1 i32.eqz br_if 1 call $tick local.get 1 i32.const 1 i32.sub local.set 1 br 0 end end local.get 2 struct.get $s 0 i32.const 99 call $callee return end i32.const 0 end))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for
+    flag in [
+      "dae2", "dae2-optimizing", "coalesce-locals", "optimize-instructions",
+    ] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [flag],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    if flag == "dae2" || flag == "dae2-optimizing" {
+      assert_eq(
+        @validate.Env::new()
+        .with_module(output)
+        .get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+        Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+      )
+    }
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

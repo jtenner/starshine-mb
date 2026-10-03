@@ -25766,3 +25766,14 @@ Complete CL work−2.930209%, nested owner−98.240377%; native guard red/green,
 Normal matched CL4416.546ms/B1963.489 remains2.249× with foreign activity;
 small/no-edge costs and release gates stay open. Backlog prunes the completed
 pair-scan pilot and directs DAE2 allocation work to its actual CFG/lift owners.
+
+
+## 2026-10-03 — Inline scalar CFG storage with complete-consumer evidence
+
+[Shared evidence](binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-scalar-cfg-edge-storage)
+retains fields/graph counts/verification/owned and borrowed queries while removing
+separate edge records. Complete DAE2/CL work falls .888%/.833%;13,395 tests and
+756 validated runtime modules/2208 observations retain all output hashes/V83.
+Normal clock contention, canonical deficits, memory modes and release gates stay
+open. Backlog prunes the representation trial and records typed-pop allocation
+and checked-getter boundaries as the next evidence-backed experiments.

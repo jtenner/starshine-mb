@@ -1834,3 +1834,21 @@ test "dae2 local-band masks retain pre-write operands and imported call order" {
   )
   assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
+
+///|
+test "dae2 value CFG edges preserve GC loop and exception dependencies" {
+  let input = pass_test_module_from_wat(
+    "(module (type $s (struct (field i32))) (import \"host\" \"tick\" (func $tick)) (tag $t (param i32)) (func $callee (param i32 i32) (result i32) local.get 0) (func (export \"run\") (param i32) (result i32) (local i32 (ref null $s)) block (result i32) try_table (catch $t 0) local.get 0 i32.const 0 i32.lt_s if i32.const 9 throw $t end local.get 0 i32.const 3 i32.and local.set 1 local.get 0 struct.new $s local.set 2 block loop local.get 1 i32.eqz br_if 1 call $tick local.get 1 i32.const 1 i32.sub local.set 1 br 0 end end local.get 2 struct.get $s 0 i32.const 99 call $callee return end i32.const 0 end))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let output = dae2_run_module_pass(input, false).unwrap()
+  @validate.validate_module(output).unwrap()
+  assert_eq(
+    @ir.hot_module_resolve_func_type(
+      @ir.hot_module_context_from_module(output),
+      @lib.FuncIdx::new(1U),
+    ),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+  )
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}
