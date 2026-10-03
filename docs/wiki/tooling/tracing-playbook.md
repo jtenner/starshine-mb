@@ -4865,3 +4865,43 @@ remain. Independent traced n1 scopes are diagnostic; matched B inner values
 above retain their earlier c416 source and dates. Exact commands/source/binaries,
 normal/traced range/RSS rows and accepted profile:
 `.tmp/large-pass-hotspots-20261001/main-lower-demand-effects-performance-20261002.md`.
+
+
+## October 2, 2026: main checked payload query checkpoint
+
+[Source, controls and consumer evidence](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-checked-scalar-reads-for-exact-payload-queries)
+freeze mainbc6f6ea3b/nativee7529ee2…→6e22e72f… on the same6,211,596B compiler,
+verified v133 and CPU6. Build excluded; normal n5 alternating after one warmup,
+fresh processes/warm filesystem. Median±MAD milliseconds:
+
+| Pass | Starshine normal CLI | B133 normal CLI | Ratio |
+| --- | ---: | ---: | ---: |
+| DAE2 | 4081.539±83.697 | 1226.426±27.000 | 3.328× |
+| DAE2-O | 6993.348±74.721 | 2508.565±40.995 | 2.788× |
+| CL | 4535.650±60.614 | 1978.689±32.228 | 2.292× |
+| OI | 2443.540±37.293 | 979.768±2.775 | 2.494× |
+
+Paired changes+1.440/−1.342/−1.715/+1.650%; every row flags foreign activity.
+No command-level win or1× signoff. Complete CL instructions−.131286%, nested
+payload verification−22.203%; getters disappear in all three actual payload
+readers.24 isolated native lanes retain the original selector boundary; initial
+eight combined controls were not a faithful baseline.13,379 tests/708 modules/
+2064 observations pass; public API/raw hashes/V83 retained. PeakRSS medians are
+near-flat or overlap existing modes; no allocation/RSS win is inferred.
+
+Separate n3 alternating named diagnostics (one warmup), medianms:
+DAE23190.564/B491.551; OO6026.947/B explicit per-row pass-sum1778.100;
+CL3423.120/B1270.190; OI90.380/B253.911. B debug1 serializes function passes
+and validates outside named timers. Starshine module scopes include setup/lift/
+lower/validation; OI narrow timer excludes its costly envelope. These debug
+artifact hashes match normal rows, but debug wall is not normal wall. Keep
+MAD/ranges/individual OO stages in the local report; never sum nested stages
+or component medians. Prior c416/October1 measurements remain historical.
+
+Normal S/B bytes D2 6115221/6232586, OO5563501/5573450, CL5706503/5627625,
+OI6205998/6172971 are unchanged. Canonical OO5686688/5587437 (+99251B) remains
+separate from raw−9949B; all other quality/coverage/aggregate/full-release gates
+stay active. Next targets remain DAE2 dependencies/lift, optimizing cleanup,
+OI envelope and bounded conflict queries. Exact protocols/source hashes/all
+samples and rejected trial failures live in
+`.tmp/large-pass-hotspots-20261001/main-payload-direct-match-performance-20261002.md`.

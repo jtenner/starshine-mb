@@ -22,26 +22,27 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** effect-only lowering, main5ec1e3556/
-  native02637b4c…→e7529ee2…. One-warmup/n5 alternating normal CLI median±MAD
-  ms: DAE24244.746±50.739/B1291.718±16.741 (3.29×),
-  OO7299.012±80.794/B2594.935±29.086 (2.81×),
-  CL4601.658±62.996/B2083.079±6.779 (2.21×),
-  OI2633.724±30.778/B1034.079±3.749 (2.55×).
-  Paired changes−.533/−2.380/−4.372/−2.785%; every row flags foreign activity,
-  plain within spread and no quiet-host1× signoff. Complete CL instructions
-  43.437b→42.377b (−2.439308%), nested lower−15.083062%; full lower factories
-  4565→297 plus4083 effect-only builds.13,374 tests/692 modules/2016
-  observations pass, API/raw hashes/V83 retained. RSS plain median−10072KiB
-  with overlapping modes, other medians nearly flat; no causal memory win.
-  Carried fallback native+140ns/+6.93µs and optimizing≈138MiB excess remain.
-  Independent traced n1 scopes are diagnostic; prior matched B inner values
-  retain c416 source/date. Raw OO−9949B versus canonical+99,251B remains open.
-  [Exact protocols/scopes/hashes](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-effect-only-lowering-checkpoint).
+- **Latest matched large checkpoint:** checked payload queries, mainbc6f6ea3b/
+  nativee7529ee2…→6e22e72f…. Normal n5 alternating, one warmup, median±MADms:
+  DAE24081.539±83.697/B1226.426±27.000 (3.328×),
+  OO6993.348±74.721/B2508.565±40.995 (2.788×),
+  CL4535.650±60.614/B1978.689±32.228 (2.292×),
+  OI2443.540±37.293/B979.768±2.775 (2.494×).
+  Paired+1.440/−1.342/−1.715/+1.650%; every row flags foreign activity,
+  no command-level win or quiet-host1× signoff. CL instructions−.131286%,
+  nested payload verification−22.203%; actual three getter boundaries removed.
+  13,379 tests/708 modules/2064 observations/24 native controls pass; public API,
+  raw hashes/V83 retained. RSS modes/optimizing≈138MiB excess remain open.
+  Fresh n3 named diagnostics DAE23190.564/B491.551ms,
+  OO6026.947/B explicit row-sum1778.100, CL3423.120/B1270.190,
+  OI90.380/B253.911 have differing scopes; OI envelope remains costly.
+  Raw OO−9949B versus canonical+99,251B remains open.
+  [Exact protocols/scopes/hashes](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-checked-payload-query-checkpoint).
 - **Completed shared mechanisms:** checked lift reads, scalar CL clique updates,
   retained unchanged strip/spill storage, compact lowering counts and direct
   result-stack rows, block-only CL liveness and separate effect/ordering demand are
-  implemented; do not repeat them. Existing tiny/tee/weighted/wide microcosts
+  implemented, including checked exact-payload reads; do not repeat them.
+  Existing tiny/tee/weighted/wide microcosts
   remain visible in P03/P04 and the
   [consumer dossier](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-use-compact-counts-throughout-lowering).
 - **Optimizing cleanup / rejected-cache checkpoint:** accepted storage and
@@ -893,7 +894,7 @@ separate from normal commands and differ in surrounding work.
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
-- **Next measured shared targets:** current CL root42.377b instructions,
+- **Next measured shared targets:** current CL root42.322b instructions,
   nested lower5.956b after explicit effect/ordering demand removes unused rows.
   Full lower source factories4565→297; no duplicate implementation of that
   completed mechanism. Reduce measured carried fallback+140ns/+6.93µs without
@@ -901,12 +902,14 @@ separate from normal commands and differ in surrounding work.
   objects and unused block-write metadata still allocate. DAE2 dependency/lift
   and optimizing cleanup remain larger owners; field attribution retains its
   exact earlier snapshots.
-- [ ] Trial checked exact-payload scalar field reads: native payload ID,
-  verification and instruction queries each cross a complete node-header
-  boundary for only op/imm0/imm1. Preserve checked Unit admission, all payload
-  lanes and malformed/deleted/incomplete-arena errors. IDs are already unboxed;
-  do not add a new view/record or claim boxed-ID churn. Measure actual three
-  native bodies, both DAE2 modes and whole affected consumers.
+- [ ] Trial a bounded per-value Byte extent in lift's existing readiness row
+  against the measured1.529b exclusive conflict recursion. Known maxima may
+  reject high-id mask collisions and prove positive masks below64; saturation,
+  negative queries and unknown/wide values retain full recursive fallback.
+  Native Bool arrays are uint8_t: Int rows would add bytes, while Byte keeps
+  width. Require red warm-reuse bounds, complete consumer work/timings, faithful
+  current-field controls, cold/saturated costs, collision/append/shared/fresh
+  mutation tests and checked admission; no extra rows or persistent cache.
 - [ ] Bound remaining descending stack-prefix mismatch work after proving a
   wide active consumer: repeated lanes with final mismatch remain quadratic,
   but current CL entry work25.405m instructions (~.0585%) is lower priority.

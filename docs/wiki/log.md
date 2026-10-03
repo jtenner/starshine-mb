@@ -25719,3 +25719,17 @@ remain in progress in [the upgrade record](binaryen/version-132-upgrade.md).
 - October 2, 2026: [renewed large four-pass matrix](tooling/tracing-playbook.md#october-2-2026-large-four-pass-checkpoint-and-timer-scopes) records matched normal command gaps of approximately5.04s DAE2 optimizing,3.11s DAE2,3.12s Coalesce and1.42s OI. Three alternating samples, exact frozen sources/inputs and every contention flag remain explicit. Independent debug/named timings have different scopes; OI's86ms transform does not close its2.40s command gap. Raw versus canonical quality and full release gates remain open; priorities now follow absolute cost rather than ratios alone.
 
 - October 2, 2026: [unchanged flat recurrence rows](binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-retain-unchanged-flat-recurrence-rows) avoid tail copies while preserving original positive construction and the recursive worker's deep ownership. Complete optimizing cleanup instructions fall 2.72%; repeated wide native controls improve substantially, while large command timing remains within spread. All 13,314 tests and 288 fixed differential observations pass with exact bytes. The initial active SIMD slowdown does not repeat and both cohorts remain recorded; other cleanup/CFG/lower and canonical gaps stay open.
+
+
+## October 2, 2026 — checked exact-payload query traffic
+
+[Consumer evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-checked-scalar-reads-for-exact-payload-queries)
+records native red/green work contracts, unchanged checked admission and public
+API,24 faithful isolated controls,13,379 tests and708 validated runtime modules.
+Complete CL instructions−.131286%, nested verification−22.203%; mixed noisy
+normal CLI results do not close1×. The first helper trial and flawed combined
+reference remain diagnostic history. [Current scopes](tooling/tracing-playbook.md#october-2-2026-main-checked-payload-query-checkpoint)
+renew both normal CLI and named v133 comparisons without conflating their
+validation/optimization envelopes. Raw/canonical gaps and memory modes remain
+open; backlog prunes the payload pilot and adds bounded lift-conflict metadata
+with saturation and allocation/correctness gates.

@@ -1800,3 +1800,19 @@ test "dae2 lazy lower ordering preserves pre-write call operands during signatur
   )
   assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
+
+///|
+test "dae2 checked payload queries preserve numeric GC and trapping memory operations" {
+  let input = pass_test_module_from_wat(
+    "(module (type $s (struct (field i32))) (memory (export \"memory\") 1) (func $callee (param i32 i32) (result i32) local.get 0 i32.const 7 i32.xor) (func (export \"run\") (param i32) (result i32) i32.const 0 i32.const 17 i32.store local.get 0 i32.load local.get 0 struct.new $s struct.get $s 0 i32.xor i64.extend_i32_u i32.wrap_i64 i32.const 99 call $callee))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let output = dae2_run_module_pass(input, false).unwrap()
+  @validate.validate_module(output).unwrap()
+  let context = @ir.hot_module_context_from_module(output)
+  assert_eq(
+    @ir.hot_module_resolve_func_type(context, @lib.FuncIdx::new(0U)),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+  )
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}

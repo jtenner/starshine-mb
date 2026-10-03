@@ -1341,3 +1341,65 @@ but current CL direct entry work25,405,350 instructions (~.0585%) makes it a low
 compiler priority; prove a wide active consumer before adding linear-fallback
 scratch. Exact report/protocols/hashes/ranges:
 `.tmp/large-pass-hotspots-20261001/main-lower-demand-effects-performance-20261002.md`.
+
+
+## October 2, 2026: checked scalar reads for exact payload queries
+
+Mainbc6f6ea3b/nativee7529ee2…→6e22e72f…. All three exact-instruction payload
+queries returned a complete32-byte node to select only opcode/immediates.
+[`hot_side_tables.mbt`](../../../../../src/ir/hot_side_tables.mbt) keeps the
+same checked live-node admission and puts the unchanged lane/opcode selection
+in that arena query. The unused private by-value selector is removed; public
+queries, invalid/deleted/incomplete-node paths and verification stay complete.
+No cache/view/allocation is added. IDs were already unboxed: this removes
+header traffic rather than node/ID heap objects. Native work contract fails
+before the change and passes for all three actual readers after it.
+
+[Bounded regressions](../../../../../src/ir/hot_payload_fields_wbtest.mbt)
+cover every payload family/both lanes, absent payloads, bounds, mutation,
+incomplete deletion metadata and ownership. Implementing DAE2/active command
+fixtures prune an unused argument through numeric/GC/trapping-memory operations.
+All13,379 default tests, info/fmt/check/native build/README API sync and
+[24 native controls](../../../../../src/ir/hot_payload_fields_perf_wbtest.mbt)
+pass; no public API changes. Four verified-v133 runtime lanes validate708 modules
+and2064 observations across43 fixtures. Raw output and V83 savings are exact.
+
+Matched complete CL instructions42,377,392,745→42,321,757,023 (−.131286%);
+nested payload verification224,611,363→174,745,573 (-22.200920%). Do not sum
+these nested costs. An initial separate scalar-helper trial saved only.089675%
+and added a wrapper boundary; its combined controls omitted the original
+selector and were diagnostic, not a faithful before benchmark. The selected
+controls retain the original by-value selector and isolate each query. Tiny
+present ID13.36±.37→10.09±.43ns, instruction19.70±.33→13.61±.42ns,
+verification13.76±.44→11.75±1.64ns (ten-batch mean±σ); all wide lanes improve.
+
+Normal n5 one-warmup alternating CPU6 fresh CLI/warm filesystem, median±MADms:
+
+| Pass | Before | After | B133 | Paired % | After/B |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| DAE2 | 4023.598±27.745 | 4081.539±83.697 | 1226.426±27.000 | +1.440 | 3.328× |
+| DAE2-O | 6895.288±80.055 | 6993.348±74.721 | 2508.565±40.995 | −1.342 | 2.788× |
+| CL | 4512.422±101.983 | 4535.650±60.614 | 1978.689±32.228 | −1.715 | 2.292× |
+| OI | 2399.182±6.421 | 2443.540±37.293 | 979.768±2.775 | +1.650 | 2.494× |
+
+Every row flags foreign CPU; command gains are not established and1× remains
+open. PeakRSS before→after mediansKiB:258520→256276,294364→294404,
+244692→244760,155920→156252; no causal memory win. B normal timings differ from
+historical cohorts; retain each source/date/scope. Fresh matched n3 named timers
+are DAE23190.564/B491.551ms, OO6026.947/B explicit row-sum1778.100ms,
+CL3423.120/B1270.190ms and OI90.380/B253.911ms. B debug serializes function
+passes/validates outside timers; Starshine module scopes include setup/lift/lower
+and validation, while OI excludes its large envelope. Debug output hashes equal
+normal artifacts; do not compare debug command wall to normal wall or sum
+medians/nested stages. Scope details and remaining byte/memory/release blockers:
+[checkpoint](../../../tooling/tracing-playbook.md#october-2-2026-main-checked-payload-query-checkpoint).
+
+Manual review, independent agent unavailable. Full CI/coverage/aggregate GenValid
+remain deferred under the focused performance campaign with gates unchanged.
+Next pilot: repeated lift conflict walks,1.529b exclusive CL instructions.
+Trial a bounded Byte extent in the existing uint8 readiness row, with saturation
+retaining full recursion; prove it avoids work in complete consumers and keeps
+cold/wide fallbacks, mutation/append/collision safety and allocations/bytes.
+Exact source/binary/input hashes, commands, all ranges/RSS/raw rows and
+trial failures are in local
+`.tmp/large-pass-hotspots-20261001/main-payload-direct-match-performance-20261002.md`.

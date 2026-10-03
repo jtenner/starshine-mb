@@ -188,7 +188,14 @@ pub fn hot_instr_payload_get(
 }
 
 ///|
-fn hot_exact_instr_payload_id_for_op(node : HotNode) -> SideTableId? {
+pub fn hot_node_exact_instr_payload_id(
+  func : HotFunc,
+  node_id : NodeId,
+) -> SideTableId? {
+  // Retain the checked live-node admission, including incomplete-index fallback.
+  // Select directly from scalar fields without another wrapper/header boundary.
+  hot_node_require_live_read(func, node_id)
+  let node = func.nodes[node_id]
   match node.op {
     HotOp::Load
     | HotOp::Store
@@ -210,15 +217,6 @@ fn hot_exact_instr_payload_id_for_op(node : HotNode) -> SideTableId? {
     HotOp::Atomic => Some(node.imm1)
     _ => None
   }
-}
-
-///|
-pub fn hot_node_exact_instr_payload_id(
-  func : HotFunc,
-  node_id : NodeId,
-) -> SideTableId? {
-  let _ = func
-  hot_exact_instr_payload_id_for_op(hot_node_get(func, node_id))
 }
 
 ///|

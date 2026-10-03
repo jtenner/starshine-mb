@@ -10379,3 +10379,30 @@ test "command lazy lower ordering preserves call snapshots across large pass rou
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "command checked payload queries preserve numeric GC and memory pass routes" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (type $s (struct (field i32))) (memory (export \"memory\") 1) (func $callee (param i32 i32) (result i32) local.get 0 i32.const 7 i32.xor) (func (export \"run\") (param i32) (result i32) i32.const 0 i32.const 17 i32.store local.get 0 i32.load local.get 0 struct.new $s struct.get $s 0 i32.xor i64.extend_i32_u i32.wrap_i64 i32.const 99 call $callee))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for
+    flag in [
+      "dae2", "dae2-optimizing", "coalesce-locals", "optimize-instructions",
+    ] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [flag],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    if flag == "dae2" || flag == "dae2-optimizing" {
+      let context = @validate.Env::new().with_module(output)
+      assert_eq(
+        context.get_functype_by_funcidx(@lib.FuncIdx::new(0U)),
+        Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+      )
+    }
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

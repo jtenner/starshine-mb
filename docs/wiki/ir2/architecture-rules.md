@@ -658,6 +658,14 @@ separates helper gains from full-pipeline evidence.
   a read-only query; fresh masks remain required after semantic mutation. See
   [bounded mask/traversal tests](../../../src/ir/hot_lift_access_fields_wbtest.mbt)
   and [whole-consumer evidence and memory limits](../binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-checked-arena-reads-for-lift-local-conflicts).
+- Exact-instruction payload readers retain the canonical checked live-node
+  admission before reading only the existing arena row's opcode and immediates.
+  Both immediate lanes, absent payloads, invalid payload bounds, mutation and
+  incomplete deletion-index fallback preserve their previous contract. The
+  opcode selection stays in that checked query; public node and payload APIs remain
+  complete. This removes whole-header return traffic, not a node allocation;
+  payload ids were already unboxed in native code. See
+  [payload regressions](../../../src/ir/hot_payload_fields_wbtest.mbt).
 - Lowering uses complete `HotNodeUseCounts` instead of allocating full use-site
   and local overlays for two count-only queries. Exact root/child multiplicities
   and fresh snapshot lifetime remain required; other consumers keep complete
