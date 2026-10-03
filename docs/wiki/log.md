@@ -25823,3 +25823,13 @@ six unchanged large hashes support the repair. The backlog prunes reproduced
 DAE audit #5–6 while preserving other release blockers and broad parity gates.
 The six-pass command refresh includes spreads and separate traced diagnostics;
 no speedup is claimed for this correctness change.
+
+
+## 2026-10-03 — Private lift data result allocation
+
+[The complete-consumer checkpoint](binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-private-lift-data-results)
+records 5,656,270 fewer DAE2 allocation requests and −0.884% instructions with
+unchanged helper calls/bytes. The rejected annotation trial, mixed normal clocks
+and polymorphic helper cost are retained. 13,423 tests, six native controls and
+2352 fixed observations pass. The backlog now distinguishes remaining pushed
+arrays/typecheck wrappers from the completed return packaging change.

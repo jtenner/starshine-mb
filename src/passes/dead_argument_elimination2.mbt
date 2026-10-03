@@ -1906,3 +1906,27 @@ test "dae2 lift shape fields preserve indirect calls and memory while pruning" {
   )
   assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
+
+///|
+test "dae2 lift data results preserve mixed call result lanes" {
+  let input = pass_test_module_from_wat(
+    "(module (func $helper (param i32 i32) (result i32 i64) local.get 0 i64.const 9) (func (export \"run\") (param i32) (result i32) (local i64 i32) local.get 0 i32.const 99 call $helper local.set 1 local.set 2 local.get 2 local.get 1 i32.wrap_i64 i32.add))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for optimize in [false, true] {
+    let output = dae2_run_module_pass(input, optimize).unwrap()
+    @validate.validate_module(output).unwrap()
+    assert_eq(
+      @validate.Env::new()
+      .with_module(output)
+      .get_functype_by_funcidx(@lib.FuncIdx::new(0U)),
+      Some(
+        @lib.FuncType::new([@lib.ValType::i32()], [
+          @lib.ValType::i32(),
+          @lib.ValType::i64(),
+        ]),
+      ),
+    )
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

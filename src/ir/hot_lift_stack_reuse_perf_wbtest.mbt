@@ -9,8 +9,9 @@ fn hot_lift_stack_reuse_bench(
   let instruction = @lib.Instruction::i32_add()
   let initial = @validate.make_state(env, types)
   let (after, popped, pushed) = hot_lift_impl_typecheck_data_instruction(
-    instruction, initial,
-  ).unwrap()
+      instruction, initial,
+    )
+    |> lift_data_check_unwrap
   if popped != 2 ||
     pushed != [@lib.ValType::i32()] ||
     after.stack.length() != width + 1 {

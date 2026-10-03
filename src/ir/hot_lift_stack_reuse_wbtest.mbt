@@ -3,9 +3,10 @@ test "HOT known-arity typechecking consumes its owned stack without copying" {
   let stack = [@lib.ValType::i64(), @lib.ValType::i32(), @lib.ValType::i32()]
   let state = @validate.make_state_owned(@validate.empty_env(), stack)
   let (after, popped, pushed) = hot_lift_impl_typecheck_data_instruction(
-    @lib.Instruction::i32_add(),
-    state,
-  ).unwrap()
+      @lib.Instruction::i32_add(),
+      state,
+    )
+    |> lift_data_check_unwrap
   assert_eq(popped, 2)
   assert_eq(pushed, [@lib.ValType::i32()])
   assert_eq(after.stack, [@lib.ValType::i64(), @lib.ValType::i32()])
@@ -40,8 +41,8 @@ test "HOT owned-stack typechecking preserves typed control and rejects invalid o
     @lib.ValType::i32(),
   ])
   assert_true(
-    hot_lift_impl_typecheck_data_instruction(@lib.Instruction::i32_add(), state)
-    is Err(_),
+    hot_lift_impl_typecheck_data_instruction(@lib.Instruction::i32_add(), state).error
+    is Some(_),
   )
 }
 

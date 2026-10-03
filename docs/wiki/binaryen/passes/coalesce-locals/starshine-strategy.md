@@ -1582,3 +1582,16 @@ Complete CL instructions 40,007,028,213→39,883,336,242
 paired-0.840%. Foreign activity, RSS overlap and
 canonical+78,800B remain. Instruction/allocation gains do not prove universal
 throughput parity. All four raw hashes and 2352 runtime observations are retained.
+
+
+## October 3, 2026: shared lift data return packaging
+
+The [private data-result change](../dae2/starshine-strategy.md#october-3-2026-inline-private-lift-data-results)
+retains all checks, owned result arrays and raw CL output. Normal CPU6 n5 CLI
+medians are 3812.488→3815.997 ms,
+v133 1773.719 ms; paired change
++0.092%. This is effectively flat within the retained
+spread and foreign activity. Complete DAE2 allocation evidence must not be
+presented as a measured CL allocation reduction; no new CL instruction profile
+was run. All 2352 fixed four-pass observations agree. Canonical +78,800 B and
+command-time parity remain open.

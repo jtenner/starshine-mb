@@ -6985,3 +6985,82 @@ check and the corrected control-operand model must remain.
 Exact source/binary/input/tool hashes, commands, all samples/spreads, native guards,
 complete profiles and runtime artifacts:
 `.tmp/large-pass-hotspots-20261001/main-lift-shape-performance-20261003.md`.
+
+
+## October 3, 2026: inline private lift data results
+
+[The data-instruction checker](../../../../../src/ir/hot_lift.mbt) now returns
+one private `#valtype HotLiftDataCheck` with state, pop count, owned pushed types
+and nullable error. The single production consumer checks the error first.
+This replaces the private tuple plus outer success box; public Result contracts,
+all type/arity/underflow checks, generic replay, stack ownership and owned result
+arrays are unchanged. Native return storage is 32 bytes. Cold failure uses one
+empty-array object in place of its old error-wrapper object; no invalid-input
+throughput improvement is claimed.
+
+A native allocation guard failed before the change (three tuple and three
+success allocation sites), and passes after it (zero of each). An annotation-only
+trial retained all six sites and was rejected before finishing C compilation;
+do not retry that annotation as a proven improvement. Actual native benchmark
+reference bodies retain the boxed boundaries. Two ownership/mixed-result/error/
+polymorphic tests pass before/after, and implementing/dispatcher fixtures require
+active DAE2 argument pruning while preserving mixed call results. Existing stack
+reuse assertions are retained through a test-only adapter. Sources:
+[focused tests](../../../../../src/ir/hot_lift_data_result_wbtest.mbt),
+[six native controls](../../../../../src/ir/hot_lift_data_result_perf_wbtest.mbt),
+[DAE2](../../../../../src/passes/dead_argument_elimination2.mbt) and
+[dispatcher](../../../../../src/cmd/cmd.mbt).
+
+Complete, normally exited DAE2 module-pass profiles on frozen native
+**de85d92e…→e84e9ce8…**, base **859df3181**, retain output hashes:
+
+- Instructions **33,079,096,728→32,786,518,187 (−0.884482%)**.
+- Allocation requests **96,901,101→91,244,831**, exactly **5,656,270 fewer**.
+- Data-check calls remain **2,828,135**; direct helper requests
+  **8,478,961→2,822,691**, exactly two removed per call. Remaining pushed-type
+  storage and typechecking work are required, not counted as eliminated.
+- This is allocation frequency, not allocated bytes, retained memory or RSS.
+
+Normal fresh-process warm-filesystem CLI, n=5 after one warmup, rotating
+before/after/v133, release native O2/mimalloc, Ryzen 7 8845HS/CPU 6,
+6,211,596-byte compiler input. Milliseconds median±MAD; all cohorts flag foreign
+activity. Separate traced diagnostics are excluded from these samples.
+
+| Pass | Before CLI (ms) | After CLI (ms) | v133 CLI (ms) | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3524.430±16.371 | 3533.632±28.974 | 1110.311±1.031 | 3.183× | -1.226% |
+| dae2-optimizing | 6036.762±23.389 | 6028.618±23.550 | 2359.435±49.714 | 2.555× | -0.135% |
+| coalesce-locals | 3812.488±2.788 | 3815.997±18.325 | 1773.719±10.120 | 2.151× | +0.092% |
+| optimize-instructions | 2092.184±11.596 | 2106.633±5.772 | 938.518±22.487 | 2.245× | +0.649% |
+
+DAE2's median and paired statistic disagree within broad outliers; retain both.
+No universal wall-clock or peak-memory win is established. DAE2 RSS median
+increases 258,080→266,000 KiB, with overlapping ranges 245,132–266,012 and
+247,952–266,636 KiB; fewer allocation requests do not establish lower peak memory.
+The native executable grows by 160 bytes. Six native controls
+(ten batches) are scalar 145.31±8.46→146.62±0.46 ns, prefix32
+204.72±4.87→205.90±1.07 ns, and polymorphic 220.54±0.79→225.79±1.90 ns
+(mean±standard deviation). The roughly 5 ns polymorphic cost is retained;
+whole-consumer instruction/allocation savings do not erase that tradeoff.
+
+13,423 default wasm-gc tests, info/fmt/check/native build/API sync and six controls
+pass; no .mbti changes. Four fixed runtime lanes validate 804 artifacts
+and compare 2352 original/before/after/verified133 observations, including
+GC, mixed tuples, effects, exceptions, memory and traps. All four large raw hashes
+are exact. V83 and canonical gaps remain: DAE2-O still wins 9,949 raw bytes but
+loses 99,251 bounded canonical bytes. No new normalization claim is made.
+
+Current DAE2 inclusive ownership: lift 10.463b instructions/10,422 calls;
+dependency analysis 9.571b/8,354 including CFG 5.103b/7,926 and read sources
+1.975b/7,926; lowering 4.646b/2,468 and final module validation 3.089b/1.
+These are inclusive instructions, not milliseconds; nested scopes cannot be
+summed. Next work remains checked node access, CFG/source work, remaining
+2,925,466 private typecheck wrapper allocations and 2,822,691 pushed-container
+requests. Ownership and validation invariants remain mandatory.
+
+Manual source/native review only; no independent patch review. Full CI/coverage
+and long GenValid campaigns remain deferred during focused performance work.
+Validator/merge-blocks/OI ordering and untriaged audit failures still block release;
+this performance slice closes none of those defects or the 1× target.
+Exact commands, source/tool/input hashes, samples/spreads and runtime/profile
+artifacts: `.tmp/large-pass-hotspots-20261001/main-lift-data-performance-20261003.md`.

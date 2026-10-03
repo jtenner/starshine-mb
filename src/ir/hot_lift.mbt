@@ -2103,11 +2103,39 @@ fn hot_lift_impl_pushed_types(
 }
 
 ///|
+// Private immediate result: retain owned state/types while avoiding a tuple and
+// outer success box for every data instruction. Error details remain unchanged.
+#valtype
+priv struct HotLiftDataCheck {
+  state : TcState
+  pop_count : Int
+  pushed : Array[ValType]
+  error : HotLiftError?
+}
+
+///|
+fn HotLiftDataCheck::success(
+  state : TcState,
+  pop_count : Int,
+  pushed : Array[ValType],
+) -> HotLiftDataCheck {
+  { state, pop_count, pushed, error: None, }
+}
+
+///|
+fn HotLiftDataCheck::failure(
+  state : TcState,
+  error : HotLiftError,
+) -> HotLiftDataCheck {
+  { state, pop_count: 0, pushed: [], error: Some(error), }
+}
+
+///|
 fn hot_lift_impl_typecheck_data_instruction(
   instr : Instruction,
   tc_state : TcState,
   concrete_before_types? : Array[ValType] = [],
-) -> Result[(TcState, Int, Array[ValType]), HotLiftError] {
+) -> HotLiftDataCheck {
   // The region owns this stack. Known arity only needs its old length, so the
   // ordinary typechecker can consume it directly. Generic inference below
   // retains its snapshot because it replays suffix candidates.
@@ -2116,7 +2144,7 @@ fn hot_lift_impl_typecheck_data_instruction(
     Some(count) if count >= 0 && count <= before_count => {
       let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
         Ok(next) => next
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftDataCheck::failure(tc_state, err)
       }
       let pushed : Array[ValType] = []
       for index = before_count - count
@@ -2124,7 +2152,7 @@ fn hot_lift_impl_typecheck_data_instruction(
           index = index + 1 {
         pushed.push(after_state.stack[index])
       }
-      return Ok((after_state, count, pushed))
+      return HotLiftDataCheck::success(after_state, count, pushed)
     }
     _ => ()
   }
@@ -2133,16 +2161,14 @@ fn hot_lift_impl_typecheck_data_instruction(
   let typecheck_state = tc_state_with_stack(tc_state, before_types)
   let after_state = match hot_lift_impl_typecheck(instr, typecheck_state) {
     Ok(next) => next
-    Err(err) => return Err(err)
+    Err(err) => return HotLiftDataCheck::failure(tc_state, err)
   }
   match hot_lift_impl_known_pop_count(instr, tc_state.env) {
     Some(count) if count <= before_types.length() =>
-      Ok(
-        (
-          after_state,
-          count,
-          hot_lift_impl_pushed_types(before_types, after_state.stack, count),
-        ),
+      HotLiftDataCheck::success(
+        after_state,
+        count,
+        hot_lift_impl_pushed_types(before_types, after_state.stack, count),
       )
     _ =>
       match
@@ -2150,8 +2176,8 @@ fn hot_lift_impl_typecheck_data_instruction(
           instr, before_state, after_state, concrete_before_types,
         ) {
         Ok((child_count, pushed_types)) =>
-          Ok((after_state, child_count, pushed_types))
-        Err(err) => Err(err)
+          HotLiftDataCheck::success(after_state, child_count, pushed_types)
+        Err(err) => HotLiftDataCheck::failure(tc_state, err)
       }
   }
 }
@@ -3399,15 +3425,18 @@ fn hot_lift_impl_lift_instruction(
     _ => ()
   }
 
-  let (after_state, child_count, pushed_types) = match
-    hot_lift_impl_typecheck_data_instruction(
-      instr,
-      tc_state,
-      concrete_before_types=concrete_values,
-    ) {
-    Ok(resolved) => resolved
-    Err(err) => return Err(err)
+  let checked = hot_lift_impl_typecheck_data_instruction(
+    instr,
+    tc_state,
+    concrete_before_types=concrete_values,
+  )
+  match checked.error {
+    Some(err) => return Err(err)
+    None => ()
   }
+  let after_state = checked.state
+  let child_count = checked.pop_count
+  let pushed_types = checked.pushed
   if !hot_lift_impl_can_materialize_unreachable_instr(
       instr, tc_state, concrete_values, child_count,
     ) {
