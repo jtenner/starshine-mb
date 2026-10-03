@@ -2155,3 +2155,89 @@ Artifacts use prefix `oi-root-inline-`; baseline complete profile is
 `type-remap-oi-command-candidate.callgrind`. Inclusive construction tradeoffs are
 in `oi-root-inline-region-before.txt` / `oi-root-inline-region-after.txt` and
 `oi-root-inline-packed-array.c`.
+
+## October 3, 2026: avoid boxed LEB success in scalar leaves
+
+[encode.mbt](../../../../../src/binary/encode.mbt) now implements private
+nullable-error unsigned/signed LEB workers. Existing public/trait result
+contracts use adapters; only local.get/set/tee and i32/i64 constant leaves call
+the workers directly. Width/range/maximum-byte checks, arithmetic, write order
+and error precedence are identical. No new shortcut, feature or encoding policy.
+A source comparison proves both loops match the originals after name/result
+substitution; the production loops are shared, not duplicated.
+
+Frozen native baseline `f3167b004a35a3a957be17daa44a1c1a375df0766dbd74bd205de439c9d323d8`
+(main `88006ba8bb3a2bd68696a912d78394461059aa6f`) → candidate
+`fd2af4bd810eb82012d142c01566e2000aa5494b9d6a64eccf5947f820a034f8`.
+Same Ryzen 7 8845HS/CPU6, Moon0.1.20260920/GCC14.2/O2/mimalloc and
+6,211,596-byte input SHA
+`98189860f95b4eb8464794eb9fab5f9fd8d16942c63a6e31ed9175e7e791cbbd`.
+Verified Binaryen133 SHA
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+Build outside timing; full dirty state, commands and source/binary hashes saved.
+
+[Tests first](../../../../../src/binary/leb_scalar_error_wbtest.mbt): the new
+worker calls initially fail as unbound. The original native writer ends in an
+allocated success Result (four allocation sites including cold errors); the
+new private workers have zero allocation sites. Public result adapters retain
+boxing. Two passing contracts compare frozen old loops at every width1–64,
+unsigned maxima, signed extrema, invalid widths/ranges and unchanged buffer
+prefixes. Literal local/integer bytes and public encoder results are checked.
+The default suite also retains SIMD/GC, NaN payload and error-prefix coverage.
+
+Complete normally exited OI command20,123,390,213 →19,612,028,780 instructions
+(**−2.541130%**), requests74,767,577 →70,217,956 (**−4,549,621; −6.085019%**).
+All6,011,833 unsigned and975,957 signed writer calls remain. The five direct
+leaf consumers account for3,576,041 unsigned and973,580 signed calls.
+Remaining legacy adapter request edges are2,435,782 unsigned/2,377 signed;
+ten retained requests move into StartSec/DataCntSec caller attribution.
+No inferred byte/RSS saving. Native executable14,630,216 →14,630,352B (+136B).
+
+Eight [bounded controls](../../../../../src/binary/leb_scalar_error_perf_wbtest.mbt)
+include identical buffer creation/consumption and use **wasm-gc release**, not
+native helper clocks (10 batches, mean±SD ns): unsigned32 zero20.84±.11 →
+22.36±.13, unsigned32 max48.49±.14 →49.14±.27, signed32 negative21.09±.08 →
+19.85±.08, signed64 minimum66.35±.17 →68.45±.14. Retain the three costs; native
+complete consumer evidence above establishes the measured native benefit.
+
+One warmup, n5 alternating normal fresh-process CLI/warm filesystem, median±MAD
+**milliseconds**, builds/profiles excluded:
+
+| Pass | Before | After | Binaryen133 | S/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3339.242±39.877 | 3313.281±23.710 | 1096.232±2.554 | 3.022× | -0.662% |
+| dae2-optimizing | 5836.677±72.082 | 5780.838±50.110 | 2282.779±12.820 | 2.532× | -0.434% |
+| coalesce-locals | 3657.892±13.387 | 3645.230±7.059 | 1731.218±3.376 | 2.106× | -0.174% |
+| optimize-instructions | 2002.469±8.475 | 1982.797±4.916 | 898.648±1.376 | 2.206× | -1.400% |
+
+OI median saving19.673ms, paired−1.400%, corroborated by native instruction work.
+DAE2/O/CL command observations improve slightly, but only OI has a renewed full
+native profile for this unit; do not transfer its percentage to those passes.
+Foreign flags out of five (before/after/B): DAE21/2/1, DAE2-O4/2/1, CL1/1/1,
+OI0/1/0. Every row retained. Separate n1 traced inner diagnostics before→after:
+DAE23282.024→3985.821, DAE2-O4987.071→5007.268, CL3151.323→4362.543,
+OI79.954→79.039ms. The large contradictory DAE2/CL trace costs remain visible;
+these separately contended diagnostics are not matched Binaryen inner evidence
+or intrinsic regression/gain claims. No repeated trace campaign to smooth them.
+
+RSS medians before→after KiB: DAE2264920→264508, OO294456→294348,
+CL249376→249204, OI157108→157824. Ranges overlap; no peak-memory win.
+`moon info/fmt/check`, all13,443 default wasm-gc tests, eight controls, native
+release build and README/API sync pass.820 module validations/2400 fixed
+observations pass. Four large raw hashes stay exact; all earlier canonical/V83
+savings and remaining size gaps are preserved, not newly normalized. No API diff.
+
+Full CI/coverage/aggregate GenValid and independent review remain unclaimed;
+long fuzz is deferred by the user. No1× or release signoff. Remaining owners
+include2.436m unsigned adapter boxes,4.403m unsigned decoder requests, validator
+ownership and DAE2/CL dependency/lift/lower work. Native decoder inspection
+confirms its success tuple plus Result packaging; any private value-worker
+trial must preserve public contracts, EOF/width/terminal-bit/padded-LEB/error
+precedence and offset checks before measured opcode-consumer conversion.
+
+Local report, exact manifests/commands, frozen loops, RED/GREEN C, controls,
+full samples/spreads/RSS, runtime observations and complete OI profiles:
+`.tmp/large-pass-hotspots-20261001/main-leb-scalar-performance-20261003.md`.
+Artifacts use prefix `leb-scalar-`; matched baseline profile is
+`oi-root-inline-oi-command-candidate.callgrind`. Scalar signed/unsigned worker
+calls, legacy edges and all lifetime work are distinguished in the profile.

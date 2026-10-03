@@ -868,13 +868,25 @@ quality gates. Keep traced inner and normal command measurements separate.
   diagnostic; CL/plain DAE2 gain is unproved. All four output hashes are exact,
   13,297 default tests and 336 fixed execution observations pass.
   [Scope, controls and limits](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-2-2026-avoid-boxed-success-in-sequence-leaf-encoding).
-- [ ] Trial nullable-error unsigned/signed LEB workers in measured leaf consumers:
-  Native11e04de3… and f3167b00… OI both attribute6,011,833/975,957 requests
-  to these encoders; actual C confirms boxed success. Root storage is separate.
-  Preserve public adapters, every width/range/limit/error and write order;
-  prove native removal with byte-prefix/extrema/error controls, then all4
-  raw hashes/runtime fixtures and complete command profiles. No guessed byte
-  or RSS gain. [Source-backed leads](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-build-zero-operand-lift-nodes-without-a-default-child-row).
+- **Completed scalar LEB pilot:** nativef3167b00…→fd2af4bd… shares nullable
+  workers with unchanged public adapters/checks. Five local/integer leaves
+  remove4,549,621 OI requests; all6,011,833/975,957 writer calls remain.
+  Complete OI work−2.541%, command2002.469→1982.797ms/B898.648ms (2.206×,
+  n5, paired−1.400%). Tiny wasm-gc costs and contradictory DAE2/CL traces
+  remain; no extrapolated pass-local or peak-memory win.13,443 tests/2400
+  observations and exact outputs/API pass. Do not repeat the worker pilot.
+  [Full scope and four-pass checkpoint](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-3-2026-avoid-boxed-leb-success-in-scalar-leaves).
+- [ ] Attribute and reduce remaining unsigned public-adapter packaging only
+  in measured private consumers: fd2af4bd… retains2,435,782 unsigned/2,377
+  signed request edges. Preserve recursive/nonstandard type-index rejection,
+  proposal-specific immediates, every width/range/limit/error and prefix order;
+  keep public Result boundaries. Verify native elimination and all4 consumers.
+- [ ] Trial private value results for unsigned decoding after ownership/count
+  attribution: current OI4,402,894 requests; native success allocates tuple
+  and Result. Preserve public results, offsets, EOF/error precedence, width,
+  maximum-byte/unused-terminal-bit and permitted padded LEB admission. Add
+  truncated/noncanonical/invalid/cold controls before conversion; no cache,
+  widened admission or API/IR replacement. Preserve exact Float/GC bytes.
 - [ ] Renew quiet CL/plain DAE2 controls and profile remaining unsigned/signed
   immediate result boxing, declaration-validation scans and stack iterator
   churn. Keep every LEB width/range/error check, exact NaN bits, complete

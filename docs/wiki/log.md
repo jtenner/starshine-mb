@@ -25905,3 +25905,14 @@ arrays/typecheck wrappers from the completed return packaging change.
   observations and exact bytes/API pass. No gain attributed to DAE2/O or CL;
   renewed ratios3.031/2.465/2.119× and all byte/correctness/release gates remain.
   Next are measured LEB successes; no fuzz, verification removal or1× claim.
+
+### 2026-10-03 — Scalar LEB nullable success workers
+
+- [Shared loops, byte/error contracts and measured consumers](binaryen/passes/optimize-instructions/starshine-strategy.md#october-3-2026-avoid-boxed-leb-success-in-scalar-leaves)
+  remove4,549,621 requests/2.541% complete OI instructions with every writer
+  call retained. OI2002.469→1982.797ms/B898.648ms (2.206×, n5);13,443 tests/
+  2400 observations and exact bytes/API pass. Public adapters, tiny wasm-gc
+  costs, contradictory DAE2/CL traces, overlapping RSS and+136B executable
+  remain. No transferred profile gain or1×/release claim. Next measured owners
+  are remaining adapter and decoder packaging, plus validator/DAE2/CL work;
+  full/coverage/aggregate gates and all byte/correctness blockers stay open.

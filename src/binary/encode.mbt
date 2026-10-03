@@ -564,13 +564,37 @@ fn encode_unsigned(
   buf : @buffer.Buffer,
   nbits : Int,
 ) -> Result[Unit, BinaryEncodeError] {
+  match encode_unsigned_error(val, buf, nbits) {
+    None => Ok(())
+    Some(error) => Err(error)
+  }
+}
+
+///|
+fn encode_signed(
+  val : Int64,
+  buf : @buffer.Buffer,
+  nbits : Int,
+) -> Result[Unit, BinaryEncodeError] {
+  match encode_signed_error(val, buf, nbits) {
+    None => Ok(())
+    Some(error) => Err(error)
+  }
+}
+
+///|
+fn encode_unsigned_error(
+  val : UInt64,
+  buf : @buffer.Buffer,
+  nbits : Int,
+) -> BinaryEncodeError? {
   if nbits <= 0 || nbits > 64 {
-    return Err(BinaryEncodeError::InvalidUnsignedLebBitWidth)
+    return Some(BinaryEncodeError::InvalidUnsignedLebBitWidth)
   }
   if nbits < 64 {
     let max = (1UL << nbits) - 1UL
     if val > max {
-      return Err(BinaryEncodeError::UnsignedLebValueOutOfRange)
+      return Some(BinaryEncodeError::UnsignedLebValueOutOfRange)
     }
   }
   let max_bytes = max_leb_bytes(nbits)
@@ -578,7 +602,7 @@ fn encode_unsigned(
   let mut count = 0
   while true {
     if count >= max_bytes {
-      return Err(BinaryEncodeError::UnsignedLebExceedsMaxByteLimit)
+      return Some(BinaryEncodeError::UnsignedLebExceedsMaxByteLimit)
     }
     let payload = x & 0x7fUL
     x = x >> 7
@@ -589,23 +613,23 @@ fn encode_unsigned(
       break
     }
   }
-  Ok(())
+  None
 }
 
 ///|
-fn encode_signed(
+fn encode_signed_error(
   val : Int64,
   buf : @buffer.Buffer,
   nbits : Int,
-) -> Result[Unit, BinaryEncodeError] {
+) -> BinaryEncodeError? {
   if nbits <= 0 || nbits > 64 {
-    return Err(BinaryEncodeError::InvalidSignedLebBitWidth)
+    return Some(BinaryEncodeError::InvalidSignedLebBitWidth)
   }
   if nbits < 64 {
     let min = -1L << (nbits - 1)
     let max = (1L << (nbits - 1)) - 1
     if val < min || val > max {
-      return Err(BinaryEncodeError::SignedLebValueOutOfRange)
+      return Some(BinaryEncodeError::SignedLebValueOutOfRange)
     }
   }
   let max_bytes = max_leb_bytes(nbits)
@@ -613,7 +637,7 @@ fn encode_signed(
   let mut count = 0
   while true {
     if count >= max_bytes {
-      return Err(BinaryEncodeError::SignedLebExceedsMaxByteLimit)
+      return Some(BinaryEncodeError::SignedLebExceedsMaxByteLimit)
     }
     let payload_u = (x & 0x7f).reinterpret_as_uint64()
     let sign_bit = (payload_u & 0x40UL) != 0UL
@@ -626,7 +650,7 @@ fn encode_signed(
       break
     }
   }
-  Ok(())
+  None
 }
 
 ///|
@@ -2364,19 +2388,22 @@ fn encode_leaf_instruction_error(
     }
     LocalGet(l) => {
       buf.write_byte(0x20)
-      if Encode::encode(l, buf) is Err(t) {
+      let LocalIdx(index) = l
+      if encode_unsigned_error(index.to_uint64(), buf, 32) is Some(t) {
         return Some(t)
       }
     }
     LocalSet(l) => {
       buf.write_byte(0x21)
-      if Encode::encode(l, buf) is Err(t) {
+      let LocalIdx(index) = l
+      if encode_unsigned_error(index.to_uint64(), buf, 32) is Some(t) {
         return Some(t)
       }
     }
     LocalTee(l) => {
       buf.write_byte(0x22)
-      if Encode::encode(l, buf) is Err(t) {
+      let LocalIdx(index) = l
+      if encode_unsigned_error(index.to_uint64(), buf, 32) is Some(t) {
         return Some(t)
       }
     }
@@ -2716,13 +2743,15 @@ fn encode_leaf_instruction_error(
     }
     I32Const(c) => {
       buf.write_byte(0x41)
-      if Encode::encode(c, buf) is Err(t) {
+      let I32(value) = c
+      if encode_signed_error(value.to_int64(), buf, 32) is Some(t) {
         return Some(t)
       }
     }
     I64Const(c) => {
       buf.write_byte(0x42)
-      if Encode::encode(c, buf) is Err(t) {
+      let I64(value) = c
+      if encode_signed_error(value, buf, 64) is Some(t) {
         return Some(t)
       }
     }
