@@ -7161,3 +7161,99 @@ patch review, full CI/coverage and long GenValid signoff remain outstanding.
 The known validator/merge-blocks/OI ordering defects still block release.
 The 1× target is not met. Exact manifests, commands and samples:
 `.tmp/large-pass-hotspots-20261001/main-lift-scalar-performance-20261003.md`.
+
+## October 3, 2026: Keep validation state across typed operand pops
+
+`TcState::pop_expect` already mutates the owned stack and returns the identical
+state on success; it never replaces environment, reachability, escape state or
+local initialization. Its private `pop_expect_error` worker now returns only a
+nullable error. Existing Result consumers retain an adapter. Reverse signature
+pops and unary/binary typechecks keep their state and call the worker directly,
+removing intermediate success wrappers while retaining final Result contracts.
+Every original underflow/subtype/bottom test, pop order and first-error exit
+remains. This is not the previously rejected inlining/unused-parameter trial.
+Source: [typecheck](../../../../../src/validate/typecheck.mbt).
+
+The native boundary regression fails before implementation: reverse pops,
+unary and binary consumers call the boxed pop once/once/twice. Correctness
+regressions preserve state identity, untouched environment/control/local
+metadata, prefix ownership, partial consumption on mismatch/underflow, virtual
+bottom versus concrete unreachable operands, and GC subtype matching. Three
+new contracts and three existing reverse-pop tests pass before/after; the
+initial expected error capitalization was corrected to the existing uppercase
+format before applying the implementation, not classified as a product defect.
+Sources: [contracts](../../../../../src/validate/typed_pop_wbtest.mbt),
+[reverse-pop coverage](../../../../../src/validate/tc_reverse_types_wbtest.mbt)
+and [ten native controls](../../../../../src/validate/typed_pop_perf_wbtest.mbt).
+
+Ten native controls (ten batches×100000), mean±SD nanoseconds:
+empty14.97±.07→14.69±.04; width32 338.14±.73→223.86±1.13;
+two GC references50.43±.16→42.34±.21; invalid124.12±.33→118.72±2.50;
+two scalars34.86±.26→27.15±.12. Both reference and current paths refill the
+same-sized stacks in timing. Frozen reference retains the old Result boundary;
+error text, stack and reachability are compared outside timing. Empty overhead
+is effectively flat; these controls do not establish whole-pass gains.
+
+Complete normally exited DAE2 module-pass profiles on base **394256e08**,
+frozen native **e49a80b5…→a167be6a…**, retain the same output hash:
+
+- Instructions **31,593,019,927→31,455,066,883 (−0.436657%)**.
+- Allocations **86,233,646→83,304,937**, **2,928,709 fewer**.
+- All **5,654,980** typed operand checks remain. The direct consumers account
+  for **1,571,807** reverse-signature, **1,340,003** binary and **30,102** unary
+  worker calls; the remaining adapter still receives **2,713,068** calls.
+- Old pop adapter allocator requests **5,641,787→2,713,068**; the new error
+  worker has **10** attributed allocations on error paths. The difference is
+  not inferred from invocation counts. Native C has no direct worker allocator
+  site and returns nullable `moonbit_string_t`; error formatting can allocate.
+- Inclusive lift instructions **9,268,390,416→9,194,916,767**, **10,422** calls.
+  Counts are requests, not allocation bytes or RSS. The executable shrinks48B.
+
+Normal timing uses release native O2/mimalloc, CPU6/Ryzen7 8845HS,
+6,211,596-byte input, verified v133, n5 after one warmup, rotating
+before/after/oracle commands. Commands start fresh with a warm filesystem;
+no build/profile/tracing time is mixed into these milliseconds. Foreign
+activity is present throughout. OO's oracle is `--dae2 --simplify-locals --vacuum`.
+
+| Pass | Before CLI ms median±MAD [min,max] | After CLI ms median±MAD [min,max] | Binaryen133 ms median±MAD [min,max] | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3806.707±81.646 [3716.323,3905.095] | 3714.480±20.465 [3677.913,3817.478] | 1226.664±38.299 [1183.663,1286.450] | 3.028× | -2.244% |
+| dae2-optimizing | 6378.697±9.104 [6364.815,6546.889] | 6446.464±64.843 [6311.428,6511.307] | 2424.103±2.495 [2409.052,2463.202] | 2.659× | +1.062% |
+| coalesce-locals | 4076.733±18.430 [4058.302,4277.824] | 4104.785±52.452 [4016.339,4201.829] | 1923.455±15.406 [1904.696,1943.073] | 2.134× | -0.116% |
+| optimize-instructions | 2273.506±8.423 [2263.946,2304.261] | 2288.174±36.049 [2252.125,2424.081] | 973.694±8.860 [964.834,990.172] | 2.350× | +0.581% |
+
+Separate traced inner diagnostics (n1, ms; not normal CLI samples):
+dae2: before 2931.191, after 2950.523
+dae2-optimizing: before 5799.438, after 5615.831
+coalesce-locals: before 3092.17, after 3081.568
+optimize-instructions: before 86.473, after 84.05
+
+Peak RSS KiB:
+dae2: before {'median': 266780, 'mad': 604, 'min': 266136, 'max': 267776, 'samples': 5}, after {'median': 265584, 'mad': 832, 'min': 246244, 'max': 266416, 'samples': 5}
+dae2-optimizing: before {'median': 294392, 'mad': 100, 'min': 294180, 'max': 294528, 'samples': 5}, after {'median': 294324, 'mad': 152, 'min': 294172, 'max': 294520, 'samples': 5}
+coalesce-locals: before {'median': 244648, 'mad': 200, 'min': 243996, 'max': 244920, 'samples': 5}, after {'median': 244624, 'mad': 204, 'min': 244108, 'max': 244828, 'samples': 5}
+optimize-instructions: before {'median': 157864, 'mad': 1024, 'min': 156272, 'max': 158888, 'samples': 5}, after {'median': 157224, 'mad': 1040, 'min': 155664, 'max': 158672, 'samples': 5}
+
+DAE2 paired CLI improves2.244%, OO regresses1.062%, CL is flat(-.116%) and
+OI moves+.581%. DAE2/OO's single traced samples move oppositely. This proves
+lower work/allocation cost, not a consistent command-time win; the OO/OI
+clock movements remain open rather than being discarded or resampled away.
+RSS ranges overlap and do not establish a peak-memory improvement. DAE2 work
+counts are not new CL/OI allocation measurements.
+
+13,431 default wasm-gc tests, info/fmt/check/native release build/API sync,
+six focused contracts and ten controls pass; no .mbti changes. Four fixed
+50-fixture lanes validate820 artifacts and match2400 original/before/after/v133
+observations with all four large raw hashes exact. The runtime driver initially
+referenced a renamed fixture file; it was corrected to the existing fixture and
+resumed without rerunning completed timing. Both initial and resumed logs are
+retained. This was a harness path failure, not a runtime mismatch.
+
+Raw and bounded canonical sizes are preserved, not renormalized: OO+99,251B
+canonical despite−9,949B raw; CL/SL/OI deficits78,800/373,507/33,497B remain.
+Next work is the measured private lift adapter and remaining typed-pop consumers,
+then larger CFG/source analysis owners. No tests, checks, coverage thresholds or
+optimization work were removed. Manual review only; independent review, full
+CI/coverage and long GenValid signoff remain outstanding. Known validator,
+merge-blocks and OI ordering failures still block release; 1× is not met.
+Exact evidence: `.tmp/large-pass-hotspots-20261001/main-typed-pop-performance-20261003.md`.

@@ -25841,3 +25841,11 @@ arrays/typecheck wrappers from the completed return packaging change.
   allocations and3.64% instructions. Paired DAE2/O commands−1.3/−1.4%; CL/OI
   flat under foreign activity.13,428 tests/2400 observations pass, exact bytes.
   Multi/error helper costs, overlapping RSS and all release/1× gaps remain.
+
+### 2026-10-03 — Keep validation state across typed pops
+
+- [Native boundary and contract evidence](binaryen/passes/dae2/starshine-strategy.md#october-3-2026-keep-validation-state-across-typed-operand-pops)
+  remove2.929m allocations and.437% complete DAE2 instructions with all checks
+  retained.13,431 tests/2400 observations pass, exact bytes/API. Normal commands
+  remain mixed, including OO+1.062%; no universal clock or memory win. Preserve
+  those costs and known release blockers; continue private lift-result work.

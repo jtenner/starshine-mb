@@ -1605,3 +1605,12 @@ foreign activity and opposite n1 traced movement remain explicit. Median RSS
 244676→244636KiB with overlapping ranges. DAE2's measured5.011m allocation
 reduction is not a CL allocation measurement. 2400 fixed four-pass observations
 agree; canonical +78,800B and command-time parity remain open.
+
+## October 3, 2026: shared typed-pop success storage
+
+[Validator worker evidence](../dae2/starshine-strategy.md#october-3-2026-keep-validation-state-across-typed-operand-pops)
+preserves all CL checks and bytes. Normal CPU6 n5 medians4076.733→4104.785ms,
+v1331923.455ms; paired−.116% and overlapping RSS are effectively flat under
+foreign activity. Complete DAE2 allocation savings are not CL measurements.
+All2400 four-pass observations agree. Keep CL's canonical+78,800B and speed gap
+open; the next measured owner is lift result wrapping.

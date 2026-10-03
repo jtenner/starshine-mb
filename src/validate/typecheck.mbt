@@ -275,21 +275,31 @@ fn TcState::pop_expect(
   operand_pairs? : Array[Int]? = None,
 ) -> TcResult {
   ignore(operand_pairs)
+  match st.pop_expect_error(expected) {
+    Some(error) => Err(error)
+    None => Ok(st)
+  }
+}
+
+///|
+// Success always retains this state and mutates only its owned operand stack.
+// Internal consumers can keep the state without allocating Ok per operand.
+fn TcState::pop_expect_error(st : TcState, expected : ValType) -> String? {
   // The stack is already owned and mutated by pop1. Check its popped value
   // directly so typed operands do not allocate an intermediate state/value pair.
   let actual = match st.stack.pop() {
     Some(value) => value
     None =>
       if !st.reachable {
-        return Ok(st)
+        return None
       } else {
-        return Err("stack underflow")
+        return Some("stack underflow")
       }
   }
   if actual == ValType::bottom() || Match::matches(actual, expected, st.env) {
-    Ok(st)
+    None
   } else {
-    Err("type mismatch: expected=\{expected} actual=\{actual}")
+    Some("type mismatch: expected=\{expected} actual=\{actual}")
   }
 }
 
@@ -311,14 +321,12 @@ fn TcState::push_types(st : TcState, ts : Array[ValType]) -> TcState {
 
 ///|
 fn TcState::pop_types(st : TcState, ts : Array[ValType]) -> TcResult {
-  let mut cur = st
   for i = ts.length() - 1; i >= 0; i = i - 1 {
-    cur = match cur.pop_expect(ts[i]) {
-      Err(e) => return Err(e)
-      Ok(s) => s
+    if st.pop_expect_error(ts[i]) is Some(error) {
+      return Err(error)
     }
   }
-  Ok(cur)
+  Ok(st)
 }
 
 ///|
@@ -439,11 +447,9 @@ fn TcState::mem_at_of(st : TcState, mem : MemIdx) -> Result[ValType, String] {
 
 ///|
 fn pop_types_rev(st : TcState, ts : Array[ValType]) -> TcResult {
-  let mut st = st
   for i = ts.length() - 1; i >= 0; i = i - 1 {
-    st = match st.pop_expect(ts[i]) {
-      Err(t) => return Err(t)
-      Ok(t) => t
+    if st.pop_expect_error(ts[i]) is Some(error) {
+      return Err(error)
     }
   }
   Ok(st)
@@ -2904,24 +2910,21 @@ fn typecheck_struct_set(st : TcState, x : TypeIdx, i : U32) -> TcResult {
 
 ///|
 fn typecheck_unary(st : TcState, t_in : ValType, t_out : ValType) -> TcResult {
-  let st1 = match st.pop_expect(t_in) {
-    Err(e) => return Err(e)
-    Ok(s) => s
+  if st.pop_expect_error(t_in) is Some(error) {
+    return Err(error)
   }
-  Ok(st1.push1(t_out))
+  Ok(st.push1(t_out))
 }
 
 ///|
 fn typecheck_binary(st : TcState, t : ValType, out : ValType) -> TcResult {
-  let st1 = match st.pop_expect(t) {
-    Err(e) => return Err(e)
-    Ok(s) => s
+  if st.pop_expect_error(t) is Some(error) {
+    return Err(error)
   }
-  let st2 = match st1.pop_expect(t) {
-    Err(e) => return Err(e)
-    Ok(s) => s
+  if st.pop_expect_error(t) is Some(error) {
+    return Err(error)
   }
-  Ok(st2.push1(out))
+  Ok(st.push1(out))
 }
 
 ///|

@@ -26,26 +26,26 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** borrowed scalar lift storage,
-  main 8e2106157/native e84e9ce8…→e49a80b5…. Complete DAE2 instructions
-  −3.640210%, allocations −5,011,185; identical data-check calls and bytes.
+- **Latest matched large checkpoint:** typed-pop success storage,
+  main394256e08/native e49a80b5…→a167be6a…. Complete DAE2 instructions−.436657%,
+  allocations−2,928,709; all5,654,980 checks and four large raw hashes retained.
   CPU6 n5/warmup1 CLI medians±MAD (milliseconds):
-  dae2 3729.058±15.841/B1207.932±18.182;
-  dae2-optimizing 6432.517±25.225/B2443.735±12.309;
-  coalesce-locals 4082.557±62.386/B1923.753±13.087;
-  optimize-instructions 2272.608±14.873/B1002.980±3.014.
-  Paired DAE2/O−1.288/−1.397%, CL/OI−.003/+.252%; foreign activity,
-  opposite traced samples and multi/error helper costs remain explicit.
-  13,428 tests, ten controls, 2400 observations and four exact hashes pass.
-  [Scopes, spreads and tradeoffs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-borrow-scalar-lift-result-storage).
+  dae2 3714.480±20.465/B1226.664±38.299;
+  dae2-optimizing 6446.464±64.843/B2424.103±2.495;
+  coalesce-locals 4104.785±52.452/B1923.455±15.406;
+  optimize-instructions 2288.174±36.049/B973.694±8.860.
+  Paired DAE2/O−2.244/+1.062%, CL/OI−.116/+.581%; foreign activity and opposite
+  traced movements remain explicit.13,431 tests/2400 observations pass.
+  Allocation/work savings do not establish a consistent command-speed win.
+  [Spreads, native proof and limits](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-keep-validation-state-across-typed-operand-pops).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Current DAE2 cost ownership:** native e49a80b5… complete pass31.593b
-  instructions. Inclusive lift9.268b/10,422 calls; dependency analysis9.571b/8,354,
-  containing CFG5.103b/7,926, read sources1.975b/7,926 and entry proof.790b/8,187.
-  Lowering4.646b/2,468 and mandatory final validation3.089b/1 remain. These are
+- **Current DAE2 cost ownership:** native a167be6a… complete pass31.455b
+  instructions. Inclusive lift9.195b/10,422 calls; dependency analysis9.571b/8,354,
+  containing CFG5.102b/7,926, read sources1.975b/7,926 and entry proof.790b/8,187.
+  Lowering4.645b/2,468 and mandatory final validation3.032b/1 remain. These are
   instruction scopes, not time; do not sum nested owners. Prioritize result/array
   churn and repeated dependency work before speculative whole-arena retention.
 - **Preserved quality and completed work:** V83 saves 79,962 canonical bytes
@@ -767,14 +767,14 @@ quality gates. Keep traced inner and normal command measurements separate.
   diff; native representation changes and cross-package consumers are rebuilt.
   [Measured complete consumers](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-scalar-cfg-edge-storage) preserve graph counts/output bytes.
   Do not repeat this allocation trial or infer a universal RSS/clock win.
-- [ ] Eliminate typed-pop result allocations only after proving an actual native
-  boundary reduction. October 3's annotation-only and unused optional-counter
-  removal trials both retained the boxed boundaries and were reverted. The
-  exact CFG checkpoint records5,641,787 direct allocator calls in pop_expect
-  during complete DAE2, rather than treating 5,654,980 invocations as allocations.
-  Preserve subtype/type/underflow/unreachable checks, stack consumption and
-  error behavior. Require complete-consumer work, bytes, code-size and RSS
-  evidence; do not repeat either rejected trial or reduce verification.
+- [ ] Reduce remaining typed-pop consumer wrappers after the measured error-only
+  worker removes2,928,709 requests. Reverse signature and unary/binary consumers
+  are complete;2,713,068 adapter calls remain in local writes, loads/stores,
+  controls and other consumers. Preserve state identity, pop/error ordering,
+  subtype/bottom/unreachable rules and final Result contracts. Measure complete
+  consumers and cold paths; retain current OO/OI+1.062/+.581% paired clock
+  movements as unresolved. The earlier annotation-only
+  and unused-parameter trials remain rejected. [Actual native boundary proof](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-keep-validation-state-across-typed-operand-pops).
 - **Completed declaration success storage:** the private walker now returns
   a nullable error; external Result contracts and all validation remain. Complete
   DAE2 and OI-command evidence is in the [current checkpoint](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-allocation-free-declaration-scan-success).
