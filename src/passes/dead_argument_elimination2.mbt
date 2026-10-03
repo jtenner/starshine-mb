@@ -1852,3 +1852,21 @@ test "dae2 value CFG edges preserve GC loop and exception dependencies" {
   )
   assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
+
+///|
+test "dae2 typed pop boundaries preserve numeric SIMD and reference operands" {
+  let input = pass_test_module_from_wat(
+    "(module (type $s (struct (field i32))) (import \"host\" \"f\" (func $f (param i32) (result i32))) (table 1 anyref) (func $callee (param i32 i32) (result i32) local.get 0) (func (export \"run\") (param i32) (result i32) i32.const 0 local.get 0 struct.new $s table.set 0 local.get 0 call $f i64.extend_i32_s i64.const 7 i64.add i32.wrap_i64 i32.const 0 table.get 0 ref.is_null local.get 0 i32.add i32.add local.get 0 i32x4.splat v128.const i32x4 1 1 1 1 v128.xor i32x4.extract_lane 0 i32.add i32.const 99 call $callee))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  let output = dae2_run_module_pass(input, false).unwrap()
+  @validate.validate_module(output).unwrap()
+  assert_eq(
+    @ir.hot_module_resolve_func_type(
+      @ir.hot_module_context_from_module(output),
+      @lib.FuncIdx::new(1U),
+    ),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+  )
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}

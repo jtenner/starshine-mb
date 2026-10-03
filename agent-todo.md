@@ -19,27 +19,26 @@ oracle versions and checkpoints do not sign current source.
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
+- **Correctness takes release priority:** the independent October 3 baseline
+  audit has reproduced validator, DAE and OI failures. Keep performance patches
+  isolated and preserve their evidence; do not treat existing passing tests or
+  unchanged output hashes as release signoff. See P00 below before publication.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** immutable scalar CFG edge storage,
-  main3631c1d0c/nativedbbaefbe…→43feef6e…. CPU6 normal n5 alternating,
-  warmup1, median±MADms: DAE24437.228±267.521/B1382.867±140.725 (3.209×),
-  OO7184.540±270.244/B2567.837±43.839 (2.798×),
-  CL4311.431±54.395/B1947.387±23.953 (2.214×),
-  OI2424.382±13.781/B981.942±9.450 (2.469×).
-  All rows flag foreign activity; OO before outliers11.142/14.075s prevent
-  attributing its observed paired−22.979% to this change. D2/CL/OI paired
-  −1.940/−1.157/−.263%; no quiet1× or general command-speed signoff.
-  Complete matched DAE2 instructions34.609136b→34.301861b (−.887845%),
-  CL40.822717b→40.482683b (−.832954%). All729911/479079 edge-builder
-  invocations remain; separate edge-record allocations fall2→0 per invocation.
-  This removes1,459,822/958,158 record requests (23,357,152/15,330,528 requested
-  bytes), excluding backing arrays, allocator overhead and net whole-module/RSS.
-  13,395 behavior tests/10 controls/756 runtime modules/2208 observations pass;
-  all four raw hashes and V83 savings remain. RSS modes/tiny empty-row+.75ns,
-  canonical OO+99,251B, other quality and release gates remain open.
-  [Source, scopes and exact evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-scalar-cfg-edge-storage).
+- **Latest matched large checkpoint:** indexed reverse signature validation,
+  main 3d46f7e52/native 43feef6e…→8bfe3761…. Complete matched DAE2/CL
+  instructions−2.070902/−1.176357%, direct allocation calls−5,634,510/−4,331,346,
+  with all 5,654,980/4,146,538 typed-pop checks and all four output hashes retained.
+  Normal CPU6 n5 first medians(ms): DAE2 10046.601/B2302.340,
+  OO12274.750/B3953.546, CL5348.326/B2323.327, OI2890.100/B1156.685,
+  all heavily contended. Preserve that cohort and its regressions. Justified n3
+  DAE2/OI repeats:4762.781±26.670/B1425.710±14.176 (3.341×),
+  2825.212±17.848/B1151.825±10.469 (2.453×); paired+.430/−1.874%.
+  No general CLI or peak-RSS win and no 1× signoff.13,403 default tests,
+  3 focused native tests,10+2 controls,772 runtime validations/2256 observations
+  pass. V83 savings/canonical OO+99,251B and all other quality/release gates
+  remain. [Source, all spreads/scopes and rejected trials](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-indexed-reverse-signature-validation).
 - **Confirmed DAE2 attribution on native6e22→d08c:** complete matched
   module work34,604,264,255→34,604,091,968 (−.000498%), effectively unchanged.
   The lift-band fix helps CL and does not establish DAE2 throughput gains.
@@ -313,6 +312,36 @@ validation and OI envelope; keep canonical OO+99,251B, ≈138MiB excess,
 plain/CL RSS modes and the1× pass target active. Named n3 inner scopes remain
 separate from normal commands and differ in surrounding work.
 [Full spread, scope and exact source](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-direct-result-stack-checkpoint).
+
+### P00 — Correctness blockers from the October 3 baseline audit [IR2-RELEASE-CORRECTNESS]
+
+- **Goal / why:** restore validation and observable behavior before release;
+  baseline 3d46f7e52 and iterator candidate 8bfe3761 reproduce the same failures.
+- **Source / owner:** [reduced cases and classifications](docs/wiki/tooling/validation-gates.md#october-3-2026-reproduced-baseline-correctness-blockers);
+  local author-owned `claude_review_10_3_6.md` contains the broader 26-item audit.
+  Preserve the author's untracked report and check active repair ownership.
+- [ ] Repair control-frame validation after nested unreachable code: missing,
+  extra and wrong-typed values are accepted by Starshine but rejected by
+  wasm-tools/Node. Review runtime escape versus frame-polymorphism invariants.
+- [ ] Repair merge-blocks invalid carried-value/drop output (reproduced). Triage
+  reported code-folding/vacuum/DAE2/DAE2-O invalid-output families and DAE2
+  rewritten-module aborts (#2–4); obtain the review's reduced d93r artifact.
+- [ ] Repair DAE branch-value parameter reads (reproduced 1→0); triage the
+  related reported constant-argument materialization loss (#5–6).
+- [ ] Repair OI effect ordering around intervening local.set/select (reproduced
+  [1,2]→[2,1]); triage SL/notee/inlining-optimizing ordering (#7–8).
+- [ ] Triage remaining reported precompute/SGO semantic errors (#9–11), native
+  aborts (#12/#26), legacy rethrow validation (#13), CLI parse exit status (#14),
+  EH/CFG/scanner/SSA/merge-locals failures (#15–19/#22/#24), and nested control
+  operand/return movement or invalid result shapes (#20–21/#23/#25). These
+  families are reported, not yet independently replayed in this campaign.
+- **APIs / invariants / dependencies:** existing validator, CFG, scanner, HOT
+  lift/lower and raw-pass contracts; preserve checks, frame types, branch-value
+  reads, effect/trap order and exception edges. No admission or coverage waiver.
+- **Deliverables / tests / exit:** focused failing regressions, minimal repairs,
+  valid wasm and original/Starshine/verified133 execution agreement, plus required
+  affected-suite checks. Classify every report and keep unresolved failures
+  visible; performance and canonical-size parity do not close semantic defects.
 
 ### P01 — Write-heavy propagation state [IR2-PERF-PC-FLOW]
 
@@ -948,14 +977,28 @@ separate from normal commands and differ in surrounding work.
   diff; native representation changes and cross-package consumers are rebuilt.
   [Measured complete consumers](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-scalar-cfg-edge-storage) preserve graph counts/output bytes.
   Do not repeat this allocation trial or infer a universal RSS/clock win.
-- [ ] Trial eliminating immediately matched typed-pop result boundaries.
-  Non-inline TcState.pop_expect builds a boxed Ok(state) on its native success
-  path; the earlier complete DAE2 snapshot has5,654,980 inner calls, not a new
-  dynamic allocation-byte measurement. Confirm success-path allocation removal
-  in numeric/reference/SIMD/local consumers before accepting an inline trial.
-  Retain all subtype/type/underflow/unreachable checks, stack consumption and
-  error behavior; measure faithful boxed-reference controls, complete DAE2/O/
-  CL/OI work, code size, RSS and bytes. No validation or coverage reduction.
+- [ ] Eliminate typed-pop result allocations only after proving an actual native
+  boundary reduction. October 3's annotation-only and unused optional-counter
+  removal trials both retained the boxed boundaries and were reverted. The
+  exact CFG checkpoint records5,641,787 direct allocator calls in pop_expect
+  during complete DAE2, rather than treating 5,654,980 invocations as allocations.
+  Preserve subtype/type/underflow/unreachable checks, stack consumption and
+  error behavior. Require complete-consumer work, bytes, code-size and RSS
+  evidence; do not repeat either rejected trial or reduce verification.
+- [ ] Remove per-instruction success boxes from the private reference-declaration
+  walker if a nullable-error worker proves cheaper. Current native C allocates
+  Result[Unit,String].Ok on leaf/control success; complete DAE2 attributes
+  4,948,080 direct allocator calls across all walker recursion contexts, zero
+  in the CL module-pass scope. Preserve every
+  declaration check/traversal and first-error order, with the external Result
+  contract unchanged. Require native-path, nested/invalid declaration tests and
+  enclosing work/clock/output evidence before accepting the representation.
+- [ ] Trial inline value storage for the private lift direct-node shape tuple.
+  Its four fields are scalar; the exact CFG checkpoint attributes 2,713,153
+  direct allocator calls to that factory in complete DAE2. Check every immediate
+  mapping, constant/call-signature payload identity and active consumers before
+  accepting a representation change. These counts alone do not establish a
+  speedup or whole-module allocation-byte saving.
 - [ ] Measure the checked HotNode return boundary: the earlier snapshot's
   getter-exclusive1.482b instructions includes a full32-byte native return.
   Test compiler inlining/scalar use with every range/deleted/incomplete fallback

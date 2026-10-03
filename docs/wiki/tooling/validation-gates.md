@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-10-03
 sources:
   - https://nodejs.org/api/wasi.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
@@ -250,3 +250,65 @@ Practical rules:
 - Command-shape tests: [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts)
 - Package and workspace metadata: [`../../../package.json`](../../../package.json), [`../../../moon.mod`](../../../moon.mod), [`./moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md)
 - Related workflow pages: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md), [`./release-process.md`](release-process.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./pass-fuzz-compare.md`](./pass-fuzz-compare.md), [`./tracing-playbook.md`](./tracing-playbook.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md)
+
+
+## October 3, 2026: reproduced baseline correctness blockers
+
+A separate local review of commit 3d46f7e52 (`claude_review_10_3_6.md`, maintained
+by its author and not included here) reports 26 issues. It is not an independent
+review of the in-flight performance patches. Focused replay confirms the
+following on both native 43feef6e and iterator candidate 8bfe3761, with identical
+before/after bytes. These are **release blockers**, despite 13,403 passing default
+tests and the passing bounded performance-fixture runtime matrix.
+
+- **Validation failure:** merge-blocks produces a module rejected by wasm-tools;
+  Starshine exits 0 and its explicit `--validate` also accepts it. The original
+  and Binaryen 133 output validate. The validator itself accepts all three tiny
+  malformed modules below; wasm-tools and Node 26 reject all three. Binaryen 133
+  rejects the latter two but repairs the first while reading/writing it, so its
+  CLI acceptance alone is not a strict-input validation oracle.
+
+```wat
+(module (func (result i32) block unreachable end))
+(module (func block (result i32) unreachable end))
+(module (func (result f32) block (result i32) unreachable end))
+```
+
+- **True semantic mismatch, DAE:** original/Binaryen 133 return 1, both Starshine
+  snapshots return 0. A branch-value parameter read is lost before a later write.
+
+```wat
+(module
+ (global $g (mut i32) (i32.const 1))
+ (func (export "f") (result i32) (call $callee (global.get $g)))
+ (func $callee (param i32) (result i32)
+  (block $C (result i32) (br $C (local.get 0)))
+  (local.set 0 (i32.const 5))))
+```
+
+- **True semantic mismatch, OptimizeInstructions:** original/Binaryen 133 call
+  `log` in order[1,2]; both Starshine snapshots call[2,1], although all return 5.
+
+```wat
+(module
+ (import "env" "log" (func $log (param i32)))
+ (func $se (param i32) (result i32) (call $log (local.get 0)) (i32.const 0))
+ (func (export "f") (result i32) (local i32)
+  i32.const 1 call $se i32.const 0 i32.and
+  i32.const 5 i32.const 0 i32.const 2 call $se i32.const 0 select
+  local.set 0 i32.add))
+```
+
+[Frame typing](../../../src/validate/typecheck.mbt),
+[DAE branch-value analysis](../../../src/passes/dead_argument_elimination.mbt),
+[OI rewriting](../../../src/passes/optimize_instructions.mbt) and shared lift/lower
+ordering require focused red regressions and oracle-backed repairs. Do not
+infer semantic safety from Starshine validation alone or reclassify these as
+representation wins. Remaining reported DAE2/cleanup/exception/scanner/CLI
+families require independent triage; their report is evidence to investigate,
+not a claim that this session replayed all 26. Keep coverage/verification gates
+unchanged. Performance work does not close these blockers.
+
+Exact frozen commands, input/output hashes, diagnostics and Node observations:
+`.tmp/large-pass-hotspots-20261001/review-reductions/result.json` and
+`frame-results.json`; generator/replay is `replay-review-reductions.py`.

@@ -312,8 +312,8 @@ fn TcState::push_types(st : TcState, ts : Array[ValType]) -> TcState {
 ///|
 fn TcState::pop_types(st : TcState, ts : Array[ValType]) -> TcResult {
   let mut cur = st
-  for t in ts.rev_iter() {
-    cur = match cur.pop_expect(t) {
+  for i = ts.length() - 1; i >= 0; i = i - 1 {
+    cur = match cur.pop_expect(ts[i]) {
       Err(e) => return Err(e)
       Ok(s) => s
     }
@@ -440,8 +440,8 @@ fn TcState::mem_at_of(st : TcState, mem : MemIdx) -> Result[ValType, String] {
 ///|
 fn pop_types_rev(st : TcState, ts : Array[ValType]) -> TcResult {
   let mut st = st
-  for t in ts.rev_iter() {
-    st = match st.pop_expect(t) {
+  for i = ts.length() - 1; i >= 0; i = i - 1 {
+    st = match st.pop_expect(ts[i]) {
       Err(t) => return Err(t)
       Ok(t) => t
     }

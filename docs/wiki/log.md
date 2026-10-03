@@ -25777,3 +25777,18 @@ separate edge records. Complete DAE2/CL work falls .888%/.833%;13,395 tests and
 Normal clock contention, canonical deficits, memory modes and release gates stay
 open. Backlog prunes the representation trial and records typed-pop allocation
 and checked-getter boundaries as the next evidence-backed experiments.
+
+
+## 2026-10-03 — Remove reverse-signature iterator allocations
+
+[Complete-consumer evidence and retained clock regressions](binaryen/passes/dae2/starshine-strategy.md#october-3-2026-indexed-reverse-signature-validation)
+record DAE2/CL instruction reductions2.071%/1.176% and5.635m/4.331m fewer
+allocation calls with identical typed-pop counts/output hashes.13,403 tests and
+2256 runtime observations pass. Two earlier typed-pop inline trials were rejected;
+normal n5 timings and justified n3 DAE2/OI repeats remain mixed. Backlog prunes
+the iterator pilot and retains validation success-box work, memory/quality/1×
+and final release gates. Long fuzz remains deferred.
+
+A separately authored baseline audit arrived during this iteration. Focused
+replay confirms the same validator, DAE and OI failures before/after the iterator
+fix; [release blockers and reduced inputs](tooling/validation-gates.md#october-3-2026-reproduced-baseline-correctness-blockers) are now P00. Other report families remain unverified; the author's report stays untracked and untouched.

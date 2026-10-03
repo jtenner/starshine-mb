@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-03
 sources:
   - ../../../src/passes/constraint_lower.mbt
   - ../../../src/validate/typecheck.mbt
@@ -4991,3 +4991,21 @@ RSS ranges/modes and tiny empty-row+.75ns remain explicit. Full CI/coverage/
 aggregate release gates stay open. Exact manifests, commands, samples, spreads,
 profiles and allocation scope:
 `.tmp/large-pass-hotspots-20261001/main-cfg-edge-value-performance-20261003.md`.
+
+
+## October 3, 2026: main reverse-signature checkpoint
+
+[Source, full normal matrix and retained repeats](../binaryen/passes/dae2/starshine-strategy.md#october-3-2026-indexed-reverse-signature-validation)
+freeze main 3d46f7e52/native 43feef6e→8bfe3761, verified133, same input/CPU6.
+Complete DAE2/CL instruction work falls2.070902/1.176357%; direct allocation
+calls fall5,634,510/4,331,346 with unchanged typed-pop checks and exact bytes.
+Normal n5 clocks are heavily contended; DAE2/OI regressions prompted one n3
+repeat, all initial samples retained. Repeat DAE2 4748.599±16.029→4762.781±26.670ms,
+B1425.710±14.176; OI 2857.043±11.592→2825.212±17.848, B1151.825±10.469.
+Remaining ratios3.341/2.453× and mixed first/repeat clocks prevent a1× or general
+command-speed claim. Traced Starshine n1 diagnostics remain separate; the prior
+CFG binary's Binaryen debug named timers are not relabeled as current evidence.
+13,403 tests/10+2 native controls/772 runtime validations/2256 observations pass.
+No public API or output/canonical changes; memory modes and release gates stay
+open. No long fuzz. Exact commands, hashes, samples, spreads and profile scopes:
+`.tmp/large-pass-hotspots-20261001/main-reverse-types-performance-20261003.md`.

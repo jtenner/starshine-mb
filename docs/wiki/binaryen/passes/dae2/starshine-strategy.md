@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-03
 sources:
   - ../../../../../src/ir/cfg.mbt
   - ../../../../../src/ir/cfg_lazy_source_order_wbtest.mbt
@@ -6757,3 +6757,79 @@ Fresh named diagnostics for this binary are recorded in the
 DAE23275.024/B502.812ms, OO6107.553/B explicit stage-sum1828.087,
 CL3335.802/B1278.750, OI94.693/B262.355 (n3/warmup1). Different verification
 and pipeline scopes remain explicit; these do not replace the normal CLI table.
+
+
+## October 3, 2026: indexed reverse signature validation
+
+[Typed signature consumers](../../../../../src/validate/typecheck.mbt) replace
+both reverse iterators with descending index loops. Stack order, first-error
+partial consumption, subtyping, concrete/unreachable values and all verification
+remain. Array.rev_iter constructs an ArrayView iterator with a captured mutable
+index (Moon core builtin/arrayview.mbt:909); native factory/callback calls now
+vanish. No cache, new allocation, admission shortcut or public API change.
+
+Baseline main 3d46f7e52/native 43feef6e…→8bfe3761…; same 6,211,596-byte input,
+12,904 functions, verified133, release native O2/mimalloc/CPU6. Complete normally
+exited, hash-matched DAE2 instructions 34,301,861,068→33,591,502,988 (−2.070902%);
+CL 40,482,682,526→40,006,461,795 (−1.176357%). Direct mi_malloc calls fall exactly
+5,634,510/4,331,346, matching the removed iterator-factory requests. Typed-pop
+checks remain5,654,980/4,146,538. These are scoped allocation-call reductions,
+not net bytes or peak RSS; nested costs are not added. The executable shrinks
+14,629,992→14,629,704 bytes.
+
+Normal fresh-process/warm-filesystem CLI, alternating n5 after warmup1, build
+excluded, median±MAD milliseconds; **every row flags foreign CPU activity**:
+
+| Pass | Before CLI (ms) | After CLI (ms) | B133 CLI (ms) | After/B |
+| --- | ---: | ---: | ---: | ---: |
+| DAE2 | 8454.112±790.078 | 10046.601±1881.049 | 2302.340±37.439 | 4.364× |
+| DAE2-O | 12296.591±714.418 | 12274.750±584.269 | 3953.546±449.402 | 3.105× |
+| CL | 5300.039±357.333 | 5348.326±288.166 | 2323.327±173.602 | 2.302× |
+| OI | 2849.863±8.979 | 2890.100±23.164 | 1156.685±21.116 | 2.499× |
+
+The DAE2 initial after range7402.959–12442.790ms and pinned reference-control
+regression prompted one bounded repeat, not replacement of the first cohort.
+OI's first paired+1.732% also warranted a repeat. Same binaries/options/CPU6,
+n3 after warmup1, still flagged foreign activity:
+
+| Pass | Before CLI (ms) | After CLI (ms) | B133 CLI (ms) | After/B |
+| --- | ---: | ---: | ---: | ---: |
+| DAE2 | 4748.599±16.029 | 4762.781±26.670 | 1425.710±14.176 | 3.341× |
+| OI | 2857.043±11.592 | 2825.212±17.848 | 1151.825±10.469 | 2.453× |
+
+Repeat paired changes+.430/−1.874% do not establish a universal CLI speedup.
+Initial paired DAE2/O/CL/OI+8.680/−6.411/+1.371/+1.732% remain recorded. Repeat
+D2 RSS medians255756→255892KiB have overlapping255288–265612/255584–264924
+ranges. First D2 RSS median255040→265276KiB shifts modes; OO294144→294352,
+CL244524→244032 and OI158008→157368 do not prove a general peak-memory win.
+Ten native controls retain the exact former loop. Initial reference mean
+242.08±45.89→279.85±132.44ns worsens; repeat94.11±12.74→57.53±2.54ns improves.
+Other initial control means: empty135.91→43.51ns, scalar109.00→55.78ns,
+width 32 1.25→1.14µs, invalid653.65→329.67ns, with large spread retained locally.
+
+Performance guard fails before/passes after for the actual native iterator and
+callback. [Signature regressions](../../../../../src/validate/tc_reverse_types_wbtest.mbt)
+and [operand regressions](../../../../../src/validate/tc_matched_pop_wbtest.mbt)
+retain error order, reference subtyping and virtual bottoms; implementing/CLI
+fixtures prove active DAE2 pruning through scalar/SIMD/GC-table operations.
+13,403 default tests,3 focused native tests,10 controls (+2 repeated controls),
+info/fmt/check/native build/API sync pass. Four runtime lanes pass 772 module
+validations/2256 fixed result/effect/state/memory/trap observations against
+original/before/after/133. Runtime-only compact-import expansion remains
+separate from raw size/timing. All four raw output hashes remain exact, preserving
+V83 and the99,251-byte canonical OO deficit; no new normalization is claimed.
+
+The preceding pop_expect annotation-only trial passed tests but retained both
+boxed-result boundaries; removing its unused optional counter also failed to
+remove them. Both production edits were reverted. The optional wrapper was a
+hypothesis, not a confirmed cause. Next: declaration-walker success boxes
+(4,948,080 DAE2 direct allocation calls across all recursion contexts, zero in
+this CL module-pass scope), lift shape tuples and actual command envelopes.
+Canonical quality, memory modes,1× target and full CI/coverage/10000 GenValid
+release gates stay open; long fuzz remains deferred. Manual source/native review
+completed; no independent review of this patch. A separate baseline audit
+reproduces validator, DAE and OI failures on both frozen binaries; these remain
+[release blockers](../../../tooling/validation-gates.md#october-3-2026-reproduced-baseline-correctness-blockers).
+Exact commands, versions/CPU/input/source hashes, dirty state, all samples and
+spreads, complete profiles and rejection evidence:
+`.tmp/large-pass-hotspots-20261001/main-reverse-types-performance-20261003.md`.

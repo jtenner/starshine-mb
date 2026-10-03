@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-03
 sources:
   - ./index.md
   - ../../../../../src/passes/coalesce_locals.mbt
@@ -1556,3 +1556,16 @@ B1947.387±23.953; paired−1.157%, remaining2.214×, all contended. Output hash
 and78,800 canonical-byte gap remain;13,395 tests/10 controls/756 modules/2208
 observations pass. RSS ranges overlap and empty-row control adds.75ns. This is
 a measured shared representation gain, not completion of CL or release gates.
+
+
+## October 3, 2026: indexed reverse signature validation
+
+[Shared source and measured tradeoffs](../dae2/starshine-strategy.md#october-3-2026-indexed-reverse-signature-validation)
+remove4,331,346 iterator allocation calls while retaining all 4,146,538 typed-pop
+checks. Complete CL work 40,482,682,526→40,006,461,795 (−1.176357%); normal
+CLI5300.039±357.333→5348.326±288.166ms/B2323.327±173.602 remains contended
+and does not prove a clock win.13,403 tests and772 runtime validations/2256
+observations pass; raw hashes/canonical gap78,800B remain. DAE2 work improves
+2.070902%, but its repeat CLI is flat. Memory modes, command/quality gaps and
+release gates remain open. Private declaration-walker allocation work belongs
+to validation outside this CL module-pass scope; do not extrapolate a gain here.
