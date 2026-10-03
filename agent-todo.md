@@ -39,6 +39,15 @@ oracle versions and checkpoints do not sign current source.
   CL3423.120/B1270.190, OI90.380/B253.911; OI envelope remains costly.
   Raw OO−9949B versus canonical+99,251B remains open.
   [Exact protocols/scopes/hashes](docs/wiki/tooling/tracing-playbook.md#october-2-2026-main-completed-lift-band-checkpoint).
+- **Confirmed DAE2 attribution on native6e22→d08c:** complete matched
+  module work34,604,264,255→34,604,091,968 (−.000498%), effectively unchanged.
+  The lift-band fix helps CL and does not establish DAE2 throughput gains.
+  Current inclusive lift11.397b (10,422 calls), dependency analysis9.881b;
+  nested dependency CFG5.186b (7926 calls), read sources2.019b, entry proof.790b.
+  Rewriting also lowers2468 functions (4.647b); final module validation3.639b
+  remains mandatory. Do not sum nested costs or treat traversal counts alone
+  as a cause. Reduce arena/CFG temporary objects before speculative retention
+  of all first-lift functions; preserve explicit immutable-snapshot invariants.
 - **Completed shared mechanisms:** checked lift reads, scalar CL clique updates,
   retained unchanged strip/spill storage, compact lowering counts and direct
   result-stack rows, block-only CL liveness and separate effect/ordering demand are
@@ -928,6 +937,14 @@ separate from normal commands and differ in surrounding work.
   region/canonicalization storage remain active; prove benefits before widening.
   Separate destruction work from allocated bytes/RSS. Plain/CL modes and
   optimizing≈138MiB excess require attribution; no whole-arena cache is justified.
+- [ ] Trial value representation for immutable scalar CFG edge records.
+  Native CfgEdge currently allocates a separate two-int32 object for each row;
+  array slots hold pointers, unlike existing value-type HotNode storage.
+  Confirm actual construction/free costs before accepting #valtype, review
+  the public .mbti/ABI annotation, and preserve fields, edge kinds, reciprocal
+  verification, duplicates/order, owned public arrays and exceptional flow.
+  Require native allocation red/green and matched complete DAE2/O/CL/OI work,
+  times/RSS/output bytes plus default/active dispatcher/runtime checks.
 - [ ] Measure high-degree CFG reciprocal-edge verification: nested neighbor
   scans can be quadratic on wide joins/switches. Current dependency snapshot
   attributes.280b instructions to all CFG verification, without proving degree

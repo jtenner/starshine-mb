@@ -25747,3 +25747,10 @@ queries−8.281889%; mixed noisy CLI results and saturated costs keep1× open.
 keeps normal and named scopes separate. Backlog prunes the completed pilot and
 retains remaining mixed/unknown walks, memory/quality gates and the next
 source-proved Coalesce global-barrier experiment.
+
+
+- October 2, 2026: [complete DAE2 consumer follow-up](binaryen/passes/coalesce-locals/starshine-strategy.md#dae2-consumer-attribution-follow-up)
+  confirms the lift-band proof leaves DAE2 work effectively unchanged. Backlog
+  separates CL's gain from actual DAE2 lift/CFG/source/lower/validation costs and
+  adds a measured scalar-edge representation pilot; no retained arena cache is
+  accepted from a hypothesis.

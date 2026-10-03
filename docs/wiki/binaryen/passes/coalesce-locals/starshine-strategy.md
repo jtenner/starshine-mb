@@ -1470,3 +1470,21 @@ The prior complete CL profile attributes1.255b inclusive instructions/81,738
 initial scans to safe copy forwarding: its existing global-barrier proof can
 potentially eliminate repeated guaranteed-false scans without changing answers.
 That next pilot is unimplemented here and needs complete consumer evidence.
+
+
+### DAE2 consumer attribution follow-up
+
+The same frozen6e22→d08c complete DAE2 profiles both exit normally with exact
+validated output:34,604,264,255→34,604,091,968 instructions (−.000498%),
+effectively unchanged. The band proof addresses CL conflict walks; it does not
+establish DAE2 throughput gains. DAE2's current lift costs11.397b across10,422
+calls, dependency analysis9.881b, rewrite lower4.647b across2468 functions and
+mandatory final validation3.639b. Nested dependency CFG5.186b/read sources2.019b/
+entry proof.790b overlap analysis; never sum these costs. Source locations:
+[analysis and relift](../../../../../src/passes/dead_argument_elimination2.mbt),
+[CFG](../../../../../src/ir/cfg.mbt), [read solver](../../../../../src/ir/local_graph.mbt).
+Exact complete profiles/parent edges are local
+`lift-byte-extent-dae2-{baseline,candidate}-costs.json` and
+`lift-byte-extent-dae2-exclusive-costs.json` in the existing evidence root.
+Prioritize those actual DAE2 owners, including immutable scalar CFG object churn;
+retaining all first-lift functions would add memory and is not justified.

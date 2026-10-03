@@ -4938,3 +4938,10 @@ flags/all samples, layout and red/green evidence:
 `.tmp/large-pass-hotspots-20261001/main-lift-byte-extent-performance-20261002.md`.
 Next: DAE2 dependency/cleanup, OI envelope, Coalesce guaranteed-false pair scans
 and unused block-write scratch. Aggregate/full CI/coverage gates remain open.
+
+
+Complete DAE2 consumer follow-up on the same frozen binaries is effectively
+unchanged:34.604264b→34.604092b instructions (−.000498%).
+[Exact parent/child attribution](../binaryen/passes/coalesce-locals/starshine-strategy.md#dae2-consumer-attribution-follow-up)
+places its costs in lift, dependency CFG/source analysis, rewrite lower and
+mandatory validation. The CL benefit cannot be extrapolated to DAE2.
