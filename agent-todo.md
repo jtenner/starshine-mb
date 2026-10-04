@@ -39,6 +39,13 @@ oracle versions and checkpoints do not sign current source.
   1,156 validations/3,392 supported observations pass; P00 typed-block
   failure, canonical gaps and all four1× goals remain open.
   [Scopes and ranges](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-record-lift-provenance-only-for-consumers).
+- **Later OI-only checkpoint:** native`b1ef48ca…`→`3f74dc4b…`, complete
+  process work−.8188%,340,195 fewer requests and unchanged bytes. N5 CLI
+  2030.554±7.049 / B1054.366±22.744ms (1.926×); paired+0.650% is adverse,
+  with all rows contended. No command win is established. The large directization
+  scan finds no rewrite, but all141,252 discovery visits remain and OI transforms
+  elsewhere.13,503 tests and1,172 validations/3,440 supported observations;
+  all four1× and release gates stay open. [Evidence](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-copy-directization-output-only-after-a-rewrite).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
@@ -834,14 +841,10 @@ quality gates. Keep traced inner and normal command measurements separate.
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
-- [ ] Complete the active OI directization output-storage trial: unchanged rows
-  stay borrowed until the first rewrite; retain every region/child/family proof,
-  trap termination and mutation-ownership invariant. Three pass tests, one
-  dispatcher and four controls pass before implementation. Require complete
-  OI work/clocks, exact outputs and all-four bounded runtime controls.
-- [ ] Trial lower-stack value packing only after measuring both push and pop:
-  wider inline rows may rebox optional pop/last results. Preserve scalar/GC
-  types, snapshots and exact lowering; no allocation/RSS claim from one site.
+- [ ] Complete the active lower-stack value trial after measuring push and pop:
+  wider inline rows may rebox optional pop/last results. Two characterization
+  tests and four controls pass; fresh baseline profiles are in progress. Preserve
+  scalar/GC types, snapshots and exact lowering; no allocation/RSS claim from one site.
 - [ ] Reuse the checked previous opcode in CFG segmentation to avoid entering
   the drop classifier for non-Drop nodes. Preserve every actual-Drop proof and
   all continuation/root-slot/handler/verification work; require full CFG fields

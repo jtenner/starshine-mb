@@ -2284,3 +2284,72 @@ remain open; this does not broaden admission or remove verification.
 ## October 4, 2026: record lift provenance only for consumers
 
 [Consumer proof and complete measurements](../dae2/starshine-strategy.md#october-4-2026-record-lift-provenance-only-for-consumers) preserve source-map defaults, all verification and exact bytes. DAE2/CL native work falls1.4826%/.6709%; new API opt-out is explicit and write-provenance demand overrides it. Default controls, full-command scopes and all four1×/release gates remain visible.
+
+## October 4, 2026: copy directization output only after a rewrite
+
+Native `b1ef48ca…` → `3f74dc4b…`. The private
+[directization body worker](../../../../../src/passes/pass_manager.mbt) borrows its
+original instruction array until the first child, direct/table/select, or
+null/trap rewrite. It then copies the visited prefix once and appends to its own
+row. Original region facts and current-root overlays retain their lifetimes;
+all child traversal, family proof, ordering, trap termination and return-call
+checks remain. The sole production wrapper's skipped path already supplies
+borrowed bodies to the same downstream workers. Changed children are rebuilt;
+no new admission rule or cache is added.
+
+Three [pass characterizations](../../../../../src/passes/oi_directize_storage_wbtest.mbt)
+cover unchanged mixed controls, a late child/table rewrite with changed-output
+mutation isolated from input, and an effectful prefix before a terminating null
+trap. An [active dispatcher](../../../../../src/cmd/oi_directize_storage_dispatch_wbtest.mbt)
+requires call-ref conversion and valid output while preserving input bytes.
+All passed before implementation. Emitted-C resource RED: one unconditional
+output-row allocation before any rewrite against a zero budget; candidate zero.
+
+Complete OI native instructions **18,584,960,830→18,432,791,681 (−0.8188%)**;
+allocator requests **62,536,624→62,196,429 (−340,195)**. This is complete process
+work, not the narrow OI timer. Exactly3,218 top-level and138,034 recursive region
+builds remain. On this large input the directization scan finds **no rewrite**:
+its141,252 throwaway output rows and1,173,726 ordinary output pushes disappear.
+The complete OI pass still transforms elsewhere; its output differs from input.
+Changed direct/table/select/null-trap behavior is exercised by focused tests and
+runtime fixtures, not claimed active in this particular large helper profile.
+Do not sum recursive inclusive costs or infer allocated bytes/RSS from requests.
+
+Four [wasm-gc controls](../../../../../src/passes/oi_directize_storage_perf_wbtest.mbt),
+mean±SD before→after: empty14.34±.16→12.85±.07ns;
+unchanged tiny619.65±8.53→569.71±4.17ns;
+unchanged wide38.11±.664→35.55±.520µs;
+late rewrite39.57±.370→38.18±.529µs. Setup is outside timing. Unchanged helper
+controls still run discovery; they do not claim an active rewrite.
+
+Same 6,211,596 B SHA98189860… input, verified Binaryen133 SHA8f25e9fd…,
+Ryzen7 8845HS CPU6, Moon0.1.20260920/moonc0.10.14, GCC14.2 O2/mimalloc.
+Build excluded. One warmup/five alternating fresh-process, warm-filesystem
+normal OI CLI samples, median±MAD ms [min,max]:
+
+| Before | After | Binaryen133 | After/B | Paired change |
+| ---: | ---: | ---: | ---: | ---: |
+| 2019.951±5.951 [2000.012,2071.439] | 2030.554±7.049 [2000.180,2233.719] | 1054.366±22.744 [1019.247,1077.111] | 1.926× | +0.650% |
+
+The clock movement is adverse and all15 rows record foreign CPU. This cohort
+does **not** prove faster command time; acceptance rests on less complete native
+work, fewer requests and improved bounded controls. RSS medians156776→156332KiB
+have overlapping ranges156152–157332 and155204–157540; no peak-memory win.
+Separate n1 diagnostics: pipeline1531.112→1511.907ms, narrow inner84.597→83.990ms.
+The narrow timer omits most cleanup and cannot close the pass-local speed goal.
+DAE2/O/CL code is unchanged by this unit; their preceding matched matrix remains.
+
+Info/fmt/check, **13,503 default tests**, four controls, native release and README/API
+sync pass; no API diff beyond the preceding lift commit. The72-fixture corpus
+across all four passes records **1,172 validations /3,440 available observations**.
+DAE2/OO each71 fully compare plus the existing typed-block failure; CL/OI each72
+fully compare. Original/before/after/133 ordered calls, values, globals/memory
+and permitted traps match supported rows. The existing Binaryen compact-import
+text adapter is limited to oracle runtime. All large OI before/after bytes match;
+raw6,205,998 B versus133's6,172,971 B and the prior canonical+33,497 B gap remain.
+
+Local `oi-directize-*` artifacts preserve exact source/native hashes, commands,
+profiles, allocation RED/GREEN, clocks/RSS, active-path notes and ownership
+review. Independent review, full CI/coverage and deferred aggregate fuzz remain
+pending. All four1×, size and correctness gates remain open. Next: lower-stack
+representation with push/pop controls and complete DAE2/CL measurements.

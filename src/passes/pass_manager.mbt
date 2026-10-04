@@ -37587,7 +37587,9 @@ fn RawOiRefNullTrapRewriteFact::from_region(
 fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
-  let out : Array[@lib.Instruction] = []
+  // Unchanged bodies stay borrowed, as in the raw dispatcher's skipped path.
+  // Own the visited prefix before the first child or flat rewrite appends.
+  let mut out = instrs
   let region = RawOiInstructionRegionFact::from_instrs(instrs)
   let mut changed = false
   let mut i = 0
@@ -37595,9 +37597,15 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
     let (current, child_changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
       instrs[i],
     )
-    changed = changed || child_changed
+    if child_changed && !changed {
+      out = instrs[0:i].to_owned()
+      changed = true
+    }
     match RawOiRefNullTrapRewriteFact::from_region(current, region, i) {
       Some(fact) => {
+        if !changed {
+          out = instrs[0:i].to_owned()
+        }
         fact.append_rewrite(out)
         changed = true
         i = fact.end
@@ -37615,6 +37623,9 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
     }
     match RawOiCallRefDirectizeRewriteFact::from_overlay(overlay) {
       Some(fact) => {
+        if !changed {
+          out = instrs[0:i].to_owned()
+        }
         fact.append_rewrite(out)
         changed = true
         i = fact.end
@@ -37622,7 +37633,9 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
       }
       None => ()
     }
-    out.push(current)
+    if changed {
+      out.push(current)
+    }
     i += 1
   }
   (out, changed)

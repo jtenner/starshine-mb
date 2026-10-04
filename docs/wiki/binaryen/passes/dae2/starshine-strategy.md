@@ -8537,3 +8537,7 @@ separately; only the successful rerun counts. Independent review, full CI/covera
 and deferred aggregate fuzz remain pending. All four1× goals remain open. Next:
 OI lazy directization output, then larger dependency/lower/cleanup costs with
 complete consumer measurements.
+
+## October 4, 2026: copy directization output only after a rewrite
+
+[OI-only follow-up](../optimize-instructions/starshine-strategy.md#october-4-2026-copy-directization-output-only-after-a-rewrite) removes340,195 requests and0.8188% of complete OI native work while retaining all discovery and bytes. N5 command timing is adverse+0.650%; no command win or1× claim. The preceding DAE2/O/CL matrix remains current;13,503 tests and all-four bounded runtime controls pass supported rows.

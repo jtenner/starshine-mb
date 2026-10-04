@@ -4,6 +4,7 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Lazy directization output](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-copy-directization-output-only-after-a-rewrite) — Retain all discovery while removing141,252 copied rows and340,195 requests; full OI work−.819%. Adverse clock movement and unchanged-helper activity are explicit; all four1× and release gaps remain.
 - [Lift provenance demand](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-record-lift-provenance-only-for-consumers) — Explicit consumer opt-out preserves defaults/verification and reduces complete DAE2/CL work1.483%/.671%;13,499 tests and exact bytes. All four1× and correctness/size gates remain open.
 - [Structured decoder frame storage](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-structured-decode-frames) — Preserve active-body aliases/transitions and remove2.121m wrappers; complete OI work−2.7565%,13,495 tests. Fresh four-pass timings retain scope, contention and open1×/correctness/size gates.
 - [Unsigned decoder storage](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-unbox-private-unsigned-decoding-results) — Preserve parser checks/API and remove4.403m requests; complete OI work−1.867%. Fresh CLI/n3 inner evidence keeps all four1× and correctness/size gates open.

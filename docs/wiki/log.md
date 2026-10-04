@@ -1,3 +1,7 @@
+### 2026-10-04 — Copy directization output only after a rewrite
+
+- [Ownership and complete OI evidence](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-copy-directization-output-only-after-a-rewrite):141,252 throwaway rows removed, complete work−.8188%,340,195 fewer requests.13,503 tests/1,172 validations/3,440 supported observations; unchanged-helper activity, adverse+0.650% CLI movement and all four1×/release gaps remain explicit.
+
 ### 2026-10-04 — Record lift provenance only for consumers
 
 - [API contract and measured DAE2/CL savings](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-record-lift-provenance-only-for-consumers): complete work−1.4826%/−.6709%, exact outputs;13,499 tests and1,156 validations/3,392 supported observations. Defaults, verification, write-provenance readers and all four1×/release blockers remain.
