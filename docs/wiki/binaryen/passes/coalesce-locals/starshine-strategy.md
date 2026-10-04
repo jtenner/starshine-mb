@@ -1789,3 +1789,81 @@ aggregate fuzz and all four1× targets remain open. Local `cl-live-words-*`
 artifacts retain commands, exact manifests, samples, native layout and tests.
 Next measure the shared lift-DAG fix; then revisit source-order/CFG/lower owners
 and the tiny dense crossover without dropping transformation work.
+
+## October 4, 2026: memoize exact mixed-band lift conflicts
+
+The [lift conflict worker](../../../../../src/ir/hot_lift.mbt) repeatedly expanded
+shared operands when low-six-bit local masks collided across several bands.
+On the large CL input,241 fallback entries caused14,418,574 recursive calls.
+A validated12-level shared binary DAG reproduces the excessive work without
+changing the correct conflict result. The new regression fails its linear visit
+bound before implementation and passes afterward.
+
+Existing leaf, exact local, single-band and negative-mask proofs still run first.
+Only ambiguous recursive queries allocate an exact-result row, keyed by node,
+full32-bit local identity and read/write direction. Each slot uses one UInt64
+plus array capacity/wrapper overhead; the row is lazy and bounded by the node
+arena. Completed stack values are immutable during this lifting lifetime;
+appended nodes extend the row, while semantic mutation requires fresh masks.
+No function/module cache survives that lifetime. Children retain their original
+order and exact fallback semantics, including invalid/deleted-node guards.
+
+Frozen native `312bb103…`→`243a8e03…`, base main `b5cd1efa3` plus the separately
+measured lower-stack and packed-CL changes. Complete CL work37,016,036,821→
+34,219,715,549 instructions (−7.5544%). The wrapper still receives166,963
+queries; recursive calls fall14,418,574→684. Its nonrecursive incoming cost
+2,941,478,439→147,514,357 explains almost all the complete reduction.
+Recursive inclusive edges overlap and must not be summed.
+Complete DAE2 work29,242,267,002→29,247,373,063 (+.0175%) is slightly adverse:
+this CL benefit is not a DAE2 speedup. Whole-profile allocator requests increase
+273/369 for CL/DAE2; no allocation-byte or peak-RSS win is claimed.
+
+Same6,211,596 B compiler SHA98189860…, verified133 SHA8f25e9fd…, Ryzen7 8845HS
+CPU6, GCC14.2 O2/mimalloc. Build excluded; warmup1/n5 rotating alternating
+fresh-process CLI samples with warm filesystem. Median±MAD ms [min,max]:
+
+| Pass | Before | After | Binaryen133 | After /133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3773.234±34.319 [3628.927,3867.479] | 3680.038±89.881 [3576.720,4073.701] | 1326.847±23.212 [1247.712,1519.552] | 2.774× | -0.239% |
+| dae2-optimizing | 6357.830±139.072 [6050.608,6515.371] | 6244.607±75.558 [6169.048,6599.130] | 2548.453±43.250 [2498.866,2591.702] | 2.450× | -0.799% |
+| coalesce-locals | 3821.698±16.331 [3770.596,4352.432] | 3760.326±22.240 [3625.461,3791.012] | 1970.360±55.761 [1899.105,2053.782] | 1.908× | -2.314% |
+| optimize-instructions | 2135.454±26.918 [2043.819,2686.360] | 2142.795±10.479 [2075.338,2153.274] | 1013.345±30.868 [959.243,1044.213] | 2.115× | +0.344% |
+
+Every normal row flags foreign CPU activity. CL's paired−2.314% supports a
+smaller command improvement than its native-work reduction; OI remains adverse.
+Overlapping RSS and separate traced n1 diagnostics remain in the local report.
+No quiet-host1× or pass-local equivalence is established. OI's narrow timer
+continues to omit most cleanup; complete CLI remains an independent gate.
+
+Six [bounded controls](../../../../../src/ir/hot_lift_conflict_dag_perf_wbtest.mbt)
+retain mean±SD tradeoffs: leaf14.26±.10→15.82±.14 ns; single-band cold32
+1.40µs±32.17 ns→1.34µs±20.35 ns; mixed-tree cold32
+2.07µs±20.85 ns→2.26µs±44.62 ns; mixed-tree warm32
+681.17±2.76→24.89±4.74 ns; shared-DAG cold12
+160.50µs±528.70 ns→856.61±8.17 ns; shared-DAG warm12
+158.15µs±427.46 ns→20.46±.12 ns. Cold tree and leaf regressions remain visible.
+
+The [IR regression](../../../../../src/ir/hot_lift_conflict_dag_wbtest.mbt)
+checks graph validity, absent/present colliding locals, both access directions,
+append-only reuse and snapshot ownership; existing mutation/fresh-cache and
+invalid-boundary tests also pass. The [dispatcher regression](../../../../../src/cmd/lift_conflict_dag_wbtest.mbt)
+preserves shared multivalue producers and global effects while demonstrating
+active DAE2/O parameter removal and CL local reduction. Info/fmt/check,
+13,513 workspace tests, native release and README/API sync pass; no public API
+change.77 fixtures/pass yield1,252 validations and3,680 supported original/
+before/after/133 observations of values, ordered effects, memory, globals and
+traps. DAE2/O each76 fully compare plus the unchanged typed-block failure;
+CL/OI each77 fully compare. Exact before/after bytes preserve V83 savings and
+all current raw/canonical quality figures; no new normalization is claimed.
+
+Local `lift-conflict-dag-*` evidence retains source/binary hashes, commands,
+profiles, controls, complete samples and runtime rows. Manual ownership review
+is not independent-agent signoff. All four1× targets, correctness blockers,
+canonical deficits, full CI/coverage and deferred aggregate fuzz remain open.
+Next: repeated non-Drop CFG classification and DAE2 dependency analysis.
+Temporary per-function diagnostics are kept out of release binaries/timings;
+7,954 initial HOT analyses account for511.193 ms lift/774.273 ms dependencies
+in one instrumented run, with400 additional rewrite analyses outside those rows.
+The initial-analysis top10/100 functions account for12.51%/27.57% of dependency
+time. Function9184 (7,378 nodes) and9327 (1,746 nodes) warrant targeted attribution
+before changing dataflow or admission; no cause is inferred from size alone.

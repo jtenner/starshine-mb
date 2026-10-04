@@ -8601,3 +8601,14 @@ samples, profiles, native excerpts and manual review retain exact provenance.
 Independent review, full CI/coverage, deferred aggregate fuzz and all four1×
 targets remain open. Next: packed CL liveness and exact repeated mixed-band lift
 queries, then the larger DAE2 dependency and optimizing-cleanup owners.
+
+## October 4, 2026: mixed-band conflict consumer check
+
+[The complete shared-lift trial](../coalesce-locals/starshine-strategy.md#october-4-2026-memoize-exact-mixed-band-lift-conflicts)
+saves7.5544% complete CL instructions but increases DAE2 work.0175%.
+Keep this negative control explicit. The fresh all-four command matrix remains
+2.774×/2.450×/1.908×/2.115× for DAE2/O/CL/OI, with all rows contended;
+no extrapolated DAE2 gain or1× signoff. The source-backed next DAE2 owners are
+complete expanded CFG construction and dependency analysis. Temporary function
+diagnostics distinguish7,954 initial analyses from400 rewrite replay calls;
+focused profiles must precede changes to those algorithms.

@@ -27,17 +27,17 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched all-four checkpoint:** native`4c20bc54…`→`66f924ab…`,
-  lower-stack complete DAE2/CL work−.2677%/−.3004%; fewer allocation requests,
-  exact output. Normal CLI CPU6 n5/warmup1 medians±MAD ms:
-  DAE2 3614.478±80.312 / B1199.432±10.082 (3.013×);
-  DAE2-O 5996.174±67.171 / B2544.625±31.877 (2.356×);
-  CL 3989.440 / B2093.050 (1.906×);
-  OI 2021.635±21.061 / B981.109±9.474 (2.061×).
-  All rows flag foreign load; paired+1.103/+.159/+.230/+2.072% are adverse.
-  No general clock/RSS win.13,509 tests;1,220 validations/3,584 supported
-  observations; existing typed-block failure and all1× targets remain open.
-  [Full spreads and scopes](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-lower-stack-without-optional-discard-boxes).
+- **Latest matched all-four checkpoint:** native`312bb103…`→`243a8e03…`,
+  exact lift-conflict memoization reduces CL complete work7.5544%; DAE2
+  +.0175% is adverse. Normal CLI CPU6 n5/warmup1 medians±MAD ms:
+  DAE2 3680.038±89.881 / B1326.847±23.212 (2.774×);
+  DAE2-O 6244.607±75.558 / B2548.453±43.250 (2.450×);
+  CL 3760.326±22.240 / B1970.360±55.761 (1.908×);
+  OI 2142.795±10.479 / B1013.345±30.868 (2.115×).
+  All rows flag foreign load; paired−.239/−.799/−2.314/+.344%.
+  No general RSS or1× win.13,513 tests;1,252 validations/3,680 supported
+  observations; existing typed-block failure stays open.
+  [Full spreads, scope and tradeoffs](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-memoize-exact-mixed-band-lift-conflicts).
 - **Historical OI-only checkpoint:** native`b1ef48ca…`→`3f74dc4b…`, complete
   process work−.8188%,340,195 fewer requests and unchanged bytes. N5 CLI
   2030.554±7.049 / B1054.366±22.744ms (1.926×); paired+0.650% is adverse,
@@ -54,7 +54,7 @@ oracle versions and checkpoints do not sign current source.
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Latest complete DAE2 profile:** native66f924ab… pass29.241b instructions.
+- **Latest complete DAE2 profile:** native243a8e03… pass29.247b instructions.
   The preceding c98 profile attributes dependencies9.355b, analysis lift6.366b,
   rewrite lift2.372b, lower4.647b and final validation2.495b; these remain
   larger owners, with source versions explicit and inclusive costs not additive. [Full source breakdown](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
@@ -202,6 +202,12 @@ quality gates. Keep traced inner and normal command measurements separate.
   and grouped-local bytes. Require measured enclosing gains, bounded memory,
   valid output and classified size/parity differences before closing P03.
   [Evidence and rejected designs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md).
+
+- [ ] Attribute the temporary per-function DAE2 diagnostics:7,954 initial HOT
+  functions,511.193ms lift/774.273ms dependencies, plus400 rewrite replay calls
+  outside these rows. Functions9184/9327 have disproportionate dependency cost;
+  bounded function profiles are running. Exclude instrumentation from release
+  timings and identify the repeated work before changing dataflow/admission.
 
 #### P03a — Remaining HOT field reads [IR2-PERF-DAE2-FIELDS]
 
@@ -862,9 +868,11 @@ quality gates. Keep traced inner and normal command measurements separate.
   [Evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-lower-stack-without-optional-discard-boxes).
 - [ ] Reuse the checked previous opcode in CFG segmentation to avoid entering
   the drop classifier for non-Drop nodes. Preserve every actual-Drop proof and
-  all continuation/root-slot/handler/verification work; require full CFG fields
-  and measured DAE2/CL consumers before acceptance.
-- **Next measured shared targets:** current CL root40.483b instructions;
+  all continuation/root-slot/handler/verification work. The field/reference
+  regression and four before/after controls pass; full checks/native build and
+  DAE2/CL consumer measurements are pending. Initial zero-test/invalid bench
+  selectors are excluded; corrected baseline runs precede implementation.
+- **Next measured shared targets:** current CL root34.220b instructions;
   prior nested lower5.956b after explicit effect/ordering demand removes unused rows.
   Full lower source factories4565→297; no duplicate implementation of that
   completed mechanism. Reduce measured carried fallback+140ns/+6.93µs without
@@ -872,13 +880,11 @@ quality gates. Keep traced inner and normal command measurements separate.
   and unused block-write metadata still allocate. DAE2 dependency/lift
   and optimizing cleanup remain larger owners; field attribution retains its
   exact earlier snapshots.
-- [ ] Finish the active exact mixed-band lift-conflict memoization trial.
-  A validated shared operand DAG fails its linear work bound before and passes
-  after; scalar/local/direction/append controls and dispatcher tests pass.
-  Candidate native243a8e03… is frozen; complete consumer measurements and
-  runtime replay are running. Preserve immutable snapshot lifetime, exact
-  fallback, invalid/deleted nodes and fresh analysis after mutation; report lazy
-  row memory and adverse tiny/cold controls before accepting the change.
+- **Completed mixed-band DAG trial:** exact node/local/direction memoization
+  cuts CL recursive calls14.419m→684 and complete work7.5544%, while DAE2
+  +.0175% remains adverse. Lazy storage, cold-tree/leaf costs and all1× goals
+  stay explicit; do not repeat this completed cache or extend its lifetime.
+  [Evidence](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-memoize-exact-mixed-band-lift-conflicts).
 - [ ] Bound remaining descending stack-prefix mismatch work after proving a
   wide active consumer: repeated lanes with final mismatch remain quadratic,
   but current CL entry work25.405m instructions (~.0585%) is lower priority.

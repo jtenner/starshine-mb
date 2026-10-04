@@ -47,11 +47,14 @@ priv struct HotLiftLocalAccessMasks {
   reads : Array[UInt64]
   writes : Array[UInt64]
   extent : Array[Byte]
+  // Exact fallback memoization is needed only for mixed/saturated mask hits.
+  // A slot packs the full local id above four access/result flags.
+  mut exact_conflicts : Array[UInt64]?
 }
 
 ///|
 fn HotLiftLocalAccessMasks::new() -> HotLiftLocalAccessMasks {
-  { reads: [], writes: [], extent: [], }
+  { reads: [], writes: [], extent: [], exact_conflicts: None, }
 }
 
 ///|
@@ -1928,6 +1931,20 @@ fn hot_lift_impl_value_conflicts_with_local_access(
     }
     None => ()
   }
+  // A mixed-band mask can collide through a shared operand DAG. Summaries
+  // already belong to immutable completed values; memoize the exact answer for
+  // each node/local/direction rather than expanding that DAG once per path.
+  let local_key = local_id.reinterpret_as_uint().to_uint64()
+  let query_bit = if is_write { 4UL } else { 1UL }
+  if masks is Some(masks) {
+    if masks.exact_conflicts is Some(rows) && node_id < rows.length() {
+      let row = rows[node_id]
+      if row >> 8 == local_key && (row & query_bit) != 0UL {
+        return (row & (query_bit << 1)) != 0UL
+      }
+    }
+  }
+  let mut conflict = false
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     if hot_lift_impl_value_conflicts_with_local_access(
         func,
@@ -1937,10 +1954,30 @@ fn hot_lift_impl_value_conflicts_with_local_access(
         masks~,
         node_visits~,
       ) {
-      return true
+      conflict = true
+      break
     }
   }
-  false
+  if masks is Some(masks) {
+    let rows = match masks.exact_conflicts {
+      Some(rows) => rows
+      None => {
+        let rows = Array::make(masks.extent.length(), 0UL)
+        masks.exact_conflicts = Some(rows)
+        rows
+      }
+    }
+    while rows.length() <= node_id {
+      rows.push(0UL)
+    }
+    let previous = rows[node_id]
+    let flags = if previous >> 8 == local_key { previous & 15UL } else { 0UL }
+    rows[node_id] = (local_key << 8) |
+      flags |
+      query_bit |
+      (if conflict { query_bit << 1 } else { 0UL })
+  }
+  conflict
 }
 
 ///|

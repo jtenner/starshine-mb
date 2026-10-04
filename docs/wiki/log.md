@@ -1,3 +1,7 @@
+### 2026-10-04 — Bound shared-DAG exact lift conflicts
+
+- [Regression, lifetime proof and complete consumers](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-memoize-exact-mixed-band-lift-conflicts): complete CL instructions−7.5544%, recursive calls14.419m→684; DAE2+.0175% is adverse. CL n5 paired−2.314%, remaining1.908×, all contended.13,513 tests and1,252 validations/3,680 supported observations preserve exact output; all four1× and release gates remain open.
+
 ### 2026-10-04 — Pack structured CL liveness and enumerate live hazards
 
 - [Source and complete measurements](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-packed-structured-liveness-rows): complete CL work−2.5407%, CLI3856.630→3823.079ms/B1902.545ms, n5 all contended. Sparse rows improve; tiny dense controls and8,812 extra allocation requests remain explicit. Exact outputs,310 validations/912 observations; all1× and release gates stay open.
