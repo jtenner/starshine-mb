@@ -8738,3 +8738,58 @@ final aggregate signoff. The full corpus remains available. Manual review is not
 independent-agent review. All four 1× targets, P00 correctness, canonical deficits,
 full CI/coverage and deferred fuzz remain open. Local `source-order-subtree-*`
 artifacts retain hashes, commands, profiles, raw samples and runtime results.
+
+## October 4, 2026: inline CFG root records
+
+[CfgRegionRootBlock](../../../../../src/ir/cfg.mbt) is an immutable three-Int
+mapping. `#valtype` stores these records inline instead of allocating each
+mapping separately. Root order, holder/slot/block fields, segmentation, edge
+construction and all verifiers are unchanged. This does not change HotBlockInfo
+or retain new analysis. Generated native C confirms the per-record allocation
+is gone; the generated public `.mbti` text is unchanged and was reviewed.
+
+[Characterization](../../../../../src/ir/cfg_root_value_wbtest.mbt) passes before
+and after for 0/1/31/65 roots and both operand-expansion modes. It checks complete
+CFG/HOT verification, ordered mappings, retained fields and independent copied
+array replacement. Existing [CFG controls](../../../../../src/ir/cfg_drop_gate_perf_wbtest.mbt)
+(mean±SD, wasm-GC release) remain bounded: tiny plain 419.18±6.09→418.65±2.60ns;
+wide plain 19.89±0.347→19.86±0.350µs; tiny drops 1.21±0.019→1.16±0.013µs;
+wide drops 70.44±1.54→68.41±1.71µs. The performance defect is native object
+allocation, not a semantic test failure. Info/fmt/check, 13,524 workspace tests,
+native release and README/API sync pass.
+
+Frozen native `4a357db9…`→`794fa5b1…`, complete pass scopes:
+
+| Consumer | Before instructions | After instructions | Change | Before allocations | After allocations |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| DAE2 | 28,753,203,325 | 28,637,618,653 | −0.4020% | 69,867,229 | 69,134,727 |
+| CoalesceLocals | 34,066,447,604 | 33,991,585,492 | −0.2198% | 78,386,582 | 77,902,554 |
+
+Root segmentation removes exactly 732,502 / 484,028 allocator calls respectively;
+its other allocations remain. Counts are allocator requests, not live bytes or
+peak RSS. Profiles cover each complete pass, excluding parsing/final CLI
+validation/encoding; inclusive child edges must not be added to these totals.
+
+Same 6,211,596 B compiler SHA `98189860…`, verified Binaryen 133 SHA `8f25e9fd…`,
+Ryzen 7 8845HS CPU 6, GCC 14.2 O2/mimalloc. Build excluded, warmup 1 / n5,
+rotating alternating fresh-process commands with warm filesystem; median±MAD ms
+[min,max]:
+
+| Pass | Before | After | Binaryen 133 | After /133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3219.832±16.383 [3188.915,3328.568] | 3209.658±11.835 [3191.854,3321.593] | 1122.887±7.164 [1112.377,1171.743] | 2.858× | -0.210% |
+| dae2-optimizing | 5628.166±45.423 [5475.538,5682.291] | 5524.524±36.178 [5485.424,5588.932] | 2335.869±8.977 [2326.892,2396.125] | 2.365× | -2.484% |
+| coalesce-locals | 3487.974±23.125 [3464.512,3659.284] | 3597.576±111.725 [3481.998,3733.144] | 1868.609±16.067 [1834.058,1921.637] | 1.925× | +2.018% |
+| optimize-instructions | 1736.414±4.988 [1731.382,1742.675] | 1749.852±3.431 [1731.287,1761.035] | 902.479±3.478 [895.727,909.339] | 1.939× | +0.682% |
+
+Foreign CPU activity is recorded with the individual samples. Clock movement,
+including adverse rows, does not establish a general 1× or RSS win. Full RSS
+and separate traced n1 diagnostics remain local; OI's narrow inner excludes
+cleanup. All four before/after large output hashes match. Twenty focused
+fixtures/pass yield 324 validations and 944 supported observations of values,
+ordered effects, globals, memory and traps. Only the existing DAE2/O typed-block
+failure remains. The Binaryen text adapter is only for Node compact imports and
+does not change the raw size/hash protocol. Manual review is not independent
+agent signoff. All four 1× targets, canonical deficits, P00 correctness and
+full CI/coverage/aggregate fuzz gates remain open. Local `cfg-root-value-*`
+records retain exact builds, inputs, commands, generated layout and samples.

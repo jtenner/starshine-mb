@@ -33,6 +33,7 @@ pub impl Show for HotBlockInfo with fn output(self, logger) {
 }
 
 ///|
+#valtype
 pub struct CfgRegionRootBlock {
   region_holder : NodeId
   slot : Int

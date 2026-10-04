@@ -1,3 +1,7 @@
+### 2026-10-04 — Store CFG root mappings inline
+
+- [Layout proof and complete pass evidence](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-cfg-root-records): DAE2 work −0.4020% / 732,502 fewer allocations; CL −0.2198% / 484,028 fewer. 13,524 tests and focused execution retain exact output, with the existing DAE2/O typed-block blocker. All four 1× targets remain open.
+
 ### 2026-10-04 — Reuse string-free function evidence
 
 - [Lifetime proof and measured OI work](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-reuse-string-free-function-evidence): complete command instructions −1.1534%, five added bounded proof objects, unchanged output. 13,523 tests and focused execution pass apart from the known DAE2/O typed-block failure. Adverse DAE2/CL clocks and all four 1× targets remain open.

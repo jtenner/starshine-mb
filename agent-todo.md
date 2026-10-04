@@ -27,17 +27,17 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched all-four checkpoint:** native `7b17d037…`→`4a357db9…`,
-  completed string-free comparison evidence removes repeated scans. Complete OI
-  instructions −1.1534%, five added bounded proof objects, exact output retained.
+- **Latest matched all-four checkpoint:** native `4a357db9…`→`794fa5b1…`,
+  inline CFG root mappings remove 732,502 DAE2 / 484,028 CL allocator calls;
+  complete pass work −0.4020%/−0.2198%, exact output retained.
   CPU 6 n5/warmup 1 full-command median±MAD:
-  dae2: 3287.831±125.607 / B 1106.844±1.589 ms (2.970×);
-  dae2-optimizing: 5512.760±44.376 / B 2352.600±19.857 ms (2.343×);
-  coalesce-locals: 3463.672±55.798 / B 1972.261±50.140 ms (1.756×);
-  optimize-instructions: 1833.842±8.854 / B 992.037±50.012 ms (1.849×).
-  Foreign activity affects every cohort; DAE2/CL paired movement is adverse.
-  No general clock/RSS or 1× win. [Full checkpoint](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-reuse-string-free-function-evidence).
-  13,523 tests; 324 validations/944 supported observations in 20 fixtures/pass;
+  dae2: 3209.658±11.835 / B 1122.887±7.164 ms (2.858×);
+  dae2-optimizing: 5524.524±36.178 / B 2335.869±8.977 ms (2.365×);
+  coalesce-locals: 3597.576±111.725 / B 1868.609±16.067 ms (1.925×);
+  optimize-instructions: 1749.852±3.431 / B 902.479±3.478 ms (1.939×).
+  Foreign activity is retained with the samples; no general clock/RSS or 1× win.
+  [Full checkpoint](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-cfg-root-records).
+  13,524 tests; 324 validations/944 supported observations in 20 fixtures/pass;
   the existing typed-block failure remains open. Full aggregate gates unchanged.
 - **Historical OI-only checkpoint:** native`b1ef48ca…`→`3f74dc4b…`, complete
   process work−.8188%,340,195 fewer requests and unchanged bytes. N5 CLI
@@ -880,13 +880,6 @@ quality gates. Keep traced inner and normal command measurements separate.
   annotation-only variant regressed and was rejected. Contended command pairs
   remain adverse; do not claim1× or repeat the rejected representation alone.
   [Evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-lower-stack-without-optional-discard-boxes).
-- [ ] Finish the CFG root-record value-storage trial. The immutable three-Int
-  mapping currently allocates a separate object per root; native construction
-  confirms that allocation. Field/copy characterization and tiny/wide controls
-  pass before the change. The candidate retains every mapping and verifier;
-  13,524 tests pass, with no generated `.mbti` text diff. Require native object
-  elimination, complete DAE2/CL profiles, four-pass timing/RSS/output and focused
-  execution evidence before acceptance. Do not expand this to HotBlockInfo.
 - [ ] Try an allocation-free branch-depth membership filter in CL's ordered
   merge. A current complete CL profile attributes 340.271m instructions to
   461,915 growing-array membership calls. The `oc_contains_local` native name is
