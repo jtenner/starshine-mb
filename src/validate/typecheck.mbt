@@ -651,9 +651,11 @@ fn typecheck_local_set(
   match st.env.get_local_type(idx) {
     None => Err("invalid local index")
     Some(vt) =>
-      match st.pop_expect(vt) {
-        Err(e) => Err(e)
-        Ok(st2) => Ok(st2.mark_local_initialized(idx, initialization_owner~))
+      // A successful pop keeps this state and mutates only its owned stack.
+      // Initialization may still return a new state with an isolated mask.
+      match st.pop_expect_error(vt) {
+        Some(e) => Err(e)
+        None => Ok(st.mark_local_initialized(idx, initialization_owner~))
       }
   }
 }
@@ -668,10 +670,10 @@ fn typecheck_local_tee(
     None => Err("invalid local index")
     Some(vt) =>
       // tee pops vt then pushes vt
-      match st.pop_expect(vt) {
-        Err(e) => Err(e)
-        Ok(st2) =>
-          Ok(st2.mark_local_initialized(idx, initialization_owner~).push1(vt))
+      match st.pop_expect_error(vt) {
+        Some(e) => Err(e)
+        None =>
+          Ok(st.mark_local_initialized(idx, initialization_owner~).push1(vt))
       }
   }
 }

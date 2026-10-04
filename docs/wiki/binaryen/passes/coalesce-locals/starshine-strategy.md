@@ -1705,3 +1705,14 @@ Exact commands, hashes, source manifest, resource RED, profiles, clocks/RSS and
 runtime rows are local `cl-branch-live-storage-*` artifacts. All four1× targets
 remain open. Continue DAE2 local-write validation wrappers and the larger
 CFG/lift/lower/optimizing-cleanup owners; no graph or guard work is removed.
+
+## October 4, 2026: local-write operand validation storage
+
+The [shared validation checkpoint](../dae2/starshine-strategy.md#october-4-2026-keep-local-write-validation-success-unboxed)
+keeps set/tee state and checks while removing the intermediate success wrapper.
+Complete CL work falls 0.1353%; complete OI-command work falls 0.5170%, with
+1,073,389 fewer OI allocation requests and identical output bytes. Four-pass
+clocks retain contention, the adverse DAE2 row and no universal RSS gain.
+13,487 default tests and 1,104 validations/3,248 available runtime observations
+retain the existing DAE2 typed-block blocker. All four 1× and canonical gaps
+remain open; this does not broaden admission or remove verification.

@@ -8244,3 +8244,75 @@ commands, samples/ranges, profile scopes, resource RED and ownership self-review
 Independent review, full CI/coverage and deferred aggregate fuzz remain pending.
 All four1× goals remain open. Next: CoalesceLocals branch-row storage (baseline
 characterizations pass), and the larger DAE2 dependency/lift/lower/cleanup owners.
+
+## October 4, 2026: keep local-write validation success unboxed
+
+Main `1512cee96`, native `923a4908…` → `42af3b7f…`. Local set/tee now call
+`TcState.pop_expect_error` directly. Its existing Result adapter returned the
+exact input state on success; only the owned operand stack changes. Local
+lookup still precedes pop, initialization follows successful pop, and the
+initialization owner/copy-on-write mask and tee declared result type remain.
+No checks, public API, admission, optimization work or final Result changes.
+
+Three [state/ownership/error characterizations](../../../../../src/validate/local_write_pop_wbtest.mbt) and one [active four-pass dispatcher](../../../../../src/cmd/local_write_pop_wbtest.mbt)
+pass before implementation. Resource RED: 1,336,814 local-write calls through the
+boxed pop adapter exceed the zero-call budget. Candidate zero, with exactly 735,180
+set and 601,634 tee checks retained. Source and emitted native code agree.
+
+| Complete collected native scope | Before instructions | After instructions | Change |
+| --- | ---: | ---: | ---: |
+| DAE2 pass | 29,852,266,706 | 29,763,125,430 | -0.2986% |
+| CoalesceLocals pass | 38,403,763,531 | 38,351,794,803 | -0.1353% |
+| OptimizeInstructions whole process | 19,577,090,343 | 19,475,877,961 | -0.5170% |
+
+The scoped profiles continue counting calls after collection stops; their global
+allocator deltas 1,336,814/829,558 are **not** pass-only allocation measurements.
+The complete OI process removes 1,073,389 allocator requests. Requests do not
+establish bytes or peak memory. Inclusive edges are not added to complete costs.
+
+Four [wasm-gc controls](../../../../../src/validate/local_write_pop_perf_wbtest.mbt), mean±SD: numeric set 30.90±.24→28.13±.56ns;
+numeric tee 32.50±.26→29.25±.12ns; GC-subtype tee 37.83±.23→35.25±.24ns;
+invalid-concrete set 125.70±4.68→116.16±2.21ns. Ten batches of 100,000 each.
+
+Same 6,211,596 B input SHA 98189860…, verified Binaryen 133 SHA 8f25e9fd…,
+Ryzen 7 8845HS CPU 6, Moon 0.1.20260920/moonc 0.10.14, GCC 14.2 O2/mimalloc.
+Build excluded; fresh normal processes with warm filesystem, one warmup and
+five rotating samples. Median±MAD milliseconds [min,max]:
+
+| Pass | Before | After | Binaryen133 | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3510.071±16.016 [3464.324,3587.117] | 3544.465±17.137 [3513.438,3561.602] | 1170.002±11.251 [1158.752,1193.054] | 3.029× | +1.418% |
+| dae2-optimizing | 5829.475±53.204 [5774.236,5977.301] | 5811.789±12.553 [5799.236,5880.941] | 2407.866±26.769 [2365.591,2441.146] | 2.414× | -0.217% |
+| coalesce-locals | 3898.672±16.287 [3882.385,4154.210] | 3928.280±50.372 [3875.513,3983.713] | 1858.622±11.633 [1808.428,1898.653] | 2.114× | -0.189% |
+| optimize-instructions | 2169.962±8.618 [2161.344,2291.574] | 2164.870±19.234 [2104.600,2217.198] | 981.185±11.615 [969.570,1007.463] | 2.206× | -1.523% |
+
+Retain overlapping ranges, adverse rows and observed foreign CPU; this does
+not establish a universal wall-clock or RSS win. No slower-oracle cohort is
+credited as a Starshine implementation gain. Separate n1 traced diagnostics:
+
+- dae2: inner 2725.977→2835.280ms; pipeline 2744.397→2857.117ms. RSS before/after medians 265,488/265,548KiB; foreign rows before/after/oracle 3/2/0. Full RSS ranges in local JSON.
+- dae2-optimizing: inner 5015.138→5257.423ms; pipeline 5033.095→5283.176ms. RSS before/after medians 294,328/294,288KiB; foreign rows before/after/oracle 3/2/2. Full RSS ranges in local JSON.
+- coalesce-locals: inner 2944.801→2928.246ms; pipeline 2963.295→2951.839ms. RSS before/after medians 249,228/248,764KiB; foreign rows before/after/oracle 5/4/4. Full RSS ranges in local JSON.
+- optimize-instructions: inner 82.445→83.208ms; pipeline 1598.655→1588.297ms. RSS before/after medians 156,348/155,556KiB; foreign rows before/after/oracle 5/5/5. Full RSS ranges in local JSON.
+
+OI’s narrow inner timer omits most cleanup. Do not use it as a complete pass
+or command speed comparison. All four 1× targets remain open.
+
+Info/fmt/check, **13,487 default tests**, four controls, native release and
+README/API sync pass; no .mbti diff. **1,104 validations and 3,248 available runtime
+observations** cover 68 fixtures per pass and exercise
+original/before/after/133 outputs, ordered calls, globals/memory, values and
+permitted trap status. The existing DAE2/OO typed-block rewrite failure remains
+blocked, not passed. All available runtime observations and before/after bytes
+match; exact large raw hashes retain earlier canonical sizes, not fresh
+canonical signoff. OO+99,251B, CL+78,800B and OI+33,497B canonical gaps remain.
+
+Ownership self-review is complete; independent review, full CI/coverage and
+deferred aggregate fuzz remain pending. Local `local-write-pop-*` artifacts
+contain exact commands, hashes, source manifests, profiles, clocks/RSS and
+runtime rows. Next: private unsigned decoder return packaging; then larger
+DAE2 dependency/lift/lower and optimizing-cleanup owners. No release signoff.
+
+Disk exhaustion interrupted the first CL runtime attempt. That partial run is
+retained separately; the complete rerun above supplies the evidence. Duplicate
+sealed outputs were hard-linked by verified SHA, preserving every path/byte.

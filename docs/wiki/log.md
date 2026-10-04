@@ -1,3 +1,11 @@
+### 2026-10-04 — Keep local-write validation success unboxed
+
+- [Ownership, complete scopes and four-pass comparisons](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-keep-local-write-validation-success-unboxed):
+  all checks and bytes retained; complete DAE2/CL/OI work−.299/−.135/−.517%.
+  13,487 tests,1,104 validations and3,248 available runtime observations pass
+  their supported rows. Contended/adverse clocks, the typed-block blocker,
+  canonical gaps and all four1×/release gates remain open.
+
 ### 2026-10-04 — Reuse CoalesceLocals branch liveness storage
 
 - [Ownership proof and measured controls](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-reuse-branch-liveness-rows):

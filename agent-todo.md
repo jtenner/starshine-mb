@@ -27,25 +27,23 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched all-four checkpoint:** scalar lift reservations, main `8ea5ade8e`,
-  native `c98ffbbf…` → `c06f4a76…`; complete DAE2/CL/OI work −.456/−.177/−.002%,
-  1,510,033 / 729,950 / 19,232 fewer allocation requests, all checks retained.
-  CPU6 n5/warmup1 normal CLI medians±MAD (ms):
-  DAE2 3638.085±22.156 / B1228.261±6.163 (2.962×);
-  DAE2-O 6156.193±87.675 / B2508.656±15.024 (2.454×);
-  CoalesceLocals 4000.320±13.321 / B2052.441±38.684 (1.949×);
-  OptimizeInstructions 2176.892±37.299 / B995.620±37.707 (2.186×).
-  All60 rows contended and ranges overlap. OO paired change is adverse +.712%;
-  no universal clock or memory win. Preserve adverse wasm-gc controls and single
-  diagnostic inner samples; OI's narrow timer excludes most cleanup.
-  13,480 tests, 1,088 validations/3,200 available observations, exact raw hashes;
-  both P00 typed-block failures and all four1× goals remain open.
-  [Evidence and tradeoffs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-scalar-lift-source-reservations).
+- **Latest matched all-four checkpoint:** local-write validation storage, main
+  `1512cee96`, native `923a4908…` → `42af3b7f…`; complete DAE2/CL/OI work
+  −.299/−.135/−.517%, same checks and bytes. Normal CLI CPU6 n5/warmup1,
+  medians±MAD (ms): DAE2 3544.465±17.137 / B1170.002±11.251 (3.029×);
+  DAE2-O 5811.789±12.553 / B2407.866±26.769 (2.414×);
+  CoalesceLocals 3928.280±50.372 / B1858.622±11.633 (2.114×);
+  OptimizeInstructions 2164.870±19.234 / B981.185±11.615 (2.206×).
+  Keep overlapping ranges, foreign CPU and DAE2 paired +1.418% adverse movement;
+  no universal clock/RSS win. Separate n1 diagnostics do not close pass-local
+  targets; OI's narrow timer omits most cleanup.13,487 tests and1,104 validations/
+  3,248 available observations preserve the P00 typed-block blocker. All four1×
+  goals stay open. [Complete scopes, ranges and tradeoffs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-keep-local-write-validation-success-unboxed).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Latest complete DAE2 profile:** nativec06f4a76… pass29.850b instructions.
+- **Latest complete DAE2 profile:** native42af3b7f… pass29.763b instructions.
   The preceding c98 profile attributes dependencies9.355b, analysis lift6.366b,
   rewrite lift2.372b, lower4.647b and final validation2.495b; these remain
   larger owners, with source versions explicit and inclusive costs not additive. [Full source breakdown](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
@@ -836,12 +834,18 @@ quality gates. Keep traced inner and normal command measurements separate.
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
-- [ ] Remove remaining local-set/tee validation success wrappers using the
-  existing error-only typed-pop worker. Current c06 DAE2 consumer counts are
-  735,180 /601,634; preserve local lookup/error order, owned stack, initialization
-  mask/sequence owner and tee's declared result type. Three behavior baselines,
-  four-pass dispatcher and four bounded controls pass before implementation;
-  require fresh complete DAE2/CL/OI costs and matched clocks, not counts alone.
+- [ ] Complete the isolated unsigned-decoder and structured-frame storage
+  trials now in progress: preserve parser checks/error precedence, public Decode
+  contracts, active-body aliases and all state transitions. Require full-command
+  profiles, exact outputs, bounded runtime oracles and matched four-pass clocks;
+  parsing improvements are not pass-local gains. Preserve the interrupted disk-
+  exhaustion cohorts separately; never count partial results.
+- [ ] Measure explicit lift-provenance demand for DAE2 without write provenance
+  and CL loop CFG, which have no source-map reader. Preserve default recording,
+  SSA-nomerge, captures, conflict masks, all verification and exact HOT structure.
+  Three focused API/graph tests and bounded controls are being prepared; require
+  reviewed optional-parameter .mbti, complete DAE2/CL costs, default overhead and
+  unchanged runtime/byte results before accepting an opt-out.
 - **Next measured shared targets:** current CL root40.483b instructions;
   prior nested lower5.956b after explicit effect/ordering demand removes unused rows.
   Full lower source factories4565→297; no duplicate implementation of that
@@ -875,8 +879,8 @@ quality gates. Keep traced inner and normal command measurements separate.
   [Measured complete consumers](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-inline-scalar-cfg-edge-storage) preserve graph counts/output bytes.
   Do not repeat this allocation trial or infer a universal RSS/clock win.
 - [ ] Reduce remaining typed-pop consumer wrappers after the measured error-only
-  worker removes2,928,709 requests. Reverse signature and unary/binary consumers
-  are complete;2,713,068 adapter calls remain in local writes, loads/stores,
+  worker removes2,928,709 requests. Reverse signature, unary/binary and local-set/tee consumers
+  are complete;1,376,254 adapter calls remain in loads/stores,
   controls and other consumers. Preserve state identity, pop/error ordering,
   subtype/bottom/unreachable rules and final Result contracts. Measure complete
   consumers and cold paths; retain current OO/OI+1.062/+.581% paired clock
