@@ -1676,6 +1676,7 @@ fn encode_module_stringrefs(
 fn encode_module_stringrefs_pool(
   mod_ : Module,
   membership_work? : Array[Int]? = None,
+  string_free_funcs? : Array[Func]? = None,
 ) -> EncodeStringRefsPool {
   /// Recurse through structured control instructions and collect string constants
   /// that can be reached in nested blocks for local declarations and exports.
@@ -1740,7 +1741,15 @@ fn encode_module_stringrefs_pool(
   }
   match mod_.code_sec {
     Some(CodeSec(funcs)) =>
-      for func in funcs {
+      for index, func in funcs {
+        // Only the exact-size comparison supplies this proof: its completed
+        // first encode found no strings anywhere. Shared function objects
+        // cannot acquire strings during that immutable comparison call.
+        if string_free_funcs is Some(previous) &&
+          index < previous.length() &&
+          physical_equal(func, previous[index]) {
+          continue
+        }
         let Func(_, expr) = func
         let Expr(instrs) = expr
         for instr in instrs {
@@ -1813,7 +1822,15 @@ fn encode_module_sections(
   if Encode::encode(val.tag_sec, buf) is Err(t) {
     return Err(t)
   }
-  let string_pool = encode_module_stringrefs_pool(val)
+  let string_free_funcs = match size_state {
+    Some(state) =>
+      match state.reuse {
+        Some(previous) if previous.strings.is_empty() => Some(previous.funcs)
+        _ => None
+      }
+    None => None
+  }
+  let string_pool = encode_module_stringrefs_pool(val, string_free_funcs~)
   let stringrefs = string_pool.values
   let stringrefs_sec = if stringrefs.length() > 0 ||
     val.stringrefs_sec is Some(_) {

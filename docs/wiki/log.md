@@ -1,3 +1,7 @@
+### 2026-10-04 — Reuse string-free function evidence
+
+- [Lifetime proof and measured OI work](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-reuse-string-free-function-evidence): complete command instructions −1.1534%, five added bounded proof objects, unchanged output. 13,523 tests and focused execution pass apart from the known DAE2/O typed-block failure. Adverse DAE2/CL clocks and all four 1× targets remain open.
+
 ### 2026-10-04 — Bound the native compiler-flag experiment
 
 - [Separate O2/O3 n5 comparison](tooling/tracing-playbook.md#october-4-2026-bounded-native-o3-build-experiment): observed paired gains 2.36–4.69% with unchanged bytes and focused execution. Executable +19.395%, median RSS higher, foreign load retained. Default build flags unchanged pending portable configuration evidence.

@@ -2465,3 +2465,60 @@ Manual source review is not independent-agent signoff. All four 1× targets,
 canonical deficits, P00 correctness and deferred full CI/coverage/aggregate fuzz
 remain open. Local `encoded-type-remap-*` evidence retains frozen source/build
 hashes, failed/passing tests, commands, profiles, timing rows and runtime results.
+
+## October 4, 2026: reuse string-free function evidence
+
+[Exact-size encoding](../../../../../src/binary/encode.mbt) reuses the completed
+first encoding's empty string pool only for identical function objects at the
+same index during one synchronous comparison. New/replaced/reordered functions,
+current explicit declarations and globals still scan; nonempty previous pools
+never shortcut. There are no callbacks or mutations within this lifetime. An
+unsuccessful first encode supplies no reuse. Ordinary encoding, mandatory body/
+local/section encoding, errors, framing and validation remain unchanged. No
+persistent cache or extra retained function rows are introduced.
+
+[Four characterization tests](../../../../../src/binary/encoded_string_free_reuse_wbtest.mbt)
+pass before and after: newly introduced nested/global/declared strings, nonempty
+pools crossing a declaration-index width, mutation between independent calls,
+and an intentionally invalid replacement retaining its encoder error. The
+failure addressed is measured repeated work, not a missing semantic behavior.
+Info/fmt/check, 13,523 workspace tests, native release and README/API sync pass;
+no generated interface text changes. [Release controls](../../../../../src/binary/encoded_string_free_reuse_perf_wbtest.mbt)
+(mean±SD, wasm-GC): tiny empty 743.49±11.51→715.63±11.19ns;
+wide empty 181.46±5.96→138.35±0.484µs; tiny nonempty
+1.11±0.015→1.07±0.016µs; wide nonempty 189.29±1.48→185.46±3.49µs.
+
+Frozen native `7b17d037…`→`4a357db9…` reduces **complete OI command**
+instructions 18,430,205,113→18,217,631,482 (−1.1534%). Allocator requests
+62,174,451→62,174,456 increase by five bounded optional-proof objects; this is a
+scan improvement, not an allocation reduction. The five string-pool calls cost
+545,343,275→332,654,672 instructions. Top-level instruction visits fall
+1,997,753→1,202,080; recursive visits 9,026,549→5,421,023. Recursive inclusive
+edges overlap and must not be summed. The numeric-local and type-cleanup size
+guards fall 872,032,075→764,787,974 and 871,968,671→764,948,911 respectively;
+these are nested within the complete command, not additional savings.
+
+Same 6,211,596 B compiler SHA `98189860…`, verified Binaryen 133 SHA `8f25e9fd…`,
+Ryzen 7 8845HS CPU 6, GCC 14.2 O2/mimalloc. Build excluded, warmup 1 / n5,
+rotating alternating fresh-process commands with warm filesystem; median±MAD ms
+[min,max]:
+
+| Pass | Before | After | Binaryen 133 | After /133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3241.943±64.238 [3089.440,3306.181] | 3287.831±125.607 [3158.083,3532.925] | 1106.844±1.589 [1105.255,1197.446] | 2.970× | +2.044% |
+| dae2-optimizing | 5521.985±8.367 [5513.619,5701.463] | 5512.760±44.376 [5468.384,7971.237] | 2352.600±19.857 [2332.743,2783.407] | 2.343× | -0.197% |
+| coalesce-locals | 3507.995±105.032 [3370.512,3649.027] | 3463.672±55.798 [3388.940,3532.746] | 1972.261±50.140 [1773.159,2022.401] | 1.756× | +0.327% |
+| optimize-instructions | 1874.812±55.080 [1799.386,1998.617] | 1833.842±8.854 [1765.355,1858.679] | 992.037±50.012 [918.696,1042.050] | 1.849× | -1.891% |
+
+Foreign CPU activity affects every cohort (some individual CL/DAE2 rows are
+quiet). Retain adverse DAE2 +2.044% and CL +0.327% paired movements; OI moves
+−1.891%. No general clock/RSS or 1× claim follows. Full RSS distributions and
+separate traced n1 diagnostics remain local; OI's narrow inner excludes cleanup.
+All four large before/after hashes are identical. Twenty focused fixtures/pass
+yield 324 validations and 944 supported observations of values, ordered effects,
+globals, memory and traps. Only the existing DAE2/O typed-block failure remains.
+Binaryen text roundtripping adapts compact imports for Node only; raw size/hash
+measurements are untouched. Manual review is not independent-agent signoff.
+All four 1× targets, canonical deficits, P00 correctness and deferred full CI,
+coverage and aggregate fuzz remain open. Local `encoded-string-free-*` records
+retain exact commands, input/build/source hashes, checks and measurement rows.

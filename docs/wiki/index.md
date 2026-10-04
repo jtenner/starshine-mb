@@ -5,6 +5,7 @@
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
 - [Bounded native O3 experiment](tooling/tracing-playbook.md#october-4-2026-bounded-native-o3-build-experiment) — Same generated source moves all four paired command medians positively, with 19.395% larger executable and higher median RSS; defaults unchanged.
+- [String-free encoding reuse](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-reuse-string-free-function-evidence) — Completed comparison evidence removes repeated scans; complete OI work −1.1534%, exact output retained.
 - [Exact type-index sizing](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-exact-type-index-size-deltas) — Signed/unsigned width reuse preserves errors and bytes; changed-body controls improve, current OI command work only −0.00536%.
 - [Source-order descendant reuse](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-completed-source-order-descendants) — Existing immutable lists reduce complete DAE2/CL work by 1.178%/0.167%; unchanged bytes, explicit adverse controls and open 1× targets.
 - [CFG opcode reuse](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-the-previous-cfg-opcode) — Avoid non-Drop classifier calls; complete DAE2/CL work −0.505%/−0.283%, unchanged bytes and open 1× goals.

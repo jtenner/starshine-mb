@@ -27,18 +27,17 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched all-four checkpoint:** native `ea4e5887…`→`7b17d037…`,
-  exact type-index width reuse preserves bytes and saves only 0.00536% complete
-  OI command work / 2,006 allocations on this compiler. Large gains in changed-body
-  controls do not establish a material large-command improvement.
+- **Latest matched all-four checkpoint:** native `7b17d037…`→`4a357db9…`,
+  completed string-free comparison evidence removes repeated scans. Complete OI
+  instructions −1.1534%, five added bounded proof objects, exact output retained.
   CPU 6 n5/warmup 1 full-command median±MAD:
-  dae2: 3254.906±31.154 / B 1132.758±1.695 ms (2.873×);
-  dae2-optimizing: 5575.761±68.317 / B 2350.342±4.984 ms (2.372×);
-  coalesce-locals: 3515.753±16.358 / B 1990.546±28.640 ms (1.766×);
-  optimize-instructions: 1899.938±23.845 / B 969.112±10.647 ms (1.960×).
-  All rows flag foreign load; DAE2-O/OI paired movement is adverse. No general
-  clock/RSS or 1× win. [Full checkpoint](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-exact-type-index-size-deltas).
-  13,519 tests; 324 validations/944 supported observations in 20 fixtures/pass;
+  dae2: 3287.831±125.607 / B 1106.844±1.589 ms (2.970×);
+  dae2-optimizing: 5512.760±44.376 / B 2352.600±19.857 ms (2.343×);
+  coalesce-locals: 3463.672±55.798 / B 1972.261±50.140 ms (1.756×);
+  optimize-instructions: 1833.842±8.854 / B 992.037±50.012 ms (1.849×).
+  Foreign activity affects every cohort; DAE2/CL paired movement is adverse.
+  No general clock/RSS or 1× win. [Full checkpoint](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-reuse-string-free-function-evidence).
+  13,523 tests; 324 validations/944 supported observations in 20 fixtures/pass;
   the existing typed-block failure remains open. Full aggregate gates unchanged.
 - **Historical OI-only checkpoint:** native`b1ef48ca…`→`3f74dc4b…`, complete
   process work−.8188%,340,195 fewer requests and unchanged bytes. N5 CLI
@@ -703,13 +702,12 @@ quality gates. Keep traced inner and normal command measurements separate.
   fall 12.0% and allocator calls 13.4%. Every timing row observes background
   activity; instruction evidence corroborates the improvement. See the
   [OI dossier](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-1-2026-large-module-local-group-validation).
-- [ ] Attribute remaining exact-size string-pool scans. Current OI complete
-  profile spends 424.725m exclusive instructions in recursive string collection;
-  shared unchanged bodies are rescanned for both sides of each size guard.
-  Investigate reusing a proved empty pool within the existing immutable comparison
-  lifetime, while preserving explicit/global/new-function strings, declaration
-  order, encoder errors and final validation. The candidate is implemented;
-  complete execution evidence and acceptance are pending.
+- [ ] Continue profiling OI's remaining sizing/validation allocation owners.
+  Completed empty-pool reuse removes 212.689m string-scan instructions; the
+  remaining five scans cost332.655m. Mandatory first/final scans and validation
+  remain necessary. Do not extend the shortcut to nonempty pools or persistent
+  mutable-module caches without a new lifetime/order proof. Prefer larger
+  evidenced owners over repeating this completed scan optimization.
 - [ ] Verify portable native compiler configuration before adopting O3.
   The completed same-C n5 screen observes paired command gains 2.36–4.69%,
   but executable +19.395% and higher median RSS; foreign activity is retained.
