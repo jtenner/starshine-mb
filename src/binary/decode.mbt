@@ -2845,60 +2845,26 @@ fn structured_frame_push_instruction(
   frame : StructuredDecodeFrame,
   inst : Instruction,
 ) -> StructuredDecodeFrame {
+  // Only the already-owned active body changes. Every frame field and active
+  // catch stays the same, so keep the frame after appending instead of boxing
+  // another frame (and another catch wrapper) for each decoded instruction.
   match frame {
-    BlockFrame(bt, body_depth, body) => {
-      body.push(inst)
-      BlockFrame(bt, body_depth, body)
-    }
-    LoopFrame(bt, body_depth, body) => {
-      body.push(inst)
-      LoopFrame(bt, body_depth, body)
-    }
-    IfFrame(bt, body_depth, then_body, else_body) =>
+    BlockFrame(_, _, body)
+    | LoopFrame(_, _, body)
+    | TryTableFrame(_, _, _, body) => body.push(inst)
+    IfFrame(_, _, then_body, else_body) =>
       match else_body {
-        Some(else_body) => {
-          else_body.push(inst)
-          IfFrame(bt, body_depth, then_body, Some(else_body))
-        }
-        None => {
-          then_body.push(inst)
-          IfFrame(bt, body_depth, then_body, None)
-        }
+        Some(body) => body.push(inst)
+        None => then_body.push(inst)
       }
-    LegacyTryFrame(bt, body_depth, body, catches, active_catch, delegate) =>
+    LegacyTryFrame(_, _, body, _, active_catch, _) =>
       match active_catch {
-        Some(LegacyTaggedCatchFrame(tag, catch_body)) => {
-          catch_body.push(inst)
-          LegacyTryFrame(
-            bt,
-            body_depth,
-            body,
-            catches,
-            Some(LegacyTaggedCatchFrame(tag, catch_body)),
-            delegate,
-          )
-        }
-        Some(LegacyCatchAllFrame(catch_body)) => {
-          catch_body.push(inst)
-          LegacyTryFrame(
-            bt,
-            body_depth,
-            body,
-            catches,
-            Some(LegacyCatchAllFrame(catch_body)),
-            delegate,
-          )
-        }
-        None => {
-          body.push(inst)
-          LegacyTryFrame(bt, body_depth, body, catches, active_catch, delegate)
-        }
+        Some(LegacyTaggedCatchFrame(_, catch_body))
+        | Some(LegacyCatchAllFrame(catch_body)) => catch_body.push(inst)
+        None => body.push(inst)
       }
-    TryTableFrame(bt, catches, body_depth, body) => {
-      body.push(inst)
-      TryTableFrame(bt, catches, body_depth, body)
-    }
   }
+  frame
 }
 
 ///|

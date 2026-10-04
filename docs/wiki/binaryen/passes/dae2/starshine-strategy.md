@@ -8390,3 +8390,64 @@ source/build/environment hashes, exact commands, timer distributions, profiles,
 resource RED and ownership self-review. Independent review, full CI/coverage and
 deferred aggregate fuzz remain pending. Next: structured-frame storage and
 explicit DAE2/CL lift-provenance demand; no release or speed-parity signoff.
+
+## October 4, 2026: reuse structured decode frames
+
+Native `f129b57b…` → `38ef809d…`. The private
+[`structured_frame_push_instruction`](../../../../../src/binary/decode.mbt)
+already appends to its owned active-body array. It now returns the original
+frame instead of reconstructing identical type/depth/body/catch/delegate fields
+for every instruction. Else, catch, catch-all, delegate, header and end transitions
+remain in the decoder loop. No parser check, error, public API or traversal changes.
+
+Three [frame/encoding/error regressions](../../../../../src/binary/structured_frame_storage_wbtest.mbt)
+and one [active nested-control dispatcher](../../../../../src/cmd/structured_frame_dispatch_wbtest.mbt)
+pass before implementation. Tests preserve sibling/catch bodies and frame
+metadata, nested/legacy-EH/try-table structure and exact encoded offsets, and
+first errors for intentionally malformed delimiters. Resource RED:2,120,809
+frame-wrapper requests against zero. After: zero requests with the same2,120,809
+helper calls. Complete OI native work **19,112,351,168 →18,585,524,926 (−2.7565%)**.
+This is parsing/full-command work, not a pass-local saving. Request counts are
+not allocation bytes or peak RSS. No instrumentation is in release timing.
+
+Four [wasm-gc controls](../../../../../src/binary/structured_frame_storage_perf_wbtest.mbt),
+mean±SD before→after: single54.84±.36→50.20±.35ns;
+wide1024 15.65±.210→12.32±.274µs; nested128 4.72±.068→4.45±.094µs;
+legacy32 1.32±.007→1.16±.009µs.
+
+Same 6,211,596B SHA98189860… input and verified Binaryen133 SHA8f25e9fd…;
+Ryzen7 8845HS CPU6, Moon0.1.20260920/moonc0.10.14, GCC14.2 O2/mimalloc.
+Build excluded. One warmup/five alternating fresh-process, warm-filesystem
+normal CLI samples. Median±MAD ms [min,max]:
+
+| Pass | Before | After | Binaryen133 | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3453.374±16.190 [3437.183,3513.623] | 3429.006±73.519 [3266.523,3507.568] | 1166.586±3.159 [1163.427,1240.439] | 2.939× | -0.706% |
+| dae2-optimizing | 5970.744±97.401 [5870.779,6253.796] | 5969.131±26.056 [5844.107,5999.891] | 2457.535±29.021 [2428.514,2663.261] | 2.429× | -0.454% |
+| coalesce-locals | 3992.643±31.767 [3931.329,4079.542] | 3973.029±49.654 [3876.285,4107.859] | 2035.729±20.111 [2015.618,2081.376] | 1.952× | -0.202% |
+| optimize-instructions | 2105.159±9.443 [2095.716,2193.550] | 2011.235±22.401 [1988.835,2043.907] | 1063.979±16.312 [1019.428,1080.291] | 1.890× | -4.824% |
+
+All60 normal rows record foreign CPU. Before/after ranges overlap except OI;
+slower oracle cohorts are not credited as Starshine improvements. RSS medians
+before→after KiB: DAE2 263520→265208; OO291060→291188; CL243316→243044;
+OI156516→156504. No general RSS win. Separate n1 diagnostic inner before→after
+ms: DAE2 2799.732→2818.017; OO5336.099→5296.038; CL2980.499→2995.431;
+OI100.619→84.837. OI pipeline1800.118→1501.805ms contains most cleanup omitted
+by its narrow timer. These single diagnostics do not establish repeated
+pass-local wins or supersede the preceding n3 scope comparison.
+
+Info/fmt/check, **13,495 default tests**, four controls, native release and README/API
+sync pass; no API change. **1,140 validations /3,344 available runtime observations**
+cover70 fixtures per pass: DAE2/OO each69 fully compared plus the existing blocked
+typed-block rewrite, CL/OI each70 fully compared. Original/before/after/133 values,
+ordered effects, globals/memory and permitted traps agree on supported rows.
+Compact-import oracle runtime uses the documented no-pass text adapter where
+Node26 rejects valid raw encodings. All four large raw hashes remain exact;
+canonical OO+99,251B/CL+78,800B/OI+33,497B gaps stay open.
+
+Local `structured-frame-*` evidence retains commands, manifests, profiles, clocks,
+resource RED and ownership review. Interrupted ENOSPC controls are preserved
+and excluded; the successful rerun supplies signoff. Independent review, full
+CI/coverage and deferred aggregate fuzz remain pending. All four1× goals and
+correctness gates remain open. Next: explicit DAE2/CL lift source-map demand;
+then larger dependency/lower/cleanup owners, including OI lazy output storage.

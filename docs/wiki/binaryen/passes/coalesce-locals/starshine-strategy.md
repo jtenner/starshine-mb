@@ -1720,3 +1720,7 @@ remain open; this does not broaden admission or remove verification.
 ## October 4, 2026: unbox private unsigned decoding results
 
 [Shared decoding evidence](../dae2/starshine-strategy.md#october-4-2026-unbox-private-unsigned-decoding-results) records unchanged checks/bytes, 4,402,894 fewer allocator requests and complete OI work−1.8665%. The full-command and n3 inner scopes remain separate; all four1×, size and correctness gates remain open.
+
+## October 4, 2026: reuse structured decode frames
+
+[Shared parsing evidence](../dae2/starshine-strategy.md#october-4-2026-reuse-structured-decode-frames) preserves all frame transitions/checks and raw bytes while removing2,120,809 requests; complete OI work−2.7565%. Normal CLI and narrow inner scopes remain distinct, with all four1× and correctness/size gates open.

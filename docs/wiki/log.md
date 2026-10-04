@@ -1,3 +1,7 @@
+### 2026-10-04 — Reuse structured decoder frames
+
+- [Active-body ownership and measured four-pass scopes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-structured-decode-frames):2,120,809 fewer wrappers, complete OI work−2.7565%, unchanged bytes/checks;13,495 tests and1,140 validations/3,344 supported observations. Parsing gains do not close pass-local targets; all four1× and release blockers remain.
+
 ### 2026-10-04 — Unbox private unsigned decoder results
 
 - [Representation proof and measured four-pass scopes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-unbox-private-unsigned-decoding-results): 4,402,894 fewer requests, complete OI work−1.8665%, exact bytes;13,491 tests and1,124 validations/3,296 supported observations. Parser checks/API remain; all four1× and release blockers stay open.
