@@ -602,7 +602,7 @@ quality gates. Keep traced inner and normal command measurements separate.
   regressing the large consumer: clear8+1.21µs (overlapping dispersion), no-edge
   512+29.02ns. Lazy preflight already preserves O(locals) with no body scan when
   rows are empty; do not repeat the completed global rejection mechanism.
-- **Latest CL-only follow-up:** branch-row reuse, main `25f8eaad0`, native
+- **Historical CL-only follow-up:** branch-row reuse, main `25f8eaad0`, native
   c06f4a76→923a4908. Complete work38.583b→38.404b (−.4634%);74,415 copies and
   148,830 requests removed, all label snapshots/hazard writes retained.
   CPU6 n5 normal CLI4034.524±72.495ms/B2560.703±287.585ms (1.576×), paired−.624%.
@@ -611,6 +611,15 @@ quality gates. Keep traced inner and normal command measurements separate.
   31.24→19.78µs; no-branch movement adverse/overlapping, no peak-RSS win.
   13,483 tests,285 validations/840 observations and exact bytes; no API diff.
   [Proof and limits](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-reuse-branch-liveness-rows).
+- **Latest CL-only follow-up:** native66f924ab…→312bb103…, packed structured
+  liveness/active-bit hazards reduce complete work37.981b→37.016b (−2.5407%).
+  N5 CLI3823.079±19.822 / B1902.545±35.637ms (2.009×), paired−.534%, all
+  rows contended. Tiny dense controls regress and allocation requests+8,812;
+  RSS overlaps.42 reference cases and76 runtime fixtures preserve all fields,
+  effects and exact output. [Full evidence](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-packed-structured-liveness-rows).
+- [ ] Revisit packed-liveness tiny dense cost952ns→1.05µs only with a measured
+  enclosing improvement; retain sparse-row savings, masked tails and owned
+  branch/exception snapshots. Do not repeat the old all-local hazard scan.
 - **Tasks:** profile repeated dependency/action rows, source-order/label setup,
   capture/conflict walks and weighted/wider coloring on the current revision.
   Reduce unused block-write metadata only with complete full-graph semantics.
@@ -623,7 +632,8 @@ quality gates. Keep traced inner and normal command measurements separate.
   attribution; no memory win. Canonical gap78,800B and final signoff remain.
 - **Completed mechanisms:** shared reachability, unchanged strip/spill storage,
   weightless first-valid slot, scalar one-word cliques, checked lift reads,
-  compact lower counts/direct results and block-only liveness are implemented.
+  compact lower counts/direct results, block-only liveness and packed structured
+  liveness are implemented.
   Do not duplicate them; their frozen evidence is in the existing dossier.
 - **Invariant / dependencies:** compiled source-hazard replay, fused copy/remap,
   sparse cliques, preorder control summaries, occupied-bit/live-member extra
@@ -858,8 +868,8 @@ quality gates. Keep traced inner and normal command measurements separate.
   prior nested lower5.956b after explicit effect/ordering demand removes unused rows.
   Full lower source factories4565→297; no duplicate implementation of that
   completed mechanism. Reduce measured carried fallback+140ns/+6.93µs without
-  regressing large consumers or adding speculative region caches. Stack-value
-  objects and unused block-write metadata still allocate. DAE2 dependency/lift
+  regressing large consumers or adding speculative region caches. Cold optional stack pops
+  and unused block-write metadata still allocate. DAE2 dependency/lift
   and optimizing cleanup remain larger owners; field attribution retains its
   exact earlier snapshots.
 - [ ] Finish the active exact mixed-band lift-conflict memoization trial.

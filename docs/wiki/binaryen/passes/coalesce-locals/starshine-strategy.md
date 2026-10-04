@@ -1728,3 +1728,64 @@ remain open; this does not broaden admission or remove verification.
 ## October 4, 2026: record lift provenance only for consumers
 
 [Consumer proof and complete measurements](../dae2/starshine-strategy.md#october-4-2026-record-lift-provenance-only-for-consumers) preserve source-map defaults, all verification and exact bytes. DAE2/CL native work falls1.4826%/.6709%; new API opt-out is explicit and write-provenance demand overrides it. Default controls, full-command scopes and all four1×/release gates remain visible.
+
+## October 4, 2026: packed structured liveness rows
+
+[Structured backward liveness](../../../../../src/passes/coalesce_locals.mbt)
+now stores private branch/exception rows as BitSet words and enumerates only set
+bits when marking write hazards. The original worker scanned every local for
+every write, including sparse rows. Branch joins and unions now operate on
+words. The published liveness result still owns its Boolean array; control
+order, action cursor, effective actions, copy-source exceptions, triangular
+hazards, loops, EH and verification retain their existing behavior.
+
+Replacement/union masks the unused final word when a source row is wider;
+zero/short rows clear or preserve lanes exactly as before. Every child/label
+snapshot remains owned. The original Boolean helpers moved unchanged into a
+[test-only reference](../../../../../src/passes/cl_live_words_reference_helpers_wbtest.mbt),
+with no duplicate production implementation. Native Boolean backing uses one
+byte per lane; packed backing uses eight bytes per64 lanes, with rounding and
+wrapper overhead. This is not a measured peak-memory reduction: whole-profile
+allocation requests increase8,812, and RSS ranges overlap.
+
+Frozen native `66f924ab…`→`312bb103…`, base main `b5cd1efa3` plus the separately
+measured lower-stack fix. Complete CL instruction work37,981,021,244→
+37,016,036,821 (−2.5407%). No DAE2/O/OI improvement is inferred from this
+CL-only production caller. Large output SHAde0757b5… remains exact at5,706,503 B
+versus Binaryen5,627,625 B; the prior bounded canonical deficit78,800 B remains
+open, with no new normalization claimed.
+
+Same6,211,596 B compiler SHA98189860…, verified133 SHA8f25e9fd…, Ryzen7 8845HS
+CPU6, GCC14.2 O2/mimalloc. One warmup/five alternating fresh-process CLI samples,
+warm filesystem, build/profile excluded, median±MAD ms [min,max]:
+before3856.630±14.881 [3823.663,3877.901], after3823.079±19.822
+[3798.010,3867.238], Binaryen1902.545±35.637 [1866.908,2022.217].
+Remaining ratio2.009×, paired change−.534%. All15 rows flag foreign activity;
+this small overlapping wall movement is weaker evidence than the native-work
+reduction. RSS medians243800→243792 KiB, ranges[243376,249288]→[243116,249448].
+Separate traced n1 module3077.037→2952.980 ms is diagnostic, not a renewed
+Binaryen pass-local comparison.
+
+Four bounded [sparse/dense controls](../../../../../src/passes/cl_live_words_perf_wbtest.mbt)
+retain adverse cases, mean±SD: tiny sparse771.88±1.01→748.50±16.76 ns;
+tiny dense952.26±3.42 ns→1.05µs±15.16 ns; wide sparse8.94µs±41.48 ns→
+1.60µs±27.04 ns; wide dense25.61µs±188.12 ns→25.35µs±515.35 ns.
+The [packed helper regression](../../../../../src/passes/cl_live_words_wbtest.mbt)
+failed before implementation; the42 validated Boolean-reference cases
+characterize unchanged full liveness, hazards, cursor, visit counts and ownership
+at2/8/63/64/65/129 locals across branching, loops, br_table, EH and tail calls.
+The [active dispatcher regression](../../../../../src/cmd/coalesce_live_words_wbtest.mbt)
+checks actual local reduction and retained effects/global writes. Its queued
+before run was canceled and is explicitly excluded as baseline evidence.
+
+Info/fmt/check,13,513 workspace tests, native release and README/API sync pass
+on the later combined snapshot containing this change and the pending lift-DAG
+fix. The isolated frozen CL candidate also passes its focused/reference tests,
+four controls and76 original/before/after/133 runtime fixtures:310 validations,
+912 matching values, effects, globals, memory and trap observations, no blocked
+rows. Before/after fixture bytes remain exact. Public API is unchanged.
+This is manual source/reference review; independent review, full CI/coverage,
+aggregate fuzz and all four1× targets remain open. Local `cl-live-words-*`
+artifacts retain commands, exact manifests, samples, native layout and tests.
+Next measure the shared lift-DAG fix; then revisit source-order/CFG/lower owners
+and the tiny dense crossover without dropping transformation work.

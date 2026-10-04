@@ -2620,82 +2620,90 @@ fn cl_compute_liveness(
 }
 
 ///|
-fn cl_replace_live(live : Array[Bool], source : Array[Bool]) -> Unit {
-  for idx = 0; idx < live.length(); idx = idx + 1 {
-    live[idx] = idx < source.length() && source[idx]
-  }
+fn cl_live_words_to_bools(values : @bitset.BitSet) -> Array[Bool] {
+  Array::makei(values.length(), fn(i) { values[i] })
 }
 
 ///|
-fn cl_clear_live(live : Array[Bool]) -> Unit {
-  for idx = 0; idx < live.length(); idx = idx + 1 {
-    live[idx] = false
-  }
-}
-
-///|
-fn cl_union_live_in_place(live : Array[Bool], rhs : Array[Bool]) -> Unit {
-  for idx = 0; idx < live.length(); idx = idx + 1 {
-    if idx < rhs.length() {
-      live[idx] = live[idx] || rhs[idx]
+fn cl_replace_live_words(
+  live : @bitset.BitSet,
+  source : @bitset.BitSet,
+) -> Unit {
+  for i = 0; i < live.words.length(); i = i + 1 {
+    live.words[i] = if i < source.words.length() {
+      source.words[i]
+    } else {
+      0UL
     }
   }
+  if source.length() > live.length() && live.length() % 64 != 0 {
+    let last = live.words.length() - 1
+    live.words[last] = live.words[last] & ((1UL << (live.length() % 64)) - 1UL)
+  }
 }
 
 ///|
-fn cl_push_label_live(
-  label_live : Array[Bool],
-  label_lives : Array[Array[Bool]],
-) -> Array[Array[Bool]] {
-  let out : Array[Array[Bool]] = [label_live.copy()]
-  for live in label_lives {
+fn cl_union_live_words(live : @bitset.BitSet, rhs : @bitset.BitSet) -> Unit {
+  for i = 0; i < live.words.length() && i < rhs.words.length(); i = i + 1 {
+    live.words[i] = live.words[i] | rhs.words[i]
+  }
+  if rhs.length() > live.length() && live.length() % 64 != 0 {
+    let last = live.words.length() - 1
+    live.words[last] = live.words[last] & ((1UL << (live.length() % 64)) - 1UL)
+  }
+}
+
+///|
+fn cl_push_label_live_words(
+  label_live : @bitset.BitSet,
+  labels : Array[@bitset.BitSet],
+) -> Array[@bitset.BitSet] {
+  let out = [label_live.copy()]
+  for live in labels {
     out.push(live)
   }
   out
 }
 
 ///|
-fn cl_live_for_label(
-  label_lives : Array[Array[Bool]],
-  label_idx : @lib.LabelIdx,
-  total_locals : Int,
-) -> Array[Bool] {
-  let depth = cl_label_idx_raw(label_idx)
-  if depth >= 0 && depth < label_lives.length() {
-    return label_lives[depth].copy()
+fn cl_live_words_for_label(
+  labels : Array[@bitset.BitSet],
+  label : @lib.LabelIdx,
+  size : Int,
+) -> @bitset.BitSet {
+  let depth = cl_label_idx_raw(label)
+  if depth >= 0 && depth < labels.length() {
+    return labels[depth].copy()
   }
-  Array::make(total_locals, false)
+  @bitset.BitSet::new(size)
 }
 
 ///|
-fn cl_live_for_br_table(
-  label_lives : Array[Array[Bool]],
-  labels : Array[@lib.LabelIdx],
+fn cl_live_words_for_br_table(
+  labels : Array[@bitset.BitSet],
+  targets : Array[@lib.LabelIdx],
   default_label : @lib.LabelIdx,
-  total_locals : Int,
-) -> Array[Bool] {
-  let out = cl_live_for_label(label_lives, default_label, total_locals)
-  for label in labels {
-    cl_union_live_in_place(
-      out,
-      cl_live_for_label(label_lives, label, total_locals),
-    )
+  size : Int,
+) -> @bitset.BitSet {
+  let out = cl_live_words_for_label(labels, default_label, size)
+  for label in targets {
+    cl_union_live_words(out, cl_live_words_for_label(labels, label, size))
   }
   out
 }
 
 ///|
-fn cl_union_resume_handler_lives(
-  live : Array[Bool],
-  label_lives : Array[Array[Bool]],
+fn cl_union_resume_handler_live_words(
+  live : @bitset.BitSet,
+  labels : Array[@bitset.BitSet],
   handlers : Array[@lib.ResumeHandler],
 ) -> Unit {
   for handler in handlers {
     match handler {
       @lib.ResumeOnLabel(_, label) =>
-        cl_union_live_in_place(
+        cl_union_live_words(
           live,
-          cl_live_for_label(label_lives, label, live.length()),
+          cl_live_words_for_label(labels, label, live.length()),
         )
       @lib.ResumeOnSwitch(_) => ()
     }
@@ -2703,20 +2711,20 @@ fn cl_union_resume_handler_lives(
 }
 
 ///|
-fn cl_mark_structured_liveness_backward(
+fn cl_mark_structured_live_words_backward(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
   effective : Array[Bool],
   write_live_hazards : CLBitMatrix,
   visited_actions : Array[Int],
-  live_after : Array[Bool],
-  label_lives : Array[Array[Bool]],
+  live_after : @bitset.BitSet,
+  label_lives : Array[@bitset.BitSet],
   action_cursor : Array[Int],
-  exception_live? : Array[Bool] = [],
+  exception_live? : @bitset.BitSet = @bitset.BitSet::new(0),
   control_visits? : Array[Int]? = None,
   control_index? : CLControlIndex? = None,
   control_start? : Int = 0,
-) -> Array[Bool] {
+) -> @bitset.BitSet {
   let live = live_after.copy()
   let control_index = match control_index {
     Some(index) => Some(index)
@@ -2754,26 +2762,26 @@ fn cl_mark_structured_liveness_backward(
     }
     match instrs[idx] {
       @lib.Block(_, @lib.Expr(body)) => {
-        let body_live = cl_mark_structured_liveness_backward(
+        let body_live = cl_mark_structured_live_words_backward(
           body,
           actions,
           effective,
           write_live_hazards,
           visited_actions,
           live,
-          cl_push_label_live(live, label_lives),
+          cl_push_label_live_words(live, label_lives),
           action_cursor,
           exception_live~,
           control_visits~,
           control_index~,
           control_start=child_start,
         )
-        cl_replace_live(live, body_live)
+        cl_replace_live_words(live, body_live)
       }
       @lib.If(_, then_body, else_body) => {
         // Each child snapshots its input on entry. Keep this owned row unchanged
         // until both children finish; the label head still gets its own copy.
-        let child_label_lives = cl_push_label_live(live, label_lives)
+        let child_label_lives = cl_push_label_live_words(live, label_lives)
         let mut else_start = child_start
         if control_index is Some(index) {
           for instr in then_body {
@@ -2783,7 +2791,7 @@ fn cl_mark_structured_liveness_backward(
         }
         let else_live = match else_body {
           Some(body) =>
-            cl_mark_structured_liveness_backward(
+            cl_mark_structured_live_words_backward(
               body,
               actions,
               effective,
@@ -2799,7 +2807,7 @@ fn cl_mark_structured_liveness_backward(
             )
           None => live
         }
-        let then_live = cl_mark_structured_liveness_backward(
+        let then_live = cl_mark_structured_live_words_backward(
           then_body,
           actions,
           effective,
@@ -2815,33 +2823,31 @@ fn cl_mark_structured_liveness_backward(
         )
         // Child rows retain the same length. For a missing else, else_live is
         // this row: each old lane is read before that same lane is overwritten.
-        for local = 0; local < live.length(); local = local + 1 {
-          live[local] = then_live[local] || else_live[local]
+        for word = 0; word < live.words.length(); word = word + 1 {
+          live.words[word] = then_live.words[word] | else_live.words[word]
         }
       }
       @lib.Loop(_, @lib.Expr(body)) => {
-        let body_live = cl_mark_structured_liveness_backward(
+        let body_live = cl_mark_structured_live_words_backward(
           body,
           actions,
           effective,
           write_live_hazards,
           visited_actions,
           live,
-          cl_push_label_live(live, label_lives),
+          cl_push_label_live_words(live, label_lives),
           action_cursor,
           exception_live~,
           control_visits~,
           control_index~,
           control_start=child_start,
         )
-        cl_replace_live(live, body_live)
+        cl_replace_live_words(live, body_live)
       }
       @lib.TryTable(_, catches, @lib.Expr(body)) => {
         // Catches target enclosing labels, without the try_table body label.
         let caught_live = exception_live.copy()
-        while caught_live.length() < live.length() {
-          caught_live.push(false)
-        }
+        caught_live.grow(live.length())
         for catch_ in catches {
           let label = match catch_ {
             @lib.Catch(_, label)
@@ -2849,26 +2855,26 @@ fn cl_mark_structured_liveness_backward(
             | @lib.CatchAll(label)
             | @lib.CatchAllRef(label) => label
           }
-          cl_union_live_in_place(
+          cl_union_live_words(
             caught_live,
-            cl_live_for_label(label_lives, label, live.length()),
+            cl_live_words_for_label(label_lives, label, live.length()),
           )
         }
-        let body_live = cl_mark_structured_liveness_backward(
+        let body_live = cl_mark_structured_live_words_backward(
           body,
           actions,
           effective,
           write_live_hazards,
           visited_actions,
           live,
-          cl_push_label_live(live, label_lives),
+          cl_push_label_live_words(live, label_lives),
           action_cursor,
           exception_live=caught_live,
           control_visits~,
           control_index~,
           control_start=child_start,
         )
-        cl_replace_live(live, body_live)
+        cl_replace_live_words(live, body_live)
       }
       @lib.LocalGet(_) | @lib.LocalSet(_) | @lib.LocalTee(_) => {
         let action_idx = action_cursor[0]
@@ -2884,16 +2890,23 @@ fn cl_mark_structured_liveness_backward(
                   CLValueSource::Local(local_idx) => local_idx
                   _ => -1
                 }
-                for other = 0; other < live.length(); other = other + 1 {
-                  if other != action.local_idx &&
-                    other != copied_dest &&
-                    live[other] {
-                    cl_bit_matrix_set_symmetric(
-                      write_live_hazards,
-                      action.local_idx,
-                      other,
-                      true,
-                    )
+                // Enumerate only live locals. BitSet keeps the unused final
+                // word bits clear, including copied branch/exception rows.
+                for word_idx = 0
+                    word_idx < live.words.length()
+                    word_idx = word_idx + 1 {
+                  let mut word = live.words[word_idx]
+                  while word != 0UL {
+                    let other = word_idx * 64 + word.ctz()
+                    word = word & (word - 1UL)
+                    if other != action.local_idx && other != copied_dest {
+                      cl_bit_matrix_set_symmetric(
+                        write_live_hazards,
+                        action.local_idx,
+                        other,
+                        true,
+                      )
+                    }
                   }
                 }
               }
@@ -2904,9 +2917,9 @@ fn cl_mark_structured_liveness_backward(
         action_cursor[0] -= 1
       }
       @lib.Br(label_idx) =>
-        cl_replace_live(
+        cl_replace_live_words(
           live,
-          cl_live_for_label(label_lives, label_idx, live.length()),
+          cl_live_words_for_label(label_lives, label_idx, live.length()),
         )
       @lib.BrIf(label_idx)
       | @lib.BrOnNull(label_idx)
@@ -2915,14 +2928,14 @@ fn cl_mark_structured_liveness_backward(
       | @lib.BrOnCastFail(label_idx, _, _, _)
       | @lib.BrOnCastDescEq(label_idx, _, _)
       | @lib.BrOnCastDescEqFail(label_idx, _, _) =>
-        cl_union_live_in_place(
+        cl_union_live_words(
           live,
-          cl_live_for_label(label_lives, label_idx, live.length()),
+          cl_live_words_for_label(label_lives, label_idx, live.length()),
         )
       @lib.BrTable(labels, default_label) =>
-        cl_replace_live(
+        cl_replace_live_words(
           live,
-          cl_live_for_br_table(
+          cl_live_words_for_br_table(
             label_lives,
             labels,
             default_label,
@@ -2934,19 +2947,19 @@ fn cl_mark_structured_liveness_backward(
       | @lib.Rethrow(_)
       | @lib.ReturnCall(_)
       | @lib.ReturnCallIndirect(_, _)
-      | @lib.ReturnCallRef(_) => cl_replace_live(live, exception_live)
+      | @lib.ReturnCallRef(_) => cl_replace_live_words(live, exception_live)
       @lib.Call(_)
       | @lib.CallIndirect(_, _)
       | @lib.CallRef(_)
       | @lib.Suspend(_)
-      | @lib.StackSwitch(_, _) => cl_union_live_in_place(live, exception_live)
+      | @lib.StackSwitch(_, _) => cl_union_live_words(live, exception_live)
       @lib.Resume(_, handlers)
       | @lib.ResumeThrow(_, _, handlers)
       | @lib.ResumeThrowRef(_, handlers) => {
-        cl_union_live_in_place(live, exception_live)
-        cl_union_resume_handler_lives(live, label_lives, handlers)
+        cl_union_live_words(live, exception_live)
+        cl_union_resume_handler_live_words(live, label_lives, handlers)
       }
-      instr => if cl_instr_is_terminal(instr) { cl_clear_live(live) }
+      instr => if cl_instr_is_terminal(instr) { live.fill(false) }
     }
     idx -= 1
   }
@@ -2962,9 +2975,9 @@ fn cl_compute_structured_liveness_with_write_hazards(
 ) -> (CLLiveness, CLBitMatrix, Int) {
   let effective = Array::make(actions.length(), false)
   let write_live_hazards = CLBitMatrix::new(total_locals)
-  let live_after = Array::make(total_locals, false)
+  let live_after = @bitset.BitSet::new(total_locals)
   let visited_actions = [0]
-  let live_at_entry = cl_mark_structured_liveness_backward(
+  let live_at_entry = cl_mark_structured_live_words_backward(
     instrs,
     actions,
     effective,
@@ -2975,7 +2988,11 @@ fn cl_compute_structured_liveness_with_write_hazards(
     [actions.length() - 1],
     control_index~,
   )
-  ({ effective, live_at_entry, }, write_live_hazards, visited_actions[0])
+  (
+    { effective, live_at_entry: cl_live_words_to_bools(live_at_entry), },
+    write_live_hazards,
+    visited_actions[0],
+  )
 }
 
 ///|

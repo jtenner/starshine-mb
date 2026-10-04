@@ -1,3 +1,7 @@
+### 2026-10-04 — Pack structured CL liveness and enumerate live hazards
+
+- [Source and complete measurements](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-packed-structured-liveness-rows): complete CL work−2.5407%, CLI3856.630→3823.079ms/B1902.545ms, n5 all contended. Sparse rows improve; tiny dense controls and8,812 extra allocation requests remain explicit. Exact outputs,310 validations/912 observations; all1× and release gates stay open.
+
 ### 2026-10-04 — Remove lower-stack record and optional discard churn
 
 - [Source and measured consumers](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-lower-stack-without-optional-discard-boxes): DAE2/CL complete instructions−.2677%/−.3004%, allocator requests−627,084/−1,033,180. Retain adverse contended CLI pairs and rejected annotation-only trial.13,509 tests and bounded runtime evidence preserve output; all1× and correctness gates remain open.
