@@ -5065,3 +5065,14 @@ flag foreign activity; OI's89.9ms inner timer omits most of its1679ms pipeline.
 13454 tests/2496 runtime comparisons pass; no1×, RSS or release completion claim.
 Next target discarded typecheck diagnostic formatting and repeated read facts;
 then the smaller homogeneous-run nop-hoist quadratic scan.
+
+
+## October 4, 2026: discard unused speculative diagnostic context
+
+[Measured scope and reduced failure](../binaryen/passes/dae2/starshine-strategy.md#october-4-2026-omit-discarded-speculative-diagnostics) retain169,849 suffix checks while reducing complete DAE2-O cleanup
+work4.1607%. Normal CLI OO6270.785→6199.276ms/B2506.915ms (n5), all rows
+flag foreign load; RSS overlaps and other pass movements require attribution.
+13458 tests pass.896 validations/2624 available observations include two blocked
+Starshine multivalue rows, recorded as failures rather than normalized matches.
+Keep the baseline/candidate error, valid original/Binaryen execution and P00
+repair visible. The helper gain closes no complete-work1× or release gate.

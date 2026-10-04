@@ -27,23 +27,20 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** single-traversal cleanup reads,
-  mainfdee5e2b0/native5132736f…→c972d0ba…. Complete DAE2-O per-function cleanup
-  work−4.9254%, exact four outputs; full DAE2 and command costs are separate.
+- **Latest matched large checkpoint:** discarded speculative diagnostics,
+  main322ce0236/nativec972d0ba…→8675a6c2…. Complete DAE2-O cleanup work−4.1607%
+  with all169,849 suffix checks and exact four large outputs retained.
   CPU6 n5/warmup1 normal CLI medians±MAD (milliseconds):
-  dae2 3671.821±21.550/B1203.695±26.309 (3.050×);
-  dae2-optimizing 6291.698±157.740/B2425.232±34.607 (2.594×);
-  coalesce-locals 4010.688±16.859/B1915.291±16.899 (2.094×);
-  optimize-instructions 2174.979±18.727/B1002.350±9.602 (2.170×);
-  All rows flag foreign load. Paired/cohort disagreement and RSS overlap prevent
-  a universal clock/memory claim.13454 tests/2496 comparisons pass. All four
-  full-work1× targets remain open; OI's narrow89.9ms timer omits most of its
-  1679ms pipeline. See separately renewed n3 pass diagnostics and scopes.
-  [Measurements and limits](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-count-reachable-cleanup-reads-in-one-traversal).
-- **Bounded OO clock repeat:** reversed-order n5 retains the initial cohort;
-  before6149.065±57.934 /after6182.957±89.559 /B2491.699±14.323ms (2.481×),
-  paired−.905%. All foreign-load flags and median/paired disagreement remain;
-  algorithmic/native work improves, enclosing clock and peakRSS gains unproved.
+  dae2 3624.575±26.058/B1178.950±5.046 (3.074×);
+  dae2-optimizing 6199.276±26.283/B2506.915±38.875 (2.473×);
+  coalesce-locals 3989.640±47.455/B1936.849±2.816 (2.060×);
+  optimize-instructions 2168.451±38.167/B955.649±5.298 (2.269×).
+  OO paired−1.112%/median−71.509ms in this cohort; all rows flag foreign CPU,
+  RSS overlaps and CL movement lacks a CL-specific attribution.13458 tests pass;
+  896 external validations/2624 available observations include two blocked
+  Starshine multivalue rows now retained in P00. All1× targets stay open;
+  OI's narrow pass timer still excludes most command/pipeline work.
+  [Evidence and scopes](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-omit-discarded-speculative-diagnostics).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
@@ -121,6 +118,11 @@ quality gates. Keep traced inner and normal command measurements separate.
 - [ ] Repair merge-blocks invalid carried-value/drop output (reproduced). Triage
   reported code-folding/vacuum/DAE2/DAE2-O invalid-output families and DAE2
   rewritten-module aborts (#2–4); obtain the review's reduced d93r artifact.
+- [ ] Repair the newly reproduced DAE2/O multivalue block entry failure:
+  both nativec972d0ba and8675a6c2 reject valid two-i32-input block code after
+  rewriting; Binaryen133 output validates and executes. Preserve input producers,
+  signature/type indices and effects/traps. This blocks two reduced runtime rows,
+  not the large timing fixture. [Exact source and evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-existing-multivalue-block-rewrite-failure).
 - DAE audit #5–6 reduced cases are repaired by expanded operand-control CFGs;
   [regressions and original/v133 execution](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands)
   cover scalar branch values, constant self-tee and GC payload traps. Other
@@ -357,17 +359,17 @@ quality gates. Keep traced inner and normal command measurements separate.
   Admitted-helper costs, all foreign-activity flags and unchanged byte gaps
   remain documented; do not repeat these three predicate reorderings.
   [Proof, full matrix and limits](docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md#october-3-2026-reject-mismatched-vacuum-prefixes-before-recursive-scans).
-- **Renewed cleanup attribution:** nativec972d0ba… complete per-function
-  cleanup17.706b instructions; raw SL11.316b and Vacuum3.896b are disjoint.
+- **Renewed cleanup attribution:** native8675a6c2… complete per-function
+  cleanup16.969b instructions; raw SL10.580b and Vacuum3.896b are disjoint.
   Reachable reads now share one traversal (946.6m→35.1m worker instructions);
   do not repeat that fix. Preserve owner branches, handler barriers, ordered
   state, NaN/signed-zero termination and complete fixed-point work.
-  [Current evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-count-reachable-cleanup-reads-in-one-traversal).
-- [ ] Avoid unused outer diagnostic formatting in speculative Expr typechecks
-  without changing any checks, successful state, initialization ownership or
-  normal validation errors. Expr→Instruction formatting costs459m instructions
-  in the current cleanup capture; suffix probing discards Err. Measure enclosing
-  work and exact output before broadening diagnostics or adding public APIs.
+  [Read-count mechanism](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-count-reachable-cleanup-reads-in-one-traversal).
+- **Completed probe formatting:** one shared checker now omits only the
+  discarded outer error context for suffix probes. Same169,849 checks, no
+  validation/admission change; cleanup16.969b instructions (−4.1607%). Do not
+  repeat this fix; normal diagnostics and remaining nested errors are retained.
+  [Contract and measurements](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-omit-discarded-speculative-diagnostics).
 - [ ] Eliminate the quadratic nop-hoist scan of homogeneous constants/nops by
   consuming the already-scanned unchanged run. Preserve output order, changed
   flags and array ownership; current worker incoming work216m is smaller than

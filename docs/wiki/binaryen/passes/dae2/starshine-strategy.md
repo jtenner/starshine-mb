@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-10-03
+last_reviewed: 2026-10-04
 sources:
+  - ../../../../../src/validate/typecheck.mbt
+  - ../../../../../src/validate/typecheck_probe_perf_wbtest.mbt
   - ../../../../../src/ir/hot_builders.mbt
   - ../../../../../src/ir/hot_build_node0_wbtest.mbt
   - ../../../../../src/ir/hot_build_node0_perf_wbtest.mbt
@@ -7704,3 +7706,84 @@ All rows still flag foreign CPU and median/paired directions disagree within
 spread. RSS292048→291300KiB overlaps290472–293696/290888–294452. Thus the
 algorithmic and native-work reduction is confirmed, but a reliable enclosing
 clock or peak-memory gain is not established. No further repeat was run.
+
+## October 4, 2026: omit discarded speculative diagnostics
+
+Baseline main322ce0236/nativec972d0ba… → native8675a6c2…. Suffix probing
+performed169,849 expression checks, discarding failure diagnostics. Its inclusive
+checker edge cost1.410b instructions, including an outer Instruction rendering
+edge459m. The shared expression loop now accepts a private diagnostic-context
+flag; normal Typecheck retains full errors, while `typecheck_expr_for_probe`
+omits only the unused outer wrapper. All checks, first error, successful state,
+local initialization ownership and nested diagnostics remain. Only suffix
+probing adopts this API; no validation or transformation is bypassed.
+
+Two diagnostic regressions failed before implementation. State, typed-block
+suffix and dispatcher fixtures preserve behavior; five wasm-gc release controls
+include valid and rejected expressions. Failed width1024 falls15.40→4.80µs;
+valid width1024 is4.65→4.52µs. Tiny valid spreads overlap. Mechanical source
+review confirms the old loop is identical after reverting only the input binding
+and wrapper branch. See the [diagnostic contract](../../../validate/diagnostics-and-invalid-repro.md#speculative-expression-checks)
+and [implementation/tests](../../../../../src/validate/typecheck.mbt).
+
+Complete per-function DAE2-O cleanup17,705,751,580→16,969,069,128 instructions
+(−4.1607%); all25,802 pipeline calls remain. Raw SL11.316b→10.580b; the same
+169,849 suffix checks cost660m. Recursive formatting edges move into one shared
+worker and cannot be treated as additive phase or allocation totals. Initial
+DAE2, parse, CLI validation and encoding are outside this collected scope.
+Normal exit and exact externally validated output are required.
+
+CPU6 normal fresh-process/warm-filesystem CLI, warmup1/n5, milliseconds:
+
+| Pass | Before ms ± MAD | After ms ± MAD | Binaryen133 ms ± MAD | After / B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3619.516 ± 13.068 | 3624.575 ± 26.058 | 1178.950 ± 5.046 | 3.074× | +0.140% |
+| dae2-optimizing | 6270.785 ± 22.417 | 6199.276 ± 26.283 | 2506.915 ± 38.875 | 2.473× | -1.112% |
+| coalesce-locals | 4035.289 ± 13.612 | 3989.640 ± 47.455 | 1936.849 ± 2.816 | 2.060× | -1.131% |
+| optimize-instructions | 2168.047 ± 9.862 | 2168.451 ± 38.167 | 955.649 ± 5.298 | 2.269× | -0.434% |
+
+All rows flag foreign CPU. OO saves71.509ms at the median in this cohort;
+plain/OI remain within spread and CL movement lacks a CL-specific attribution.
+RSS ranges overlap. Separate single-run Starshine traces are diagnostic, not
+matched Binaryen inner comparisons; prior n3 pass diagnostics retain their
+source/date. All four exact raw hashes remain; canonical gaps are preserved,
+not re-normalized. None of the complete-work1× targets is closed.
+
+Info/fmt/check,13,458 tests, five controls, native release and API sync pass.
+55 fixed fixtures×four modes give896 validations/2624 available observations;
+54 fixtures complete four-way execution per DAE2 mode and55 per CL/OI. The
+multivalue failure below is explicitly excluded from passed Starshine execution
+counts, while its Binaryen/original observations are recorded. Full CI, coverage,
+aggregate fuzz and independent review remain outstanding. Commands, hashes,
+spreads and local report: `.tmp/large-pass-hotspots-20261001/probe-context-*`
+and `main-probe-context-performance-20261004.md` in that directory.
+
+## October 4, 2026: existing multivalue block rewrite failure
+
+A valid indexed block with two i32 inputs is rejected by both frozen c972d0ba
+and8675a6c2 under DAE2 and DAE2-O. Their rewritten-module errors are identical:
+operand producers appear inside a block still requiring external parameters,
+causing stack underflow. Exact failing source:
+
+```wat
+(module
+ (import "host" "f" (func (param i32) (result i32)))
+ (global (export "state") (mut i32) (i32.const 0))
+ (func $callee (param i32 i32) (result i32) (local i32)
+  i32.const 17 global.set 0 i32.const 19 call 0 local.get 0
+  block (param i32 i32) (result i32) i32.div_s end
+  local.set 2 local.get 2 call 0)
+ (func (export "run") (param i32) (result i32)
+  local.get 0 i32.const 99 call $callee))
+```
+
+`wasm-tools parse` and `validate --features all` accept the input;
+verified133 `--all-features --dae2 --simplify-locals --vacuum` emits a valid
+executable module. Both Starshine versions fail before optimizing cleanup.
+Original/Binaryen execution agrees on values, ordered calls, state and traps.
+The diagnostic is a lowering/entry-signature lead, not a completed diagnosis.
+Keep this as a release blocker, add a failing reduced regression before repair,
+and check typed operands, source effects, trap order and signature remapping.
+Full error/status evidence is retained in the probe-context runtime directories;
+the harness keeps nonzero status for blocked lanes instead of classifying them
+as matches. The single-param trap control passes all four execution oracles.

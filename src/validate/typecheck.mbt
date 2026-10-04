@@ -512,7 +512,24 @@ fn normalize_loop_exit(
 
 ///|
 pub impl Typecheck for Expr with fn typecheck(self, st0) {
-  let Expr(instrs) = self
+  typecheck_expr_with_context(self, st0, true)
+}
+
+///|
+/// Check a speculative expression with the same checks and state ownership as
+/// `Typecheck::typecheck`, omitting only the outer instruction/stack error
+/// wrapper. Nested diagnostics and the first underlying failure are retained.
+pub fn typecheck_expr_for_probe(expr : Expr, state : TcState) -> TcResult {
+  typecheck_expr_with_context(expr, state, false)
+}
+
+///|
+fn typecheck_expr_with_context(
+  expr : Expr,
+  st0 : TcState,
+  include_context : Bool,
+) -> TcResult {
+  let Expr(instrs) = expr
   let mut st = st0
   let mut initialization_owner : TcInitializationOwner? = None
   for index, ins in instrs {
@@ -535,8 +552,12 @@ pub impl Typecheck for Expr with fn typecheck(self, st0) {
     }
     match checked {
       Ok(stp) => st = stp
-      Err(err) =>
-        return Err("instruction[\{index}] \{ins}: \{err}; stack=\{st.stack}")
+      Err(err) => {
+        if include_context {
+          return Err("instruction[\{index}] \{ins}: \{err}; stack=\{st.stack}")
+        }
+        return Err(err)
+      }
     }
   }
   Ok(st)
@@ -12123,4 +12144,78 @@ fn typecheck_struct_wait(
     Err(err) => Err(err)
     Ok(next) => Ok(next.push1(ValType::i32()))
   }
+}
+
+///|
+test "expression probe preserves failure without the discarded outer diagnostic" {
+  let body = Instruction::block(
+    BlockType::void_(),
+    Expr::new([Instruction::nop(), Instruction::i32_add()]),
+  )
+  let direct = match
+    Typecheck::typecheck(body, make_state_owned(Env::new(), [])) {
+    Err(error) => error
+    Ok(_) => abort("intentionally invalid body must fail typechecking")
+  }
+  let probe = typecheck_expr_for_probe(
+    Expr::new([body]),
+    make_state_owned(Env::new(), []),
+  )
+  match probe {
+    Err(error) => assert_eq(error, direct)
+    Ok(_) => fail("intentionally invalid probe must retain the typing failure")
+  }
+  // Normal validation retains full context for user-facing diagnostics.
+  match
+    Typecheck::typecheck(Expr::new([body]), make_state_owned(Env::new(), [])) {
+    Err(error) => {
+      assert_true(error.contains("instruction[0]"))
+      assert_true(error.length() > direct.length())
+    }
+    Ok(_) => fail("normal validation must also reject the invalid body")
+  }
+}
+
+///|
+test "expression probe retains stack state and first failure" {
+  for
+    body in [
+      [
+        Instruction::i32_const(@lib.I32::new(7)),
+        Instruction::i32_const(@lib.I32::new(9)),
+        Instruction::i32_add(),
+      ],
+      [
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::br(LabelIdx::new(0U))]),
+        ),
+        Instruction::i64_const(@lib.I64::new(3L)),
+      ],
+      [Instruction::unreachable_(), Instruction::i32_add()],
+    ] {
+    let expected = Typecheck::typecheck(
+      Expr::new(body),
+      make_state_owned(Env::new(), []),
+    ).unwrap()
+    let actual = typecheck_expr_for_probe(
+      Expr::new(body),
+      make_state_owned(Env::new(), []),
+    ).unwrap()
+    assert_eq(actual.stack, expected.stack)
+    assert_eq(actual.reachable, expected.reachable)
+    assert_eq(actual.escape, expected.escape)
+    assert_eq(actual.reachable_escape_depths, expected.reachable_escape_depths)
+    assert_eq(actual.initialized_locals, expected.initialized_locals)
+  }
+  let body = Expr::new([
+    Instruction::i32_add(),
+    Instruction::local_get(LocalIdx::new(99U)),
+  ])
+  let initial = make_state_owned(Env::new(), [])
+  let first = Typecheck::typecheck(Instruction::i32_add(), initial).unwrap_err()
+  assert_eq(
+    typecheck_expr_for_probe(body, make_state_owned(Env::new(), [])).unwrap_err(),
+    first,
+  )
 }

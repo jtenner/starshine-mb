@@ -231,6 +231,8 @@ pub fn tc_state_with_owned_stack(TcState, Array[@lib.ValType]) -> TcState
 
 pub fn tc_state_with_stack(TcState, Array[@lib.ValType]) -> TcState
 
+pub fn typecheck_expr_for_probe(@lib.Expr, TcState) -> Result[TcState, String]
+
 pub fn validate_codesec(@lib.CodeSec?, @lib.FuncSec?, Env) -> Result[Unit, String]
 
 pub fn validate_datacnt(@lib.DataCntSec?, @lib.DataSec?) -> Result[Unit, String]

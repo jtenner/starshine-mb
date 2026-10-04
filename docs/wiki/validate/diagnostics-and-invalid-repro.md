@@ -1,11 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-10-04
 sources:
   - ../wast/static-assertion-harness.md
   - https://webassembly.github.io/spec/core/valid/index.html
   - ../../../src/validate/validate.mbt
+  - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/invalid_fuzzer.mbt
   - ../../../src/validate/gen_invalid.mbt
   - ../../../src/validate/gen_invalid_wbtest.mbt
@@ -77,6 +78,19 @@ Examples:
 | Repro family label | [`invalid_fuzz_family_label(...)`](../../../src/fuzz/invalid_repro.mbt#L202-L220) | Converts the family enum into compact metadata labels such as `function-body` and `datacount`. |
 
 Do not classify failures by message substrings. The issue variant and family mapping are the durable API. Messages can become clearer without changing the expected fuzz family.
+
+### Speculative expression checks
+
+`typecheck_expr_for_probe` runs the same expression checker, including local
+initialization ownership, reachable escapes and the first typing failure. It
+omits only the outer instruction/stack error wrapper; nested errors retain their
+context. SimplifyLocals suffix discovery uses this entry because rejected
+candidates discard the diagnostic. Normal `Typecheck::typecheck` and module
+validation retain their complete diagnostics. This is a formatting distinction,
+not reduced validation or a new admission shortcut. The implementation and
+focused diagnostic/state regressions are in
+[`typecheck.mbt`](../../../src/validate/typecheck.mbt); the suffix and dispatcher
+regressions retain typed-block operands and effectful calls.
 
 ## Family Map
 

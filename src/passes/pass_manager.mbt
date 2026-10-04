@@ -8387,7 +8387,8 @@ fn sl_value_suffix_at_with_seed(
         @validate.make_state_owned(env, [])
       }
     }
-    match @validate.Typecheck::typecheck(@lib.Expr::new(suffix), init_state) {
+    match
+      @validate.typecheck_expr_for_probe(@lib.Expr::new(suffix), init_state) {
       Ok(state) =>
         if state.reachable &&
           state.escape == @validate.tc_escape_none() &&
@@ -93936,4 +93937,29 @@ test "cleanup reachable counts retain try-table targets and legacy handler bound
     )
     assert_eq(counts, expected)
   }
+}
+
+///|
+test "suffix probe retains typed-block operands after rejected shorter candidates" {
+  let input = @wast.wast_to_binary_module(
+    "(module (func (param i32) (result i32) nop local.get 0 block (param i32) (result i32) i32.const 7 i32.add end))",
+  ).unwrap()
+  assert_true(@validate.validate_module(input) is Ok(_))
+  let @lib.Func(_, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
+  let env = @validate.Env::new()
+    .with_module(input)
+    .with_locals(@lib.Locals::from_types([@lib.ValType::i32()]))
+  let saved = body.copy()
+  let visits = [0]
+  let suffix = sl_value_suffix_at(
+    body,
+    body.length(),
+    1,
+    env,
+    typed_instructions=Some(visits),
+  )
+  assert_eq(suffix, [body[1], body[2]])
+  assert_eq(visits[0], 3)
+  assert_eq(body, saved)
+  assert_eq(sl_value_suffix_at([body[2]], 1, 1, env), [])
 }

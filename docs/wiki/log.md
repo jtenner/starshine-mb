@@ -1,3 +1,12 @@
+### 2026-10-04 — Discarded speculative diagnostics
+
+- [Shared checker contract and measured scope](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-omit-discarded-speculative-diagnostics)
+  retain all169,849 checks and cut complete cleanup work4.1607%; OO CLI
+  6270.785→6199.276ms/B2506.915ms (n5).13458 tests pass.896 validations and
+  2624 available observations explicitly retain two blocked Starshine multivalue
+  rows; the same baseline/candidate failure is now a P00 release blocker.
+  Contention, RSS overlap, canonical gaps and all four1× targets remain open.
+
 ### 2026-10-04 — Count cleanup reads in one traversal
 
 - [Proof and measurements](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-count-reachable-cleanup-reads-in-one-traversal): replace repeated fallthrough/branch rescans

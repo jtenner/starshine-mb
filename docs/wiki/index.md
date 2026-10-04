@@ -4,6 +4,7 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Discarded speculative diagnostics](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-omit-discarded-speculative-diagnostics) — Same suffix checks,4.1607% less complete cleanup work; OO6270.785→6199.276ms/B2506.915ms (n5). Four speed targets and a newly reproduced baseline multivalue rewrite failure remain open.
 - [Single-traversal cleanup reads](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-count-reachable-cleanup-reads-in-one-traversal) — Complete DAE2-O cleanup work−4.9254%, nested128 control119.07→1.66µs, exact bytes;13454 tests/2496 comparisons pass. Full-command gains remain unproved under contention and all four1× targets stay open.
 - [Inline instruction-lift results](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-instruction-lift-state-and-error) — DAE2 work −0.545%, 2.925m fewer requests; all four speed targets remain open. 13,451 tests / 2,400 runtime comparisons pass; contended clocks do not prove a universal speedup.
 - [`binaryen/version-132-upgrade.md`](binaryen/version-132-upgrade.md) — Historical v132 comparison target, exact 59-commit release ledger, proposal boundaries and U01–U10 upgrade contracts.
