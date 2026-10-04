@@ -1,12 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-29
+last_reviewed: 2026-10-03
 sources:
   - index.md
   - ./index.md
   - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/vacuum_scan_order_wbtest.mbt
+  - ../../../../../src/passes/vacuum_scan_order_reference_wbtest.mbt
+  - ../../../../../src/passes/vacuum_scan_order_perf_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/binaryen132_control_labels_wbtest.mbt
@@ -26,7 +29,7 @@ related:
 
 # Starshine HOT-IR Strategy For `vacuum`
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — October 3, 2026:** new comparisons use verified [Binaryen 133](../../release-horizon-and-oracles.md). The former September 10 v132 baseline and all recorded v131/v132 sources, commands, artifacts and results retain their historical versions; they do not establish v133 signoff.
 
 Use this page together with [`./binaryen-strategy.md`](./binaryen-strategy.md) and [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md); their direct `version_129` source/test URLs and retained research provide the upstream provenance.
 The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives, how the local HOT-plus-pipeline split is wired today, which checked ordered-neighborhood evidence is closed, and which narrower upstream families remain outside the represented direct surface.
@@ -589,3 +592,102 @@ print/parse attempt preserves compact text groups; disabling compact imports
 while reading raw compact bytes fails parsing. Neither failed normalization is
 accepted as execution evidence. This is an engine encoding limitation, not a
 Starshine semantic mismatch or permission to ignore observations.
+
+
+## October 3, 2026: reject mismatched Vacuum prefixes before recursive scans
+
+Current main `15255efd6`, native `fd2af4bd…`, renews DAE2-O's complete per-function
+cleanup profile on the fixed 6,211,596-byte compiler. Collection starts at the
+first cleanup parent and covers all 25,802 `run_hot_pipeline_func` calls. It
+exits normally, validates, and preserves the existing output hash. The root is
+19,663,346,555 instructions. Its disjoint direct children include raw
+SimplifyLocals 12,226,755,656 (62.18%), raw Vacuum preclean 4,928,848,034
+(25.07%), named HOT transforms 612,388,242, lift 509,755,034 and lower
+298,814,386. These instruction shares are neither milliseconds nor whole-CLI
+shares; recursive self edges must not be added to them.
+
+The pure-copy flat worker accounts for 1,229,618,629 instructions nested inside
+SimplifyLocals. Statement typing remains a real cost, but the synthetic
+64-to-256-width quadratic result does not establish it as the largest compiler
+bottleneck. Within raw Vacuum, three preservation predicates independently
+rescan descendants for `unreachable` before rejecting fixed-prefix mismatches:
+
+| Predicate family | Recursive-query entries | Query instructions |
+| --- | ---: | ---: |
+| Increment/probe/release prefix | 4,737 | 475,463,618 |
+| Call/set tag cascade | 4,294 | 278,742,998 |
+| Load/call/refcount dispatch | 4,293 | 278,381,113 |
+
+Together these nonrecursive caller edges account for 1,032,587,729 instructions.
+A baseline native resource guard requiring fewer than 100 million instructions
+in these three query edges fails before the implementation. This is the
+performance regression, not a preexisting semantic failure. Three new bounded
+contract tests pass on the baseline and preserve all admitted shapes, optional
+nops, fixed-prefix rejection, nested Block/Loop/If/TryTable traps and ownership.
+Their frozen references match base source modulo renaming and formatting.
+
+The implementation only reorders pure predicates in `pass_manager.mbt`: shape
+and local-index relations reject first; candidates that still match retain the
+same recursive unreachable rejection. No instruction body is edited by these
+predicates, no cached facts cross mutations, no new storage or feature admission
+is added, and all pipeline validation remains. Existing source-shaped positive
+preclean fixtures and the command test for observable effects before a nested
+trap cover the integrating callers. Eighteen dedicated controls pair the frozen
+and current predicates on flat/nested rejection and admitted shapes; these
+measure predicate work, not transformation activity.
+
+The release candidate is `ec2a0ed4…`. Complete cleanup falls
+19,663,346,555→18,621,145,003 instructions (−5.30022%); nested raw Vacuum falls
+4,928,848,034→3,895,664,191 (−20.96197%). All 25,802 cleanup entries, 12,904 Vacuum
+entries and 82,194 selected classifier invocations remain. Selected descendant
+queries fall 13,324→0 on this compiler; positive fixtures retain the checks.
+These nested savings are not additive and do not prove a full-command gain.
+
+One warmup/n5 rotating alternating normal CLI samples, CPU6, fresh process/warm
+filesystem, build/profile excluded, medians±MAD milliseconds:
+
+| Pass | Before ms±MAD | After ms±MAD | Binaryen133 ms±MAD | After /133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2-optimizing | 6517.788±93.704 | 6500.347±39.193 | 2541.850±3.816 | 2.557× | -0.268% |
+| vacuum | 1377.093±21.189 | 1265.246±5.326 | 859.986±7.017 | 1.471× | -8.639% |
+| dae2 | 3505.817±34.924 | 3511.341±70.028 | 1169.492±18.526 | 3.002× | +0.841% |
+| coalesce-locals | 3847.499±37.491 | 3877.968±55.493 | 1857.337±10.346 | 2.088× | +1.306% |
+| optimize-instructions | 2266.195±31.429 | 2275.239±17.130 | 1024.043±5.635 | 2.222× | +1.304% |
+| dae2-optimizing repeat | 6502.646±124.324 | 6541.975±38.733 | 2483.771±6.556 | 2.634× | +0.009% |
+
+Every normal row records foreign activity and all samples are retained. Vacuum's
+before/after ranges 1348.658–1402.697 /1252.247–1295.762ms are disjoint; the median
+saves 111.847ms (8.12%). DAE2-O ranges 6397.164–6635.503 /6386.259–6701.569ms,
+then 6307.254–6626.971 /6371.293–6650.218ms in the repeat, overlap. Its paired
+−.268%/+.009% does not establish a repeatable command gain. Plain DAE2/CL/OI are
+controls, not attributed beneficiaries; their positive deltas remain open.
+Separate traced n1 DAE2-O 5792.155→5554.454ms is diagnostic, not a replacement
+for the normal cohorts. The named Vacuum timer omits raw preclean. No peak-RSS
+win is established, and shared profile allocation counters are not scoped totals.
+
+All 18 wasm-gc release controls pass, mean±sigma nanoseconds, ten batches. Flat
+rejection means improve 213.15→111.76,215.09→109.44,215.32→106.82; depth 128
+875.61→116.74,821.03→115.86,840.11→149.49. Admitted increment/probe costs
+284.24±5.07→335.99±16.51ns and tag cascade 160.01±1.95→178.93±3.98ns;
+load/refcount 634.48±13.39→623.94±6.97ns. These are measured helper tradeoffs,
+not native command timings or a universal helper improvement. No new cache or
+storage is introduced; ELF 14,630,352→14,622,160B is separate from wasm size.
+
+Info/fmt/check, 13,447 default tests, native release build and README API sync
+pass; no mbti diff. Two 54-fixture execution lanes validate 446 modules and match
+1,296 observations against original/baseline/candidate/verified133, including
+results, ordered calls, state, memory and trap occurrence. Four new fixtures
+cover nested traps/effects and both admitted tag cascades. Fourteen oracle
+compact-import expansions are encoding-only; raw modules also validate.
+All five compiler output hashes are exact before/after. DAE2-O's raw−9,949B
+advantage and historical bounded-canonical+99,251B gap remain separate and
+unchanged; canonical normalization was not rerun. Manual source/staged review
+only; independent review, full CI/coverage/aggregate GenValid and 1× remain open.
+Long fuzz remains deferred by request; existing correctness blockers remain.
+
+Exact environment/commands, source and binary hashes, all samples/ranges/RSS,
+RED/GREEN resource guard, source-reference check, diagnostics and runtime rows:
+`.tmp/large-pass-hotspots-20261001/main-vacuum-scan-performance-20261003.md` and
+`vacuum-scan-*`/`dae2-cleanup-{copy-tail-baseline,vacuum-scan-candidate}.*`.
+The [renewed DAE2-O priorities](../dae2/starshine-strategy.md#october-3-2026-renew-optimizing-cleanup-priorities)
+retain larger exact-cleanup/read/fallthrough and dependency/lift/lower work.

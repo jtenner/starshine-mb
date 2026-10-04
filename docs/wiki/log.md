@@ -25916,3 +25916,15 @@ arrays/typecheck wrappers from the completed return packaging change.
   remain. No transferred profile gain or1×/release claim. Next measured owners
   are remaining adapter and decoder packaging, plus validator/DAE2/CL work;
   full/coverage/aggregate gates and all byte/correctness blockers stay open.
+
+
+### 2026-10-03 — Reject Vacuum shape mismatches before subtree scans
+
+- [Pure-predicate proof and matched consumer evidence](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#october-3-2026-reject-mismatched-vacuum-prefixes-before-recursive-scans)
+  reorder three existing guards without caches, changed admission or omitted
+  verification. Complete cleanup work−5.300%, nested Vacuum−20.962%; standalone
+  command1377→1265ms,1.471×verified133. Two DAE2-O cohorts remain within spread,
+  not a proven optimizing command gain.13,447 tests/1296 fixed observations and
+  exact bytes/API pass; tiny admitted costs, control regressions, foreign load,
+  canonical gaps and release gates stay explicit. Current attribution prioritizes
+  exact SL cleanup/read/fallthrough and DAE2 dependencies over synthetic ratios.

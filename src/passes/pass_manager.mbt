@@ -53298,8 +53298,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_f5369_load_call_tag_refcount_dispatch_bef
   start_idx : Int,
 ) -> Bool {
   let non_nops = run_hot_pipeline_raw_vacuum_strip_top_level_nops(body)
-  if non_nops.length() < 13 ||
-    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+  if non_nops.length() < 13 {
     return false
   }
   let (owner_raw, retained_raw, result_raw, dispatch_raw, then_body, else_body) = match
@@ -53341,6 +53340,8 @@ fn run_hot_pipeline_raw_vacuum_body_is_f5369_load_call_tag_refcount_dispatch_bef
   retained_raw != owner_raw &&
   result_raw != retained_raw &&
   dispatch_raw != retained_raw &&
+  // Only a matching fixed prefix needs the recursive unreachable proof.
+  !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) &&
   run_hot_pipeline_raw_vacuum_f5369_then_has_refcount_dispatch_branch(
     then_body, dispatch_raw,
   ) &&
@@ -59299,8 +59300,7 @@ fn run_hot_pipeline_raw_vacuum_f1900_increment_probe_release_prefix_slot(
       non_nops,
     )
   }
-  if body.length() < 23 ||
-    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+  if body.length() < 23 {
     return None
   }
   match body[body.length() - 1] {
@@ -59376,7 +59376,11 @@ fn run_hot_pipeline_raw_vacuum_f1900_increment_probe_release_prefix_slot(
   }
   ignore(increment_raw)
   ignore(probe_raw)
-  if saw_result_call && saw_condition_tee {
+  // Reject mismatched fixed/flat shapes before walking every descendant.
+  // These predicates only inspect the immutable input; admission is unchanged.
+  if saw_result_call &&
+    saw_condition_tee &&
+    !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
     Some(slot_raw)
   } else {
     None
@@ -60832,8 +60836,7 @@ fn run_hot_pipeline_raw_vacuum_body_is_call_local_set_tag_cascade_if_wrapper_can
       _ => non_nops.push(instr)
     }
   }
-  if non_nops.length() < 13 ||
-    run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops) {
+  if non_nops.length() < 13 {
     return false
   }
   let (receiver_raw, start_value, call_raw, first_local_raw) = match
@@ -60891,7 +60894,9 @@ fn run_hot_pipeline_raw_vacuum_body_is_call_local_set_tag_cascade_if_wrapper_can
       (
         (group_count == 4 && start_value == 0 && tag_value == 20) ||
         (group_count == 2 && start_value == 4 && tag_value == 72)
-      )
+      ) &&
+      // Keep the same trap guard after the complete flat tag signature.
+      !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(non_nops)
     _ => false
   }
 }

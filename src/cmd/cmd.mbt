@@ -3292,6 +3292,30 @@ test "cmd_post_encode_repro_note reflects active hot pipeline flags" {
 }
 
 ///|
+test "vacuum and dae2 optimizing retain effects before a nested unreachable" {
+  let input = @wast.wast_to_binary_module(
+    "(module (import \"host\" \"tick\" (func $tick)) (global (export \"state\") (mut i32) (i32.const 0)) (func (export \"run\") (param i32) i32.const 7 global.set 0 call $tick block i32.const 1 drop block unreachable end end i32.const 9 global.set 0))",
+  ).unwrap()
+  let saved = @binary.encode_module(input).unwrap()
+  for pass in ["vacuum", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_eq(body[0:4].to_owned(), [
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::unreachable_(),
+    ])
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
+
+///|
 test "explicit vacuum dispatches parity cleanup through the cmd pipeline" {
   let wat =
     #|(module

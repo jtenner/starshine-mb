@@ -5009,3 +5009,34 @@ CFG binary's Binaryen debug named timers are not relabeled as current evidence.
 No public API or output/canonical changes; memory modes and release gates stay
 open. No long fuzz. Exact commands, hashes, samples, spreads and profile scopes:
 `.tmp/large-pass-hotspots-20261001/main-reverse-types-performance-20261003.md`.
+
+
+## October 3, 2026: shape-first Vacuum predicates in optimizing cleanup
+
+[The source proof and complete capture](../binaryen/passes/vacuum/starshine-hot-ir-strategy.md#october-3-2026-reject-mismatched-vacuum-prefixes-before-recursive-scans)
+compare nativefd2af4bd…→ec2a0ed4… against verified133 on the unchanged6.21MB
+compiler. Complete per-function DAE2-O cleanup work−5.30022%; nested Vacuum
+−20.96197%, with all predicate invocations retained and exact output. These
+instruction percentages are not milliseconds or additive phase totals.
+
+One warmup/n5 rotating alternating fresh-process CLI samples on CPU6, warm
+filesystem, build/profile excluded, milliseconds±MAD:
+
+| Pass | Before ms±MAD | After ms±MAD | Binaryen133 ms±MAD | After /133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2-optimizing | 6517.788±93.704 | 6500.347±39.193 | 2541.850±3.816 | 2.557× | -0.268% |
+| vacuum | 1377.093±21.189 | 1265.246±5.326 | 859.986±7.017 | 1.471× | -8.639% |
+| dae2 | 3505.817±34.924 | 3511.341±70.028 | 1169.492±18.526 | 3.002× | +0.841% |
+| coalesce-locals | 3847.499±37.491 | 3877.968±55.493 | 1857.337±10.346 | 2.088× | +1.306% |
+| optimize-instructions | 2266.195±31.429 | 2275.239±17.130 | 1024.043±5.635 | 2.222× | +1.304% |
+| dae2-optimizing repeat | 6502.646±124.324 | 6541.975±38.733 | 2483.771±6.556 | 2.634× | +0.009% |
+
+All rows record foreign CPU activity. Standalone Vacuum ranges are disjoint and
+its median saves111.847ms; DAE2-O remains within spread in both bounded cohorts,
+so no enclosing optimizing gain is claimed. Positive DAE2/CL/OI control costs
+remain visible. Separate traced n1 data and complete ranges/RSS live in the
+local report; the named Vacuum timer excludes raw preclean.13,447 tests,18
+wasm-gc controls and1296 original-primary execution observations pass. No public
+API/output change, peak-memory claim, fresh canonical measurement or1×/release
+signoff. Next source-backed investigation: exact SL cleanup's reachable-read
+counting and repeated branch-aware fallthrough, alongside DAE2 dependencies.

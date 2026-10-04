@@ -7514,3 +7514,25 @@ oracle. The raw3B writer-shape reduction remains a quality lead with no measured
 Starshine benefit; keep it separate from name metadata and the99,251B large gap.
 Exact sections and commands: `cfg-presence-continuation-oracle/section-comparison.json`
 and `matched-strip-debug.json` under the local campaign directory.
+
+
+## October 3, 2026: renew optimizing cleanup priorities
+
+The [fresh complete cleanup capture and Vacuum predicate repair](../vacuum/starshine-hot-ir-strategy.md#october-3-2026-reject-mismatched-vacuum-prefixes-before-recursive-scans)
+uses main15255efd6/nativefd2af4bd… and the unchanged compiler input. Raw
+SimplifyLocals and raw Vacuum own62.18%/25.07% of the19.663b cleanup instruction
+root. The pure-copy flat worker is1.230b nested inside SimplifyLocals, so its
+synthetic quadratic control alone does not justify priority over larger owners.
+Three Vacuum predicates spend1.033b instructions on descendant scans before
+fixed-prefix rejection; their exact conjunctions permit cheaper query ordering.
+
+Next investigate `run_hot_pipeline_simplify_locals_cleanup_exact_func`: its
+three nonrecursive incoming edges total3.067b instructions. Its disjoint direct
+children include dead adjacent-pair cleanup1.177b, reachable local-get counting
+.947b and body cleanup.754b. Counting recursively visits child bodies and then
+calls branch-aware fallthrough predicates (`pass_manager.mbt`); repeated control
+queries are a source-backed experiment, not a proven saving. Preserve label
+owner depths, reachable reads after owner branches, handlers, traps and fixed-point
+termination (including bitwise NaN/signed-zero comparison). Do not simply drop
+fallthrough checks or sum recursive inclusive edges. The larger DAE2 dependency,
+lift/lower, canonical-size and correctness blockers remain active.

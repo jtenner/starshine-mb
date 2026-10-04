@@ -344,6 +344,23 @@ quality gates. Keep traced inner and normal command measurements separate.
   omit substantial preparation; never sum inclusive edges with roots.
   [Attribution](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-2-2026-complete-optimizing-cleanup-instruction-attribution),
   [accepted mechanisms and rejected cache](docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-2-2026-rejected-per-flat-statement-boundary-cache).
+- **Current Vacuum scan checkpoint:** three pure preservation predicates now
+  reject fixed-prefix mismatches before recursive unreachable queries; complete
+  cleanup work−5.300%, nested Vacuum−20.962%, exact outputs/API. Standalone
+  Vacuum1377.093→1265.246ms/B859.986ms (1.471×, n5); DAE2-O paired−.268% and
+  repeat+.009% remain within spread.13,447 tests/1296 observations pass.
+  Admitted-helper costs, all foreign-activity flags and unchanged byte gaps
+  remain documented; do not repeat these three predicate reorderings.
+  [Proof, full matrix and limits](docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md#october-3-2026-reject-mismatched-vacuum-prefixes-before-recursive-scans).
+- **Renewed cleanup attribution:** main15255efd6/nativefd2af4bd… complete
+  cleanup19.663b instructions: raw SL12.227b, Vacuum4.929b (disjoint children).
+  Pure-copy flat work1.230b is nested within SL; its quadratic synthetic control
+  does not establish dominant compiler cost. Exact local cleanup3.067b includes
+  reachable-get counting.947b and adjacent-pair cleanup1.177b. Investigate shared
+  read/fallthrough traversal while preserving owner branches, handlers, ordered
+  state, NaN/signed-zero termination and full fixed-point work. No projected
+  savings yet; avoid adding recursive inclusive costs.
+  [Attribution and source-backed next experiment](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-renew-optimizing-cleanup-priorities).
 - [ ] Profile remaining recurrence/adjacent/effectful rewrites, raw Vacuum
   preclean, preparation, mutation safety, child-use queries and writeback on
   one frozen source. Completed absent-if census, initial control rejection,
