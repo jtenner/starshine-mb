@@ -1,3 +1,7 @@
+### 2026-10-04 — Unbox private unsigned decoder results
+
+- [Representation proof and measured four-pass scopes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-unbox-private-unsigned-decoding-results): 4,402,894 fewer requests, complete OI work−1.8665%, exact bytes;13,491 tests and1,124 validations/3,296 supported observations. Parser checks/API remain; all four1× and release blockers stay open.
+
 ### 2026-10-04 — Keep local-write validation success unboxed
 
 - [Ownership, complete scopes and four-pass comparisons](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-keep-local-write-validation-success-unboxed):

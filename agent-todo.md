@@ -27,18 +27,20 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched all-four checkpoint:** local-write validation storage, main
-  `1512cee96`, native `923a4908…` → `42af3b7f…`; complete DAE2/CL/OI work
-  −.299/−.135/−.517%, same checks and bytes. Normal CLI CPU6 n5/warmup1,
-  medians±MAD (ms): DAE2 3544.465±17.137 / B1170.002±11.251 (3.029×);
-  DAE2-O 5811.789±12.553 / B2407.866±26.769 (2.414×);
-  CoalesceLocals 3928.280±50.372 / B1858.622±11.633 (2.114×);
-  OptimizeInstructions 2164.870±19.234 / B981.185±11.615 (2.206×).
-  Keep overlapping ranges, foreign CPU and DAE2 paired +1.418% adverse movement;
-  no universal clock/RSS win. Separate n1 diagnostics do not close pass-local
-  targets; OI's narrow timer omits most cleanup.13,487 tests and1,104 validations/
-  3,248 available observations preserve the P00 typed-block blocker. All four1×
-  goals stay open. [Complete scopes, ranges and tradeoffs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-keep-local-write-validation-success-unboxed).
+- **Latest matched all-four checkpoint:** unsigned decode storage, native
+  `42af3b7f…` → `f129b57b…`; complete OI work−1.8665%,4.403m fewer requests,
+  exact raw bytes. Normal CLI CPU6 n5/warmup1, medians±MAD ms:
+  DAE2 3546.630±14.712 / B1213.566±13.399 (2.922×);
+  DAE2-O 6010.820±36.599 / B2457.104±26.492 (2.446×);
+  CL3928.516±55.718 / B2119.350±86.840 (1.854×);
+  OI2038.846±10.034 / B957.072±5.410 (2.130×).
+  Fresh n3 inner: DAE2 2821.038/B455.027ms; OO5192.361 vs B component
+  medians460.852+1107.390+145.489ms; CL3123.636/B1290.960ms.
+  OI pipeline1594.733ms, narrow inner90.006ms/B256.022ms; narrow timer omits
+  cleanup. Parser changes are not pass-local gains. Contention/RSS and P00
+  typed-block blocker remain;13,491 tests/1,124 validations/3,296 supported
+  observations pass. All four1× goals stay open.
+  [Scopes, ranges and tradeoffs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-unbox-private-unsigned-decoding-results).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
@@ -834,12 +836,10 @@ quality gates. Keep traced inner and normal command measurements separate.
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
-- [ ] Complete the isolated unsigned-decoder and structured-frame storage
-  trials now in progress: preserve parser checks/error precedence, public Decode
-  contracts, active-body aliases and all state transitions. Require full-command
-  profiles, exact outputs, bounded runtime oracles and matched four-pass clocks;
-  parsing improvements are not pass-local gains. Preserve the interrupted disk-
-  exhaustion cohorts separately; never count partial results.
+- [ ] Complete the isolated structured-frame storage trial: preserve active-body
+  aliases and all parser state transitions. Require full-command profiles, exact
+  outputs, bounded runtime oracles and matched four-pass clocks. Parsing gains
+  are not pass-local gains; retain and exclude ENOSPC-interrupted cohorts.
 - [ ] Measure explicit lift-provenance demand for DAE2 without write provenance
   and CL loop CFG, which have no source-map reader. Preserve default recording,
   SSA-nomerge, captures, conflict masks, all verification and exact HOT structure.

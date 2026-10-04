@@ -8316,3 +8316,77 @@ DAE2 dependency/lift/lower and optimizing-cleanup owners. No release signoff.
 Disk exhaustion interrupted the first CL runtime attempt. That partial run is
 retained separately; the complete rerun above supplies the evidence. Duplicate
 sealed outputs were hard-linked by verified SHA, preserving every path/byte.
+
+## October 4, 2026: unbox private unsigned decoding results
+
+Native `42af3b7f…` → `f129b57b…`, on main before `b5327ad47` committed the
+preceding local-write change. [The decoder](../../../../../src/binary/decode.mbt)
+returns a private value/offset/error record and boxes only the public typed
+Decode result. The normalized parser body is identical: width guard, EOF before
+byte-count guard, range before terminal-bit checks, padding and offsets remain.
+Signed decoding and public API are unchanged; the private Result adapter remains
+for bit-width tests. This is a parsing/full-command improvement, not pass-local.
+
+Three [primitive/index regressions](../../../../../src/binary/unsigned_decode_value_wbtest.mbt)
+and an [active four-pass dispatcher](../../../../../src/cmd/unsigned_decode_dispatch_wbtest.mbt)
+passed before implementation. Resource RED was 4,402,894 worker allocations
+against zero; after implementation zero. All 2,201,447 unsigned decodes remain,
+including 197,492 U64 calls inlined by GCC. Complete OI instructions decrease
+**19,475,877,961 → 19,112,351,168 (−1.8665%)**, allocator requests
+**69,060,327 → 64,657,433 (−4,402,894)**. No allocation-byte or RSS saving follows
+from request counts. Emitted C and U64 assembly confirm the representation change.
+
+Six [wasm-gc controls](../../../../../src/binary/unsigned_decode_value_perf_wbtest.mbt),
+mean±SD ns before→after: single-byte15.10±.45→13.97±.71;
+max-U32 18.40±.28→15.82±.17; padded-zero18.43±.28→15.85±.14;
+max-U64 23.55±.28→20.13±.23; truncated13.69±.22→12.77±.13;
+invalid-terminal21.15±.33→19.29±.10.
+
+Same 6,211,596 B input SHA98189860…, verified Binaryen133 SHA8f25e9fd…,
+Ryzen7 8845HS CPU6, Moon0.1.20260920/moonc0.10.14, GCC14.2 O2/mimalloc.
+Build excluded. Fresh processes/warm filesystem, one warmup, five alternating
+samples; normal CLI median±MAD ms [min,max]:
+
+| Pass | Before | After | Binaryen133 | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3638.148±74.777 [3562.938,3721.856] | 3546.630±14.712 [3512.349,3569.240] | 1213.566±13.399 [1200.168,1262.418] | 2.922× | -2.737% |
+| dae2-optimizing | 6084.623±122.413 [5962.210,6265.648] | 6010.820±36.599 [5926.423,6056.458] | 2457.104±26.492 [2403.981,2692.387] | 2.446× | -0.974% |
+| coalesce-locals | 3946.961±19.944 [3892.646,3966.904] | 3928.516±55.718 [3872.798,4070.368] | 2119.350±86.840 [1986.169,2266.227] | 1.854× | -0.314% |
+| optimize-instructions | 2111.045±6.406 [2102.960,2143.505] | 2038.846±10.034 [2028.812,2089.042] | 957.072±5.410 [951.662,987.862] | 2.130× | -3.526% |
+
+Overlapping ranges and recorded foreign CPU limit wall-clock attribution. RSS
+medians before→after (KiB): DAE2 262904→264324; OO291008→291172;
+CL243804→243336; OI155912→157036. No general peak-memory win.
+
+Separate matched n3 traced pass medians±MAD ms:
+
+| Scope | Starshine | Binaryen133 |
+| --- | ---: | ---: |
+| DAE2 inner | 2821.038±23.674 | 455.027±5.244 |
+| DAE2-O inner | 5192.361±28.299 | DAE2 460.852±1.530 + SL1107.390±9.300 + Vacuum145.489±.034 |
+| CoalesceLocals inner | 3123.636±30.674 | 1290.960±1.970 |
+| OptimizeInstructions pipeline / narrow inner | 1594.733±25.319 / 90.006±1.108 | 256.022±.699 |
+
+The OI narrow timer excludes most cleanup and cannot close its speed target.
+Binaryen debug mode adds verification outside pass timers: its traced CLI times
+are not comparable to normal CLI. OO oracle commands include `--dae2
+--simplify-locals --vacuum --all-features`; component medians are not a paired
+sum distribution. All four 1× targets remain open.
+
+Info/fmt/check, **13,491 default tests**, six controls, native release and README/API
+sync pass; no API diff. **1,124 validations / 3,296 available runtime observations**
+cover69 fixtures per pass. DAE2/OO each68 fully compare plus the known typed-block
+rewrite failure; CL/OI each69 fully compare. Values, ordered imports, globals,
+memory and permitted trap status match for supported original/before/after/133
+rows. Binaryen compact-import bytes0x7e/0x7f unsupported by Node26 use the existing
+no-pass Binaryen-text/wasm-tools adapter only for runtime; original/Starshine raw
+bytes execute directly. All large before/after raw hashes match. Canonical
+OO+99,251B/CL+78,800B/OI+33,497B gaps remain; exact raw hashes preserve previous
+quality, not fresh canonical signoff.
+
+The ENOSPC-interrupted CL cohort and initial compact-import runtime attempt are
+retained separately and excluded. Local `unsigned-decode-*` artifacts contain
+source/build/environment hashes, exact commands, timer distributions, profiles,
+resource RED and ownership self-review. Independent review, full CI/coverage and
+deferred aggregate fuzz remain pending. Next: structured-frame storage and
+explicit DAE2/CL lift-provenance demand; no release or speed-parity signoff.

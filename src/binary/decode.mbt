@@ -587,13 +587,42 @@ pub impl Decode for SubType with fn decode(buf, i) {
 }
 
 ///|
-fn decode_unsigned(
+// Private success storage avoids boxing a tuple and Result before each typed
+// decoder immediately unpacks them. The public Decode result stays unchanged.
+#valtype
+priv struct UnsignedDecodeValue {
+  value : UInt64
+  next : Int
+  error : BinaryDecodeError?
+}
+
+///|
+#inline
+fn UnsignedDecodeValue::success(
+  value : UInt64,
+  next : Int,
+) -> UnsignedDecodeValue {
+  { value, next, error: None, }
+}
+
+///|
+#inline
+fn UnsignedDecodeValue::failure(
+  error : BinaryDecodeError,
+) -> UnsignedDecodeValue {
+  { value: 0UL, next: 0, error: Some(error), }
+}
+
+///|
+fn decode_unsigned_value(
   bytes : Bytes,
   index : Int,
   nbits : Int,
-) -> Result[(UInt64, Int), BinaryDecodeError] {
+) -> UnsignedDecodeValue {
   if nbits <= 0 || nbits > 64 {
-    return Err(BinaryDecodeError::InvalidUnsignedLebBitWidth)
+    return UnsignedDecodeValue::failure(
+      BinaryDecodeError::InvalidUnsignedLebBitWidth,
+    )
   }
   let max_bytes = max_leb_bytes(nbits)
   let mut i = index
@@ -602,10 +631,14 @@ fn decode_unsigned(
   let mut count = 0
   while true {
     if i >= bytes.length() {
-      return Err(BinaryDecodeError::UnexpectedEofInUnsignedLeb)
+      return UnsignedDecodeValue::failure(
+        BinaryDecodeError::UnexpectedEofInUnsignedLeb,
+      )
     }
     if count >= max_bytes {
-      return Err(BinaryDecodeError::UnsignedLebTooManyBytes)
+      return UnsignedDecodeValue::failure(
+        BinaryDecodeError::UnsignedLebTooManyBytes,
+      )
     }
     let byte_u : UInt64 = bytes[i].to_uint64()
     i += 1
@@ -619,7 +652,9 @@ fn decode_unsigned(
       if nbits < 64 {
         let max_val = (1UL << nbits) - 1UL
         if acc > max_val {
-          return Err(BinaryDecodeError::UnsignedLebOutOfRangeForBitWidth)
+          return UnsignedDecodeValue::failure(
+            BinaryDecodeError::UnsignedLebOutOfRangeForBitWidth,
+          )
         }
       }
 
@@ -629,16 +664,29 @@ fn decode_unsigned(
         if rem != 0 {
           let limit = 1UL << rem
           if payload >= limit {
-            return Err(
+            return UnsignedDecodeValue::failure(
               BinaryDecodeError::UnsignedLebTerminalHasNonZeroUnusedBits,
             )
           }
         }
       }
-      return Ok((acc, i))
+      return UnsignedDecodeValue::success(acc, i)
     }
   }
-  Err(BinaryDecodeError::UnreachableDecodeState)
+  UnsignedDecodeValue::failure(BinaryDecodeError::UnreachableDecodeState)
+}
+
+///|
+fn decode_unsigned(
+  bytes : Bytes,
+  index : Int,
+  nbits : Int,
+) -> Result[(UInt64, Int), BinaryDecodeError] {
+  let decoded = decode_unsigned_value(bytes, index, nbits)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((decoded.value, decoded.next))
+  }
 }
 
 ///|
@@ -737,9 +785,10 @@ pub impl Decode for I32 with fn decode(bytes, i) {
 
 ///|
 pub impl Decode for @lib.U32 with fn decode(bytes, i) {
-  match decode_unsigned(bytes, i, 32) {
-    Err(err) => Err(err)
-    Ok((val, i)) => Ok((U32(val.to_uint()), i))
+  let decoded = decode_unsigned_value(bytes, i, 32)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((U32(decoded.value.to_uint()), decoded.next))
   }
 }
 
@@ -753,9 +802,10 @@ pub impl Decode for I64 with fn decode(bytes, i) {
 
 ///|
 pub impl Decode for @lib.U64 with fn decode(bytes, i) {
-  match decode_unsigned(bytes, i, 64) {
-    Err(err) => Err(err)
-    Ok((val, i)) => Ok((U64(val), i))
+  let decoded = decode_unsigned_value(bytes, i, 64)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((U64(decoded.value), decoded.next))
   }
 }
 
@@ -809,73 +859,82 @@ pub impl[T : Decode] Decode for T? with fn decode(bytes, i) {
 
 ///|
 pub impl Decode for TypeIdx with fn decode(bytes, i) {
-  match decode_unsigned(bytes, i, 32) {
-    Err(t) => Err(t)
-    Ok((n, i)) => Ok((TypeIdx::new(n.to_uint()), i))
+  let decoded = decode_unsigned_value(bytes, i, 32)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((TypeIdx::new(decoded.value.to_uint()), decoded.next))
   }
 }
 
 ///|
 pub impl Decode for FuncIdx with fn decode(bytes, i) {
-  match decode_unsigned(bytes, i, 32) {
-    Err(t) => Err(t)
-    Ok((n, i)) => Ok((FuncIdx::new(n.to_uint()), i))
+  let decoded = decode_unsigned_value(bytes, i, 32)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((FuncIdx::new(decoded.value.to_uint()), decoded.next))
   }
 }
 
 ///|
 pub impl Decode for TableIdx with fn decode(bytes, i) {
-  match decode_unsigned(bytes, i, 32) {
-    Err(t) => Err(t)
-    Ok((n, i)) => Ok((TableIdx::new(n.to_uint()), i))
+  let decoded = decode_unsigned_value(bytes, i, 32)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((TableIdx::new(decoded.value.to_uint()), decoded.next))
   }
 }
 
 ///|
 pub impl Decode for MemIdx with fn decode(bytes, i) {
-  match decode_unsigned(bytes, i, 32) {
-    Err(t) => Err(t)
-    Ok((n, i)) => Ok((MemIdx::new(n.to_uint()), i))
+  let decoded = decode_unsigned_value(bytes, i, 32)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((MemIdx::new(decoded.value.to_uint()), decoded.next))
   }
 }
 
 ///|
 pub impl Decode for GlobalIdx with fn decode(bytes, i) {
-  match decode_unsigned(bytes, i, 32) {
-    Err(t) => Err(t)
-    Ok((n, i)) => Ok((GlobalIdx::new(n.to_uint()), i))
+  let decoded = decode_unsigned_value(bytes, i, 32)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((GlobalIdx::new(decoded.value.to_uint()), decoded.next))
   }
 }
 
 ///|
 pub impl Decode for TagIdx with fn decode(bytes, i) {
-  match decode_unsigned(bytes, i, 32) {
-    Err(t) => Err(t)
-    Ok((n, i)) => Ok((TagIdx::new(n.to_uint()), i))
+  let decoded = decode_unsigned_value(bytes, i, 32)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((TagIdx::new(decoded.value.to_uint()), decoded.next))
   }
 }
 
 ///|
 pub impl Decode for ElemIdx with fn decode(bytes, i) {
-  match decode_unsigned(bytes, i, 32) {
-    Err(t) => Err(t)
-    Ok((n, i)) => Ok((ElemIdx::new(n.to_uint()), i))
+  let decoded = decode_unsigned_value(bytes, i, 32)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((ElemIdx::new(decoded.value.to_uint()), decoded.next))
   }
 }
 
 ///|
 pub impl Decode for DataIdx with fn decode(bytes, i) {
-  match decode_unsigned(bytes, i, 32) {
-    Err(t) => Err(t)
-    Ok((n, i)) => Ok((DataIdx::new(n.to_uint()), i))
+  let decoded = decode_unsigned_value(bytes, i, 32)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((DataIdx::new(decoded.value.to_uint()), decoded.next))
   }
 }
 
 ///|
 pub impl Decode for LocalIdx with fn decode(bytes, i) {
-  match decode_unsigned(bytes, i, 32) {
-    Err(t) => Err(t)
-    Ok((n, i)) => Ok((LocalIdx::new(n.to_uint()), i))
+  let decoded = decode_unsigned_value(bytes, i, 32)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((LocalIdx::new(decoded.value.to_uint()), decoded.next))
   }
 }
 
@@ -890,9 +949,10 @@ pub impl Decode for LaneIdx with fn decode(bytes, i) {
 
 ///|
 pub impl Decode for LabelIdx with fn decode(bytes, i) {
-  match decode_unsigned(bytes, i, 32) {
-    Err(t) => Err(t)
-    Ok((n, i)) => Ok((LabelIdx::new(n.to_uint()), i))
+  let decoded = decode_unsigned_value(bytes, i, 32)
+  match decoded.error {
+    Some(err) => Err(err)
+    None => Ok((LabelIdx::new(decoded.value.to_uint()), decoded.next))
   }
 }
 

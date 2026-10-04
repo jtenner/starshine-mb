@@ -1716,3 +1716,7 @@ clocks retain contention, the adverse DAE2 row and no universal RSS gain.
 13,487 default tests and 1,104 validations/3,248 available runtime observations
 retain the existing DAE2 typed-block blocker. All four 1× and canonical gaps
 remain open; this does not broaden admission or remove verification.
+
+## October 4, 2026: unbox private unsigned decoding results
+
+[Shared decoding evidence](../dae2/starshine-strategy.md#october-4-2026-unbox-private-unsigned-decoding-results) records unchanged checks/bytes, 4,402,894 fewer allocator requests and complete OI work−1.8665%. The full-command and n3 inner scopes remain separate; all four1×, size and correctness gates remain open.

@@ -4,6 +4,7 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Unsigned decoder storage](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-unbox-private-unsigned-decoding-results) — Preserve parser checks/API and remove4.403m requests; complete OI work−1.867%. Fresh CLI/n3 inner evidence keeps all four1× and correctness/size gates open.
 - [Local-write validation storage](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-keep-local-write-validation-success-unboxed) — Keep all checks while reducing complete DAE2/CL/OI work .299/.135/.517%; 13,487 tests, exact bytes. Fresh clock ranges, adverse DAE2 timing, blocked rows and all four1× goals remain explicit.
 - [Branch liveness storage](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-reuse-branch-liveness-rows) — Avoid74,415 temporary rows; complete CL work−.463%, wide control31.24→19.78µs,13,483 tests. Contended clocks, unchanged RSS, canonical gaps and all four1× targets remain explicit.
 - [Scalar lift reservations](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-scalar-lift-source-reservations) — 1.510m DAE2 / .730m CL requests removed; complete native work −.456/−.177%, exact outputs. Fresh all-four n5 clocks retain contention/adverse controls; 13,480 tests and all four1× goals remain open.
