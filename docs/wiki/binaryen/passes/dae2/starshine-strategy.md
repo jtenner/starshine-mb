@@ -8176,3 +8176,71 @@ profiles and runtime evidence are local `entry-finalization-*` artifacts.
 Next larger owners are analysis CFG, local flow, lift/lower and optimizing
 cleanup. A fresh complete CoalesceLocals profile is queued; do not extrapolate
 this private DAE2 change to CL/OI or duplicate completed storage optimizations.
+
+## October 4, 2026: scalar lift source reservations
+
+Main `8ea5ade8e`, native `c98ffbbf…` → `c06f4a76…`. The instruction lift worker
+keeps the temporary source-access index and write/get flag in scalar locals,
+instead of constructing a private `(Bool, Int)` reservation tuple. The same
+public get/write row is reserved before validation and filled on the same
+successful path. Unmaterializable unreachable accesses retain −1; nested control
+invocations, original local count, capture exclusion and revision invalidation
+are unchanged. No admission, typecheck or capture operation is removed.
+
+[Source-order characterization](../../../../../src/ir/hot_lift_step_wbtest.mbt)
+adds mixed scalar/reference local indices, captures, nested regions and unreachable
+writes. [Four-pass dispatcher coverage](../../../../../src/cmd/lift_source_reservation_wbtest.mbt)
+asserts real signature pruning, local removal and constant folding. Both passed
+before implementation; the resource RED was 3,872,247 recursive instruction-worker
+malloc requests exceeding a preselected 3,500,000 budget. Candidate count is
+2,581,844. Generated C confirms scalar locals and no temporary reservation tuple.
+
+| Complete native scope | Instructions before → after | Change | Malloc requests removed |
+| --- | ---: | ---: | ---: |
+| DAE2 pass | 29,987,153,791 → 29,850,398,485 | -0.456% | 1,510,033 |
+| CoalesceLocals pass | 38,650,912,125 → 38,582,564,678 | -0.177% | 729,950 |
+| OptimizeInstructions command | 19,576,764,460 → 19,576,413,076 | -0.002% | 19,232 |
+
+Each allocation reduction is exactly the removed instruction-worker requests;
+allocation count outside that owner is unchanged. Data-typecheck calls remain
+2,828,135 / 1,350,923 / 48,023 respectively, capture calls
+1,510,027 / 729,944 / 19,232. Allocator requests are not bytes or peak memory.
+Recursive inclusive costs are not added to these complete scopes.
+
+Same 6,211,596B input, verified Binaryen133, native GCC O2/mimalloc, CPU6,
+one warmup and five rotating fresh-process/warm-filesystem untraced CLI samples:
+
+| Pass | Before ms ± MAD | After ms ± MAD | Binaryen133 ms ± MAD | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| DAE2 | 3634.526 ± 13.386 | 3638.085 ± 22.156 | 1228.261 ± 6.163 | 2.962× | -0.269% |
+| DAE2-O | 6168.017 ± 77.923 | 6156.193 ± 87.675 | 2508.656 ± 15.024 | 2.454× | +0.712% |
+| CoalesceLocals | 4036.335 ± 56.668 | 4000.320 ± 13.321 | 2052.441 ± 38.684 | 1.949× | -0.984% |
+| OptimizeInstructions | 2206.412 ± 12.980 | 2176.892 ± 37.299 | 995.620 ± 37.707 | 2.186× | -0.754% |
+
+All60 normal rows flag foreign CPU, before/after ranges overlap, and DAE2-O's
+paired change is adverse despite its lower median. No universal clock gain is
+established. Single diagnostic inner samples (not a repeated comparison) are
+DAE2 2857.565→2888.078ms, OO5222.792→5919.564ms, CL3058.226→3066.872ms and
+OI86.985→86.578ms; OI's narrow timer omits most pipeline cleanup. Peak RSS medians
+are 262940→255480 / 291112→291144 / 243360→243380 / 156136→156364KiB,
+with overlapping ranges. No peak-memory win is claimed.
+
+The six existing complete-lift wasm-gc controls retain adverse results: scalar
+1/64/1024 operations 1.71→1.79µs,35.11→36.29µs,557.05→564.59µs; structured
+1/64/1024 operations 2.64→2.68µs,86.88→88.92µs,1.61→1.65ms. This small private
+change is accepted for proven native instruction/allocation savings, not a
+universal backend speedup. All control distributions remain in local evidence.
+
+Info/fmt/check, **13,480 default tests**, six controls, native release and README/API
+sync pass; no API diff. The 67-fixture corpus across four passes records
+**1,088 validations / 3,200 available runtime observations**. Original/before/after/
+133 values, ordered effects, memory/globals and trap status match on supported
+rows. The existing typed-block failure remains blocked in both DAE2 modes;
+66 fixtures fully compare per DAE2 mode and67 each for CL/OI. All four large raw
+hashes are exact; this preserves, rather than closes, the canonical size gaps.
+
+Local `lift-reservation-*` artifacts contain exact environment/source/oracle hashes,
+commands, samples/ranges, profile scopes, resource RED and ownership self-review.
+Independent review, full CI/coverage and deferred aggregate fuzz remain pending.
+All four1× goals remain open. Next: CoalesceLocals branch-row storage (baseline
+characterizations pass), and the larger DAE2 dependency/lift/lower/cleanup owners.

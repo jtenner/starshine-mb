@@ -2944,19 +2944,22 @@ fn hot_lift_impl_lift_instruction(
   concrete_values : Array[ValType],
 ) -> HotLiftTypecheck {
   // Reserve an entry even when unreachable stack polymorphism prevents a node.
-  let source_access = match instr {
+  // The reservation is consumed only by this invocation; keep its index and
+  // kind in scalar locals instead of allocating a temporary tuple per access.
+  let mut source_access_index = -1
+  let source_access_is_write = match instr {
     Instruction::LocalGet(LocalIdx(raw)) => {
-      let index = label_frames.gets.length()
+      source_access_index = label_frames.gets.length()
       label_frames.gets.push((raw.reinterpret_as_int(), -1))
-      Some((false, index))
+      false
     }
     Instruction::LocalSet(LocalIdx(raw))
     | Instruction::LocalTee(LocalIdx(raw)) => {
-      let index = label_frames.writes.length()
+      source_access_index = label_frames.writes.length()
       label_frames.writes.push((raw.reinterpret_as_int(), -1))
-      Some((true, index))
+      true
     }
-    _ => None
+    _ => false
   }
   match instr {
     Instruction::Block(_, _)
@@ -3590,16 +3593,16 @@ fn hot_lift_impl_lift_instruction(
           )
         }
       }
-      match source_access {
-        Some((is_write, index)) => {
-          let accesses = if is_write {
-            label_frames.writes
-          } else {
-            label_frames.gets
-          }
-          accesses[index] = (accesses[index].0, node_id)
+      if source_access_index >= 0 {
+        let accesses = if source_access_is_write {
+          label_frames.writes
+        } else {
+          label_frames.gets
         }
-        None => ()
+        accesses[source_access_index] = (
+          accesses[source_access_index].0,
+          node_id,
+        )
       }
       hot_lift_impl_push_node(
         roots, values, concrete_values, node_id, pushed_types,

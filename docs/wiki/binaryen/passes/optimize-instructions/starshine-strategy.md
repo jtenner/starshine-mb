@@ -2251,3 +2251,13 @@ Complete OI command instructions change-0.114%; exact raw bytes,
 13,471 tests and bounded runtime evidence are retained. Normal command and
 narrow inner timers have different scopes; the1× goal and33,497B canonical
 output gap remain open. See the checkpoint for paired clocks, RSS and limits.
+
+## October 4, 2026: shared scalar lift reservations
+
+Complete OI command work falls only19,576,764,460→19,576,413,076 instructions
+(−.002%) with19,232 fewer allocation requests; this is not a material OI speedup.
+Normal CLI2176.892±37.299ms/B995.620±37.707ms (2.186×), n5; all rows contended.
+The narrow OI timer still omits most pipeline cleanup; command owners remain open.
+See the [shared four-pass evidence](../dae2/starshine-strategy.md#october-4-2026-scalar-lift-source-reservations)
+for ownership invariants, adverse wasm-gc controls, runtime coverage, raw hashes
+and open correctness/release gates. All four1× targets remain open.

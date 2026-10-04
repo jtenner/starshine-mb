@@ -27,37 +27,28 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest DAE2-only follow-up:** entry-source finalization, main `9b7847a24`,
-  native `e04ee14f…` → `c98ffbbf…`; complete work −0.208%, source-owner −8.059%,
-  1,600,504 fewer repeated header/liveness queries and unchanged allocation count.
-  CPU6 n5/warmup1 normal medians±MAD (ms): DAE2 3647.877±24.033 /
-  B1212.245±13.555 (3.009×); OO 5939.125±44.676 / B2402.493±31.818 (2.472×).
-  Paired −0.283/−1.420%; 28/30 rows contended and ranges overlap. The single OO
-  diagnostic inner sample regressed; no repeated inner or peak-memory gain.
-  13,478 tests, 526 validations/1,544 available observations, exact outputs;
-  both P00 blocked rows remain. CL/OI retain their earlier matched cohort.
-  [Scope and tradeoffs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-finalize-entry-sources-during-propagation).
-- **Latest matched all-four checkpoint:** owned type-validation prefixes,
-  main `3fd003483` / native `e9f225ec…` → `6b65daad…`.
-  Complete DAE2 work-1.736%, OI command work-0.114%; all
-  validation work retained and raw output hashes exact. CPU6 n5/warmup1
-  normal CLI medians±MAD (ms):
-  dae2 3593.812±30.367 / B1189.526±9.250 (3.021×);
-  dae2-optimizing 5932.306±106.577 / B2433.266±25.990 (2.438×);
-  coalesce-locals 3976.437±4.162 / B1916.517±38.645 (2.075×);
-  optimize-instructions 2135.276±12.732 / B953.532±1.581 (2.239×);
-  Keep foreign-load flags, paired changes and ranges explicit.13,471 tests,
-  976 validations/2,864 available observations retain the two P00 blocked
-  multivalue rows. All four1× goals remain open; OI's narrow timer excludes
-  most cleanup. [Evidence, scope and limits](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
+- **Latest matched all-four checkpoint:** scalar lift reservations, main `8ea5ade8e`,
+  native `c98ffbbf…` → `c06f4a76…`; complete DAE2/CL/OI work −.456/−.177/−.002%,
+  1,510,033 / 729,950 / 19,232 fewer allocation requests, all checks retained.
+  CPU6 n5/warmup1 normal CLI medians±MAD (ms):
+  DAE2 3638.085±22.156 / B1228.261±6.163 (2.962×);
+  DAE2-O 6156.193±87.675 / B2508.656±15.024 (2.454×);
+  CoalesceLocals 4000.320±13.321 / B2052.441±38.684 (1.949×);
+  OptimizeInstructions 2176.892±37.299 / B995.620±37.707 (2.186×).
+  All60 rows contended and ranges overlap. OO paired change is adverse +.712%;
+  no universal clock or memory win. Preserve adverse wasm-gc controls and single
+  diagnostic inner samples; OI's narrow timer excludes most cleanup.
+  13,480 tests, 1,088 validations/3,200 available observations, exact raw hashes;
+  both P00 typed-block failures and all four1× goals remain open.
+  [Evidence and tradeoffs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-scalar-lift-source-reservations).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Latest complete DAE2 profile:** nativec98ffbbf… pass29.987b
-  instructions. Dependencies9.355b, analysis lift6.366b, rewrite lift2.372b,
-  lower4.647b and final validation2.495b remain larger owners; nested costs
-  are inclusive and not additive. [Full source breakdown](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
+- **Latest complete DAE2 profile:** nativec06f4a76… pass29.850b instructions.
+  The preceding c98 profile attributes dependencies9.355b, analysis lift6.366b,
+  rewrite lift2.372b, lower4.647b and final validation2.495b; these remain
+  larger owners, with source versions explicit and inclusive costs not additive. [Full source breakdown](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
 - **Preserved quality and completed work:** V83 saves 79,962 canonical bytes
   across 4,968 shrinking functions. DAE2-O remains **99,251 canonical bytes
   larger** than v133 despite **9,949 fewer raw bytes**; CL/SL/OI canonical
@@ -594,7 +585,7 @@ quality gates. Keep traced inner and normal command measurements separate.
   or memory win; raw/canonical quality unchanged. DAE2/O/OI retain the d08c
   checkpoint at that date; do not extrapolate the CL-only gain.
   [Copy-barrier evidence and ownership](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-reject-globally-blocked-copy-pairs-once).
-- **Current shared CFG checkpoint:** main3631c1d0c/native43feef6e CL normal
+- **Historical shared CFG checkpoint:** main3631c1d0c/native43feef6e CL normal
   4311.431±54.395ms/B1947.387±23.953 (2.214×), all contended. Complete work
   40.483b (−.832954%) with identical bytes and graph counts; P12 owns this
   completed representation change. Remaining interference/lower work stays open.
@@ -602,6 +593,13 @@ quality gates. Keep traced inner and normal command measurements separate.
   regressing the large consumer: clear8+1.21µs (overlapping dispersion), no-edge
   512+29.02ns. Lazy preflight already preserves O(locals) with no body scan when
   rows are empty; do not repeat the completed global rejection mechanism.
+- [ ] Measure branch liveness storage reuse: complete c06 CL38.583b instructions,
+  recursive worker81,536 direct live-row copies plus24,805 allocating joins
+  across both worker variants. Baseline branch/EH/ownership and dispatcher
+  characterizations pass. Borrow only immutable parent live rows; keep the
+  worker-entry and label snapshots, then join directly into its owned row.
+  Resource budget≤70,000 recursive direct copies; require complete pass/output/
+  runtime evidence and no-branch/wide controls before acceptance.
 - **Tasks:** profile repeated dependency/action rows, source-order/label setup,
   capture/conflict walks and weighted/wider coloring on the current revision.
   Reduce unused block-write metadata only with complete full-graph semantics.

@@ -1622,3 +1622,15 @@ retains checks and CL bytes. Normal CPU6 n5 CLI4277.978→4253.110ms,
 v1331980.969ms, paired+.782% disagrees with the median within wide foreign-load
 spreads. RSS overlaps. DAE2's2.925m allocation saving is not a CL allocation
 measurement. All2400 observations agree; canonical+78,800B and1× stay open.
+
+## October 4, 2026: shared scalar lift reservations
+
+Complete CL work falls38,650,912,125→38,582,564,678 instructions (−.177%) and
+729,950 allocation requests are removed with identical typecheck/capture counts.
+Normal CLI4000.320±13.321ms/B2052.441±38.684ms (1.949×), n5; all rows contended.
+The clock ranges overlap and peak RSS does not improve. Next measured private
+owner: duplicate branch liveness copies/joins; correctness characterizations
+passed before implementation.
+See the [shared four-pass evidence](../dae2/starshine-strategy.md#october-4-2026-scalar-lift-source-reservations)
+for ownership invariants, adverse wasm-gc controls, runtime coverage, raw hashes
+and open correctness/release gates. All four1× targets remain open.

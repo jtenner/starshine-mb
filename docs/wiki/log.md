@@ -1,3 +1,11 @@
+### 2026-10-04 — Scalar source-access reservations during lift
+
+- [Native work and matched four-pass controls](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-scalar-lift-source-reservations):
+  complete DAE2/CL work −.456/−.177%, 1.510m/.730m fewer requests, exact bytes.
+  13,480 tests, 1,088 validations/3,200 available observations; adverse wasm-gc
+  controls and OO paired clocks remain explicit. All four1×, canonical and
+  correctness/release gates remain open; continue measured branch storage.
+
 ### 2026-10-04 — Finalize DAE2 entry sources during propagation
 
 - [DAG invariant and measured controls](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-finalize-entry-sources-during-propagation):

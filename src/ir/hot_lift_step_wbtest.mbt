@@ -13,6 +13,49 @@ fn lift_step_fixture() -> @lib.Module {
 }
 
 ///|
+test "lift source reservations keep mixed local indices across captures and regions" {
+  let input = @wast.wast_to_binary_module(
+    (
+      #|(module (func (param i32 externref) (local i32 externref)
+      #| local.get 0 i32.const 7 local.set 0 local.tee 2 drop
+      #| local.get 1 local.set 3
+      #| block local.get 2 if local.get 3 drop
+      #| else local.get 1 local.set 3 end end
+      #| unreachable local.set 2 local.get 1 drop))
+    ),
+  ).unwrap()
+  for captures in [false, true] {
+    let hot = hot_lift_func_with_context_result(
+      input,
+      @lib.FuncIdx::new(0U),
+      hot_module_context_from_module(input),
+      capture_stack_locals=captures,
+      materialize_multi_values=true,
+    ).unwrap()
+    let accesses = hot_lift_local_accesses(hot)
+    assert_eq(accesses.local_count, 4)
+    assert_eq(accesses.gets.map(fn(pair) { pair.0 }), [0, 1, 2, 3, 1, 1])
+    assert_eq(accesses.writes.map(fn(pair) { pair.0 }), [0, 2, 3, 3, 2])
+    assert_eq(accesses.writes[4].1, -1)
+    for (_, node) in accesses.gets {
+      assert_eq(hot_node_op(hot, node), HotOp::LocalGet)
+    }
+    for index in 0..<4 {
+      assert_eq(
+        hot_node_op(hot, accesses.writes[index].1),
+        if index == 1 {
+          HotOp::LocalTee
+        } else {
+          HotOp::LocalSet
+        },
+      )
+    }
+    hot_verify_all_or_abort(hot)
+    assert_eq(accesses.revision, hot_revision_current(hot))
+  }
+}
+
+///|
 test "lift instruction results preserve ordered source accesses and unreachable placeholders" {
   let input = lift_step_fixture()
   for captures in [false, true] {
