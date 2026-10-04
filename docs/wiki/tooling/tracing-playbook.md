@@ -5053,3 +5053,15 @@ correctness/quality blockers and all four 1× targets. Next prioritize DAE2-O
 repeated cleanup traversal plus dependency/lift/lower; keep OI module cleanup and
 mandatory validation in the full-command scope.13,451 tests and2400 bounded
 runtime comparisons pass; long fuzz/full CI/coverage remain pending.
+
+
+## October 4, 2026: single-traversal cleanup reads
+
+[Current DAE2-O profile and full matrix](../binaryen/passes/dae2/starshine-strategy.md#october-4-2026-count-reachable-cleanup-reads-in-one-traversal) record a complete cleanup
+reduction18.623b→17.706b instructions, with all25,802 pipeline calls and exact
+outputs. The new worker eliminates repeated control queries; a small label stack
+adds bounded allocation. Normal n5 and traced n3 results stay separate. All rows
+flag foreign activity; OI's89.9ms inner timer omits most of its1679ms pipeline.
+13454 tests/2496 runtime comparisons pass; no1×, RSS or release completion claim.
+Next target discarded typecheck diagnostic formatting and repeated read facts;
+then the smaller homogeneous-run nop-hoist quadratic scan.

@@ -27,17 +27,23 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** inline instruction-lift state/error,
-  mainb34c4d0a4 nativeec2a0ed4…→5132736f…. Complete DAE2 instructions−0.545%,
-  2,925,466 fewer direct instruction-worker allocator requests; calls/output exact.
+- **Latest matched large checkpoint:** single-traversal cleanup reads,
+  mainfdee5e2b0/native5132736f…→c972d0ba…. Complete DAE2-O per-function cleanup
+  work−4.9254%, exact four outputs; full DAE2 and command costs are separate.
   CPU6 n5/warmup1 normal CLI medians±MAD (milliseconds):
-  dae2 3839.607±51.388/B1252.725±2.362 (3.065×);
-  dae2-optimizing 6688.206±89.721/B2626.305±35.897 (2.547×);
-  coalesce-locals 4238.988±43.593/B2027.743±58.606 (2.090×);
-  optimize-instructions 2503.762±157.348/B1146.393±91.841 (2.184×).
-  All rows flag foreign load; paired/cross-cohort disagreement and RSS overlap
-  prevent a universal clock/memory claim.13,451 tests/2400 comparisons pass.
-  [Scopes, controls and limits](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-instruction-lift-state-and-error).
+  dae2 3671.821±21.550/B1203.695±26.309 (3.050×);
+  dae2-optimizing 6291.698±157.740/B2425.232±34.607 (2.594×);
+  coalesce-locals 4010.688±16.859/B1915.291±16.899 (2.094×);
+  optimize-instructions 2174.979±18.727/B1002.350±9.602 (2.170×);
+  All rows flag foreign load. Paired/cohort disagreement and RSS overlap prevent
+  a universal clock/memory claim.13454 tests/2496 comparisons pass. All four
+  full-work1× targets remain open; OI's narrow89.9ms timer omits most of its
+  1679ms pipeline. See separately renewed n3 pass diagnostics and scopes.
+  [Measurements and limits](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-count-reachable-cleanup-reads-in-one-traversal).
+- **Bounded OO clock repeat:** reversed-order n5 retains the initial cohort;
+  before6149.065±57.934 /after6182.957±89.559 /B2491.699±14.323ms (2.481×),
+  paired−.905%. All foreign-load flags and median/paired disagreement remain;
+  algorithmic/native work improves, enclosing clock and peakRSS gains unproved.
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
@@ -351,15 +357,25 @@ quality gates. Keep traced inner and normal command measurements separate.
   Admitted-helper costs, all foreign-activity flags and unchanged byte gaps
   remain documented; do not repeat these three predicate reorderings.
   [Proof, full matrix and limits](docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md#october-3-2026-reject-mismatched-vacuum-prefixes-before-recursive-scans).
-- **Renewed cleanup attribution:** main15255efd6/nativefd2af4bd… complete
-  cleanup19.663b instructions: raw SL12.227b, Vacuum4.929b (disjoint children).
-  Pure-copy flat work1.230b is nested within SL; its quadratic synthetic control
-  does not establish dominant compiler cost. Exact local cleanup3.067b includes
-  reachable-get counting.947b and adjacent-pair cleanup1.177b. Investigate shared
-  read/fallthrough traversal while preserving owner branches, handlers, ordered
-  state, NaN/signed-zero termination and full fixed-point work. No projected
-  savings yet; avoid adding recursive inclusive costs.
-  [Attribution and source-backed next experiment](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-3-2026-renew-optimizing-cleanup-priorities).
+- **Renewed cleanup attribution:** nativec972d0ba… complete per-function
+  cleanup17.706b instructions; raw SL11.316b and Vacuum3.896b are disjoint.
+  Reachable reads now share one traversal (946.6m→35.1m worker instructions);
+  do not repeat that fix. Preserve owner branches, handler barriers, ordered
+  state, NaN/signed-zero termination and complete fixed-point work.
+  [Current evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-count-reachable-cleanup-reads-in-one-traversal).
+- [ ] Avoid unused outer diagnostic formatting in speculative Expr typechecks
+  without changing any checks, successful state, initialization ownership or
+  normal validation errors. Expr→Instruction formatting costs459m instructions
+  in the current cleanup capture; suffix probing discards Err. Measure enclosing
+  work and exact output before broadening diagnostics or adding public APIs.
+- [ ] Eliminate the quadratic nop-hoist scan of homogeneous constants/nops by
+  consuming the already-scanned unchanged run. Preserve output order, changed
+  flags and array ownership; current worker incoming work216m is smaller than
+  typechecking/read collection. Add flat/wide/mixed barrier controls.
+- [ ] Investigate returning original subtree read facts from adjacent-pair
+  cleanup instead of recollecting descendants. Preserve sibling isolation,
+  loop self-reads and original reads removed by rewrites; existing read-set
+  copying/borrowing already has measured fixes and must not be duplicated.
 - [ ] Profile remaining recurrence/adjacent/effectful rewrites, raw Vacuum
   preclean, preparation, mutation safety, child-use queries and writeback on
   one frozen source. Completed absent-if census, initial control rejection,

@@ -7613,3 +7613,94 @@ hashes, raw normal/traced samples and spreads, profiles and runtime observations
 `.tmp/large-pass-hotspots-20261001/main-dae2-core-performance-20261004.md` and
 `dae2-core-*` artifacts. This checkpoint supersedes earlier timing rows only for
 this frozen source and host cohort; historical evidence retains its own scope.
+
+
+## October 4, 2026: count reachable cleanup reads in one traversal
+
+Main `fdee5e2b0`, native `5132736f…` → `c972d0ba…`, same verified133 oracle
+and fixed 6.21MB compiler input as the preceding checkpoint. The private cleanup
+read counter in [`pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+previously counted descendants and then rescanned them to establish control
+fallthrough and branches to enclosing labels. A single walk now computes both,
+using one temporary boolean stack sized by structured depth. No per-node cache,
+retained analysis or weaker validation is introduced.
+
+Preserve the exact conservative contract: stop counting after the first
+nonfallthrough instruction, still observe syntactic branch targets in dead
+suffixes, treat loop self-branches as backedges, include both if arms, retain
+TryTable behavior, and isolate legacy Try/handler branch facts with a barrier.
+The original shared DCE queries remain unchanged for other callers. Fixed-point
+rounds use fresh state; instruction/branch-table visits are linear in body size.
+
+Resource RED: the cleanup_exact → reachable-read edge used946,611,019 instructions,
+failing the preselected500m budget. Candidate35,148,954 at the same4561 calls;
+the wrapper inlines and stack setup now lives in the caller, so use the complete
+cleanup total for inclusive costs: **18,623,004,024→17,705,751,580 (−4.9254%)**.
+All25,802 per-function pipeline calls remain. Both captures exit normally with
+exact validated output. This scope excludes initial DAE2, parsing, final CLI
+verification and encoding. One small stack per count query adds allocations;
+complete totals include their construction/growth/destruction. Counts are not
+allocated bytes or elapsed time, and nested scopes are not summed.
+
+Five wasm-gc release controls (ten batches) mean before→after µs: flat1.19→.778,
+nested16 11.02→.872, nested64 47.79→1.22, nested128 119.07→1.66,
+branching64 70.41→1.23. Module/body preparation is outside timing. These show
+removal of repeated traversal; they do not establish a whole-command speedup.
+
+Normal fresh-process commands, warm filesystem, CPU6, one warmup/n5 rotating
+before/after/verified133, median±MAD **milliseconds**:
+
+| Pass | Before | After | Binaryen133 | S/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3691.583±42.996 | 3671.821±21.550 | 1203.695±26.309 | 3.050× | -0.281% |
+| dae2-optimizing | 6187.637±117.675 | 6291.698±157.740 | 2425.232±34.607 | 2.594× | -0.243% |
+| coalesce-locals | 3997.735±19.120 | 4010.688±16.859 | 1915.291±16.899 | 2.094× | +0.826% |
+| optimize-instructions | 2201.471±50.772 | 2174.979±18.727 | 1002.350±9.602 | 2.170× | -1.203% |
+
+All rows flag foreign CPU. OO's cohort median worsens while its paired median
+slightly improves; both are within spread. CL's+.826% paired observation stays
+visible. No universal normal-command or RSS gain is claimed. OO peakRSS
+291816±520→293796±564KiB has overlapping291296–294304/290872–294360 ranges.
+All four raw output hashes remain exact; V83 and canonical gaps are preserved.
+
+Separate n3 alternating traced diagnostics (one warmup), Star inner / pipeline /
+Binaryen inner medians in ms: DAE2 2844.130 /2862.076 /455.075;
+DAE2-O 5317.023 /5334.959 /1724.986 (per-sample sum of133 DAE2, SL and Vacuum);
+CL3090.017 /3111.265 /1256.690; OI89.921 /1679.221 /249.915.
+OI's narrow timer excludes raw and module cleanup and is not equivalent to a
+complete Binaryen pass. Binaryen debug mode adds verification outside its timers;
+never compare its debug command wall time with normal CLI. All traced rows also
+flag foreign load. None of the four complete-work1× targets is closed.
+
+Eight branch/read-count cases plus three TryTable/legacy-handler cases passed
+before implementation; the resource budget is the RED, not a semantic failure.
+A dispatcher case retains ordered imported calls after an enclosing branch exit
+and verifies actual dead-parameter removal. Info/fmt/check,13454 wasm-gc tests,
+five release controls, native release build and README/API sync pass; no public
+API diff. Four fixed runtime lanes validate852 artifacts and compare2496
+observations against original execution, including new owner-exit/effect/trap
+cases; before/after bytes match. The existing compact-import oracle encoding
+adaptation remains documented in the preceding checkpoint. Manual source review
+found balanced frame lifetimes and unchanged handler/unknown-opcode policy;
+independent review was unavailable. Full CI/coverage/aggregate fuzz and known
+correctness/quality release blockers remain open; long fuzz stays deferred.
+
+Next: discarded speculative typecheck diagnostics (Expr renders failed
+instructions while the suffix caller discards Err); original-read recollection
+in adjacent-pair cleanup; and the smaller quadratic nop-hoist run scan. The nop
+worker rescans a homogeneous unchanged run after advancing by one instruction;
+its two direct incoming edges total216m instructions. Avoid duplicating previous
+read-set copying, future-mask and rejected statement-cache experiments.
+Commands, all hashes/dirty state, raw spreads/RSS, profiles and runtime evidence:
+`.tmp/large-pass-hotspots-20261001/main-cleanup-flow-performance-20261004.md` and
+`cleanup-flow-*` artifacts. Historical rows retain their source and scope.
+
+
+### Bounded normal-clock repeat
+
+One reversed-order n5 OO repeat retains the first cohort: before6149.065±57.934,
+after6182.957±89.559, verified1332491.699±14.323ms (2.481×); paired−.905%.
+All rows still flag foreign CPU and median/paired directions disagree within
+spread. RSS292048→291300KiB overlaps290472–293696/290888–294452. Thus the
+algorithmic and native-work reduction is confirmed, but a reliable enclosing
+clock or peak-memory gain is not established. No further repeat was run.

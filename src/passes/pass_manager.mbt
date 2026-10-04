@@ -73346,57 +73346,6 @@ fn run_hot_pipeline_raw_remove_unused_brs(
 }
 
 ///|
-fn run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_instr(
-  instr : @lib.Instruction,
-  counts : Array[Int],
-) -> Unit {
-  match instr {
-    @lib.LocalGet(local_idx) =>
-      match local_idx {
-        @lib.LocalIdx(raw) => {
-          let idx = raw.reinterpret_as_int()
-          if idx >= 0 && idx < counts.length() {
-            counts[idx] = counts[idx] + 1
-          }
-        }
-      }
-    @lib.Block(_, @lib.Expr(body))
-    | @lib.Loop(_, @lib.Expr(body))
-    | @lib.TryTable(_, _, @lib.Expr(body)) =>
-      run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
-        body, counts,
-      )
-    @lib.If(_, then_, else_) => {
-      run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
-        then_, counts,
-      )
-      match else_ {
-        Some(else_body) =>
-          run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
-            else_body, counts,
-          )
-        None => ()
-      }
-    }
-    @lib.Try(_, @lib.Expr(body), catches, _) => {
-      run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
-        body, counts,
-      )
-      for catch_ in catches {
-        match catch_ {
-          @lib.LegacyCatch(_, @lib.Expr(body))
-          | @lib.LegacyCatchAll(@lib.Expr(body)) =>
-            run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
-              body, counts,
-            )
-        }
-      }
-    }
-    _ => ()
-  }
-}
-
-///|
 fn run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_instr(
   instr : @lib.Instruction,
 ) -> Int {
@@ -73461,13 +73410,135 @@ fn run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
 }
 
 ///|
-fn run_hot_pipeline_simplify_locals_lowered_instr_stops_following_body_instrs(
-  instr : @lib.Instruction,
+fn sl_cleanup_record_branch(
+  targets : Array[Bool],
+  barrier : Int,
+  label : @lib.LabelIdx,
+) -> Unit {
+  let @lib.LabelIdx(raw) = label
+  let depth = raw.reinterpret_as_int()
+  if depth >= 0 && depth < targets.length() - barrier {
+    targets[targets.length() - 1 - depth] = true
+  }
+}
+
+///|
+fn sl_cleanup_count_reachable_reads(
+  body : Array[@lib.Instruction],
+  counts : Array[Int],
+  targets : Array[Bool],
+  barrier : Int,
+  count_reads : Bool,
 ) -> Bool {
-  // A typed block can reach its following sibling through a nested branch to
-  // the block's own label even when its lexical tail escapes. Reuse the shared
-  // branch-depth-aware fallthrough proof instead of inspecting only the tail.
-  !run_hot_pipeline_dce_raw_instr_may_fallthrough(instr)
+  // Each frame records syntactic branches to one enclosing structured label.
+  // Keep scanning dead suffixes for those branches: the existing conservative
+  // fallthrough proof sees them too, but local reads there must not be counted.
+  let mut falls_through = true
+  for instr in body {
+    let reads = count_reads && falls_through
+    let next_falls_through = match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let index = raw.reinterpret_as_int()
+        if reads && index >= 0 && index < counts.length() {
+          counts[index] += 1
+        }
+        true
+      }
+      @lib.Br(label) => {
+        sl_cleanup_record_branch(targets, barrier, label)
+        false
+      }
+      @lib.BrIf(label) => {
+        sl_cleanup_record_branch(targets, barrier, label)
+        true
+      }
+      @lib.BrTable(labels, default_label) => {
+        sl_cleanup_record_branch(targets, barrier, default_label)
+        for label in labels {
+          sl_cleanup_record_branch(targets, barrier, label)
+        }
+        false
+      }
+      @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Unreachable => false
+      @lib.Block(_, @lib.Expr(nested))
+      | @lib.TryTable(_, _, @lib.Expr(nested)) => {
+        targets.push(false)
+        let nested_falls = sl_cleanup_count_reachable_reads(
+          nested, counts, targets, barrier, reads,
+        )
+        let exits_owner = targets.pop().unwrap()
+        nested_falls || exits_owner
+      }
+      @lib.Loop(_, @lib.Expr(nested)) => {
+        targets.push(false)
+        let nested_falls = sl_cleanup_count_reachable_reads(
+          nested, counts, targets, barrier, reads,
+        )
+        // Branches to a loop restart it instead of reaching the next sibling.
+        ignore(targets.pop())
+        nested_falls
+      }
+      @lib.If(_, then_body, else_body) => {
+        targets.push(false)
+        let then_falls = sl_cleanup_count_reachable_reads(
+          then_body, counts, targets, barrier, reads,
+        )
+        let else_falls = match else_body {
+          Some(nested) =>
+            sl_cleanup_count_reachable_reads(
+              nested, counts, targets, barrier, reads,
+            )
+          None => true
+        }
+        let exits_owner = targets.pop().unwrap()
+        then_falls || else_falls || exits_owner
+      }
+      @lib.Try(_, @lib.Expr(nested), catches, _) => {
+        // The existing branch-depth query intentionally treats legacy Try as
+        // opaque and its fallthrough as possible. Count each reachable handler
+        // body with a barrier so its labels cannot affect surrounding frames.
+        if reads {
+          ignore(
+            sl_cleanup_count_reachable_reads(
+              nested,
+              counts,
+              targets,
+              targets.length(),
+              true,
+            ),
+          )
+          for catch_ in catches {
+            let @lib.Expr(nested) = match catch_ {
+              @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+            }
+            ignore(
+              sl_cleanup_count_reachable_reads(
+                nested,
+                counts,
+                targets,
+                targets.length(),
+                true,
+              ),
+            )
+          }
+        }
+        true
+      }
+      _ => true
+    }
+    falls_through = falls_through && next_falls_through
+    if !falls_through && targets.length() == barrier {
+      // No visible enclosing owner needs syntactic branch facts from the tail.
+      break
+    }
+  }
+  falls_through
 }
 
 ///|
@@ -73475,16 +73546,7 @@ fn run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
   body : Array[@lib.Instruction],
   counts : Array[Int],
 ) -> Unit {
-  for instr in body {
-    run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_instr(
-      instr, counts,
-    )
-    if run_hot_pipeline_simplify_locals_lowered_instr_stops_following_body_instrs(
-        instr,
-      ) {
-      break
-    }
-  }
+  ignore(sl_cleanup_count_reachable_reads(body, counts, [], 0, true))
 }
 
 ///|
@@ -93798,5 +93860,80 @@ fn sl_value_suffix_stack_effect(
         None => None
       }
     _ => precompute_raw_terminal_prefix_stack_effect(instr)
+  }
+}
+
+///|
+test "cleanup reachable counts preserve owner branches and dead suffix boundaries" {
+  for
+    (body, expected) in [
+      (
+        "local.get 0 drop block local.get 1 drop br 0 local.get 2 drop end local.get 3 drop",
+        [1, 1, 0, 1],
+      ),
+      (
+        "block loop local.get 0 drop br 1 end local.get 1 drop end local.get 2 drop",
+        [1, 0, 1, 0],
+      ),
+      ("loop local.get 0 drop br 0 end local.get 1 drop", [1, 0, 0, 0]),
+      (
+        "local.get 0 if local.get 1 drop return else local.get 2 drop br 0 end local.get 3 drop",
+        [1, 1, 1, 1],
+      ),
+      (
+        "local.get 0 if local.get 1 drop return else local.get 2 drop return end local.get 3 drop",
+        [1, 1, 1, 0],
+      ),
+      // The existing conservative branch proof also sees syntactically dead
+      // branches; retaining that boundary preserves exact cleanup decisions.
+      ("block unreachable br 0 end local.get 3 drop", [0, 0, 0, 1]),
+      (
+        "block block local.get 0 br_table 0 1 end local.get 1 drop end local.get 2 drop",
+        [1, 1, 1, 0],
+      ),
+      (
+        "block block return end local.get 0 drop end local.get 1 drop",
+        [0, 0, 0, 0],
+      ),
+    ] {
+    let input = @wast.wast_to_binary_module(
+      "(module (func (param i32 i32 i32 i32) " + body + "))",
+    ).unwrap()
+    assert_true(@validate.validate_module(input) is Ok(_))
+    let @lib.Func(_, @lib.Expr(instrs)) = input.code_sec.unwrap().0[0]
+    let counts = Array::make(4, 0)
+    run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
+      instrs, counts,
+    )
+    assert_eq(counts, expected)
+  }
+}
+
+///|
+test "cleanup reachable counts retain try-table targets and legacy handler boundary" {
+  for
+    (body, expected) in [
+      (
+        "(block (try_table (catch_all 0) local.get 0 drop br 1) local.get 1 drop) local.get 2 drop",
+        [1, 0, 1, 0],
+      ),
+      (
+        "(block (try (do local.get 0 drop br 1) (catch_all local.get 1 drop)) local.get 2 drop) local.get 3 drop",
+        [1, 1, 1, 1],
+      ),
+      (
+        "(block return (try (do br 1) (catch_all br 1))) local.get 3 drop",
+        [0, 0, 0, 0],
+      ),
+    ] {
+    let input = @wast.wast_to_binary_module(
+      "(module (func (param i32 i32 i32 i32) " + body + "))",
+    ).unwrap()
+    let @lib.Func(_, @lib.Expr(instrs)) = input.code_sec.unwrap().0[0]
+    let counts = Array::make(4, 0)
+    run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
+      instrs, counts,
+    )
+    assert_eq(counts, expected)
   }
 }

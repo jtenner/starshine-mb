@@ -1,3 +1,11 @@
+### 2026-10-04 — Count cleanup reads in one traversal
+
+- [Proof and measurements](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-count-reachable-cleanup-reads-in-one-traversal): replace repeated fallthrough/branch rescans
+  with one bounded label stack. Complete DAE2-O cleanup work−4.9254%, exact
+  bytes; nested128 control119.07→1.66µs.13454 tests/2496 runtime comparisons
+  pass. Contended full-command gains remain unproved, all four1× and quality/
+  correctness gates open; OI's narrow timer is explicitly distinguished.
+
 ### 2026-10-04 — Inline instruction-lift results
 
 - [Measured scope and limits](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-instruction-lift-state-and-error): 2,925,466 fewer direct allocator requests,
