@@ -39,6 +39,13 @@ oracle versions and checkpoints do not sign current source.
   [Full checkpoint](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-local-read-success-without-result-boxes).
   13,531 tests; 324 validations/944 observations in 20 fixtures/pass. Existing
   typed-block failure and full aggregate gates remain open.
+- **Later CL-only checkpoint:** native `1c6d69ab…`→`776cef03…` inline
+  private scan results remove 2,311,558 requests and 0.7461% complete CL work.
+  CPU 6 warmup 1/n5 full-command 3464.471±30.545 / B
+  1944.056±32.251 ms (1.782×), paired -0.728%.
+  Foreign activity and adverse nested controls remain; no other pass is refreshed.
+  [Evidence](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-inline-path-disjoint-scan-results).
+  All bytes exact; 13,535 tests, 82 validations/240 observations. All 1× goals open.
 - **Historical OI-only checkpoint:** native`b1ef48ca…`→`3f74dc4b…`, complete
   process work−.8188%,340,195 fewer requests and unchanged bytes. N5 CLI
   2030.554±7.049 / B1054.366±22.744ms (1.926×); paired+0.650% is adverse,
@@ -893,12 +900,6 @@ quality gates. Keep traced inner and normal command measurements separate.
   and shifted escape observations. Keep public Result/tuple wrappers, mandatory
   stack validation and every control decision. Require bounded controls, actual
   native removal, complete DAE2/CL work, DAE2/O clocks and focused runtime checks.
-- [ ] Measure CL path-disjoint scan result allocation. Current complete CL
-  profile attributes 2,195,914 allocator requests to the recursive scan. Its
-  private result carries five immutable booleans. Characterize all initialization,
-  clobber, branch-join and unsupported-control decisions before testing inline
-  value storage; compare native code/work/RSS and retain exact output. Do not
-  change admission or pairing rules to improve this measurement.
 - [ ] Attribute dense CL member-query work: frozen243a8e03 coloring1.570b
   instructions includes31.721m member bit probes. The matrix is upper triangular,
   so the existing sparse row scatter cannot be copied directly; a transpose adds

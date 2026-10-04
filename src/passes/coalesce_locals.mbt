@@ -4328,6 +4328,7 @@ fn cl_remove_tail_reuse_interferences(
 }
 
 ///|
+#valtype
 priv struct CLPathDisjointScan {
   ok : Bool
   saw_source_write : Bool

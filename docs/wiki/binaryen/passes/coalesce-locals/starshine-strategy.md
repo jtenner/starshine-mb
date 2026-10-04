@@ -1926,3 +1926,55 @@ Manual review is not independent-agent signoff. All four 1× targets, canonical
 deficits, P00 correctness and full CI/coverage/aggregate fuzz remain open.
 Local `cl-branch-depth-filter-*` retains build/source/input hashes, commands,
 reference results, controls, complete profiles and individual measurements.
+
+## October 4, 2026: inline path-disjoint scan results
+
+[CLPathDisjointScan](../../../../../src/passes/coalesce_locals.mbt) is a private
+immutable five-Bool handoff between recursive scans. `#valtype` replaces boxed
+records with native values. All scan visits, source initialization, write/copy
+and clobber facts, branch joins, rejection of unsupported control, local pairing
+and final interference decisions remain unchanged. There is no new cache,
+allocation, admission shortcut or API change. Generated C returns the record by
+value, with no direct result allocation; the generated `.mbti` text is unchanged.
+
+[Four before/after regressions](../../../../../src/passes/coalesce_path_scan_value_wbtest.mbt)
+cover eight incoming fact combinations, retained fields after a later failure,
+one/two-arm initialization and later reads, nested copy/clobber decisions and
+explicitly unsupported escaping/loop/TryTable control. [Four release controls](../../../../../src/passes/coalesce_path_scan_value_perf_wbtest.mbt)
+(wasm-GC mean±SD): single branch 34.96±3.14→33.61±0.21ns; 64 branches
+1.09±0.013→1.09±0.014µs; 64 nested blocks 497.77±10.87→514.76±14.32ns
+(adverse); 16 nested unsupported-control blocks 78.55±0.54→78.23±0.16ns.
+Do not infer a universal helper clock win from native allocation elimination.
+Info/fmt/check, 13,535 workspace tests, native release and README/API sync pass.
+The pre-change performance defect is native record allocation, not missing
+semantic behavior.
+
+Frozen native `1c6d69ab…`→`776cef03…`: complete CL instructions
+33,853,699,099→33,601,128,791 (−0.7461%), allocator requests
+76,416,857→74,105,299 (2,311,558 removed). Both scan sites disappear:
+115,644 direct/root and 2,195,914 recursive-worker requests. Top-level scan
+calls remain 72,820, and their inclusive work falls 539,282,700→290,991,004.
+Nested recursive costs overlap; do not add them to whole-pass savings.
+Allocator requests are not live bytes or RSS. The complete pass profile
+excludes parsing/final CLI validation/encoding. The exact frozen baseline
+profile was reused with its original provenance, rather than rerun.
+
+Same 6,211,596 B compiler SHA `98189860…`, verified Binaryen 133 SHA `8f25e9fd…`,
+Ryzen 7 8845HS CPU 6, GCC 14.2 O2/mimalloc. Build excluded, warmup 1/n5,
+rotating alternating fresh-process commands with warm filesystem; median±MAD ms
+[min,max]:
+
+| Pass | Before | After | Binaryen 133 | After/133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| coalesce-locals | 3519.768±41.599 [3478.170,3721.483] | 3464.471±30.545 [3431.150,3509.605] | 1944.056±32.251 [1900.803,2254.771] | 1.782× | -0.728% |
+
+Foreign activity and the full RSS distribution remain recorded. This private
+CL-only trial does not refresh the other three passes or close 1×/general RSS
+claims. Separate traced n1 diagnostics are not warm-pass signoff. Large output
+hashes are exact before/after. Twenty fixed CL fixtures yield 82 validations and
+240 supported observations of values, ordered effects, globals, memory and
+traps with original/before/after/v133 outputs. The compact-import text adapter
+affects only Node replay, never raw size/hash evidence. Manual review is not
+independent-agent signoff. All four 1× goals, canonical deficits, P00 correctness
+and full CI/coverage/aggregate fuzz remain open. Local `cl-path-scan-value-*`
+records retain exact builds, sources, commands, native worker and all samples.

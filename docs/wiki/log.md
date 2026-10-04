@@ -1,3 +1,7 @@
+### 2026-10-04 — Store private CL scan results by value
+
+- [Field/decision proof and complete CL evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-inline-path-disjoint-scan-results): work −0.7461%, 2,311,558 fewer allocation requests, unchanged output. Nested-block controls remain adverse. 13,535 tests plus 82 validations/240 execution observations pass. All four 1× goals and release gates remain open.
+
 ### 2026-10-04 — Avoid expression local-read success boxes
 
 - [Ownership proof and complete consumers](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-local-read-success-without-result-boxes): DAE2 work −0.3299% / 1,612,632 fewer requests; CL −0.2394% / 1,485,697 fewer. Public instruction Result, every check and output bytes remain. 13,531 tests and focused execution retain the existing typed-block blocker; all four 1× goals remain open.
