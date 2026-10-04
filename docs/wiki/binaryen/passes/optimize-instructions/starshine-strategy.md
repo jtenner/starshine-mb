@@ -2353,3 +2353,55 @@ profiles, allocation RED/GREEN, clocks/RSS, active-path notes and ownership
 review. Independent review, full CI/coverage and deferred aggregate fuzz remain
 pending. All four1×, size and correctness gates remain open. Next: lower-stack
 representation with push/pop controls and complete DAE2/CL measurements.
+
+## October 4, 2026: retain constant folds under the effect guard
+
+The mixed scalar/GC dispatcher regression exposed a real parity gap: the
+existing global/call/tee/control guard returned before folding adjacent
+`i32.const 2; i32.const 3; i32.add`. Verified Binaryen133 emits `i32.const 5`.
+The [raw guard](../../../../../src/passes/pass_manager.mbt) now retains the
+existing adjacent constant-only rewrites before returning. The admission
+boundary, remaining instruction order, control regions, trap behavior and
+verification stay unchanged. This is a quality fix, not a proven speed win.
+The historical trace reason still ends in `noop`; `unchanged_original` correctly
+becomes false when a fold occurs.
+
+The [implementing regression](../../../../../src/passes/oi_guarded_const_fold_wbtest.mbt)
+failed before, then passed with exact instruction fields for effects, nested
+arms, wrapping i32 addition, Boolean folds and an unreachable prefix. The
+[dispatcher regression](../../../../../src/cmd/oi_guarded_const_fold_wbtest.mbt)
+also failed before; it checks actual OI folding plus active DAE2/O parameter
+removal and CL local reduction while preserving the input. Both tools now fold
+the GC fixture's adjacent addition. Complete shape parity remains open: its raw
+Starshine output is166→163 B versus Binaryen141 B; the overflow fixture is95→90 B
+versus90 B; the unreachable fixture is85→82 B versus77 B.
+
+Native `3f74dc4b…`→`4c20bc54…`, GCC14.2 O2/mimalloc, same6,211,596 B input
+SHA98189860…, Ryzen7 8845HS CPU6, verified133 SHA8f25e9fd….
+One warmup/five alternating fresh-process warm-filesystem CLI samples, build
+excluded, median±MAD ms [min,max]: before1991.393±10.242 [1957.934,2013.187],
+after2013.416±17.913 [1958.982,2031.329], Binaryen1030.112±22.296
+[994.398,1052.408]. Ratio1.955×; paired change+0.698% is adverse, with foreign
+CPU in all15 rows. RSS medians157180→157044 KiB overlap. Complete native work
+18,432,791,681→18,432,354,285 (−.0024%); allocator requests increase1065.
+These observations do not establish a speed or memory win.
+
+One large function shrinks173→170 B; no other code body changes or grows.
+Raw output6,205,998→6,205,995 B versus Binaryen6,172,971 B. Bounded133 no-pass
+`--all-features --strip-debug` normalization did not stabilize all outputs
+within8 rounds, so the symmetric first round is used:6,220,782→6,220,779 B
+versus6,187,285 B. The measured normalized gap is now33,494 B, reduced by3 B.
+Raw and normalized sizes remain distinct.
+
+Info/fmt/check,13,507 workspace tests (including two pending lower-stack
+characterizations), native release and README/API sync pass; no public API
+change.75 fixtures per pass yield1,220 validations and3,584 available runtime
+comparisons of original/before/after/133 values, ordered effects, memory/global
+state and permitted traps. DAE2/O each74 fully compare plus the existing
+`probe-typed-block-trap` command failure; CL/OI each75 fully compare. The known
+Binaryen compact-import text adapter is confined to oracle runtime. Source
+reasoning plus these observations supports the fold's equivalence; residual
+shape differences remain parity gaps. Local `oi-guarded-fold-*` artifacts retain
+hashes, commands, profile scope, complete rows, normalization history and the
+manual ownership review. Independent review, full CI/coverage, aggregate fuzz
+and all four1× targets remain open.

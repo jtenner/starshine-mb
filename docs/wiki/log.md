@@ -1,3 +1,7 @@
+### 2026-10-04 — Retain OI constant folds under its effect guard
+
+- [Regression and measured quality result](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-retain-constant-folds-under-the-effect-guard): preserve the same admission/effects while retaining adjacent scalar folds. One large function shrinks3 B; the normalized gap is33,494 B. Paired timing+0.698% is adverse, so no speed win is claimed.13,507 workspace tests and the bounded runtime corpus pass supported cases; all four1× goals stay open.
+
 ### 2026-10-04 — Copy directization output only after a rewrite
 
 - [Ownership and complete OI evidence](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-copy-directization-output-only-after-a-rewrite):141,252 throwaway rows removed, complete work−.8188%,340,195 fewer requests.13,503 tests/1,172 validations/3,440 supported observations; unchanged-helper activity, adverse+0.650% CLI movement and all four1×/release gaps remain explicit.

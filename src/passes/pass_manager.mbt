@@ -45207,10 +45207,22 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     })
   }
   if oi_index.admission_guards.has_global_call_tee_control() {
+    // This boundary protects stack-carried effects from HOT replay. Adjacent
+    // constant-only folds consume neither those values nor any effects, so
+    // retain their progress without changing the existing admission decision.
+    let (folded, changed) = if oi_index.admission_guards.has_const_fold_candidate {
+      run_hot_pipeline_raw_optimize_instructions_const_fold_body(body)
+    } else {
+      (body, false)
+    }
     return Some({
       reason: "global-call-tee-control-optimize-instructions-noop",
-      func: original,
-      unchanged_original: true,
+      func: if changed {
+        @lib.Func::new(locals, @lib.Expr::new(folded))
+      } else {
+        original
+      },
+      unchanged_original: !changed,
       trace_skip_raw: true,
     })
   }

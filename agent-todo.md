@@ -46,6 +46,11 @@ oracle versions and checkpoints do not sign current source.
   scan finds no rewrite, but all141,252 discovery visits remain and OI transforms
   elsewhere.13,503 tests and1,172 validations/3,440 supported observations;
   all four1× and release gates stay open. [Evidence](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-copy-directization-output-only-after-a-rewrite).
+- **OI quality checkpoint:** native`4c20bc54…` retains guarded adjacent constant
+  folds. One large function shrinks3 B; the current normalized gap is33,494 B.
+  CLI2013.416±17.913 / B1030.112±22.296ms (1.955×), paired+0.698%; no speed
+  win is established.13,507 workspace tests and1,220 validations/3,584 runtime
+  observations pass supported cases. [Evidence](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-retain-constant-folds-under-the-effect-guard).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
@@ -843,7 +848,9 @@ quality gates. Keep traced inner and normal command measurements separate.
   consumers before accepting shared changes.
 - [ ] Complete the active lower-stack value trial after measuring push and pop:
   wider inline rows may rebox optional pop/last results. Two characterization
-  tests and four controls pass; fresh baseline profiles are in progress. Preserve
+  tests and four baseline controls pass; candidate has13,507 passing tests and
+  a native build. Scalar64 read control is adverse774→837ns; complete consumer
+  profiles/clocks/runtime are pending. Preserve
   scalar/GC types, snapshots and exact lowering; no allocation/RSS claim from one site.
 - [ ] Reuse the checked previous opcode in CFG segmentation to avoid entering
   the drop classifier for non-Drop nodes. Preserve every actual-Drop proof and
