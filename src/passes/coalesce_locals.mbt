@@ -2620,15 +2620,6 @@ fn cl_compute_liveness(
 }
 
 ///|
-fn cl_union_live(lhs : Array[Bool], rhs : Array[Bool]) -> Array[Bool] {
-  let out = lhs.copy()
-  for idx = 0; idx < out.length(); idx = idx + 1 {
-    out[idx] = out[idx] || rhs[idx]
-  }
-  out
-}
-
-///|
 fn cl_replace_live(live : Array[Bool], source : Array[Bool]) -> Unit {
   for idx = 0; idx < live.length(); idx = idx + 1 {
     live[idx] = idx < source.length() && source[idx]
@@ -2780,8 +2771,9 @@ fn cl_mark_structured_liveness_backward(
         cl_replace_live(live, body_live)
       }
       @lib.If(_, then_body, else_body) => {
-        let live_after_if = live.copy()
-        let child_label_lives = cl_push_label_live(live_after_if, label_lives)
+        // Each child snapshots its input on entry. Keep this owned row unchanged
+        // until both children finish; the label head still gets its own copy.
+        let child_label_lives = cl_push_label_live(live, label_lives)
         let mut else_start = child_start
         if control_index is Some(index) {
           for instr in then_body {
@@ -2797,7 +2789,7 @@ fn cl_mark_structured_liveness_backward(
               effective,
               write_live_hazards,
               visited_actions,
-              live_after_if.copy(),
+              live,
               child_label_lives,
               action_cursor,
               exception_live~,
@@ -2805,7 +2797,7 @@ fn cl_mark_structured_liveness_backward(
               control_index~,
               control_start=else_start,
             )
-          None => live_after_if.copy()
+          None => live
         }
         let then_live = cl_mark_structured_liveness_backward(
           then_body,
@@ -2813,7 +2805,7 @@ fn cl_mark_structured_liveness_backward(
           effective,
           write_live_hazards,
           visited_actions,
-          live_after_if,
+          live,
           child_label_lives,
           action_cursor,
           exception_live~,
@@ -2821,8 +2813,11 @@ fn cl_mark_structured_liveness_backward(
           control_index~,
           control_start=child_start,
         )
-        let merged_live = cl_union_live(then_live, else_live)
-        cl_replace_live(live, merged_live)
+        // Child rows retain the same length. For a missing else, else_live is
+        // this row: each old lane is read before that same lane is overwritten.
+        for local = 0; local < live.length(); local = local + 1 {
+          live[local] = then_live[local] || else_live[local]
+        }
       }
       @lib.Loop(_, @lib.Expr(body)) => {
         let body_live = cl_mark_structured_liveness_backward(

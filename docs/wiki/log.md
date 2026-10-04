@@ -1,3 +1,11 @@
+### 2026-10-04 — Reuse CoalesceLocals branch liveness storage
+
+- [Ownership proof and measured controls](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-reuse-branch-liveness-rows):
+  74,415 fewer temporary rows, complete CL work−.463%; all label snapshots,
+  hazard writes and output bytes retained.13,483 tests/285 validations/840
+  observations pass. Timings remain contended, no RSS win; all four1×,
+  canonical and correctness/release gates stay open.
+
 ### 2026-10-04 — Scalar source-access reservations during lift
 
 - [Native work and matched four-pass controls](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-scalar-lift-source-reservations):

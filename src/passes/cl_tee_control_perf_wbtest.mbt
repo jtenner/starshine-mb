@@ -196,6 +196,15 @@ test "bench CL tee control depth=256 indexed" (it : @bench.T) {
 }
 
 ///|
+fn cl_union_live(lhs : Array[Bool], rhs : Array[Bool]) -> Array[Bool] {
+  let out = lhs.copy()
+  for idx = 0; idx < out.length(); idx = idx + 1 {
+    out[idx] = out[idx] || rhs[idx]
+  }
+  out
+}
+
+///|
 fn cl_control_liveness_reference(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],

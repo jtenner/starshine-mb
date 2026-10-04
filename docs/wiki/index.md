@@ -4,6 +4,7 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Branch liveness storage](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-reuse-branch-liveness-rows) — Avoid74,415 temporary rows; complete CL work−.463%, wide control31.24→19.78µs,13,483 tests. Contended clocks, unchanged RSS, canonical gaps and all four1× targets remain explicit.
 - [Scalar lift reservations](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-scalar-lift-source-reservations) — 1.510m DAE2 / .730m CL requests removed; complete native work −.456/−.177%, exact outputs. Fresh all-four n5 clocks retain contention/adverse controls; 13,480 tests and all four1× goals remain open.
 - [Entry-source finalization](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-finalize-entry-sources-during-propagation) — Remove 1,600,504 repeated header/liveness queries; complete DAE2 work −0.208%, 13,478 tests. Timings, adverse controls and known failures remain explicit; all four 1× targets are open.
 - [Live-control child storage](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-keep-unchanged-live-control-child-storage) — Keep all descendant rewrites while removing60,971 snapshots/123,399 requests; full DAE2 work−.165%,13,474 tests. Matched DAE2/O clocks, RSS and known blocked rows remain explicit; all four1× targets remain open.

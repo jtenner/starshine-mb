@@ -593,13 +593,15 @@ quality gates. Keep traced inner and normal command measurements separate.
   regressing the large consumer: clear8+1.21µs (overlapping dispersion), no-edge
   512+29.02ns. Lazy preflight already preserves O(locals) with no body scan when
   rows are empty; do not repeat the completed global rejection mechanism.
-- [ ] Measure branch liveness storage reuse: complete c06 CL38.583b instructions,
-  recursive worker81,536 direct live-row copies plus24,805 allocating joins
-  across both worker variants. Baseline branch/EH/ownership and dispatcher
-  characterizations pass. Borrow only immutable parent live rows; keep the
-  worker-entry and label snapshots, then join directly into its owned row.
-  Resource budget≤70,000 recursive direct copies; require complete pass/output/
-  runtime evidence and no-branch/wide controls before acceptance.
+- **Latest CL-only follow-up:** branch-row reuse, main `25f8eaad0`, native
+  c06f4a76→923a4908. Complete work38.583b→38.404b (−.4634%);74,415 copies and
+  148,830 requests removed, all label snapshots/hazard writes retained.
+  CPU6 n5 normal CLI4034.524±72.495ms/B2560.703±287.585ms (1.576×), paired−.624%.
+  All15 rows contended, ranges overlap and the slower oracle is not a Starshine
+  improvement. Keep preceding all-four cohort separate. Wide branch control
+  31.24→19.78µs; no-branch movement adverse/overlapping, no peak-RSS win.
+  13,483 tests,285 validations/840 observations and exact bytes; no API diff.
+  [Proof and limits](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-reuse-branch-liveness-rows).
 - **Tasks:** profile repeated dependency/action rows, source-order/label setup,
   capture/conflict walks and weighted/wider coloring on the current revision.
   Reduce unused block-write metadata only with complete full-graph semantics.
@@ -834,6 +836,12 @@ quality gates. Keep traced inner and normal command measurements separate.
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
+- [ ] Remove remaining local-set/tee validation success wrappers using the
+  existing error-only typed-pop worker. Current c06 DAE2 consumer counts are
+  735,180 /601,634; preserve local lookup/error order, owned stack, initialization
+  mask/sequence owner and tee's declared result type. Three behavior baselines,
+  four-pass dispatcher and four bounded controls pass before implementation;
+  require fresh complete DAE2/CL/OI costs and matched clocks, not counts alone.
 - **Next measured shared targets:** current CL root40.483b instructions;
   prior nested lower5.956b after explicit effect/ordering demand removes unused rows.
   Full lower source factories4565→297; no duplicate implementation of that

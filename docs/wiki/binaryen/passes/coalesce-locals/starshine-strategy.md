@@ -1634,3 +1634,74 @@ passed before implementation.
 See the [shared four-pass evidence](../dae2/starshine-strategy.md#october-4-2026-scalar-lift-source-reservations)
 for ownership invariants, adverse wasm-gc controls, runtime coverage, raw hashes
 and open correctness/release gates. All four1× targets remain open.
+
+## October 4, 2026: reuse branch liveness rows
+
+Main `25f8eaad0`, native `c06f4a76…` → `923a4908…`. Structured backward liveness
+already copies its input at worker entry. While both `if` arms run, their parent
+row is unchanged and can be borrowed directly; the label-head snapshot remains.
+The join writes each OR into the parent's owned row, avoiding a third copy and
+second full-row traversal. An absent else borrows the same parent: each old lane
+is read before that lane is overwritten, with no cross-lane dependency. Child
+rows keep the same length and caller/label/exception rows remain untouched.
+
+The [two characterizations](../../../../../src/passes/coalesce_branch_live_storage_wbtest.mbt)
+passed before implementation. They compare exact liveness, effective writes,
+hazard words, action cursor and visit counts to the frozen reference, including
+both arms, missing else, outer branches, try_table throws and owned empty output.
+The [dispatcher fixture](../../../../../src/cmd/coalesce_branch_live_storage_wbtest.mbt)
+checks actual local removal, validation and input preservation. The formerly
+production-only union helper moves unchanged into the existing reference test.
+No public API, admission, interference semantics or mandatory checks change.
+
+Resource RED: **81,536 recursive worker Bool-row copies >70,000 budget**.
+Candidate **47,330** passes. Root-worker copies19,810→4,406;24,805 allocating
+unions disappear. Total **74,415 rows** avoided, with all30,070 label snapshots,
+33,908 recursive edges and134,119 hazard-write calls retained. Native allocation
+call-count delta is **−148,830**, matching two requests per eliminated row.
+Those global call counts include later uncollected work; only the uniquely owned
+copy/join edges and complete collected instructions are scoped pass evidence.
+Requests do not establish allocated bytes or peak RSS.
+
+Complete normally exited CL instructions **38,582,564,678 → 38,403,763,531
+(−0.4634%)**. Do not add recursive inclusive edges to this total. Exact output
+SHA remains `de0757b5…`,5,706,503B; the78,800B canonical deficit stays open.
+
+[Four complete-worker wasm-gc controls](../../../../../src/passes/coalesce_branch_live_storage_perf_wbtest.mbt),
+fixture/action/index setup excluded, mean±SD:
+
+| Branches / locals | Before | After |
+| --- | ---: | ---: |
+| 1 /4 | 251.77±1.92ns | 232.45±4.53ns |
+| 32 /4 | 4.41µs±50.65ns | 3.69µs±105.07ns |
+| 32 /256 | 31.24µs±208.26ns | 19.78µs±217.50ns |
+| 0 /256 | 472.98±3.99ns | 475.88±10.19ns |
+
+Retain the unchanged no-branch control's small adverse, overlapping movement.
+Same large input/oracle/host, CPU6/GCC O2/mimalloc, warm filesystem/fresh normal
+CLI, one warmup and five rotating samples, median±MAD [min,max] milliseconds:
+
+- Before4106.559±108.731 [3997.828,5176.176].
+- After4034.524±72.495 [3962.029,5588.721].
+- Verified1332560.703±287.585 [1939.221,2848.287]; after/B1.576×.
+
+All15 rows observe foreign CPU and outliers are retained. Paired change−.624%
+and overlapping ranges do not establish a clean wall-clock gain. In particular,
+the slower oracle in this cohort must not be credited as Starshine progress
+against the prior1.949× cohort. Single diagnostic inner3015.580→2996.352ms and
+pipeline3033.946→3018.088ms are not repeated pass-local evidence. Peak RSS
+medians both243,460KiB, with ranges239176–243704 /239256–249184; no memory win.
+DAE2/O/OI retain their preceding nativec06 matched measurements.
+
+Info/fmt/check, **13,483 default tests**, four controls, native release and
+README/API sync pass; no API diff. **70 fixtures,285 validations and840 runtime
+observations** compare original/before/after/133, including branch-selected
+values, absent else, EH, GC, calls, memory/globals and trap status. All supported
+rows fully compare and before/after bytes match. The unrelated DAE2 typed-block
+failures and release blockers remain open. Ownership self-review is complete;
+independent review, full CI/coverage and deferred aggregate fuzz remain pending.
+
+Exact commands, hashes, source manifest, resource RED, profiles, clocks/RSS and
+runtime rows are local `cl-branch-live-storage-*` artifacts. All four1× targets
+remain open. Continue DAE2 local-write validation wrappers and the larger
+CFG/lift/lower/optimizing-cleanup owners; no graph or guard work is removed.
