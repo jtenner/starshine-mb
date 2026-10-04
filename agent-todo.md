@@ -27,18 +27,18 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched all-four checkpoint:** native `794fa5b1…`→`8eac37f6…`,
-  branch-depth masks cut complete CL work 0.1666% with no added allocations;
-  DAE2 work +0.01182% is adverse, all output bytes unchanged.
+- **Latest matched all-four checkpoint:** native `8eac37f6…`→`1c6d69ab…`,
+  expression local-read success removes 1,612,632 DAE2 / 1,485,697 CL requests;
+  complete pass work −0.3299% / −0.2394%, exact output retained.
   CPU 6 n5/warmup 1 full-command median±MAD:
-  dae2: 3073.150±46.055 / B 1100.020±12.801 ms (2.794×);
-  dae2-optimizing: 5363.015±1.683 / B 2284.471±4.524 ms (2.348×);
-  coalesce-locals: 3468.068±18.637 / B 1784.439±20.917 ms (1.944×);
-  optimize-instructions: 1737.254±7.022 / B 894.444±1.945 ms (1.942×).
-  Foreign activity and adverse rows retained; no quiet/general clock/RSS 1× claim.
-  [Full checkpoint](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-bounded-branch-depth-membership).
-  13,527 tests; 324 validations/944 observations in 20 fixtures/pass, existing
-  typed-block failure still open. Full aggregate gates unchanged.
+  dae2: 3076.883±3.385 / B 1105.807±5.303 ms (2.782×);
+  dae2-optimizing: 5340.747±5.013 / B 2294.815±9.034 ms (2.327×);
+  coalesce-locals: 3496.929±11.865 / B 1925.688±11.188 ms (1.816×);
+  optimize-instructions: 1914.338±15.181 / B 1105.949±6.649 ms (1.731×).
+  Foreign activity and adverse samples retained; no general clock/RSS or 1× win.
+  [Full checkpoint](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-local-read-success-without-result-boxes).
+  13,531 tests; 324 validations/944 observations in 20 fixtures/pass. Existing
+  typed-block failure and full aggregate gates remain open.
 - **Historical OI-only checkpoint:** native`b1ef48ca…`→`3f74dc4b…`, complete
   process work−.8188%,340,195 fewer requests and unchanged bytes. N5 CLI
   2030.554±7.049 / B1054.366±22.744ms (1.926×); paired+0.650% is adverse,
@@ -885,13 +885,14 @@ quality gates. Keep traced inner and normal command measurements separate.
   quadratic work remains. Wide colliding overlap costs 260.07→293.09ns. Consider
   a strictly bounded exact word row only if saved full-pass work justifies its
   allocation/setup cost; preserve sparse/huge depths, shifts and insertion order.
-- [ ] Measure validator local-read success handoff. Current complete DAE2
-  profile attributes 2,591,898 allocator requests to local.get checking. New
-  ownership/error-order/unreachable tests and four controls pass before changes.
-  A private error-only worker can avoid success Result boxes in expression loops;
-  preserve initialized-local checks, stack ownership and diagnostic context.
-  Do not claim all local.get allocations disappear: HOT lifting also calls the
-  public instruction checker. Complete consumer evidence is required.
+- [ ] Measure private if-exit normalization handoff in the validator. Complete
+  DAE2 still attributes 2,099,043 allocator requests to the private branch-exit
+  worker; only source-backed elimination may count as progress. Before tests
+  cover scalar/reference results, all reachability/escape kinds, virtual bottom,
+  exact stack failures, then-before-else error order, initialization ownership
+  and shifted escape observations. Keep public Result/tuple wrappers, mandatory
+  stack validation and every control decision. Require bounded controls, actual
+  native removal, complete DAE2/CL work, DAE2/O clocks and focused runtime checks.
 - [ ] Measure CL path-disjoint scan result allocation. Current complete CL
   profile attributes 2,195,914 allocator requests to the recursive scan. Its
   private result carries five immutable booleans. Characterize all initialization,

@@ -5,6 +5,7 @@
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
 - [Bounded native O3 experiment](tooling/tracing-playbook.md#october-4-2026-bounded-native-o3-build-experiment) — Same generated source moves all four paired command medians positively, with 19.395% larger executable and higher median RSS; defaults unchanged.
+- [Local-read success storage](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-local-read-success-without-result-boxes) — Removes 1,612,632 DAE2 and 1,485,697 CL success objects, preserving state ownership and exact diagnostics.
 - [CL branch-depth membership](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-bounded-branch-depth-membership) — Scalar masks cut full CL work 0.1666% with no added allocations; high-collision costs and DAE2 adverse movement remain.
 - [Inline CFG root records](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-cfg-root-records) — Removes 732,502 DAE2 and 484,028 CL allocator calls with identical mappings and bytes.
 - [String-free encoding reuse](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-reuse-string-free-function-evidence) — Completed comparison evidence removes repeated scans; complete OI work −1.1534%, exact output retained.

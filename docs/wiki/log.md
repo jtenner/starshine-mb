@@ -1,3 +1,7 @@
+### 2026-10-04 — Avoid expression local-read success boxes
+
+- [Ownership proof and complete consumers](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-local-read-success-without-result-boxes): DAE2 work −0.3299% / 1,612,632 fewer requests; CL −0.2394% / 1,485,697 fewer. Public instruction Result, every check and output bytes remain. 13,531 tests and focused execution retain the existing typed-block blocker; all four 1× goals remain open.
+
 ### 2026-10-04 — Filter repeated branch-depth membership scans
 
 - [Exact membership proof and full CL evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-bounded-branch-depth-membership): searches 461,915→207,330, complete CL work −0.1666%, allocations/bytes unchanged. High-collision controls regress and DAE2 work +0.01182%; preserve both. 13,527 tests and focused execution retain only the known typed-block blocker. All 1× goals remain open.

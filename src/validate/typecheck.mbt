@@ -534,6 +534,13 @@ fn typecheck_expr_with_context(
   let mut initialization_owner : TcInitializationOwner? = None
   for index, ins in instrs {
     let checked = match ins {
+      LocalGet(idx) =>
+        match typecheck_local_get_error(st, idx) {
+          // A read only appends to the owned stack; the state and its
+          // initialization/control metadata retain their identity.
+          None => continue
+          Some(error) => Err(error)
+        }
       LocalSet(idx) | LocalTee(idx) => {
         let LocalIdx(raw) = idx
         let local_id = raw.reinterpret_as_int()
@@ -626,18 +633,27 @@ fn typecheck_select_untyped(st : TcState) -> TcResult {
 
 ///|
 fn typecheck_local_get(st : TcState, idx : LocalIdx) -> TcResult {
+  match typecheck_local_get_error(st, idx) {
+    None => Ok(st)
+    Some(error) => Err(error)
+  }
+}
+
+///|
+fn typecheck_local_get_error(st : TcState, idx : LocalIdx) -> String? {
   match st.env.get_local_type(idx) {
-    None => Err("invalid local index")
+    None => Some("invalid local index")
     Some(vt) => {
       let LocalIdx(raw) = idx
       let local_id = raw.reinterpret_as_int()
       if local_id < 0 || local_id >= st.initialized_locals.length() {
-        return Err("invalid local index")
+        return Some("invalid local index")
       }
       if !st.initialized_locals[local_id] {
-        return Err("uninitialized local: \{local_id}")
+        return Some("uninitialized local: \{local_id}")
       }
-      Ok(st.push1(vt))
+      st.stack.push(vt)
+      None
     }
   }
 }

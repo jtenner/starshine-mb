@@ -8793,3 +8793,65 @@ does not change the raw size/hash protocol. Manual review is not independent
 agent signoff. All four 1× targets, canonical deficits, P00 correctness and
 full CI/coverage/aggregate fuzz gates remain open. Local `cfg-root-value-*`
 records retain exact builds, inputs, commands, generated layout and samples.
+
+## October 4, 2026: local-read success without Result boxes
+
+[LocalGet expression checking](../../../../../src/validate/typecheck.mbt) now uses
+a private nullable-error worker. It performs the same local type lookup, signed
+index/range and initialization-mask checks, then appends to the owned stack.
+Success returns None and continues with the same state. Public instruction
+checking retains its Result wrapper; the common expression error/context path
+still reports the first failing instruction. No common instruction prelude was
+skipped: the former LocalGet dispatch directly called the same checking logic.
+No verification, initialization or unreachable check is removed. The HOT lift
+instruction path still boxes success; do not count those boxes as eliminated.
+
+[Two before/after regressions](../../../../../src/validate/local_read_result_wbtest.mbt)
+cover scalar/reference reads, state/env identity, sibling initialization-mask
+ownership, control metadata, first diagnostics/context, invalid signed/index
+boundaries and reachable/unreachable initialization checks. [Four controls](../../../../../src/validate/local_read_result_perf_wbtest.mbt)
+(wasm-GC release mean±SD): single 29.24±0.11→19.11±0.12ns; 256 scalar reads
+5.04±0.094→2.12±0.038µs; 256 reference reads 4.99±0.075→2.12±0.022µs;
+intentionally invalid index 201.19±0.36→195.35±8.00ns (overlapping). The
+pre-change resource failure was boxed success per expression read, not missing
+semantic behavior. Native C now returns a null error pointer without a success
+allocation. Info/fmt/check, 13,531 workspace tests, native release and README/API
+sync pass; generated `.mbti` text is unchanged and reviewed.
+
+Frozen native `8eac37f6…`→`1c6d69ab…`, complete pass scopes:
+
+| Consumer | Before instructions | After instructions | Change | Before allocations | After allocations | Removed requests |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| DAE2 | 28,641,004,551 | 28,546,513,121 | −0.3299% | 69,134,727 | 67,522,095 | 1,612,632 |
+| CoalesceLocals | 33,934,950,476 | 33,853,699,099 | −0.2394% | 77,902,554 | 76,416,857 | 1,485,697 |
+
+Direct expression-worker calls match the removed request counts. DAE2's
+979,266 remaining instruction-wrapper reads retain their public contract.
+Allocator requests are not allocated/live bytes or peak RSS. Complete pass
+profiles exclude parsing/final CLI validation/encoding; nested inclusive edges
+overlap and must not be added. Exact baseline profiles were reused from the
+same frozen binary/input, with provenance retained.
+
+Same 6,211,596 B compiler SHA `98189860…`, verified Binaryen 133 SHA `8f25e9fd…`,
+Ryzen 7 8845HS CPU 6, GCC 14.2 O2/mimalloc. Build excluded, warmup 1/n5,
+rotating alternating fresh-process commands with warm filesystem; median±MAD ms
+[min,max]:
+
+| Pass | Before | After | Binaryen 133 | After/133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3088.101±7.941 [3065.748,3115.853] | 3076.883±3.385 [3073.499,3119.452] | 1105.807±5.303 [1094.269,1111.111] | 2.782× | -0.169% |
+| dae2-optimizing | 5371.225±7.477 [5351.061,5381.170] | 5340.747±5.013 [5333.129,5345.760] | 2294.815±9.034 [2284.607,2335.124] | 2.327× | -0.572% |
+| coalesce-locals | 3514.815±3.575 [3481.321,3539.329] | 3496.929±11.865 [3484.961,3542.892] | 1925.688±11.188 [1913.321,1985.839] | 1.816× | -0.509% |
+| optimize-instructions | 1920.782±15.145 [1864.154,1935.926] | 1914.338±15.181 [1890.811,1956.554] | 1105.949±6.649 [990.931,1112.598] | 1.731× | +0.993% |
+
+Foreign activity, adverse samples and full RSS distributions remain in local
+records; instruction/allocation gains do not establish a general clock/RSS or
+1× win. Traced n1 diagnostics are separate, and OI's narrow inner excludes
+cleanup. All four large before/after output hashes match. Twenty focused
+fixtures/pass yield 324 validations and 944 supported observations of values,
+ordered effects, globals, memory and traps. Only the existing DAE2/O typed-block
+failure remains. Binaryen's text adapter is only for Node compact-import replay;
+it leaves raw size/hash evidence unchanged. Manual review is not independent
+agent signoff. All four 1× goals, canonical deficits, P00 correctness and full
+CI/coverage/aggregate fuzz remain open. Local `local-read-result-*` retains exact
+build/source/input hashes, commands, native worker, profiles and all samples.
