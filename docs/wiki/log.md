@@ -1,3 +1,7 @@
+### 2026-10-04 — Filter repeated branch-depth membership scans
+
+- [Exact membership proof and full CL evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-bounded-branch-depth-membership): searches 461,915→207,330, complete CL work −0.1666%, allocations/bytes unchanged. High-collision controls regress and DAE2 work +0.01182%; preserve both. 13,527 tests and focused execution retain only the known typed-block blocker. All 1× goals remain open.
+
 ### 2026-10-04 — Store CFG root mappings inline
 
 - [Layout proof and complete pass evidence](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-cfg-root-records): DAE2 work −0.4020% / 732,502 fewer allocations; CL −0.2198% / 484,028 fewer. 13,524 tests and focused execution retain exact output, with the existing DAE2/O typed-block blocker. All four 1× targets remain open.

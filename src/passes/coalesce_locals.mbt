@@ -1856,9 +1856,41 @@ fn cl_control_merge_branch_depths(
   source : Array[Int],
   shift_outward : Bool,
 ) -> Unit {
+  if source.length() < 8 {
+    for depth in source {
+      let next = if shift_outward { depth - 1 } else { depth }
+      cl_control_add_branch_depth(depths, next)
+    }
+    return
+  }
+  // Low depths have exact membership; high depths use a negative filter only.
+  // A high-bit collision still needs the original exact membership check.
+  let mut low = 0UL
+  let mut high = 0UL
+  for depth in depths {
+    if depth >= 0 {
+      let bit = 1UL << (depth & 63)
+      if depth < 64 {
+        low = low | bit
+      } else {
+        high = high | bit
+      }
+    }
+  }
   for depth in source {
     let next = if shift_outward { depth - 1 } else { depth }
-    cl_control_add_branch_depth(depths, next)
+    if next >= 0 {
+      let bit = 1UL << (next & 63)
+      if next < 64 {
+        if (low & bit) == 0UL {
+          depths.push(next)
+          low = low | bit
+        }
+      } else if (high & bit) == 0UL || !depths.contains(next) {
+        depths.push(next)
+        high = high | bit
+      }
+    }
   }
 }
 

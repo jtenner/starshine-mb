@@ -1867,3 +1867,62 @@ in one instrumented run, with400 additional rewrite analyses outside those rows.
 The initial-analysis top10/100 functions account for12.51%/27.57% of dependency
 time. Function9184 (7,378 nodes) and9327 (1,746 nodes) warrant targeted attribution
 before changing dataflow or admission; no cause is inferred from size alone.
+
+## October 4, 2026: bounded branch-depth membership
+
+[CL's ordered depth merge](../../../../../src/passes/coalesce_locals.mbt) uses two
+scalar UInt64 masks for source rows of at least eight entries. Depths 0–63 have
+exact membership; larger depths use a modulo 64 negative filter and retain the
+original exact search on collisions. Short sources keep the original loop.
+Existing destination duplicates/order, outward shifts, negatives, source
+ownership and every later control decision are unchanged. No heap collection,
+cache or transformed-module admission change. High collisions still permit
+quadratic work; this does not close that entire cost family.
+
+[Reference cases](../../../../../src/passes/coalesce_branch_depth_filter_wbtest.mbt)
+pass before/after for 36 row pairs × both shifts, including empty/duplicate rows,
+63/64 boundaries, high collisions, reverse order, negative and Int-max entries.
+The resource failure was 461,915 repeated growing-array searches in the complete
+CL profile. [Six release controls](../../../../../src/passes/coalesce_branch_depth_filter_perf_wbtest.mbt)
+(mean±SD ns, wasm-GC): tiny distinct 29.47±0.12→24.27±0.19; wide distinct
+692.77±12.92→142.11±1.05; tiny collisions 29.84±0.18→24.82±0.14;
+wide collisions 702.32±16.70→715.26±10.67 (adverse); wide low overlap
+256.38±0.47→108.36±2.66; wide colliding overlap 260.07±5.92→293.09±2.44
+(adverse). Retain the setup/collision tradeoff instead of inferring a universal
+helper win. Info/fmt/check, 13,527 workspace tests, native release and README/API
+sync pass; no public interface change.
+
+Frozen native `794fa5b1…`→`8eac37f6…`: complete CL instructions
+33,991,585,492→33,934,950,476 (−0.1666%), allocator calls 77,902,554 unchanged.
+Merge calls 557,346 are unchanged; their inclusive work 372,427,114→315,922,884.
+Nested exact membership falls 461,915→207,330 calls and 340,270,701→276,838,089
+instructions. These nested costs are not additional whole-pass savings. The
+compiler-merged `oc_contains_local` symbol here is a membership helper, not an
+OptimizeCasts invocation. Complete DAE2 moves adversely
+28,637,618,653→28,641,004,551 (+0.01182%), with 69,134,727 allocator calls unchanged.
+Baseline profiles were reused from the exact same frozen binary/input; they
+were not rerun or relabeled as fresh observations.
+
+Same 6,211,596 B compiler SHA `98189860…`, verified Binaryen 133 SHA `8f25e9fd…`,
+Ryzen 7 8845HS CPU 6, GCC 14.2 O2/mimalloc. Build excluded, warmup 1/n5,
+rotating alternating fresh-process commands with warm filesystem; median±MAD ms
+[min,max]:
+
+| Pass | Before | After | Binaryen 133 | After/133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3116.940±30.166 [3035.474,3147.106] | 3073.150±46.055 [3027.096,3201.638] | 1100.020±12.801 [1087.219,1158.368] | 2.794× | -0.090% |
+| dae2-optimizing | 5370.623±5.803 [5363.562,5378.986] | 5363.015±1.683 [5340.468,5852.389] | 2284.471±4.524 [2274.356,2288.996] | 2.348× | -0.236% |
+| coalesce-locals | 3473.509±24.008 [3431.943,3568.685] | 3468.068±18.637 [3426.059,3497.776] | 1784.439±20.917 [1763.522,1824.343] | 1.944× | -0.842% |
+| optimize-instructions | 1729.755±4.311 [1723.456,1737.149] | 1737.254±7.022 [1718.784,1744.276] | 894.444±1.945 [892.289,901.218] | 1.942× | +0.184% |
+
+Foreign activity and adverse rows remain in the samples; this does not establish
+quiet-host 1× or a general RSS win. Full RSS distributions and separate traced
+n1 diagnostics remain local; OI's narrow inner excludes cleanup. All four large
+outputs retain exact before/after hashes. Twenty runtime fixtures/pass yield
+324 validations/944 supported observations of values, effects, globals, memory
+and traps. Only the existing DAE2/O typed-block failure remains. The Binaryen
+text adapter changes only Node compact-import replay, never raw size evidence.
+Manual review is not independent-agent signoff. All four 1× targets, canonical
+deficits, P00 correctness and full CI/coverage/aggregate fuzz remain open.
+Local `cl-branch-depth-filter-*` retains build/source/input hashes, commands,
+reference results, controls, complete profiles and individual measurements.

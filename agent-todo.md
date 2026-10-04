@@ -27,18 +27,18 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched all-four checkpoint:** native `4a357db9…`→`794fa5b1…`,
-  inline CFG root mappings remove 732,502 DAE2 / 484,028 CL allocator calls;
-  complete pass work −0.4020%/−0.2198%, exact output retained.
+- **Latest matched all-four checkpoint:** native `794fa5b1…`→`8eac37f6…`,
+  branch-depth masks cut complete CL work 0.1666% with no added allocations;
+  DAE2 work +0.01182% is adverse, all output bytes unchanged.
   CPU 6 n5/warmup 1 full-command median±MAD:
-  dae2: 3209.658±11.835 / B 1122.887±7.164 ms (2.858×);
-  dae2-optimizing: 5524.524±36.178 / B 2335.869±8.977 ms (2.365×);
-  coalesce-locals: 3597.576±111.725 / B 1868.609±16.067 ms (1.925×);
-  optimize-instructions: 1749.852±3.431 / B 902.479±3.478 ms (1.939×).
-  Foreign activity is retained with the samples; no general clock/RSS or 1× win.
-  [Full checkpoint](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-cfg-root-records).
-  13,524 tests; 324 validations/944 supported observations in 20 fixtures/pass;
-  the existing typed-block failure remains open. Full aggregate gates unchanged.
+  dae2: 3073.150±46.055 / B 1100.020±12.801 ms (2.794×);
+  dae2-optimizing: 5363.015±1.683 / B 2284.471±4.524 ms (2.348×);
+  coalesce-locals: 3468.068±18.637 / B 1784.439±20.917 ms (1.944×);
+  optimize-instructions: 1737.254±7.022 / B 894.444±1.945 ms (1.942×).
+  Foreign activity and adverse rows retained; no quiet/general clock/RSS 1× claim.
+  [Full checkpoint](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-bounded-branch-depth-membership).
+  13,527 tests; 324 validations/944 observations in 20 fixtures/pass, existing
+  typed-block failure still open. Full aggregate gates unchanged.
 - **Historical OI-only checkpoint:** native`b1ef48ca…`→`3f74dc4b…`, complete
   process work−.8188%,340,195 fewer requests and unchanged bytes. N5 CLI
   2030.554±7.049 / B1054.366±22.744ms (1.926×); paired+0.650% is adverse,
@@ -880,16 +880,11 @@ quality gates. Keep traced inner and normal command measurements separate.
   annotation-only variant regressed and was rejected. Contended command pairs
   remain adverse; do not claim1× or repeat the rejected representation alone.
   [Evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-lower-stack-without-optional-discard-boxes).
-- [ ] Try an allocation-free branch-depth membership filter in CL's ordered
-  merge. A current complete CL profile attributes 340.271m instructions to
-  461,915 growing-array membership calls. The `oc_contains_local` native name is
-  compiler-merged code, not an OptimizeCasts invocation. Two scalar UInt64 masks
-  provide exact membership below 64 and a negative filter above it, preserving
-  exact collision checks, insertion order,
-  shifts, negatives and duplicates; worst-case complexity remains unchanged.
-  The reference and six tiny/wide/collision/overlap controls pass before the
-  candidate. After controls improve wide distinct/low-depth overlap; high-collision
-  overlap regresses. Native full-consumer evidence is pending.
+- [ ] Profile remaining high-depth collision scans after scalar membership masks.
+  Full CL still spends 276.838m instructions in 207,330 exact searches; worst-case
+  quadratic work remains. Wide colliding overlap costs 260.07→293.09ns. Consider
+  a strictly bounded exact word row only if saved full-pass work justifies its
+  allocation/setup cost; preserve sparse/huge depths, shifts and insertion order.
 - [ ] Measure validator local-read success handoff. Current complete DAE2
   profile attributes 2,591,898 allocator requests to local.get checking. New
   ownership/error-order/unreachable tests and four controls pass before changes.
