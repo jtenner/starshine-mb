@@ -27,25 +27,23 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched all-four checkpoint:** structured decoder frame storage,
-  native`f129b57b…` → `38ef809d…`; complete OI work−2.7565%,2.121m fewer
-  requests, exact raw bytes. Normal CLI CPU6 n5/warmup1 medians±MAD ms:
-  DAE2 3429.006±73.519 / B1166.586±3.159 (2.939×);
-  DAE2-O5969.131±26.056 / B2457.535±29.021 (2.429×);
-  CL3973.029±49.654 / B2035.729±20.111 (1.952×);
-  OI2011.235±22.401 / B1063.979±16.312 (1.890×).
-  All60 rows flag contention; slower oracle cohorts are not implementation wins.
-  Parsing changes are not pass-local gains. Prior n3 inner: DAE2 2821.038/
-  B455.027ms; OO5192.361 vs B component460.852+1107.390+145.489ms;
-  CL3123.636/B1290.960ms. OI pipeline1594.733ms, narrow inner90.006/
-  B256.022ms excludes most cleanup.13,495 tests,1,140 validations and3,344
-  supported observations pass; P00 typed-block failure, RSS/size gaps and all
-  four1× goals stay open. [Scopes and ranges](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-structured-decode-frames).
+- **Latest matched all-four checkpoint:** explicit lift-provenance demand,
+  native`38ef809d…` → `b1ef48ca…`; DAE2/CL complete work−1.4826%/−.6709%,
+  exact raw bytes. Normal CLI CPU6 n5/warmup1 medians±MAD ms:
+  dae2 3371.093±36.276 / B1195.674±5.305 (2.819×);
+  dae2-optimizing 5950.823±20.095 / B2511.450±14.239 (2.369×);
+  coalesce-locals 3886.165±10.651 / B1960.111±10.922 (1.983×);
+  optimize-instructions 2035.806±15.915 / B1054.108±10.480 (1.931×);
+  Keep contended/adverse rows and RSS explicit. OI narrow timers omit cleanup;
+  separate n1 diagnostics do not establish pass-local parity.13,499 tests,
+  1,156 validations/3,392 supported observations pass; P00 typed-block
+  failure, canonical gaps and all four1× goals remain open.
+  [Scopes and ranges](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-record-lift-provenance-only-for-consumers).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Latest complete DAE2 profile:** native42af3b7f… pass29.763b instructions.
+- **Latest complete DAE2 profile:** nativeb1ef48ca… pass29.318b instructions.
   The preceding c98 profile attributes dependencies9.355b, analysis lift6.366b,
   rewrite lift2.372b, lower4.647b and final validation2.495b; these remain
   larger owners, with source versions explicit and inclusive costs not additive. [Full source breakdown](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
@@ -836,12 +834,18 @@ quality gates. Keep traced inner and normal command measurements separate.
   ordering queries and representation allocation. P03a–d specify immediate
   DAE2 work; measure Coalesce, propagation, SSA, MergeLocals and other affected
   consumers before accepting shared changes.
-- [ ] Measure explicit lift-provenance demand for DAE2 without write provenance
-  and CL loop CFG, which have no source-map reader. Preserve default recording,
-  SSA-nomerge, captures, conflict masks, all verification and exact HOT structure.
-  Three focused API/graph tests and bounded controls are implemented; require
-  reviewed optional-parameter .mbti, complete DAE2/CL costs, default overhead and
-  unchanged runtime/byte results before accepting an opt-out.
+- [ ] Complete the active OI directization output-storage trial: unchanged rows
+  stay borrowed until the first rewrite; retain every region/child/family proof,
+  trap termination and mutation-ownership invariant. Three pass tests, one
+  dispatcher and four controls pass before implementation. Require complete
+  OI work/clocks, exact outputs and all-four bounded runtime controls.
+- [ ] Trial lower-stack value packing only after measuring both push and pop:
+  wider inline rows may rebox optional pop/last results. Preserve scalar/GC
+  types, snapshots and exact lowering; no allocation/RSS claim from one site.
+- [ ] Reuse the checked previous opcode in CFG segmentation to avoid entering
+  the drop classifier for non-Drop nodes. Preserve every actual-Drop proof and
+  all continuation/root-slot/handler/verification work; require full CFG fields
+  and measured DAE2/CL consumers before acceptance.
 - **Next measured shared targets:** current CL root40.483b instructions;
   prior nested lower5.956b after explicit effect/ordering demand removes unused rows.
   Full lower source factories4565→297; no duplicate implementation of that

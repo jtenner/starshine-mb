@@ -2280,3 +2280,7 @@ remain open; this does not broaden admission or remove verification.
 ## October 4, 2026: reuse structured decode frames
 
 [Shared parsing evidence](../dae2/starshine-strategy.md#october-4-2026-reuse-structured-decode-frames) preserves all frame transitions/checks and raw bytes while removing2,120,809 requests; complete OI work−2.7565%. Normal CLI and narrow inner scopes remain distinct, with all four1× and correctness/size gates open.
+
+## October 4, 2026: record lift provenance only for consumers
+
+[Consumer proof and complete measurements](../dae2/starshine-strategy.md#october-4-2026-record-lift-provenance-only-for-consumers) preserve source-map defaults, all verification and exact bytes. DAE2/CL native work falls1.4826%/.6709%; new API opt-out is explicit and write-provenance demand overrides it. Default controls, full-command scopes and all four1×/release gates remain visible.

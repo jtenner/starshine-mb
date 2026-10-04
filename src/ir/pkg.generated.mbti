@@ -444,7 +444,7 @@ pub fn hot_lift_func(@lib.Module, @lib.FuncIdx) -> HotFunc
 
 pub fn hot_lift_func_with_context(@lib.Module, @lib.FuncIdx, HotModuleContext) -> HotFunc
 
-pub fn hot_lift_func_with_context_result(@lib.Module, @lib.FuncIdx, HotModuleContext, capture_stack_locals? : Bool, materialize_multi_values? : Bool) -> Result[HotFunc, HotLiftError]
+pub fn hot_lift_func_with_context_result(@lib.Module, @lib.FuncIdx, HotModuleContext, capture_stack_locals? : Bool, materialize_multi_values? : Bool, record_local_accesses? : Bool) -> Result[HotFunc, HotLiftError]
 
 pub fn hot_lift_func_with_context_unverified(@lib.Module, @lib.FuncIdx, HotModuleContext) -> HotFunc
 

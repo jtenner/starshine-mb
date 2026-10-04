@@ -1,3 +1,7 @@
+### 2026-10-04 — Record lift provenance only for consumers
+
+- [API contract and measured DAE2/CL savings](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-record-lift-provenance-only-for-consumers): complete work−1.4826%/−.6709%, exact outputs;13,499 tests and1,156 validations/3,392 supported observations. Defaults, verification, write-provenance readers and all four1×/release blockers remain.
+
 ### 2026-10-04 — Reuse structured decoder frames
 
 - [Active-body ownership and measured four-pass scopes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-structured-decode-frames):2,120,809 fewer wrappers, complete OI work−2.7565%, unchanged bytes/checks;13,495 tests and1,140 validations/3,344 supported observations. Parsing gains do not close pass-local targets; all four1× and release blockers remain.

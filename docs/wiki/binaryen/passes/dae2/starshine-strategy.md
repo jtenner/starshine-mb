@@ -8451,3 +8451,89 @@ and excluded; the successful rerun supplies signoff. Independent review, full
 CI/coverage and deferred aggregate fuzz remain pending. All four1× goals and
 correctness gates remain open. Next: explicit DAE2/CL lift source-map demand;
 then larger dependency/lower/cleanup owners, including OI lazy output storage.
+
+## October 4, 2026: record lift provenance only for consumers
+
+Native `38ef809d…` → `b1ef48ca…`. The
+[lift API](../../../../../src/ir/hot_lift.mbt) adds optional
+`record_local_accesses: Bool = true`. DAE2 production analysis/relift and CL loop
+CFG opt out only when they have no original-source-map consumer. DAE2 write
+provenance forces recording; the private helper default also remains true for
+reference/tool callers. SSA-nomerge and every existing public caller preserve
+the default. The getter still rejects absent/stale metadata. Reviewed `.mbti`
+diff: exactly one source-compatible optional parameter.
+
+Only source get/write tuple recording and map attachment are skipped. Captures,
+conflict masks, typechecking, materialization, graph nodes/children/revisions,
+verification, source ordering and lowering remain unchanged. One private Bool
+adds no per-node array or retained cache. The absent map cannot be read through
+the getter; its diagnostic states recording is required.
+
+Three [API/graph/error tests](../../../../../src/ir/hot_lift_provenance_demand_wbtest.mbt)
+were written first. An ignored flag produced the required absent-map failure;
+implementation passes. They compare default/disabled HOT nodes, child edges,
+revisions and lowered bodies across captures, references, multivalue and trapping
+loads, plus intentionally malformed first errors and default source-order/dead
+write placeholders. An [active four-pass carried-loop dispatcher](../../../../../src/cmd/lift_provenance_demand_wbtest.mbt)
+preserves input bytes, validates results and requires real transformations.
+The first full suite caught nine reference-helper readers: restoring the helper's
+recording default fixed them; no tests or verification gates were weakened.
+
+| Complete native scope | Before instructions | After instructions | Change |
+| --- | ---: | ---: | ---: |
+| DAE2 pass | 29,759,583,835 | 29,318,367,678 | −1.4826% |
+| CoalesceLocals pass | 38,353,626,407 | 38,096,319,378 | −0.6709% |
+
+Global allocator request deltas are −2,560,176/−1,500,381; call counting continues
+after scoped instruction collection, so these are not pass-only allocation
+measurements or byte/RSS savings. Direct lift-record requests fall
+3,021,098→527,780 (DAE2) and1,460,220→326 (CL); required default/provenance paths
+remain. Recursive inclusive edges are not added to complete totals.
+
+Four [wasm-gc controls](../../../../../src/ir/hot_lift_provenance_demand_perf_wbtest.mbt),
+mean±SD µs before→after: width8 default3.97±.056→3.86±.038;
+width8 disabled3.91±.032→3.65±.053; width512 default172.57±2.71→168.85±1.89;
+width512 disabled174.34±.748→158.26±1.90. The before flag was deliberately ignored.
+
+Same 6,211,596 B SHA98189860… input; verified Binaryen133 SHA8f25e9fd…;
+Ryzen7 8845HS CPU6, Moon0.1.20260920/moonc0.10.14, GCC14.2 O2/mimalloc.
+Build excluded; one warmup/five alternating fresh-process, warm-filesystem
+normal CLI samples, median±MAD ms [min,max]:
+
+| Pass | Before | After | Binaryen133 | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3396.469±25.807 [3370.662,3613.128] | 3371.093±36.276 [3334.817,3480.724] | 1195.674±5.305 [1184.726,1209.099] | 2.819× | -1.815% |
+| dae2-optimizing | 6055.411±129.688 [5911.138,7900.646] | 5950.823±20.095 [5804.863,7185.998] | 2511.450±14.239 [2495.698,3527.312] | 2.369× | -1.798% |
+| coalesce-locals | 3936.592±28.097 [3908.495,4014.419] | 3886.165±10.651 [3776.635,3896.816] | 1960.111±10.922 [1895.700,1982.460] | 1.983× | -2.302% |
+| optimize-instructions | 2030.078±5.710 [1960.375,2048.993] | 2035.806±15.915 [1957.328,2124.408] | 1054.108±10.480 [1004.446,1086.382] | 1.931× | +0.282% |
+
+Keep ranges and adverse/contended rows visible; no universal clock or peak-memory
+claim follows from instruction counts. Separate n1 traced diagnostics:
+
+- dae2: RSS before/after median 262,420/247,356 KiB; foreign rows before/after/oracle 5/5/5. Diagnostic inner 2867.696→2726.023 ms; pipeline 2883.246→2741.486 ms.
+- dae2-optimizing: RSS before/after median 290,940/290,932 KiB; foreign rows before/after/oracle 5/5/5. Diagnostic inner 5242.339→5088.594 ms; pipeline 5262.415→5104.597 ms.
+- coalesce-locals: RSS before/after median 243,424/243,712 KiB; foreign rows before/after/oracle 5/5/5. Diagnostic inner 3020.966→2993.479 ms; pipeline 3036.579→3009.069 ms.
+- optimize-instructions: RSS before/after median 156,624/156,340 KiB; foreign rows before/after/oracle 5/5/5. Diagnostic inner 85.395→83.788 ms; pipeline 1504.384→1496.635 ms.
+
+OI's narrow timer excludes most cleanup. These diagnostics do not supersede the
+preceding n3 matched pass-scope comparison or establish pass-local 1× parity.
+
+The default-path OI complete-process control is 18,585,524,926→18,584,960,830 instructions (-0.0030%).
+
+Info/fmt/check, **13,499 default tests**, four controls, native release and README/API
+sync pass. **1,156 validations / 3,392 available runtime observations**
+cover71 fixtures per pass. DAE2/OO each70 fully compare plus the existing blocked
+typed-block rewrite; CL/OI each71 fully compare. Original/before/after/133 values,
+ordered calls, globals/memory and permitted trap status agree on supported rows.
+The documented no-pass text adapter is used only for Binaryen compact-import
+encodings unsupported by Node26. All four large before/after raw hashes remain
+exact. Canonical OO+99,251B/CL+78,800B/OI+33,497B gaps remain; no fresh canonical
+or full release signoff is claimed.
+
+Local `lift-provenance-*` artifacts retain source/build hashes, exact commands,
+profiles, clock distributions, resource RED and ownership review. The interrupted
+ENOSPC suite and the initial nine-test helper-contract failure are retained
+separately; only the successful rerun counts. Independent review, full CI/coverage
+and deferred aggregate fuzz remain pending. All four1× goals remain open. Next:
+OI lazy directization output, then larger dependency/lower/cleanup costs with
+complete consumer measurements.

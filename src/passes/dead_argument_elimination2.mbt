@@ -1298,6 +1298,7 @@ fn dae2_run_module_pass(
           Some(state) if state.admissions[index] == 1 => Some(state)
           _ => None
         },
+        record_local_accesses=false,
       ) {
       Ok(func) => func
       Err(err) => return Err(err)
@@ -1436,7 +1437,13 @@ fn dae2_run_module_pass(
       let rewrite_lift_start = perf_start_timer_opt(
         perf, "detail:dae2:rewrite:lift",
       )
-      let func = match dae2_lift_for_analysis(mod_, context, index) {
+      let func = match
+        dae2_lift_for_analysis(
+          mod_,
+          context,
+          index,
+          record_local_accesses=false,
+        ) {
         Ok(func) => func
         Err(err) => return Err(err)
       }
@@ -1738,6 +1745,7 @@ fn dae2_lift_for_analysis(
   context : @ir.HotModuleContext,
   index : Int,
   write_provenance? : Dae2StackSuffixState? = None,
+  record_local_accesses? : Bool = true,
 ) -> Result[@ir.HotFunc, String] {
   match
     @ir.hot_lift_func_with_context_result(
@@ -1746,6 +1754,9 @@ fn dae2_lift_for_analysis(
       context,
       capture_stack_locals=true,
       materialize_multi_values=true,
+      // Keep the helper's recording contract for reference/tool callers.
+      // Production opts out explicitly, but write provenance always needs it.
+      record_local_accesses=record_local_accesses || write_provenance is Some(_),
     ) {
     Ok(func) => {
       // Use the same deterministic capture preparation in both phases.

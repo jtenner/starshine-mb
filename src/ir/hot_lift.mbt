@@ -31,7 +31,9 @@ pub fn hot_lift_local_accesses(func : HotFunc) -> HotLiftLocalAccesses {
       accesses
     }
     None =>
-      abort("raw local access map requires a function produced by HOT lift")
+      abort(
+        "raw local access map requires a HOT lift with source recording enabled",
+      )
   }
 }
 
@@ -57,6 +59,7 @@ priv struct HotLiftLabelFrames {
   active : Array[LabelId]
   mut legacy_catch_depth : Int
   local_count : Int
+  record_local_accesses : Bool
   gets : Array[(LocalId, NodeId)]
   writes : Array[(LocalId, NodeId)]
   capture_stack_locals : Bool
@@ -72,11 +75,13 @@ fn hot_lift_impl_new_label_frames(
   func : HotFunc,
   capture_stack_locals? : Bool = false,
   materialize_multi_values? : Bool = false,
+  record_local_accesses? : Bool = true,
 ) -> HotLiftLabelFrames {
   {
     active: [],
     legacy_catch_depth: 0,
     local_count: hot_local_count(func),
+    record_local_accesses,
     gets: [],
     writes: [],
     capture_stack_locals,
@@ -2949,14 +2954,18 @@ fn hot_lift_impl_lift_instruction(
   let mut source_access_index = -1
   let source_access_is_write = match instr {
     Instruction::LocalGet(LocalIdx(raw)) => {
-      source_access_index = label_frames.gets.length()
-      label_frames.gets.push((raw.reinterpret_as_int(), -1))
+      if label_frames.record_local_accesses {
+        source_access_index = label_frames.gets.length()
+        label_frames.gets.push((raw.reinterpret_as_int(), -1))
+      }
       false
     }
     Instruction::LocalSet(LocalIdx(raw))
     | Instruction::LocalTee(LocalIdx(raw)) => {
-      source_access_index = label_frames.writes.length()
-      label_frames.writes.push((raw.reinterpret_as_int(), -1))
+      if label_frames.record_local_accesses {
+        source_access_index = label_frames.writes.length()
+        label_frames.writes.push((raw.reinterpret_as_int(), -1))
+      }
       true
     }
     _ => false
@@ -3697,12 +3706,16 @@ fn hot_lift_impl_finish(
   if verify {
     hot_verify_all_or_abort(func)
   }
-  func.lifted_local_accesses = Some({
-    local_count: label_frames.local_count,
-    gets: label_frames.gets,
-    writes: label_frames.writes,
-    revision: func.revision,
-  })
+  func.lifted_local_accesses = if label_frames.record_local_accesses {
+    Some({
+      local_count: label_frames.local_count,
+      gets: label_frames.gets,
+      writes: label_frames.writes,
+      revision: func.revision,
+    })
+  } else {
+    None
+  }
   func
 }
 
@@ -3762,6 +3775,7 @@ fn hot_lift_impl_body_with_context_result(
   env_build_visits? : Array[Int]? = None,
   capture_stack_locals? : Bool = false,
   materialize_multi_values? : Bool = false,
+  record_local_accesses? : Bool = true,
 ) -> Result[HotFunc, HotLiftError] {
   let return_types = match known_return_types {
     Some(types) => types
@@ -3806,6 +3820,7 @@ fn hot_lift_impl_body_with_context_result(
     func,
     capture_stack_locals~,
     materialize_multi_values~,
+    record_local_accesses~,
   )
   let label_stack_head = hot_lift_impl_seed_function_label(label_frames)
   match
@@ -3874,12 +3889,17 @@ pub fn hot_lift_func_with_context(
 }
 
 ///|
+/// Keep original local-access provenance by default. Callers that never query
+/// hot_lift_local_accesses may omit it explicitly; capture/conflict analysis,
+/// typechecking, result materialization and the lifted graph are unchanged.
+/// The source-map getter rejects a lift made with recording disabled.
 pub fn hot_lift_func_with_context_result(
   mod_ : Module,
   func_idx : FuncIdx,
   ctx : HotModuleContext,
   capture_stack_locals? : Bool = false,
   materialize_multi_values? : Bool = false,
+  record_local_accesses? : Bool = true,
 ) -> Result[HotFunc, HotLiftError] {
   let func_type = match hot_module_resolve_func_type(ctx, func_idx) {
     Some(type_) => type_
@@ -3927,6 +3947,7 @@ pub fn hot_lift_func_with_context_result(
       known_return_types=Some(results),
       capture_stack_locals~,
       materialize_multi_values~,
+      record_local_accesses~,
     ) {
     Ok(hot) => hot
     Err(err) => return Err(err)

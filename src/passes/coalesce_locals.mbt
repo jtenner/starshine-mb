@@ -7876,7 +7876,14 @@ fn cl_rewrite_loop_func_cfg(
     cl_instrs_have_legacy_try(original_instrs) {
     return { func, changed: false, }
   }
-  let hot = match @ir.hot_lift_func_with_context_result(mod_, func_idx, ctx) {
+  // CFG/liveness and lowering never query original source-access provenance.
+  let hot = match
+    @ir.hot_lift_func_with_context_result(
+      mod_,
+      func_idx,
+      ctx,
+      record_local_accesses=false,
+    ) {
     Ok(hot) => hot
     Err(_) => return { func, changed: false, }
   }
