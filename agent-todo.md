@@ -708,11 +708,15 @@ quality gates. Keep traced inner and normal command measurements separate.
   shared unchanged bodies are rescanned for both sides of each size guard.
   Investigate reusing a proved empty pool within the existing immutable comparison
   lifetime, while preserving explicit/global/new-function strings, declaration
-  order, encoder errors and final validation. No scan shortcut is implemented.
-- [ ] Evaluate the bounded native O3 screen from the identical generated C and
-  runtime inputs. Preserve wrapv/no-strict-aliasing, generic target and all passes;
-  no fast-math. Compiler flags remain unchanged pending matched evidence and
-  cross-platform configuration review. Do not claim this is an algorithmic gain.
+  order, encoder errors and final validation. The candidate is implemented;
+  complete execution evidence and acceptance are pending.
+- [ ] Verify portable native compiler configuration before adopting O3.
+  The completed same-C n5 screen observes paired command gains 2.36–4.69%,
+  but executable +19.395% and higher median RSS; foreign activity is retained.
+  [Evidence](docs/wiki/tooling/tracing-playbook.md#october-4-2026-bounded-native-o3-build-experiment). Defaults remain O2.
+  Custom cc-flags replace defaults and GCC/MSVC differ; preserve wrapv/aliasing
+  behavior and generic targets. Repeat against current sources before adoption;
+  do not add build-screen gains to later source measurements.
 - **Deliverables / tasks:** reduce the remaining type-cleanup sizing/validation
   round and exact body encoding. Preserve global validation for type-index
   remaps and complete final validation. Profile compatible candidate batching
@@ -878,6 +882,36 @@ quality gates. Keep traced inner and normal command measurements separate.
   annotation-only variant regressed and was rejected. Contended command pairs
   remain adverse; do not claim1× or repeat the rejected representation alone.
   [Evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-lower-stack-without-optional-discard-boxes).
+- [ ] Finish the CFG root-record value-storage trial. The immutable three-Int
+  mapping currently allocates a separate object per root; native construction
+  confirms that allocation. Field/copy characterization and tiny/wide controls
+  pass before the change. The candidate retains every mapping and verifier;
+  13,524 tests pass, with no generated `.mbti` text diff. Require native object
+  elimination, complete DAE2/CL profiles, four-pass timing/RSS/output and focused
+  execution evidence before acceptance. Do not expand this to HotBlockInfo.
+- [ ] Try an allocation-free branch-depth membership filter in CL's ordered
+  merge. A current complete CL profile attributes 340.271m instructions to
+  461,915 growing-array membership calls. The `oc_contains_local` native name is
+  compiler-merged code, not an OptimizeCasts invocation. Two scalar UInt64 masks
+  provide exact membership below 64 and a negative filter above it, preserving
+  exact collision checks, insertion order,
+  shifts, negatives and duplicates; worst-case complexity remains unchanged.
+  The reference and six tiny/wide/collision/overlap controls pass before the
+  candidate. After controls improve wide distinct/low-depth overlap; high-collision
+  overlap regresses. Native full-consumer evidence is pending.
+- [ ] Measure validator local-read success handoff. Current complete DAE2
+  profile attributes 2,591,898 allocator requests to local.get checking. New
+  ownership/error-order/unreachable tests and four controls pass before changes.
+  A private error-only worker can avoid success Result boxes in expression loops;
+  preserve initialized-local checks, stack ownership and diagnostic context.
+  Do not claim all local.get allocations disappear: HOT lifting also calls the
+  public instruction checker. Complete consumer evidence is required.
+- [ ] Measure CL path-disjoint scan result allocation. Current complete CL
+  profile attributes 2,195,914 allocator requests to the recursive scan. Its
+  private result carries five immutable booleans. Characterize all initialization,
+  clobber, branch-join and unsupported-control decisions before testing inline
+  value storage; compare native code/work/RSS and retain exact output. Do not
+  change admission or pairing rules to improve this measurement.
 - [ ] Attribute dense CL member-query work: frozen243a8e03 coloring1.570b
   instructions includes31.721m member bit probes. The matrix is upper triangular,
   so the existing sparse row scatter cannot be copied directly; a transpose adds

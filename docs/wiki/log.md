@@ -1,3 +1,7 @@
+### 2026-10-04 — Bound the native compiler-flag experiment
+
+- [Separate O2/O3 n5 comparison](tooling/tracing-playbook.md#october-4-2026-bounded-native-o3-build-experiment): observed paired gains 2.36–4.69% with unchanged bytes and focused execution. Executable +19.395%, median RSS higher, foreign load retained. Default build flags unchanged pending portable configuration evidence.
+
 ### 2026-10-04 — Reuse exact type-index encoding widths
 
 - [Encoder proof, RED/GREEN and complete OI evidence](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-exact-type-index-size-deltas): wide changed-body sizing 507.67→341.74µs, current compiler command work only −0.00536%, 2,006 fewer allocations. 13,519 tests and focused four-pass execution preserve bytes. Adverse controls, known P00 failure and every 1× target remain open.

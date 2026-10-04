@@ -5112,3 +5112,50 @@ excluding `_mi_malloc_generic`; substring sums double-count those paths.
 Normal n5 CLI and traced n3 pass rows stay separate. Binaryen OO work is summed
 per sample, then summarized; OI narrow Starshine timers exclude most cleanup.
 Independent full-command comparisons remain the primary1× gate.
+
+## October 4, 2026: bounded native O3 build experiment
+
+This is a separate compiler experiment on frozen native `7b17d037…`, not a
+change to the repository's default release flags. Recompile the identical
+Moon-generated C and runtime/archive inputs with GCC 14.2 `-O3` replacing `-O2`;
+retain `-fwrapv`, `-fno-strict-aliasing`, mimalloc and the generic x86-64 target.
+No fast-math or host-specific ISA flags. Candidate `ec303497…` builds in 279.584s,
+outside all timing. Executable size rises 14,626,528→17,463,376 B (+19.395%).
+
+After a separate n3 screening cohort, an independent bounded confirmation uses
+one warmup/n5 rotating alternating fresh-process commands, warm filesystem,
+Ryzen 7 8845HS CPU 6, the same 6,211,596 B compiler SHA `98189860…`, and verified
+Binaryen 133 SHA `8f25e9fd…`. DAE2-O uses the equivalent Binaryen
+`--dae2 --simplify-locals --vacuum --all-features`. Full-command median±MAD ms
+[min,max]; no build time included:
+
+| Pass | O2 | O3 | Binaryen 133 | O3/133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3264.479±56.308 [3188.705,3329.718] | 3107.102±21.136 [3078.020,3146.938] | 1225.097±63.809 [1152.592,1400.865] | 2.536× | -4.693% |
+| dae2-optimizing | 6148.854±415.138 [5424.211,6563.992] | 6003.534±258.713 [5232.192,6262.246] | 2363.936±83.153 [2280.782,3068.900] | 2.540× | -2.363% |
+| coalesce-locals | 3520.056±67.536 [3420.549,3698.383] | 3372.698±22.897 [3349.802,3874.797] | 1846.218±48.253 [1797.966,1965.282] | 1.827× | -3.853% |
+| optimize-instructions | 1818.551±4.518 [1814.033,1836.900] | 1776.079±13.004 [1733.889,1802.580] | 943.679±6.820 [929.308,950.499] | 1.882× | -2.382% |
+
+All normal rows flag foreign activity. The n3 screen also moved positively,
+but do not combine the cohorts or add these gains to later source changes.
+Median peak RSS KiB: dae2 262,540→265,656; dae2-optimizing 290,972→292,488; coalesce-locals 244,384→245,032; optimize-instructions 157,172→158,308.
+The executable and memory costs matter; these are observed command gains,
+not a 1× signoff or an algorithmic improvement. Traced n1 diagnostics remain
+separate, and OI's narrow inner timer excludes cleanup.
+
+All four outputs retain their exact raw hashes. Twenty focused runtime fixtures
+per pass yield 324 validations/944 supported observations, comparing original,
+O2/O3 and 133 values, ordered effects, globals, memory and traps. Only the
+previously known DAE2/O typed-block validation failure remains; the compact-
+import text adapter affects Node execution only, never raw size evidence.
+
+Default builds remain O2. Moon's [native package configuration](https://raw.githubusercontent.com/moonbitlang/moonbit-docs/main/next/toolchain/moon/package.md)
+and [compiler flag handling](https://raw.githubusercontent.com/Moonbitlang/moon/main/crates/moonutil/src/compiler_flags.rs)
+show that custom `cc-flags` replace defaults and MSVC has different flags.
+A portable release configuration has not been verified; do not hardcode GCC
+flags for every platform or drop required arithmetic/aliasing flags. The next
+build experiment should prove supported-platform configuration and repeat on
+the then-current source before adoption. No wrapper or global flag override was
+added for this screen. Local `native-o3-screen/build-manifest.json` retains exact
+input hashes/compiler command; `native-o3-confirm-*` retains rows and execution.
+All four 1× targets, canonical deficits and full CI/coverage/fuzz gates remain open.
