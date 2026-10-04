@@ -1,8 +1,11 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-04
 sources:
+  - ./starshine-strategy.md
+  - ../../../../../src/ir/hot_lift_typed_block_entry_wbtest.mbt
+  - ../../../../../src/cmd/dae2_typed_block_entry_wbtest.mbt
   - ../../../tooling/tracing-playbook.md
   - ../../../../../src/validate/gen_valid_dae2.mbt
   - ../../../../../src/validate/gen_valid_dae2_wbtest.mbt
@@ -13,6 +16,24 @@ sources:
 ---
 
 # DAE2 GenValid coverage
+
+## October 4 typed-block bounded renewal
+
+Native `5bf4a1f5…` repairs concrete typed-block entry lowering and discarded
+entry-effect duplication, while restoring compact branchless output. The
+[repair dossier](./starshine-strategy.md#october-4-2026-retain-typed-block-entry-producers)
+records RED tests, rejected native trials, 13,549 wasm-gc tests and original /
+verified 133 execution for 27 fixtures per pass (434 validations and 1,272
+supported side-observation comparisons across all four consumers).
+
+This candidate has no new 10,000-case aggregate signoff. Long randomized and
+aggregate renewal remains deferred under the active campaign's
+[execution priority](../../../../../agent-todo.md). Existing dated aggregates
+below retain their original binary hashes and do not sign this source. The
+separate valid stack-polymorphic typed-entry lift failure, residual output
+parity/size gaps and all four 1× targets remain open. Continue to use the
+published aggregate profiles, explicit fresh native binary and verified v133
+oracle when final renewal resumes.
 
 ## September 27 follow-up allocation campaign renewal
 

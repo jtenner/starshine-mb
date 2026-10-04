@@ -323,9 +323,18 @@ fn hot_lower_impl_input_info(
   match node.op {
     HotOp::Block => {
       let count = if node.imm1 > 0 { node.imm1 } else { 0 }
+      // Void entry effects remain in the prefix; only surviving parameters pop.
+      let pop_count = if count == 0 {
+        0
+      } else {
+        match hot_type_get(func, node.ty) {
+          BlockResultResolved(_, params, _) => params.length()
+          _ => count
+        }
+      }
       {
         nodes: func.children[node.child_base:node.child_base + count],
-        pop_count: count,
+        pop_count,
       }
     }
     HotOp::Try

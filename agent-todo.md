@@ -27,7 +27,7 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched all-four checkpoint:** native `8eac37f6…`→`1c6d69ab…`,
+- **Earlier committed all-four checkpoint:** native `8eac37f6…`→`1c6d69ab…`,
   expression local-read success removes 1,612,632 DAE2 / 1,485,697 CL requests;
   complete pass work −0.3299% / −0.2394%, exact output retained.
   CPU 6 n5/warmup 1 full-command median±MAD:
@@ -38,7 +38,18 @@ oracle versions and checkpoints do not sign current source.
   Foreign activity and adverse samples retained; no general clock/RSS or 1× win.
   [Full checkpoint](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-local-read-success-without-result-boxes).
   13,531 tests; 324 validations/944 observations in 20 fixtures/pass. Existing
-  typed-block failure and full aggregate gates remain open.
+  typed-block failure was open at that checkpoint; the reachable abort is now
+  repaired in the current checkpoint linked below. Full aggregate gates
+  remain open.
+- **Current correctness checkpoint:** native `5bf4a1f5…` retains typed-block
+  entry operands, preserves each discarded entry effect exactly once, and
+  removes unnecessary branchless wrappers. 13,549 wasm-gc tests, native release
+  and README/API sync pass; 27 fixtures/pass match original and verified 133
+  execution (434 validations / 1,272 supported side-observation comparisons).
+  All pre-existing staged/untracked candidates and the audit report remain.
+  [Repair, rejected trials and current measurements](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-retain-typed-block-entry-producers).
+  The separate stack-polymorphic entry repro remains in P00; all four 1× goals,
+  large canonical deficits and deferred final aggregate/CI/coverage gates remain.
 - **Later CL-only checkpoint:** native `1c6d69ab…`→`776cef03…` inline
   private scan results remove 2,311,558 requests and 0.7461% complete CL work.
   CPU 6 warmup 1/n5 full-command 3464.471±30.545 / B
@@ -137,11 +148,13 @@ quality gates. Keep traced inner and normal command measurements separate.
 - [ ] Repair merge-blocks invalid carried-value/drop output (reproduced). Triage
   reported code-folding/vacuum/DAE2/DAE2-O invalid-output families and DAE2
   rewritten-module aborts (#2–4); obtain the review's reduced d93r artifact.
-- [ ] Repair the newly reproduced DAE2/O multivalue block entry failure:
-  both nativec972d0ba and8675a6c2 reject valid two-i32-input block code after
-  rewriting; Binaryen133 output validates and executes. Preserve input producers,
-  signature/type indices and effects/traps. This blocks two reduced runtime rows,
-  not the large timing fixture. [Exact source and evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-existing-multivalue-block-rewrite-failure).
+- [ ] Repair typed-control lifting when unreachable stack polymorphism supplies
+  entry values without concrete producers. Valid repro:
+  `(module (func (param i32) (result i32) unreachable block (param i32 i32) (result i32) i32.div_s end))`.
+  Native `97a7d1cf…` rejects with `need 2, have 0`; verified Binaryen133 accepts
+  and emits valid output. Preserve nested validation and source-access provenance.
+  This is separate from the repaired reachable
+  [DAE2/O block-entry abort](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-retain-typed-block-entry-producers).
 - DAE audit #5–6 reduced cases are repaired by expanded operand-control CFGs;
   [regressions and original/v133 execution](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands)
   cover scalar branch values, constant self-tee and GC payload traps. Other
@@ -214,8 +227,10 @@ quality gates. Keep traced inner and normal command measurements separate.
 - [ ] Profile remaining dependency/source-query work after completed descendant
   reuse. Existing lists still require materialization; do not add a new summary
   cache or claim globally linear behavior. Preserve immutable snapshot lifetime,
-  first-visit order, shared operands and dead-tail truncation. Native complete
-  DAE2 remains 28.757b instructions; prioritize whole-consumer absolute savings.
+  first-visit order, shared operands and dead-tail truncation. The earlier 28.757b
+  DAE2 scoped row is historical: the later checked-child candidate `97a7d1cf…`
+  measured 28.281b. The typed-block repair renews command clocks, not scoped
+  instruction counts; profile current source before claiming further savings.
 
 #### P03a — Remaining HOT field reads [IR2-PERF-DAE2-FIELDS]
 

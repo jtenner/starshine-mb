@@ -3,6 +3,8 @@ kind: entity
 status: working
 last_reviewed: 2026-10-04
 sources:
+  - ../../../../../src/ir/hot_lift_typed_block_entry_wbtest.mbt
+  - ../../../../../src/cmd/dae2_typed_block_entry_wbtest.mbt
   - ../../../../../src/passes/cleanup_subtree_reads_perf_wbtest.mbt
   - ../../../../../src/passes/pass_manager_nop_run_perf_wbtest.mbt
   - ../../../../../src/validate/typecheck.mbt
@@ -8855,3 +8857,157 @@ it leaves raw size/hash evidence unchanged. Manual review is not independent
 agent signoff. All four 1× goals, canonical deficits, P00 correctness and full
 CI/coverage/aggregate fuzz remain open. Local `local-read-result-*` retains exact
 build/source/input hashes, commands, native worker, profiles and all samples.
+
+
+## October 4, 2026: retain typed-block entry producers
+
+This supersedes the reachable `probe-typed-block-trap` blocker recorded in
+[the earlier multivalue failure](#october-4-2026-existing-multivalue-block-rewrite-failure).
+The resumed checkout is main `9fd2bd702`, with the pre-existing if-exit value
+candidate, DAE2 checked-child candidate, select-pop characterization tests and
+local audit report preserved. No earlier helper experiment was repeated.
+
+[Block lifting](../../../../../src/ir/hot_lift.mbt) previously retained the
+indexed signature but omitted its entry operands from the control header.
+Lowering reconstructed those producers inside the block, although its raw type
+still required external inputs. Lift now prefixes multi-parameter block body
+roots with each entry lane and records their count in `imm1`, using the existing typed-block
+operand/region/lower contract. No-entry blocks reuse their original body row;
+there is no new pass admission, transform suppression or validation shortcut.
+Shared tuple producers retain one header slot per lane. Single-parameter blocks
+retain their established carrier/spill lowering. No public API changes.
+
+The initial all-parameter prefix trial failed fifteen existing single-parameter
+IR/merge-blocks shape tests. That trial is rejected, with the failing workspace
+log preserved. The narrower repair keeps those tests and their output requirements
+unchanged; the final full-suite renewal below passes.
+
+The [direct IR regression](../../../../../src/ir/hot_lift_typed_block_entry_wbtest.mbt)
+failed before implementation (`imm1` 0 instead of 2). The implementing-file
+[DAE2 regression](../../../../../src/passes/dead_argument_elimination2.mbt) and
+[dispatcher regression](../../../../../src/cmd/dae2_typed_block_entry_wbtest.mbt)
+failed on the rewritten-module stack underflow. These now require successful
+pruning and valid output in both DAE2 modes. Controls cover exact scalar
+lift/lower instructions, mixed shared tuple lanes, labeled blocks, discarded
+trapping results, concrete inputs after unreachable code, and original input
+byte ownership.
+
+The first native lift-only candidate `2c579a19…` passed the then-current suite
+but failed execution replay for a discarded trapping result: original/oracle
+calls `[19,23]` became `[19,19,23]`, and a trapping input similarly duplicated
+`[19]`. This was a true semantic mismatch, rejected before acceptance. DAE2
+had discarded header operands as if they were body roots, causing a still-needed
+producer to execute again inside the block. A new implementing-file test first
+failed on two import instructions instead of one. Entry operands now retain
+their header role; dead entry values retain their void effects, and the new
+indexed signature keeps only the surviving parameter lanes with no results.
+A direct lower test separately failed when two physical prefix entries popped
+two values despite one being void. Lower now pops the resolved parameter count.
+Controls require one/two import evaluations and actual result pruning, including
+partially and completely discarded inputs. The original failed candidate,
+replay outputs and both RED logs remain in local evidence.
+
+The second candidate `02cf5cd7…` restored execution agreement across the
+25-fixture cohort for all four passes, but kept an unnecessary typed-block
+wrapper in two formerly compact dead-result fixtures. In particular, the
+ordinary trapping helper grew by three raw bytes despite equivalent observed
+execution. That is an output-size regression to remove, not an accepted
+representation difference. A new direct instruction assertion requires the
+original compact sequence. DAE2's existing branchless-block final cleanup is
+the owner: its parameter guard excluded the newly explicit typed headers.
+The new size assertion first failed on the retained wrapper. DAE2 now opts
+into flattening resolved parameter blocks only when the existing recursive
+branchless scan proves there are no branches, returns, unreachable instructions,
+exception handlers/throws or continuation transfers. The raw body then consumes
+the same entry stack and leaves the same results without a label frame; ordered
+imports and trapping operations stay in place. Other cleanup consumers keep
+their existing default. No wrapper is removed across an escaping control edge.
+
+A separate valid probe remains open:
+`(module (func (param i32) (result i32) unreachable block (param i32 i32) (result i32) i32.div_s end))`.
+Frozen native `97a7d1cf…` and final candidate `5bf4a1f5…` both reject it
+during lift (`need 2, have 0`); verified
+Binaryen 133 accepts it and its output validates. This is the pre-existing
+missing representation for stack-polymorphic entry values without concrete
+producers, not the repaired reachable lowering defect. Preserve recursive
+validation and source-access provenance when repairing it. The active P00
+backlog retains this exact repro; no claim of complete typed-control coverage.
+
+Final native `5bf4a1f5603e0c436b5ce76012493e5fd6e712848dbce09056de1827e6f0a704`
+is built from resumed `main` at `9fd2bd702` plus the preserved pending work
+and this repair.
+Info/fmt, all 13,549 wasm-gc tests, native release and README/API sync pass.
+Generated `.mbti` diffs are empty. The new lower-cleanup control also checks
+mixed i32/i64 inputs, exact flattened instructions, default consumer behavior,
+removed-label bookkeeping and retained branch labels. Source and binary hashes
+remain sealed throughout final execution/timing; no competing Moon/optimizer
+worker was present at the initial edit or final benchmark checks.
+
+Twenty-seven fixtures per pass yield 434 module validations and 1,272 supported
+side-observation comparisons across four inputs, including values, ordered
+imports, globals, memory and traps. All 108 candidate fixture runs agree with
+original and verified 133 execution. Each DAE2 mode repairs three frozen-baseline
+lift/lowering failures; the other 24 fixtures fully compare before/after/oracle.
+CL and OI fully compare all 27. Raw oracle output is validated first; only Node's
+compact-import incompatibility uses the existing no-pass133 text/parse adapter.
+There are no candidate failures in this bounded cohort. This is manual,
+contract-backed review and focused execution, not independent-agent or aggregate
+signoff.
+
+The formerly size-losing discarded-trap output is byte-identical to frozen
+baseline in both DAE2 modes (112 B; symmetric no-pass normalized round 99 B).
+Plain DAE2's partial-input case improves 103→97 raw B / 90→84 normalized B;
+shared-tuple partial input improves 109→103 raw B / 102→94 normalized B.
+Optimizing mode retains its corresponding baseline sizes and bytes. Every
+before-successful fixture has unchanged output except those two smaller plain
+DAE2 cases; CL/OI bytes are all unchanged. The repaired original trapping probe
+is 108/102 raw B in plain/optimizing mode versus 133's114/94 B. The shared-pair
+probe is 126/116 versus 134/114 B. The optimizing +8/+2 B raw gaps remain visible;
+no blanket oracle-shape parity is claimed. Bounded symmetric first-round 133
+`--all-features --strip-debug` sizes for these probes are 90/84 versus 122/98 B,
+and 120/112 versus 148/124 B, respectively. These are one-round normalization
+measurements, not fixed-point canonical signoff. Exact commands and all eight
+typed-fixture size rows per mode remain in local evidence.
+
+Fresh full-command timings compare frozen `97a7d1cf…` with final `5bf4a1f5…`
+and verified Binaryen 133 `8f25e9fd…` on the same 6,211,596 B compiler
+SHA `98189860…`. Ryzen 7 8845HS CPU 6, normal O2 build, one warmup/five alternating
+fresh processes with warm filesystem; build excluded. Median±MAD ms [min,max]:
+
+| Pass | Before | After | Binaryen 133 | After/133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3066.501±11.849 [3054.652,3089.655] | 3065.635±17.308 [3048.327,3135.700] | 1102.708±5.730 [1095.445,1112.414] | 2.780× | +0.234% |
+| dae2-optimizing | 5248.595±13.146 [5235.449,5275.931] | 5266.677±19.132 [5225.565,5287.692] | 2275.127±2.911 [2272.216,2298.937] | 2.315× | +0.049% |
+| coalesce-locals | 3391.583±63.173 [3326.292,3528.214] | 3389.078±35.738 [3310.337,3480.144] | 1784.710±21.249 [1738.622,1848.832] | 1.899× | -0.190% |
+| optimize-instructions | 1742.317±2.173 [1716.790,1780.622] | 1745.988±6.061 [1722.001,1783.914] | 901.906±2.459 [892.735,904.365] | 1.936× | +0.265% |
+
+Foreign-CPU flags among measured rows, before/after/133: dae2: 2/0/0; dae2-optimizing: 1/2/1; coalesce-locals: 4/4/4; optimize-instructions: 1/1/2. All flagged/adverse rows are retained, including warmups and separate traced records. Small paired changes and overlapping distributions do not establish a general clock/RSS win or any 1× result.
+
+Peak child RSS KiB, median±MAD [min,max], with all n5 modes retained:
+
+| Pass | Before | After | Binaryen 133 |
+| --- | ---: | ---: | ---: |
+| dae2 | 267616±588 [266272,268532] | 266124±256 [265868,267992] | 151948±4 [151944,153996] |
+| dae2-optimizing | 294192±112 [292124,294444] | 294344±24 [294188,294388] | 153096±4 [153092,153100] |
+| coalesce-locals | 249212±120 [248788,249376] | 249272±64 [249192,249364] | 217564±24 [217468,217604] |
+| optimize-instructions | 157912±60 [157748,157972] | 157772±40 [157176,158012] | 140124±4 [139136,140128] |
+
+Separate traced warmup 1/n1 diagnostics, after command/pipeline/inner ms: dae2: 3229.001/2605.888/2590.802; dae2-optimizing: 5385.987/4640.674/4625.685; coalesce-locals: 3338.833/2569.864/2554.882; optimize-instructions: 1839.924/1310.614/79.310. These are not the n5 command samples. OI's 79.310 ms inner excludes most cleanup; do not compare it with the whole Binaryen command or count it as complete-pass work. No new scoped instruction/allocation profile is claimed by this correctness slice.
+
+All four large before/after raw output hashes are exact. This preserves the
+prior bounded normalization evidence rather than renewing it: DAE2-O +99,251 B,
+CL +78,800 B, and OI +33,494 B remain open. The last
+[OI guarded-fold measurement](../optimize-instructions/starshine-strategy.md#october-4-2026-retain-constant-folds-under-the-effect-guard)
+supersedes older 33,497 B summaries by 3 B; historical rows retain their original
+reported values. All four ≤1× targets, P00 failures and deferred final
+aggregate/CI/coverage gates remain open. Next correctness work is the explicit
+stack-polymorphic entry repro above; next performance attribution is current
+DAE2 dependency/source-query work, not a repeated completed helper trial.
+
+Local `.tmp/typed-block-entry-20261004/` retains the original RED logs, rejected
+15-test trial, failed first native effect replay, intermediate contended n5 rows,
+final source/binary/oracle/input manifests, all final fixtures, bounded size
+commands, full timing/RSS distributions and the separate unreachable evidence.
+Pre-existing staged/untracked work was preserved during this checkpoint.
+Validation and measurements above were recorded before the repair commit,
+with the pending candidates still present.

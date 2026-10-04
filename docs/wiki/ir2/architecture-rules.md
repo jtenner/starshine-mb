@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-04
 sources:
+  - ../../../src/ir/hot_lift_typed_block_entry_wbtest.mbt
+  - ../../../src/passes/lower_capture_cleanup.mbt
   - ../../../src/ir/local_graph_read_flow_wbtest.mbt
   - ./test-matrix.md
   - ./local-ssa-policy.md
@@ -123,8 +125,10 @@ that evaluation order rather than physical slot order.
 
 When constant folding demotes such an `If` to `Block`, the block keeps the entry
 operands as a prefix whose length is `imm1`. Region edits exclude that prefix;
-lowering and analyses treat it as the control header's operands. Ordinary blocks
-retain `imm1 == 0`. This prevents an empty selected arm from losing an effectful
+lowering and analyses treat it as the control header's operands. Lifted blocks with multiple
+entry parameters use the same prefix contract as of October 4. Single-parameter
+blocks retain their established carrier/spill lowering and `imm1 == 0`;
+blocks without entry parameters also retain `imm1 == 0`. This prevents an empty selected arm from losing an effectful
 entry producer and keeps its use-def edge visible. No public function signature
 changes are required.
 
@@ -135,6 +139,26 @@ assert exact instructions, tuple lanes, both arm stacks, local definitions and
 CFG/use-def ownership; the [command fixtures](../../../src/cmd/typed_if_entry_wbtest.mbt)
 exercise local-flow, heap-store and cleanup dispatchers. Dedicated aggregate renewal remains pending while
 performance iteration continues.
+
+The [typed-block lift regression](../../../src/ir/hot_lift_typed_block_entry_wbtest.mbt)
+first found `imm1 == 0` for a two-input block. Its producers were then emitted
+inside a block whose raw type still required external parameters. Lift now
+retains each multi-parameter entry lane before its body roots, including shared tuple producers;
+lower seeds the body stack from that prefix. When DAE2 removes the block result,
+entry operands stay in the header instead of becoming body drops. Unused entry
+values may become void effects; the rewritten signature retains only live value
+lanes, and lower pops that parameter count rather than the physical prefix
+length. This preserves each import evaluation exactly once. DAE2 opts into
+[raw branchless cleanup](../../../src/passes/lower_capture_cleanup.mbt) for
+resolved parameter blocks after lower: the body consumes the same entry stack
+and leaves the same results without the wrapper. The recursive control-transfer
+guard remains required; other cleanup consumers retain their default.
+Exact scalar round trips, mixed
+tuple lanes, branches, discarded trapping results and concrete entries after
+unreachable code are covered. This repairs the
+[DAE2 typed-block abort](../binaryen/passes/dae2/starshine-strategy.md#october-4-2026-retain-typed-block-entry-producers).
+Stack-polymorphic entries without concrete producers remain a separate known
+lift failure; the same dossier records its valid repro and baseline evidence.
 
 ### Typed-entry pass consumers and tail cleanup
 

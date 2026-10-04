@@ -2484,8 +2484,28 @@ fn hot_lift_impl_lift_control(
         Ok(state) => state
         Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
       }
-      ignore(hot_replace_child_span(func, id, body_roots))
-      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id, })
+      // Multi-parameter entries need an explicit prefix for lower's body stack.
+      // Keep the established single-parameter carrier/spill lowering shape.
+      let entry_count = if params.length() > 1 {
+        entry_values.length()
+      } else {
+        0
+      }
+      let block_children = if entry_count == 0 {
+        body_roots
+      } else {
+        let children = entry_values.copy()
+        for root in body_roots {
+          children.push(root)
+        }
+        children
+      }
+      ignore(hot_replace_child_span(func, id, block_children))
+      hot_node_set(func, id, {
+        ..hot_node_get(func, id),
+        imm0: label_id,
+        imm1: entry_count,
+      })
       hot_lift_impl_push_node(roots, values, concrete_values, id, results)
       Ok(after_state)
     }

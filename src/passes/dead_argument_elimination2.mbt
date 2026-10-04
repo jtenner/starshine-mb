@@ -1087,13 +1087,57 @@ fn dae2_rewrite_node(
         dae2_void_sequence(func, parts)
       }
     @ir.Block | @ir.Loop | @ir.If => {
+      let entry_count = if data.op is @ir.Block && data.imm1 > 0 {
+        data.imm1
+      } else {
+        0
+      }
       if !used {
-        @ir.hot_control_result_type_set(func, node, @ir.hot_type_void(func))
+        let next_type = if entry_count == 0 {
+          @ir.hot_type_void(func)
+        } else {
+          let params = match @ir.hot_type_get(func, data.ty) {
+            @ir.BlockResultResolved(_, params, _) => params
+            _ => abort("dae2 typed entry prefix requires resolved parameters")
+          }
+          let kept : Array[@lib.ValType] = []
+          for slot in 0..<entry_count {
+            if @ir.hot_node_result_arity(func, children[slot]) > 0 {
+              kept.push(params[slot])
+            }
+          }
+          let block_type = if kept.is_empty() {
+            @lib.BlockType::void_()
+          } else {
+            let types = lower_state.next_type_sec.unwrap()
+            let type_idx = match
+              dae_find_equivalent_simple_func_type(types, kept, []) {
+              Some(index) => index
+              None => {
+                let (types, index) = dae_append_new_func_type(types, kept, [])
+                lower_state.next_type_sec = Some(types)
+                lower_state.type_sec_changed = true
+                index
+              }
+            }
+            @lib.BlockType::type_idx(type_idx)
+          }
+          @ir.hot_type_intern_resolved_block_result(func, block_type, kept, [])
+        }
+        @ir.hot_control_result_type_set(func, node, next_type)
       }
       let next = if data.op is @ir.If || used {
         children
       } else {
-        children.map(fn(child) { dae2_discard(func, child) })
+        children.mapi(fn(slot, child) {
+          // Entry slots evaluate before the frame and seed its stack. Dropping
+          // a still-needed entry here would evaluate it again in the body.
+          if slot < entry_count {
+            child
+          } else {
+            dae2_discard(func, child)
+          }
+        })
       }
       ignore(dae2_replace_children_if_changed(func, node, next))
       node
@@ -1685,6 +1729,7 @@ fn dae2_run_module_pass(
       func,
       candidate,
       module_env=Some(cleanup_env),
+      flatten_parameter_blocks=true,
     ).0
   })
   candidate = candidate.with_code_sec(@lib.CodeSec::new(cleaned_bodies))
@@ -1965,5 +2010,81 @@ test "dae2 scalar scratch retains nested GC tuple types" {
     assert_eq(params, [@lib.ValType::i32()])
     assert_eq(results.length(), 2)
     assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
+
+///|
+test "dae2 typed block entry preserves effectful producers when pruning a parameter" {
+  let input = pass_test_module_from_wat(
+    "(module (import \"host\" \"f\" (func (param i32) (result i32))) (global (export \"state\") (mut i32) (i32.const 0)) (func $callee (param i32 i32) (result i32) (local i32) i32.const 17 global.set 0 i32.const 19 call 0 local.get 0 block (param i32 i32) (result i32) i32.div_s end local.set 2 local.get 2 call 0) (func (export \"run\") (param i32) (result i32) local.get 0 i32.const 99 call $callee))",
+  )
+  let saved = @binary.encode_module(input).unwrap()
+  for optimize in [false, true] {
+    let output = dae2_run_module_pass(input, optimize).unwrap()
+    @validate.validate_module(output).unwrap()
+    assert_eq(
+      @validate.Env::new()
+      .with_module(output)
+      .get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+      Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+    )
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}
+
+///|
+test "dae2 typed block entry preserves labels and discarded trapping results" {
+  for
+    source in [
+      "(module (func $h (param i32 i32 i64) (result i32) local.get 0 local.get 1 block (param i32 i32) (result i32) i32.div_s end) (func (export \"run\") (param i32 i32) local.get 0 local.get 1 i64.const 99 call $h drop))",
+      "(module (func $h (param i32 i32 i64) (result i32) local.get 0 local.get 1 block (param i32 i32) (result i32) i32.add br 0 end) (func (export \"run\") (param i32 i32) (result i32) local.get 0 local.get 1 i64.const 99 call $h))",
+    ] {
+    let input = pass_test_module_from_wat(source)
+    for optimize in [false, true] {
+      let output = dae2_run_module_pass(input, optimize).unwrap()
+      @validate.validate_module(output).unwrap()
+      let @lib.FuncType(params, _) = @validate.Env::new()
+        .with_module(output)
+        .get_functype_by_funcidx(@lib.FuncIdx::new(0U))
+        .unwrap()
+      assert_eq(params, [@lib.ValType::i32(), @lib.ValType::i32()])
+    }
+  }
+}
+
+///|
+test "dae2 discarded typed block results evaluate entry imports exactly once" {
+  for
+    (source, calls) in [
+      (
+        "(module (import \"host\" \"f\" (func (param i32) (result i32))) (func $h (param i32 i32 i64) (result i32) local.get 0 call 0 local.get 1 block (param i32 i32) (result i32) i32.div_s end) (func (export \"run\") (param i32) i32.const 19 local.get 0 i64.const 99 call $h drop i32.const 23 call 0 drop))",
+        1,
+      ),
+      (
+        "(module (import \"host\" \"f\" (func (param i32) (result i32))) (func $h (param i32 i32 i64) (result i32) local.get 0 call 0 local.get 1 call 0 block (param i32 i32) (result i32) drop i32.const 1 i32.div_s end) (func (export \"run\") (param i32) i32.const 19 local.get 0 i64.const 99 call $h drop))",
+        2,
+      ),
+      (
+        "(module (import \"host\" \"f\" (func (param i32) (result i32))) (func $h (param i32 i32 i64) (result i32) local.get 0 call 0 local.get 1 call 0 block (param i32 i32) (result i32) drop drop i32.const 7 end) (func (export \"run\") (param i32) i32.const 19 local.get 0 i64.const 99 call $h drop))",
+        2,
+      ),
+    ] {
+    for optimize in [false, true] {
+      let input = pass_test_module_from_wat(source)
+      let output = dae2_run_module_pass(input, optimize).unwrap()
+      @validate.validate_module(output).unwrap()
+      let body = output.code_sec.unwrap().0[0]
+      assert_eq(dae_count_self_calls_anywhere(body, 0), calls)
+      let @lib.Func(_, @lib.Expr(instructions)) = body
+      assert_true(
+        !instructions.any(fn(instruction) { instruction is @lib.Block(_, _) }),
+      )
+      assert_eq(
+        @validate.Env::new()
+        .with_module(output)
+        .get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+        Some(@lib.FuncType::new([@lib.ValType::i32(), @lib.ValType::i32()], [])),
+      )
+    }
   }
 }

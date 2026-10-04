@@ -362,6 +362,7 @@ fn pass_lower_flatten_branchless_blocks_into(
   env : @validate.Env,
   out : Array[@lib.Instruction],
   label_keep? : Array[Bool]? = None,
+  flatten_parameter_blocks? : Bool = false,
 ) -> (Bool, Bool) {
   let mut changed = false
   let mut branchless = true
@@ -371,6 +372,7 @@ fn pass_lower_flatten_branchless_blocks_into(
       body,
       env,
       label_keep~,
+      flatten_parameter_blocks~,
     )
     changed = changed || child_changed
     children_branchless = children_branchless && child_branchless
@@ -400,13 +402,17 @@ fn pass_lower_flatten_branchless_blocks_into(
           env,
           out,
           label_keep~,
+          flatten_parameter_blocks~,
         )
         changed = changed || body_changed
         branchless = branchless && body_branchless
         let mut flatten = false
         if body_branchless {
           match env.expand_blocktype(block_type) {
-            Ok((params, _)) if params.is_empty() => flatten = true
+            // With no control transfers, the validated body consumes the same
+            // entry values and leaves the same results without its wrapper.
+            Ok((params, _)) if flatten_parameter_blocks || params.is_empty() =>
+              flatten = true
             _ => ()
           }
         }
@@ -479,6 +485,7 @@ fn pass_lower_flatten_branchless_blocks(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
   label_keep? : Array[Bool]? = None,
+  flatten_parameter_blocks? : Bool = false,
 ) -> (Array[@lib.Instruction], Bool, Bool) {
   let out : Array[@lib.Instruction] = []
   let (changed, branchless) = pass_lower_flatten_branchless_blocks_into(
@@ -486,6 +493,7 @@ fn pass_lower_flatten_branchless_blocks(
     env,
     out,
     label_keep~,
+    flatten_parameter_blocks~,
   )
   (out, changed, branchless)
 }
@@ -495,16 +503,68 @@ fn pass_lower_cleanup_branchless_blocks(
   func : @lib.Func,
   mod_ : @lib.Module,
   module_env? : @validate.Env? = None,
+  flatten_parameter_blocks? : Bool = false,
 ) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(body)) = func
   let env = match module_env {
     Some(env) => env
     None => @validate.Env::new().with_module(mod_)
   }
-  let (body, changed, _) = pass_lower_flatten_branchless_blocks(body, env)
+  let (body, changed, _) = pass_lower_flatten_branchless_blocks(
+    body,
+    env,
+    flatten_parameter_blocks~,
+  )
   if changed {
     (@lib.Func::new(locals, @lib.Expr::new(body)), true)
   } else {
     (func, false)
   }
+}
+
+///|
+test "lower cleanup flattens opted in mixed typed blocks and preserves branch labels" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32 i64) (result i32) local.get 0 local.get 1 block (param i32 i64) (result i32) drop i32.const 1 i32.add end))",
+  )
+  let expected = pass_test_module_from_wat(
+    "(module (func (param i32 i64) (result i32) local.get 0 local.get 1 drop i32.const 1 i32.add))",
+  )
+  let func = input.code_sec.unwrap().0[0]
+  let (retained, changed) = pass_lower_cleanup_branchless_blocks(func, input)
+  assert_eq(retained, func)
+  assert_true(!changed)
+  let (flattened, changed) = pass_lower_cleanup_branchless_blocks(
+    func,
+    input,
+    flatten_parameter_blocks=true,
+  )
+  assert_true(changed)
+  assert_eq(flattened, expected.code_sec.unwrap().0[0])
+  @validate.validate_module(input.with_code_sec(@lib.CodeSec::new([flattened]))).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = func
+  let keep : Array[Bool] = []
+  ignore(
+    pass_lower_flatten_branchless_blocks(
+      body,
+      @validate.Env::new().with_module(input),
+      label_keep=Some(keep),
+      flatten_parameter_blocks=true,
+    ),
+  )
+  assert_eq(keep, [false])
+  let branched = pass_test_module_from_wat(
+    "(module (func (param i32 i64) (result i32) local.get 0 local.get 1 block (param i32 i64) (result i32) drop i32.const 1 i32.add br 0 end))",
+  )
+  let func = branched.code_sec.unwrap().0[0]
+  let (retained, changed) = pass_lower_cleanup_branchless_blocks(
+    func,
+    branched,
+    flatten_parameter_blocks=true,
+  )
+  assert_eq(retained, func)
+  assert_true(!changed)
+  @validate.validate_module(
+    branched.with_code_sec(@lib.CodeSec::new([retained])),
+  ).unwrap()
 }

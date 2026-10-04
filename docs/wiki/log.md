@@ -1,3 +1,7 @@
+### 2026-10-04 — Retain typed-block entries and single evaluation of discarded effects
+
+- [Concrete-entry repair, rejected trials and matched evidence](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-retain-typed-block-entry-producers): fix DAE2/O reachable lowering aborts and reject a duplicate-import native trial; restore compact branchless output without removing control-transfer guards. 13,549 wasm-gc tests, native/API checks and 27 fixtures/pass pass (434 validations / 1,272 supported execution comparisons). All large hashes remain exact. N5 command ratios remain 2.780× / 2.315× / 1.899× / 1.936× with contention/adverse rows retained; no general speed/RSS win. Separate polymorphic-entry failure, output gaps and aggregate/CI/coverage signoff remain open.
+
 ### 2026-10-04 — Store private CL scan results by value
 
 - [Field/decision proof and complete CL evidence](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-inline-path-disjoint-scan-results): work −0.7461%, 2,311,558 fewer allocation requests, unchanged output. Nested-block controls remain adverse. 13,535 tests plus 82 validations/240 execution observations pass. All four 1× goals and release gates remain open.
