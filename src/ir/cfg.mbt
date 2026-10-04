@@ -488,7 +488,8 @@ fn cfg_builder_region_segments(
     let mut end = start + 1
     while end < ordered_nodes.length() {
       let previous = ordered_nodes[end - 1]
-      if cfg_op_is_terminator(hot_node_get(func, previous).op) {
+      let previous_op = hot_node_get(func, previous).op
+      if cfg_op_is_terminator(previous_op) {
         break
       }
       let next = ordered_nodes[end]
@@ -500,7 +501,10 @@ fn cfg_builder_region_segments(
           previous,
           builder.continuation_targets,
         ) ||
-        cfg_region_segment_break_after_drop_operand_control(func, previous) {
+        (
+          previous_op is HotOp::Drop &&
+          cfg_region_segment_break_after_drop_operand_control(func, previous)
+        ) {
         break
       }
       end = end + 1

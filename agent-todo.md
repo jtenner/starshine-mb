@@ -27,17 +27,17 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched all-four checkpoint:** native`312bb103…`→`243a8e03…`,
-  exact lift-conflict memoization reduces CL complete work7.5544%; DAE2
-  +.0175% is adverse. Normal CLI CPU6 n5/warmup1 medians±MAD ms:
-  DAE2 3680.038±89.881 / B1326.847±23.212 (2.774×);
-  DAE2-O 6244.607±75.558 / B2548.453±43.250 (2.450×);
-  CL 3760.326±22.240 / B1970.360±55.761 (1.908×);
-  OI 2142.795±10.479 / B1013.345±30.868 (2.115×).
-  All rows flag foreign load; paired−.239/−.799/−2.314/+.344%.
-  No general RSS or1× win.13,513 tests;1,252 validations/3,680 supported
-  observations; existing typed-block failure stays open.
-  [Full spreads, scope and tradeoffs](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-memoize-exact-mixed-band-lift-conflicts).
+- **Latest matched all-four checkpoint:** native `243a8e03…`→`46840ac3…`,
+  checked CFG opcode reuse reduces complete DAE2/CL work by 0.505%/0.283%, with
+  unchanged allocation counts and output bytes. CPU 6 n5/warmup1 median±MAD:
+  dae2 3147.923±11.018 / B1095.982±4.738ms (2.872×);
+  dae2-optimizing 5418.203±20.094 / B2282.143±13.912ms (2.374×);
+  coalesce-locals 3567.124±45.325 / B1916.607±73.666ms (1.861×);
+  optimize-instructions 1868.780±16.159 / B964.379±22.685ms (1.938×).
+  All rows flag foreign load; paired movements, ranges and RSS remain in the
+  [complete checkpoint](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-the-previous-cfg-opcode).
+  No quiet-host 1× claim; 13,514 tests and 1,252 validations/3,680 supported
+  observations pass, while the existing typed-block failure remains open.
 - **Historical OI-only checkpoint:** native`b1ef48ca…`→`3f74dc4b…`, complete
   process work−.8188%,340,195 fewer requests and unchanged bytes. N5 CLI
   2030.554±7.049 / B1054.366±22.744ms (1.926×); paired+0.650% is adverse,
@@ -54,7 +54,7 @@ oracle versions and checkpoints do not sign current source.
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Latest complete DAE2 profile:** native243a8e03… pass29.247b instructions.
+- **Latest complete DAE2 profile:** native46840ac3… pass29.100b instructions.
   The preceding c98 profile attributes dependencies9.355b, analysis lift6.366b,
   rewrite lift2.372b, lower4.647b and final validation2.495b; these remain
   larger owners, with source versions explicit and inclusive costs not additive. [Full source breakdown](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
@@ -203,11 +203,15 @@ quality gates. Keep traced inner and normal command measurements separate.
   valid output and classified size/parity differences before closing P03.
   [Evidence and rejected designs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md).
 
-- [ ] Attribute the temporary per-function DAE2 diagnostics:7,954 initial HOT
-  functions,511.193ms lift/774.273ms dependencies, plus400 rewrite replay calls
-  outside these rows. Functions9184/9327 have disproportionate dependency cost;
-  bounded function profiles are running. Exclude instrumentation from release
-  timings and identify the repeated work before changing dataflow/admission.
+- [ ] Finish the active existing-list source-order reuse trial. Exact first
+  analysis of function9184 costs435.501m instructions, including297.992m in
+  access-list queries and1,344,597 recursive visits; overlapping roots repeatedly
+  walk descendants. Function9327 instead costs6.707m instructions and does not
+  corroborate its one-shot clock rank. Temporary diagnostic/empty profile parts
+  are excluded from release timing. Before/after order/dead-tail tests pass and
+  wide overlapping control improves353.98→67.74µs; require complete consumers,
+  RSS, output and execution evidence before acceptance. Materializing all output
+  lists can remain quadratic; no global complexity win is claimed.
 
 #### P03a — Remaining HOT field reads [IR2-PERF-DAE2-FIELDS]
 
@@ -701,6 +705,12 @@ quality gates. Keep traced inner and normal command measurements separate.
   fall 12.0% and allocator calls 13.4%. Every timing row observes background
   activity; instruction evidence corroborates the improvement. See the
   [OI dossier](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-1-2026-large-module-local-group-validation).
+- [ ] Finish the exact type-index size-reuse trial: existing guards still encode
+  candidate bodies after type-only changes. Signed33 control headers and unsigned32
+  indirect/ref call indices have exact width deltas. Focused missing-delta test
+  fails before implementation; cold/wide changed/unchanged controls are recorded.
+  Require full encoder-error/framing/string-pool equivalence, complete OI command
+  profiling, DAE2/O/CL consumer clocks and unchanged output before acceptance.
 - **Deliverables / tasks:** reduce the remaining type-cleanup sizing/validation
   round and exact body encoding. Preserve global validation for type-index
   remaps and complete final validation. Profile compatible candidate batching
@@ -866,13 +876,13 @@ quality gates. Keep traced inner and normal command measurements separate.
   annotation-only variant regressed and was rejected. Contended command pairs
   remain adverse; do not claim1× or repeat the rejected representation alone.
   [Evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-lower-stack-without-optional-discard-boxes).
-- [ ] Reuse the checked previous opcode in CFG segmentation to avoid entering
-  the drop classifier for non-Drop nodes. Preserve every actual-Drop proof and
-  all continuation/root-slot/handler/verification work. The field/reference
-  regression and four before/after controls pass; full checks/native build and
-  DAE2/CL consumer measurements are pending. Initial zero-test/invalid bench
-  selectors are excluded; corrected baseline runs precede implementation.
-- **Next measured shared targets:** current CL root34.220b instructions;
+- [ ] Attribute dense CL member-query work: frozen243a8e03 coloring1.570b
+  instructions includes31.721m member bit probes. The matrix is upper triangular,
+  so the existing sparse row scatter cannot be copied directly; a transpose adds
+  quadratic storage. Preserve exact coloring/weights/parameter/type decisions,
+  use the existing dense reference and measure an explicit storage model before
+  changing this path. No dense query optimization is implemented yet.
+- **Next measured shared targets:** current CL root34.123b instructions;
   prior nested lower5.956b after explicit effect/ordering demand removes unused rows.
   Full lower source factories4565→297; no duplicate implementation of that
   completed mechanism. Reduce measured carried fallback+140ns/+6.93µs without

@@ -8612,3 +8612,63 @@ no extrapolated DAE2 gain or1× signoff. The source-backed next DAE2 owners are
 complete expanded CFG construction and dependency analysis. Temporary function
 diagnostics distinguish7,954 initial analyses from400 rewrite replay calls;
 focused profiles must precede changes to those algorithms.
+
+## October 4, 2026: reuse the previous CFG opcode
+
+[CFG segmentation](../../../../../src/ir/cfg.mbt) already reads the preceding
+node's checked opcode for its terminator decision. Reusing that value avoids
+entering the drop-operand classifier for other opcodes; that classifier formerly
+returned false immediately in those cases. Every actual-Drop proof, continuation,
+operand/root-slot mapping, handler and verification remains. No cache, allocation,
+public API or transform change is introduced.
+
+Frozen native `243a8e03…`→`46840ac3…`, base main `ff782249b`:
+complete DAE2 instructions 29,247,373,063→29,099,752,367 (−.5047%),
+CL 34,219,715,549→34,122,850,540 (−.2831%). Classifier calls fall
+1,785,362→13,640 and 1,174,831→9,858 respectively; inclusive classifier
+cost 155,878,082→8,825,436 and 103,113,267→6,420,688 explains the reductions.
+Whole-profile allocator requests are unchanged. These are native-work reductions,
+not inferred wall-clock or allocation-byte improvements.
+
+Same 6,211,596 B compiler SHA 98189860…, verified Binaryen 133 SHA 8f25e9fd…,
+Ryzen 7 8845HS CPU 6, native GCC 14.2 O2/mimalloc; build excluded.
+Warmup 1 / n5 alternating rotating fresh-process commands with warm filesystem;
+median±MAD ms [min,max]:
+
+| Pass | Before | After | Binaryen 133 | After /133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3191.775±18.205 [3148.826,3946.140] | 3147.923±11.018 [3136.905,3283.204] | 1095.982±4.738 [1091.244,1271.172] | 2.872× | -1.374% |
+| dae2-optimizing | 5450.840±16.180 [5433.669,5490.057] | 5418.203±20.094 [5361.946,5581.271] | 2282.143±13.912 [2268.231,2371.063] | 2.374× | -0.740% |
+| coalesce-locals | 3573.963±92.559 [3481.404,3767.945] | 3567.124±45.325 [3475.067,3613.607] | 1916.607±73.666 [1806.103,2132.441] | 1.861× | -1.845% |
+| optimize-instructions | 1863.170±11.170 [1852.000,1904.122] | 1868.780±16.159 [1852.621,1984.437] | 964.379±22.685 [941.694,1042.950] | 1.938× | +0.301% |
+
+All normal rows flag foreign CPU activity. Preserve the paired movements and
+spreads above, including adverse rows; no quiet-host 1× or general RSS win is
+established. Local results retain peak-RSS distributions and separate traced n1
+pipeline/inner diagnostics. OI's narrow rewrite timer omits much of its cleanup.
+
+The [field regression](../../../../../src/ir/cfg_drop_gate_wbtest.mbt) checks
+five valid scalar/control/reference/handler modules in both operand modes against
+the frozen full CFG reference, including segment fields and revision ownership.
+It passes before/after; the baseline failure is redundant measured work, not a
+semantic gap. Corrected selectors ran actual tests before implementation; earlier
+zero-test/invalid bench commands are explicitly excluded. Four
+[controls](../../../../../src/ir/cfg_drop_gate_perf_wbtest.mbt), mean±SD:
+tiny plain 460.01±2.59→481.86±70.57ns (noisy adverse), wide plain
+23.81µs±451.46ns→21.63µs±670.72ns, tiny drops 1.26µs±8.40ns→
+1.26µs±69.97ns, wide drops73.97±1.09→72.67±1.86µs.
+
+Info/fmt/check, 13,514 workspace tests, native release and README/API sync pass;
+no public interface diff. The existing four-pass dispatcher regression and 77
+runtime fixtures/pass preserve exact before/after bytes. Original/before/after/
+133 comparisons produce 1,252 validations and 3,680 supported observations of
+values, ordered effects, globals, memory and traps. DAE2/O each retain the known
+typed-block failure; CL/OI have no blocked fixture. Manual source review is not
+independent-agent signoff. V83 savings and raw/canonical gaps remain unchanged.
+All four 1× targets, P00 correctness, canonical deficits, full CI/coverage and
+deferred aggregate fuzz remain open.
+
+Local `cfg-drop-gate-*` artifacts record complete commands, source/binary hashes,
+profiles, driver corrections, controls, timing rows and runtime results.
+Next DAE2 experiment reuses already completed descendant access lists within an
+immutable source-order snapshot; do not repeat the rejected new-summary caches.

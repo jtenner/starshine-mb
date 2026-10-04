@@ -1,3 +1,7 @@
+### 2026-10-04 — Reuse the checked CFG opcode
+
+- [Measured guard and complete consumers](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-the-previous-cfg-opcode): complete DAE2/CL work−.505%/−.283%, allocation counts unchanged; 13,514 tests and 1,252 validations/3,680 supported observations preserve bytes. Contended clocks, known typed-block failure and all four 1× goals remain explicit.
+
 ### 2026-10-04 — Bound shared-DAG exact lift conflicts
 
 - [Regression, lifetime proof and complete consumers](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-memoize-exact-mixed-band-lift-conflicts): complete CL instructions−7.5544%, recursive calls14.419m→684; DAE2+.0175% is adverse. CL n5 paired−2.314%, remaining1.908×, all contended.13,513 tests and1,252 validations/3,680 supported observations preserve exact output; all four1× and release gates remain open.

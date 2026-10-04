@@ -4,6 +4,7 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [CFG opcode reuse](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-the-previous-cfg-opcode) — Avoid non-Drop classifier calls; complete DAE2/CL work −0.505%/−0.283%, unchanged bytes and open 1× goals.
 - [Exact lift-conflict DAG reuse](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-memoize-exact-mixed-band-lift-conflicts) — Remove repeated mixed-band recursion; CL complete work−7.55%, DAE2+.0175%, all1× targets open.
 - [Packed structured CL liveness](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-packed-structured-liveness-rows) — Set-bit hazard iteration reduces complete CL work2.54%; tiny dense/allocation tradeoffs and the2.009× command gap remain.
 - [Lower-stack allocation reduction](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-lower-stack-without-optional-discard-boxes) — Inline records with unboxed suffix discard/peek; small complete-work gain, adverse contended clocks, unchanged bytes.
