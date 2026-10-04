@@ -4,6 +4,7 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Inline instruction-lift results](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-instruction-lift-state-and-error) — DAE2 work −0.545%, 2.925m fewer requests; all four speed targets remain open. 13,451 tests / 2,400 runtime comparisons pass; contended clocks do not prove a universal speedup.
 - [`binaryen/version-132-upgrade.md`](binaryen/version-132-upgrade.md) — Historical v132 comparison target, exact 59-commit release ledger, proposal boundaries and U01–U10 upgrade contracts.
 - [`binaryen/version-133-upgrade.md`](binaryen/version-133-upgrade.md) — New public v133 release inventory, optimizer-shape catalog, verified oracle, and Starshine red corpus; ordinary comparisons now require verified v133.
 

@@ -10665,3 +10665,37 @@ test "command scalar scratch retains nested GC tuple types" {
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
+///|
+test "large-pass dispatch preserves structured mutable-local lift state" {
+  let source =
+    #|(module
+    #| (func $helper (param i32 i32) (result i32) (local i32)
+    #|  local.get 0 i32.const 3 i32.and local.set 2
+    #|  block loop
+    #|   local.get 2 i32.eqz br_if 1
+    #|   local.get 2 i32.const 1 i32.sub local.set 2 br 0
+    #|  end end local.get 2)
+    #| (func (export "run") (param i32) (result i32)
+    #|  local.get 0 i32.const 99 call $helper))
+  let input = @wast.wast_to_binary_module(source).unwrap()
+  for
+    pass in [
+      "dae2", "dae2-optimizing", "coalesce-locals", "optimize-instructions",
+    ] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    assert_true(@validate.validate_module(output) is Ok(_))
+    assert_eq(output.export_sec, input.export_sec)
+    if pass == "dae2" || pass == "dae2-optimizing" {
+      let env = @validate.Env::new().with_module(output)
+      assert_eq(
+        env.get_functype_by_funcidx(@lib.FuncIdx::new(0U)),
+        Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+      )
+    }
+  }
+}

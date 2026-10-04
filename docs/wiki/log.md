@@ -1,3 +1,11 @@
+### 2026-10-04 — Inline instruction-lift results
+
+- [Measured scope and limits](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-instruction-lift-state-and-error): 2,925,466 fewer direct allocator requests,
+  complete DAE2 instructions −0.545%, exact four outputs and unchanged APIs.
+  13,451 tests / 2,400 runtime comparisons pass. Contended n5 command ratios
+  DAE2/OO/CL/OI 3.065/2.547/2.090/2.184×; no reliable universal clock/RSS win.
+  All 1×, canonical-quality and broader release gates remain open.
+
 ### 2026-10-02 — Separate effect-only lowering from ordering demand
 
 - [Demand proof and consumer tradeoffs](binaryen/passes/coalesce-locals/starshine-strategy.md#october-2-2026-separate-effect-only-lowering-from-ordering-demand)

@@ -2068,6 +2068,8 @@ fn hot_lift_impl_push_node(
 
 ///|
 #valtype
+// Immediate state/error handoff for both typechecking and instruction lifting.
+// Only failure needs an optional error; successful steps do not allocate a Result.
 priv struct HotLiftTypecheck {
   state : TcState
   error : HotLiftError?
@@ -2260,12 +2262,12 @@ fn hot_lift_impl_lift_region(
   for instr in instrs {
     let old_root_count = roots.length()
     let old_node_count = hot_node_count(func)
-    match
-      hot_lift_impl_lift_instruction(
-        func, instr, tc_state, label_frames, label_stack_head, roots, values, concrete_values,
-      ) {
-      Ok(next) => tc_state = next
-      Err(err) => return Err(err)
+    let lifted = hot_lift_impl_lift_instruction(
+      func, instr, tc_state, label_frames, label_stack_head, roots, values, concrete_values,
+    )
+    match lifted.error {
+      Some(err) => return Err(err)
+      None => tc_state = lifted.state
     }
     // Local operations already capture their conflicting prefix. Moving a
     // newly created scratch read ahead of those captures would read its default.
@@ -2940,7 +2942,7 @@ fn hot_lift_impl_lift_instruction(
   roots : Array[NodeId],
   values : Array[NodeId],
   concrete_values : Array[ValType],
-) -> Result[TcState, HotLiftError] {
+) -> HotLiftTypecheck {
   // Reserve an entry even when unreachable stack polymorphism prevents a node.
   let source_access = match instr {
     Instruction::LocalGet(LocalIdx(raw)) => {
@@ -2962,36 +2964,40 @@ fn hot_lift_impl_lift_instruction(
     | Instruction::If(_, _, _)
     | Instruction::Try(_, _, _, _)
     | Instruction::TryTable(_, _, _) =>
-      return hot_lift_impl_lift_control(
-        func, instr, tc_state, label_frames, label_stack_head, roots, values, concrete_values,
-      )
+      return match
+        hot_lift_impl_lift_control(
+          func, instr, tc_state, label_frames, label_stack_head, roots, values, concrete_values,
+        ) {
+        Ok(next) => HotLiftTypecheck::success(next)
+        Err(err) => HotLiftTypecheck::failure(tc_state, err)
+      }
     Instruction::Br(label_idx) => {
       let checked = hot_lift_impl_check_instruction(instr, tc_state)
       if checked.error is Some(err) {
-        return Err(err)
+        return HotLiftTypecheck::failure(tc_state, err)
       }
       let after_state = checked.state
       let target = match
         hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
         Ok(label_id) => label_id
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let payload_count = match
         hot_lift_impl_branch_arity(func, target, tc_state.env.return_type) {
         Ok(count) => count
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr, tc_state, concrete_values, payload_count,
         ) {
-        return Ok(after_state)
+        return HotLiftTypecheck::success(after_state)
       }
       let payload = match
         hot_lift_impl_pop_values_for_instr(
           instr, values, concrete_values, payload_count, "br payload",
         ) {
         Ok(payload) => payload
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let node_id = hot_build_node(
         func,
@@ -3003,23 +3009,23 @@ fn hot_lift_impl_lift_instruction(
       roots.push(node_id)
       values.clear()
       concrete_values.clear()
-      return Ok(after_state)
+      return HotLiftTypecheck::success(after_state)
     }
     Instruction::BrIf(label_idx) => {
       let checked = hot_lift_impl_check_instruction(instr, tc_state)
       if checked.error is Some(err) {
-        return Err(err)
+        return HotLiftTypecheck::failure(tc_state, err)
       }
       let after_state = checked.state
       let target = match
         hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
         Ok(label_id) => label_id
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let payload_count = match
         hot_lift_impl_branch_arity(func, target, tc_state.env.return_type) {
         Ok(count) => count
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr,
@@ -3027,14 +3033,14 @@ fn hot_lift_impl_lift_instruction(
           concrete_values,
           payload_count + 1,
         ) {
-        return Ok(after_state)
+        return HotLiftTypecheck::success(after_state)
       }
       let condition = match
         hot_lift_impl_pop_value_for_instr(
           instr, values, concrete_values, "br_if condition",
         ) {
         Ok(condition) => condition
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let children = hot_lift_impl_peek_values_with_extra(
         values, payload_count, condition,
@@ -3048,12 +3054,12 @@ fn hot_lift_impl_lift_instruction(
           children~,
         ),
       )
-      return Ok(after_state)
+      return HotLiftTypecheck::success(after_state)
     }
     Instruction::BrTable(targets, default_target) => {
       let checked = hot_lift_impl_check_instruction(instr, tc_state)
       if checked.error is Some(err) {
-        return Err(err)
+        return HotLiftTypecheck::failure(tc_state, err)
       }
       let after_state = checked.state
       let default_label = match
@@ -3061,14 +3067,14 @@ fn hot_lift_impl_lift_instruction(
           label_frames, label_stack_head, default_target,
         ) {
         Ok(label_id) => label_id
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let table_targets : Array[LabelId] = []
       for target in targets {
         match
           hot_lift_impl_resolve_label(label_frames, label_stack_head, target) {
           Ok(label_id) => table_targets.push(label_id)
-          Err(err) => return Err(err)
+          Err(err) => return HotLiftTypecheck::failure(tc_state, err)
         }
       }
       let payload_count = match
@@ -3078,7 +3084,7 @@ fn hot_lift_impl_lift_instruction(
           tc_state.env.return_type,
         ) {
         Ok(count) => count
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr,
@@ -3086,14 +3092,14 @@ fn hot_lift_impl_lift_instruction(
           concrete_values,
           payload_count + 1,
         ) {
-        return Ok(after_state)
+        return HotLiftTypecheck::success(after_state)
       }
       let selector = match
         hot_lift_impl_pop_value_for_instr(
           instr, values, concrete_values, "br_table selector",
         ) {
         Ok(selector) => selector
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let table_id = hot_alloc_branch_table(
         func,
@@ -3111,18 +3117,19 @@ fn hot_lift_impl_lift_instruction(
           children~,
         ),
       )
-      return Ok(after_state)
+      return HotLiftTypecheck::success(after_state)
     }
     Instruction::Return => {
       let checked = hot_lift_impl_check_instruction(instr, tc_state)
       if checked.error is Some(err) {
-        return Err(err)
+        return HotLiftTypecheck::failure(tc_state, err)
       }
       let after_state = checked.state
       let return_types = match tc_state.env.return_type {
         Some(types) => types
         None =>
-          return Err(
+          return HotLiftTypecheck::failure(
+            tc_state,
             HotLiftError::InvalidBodyState(
               "return requires a function return type in the lift context",
             ),
@@ -3134,7 +3141,7 @@ fn hot_lift_impl_lift_instruction(
           concrete_values,
           return_types.length(),
         ) {
-        return Ok(after_state)
+        return HotLiftTypecheck::success(after_state)
       }
       let payload = match
         hot_lift_impl_pop_values_for_instr(
@@ -3145,7 +3152,7 @@ fn hot_lift_impl_lift_instruction(
           "return payload",
         ) {
         Ok(payload) => payload
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       roots.push(
         hot_build_node(
@@ -3157,12 +3164,12 @@ fn hot_lift_impl_lift_instruction(
       )
       values.clear()
       concrete_values.clear()
-      return Ok(after_state)
+      return HotLiftTypecheck::success(after_state)
     }
     Instruction::Rethrow(@lib.LabelIdx(raw_depth)) => {
       let checked = hot_lift_impl_check_instruction(instr, tc_state)
       if checked.error is Some(err) {
-        return Err(err)
+        return HotLiftTypecheck::failure(tc_state, err)
       }
       let after_state = checked.state
       roots.push(
@@ -3175,18 +3182,19 @@ fn hot_lift_impl_lift_instruction(
       )
       values.clear()
       concrete_values.clear()
-      return Ok(after_state)
+      return HotLiftTypecheck::success(after_state)
     }
     Instruction::Throw(tag_idx) => {
       let checked = hot_lift_impl_check_instruction(instr, tc_state)
       if checked.error is Some(err) {
-        return Err(err)
+        return HotLiftTypecheck::failure(tc_state, err)
       }
       let after_state = checked.state
       let payload_types = match tc_state.env.resolve_tag_functype(tag_idx) {
         Some(@lib.FuncType(params, _)) => params
         None =>
-          return Err(
+          return HotLiftTypecheck::failure(
+            tc_state,
             HotLiftError::InvalidBodyState(
               "throw requires a resolved tag function type",
             ),
@@ -3198,7 +3206,7 @@ fn hot_lift_impl_lift_instruction(
           concrete_values,
           payload_types.length(),
         ) {
-        return Ok(after_state)
+        return HotLiftTypecheck::success(after_state)
       }
       let payload = match
         hot_lift_impl_pop_values_for_instr(
@@ -3209,7 +3217,7 @@ fn hot_lift_impl_lift_instruction(
           "throw payload",
         ) {
         Ok(payload) => payload
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let @lib.TagIdx(raw) = tag_idx
       roots.push(
@@ -3223,49 +3231,49 @@ fn hot_lift_impl_lift_instruction(
       )
       values.clear()
       concrete_values.clear()
-      return Ok(after_state)
+      return HotLiftTypecheck::success(after_state)
     }
     Instruction::ThrowRef => {
       let checked = hot_lift_impl_check_instruction(instr, tc_state)
       if checked.error is Some(err) {
-        return Err(err)
+        return HotLiftTypecheck::failure(tc_state, err)
       }
       let after_state = checked.state
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr, tc_state, concrete_values, 1,
         ) {
-        return Ok(after_state)
+        return HotLiftTypecheck::success(after_state)
       }
       let exnref = match
         hot_lift_impl_pop_value_for_instr(
           instr, values, concrete_values, "throw_ref payload",
         ) {
         Ok(exnref) => exnref
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       roots.push(
         hot_build_node1(func, HotOp::ThrowRef, hot_type_void(func), exnref),
       )
       values.clear()
       concrete_values.clear()
-      return Ok(after_state)
+      return HotLiftTypecheck::success(after_state)
     }
     Instruction::BrOnNull(label_idx) => {
       let before_types = tc_state.stack
       let checked = hot_lift_impl_check_instruction(instr, tc_state)
       if checked.error is Some(err) {
-        return Err(err)
+        return HotLiftTypecheck::failure(tc_state, err)
       }
       let after_state = checked.state
       let target = match
         hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
         Ok(label_id) => label_id
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let payload_count = match
         hot_lift_impl_branch_arity(func, target, tc_state.env.return_type) {
         Ok(count) => count
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr,
@@ -3273,14 +3281,14 @@ fn hot_lift_impl_lift_instruction(
           concrete_values,
           payload_count + 1,
         ) {
-        return Ok(after_state)
+        return HotLiftTypecheck::success(after_state)
       }
       let guard_id = match
         hot_lift_impl_pop_value_for_instr(
           instr, values, concrete_values, "br_on_null guard",
         ) {
         Ok(guard_id) => guard_id
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let children = hot_lift_impl_peek_values_with_extra(
         values, payload_count, guard_id,
@@ -3300,24 +3308,24 @@ fn hot_lift_impl_lift_instruction(
       hot_lift_impl_push_node(
         roots, values, concrete_values, node_id, pushed_types,
       )
-      return Ok(after_state)
+      return HotLiftTypecheck::success(after_state)
     }
     Instruction::BrOnNonNull(label_idx) => {
       let before_types = tc_state.stack
       let checked = hot_lift_impl_check_instruction(instr, tc_state)
       if checked.error is Some(err) {
-        return Err(err)
+        return HotLiftTypecheck::failure(tc_state, err)
       }
       let after_state = checked.state
       let target = match
         hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
         Ok(label_id) => label_id
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let payload_count = match
         hot_lift_impl_branch_arity(func, target, tc_state.env.return_type) {
         Ok(count) => if count <= 0 { 0 } else { count - 1 }
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr,
@@ -3325,14 +3333,14 @@ fn hot_lift_impl_lift_instruction(
           concrete_values,
           payload_count + 1,
         ) {
-        return Ok(after_state)
+        return HotLiftTypecheck::success(after_state)
       }
       let guard_id = match
         hot_lift_impl_pop_value_for_instr(
           instr, values, concrete_values, "br_on_non_null guard",
         ) {
         Ok(guard_id) => guard_id
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let children = hot_lift_impl_peek_values_with_extra(
         values, payload_count, guard_id,
@@ -3358,25 +3366,25 @@ fn hot_lift_impl_lift_instruction(
       hot_lift_impl_push_node(
         roots, values, concrete_values, node_id, pushed_types,
       )
-      return Ok(after_state)
+      return HotLiftTypecheck::success(after_state)
     }
     Instruction::BrOnCastDescEq(label_idx, _, _)
     | Instruction::BrOnCastDescEqFail(label_idx, _, _) => {
       let before_types = hot_lift_impl_copy_val_types(tc_state.stack)
       let checked = hot_lift_impl_check_instruction(instr, tc_state)
       if checked.error is Some(err) {
-        return Err(err)
+        return HotLiftTypecheck::failure(tc_state, err)
       }
       let after_state = checked.state
       let target = match
         hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
         Ok(label_id) => label_id
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let payload_count = match
         hot_lift_impl_branch_arity(func, target, tc_state.env.return_type) {
         Ok(count) => count - 1
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr,
@@ -3384,21 +3392,21 @@ fn hot_lift_impl_lift_instruction(
           concrete_values,
           payload_count + 2,
         ) {
-        return Ok(after_state)
+        return HotLiftTypecheck::success(after_state)
       }
       let descriptor_id = match
         hot_lift_impl_pop_value_for_instr(
           instr, values, concrete_values, "br_on_cast_desc_eq descriptor",
         ) {
         Ok(id) => id
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let source_id = match
         hot_lift_impl_pop_value_for_instr(
           instr, values, concrete_values, "br_on_cast_desc_eq source",
         ) {
         Ok(id) => id
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let children = hot_lift_impl_peek_values_with_extra(
         values, payload_count, source_id,
@@ -3428,25 +3436,25 @@ fn hot_lift_impl_lift_instruction(
       hot_lift_impl_push_node(
         roots, values, concrete_values, node_id, pushed_types,
       )
-      return Ok(after_state)
+      return HotLiftTypecheck::success(after_state)
     }
     Instruction::BrOnCast(label_idx, _, _, _)
     | Instruction::BrOnCastFail(label_idx, _, _, _) => {
       let before_types = tc_state.stack
       let checked = hot_lift_impl_check_instruction(instr, tc_state)
       if checked.error is Some(err) {
-        return Err(err)
+        return HotLiftTypecheck::failure(tc_state, err)
       }
       let after_state = checked.state
       let target = match
         hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
         Ok(label_id) => label_id
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let payload_count = match
         hot_lift_impl_branch_arity(func, target, tc_state.env.return_type) {
         Ok(count) => count - 1
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr,
@@ -3454,14 +3462,14 @@ fn hot_lift_impl_lift_instruction(
           concrete_values,
           payload_count + 1,
         ) {
-        return Ok(after_state)
+        return HotLiftTypecheck::success(after_state)
       }
       let guard_id = match
         hot_lift_impl_pop_value_for_instr(
           instr, values, concrete_values, "br_on_cast guard",
         ) {
         Ok(guard_id) => guard_id
-        Err(err) => return Err(err)
+        Err(err) => return HotLiftTypecheck::failure(tc_state, err)
       }
       let children = hot_lift_impl_peek_values_with_extra(
         values, payload_count, guard_id,
@@ -3490,7 +3498,7 @@ fn hot_lift_impl_lift_instruction(
       hot_lift_impl_push_node(
         roots, values, concrete_values, node_id, pushed_types,
       )
-      return Ok(after_state)
+      return HotLiftTypecheck::success(after_state)
     }
     _ => ()
   }
@@ -3502,7 +3510,7 @@ fn hot_lift_impl_lift_instruction(
     scalar_results=Some(hot_lift_impl_scalar_result_scratch(label_frames)),
   )
   match checked.error {
-    Some(err) => return Err(err)
+    Some(err) => return HotLiftTypecheck::failure(tc_state, err)
     None => ()
   }
   let after_state = checked.state
@@ -3511,7 +3519,7 @@ fn hot_lift_impl_lift_instruction(
   if !hot_lift_impl_can_materialize_unreachable_instr(
       instr, tc_state, concrete_values, child_count,
     ) {
-    return Ok(after_state)
+    return HotLiftTypecheck::success(after_state)
   }
   match instr {
     Instruction::LocalSet(LocalIdx(raw))
@@ -3575,7 +3583,7 @@ fn hot_lift_impl_lift_instruction(
               instr, values, concrete_values, child_count, "generic operands",
             ) {
             Ok(children) => children
-            Err(err) => return Err(err)
+            Err(err) => return HotLiftTypecheck::failure(tc_state, err)
           }
           hot_lift_impl_build_direct_node(
             func, op, instr, pushed_types, children,
@@ -3596,7 +3604,7 @@ fn hot_lift_impl_lift_instruction(
       hot_lift_impl_push_node(
         roots, values, concrete_values, node_id, pushed_types,
       )
-      Ok(after_state)
+      HotLiftTypecheck::success(after_state)
     }
     None =>
       match hot_lift_impl_exact_family(instr) {
@@ -3635,7 +3643,7 @@ fn hot_lift_impl_lift_instruction(
                   instr, values, concrete_values, child_count, "generic operands",
                 ) {
                 Ok(children) => children
-                Err(err) => return Err(err)
+                Err(err) => return HotLiftTypecheck::failure(tc_state, err)
               }
               hot_lift_impl_build_exact_node(
                 func, op, instr, pushed_types, children,
@@ -3652,7 +3660,7 @@ fn hot_lift_impl_lift_instruction(
                       label_frames, label_stack_head, label,
                     ) {
                     Ok(target) => targets.push(target)
-                    Err(err) => return Err(err)
+                    Err(err) => return HotLiftTypecheck::failure(tc_state, err)
                   }
                 @lib.ResumeOnSwitch(_) => ()
               }
@@ -3662,9 +3670,13 @@ fn hot_lift_impl_lift_instruction(
           hot_lift_impl_push_node(
             roots, values, concrete_values, node_id, pushed_types,
           )
-          Ok(after_state)
+          HotLiftTypecheck::success(after_state)
         }
-        None => Err(HotLiftError::UnsupportedInstruction(instr.to_string()))
+        None =>
+          HotLiftTypecheck::failure(
+            tc_state,
+            HotLiftError::UnsupportedInstruction(instr.to_string()),
+          )
       }
   }
 }

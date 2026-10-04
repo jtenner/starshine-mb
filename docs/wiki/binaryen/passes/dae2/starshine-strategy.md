@@ -7536,3 +7536,80 @@ owner depths, reachable reads after owner branches, handlers, traps and fixed-po
 termination (including bitwise NaN/signed-zero comparison). Do not simply drop
 fallthrough checks or sum recursive inclusive edges. The larger DAE2 dependency,
 lift/lower, canonical-size and correctness blockers remain active.
+
+
+## October 4, 2026: inline instruction-lift state and error
+
+Baseline main `b34c4d0a4`, native `ec2a0ed4…` → `5132736f…`; verified
+Binaryen133 `8f25e9fd…`, fixed 6,211,596B / 12,904-function compiler input
+`98189860…`. The private instruction worker in
+[`hot_lift.mbt`](../../../../../src/ir/hot_lift.mbt) now returns the existing
+inline state/error record. Its region caller consumes the same state or first
+error immediately. Control lifting retains its Result adapter; typechecking,
+source-access reservation, mutation ordering, validation and public APIs stay
+intact. This removes success wrappers without retaining module-wide analyses.
+
+Resource RED: 7,456,597 direct allocator requests in the instruction worker
+exceeded the preselected 5,000,000 bound. Candidate 4,531,131 passes: **2,925,466
+fewer requests**, with all 3,167,623 worker calls retained. Both complete DAE2
+captures exited normally and preserved exact validated output. Scoped work
+30,804,342,359 → 30,636,451,403 instructions (−0.545%). Disjoint analysis/rewrite
+lift children 6,486,960,691 / 2,419,958,675 → 6,366,168,682 / 2,372,428,903;
+dependency work remains about 9.417b, lower 4.647b, mandatory validation 3.032b.
+These are instruction counts, not elapsed time or allocated bytes; nested scopes
+are not additive. Parsing, final CLI validation and encoding are outside this
+DAE2 profile.
+
+Fresh-process CLI, warm filesystem, CPU6, one warmup / five rotating
+before-after-oracle samples; build and instrumentation excluded. All values below
+are **milliseconds**, median±MAD. OO's oracle is `--dae2 --simplify-locals
+--vacuum --all-features`, not DAE/O. No transformations or features are omitted.
+
+| Pass | Before | After | Binaryen133 | S/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3854.884±74.764 | 3839.607±51.388 | 1252.725±2.362 | 3.065× | +0.440% |
+| dae2-optimizing | 6785.956±125.994 | 6688.206±89.721 | 2626.305±35.897 | 2.547× | +1.580% |
+| coalesce-locals | 4348.877±204.266 | 4238.988±43.593 | 2027.743±58.606 | 2.090× | -5.872% |
+| optimize-instructions | 2338.271±86.010 | 2503.762±157.348 | 1146.393±91.841 | 2.184× | +0.358% |
+
+All normal rows flag foreign CPU activity. Paired DAE2/OO/OI results disagree
+with changes in cohort medians; CL's reduction is not established as causal.
+No reliable universal wall-time or RSS win is claimed. Candidate DAE2 RSS
+267020±716KiB versus 266064±560 before; ranges overlap. Raw output hashes for
+all four remain exact, retaining prior canonical quality and its unresolved gaps.
+Independent n1 traced inner timers are diagnostics only, not matched Binaryen
+pass-local evidence. The 1× target remains open for every pass.
+
+Three new behavior controls passed before the representation change (not a
+semantic RED). [`hot_lift_step_wbtest.mbt`](../../../../../src/ir/hot_lift_step_wbtest.mbt)
+covers ordered local provenance including unreachable missing writes, first
+concrete errors, references, tuples, branches and tail calls. Dispatcher coverage
+in [`cmd.mbt`](../../../../../src/cmd/cmd.mbt) exercises all four consumers and
+actual dead-argument removal. Six whole-lift wasm-gc release controls isolate
+scalar/structured widths 1/64/1024; mean before→after µs: scalar 1.79→1.81,
+37.76→36.94,580.37→593.96; structured 2.75→2.91,98.08→94.55,1860→1960.
+These nonalternating controls have overlapping spreads and retain their costs;
+they do not prove a wasm-gc speedup.
+
+`moon info`, `moon fmt`, `moon check`, 13,451 wasm-gc tests, native release build
+and README/API sync pass. Four fixed runtime lanes validate 820 artifacts and
+compare 2,400 observations against original execution (values, ordered host
+calls, state/memory and trap outcome); before/after bytes match. For five inputs
+per lane, the Binaryen oracle is rewritten through its no-pass text writer and
+wasm-tools parser to execute compact import encoding in Node. This is an
+encoding adaptation, not an additional optimization. No independent review was
+available; manual source/diff review completed. Full CI, coverage, long aggregate
+fuzz and final release signoff remain outstanding; fuzz stays deferred as requested.
+
+Next prioritize repeated DAE2-O cleanup traversal and remaining dependency/lift/
+lower work. Transient local-access option tuples and remaining typed-pop adapters
+are smaller allocation leads. OI's prior complete command profile attributes
+5.352b instructions to module encoding cleanup, including 2.529b mandatory
+validation and .873b exact encoding-size comparison inside DFE type cleanup;
+do not mistake its narrow inner timer for the whole command or remove checks.
+
+Local reproducible commands, environment and dirty-state/source/binary/input
+hashes, raw normal/traced samples and spreads, profiles and runtime observations:
+`.tmp/large-pass-hotspots-20261001/main-dae2-core-performance-20261004.md` and
+`dae2-core-*` artifacts. This checkpoint supersedes earlier timing rows only for
+this frozen source and host cohort; historical evidence retains its own scope.

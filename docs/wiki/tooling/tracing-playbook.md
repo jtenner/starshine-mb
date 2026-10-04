@@ -5040,3 +5040,16 @@ wasm-gc controls and1296 original-primary execution observations pass. No public
 API/output change, peak-memory claim, fresh canonical measurement or1×/release
 signoff. Next source-backed investigation: exact SL cleanup's reachable-read
 counting and repeated branch-aware fallthrough, alongside DAE2 dependencies.
+
+
+## October 4, 2026: instruction-lift result checkpoint
+
+[Complete measurements and invariants](../binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-instruction-lift-state-and-error) renew all four large normal
+commands against verified133. Complete DAE2 instructions fall0.545% and direct
+instruction-worker allocation requests fall2,925,466 while calls and output stay
+exact. All n5 rows flag foreign CPU; cohort and paired results disagree, so no
+universal clock/RSS win is established. Preserve wasm-gc control costs, known
+correctness/quality blockers and all four 1× targets. Next prioritize DAE2-O
+repeated cleanup traversal plus dependency/lift/lower; keep OI module cleanup and
+mandatory validation in the full-command scope.13,451 tests and2400 bounded
+runtime comparisons pass; long fuzz/full CI/coverage remain pending.

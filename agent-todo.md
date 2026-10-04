@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed October 3, 2026. Follow
+Active unreleased work only, reviewed October 4, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -15,7 +15,8 @@ oracle versions and checkpoints do not sign current source.
   repository, as requested October 2. The performance branch and latest remote
   correctness fixes are integrated; preserve historical branch measurements
   under their frozen source versions. Do not create another performance worktree.
-- **Execution priority:** finish P03 DAE2/DAE2-O first, especially remaining HOT
+- **Execution priority:** reach ≤1× for DAE2, DAE2-O, CoalesceLocals and
+  OptimizeInstructions; finish P03 DAE2/DAE2-O first, especially remaining HOT
   field reads, temporary-buffer churn, reaching-definition/source-order work and
   optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
   P08 DAE/DAEO and the other performance owners remain in scope afterward.
@@ -26,30 +27,28 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** lazy type-remap output storage,
-  native6c31b0ca…→11e04de3… (freeze435239e72 plus independent zero-child unit,
-  nowb226d67d7). Complete OI command work−.637721%,599,151 fewer requests;
-  all2,516,565 visits/checks and four hashes retained.
+- **Latest matched large checkpoint:** inline instruction-lift state/error,
+  mainb34c4d0a4 nativeec2a0ed4…→5132736f…. Complete DAE2 instructions−0.545%,
+  2,925,466 fewer direct instruction-worker allocator requests; calls/output exact.
   CPU6 n5/warmup1 normal CLI medians±MAD (milliseconds):
-  dae2 3763.014±82.591/B1201.945±12.323;
-  dae2-optimizing 6411.027±90.492/B2431.329±10.142;
-  coalesce-locals 3983.176±6.401/B1907.883±27.411;
-  optimize-instructions 2295.909±49.997/B990.318±19.392.
-  Paired changes+.862/+.030/−4.145/−.294%; CL's observation is not attributed
-  to this OI/DFE helper. Trace/median disagreements, foreign load and RSS
-  overlap remain.13,439 tests/2400 observations pass; no universal win or1×.
-  [Scopes, spreads and limits](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-3-2026-allocate-type-remap-output-only-after-a-rewrite).
+  dae2 3839.607±51.388/B1252.725±2.362 (3.065×);
+  dae2-optimizing 6688.206±89.721/B2626.305±35.897 (2.547×);
+  coalesce-locals 4238.988±43.593/B2027.743±58.606 (2.090×);
+  optimize-instructions 2503.762±157.348/B1146.393±91.841 (2.184×).
+  All rows flag foreign load; paired/cross-cohort disagreement and RSS overlap
+  prevent a universal clock/memory claim.13,451 tests/2400 comparisons pass.
+  [Scopes, controls and limits](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-instruction-lift-state-and-error).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Latest complete DAE2 profile:** native6c31b0ca… pass30.806b
-  instructions/78,986,098 direct allocation requests. Dependency construction,
-  lift, lower and final validation remain the dominant owners; preceding62e79
-  nested attribution retains its source/date in the dossier. Do not combine
-  earlier nested figures with this root total or sum inclusive scopes as time.
-  Prioritize remaining result/array churn and repeated dependency work before
-  speculative whole-arena retention.
+- **Latest complete DAE2 profile:** native5132736f… pass30.636b instructions.
+  Dependency9.417b, analysis/rewrite lift6.366b/2.372b, lower4.647b and mandatory
+  validation3.032b remain dominant disjoint owners. Nested attribution is not
+  additive. Prioritize repeated optimizing-cleanup queries and dependency work;
+  transient provenance tuples and remaining typed-pop adapters are smaller leads.
+  OI encoding cleanup is a separate5.352b historical command owner; preserve its
+  exact size guards and validation. Do not duplicate completed result workers.
 - **Preserved quality and completed work:** V83 saves 79,962 canonical bytes
   across 4,968 shrinking functions. DAE2-O remains **99,251 canonical bytes
   larger** than v133 despite **9,949 fewer raw bytes**; CL/SL/OI canonical
