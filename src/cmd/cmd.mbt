@@ -10827,3 +10827,37 @@ test "dae2 optimizing retains nested read dependencies while removing dead argum
   )
   assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
+
+///|
+test "dae2 variants preserve recursive type prefixes while removing dead arguments" {
+  let input = @wast.wast_to_binary_module(
+    (
+      #|(module
+      #| (type $base (sub (struct)))
+      #| (rec
+      #|  (type $node (struct (field (ref null $node))))
+      #|  (type $box (struct (field (ref null $node)))))
+      #| (type $derived (sub $base (struct (field i32))))
+      #| (func $callee (param i32 i64) (result i32)
+      #|  local.get 0 struct.new $derived struct.get $derived 0)
+      #| (func (export "run") (param i32) (result i32)
+      #|  local.get 0 i64.const 99 call $callee))
+    ),
+  ).unwrap()
+  @validate.validate_module(input).unwrap()
+  let saved = @binary.encode_module(input).unwrap()
+  for pass in ["dae2", "dae2-optimizing"] {
+    let output = optimize_module_with_pass_flags(
+      input,
+      [pass],
+      OptimizeOptions::new(),
+    ).unwrap()
+    @validate.validate_module(output).unwrap()
+    let env = @validate.Env::new().with_module(output)
+    assert_eq(
+      env.get_functype_by_funcidx(@lib.FuncIdx::new(0U)),
+      Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+    )
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
+}

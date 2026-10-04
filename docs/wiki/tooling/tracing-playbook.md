@@ -5100,3 +5100,15 @@ causal clock win. Keep build/profile manifests separate and regenerate cohort
 metadata rather than copying stale commit/hash labels. The nop-run provenance
 correction retains its original note and points to authoritative source/per-pass
 hashes. All speed, canonical and known multivalue-correctness gates stay open.
+
+
+## October 4, 2026: incremental prefix storage and matched timer scopes
+
+[Fresh complete DAE2/OI profiles and the four-pass matrix](../binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix)
+retain exact frozen-binary/source hashes. Type validation538m→4.85m instructions
+is nested within complete DAE2 work−1.736%; retain the1.18m adverse movement
+outside that owner. Native allocator requests are exact `mi_malloc` edges,
+excluding `_mi_malloc_generic`; substring sums double-count those paths.
+Normal n5 CLI and traced n3 pass rows stay separate. Binaryen OO work is summed
+per sample, then summarized; OI narrow Starshine timers exclude most cleanup.
+Independent full-command comparisons remain the primary1× gate.

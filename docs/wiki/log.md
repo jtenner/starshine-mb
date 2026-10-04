@@ -1,3 +1,11 @@
+### 2026-10-04 — Own incremental type-validation prefixes
+
+- [Measured storage change](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix)
+  retains every group check and exact output; complete DAE2 work-1.736%,
+  OI command-0.114%.13,471 tests/976 validations/2,864 available
+  observations pass their supported rows; existing DAE2 multivalue failures,
+  all four1× goals, canonical gaps and release gates remain open.
+
 ### 2026-10-04 — Reuse original subtree-read facts
 
 - [Ownership proof and measured matrix](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-original-subtree-reads-during-adjacent-pair-cleanup)

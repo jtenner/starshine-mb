@@ -4,6 +4,7 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Owned type-validation prefixes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix) — Remove repeated growing-prefix copies with unchanged checks/bytes; full DAE2 work-1.736%, OI-0.114%. Fresh n5 CLI/n3 inner scopes and open speed/correctness gates remain explicit.
 - [Original subtree-read reuse](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-original-subtree-reads-during-adjacent-pair-cleanup) — Complete DAE2-O cleanup work−3.827%, exact bytes;13,466 tests. Small allocation/flat costs, contended clocks and all four1× targets remain open.
 - [Linear nop-hoist runs](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-consume-homogeneous-nop-hoist-runs-once) — Wide constant control814.95→4.40µs, exact bytes and13461 tests; direct worker savings separated from unrelated map-probe variation. Full-command clock/RSS and all four1× targets remain open.
 - [Discarded speculative diagnostics](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-omit-discarded-speculative-diagnostics) — Same suffix checks,4.1607% less complete cleanup work; OO6270.785→6199.276ms/B2506.915ms (n5). Four speed targets and a newly reproduced baseline multivalue rewrite failure remain open.

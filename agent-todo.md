@@ -27,30 +27,27 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** original subtree-read reuse,
-  main `33db55ad6` / native `d9bdc7b0…` → `e9f225ec…`. Complete DAE2-O cleanup
-  work −3.827%; adjacent-pair worker −55.493%, exact outputs. Native allocation
-  requests +1,453; no peak-memory win. CPU6 n5/warmup1 CLI medians±MAD (ms):
-  dae2 3749.040±22.214 / B1252.634±5.767 (2.993×);
-  dae2-optimizing 6284.585±116.036 / B2471.363±38.660 (2.543×);
-  coalesce-locals 4115.988±38.103 / B2038.311±12.525 (2.019×);
-  optimize-instructions 2239.130±20.814 / B993.775±6.846 (2.253×);
-  All rows flag foreign CPU; OO paired −.338% and overlapping ranges do not
-  establish an enclosing clock win. 13,466 tests, 960 validations/2,816 available
-  observations retain the two P00 blocked multivalue rows. All four commands
-  exceed2s and all1× targets remain open; OI's narrow timer omits most cleanup.
-  [Evidence and scope](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-original-subtree-reads-during-adjacent-pair-cleanup).
+- **Latest matched large checkpoint:** owned type-validation prefixes,
+  main `3fd003483` / native `e9f225ec…` → `6b65daad…`.
+  Complete DAE2 work-1.736%, OI command work-0.114%; all
+  validation work retained and raw output hashes exact. CPU6 n5/warmup1
+  normal CLI medians±MAD (ms):
+  dae2 3593.812±30.367 / B1189.526±9.250 (3.021×);
+  dae2-optimizing 5932.306±106.577 / B2433.266±25.990 (2.438×);
+  coalesce-locals 3976.437±4.162 / B1916.517±38.645 (2.075×);
+  optimize-instructions 2135.276±12.732 / B953.532±1.581 (2.239×);
+  Keep foreign-load flags, paired changes and ranges explicit.13,471 tests,
+  976 validations/2,864 available observations retain the two P00 blocked
+  multivalue rows. All four1× goals remain open; OI's narrow timer excludes
+  most cleanup. [Evidence, scope and limits](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Latest complete DAE2 profile:** native5132736f… pass30.636b instructions.
-  Dependency9.417b, analysis/rewrite lift6.366b/2.372b, lower4.647b and mandatory
-  validation3.032b remain dominant disjoint owners. Nested attribution is not
-  additive. Prioritize repeated optimizing-cleanup queries and dependency work;
-  transient provenance tuples and remaining typed-pop adapters are smaller leads.
-  OI encoding cleanup is a separate5.352b historical command owner; preserve its
-  exact size guards and validation. Do not duplicate completed result workers.
+- **Latest complete DAE2 profile:** native6b65daad… pass30.099b
+  instructions. Dependencies9.418b, analysis lift6.366b, rewrite lift2.372b,
+  lower4.647b and final validation2.495b remain larger owners; nested costs
+  are inclusive and not additive. [Full source breakdown](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
 - **Preserved quality and completed work:** V83 saves 79,962 canonical bytes
   across 4,968 shrinking functions. DAE2-O remains **99,251 canonical bytes
   larger** than v133 despite **9,949 fewer raw bytes**; CL/SL/OI canonical
@@ -61,6 +58,11 @@ oracle versions and checkpoints do not sign current source.
   [DAE2 dossier](docs/wiki/binaryen/passes/dae2/starshine-strategy.md),
   [CL dossier](docs/wiki/binaryen/passes/coalesce-locals/starshine-strategy.md)
   and [tracing history](docs/wiki/tooling/tracing-playbook.md).
+- [ ] Attribute the type-prefix checkpoint's adverse DAE2 peak RSS median
+  (+9,928KiB, overlapping ranges) and CL paired command movement (+.966%).
+  Preserve the original n5 cohort; use a bounded follow-up and phase evidence
+  before claiming memory or CL clock gains. No new allocation-byte cause is
+  established by allocator-call counts.
 - **Remaining tradeoffs:** P03b/c/g retain tiny, empty, tee, reused-capture,
   small-compiler and large plain/optimizing control costs from V32–V83;
   retain original spread, contradictory repeats and RSS modes when renewing.
@@ -210,6 +212,11 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03b — Query scratch and object churn [IR2-PERF-DAE2-SCRATCH]
 
+- [ ] Finish the separate live-control child-storage trial: descendants must
+  still rewrite before live Block/Loop/If nodes reuse unchanged child IDs.
+  Baseline characterization and depth1/8/32 controls are saved; retain in-place
+  call changes, dead-control demotion, actual dispatcher pruning and GC/effect/
+  trap execution. Accept only after scoped native and matched DAE2/O evidence.
 - [ ] Attribute remaining source/reader/access rows, wider-row comparator closure
   construction after V65 bypasses empty/singleton sorts, array growth and reference-count/destruction work. Trial reuse
   where enclosing gains justify lifetime costs. Five loop-scoped raw visitors are
@@ -897,15 +904,11 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 ### P13 — Remaining decode, validation and command encoding [IR2-PERF-COMMAND]
 
-- [ ] Eliminate repeated type-prefix copying in incremental `validate_typesec`.
-  Source `env_add_rec_group` and `append_rectype_types_with_scope` each copy the
-  growing global-type and scope arrays per group. Frozen DAE2 type validation
-  costs about537.8m instructions; wasm-gc controls128→1024 groups cost75.21µs→
-  5.31ms (70.60× for8× size). Trial private invocation-owned prefix buffers with
-  original/current recursive scopes, normalization, first-error order and every
-  validation check intact. Add input ownership/failure atomicity and forward/
-  in-group reference regressions; measure all four native consumers and memory.
-  Baseline tests/controls are prepared separately; production is unchanged.
+- **Completed incremental prefix ownership:** `validate_typesec` now copies
+  the caller's rows once and keeps all group checks and original scopes.
+  Resource scaling70.60×→8.91× for8× groups; complete DAE2 work-1.736%.
+  Preserve ownership/failure/forward-reference regressions. No additional
+  validation skipping is justified. [Measured scope](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
 - **October 2 encoder checkpoint:** bulk leaf/SIMD success no longer boxes a
   Result; public boundaries and cold errors remain. Direct worker instructions
   fall 11.78%; roughly seven million worker success boxes disappear on the

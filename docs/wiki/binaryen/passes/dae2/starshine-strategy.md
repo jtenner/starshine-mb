@@ -7941,3 +7941,115 @@ cohort without deleting the original note. This run has a fresh self-contained
 manifest. New type-section tests are separate unstaged work: two prefix copies
 per group cause a measured 70.60× time increase for 8× groups; an owned private
 validation buffer is the next experiment, with full incremental scope retained.
+
+## October 4, 2026: own the incremental type-validation prefix
+
+Main `3fd003483`, frozen native `e9f225ec…` → `6b65daad…`.
+`validate_typesec` previously copied growing global-type and recursive-scope
+prefixes twice per group. It now copies the caller's rows once, appends the
+current raw group, runs every existing group check, then normalizes only its
+new global slots. Original scopes remain intact; later groups stay invisible.
+Only the final environment escapes. Failure preserves the caller and the
+original first error. Other immutable Env APIs retain their contracts.
+
+The [validator contract](../../../validate/type-section-and-subtyping.md) and
+[prefix regressions](../../../../../src/validate/type_section_storage_wbtest.mbt)
+cover ownership, failure atomicity, forward/in-group references, recursive
+supertypes, descriptor pairs and continuation references. Four characterization
+tests passed before implementation. Dedicated wasm-gc release means:
+
+| Groups × width | Before µs | After µs |
+| --- | ---: | ---: |
+| 1 × 1 | .15380 | .09973 |
+| 128 × 1 | 75.21 | 9.05 |
+| 1024 × 1 | 5310 | 80.67 |
+| 256 × 4 | 833.32 | 53.37 |
+
+The preselected ≤16× time bound for8× groups fails before (70.60×) and passes
+after (8.91×): resource RED/GREEN, not a semantic bug claim. Recursive matching
+keeps its own costs; this does not prove all type validation linear.
+
+Fresh complete DAE2 work is **30,630,968,553 → 30,099,120,246
+instructions (-1.736%)**. Its two type-section validations fall
+537,879,714 → 4,848,734
+(-99.099%); all2,137 group validations/normalizations
+remain. Direct native malloc requests change 76,060,632 →
+76,024,366. Work outside the type-section edges increases
+1,182,673 instructions, so helper savings are not
+presented as identical to the enclosing delta. No allocation-byte claim.
+
+The remaining complete DAE2 source-backed costs are distinct root-call edges
+in `dae2_run_module_pass` ([implementation](../../../../../src/passes/dead_argument_elimination2.mbt)):
+
+| Root-call owner | Instructions, billions |
+| --- | ---: |
+| `dae2_analyze_function` dependencies | 9.418 |
+| Initial `dae2_lift_for_analysis` | 6.366 |
+| Rewrite `dae2_lift_for_analysis` | 2.372 |
+| `hot_lower_func_unverified` | 4.647 |
+| Final `validate_module` | 2.495 |
+| `dae2_rewrite_node` | .843 |
+| Graph solve | .107 |
+
+These do not exhaust the complete owner; nested CFG/read-source costs belong
+inside dependencies. Temporary profiling is excluded from the release clocks.
+
+Complete OI command work changes **19,599,369,595 →
+19,577,086,974 (-0.114%)**. Its five type validations are
+25,060,552 → 2,556,858;
+requests 70,166,419 → 70,152,948.
+These are inclusive edges within complete owners; nested totals are not added.
+
+Normal fresh-process CLI, warm filesystem, CPU6, warmup1/n5 rotating
+before/after/verified Binaryen133, same6,211,596B input and native GCC O2/mimalloc;
+builds, profiling and tracing excluded (all times milliseconds):
+
+| Pass | Before ms ± MAD | After ms ± MAD | Binaryen 133 ms ± MAD | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3610.592 ± 56.466 | 3593.812 ± 30.367 | 1189.526 ± 9.250 | 3.021× | -0.675% |
+| dae2-optimizing | 6039.491 ± 30.149 | 5932.306 ± 106.577 | 2433.266 ± 25.990 | 2.438× | -1.228% |
+| coalesce-locals | 3933.106 ± 6.831 | 3976.437 ± 4.162 | 1916.517 ± 38.645 | 2.075× | +0.966% |
+| optimize-instructions | 2164.822 ± 9.844 | 2135.276 ± 12.732 | 953.532 ± 1.581 | 2.239× | -1.365% |
+
+Foreign-load flags occur on56/60 timed normal rows. Preserve paired
+changes, spread and the saved ranges/RSS; these short cohorts are not a universal
+clock or peak-memory claim. CL's +.966% paired command movement remains an
+adverse observation requiring follow-up. DAE2 peak RSS median rises252,936 →
+262,864KiB (+9,928KiB); ranges252,588–254,720 →252,280–264,644 overlap but
+most candidate samples are higher. The cause is unproved; fewer allocation
+requests do not establish lower live memory. OO/CL/OI RSS ranges overlap.
+The binary shrinks192B to14,625,944B. Current matched n3 traced diagnostics,
+separate from the normal commands:
+
+| Pass | Starshine inner ms ± MAD | Starshine pipeline ms ± MAD | Binaryen measured work ms ± MAD |
+| --- | ---: | ---: | ---: |
+| dae2 | 2850.907 ± 2.797 | 2871.283 ± 1.485 | 456.208 ± 0.840 |
+| dae2-optimizing | 5154.722 ± 2.889 | 5172.959 ± 2.861 | 1745.761 ± 22.469 |
+| coalesce-locals | 2944.246 ± 3.821 | 2962.737 ± 3.911 | 1213.050 ± 8.890 |
+| optimize-instructions | 84.359 ± 4.129 | 1605.259 ± 47.679 | 249.278 ± 3.167 |
+
+Binaryen debug1 serializes function passes and validates outside its timers;
+OO totals are summed per sample before the median. Starshine OI's narrow inner
+timer omits most raw cleanup; use its pipeline and normal command for that work.
+All four1× targets remain open.
+
+Info/fmt/check, **13,471 default tests**, four controls, native release and
+README/API sync pass; no public API change. A new dispatcher fixture exercises
+recursive GC types and actual dead-argument removal in both DAE2 modes. The
+60-fixture/four-mode corpus records **976 validations /2,864 available execution
+observations**, including ordered effects, exported state/memory and trap status.
+The existing typed two-parameter result-block failure still blocks one fixture
+in each DAE2 mode; it is not a passing semantic comparison. Original/before/after/
+Binaryen complete four-way rows are59 for each DAE2 mode,60 for CL/OI.
+
+All four large raw hashes/sizes match the predecessor exactly, preserving prior
+quality gains without claiming a fresh canonical signoff. OO still has the
+99,251B bounded canonical deficit despite its9,949B raw advantage. Long aggregate
+fuzz, full CI/coverage and independent review remain pending; no Why3/solver is
+configured for the optional-host proof gate. No release or parity completion.
+
+Local evidence `.tmp/large-pass-hotspots-20261001/typesec-prefix-*` records exact
+input/tool/source/binary hashes, commands, dirty state, profiles, all samples,
+RSS, execution cases and first-error/reference controls. Build and profile
+manifests are separate. The following live-control trial has independent files
+and binaries and is not included in this unit's timings or13,471-test claim.

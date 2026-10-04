@@ -2241,3 +2241,13 @@ full samples/spreads/RSS, runtime observations and complete OI profiles:
 Artifacts use prefix `leb-scalar-`; matched baseline profile is
 `oi-root-inline-oi-command-candidate.callgrind`. Scalar signed/unsigned worker
 calls, legacy edges and all lifetime work are distinguished in the profile.
+
+
+## October 4, 2026: shared type-prefix validation storage
+
+The [matched four-pass checkpoint](../dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix)
+removes quadratic prefix copying while retaining all five OI type validations.
+Complete OI command instructions change-0.114%; exact raw bytes,
+13,471 tests and bounded runtime evidence are retained. Normal command and
+narrow inner timers have different scopes; the1× goal and33,497B canonical
+output gap remain open. See the checkpoint for paired clocks, RSS and limits.

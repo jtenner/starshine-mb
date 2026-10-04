@@ -1971,11 +1971,42 @@ pub fn validate_typesec(typesec : TypeSec?, env0 : Env) -> Result[Env, String] {
   match typesec {
     None => Ok(env0)
     Some(TypeSec(rts)) => {
-      let mut env = env0
+      if rts.is_empty() {
+        return Ok(env0)
+      }
+      // These two rows are private to this synchronous validation invocation.
+      // No intermediate Env escapes: group checks return only Unit or String.
+      // Copy the caller's prefix once, then expose exactly one new group at a
+      // time. Failure drops the private rows without publishing a partial env.
+      let types = env0.global_types.copy()
+      let scopes = env0.rec_stack.copy()
+      let env = Env::{ ..env0, global_types: types, rec_stack: scopes, }
       for rt in rts {
-        env = match validate_rectype_and_extend(env, rt) {
-          Ok(e) => e
-          Err(t) => return Err(t)
+        let base = types.length()
+        match rt {
+          SingleRecType(st) => {
+            scopes.push([st])
+            types.push(st)
+          }
+          GroupRecType(sts) => {
+            scopes.push(sts)
+            types.append(sts)
+          }
+        }
+        // Match env_with_rectype: prior types are normalized and the current
+        // raw group is visible through both absolute and recursive indices.
+        if Validate::validate(rt, env) is Err(error) {
+          return Err(error)
+        }
+        // Publish normalized members in place only after the complete group
+        // validates. Keep original recursive scopes, just as the immutable
+        // append_rectype_types_with_scope boundary does for other callers.
+        match normalize_rectype_for_global_env(rt, base) {
+          SingleRecType(st) => types[base] = st
+          GroupRecType(sts) =>
+            for idx in 0..<sts.length() {
+              types[base + idx] = sts[idx]
+            }
         }
       }
       Ok(env)
@@ -2052,24 +2083,6 @@ fn normalize_rectype_for_global_env(rt : RecType, base : Int) -> RecType {
       RecType::group(normalized)
     }
   }
-}
-
-///|
-fn validate_rectype_and_extend(env : Env, rt : RecType) -> Result[Env, String] {
-  // Validate rectype under recursive context (for RecIdx references)
-  let env_rec = env_with_rectype(env, rt)
-
-  // Validate rectype itself under env_rec
-  if Validate::validate(rt, env_rec) is Err(e) {
-    return Err(e)
-  }
-
-  // If ok, append its defined subtypes to env.global_types in normalized absolute form.
-  let normalized = normalize_rectype_for_global_env(
-    rt,
-    env.global_types.length(),
-  )
-  Ok(env.append_rectype_types_with_scope(normalized, rt))
 }
 
 ///|

@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-10-04
 sources:
   - https://webassembly.github.io/spec/core/valid/types.html
   - ../custom-descriptors/descriptor-instruction-surface.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/validate.mbt
+  - ../../../src/validate/type_section_storage_wbtest.mbt
+  - ../../../src/validate/type_section_storage_perf_wbtest.mbt
   - ../../../src/validate/env.mbt
   - ../../../src/validate/match.mbt
   - ../../../src/validate/invalid_fuzzer.mbt
@@ -67,12 +69,29 @@ That is why a parsed or lowered type is not automatically valid. The type sectio
 
 `validate_typesec(typesec, env0)` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) is incremental:
 
-1. Start with an `Env` whose `global_types` array contains any already-accepted earlier types.
-2. For each `RecType`, call `validate_rectype_and_extend(...)`.
-3. Build a temporary recursive context with the current group visible through `env_with_rectype(...)`.
-4. Run `Validate for RecType`, which validates all member `SubType` values and then runs descriptor metadata group checks.
-5. Normalize `RecIdx` occurrences in supertypes and descriptor metadata to absolute `TypeIdx` values with `normalize_rectype_for_global_env(...)`.
-6. Append the normalized subtype members to `Env.global_types` with `Env::append_rectype_types(...)`.
+1. Keep absent and empty sections unchanged. For a nonempty section, copy the
+   caller's global-type and recursive-scope arrays once into invocation-owned
+   rows; intermediate environments never escape.
+2. Append only the current raw group to both views, preserving earlier normalized
+   global types and original recursive scopes. Later groups remain invisible.
+3. Run the unchanged `Validate for RecType`, including every member subtype and
+   descriptor metadata group check. Return the first error without publishing
+   any of the private prefix, including earlier successful groups.
+4. Normalize the accepted group's `RecIdx` occurrences in supertypes and
+   descriptor metadata with `normalize_rectype_for_global_env(...)`, overwriting
+   only its new global-type slots. Retain its original recursive scope.
+5. Return the environment after every group succeeds. Other immutable `Env`
+   extension APIs keep their ownership contracts.
+
+The [prefix storage regressions](../../../src/validate/type_section_storage_wbtest.mbt)
+compare with the former immutable extension loop, covering caller/returned-prefix
+ownership, failure atomicity and first-error order, descriptor pairs, continuation
+references, recursive supertype normalization, same-group forward references and
+rejection of references to later groups. This changes storage, not admission or
+validation scope. The [dedicated resource controls](../../../src/validate/type_section_storage_perf_wbtest.mbt)
+keep synthetic scaling outside the default suite. Recursive subtype matching
+retains its own costs; bounded prefix assembly does not prove all type validation
+linear.
 
 The permanent validation environment in [`src/validate/env.mbt`](../../../src/validate/env.mbt) then resolves later type references through:
 
@@ -123,7 +142,7 @@ Exact references are validated separately in `Validate for RefType`: exact refs 
     (type $node (struct (field (mut (ref null $node)))))))
 ```
 
-The group-local self reference is valid because `validate_rectype_and_extend(...)` validates under a recursive context. After the group passes validation, Starshine normalizes that local reference so later phases do not need the original source-group context.
+The group-local self reference is valid because `validate_typesec(...)` exposes the current group under a recursive context. After the group passes validation, Starshine normalizes that local reference so later phases do not need the original source-group context.
 
 ### Invalid supertype index
 
