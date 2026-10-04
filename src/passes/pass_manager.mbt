@@ -73792,8 +73792,14 @@ fn run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values_wit
       }
       idx = end_
     } else {
-      rewritten.push(instrs[idx])
-      idx = idx + 1
+      // A homogeneous run needs no reordering. Consume the whole scanned
+      // run so each suffix is not rediscovered at the next outer iteration.
+      // When the first instruction is a barrier, copy just that instruction.
+      let unchanged_end = if end_ > idx { end_ } else { idx + 1 }
+      for run_idx = idx; run_idx < unchanged_end; run_idx = run_idx + 1 {
+        rewritten.push(instrs[run_idx])
+      }
+      idx = unchanged_end
     }
   }
   (rewritten, changed)
@@ -93962,4 +93968,45 @@ test "suffix probe retains typed-block operands after rejected shorter candidate
   assert_eq(visits[0], 3)
   assert_eq(body, saved)
   assert_eq(sl_value_suffix_at([body[2]], 1, 1, env), [])
+}
+
+///|
+test "nop hoist preserves homogeneous runs and independent output ownership" {
+  for
+    instruction in [
+      @lib.Instruction::nop(),
+      @lib.Instruction::i32_const(@lib.I32::new(7)),
+    ] {
+    let body = Array::make(128, instruction)
+    let (output, changed) = run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values_with_changed(
+      body,
+    )
+    assert_eq(output, body)
+    assert_false(changed)
+    assert_false(physical_equal(output, body))
+    output[0] = @lib.Instruction::unreachable_()
+    assert_eq(body[0], instruction)
+  }
+}
+
+///|
+test "nop hoist retains barrier order and exact changed flag" {
+  let nop = @lib.Instruction::nop()
+  let seven = @lib.Instruction::i32_const(@lib.I32::new(7))
+  let nine = @lib.Instruction::i32_const(@lib.I32::new(9))
+  let effect = @lib.Instruction::call(@lib.FuncIdx::new(0U))
+  let trap = @lib.Instruction::i32_div_s()
+  let body = [seven, nop, nine, effect, seven, nine, trap, nop, nop, seven]
+  let (output, changed) = run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values_with_changed(
+    body,
+  )
+  assert_eq(output, [
+    nop, seven, nine, effect, seven, nine, trap, nop, nop, seven,
+  ])
+  assert_true(changed)
+  let (again, again_changed) = run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values_with_changed(
+    output,
+  )
+  assert_eq(again, output)
+  assert_false(again_changed)
 }

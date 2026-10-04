@@ -1,3 +1,13 @@
+### 2026-10-04 — Linear homogeneous nop-hoist runs
+
+- [Resource RED, ownership proof and matched matrix](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-consume-homogeneous-nop-hoist-runs-once)
+  replace repeated suffix scans with one copy of an already-scanned run.
+  Width1024 constants814.95→4.40µs; direct worker own instructions−1.5227%.
+  Most root profile movement is unrelated map probing, so no enclosing gain
+  is claimed.13461 tests/928 validations/2720 available observations retain
+  exact large bytes and the two known blocked multivalue rows. Next investigate
+  original subtree-read reuse; all speed, canonical and release gates stay open.
+
 ### 2026-10-04 — Discarded speculative diagnostics
 
 - [Shared checker contract and measured scope](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-omit-discarded-speculative-diagnostics)

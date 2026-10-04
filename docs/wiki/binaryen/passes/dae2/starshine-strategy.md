@@ -3,6 +3,7 @@ kind: entity
 status: working
 last_reviewed: 2026-10-04
 sources:
+  - ../../../../../src/passes/pass_manager_nop_run_perf_wbtest.mbt
   - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/validate/typecheck_probe_perf_wbtest.mbt
   - ../../../../../src/ir/hot_builders.mbt
@@ -7787,3 +7788,67 @@ and check typed operands, source effects, trap order and signature remapping.
 Full error/status evidence is retained in the probe-context runtime directories;
 the harness keeps nonzero status for blocked lanes instead of classifying them
 as matches. The single-param trap control passes all four execution oracles.
+
+## October 4, 2026: consume homogeneous nop-hoist runs once
+
+Baseline mainc75030549/native8675a6c2… → natived9bdc7b0…. The nop-hoist
+worker scanned an entire homogeneous run, copied one instruction, and rescanned
+the suffix. It now copies that already-scanned run once, or one barrier when
+there is no run. Mixed-run ordering, changed flags, array ownership and every
+instruction are preserved. No cache, new allocation, type/admission shortcut or
+validation change. Default tests cover independent output ownership, exact
+barrier/constant order, idempotent changed flags and ordered dispatcher calls.
+
+Dedicated wasm-gc release benchmark means, ten batches:
+
+| Shape | Before µs | After µs |
+| --- | ---: | ---: |
+| Tiny four values | .04335 | .03463 |
+| 128 nops | 13.46 | .61520 |
+| 1024 nops | 723.20 | 4.40 |
+| 128 constants | 13.40 | .57490 |
+| 1024 constants | 814.95 | 4.40 |
+| Mixed1024 | 5.62 | 5.81 |
+
+The preselected resource bound allows at most16× time for8× width. Baseline
+ratios53.73×/60.82× fail; candidate7.15×/7.65× pass. Characterization tests pass
+before implementation, so this is a resource RED, not a claimed semantic RED.
+The unchanged mixed path's small cost and overlapping ranges remain visible;
+no extra rerun was used to seek a favorable result.
+
+Complete per-function DAE2-O cleanup capture16,969,069,128→16,942,034,386
+instructions (−.1593%), retaining all25,802 calls and exact validated output.
+The two direct nop-worker edges sum216,404,516→214,504,018 instructions at
+145,485 calls; worker exclusive work123,510,770→121,630,064 (−1.5227%). Its
+allocation-request counts remain unchanged. Most of the larger root movement
+appears in unchanged hash-map probe code (get/set exclusive−23.368m), so do
+not attribute the entire root delta to this change. Generated closure names
+also shift; renamed functions must not be counted as eliminated work. This is
+a clear wide-run scaling repair, with no established enclosing clock/RSS win.
+Both frozen executable files are14,625,848B.
+
+CPU6 normal fresh-process CLI, warm filesystem, warmup1/n5, build and profiling
+excluded; verified133, same input/features/flags as the previous checkpoint:
+
+| Pass | Before ms ± MAD | After ms ± MAD | Binaryen133 ms ± MAD | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3628.202 ± 50.428 | 3635.326 ± 10.535 | 1186.903 ± 10.638 | 3.063× | +0.309% |
+| dae2-optimizing | 6159.731 ± 29.979 | 6155.410 ± 33.600 | 2528.096 ± 92.268 | 2.435× | -0.674% |
+| coalesce-locals | 4005.740 ± 37.262 | 4074.843 ± 159.333 | 1934.340 ± 31.551 | 2.107× | +0.872% |
+| optimize-instructions | 2169.857 ± 12.550 | 2178.843 ± 11.444 | 958.248 ± 10.947 | 2.274× | +1.139% |
+
+All rows flag foreign CPU. Timing shifts are within spread or disagree between
+paired and cohort comparisons; retain adverse CL/OI/plain movements. Exact
+large raw bytes/hashes remain unchanged, preserving prior quality gains and
+canonical gaps without claiming a fresh normalization run. All four complete
+commands remain above2s and every1× speed target remains open.
+
+Info/fmt/check,13,461 default tests, six controls, native release and API sync
+pass.57 fixed fixtures×four modes give928 validations and2720 available runtime
+observations.56 fixtures complete four-way execution in each DAE2 mode,57 in
+CL/OI; the existing multivalue failure remains two explicitly blocked Starshine
+rows. No new failure or output drift. Long fuzz/full CI/coverage and independent
+review remain outstanding. Source/index hashes match the frozen native build;
+next subtree-read tests are separate unstaged work. Evidence and local report:
+`.tmp/large-pass-hotspots-20261001/nop-run-*` and
+`main-nop-run-performance-20261004.md` in that directory.

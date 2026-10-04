@@ -5076,3 +5076,14 @@ flag foreign load; RSS overlaps and other pass movements require attribution.
 Starshine multivalue rows, recorded as failures rather than normalized matches.
 Keep the baseline/candidate error, valid original/Binaryen execution and P00
 repair visible. The helper gain closes no complete-work1× or release gate.
+
+
+## October 4, 2026: nop-run scaling and profile attribution
+
+[Resource and enclosing measurements](../binaryen/passes/dae2/starshine-strategy.md#october-4-2026-consume-homogeneous-nop-hoist-runs-once) show a clear quadratic-to-linear helper repair, with1024 constants
+814.95→4.40µs. The complete cleanup instruction delta is only−.1593% and most
+appears in unrelated hash-map probes; direct worker own work falls1.5227%.
+Retain renamed closure symbols and runtime probe variation when comparing
+profiles. Full-command n5 clocks and RSS do not establish a gain; all1× targets
+and the existing multivalue failure remain open.13461 tests and the explicit
+928-validation/2720-observation corpus retain their blocked-row distinction.

@@ -10764,3 +10764,35 @@ test "dae2 optimizing retains effectful typed-block operands during suffix probi
     2,
   )
 }
+
+///|
+test "dae2 optimizing retains ordered calls across scalar and nop runs" {
+  let input = @wast.wast_to_binary_module(
+    (
+      #|(module
+      #| (import "host" "f" (func (param i32) (result i32)))
+      #| (import "host" "g" (func (param i32) (result i32)))
+      #| (func $callee (param i32 i32) (result i32)
+      #|  nop nop nop local.get 0 nop nop call 0
+      #|  i32.const 7 nop i32.const 9 i32.add i32.add call 1)
+      #| (func (export "run") (param i32) (result i32)
+      #|  local.get 0 i32.const 99 call $callee))
+    ),
+  ).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["dae2-optimizing"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  assert_true(@validate.validate_module(output) is Ok(_))
+  let env = @validate.Env::new().with_module(output)
+  assert_eq(
+    env.get_functype_by_funcidx(@lib.FuncIdx::new(2U)),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+  )
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_eq(body.filter(fn(instr) { instr is @lib.Call(_) }), [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+  ])
+}
