@@ -141,6 +141,18 @@ fn hot_source_order_local_access_nodes(
       !hot_node_is_live(func, id) {
       return
     }
+    // Reuse a completed list from this same immutable snapshot. Preserve
+    // first-visit order when another operand already contributed an access.
+    if facts.local_access_nodes[id] is Some(cached) {
+      for access in cached {
+        if facts.local_access_seen[access] != stamp {
+          facts.local_access_seen[access] = stamp
+          accesses.push(access)
+        }
+      }
+      facts.local_access_seen[id] = stamp
+      return
+    }
     facts.local_access_seen[id] = stamp
     match hot_node_op(func, id) {
       HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee => accesses.push(id)

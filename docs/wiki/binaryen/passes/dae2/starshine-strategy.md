@@ -8672,3 +8672,69 @@ Local `cfg-drop-gate-*` artifacts record complete commands, source/binary hashes
 profiles, driver corrections, controls, timing rows and runtime results.
 Next DAE2 experiment reuses already completed descendant access lists within an
 immutable source-order snapshot; do not repeat the rejected new-summary caches.
+
+## October 4, 2026: reuse completed source-order descendants
+
+The [local-access collector](../../../../../src/ir/hot_source_order.mbt) now
+reuses an already completed descendant list from the same immutable HOT snapshot.
+It uses the existing query stamp to preserve first-visit preorder and uniqueness;
+the root is marked after its list so a local root retains its own entry. Held
+lists remain owned and unchanged. Existing dead-tail truncation and invalidation
+requirements remain; no new summary, cache, field or allocation is introduced.
+Nonlocal interiors may be revisited, and materializing every output list can still
+be quadratic. This is a bounded repeated-traversal reduction, not a global
+complexity claim. It does not repeat the rejected eager-summary cache experiments.
+
+The diagnosis is source-backed: the first analysis of function 9184 costs
+435.501m instructions, including 297.992m in access-list queries with 1,344,597
+recursive visits. Function 9327 costs 6.707m instructions, contradicting its
+one-shot diagnostic clock rank. Temporary instrumentation and empty profile parts
+are excluded from release evidence.
+
+Frozen native `46840ac3…`→`ea4e5887…`, base `ff782249b` plus the separately
+committed CFG guard: complete DAE2 pass instructions fall
+29,099,752,367→28,757,060,180 (−1.1776%); CL
+34,122,850,540→34,065,730,894 (−0.1674%). DAE2 query count 456,168 and
+43,889 cold lists are unchanged, while recursive visits fall
+3,337,255→1,606,278. CL retains 51,377 queries and 8,208 cold lists, with
+369,551→90,356 recursive visits. Whole-profile allocator request counts remain
+unchanged. Recursive inclusive edges overlap and are not summed. Profiles cover
+the complete module pass, excluding CLI parsing/final validation/encoding.
+
+Same 6,211,596 B compiler SHA `98189860…`, verified Binaryen 133 SHA `8f25e9fd…`,
+Ryzen 7 8845HS CPU 6, GCC 14.2 O2/mimalloc. Build excluded, warmup 1 / n5,
+alternating rotating fresh-process commands with warm filesystem; median±MAD ms
+[min,max]:
+
+| Pass | Before | After | Binaryen 133 | After /133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3260.667±51.799 [3174.449,3896.078] | 3207.848±49.495 [3158.352,4785.358] | 1114.144±14.310 [1099.834,1551.425] | 2.879× | -0.507% |
+| dae2-optimizing | 5450.209±26.062 [5360.363,5479.524] | 5389.209±37.971 [5284.414,5427.180] | 2294.714±4.159 [2277.581,2318.951] | 2.349× | -0.892% |
+| coalesce-locals | 3519.079±25.874 [3492.335,3550.477] | 3538.426±8.766 [3479.891,3564.189] | 1922.178±44.145 [1804.180,1966.323] | 1.841× | +0.386% |
+| optimize-instructions | 1859.216±28.727 [1830.490,2535.723] | 1855.573±13.387 [1842.186,2782.380] | 925.022±4.923 [920.098,1359.417] | 2.006× | +0.639% |
+
+All normal rows flag foreign CPU activity. CL/OI paired changes are adverse;
+DAE2 RSS median rises 2,416 KiB with overlapping ranges. No general command,
+RSS or 1× win is established. Local results preserve RSS distributions and
+separate traced n1 pipeline/inner timings. OI's narrow timer omits cleanup.
+
+The [characterization](../../../../../src/ir/hot_source_order_subtree_reuse_wbtest.mbt)
+passes before and after: shared reads/writes, reversed operands, held arrays,
+fresh snapshots and unreachable dead tails retain exact access order. There is
+no semantic RED; native redundant work is the measured baseline failure. Four
+[controls](../../../../../src/ir/hot_source_order_subtree_reuse_perf_wbtest.mbt),
+wasm-GC release mean±SD: tiny cold 1.41µs±4.42ns→1.34µs±6.42ns;
+wide cold 18.39µs±144.71ns→17.05µs±171.18ns; tiny overlapping
+3.06µs±31.30ns→1.99µs±77.99ns; wide overlapping
+353.98±2.24µs→67.74µs±677.15ns.
+
+Info/fmt/check, 13,515 workspace tests, native release and README/API sync pass;
+no public API diff. Twenty focused runtime fixtures per pass yield 324 validations
+and 944 supported observations of values, ordered effects, globals, memory and
+traps. DAE2/O each retain the existing typed-block failure; CL/OI have none.
+Before/after outputs are byte-identical, including all four large artifacts.
+This focused cohort does not replace the preceding 77-fixture CFG evidence or
+final aggregate signoff. The full corpus remains available. Manual review is not
+independent-agent review. All four 1× targets, P00 correctness, canonical deficits,
+full CI/coverage and deferred fuzz remain open. Local `source-order-subtree-*`
+artifacts retain hashes, commands, profiles, raw samples and runtime results.

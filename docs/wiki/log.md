@@ -1,3 +1,7 @@
+### 2026-10-04 — Reuse completed source-order descendants
+
+- [Lifetime proof and measured consumers](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-completed-source-order-descendants): DAE2 recursive visits 3.337m→1.606m, complete work −1.178%, allocator requests unchanged. 13,515 tests; focused 20-fixture/pass execution preserves bytes. Known typed-block blocker, adverse CL/OI clocks and all 1× targets remain open.
+
 ### 2026-10-04 — Reuse the checked CFG opcode
 
 - [Measured guard and complete consumers](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-the-previous-cfg-opcode): complete DAE2/CL work−.505%/−.283%, allocation counts unchanged; 13,514 tests and 1,252 validations/3,680 supported observations preserve bytes. Contended clocks, known typed-block failure and all four 1× goals remain explicit.

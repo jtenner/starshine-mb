@@ -27,17 +27,19 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched all-four checkpoint:** native `243a8e03…`→`46840ac3…`,
-  checked CFG opcode reuse reduces complete DAE2/CL work by 0.505%/0.283%, with
-  unchanged allocation counts and output bytes. CPU 6 n5/warmup1 median±MAD:
-  dae2 3147.923±11.018 / B1095.982±4.738ms (2.872×);
-  dae2-optimizing 5418.203±20.094 / B2282.143±13.912ms (2.374×);
-  coalesce-locals 3567.124±45.325 / B1916.607±73.666ms (1.861×);
-  optimize-instructions 1868.780±16.159 / B964.379±22.685ms (1.938×).
-  All rows flag foreign load; paired movements, ranges and RSS remain in the
-  [complete checkpoint](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-the-previous-cfg-opcode).
-  No quiet-host 1× claim; 13,514 tests and 1,252 validations/3,680 supported
-  observations pass, while the existing typed-block failure remains open.
+- **Latest matched all-four checkpoint:** native `46840ac3…`→`ea4e5887…`,
+  completed source-order descendant reuse reduces complete DAE2/CL pass work
+  by 1.178%/0.167%, with unchanged allocation counts and bytes.
+  CPU 6 n5/warmup 1 full-command median±MAD:
+  dae2: 3207.848±49.495 / B 1114.144±14.310 ms (2.879×);
+  dae2-optimizing: 5389.209±37.971 / B 2294.714±4.159 ms (2.349×);
+  coalesce-locals: 3538.426±8.766 / B 1922.178±44.145 ms (1.841×);
+  optimize-instructions: 1855.573±13.387 / B 925.022±4.923 ms (2.006×).
+  All rows flag foreign load; CL/OI paired movement is adverse and DAE2 RSS
+  median rises 2,416 KiB with overlapping ranges. No general clock/RSS or 1× win.
+  [Full checkpoint](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-completed-source-order-descendants).
+  13,515 tests; 324 validations/944 supported observations in 20 fixtures/pass;
+  the existing typed-block failure remains open. Full aggregate gates unchanged.
 - **Historical OI-only checkpoint:** native`b1ef48ca…`→`3f74dc4b…`, complete
   process work−.8188%,340,195 fewer requests and unchanged bytes. N5 CLI
   2030.554±7.049 / B1054.366±22.744ms (1.926×); paired+0.650% is adverse,
@@ -54,7 +56,7 @@ oracle versions and checkpoints do not sign current source.
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Latest complete DAE2 profile:** native46840ac3… pass29.100b instructions.
+- **Latest complete DAE2 profile:** native ea4e5887… pass 28.757b instructions.
   The preceding c98 profile attributes dependencies9.355b, analysis lift6.366b,
   rewrite lift2.372b, lower4.647b and final validation2.495b; these remain
   larger owners, with source versions explicit and inclusive costs not additive. [Full source breakdown](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
@@ -203,15 +205,11 @@ quality gates. Keep traced inner and normal command measurements separate.
   valid output and classified size/parity differences before closing P03.
   [Evidence and rejected designs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md).
 
-- [ ] Finish the active existing-list source-order reuse trial. Exact first
-  analysis of function9184 costs435.501m instructions, including297.992m in
-  access-list queries and1,344,597 recursive visits; overlapping roots repeatedly
-  walk descendants. Function9327 instead costs6.707m instructions and does not
-  corroborate its one-shot clock rank. Temporary diagnostic/empty profile parts
-  are excluded from release timing. Before/after order/dead-tail tests pass and
-  wide overlapping control improves353.98→67.74µs; require complete consumers,
-  RSS, output and execution evidence before acceptance. Materializing all output
-  lists can remain quadratic; no global complexity win is claimed.
+- [ ] Profile remaining dependency/source-query work after completed descendant
+  reuse. Existing lists still require materialization; do not add a new summary
+  cache or claim globally linear behavior. Preserve immutable snapshot lifetime,
+  first-visit order, shared operands and dead-tail truncation. Native complete
+  DAE2 remains 28.757b instructions; prioritize whole-consumer absolute savings.
 
 #### P03a — Remaining HOT field reads [IR2-PERF-DAE2-FIELDS]
 
@@ -882,7 +880,7 @@ quality gates. Keep traced inner and normal command measurements separate.
   quadratic storage. Preserve exact coloring/weights/parameter/type decisions,
   use the existing dense reference and measure an explicit storage model before
   changing this path. No dense query optimization is implemented yet.
-- **Next measured shared targets:** current CL root34.123b instructions;
+- **Next measured shared targets:** current CL root34.066b instructions;
   prior nested lower5.956b after explicit effect/ordering demand removes unused rows.
   Full lower source factories4565→297; no duplicate implementation of that
   completed mechanism. Reduce measured carried fallback+140ns/+6.93µs without
