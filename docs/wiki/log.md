@@ -1,3 +1,7 @@
+### 2026-10-04 — Reuse exact type-index encoding widths
+
+- [Encoder proof, RED/GREEN and complete OI evidence](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-exact-type-index-size-deltas): wide changed-body sizing 507.67→341.74µs, current compiler command work only −0.00536%, 2,006 fewer allocations. 13,519 tests and focused four-pass execution preserve bytes. Adverse controls, known P00 failure and every 1× target remain open.
+
 ### 2026-10-04 — Reuse completed source-order descendants
 
 - [Lifetime proof and measured consumers](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-completed-source-order-descendants): DAE2 recursive visits 3.337m→1.606m, complete work −1.178%, allocator requests unchanged. 13,515 tests; focused 20-fixture/pass execution preserves bytes. Known typed-block blocker, adverse CL/OI clocks and all 1× targets remain open.

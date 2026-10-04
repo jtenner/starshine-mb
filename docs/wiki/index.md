@@ -4,6 +4,7 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Exact type-index sizing](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-exact-type-index-size-deltas) — Signed/unsigned width reuse preserves errors and bytes; changed-body controls improve, current OI command work only −0.00536%.
 - [Source-order descendant reuse](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-completed-source-order-descendants) — Existing immutable lists reduce complete DAE2/CL work by 1.178%/0.167%; unchanged bytes, explicit adverse controls and open 1× targets.
 - [CFG opcode reuse](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-the-previous-cfg-opcode) — Avoid non-Drop classifier calls; complete DAE2/CL work −0.505%/−0.283%, unchanged bytes and open 1× goals.
 - [Exact lift-conflict DAG reuse](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-memoize-exact-mixed-band-lift-conflicts) — Remove repeated mixed-band recursion; CL complete work−7.55%, DAE2+.0175%, all1× targets open.

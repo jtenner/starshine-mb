@@ -25,10 +25,25 @@ fn EncodedModuleSizeState::new(
 }
 
 ///|
-// Only local indices may change encoded width. All other immediates and control
-// framing must match. The explicit worklist preserves the encoder's deep-control
-// behavior without introducing recursive calls. String-pool agreement is checked
-// by the caller before using a previously measured expression.
+// A u32 encoded as signed33 has width1..5. Five is an unsupported-shape
+// sentinel, outside every possible width delta, and needs no optional box.
+fn encoded_blocktype_remap_delta(before : BlockType, after : BlockType) -> Int {
+  if before == after {
+    return 0
+  }
+  match (before, after) {
+    (TypeIdxBlockType(TypeIdx(a)), TypeIdxBlockType(TypeIdx(b))) =>
+      size_signed(b.to_int64(), 33).unwrap() -
+      size_signed(a.to_int64(), 33).unwrap()
+    _ => 5
+  }
+}
+
+///|
+// Only local and supported type indices may change encoded width. All other
+// immediates and control framing must match. The explicit worklist preserves
+// the encoder's deep-control behavior without introducing recursive calls.
+// String-pool agreement is checked before reusing a measured expression.
 fn encoded_local_remap_size_delta(
   before : Array[Instruction],
   after : Array[Instruction],
@@ -54,12 +69,40 @@ fn encoded_local_remap_size_delta(
         | (LocalTee(LocalIdx(a)), LocalTee(LocalIdx(b))) =>
           delta += size_unsigned(b.to_uint64(), 32).unwrap() -
             size_unsigned(a.to_uint64(), 32).unwrap()
+        (CallIndirect(TypeIdx(a), ta), CallIndirect(TypeIdx(b), tb))
+        | (
+          ReturnCallIndirect(TypeIdx(a), ta),
+          ReturnCallIndirect(TypeIdx(b), tb),
+        ) if ta == tb =>
+          delta += size_unsigned(b.to_uint64(), 32).unwrap() -
+            size_unsigned(a.to_uint64(), 32).unwrap()
+        (CallRef(TypeIdx(a)), CallRef(TypeIdx(b)))
+        | (ReturnCallRef(TypeIdx(a)), ReturnCallRef(TypeIdx(b))) =>
+          delta += size_unsigned(b.to_uint64(), 32).unwrap() -
+            size_unsigned(a.to_uint64(), 32).unwrap()
         (Block(a, Expr(xs)), Block(b, Expr(ys)))
-        | (Loop(a, Expr(xs)), Loop(b, Expr(ys))) if a == b =>
+        | (Loop(a, Expr(xs)), Loop(b, Expr(ys))) => {
+          let change = encoded_blocktype_remap_delta(a, b)
+          if change == 5 {
+            return None
+          }
+          delta += change
           work.push((xs, ys))
-        (TryTable(a, ac, Expr(xs)), TryTable(b, bc, Expr(ys))) if a == b &&
-          ac == bc => work.push((xs, ys))
-        (If(a, ax, ae), If(b, bx, be)) if a == b => {
+        }
+        (TryTable(a, ac, Expr(xs)), TryTable(b, bc, Expr(ys))) if ac == bc => {
+          let change = encoded_blocktype_remap_delta(a, b)
+          if change == 5 {
+            return None
+          }
+          delta += change
+          work.push((xs, ys))
+        }
+        (If(a, ax, ae), If(b, bx, be)) => {
+          let change = encoded_blocktype_remap_delta(a, b)
+          if change == 5 {
+            return None
+          }
+          delta += change
           work.push((ax, bx))
           match (ae, be) {
             (None, None) => ()
@@ -176,8 +219,8 @@ fn measure_module_code(
 ///|
 /// Return exact canonical binary sizes without assembling either code section.
 /// Shared function bodies are measured once when their stringref pools agree.
-/// Local-index-only rewrites reuse expression lengths with exact LEB deltas;
-/// other rewrites retain complete body encoding.
+/// Local and supported type-index rewrites reuse exact expression LEB deltas.
+/// Other rewrites retain complete body encoding.
 /// Reuse is scoped to this call: mutable module data never enters a durable cache.
 /// The result includes names, compiler facts, section framing, and body framing.
 pub fn encoded_module_sizes(

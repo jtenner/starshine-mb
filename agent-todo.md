@@ -27,18 +27,18 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched all-four checkpoint:** native `46840ac3…`→`ea4e5887…`,
-  completed source-order descendant reuse reduces complete DAE2/CL pass work
-  by 1.178%/0.167%, with unchanged allocation counts and bytes.
+- **Latest matched all-four checkpoint:** native `ea4e5887…`→`7b17d037…`,
+  exact type-index width reuse preserves bytes and saves only 0.00536% complete
+  OI command work / 2,006 allocations on this compiler. Large gains in changed-body
+  controls do not establish a material large-command improvement.
   CPU 6 n5/warmup 1 full-command median±MAD:
-  dae2: 3207.848±49.495 / B 1114.144±14.310 ms (2.879×);
-  dae2-optimizing: 5389.209±37.971 / B 2294.714±4.159 ms (2.349×);
-  coalesce-locals: 3538.426±8.766 / B 1922.178±44.145 ms (1.841×);
-  optimize-instructions: 1855.573±13.387 / B 925.022±4.923 ms (2.006×).
-  All rows flag foreign load; CL/OI paired movement is adverse and DAE2 RSS
-  median rises 2,416 KiB with overlapping ranges. No general clock/RSS or 1× win.
-  [Full checkpoint](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-completed-source-order-descendants).
-  13,515 tests; 324 validations/944 supported observations in 20 fixtures/pass;
+  dae2: 3254.906±31.154 / B 1132.758±1.695 ms (2.873×);
+  dae2-optimizing: 5575.761±68.317 / B 2350.342±4.984 ms (2.372×);
+  coalesce-locals: 3515.753±16.358 / B 1990.546±28.640 ms (1.766×);
+  optimize-instructions: 1899.938±23.845 / B 969.112±10.647 ms (1.960×).
+  All rows flag foreign load; DAE2-O/OI paired movement is adverse. No general
+  clock/RSS or 1× win. [Full checkpoint](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-exact-type-index-size-deltas).
+  13,519 tests; 324 validations/944 supported observations in 20 fixtures/pass;
   the existing typed-block failure remains open. Full aggregate gates unchanged.
 - **Historical OI-only checkpoint:** native`b1ef48ca…`→`3f74dc4b…`, complete
   process work−.8188%,340,195 fewer requests and unchanged bytes. N5 CLI
@@ -703,12 +703,16 @@ quality gates. Keep traced inner and normal command measurements separate.
   fall 12.0% and allocator calls 13.4%. Every timing row observes background
   activity; instruction evidence corroborates the improvement. See the
   [OI dossier](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-1-2026-large-module-local-group-validation).
-- [ ] Finish the exact type-index size-reuse trial: existing guards still encode
-  candidate bodies after type-only changes. Signed33 control headers and unsigned32
-  indirect/ref call indices have exact width deltas. Focused missing-delta test
-  fails before implementation; cold/wide changed/unchanged controls are recorded.
-  Require full encoder-error/framing/string-pool equivalence, complete OI command
-  profiling, DAE2/O/CL consumer clocks and unchanged output before acceptance.
+- [ ] Attribute remaining exact-size string-pool scans. Current OI complete
+  profile spends 424.725m exclusive instructions in recursive string collection;
+  shared unchanged bodies are rescanned for both sides of each size guard.
+  Investigate reusing a proved empty pool within the existing immutable comparison
+  lifetime, while preserving explicit/global/new-function strings, declaration
+  order, encoder errors and final validation. No scan shortcut is implemented.
+- [ ] Evaluate the bounded native O3 screen from the identical generated C and
+  runtime inputs. Preserve wrapv/no-strict-aliasing, generic target and all passes;
+  no fast-math. Compiler flags remain unchanged pending matched evidence and
+  cross-platform configuration review. Do not claim this is an algorithmic gain.
 - **Deliverables / tasks:** reduce the remaining type-cleanup sizing/validation
   round and exact body encoding. Preserve global validation for type-index
   remaps and complete final validation. Profile compatible candidate batching

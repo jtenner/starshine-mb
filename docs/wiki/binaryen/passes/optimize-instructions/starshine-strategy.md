@@ -2405,3 +2405,63 @@ shape differences remain parity gaps. Local `oi-guarded-fold-*` artifacts retain
 hashes, commands, profile scope, complete rows, normalization history and the
 manual ownership review. Independent review, full CI/coverage, aggregate fuzz
 and all four1× targets remain open.
+
+## October 4, 2026: exact type-index size deltas
+
+[Exact sizing](../../../../../src/binary/encoded_size.mbt) extends the existing
+local-index delta path to standard type indices: signed33 widths for
+Block/Loop/If/TryTable and unsigned32 for indirect/ref calls and their tail forms.
+Bodies, opcode/order, tables, catches, else presence and all other immediates must
+still match. The first expression is really encoded, string pools must agree,
+and reuse lives only within one immutable comparison call. Unsupported shapes
+and recursive type indices retain full encoding and its errors. Section/local/
+body/code framing and all validation remain. No durable cache or public API.
+
+[Focused tests](../../../../../src/binary/encoded_type_remap_wbtest.mbt) first
+fail with `None != Some(0)` for a missing exact delta. After the fix, 100 index
+pairs × eight opcodes match real encoding across signed/unsigned LEB boundaries;
+24 valid module pairs check body/section framing and retained snapshot bytes.
+Intentional unsupported-shape tests preserve changed-table/else/body fallback and
+recursive-index encoder errors. Four focused tests, all 165 binary tests,
+info/fmt/check, 13,519 workspace tests, native release and README/API sync pass.
+
+[Controls](../../../../../src/binary/encoded_type_remap_perf_wbtest.mbt), wasm-GC
+release mean±SD: small changed 1.13µs±10.29ns→863.51±5.76ns; wide changed
+507.67±2.45µs→341.74±1.90µs; small unchanged
+805.67±2.65→833.56±6.56ns (adverse); wide unchanged
+342.67±6.70→346.15±9.54µs (overlapping).
+
+The large compiler barely exercises this opportunity: only 11 bodies enter the
+delta checker across OI's two size guards. Frozen native `ea4e5887…`→`7b17d037…`
+reduces **complete OI command** instructions
+18,431,193,033→18,430,205,113 (−0.00536%) and allocator requests
+62,176,457→62,174,451 (−2,006). The type-cleanup size guard falls
+872,925,321→871,968,671 instructions. These are whole-command counts including
+parsing, final validation and encoding, unlike the earlier DAE2/CL pass profiles.
+The controlled changed-body improvement is useful, but this does not materially
+close the current large OI gap. Prioritize broader scan and allocation owners.
+
+Same 6,211,596 B compiler SHA `98189860…`, verified Binaryen 133 SHA `8f25e9fd…`,
+Ryzen 7 8845HS CPU 6, GCC 14.2 O2/mimalloc. Build excluded, warmup 1 / n5,
+alternating rotating fresh-process commands with warm filesystem; median±MAD ms
+[min,max]:
+
+| Pass | Before | After | Binaryen 133 | After /133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3265.455±14.096 [3248.172,3293.055] | 3254.906±31.154 [3199.581,3354.750] | 1132.758±1.695 [1131.064,1144.759] | 2.873× | -0.132% |
+| dae2-optimizing | 5600.319±46.711 [5553.609,5826.713] | 5575.761±68.317 [5476.445,5818.163] | 2350.342±4.984 [2323.577,2484.518] | 2.372× | +0.399% |
+| coalesce-locals | 3630.074±36.085 [3523.377,3666.158] | 3515.753±16.358 [3499.395,3805.104] | 1990.546±28.640 [1863.982,2051.743] | 1.766× | -0.681% |
+| optimize-instructions | 1909.441±35.012 [1874.428,1950.277] | 1899.938±23.845 [1866.680,1983.257] | 969.112±10.647 [958.465,1082.704] | 1.960× | +0.174% |
+
+All normal rows flag foreign CPU activity; adverse DAE2-O/OI paired changes are
+retained. No general clock/RSS or 1× win is established. Full RSS distributions
+and separate traced n1 pipeline/inner diagnostics remain local; OI's narrow inner
+timer excludes cleanup. All four large before/after byte hashes are unchanged.
+Twenty focused runtime fixtures/pass yield 324 validations and 944 supported
+observations, retaining only the existing DAE2/O typed-block failure. Compare
+values, ordered effects, globals, memory and traps; the Binaryen text roundtrip
+is only a Node compact-import adapter, never the raw size protocol.
+Manual source review is not independent-agent signoff. All four 1× targets,
+canonical deficits, P00 correctness and deferred full CI/coverage/aggregate fuzz
+remain open. Local `encoded-type-remap-*` evidence retains frozen source/build
+hashes, failed/passing tests, commands, profiles, timing rows and runtime results.
