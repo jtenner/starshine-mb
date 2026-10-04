@@ -4,6 +4,7 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Entry-source finalization](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-finalize-entry-sources-during-propagation) — Remove 1,600,504 repeated header/liveness queries; complete DAE2 work −0.208%, 13,478 tests. Timings, adverse controls and known failures remain explicit; all four 1× targets are open.
 - [Live-control child storage](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-keep-unchanged-live-control-child-storage) — Keep all descendant rewrites while removing60,971 snapshots/123,399 requests; full DAE2 work−.165%,13,474 tests. Matched DAE2/O clocks, RSS and known blocked rows remain explicit; all four1× targets remain open.
 - [Owned type-validation prefixes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix) — Remove repeated growing-prefix copies with unchanged checks/bytes; full DAE2 work-1.736%, OI-0.114%. Fresh n5 CLI/n3 inner scopes and open speed/correctness gates remain explicit.
 - [Original subtree-read reuse](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-original-subtree-reads-during-adjacent-pair-cleanup) — Complete DAE2-O cleanup work−3.827%, exact bytes;13,466 tests. Small allocation/flat costs, contended clocks and all four1× targets remain open.

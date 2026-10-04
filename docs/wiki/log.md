@@ -1,3 +1,10 @@
+### 2026-10-04 — Finalize DAE2 entry sources during propagation
+
+- [DAG invariant and measured controls](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-finalize-entry-sources-during-propagation):
+  1,600,504 fewer repeated reads, complete DAE2 work −0.208%; allocation count
+  and bytes unchanged. 13,478 tests, 526 validations/1,544 available observations;
+  existing typed-block failures, adverse controls and all four 1× goals remain.
+
 ### 2026-10-04 — Reuse unchanged live-control child storage
 
 - [Complete profile and DAE2/O controls](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-keep-unchanged-live-control-child-storage)

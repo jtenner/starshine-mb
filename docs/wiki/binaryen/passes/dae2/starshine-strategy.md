@@ -8113,3 +8113,66 @@ the preceding type-prefix unit was pending; its baseline is explicitly frozen
 6b65daad, not bare3fd003483. After225477e16, only this live-control implementation
 and its tests differ from that baseline. Next: finalize entry-source rows during
 the existing DAG propagation after proving saved intervals are no longer read.
+
+## October 4, 2026: finalize entry sources during propagation
+
+Main `9b7847a24`, native `e04ee14f…` → `c98ffbbf…`. In
+`dae2_entry_read_sources`, finalize each source row immediately after propagating
+its complete root interval to its children. Reversed unique DAG postorder already
+places every parent before its children, and all root seeds are installed first;
+no later node can read a finalized parent's interval. This removes the separate
+whole-arena finalization scan without new storage, admission shortcuts or skipped
+validation. Detached rows retain −2; shared writes and repeated roots retain the
+original full-flow fallback. The single-write worker is unchanged.
+
+[Three baseline characterization tests](../../../../../src/passes/dae2_entry_finalization_wbtest.mbt)
+compare complete rows to the frozen algorithm, including shared/cross-write reads,
+write operands, detached nodes, mutation invalidation and unsupported nested-write
+fallback. [Dispatcher coverage](../../../../../src/cmd/dae2_entry_finalization_wbtest.mbt)
+checks actual signature pruning inside effectful loops in both modes. These passed
+before the storage-only optimization; resource RED was 4,915,480 complete-header
+reads exceeding a preselected 4,000,000 budget. Candidate reads are 3,314,976,
+with the same 8,187 entry-source queries and all mandatory checks retained.
+
+Complete DAE2 instructions **30,049,564,045 → 29,987,153,791 (−0.208%)**;
+entry-source owner **789,497,548 → 725,869,513 (−8.059%)**. Eliminate 1,600,504
+header reads and liveness queries. Direct native malloc requests stay 75,900,967;
+work outside this owner changes +1,217,781 instructions. Do not sum inclusive
+child edges or interpret instruction counts as elapsed time.
+
+[Four dedicated controls](../../../../../src/passes/dae2_entry_finalization_perf_wbtest.mbt)
+retain complete result assertions and fixture setup outside timing. Two-write
+depths 0/32/128: 718.88ns/2.45µs/6.56µs → 632.88ns/2.11µs/6.07µs.
+Unchanged single-write depth32: 1.89µs ±11.55ns → 1.94µs ±36.45ns; ranges
+overlap. Preserve this adverse control rather than claim universal speedup.
+
+CPU6, same 6,211,596B input and verified 133, native GCC O2/mimalloc,
+warm filesystem/fresh untraced CLI, one warmup and five rotating samples:
+
+| Pass | Before ms ± MAD | After ms ± MAD | Binaryen 133 ms ± MAD | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3647.932 ± 31.866 | 3647.877 ± 24.033 | 1212.245 ± 13.555 | 3.009× | -0.283% |
+| dae2-optimizing | 5993.056 ± 69.772 | 5939.125 ± 44.676 | 2402.493 ± 31.818 | 2.472× | -1.420% |
+
+28/30 normal rows flag foreign CPU. DAE2 medians are essentially unchanged;
+OO shows a modest paired improvement with overlapping ranges. Peak RSS medians
+253,212→255,512KiB (DAE2), 291,068→291,064KiB (OO), also overlapping. No peak-memory
+win is established. The single diagnostic OO sample moved adversely
+5738.745→6288.732ms inner (both contended); it is not a repeated inner-speed
+claim and does not supersede the preceding matched n3 cohort. All raw bytes and
+hashes are exact. The +99,251B canonical OO gap and all four 1× targets remain.
+CL/OI were not retimed for this private DAE2 change; their preceding cohort stays
+under its original native version.
+
+Info/fmt/check, **13,478 default tests**, four controls, native release and README/API
+sync pass; no API diff. The 65-fixture corpus per mode records **526 validations /
+1,544 available observations**, with 64 complete original/before/after/133 rows
+per mode. The existing typed two-input/result-block failure remains blocked in
+both modes, not passed. Self-review covers immutable DAG order, private partial
+rows on fallback and caller ownership. Independent review, full CI/coverage and
+long aggregate fuzz remain pending. Exact commands, hashes, clock/RSS samples,
+profiles and runtime evidence are local `entry-finalization-*` artifacts.
+
+Next larger owners are analysis CFG, local flow, lift/lower and optimizing
+cleanup. A fresh complete CoalesceLocals profile is queued; do not extrapolate
+this private DAE2 change to CL/OI or duplicate completed storage optimizations.

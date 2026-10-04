@@ -27,14 +27,16 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest DAE2-only follow-up:** live-control child storage, frozen6b65daad…→
-  e04ee14f…; complete work−.165%, rewrite-root work−5.860%,123,399 fewer requests.
-  CPU6 n5/warmup1 normal medians±MAD(ms): DAE23698.567±13.827 /B1228.600±10.218
-  (3.010×), OO6095.044±80.815 /B2527.605±55.246 (2.411×). Paired−.267/−.964%,
-  all rows contended, RSS ranges overlap;13,474 tests/518 validations/1,520
-  available observations retain exact outputs and both P00 blocked rows.
-  CL/OI were not retimed; the all-four preceding cohort stays separate.
-  [Measured scope](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-keep-unchanged-live-control-child-storage).
+- **Latest DAE2-only follow-up:** entry-source finalization, main `9b7847a24`,
+  native `e04ee14f…` → `c98ffbbf…`; complete work −0.208%, source-owner −8.059%,
+  1,600,504 fewer repeated header/liveness queries and unchanged allocation count.
+  CPU6 n5/warmup1 normal medians±MAD (ms): DAE2 3647.877±24.033 /
+  B1212.245±13.555 (3.009×); OO 5939.125±44.676 / B2402.493±31.818 (2.472×).
+  Paired −0.283/−1.420%; 28/30 rows contended and ranges overlap. The single OO
+  diagnostic inner sample regressed; no repeated inner or peak-memory gain.
+  13,478 tests, 526 validations/1,544 available observations, exact outputs;
+  both P00 blocked rows remain. CL/OI retain their earlier matched cohort.
+  [Scope and tradeoffs](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-finalize-entry-sources-during-propagation).
 - **Latest matched all-four checkpoint:** owned type-validation prefixes,
   main `3fd003483` / native `e9f225ec…` → `6b65daad…`.
   Complete DAE2 work-1.736%, OI command work-0.114%; all
@@ -52,8 +54,8 @@ oracle versions and checkpoints do not sign current source.
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Latest complete DAE2 profile:** nativee04ee14f… pass30.050b
-  instructions. Dependencies9.418b, analysis lift6.366b, rewrite lift2.372b,
+- **Latest complete DAE2 profile:** nativec98ffbbf… pass29.987b
+  instructions. Dependencies9.355b, analysis lift6.366b, rewrite lift2.372b,
   lower4.647b and final validation2.495b remain larger owners; nested costs
   are inclusive and not additive. [Full source breakdown](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
 - **Preserved quality and completed work:** V83 saves 79,962 canonical bytes
@@ -247,14 +249,13 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03c — Remaining quadratic and repeated flow work [IR2-PERF-DAE2-FLOW]
 
-- [ ] Finish the entry-source finalization trial. Current multi-write proof
-  makes4,915,480 complete-header reads on the large fixture; the final arena
-  scan repeats a row visit after reverse-topological propagation. Trial
-  finalization only after each saved interval reaches its children; prove that
-  later nodes cannot read that finalized parent. Preserve detached/unadmitted
-  -2 rows, shared/cross-write reads, caller ownership and full-flow fallbacks.
-  Frozen-reference tests/resource controls precede implementation; source/profile
-  evidence is local. Do not widen admission or add an arena cache.
+- **Completed entry-source finalization:** use existing reverse DAG order to
+  finalize rows after child propagation; no second arena scan or new storage.
+  Preserve complete-flow fallbacks and caller-owned rows.
+  [Proof, resource RED/GREEN and measurements](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-finalize-entry-sources-during-propagation).
+- [ ] Attribute remaining entry-source discovery/interval work before adding
+  metadata: the source owner still costs 725.870m instructions. Retain the
+  unchanged single-write control's 1.89→1.94µs overlapping adverse movement.
 - [ ] Reduce overlapping local-access-list rescans and repeated predecessor,
   last-write and source queries on actively transforming inputs. V68 closes
   repeated singleton-writer scans of one wide consumer; overlapping subtree

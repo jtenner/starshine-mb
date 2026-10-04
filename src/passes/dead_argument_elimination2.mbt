@@ -415,12 +415,10 @@ fn dae2_entry_read_sources(
         sources[child] = sources[child].max(sources[node])
       }
     }
-  }
-  for node in 0..<count {
-    if !@ir.hot_node_is_live(func, node) {
-      continue
-    }
-    let data = @ir.hot_node_get(func, node)
+    // Every parent has already contributed to this node's interval, and its
+    // children now have that interval too. No later DAG node can read this
+    // slot as a parent's interval, so finalize it without another arena scan.
+    // Detached nodes retain their initialized unknown (-2) source slots.
     let last_root = sources[node]
     sources[node] = if data.op is @ir.LocalGet &&
       entry_writes[data.imm0] >= 0 &&
