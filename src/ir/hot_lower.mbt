@@ -1,4 +1,5 @@
 ///|
+#valtype
 priv struct HotLowerStackValue {
   node_id : NodeId
   val_type : ValType
@@ -485,8 +486,14 @@ fn hot_lower_impl_update_stack(
     stack.clear()
     return
   }
-  for _ in 0..<pop_count {
-    ignore(stack.pop())
+  if pop_count > 0 {
+    // Discard the consumed suffix without boxing an optional packed value for
+    // each lane. Preserve the old saturating-pop behavior on a shorter stack.
+    if pop_count >= stack.length() {
+      stack.clear()
+    } else {
+      stack.truncate(stack.length() - pop_count)
+    }
   }
   hot_lower_impl_push_results(func, id, stack)
 }
@@ -2926,9 +2933,8 @@ fn hot_lower_impl_emit_root(
     0
   }
   if result_arity > 0 {
-    match stack.last() {
-      Some(top) if top.node_id == id => return
-      _ => ()
+    if stack.length() > 0 && stack[stack.length() - 1].node_id == id {
+      return
     }
     // Pure values can be rematerialized cheaply. A saved effectful value
     // must be reused even when a later operand has covered it on the stack.

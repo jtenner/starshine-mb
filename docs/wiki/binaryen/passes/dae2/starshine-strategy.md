@@ -8541,3 +8541,63 @@ complete consumer measurements.
 ## October 4, 2026: copy directization output only after a rewrite
 
 [OI-only follow-up](../optimize-instructions/starshine-strategy.md#october-4-2026-copy-directization-output-only-after-a-rewrite) removes340,195 requests and0.8188% of complete OI native work while retaining all discovery and bytes. N5 command timing is adverse+0.650%; no command win or1× claim. The preceding DAE2/O/CL matrix remains current;13,503 tests and all-four bounded runtime controls pass supported rows.
+
+## October 4, 2026: inline lower stack without optional discard boxes
+
+The private [lower stack](../../../../../src/ir/hot_lower.mbt) now stores immutable
+node/type records inline. Discarding consumed lanes uses saturating truncate/clear;
+a checked last-slot read avoids constructing an optional record. Nonpositive
+counts, terminal clearing, actual value-consuming pops, typed operands, effects,
+verification and output selection retain their previous behavior. Copies own their
+slots and immutable reference type payloads retain references.
+
+The annotation-only first trial was rejected: complete DAE2/CL instruction work
+increased .2403%/.3274% because optional pop/last results reboxed inline values.
+The accepted combined change removes those hot discard/peek boxes. Native
+`4c20bc54…`→`66f924ab…`, base main `b5cd1efa3`, complete DAE2 work
+29,319,259,841→29,240,765,707 instructions (−.2677%); CL
+38,095,458,081→37,981,021,244 (−.3004%). Whole-profile allocator requests
+fall627,084/1,033,180 respectively; these are requests, not bytes or pass-only
+allocation totals. Complete OI work18,432,354,285→18,432,328,939 is effectively
+unchanged. Mandatory work and large output hashes remain exact.
+
+Same6,211,596 B compiler SHA98189860…, verified Binaryen133 SHA8f25e9fd…,
+Ryzen7 8845HS CPU6, GCC14.2 O2/mimalloc. Build excluded; one warmup and five
+rotating alternating fresh-process/warm-filesystem CLI samples per tool.
+Milliseconds median±MAD [min,max]:
+
+| Pass | Before | After | Binaryen133 | After /133 | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3575.049±36.165 [3412.186,3611.214] | 3614.478±80.312 [3412.254,3694.790] | 1199.432±10.082 [1189.350,1281.820] | 3.013× | +1.103% |
+| dae2-optimizing | 6107.454±74.203 [5891.184,6181.657] | 5996.174±67.171 [5929.002,6212.346] | 2544.625±31.877 [2497.234,2607.713] | 2.356× | +0.159% |
+| coalesce-locals | 3988.858±18.635 [3970.223,4063.117] | 3989.440±3.639 [3980.053,4074.328] | 2093.050±20.700 [2018.033,2113.750] | 1.906× | +0.230% |
+| optimize-instructions | 1990.524±4.399 [1940.395,2010.671] | 2021.635±21.061 [1980.607,2190.861] | 981.109±9.474 [962.097,1165.510] | 2.061× | +2.072% |
+
+All15 rows per pass flag foreign CPU activity; paired changes are adverse.
+This is a small native-work/allocation reduction, not an established command-time
+or RSS win. Separate traced n1 diagnostics are retained locally, never substituted
+for normal CLI or matched Binaryen inner timings. OI's narrow timer omits cleanup.
+
+Three [ownership, scalar/reference and typed-branch regressions](../../../../../src/ir/hot_lower_stack_value_wbtest.mbt)
+pass before/after. Native resource inspection supplies the failing-before
+allocation condition; no transform behavior gap is claimed. Six bounded
+[stack](../../../../../src/ir/hot_lower_stack_value_perf_wbtest.mbt) and
+[actual-update](../../../../../src/ir/hot_lower_stack_update_perf_wbtest.mbt)
+controls pass. Compared with the rejected inline-only trial, consume2/64 means
+36.16±1.02→32.97±.13 ns and450.35±8.27→404.46±5.05 ns. Generic stack-control
+variation is retained separately and is not attributed to unrelated update code.
+Info/fmt/check,13,509 workspace tests (including one pending CL characterization),
+native release and README/API sync pass; public `.mbti` is unchanged.
+Existing active scalar/GC dispatcher tests and75 runtime fixtures per pass give
+1,220 validations/3,584 supported original/before/after/133 observations of values,
+ordered effects, globals, memory and traps. DAE2/O each74 fully compare plus the
+existing `probe-typed-block-trap` command failure; CL/OI each75 fully compare.
+This known failure remains a release blocker, not a passing comparison.
+
+Raw DAE2/O/CL/OI bytes remain6,115,221/5,563,501/5,706,503/6,205,995.
+V83 savings and prior bounded canonical deficits are unchanged; no new
+normalization is claimed. Local `lower-stack-queries-*` manifests, commands,
+samples, profiles, native excerpts and manual review retain exact provenance.
+Independent review, full CI/coverage, deferred aggregate fuzz and all four1×
+targets remain open. Next: packed CL liveness and exact repeated mixed-band lift
+queries, then the larger DAE2 dependency and optimizing-cleanup owners.

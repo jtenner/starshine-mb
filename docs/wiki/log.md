@@ -1,3 +1,7 @@
+### 2026-10-04 — Remove lower-stack record and optional discard churn
+
+- [Source and measured consumers](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-inline-lower-stack-without-optional-discard-boxes): DAE2/CL complete instructions−.2677%/−.3004%, allocator requests−627,084/−1,033,180. Retain adverse contended CLI pairs and rejected annotation-only trial.13,509 tests and bounded runtime evidence preserve output; all1× and correctness gates remain open.
+
 ### 2026-10-04 — Retain OI constant folds under its effect guard
 
 - [Regression and measured quality result](binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-retain-constant-folds-under-the-effect-guard): preserve the same admission/effects while retaining adjacent scalar folds. One large function shrinks3 B; the normalized gap is33,494 B. Paired timing+0.698% is adverse, so no speed win is claimed.13,507 workspace tests and the bounded runtime corpus pass supported cases; all four1× goals stay open.
