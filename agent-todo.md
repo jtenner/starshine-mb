@@ -27,20 +27,19 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** linear nop-hoist runs,
-  mainc75030549/native8675a6c2…→d9bdc7b0….1024-constant control814.95→4.40µs;
-  complete cleanup capture−.1593%, but most of that delta is unrelated hash-map
-  probe movement. Direct worker exclusive instructions−1.5227%, exact outputs.
-  CPU6 n5/warmup1 normal CLI medians±MAD (milliseconds):
-  dae2 3635.326±10.535/B1186.903±10.638 (3.063×);
-  dae2-optimizing 6155.410±33.600/B2528.096±92.268 (2.435×);
-  coalesce-locals 4074.843±159.333/B1934.340±31.551 (2.107×);
-  optimize-instructions 2178.843±11.444/B958.248±10.947 (2.274×).
-  No enclosing clock/RSS win established; all rows flag foreign CPU.13461 tests
-  pass;928 validations/2720 available observations retain the two P00 blocked
-  Starshine multivalue rows. All four commands exceed2s and all1× targets remain
-  open. OI's narrow timer still excludes most pipeline/command work.
-  [Evidence and scopes](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-consume-homogeneous-nop-hoist-runs-once).
+- **Latest matched large checkpoint:** original subtree-read reuse,
+  main `33db55ad6` / native `d9bdc7b0…` → `e9f225ec…`. Complete DAE2-O cleanup
+  work −3.827%; adjacent-pair worker −55.493%, exact outputs. Native allocation
+  requests +1,453; no peak-memory win. CPU6 n5/warmup1 CLI medians±MAD (ms):
+  dae2 3749.040±22.214 / B1252.634±5.767 (2.993×);
+  dae2-optimizing 6284.585±116.036 / B2471.363±38.660 (2.543×);
+  coalesce-locals 4115.988±38.103 / B2038.311±12.525 (2.019×);
+  optimize-instructions 2239.130±20.814 / B993.775±6.846 (2.253×);
+  All rows flag foreign CPU; OO paired −.338% and overlapping ranges do not
+  establish an enclosing clock win. 13,466 tests, 960 validations/2,816 available
+  observations retain the two P00 blocked multivalue rows. All four commands
+  exceed2s and all1× targets remain open; OI's narrow timer omits most cleanup.
+  [Evidence and scope](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-original-subtree-reads-during-adjacent-pair-cleanup).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
@@ -359,8 +358,8 @@ quality gates. Keep traced inner and normal command measurements separate.
   Admitted-helper costs, all foreign-activity flags and unchanged byte gaps
   remain documented; do not repeat these three predicate reorderings.
   [Proof, full matrix and limits](docs/wiki/binaryen/passes/vacuum/starshine-hot-ir-strategy.md#october-3-2026-reject-mismatched-vacuum-prefixes-before-recursive-scans).
-- **Renewed cleanup attribution:** natived9bdc7b0… complete per-function
-  cleanup16.942b instructions; raw SL10.553b and Vacuum3.896b are disjoint.
+- **Renewed cleanup attribution:** nativee9f225ec… complete per-function
+  cleanup16.294b instructions; raw SL9.907b and Vacuum3.896b are disjoint.
   Reachable reads now share one traversal (946.6m→35.1m worker instructions);
   do not repeat that fix. Preserve owner branches, handler barriers, ordered
   state, NaN/signed-zero termination and complete fixed-point work.
@@ -374,11 +373,14 @@ quality gates. Keep traced inner and normal command measurements separate.
   output ownership and barrier order retained. Resource scaling8× width now
   costs7.15×/7.65×, with no heap-saving or enclosing-clock claim. Do not repeat
   this fix. [Evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-consume-homogeneous-nop-hoist-runs-once).
-- [ ] Investigate returning original subtree read facts from adjacent-pair
-  cleanup instead of recollecting descendants. Current worker root costs1.190b
-  instructions; its nested read collector costs about1.01b, not additive. Preserve sibling isolation,
-  loop self-reads and original reads removed by rewrites; existing read-set
-  copying/borrowing already has measured fixes and must not be duplicated.
+- **Completed subtree-read reuse:** adjacent-pair cleanup returns original
+  read deltas using existing owned storage. Preserve both-arm isolation, loop
+  seeds, original removed reads and flat/legacy fallback. No repeated tree cache
+  is needed. [Measured contract](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-original-subtree-reads-during-adjacent-pair-cleanup).
+- [ ] Attribute remaining distinct-local union costs and nested-loop prewalks;
+  retain the small flat unchanged cost and +1,453 allocation-request tradeoff.
+  Resolve the depth128 benchmark stack-overflow boundary before claiming deep
+  scaling; separate setup/reference from the actual worker.
 - [ ] Profile remaining recurrence/adjacent/effectful rewrites, raw Vacuum
   preclean, preparation, mutation safety, child-use queries and writeback on
   one frozen source. Completed absent-if census, initial control rejection,
@@ -895,6 +897,15 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 ### P13 — Remaining decode, validation and command encoding [IR2-PERF-COMMAND]
 
+- [ ] Eliminate repeated type-prefix copying in incremental `validate_typesec`.
+  Source `env_add_rec_group` and `append_rectype_types_with_scope` each copy the
+  growing global-type and scope arrays per group. Frozen DAE2 type validation
+  costs about537.8m instructions; wasm-gc controls128→1024 groups cost75.21µs→
+  5.31ms (70.60× for8× size). Trial private invocation-owned prefix buffers with
+  original/current recursive scopes, normalization, first-error order and every
+  validation check intact. Add input ownership/failure atomicity and forward/
+  in-group reference regressions; measure all four native consumers and memory.
+  Baseline tests/controls are prepared separately; production is unchanged.
 - **October 2 encoder checkpoint:** bulk leaf/SIMD success no longer boxes a
   Result; public boundaries and cold errors remain. Direct worker instructions
   fall 11.78%; roughly seven million worker success boxes disappear on the

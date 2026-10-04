@@ -1,3 +1,12 @@
+### 2026-10-04 — Reuse original subtree-read facts
+
+- [Ownership proof and measured matrix](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-original-subtree-reads-during-adjacent-pair-cleanup)
+  retain original liveness while cutting complete cleanup instructions3.827%
+  and adjacent-pair work55.493%. Allocation requests rise1,453; flat cost, RSS
+  overlap and contended clocks remain visible.13,466 tests/960 validations/
+  2,816 available observations retain exact bytes and the known blocked rows.
+  Next: measured type-prefix copying; all four1× and release gates stay open.
+
 ### 2026-10-04 — Linear homogeneous nop-hoist runs
 
 - [Resource RED, ownership proof and matched matrix](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-consume-homogeneous-nop-hoist-runs-once)

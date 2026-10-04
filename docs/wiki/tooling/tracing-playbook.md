@@ -5087,3 +5087,16 @@ Retain renamed closure symbols and runtime probe variation when comparing
 profiles. Full-command n5 clocks and RSS do not establish a gain; all1× targets
 and the existing multivalue failure remain open.13461 tests and the explicit
 928-validation/2720-observation corpus retain their blocked-row distinction.
+
+
+## October 4, 2026: subtree-read reuse and exact provenance
+
+[Current complete profile and matrix](../binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-original-subtree-reads-during-adjacent-pair-cleanup)
+show cleanup16.942b→16.294b instructions, with the adjacent-pair root accounting
+for all but1.268m of the reduction. Native requests increase1,453; RSS overlaps.
+Normal CLI OO cohort medians6482.148→6284.585ms differ from paired−.338%; retain
+both and the foreign-load flags instead of promoting the cohort delta to a
+causal clock win. Keep build/profile manifests separate and regenerate cohort
+metadata rather than copying stale commit/hash labels. The nop-run provenance
+correction retains its original note and points to authoritative source/per-pass
+hashes. All speed, canonical and known multivalue-correctness gates stay open.

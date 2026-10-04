@@ -10796,3 +10796,34 @@ test "dae2 optimizing retains ordered calls across scalar and nop runs" {
     @lib.Instruction::call(@lib.FuncIdx::new(1U)),
   ])
 }
+
+///|
+test "dae2 optimizing retains nested read dependencies while removing dead arguments" {
+  let input = @wast.wast_to_binary_module(
+    (
+      #|(module
+      #| (import "host" "f" (func (param i32) (result i32)))
+      #| (func $callee (param i32 i32) (result i32) (local i32)
+      #|  block local.get 0 call 0 local.set 2 local.get 2 drop end
+      #|  block block nop end i32.const 9 local.set 2 local.get 2 call 0 drop end
+      #|  local.get 0 if block local.get 2 call 0 drop end
+      #|  else block nop end i32.const 7 local.set 2 local.get 2 call 0 drop end
+      #|  local.get 2)
+      #| (func (export "run") (param i32) (result i32)
+      #|  local.get 0 i32.const 99 call $callee))
+    ),
+  ).unwrap()
+  let saved = @binary.encode_module(input).unwrap()
+  let output = optimize_module_with_pass_flags(
+    input,
+    ["dae2-optimizing"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  assert_true(@validate.validate_module(output) is Ok(_))
+  let env = @validate.Env::new().with_module(output)
+  assert_eq(
+    env.get_functype_by_funcidx(@lib.FuncIdx::new(1U)),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [@lib.ValType::i32()])),
+  )
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}

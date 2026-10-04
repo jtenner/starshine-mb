@@ -3,6 +3,7 @@ kind: entity
 status: working
 last_reviewed: 2026-10-04
 sources:
+  - ../../../../../src/passes/cleanup_subtree_reads_perf_wbtest.mbt
   - ../../../../../src/passes/pass_manager_nop_run_perf_wbtest.mbt
   - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/validate/typecheck_probe_perf_wbtest.mbt
@@ -7852,3 +7853,91 @@ review remain outstanding. Source/index hashes match the frozen native build;
 next subtree-read tests are separate unstaged work. Evidence and local report:
 `.tmp/large-pass-hotspots-20261001/nop-run-*` and
 `main-nop-run-performance-20261004.md` in that directory.
+
+## October 4, 2026: reuse original subtree reads during adjacent-pair cleanup
+
+Main `33db55ad6`, native `d9bdc7b0…` → `e9f225ec…`. The recursive
+adjacent-pair cleanup previously recollected each original descendant subtree
+at every ancestor. Its private value result now returns the existing owned
+read array and the inherited-prefix length alongside the rewritten body.
+Parents merge only new original reads. Flat bodies retain their original
+collector fallback; both if arms finish before either read set is merged;
+loops still seed next-iteration reads and merge that original seed. Legacy
+handlers remain opaque to rewriting but visible to read collection.
+
+No new retained tree index or heap result record is introduced. Internal read
+insertion order can change the membership index's cached word, but production
+consumers use membership/copy operations, and caller-owned ordered rows stay
+unchanged. Original reads removed by a child rewrite still constrain siblings.
+Default regressions check those dependencies, sibling isolation, loop self
+reads, legacy/TryTable handlers, wide membership, input bytes and dispatcher
+dead-argument activity. Existing frozen-reference controls remain exact.
+
+Dedicated wasm-gc release controls (mean, ten batches):
+
+| Shape | Before µs | After µs |
+| --- | ---: | ---: |
+| Tiny active | .06519 | .06029 |
+| Depth16 active | 1.16 | .644 |
+| Depth64 active | 12.47 | 3.15 |
+| Width32/depth16 active | 51.04 | 35.80 |
+| Width32/depth16 unchanged | 29.25 | 11.71 |
+| Width256 flat unchanged | 1.56 | 1.62 |
+
+The preselected ≤8× time bound for 4× depth fails before (10.75×) and passes
+after (4.89×). This is resource RED; the three original characterization tests
+passed before implementation. The initial depth128 benchmark hit MoonRun stack
+overflow before the timing report; setup/reference/worker attribution remains
+unresolved, so the retained bounded control uses depth64. A fixture-scope compile
+error was corrected separately and is not counted as RED. Flat unchanged cost
+increases about 60ns; distinct-local unions and nested loop prewalks can still
+scale with depth. This is not a universal linearity claim.
+
+Complete per-function DAE2-O cleanup work falls **16,942,034,386 →
+16,293,599,405 instructions (−3.827%)**. All 25,802 raw SL pipeline calls remain;
+raw SL work is 10,553,484,813 → 9,906,711,422. The adjacent-pair worker's 4,574
+root calls fall **1,166,219,705 → 519,052,928 (−55.493%)**. Nested values are
+not additive. Only 1,268,204 instructions of the root delta lie outside that
+worker, giving source-backed attribution unlike the preceding nop-run trial.
+
+Read-set copies remain 52,801. Collected native malloc requests increase
+53,858,927 → 53,860,380 (+1,453); this is not a heap-saving claim. Reordered
+membership and extended array lifetimes retain a small allocation tradeoff.
+Executable size increases 288B to 14,626,136B. RSS ranges overlap; no peak-memory
+win is established. Output hashes and raw byte sizes match the predecessor on
+all four passes, retaining the previously measured canonical gains and gaps.
+
+CPU6, same 6,211,596B input, verified Binaryen133, native GCC O2/mimalloc,
+warm filesystem with fresh CLI processes, warmup1/n5 alternating rotations;
+builds, separate tracing and Callgrind are excluded from these clocks:
+
+| Pass | Before ms ± MAD | After ms ± MAD | Binaryen 133 ms ± MAD | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3778.378 ± 12.536 | 3749.040 ± 22.214 | 1252.634 ± 5.767 | 2.993× | -0.647% |
+| dae2-optimizing | 6482.148 ± 52.287 | 6284.585 ± 116.036 | 2471.363 ± 38.660 | 2.543× | -0.338% |
+| coalesce-locals | 4133.339 ± 50.164 | 4115.988 ± 38.103 | 2038.311 ± 12.525 | 2.019× | +0.439% |
+| optimize-instructions | 2209.890 ± 22.889 | 2239.130 ± 20.814 | 993.775 ± 6.846 | 2.253× | +2.384% |
+
+Every timing row flags foreign CPU. DAE2-O cohort medians improve 197.6ms but
+the paired median is only −.338% and ranges overlap substantially; do not claim
+a reliable enclosing clock gain. Retain the adverse OI/CL paired movements.
+OI's narrow inner timer excludes most cleanup, so it cannot establish whole-pass
+parity. All four full commands remain above 2s and every 1× target stays open.
+
+Info/fmt/check, 13,466 default tests, six controls, native release and README/API
+sync pass; no public API diff. The 59-fixture/four-mode corpus records 960
+validations and 2,816 available observations: 58 full four-way fixtures per DAE2
+mode and 59 for CL/OI. The existing valid multivalue failure remains explicitly
+blocked in both DAE2 modes; no new failure or byte drift. Long fuzz/full CI,
+coverage and independent review remain release gates. Ownership/source review
+is recorded locally; no independent reviewer ran in this unit.
+
+Evidence: `.tmp/large-pass-hotspots-20261001/subtree-reads-*`, distinct build
+and profile manifests, `subtree-reads-environment-full.json`, and local report
+`main-subtree-reads-performance-20261004.md`. The earlier nop-run full environment
+note carried stale inherited top-level labels: its authoritative build/per-pass
+hashes were correct. `nop-run-provenance-correction.json` records the corrected
+cohort without deleting the original note. This run has a fresh self-contained
+manifest. New type-section tests are separate unstaged work: two prefix copies
+per group cause a measured 70.60× time increase for 8× groups; an owned private
+validation buffer is the next experiment, with full incremental scope retained.

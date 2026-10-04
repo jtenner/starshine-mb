@@ -73951,6 +73951,60 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
   future_read_visits? : Array[Int]? = None,
   cleanup_root_visits? : Array[Int]? = None,
 ) -> Array[@lib.Instruction] {
+  sl_cleanup_drop_dead_pairs_with_facts(
+    instrs,
+    live_after,
+    child_liveout_contexts~,
+    suffix_root_visits~,
+    future_read_visits~,
+    cleanup_root_visits~,
+  ).body
+}
+
+///|
+#valtype
+priv struct SlCleanupPairResult {
+  body : Array[@lib.Instruction]
+  reads : Array[Int]
+  start : Int
+}
+
+///|
+fn SlCleanupPairResult::new(
+  body : Array[@lib.Instruction],
+  reads : Array[Int],
+  start : Int,
+) -> SlCleanupPairResult {
+  { body, reads, start, }
+}
+
+///|
+fn SlCleanupPairResult::merge_original_reads(
+  self : SlCleanupPairResult,
+  into : SlCleanupReadSet,
+  original : Array[@lib.Instruction],
+) -> Unit {
+  if self.start < 0 {
+    // Flat fast paths did not collect reads. Include opaque legacy handlers.
+    into.collect(original)
+  } else {
+    // The inherited prefix is already in `into`. Only the owned suffix holds
+    // new original reads; never infer liveness from the rewritten child body.
+    for idx = self.start; idx < self.reads.length(); idx = idx + 1 {
+      into.insert(self.reads[idx])
+    }
+  }
+}
+
+///|
+fn sl_cleanup_drop_dead_pairs_with_facts(
+  instrs : Array[@lib.Instruction],
+  live_after : SlCleanupReadSet,
+  child_liveout_contexts? : Array[Int]? = None,
+  suffix_root_visits? : Array[Int]? = None,
+  future_read_visits? : Array[Int]? = None,
+  cleanup_root_visits? : Array[Int]? = None,
+) -> SlCleanupPairResult {
   let mut has_children = false
   let mut has_root_writes = false
   for instr in instrs {
@@ -73970,9 +74024,10 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
     }
   }
   if !has_children && !has_root_writes {
-    return instrs
+    return SlCleanupPairResult::new(instrs, live_after.reads, -1)
   }
   let mut normalized = instrs
+  let read_start = if has_children { live_after.reads.length() } else { -1 }
   let suffix_reads = if has_children { live_after.copy() } else { live_after }
   // Children use the original continuation's reads. Accumulate those reads
   // once in reverse order, preserving the original instruction order in the
@@ -74004,9 +74059,11 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
       }
       let next = match instr {
         @lib.Block(bt, @lib.Expr(body)) => {
-          let next_body = sl_cleanup_drop_dead_pairs_with_reads(
+          let child = sl_cleanup_drop_dead_pairs_with_facts(
             body, child_live_after,
           )
+          child.merge_original_reads(suffix_reads, body)
+          let next_body = child.body
           if physical_equal(next_body, body) {
             instr
           } else {
@@ -74014,10 +74071,19 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
           }
         }
         @lib.Loop(bt, @lib.Expr(body)) => {
+          let self_read_start = child_live_after.reads.length()
           child_live_after.collect(body)
-          let next_body = sl_cleanup_drop_dead_pairs_with_reads(
+          let child = sl_cleanup_drop_dead_pairs_with_facts(
             body, child_live_after,
           )
+          // Self reads seed the loop's incoming context, so the returned delta
+          // excludes them. Merge the seed, preserving next-iteration liveness.
+          for read_idx = self_read_start
+              read_idx < child_live_after.reads.length()
+              read_idx = read_idx + 1 {
+            suffix_reads.insert(child_live_after.reads[read_idx])
+          }
+          let next_body = child.body
           if physical_equal(next_body, body) {
             instr
           } else {
@@ -74025,9 +74091,11 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
           }
         }
         @lib.TryTable(bt, catches, @lib.Expr(body)) => {
-          let next_body = sl_cleanup_drop_dead_pairs_with_reads(
+          let child = sl_cleanup_drop_dead_pairs_with_facts(
             body, child_live_after,
           )
+          child.merge_original_reads(suffix_reads, body)
+          let next_body = child.body
           if physical_equal(next_body, body) {
             instr
           } else {
@@ -74035,17 +74103,24 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
           }
         }
         @lib.If(bt, then_body, else_body) => {
-          let next_then = sl_cleanup_drop_dead_pairs_with_reads(
+          let then_result = sl_cleanup_drop_dead_pairs_with_facts(
             then_body, child_live_after,
           )
+          let next_then = then_result.body
           let mut next_else = else_body
           if else_body is Some(body) {
-            let next_body = sl_cleanup_drop_dead_pairs_with_reads(
+            // Both arms borrow the same original continuation. Do not merge
+            // either arm's reads until both recursive rewrites have finished.
+            let else_result = sl_cleanup_drop_dead_pairs_with_facts(
               body, child_live_after,
             )
-            if !physical_equal(next_body, body) {
-              next_else = Some(next_body)
+            then_result.merge_original_reads(suffix_reads, then_body)
+            else_result.merge_original_reads(suffix_reads, body)
+            if !physical_equal(else_result.body, body) {
+              next_else = Some(else_result.body)
             }
+          } else {
+            then_result.merge_original_reads(suffix_reads, then_body)
           }
           if physical_equal(next_then, then_body) &&
             physical_equal(next_else, else_body) {
@@ -74054,7 +74129,10 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
             @lib.Instruction::if_(bt, next_then, next_else)
           }
         }
-        _ => instr
+        _ => {
+          suffix_reads.collect_instr(instr)
+          instr
+        }
       }
       if !physical_equal(next, instr) {
         if physical_equal(normalized, instrs) {
@@ -74062,21 +74140,16 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
         }
         normalized[idx] = next
       }
-      if has_children {
-        match suffix_root_visits {
-          Some(visits) => visits[0] += 1
-          None => ()
-        }
-        // Use the original subtree even when child cleanup removed a read.
-        // The old suffix analysis saw that original read as well.
-        suffix_reads.collect_instr(instr)
+      match suffix_root_visits {
+        Some(visits) => visits[0] += 1
+        None => ()
       }
     }
   }
   // Child cleanup retains every root control shell, so normalization cannot
   // introduce a root set/tee when admission found none. Keep child rewrites.
   if !has_root_writes {
-    return normalized
+    return SlCleanupPairResult::new(normalized, suffix_reads.reads, read_start)
   }
   // Borrow unchanged arrays. All callers treat these results as read-only;
   // allocate an owned output only when a pair is actually changed.
@@ -74207,7 +74280,7 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
       _ => idx += 1
     }
   }
-  match rewritten {
+  let output = match rewritten {
     Some(out) => {
       for kept = cursor; kept < normalized.length(); kept = kept + 1 {
         out.push(normalized[kept])
@@ -74216,6 +74289,7 @@ fn sl_cleanup_drop_dead_pairs_with_reads(
     }
     None => normalized
   }
+  SlCleanupPairResult::new(output, suffix_reads.reads, read_start)
 }
 
 ///|
@@ -94009,4 +94083,102 @@ test "nop hoist retains barrier order and exact changed flag" {
   )
   assert_eq(again, output)
   assert_false(again_changed)
+}
+
+///|
+test "cleanup subtree facts retain original reads removed from later siblings" {
+  let input = @wast.wast_to_binary_module(
+    "(module (func (local i32) block i32.const 7 local.set 0 local.get 0 drop end block block nop end i32.const 9 local.set 0 local.get 0 drop end))",
+  ).unwrap()
+  let @lib.Func(locals, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
+  let saved = @binary.encode_module(input).unwrap()
+  let output = sl_cleanup_drop_dead_pairs_with_reads(
+    body,
+    SlCleanupReadSet::new([]),
+  )
+  // The later child's rewritten pair has no read, but its original read must
+  // still keep the earlier child's write alive under the same conservative rule.
+  assert_true(physical_equal(output[0], body[0]))
+  guard output[1] is @lib.Block(_, @lib.Expr(later)) else {
+    fail("expected later block")
+  }
+  assert_eq(
+    later[1:],
+    [@lib.Instruction::i32_const(@lib.I32::new(9)), @lib.Instruction::drop()][:],
+  )
+  assert_true(
+    @validate.validate_module(
+      input.with_code_sec(
+        @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(output))]),
+      ),
+    )
+    is Ok(_),
+  )
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+}
+
+///|
+test "cleanup subtree facts do not leak then-arm reads into else cleanup" {
+  let input = @wast.wast_to_binary_module(
+    "(module (func (param i32) (local i32) local.get 0 if block local.get 1 drop end else block nop end i32.const 7 local.set 1 local.get 1 drop end))",
+  ).unwrap()
+  let @lib.Func(locals, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
+  let continuation = SlCleanupReadSet::new([])
+  let output = sl_cleanup_drop_dead_pairs_with_reads(body, continuation)
+  guard output[1] is @lib.If(_, _, Some(else_body)) else {
+    fail("expected conditional")
+  }
+  assert_eq(
+    else_body[1:],
+    [@lib.Instruction::i32_const(@lib.I32::new(7)), @lib.Instruction::drop()][:],
+  )
+  assert_eq(continuation.reads, [])
+  assert_true(
+    @validate.validate_module(
+      input.with_code_sec(
+        @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(output))]),
+      ),
+    )
+    is Ok(_),
+  )
+}
+
+///|
+test "cleanup subtree facts retain loop self reads and isolate caller continuation" {
+  let input = @wast.wast_to_binary_module(
+    "(module (func (local i32) loop block local.get 0 drop end block i32.const 7 local.set 0 local.get 0 drop end br 0 end))",
+  ).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
+  let continuation = SlCleanupReadSet::new([])
+  let output = sl_cleanup_drop_dead_pairs_with_reads(body, continuation)
+  assert_eq(output, body)
+  assert_true(physical_equal(output, body))
+  assert_eq(continuation.reads, [])
+  assert_true(@validate.validate_module(input) is Ok(_))
+}
+
+///|
+test "cleanup subtree facts retain handler reads and original wide membership" {
+  for
+    tail in [
+      "(block (try (do nop) (catch_all local.get 65 drop)))", "(block (try_table (catch_all 0) local.get 65 drop))",
+      "(block (block local.get 65 drop) local.get 64 drop)",
+    ] {
+    let locals = Array::make(128, "i32").join(" ")
+    let input = @wast.wast_to_binary_module(
+      "(module (func (local \{locals}) (block i32.const 7 local.set 65 local.get 65 drop) \{tail}))",
+    ).unwrap()
+    @validate.validate_module(input).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
+    let saved = @binary.encode_module(input).unwrap()
+    let incoming = Array::makei(32, fn(index) { index }) + [64, 128]
+    let inherited = SlCleanupReadSet::new(incoming.copy())
+    assert_true(inherited.contains(128))
+    let actual = sl_cleanup_drop_dead_pairs_with_reads(body, inherited)
+    assert_eq(actual, body)
+    assert_true(physical_equal(actual[0], body[0]))
+    assert_eq(inherited.reads, incoming)
+    assert_false(inherited.contains(65))
+    assert_eq(@binary.encode_module(input).unwrap(), saved)
+  }
 }
