@@ -933,6 +933,15 @@ fn dae2_rewrite_node(
   let changed_children = dae2_rewrite_children(
     graph, infos, index, func, node, memo, old_arities, lower_state, type_infos,
   )
+  if used &&
+    changed_children is None &&
+    (data.op is @ir.Block || data.op is @ir.Loop || data.op is @ir.If) {
+    // Descendants have already been rewritten, including changes made in
+    // place. A live control keeps its result type and unchanged child IDs;
+    // copying and comparing the same span cannot add another transformation.
+    memo[node] = node
+    return node
+  }
   if changed_children is None &&
     !(data.op is @ir.Call ||
     data.op is @ir.ReturnCall ||

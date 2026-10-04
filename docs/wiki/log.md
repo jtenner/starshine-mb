@@ -1,3 +1,11 @@
+### 2026-10-04 — Reuse unchanged live-control child storage
+
+- [Complete profile and DAE2/O controls](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-keep-unchanged-live-control-child-storage)
+  remove60,971 snapshots/123,399 requests; complete DAE2 work−.165%, all recursive
+  rewrite calls and bytes retained.13,474 tests/518 validations/1,520 available
+  observations retain the known blocked cases. Continue entry-source traversal
+  costs; all four1×, canonical and release gates remain open.
+
 ### 2026-10-04 — Own incremental type-validation prefixes
 
 - [Measured storage change](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix)

@@ -8053,3 +8053,63 @@ input/tool/source/binary hashes, commands, dirty state, profiles, all samples,
 RSS, execution cases and first-error/reference controls. Build and profile
 manifests are separate. The following live-control trial has independent files
 and binaries and is not included in this unit's timings or13,471-test claim.
+
+## October 4, 2026: keep unchanged live-control child storage
+
+Frozen native `6b65daad…` (now main `225477e16`) → `e04ee14f…`.
+`dae2_rewrite_node` now returns a live Block/Loop/If after recursively rewriting
+all descendants when their IDs are unchanged. The old branch could only copy
+and compare that same span. In-place child mutations remain visible; dead-control
+result demotion, call/signature changes and repeated-producer handling remain.
+No new arrays, cache, public API or representation change.
+
+[Focused regressions](../../../../../src/passes/dae2_live_controls_wbtest.mbt)
+check complete visitation, unchanged bodies/revisions and retained child cleanup;
+two baseline characterizations passed before implementation. The [dispatcher
+fixture](../../../../../src/cmd/dae2_live_controls_wbtest.mbt) checks real pruning
+inside effectful controls in both modes. [Dedicated controls](../../../../../src/passes/dae2_live_controls_perf_wbtest.mbt)
+reset the memo each iteration: depth1/8/32 wasm-gc means335.59ns/2.80µs/12.00µs
+become152.97ns/1.26µs/5.35µs. Resource RED was redundant unchanged-control child
+storage; these are storage-only tests, not a newly introduced semantic failure.
+
+Complete DAE2 instructions **30,099,120,246 → 30,049,564,045
+(-0.165%)**. The36,215 rewrite-root calls cost
+**842,959,024 → 793,561,072
+(-5.860%)**. All973,347 recursive/root rewrite calls
+remain. Remove60,971 child snapshots and the same number of redundant child-span
+comparisons; changed-child snapshots stay intact. Direct native malloc requests
+**76,024,366 → 75,900,967** (123,399 fewer). Work outside the root rewrite
+changes-158,249 instructions. Recursive inclusive
+edges are not summed as phase totals; allocator requests are not bytes.
+
+CPU6, same6,211,596B fixture/verified133, native GCC O2/mimalloc, warm filesystem,
+fresh untraced CLI, warmup1/n5 rotating order; build/profile work excluded:
+
+| Pass | Before ms ± MAD | After ms ± MAD | Binaryen133 ms ± MAD | After/B | Paired change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae2 | 3715.910 ± 8.902 | 3698.567 ± 13.827 | 1228.600 ± 10.218 | 3.010× | -0.267% |
+| dae2-optimizing | 6154.388 ± 86.872 | 6095.044 ± 80.815 | 2527.605 ± 55.246 | 2.411× | -0.964% |
+
+All30 normal rows flag foreign CPU, and ranges overlap; retain the modest paired
+changes without promoting the55% synthetic gain to complete-pass speed. DAE2
+RSS median263,176→254,392KiB and OO291,140→290,932KiB have overlapping ranges;
+no reliable peak-memory win is established. Binary size stays14,625,944B. Both
+large raw outputs/hashes are exact; canonical gains and remaining gaps persist.
+CL/OI code paths are unaffected and were not redundantly timed; their last matched
+n5 rows and the separate n3 inner scopes are in the preceding prefix checkpoint.
+All four1× targets remain open.
+
+Info/fmt/check,13,474 default tests,three controls,native release and README/API
+sync pass.64 execution fixtures per DAE2 mode record518 validations/1,520
+available observations, with63 complete original/before/after/Binaryen rows each.
+New cases cover nested effectful/scalar/GC arms, traps and an in-place call losing
+all arguments. The known two-parameter result-block validation failure remains
+blocked in both modes; it is not a semantic pass. Full CI/coverage,long fuzz and
+independent review are pending. Source ownership review is local self-review.
+
+Local `live-controls-*` files hold exact build/source/binary hashes, profile,
+all clocks/RSS and runtime rows. The build manifest records HEAD3fd003483 while
+the preceding type-prefix unit was pending; its baseline is explicitly frozen
+6b65daad, not bare3fd003483. After225477e16, only this live-control implementation
+and its tests differ from that baseline. Next: finalize entry-source rows during
+the existing DAG propagation after proving saved intervals are no longer read.

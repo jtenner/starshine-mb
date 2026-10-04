@@ -27,7 +27,15 @@ oracle versions and checkpoints do not sign current source.
 - **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
-- **Latest matched large checkpoint:** owned type-validation prefixes,
+- **Latest DAE2-only follow-up:** live-control child storage, frozen6b65daad…→
+  e04ee14f…; complete work−.165%, rewrite-root work−5.860%,123,399 fewer requests.
+  CPU6 n5/warmup1 normal medians±MAD(ms): DAE23698.567±13.827 /B1228.600±10.218
+  (3.010×), OO6095.044±80.815 /B2527.605±55.246 (2.411×). Paired−.267/−.964%,
+  all rows contended, RSS ranges overlap;13,474 tests/518 validations/1,520
+  available observations retain exact outputs and both P00 blocked rows.
+  CL/OI were not retimed; the all-four preceding cohort stays separate.
+  [Measured scope](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-keep-unchanged-live-control-child-storage).
+- **Latest matched all-four checkpoint:** owned type-validation prefixes,
   main `3fd003483` / native `e9f225ec…` → `6b65daad…`.
   Complete DAE2 work-1.736%, OI command work-0.114%; all
   validation work retained and raw output hashes exact. CPU6 n5/warmup1
@@ -44,7 +52,7 @@ oracle versions and checkpoints do not sign current source.
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Latest complete DAE2 profile:** native6b65daad… pass30.099b
+- **Latest complete DAE2 profile:** nativee04ee14f… pass30.050b
   instructions. Dependencies9.418b, analysis lift6.366b, rewrite lift2.372b,
   lower4.647b and final validation2.495b remain larger owners; nested costs
   are inclusive and not additive. [Full source breakdown](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
@@ -212,11 +220,10 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03b — Query scratch and object churn [IR2-PERF-DAE2-SCRATCH]
 
-- [ ] Finish the separate live-control child-storage trial: descendants must
-  still rewrite before live Block/Loop/If nodes reuse unchanged child IDs.
-  Baseline characterization and depth1/8/32 controls are saved; retain in-place
-  call changes, dead-control demotion, actual dispatcher pruning and GC/effect/
-  trap execution. Accept only after scoped native and matched DAE2/O evidence.
+- **Completed live-control storage reuse:** descendants rewrite first; a live
+  Block/Loop/If with unchanged child IDs skips a redundant copy/comparison.
+  Keep in-place edits, dead controls and call/result handling intact.
+  [Proof and measurements](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-keep-unchanged-live-control-child-storage).
 - [ ] Attribute remaining source/reader/access rows, wider-row comparator closure
   construction after V65 bypasses empty/singleton sorts, array growth and reference-count/destruction work. Trial reuse
   where enclosing gains justify lifetime costs. Five loop-scoped raw visitors are
@@ -240,6 +247,14 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03c — Remaining quadratic and repeated flow work [IR2-PERF-DAE2-FLOW]
 
+- [ ] Finish the entry-source finalization trial. Current multi-write proof
+  makes4,915,480 complete-header reads on the large fixture; the final arena
+  scan repeats a row visit after reverse-topological propagation. Trial
+  finalization only after each saved interval reaches its children; prove that
+  later nodes cannot read that finalized parent. Preserve detached/unadmitted
+  -2 rows, shared/cross-write reads, caller ownership and full-flow fallbacks.
+  Frozen-reference tests/resource controls precede implementation; source/profile
+  evidence is local. Do not widen admission or add an arena cache.
 - [ ] Reduce overlapping local-access-list rescans and repeated predecessor,
   last-write and source queries on actively transforming inputs. V68 closes
   repeated singleton-writer scans of one wide consumer; overlapping subtree
