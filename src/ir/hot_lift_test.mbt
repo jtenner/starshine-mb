@@ -732,6 +732,8 @@ test "hot lift preserves branchy triple-result spill bridges" {
               @lib.Instruction::br(@lib.LabelIdx::new(1U)),
             ]),
           ),
+          // A closed void child does not make its parent frame polymorphic.
+          @lib.Instruction::unreachable_(),
         ]),
       ),
       @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
@@ -910,6 +912,8 @@ test "hot lift preserves branchy triple-result bridges ending in local.tee" {
               @lib.Instruction::br(@lib.LabelIdx::new(1U)),
             ]),
           ),
+          // A closed void child does not make its parent frame polymorphic.
+          @lib.Instruction::unreachable_(),
         ]),
       ),
       @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),

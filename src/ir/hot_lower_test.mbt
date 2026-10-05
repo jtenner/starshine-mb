@@ -262,6 +262,8 @@ test "hot lower peels same-typed payload wrappers that feed a final parent branc
             @lib.Instruction::br(@lib.LabelIdx::new(1U)),
           ]),
         ),
+        // A closed void child does not make its parent frame polymorphic.
+        @lib.Instruction::unreachable_(),
       ]),
     ),
   ])
@@ -315,6 +317,8 @@ test "hot lower peels payload wrappers inside side-effecting parent result block
             @lib.Instruction::br(@lib.LabelIdx::new(1U)),
           ]),
         ),
+        // A closed void child does not make its parent frame polymorphic.
+        @lib.Instruction::unreachable_(),
         @lib.Instruction::i32_const(@lib.I32(0)),
         @lib.Instruction::drop(),
       ]),
@@ -561,7 +565,7 @@ test "hot lower preserves typed result if forwarders that feed return" {
 ///|
 test "hot lower preserves typed result if forwarders that feed return after prefix blocks" {
   let fixture = ir_test_build_hot_from_wat(
-    "(module (func (param i32) (result i32) (block (block $prefix (br $prefix)) (return (if (result i32) (local.get 0) (then (i32.const 7) (return)) (else (i32.const 9) (return)))))))",
+    "(module (func (param i32) (result i32) (block (result i32) (block $prefix (br $prefix)) (return (if (result i32) (local.get 0) (then (i32.const 7) (return)) (else (i32.const 9) (return)))))))",
   )
   let lowered = hot_lower_func(fixture.hot_func)
   let pretty = @lib.Module::new()
@@ -809,7 +813,7 @@ test "hot lower keeps wrapped local.set prefixes void when a doubly nested child
 ///|
 test "hot lower repacks split local.set carried values with store-store-return tails" {
   let fixture = ir_test_build_hot_from_wat(
-    "(module (memory 1) (func (param i32) (result i32) (local i32 i32) (block $outer (result i32) (block $block23 (if (local.get 0) (then (drop (i32.const 5)) (br $block23)) (else (local.set 2 (i32.const 9)) (br $block23))) unreachable) (local.set 1 (local.get 2)) (i32.store align=1 (i32.const 0) (local.get 2)) (i32.store align=1 (i32.const 4) (local.get 2)) (return (local.get 2))) (i32.const 0)))",
+    "(module (memory 1) (func (param i32) (result i32) (local i32 i32) (block $outer (result i32) (block $block23 (if (local.get 0) (then (drop (i32.const 5)) (br $block23)) (else (local.set 2 (i32.const 9)) (br $block23))) unreachable) (local.set 1 (local.get 2)) (i32.store align=1 (i32.const 0) (local.get 2)) (i32.store align=1 (i32.const 4) (local.get 2)) (return (local.get 2))) drop (i32.const 0)))",
   )
   let lowered = hot_lower_func(fixture.hot_func)
   let pretty = @lib.Module::new()
@@ -3442,7 +3446,7 @@ test "hot lower drops dead nested local.tee instructions" {
 ///|
 test "hot lower drops dead nested local.tee instructions despite unreachable gets" {
   let fixture = ir_test_build_hot_from_wat(
-    "(module (func (result i32) (local i32) i32.const 7 local.tee 0 block unreachable local.get 0 drop end i32.const 1))",
+    "(module (func (result i32) (local i32) i32.const 7 local.tee 0 block unreachable local.get 0 drop end i32.const 1 unreachable))",
   )
   let validated = ir_test_assert_verify_and_lower(fixture)
   let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
@@ -3528,6 +3532,8 @@ test "hot lower preserves branchy result blocks consumed by local.tee and later 
             @lib.Instruction::br(@lib.LabelIdx::new(1U)),
           ]),
         ),
+        // A closed void child does not make its parent frame polymorphic.
+        @lib.Instruction::unreachable_(),
       ]),
     ),
     @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
@@ -3573,6 +3579,7 @@ test "hot lower preserves branchy result blocks consumed by local.tee and later 
               @lib.Instruction::br(@lib.LabelIdx::new(1U)),
             ]),
           ),
+          @lib.Instruction::unreachable_(),
         ]),
       ),
       @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
@@ -4076,6 +4083,8 @@ test "hot lower preserves branchy triple-result bridges after removing leading n
                 @lib.Instruction::br(@lib.LabelIdx::new(1U)),
               ]),
             ),
+            // A closed void child does not make its parent frame polymorphic.
+            @lib.Instruction::unreachable_(),
           ]),
         ),
         @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
@@ -4149,6 +4158,7 @@ test "hot lower preserves branchy triple-result bridges after removing leading n
                   @lib.Instruction::br(@lib.LabelIdx::new(1U)),
                 ]),
               ),
+              @lib.Instruction::unreachable_(),
             ]),
           ),
           @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),

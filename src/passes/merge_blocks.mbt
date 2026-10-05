@@ -1,4 +1,33 @@
 ///|
+test "merge blocks retains raw validity through carried values and drops after unreachable" {
+  let input = pass_test_module_from_wat(
+    "(module (table 1 funcref) (func (export \"f\") i32.const 0 i32.const 0 table.get 0 i32.const 0 table.fill 0 block (result v128) unreachable end f32.const 2.5 block end drop drop block (result funcref) block ref.null func i32.const 0 br_table 1 1 end unreachable end drop))",
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let before = input.with_code_sec(
+    @lib.CodeSec::new([@ir.hot_lower_func(func)]),
+  )
+  @validate.validate_module(before).unwrap()
+  let ctx = HotPassContext::new(
+    merge_blocks_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(input)),
+  )
+  assert_true(merge_blocks_run(ctx, func).changed)
+  @ir.hot_verify_core(func).unwrap()
+  @ir.hot_verify_control(func).unwrap()
+  let after = input.with_code_sec(@lib.CodeSec::new([@ir.hot_lower_func(func)]))
+  @validate.validate_module(after).unwrap()
+  let pipeline = run_hot_pipeline(input, HotPipelineOptions::new(), [
+    "merge-blocks",
+  ]).unwrap()
+  @validate.validate_module(pipeline).unwrap()
+}
+
+///|
 pub fn merge_blocks_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new("merge-blocks", invalidates=[
     @ir.HotAnalysis::cfg(),

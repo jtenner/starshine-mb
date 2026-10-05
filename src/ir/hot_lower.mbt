@@ -1712,6 +1712,39 @@ fn hot_lower_impl_alloc_scratch_local(
 }
 
 ///|
+fn hot_lower_impl_closed_control_proves_terminal(instr : Instruction) -> Bool {
+  match instr {
+    Block(_, Expr(body)) | Loop(_, Expr(body)) =>
+      !hot_lower_impl_body_targets_removed_label(body, 0) &&
+      hot_lower_impl_tail_proves_terminal(body)
+    If(_, then_, Some(else_)) =>
+      !hot_lower_impl_body_targets_removed_label(then_, 0) &&
+      !hot_lower_impl_body_targets_removed_label(else_, 0) &&
+      hot_lower_impl_tail_proves_terminal(then_) &&
+      hot_lower_impl_tail_proves_terminal(else_)
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_tail_proves_terminal(body : Array[Instruction]) -> Bool {
+  if body.is_empty() {
+    return false
+  }
+  match body[body.length() - 1] {
+    Return
+    | ReturnCall(_)
+    | ReturnCallIndirect(_, _)
+    | ReturnCallRef(_)
+    | Throw(_)
+    | ThrowRef
+    | Rethrow(_)
+    | Unreachable => true
+    instr => hot_lower_impl_closed_control_proves_terminal(instr)
+  }
+}
+
+///|
 fn hot_lower_impl_finalize_region_stack(
   func : HotFunc,
   keep_count : Int,
@@ -1719,12 +1752,26 @@ fn hot_lower_impl_finalize_region_stack(
   out : Array[Instruction],
   extra_locals : Array[ValType],
 ) -> Unit {
+  if stack.length() < keep_count &&
+    out.length() > 0 &&
+    hot_lower_impl_closed_control_proves_terminal(out[out.length() - 1]) {
+    // A terminal replacement region can have a void signature. Closing it
+    // restores a concrete parent frame; the proven dead continuation needs
+    // its own terminal marker to satisfy the parent's declared results.
+    out.push(Instruction::unreachable_())
+    stack.clear()
+    return
+  }
   if stack.length() <= keep_count {
     return
   }
-  if out.length() > 0 &&
-    hot_lower_impl_instr_is_nonfallthrough(out[out.length() - 1]) {
-    return
+  if out.length() > 0 {
+    match out[out.length() - 1] {
+      Return | Throw(_) | ThrowRef | Unreachable => return
+      // A closed control frame contributes its declared concrete results to
+      // its parent even when execution escapes from inside that frame.
+      _ => ()
+    }
   }
   let preserved : Array[LocalIdx] = []
   let preserved_count = if keep_count < stack.length() {
