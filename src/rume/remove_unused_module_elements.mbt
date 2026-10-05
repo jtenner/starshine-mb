@@ -6494,11 +6494,42 @@ pub fn rume_extract_functions(
 }
 
 ///|
+fn rume_has_unrewritable_metadata(mod_ : @lib.Module) -> Bool {
+  if mod_.raw_name_sec_payload is Some(_) && mod_.name_sec is None {
+    return true
+  }
+  for custom in mod_.custom_secs {
+    let @lib.CustomSec(@lib.Name(raw_name), _) = custom
+    let name = raw_name.to_owned()
+    if name.starts_with("metadata.code.") ||
+      name == "reloc.CODE" ||
+      name.starts_with(".debug_") {
+      return true
+    }
+  }
+  match mod_.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for @lib.FuncAnnotationAssoc(_, annotations) in entries {
+        if annotations.any(fn(annotation) {
+            annotation.name == "metadata.code.branch_hint"
+          }) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 pub fn rume_run_module_pass(
   mod_ : @lib.Module,
   traps_never_happen? : Bool = false,
   closed_world? : Bool = false,
 ) -> @lib.Module {
+  if rume_has_unrewritable_metadata(mod_) {
+    return mod_
+  }
   let (
     used_funcs,
     referenced_funcs,
@@ -6611,6 +6642,9 @@ pub fn rume_run_nonfunction_module_pass(
   traps_never_happen? : Bool = false,
   closed_world? : Bool = false,
 ) -> @lib.Module {
+  if rume_has_unrewritable_metadata(mod_) {
+    return mod_
+  }
   let (
     used_funcs,
     referenced_funcs,
