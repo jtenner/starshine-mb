@@ -3808,6 +3808,32 @@ test "remove-unused-module-elements prunes unreachable simple GC type families" 
 }
 
 ///|
+test "remove-unused-module-elements boundary preserves code with opaque relocation offsets" {
+  // The relocation payload refers to code bytes RUME cannot remap.
+  let input = pass_test_module_from_wat(
+    "(module (func $dead nop) (func (export \"run\") nop))",
+  ).with_custom_secs([
+    @lib.CustomSec::new(@lib.Name::new("reloc.CODE"), b"\x0a\x00"),
+  ])
+  let output = rume_run_module_pass(input)
+  @debug.assert_eq(output.code_sec, input.code_sec)
+  @debug.assert_eq(output.func_sec, input.func_sec)
+  @debug.assert_eq(output.custom_secs, input.custom_secs)
+}
+
+///|
+test "remove-unused-module-elements boundary preserves opaque raw name metadata" {
+  let input = pass_test_module_from_wat(
+      "(module (func $dead nop) (func (export \"run\") nop))",
+    )
+    .without_name_sec()
+    .with_raw_name_sec_payload(b"opaque-index-names")
+  let output = rume_run_module_pass(input)
+  @debug.assert_eq(output.code_sec, input.code_sec)
+  @debug.assert_eq(output.raw_name_sec_payload, input.raw_name_sec_payload)
+}
+
+///|
 test "remove-unused-module-elements dispatcher remaps type and field names" {
   let input = pass_test_module_from_wat(
     "(module (type (struct)) (type (func)) (type (struct (field i32))) (func (export \"run\") (type 1) struct.new_default 2 drop))",

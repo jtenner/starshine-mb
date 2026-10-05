@@ -16,6 +16,40 @@ test "round2 dae2 preserves indirect call runtime type mismatch" {
 }
 
 ///|
+test "dae2 keeps a private table indirect-call type after host funcref ingress" {
+  let source =
+    #| (module
+    #|   (type $sig (func (param i32)))
+    #|   (import "env" "get" (func $get (result funcref)))
+    #|   (table 1 funcref)
+    #|   (func (export "run") (param i64)
+    #|     i32.const 0
+    #|     call $get
+    #|     table.set 0
+    #|     i32.const 7
+    #|     i32.const 0
+    #|     call_indirect (type $sig)))
+    #|
+  let input = pass_test_module_from_wat(source)
+  let output = run_hot_pipeline(
+    input,
+    HotPipelineOptions::new(closed_world=true),
+    ["dae2"],
+  ).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  let env = @validate.Env::new().with_module(output)
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  let call_type = match body.last() {
+    Some(@lib.CallIndirect(type_idx, _)) => type_idx
+    other => fail("expected retained indirect call, got \{other}")
+  }
+  @debug.assert_eq(
+    env.resolve_functype(call_type),
+    Some(@lib.FuncType::new([@lib.ValType::i32()], [])),
+  )
+}
+
+///|
 test "round2 dae2 preserves equivalent indirect call types with unequal liveness" {
   let input = pass_test_module_from_wat(
     "(module (type $A (func (param i32))) (type $B (func (param i32))) (global $side (export \"side\") (mut i32) (i32.const 0)) (table 1 funcref) (func $a (type $A) local.get 0 global.set $side) (elem (i32.const 0) func $a) (func (export \"run\") i32.const 7 i32.const 0 call_indirect (type $B)))",

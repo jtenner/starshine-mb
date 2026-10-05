@@ -642,14 +642,19 @@ fn vacuum_heap_is_removable_if_unused(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
 ) -> Bool {
-  let length_is_not_negative_const = fn(slot : Int) {
+  let length_is_nonnegative_const = fn(slot : Int) {
     if slot < 0 || slot >= @ir.hot_child_count(func, node_id) {
-      return true
+      return false
     }
-    match
-      @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, node_id, slot)) {
-      Some(@lib.I32Const(@lib.I32(value))) => value >= 0
-      _ => true
+    let length_node = @ir.hot_child_get(func, node_id, slot)
+    let length = @ir.hot_node_get(func, length_node)
+    match length.op {
+      @ir.HotOp::Const =>
+        match @ir.hot_const_get(func, length.imm0) {
+          @ir.HotConstPayload::I32Const(@lib.I32(value)) => value >= 0
+          _ => false
+        }
+      _ => false
     }
   }
   match @ir.hot_node_exact_instr(func, node_id) {
@@ -660,9 +665,8 @@ fn vacuum_heap_is_removable_if_unused(
       | @lib.Instruction::RefEq
       | @lib.Instruction::RefI31
     ) => true
-    Some(@lib.Instruction::ArrayNew(_)) => length_is_not_negative_const(1)
-    Some(@lib.Instruction::ArrayNewDefault(_)) =>
-      length_is_not_negative_const(0)
+    Some(@lib.Instruction::ArrayNew(_)) => length_is_nonnegative_const(1)
+    Some(@lib.Instruction::ArrayNewDefault(_)) => length_is_nonnegative_const(0)
     Some(@lib.Instruction::ContNew(_)) => {
       // Allocation itself has no observable effect when the result is unused.
       // Its nullable function operand can still trap (Binaryen effects.h).
@@ -32243,6 +32247,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     })
   }
   if descriptor.name == "ssa" {
+    if ssa_full_raw_has_call_in_try_table(instrs, false) {
+      return Some({
+        reason: "full-ssa-throwing-try-table-call-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     let hot_func = match
       @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
       Ok(hot_func) => hot_func

@@ -266,7 +266,9 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 
 ## 2026-08-25 oversized array trap repair
 
-`wasmtime-core3/core/gc/big-array-overflow` proved that dropped GC allocation is not always removable: `i32.const -21; array.new_default; drop` must trap with an oversized-array error. Vacuum now rejects negative constant lengths in both raw peepholes and HOT constructor cleanup while retaining established dynamic/effectful and nonnegative-constant allocation cleanup. `tests/repros/vacuum-big-array-overflow.wasm` is the direct regression. Full O4z preserves the trap, and the direct 10,000-case Vacuum lane matches 10,000/10,000 with zero failures.
+`wasmtime-core3/core/gc/big-array-overflow` proved that dropped GC allocation is not always removable: `i32.const -21; array.new_default; drop` must trap with an oversized-array error. The August repair rejected negative constant lengths in both raw peepholes and HOT constructor cleanup. `tests/repros/vacuum-big-array-overflow.wasm` is the direct regression. Full O4z preserves the trap, and the recorded direct 10,000-case Vacuum lane matched 10,000/10,000 with zero failures.
+
+The 2026-10-05 [dynamic-length regression](../../../../../src/passes/vacuum_deep_audit_test.mbt) showed that an unknown length can also be negative and trap. HOT unused-result cleanup now removes `array.new` and `array.new_default` only when their length is a known nonnegative constant; the test failed before this guard and passes afterward.
 
 ## Current maintenance rule
 

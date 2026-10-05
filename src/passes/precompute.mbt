@@ -2728,9 +2728,12 @@ fn precompute_fresh_array_allocation_is_discardable(
         return false
       }
       let length = @ir.hot_child_get(func, node_id, count - 1)
-      if precompute_i32_const(func, length) is Some(@lib.I32(value)) &&
-        value < 0 {
-        return false
+      match precompute_i32_const(func, length) {
+        Some(@lib.I32(value)) if value >= 0 &&
+          precompute_fresh_array_length_is_interpretable(
+            value.reinterpret_as_uint(),
+          ) => ()
+        _ => return false
       }
     }
     Some(@lib.ArrayNewFixed(_, _)) => ()
@@ -5350,14 +5353,8 @@ fn precompute_raw_try_fold_i16x8_narrow_i32x4_u(
   for lane = 0; lane < 8; lane = lane + 1 {
     let source = if lane < 4 { lhs } else { rhs }
     let source_lane = if lane < 4 { lane } else { lane - 4 }
-    let value = precompute_v128_read_u32(source, source_lane * 4).reinterpret_as_int()
-    let narrowed = if value < 0 {
-      0U
-    } else if value > 0xffff {
-      0xffffU
-    } else {
-      value.reinterpret_as_uint()
-    }
+    let value = precompute_v128_read_u32(source, source_lane * 4)
+    let narrowed = if value > 0xffffU { 0xffffU } else { value }
     out[lane * 2] = narrowed.to_byte()
     out[lane * 2 + 1] = (narrowed >> 8).to_byte()
   }

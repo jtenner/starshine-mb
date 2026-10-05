@@ -17,6 +17,59 @@ pub fn ssa_full_summary() -> String {
 }
 
 ///|
+fn ssa_full_raw_has_call_in_try_table(
+  instrs : Array[@lib.Instruction],
+  inside_try : Bool,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Call(_)
+      | @lib.CallIndirect(_, _)
+      | @lib.CallRef(_)
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => if inside_try { return true }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_full_raw_has_call_in_try_table(body, true) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if ssa_full_raw_has_call_in_try_table(body, inside_try) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ssa_full_raw_has_call_in_try_table(then_body, inside_try) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ssa_full_raw_has_call_in_try_table(body, inside_try) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if ssa_full_raw_has_call_in_try_table(body, inside_try) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+              catch_body
+          }
+          if ssa_full_raw_has_call_in_try_table(catch_body, inside_try) {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 pub(all) enum SsaFullWriteDecision {
   Freshen(@ir.LocalId)
   KeepCanonical

@@ -174,6 +174,13 @@ Use [`./starshine-strategy.md`](./starshine-strategy.md) for exact local code lo
 - `src/passes/ssa_nomerge.mbt` remains the no-merge sibling owner; full `ssa` may reuse its non-merge rewrite path, but merge-local materialization belongs to `[O4Z-AUDIT-SSA-FULL]` / `[SSA-FULL-*]`, not `SSANM`.
 - The public local owner now implements Binaryen full `ssa`'s merge-local + incoming-`tee` + entry-prepend contract. `src/ir/local_graph.mbt` supplies full-flow normal/exceptional reaching sources, and `src/passes/pass_manager.mbt` supplies batched invalid-lowering rollback.
 
+The October 2026 exception-call regression found that a call inside a
+`try_table` can throw after a local write, while the full-SSA raw merge plan
+selects the pre-try value at the catch continuation. The public dispatcher now
+leaves functions containing such calls unchanged until call-origin exceptional
+edges can be represented in that plan. `ssa_test.mbt` checks both public and
+direct HOT entry points for this boundary.
+
 ## 2026-07-21 transactional merge-plan correction
 
 The complete plan validates every write/get/merge node, original local, child arity, legal entry source, and sequential fresh-local id before mutation. A malformed or stale plan therefore returns unchanged without leaving a partial rewrite. `ssa_wbtest.mbt` locks this contract, while `pass_manager_wbtest.mbt` locks batched restoration of invalid lowered definitions.
