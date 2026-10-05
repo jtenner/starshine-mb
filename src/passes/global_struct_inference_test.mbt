@@ -2256,6 +2256,26 @@ test "global-struct-inference keeps a param read in a returned callback" {
 }
 
 ///|
+test "global-struct-inference keeps a param read in a callback returned through a global" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (type $reader (func (param (ref $box)) (result i32)))
+    #|   (global $internal (ref $box) (struct.new $box (i32.const 7)))
+    #|   (func $read (type $reader)
+    #|     local.get 0
+    #|     struct.get $box 0)
+    #|   (elem declare func $read)
+    #|   (global $reader-global (ref $reader) (ref.func $read))
+    #|   (func (export "get") (result (ref $reader))
+    #|     global.get $reader-global))
+    #|
+  let pretty = gsi_test_pretty(input, true)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("global.get (Global 0)"), msg=pretty)
+}
+
+///|
 test "global-struct-inference keeps a param read in a nested returned callback" {
   let input =
     #| (module

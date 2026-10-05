@@ -1248,7 +1248,8 @@ fn msf_run_module_pass_with_perf(
   mod_ : @lib.Module,
   perf : HotPerfSession?,
 ) -> @lib.Module {
-  if mod_.func_annotation_sec is Some(_) {
+  if mod_.func_annotation_sec is Some(_) ||
+    pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
   }
   let (type_idxs, funcs) = match (mod_.func_sec, mod_.code_sec) {

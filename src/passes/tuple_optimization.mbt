@@ -3118,19 +3118,21 @@ fn tuple_optimization_collect_rewrite_order_visit(
   out : Array[Int],
   group_id : Int,
 ) -> Unit {
-  if group_id < 0 || group_id >= groups.length() || seen[group_id] {
-    return
+  let path : Array[Int] = []
+  let mut current = group_id
+  while current >= 0 && current < groups.length() && !seen[current] {
+    seen[current] = true
+    path.push(current)
+    match groups[current].copy_source {
+      Some(source_group) => current = source_group
+      None => break
+    }
   }
-  seen[group_id] = true
-  match groups[group_id].copy_source {
-    Some(source_group) =>
-      tuple_optimization_collect_rewrite_order_visit(
-        groups, rewrite_mask, seen, out, source_group,
-      )
-    None => ()
-  }
-  if rewrite_mask[group_id] {
-    out.push(group_id)
+  for path_idx = path.length() - 1; path_idx >= 0; path_idx = path_idx - 1 {
+    let current = path[path_idx]
+    if rewrite_mask[current] {
+      out.push(current)
+    }
   }
 }
 

@@ -533,6 +533,9 @@ fn die_run_module_pass_with_binding_policy(
   mod_ : @lib.Module,
   assume_stable_bindings : Bool,
 ) -> @lib.Module {
+  if assume_stable_bindings && pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   // Only function imports are deduplicated; a pair is necessary to change one.
   if die_imported_func_count(mod_) < 2 {
     return mod_

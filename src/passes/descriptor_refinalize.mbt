@@ -41,6 +41,20 @@ fn pass_instrs_have_descriptor_branches(
 }
 
 ///|
+fn pass_refinalize_descriptor_schedule_children(
+  func : @ir.HotFunc,
+  node : Int,
+  work : Array[(Int, Bool)],
+) -> Unit {
+  // Scheduling only needs child IDs; the ready phase materializes the one span
+  // it uses for the node's summaries.
+  let child_count = @ir.hot_child_count(func, node)
+  for slot = 0; slot < child_count; slot = slot + 1 {
+    work.push((@ir.hot_child_get(func, node, slot), false))
+  }
+}
+
+///|
 // A null descriptor traps before its branch can be taken. Give the replacement
 // an uninhabitable reference result, preserving every operand evaluation. This
 // is shared result recomputation: local refinement must never replace that
@@ -70,9 +84,7 @@ fn pass_refinalize_descriptor_bottoms(
       }
       seen[node] = true
       work.push((node, true))
-      for child in @ir.hot_child_span(func, node) {
-        work.push((child, false))
-      }
+      pass_refinalize_descriptor_schedule_children(func, node, work)
       continue
     }
     let data = @ir.hot_node_get(func, node)

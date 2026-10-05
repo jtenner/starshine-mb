@@ -81,6 +81,35 @@ fn il_rewrite_expr(
         }
         out.push(@lib.Instruction::if_(block_type, next_then, next_else))
       }
+      @lib.TryTable(block_type, catches, body) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            il_rewrite_expr(body, targets, params, changed),
+          ),
+        )
+      @lib.Try(block_type, body, catches, delegate) =>
+        out.push(
+          @lib.Instruction::try_(
+            block_type,
+            il_rewrite_expr(body, targets, params, changed),
+            catches.map(fn(catch_) {
+              match catch_ {
+                @lib.LegacyCatch(tag, catch_body) =>
+                  @lib.LegacyCatch::tagged(
+                    tag,
+                    il_rewrite_expr(catch_body, targets, params, changed),
+                  )
+                @lib.LegacyCatchAll(catch_body) =>
+                  @lib.LegacyCatch::all(
+                    il_rewrite_expr(catch_body, targets, params, changed),
+                  )
+              }
+            }),
+            delegate~,
+          ),
+        )
       @lib.Call(target) | @lib.ReturnCall(target) => {
         let @lib.FuncIdx(raw) = target
         let index = raw.to_int()

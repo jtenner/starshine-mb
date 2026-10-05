@@ -64,7 +64,11 @@ test "audit remove unused names tracks continuation handler owners" {
     remove_unused_names_retarget_node_labels(
       func,
       resume_node,
-      [inner],
+      {
+        let removed_labels = @bitset.BitSet::new(func.labels.length())
+        removed_labels[@ir.hot_control_node_label(func, inner)] = true
+        removed_labels
+      },
       @ir.hot_control_node_label(func, outer),
     ),
   )

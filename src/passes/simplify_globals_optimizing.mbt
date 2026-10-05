@@ -5854,6 +5854,7 @@ fn sgo_rewrite_global_sec(
 fn sgo_rewrite_table_sec(
   table_sec : @lib.TableSec?,
   consts : Array[@lib.Instruction?],
+  aliases : Array[@lib.GlobalIdx?],
   remove_sets : Array[Bool],
 ) -> (@lib.TableSec?, Bool) {
   match table_sec {
@@ -5864,11 +5865,7 @@ fn sgo_rewrite_table_sec(
         match table {
           @lib.Table(table_type, Some(init)) => {
             let (rewritten, init_changed) = sgo_rewrite_expr(
-              init,
-              consts,
-              sgo_empty_global_idx_array(consts.length()),
-              remove_sets,
-              false,
+              init, consts, aliases, remove_sets, false,
             )
             if init_changed {
               changed = true
@@ -5888,16 +5885,13 @@ fn sgo_rewrite_table_sec(
 fn sgo_rewrite_elem_mode(
   mode : @lib.ElemMode,
   consts : Array[@lib.Instruction?],
+  aliases : Array[@lib.GlobalIdx?],
   remove_sets : Array[Bool],
 ) -> (@lib.ElemMode, Bool) {
   match mode {
     @lib.Active(table_idx, offset) => {
       let (rewritten, changed) = sgo_rewrite_expr(
-        offset,
-        consts,
-        sgo_empty_global_idx_array(consts.length()),
-        remove_sets,
-        false,
+        offset, consts, aliases, remove_sets, false,
       )
       (@lib.ElemMode::active(table_idx, rewritten), changed)
     }
@@ -5917,6 +5911,7 @@ fn sgo_rewrite_elem_kind(kind : @lib.ElemKind) -> (@lib.ElemKind, Bool) {
 fn sgo_rewrite_elem_sec(
   elem_sec : @lib.ElemSec?,
   consts : Array[@lib.Instruction?],
+  aliases : Array[@lib.GlobalIdx?],
   remove_sets : Array[Bool],
 ) -> (@lib.ElemSec?, Bool) {
   match elem_sec {
@@ -5926,7 +5921,7 @@ fn sgo_rewrite_elem_sec(
       for elem in elems {
         let @lib.Elem(mode, kind) = elem
         let (next_mode, mode_changed) = sgo_rewrite_elem_mode(
-          mode, consts, remove_sets,
+          mode, consts, aliases, remove_sets,
         )
         let (next_kind, kind_changed) = sgo_rewrite_elem_kind(kind)
         if mode_changed || kind_changed {
@@ -5944,6 +5939,7 @@ fn sgo_rewrite_elem_sec(
 fn sgo_rewrite_data_sec(
   data_sec : @lib.DataSec?,
   consts : Array[@lib.Instruction?],
+  aliases : Array[@lib.GlobalIdx?],
   remove_sets : Array[Bool],
 ) -> (@lib.DataSec?, Bool) {
   match data_sec {
@@ -5955,11 +5951,7 @@ fn sgo_rewrite_data_sec(
         let next_mode = match mode {
           @lib.Active(mem_idx, offset) => {
             let (rewritten, offset_changed) = sgo_rewrite_expr(
-              offset,
-              consts,
-              sgo_empty_global_idx_array(consts.length()),
-              remove_sets,
-              false,
+              offset, consts, aliases, remove_sets, false,
             )
             if offset_changed {
               changed = true
@@ -6034,21 +6026,60 @@ fn sgo_runtime_trace_trackable(
 }
 
 ///|
-fn sgo_rewrite_runtime_trace_expr(
-  expr : @lib.Expr,
+struct SgoRuntimeTraceWorkspace {
+  facts : Array[@lib.Instruction?]
+  marked : Array[Bool]
+  touched : Array[Int]
+  mutable_imports : Array[Int]
+}
+
+///|
+fn SgoRuntimeTraceWorkspace::new(
   infos : Array[SgoGlobalInfo],
-) -> (@lib.Expr, Bool) {
-  let facts = sgo_empty_const_array(infos.length())
+) -> SgoRuntimeTraceWorkspace {
   let mutable_imports : Array[Int] = []
   for slot = 0; slot < infos.length(); slot = slot + 1 {
     if infos[slot].imported && infos[slot].mutable_ {
       mutable_imports.push(slot)
     }
   }
-  let (rewritten, changed, _) = sgo_rewrite_runtime_trace_expr_with_facts(
-    expr, infos, facts, mutable_imports,
+  {
+    facts: sgo_empty_const_array(infos.length()),
+    marked: Array::make(infos.length(), false),
+    touched: [],
+    mutable_imports,
+  }
+}
+
+///|
+fn sgo_rewrite_runtime_trace_expr_with_workspace(
+  expr : @lib.Expr,
+  infos : Array[SgoGlobalInfo],
+  workspace : SgoRuntimeTraceWorkspace,
+) -> (@lib.Expr, Bool) {
+  sgo_runtime_trace_clear(workspace.facts, workspace.touched, workspace.marked)
+  let (rewritten, changed, _) = sgo_rewrite_runtime_trace_expr_with_sparse_facts(
+    expr,
+    infos,
+    workspace.facts,
+    workspace.mutable_imports,
+    workspace.touched,
+    workspace.marked,
   )
+  sgo_runtime_trace_clear(workspace.facts, workspace.touched, workspace.marked)
   (rewritten, changed)
+}
+
+///|
+fn sgo_rewrite_runtime_trace_expr(
+  expr : @lib.Expr,
+  infos : Array[SgoGlobalInfo],
+) -> (@lib.Expr, Bool) {
+  sgo_rewrite_runtime_trace_expr_with_workspace(
+    expr,
+    infos,
+    SgoRuntimeTraceWorkspace::new(infos),
+  )
 }
 
 ///|
@@ -9616,6 +9647,7 @@ fn sgo_rewrite_code_sec(
     Some(@lib.CodeSec(funcs)) => {
       let out : Array[@lib.Func] = []
       let touched = Array::make(funcs.length(), false)
+      let runtime_workspace = SgoRuntimeTraceWorkspace::new(infos)
       let mut changed = false
       for idx = 0; idx < funcs.length(); idx = idx + 1 {
         let @lib.Func(locals, body) = funcs[idx]
@@ -9639,8 +9671,8 @@ fn sgo_rewrite_code_sec(
         let (rewritten, func_changed) = sgo_rewrite_expr(
           body, consts, aliases, remove_sets, true,
         )
-        let (runtime_rewritten, runtime_changed) = sgo_rewrite_runtime_trace_expr(
-          rewritten, infos,
+        let (runtime_rewritten, runtime_changed) = sgo_rewrite_runtime_trace_expr_with_workspace(
+          rewritten, infos, runtime_workspace,
         )
         let @lib.Expr(original_instrs) = body
         let cleanup_allowed = locals.length() <= 192 &&
@@ -9715,7 +9747,8 @@ fn sgo_run_core(
   trace : (String) -> Unit,
   perf? : HotPerfSession? = None,
 ) -> SgoPassResult {
-  if pass_module_has_legacy_try(mod_) {
+  if pass_module_has_legacy_try(mod_) ||
+    pass_module_has_offset_sensitive_metadata(mod_) {
     let touched = match mod_.code_sec {
       Some(@lib.CodeSec(funcs)) => Array::make(funcs.length(), false)
       None => []
@@ -9747,19 +9780,25 @@ fn sgo_run_core(
   let startup_start_us = perf_start_timer_opt(
     perf, "detail:sgo:rewrite-startup",
   )
+  let empty_startup_aliases = sgo_empty_global_idx_array(
+    startup_consts.length(),
+  )
   let (next_table_sec, table_changed) = sgo_rewrite_table_sec(
     mod_.table_sec,
     startup_consts,
+    empty_startup_aliases,
     remove_sets,
   )
   let (next_elem_sec, elem_changed) = sgo_rewrite_elem_sec(
     mod_.elem_sec,
     startup_consts,
+    empty_startup_aliases,
     remove_sets,
   )
   let (next_data_sec, data_changed) = sgo_rewrite_data_sec(
     mod_.data_sec,
     startup_consts,
+    empty_startup_aliases,
     remove_sets,
   )
   perf_stop_timer_opt(perf, "detail:sgo:rewrite-startup", startup_start_us)

@@ -51,3 +51,20 @@ test "constraint i64 wrap and mixed signedness retain the all-ones bit pattern" 
   @debug.assert_eq(ca_contains(unsigned_less, 0xffffffffffffffffUL), false)
   @debug.assert_eq(ca_intersect(signed_less, unsigned_less), unsigned_less)
 }
+
+///|
+test "constraint widening normalizes thresholds and bounds endpoint searches" {
+  let thresholds = ca_prepare_thresholds([9UL, 3UL, 9UL, 0xffffffffUL, 5UL, 3UL])
+  assert_eq(thresholds, [3UL, 5UL, 9UL, 0xffffffffUL])
+  assert_eq(ca_threshold_floor(thresholds, 8UL), 5UL)
+  assert_eq(ca_threshold_ceil(thresholds, 6UL, 0xffffffffUL), 9UL)
+  assert_eq(ca_threshold_ceil(thresholds, 10UL, 0xffUL), 0xffUL)
+  assert_eq(
+    ca_widen(
+      ca_range(32, [{ lo: 6UL, hi: 8UL, }]),
+      ca_range(32, [{ lo: 4UL, hi: 10UL, }]),
+      thresholds,
+    ),
+    ca_range(32, [{ lo: 3UL, hi: 0xffffffffUL, }]),
+  )
+}

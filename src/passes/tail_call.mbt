@@ -119,15 +119,14 @@ fn tail_call_rewrite_expr(
         @lib.Instruction::if_(block_type, next_then, next_else)
       }
       @lib.Try(block_type, body, catches, delegate) => {
-        let labels = tail_labels.copy()
-        labels.push(child_is_tail)
+        tail_labels.push(child_is_tail)
         // A tail call cannot skip a handler covering the protected body.
         // A catch body is covered only by handlers outside this try.
         let protected = in_local_handler ||
           !catches.is_empty() ||
           delegate is Some(_)
         let body = tail_call_rewrite_expr(
-          body, child_is_tail, labels, protected, changed,
+          body, child_is_tail, tail_labels, protected, changed,
         )
         let catches = catches.map(fn(c) {
           match c {
@@ -135,33 +134,35 @@ fn tail_call_rewrite_expr(
               @lib.LegacyCatch::tagged(
                 tag,
                 tail_call_rewrite_expr(
-                  handler, child_is_tail, labels, in_local_handler, changed,
+                  handler, child_is_tail, tail_labels, in_local_handler, changed,
                 ),
               )
             @lib.LegacyCatchAll(handler) =>
               @lib.LegacyCatch::all(
                 tail_call_rewrite_expr(
-                  handler, child_is_tail, labels, in_local_handler, changed,
+                  handler, child_is_tail, tail_labels, in_local_handler, changed,
                 ),
               )
           }
         })
+        ignore(tail_labels.pop())
         @lib.Instruction::try_(block_type, body, catches, delegate~)
       }
       @lib.TryTable(block_type, catches, body) => {
-        let labels = tail_labels.copy()
-        labels.push(child_is_tail)
-        @lib.Instruction::try_table(
+        tail_labels.push(child_is_tail)
+        let rewritten = @lib.Instruction::try_table(
           block_type,
           catches,
           tail_call_rewrite_expr(
             body,
             child_is_tail,
-            labels,
+            tail_labels,
             in_local_handler || !catches.is_empty(),
             changed,
           ),
         )
+        ignore(tail_labels.pop())
+        rewritten
       }
       @lib.Call(target) =>
         if !in_local_handler &&

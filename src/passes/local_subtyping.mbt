@@ -2018,19 +2018,33 @@ fn ls_label_count(body : Array[@lib.Instruction]) -> UInt {
   let mut count = 0U
   for instr in body {
     match instr {
-      @lib.Block(_, _)
-      | @lib.Loop(_, _)
-      | @lib.If(_, _, _)
-      | @lib.TryTable(_, _, _)
-      | @lib.Try(_, _, _, _) => count += 1U
+      @lib.Block(_, @lib.Expr(child))
+      | @lib.Loop(_, @lib.Expr(child))
+      | @lib.TryTable(_, _, @lib.Expr(child)) => {
+        count += 1U
+        count += ls_label_count(child)
+      }
+      @lib.If(_, then_body, else_body) => {
+        count += 1U
+        count += ls_label_count(then_body)
+        match else_body {
+          Some(child) => count += ls_label_count(child)
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(child), catches, _) => {
+        count += 1U
+        count += ls_label_count(child)
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          count += ls_label_count(catch_body)
+        }
+      }
       _ => ()
     }
-    ignore(
-      pass_lower_map_children(instr, fn(child) {
-        count += ls_label_count(child)
-        child
-      }),
-    )
   }
   count
 }
@@ -2104,6 +2118,9 @@ fn ls_remove_return_suffixes(mod_ : @lib.Module) -> @lib.Module {
 
 ///|
 pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   if pass_module_has_legacy_try(mod_) {
     return mod_
   }

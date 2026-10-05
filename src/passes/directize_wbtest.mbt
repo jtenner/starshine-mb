@@ -137,3 +137,17 @@ test "directize remaps label names after synthetic select if" {
   }
   assert_true(@validate.validate_module(output) is Ok(_))
 }
+
+///|
+test "directize label insertion prefix lookup is logarithmic" {
+  let positions : Array[Int] = []
+  for idx in 0..<1024 {
+    positions.push(idx * 2)
+  }
+  let visits = [0]
+  @debug.assert_eq(
+    directize_insertion_count_at_or_before(positions, 1023, Some(visits)),
+    512,
+  )
+  assert_true(visits[0] <= 11)
+}

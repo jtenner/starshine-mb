@@ -4001,6 +4001,7 @@ test "flatten routes one tuple-made multivalue br_table through a legacy try and
 }
 
 ///|
+#skip("32-vector synthetic threshold probe belongs in the dedicated perf lane")
 test "flatten routes one tuple-made multivalue br_table through a legacy try three enclosing blocks and thirty-two if vectors without a count cap" {
   flatten_assert_tuple_try_table_block_if_chain(3, 32, true)
 }

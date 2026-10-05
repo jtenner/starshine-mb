@@ -1086,6 +1086,41 @@ fn CodePushingLocalInventory::from_func(
 }
 
 ///|
+fn CodePushingLocalInventory::refresh(
+  self : CodePushingLocalInventory,
+  func : @ir.HotFunc,
+) -> Unit {
+  let local_count = @ir.hot_local_count(func)
+  if self.total_gets.length() != local_count ||
+    self.total_writes.length() != local_count ||
+    self.unique_gets.length() != local_count ||
+    self.unique_writes.length() != local_count {
+    abort("code-pushing local inventory width changed during function pass")
+  }
+  for local_id = 0; local_id < local_count; local_id = local_id + 1 {
+    self.total_gets[local_id] = 0
+    self.total_writes[local_id] = 0
+    self.unique_gets[local_id] = -1
+    self.unique_writes[local_id] = -1
+  }
+  let node_count = @ir.hot_node_count(func)
+  while self.scan_seen.length() < node_count {
+    self.scan_seen.push(false)
+  }
+  for node_id = 0; node_id < self.scan_seen.length(); node_id = node_id + 1 {
+    self.scan_seen[node_id] = false
+  }
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    code_pushing_inventory_count_node(
+      func,
+      @ir.hot_root_get(func, idx),
+      self.total_gets,
+      self.total_writes,
+    )
+  }
+}
+
+///|
 test "code-pushing inventory counts all local occurrences across control" {
   let func = pass_test_lift_first_func(
     "(module (func (param i32) (local i32 i32) i32.const 1 local.set 1 local.get 0 if local.get 1 drop else i32.const 2 local.tee 2 drop end local.get 1 drop local.get 2 drop))",
@@ -3503,8 +3538,14 @@ fn code_pushing_run_raw_legacy_func(func : @lib.Func) -> (@lib.Func, Bool)? {
 fn code_pushing_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let mut changed_any = false
   let mut changed_round = true
+  let inventory = CodePushingLocalInventory::from_func(func)
+  let mut first_round = true
   while changed_round {
-    let inventory = CodePushingLocalInventory::from_func(func)
+    if first_round {
+      first_round = false
+    } else {
+      inventory.refresh(func)
+    }
     changed_round = code_pushing_scan_region_once(
       ctx,
       func,

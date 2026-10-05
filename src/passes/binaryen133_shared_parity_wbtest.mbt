@@ -229,6 +229,144 @@ test "Binaryen 133 shared objects checks function casts before returning the sha
 }
 
 ///|
+test "make-shared-objects fails closed on concrete function br_on_cast" {
+  let input = pass_test_module_from_wat(
+    "(module (type $f (func)) (func $target (type $f)) (elem declare func $target) (func (param funcref) (local.get 0) drop))",
+  )
+  let funcs = input.code_sec.unwrap().0.copy()
+  let @lib.Func(locals, _) = funcs[1]
+  funcs[1] = @lib.Func::new(
+    locals,
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(
+          @lib.ValType::ref_type(
+            @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+          ),
+        ),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::br_on_cast(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            false,
+            @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let input = input.with_code_sec(@lib.CodeSec::new(funcs))
+  let validation = @validate.validate_module(input)
+  assert_true(validation.is_ok(), msg=@debug.to_string(validation))
+  assert_eq(make_shared_objects_run_module_pass(input), input)
+}
+
+///|
+test "make-shared-objects maps stringref to shared i31" {
+  for
+    source in [
+      @lib.HeapType::abs(@lib.AbsHeapType::string_()),
+      @lib.HeapType::shared_abs(@lib.AbsHeapType::string_()),
+    ] {
+    assert_eq(
+      mso_rewrite_heap_type(source, []),
+      @lib.HeapType::shared_abs(@lib.AbsHeapType::i31()),
+    )
+  }
+}
+
+///|
+test "make-shared-objects scans and rewrites conversions in EH bodies" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::try_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::extern_convert_any()]),
+      [
+        @lib.LegacyCatch::all(
+          @lib.Expr::new([@lib.Instruction::any_convert_extern()]),
+        ),
+      ],
+    ),
+    @lib.Instruction::try_table(
+      @lib.BlockType::void_(),
+      [],
+      @lib.Expr::new([@lib.Instruction::extern_convert_any()]),
+    ),
+  ])
+  let needs_any_to_extern = [false]
+  let needs_extern_to_any = [false]
+  mso_scan_conversions(body, needs_any_to_extern, needs_extern_to_any)
+  assert_true(needs_any_to_extern[0])
+  assert_true(needs_extern_to_any[0])
+  let rewritten = mso_rewrite_conversions(
+    body,
+    Some(@lib.FuncIdx::new(0U)),
+    Some(@lib.FuncIdx::new(1U)),
+    @lib.FuncIdx::new(2U),
+    @lib.FuncIdx::new(3U),
+  )
+  assert_eq(
+    binaryen133_shared_opcode_count(
+      @lib.Module::new().with_code_sec(
+        @lib.CodeSec::new([@lib.Func::new(@lib.Locals::empty(), rewritten)]),
+      ),
+      @lib.Instruction::extern_convert_any(),
+    ),
+    0,
+  )
+  let redirected = mso_retarget_import_calls(
+    @lib.Expr::new([
+      @lib.Instruction::try_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(0U))]),
+        [
+          @lib.LegacyCatch::all(
+            @lib.Expr::new([
+              @lib.Instruction::return_call(@lib.FuncIdx::new(0U)),
+            ]),
+          ),
+        ],
+      ),
+      @lib.Instruction::try_table(
+        @lib.BlockType::void_(),
+        [],
+        @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(0U))]),
+      ),
+    ]),
+    Map([(0U, 4U)]),
+  )
+  let redirected_module = @lib.Module::new().with_code_sec(
+    @lib.CodeSec::new([@lib.Func::new(@lib.Locals::empty(), redirected)]),
+  )
+  assert_eq(
+    binaryen133_shared_opcode_count(
+      redirected_module,
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    ),
+    0,
+  )
+  assert_eq(
+    binaryen133_shared_opcode_count(
+      redirected_module,
+      @lib.Instruction::call(@lib.FuncIdx::new(4U)),
+    ),
+    2,
+  )
+  assert_eq(
+    binaryen133_shared_opcode_count(
+      redirected_module,
+      @lib.Instruction::return_call(@lib.FuncIdx::new(4U)),
+    ),
+    1,
+  )
+}
+
+///|
 fn binaryen133_shared_opcode_count(
   mod_ : @lib.Module,
   opcode : @lib.Instruction,

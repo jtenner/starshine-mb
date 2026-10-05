@@ -3116,6 +3116,119 @@ fn hso_swapped_readonly_roots_respect_ref_order(
 }
 
 ///|
+fn hso_note_region_local_max_root(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  root_id : Int,
+  local_max_root : Array[Int],
+) -> Unit {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    hso_note_subtree_local_max_root(
+      func,
+      @ir.hot_region_get(func, region_ref, idx),
+      root_id,
+      local_max_root,
+    )
+  }
+}
+
+///|
+fn hso_note_subtree_local_max_root(
+  func : @ir.HotFunc,
+  node_id : Int,
+  root_id : Int,
+  local_max_root : Array[Int],
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet | @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      if node.imm0 >= 0 && node.imm0 < local_max_root.length() {
+        local_max_root[node.imm0] = Int::max(local_max_root[node.imm0], root_id)
+      }
+    _ => ()
+  }
+  let operand_count = pass_value_operand_count(func, node_id)
+  for slot = 0; slot < operand_count; slot = slot + 1 {
+    hso_note_subtree_local_max_root(
+      func,
+      @ir.hot_child_get(func, node_id, pass_value_operand_slot(node, slot)),
+      root_id,
+      local_max_root,
+    )
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_note_region_local_max_root(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        root_id,
+        local_max_root,
+      )
+    @ir.HotOp::If => {
+      hso_note_region_local_max_root(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+        root_id,
+        local_max_root,
+      )
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          hso_note_region_local_max_root(
+            func, region_ref, root_id, local_max_root,
+          )
+        None => ()
+      }
+    }
+    @ir.HotOp::Try => {
+      hso_note_region_local_max_root(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        root_id,
+        local_max_root,
+      )
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(region_ref) =>
+          hso_note_region_local_max_root(
+            func, region_ref, root_id, local_max_root,
+          )
+        None => ()
+      }
+    }
+    @ir.HotOp::TryTable => {
+      hso_note_region_local_max_root(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        root_id,
+        local_max_root,
+      )
+      hso_note_region_local_max_root(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+        root_id,
+        local_max_root,
+      )
+    }
+    _ => ()
+  }
+}
+
+///|
+fn hso_note_swapped_readonly_root(
+  cache : HsoPredicateCache,
+  func : @ir.HotFunc,
+  node_masks : Array[UInt],
+  root_id : Int,
+  local_max_root : Array[Int],
+) -> Unit {
+  if hso_subtree_is_trapless_reorderable(cache, func, node_masks, root_id, []) {
+    hso_note_subtree_local_max_root(func, root_id, root_id, local_max_root)
+  }
+}
+
+///|
 fn hso_build_const_f32(func : @ir.HotFunc) -> Int {
   @ir.hot_build_const_f32(func, @lib.F32(0.0))
 }
@@ -4939,7 +5052,7 @@ fn hso_process_local_set_chain(
   let scratch_capacity = hso_chain_scratch_capacity(roots.length() - idx)
   let segment_roots : Array[Int] = Array::new(capacity=scratch_capacity)
   segment_roots.push(root_id)
-  let swapped_prefix_roots : Array[Int] = Array::new(capacity=scratch_capacity)
+  let swapped_local_max_root = Array::make(@ir.hot_local_count(func), -1)
   let mut segment_local_set_idx = 0
   let mut segment_has_swapped_prefix = false
   let mut changed = false
@@ -4947,11 +5060,17 @@ fn hso_process_local_set_chain(
   while next_idx < roots.length() {
     match hso_struct_set_for_local(func, roots[next_idx], local_id, type_idx) {
       Some((field_idx, ref_id, value_id)) => {
-        if segment_has_swapped_prefix &&
-          !hso_swapped_readonly_roots_respect_ref_order(
-            cache, func, node_masks, swapped_prefix_roots, ref_id,
-          ) {
-          break
+        if segment_has_swapped_prefix {
+          let ref_node = @ir.hot_node_get(func, ref_id)
+          let ref_local = match ref_node.op {
+            @ir.HotOp::LocalGet => ref_node.imm0
+            _ => break
+          }
+          if ref_local < 0 ||
+            ref_local >= swapped_local_max_root.length() ||
+            swapped_local_max_root[ref_local] > ref_id {
+            break
+          }
         }
         match
           hso_try_fold_into_struct_new(
@@ -5031,7 +5150,13 @@ fn hso_process_local_set_chain(
         let moved_local_set_id = segment_roots[segment_local_set_idx]
         segment_roots[segment_local_set_idx] = segment_roots[last_idx]
         segment_roots[last_idx] = moved_local_set_id
-        swapped_prefix_roots.push(roots[next_idx])
+        hso_note_swapped_readonly_root(
+          cache,
+          func,
+          node_masks,
+          roots[next_idx],
+          swapped_local_max_root,
+        )
         segment_local_set_idx = last_idx
         segment_has_swapped_prefix = true
         changed = true
@@ -5056,7 +5181,9 @@ fn hso_process_local_set_chain(
             lifted_roots.length(),
           )
           for lifted_root_id in lifted_roots {
-            swapped_prefix_roots.push(lifted_root_id)
+            hso_note_swapped_readonly_root(
+              cache, func, node_masks, lifted_root_id, swapped_local_max_root,
+            )
           }
           segment_local_set_idx = segment_local_set_idx + lifted_roots.length()
           segment_has_swapped_prefix = true
@@ -5079,7 +5206,13 @@ fn hso_process_local_set_chain(
             let moved_local_set_id = segment_roots[segment_local_set_idx]
             segment_roots[segment_local_set_idx] = segment_roots[last_idx]
             segment_roots[last_idx] = moved_local_set_id
-            swapped_prefix_roots.push(roots[next_idx])
+            hso_note_swapped_readonly_root(
+              cache,
+              func,
+              node_masks,
+              roots[next_idx],
+              swapped_local_max_root,
+            )
             segment_local_set_idx = last_idx
             segment_has_swapped_prefix = true
             changed = true

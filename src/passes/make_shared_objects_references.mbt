@@ -3,12 +3,19 @@ priv struct MsoReferences {
   indices : Map[UInt, UInt]
   functions : Array[@lib.FuncIdx]
   needs_table : Array[Bool]
+  unsupported_branch_cast : Array[Bool]
   types : Array[@lib.SubType]
 }
 
 ///|
 fn MsoReferences::new(types : Array[@lib.SubType]) -> MsoReferences {
-  { indices: Map([]), functions: [], needs_table: [false], types, }
+  {
+    indices: Map([]),
+    functions: [],
+    needs_table: [false],
+    unsupported_branch_cast: [false],
+    types,
+  }
 }
 
 ///|
@@ -40,6 +47,19 @@ fn MsoReferences::scan(self : MsoReferences, expr : @lib.Expr) -> Unit {
         if mso_function_type(self.types, t) {
           self.needs_table[0] = true
         }
+      @lib.BrOnCast(_, _, source, target)
+      | @lib.BrOnCastFail(_, _, source, target) => {
+        match source {
+          @lib.HeapType(t) if mso_function_type(self.types, t) =>
+            self.unsupported_branch_cast[0] = true
+          _ => ()
+        }
+        match target {
+          @lib.HeapType(t) if mso_function_type(self.types, t) =>
+            self.unsupported_branch_cast[0] = true
+          _ => ()
+        }
+      }
       _ => ()
     }
     ignore(

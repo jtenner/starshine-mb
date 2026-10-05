@@ -91,15 +91,7 @@ fn no_inline_name_to_string(name : @lib.Name) -> String {
 
 ///|
 fn no_inline_func_names(mod_ : @lib.Module, total : Int) -> Array[String?] {
-  let names : Array[String?] = []
-  let mut generated_idx = 0
-  while generated_idx < total {
-    // Binaryen assigns every function an internal name even when the input has
-    // no name section. Keep wildcard policy useful on stripped binaries by
-    // providing the same stable numeric-name role locally.
-    names.push(Some(generated_idx.to_string()))
-    generated_idx += 1
-  }
+  let names : Array[String?] = Array::make(total, None)
   match mod_.name_sec {
     Some(name_sec) =>
       match name_sec.func_names {
@@ -119,33 +111,138 @@ fn no_inline_func_names(mod_ : @lib.Module, total : Int) -> Array[String?] {
 }
 
 ///|
-fn no_inline_wildcard_match(pattern : String, text : String) -> Bool {
-  let width = text.length() + 1
-  let mut previous = Array::make(width, false)
-  let mut current = Array::make(width, false)
-  previous[0] = true
-  let mut pi = 1
-  while pi <= pattern.length() {
-    let pc = pattern[pi - 1]
-    let mut ti = 0
-    while ti <= text.length() {
-      if pc == '*' {
-        let zero = previous[ti]
-        let more = ti > 0 && current[ti - 1]
-        current[ti] = zero || more
-      } else if ti > 0 && (pc == '?' || pc == text[ti - 1]) {
-        current[ti] = previous[ti - 1]
-      } else {
-        current[ti] = false
-      }
-      ti += 1
+priv struct NoInlineWildcardProgram {
+  pattern_length : Int
+  word_count : Int
+  literal_masks : Array[UInt64]
+  question_masks : Array[UInt64]
+  star_masks : Array[UInt64]
+}
+
+///|
+fn no_inline_wildcard_set_bit(words : Array[UInt64], index : Int) -> Unit {
+  let word_idx = index / 64
+  words[word_idx] = words[word_idx] | (1UL << (index % 64))
+}
+
+///|
+fn no_inline_wildcard_compile(pattern : String) -> NoInlineWildcardProgram {
+  // Collapsing adjacent stars makes every epsilon closure one step while
+  // preserving glob semantics.
+  let mut pattern_length = 0
+  let mut previous_star = false
+  for pattern_idx = 0
+      pattern_idx < pattern.length()
+      pattern_idx = pattern_idx + 1 {
+    let is_star = pattern[pattern_idx] == '*'
+    if !is_star || !previous_star {
+      pattern_length += 1
     }
-    let old = previous
-    previous = current
-    current = old
-    pi += 1
+    previous_star = is_star
   }
-  previous[text.length()]
+  let word_count = (pattern_length + 64) / 64
+  let literal_masks = Array::make(256 * word_count, 0UL)
+  let question_masks = Array::make(word_count, 0UL)
+  let star_masks = Array::make(word_count, 0UL)
+  let mut normalized_idx = 0
+  previous_star = false
+  for pattern_idx = 0
+      pattern_idx < pattern.length()
+      pattern_idx = pattern_idx + 1 {
+    let pattern_byte = pattern[pattern_idx]
+    let is_star = pattern_byte == '*'
+    if !is_star || !previous_star {
+      let word_idx = normalized_idx / 64
+      let bit = 1UL << (normalized_idx % 64)
+      if is_star {
+        star_masks[word_idx] = star_masks[word_idx] | bit
+      } else if pattern_byte == '?' {
+        question_masks[word_idx] = question_masks[word_idx] | bit
+      } else {
+        let offset = pattern_byte.to_int() * word_count + word_idx
+        literal_masks[offset] = literal_masks[offset] | bit
+      }
+      normalized_idx += 1
+    }
+    previous_star = is_star
+  }
+  { pattern_length, word_count, literal_masks, question_masks, star_masks, }
+}
+
+///|
+fn no_inline_wildcard_match_compiled(
+  program : NoInlineWildcardProgram,
+  text : String,
+  visits : Array[Int],
+  first : Array[UInt64],
+  second : Array[UInt64],
+) -> Bool {
+  for word_idx = 0; word_idx < program.word_count; word_idx = word_idx + 1 {
+    first[word_idx] = 0UL
+    second[word_idx] = 0UL
+  }
+  no_inline_wildcard_set_bit(first, 0)
+  if (program.star_masks[0] & 1UL) != 0UL {
+    no_inline_wildcard_set_bit(first, 1)
+  }
+  let mut current = first
+  let mut next = second
+  for text_idx = 0; text_idx < text.length(); text_idx = text_idx + 1 {
+    // Advance every reachable NFA state in machine-word batches. Star states
+    // consume in place; literal and question states advance by one bit.
+    let literal_base = text[text_idx].to_int() * program.word_count
+    let mut carry = 0UL
+    for word_idx = 0; word_idx < program.word_count; word_idx = word_idx + 1 {
+      visits[0] += 1
+      let matched = current[word_idx] &
+        (
+          program.question_masks[word_idx] |
+          program.literal_masks[literal_base + word_idx]
+        )
+      next[word_idx] = (current[word_idx] & program.star_masks[word_idx]) |
+        (matched << 1) |
+        carry
+      carry = matched >> 63
+    }
+    carry = 0UL
+    let mut any_reachable = false
+    for word_idx = 0; word_idx < program.word_count; word_idx = word_idx + 1 {
+      let stars = next[word_idx] & program.star_masks[word_idx]
+      next[word_idx] = next[word_idx] | (stars << 1) | carry
+      carry = stars >> 63
+      any_reachable = any_reachable || next[word_idx] != 0UL
+    }
+    if !any_reachable {
+      return false
+    }
+    let old = current
+    current = next
+    next = old
+  }
+  let accept_word = program.pattern_length / 64
+  let accept_bit = 1UL << (program.pattern_length % 64)
+  (current[accept_word] & accept_bit) != 0UL
+}
+
+///|
+fn no_inline_wildcard_match_with_visits(
+  pattern : String,
+  text : String,
+  visits : Array[Int],
+) -> Bool {
+  let program = no_inline_wildcard_compile(pattern)
+  no_inline_wildcard_match_compiled(
+    program,
+    text,
+    visits,
+    Array::make(program.word_count, 0UL),
+    Array::make(program.word_count, 0UL),
+  )
+}
+
+///|
+fn no_inline_wildcard_match(pattern : String, text : String) -> Bool {
+  no_inline_wildcard_match_with_visits(pattern, text, [0])
 }
 
 ///|
@@ -258,23 +355,32 @@ fn no_inline_run_module_pass(
     no_inline_defined_func_count(mod_)
   let names = no_inline_func_names(mod_, total)
   let by_func = no_inline_existing_annotation_map(mod_, total)
+  let wildcard = no_inline_wildcard_compile(pattern)
+  let wildcard_visits = [0]
+  let wildcard_first = Array::make(wildcard.word_count, 0UL)
+  let wildcard_second = Array::make(wildcard.word_count, 0UL)
   let mut changed = false
   let mut idx = 0
   while idx < total {
-    match names[idx] {
-      Some(name) =>
-        if no_inline_wildcard_match(pattern, name) {
-          let next = no_inline_policy_annotations(
-            by_func[idx],
-            mark_full,
-            mark_partial,
-          )
-          if next != by_func[idx] {
-            by_func[idx] = next
-            changed = true
-          }
-        }
-      None => ()
+    // Binaryen assigns every function an internal name. Format the numeric
+    // fallback only when no name-section entry exists for this function.
+    let name = match names[idx] {
+      Some(name) => name
+      None => idx.to_string()
+    }
+    wildcard_visits[0] = 0
+    if no_inline_wildcard_match_compiled(
+        wildcard, name, wildcard_visits, wildcard_first, wildcard_second,
+      ) {
+      let next = no_inline_policy_annotations(
+        by_func[idx],
+        mark_full,
+        mark_partial,
+      )
+      if next != by_func[idx] {
+        by_func[idx] = next
+        changed = true
+      }
     }
     idx += 1
   }

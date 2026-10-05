@@ -4259,7 +4259,18 @@ fn precompute_trim_region_nops(
     let current_id = @ir.hot_region_get(func, region_ref, idx)
     match @ir.hot_node_get(func, current_id).op {
       @ir.HotOp::Nop => {
-        ignore(pass_splice_region(ctx, func, region_ref, idx, 1, []))
+        let mut run_end = idx + 1
+        let root_count = @ir.hot_region_root_count(func, region_ref)
+        while run_end < root_count {
+          let run_id = @ir.hot_region_get(func, region_ref, run_end)
+          match @ir.hot_node_get(func, run_id).op {
+            @ir.HotOp::Nop => run_end += 1
+            _ => break
+          }
+        }
+        ignore(
+          pass_splice_region(ctx, func, region_ref, idx, run_end - idx, []),
+        )
         changed = true
         continue
       }
@@ -4277,11 +4288,14 @@ fn precompute_node_is_nop_tree(func : @ir.HotFunc, node_id : Int) -> Bool {
   }
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Nop => true
-    @ir.HotOp::Block | @ir.HotOp::Loop =>
-      precompute_region_is_all_nops(
-        func,
-        @ir.hot_region_body_ref(func, node_id),
-      )
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      // A control node's entry operands precede its body roots in the child
+      // span. They may trap or have effects even when the body is all nops.
+      @ir.hot_child_count(func, node_id) ==
+      @ir.hot_region_root_count(func, body_ref) &&
+      precompute_region_is_all_nops(func, body_ref)
+    }
     _ => false
   }
 }
@@ -4302,12 +4316,8 @@ fn precompute_coalesce_all_root_nops(
       return false
     }
   }
-  let mut changed = false
-  while @ir.hot_region_root_count(func, region_ref) > 1 {
-    ignore(pass_splice_region(ctx, func, region_ref, 1, 1, []))
-    changed = true
-  }
-  changed
+  ignore(pass_splice_region(ctx, func, region_ref, 1, root_count - 1, []))
+  true
 }
 
 ///|
@@ -4335,12 +4345,8 @@ fn precompute_trim_root_nops_before_trailing_const(
       _ => return false
     }
   }
-  let mut changed = false
-  while @ir.hot_region_root_count(func, region_ref) > 1 {
-    ignore(pass_splice_region(ctx, func, region_ref, 0, 1, []))
-    changed = true
-  }
-  changed
+  ignore(pass_splice_region(ctx, func, region_ref, 0, root_count - 1, []))
+  true
 }
 
 ///|
@@ -7237,6 +7243,9 @@ fn precompute_raw_try_partial_select_condition_tail(
     @lib.I32Const(@lib.I32(value)) => value != 0
     _ => return false
   }
+  if !precompute_raw_instr_is_flat_discardable_value(out[base + 4]) {
+    return false
+  }
   let outer_true = out[base]
   let outer_false = out[base + 1]
   if !precompute_raw_is_literal_const(outer_true) ||
@@ -7267,6 +7276,9 @@ fn precompute_raw_try_partial_select_unary_tail(
   let select_instr = match out[base + 3] {
     @lib.Select(_) => out[base + 3]
     _ => return false
+  }
+  if !precompute_raw_instr_is_flat_discardable_value(out[base + 2]) {
+    return false
   }
   let folded_true = match
     precompute_raw_try_fold_unary(out[base], out[base + 4]) {
@@ -7325,6 +7337,9 @@ fn precompute_raw_try_partial_select_tail(
       false,
     )
   } else {
+    return false
+  }
+  if !precompute_raw_instr_is_flat_discardable_value(condition) {
     return false
   }
   let folded_true = match

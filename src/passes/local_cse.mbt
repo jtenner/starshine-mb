@@ -3106,6 +3106,9 @@ fn lcse_module_has_shared_memory(mod_ : @lib.Module) -> Bool {
 
 ///|
 pub fn local_cse_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       if funcs.is_empty() {
@@ -3241,7 +3244,11 @@ fn lcse_tree_has_local_write_or_string_effect(
 }
 
 ///|
-fn lcse_candidate_key(func : @ir.HotFunc, node_id : Int) -> String? {
+fn lcse_candidate_key(
+  func : @ir.HotFunc,
+  effects : @ir.HotEffectsSummary,
+  node_id : Int,
+) -> String? {
   let node = @ir.hot_node_get(func, node_id)
   if lcse_result_type(func, node_id) is None {
     return None
@@ -3258,14 +3265,18 @@ fn lcse_candidate_key(func : @ir.HotFunc, node_id : Int) -> String? {
   }
   if lcse_tree_size(func, node_id) < 2 ||
     lcse_tree_has_local_write_or_string_effect(func, node_id) ||
-    !lcse_effect_mask_allowed(@ir.effects_for_node(func, node_id)) {
+    !lcse_effect_mask_allowed(effects.node_masks[node_id]) {
     return None
   }
   lcse_tree_key(func, node_id)
 }
 
 ///|
-fn lcse_barrier_clears_window(func : @ir.HotFunc, node_id : Int) -> Bool {
+fn lcse_barrier_clears_window(
+  func : @ir.HotFunc,
+  effects : @ir.HotEffectsSummary,
+  node_id : Int,
+) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Drop => false
@@ -3274,10 +3285,7 @@ fn lcse_barrier_clears_window(func : @ir.HotFunc, node_id : Int) -> Bool {
     | @ir.HotOp::Const
     | @ir.HotOp::RefNull
     | @ir.HotOp::RefFunc => false
-    _ => {
-      let mask = @ir.effects_for_node(func, node_id)
-      !lcse_effect_mask_allowed(mask)
-    }
+    _ => !lcse_effect_mask_allowed(effects.node_masks[node_id])
   }
 }
 
@@ -3324,6 +3332,7 @@ fn lcse_replace_repeat(
 fn lcse_visit_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  effects : @ir.HotEffectsSummary,
   state : LcseState,
   node_id : Int,
   place : LcsePlace,
@@ -3331,7 +3340,12 @@ fn lcse_visit_node(
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable => {
-      lcse_visit_region(ctx, func, @ir.hot_region_body_ref(func, node_id))
+      lcse_visit_region(
+        ctx,
+        func,
+        effects,
+        @ir.hot_region_body_ref(func, node_id),
+      )
       state.bindings.clear()
       return
     }
@@ -3342,15 +3356,21 @@ fn lcse_visit_node(
           lcse_visit_node(
             ctx,
             func,
+            effects,
             state,
             condition,
             LcsePlace::Child(node_id, 0),
           )
         }
       }
-      lcse_visit_region(ctx, func, @ir.hot_region_then_ref(func, node_id))
+      lcse_visit_region(
+        ctx,
+        func,
+        effects,
+        @ir.hot_region_then_ref(func, node_id),
+      )
       match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_ref) => lcse_visit_region(ctx, func, else_ref)
+        Some(else_ref) => lcse_visit_region(ctx, func, effects, else_ref)
         None => ()
       }
       state.bindings.clear()
@@ -3362,10 +3382,17 @@ fn lcse_visit_node(
   for slot = 0; slot < count; slot = slot + 1 {
     let child = @ir.hot_child_get(func, node_id, slot)
     if child >= 0 && @ir.hot_node_is_live(func, child) {
-      lcse_visit_node(ctx, func, state, child, LcsePlace::Child(node_id, slot))
+      lcse_visit_node(
+        ctx,
+        func,
+        effects,
+        state,
+        child,
+        LcsePlace::Child(node_id, slot),
+      )
     }
   }
-  match lcse_candidate_key(func, node_id) {
+  match lcse_candidate_key(func, effects, node_id) {
     Some(key) =>
       match state.bindings.get(key) {
         Some(binding) => {
@@ -3387,7 +3414,7 @@ fn lcse_visit_node(
       }
     None => ()
   }
-  if lcse_barrier_clears_window(func, node_id) {
+  if lcse_barrier_clears_window(func, effects, node_id) {
     state.bindings.clear()
   }
 }
@@ -3396,6 +3423,7 @@ fn lcse_visit_node(
 fn lcse_visit_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  effects : @ir.HotEffectsSummary,
   region_ref : @ir.HotRegionRef,
 ) -> Unit {
   let state = LcseState::new()
@@ -3404,8 +3432,15 @@ fn lcse_visit_region(
     if root < 0 || !@ir.hot_node_is_live(func, root) {
       continue
     }
-    lcse_visit_node(ctx, func, state, root, LcsePlace::Region(region_ref, idx))
-    if lcse_barrier_clears_window(func, root) {
+    lcse_visit_node(
+      ctx,
+      func,
+      effects,
+      state,
+      root,
+      LcsePlace::Region(region_ref, idx),
+    )
+    if lcse_barrier_clears_window(func, effects, root) {
       state.bindings = @hashmap.new(capacity=64)
     }
   }
@@ -3414,7 +3449,8 @@ fn lcse_visit_region(
 ///|
 pub fn local_cse_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let before_revision = @ir.hot_revision_current(func)
-  lcse_visit_region(ctx, func, @ir.HotRegionRef::root())
+  let effects = pass_require_effects(ctx, func)
+  lcse_visit_region(ctx, func, effects, @ir.HotRegionRef::root())
   if @ir.hot_revision_current(func) != before_revision {
     HotPassResult::changed()
   } else {

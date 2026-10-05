@@ -347,6 +347,9 @@ pub fn hot_region_splice(
   if hot_region_is_root(region_ref) {
     hot_region_require_index(hot_root_count(func), idx, allow_end=true)
     hot_region_require_remove_count(hot_root_count(func), idx, remove_count)
+    if remove_count == 0 && node_ids.is_empty() {
+      return []
+    }
     return hot_root_splice(func, idx, remove_count, node_ids)
   }
   let holder = hot_region_require_holder(func, region_ref)
@@ -355,6 +358,9 @@ pub fn hot_region_splice(
   let root_count = node.child_count - base
   hot_region_require_index(root_count, idx, allow_end=true)
   hot_region_require_remove_count(root_count, idx, remove_count)
+  if remove_count == 0 && node_ids.is_empty() {
+    return []
+  }
   let next : Array[NodeId] = []
   for i = 0; i < base; i = i + 1 {
     next.push(func.children[node.child_base + i])
@@ -372,7 +378,21 @@ pub fn hot_region_splice(
   for i = idx; i < idx + remove_count; i = i + 1 {
     removed.push(func.children[node.child_base + base + i])
   }
-  ignore(hot_replace_child_span(func, holder, next))
+  if next.length() <= node.child_count {
+    hot_mutate_write_child_span(func, node.child_base, next)
+    func.nodes[holder] = { ..node, child_count: next.length(), }
+    hot_revision_bump(func)
+  } else if node.child_base + node.child_count == func.children.length() {
+    ignore(hot_alloc_child_span(func, next.length() - node.child_count))
+    hot_mutate_write_child_span(func, node.child_base, next)
+    func.nodes[holder] = { ..node, child_count: next.length(), }
+    hot_revision_bump(func)
+  } else {
+    let child_base = hot_alloc_child_span(func, next.length())
+    hot_mutate_write_child_span(func, child_base, next)
+    func.nodes[holder] = { ..node, child_base, child_count: next.length(), }
+    hot_revision_bump(func)
+  }
   removed
 }
 

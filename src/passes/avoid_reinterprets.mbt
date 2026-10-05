@@ -79,6 +79,9 @@ fn ar_rewrite_instrs(
 
 ///|
 pub fn avoid_reinterprets_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_

@@ -75,15 +75,21 @@ fn dae_call_scan_before_trap_fusion(
                 topology.has_outgoing_return_call[caller_abs] = true
               }
               if slot >= 0 && slot < topology.direct_return_callers.length() {
-                dae_topology_add_unique(
-                  topology.direct_return_callers[slot],
+                dae_adjacency_add_unique(
+                  topology.direct_return_callers,
+                  slot,
                   caller_abs,
+                  0,
+                  topology.adjacency_membership,
                 )
                 if caller_abs >= 0 &&
                   caller_abs < topology.direct_return_callees_by_caller.length() {
-                  dae_topology_add_unique(
-                    topology.direct_return_callees_by_caller[caller_abs],
+                  dae_adjacency_add_unique(
+                    topology.direct_return_callees_by_caller,
+                    caller_abs,
                     slot,
+                    1,
+                    topology.adjacency_membership,
                   )
                 }
               }

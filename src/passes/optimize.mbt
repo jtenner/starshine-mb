@@ -1367,7 +1367,11 @@ pub fn run_hot_pipeline(
       compiler_fact_stats_summary(prepared.stats),
     )
   }
-  let mut current = prepared.module_
+  // Compiler facts are a user-selected preparation contract, not part of the
+  // speculative O4z preset transaction. A caught-try rollback must retain
+  // trusted materialization and the consumed fact-section removal.
+  let prepared_module = prepared.module_
+  let mut current = prepared_module
   let original_has_caught_try_table = run_hot_pipeline_module_has_caught_try_table(
     mod_,
   )
@@ -1554,7 +1558,7 @@ pub fn run_hot_pipeline(
   }
   if artifact_scale_o4z_preset && original_has_caught_try_table {
     (options.trace)("pipeline:o4z-transaction:rollback reason=caught-try-table")
-    current = mod_
+    current = prepared_module
   }
   if options.validate_final_module {
     let validate_start_us = perf_start_timer_opt(

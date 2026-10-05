@@ -115,23 +115,11 @@ fn compiler_fact_stats_summary(
 }
 
 ///|
-fn compiler_fact_index_size_from_uints(values : Array[UInt]) -> Int {
-  let mut size = 0
-  for value in values {
-    let candidate = value.reinterpret_as_int() + 1
-    if candidate > size {
-      size = candidate
-    }
-  }
-  size
-}
-
-///|
 /// Read-only, nonserialized index built once per optimization invocation.
 pub struct CompilerFactIndex {
   facts : @representation.OptimizationFactsSec
-  functions : Array[@representation.FunctionFacts?]
-  bodies : Array[@representation.FunctionBodyFacts?]
+  functions : @hashmap.HashMap[UInt, @representation.FunctionFacts]
+  bodies : @hashmap.HashMap[UInt, @representation.FunctionBodyFacts]
   values : @hashmap.HashMap[
     @representation.ValueSite,
     @representation.ValueFacts,
@@ -140,32 +128,30 @@ pub struct CompilerFactIndex {
     @representation.CodeSite,
     @representation.CallSiteFacts,
   ]
-  signatures : Array[@representation.SignatureFacts?]
-  types : Array[@representation.TypeFacts?]
-  globals : Array[@representation.GlobalFacts?]
-  tables : Array[@representation.TableFacts?]
+  signatures : @hashmap.HashMap[UInt, @representation.SignatureFacts]
+  types : @hashmap.HashMap[UInt, @representation.TypeFacts]
+  globals : @hashmap.HashMap[UInt, @representation.GlobalFacts]
+  tables : @hashmap.HashMap[UInt, @representation.TableFacts]
 } derive(Debug)
 
 ///|
 fn compiler_fact_index_value_map(
-  bodies : Array[@representation.FunctionBodyFacts?],
+  facts : @representation.OptimizationFactsSec,
+  bodies : @hashmap.HashMap[UInt, @representation.FunctionBodyFacts],
 ) -> @hashmap.HashMap[@representation.ValueSite, @representation.ValueFacts] {
   let values : @hashmap.HashMap[
     @representation.ValueSite,
     @representation.ValueFacts,
   ] = @hashmap.new()
-  for function_idx = 0
-      function_idx < bodies.length()
-      function_idx = function_idx + 1 {
-    match bodies[function_idx] {
-      Some(body) =>
-        for entry in body.sites {
-          if entry.value.site.function.reinterpret_as_int() == function_idx &&
-            values.get(entry.value) is None {
-            values.set(entry.value, entry.facts)
-          }
-        }
-      None => ()
+  for body in facts.bodies {
+    if bodies.get(body.function) != Some(body) {
+      continue
+    }
+    for entry in body.sites {
+      if entry.value.site.function == body.function &&
+        values.get(entry.value) is None {
+        values.set(entry.value, entry.facts)
+      }
     }
   }
   values
@@ -173,24 +159,21 @@ fn compiler_fact_index_value_map(
 
 ///|
 fn compiler_fact_index_call_map(
-  bodies : Array[@representation.FunctionBodyFacts?],
+  facts : @representation.OptimizationFactsSec,
+  bodies : @hashmap.HashMap[UInt, @representation.FunctionBodyFacts],
 ) -> @hashmap.HashMap[@representation.CodeSite, @representation.CallSiteFacts] {
   let calls : @hashmap.HashMap[
     @representation.CodeSite,
     @representation.CallSiteFacts,
   ] = @hashmap.new()
-  for function_idx = 0
-      function_idx < bodies.length()
-      function_idx = function_idx + 1 {
-    match bodies[function_idx] {
-      Some(body) =>
-        for entry in body.calls {
-          if entry.site.function.reinterpret_as_int() == function_idx &&
-            calls.get(entry.site) is None {
-            calls.set(entry.site, entry)
-          }
-        }
-      None => ()
+  for body in facts.bodies {
+    if bodies.get(body.function) != Some(body) {
+      continue
+    }
+    for entry in body.calls {
+      if entry.site.function == body.function && calls.get(entry.site) is None {
+        calls.set(entry.site, entry)
+      }
     }
   }
   calls
@@ -200,73 +183,35 @@ fn compiler_fact_index_call_map(
 pub fn CompilerFactIndex::new(
   facts : @representation.OptimizationFactsSec,
 ) -> CompilerFactIndex {
-  let function_indices : Array[UInt] = []
+  let functions : @hashmap.HashMap[UInt, @representation.FunctionFacts] = @hashmap.new()
   for value in facts.functions {
-    function_indices.push(value.function)
+    functions.set(value.function, value)
   }
+  let bodies : @hashmap.HashMap[UInt, @representation.FunctionBodyFacts] = @hashmap.new()
   for value in facts.bodies {
-    function_indices.push(value.function)
+    bodies.set(value.function, value)
   }
-  let signature_indices : Array[UInt] = []
+  let signatures : @hashmap.HashMap[UInt, @representation.SignatureFacts] = @hashmap.new()
   for value in facts.signatures {
-    signature_indices.push(value.signature)
+    signatures.set(value.signature, value)
   }
-  let type_indices : Array[UInt] = []
+  let types : @hashmap.HashMap[UInt, @representation.TypeFacts] = @hashmap.new()
   for value in facts.types {
-    type_indices.push(value.type_)
+    types.set(value.type_, value)
   }
-  let global_indices : Array[UInt] = []
+  let globals : @hashmap.HashMap[UInt, @representation.GlobalFacts] = @hashmap.new()
   for value in facts.globals {
-    global_indices.push(value.global)
+    globals.set(value.global, value)
   }
-  let table_indices : Array[UInt] = []
+  let tables : @hashmap.HashMap[UInt, @representation.TableFacts] = @hashmap.new()
   for value in facts.tables {
-    table_indices.push(value.table)
-  }
-  let functions = Array::make(
-    compiler_fact_index_size_from_uints(function_indices),
-    None,
-  )
-  let bodies = Array::make(functions.length(), None)
-  let signatures = Array::make(
-    compiler_fact_index_size_from_uints(signature_indices),
-    None,
-  )
-  let types = Array::make(
-    compiler_fact_index_size_from_uints(type_indices),
-    None,
-  )
-  let globals = Array::make(
-    compiler_fact_index_size_from_uints(global_indices),
-    None,
-  )
-  let tables = Array::make(
-    compiler_fact_index_size_from_uints(table_indices),
-    None,
-  )
-  for value in facts.functions {
-    functions[value.function.reinterpret_as_int()] = Some(value)
-  }
-  for value in facts.bodies {
-    bodies[value.function.reinterpret_as_int()] = Some(value)
-  }
-  for value in facts.signatures {
-    signatures[value.signature.reinterpret_as_int()] = Some(value)
-  }
-  for value in facts.types {
-    types[value.type_.reinterpret_as_int()] = Some(value)
-  }
-  for value in facts.globals {
-    globals[value.global.reinterpret_as_int()] = Some(value)
-  }
-  for value in facts.tables {
-    tables[value.table.reinterpret_as_int()] = Some(value)
+    tables.set(value.table, value)
   }
   {
     facts,
     functions,
-    values: compiler_fact_index_value_map(bodies),
-    calls: compiler_fact_index_call_map(bodies),
+    values: compiler_fact_index_value_map(facts, bodies),
+    calls: compiler_fact_index_call_map(facts, bodies),
     bodies,
     signatures,
     types,
@@ -280,58 +225,58 @@ fn compiler_fact_index_bounded(
   facts : @representation.OptimizationFactsSec,
   env : @validate.Env,
 ) -> CompilerFactIndex {
-  let functions = Array::make(env.funcs.length(), None)
-  let bodies = Array::make(env.funcs.length(), None)
+  let functions : @hashmap.HashMap[UInt, @representation.FunctionFacts] = @hashmap.new()
+  let bodies : @hashmap.HashMap[UInt, @representation.FunctionBodyFacts] = @hashmap.new()
   for value in facts.functions {
     let slot = value.function.reinterpret_as_int()
-    if slot >= 0 && slot < functions.length() {
-      functions[slot] = Some(value)
+    if slot >= 0 && slot < env.funcs.length() {
+      functions.set(value.function, value)
     }
   }
   for value in facts.bodies {
     let slot = value.function.reinterpret_as_int()
-    if slot >= 0 && slot < bodies.length() {
-      bodies[slot] = Some(value)
+    if slot >= 0 && slot < env.funcs.length() {
+      bodies.set(value.function, value)
     }
   }
 
-  let signatures = Array::make(env.global_types.length(), None)
+  let signatures : @hashmap.HashMap[UInt, @representation.SignatureFacts] = @hashmap.new()
   for value in facts.signatures {
     let slot = value.signature.reinterpret_as_int()
-    if slot >= 0 && slot < signatures.length() {
-      signatures[slot] = Some(value)
+    if slot >= 0 && slot < env.global_types.length() {
+      signatures.set(value.signature, value)
     }
   }
 
-  let types = Array::make(env.global_types.length(), None)
+  let types : @hashmap.HashMap[UInt, @representation.TypeFacts] = @hashmap.new()
   for value in facts.types {
     let slot = value.type_.reinterpret_as_int()
-    if slot >= 0 && slot < types.length() {
-      types[slot] = Some(value)
+    if slot >= 0 && slot < env.global_types.length() {
+      types.set(value.type_, value)
     }
   }
 
-  let globals = Array::make(env.globals.length(), None)
+  let globals : @hashmap.HashMap[UInt, @representation.GlobalFacts] = @hashmap.new()
   for value in facts.globals {
     let slot = value.global.reinterpret_as_int()
-    if slot >= 0 && slot < globals.length() {
-      globals[slot] = Some(value)
+    if slot >= 0 && slot < env.globals.length() {
+      globals.set(value.global, value)
     }
   }
 
-  let tables = Array::make(env.tables.length(), None)
+  let tables : @hashmap.HashMap[UInt, @representation.TableFacts] = @hashmap.new()
   for value in facts.tables {
     let slot = value.table.reinterpret_as_int()
-    if slot >= 0 && slot < tables.length() {
-      tables[slot] = Some(value)
+    if slot >= 0 && slot < env.tables.length() {
+      tables.set(value.table, value)
     }
   }
 
   {
     facts,
     functions,
-    values: compiler_fact_index_value_map(bodies),
-    calls: compiler_fact_index_call_map(bodies),
+    values: compiler_fact_index_value_map(facts, bodies),
+    calls: compiler_fact_index_call_map(facts, bodies),
     bodies,
     signatures,
     types,
@@ -346,10 +291,7 @@ pub fn CompilerFactIndex::function_facts(
   function : @lib.FuncIdx,
 ) -> @representation.FunctionFacts? {
   let @lib.FuncIdx(raw) = function
-  match self.functions.get(raw.reinterpret_as_int()) {
-    Some(value) => value
-    None => None
-  }
+  self.functions.get(raw)
 }
 
 ///|
@@ -358,10 +300,7 @@ pub fn CompilerFactIndex::body_facts(
   function : @lib.FuncIdx,
 ) -> @representation.FunctionBodyFacts? {
   let @lib.FuncIdx(raw) = function
-  match self.bodies.get(raw.reinterpret_as_int()) {
-    Some(value) => value
-    None => None
-  }
+  self.bodies.get(raw)
 }
 
 ///|
@@ -370,11 +309,7 @@ pub fn CompilerFactIndex::signature_facts(
   signature : @lib.TypeIdx,
 ) -> @representation.SignatureFacts? {
   match signature {
-    @lib.TypeIdx(raw) =>
-      match self.signatures.get(raw.reinterpret_as_int()) {
-        Some(value) => value
-        None => None
-      }
+    @lib.TypeIdx(raw) => self.signatures.get(raw)
     @lib.RecIdx(_) => None
   }
 }
@@ -385,11 +320,7 @@ pub fn CompilerFactIndex::type_facts(
   type_ : @lib.TypeIdx,
 ) -> @representation.TypeFacts? {
   match type_ {
-    @lib.TypeIdx(raw) =>
-      match self.types.get(raw.reinterpret_as_int()) {
-        Some(value) => value
-        None => None
-      }
+    @lib.TypeIdx(raw) => self.types.get(raw)
     @lib.RecIdx(_) => None
   }
 }
@@ -400,10 +331,7 @@ pub fn CompilerFactIndex::global_facts(
   global : @lib.GlobalIdx,
 ) -> @representation.GlobalFacts? {
   let @lib.GlobalIdx(raw) = global
-  match self.globals.get(raw.reinterpret_as_int()) {
-    Some(value) => value
-    None => None
-  }
+  self.globals.get(raw)
 }
 
 ///|
@@ -412,10 +340,7 @@ pub fn CompilerFactIndex::table_facts(
   table : @lib.TableIdx,
 ) -> @representation.TableFacts? {
   let @lib.TableIdx(raw) = table
-  match self.tables.get(raw.reinterpret_as_int()) {
-    Some(value) => value
-    None => None
-  }
+  self.tables.get(raw)
 }
 
 ///|
@@ -439,8 +364,8 @@ pub fn CompilerFactIndex::allocation_facts(
   self : CompilerFactIndex,
   site : @representation.ValueSite,
 ) -> @representation.AllocationFacts? {
-  match self.bodies.get(site.site.function.reinterpret_as_int()) {
-    Some(Some(body)) =>
+  match self.bodies.get(site.site.function) {
+    Some(body) =>
       for value in body.allocations {
         if value.site == site {
           return Some(value.facts)
@@ -550,9 +475,11 @@ pub fn CompilerFactIndex::compiler_fact_exact_call_target(
 }
 
 ///|
-fn compiler_fact_count_exact_targets(index : CompilerFactIndex) -> Int {
+fn compiler_fact_count_exact_targets(
+  facts : @representation.OptimizationFactsSec,
+) -> Int {
   let mut count = 0
-  for body in index.facts.bodies {
+  for body in facts.bodies {
     for call in body.calls {
       if call.direct_target is Some(_) {
         count += 1
@@ -1163,6 +1090,10 @@ pub fn apply_compiler_facts(
   policy : CompilerFactUsePolicy,
 ) -> Result[ApplyCompilerFactsResult, String] {
   let stats = CompilerFactMaterializationStats::new()
+  if policy == TrustAssertions &&
+    pass_module_has_offset_sensitive_metadata(module_) {
+    return Ok({ module_, stats, })
+  }
   let section = match module_.compiler_fact_custom_section {
     Some(section) => section
     None => return Ok({ module_, stats, })
@@ -1173,10 +1104,8 @@ pub fn apply_compiler_facts(
     IgnoreFacts | HintsOnly => {
       stats.hint_only_facts = stats.hint_facts_seen
       stats.facts_blocked_by_trust = assertion_count
-      let env = @validate.Env::new().with_module(module_)
-      let index = compiler_fact_index_bounded(section.facts, env)
       stats.exact_call_target_facts_seen = compiler_fact_count_exact_targets(
-        index,
+        section.facts,
       )
       stats.ignored_untrusted_assertions = stats.exact_call_target_facts_seen
       return Ok({ module_, stats, })
@@ -1207,7 +1136,9 @@ pub fn apply_compiler_facts(
     }
   }
   let index = compiler_fact_index_bounded(section.facts, env)
-  stats.exact_call_target_facts_seen = compiler_fact_count_exact_targets(index)
+  stats.exact_call_target_facts_seen = compiler_fact_count_exact_targets(
+    section.facts,
+  )
   match apply_compiler_facts_trusted(module_, section.version, index, stats) {
     Ok(module_) => Ok({ module_, stats, })
     Err(err) => Err(err)

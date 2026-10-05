@@ -744,6 +744,9 @@ fn dead_code_elimination_op_has_fallthrough_edge(op : @ir.HotOp) -> Bool {
     @ir.HotOp::Br
     | @ir.HotOp::BrTable
     | @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
     | @ir.HotOp::Throw
     | @ir.HotOp::ThrowRef
     | @ir.HotOp::Rethrow

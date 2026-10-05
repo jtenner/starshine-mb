@@ -1080,8 +1080,7 @@ fn inl_mark_global_uses(mod_ : @lib.Module, used : Array[Bool]) -> Unit {
       for table in tables {
         let @lib.Table(_, init) = table
         match init {
-          Some(@lib.Expr(instrs)) =>
-            inl_scan_refs(instrs, Array::make(used.length(), 0), used)
+          Some(@lib.Expr(instrs)) => inl_mark_used_refs(instrs, used)
           None => ()
         }
       }
@@ -1091,7 +1090,7 @@ fn inl_mark_global_uses(mod_ : @lib.Module, used : Array[Bool]) -> Unit {
     Some(@lib.GlobalSec(globals)) =>
       for global in globals {
         let @lib.Global(_, @lib.Expr(instrs)) = global
-        inl_scan_refs(instrs, Array::make(used.length(), 0), used)
+        inl_mark_used_refs(instrs, used)
       }
     None => ()
   }
@@ -1110,11 +1109,39 @@ fn inl_mark_global_uses(mod_ : @lib.Module, used : Array[Bool]) -> Unit {
           @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
             for expr in exprs {
               let @lib.Expr(instrs) = expr
-              inl_scan_refs(instrs, Array::make(used.length(), 0), used)
+              inl_mark_used_refs(instrs, used)
             }
         }
       }
     None => ()
+  }
+}
+
+///|
+fn inl_mark_used_refs(
+  instrs : Array[@lib.Instruction],
+  used : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.RefFunc(func_idx) => {
+        let slot = inl_func_idx_slot(func_idx)
+        if slot >= 0 && slot < used.length() {
+          used[slot] = true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => inl_mark_used_refs(body, used)
+      @lib.If(_, then_body, else_body) => {
+        inl_mark_used_refs(then_body, used)
+        match else_body {
+          Some(body) => inl_mark_used_refs(body, used)
+          None => ()
+        }
+      }
+      _ => ()
+    }
   }
 }
 
@@ -5281,49 +5308,169 @@ fn inl_func_has_dead_suffix_call(func : @lib.Func) -> Bool {
 }
 
 ///|
+struct InlGraphReachability {
+  graph : Array[Array[Int]]
+  scc_by_node : Array[Int]
+  scc_has_cycle : Array[Bool]
+  mut cached_source : Int
+  cached_reachable : Array[Bool]
+  cached_touched : Array[Int]
+}
+
+///|
 fn inl_build_graph_reachability(
   graph : Array[Array[Int]],
-) -> Array[Array[Bool]] {
+) -> InlGraphReachability {
   let total = graph.length()
-  let reachability : Array[Array[Bool]] = []
-  let mut start = 0
-  while start < total {
-    let reachable = Array::make(total, false)
-    if start >= 0 && start < graph.length() {
-      let stack : Array[Int] = []
-      for next in graph[start] {
-        if next >= 0 && next < total && !reachable[next] {
-          reachable[next] = true
+  let reverse : Array[Array[Int]] = []
+  for _ in 0..<total {
+    reverse.push([])
+  }
+  for source = 0; source < total; source = source + 1 {
+    for target in graph[source] {
+      if target >= 0 && target < total {
+        reverse[target].push(source)
+      }
+    }
+  }
+
+  let visited = Array::make(total, false)
+  let finish_order : Array[Int] = []
+  for start = 0; start < total; start = start + 1 {
+    if visited[start] {
+      continue
+    }
+    visited[start] = true
+    let nodes : Array[Int] = [start]
+    let next_edges : Array[Int] = [0]
+    while nodes.length() > 0 {
+      let top = nodes.length() - 1
+      let node = nodes[top]
+      if next_edges[top] < graph[node].length() {
+        let next = graph[node][next_edges[top]]
+        next_edges[top] += 1
+        if next >= 0 && next < total && !visited[next] {
+          visited[next] = true
+          nodes.push(next)
+          next_edges.push(0)
+        }
+      } else {
+        ignore(nodes.pop())
+        ignore(next_edges.pop())
+        finish_order.push(node)
+      }
+    }
+  }
+
+  let scc_by_node = Array::make(total, -1)
+  let mut scc_count = 0
+  let mut cursor = finish_order.length() - 1
+  while cursor >= 0 {
+    let start = finish_order[cursor]
+    cursor -= 1
+    if scc_by_node[start] >= 0 {
+      continue
+    }
+    scc_by_node[start] = scc_count
+    let stack : Array[Int] = [start]
+    while stack.length() > 0 {
+      let node = stack.pop().unwrap()
+      for next in reverse[node] {
+        if scc_by_node[next] < 0 {
+          scc_by_node[next] = scc_count
           stack.push(next)
         }
       }
-      while stack.length() > 0 {
-        let current = stack.pop().unwrap()
-        for next in graph[current] {
-          if next >= 0 && next < total && !reachable[next] {
-            reachable[next] = true
-            stack.push(next)
-          }
-        }
+    }
+    scc_count += 1
+  }
+  let scc_sizes = Array::make(scc_count, 0)
+  for node = 0; node < total; node = node + 1 {
+    scc_sizes[scc_by_node[node]] += 1
+  }
+  let scc_has_cycle = Array::make(scc_count, false)
+  for node = 0; node < total; node = node + 1 {
+    let scc = scc_by_node[node]
+    if scc_sizes[scc] > 1 {
+      scc_has_cycle[scc] = true
+      continue
+    }
+    for next in graph[node] {
+      if next == node {
+        scc_has_cycle[scc] = true
+        break
       }
     }
-    reachability.push(reachable)
-    start += 1
   }
-  reachability
+  {
+    graph,
+    scc_by_node,
+    scc_has_cycle,
+    cached_source: -1,
+    cached_reachable: Array::make(total, false),
+    cached_touched: [],
+  }
+}
+
+///|
+fn inl_reachability_same_scc(
+  reachability : InlGraphReachability,
+  left : Int,
+  right : Int,
+) -> Bool {
+  left >= 0 &&
+  left < reachability.scc_by_node.length() &&
+  right >= 0 &&
+  right < reachability.scc_by_node.length() &&
+  reachability.scc_by_node[left] == reachability.scc_by_node[right]
 }
 
 ///|
 fn inl_reachability_reaches(
-  reachability : Array[Array[Bool]],
+  reachability : InlGraphReachability,
   start : Int,
   target : Int,
 ) -> Bool {
-  start >= 0 &&
-  start < reachability.length() &&
-  target >= 0 &&
-  target < reachability[start].length() &&
-  reachability[start][target]
+  if start < 0 ||
+    start >= reachability.graph.length() ||
+    target < 0 ||
+    target >= reachability.graph.length() {
+    return false
+  }
+  if inl_reachability_same_scc(reachability, start, target) {
+    return start != target ||
+      reachability.scc_has_cycle[reachability.scc_by_node[start]]
+  }
+  if reachability.cached_source != start {
+    for node in reachability.cached_touched {
+      reachability.cached_reachable[node] = false
+    }
+    reachability.cached_touched.clear()
+    let stack : Array[Int] = []
+    for next in reachability.graph[start] {
+      if next >= 0 &&
+        next < reachability.graph.length() &&
+        !reachability.cached_reachable[next] {
+        reachability.cached_reachable[next] = true
+        reachability.cached_touched.push(next)
+        stack.push(next)
+      }
+    }
+    while stack.length() > 0 {
+      let node = stack.pop().unwrap()
+      for next in reachability.graph[node] {
+        if next >= 0 &&
+          next < reachability.graph.length() &&
+          !reachability.cached_reachable[next] {
+          reachability.cached_reachable[next] = true
+          reachability.cached_touched.push(next)
+          stack.push(next)
+        }
+      }
+    }
+    reachability.cached_source = start
+  }
+  reachability.cached_reachable[target]
 }
 
 ///|
@@ -5485,7 +5632,7 @@ fn inl_prediction_retain_shadowed_void_cycle_result_helper(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
-  reachability : Array[Array[Bool]],
+  reachability : InlGraphReachability,
   used : Array[Bool],
   reachable_from_root : Array[Bool],
   predicted : @hashmap.HashMap[String, Int],
@@ -5515,11 +5662,7 @@ fn inl_prediction_retain_shadowed_void_cycle_result_helper(
     let mut scc_size = 0
     let mut other = imports
     while other < total {
-      if other == idx ||
-        (
-          inl_reachability_reaches(reachability, idx, other) &&
-          inl_reachability_reaches(reachability, other, idx)
-        ) {
+      if other == idx || inl_reachability_same_scc(reachability, idx, other) {
         scc_member[other] = true
         processed[other] = true
         scc_size += 1
@@ -5609,7 +5752,7 @@ fn inl_prediction_drop_unique_private_self_loop_in_root_scc(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
-  reachability : Array[Array[Bool]],
+  reachability : InlGraphReachability,
   used : Array[Bool],
   reachable_from_root : Array[Bool],
   predicted : @hashmap.HashMap[String, Int],
@@ -5628,11 +5771,7 @@ fn inl_prediction_drop_unique_private_self_loop_in_root_scc(
     let mut scc_size = 0
     let mut other = imports
     while other < total {
-      if other == idx ||
-        (
-          inl_reachability_reaches(reachability, idx, other) &&
-          inl_reachability_reaches(reachability, other, idx)
-        ) {
+      if other == idx || inl_reachability_same_scc(reachability, idx, other) {
         scc_member[other] = true
         processed[other] = true
         scc_size += 1
@@ -5685,7 +5824,7 @@ fn inl_prediction_drop_one_way_self_loop_chain_behind_duplicate_root_calls(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
-  reachability : Array[Array[Bool]],
+  reachability : InlGraphReachability,
   used : Array[Bool],
   reachable_from_root : Array[Bool],
   predicted : @hashmap.HashMap[String, Int],
@@ -5759,7 +5898,7 @@ fn inl_prediction_retain_self_loop_helper_inlined_count(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
-  reachability : Array[Array[Bool]],
+  reachability : InlGraphReachability,
   used : Array[Bool],
   retain : @hashmap.HashMap[String, Int],
 ) -> Unit {
@@ -5839,7 +5978,7 @@ fn inl_prediction_retain_self_loop_helper_signature_in_root_cycle(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
-  reachability : Array[Array[Bool]],
+  reachability : InlGraphReachability,
   used : Array[Bool],
   predicted : @hashmap.HashMap[String, Int],
 ) -> Unit {
@@ -6023,7 +6162,7 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
-  reachability : Array[Array[Bool]],
+  reachability : InlGraphReachability,
   used : Array[Bool],
   reachable_from_root : Array[Bool],
   predicted : @hashmap.HashMap[String, Int],
@@ -6068,11 +6207,7 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
       let sigs : @hashmap.HashMap[String, Int] = @hashmap.new()
       let mut idx = imports
       while idx < total {
-        if idx == seed ||
-          (
-            inl_reachability_reaches(reachability, seed, idx) &&
-            inl_reachability_reaches(reachability, idx, seed)
-          ) {
+        if idx == seed || inl_reachability_same_scc(reachability, seed, idx) {
           scc_member[idx] = true
           processed[idx] = true
           scc_size += 1
@@ -6160,7 +6295,7 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
-  reachability : Array[Array[Bool]],
+  reachability : InlGraphReachability,
   used : Array[Bool],
   reachable_from_root : Array[Bool],
   final_trim : @hashmap.HashMap[String, Int],
@@ -6204,11 +6339,7 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
       let sigs : @hashmap.HashMap[String, Int] = @hashmap.new()
       let mut idx = imports
       while idx < total {
-        if idx == seed ||
-          (
-            inl_reachability_reaches(reachability, seed, idx) &&
-            inl_reachability_reaches(reachability, idx, seed)
-          ) {
+        if idx == seed || inl_reachability_same_scc(reachability, seed, idx) {
           processed[idx] = true
           scc_member[idx] = true
           scc_size += 1
@@ -6427,7 +6558,7 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
-  reachability : Array[Array[Bool]],
+  reachability : InlGraphReachability,
   used : Array[Bool],
   reachable_from_root : Array[Bool],
   predicted : @hashmap.HashMap[String, Int],
@@ -6452,11 +6583,7 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
     let candidate_nonroot_sigs : Array[String] = []
     let mut idx = imports
     while idx < total {
-      if idx == root ||
-        (
-          inl_reachability_reaches(reachability, root, idx) &&
-          inl_reachability_reaches(reachability, idx, root)
-        ) {
+      if idx == root || inl_reachability_same_scc(reachability, root, idx) {
         scc_member[idx] = true
         processed[idx] = true
         scc_size += 1
@@ -6711,11 +6838,7 @@ fn inl_original_reachable_private_cycle_funcs(
       let mut scc_size = 0
       let mut other = imports
       while other < total {
-        if other == idx ||
-          (
-            inl_reachability_reaches(reachability, idx, other) &&
-            inl_reachability_reaches(reachability, other, idx)
-          ) {
+        if other == idx || inl_reachability_same_scc(reachability, idx, other) {
           scc_member[other] = true
           scc_size += 1
         }
@@ -9289,7 +9412,8 @@ fn inl_inline_exact_target_instrs(
 
 ///|
 pub fn inline_main_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
-  if pass_module_has_legacy_try(mod_) {
+  if pass_module_has_legacy_try(mod_) ||
+    pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
   }
   let imports = inl_imported_func_count(mod_)
@@ -9665,7 +9789,8 @@ fn inlining_run_module_pass_with_perf(
   partial_inlining_ifs? : Int = 0,
   perf? : HotPerfSession? = None,
 ) -> @lib.Module {
-  if pass_module_has_legacy_try(mod_) {
+  if pass_module_has_legacy_try(mod_) ||
+    pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
   }
   if optimize && inl_module_has_typeidx_loop(mod_) {

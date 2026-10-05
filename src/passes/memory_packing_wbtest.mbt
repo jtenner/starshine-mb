@@ -524,3 +524,20 @@ test "review2 memory-packing flattened parameter counts preserve mixed groups" {
   assert_true(mp_defined_func_param_counts(invalid) == [0, 0, 0])
   assert_true(mp_defined_func_param_counts(@lib.Module::new()).is_empty())
 }
+
+///|
+test "memory-packing bulk data-name lookup preserves first duplicate entry" {
+  let first = @lib.Name::from_string("__llvm_first")
+  let second = @lib.Name::from_string("second")
+  let module_ = @lib.Module::new().with_name_sec(
+    @lib.NameSec::new(
+      data_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, first),
+          @lib.NameAssoc::new(0U, second),
+        ]),
+      ),
+    ),
+  )
+  @debug.assert_eq(mp_data_names_by_idx(module_, 1), [Some(first)])
+}

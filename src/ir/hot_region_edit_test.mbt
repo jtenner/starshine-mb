@@ -64,6 +64,44 @@ test "body region suffix truncation preserves the existing child span" {
 }
 
 ///|
+test "body region splice reuses same-size and tail-growing child storage" {
+  let func = HotFunc::new()
+  let first = hot_build_const_i32(func, @lib.I32(1))
+  let second = hot_build_const_i32(func, @lib.I32(2))
+  let third = hot_build_const_i32(func, @lib.I32(3))
+  let block_id = hot_build_block(func, @lib.BlockType::void_(), [first, second])
+  let body_ref = hot_region_body_ref(func, block_id)
+  let initial_storage = hot_child_storage_count(func)
+
+  @debug.assert_eq(hot_region_splice(func, body_ref, 1, 1, [third]), [second])
+  @debug.assert_eq(hot_child_span(func, block_id), [first, third])
+  @debug.assert_eq(hot_child_storage_count(func), initial_storage)
+
+  @debug.assert_eq(hot_region_splice(func, body_ref, 2, 0, [second]), [])
+  @debug.assert_eq(hot_child_span(func, block_id), [first, third, second])
+  @debug.assert_eq(hot_child_storage_count(func), initial_storage + 1)
+}
+
+///|
+test "body region no-op splice preserves revision and child storage" {
+  let func = HotFunc::new()
+  let value = hot_build_const_i32(func, @lib.I32(1))
+  let block_id = hot_build_block(func, @lib.BlockType::void_(), [value])
+  let body_ref = hot_region_body_ref(func, block_id)
+  let revision = hot_revision_current(func)
+  let storage = hot_child_storage_count(func)
+
+  @debug.assert_eq(hot_region_splice(func, body_ref, 1, 0, []), [])
+  @debug.assert_eq(hot_revision_current(func), revision)
+  @debug.assert_eq(hot_child_storage_count(func), storage)
+
+  hot_root_append(func, block_id)
+  let root_revision = hot_revision_current(func)
+  @debug.assert_eq(hot_region_splice(func, HotRegionRef::root(), 1, 0, []), [])
+  @debug.assert_eq(hot_revision_current(func), root_revision)
+}
+
+///|
 test "structured region refs rewrite if and try wrapper bodies" {
   let func = HotFunc::new()
   let condition = hot_build_const_i32(func, @lib.I32(1))

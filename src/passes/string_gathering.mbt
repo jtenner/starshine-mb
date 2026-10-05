@@ -437,6 +437,18 @@ fn sg_rewrite_instrs(
   plan : SgRewritePlan,
   imported_globals : Int,
 ) -> Array[@lib.Instruction] {
+  if !sg_instrs_need_rewrite(instrs, plan, imported_globals) {
+    return instrs
+  }
+  sg_rewrite_instrs_unchecked(instrs, plan, imported_globals)
+}
+
+///|
+fn sg_rewrite_instrs_unchecked(
+  instrs : Array[@lib.Instruction],
+  plan : SgRewritePlan,
+  imported_globals : Int,
+) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
     out.push(sg_rewrite_instr(instr, plan, imported_globals))
@@ -445,13 +457,64 @@ fn sg_rewrite_instrs(
 }
 
 ///|
+fn sg_instrs_need_rewrite(
+  instrs : Array[@lib.Instruction],
+  plan : SgRewritePlan,
+  imported_globals : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.StringConst(_) => return true
+      @lib.GlobalGet(idx) | @lib.GlobalSet(idx) =>
+        if sg_remap_existing_global_idx(idx, imported_globals, plan) != idx {
+          return true
+        }
+      @lib.Block(_, body) | @lib.Loop(_, body) =>
+        if sg_expr_needs_rewrite(body, plan, imported_globals) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if sg_instrs_need_rewrite(then_body, plan, imported_globals) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if sg_instrs_need_rewrite(body, plan, imported_globals) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, body) =>
+        if sg_expr_needs_rewrite(body, plan, imported_globals) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn sg_expr_needs_rewrite(
+  expr : @lib.Expr,
+  plan : SgRewritePlan,
+  imported_globals : Int,
+) -> Bool {
+  sg_instrs_need_rewrite(expr.0, plan, imported_globals)
+}
+
+///|
 fn sg_rewrite_expr(
   expr : @lib.Expr,
   plan : SgRewritePlan,
   imported_globals : Int,
 ) -> @lib.Expr {
+  if !sg_expr_needs_rewrite(expr, plan, imported_globals) {
+    return expr
+  }
   let @lib.Expr(instrs) = expr
-  @lib.Expr::new(sg_rewrite_instrs(instrs, plan, imported_globals))
+  @lib.Expr::new(sg_rewrite_instrs_unchecked(instrs, plan, imported_globals))
 }
 
 ///|
@@ -663,22 +726,11 @@ fn sg_rewrite_global_name_map(
           out.push(entry)
         }
       }
-      let mut i = 1
-      while i < out.length() {
-        let current = out[i]
-        let @lib.NameAssoc(current_idx, _) = current
-        let mut j = i
-        while j > 0 {
-          let @lib.NameAssoc(previous_idx, _) = out[j - 1]
-          if previous_idx <= current_idx {
-            break
-          }
-          out[j] = out[j - 1]
-          j -= 1
-        }
-        out[j] = current
-        i += 1
-      }
+      out.sort_by(fn(left, right) {
+        let @lib.NameAssoc(left_idx, _) = left
+        let @lib.NameAssoc(right_idx, _) = right
+        left_idx.compare(right_idx)
+      })
       Some(@lib.NameMap::new(out))
     }
     None => None
@@ -725,14 +777,21 @@ fn sg_rewrite_code_sec(
 ) -> @lib.CodeSec? {
   match code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      let out : Array[@lib.Func] = []
-      for func in funcs {
+      let mut out : Array[@lib.Func]? = None
+      for index, func in funcs {
         let @lib.Func(locals, body) = func
-        out.push(
-          @lib.Func::new(locals, sg_rewrite_expr(body, plan, imported_globals)),
-        )
+        let next_body = sg_rewrite_expr(body, plan, imported_globals)
+        if next_body != body {
+          if out is None {
+            out = Some(funcs.copy())
+          }
+          out.unwrap()[index] = @lib.Func::new(locals, next_body)
+        }
       }
-      Some(@lib.CodeSec::new(out))
+      match out {
+        Some(rewritten) => Some(@lib.CodeSec::new(rewritten))
+        None => code_sec
+      }
     }
     None => None
   }

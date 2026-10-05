@@ -951,6 +951,7 @@ fn gr_rewrite_ref_null_set_instrs(
 ) -> (Array[@lib.Instruction], Bool) {
   let mut next = instrs
   let mut changed = false
+  let null_producers = gr_null_write_producers(instrs, mod_, func_type_indices)
   for idx = 0; idx < next.length(); idx = idx + 1 {
     match next[idx] {
       @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
@@ -958,17 +959,15 @@ fn gr_rewrite_ref_null_set_instrs(
         if idx > 0 && slot >= 0 && slot < refined_globals.length() {
           match refined_globals[slot] {
             Some(refined_ref_type) =>
-              match gr_null_write_producer(next, idx, mod_, func_type_indices) {
-                Some(producer) => {
-                  if !changed {
-                    next = instrs.copy()
-                  }
-                  next[producer] = @lib.Instruction::ref_null_type(
-                    refined_ref_type,
-                  )
-                  changed = true
+              if null_producers[idx] >= 0 {
+                let producer = null_producers[idx]
+                if !changed {
+                  next = instrs.copy()
                 }
-                None => ()
+                next[producer] = @lib.Instruction::ref_null_type(
+                  refined_ref_type,
+                )
+                changed = true
               }
             None => ()
           }
@@ -1045,6 +1044,54 @@ fn gr_rewrite_ref_null_set_instrs(
     }
   }
   (next, changed)
+}
+
+///|
+fn gr_null_write_producers(
+  instrs : Array[@lib.Instruction],
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> Array[Int] {
+  let producers = Array::make(instrs.length(), -1)
+  // Track the known suffix of the operand stack. An unsupported or
+  // polymorphic instruction clears that suffix, but later independent leaves
+  // can immediately begin a new one.
+  let stack : Array[Int] = []
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if instrs[idx] is @lib.GlobalSet(_) && !stack.is_empty() {
+      producers[idx] = stack[stack.length() - 1]
+    }
+    let (pops, pushes) = match
+      dae_instr_stack_effect(instrs[idx], mod_, func_type_indices) {
+      Some(effect) => effect
+      None => {
+        stack.clear()
+        continue
+      }
+    }
+    let known_inputs = pops <= stack.length()
+    if known_inputs {
+      for pop_idx = 0; pop_idx < pops; pop_idx = pop_idx + 1 {
+        ignore(pop_idx)
+        ignore(stack.pop())
+      }
+    } else {
+      stack.clear()
+    }
+    let producer = if known_inputs &&
+      pops == 0 &&
+      pushes == 1 &&
+      instrs[idx] is @lib.RefNull(_) {
+      idx
+    } else {
+      -1
+    }
+    for push_idx = 0; push_idx < pushes; push_idx = push_idx + 1 {
+      ignore(push_idx)
+      stack.push(producer)
+    }
+  }
+  producers
 }
 
 ///|
@@ -1253,30 +1300,6 @@ fn gr_refine_module(
     rewritten, refined_globals,
   )
   rewritten
-}
-
-///|
-fn gr_null_write_producer(
-  instrs : Array[@lib.Instruction],
-  consumer : Int,
-  mod_ : @lib.Module,
-  func_type_indices : Array[@lib.TypeIdx],
-) -> Int? {
-  let mut depth = 0
-  let mut index = consumer - 1
-  while index >= 0 {
-    let (pops, pushes) = match
-      dae_instr_stack_effect(instrs[index], mod_, func_type_indices) {
-      Some(effect) => effect
-      None => return None
-    }
-    if pushes > depth {
-      return if instrs[index] is @lib.RefNull(_) { Some(index) } else { None }
-    }
-    depth = depth - pushes + pops
-    index -= 1
-  }
-  None
 }
 
 ///|

@@ -528,6 +528,32 @@ fn oc_node_is_local_get(
 }
 
 ///|
+fn oc_collect_local_get_counts(
+  func : @ir.HotFunc,
+  node_id : Int,
+  counts : Array[Int],
+  touched : Array[Int],
+) -> Unit {
+  if !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  if node.op is @ir.HotOp::LocalGet &&
+    node.imm0 >= 0 &&
+    node.imm0 < counts.length() {
+    if counts[node.imm0] == 0 {
+      touched.push(node.imm0)
+    }
+    counts[node.imm0] += 1
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    oc_collect_local_get_counts(func, child_id, counts, touched)
+  }
+}
+
+///|
+/// Test helper for measuring a single-local walk independently of batching.
 fn oc_count_local_gets(
   func : @ir.HotFunc,
   node_id : Int,
@@ -542,13 +568,52 @@ fn oc_count_local_gets(
     0
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    let child_id = @ir.hot_child_get(func, node_id, slot)
-    count += oc_count_local_gets(func, child_id, local_id)
+    count += oc_count_local_gets(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      local_id,
+    )
   }
   count
 }
 
 ///|
+fn oc_retarget_local_gets_from_map(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  retarget : Array[Bool],
+  fresh_locals : Array[Int],
+) -> Int {
+  if !@ir.hot_node_is_live(func, node_id) {
+    return 0
+  }
+  let mut count = 0
+  let node = @ir.hot_node_get(func, node_id)
+  if node.op is @ir.HotOp::LocalGet &&
+    node.imm0 >= 0 &&
+    node.imm0 < retarget.length() &&
+    retarget[node.imm0] {
+    let fresh_local = fresh_locals[node.imm0]
+    if fresh_local >= 0 {
+      let temp = @ir.hot_build_local_get(func, fresh_local)
+      let replacement = @ir.hot_node_get(func, temp)
+      @ir.hot_delete_node(func, temp)
+      pass_replace_node(ctx, func, node_id, replacement)
+      count += 1
+    }
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    count += oc_retarget_local_gets_from_map(
+      ctx, func, child_id, retarget, fresh_locals,
+    )
+  }
+  count
+}
+
+///|
+/// Test helper for measuring a single-local walk independently of batching.
 fn oc_retarget_local_gets(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -568,8 +633,13 @@ fn oc_retarget_local_gets(
     count += 1
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    let child_id = @ir.hot_child_get(func, node_id, slot)
-    count += oc_retarget_local_gets(ctx, func, child_id, local_id, fresh_local)
+    count += oc_retarget_local_gets(
+      ctx,
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      local_id,
+      fresh_local,
+    )
   }
   count
 }
@@ -2114,6 +2184,10 @@ fn oc_later_reuse_scan_region(
   best_casts : Array[Int],
   fresh_locals : Array[Int],
   moved_refinalized_refinements : Array[Int],
+  local_get_counts : Array[Int],
+  touched_get_locals : Array[Int],
+  retarget_mask : Array[Bool],
+  retarget_locals : Array[Int],
   region : @ir.HotRegionRef,
 ) -> Bool {
   let mut changed = false
@@ -2131,6 +2205,10 @@ fn oc_later_reuse_scan_region(
               best_casts,
               fresh_locals,
               moved_refinalized_refinements,
+              local_get_counts,
+              touched_get_locals,
+              retarget_mask,
+              retarget_locals,
               @ir.hot_region_body_ref(func, block_id),
             ) {
             changed = true
@@ -2145,11 +2223,22 @@ fn oc_later_reuse_scan_region(
     oc_collect_refinements(func, root_id, refinements)
     let refinement_aliases : Array[(Int, Int)] = []
     oc_collect_refinement_tee_source_aliases(func, root_id, refinement_aliases)
+    for local_id in touched_get_locals {
+      local_get_counts[local_id] = 0
+    }
+    touched_get_locals.clear()
+    oc_collect_local_get_counts(
+      func, root_id, local_get_counts, touched_get_locals,
+    )
+    for local_id in retarget_locals {
+      retarget_mask[local_id] = false
+    }
+    retarget_locals.clear()
     let has_linear_barrier = oc_node_has_linear_block_barrier(func, root_id)
     if has_linear_barrier {
       oc_clear_later_reuse(best_casts, fresh_locals)
     } else {
-      for local_id = 0; local_id < local_count; local_id = local_id + 1 {
+      for local_id in touched_get_locals {
         let best_cast = best_casts[local_id]
         if best_cast >= 0 &&
           !oc_contains_local(writes, local_id) &&
@@ -2161,8 +2250,7 @@ fn oc_later_reuse_scan_region(
             best_cast,
             fresh_locals[local_id] >= 0,
             moved_refinalized_refinements,
-          ) &&
-          oc_count_local_gets(func, root_id, local_id) > 0 {
+          ) {
           let fresh_local = if fresh_locals[local_id] >= 0 {
             fresh_locals[local_id]
           } else {
@@ -2192,29 +2280,27 @@ fn oc_later_reuse_scan_region(
               }
             }
           }
-          let marked_source_get = oc_marked_equal_refinement_source_get(
-            func, refinements, local_id, best_cast, moved_refinalized_refinements,
-          )
-          if oc_retarget_local_gets(ctx, func, root_id, local_id, fresh_local) >
-            0 {
+          ignore(fresh_local)
+          retarget_mask[local_id] = true
+          retarget_locals.push(local_id)
+        }
+      }
+      if !retarget_locals.is_empty() &&
+        oc_retarget_local_gets_from_map(
+          ctx, func, root_id, retarget_mask, fresh_locals,
+        ) >
+        0 {
+        changed = true
+        for local_id in retarget_locals {
+          if oc_refinalize_marked_ref_cast_to_best(
+              ctx,
+              func,
+              module_ctx,
+              root_id,
+              best_casts[local_id],
+              moved_refinalized_refinements,
+            ) {
             changed = true
-            if oc_refinalize_marked_ref_cast_to_best(
-                ctx, func, module_ctx, root_id, best_cast, moved_refinalized_refinements,
-              ) {
-              changed = true
-            }
-          } else {
-            match marked_source_get {
-              Some(source_get) =>
-                if oc_node_is_local_get(func, source_get, local_id) {
-                  let temp = @ir.hot_build_local_get(func, fresh_local)
-                  let replacement = @ir.hot_node_get(func, temp)
-                  @ir.hot_delete_node(func, temp)
-                  pass_replace_node(ctx, func, source_get, replacement)
-                  changed = true
-                }
-              None => ()
-            }
           }
         }
       }
@@ -2269,6 +2355,10 @@ fn oc_later_reuse_run(
   let local_count = @ir.hot_local_count(func)
   let best_casts = Array::make(local_count, -1)
   let fresh_locals = Array::make(local_count, -1)
+  let local_get_counts = Array::make(local_count, 0)
+  let touched_get_locals : Array[Int] = []
+  let retarget_mask = Array::make(local_count, false)
+  let retarget_locals : Array[Int] = []
   oc_later_reuse_scan_region(
     ctx,
     func,
@@ -2277,6 +2367,10 @@ fn oc_later_reuse_run(
     best_casts,
     fresh_locals,
     moved_refinalized_refinements,
+    local_get_counts,
+    touched_get_locals,
+    retarget_mask,
+    retarget_locals,
     @ir.HotRegionRef::root(),
   )
 }

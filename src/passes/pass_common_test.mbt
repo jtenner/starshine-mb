@@ -91,6 +91,63 @@ test "pass_splice_region and pass_delete_detached_nodes mark mutation" {
 }
 
 ///|
+test "pass_delete_detached_nodes batches independent scalar deletions" {
+  let func = pass_test_lift_first_func("(module (func))")
+  let ctx = HotPassContext::new(
+    @ir.HotPassDescriptor::new("test"),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  let first = @ir.hot_build_nop(func)
+  let second = @ir.hot_build_nop(func)
+  let third = @ir.hot_build_nop(func)
+  let survivor = @ir.hot_build_nop(func)
+  @ir.hot_root_append(func, survivor)
+  let revision_before = @ir.hot_revision_current(func)
+
+  pass_delete_detached_nodes(ctx, func, [first, second, third])
+
+  assert_eq(@ir.hot_revision_current(func), revision_before + 1)
+  assert_false(@ir.hot_node_is_live(func, first))
+  assert_false(@ir.hot_node_is_live(func, second))
+  assert_false(@ir.hot_node_is_live(func, third))
+  assert_true(@ir.hot_node_is_live(func, survivor))
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected batched deletion to verify, got \{err}")
+  }
+}
+
+///|
+test "pass_delete_detached_nodes retires a control node's owned forest" {
+  let func = pass_test_lift_first_func("(module (func))")
+  let ctx = HotPassContext::new(
+    @ir.HotPassDescriptor::new("test"),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  let child = @ir.hot_build_nop(func)
+  let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [child])
+  let label = @ir.hot_control_node_label(func, block)
+  let revision_before = @ir.hot_revision_current(func)
+
+  pass_delete_detached_nodes(ctx, func, [block])
+
+  assert_eq(@ir.hot_revision_current(func), revision_before + 1)
+  assert_false(@ir.hot_node_is_live(func, block))
+  assert_false(@ir.hot_node_is_live(func, child))
+  assert_false(@ir.hot_label_is_live(func, label))
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected control-forest deletion to verify, got \{err}")
+  }
+}
+
+///|
 test "pass_compute_label_used marks branch and br_table targets" {
   let func = pass_test_lift_first_func(
     "(module (func (param i32) block local.get 0 br_table 0 0 end))",
@@ -154,6 +211,27 @@ test "raw block cleanup retains every try_table catch target" {
       ),
     ]),
   )
+}
+
+///|
+test "raw block cleanup retains a legacy try delegate target" {
+  let delegated_try = @lib.Instruction::try_(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([]),
+    [],
+    delegate=Some(@lib.LabelIdx::new(0U)),
+  )
+  let body = [delegated_try]
+  assert_true(pass_raw_instrs_have_branch_control(body))
+  let block = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new(body),
+  )
+  assert_false(pass_raw_void_block_can_inline_before_unreachable(block))
+  let input = [block, @lib.Instruction::unreachable_()]
+  let (output, changed) = pass_raw_remove_dropped_unreachable_debris(input)
+  assert_false(changed)
+  @debug.assert_eq(output, input)
 }
 
 ///|

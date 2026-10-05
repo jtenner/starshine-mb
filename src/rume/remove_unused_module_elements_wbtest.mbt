@@ -366,3 +366,14 @@ test "RUME drops label names when reference-only bodies are nullified" {
       fail("expected nullified named function to validate, got \{err}")
   }
 }
+
+///|
+test "remove-unused-module-elements checks ordered element spans once" {
+  let spans : Array[(UInt64, UInt64)] = []
+  for idx in 0..<512 {
+    spans.push(((idx * 2).to_uint64(), 1UL))
+  }
+  let comparisons = [0]
+  assert_false(rume_sorted_spans_overlap(spans, Some(comparisons)))
+  @debug.assert_eq(comparisons[0], spans.length() - 1)
+}

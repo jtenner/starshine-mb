@@ -131,3 +131,26 @@ test "SGO sparse runtime fact clear preserves call barriers" {
     @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
   )
 }
+
+///|
+test "SGO runtime trace workspace is reused and cleared between functions" {
+  let (_, infos) = sgo_runtime_trace_sparse_barrier_fixture(256, 0)
+  let workspace = SgoRuntimeTraceWorkspace::new(infos)
+  let writes = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+  ])
+  ignore(
+    sgo_rewrite_runtime_trace_expr_with_workspace(writes, infos, workspace),
+  )
+  let reads = @lib.Expr::new([
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
+  let (output, changed) = sgo_rewrite_runtime_trace_expr_with_workspace(
+    reads, infos, workspace,
+  )
+  assert_false(changed)
+  @debug.assert_eq(output, reads)
+  @debug.assert_eq(workspace.facts.length(), infos.length())
+  @debug.assert_eq(workspace.touched.length(), 0)
+}

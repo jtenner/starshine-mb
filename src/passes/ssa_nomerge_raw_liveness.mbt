@@ -22,21 +22,20 @@ fn ssa_nomerge_raw_loop_live(
   body : Array[@lib.Instruction],
   live_after : @bitset.BitSet,
   labels : Array[@bitset.BitSet],
+  body_scans? : Array[Int]? = None,
 ) -> @bitset.BitSet {
-  let mut header = @bitset.BitSet::new(live_after.length())
+  let header = @bitset.BitSet::new(live_after.length())
   let nested_labels = labels.copy()
   nested_labels.push(header)
-  // The finite, monotone live-in equation includes both the backedge and
-  // normal/outer exits. A later iteration can read a different local first.
-  while true {
-    nested_labels[nested_labels.length() - 1] = header
-    let next = ssa_nomerge_raw_live_before(body, 0, live_after, nested_labels)
-    if next == header {
-      break
-    }
-    header = next
+  // Every transfer is monotone and each local's output bit depends only on
+  // that local's input bit. For a monotone Boolean f, f(false) is already a
+  // fixed point: false stays false, while true implies f(true) is true. Thus
+  // evaluating the vector equation once from the empty header is sufficient.
+  match body_scans {
+    Some(scans) => scans[0] += 1
+    None => ()
   }
-  header
+  ssa_nomerge_raw_live_before(body, 0, live_after, nested_labels)
 }
 
 ///|

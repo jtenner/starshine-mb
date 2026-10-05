@@ -30,7 +30,7 @@ test "DAE child scan restores traversal scratch and owns recorded call paths" {
     ),
   )
   assert_eq(path, [99])
-  assert_eq(infos[0].calls[0].path, [99, 7, 2, 0])
+  assert_eq(infos[0].calls[0].path.to_array(), [99, 7, 2, 0])
   assert_eq(direct, [1, 0])
   assert_eq(dropped, [1, 0])
   let capacity = path.capacity()
@@ -54,10 +54,10 @@ test "DAE child scan restores traversal scratch and owns recorded call paths" {
   )
   assert_eq(path, [99])
   assert_eq(path.capacity(), capacity)
-  assert_eq(infos[0].calls[1].path, [99, 8, 3, 0])
+  assert_eq(infos[0].calls[1].path.to_array(), [99, 8, 3, 0])
   path[0] = 88
-  assert_eq(infos[0].calls[0].path, [99, 7, 2, 0])
-  assert_eq(infos[0].dropped_calls[0].path, [99, 7, 2, 0])
+  assert_eq(infos[0].calls[0].path.to_array(), [99, 7, 2, 0])
+  assert_eq(infos[0].dropped_calls[0].path.to_array(), [99, 7, 2, 0])
 }
 
 ///|

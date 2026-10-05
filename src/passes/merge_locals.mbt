@@ -737,41 +737,50 @@ fn merge_locals_run_raw_legacy_func(
 }
 
 ///|
-fn merge_locals_subtree_has_older_local_read(
+fn merge_locals_collect_subtree_min_local_reads(
   func : @ir.HotFunc,
   node_id : Int,
-  local_id : Int,
-  before_id : Int,
-) -> Bool {
+  minima : @hashmap.HashMap[Int, Int],
+  visits? : Array[Int]? = None,
+) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return false
+    return
+  }
+  match visits {
+    Some(count) => count[0] += 1
+    None => ()
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::LocalGet if node.imm0 == local_id && node_id < before_id =>
-      return true
+    @ir.HotOp::LocalGet =>
+      match minima.get(node.imm0) {
+        Some(previous) =>
+          if node_id < previous {
+            minima.set(node.imm0, node_id)
+          }
+        None => minima.set(node.imm0, node_id)
+      }
     _ => ()
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if merge_locals_subtree_has_older_local_read(
-        func,
-        @ir.hot_child_get(func, node_id, slot),
-        local_id,
-        before_id,
-      ) {
-      return true
-    }
+    merge_locals_collect_subtree_min_local_reads(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      minima,
+      visits~,
+    )
   }
-  false
 }
 
 ///|
 fn merge_locals_region_has_stack_carried_copy(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  visits? : Array[Int]? = None,
 ) -> Bool {
   let count = @ir.hot_region_root_count(func, region_ref)
-  for idx = 0; idx < count; idx = idx + 1 {
+  let later_min_reads : @hashmap.HashMap[Int, Int] = @hashmap.new()
+  for idx = count - 1; idx >= 0; idx = idx - 1 {
     let root_id = @ir.hot_region_get(func, region_ref, idx)
     let root = @ir.hot_node_get(func, root_id)
     match root.op {
@@ -780,15 +789,9 @@ fn merge_locals_region_has_stack_carried_copy(
         let value = @ir.hot_node_get(func, value_id)
         match value.op {
           @ir.HotOp::LocalGet if value.imm0 != root.imm0 =>
-            for later = idx + 1; later < count; later = later + 1 {
-              if merge_locals_subtree_has_older_local_read(
-                  func,
-                  @ir.hot_region_get(func, region_ref, later),
-                  value.imm0,
-                  root_id,
-                ) {
-                return true
-              }
+            match later_min_reads.get(value.imm0) {
+              Some(read_id) if read_id < root_id => return true
+              _ => ()
             }
           _ => ()
         }
@@ -800,6 +803,7 @@ fn merge_locals_region_has_stack_carried_copy(
         if merge_locals_region_has_stack_carried_copy(
             func,
             @ir.hot_region_body_ref(func, root_id),
+            visits~,
           ) {
           return true
         }
@@ -807,12 +811,17 @@ fn merge_locals_region_has_stack_carried_copy(
         if merge_locals_region_has_stack_carried_copy(
             func,
             @ir.hot_region_then_ref(func, root_id),
+            visits~,
           ) {
           return true
         }
         match @ir.hot_region_else_ref(func, root_id) {
           Some(else_ref) =>
-            if merge_locals_region_has_stack_carried_copy(func, else_ref) {
+            if merge_locals_region_has_stack_carried_copy(
+                func,
+                else_ref,
+                visits~,
+              ) {
               return true
             }
           None => ()
@@ -820,6 +829,12 @@ fn merge_locals_region_has_stack_carried_copy(
       }
       _ => ()
     }
+    merge_locals_collect_subtree_min_local_reads(
+      func,
+      root_id,
+      later_min_reads,
+      visits~,
+    )
   }
   false
 }

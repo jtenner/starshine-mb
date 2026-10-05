@@ -289,17 +289,27 @@ fn dae2_type_ref_edges(
   owner : Int,
   value : @lib.ValType,
   base : Int,
+  embedded_types_root : Array[Int],
 ) -> Unit {
   match value {
     @lib.RefTypeValType(ref_type) =>
       match ref_type.get_heap_type() {
         @lib.HeapType(index) => graph.edge(owner, dae2_type_slot(index, base))
-        @lib.DefTypeHeapType(_) =>
+        @lib.DefTypeHeapType(_) => {
           // Embedded definitions have no stable module index. Keep the visible
-          // closure conservative instead of treating a missing identity as empty.
-          for index = 0; index < graph.used.length(); index = index + 1 {
-            graph.edge(owner, index)
+          // closure conservative instead of treating a missing identity as
+          // empty. Share one fanout node across all embedded references so E
+          // references over T types require E + T edges, not E * T edges.
+          if embedded_types_root[0] < 0 {
+            let type_count = graph.used.length()
+            let root = graph.location()
+            embedded_types_root[0] = root
+            for index = 0; index < type_count; index = index + 1 {
+              graph.edge(root, index)
+            }
           }
+          graph.edge(owner, embedded_types_root[0])
+        }
         _ => ()
       }
     _ => ()
@@ -312,11 +322,12 @@ fn dae2_type_field_edges(
   owner : Int,
   field : @lib.FieldType,
   base : Int,
+  embedded_types_root : Array[Int],
 ) -> Unit {
   let @lib.FieldType(storage, _) = field
   match storage {
     @lib.ValTypeStorageType(value) =>
-      dae2_type_ref_edges(graph, owner, value, base)
+      dae2_type_ref_edges(graph, owner, value, base, embedded_types_root)
     _ => ()
   }
 }
@@ -375,6 +386,7 @@ fn dae2_prepare_type_locations(
   for index = 0; index < total; index = index + 1 {
     ignore(public_types.location())
   }
+  let embedded_types_root = [-1]
   // Exposing any recursive-group member exposes the identity of the whole
   // group, including siblings with no explicit reference edge between them.
   // A star through the base keeps this closure linear in the group size.
@@ -399,14 +411,20 @@ fn dae2_prepare_type_locations(
     match subtype.get_comptype() {
       @lib.FuncCompType(params, results) =>
         for value in params + results {
-          dae2_type_ref_edges(public_types, index, value, base)
+          dae2_type_ref_edges(
+            public_types, index, value, base, embedded_types_root,
+          )
         }
       @lib.StructCompType(fields) =>
         for field in fields {
-          dae2_type_field_edges(public_types, index, field, base)
+          dae2_type_field_edges(
+            public_types, index, field, base, embedded_types_root,
+          )
         }
       @lib.ArrayCompType(field) =>
-        dae2_type_field_edges(public_types, index, field, base)
+        dae2_type_field_edges(
+          public_types, index, field, base, embedded_types_root,
+        )
       @lib.ContCompType(target) => {
         let target = dae2_type_slot(target, base)
         public_types.edge(index, target)
@@ -817,6 +835,106 @@ fn dae2_cleanup_forwarding(
 }
 
 ///|
+fn dae2_cleanup_has_forwarding_candidate(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        if !body.is_empty() && body.all(fn(item) { item is @lib.LocalGet(_) }) {
+          let results = match block_type {
+            @lib.ValTypeBlockType(_) => 1
+            @lib.TypeIdxBlockType(index) =>
+              match @ir.hot_module_resolve_type_func_type(module_ctx, index) {
+                Some(@lib.FuncType([], results)) => results.length()
+                _ => -1
+              }
+            _ => -1
+          }
+          if results == body.length() {
+            return true
+          }
+        }
+        if dae2_cleanup_has_forwarding_candidate(body, module_ctx) {
+          return true
+        }
+      }
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if dae2_cleanup_has_forwarding_candidate(body, module_ctx) {
+          return true
+        }
+      @lib.If(_, yes, no) => {
+        if dae2_cleanup_has_forwarding_candidate(yes, module_ctx) {
+          return true
+        }
+        match no {
+          Some(body) =>
+            if dae2_cleanup_has_forwarding_candidate(body, module_ctx) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if dae2_cleanup_has_forwarding_candidate(body, module_ctx) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(body))
+            | @lib.LegacyCatchAll(@lib.Expr(body)) => body
+          }
+          if dae2_cleanup_has_forwarding_candidate(catch_body, module_ctx) {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn dae2_cleanup_func_may_change(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  if dae2_cleanup_has_forwarding_candidate(body, module_ctx) {
+    return true
+  }
+  let runs = locals.runs
+  for index in 0..<runs.length() {
+    if runs[index].count == 0U ||
+      (index > 0 && runs[index - 1].vt == runs[index].vt) {
+      return true
+    }
+  }
+  if locals.length() == 0 {
+    return false
+  }
+  let count = params.length() + locals.length()
+  let start = params.length()
+  let gets = Array::make(count, 0)
+  let writes = Array::make(count, 0)
+  pass_lower_count_locals(body, gets, writes)
+  let mut has_single_write = false
+  for local_id in start..<count {
+    if gets[local_id] == 1 && writes[local_id] == 1 {
+      return true
+    }
+    if gets[local_id] == 0 {
+      return true
+    }
+    has_single_write = has_single_write || writes[local_id] == 1
+  }
+  has_single_write && dae2_has_parameter_alias(body, start, writes)
+}
+
+///|
 // A retained stack capture stays below every intervening operand. Reject
 // control transfers and structured regions; ordinary calls and traps keep
 // their original execution point. Resolved calls use the shared type snapshot.
@@ -861,6 +979,16 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
   }
   let params = rl_defined_func_param_cache(mod_)
   let module_ctx = @ir.hot_module_context_from_module(mod_)
+  let mut may_change = false
+  for index = 0; index < funcs.length(); index = index + 1 {
+    if dae2_cleanup_func_may_change(funcs[index], params[index], module_ctx) {
+      may_change = true
+      break
+    }
+  }
+  if !may_change {
+    return mod_
+  }
   let mut module_env : @validate.Env? = None
   let stack_effects = Some(fn(instr) {
     dae2_capture_stack_effect(instr, mod_, module_ctx)

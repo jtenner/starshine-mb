@@ -35,7 +35,9 @@ fn mso_rewrite_heap_type(
   match heap {
     @lib.AbsHeapTypeHeapType(@lib.FuncAbsHeapType)
     | @lib.SharedAbsHeapTypeHeapType(@lib.FuncAbsHeapType)
-    | @lib.AbsHeapTypeHeapType(@lib.ExternAbsHeapType) =>
+    | @lib.AbsHeapTypeHeapType(@lib.ExternAbsHeapType)
+    | @lib.AbsHeapTypeHeapType(@lib.StringAbsHeapType)
+    | @lib.SharedAbsHeapTypeHeapType(@lib.StringAbsHeapType) =>
       @lib.HeapType::shared_abs(@lib.AbsHeapType::i31())
     @lib.HeapType(idx) if mso_function_type(types, idx) =>
       @lib.HeapType::shared_abs(@lib.AbsHeapType::i31())
@@ -624,6 +626,35 @@ fn mso_retarget_import_calls(
         }
         out.push(@lib.Instruction::if_(bt, next_yes, next_no))
       }
+      @lib.TryTable(bt, catches, body) =>
+        out.push(
+          @lib.Instruction::try_table(
+            bt,
+            catches,
+            mso_retarget_import_calls(body, redirects),
+          ),
+        )
+      @lib.Try(bt, body, catches, delegate) =>
+        out.push(
+          @lib.Instruction::try_(
+            bt,
+            mso_retarget_import_calls(body, redirects),
+            catches.map(fn(catch_) {
+              match catch_ {
+                @lib.LegacyCatch(tag, catch_body) =>
+                  @lib.LegacyCatch::tagged(
+                    tag,
+                    mso_retarget_import_calls(catch_body, redirects),
+                  )
+                @lib.LegacyCatchAll(catch_body) =>
+                  @lib.LegacyCatch::all(
+                    mso_retarget_import_calls(catch_body, redirects),
+                  )
+              }
+            }),
+            delegate~,
+          ),
+        )
       _ => out.push(instr)
     }
   }
@@ -657,6 +688,19 @@ fn mso_scan_conversions(
               needs_extern_to_any,
             )
           None => ()
+        }
+      }
+      @lib.TryTable(_, _, body) =>
+        mso_scan_conversions(body, needs_any_to_extern, needs_extern_to_any)
+      @lib.Try(_, body, catches, _) => {
+        mso_scan_conversions(body, needs_any_to_extern, needs_extern_to_any)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+              mso_scan_conversions(
+                catch_body, needs_any_to_extern, needs_extern_to_any,
+              )
+          }
         }
       }
       _ => ()
@@ -725,6 +769,43 @@ fn mso_rewrite_conversions(
         }
         out.push(@lib.Instruction::if_(bt, next_yes, next_no))
       }
+      @lib.TryTable(bt, catches, body) =>
+        out.push(
+          @lib.Instruction::try_table(
+            bt,
+            catches,
+            mso_rewrite_conversions(
+              body, any_to_extern, extern_to_any, to_index, to_ref,
+            ),
+          ),
+        )
+      @lib.Try(bt, body, catches, delegate) =>
+        out.push(
+          @lib.Instruction::try_(
+            bt,
+            mso_rewrite_conversions(
+              body, any_to_extern, extern_to_any, to_index, to_ref,
+            ),
+            catches.map(fn(catch_) {
+              match catch_ {
+                @lib.LegacyCatch(tag, catch_body) =>
+                  @lib.LegacyCatch::tagged(
+                    tag,
+                    mso_rewrite_conversions(
+                      catch_body, any_to_extern, extern_to_any, to_index, to_ref,
+                    ),
+                  )
+                @lib.LegacyCatchAll(catch_body) =>
+                  @lib.LegacyCatch::all(
+                    mso_rewrite_conversions(
+                      catch_body, any_to_extern, extern_to_any, to_index, to_ref,
+                    ),
+                  )
+              }
+            }),
+            delegate~,
+          ),
+        )
       _ => out.push(instr)
     }
   }
@@ -754,6 +835,9 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   }
   let types = cl_module_subtypes(mod_)
   let refs = mso_collect_references(mod_, types)
+  if refs.unsupported_branch_cast[0] {
+    return mod_
+  }
   let original_table_count = @ir.hot_module_context_from_module(mod_).tables.length()
   let function_table = @lib.TableIdx::new(original_table_count.to_uint())
   let rewritten_types : Array[@lib.RecType] = []

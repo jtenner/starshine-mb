@@ -642,18 +642,20 @@ fn vacuum_heap_is_removable_if_unused(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
 ) -> Bool {
-  let length_is_nonnegative_const = fn(slot : Int) {
+  let length_is_known_nonnegative_const = fn(slot : Int) {
     if slot < 0 || slot >= @ir.hot_child_count(func, node_id) {
       return false
     }
     let length_node = @ir.hot_child_get(func, node_id, slot)
-    let length = @ir.hot_node_get(func, length_node)
-    match length.op {
-      @ir.HotOp::Const =>
-        match @ir.hot_const_get(func, length.imm0) {
-          @ir.HotConstPayload::I32Const(@lib.I32(value)) => value >= 0
-          _ => false
-        }
+    let length_data = @ir.hot_node_get(func, length_node)
+    if !(length_data.op is @ir.HotOp::Const) {
+      return false
+    }
+    match @ir.hot_const_get(func, length_data.imm0) {
+      @ir.HotConstPayload::I32Const(@lib.I32(value)) => value >= 0
+      // Dynamic lengths can be negative (and therefore an enormous unsigned
+      // allocation) at runtime. Removing the unused allocation would erase its
+      // required trap, so only the exact bounded constant case is removable.
       _ => false
     }
   }
@@ -665,8 +667,9 @@ fn vacuum_heap_is_removable_if_unused(
       | @lib.Instruction::RefEq
       | @lib.Instruction::RefI31
     ) => true
-    Some(@lib.Instruction::ArrayNew(_)) => length_is_nonnegative_const(1)
-    Some(@lib.Instruction::ArrayNewDefault(_)) => length_is_nonnegative_const(0)
+    Some(@lib.Instruction::ArrayNew(_)) => length_is_known_nonnegative_const(1)
+    Some(@lib.Instruction::ArrayNewDefault(_)) =>
+      length_is_known_nonnegative_const(0)
     Some(@lib.Instruction::ContNew(_)) => {
       // Allocation itself has no observable effect when the result is unused.
       // Its nullable function operand can still trap (Binaryen effects.h).
@@ -792,6 +795,7 @@ fn vacuum_branch_targets_only_label(
 fn vacuum_block_has_only_pure_self_branches(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
+  states : Array[Int],
 ) -> Bool {
   let label_id = @ir.hot_control_node_label(func, node_id)
   let body_ref = @ir.hot_region_body_ref(func, node_id)
@@ -804,16 +808,20 @@ fn vacuum_block_has_only_pure_self_branches(
           return false
         }
         for slot = 0; slot < @ir.hot_child_count(func, root); slot = slot + 1 {
-          if !vacuum_can_remove_dropped_node(
+          if !vacuum_can_remove_dropped_node_memoized(
               func,
               @ir.hot_child_get(func, root, slot),
+              states,
             ) {
             return false
           }
         }
         saw_self_branch = true
       }
-      _ => if !vacuum_can_remove_dropped_node(func, root) { return false }
+      _ =>
+        if !vacuum_can_remove_dropped_node_memoized(func, root, states) {
+          return false
+        }
     }
   }
   saw_self_branch
@@ -823,11 +831,13 @@ fn vacuum_block_has_only_pure_self_branches(
 fn vacuum_region_can_remove_dropped_nodes(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  states : Array[Int],
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    if !vacuum_can_remove_dropped_node(
+    if !vacuum_can_remove_dropped_node_memoized(
         func,
         @ir.hot_region_get(func, region_ref, idx),
+        states,
       ) {
       return false
     }
@@ -840,8 +850,30 @@ fn vacuum_can_remove_dropped_node(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
 ) -> Bool {
+  vacuum_can_remove_dropped_node_memoized(
+    func,
+    node_id,
+    Array::make(@ir.hot_node_count(func), 0),
+  )
+}
+
+///|
+fn vacuum_can_remove_dropped_node_memoized(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  states : Array[Int],
+) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
+  }
+  if node_id >= states.length() {
+    return false
+  }
+  match states[node_id] {
+    1 => return false
+    2 => return true
+    3 => return false
+    _ => states[node_id] = 1
   }
   let node = @ir.hot_node_get(func, node_id)
   let is_removable_shape = match node.op {
@@ -859,22 +891,25 @@ fn vacuum_can_remove_dropped_node(
     | @ir.HotOp::TupleMake
     | @ir.HotOp::TupleExtract
     | @ir.HotOp::RefTest => true
-    @ir.HotOp::Block => vacuum_block_has_only_pure_self_branches(func, node_id)
+    @ir.HotOp::Block =>
+      vacuum_block_has_only_pure_self_branches(func, node_id, states)
     @ir.HotOp::Loop =>
       vacuum_region_can_remove_dropped_nodes(
         func,
         @ir.hot_region_body_ref(func, node_id),
+        states,
       )
     @ir.HotOp::If =>
       if !vacuum_region_can_remove_dropped_nodes(
           func,
           @ir.hot_region_then_ref(func, node_id),
+          states,
         ) {
         false
       } else {
         match @ir.hot_region_else_ref(func, node_id) {
           Some(else_ref) =>
-            vacuum_region_can_remove_dropped_nodes(func, else_ref)
+            vacuum_region_can_remove_dropped_nodes(func, else_ref, states)
           None => false
         }
       }
@@ -887,6 +922,7 @@ fn vacuum_can_remove_dropped_node(
     _ => false
   }
   if !is_removable_shape {
+    states[node_id] = 3
     return false
   }
   let value_child_count = if node.op is @ir.HotOp::If {
@@ -897,13 +933,16 @@ fn vacuum_can_remove_dropped_node(
     @ir.hot_child_count(func, node_id)
   }
   for slot = 0; slot < value_child_count; slot = slot + 1 {
-    if !vacuum_can_remove_dropped_node(
+    if !vacuum_can_remove_dropped_node_memoized(
         func,
         @ir.hot_child_get(func, node_id, slot),
+        states,
       ) {
+      states[node_id] = 3
       return false
     }
   }
+  states[node_id] = 2
   true
 }
 
@@ -1336,6 +1375,10 @@ fn hot_pass_vacuum_label_is_used(
           }
         }
       }
+      @ir.HotOp::Continuation =>
+        if @ir.hot_continuation_targets(func, candidate_id).contains(label_id) {
+          return true
+        }
       @ir.HotOp::TryTable => {
         let info = @ir.hot_catch_info_get(func, candidate.imm1)
         for catch_ in info.catches {
@@ -2815,6 +2858,7 @@ fn hot_pipeline_instr_scan_has_call_result_multi_call_lifetime_at(
             @lib.Block(_, _)
             | @lib.Loop(_, _)
             | @lib.If(_, _, _)
+            | @lib.Try(_, _, _, _)
             | @lib.TryTable(_, _, _)
             | @lib.Br(_)
             | @lib.BrIf(_)
@@ -2904,6 +2948,7 @@ fn run_hot_pipeline_instr_scan_impl(
             @lib.Block(block_type, _)
             | @lib.Loop(block_type, _)
             | @lib.If(block_type, _, _)
+            | @lib.Try(block_type, _, _, _)
             | @lib.TryTable(block_type, _, _) =>
               if block_type != @lib.BlockType::void_() {
                 summary.mark_dce_candidate()
@@ -2997,6 +3042,31 @@ fn run_hot_pipeline_instr_scan_impl(
         instr_may_fallthrough = then_summary.may_fallthrough ||
           else_may_fallthrough ||
           targeted
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        summary.has_structured_control = true
+        let token = hot_pipeline_instr_scan_push_control(state)
+        let body_summary = run_hot_pipeline_instr_scan_impl(body, state)
+        hot_pipeline_instr_scan_merge(summary, body_summary)
+        let mut any_arm_may_fallthrough = body_summary.may_fallthrough
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          let catch_summary = run_hot_pipeline_instr_scan_impl(
+            catch_body, state,
+          )
+          hot_pipeline_instr_scan_merge(summary, catch_summary)
+          any_arm_may_fallthrough = any_arm_may_fallthrough ||
+            catch_summary.may_fallthrough
+        }
+        let targeted = state.targeted_controls[token]
+        hot_pipeline_instr_scan_pop_control(state)
+        if !any_arm_may_fallthrough && !targeted {
+          summary.mark_dce_candidate()
+        }
+        instr_may_fallthrough = any_arm_may_fallthrough || targeted
       }
       @lib.TryTable(_, _, @lib.Expr(body)) => {
         summary.has_structured_control = true
@@ -47720,14 +47790,22 @@ fn run_hot_pipeline_raw_rse_needs_module_env(
 }
 
 ///|
-fn run_hot_pipeline_raw_rse_collect_zero_set_targets(
+fn run_hot_pipeline_raw_rse_has_repeated_zero_set_in_instrs(
   instrs : Array[@lib.Instruction],
-  targets : Array[@lib.LocalIdx],
-) -> Unit {
+  counts : @hashmap.HashMap[UInt, Int],
+) -> Bool {
   for idx = 1; idx < instrs.length(); idx = idx + 1 {
     match (instrs[idx - 1], instrs[idx]) {
-      (@lib.I32Const(@lib.I32(0)), @lib.LocalSet(target)) =>
-        targets.push(target)
+      (@lib.I32Const(@lib.I32(0)), @lib.LocalSet(@lib.LocalIdx(target))) => {
+        let next = match counts.get(target) {
+          Some(count) => count + 1
+          None => 1
+        }
+        if next >= 4 {
+          return true
+        }
+        counts.set(target, next)
+      }
       _ => ()
     }
   }
@@ -47736,51 +47814,49 @@ fn run_hot_pipeline_raw_rse_collect_zero_set_targets(
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        run_hot_pipeline_raw_rse_collect_zero_set_targets(body, targets)
+        if run_hot_pipeline_raw_rse_has_repeated_zero_set_in_instrs(
+            body, counts,
+          ) {
+          return true
+        }
       @lib.If(_, then_body, else_body) => {
-        run_hot_pipeline_raw_rse_collect_zero_set_targets(then_body, targets)
+        if run_hot_pipeline_raw_rse_has_repeated_zero_set_in_instrs(
+            then_body, counts,
+          ) {
+          return true
+        }
         match else_body {
           Some(body) =>
-            run_hot_pipeline_raw_rse_collect_zero_set_targets(body, targets)
+            if run_hot_pipeline_raw_rse_has_repeated_zero_set_in_instrs(
+                body, counts,
+              ) {
+              return true
+            }
           None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if run_hot_pipeline_raw_rse_has_repeated_zero_set_in_instrs(
+            body, counts,
+          ) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          if run_hot_pipeline_raw_rse_has_repeated_zero_set_in_instrs(
+              catch_body, counts,
+            ) {
+            return true
+          }
         }
       }
       _ => ()
     }
   }
-}
-
-///|
-fn run_hot_pipeline_raw_rse_count_zero_sets(
-  instrs : Array[@lib.Instruction],
-  target : @lib.LocalIdx,
-) -> Int {
-  let mut count = 0
-  for idx = 1; idx < instrs.length(); idx = idx + 1 {
-    match (instrs[idx - 1], instrs[idx]) {
-      (@lib.I32Const(@lib.I32(0)), @lib.LocalSet(written)) if written == target =>
-        count += 1
-      _ => ()
-    }
-  }
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        count += run_hot_pipeline_raw_rse_count_zero_sets(body, target)
-      @lib.If(_, then_body, else_body) => {
-        count += run_hot_pipeline_raw_rse_count_zero_sets(then_body, target)
-        match else_body {
-          Some(body) =>
-            count += run_hot_pipeline_raw_rse_count_zero_sets(body, target)
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  count
+  false
 }
 
 ///|
@@ -47793,14 +47869,10 @@ fn run_hot_pipeline_raw_rse_has_repeated_structured_zero_reset(
   if !has_structured_control {
     return false
   }
-  let targets : Array[@lib.LocalIdx] = []
-  run_hot_pipeline_raw_rse_collect_zero_set_targets(instrs, targets)
-  for target in targets {
-    if run_hot_pipeline_raw_rse_count_zero_sets(instrs, target) >= 4 {
-      return true
-    }
-  }
-  false
+  run_hot_pipeline_raw_rse_has_repeated_zero_set_in_instrs(
+    instrs,
+    @hashmap.new(),
+  )
 }
 
 ///|
@@ -66626,6 +66698,7 @@ fn o4z_canonicalize_final_size_local_tee_is_dead_before_read(
   instrs : Array[@lib.Instruction],
   start : Int,
   local_idx : @lib.LocalIdx,
+  continuation? : Array[@lib.Instruction] = [],
 ) -> Bool {
   for idx = start; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -66635,6 +66708,7 @@ fn o4z_canonicalize_final_size_local_tee_is_dead_before_read(
       @lib.Block(_, _)
       | @lib.Loop(_, _)
       | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
       | @lib.TryTable(_, _, _)
       | @lib.Br(_)
       | @lib.BrIf(_)
@@ -66653,7 +66727,13 @@ fn o4z_canonicalize_final_size_local_tee_is_dead_before_read(
       _ => ()
     }
   }
-  true
+  if continuation.is_empty() {
+    true
+  } else {
+    o4z_canonicalize_final_size_local_tee_is_dead_before_read(
+      continuation, 0, local_idx,
+    )
+  }
 }
 
 ///|
@@ -67492,13 +67572,10 @@ fn o4z_canonicalize_final_size_dead_local_tees(
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
       @lib.LocalTee(local_idx) if o4z_canonicalize_final_size_local_tee_is_dead_before_read(
-          o4z_canonicalize_final_size_continuation(
-            instrs,
-            idx + 1,
-            continuation,
-          ),
-          0,
+          instrs,
+          idx + 1,
           local_idx,
+          continuation~,
         ) => changed = true
       @lib.Block(block_type, @lib.Expr(body)) => {
         let child_continuation = o4z_canonicalize_final_size_continuation(
@@ -67593,6 +67670,10 @@ fn o4z_canonicalize_final_size_dead_local_tees(
         )
         changed = changed || body_changed
       }
+      // A protected body may transfer to any catch after any prefix, so a
+      // local write outside the try can be observed by a handler. Keep legacy
+      // try opaque here until the dead-tee analysis models exceptional edges.
+      @lib.Try(_, _, _, _) => out.push(instrs[idx])
       _ => out.push(instrs[idx])
     }
   }
@@ -69497,6 +69578,9 @@ fn o4z_canonicalize_final_size_remove_write_only_globals(
 pub fn o4z_prune_final_size_unreferenced_globals(
   mod_ : @lib.Module,
 ) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   rume_run_nonfunction_module_pass(
     o4z_canonicalize_final_size_remove_write_only_globals(mod_),
   )
@@ -69975,6 +70059,9 @@ fn o4z_canonicalize_final_size_strip_type_only_empty_module(
 
 ///|
 pub fn o4z_outline_similar_size_functions(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   merge_similar_functions_run_module_pass(
     o4z_size_outline_byte_comparator_siblings(
       o4z_size_outline_bulk_memory_siblings(
@@ -70494,6 +70581,9 @@ fn o4z_canonicalize_final_size_carry_repeated_local_across_i32_store(
 pub fn o4z_canonicalize_final_size_store_carries(
   mod_ : @lib.Module,
 ) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
@@ -70631,6 +70721,20 @@ fn o4z_canonicalize_final_size_instrs_have_local_access(
           None => ()
         }
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if o4z_canonicalize_final_size_instrs_have_local_access(body) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          if o4z_canonicalize_final_size_instrs_have_local_access(catch_body) {
+            return true
+          }
+        }
+      }
       _ => ()
     }
   }
@@ -70722,6 +70826,9 @@ fn o4z_canonicalize_final_size_empty_void_else_arms(
 pub fn o4z_canonicalize_final_size_ifs_stateful_candidate(
   mod_ : @lib.Module,
 ) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
@@ -70967,6 +71074,9 @@ fn o4z_canonicalize_final_size_candidate_impl(
 
 ///|
 pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   o4z_canonicalize_final_size_candidate_impl(mod_)
 }
 
@@ -70974,6 +71084,9 @@ pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module 
 pub fn o4z_canonicalize_final_size_candidate_with_changed(
   mod_ : @lib.Module,
 ) -> (@lib.Module, Bool) {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return (mod_, false)
+  }
   let canonical = o4z_canonicalize_final_size_candidate_impl(mod_)
   let changed = match
     (@binary.encode_module(mod_), @binary.encode_module(canonical)) {
@@ -81854,6 +81967,15 @@ fn run_hot_pipeline_apply_hot_pass(
     Some(descriptor) => descriptor
     None => return Err("missing hot pass descriptor for \{entry.name}")
   }
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    pipeline_trace_hook(
+      options.trace,
+      descriptor.name,
+      "fallback-noop",
+      payload="reason=offset-sensitive-metadata",
+    )
+    return Ok(mod_)
+  }
   if descriptor.name == "pick-load-signs" &&
     !run_hot_pipeline_module_has_memory(mod_) {
     pipeline_trace_hook(options.trace, descriptor.name, "skip-no-memory")
@@ -82629,6 +82751,17 @@ fn run_hot_pipeline_apply_hot_pass_stack(
   entries : Array[HotPassRegistryEntry],
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    for entry in entries {
+      pipeline_trace_hook(
+        options.trace,
+        entry.name,
+        "fallback-noop",
+        payload="reason=offset-sensitive-metadata",
+      )
+    }
+    return Ok(mod_)
+  }
   if entries.length() == 0 {
     return Ok(mod_)
   }
@@ -83758,6 +83891,9 @@ pub fn o4z_restore_optimized_primes_variadic_pack_funcs(
   original : @lib.Module,
   candidate : @lib.Module,
 ) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(candidate) {
+    return candidate
+  }
   let original_funcs = match original.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return candidate
@@ -93519,6 +93655,17 @@ fn run_hot_pipeline_apply_module_pass(
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
   pipeline_trace_hook(options.trace, entry.name, "start")
+  let metadata_safe = entry.name == "strip-debug" ||
+    no_inline_pass_pattern(entry.name) is Some(_)
+  if !metadata_safe && pass_module_has_offset_sensitive_metadata(mod_) {
+    pipeline_trace_hook(
+      options.trace,
+      entry.name,
+      "fallback-noop",
+      payload="reason=offset-sensitive-metadata",
+    )
+    return Ok(mod_)
+  }
   let module_pass_stage_start_us = perf_start_timer_opt(
     options.perf,
     "stage:module-pass",

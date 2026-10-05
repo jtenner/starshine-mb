@@ -1963,13 +1963,13 @@ pub fn hot_delete_detached_nodes(
   func : HotFunc,
   node_ids : Array[NodeId],
 ) -> Unit {
-  let seen = @bitset.BitSet::new(hot_node_count(func))
+  let seen : @set.Set[NodeId] = @set.Set([])
   for node_id in node_ids {
     hot_mutate_require_live_node(func, node_id, "hot_delete_detached_nodes")
-    if seen[node_id] {
+    if seen.contains(node_id) {
       abort("hot_delete_detached_nodes requires distinct node ids")
     }
-    seen[node_id] = true
+    seen.add(node_id)
   }
   if node_ids.is_empty() {
     return
