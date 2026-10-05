@@ -1,3 +1,41 @@
+### 2026-10-05 — Second eight-agent optimizer correctness campaign
+
+- Merged the prior audit into local `master`, then landed red-first repairs for
+  legacy-try local copies, unsigned SIMD narrowing, dynamic array allocation
+  traps in Precompute and Vacuum, opaque metadata guards in GTO and RUME,
+  SSA branch operands and throwing calls, DAE2 private-table host ingress,
+  GTO table-exposed type layouts, and coalesce-locals catch-visible copies.
+  The last coalesce WAT replay returned `7` before its repair and `5` after.
+- `moon info` and `moon fmt` pass. The audit branch's 13,305 default tests all
+  passed. On merged `master`, 13,576 of 13,606 pass; the 30 failures have
+  exactly the same test names as the saved
+  [October 5 baseline](tooling/validation-gates.md#october-5-2026-saved-development-checkpoint).
+  They remain release blockers, not regressions attributed to this campaign.
+- Fresh native CLI SHA-256 `5fbfe78baab3f4c42f0d29a14722610aef2df73559f743a41dfa846878bd20f0`
+  and GenValid SHA-256 `3bd2cdd6f407a1db2832bc7f4680a8b1ad6c46a2a7eca7d934cd41e6daf13e6f`
+  ran 10,000 GenValid comparisons per lane against verified Binaryen 133
+  (`d8da7e7cc717bb4da015475a106b25987a9941e87486ec8676fd8efc698f171d`),
+  with eight subprocesses, independent `wasm-tools` validation, and at most 20
+  mismatch artifacts. No lane has validation, generator, property, or command
+  failures. The raw runs remain under `.tmp/campaign-20261005-*-v133/`.
+
+| Pass / profile | Direct | Cleanup normalized | Residual | Classification |
+| --- | ---: | ---: | ---: | --- |
+| Coalesce / `coalesce-locals-all` | 3,750 | 5,000 | 1,250 | Existing loop-copy shape gap; no larger canonical outputs. |
+| DAE2 / open | 2,879 | 667 | 6,454 | Existing parity gaps; 9,312 three-way runtime matches, 688 original-runtime blocked. |
+| DAE2 / closed | 0 | 100 | 9,900 | Existing parity and size gaps, including 706 canonically larger outputs; same runtime counts. |
+| Precompute / `precompute-all` | 3,238 | 6,762 | 0 | All residuals normalize as local/control cleanup; separate Node-v2 lane has 9,551 matches, 449 blocked, zero semantic mismatches. |
+| RUME / `rume-all` | 4,106 | 5,894 | 0 | All residuals normalize as unreachable control debris. |
+| Vacuum / `vacuum` | 7,830 | 2,170 | 0 | All residuals normalize as unreachable control debris. |
+| GTO / closed portable | 0 | 10,000 | 0 | Inert control debris normalizes; portable generator does not exercise the focused table/type metadata cases. |
+| SSA / `ssa-all` | 8,713 | 640 | 647 | Existing typed-control shape family; canonically smaller Starshine outputs, with historical runtime evidence in the [SSA dossier](binaryen/passes/ssa/fuzzing.md). |
+| SSA no-merge / `ssa-nomerge-all` | 3,750 | 0 | 6,250 | Existing allocation/output-shape parity gap. |
+
+The DAE2 runtime lanes each report zero observed semantic mismatches; their
+688 blocked cases remain unverified. Matching saved aggregate counts and
+validation do not close the listed parity or size gaps. The targeted red/green
+tests cover the new correctness families that these generators do not sample.
+
 ### 2026-10-05 — Save focused validator, effect-order and typed-entry evidence
 
 - [Development checkpoint and preserved raw evidence](tooling/validation-gates.md#october-5-2026-saved-development-checkpoint): separate frame polymorphism from escape, retain replacement evaluation positions, validate virtual typed entries, and trace the saved MergeBlocks failure to pre-pass lowering. Historical command ratios are 2.780× / 2.315× / 1.899× / 1.936× versus verified Binaryen 133, with contention retained. The last affected suite has 30 legacy failures; the later forced-HOT retained-call repair remains unverified after thermal-limited linking attempts. All four 1× goals, output gaps, full CI/coverage and aggregate signoff stay open.
