@@ -1,8 +1,21 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-03
+last_reviewed: 2026-10-05
 sources:
+  - ../raw/tooling/2026-10-04-starshine-v133-review.json
+  - ../raw/tooling/2026-10-05-starshine-p00-checkpoint.json
+  - ../../../claude_review_10_3_6.md
+  - ../../../src/passes/dae2_effect_order_wbtest.mbt
+  - ../../../src/ir/hot_mutate.mbt
+  - ../../../src/validate/frame_polymorphism_wbtest.mbt
+  - ../../../src/cmd/p00_validator_wbtest.mbt
+  - ../../../src/cmd/p00_oi_order_wbtest.mbt
+  - ../../../src/cmd/p00_dae2_polymorphic_wbtest.mbt
+  - ../../../src/ir/hot_nested_dead_drop_wbtest.mbt
+  - ../../../src/ir/hot_typed_prefix_verify_wbtest.mbt
+  - ../../../src/ir/hot_virtual_entry_access_wbtest.mbt
+  - ../../../scripts/test/p00-correctness-runtime.ts
   - https://nodejs.org/api/wasi.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html
@@ -44,7 +57,7 @@ related:
 
 # Validation Gates
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — October 4, 2026:** new comparisons use [Binaryen 133](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v133 signoff.
 
 ## Overview
 
@@ -325,3 +338,142 @@ mismatched), with 13,419 default tests passing. Six large outputs retain their
 hashes and measured DAE/O command cost is essentially unchanged.
 This does not close validator, merge-blocks, OI effect ordering or other reported
 families, nor substitute for deferred full validation/coverage/fuzz signoff.
+
+
+## October 4, 2026: focused frame, ordering and typed-entry repairs
+
+Review base: pushed `ce2051ba7fb3ce929d26728feeec274271c749d1`. The existing
+checkout includes preserved author-owned pending changes; these repairs are
+additional independent units, not evidence that the clean pushed commit passed
+new tests. The audit and historical benchmark records remain intact. Local
+commands, red/green logs, raw bytes and source/binary seals are retained under
+`.tmp/p00-focused-20261004/`.
+
+- **Frame validation, reproduced and repaired:** the three exact invalid modules
+  above and the concrete `i32`/`i64` untyped-select mismatch were accepted by the
+  frozen current binary, not merely inferred from review. `TcState.polymorphic`
+  now governs virtual operands independently of execution-flow `reachable` and
+  `escape`. Block, loop, if and exception frames start with concrete declared
+  inputs and always check their exit stack; closing a dead child restores the
+  parent's concrete prefix and declared child results. Conditional reference
+  branches and select still check concrete types in polymorphic frames.
+  [Validator regressions](../../../src/validate/frame_polymorphism_wbtest.mbt)
+  and [command replays](../../../src/cmd/p00_validator_wbtest.mbt) cover entry,
+  exit, valid controls, select and the saved invalid MergeBlocks output.
+- **OI effect order, reproduced and repaired:** zero-bits facts retain effects
+  through a dropped-children replacement block. The replacement's fresh order
+  was 14 while the original expression's order was 3; lowering's carried-value
+  query examined the block header/inputs and missed the earlier call in its body
+  region. The local replacement helper copies the original order before calling
+  `hot_replace_node(..., preserve_value_order=true)`. The global mutation default
+  is unchanged. [Direct regression](../../../src/passes/optimize_instructions.mbt)
+  and [command regression](../../../src/cmd/p00_oi_order_wbtest.mbt) retain the
+  zero-result fold and original evaluation position.
+- **DAE2/O virtual typed inputs, reproduced and repaired:** a polymorphic parent
+  may supply zero or one concrete producer for two declared inputs. The lifter
+  typechecks the complete instruction before eliding its unreachable computation;
+  it neither manufactures constants nor suppresses concrete/nested-body errors.
+  Elided bodies reserve source-local access slots in source order, using `-1`
+  for absent HOT nodes. Both modes have [command controls](../../../src/cmd/p00_dae2_polymorphic_wbtest.mbt)
+  and [source-access controls](../../../src/ir/hot_virtual_entry_access_wbtest.mbt).
+- **Forced-HOT DAE2/O retained-call order, reproduced; verification pending:**
+  the permanent native runtime lane found `[23,19]` instead of `[19,23]` on
+  the discarded typed-block fixture. The equivalent retained-prefix wrapper
+  received order 12 while the original call remained at order 3. The repair
+  explicitly copies the original call position to the separate replacement
+  node; it does not change global replacement defaults. Both modes have a
+  [failing-before-fix regression](../../../src/passes/dae2_effect_order_wbtest.mbt).
+  The carried-import/intervening-write case passed before the repair and remains
+  a control. Normal-route runtime results alone did not establish HOT-fallback
+  correctness; renewed raw-byte/event/trap evidence is still required.
+- **Reachable typed boundaries:** replay confirmed a single-parameter live
+  `br_if` entry was emitted inside its label rather than before the block. Its
+  typed emitter now emits the input outside and manages the block's own label.
+  A captured mixed tuple also required keeping pending outer values distinct
+  from entry lanes. [Lift/lower controls](../../../src/ir/hot_lift_typed_block_entry_wbtest.mbt)
+  cover both capture modes, shared mixed tuple suffixes, discarded results and
+  labels. [Verifier controls](../../../src/ir/hot_typed_prefix_verify_wbtest.mbt)
+  cover mixed void/value prefixes, lane arity/types and indexed subtyping, without
+  removing the supported implicit single-parameter representation.
+- **MergeBlocks, first invalid stage traced:** the reduced original already
+  became invalid in a direct HOT lift/lower round trip, before MergeBlocks.
+  Baseline raw stages were 80 B before the pass, 70 B after direct rewriting,
+  and 66 B after pipeline cleanup. The lowerer incorrectly treated a closed
+  nonfallthrough child as a polymorphic parent and omitted its required result
+  drop. The repair accounts for closed child results; no unproved change was
+  made to `merge_blocks_flatten_region_root_block`. A separate terminal-control
+  proof restores outer polymorphism only when the closed control cannot exit
+  normally through its own label. [Lowering controls](../../../src/ir/hot_nested_dead_drop_wbtest.mbt)
+  and the direct MergeBlocks stage test require raw valid output. The old invalid
+  66 B output remains an independent rejection fixture.
+
+The permanent [native runtime lane](../../../scripts/test/p00-correctness-runtime.ts)
+checks raw bytes before any normalization, direct HOT/direct pass output, forced
+HOT DAE2 fallback, normal results, import order/counts and first-import traps.
+Its fixture producer is an explicitly skipped native test, not part of the
+bounded default suite. Native compiler/debug-tool limitations and any failing
+repository tests must be reported separately from Starshine output validation.
+
+**Signoff remains open.** These focused repairs do not close all audit families,
+repository-wide CI/coverage, renewed 10,000-case aggregates, output-size gaps or
+any of the four 1× goals. Traced command, complete pass/pipeline and narrow helper
+measurements are separate scopes. The lowerer's existing quadratic prefix-
+producer scan remains an unmeasured performance risk; command-time attribution
+requires an actual scoped measurement.
+
+## October 5, 2026: saved development checkpoint
+
+The last [full-command timing report](../raw/tooling/2026-10-04-starshine-v133-review.json)
+uses a combined dirty worktree, not clean pushed `ce2051ba7`. Starting/measured
+binary SHA-256: `5bf4a1f5603e0c436b5ce76012493e5fd6e712848dbce09056de1827e6f0a704`.
+Verified Binaryen 133 SHA-256:
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+Input: 6,211,596 bytes, SHA-256
+`98189860f95b4eb8464794eb9fab5f9fd8d16942c63a6e31ed9175e7e791cbbd`.
+CPU 6, one warmup, five rounds, median ± MAD in milliseconds:
+
+| Pass | Starshine command | Binaryen 133 command | Time ratio |
+|---|---:|---:|---:|
+| DAE2 | 3065.635 ± 17.308 | 1102.708 ± 5.730 | 2.780× |
+| DAE2-O | 5266.677 ± 19.132 | 2275.127 ± 2.911 | 2.315× |
+| CoalesceLocals | 3389.078 ± 35.738 | 1784.710 ± 21.249 | 1.899× |
+| OptimizeInstructions | 1745.988 ± 6.061 | 901.906 ± 2.459 | 1.936× |
+
+Contention was present, especially four of five CL rounds on both sides. The
+roughly 2–3× command times are accepted as the current development checkpoint;
+all four 1× goals remain open. They are not new timings of the correctness repairs.
+A separate historical traced sample recorded command / pipeline / inner ms:
+DAE2 3229.001 / 2605.888 / 2590.802; DAE2-O 5385.987 / 4640.674 / 4625.685;
+CL 3338.833 / 2569.864 / 2554.882; OI 1839.924 / 1310.614 / 79.310. OI's narrow
+inner timer excludes most pipeline work. Never combine these distinct samples
+or use the inner timer as complete-pass parity evidence.
+
+The [focused correctness checkpoint](../raw/tooling/2026-10-05-starshine-p00-checkpoint.json)
+retains raw replay commands, binary/source fingerprints, validation statuses,
+the failing forced-HOT runtime trace and the last completed affected-suite
+failures. The v3 release CLI hash is
+`4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d`;
+its production-source fingerprint is
+`17ac12e6461fd34d2821c528cd9c463ebf2e8813af8cd09b823c5307d94a905a`.
+It rejects the three exact invalid frame fixtures, the concrete select mismatch
+and saved invalid MergeBlocks bytes (exit 1); matching wasm-tools checks also
+exit 1. Valid polymorphic typed-block controls validate in both DAE2 modes.
+Command OI returns 5, events `[1,2]`, one import execution each; first-import
+trapping records `[1]`. Normal-route typed-boundary observations passed, while
+forced-HOT DAE2 reproduced `[23,19]` instead of `[19,23]`. The retained-prefix
+position repair is newer than v3 and still needs green direct tests and complete
+native event/trap verification.
+
+The last completed v3 affected suite ran 12,169 tests: 12,139 passed, 30 failed,
+all in legacy pass tests. Preserve those failures as evidence; the current
+source and later integrated audit fixes have not renewed the full gate. Exact
+follow-up command: `moon test -p jtenner/starshine/passes --target wasm-gc --file
+dae2_effect_order_wbtest.mbt -j 1`. Thermal-gated attempts used CPU 6, low priority,
+20% duty and pauses above 84°C. Both initial and cached-link attempts ended at
+thermal deadlines before tests ran, with controller exit `-15`, rather than a
+failed test assertion. Host readings reached 100°C; no new benchmark was run.
+
+Canonical size gaps remain DAE2-O +99,251 B, CL +78,800 B and OI +33,494 B.
+Full CI, coverage, renewed aggregates, quiet-host/clean-source balanced final
+comparison and complete correctness/runtime evidence remain release blockers.
+This checkpoint saves forward progress without claiming campaign completion.

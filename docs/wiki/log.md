@@ -1,3 +1,7 @@
+### 2026-10-05 — Save focused validator, effect-order and typed-entry evidence
+
+- [Development checkpoint and preserved raw evidence](tooling/validation-gates.md#october-5-2026-saved-development-checkpoint): separate frame polymorphism from escape, retain replacement evaluation positions, validate virtual typed entries, and trace the saved MergeBlocks failure to pre-pass lowering. Historical command ratios are 2.780× / 2.315× / 1.899× / 1.936× versus verified Binaryen 133, with contention retained. The last affected suite has 30 legacy failures; the later forced-HOT retained-call repair remains unverified after thermal-limited linking attempts. All four 1× goals, output gaps, full CI/coverage and aggregate signoff stay open.
+
 ### 2026-10-04 — Retain typed-block entries and single evaluation of discarded effects
 
 - [Concrete-entry repair, rejected trials and matched evidence](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-retain-typed-block-entry-producers): fix DAE2/O reachable lowering aborts and reject a duplicate-import native trial; restore compact branchless output without removing control-transfer guards. 13,549 wasm-gc tests, native/API checks and 27 fixtures/pass pass (434 validations / 1,272 supported execution comparisons). All large hashes remain exact. N5 command ratios remain 2.780× / 2.315× / 1.899× / 1.936× with contention/adverse rows retained; no general speed/RSS win. Separate polymorphic-entry failure, output gaps and aggregate/CI/coverage signoff remain open.

@@ -1,0 +1,4165 @@
+{
+  "reviewBase": "ce2051ba7fb3ce929d26728feeec274271c749d1",
+  "scope": "Historical dirty-source diagnostic evidence; latest retained-prefix repair unverified; no release signoff or current timing claim",
+  "localEvidenceRoot": ".tmp/p00-focused-20261004",
+  "records": {
+    "initial.json": {
+      "head": "ce2051ba7fb3ce929d26728feeec274271c749d1",
+      "pending": {
+        "src/passes/dead_argument_elimination2.mbt": "50f82f9d7bcd93de4f7dea97ff3dc663f05e8077962c8ba5fabad7a42f592848",
+        "src/validate/if_exit_value_perf_wbtest.mbt": "a4ee4c20e353132e7da39d63fb4bce73893195c812ea778e310ef92ba82f6019",
+        "src/validate/if_exit_value_wbtest.mbt": "7b4bef51616adbaef1e830d03de272ef8e868ccc0021a92d237f5ed687583700",
+        "src/validate/typecheck.mbt": "d13e2b3f65a82ea6a0510994a6b1c2d4eaf56a7af776eeac7152c5895f8d8f43",
+        "claude_review_10_3_6.md": "a5143f882f44416b3ad442a4c3aae3c7400d1307f43417a8cb8d25ebca4115e5",
+        "src/passes/dae2_checked_children_perf_wbtest.mbt": "64e1024ad9071318cdd1bcecc9a3e040334a94304be7341606b2dfcb12c36396",
+        "src/passes/dae2_checked_children_wbtest.mbt": "3da35037c90ecd3e154011facbda1c1d1792305bc439f244100a57440ac845b2",
+        "src/validate/select_pop_result_perf_wbtest.mbt": "4c2b9e6382791085b4f8c34fba401a3d028ee711a7924fa788c272dc2cc55b68",
+        "src/validate/select_pop_result_wbtest.mbt": "13a8f8bf67ddb762c84b47a4b7ca0716fd9ce822d1e077ff80c222ca425a9200"
+      },
+      "binarySha256": "5bf4a1f5603e0c436b5ce76012493e5fd6e712848dbce09056de1827e6f0a704",
+      "created": "2026-10-04T23:37:12.878785+00:00"
+    },
+    "binary-v3.json": {
+      "head": "ce2051ba7fb3ce929d26728feeec274271c749d1",
+      "sourceSha256": "2571118dad093eade526db6baf6b129c2d48eb6b11775bb1a6a97160cbe011f1",
+      "productionSourceSha256": "17ac12e6461fd34d2821c528cd9c463ebf2e8813af8cd09b823c5307d94a905a",
+      "status": " M agent-todo.md\n M docs/wiki/binaryen/passes/dae2/starshine-strategy.md\n M docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md\n M docs/wiki/index.md\n M docs/wiki/tooling/validation-gates.md\n M docs/wiki/validate/stack-polymorphism-and-bottom.md\n M docs/wiki/wasm-relaxed-dead-code-validation-boundary.md\n M src/ir/hot_core.mbt\n M src/ir/hot_lift.mbt\n M src/ir/hot_lift_test.mbt\n M src/ir/hot_lift_typed_block_entry_wbtest.mbt\n M src/ir/hot_lower.mbt\n M src/ir/hot_lower_test.mbt\n M src/ir/hot_mutate.mbt\n M src/ir/hot_verify.mbt\n M src/ir/pkg.generated.mbti\n M src/passes/dae2_sparse_replay_wbtest.mbt\n M src/passes/dead_argument_elimination2.mbt\n M src/passes/local_subtyping.mbt\n M src/passes/merge_blocks.mbt\n M src/passes/optimize_instructions.mbt\n M src/validate/gen_valid.mbt\nA  src/validate/if_exit_value_perf_wbtest.mbt\nA  src/validate/if_exit_value_wbtest.mbt\n M src/validate/pkg.generated.mbti\nMM src/validate/typecheck.mbt\n M src/validate/typecheck_negative_wbtest.mbt\n M src/validate/validate.mbt\n?? claude_review_10_3_6.md\n?? scripts/test/p00-correctness-runtime.ts\n?? src/cmd/p00_dae2_polymorphic_wbtest.mbt\n?? src/cmd/p00_oi_order_wbtest.mbt\n?? src/cmd/p00_validator_wbtest.mbt\n?? src/ir/hot_nested_dead_drop_wbtest.mbt\n?? src/ir/hot_prefix_scan_perf_wbtest.mbt\n?? src/ir/hot_typed_prefix_verify_wbtest.mbt\n?? src/ir/hot_virtual_entry_access_wbtest.mbt\n?? src/passes/dae2_checked_children_perf_wbtest.mbt\n?? src/passes/dae2_checked_children_wbtest.mbt\n?? src/passes/p00_hot_runtime_wbtest.mbt\n?? src/validate/frame_polymorphism_wbtest.mbt\n?? src/validate/select_pop_result_perf_wbtest.mbt\n?? src/validate/select_pop_result_wbtest.mbt\n",
+      "binary": ".tmp/p00-focused-20261004/candidate-v3.exe",
+      "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d"
+    },
+    "source-v4-pending.json": {
+      "head": "ce2051ba7fb3ce929d26728feeec274271c749d1",
+      "sourceSha256": "bb9b4fb423b2466da05f5faf80650f0a39651339fd96d07f12d28789b989c1af",
+      "productionSourceSha256": "940d9502f1c629184ae9e5f4078472cab15dce41dc73f2f1302b3ac9cdc17bb6",
+      "status": " M agent-todo.md\n M docs/wiki/binaryen/passes/dae2/starshine-strategy.md\n M docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md\n M docs/wiki/index.md\n M docs/wiki/tooling/validation-gates.md\n M docs/wiki/validate/stack-polymorphism-and-bottom.md\n M docs/wiki/wasm-relaxed-dead-code-validation-boundary.md\n M src/ir/hot_core.mbt\n M src/ir/hot_lift.mbt\n M src/ir/hot_lift_test.mbt\n M src/ir/hot_lift_typed_block_entry_wbtest.mbt\n M src/ir/hot_lower.mbt\n M src/ir/hot_lower_test.mbt\n M src/ir/hot_mutate.mbt\n M src/ir/hot_verify.mbt\n M src/ir/pkg.generated.mbti\n M src/passes/dae2_sparse_replay_wbtest.mbt\n M src/passes/dead_argument_elimination2.mbt\n M src/passes/local_subtyping.mbt\n M src/passes/merge_blocks.mbt\n M src/passes/optimize_instructions.mbt\n M src/validate/gen_valid.mbt\nA  src/validate/if_exit_value_perf_wbtest.mbt\nA  src/validate/if_exit_value_wbtest.mbt\n M src/validate/pkg.generated.mbti\nMM src/validate/typecheck.mbt\n M src/validate/typecheck_negative_wbtest.mbt\n M src/validate/validate.mbt\n?? claude_review_10_3_6.md\n?? scripts/test/p00-correctness-runtime.ts\n?? src/cmd/p00_dae2_polymorphic_wbtest.mbt\n?? src/cmd/p00_oi_order_wbtest.mbt\n?? src/cmd/p00_validator_wbtest.mbt\n?? src/ir/hot_nested_dead_drop_wbtest.mbt\n?? src/ir/hot_prefix_scan_perf_wbtest.mbt\n?? src/ir/hot_typed_prefix_verify_wbtest.mbt\n?? src/ir/hot_virtual_entry_access_wbtest.mbt\n?? src/passes/dae2_checked_children_perf_wbtest.mbt\n?? src/passes/dae2_checked_children_wbtest.mbt\n?? src/passes/dae2_effect_order_wbtest.mbt\n?? src/passes/p00_hot_runtime_wbtest.mbt\n?? src/validate/frame_polymorphism_wbtest.mbt\n?? src/validate/select_pop_result_perf_wbtest.mbt\n?? src/validate/select_pop_result_wbtest.mbt\n"
+    },
+    "native-validator-v3.json": [
+      {
+        "name": "missing",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--validate",
+          "--out",
+          ".tmp/p00-focused-20261004/v3-rejected-missing.wasm",
+          ".tmp/large-pass-hotspots-20261001/review-reductions/frame-missing.wasm"
+        ],
+        "status": 1,
+        "stderr": "error: validate pass: function body result stack underflow: expected stack=[I32] actual stack=[]; body=(block (Void) unreachable(end))(end)\n\nOffending function idx=(Func 0)\nfunc code[0] abs[0]\n  type_idx: (Type 0 (Func [] -> [I32]))\n  params: []\n  results: [I32]\n  locals:\n    <none>\n  body_raw:\n    (block (Void) unreachable(end))(end)\n\n",
+        "externalStatus": 1,
+        "externalStderr": "error: func 0 failed to validate\n\nCaused by:\n    0: type mismatch: expected i32 but nothing on stack (at offset 0x1c)\n",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "e3bf01649c7ac9ed407024e6689d8a923fe7a333c228965122de1167913a49de"
+      },
+      {
+        "name": "leftover",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--validate",
+          "--out",
+          ".tmp/p00-focused-20261004/v3-rejected-leftover.wasm",
+          ".tmp/large-pass-hotspots-20261001/review-reductions/frame-leftover.wasm"
+        ],
+        "status": 1,
+        "stderr": "error: validate pass: function body leaves extra values on stack: expected stack=[] actual stack=[I32]; body=(block I32 unreachable(end))(end)\n\nOffending function idx=(Func 0)\nfunc code[0] abs[0]\n  type_idx: (Type 0 (Func [] -> []))\n  params: []\n  results: []\n  locals:\n    <none>\n  body_raw:\n    (block I32 unreachable(end))(end)\n\n",
+        "externalStatus": 1,
+        "externalStderr": "error: func 0 failed to validate\n\nCaused by:\n    0: type mismatch: values remaining on stack at end of block (at offset 0x1b)\n",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "0c8cad6fe0f148128f21b71f189db72c2dc9b580111f27fab35665ede76b2adf"
+      },
+      {
+        "name": "wrong",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--validate",
+          "--out",
+          ".tmp/p00-focused-20261004/v3-rejected-wrong.wasm",
+          ".tmp/large-pass-hotspots-20261001/review-reductions/frame-wrong.wasm"
+        ],
+        "status": 1,
+        "stderr": "error: validate pass: function body result type mismatch: expected stack=[F32] actual stack=[I32]; body=(block I32 unreachable(end))(end)\n\nOffending function idx=(Func 0)\nfunc code[0] abs[0]\n  type_idx: (Type 0 (Func [] -> [F32]))\n  params: []\n  results: [F32]\n  locals:\n    <none>\n  body_raw:\n    (block I32 unreachable(end))(end)\n\n",
+        "externalStatus": 1,
+        "externalStderr": "error: func 0 failed to validate\n\nCaused by:\n    0: type mismatch: expected f32, found i32 (at offset 0x1c)\n",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "c483a8d175d9cb4718caf5e16a80e0a2f02889219c7d665b3801f7156bfbc492"
+      },
+      {
+        "name": "select",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--validate",
+          "--out",
+          ".tmp/p00-focused-20261004/v3-rejected-select.wasm",
+          ".tmp/p00-focused-20261004/invalid-select.wasm"
+        ],
+        "status": 1,
+        "stderr": "error: validate pass: instruction[4] select: select requires both operands to have the same type; stack=[]\n\nOffending function idx=(Func 0)\nfunc code[0] abs[0]\n  type_idx: (Type 0 (Func [] -> []))\n  params: []\n  results: []\n  locals:\n    <none>\n  body_raw:\n    unreachable(i32.const I32(1))(i64.const I64(2))(i32.const I32(0))selectdrop(end)\n\n",
+        "externalStatus": 1,
+        "externalStderr": "error: func 0 failed to validate\n\nCaused by:\n    0: type mismatch: select operands have different types (at offset 0x1e)\n",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "a30ae6d0ad4cce8df4c5311a0e6ae76d9b7cfa982bd4859455fe1db383e6c384"
+      },
+      {
+        "name": "merge-old-invalid",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--validate",
+          "--out",
+          ".tmp/p00-focused-20261004/v3-rejected-merge-old-invalid.wasm",
+          ".tmp/p00-focused-20261004/before-merge-blocks-reduced.wasm"
+        ],
+        "status": 1,
+        "stderr": "error: validate pass: function body leaves extra values on stack: expected stack=[] actual stack=[(RefType Null (AbsHeapType NoFunc))]; body=(i32.const I32(0))(i32.const I32(0))(table.get (Table 0))(i32.const I32(0))(table.fill (Table 0))unreachable(f32.const F32(2.5))drop(block (RefType Null (AbsHeapType NoFunc)) (ref.null (RefType Null (HeapType (AbsHeapType NoFunc))))(i32.const I32(0))(br_table (Label 0) (Label 0))(end))(end)\n\nOffending function idx=(Func 0)\nfunc code[0] abs[0]\n  type_idx: (Type 0 (Func [] -> []))\n  params: []\n  results: []\n  locals:\n    <none>\n  body_raw:\n    (i32.const I32(0))(i32.const I32(0))(table.get (Table 0))(i32.const I32(0))(table.fill (Table 0))unreachable(f32.const F32(2.5))drop(block (RefType Null (AbsHeapType NoFunc)) (ref.null (RefType Null (HeapType (AbsHeapType NoFunc))))(i32.const I32(0))(br_table (Label 0) (Label 0))(end))(end)\n\n",
+        "externalStatus": 1,
+        "externalStderr": "error: func 0 failed to validate\n\nCaused by:\n    0: type mismatch: values remaining on stack at end of block (at offset 0x41)\n",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "ebf4c77aaf00e0457d34a06f9923816a48a4478f78d175a3970cbf49e74e3538"
+      }
+    ],
+    "replays-v3/replays.json": [
+      {
+        "name": "merge-saved",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "c4b3e73d7dfb4d5b5e21bc38838ff4cecd3b8ad6656c018b3138f062af7e7954",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--merge-blocks",
+          "--out",
+          ".tmp/p00-focused-20261004/replays-v3/merge-saved-merge-blocks.wasm",
+          ".tmp/large-pass-hotspots-20261001/review-reductions/2-original.wasm"
+        ],
+        "status": 0,
+        "stderr": "",
+        "expectedValid": true,
+        "outputSha256": "d916a04776c7cf870f63bbfa7e2b2da1fade49d452555f052388d1a0b159917e",
+        "rawBytes": 78,
+        "externalStatus": 0,
+        "externalStderr": ""
+      },
+      {
+        "name": "poly-zero",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "526d01da10f2ccd3ab6ffe2ab94f7e1445258520c5507ce3f7b86da892448eb4",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--dae2",
+          "--out",
+          ".tmp/p00-focused-20261004/replays-v3/poly-zero-dae2.wasm",
+          ".tmp/p00-focused-20261004/replays-v3/zero.wasm"
+        ],
+        "status": 0,
+        "stderr": "",
+        "expectedValid": true,
+        "outputSha256": "d07be196fe0b333999e2ee75a2611be1ae37d94705085dea8334f359244e60be",
+        "rawBytes": 25,
+        "externalStatus": 0,
+        "externalStderr": ""
+      },
+      {
+        "name": "poly-zero",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "526d01da10f2ccd3ab6ffe2ab94f7e1445258520c5507ce3f7b86da892448eb4",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--dae2-optimizing",
+          "--out",
+          ".tmp/p00-focused-20261004/replays-v3/poly-zero-dae2-optimizing.wasm",
+          ".tmp/p00-focused-20261004/replays-v3/zero.wasm"
+        ],
+        "status": 0,
+        "stderr": "",
+        "expectedValid": true,
+        "outputSha256": "d07be196fe0b333999e2ee75a2611be1ae37d94705085dea8334f359244e60be",
+        "rawBytes": 25,
+        "externalStatus": 0,
+        "externalStderr": ""
+      },
+      {
+        "name": "poly-one",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "9ec49bfcd400e3b9ad41553c62d0f5bc6f6af189b9c110d5f2a5308e990dc36b",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--dae2",
+          "--out",
+          ".tmp/p00-focused-20261004/replays-v3/poly-one-dae2.wasm",
+          ".tmp/p00-focused-20261004/replays-v3/one.wasm"
+        ],
+        "status": 0,
+        "stderr": "",
+        "expectedValid": true,
+        "outputSha256": "d07be196fe0b333999e2ee75a2611be1ae37d94705085dea8334f359244e60be",
+        "rawBytes": 25,
+        "externalStatus": 0,
+        "externalStderr": ""
+      },
+      {
+        "name": "poly-one",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "9ec49bfcd400e3b9ad41553c62d0f5bc6f6af189b9c110d5f2a5308e990dc36b",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--dae2-optimizing",
+          "--out",
+          ".tmp/p00-focused-20261004/replays-v3/poly-one-dae2-optimizing.wasm",
+          ".tmp/p00-focused-20261004/replays-v3/one.wasm"
+        ],
+        "status": 0,
+        "stderr": "",
+        "expectedValid": true,
+        "outputSha256": "d07be196fe0b333999e2ee75a2611be1ae37d94705085dea8334f359244e60be",
+        "rawBytes": 25,
+        "externalStatus": 0,
+        "externalStderr": ""
+      },
+      {
+        "name": "poly-wrong",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "0796e4b60f18f2d8b2474f9d4bd0f77dcd4731ba92b45a997da71b75dea221e1",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--dae2",
+          "--out",
+          ".tmp/p00-focused-20261004/replays-v3/poly-wrong-dae2.wasm",
+          ".tmp/p00-focused-20261004/replays-v3/wrong.wasm"
+        ],
+        "status": 1,
+        "stderr": "error: .tmp/p00-focused-20261004/replays-v3/wrong.wasm: dae2: lift function 0: InvalidBodyState(type mismatch: expected=I32 actual=I64)\n",
+        "expectedValid": false
+      },
+      {
+        "name": "poly-wrong",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "0796e4b60f18f2d8b2474f9d4bd0f77dcd4731ba92b45a997da71b75dea221e1",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--dae2-optimizing",
+          "--out",
+          ".tmp/p00-focused-20261004/replays-v3/poly-wrong-dae2-optimizing.wasm",
+          ".tmp/p00-focused-20261004/replays-v3/wrong.wasm"
+        ],
+        "status": 1,
+        "stderr": "error: .tmp/p00-focused-20261004/replays-v3/wrong.wasm: dae2: lift function 0: InvalidBodyState(type mismatch: expected=I32 actual=I64)\n",
+        "expectedValid": false
+      },
+      {
+        "name": "poly-wrong-two",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "47fa2ad2cfdd79b135b995a9189911a1cfbb7b108a1302123cd0428eb15c5223",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--dae2",
+          "--out",
+          ".tmp/p00-focused-20261004/replays-v3/poly-wrong-two-dae2.wasm",
+          ".tmp/p00-focused-20261004/replays-v3/wrong-two.wasm"
+        ],
+        "status": 1,
+        "stderr": "error: .tmp/p00-focused-20261004/replays-v3/wrong-two.wasm: dae2: lift function 0: InvalidBodyState(type mismatch: expected=I32 actual=I64)\n",
+        "expectedValid": false
+      },
+      {
+        "name": "poly-wrong-two",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "47fa2ad2cfdd79b135b995a9189911a1cfbb7b108a1302123cd0428eb15c5223",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--dae2-optimizing",
+          "--out",
+          ".tmp/p00-focused-20261004/replays-v3/poly-wrong-two-dae2-optimizing.wasm",
+          ".tmp/p00-focused-20261004/replays-v3/wrong-two.wasm"
+        ],
+        "status": 1,
+        "stderr": "error: .tmp/p00-focused-20261004/replays-v3/wrong-two.wasm: dae2: lift function 0: InvalidBodyState(type mismatch: expected=I32 actual=I64)\n",
+        "expectedValid": false
+      },
+      {
+        "name": "poly-nested-invalid",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "e152d8b253daf918cb6c9abc0c43bd41ab20a776c3257b6d0a093f7b07751464",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--dae2",
+          "--out",
+          ".tmp/p00-focused-20261004/replays-v3/poly-nested-invalid-dae2.wasm",
+          ".tmp/p00-focused-20261004/replays-v3/nested-invalid.wasm"
+        ],
+        "status": 1,
+        "stderr": "error: .tmp/p00-focused-20261004/replays-v3/nested-invalid.wasm: dae2: lift function 0: InvalidBodyState(instruction[0] f64.add: type mismatch: expected=F64 actual=I32; stack=[I32])\n",
+        "expectedValid": false
+      },
+      {
+        "name": "poly-nested-invalid",
+        "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+        "inputSha256": "e152d8b253daf918cb6c9abc0c43bd41ab20a776c3257b6d0a093f7b07751464",
+        "command": [
+          ".tmp/p00-focused-20261004/candidate-v3.exe",
+          "--dae2-optimizing",
+          "--out",
+          ".tmp/p00-focused-20261004/replays-v3/poly-nested-invalid-dae2-optimizing.wasm",
+          ".tmp/p00-focused-20261004/replays-v3/nested-invalid.wasm"
+        ],
+        "status": 1,
+        "stderr": "error: .tmp/p00-focused-20261004/replays-v3/nested-invalid.wasm: dae2: lift function 0: InvalidBodyState(instruction[0] f64.add: type mismatch: expected=F64 actual=I32; stack=[I32])\n",
+        "expectedValid": false
+      }
+    ],
+    "direct-raw-validation-v3.json": [
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/merge-blocks.after.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "d916a04776c7cf870f63bbfa7e2b2da1fade49d452555f052388d1a0b159917e"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/oi-order.after.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "acc70000c1501eb2b63cf82e4bafe0a7e09b0c016d7af17d30bacf99fb0296d2"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-live.direct-false.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "98052040dd05c53060909b4e3a58e5b577a84584c0a244bfb344151151e52dce"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-live-branch-dae2-optimizing.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "395bc8e3895b17229fed6740695de103f97c8eb5c6cfa1267a286349b2a530ac"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-partial-tuple-dae2-optimizing.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "89325a08bff2239c7f1a766137e474fbf1fc16a367f24baad17cc87d79f82788"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-mixed-prefix-dae2-optimizing.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "37e89e47da6ffddb0b98f1f62f7573eb59a4f81368ccb03bf54efd7910f5ccad"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-discard-dae2-optimizing.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "766577d3094ccc587fe551b11bb9647b8d73fa0afc7253135aa8aa700884a7f9"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-live.direct-true.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "98052040dd05c53060909b4e3a58e5b577a84584c0a244bfb344151151e52dce"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-discard-dae2.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "766577d3094ccc587fe551b11bb9647b8d73fa0afc7253135aa8aa700884a7f9"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-div-trap-dae2-optimizing.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "766577d3094ccc587fe551b11bb9647b8d73fa0afc7253135aa8aa700884a7f9"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-mixed-suffix.direct-false.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "09a3920ff5953f94ed89431d0a882acbd4a5ab7d15dadab80fc65908223da578"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-live-branch-dae2.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "395bc8e3895b17229fed6740695de103f97c8eb5c6cfa1267a286349b2a530ac"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-div-trap-dae2.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "766577d3094ccc587fe551b11bb9647b8d73fa0afc7253135aa8aa700884a7f9"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-mixed-suffix.direct-true.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "e6497d0d44d2f3ea1a9f59dc7ffe0ee80a4c00f16ef084dfabf88660db5f55fc"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/oi-order.before.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "8bd78d81a07cda90e8f2369503e0a0aaca89d237461ae89986aa5ff5707cd0cd"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-mixed-prefix-dae2.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "37e89e47da6ffddb0b98f1f62f7573eb59a4f81368ccb03bf54efd7910f5ccad"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/typed-partial-tuple-dae2.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "89325a08bff2239c7f1a766137e474fbf1fc16a367f24baad17cc87d79f82788"
+      },
+      {
+        "file": ".tmp/p00-hot-fallback-runtime/merge-blocks.before.wasm",
+        "status": 0,
+        "stderr": "",
+        "sha256": "dd2059261d52aac9ed00aa0c004e9407dc0d7fc8438858062fc8b4e640c3cd96"
+      }
+    ],
+    "remaining-failures-v3.json": {
+      "command": "moon test src/validate src/ir src/cmd src/passes --target wasm-gc",
+      "total": 12169,
+      "passed": 12139,
+      "failed": 30,
+      "failures": [
+        {
+          "file": "passes/ssa_nomerge_test.mbt",
+          "line": 7991,
+          "name": "ssa-nomerge boundary: legacy rethrow remains outside HOT SSA",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/ssa_nomerge_test.mbt",
+          "line": 11801,
+          "name": "ssa-nomerge rewrites no-throw try_table scalar proxy backedges",
+          "diagnostic": "src/passes/ssa_nomerge_test.mbt:11841:3-11841:59@jtenner/starshine FAILED: I32 "
+        },
+        {
+          "file": "passes/ssa_nomerge_test.mbt",
+          "line": 11907,
+          "name": "ssa-nomerge rewrites throwing try_table typed loop backedges",
+          "diagnostic": "src/passes/ssa_nomerge_test.mbt:11928:3-11928:59@jtenner/starshine FAILED: I32 "
+        },
+        {
+          "file": "passes/ssa_nomerge_test.mbt",
+          "line": 16811,
+          "name": "ssa-nomerge rewrites non-current scalar typed loop br_table targets",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/ssa_nomerge_test.mbt",
+          "line": 16864,
+          "name": "ssa-nomerge rewrites try_table scalar proxy br_table catch-relabeling",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/ssa_nomerge_test.mbt",
+          "line": 16921,
+          "name": "ssa-nomerge rewrites try_table single-result br_table fallthrough store model",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/ssa_nomerge_test.mbt",
+          "line": 17076,
+          "name": "ssa-nomerge rewrites copy-needing non-current scalar typed loop br_table targets",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/ssa_nomerge_test.mbt",
+          "line": 17135,
+          "name": "ssa-nomerge rewrites non-current single-result typed loop br_table targets",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/ssa_nomerge_test.mbt",
+          "line": 32539,
+          "name": "ssa-nomerge compacts large branch-exit alias scratch locals",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/simplify_locals_test.mbt",
+          "line": 2285,
+          "name": "simplify-locals does not move stacked multivalue if results out of place",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/simplify_locals_nostructure_test.mbt",
+          "line": 3178,
+          "name": "simplify-locals-nostructure canonicalizes refinalized tail catch_all_ref block",
+          "diagnostic": "src/passes/simplify_locals_nostructure_test.mbt:3196:3-3199:4@jtenner/starshine FAILED: func code[1] abs[1]"
+        },
+        {
+          "file": "passes/remove_unused_brs_test.mbt",
+          "line": 1536,
+          "name": "remove-unused-brs keeps catch_ref caught throws as exnref transport",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/remove_unused_brs_test.mbt",
+          "line": 1560,
+          "name": "remove-unused-brs keeps catch_all_ref caught throws as exnref transport",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/remove_unused_brs_test.mbt",
+          "line": 6704,
+          "name": "remove-unused-brs boundary keeps value-carrying if-arm br_table threading conservative",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/precompute_test.mbt",
+          "line": 615,
+          "name": "precompute folds loop-carried constant breaks to the enclosing result",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/perf_test.mbt",
+          "line": 5112,
+          "name": "remove-unused-brs skips prefix-root scans for nested block dispatch ladders",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/optimize_instructions_test.mbt",
+          "line": 47213,
+          "name": "optimize-instructions moves standalone ref.get_desc escaping branch block null checks",
+          "diagnostic": "src/passes/optimize_instructions_test.mbt:47350:3-47350:69@jtenner/starshine FAILED: func code[0] abs[0]"
+        },
+        {
+          "file": "passes/optimize_instructions_test.mbt",
+          "line": 48551,
+          "name": "optimize-instructions lowers escaping-branch block ref.get_desc child like Binaryen",
+          "diagnostic": "src/passes/optimize_instructions_test.mbt:48629:11-48629:77@jtenner/starshine FAILED: expected escaping branch payload local.get 1, got (block (RefType Null (HeapType Idx 0)) (local.get (Local 1))(br (Label 1))(end))"
+        },
+        {
+          "file": "passes/optimize_instructions_test.mbt",
+          "line": 52593,
+          "name": "optimize-instructions fail-closed on escaping-branch block ref.get_desc child null checks",
+          "diagnostic": "src/passes/optimize_instructions_test.mbt:52701:7-52703:8@jtenner/starshine FAILED: expected escaping block descriptor child to remain fail-closed, got Heap"
+        },
+        {
+          "file": "passes/optimize_instructions_test.mbt",
+          "line": 81818,
+          "name": "optimize-instructions keeps zero sentinels after returning ifs in result blocks",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/optimize_instructions_test.mbt",
+          "line": 81836,
+          "name": "optimize-instructions keeps zero sentinels after wrapped returning ifs in result blocks",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/optimize_instructions_test.mbt",
+          "line": 81856,
+          "name": "optimize-instructions keeps zero sentinels after returning ifs with dead arm suffixes",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/local_subtyping_test.mbt",
+          "line": 681,
+          "name": "local-subtyping replaces bottom call_ref refinalization with unreachable value",
+          "diagnostic": "src/passes/local_subtyping_test.mbt:707:3-712:5@jtenner/starshine FAILED: `["
+        },
+        {
+          "file": "passes/inlining_test.mbt",
+          "line": 3311,
+          "name": "inlining-optimizing retains the result helper reached through a void root cycle",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/heap_store_optimization_test.mbt",
+          "line": 2963,
+          "name": "heap-store-optimization leaves unreachable set values to later DCE",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/dead_code_elimination_test.mbt",
+          "line": 1172,
+          "name": "dead-code-elimination voidifies nonfinal nonfallthrough value blocks in lifted void regions",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/dae_optimizing_test.mbt",
+          "line": 14385,
+          "name": "dae-optimizing keeps originally-parameterized block self result suffixes",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/dae_optimizing_test.mbt",
+          "line": 15263,
+          "name": "dae-optimizing preserves results with void dead-suffix side calls",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/code_folding_test.mbt",
+          "line": 4017,
+          "name": "code-folding hoists block-exit tail before outer branch fallthrough",
+          "diagnostic": "Error"
+        },
+        {
+          "file": "passes/dead_argument_elimination_wbtest.mbt",
+          "line": 19309,
+          "name": "dae GC result refinement joins all-return legacy try",
+          "diagnostic": "src/passes/dead_argument_elimination_wbtest.mbt:19357:17-19357:69@jtenner/starshine FAILED: expected valid all-return legacy try: func[0]: function body result stack underflow: expected stack=[(RefType Null (HeapType Idx 1))] actual stack=[]; body=(try (Void) (ref.null (RefType Null (HeapType Idx 1)))return(end) (catch_all (ref.null (RefType Null (HeapType Idx 1)))return(end)))(end)"
+        }
+      ]
+    },
+    "preservation-v4.json": {
+      "src/validate/if_exit_value_perf_wbtest.mbt": true,
+      "src/validate/if_exit_value_wbtest.mbt": true,
+      "claude_review_10_3_6.md": true,
+      "src/passes/dae2_checked_children_perf_wbtest.mbt": true,
+      "src/passes/dae2_checked_children_wbtest.mbt": true,
+      "src/validate/select_pop_result_perf_wbtest.mbt": true,
+      "src/validate/select_pop_result_wbtest.mbt": true,
+      "staged": true
+    },
+    "thermal-dae2-retry-exact.json": {
+      "cmd": [
+        "taskset",
+        "-c",
+        "6",
+        "nice",
+        "-n",
+        "10",
+        "moon",
+        "test",
+        "-p",
+        "jtenner/starshine/passes",
+        "--target",
+        "wasm-gc",
+        "--file",
+        "dae2_effect_order_wbtest.mbt",
+        "-j",
+        "1"
+      ],
+      "elapsedS": 360.6255633720002,
+      "exitCode": -15,
+      "events": [
+        {
+          "s": 0.00020796100034203846,
+          "event": "sample",
+          "c": 90.0
+        },
+        {
+          "s": 10.426798761999635,
+          "event": "sample",
+          "c": 95.0
+        },
+        {
+          "s": 20.029765653999675,
+          "event": "sample",
+          "c": 90.0
+        },
+        {
+          "s": 30.433333412000138,
+          "event": "sample",
+          "c": 90.0
+        },
+        {
+          "s": 40.03719720499976,
+          "event": "start",
+          "c": 81.0
+        },
+        {
+          "s": 50.24108843100021,
+          "event": "sample",
+          "c": 88.0
+        },
+        {
+          "s": 60.646995301999596,
+          "event": "sample",
+          "c": 91.0
+        },
+        {
+          "s": 70.25017356100034,
+          "event": "sample",
+          "c": 91.0
+        },
+        {
+          "s": 80.6573696710002,
+          "event": "sample",
+          "c": 97.0
+        },
+        {
+          "s": 90.26076956199995,
+          "event": "sample",
+          "c": 97.0
+        },
+        {
+          "s": 100.6642807649996,
+          "event": "sample",
+          "c": 96.0
+        },
+        {
+          "s": 110.26731930000005,
+          "event": "sample",
+          "c": 95.0
+        },
+        {
+          "s": 120.67298613499952,
+          "event": "sample",
+          "c": 96.0
+        },
+        {
+          "s": 130.33250229999976,
+          "event": "sample",
+          "c": 90.0
+        },
+        {
+          "s": 140.73651009999958,
+          "event": "sample",
+          "c": 86.0
+        },
+        {
+          "s": 150.73994040700018,
+          "event": "sample",
+          "c": 95.0
+        },
+        {
+          "s": 160.34301872499964,
+          "event": "sample",
+          "c": 91.0
+        },
+        {
+          "s": 170.54690277699956,
+          "event": "sample",
+          "c": 88.0
+        },
+        {
+          "s": 180.15016298199953,
+          "event": "sample",
+          "c": 93.0
+        },
+        {
+          "s": 190.55439276499965,
+          "event": "sample",
+          "c": 99.0
+        },
+        {
+          "s": 200.1575794319997,
+          "event": "sample",
+          "c": 86.0
+        },
+        {
+          "s": 210.56242354000005,
+          "event": "sample",
+          "c": 79.0
+        },
+        {
+          "s": 220.7664192989996,
+          "event": "sample",
+          "c": 83.0
+        },
+        {
+          "s": 230.770846376,
+          "event": "sample",
+          "c": 81.0
+        },
+        {
+          "s": 240.3743268520002,
+          "event": "sample",
+          "c": 93.0
+        },
+        {
+          "s": 250.17789876200004,
+          "event": "sample",
+          "c": 80.0
+        },
+        {
+          "s": 260.38182529799997,
+          "event": "sample",
+          "c": 90.0
+        },
+        {
+          "s": 270.9862932469996,
+          "event": "sample",
+          "c": 80.0
+        },
+        {
+          "s": 280.1897039959995,
+          "event": "sample",
+          "c": 99.0
+        },
+        {
+          "s": 290.5931425429999,
+          "event": "sample",
+          "c": 98.0
+        },
+        {
+          "s": 300.1961896359999,
+          "event": "sample",
+          "c": 92.0
+        },
+        {
+          "s": 310.5997890279996,
+          "event": "sample",
+          "c": 78.0
+        },
+        {
+          "s": 320.0032583450002,
+          "event": "sample",
+          "c": 88.0
+        },
+        {
+          "s": 330.00686736900025,
+          "event": "sample",
+          "c": 86.0
+        },
+        {
+          "s": 340.0106680839999,
+          "event": "sample",
+          "c": 70.0
+        },
+        {
+          "s": 350.0164674489997,
+          "event": "sample",
+          "c": 79.0
+        },
+        {
+          "s": 360.6254153130003,
+          "event": "deadline",
+          "c": 76.0
+        }
+      ],
+      "scope": "temperature-gated 20% duty on one core, start <=82 C, pause >84 C; correctness only, never performance timing"
+    },
+    "thermal-dae2-retry-cached.json": {
+      "cmd": [
+        "taskset",
+        "-c",
+        "6",
+        "nice",
+        "-n",
+        "10",
+        "moon",
+        "test",
+        "-p",
+        "jtenner/starshine/passes",
+        "--target",
+        "wasm-gc",
+        "--file",
+        "dae2_effect_order_wbtest.mbt",
+        "-j",
+        "1"
+      ],
+      "elapsedS": 180.26952343599987,
+      "exitCode": -15,
+      "events": [
+        {
+          "s": 0.0011481880001156242,
+          "event": "start",
+          "c": 79.0
+        },
+        {
+          "s": 10.005068747000223,
+          "event": "sample",
+          "c": 86.0
+        },
+        {
+          "s": 20.40873669099983,
+          "event": "sample",
+          "c": 88.0
+        },
+        {
+          "s": 30.4129097240002,
+          "event": "sample",
+          "c": 91.0
+        },
+        {
+          "s": 40.01647913499983,
+          "event": "sample",
+          "c": 99.0
+        },
+        {
+          "s": 50.42015418000028,
+          "event": "sample",
+          "c": 91.0
+        },
+        {
+          "s": 60.02383711600032,
+          "event": "sample",
+          "c": 90.0
+        },
+        {
+          "s": 70.02781185100048,
+          "event": "sample",
+          "c": 83.0
+        },
+        {
+          "s": 80.03198975499981,
+          "event": "sample",
+          "c": 83.0
+        },
+        {
+          "s": 90.83640986800037,
+          "event": "sample",
+          "c": 83.0
+        },
+        {
+          "s": 100.03959098300038,
+          "event": "sample",
+          "c": 88.0
+        },
+        {
+          "s": 110.44365852700048,
+          "event": "sample",
+          "c": 90.0
+        },
+        {
+          "s": 120.0469226690002,
+          "event": "sample",
+          "c": 86.0
+        },
+        {
+          "s": 130.45034166300047,
+          "event": "sample",
+          "c": 97.0
+        },
+        {
+          "s": 140.2553031460002,
+          "event": "sample",
+          "c": 90.0
+        },
+        {
+          "s": 150.65866500100037,
+          "event": "sample",
+          "c": 98.0
+        },
+        {
+          "s": 160.26182047800012,
+          "event": "sample",
+          "c": 100.0
+        },
+        {
+          "s": 170.66533753600015,
+          "event": "sample",
+          "c": 92.0
+        },
+        {
+          "s": 180.26933554300012,
+          "event": "deadline",
+          "c": 91.0
+        }
+      ],
+      "scope": "temperature-gated 20% duty on one core, start <=82 C, pause >84 C; correctness only, never performance timing"
+    },
+    "runtime-v3-observations": [
+      {
+        "name": "oi-order",
+        "pass": "optimize-instructions",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 5,
+          "trap": false,
+          "events": [
+            1,
+            2
+          ]
+        }
+      },
+      {
+        "name": "oi-order",
+        "pass": "optimize-instructions",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            1
+          ]
+        }
+      },
+      {
+        "name": "oi-order",
+        "pass": "optimize-instructions",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 5,
+          "trap": false,
+          "events": [
+            1,
+            2
+          ]
+        }
+      },
+      {
+        "name": "oi-order",
+        "pass": "optimize-instructions",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            1
+          ]
+        }
+      },
+      {
+        "name": "oi-order",
+        "pass": "optimize-instructions",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 5,
+          "trap": false,
+          "events": [
+            1,
+            2
+          ]
+        }
+      },
+      {
+        "name": "oi-order",
+        "pass": "optimize-instructions",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            1
+          ]
+        }
+      },
+      {
+        "name": "mixed-suffix-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [],
+        "mode": "normal",
+        "observation": {
+          "result": [
+            19,
+            "23",
+            7
+          ],
+          "trap": false,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "mixed-suffix-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "mixed-suffix-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [],
+        "mode": "normal",
+        "observation": {
+          "result": [
+            19,
+            "23",
+            7
+          ],
+          "trap": false,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "mixed-suffix-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "mixed-suffix-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [],
+        "mode": "normal",
+        "observation": {
+          "result": [
+            19,
+            "23",
+            7
+          ],
+          "trap": false,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "mixed-suffix-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": false,
+          "events": [
+            19,
+            23
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": false,
+          "events": [
+            19,
+            23
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": false,
+          "events": [
+            19,
+            23
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [
+          7,
+          0
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 8,
+          "trap": false,
+          "events": [
+            19,
+            23
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [
+          7,
+          0
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [
+          7,
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 7,
+          "trap": false,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [
+          7,
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [
+          7,
+          0
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 8,
+          "trap": false,
+          "events": [
+            19,
+            23
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [
+          7,
+          0
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [
+          7,
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 7,
+          "trap": false,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [
+          7,
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [
+          7,
+          0
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 8,
+          "trap": false,
+          "events": [
+            19,
+            23
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [
+          7,
+          0
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [
+          7,
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 7,
+          "trap": false,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [
+          7,
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-partial-tuple-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": "24",
+          "trap": false,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-partial-tuple-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-partial-tuple-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": "24",
+          "trap": false,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-partial-tuple-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-partial-tuple-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": "24",
+          "trap": false,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-partial-tuple-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-mixed-prefix-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": "23",
+          "trap": false,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-mixed-prefix-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-mixed-prefix-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": "23",
+          "trap": false,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-mixed-prefix-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-mixed-prefix-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": "23",
+          "trap": false,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-mixed-prefix-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-div-trap-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [
+          0
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-div-trap-dae2",
+        "pass": "dae2",
+        "side": "original",
+        "argument": [
+          0
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-div-trap-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [
+          0
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-div-trap-dae2",
+        "pass": "dae2",
+        "side": "starshine",
+        "argument": [
+          0
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-div-trap-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [
+          0
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-div-trap-dae2",
+        "pass": "dae2",
+        "side": "binaryen",
+        "argument": [
+          0
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "mixed-suffix-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [],
+        "mode": "normal",
+        "observation": {
+          "result": [
+            19,
+            "23",
+            7
+          ],
+          "trap": false,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "mixed-suffix-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "mixed-suffix-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [],
+        "mode": "normal",
+        "observation": {
+          "result": [
+            19,
+            "23",
+            7
+          ],
+          "trap": false,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "mixed-suffix-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "mixed-suffix-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [],
+        "mode": "normal",
+        "observation": {
+          "result": [
+            19,
+            "23",
+            7
+          ],
+          "trap": false,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "mixed-suffix-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": false,
+          "events": [
+            19,
+            23
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": false,
+          "events": [
+            19,
+            23
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": false,
+          "events": [
+            19,
+            23
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [
+          7,
+          0
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 8,
+          "trap": false,
+          "events": [
+            19,
+            23
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [
+          7,
+          0
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [
+          7,
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 7,
+          "trap": false,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [
+          7,
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [
+          7,
+          0
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 8,
+          "trap": false,
+          "events": [
+            19,
+            23
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [
+          7,
+          0
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [
+          7,
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 7,
+          "trap": false,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [
+          7,
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [
+          7,
+          0
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 8,
+          "trap": false,
+          "events": [
+            19,
+            23
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [
+          7,
+          0
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [
+          7,
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": 7,
+          "trap": false,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-live-branch-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [
+          7,
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-partial-tuple-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": "24",
+          "trap": false,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-partial-tuple-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-partial-tuple-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": "24",
+          "trap": false,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-partial-tuple-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-partial-tuple-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": "24",
+          "trap": false,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-partial-tuple-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            31
+          ]
+        }
+      },
+      {
+        "name": "typed-mixed-prefix-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": "23",
+          "trap": false,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-mixed-prefix-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-mixed-prefix-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": "23",
+          "trap": false,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-mixed-prefix-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-mixed-prefix-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "result": "23",
+          "trap": false,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-mixed-prefix-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [
+          1
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-div-trap-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [
+          0
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-div-trap-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "original",
+        "argument": [
+          0
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-div-trap-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [
+          0
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-div-trap-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "starshine",
+        "argument": [
+          0
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-div-trap-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [
+          0
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-div-trap-dae2-optimizing",
+        "pass": "dae2-optimizing",
+        "side": "binaryen",
+        "argument": [
+          0
+        ],
+        "mode": "trap-first",
+        "observation": {
+          "trap": true,
+          "events": [
+            19
+          ]
+        }
+      },
+      {
+        "name": "typed-discard-dae2",
+        "side": "forced-hot",
+        "argument": [
+          1
+        ],
+        "mode": "normal",
+        "observation": {
+          "trap": false,
+          "events": [
+            23,
+            19
+          ]
+        }
+      }
+    ],
+    "runtime-v3-manifest": {
+      "binary": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+      "binarySha256": "4bcd060c535fe830248e3743cd1c5166645e3586fbf87065a6c781a94338312d",
+      "oracle": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+      "oracleSha256": "8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b",
+      "head": "ce2051ba7fb3ce929d26728feeec274271c749d1",
+      "fixtureProducer": "/home/jtenner/Projects/starshine-mb/_build/native/release/test/passes/passes.whitebox_test.exe",
+      "fixtureProducerSha256": "b126d135917cbeed49dcd9d459910888d012e98ac6188fb102c4bfd8ff9be543",
+      "sourceDiffSha256": "b7ce5f12803c8ecf2ce4cc4f048718c590f8d861040de0d27e0b8e9d7b1cc95b",
+      "commands": [
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--version"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/merge-blocks.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/merge-blocks.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/merge-blocks.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--merge-blocks",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/merge-blocks.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/merge-blocks.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/merge-blocks.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--optimize-instructions",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--optimize-instructions",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm.ss",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm.ss",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm.b133",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/oi-order.wat.wasm.b133",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--dae2",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--dae2",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm",
+            "normal",
+            "[]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm",
+            "trap-first",
+            "[]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm.ss",
+            "normal",
+            "[]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm.ss",
+            "trap-first",
+            "[]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm.b133",
+            "normal",
+            "[]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2.wat.wasm.b133",
+            "trap-first",
+            "[]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--dae2",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--dae2",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm.ss",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm.ss",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm.b133",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2.wat.wasm.b133",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--dae2",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--dae2",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm",
+            "normal",
+            "[7,0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm",
+            "trap-first",
+            "[7,0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm",
+            "normal",
+            "[7,1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm",
+            "trap-first",
+            "[7,1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm.ss",
+            "normal",
+            "[7,0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm.ss",
+            "trap-first",
+            "[7,0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm.ss",
+            "normal",
+            "[7,1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm.ss",
+            "trap-first",
+            "[7,1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm.b133",
+            "normal",
+            "[7,0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm.b133",
+            "trap-first",
+            "[7,0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm.b133",
+            "normal",
+            "[7,1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2.wat.wasm.b133",
+            "trap-first",
+            "[7,1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--dae2",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--dae2",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm.ss",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm.ss",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm.b133",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2.wat.wasm.b133",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--dae2",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--dae2",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm.ss",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm.ss",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm.b133",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2.wat.wasm.b133",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--dae2",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--dae2",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm",
+            "normal",
+            "[0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm",
+            "trap-first",
+            "[0]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm.ss",
+            "normal",
+            "[0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm.ss",
+            "trap-first",
+            "[0]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm.b133",
+            "normal",
+            "[0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2.wat.wasm.b133",
+            "trap-first",
+            "[0]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--dae2-optimizing",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--dae2",
+            "--simplify-locals",
+            "--vacuum",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm",
+            "normal",
+            "[]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm",
+            "trap-first",
+            "[]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm.ss",
+            "normal",
+            "[]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm.ss",
+            "trap-first",
+            "[]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm.b133",
+            "normal",
+            "[]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/mixed-suffix-dae2-optimizing.wat.wasm.b133",
+            "trap-first",
+            "[]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--dae2-optimizing",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--dae2",
+            "--simplify-locals",
+            "--vacuum",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm.ss",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm.ss",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm.b133",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-discard-dae2-optimizing.wat.wasm.b133",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--dae2-optimizing",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--dae2",
+            "--simplify-locals",
+            "--vacuum",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm",
+            "normal",
+            "[7,0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm",
+            "trap-first",
+            "[7,0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm",
+            "normal",
+            "[7,1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm",
+            "trap-first",
+            "[7,1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm.ss",
+            "normal",
+            "[7,0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm.ss",
+            "trap-first",
+            "[7,0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm.ss",
+            "normal",
+            "[7,1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm.ss",
+            "trap-first",
+            "[7,1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm.b133",
+            "normal",
+            "[7,0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm.b133",
+            "trap-first",
+            "[7,0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm.b133",
+            "normal",
+            "[7,1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-live-branch-dae2-optimizing.wat.wasm.b133",
+            "trap-first",
+            "[7,1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--dae2-optimizing",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--dae2",
+            "--simplify-locals",
+            "--vacuum",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm.ss",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm.ss",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm.b133",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-partial-tuple-dae2-optimizing.wat.wasm.b133",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--dae2-optimizing",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--dae2",
+            "--simplify-locals",
+            "--vacuum",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm.ss",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm.ss",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm.b133",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-mixed-prefix-dae2-optimizing.wat.wasm.b133",
+            "trap-first",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "parse",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/p00-focused-20261004/candidate-v3.exe",
+          "args": [
+            "--dae2-optimizing",
+            "--out",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm.ss",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/.tmp/v133-signoff-oracles/binaryen-version_133/bin/wasm-opt",
+          "args": [
+            "--all-features",
+            "--dae2",
+            "--simplify-locals",
+            "--vacuum",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm",
+            "-o",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm",
+            "normal",
+            "[0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm",
+            "trap-first",
+            "[0]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm.ss"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm.ss",
+            "normal",
+            "[0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm.ss",
+            "trap-first",
+            "[0]"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm.b133"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm.b133",
+            "normal",
+            "[0]"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/typed-div-trap-dae2-optimizing.wat.wasm.b133",
+            "trap-first",
+            "[0]"
+          ]
+        },
+        {
+          "bin": "/home/jtenner/Projects/starshine-mb/_build/native/release/test/passes/passes.whitebox_test.exe",
+          "args": [
+            "p00_hot_runtime_wbtest.mbt:0-2"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-hot-fallback-runtime/oi-order.before.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-hot-fallback-runtime/oi-order.after.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-hot-fallback-runtime/merge-blocks.before.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-hot-fallback-runtime/merge-blocks.after.wasm"
+          ]
+        },
+        {
+          "bin": "wasm-tools",
+          "args": [
+            "validate",
+            "--features",
+            "all",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-hot-fallback-runtime/typed-discard-dae2.wasm"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-runtime-Dj2b0p/observe.cjs",
+            "/home/jtenner/Projects/starshine-mb/.tmp/p00-hot-fallback-runtime/typed-discard-dae2.wasm",
+            "normal",
+            "[1]"
+          ]
+        },
+        {
+          "bin": "git",
+          "args": [
+            "rev-parse",
+            "HEAD"
+          ]
+        },
+        {
+          "bin": "git",
+          "args": [
+            "diff",
+            "HEAD"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -139,9 +139,38 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 - **Goal / why:** restore validation and observable behavior before release;
   baseline 3d46f7e52 and iterator candidate 8bfe3761 reproduce the same failures.
+- **October 4 focused repair state:** additions in the existing `ce2051ba7`
+  checkout preserve the author's staged changes, untracked controls, audit and
+  benchmark artifacts. [Current mechanisms and bounded evidence](docs/wiki/tooling/validation-gates.md#october-4-2026-focused-frame-ordering-and-typed-entry-repairs)
+  separate frame polymorphism, OI replacement order, virtual typed-input
+  validation/provenance, reachable label/prefix boundaries and raw lower stages.
+  The saved MergeBlocks failure first becomes invalid in pre-pass HOT lowering;
+  its flatten helper is not the confirmed owner. Full CI, coverage, renewed
+  aggregates, remaining audit/fixture failures and every 1× goal stay open.
+- **Forced-HOT order blocker:** native discarded typed-entry replay produces
+  `[23,19]` instead of `[19,23]`; static call counts and raw validation missed
+  this. The retained-prefix replacement must retain the original call order
+  (3 rather than fresh block 12). Focused repair is present; both-mode direct
+  tests and native event/trap verification remain pending. Preserve RED traces
+  in `.tmp/p00-focused-20261004/dae2-order-trace-red.log`.
+- **Affected-suite gate:** the last completed v3 replay ran 12,169 tests with 30
+  failures, all in legacy pass tests; validator, IR and command packages pass.
+  Earlier 40 failures reduce to 30 after terminal-control integration; sparse
+  DAE2 replay passes 5/5. Keep invalid input fixtures, valid-input SSA/SL/OI
+  output/shape gaps and LocalSubtyping dead-local narrowing separate. Details:
+  `.tmp/p00-focused-20261004/remaining-failures-v3.json`. This is a release blocker,
+  not an acceptance waiver; do not claim repository-wide validation or signoff.
+- **October 5 retry:** exact-package focused tests compiled intermediate output
+  but initial/cached linking retries were terminated at thermal deadlines before
+  tests ran. Host readings reached 100°C. The latest retained-call repair still
+  needs green tests and native event/trap evidence; no new timing is claimed.
+- **Separate performance risk:** the explicit-prefix producer occurrence lookup
+  in `hot_lower_impl_body_items` scans previous producers quadratically. Measure
+  the dedicated skipped prefix-scan bench before attributing artifact command
+  time; preserve shared mixed tuple lanes and avoid speculative heap caches.
 - **Source / owner:** [reduced cases and classifications](docs/wiki/tooling/validation-gates.md#october-3-2026-reproduced-baseline-correctness-blockers);
-  local author-owned `claude_review_10_3_6.md` contains the broader 26-item audit.
-  Preserve the author's untracked report and check active repair ownership.
+  the preserved author-owned `claude_review_10_3_6.md` contains the broader
+  26-item baseline audit. Preserve its original contents and check repair ownership.
 - [ ] Repair control-frame validation after nested unreachable code: missing,
   extra and wrong-typed values are accepted by Starshine but rejected by
   wasm-tools/Node. Review runtime escape versus frame-polymorphism invariants.
