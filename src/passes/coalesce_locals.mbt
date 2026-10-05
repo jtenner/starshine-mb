@@ -5915,8 +5915,8 @@ fn cl_instrs_have_branch_instruction(instrs : Array[@lib.Instruction]) -> Bool {
           None => ()
         }
       }
-      @lib.Try(_, @lib.Expr(body), catches, _) => {
-        if cl_instrs_have_branch_instruction(body) {
+      @lib.Try(_, @lib.Expr(body), catches, delegate) => {
+        if delegate is Some(_) || cl_instrs_have_branch_instruction(body) {
           return true
         }
         for catch_ in catches {

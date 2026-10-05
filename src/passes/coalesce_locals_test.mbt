@@ -3782,6 +3782,24 @@ test "coalesce-locals keeps sibling legacy catches from sharing a path-local cop
 }
 
 ///|
+test "coalesce-locals preserves a block around a delegated legacy try" {
+  let input =
+    #| (module
+    #|   (func (export "run") (local i32)
+    #|     (block
+    #|       (try
+    #|         (do nop)
+    #|         (delegate 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected delegated coalesce pipeline success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = cl_test_first_defined_func(optimized)
+  assert_true(body[0] is @lib.Block(_, _))
+}
+
+///|
 test "coalesce-locals rewrites copy traffic inside legacy catch-all" {
   let input = @lib.Module::new()
     .with_type_sec(
