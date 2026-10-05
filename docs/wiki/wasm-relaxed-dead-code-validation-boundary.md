@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-10-04
 sources:
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/relaxed-dead-code-validation/blob/main/proposals/relaxed-dead-code-validation/Overview.md
@@ -73,8 +73,8 @@ The relaxed proposal asks whether more of those dead-code stack constraints shou
 
 | Local surface | File / tests | What it proves |
 | --- | --- | --- |
-| Validation state | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) | `TcState` stores `stack`, `reachable`, escape state, and reachable branch-escape summaries. |
-| Current unreachable transition | [`TcState::set_unreachable(...)`](../../src/validate/typecheck.mbt) | Clears the concrete stack, marks the continuation unreachable, and records terminal escape. |
+| Validation state | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) | `TcState` stores `stack`, frame-local `polymorphic`, execution-flow `reachable`, escape state, and reachable branch-escape summaries. |
+| Current unreachable transition | [`TcState::set_unreachable(...)`](../../src/validate/typecheck.mbt) | Clears the concrete stack, sets current-frame polymorphism, marks execution nonfallthrough, and records terminal escape. |
 | Bottom synthesis | [`TcState::pop1(...)`](../../src/validate/typecheck.mbt) | Returns `ValType::bottom()` only when the real stack underflows in an unreachable state. |
 | Bottom type carrier | [`ValType::bottom()` / `BotValType`](../../src/lib/types.mbt) | Local validator-only bottom value; binary encoding rejects bottom value types. |
 | Current negative evidence | [`src/validate/typecheck_negative_wbtest.mbt`](../../src/validate/typecheck_negative_wbtest.mbt), [`src/validate/validate.mbt`](../../src/validate/validate.mbt) | Bottom-pop tests, branch payload checks, unreachable branch merges, and concrete-stack-junk rejection. |

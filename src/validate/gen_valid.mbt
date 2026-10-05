@@ -18513,7 +18513,7 @@ fn gen_valid_append_exception_try_table_matrix_ops(
         BlockType::val_type(ValType::i32()),
         Expr::new([
           Instruction::try_table(
-            BlockType::void_(),
+            BlockType::val_type(ValType::i32()),
             [Catch::new(payload_tag_idx, LabelIdx::new(0U))],
             Expr::new([
               Instruction::i32_const(I32(42)),

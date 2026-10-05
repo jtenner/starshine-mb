@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-10-04
 sources:
   - ../wasm-relaxed-dead-code-validation-boundary.md
   - ../../../src/lib/types.mbt
@@ -27,7 +27,7 @@ related:
 
 WebAssembly validation treats code after a nonfallthrough instruction as **stack-polymorphic**. In plain terms: once local execution cannot reach the next instruction, the validator may synthesize missing operands of any type so it can keep checking the rest of the expression tree.
 
-Starshine models that rule with a `reachable` flag in [`TcState`](../../../src/validate/typecheck.mbt) and a local bottom value, [`ValType::bottom()` / `BotValType`](../../../src/lib/types.mbt). This page owns the focused validator contract. Use it when a pass, fixture, reducer, or wiki claim mentions `unreachable`, `return`, `br`, `br_table`, tail calls, throws, "bottom", stack underflow in unreachable code, or leftover stack values after a terminal instruction. Use [`runtime-trap-semantics.md`](runtime-trap-semantics.md) for the separate execution-time trap/`RuntimeError`/`mayTrap` vocabulary.
+Starshine models validation underflow with a `polymorphic` flag, separate from execution-flow `reachable` in [`TcState`](../../../src/validate/typecheck.mbt) and a local bottom value, [`ValType::bottom()` / `BotValType`](../../../src/lib/types.mbt). This page owns the focused validator contract. Use it when a pass, fixture, reducer, or wiki claim mentions `unreachable`, `return`, `br`, `br_table`, tail calls, throws, "bottom", stack underflow in unreachable code, or leftover stack values after a terminal instruction. Use [`runtime-trap-semantics.md`](runtime-trap-semantics.md) for the separate execution-time trap/`RuntimeError`/`mayTrap` vocabulary.
 
 Official WebAssembly validation-algorithm, instruction-validation, module-validation, and syntax pages plus Starshine's typechecker, validator diagnostics, and regression tests support the maintenance split between value-polymorphic instructions (`drop`, `select`), unconditional stack-polymorphic transfers (`unreachable`, `br`, `br_table`, `return`, tail calls, throws), conditional branch fallthrough (`br_if`, `br_on_*`), and Starshine's concrete-stack-junk diagnostics.
 
@@ -71,8 +71,8 @@ This last rule is the most important maintenance boundary: **unreachable permits
 | Concept | Official validation-algorithm intuition | Starshine implementation |
 | --- | --- | --- |
 | Operand stack | Typed value stack under a control frame. | `TcState.stack : Array[ValType]` in [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt). |
-| Control-frame reachability | A control frame can be marked unreachable and then has stack-polymorphic underflow behavior. | `TcState.reachable : Bool`; `set_unreachable(...)` and `set_branch_escape(...)` clear the concrete stack and mark the state nonfallthrough. |
-| Bottom value | A virtual stack value that can match an expected type when underflow happens in unreachable code. | `BotValType`; [`TcState::pop1(...)`](../../../src/validate/typecheck.mbt) returns `ValType::bottom()` only when `reachable == false` and the real stack is empty. |
+| Control-frame reachability | A control frame can be marked unreachable and then has stack-polymorphic underflow behavior. | `TcState.polymorphic : Bool` permits virtual operands only in the current frame. `reachable` and `escape` separately describe execution flow; terminal transfers clear the current stack and set polymorphism. |
+| Bottom value | A virtual stack value that can match an expected type when underflow happens in unreachable code. | `BotValType`; [`TcState::pop1(...)`](../../../src/validate/typecheck.mbt) returns `ValType::bottom()` only when `polymorphic == true` and the real stack is empty. |
 | Concrete pushed values | Values pushed after unreachable are still real entries and are popped before any virtual bottom is synthesized. | The real `stack.pop()` path in `pop1(...)` wins before bottom synthesis. End-stack checks reject leftover concrete values. |
 | Branch escapes | Branches to surrounding labels can make the current nested body nonfallthrough while allowing the target construct to merge. | `BranchTcEscape(depth)` and `reachable_escape_depths` record which reachable branch exits can make a parent merge reachable. |
 
@@ -166,8 +166,8 @@ When an optimization or generator creates, removes, or moves a terminal instruct
 | Surface | File / tests | What it proves |
 | --- | --- | --- |
 | Bottom value | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | `ValType` includes `BotValType`; `ValType::bottom()` constructs it. |
-| State model | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | `TcState` carries `stack`, `reachable`, `escape`, and reachable branch-escape summaries. |
-| Bottom synthesis | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | `pop1(...)` returns bottom only for underflow in unreachable states; `pop_expect(...)` accepts bottom for any expected type. |
+| State model | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | `TcState` carries `stack`, frame-local `polymorphic`, execution-flow `reachable`, `escape`, and reachable branch-escape summaries. |
+| Bottom synthesis | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | `pop1(...)` returns bottom only for underflow in the current polymorphic frame; `pop_expect(...)` accepts bottom for any expected type. |
 | End-stack checks | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | `validate_end_stack(...)` and function-body diagnostics reject underflow, mismatched results, and extra concrete values. |
 | Regression coverage | [`src/validate/typecheck_negative_wbtest.mbt`](../../../src/validate/typecheck_negative_wbtest.mbt), [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Bottom-pop tests, if/loop/block reachability tests, descriptor bottom tests, end-body stack-shape tests, and concrete-junk rejection tests. |
 | Related authoring docs | [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), [`../wast/parametric-instruction-authoring.md`](../wast/parametric-instruction-authoring.md), [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md), [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) | Human-facing syntax and fixture guidance for the instruction families that interact with unreachable continuations. |
@@ -178,3 +178,24 @@ When an optimization or generator creates, removes, or moves a terminal instruct
 - Runtime trap execution/host boundary: [`runtime-trap-semantics.md`](runtime-trap-semantics.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/appendix/algorithm.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>
 - Starshine implementation and tests: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_wbtest.mbt`](../../../src/validate/typecheck_negative_wbtest.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
+
+## October 4, 2026: fresh frames and concrete exits
+
+The repaired frame contract supersedes the earlier implementation's use of
+`reachable` for both execution and validation. Every block, loop, if arm and
+exception body starts a fresh non-polymorphic frame with its declared inputs,
+even when its enclosing execution path is dead. Every completion validates the
+child stack and restores the enclosing concrete prefix plus declared results.
+A closed child containing `unreachable` does not make its parent polymorphic.
+Missing, extra and differently typed enclosing results therefore remain errors.
+
+Untyped select and conditional reference branches check concrete operands in
+polymorphic frames. Virtual bottom operands can match expected types; concrete
+`i32` and `i64` select inputs cannot match each other. The lifter consumes the
+same frame state, validates nested bodies before eliding unmaterializable dead
+computations, and retains source-access bookkeeping.
+
+See [bounded frame regressions](../../../src/validate/frame_polymorphism_wbtest.mbt),
+[command rejection and valid controls](../../../src/cmd/p00_validator_wbtest.mbt),
+and [current repair evidence](../tooling/validation-gates.md#october-4-2026-focused-frame-order-and-typed-entry-repairs).
+The old audit fixtures and measurements remain historical evidence.

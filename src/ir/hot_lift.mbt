@@ -533,7 +533,8 @@ fn hot_lift_impl_matches_candidate_after(
   pop_count : Int,
   candidate_after : TcState,
 ) -> Bool {
-  if candidate_after.reachable != after_state.reachable ||
+  if candidate_after.polymorphic != after_state.polymorphic ||
+    candidate_after.reachable != after_state.reachable ||
     candidate_after.escape != after_state.escape {
     return false
   }

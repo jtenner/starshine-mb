@@ -1089,6 +1089,7 @@ fn validate_const_expr(
     env: env_tc,
     stack: [],
     reachable: true,
+    polymorphic: false,
     escape: NoTcEscape,
     reachable_escape_depths: [],
     initialized_locals: [],
@@ -1367,6 +1368,7 @@ pub fn validate_func_body_against_functype(
         env: env1,
         stack: [],
         reachable: true,
+        polymorphic: false,
         escape: NoTcEscape,
         reachable_escape_depths: [],
         initialized_locals: validate_initial_local_initialized(
@@ -9908,6 +9910,7 @@ test "validate_const_expr rejects ref.func singleton type as rec-group member" {
     env,
     stack: [],
     reachable: true,
+    polymorphic: false,
     escape: NoTcEscape,
     reachable_escape_depths: [],
     initialized_locals: [],
@@ -11282,6 +11285,8 @@ test "validate_module accepts outer if when nested outer-label branches skip the
                       [Instruction::br(LabelIdx::new(2))],
                       Some([Instruction::br(LabelIdx::new(2))]),
                     ),
+                    // Explicitly mark this arm polymorphic after the child frame.
+                    Instruction::unreachable_(),
                   ]),
                 ),
                 Instruction::drop(),

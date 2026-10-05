@@ -1854,6 +1854,7 @@ pub struct TcState {
   env : Env
   stack : Array[@lib.ValType]
   reachable : Bool
+  polymorphic : Bool
   escape : TcEscape
   reachable_escape_depths : Array[Int]
   initialized_locals : Array[Bool]

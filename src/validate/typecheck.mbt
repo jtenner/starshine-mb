@@ -20,7 +20,9 @@ pub impl Show for TcEscape with fn output(self, logger) {
 pub struct TcState {
   env : Env
   stack : Array[ValType]
+  // Execution flow is independent of the current validation frame.
   reachable : Bool
+  polymorphic : Bool
   escape : TcEscape
   reachable_escape_depths : Array[Int]
   initialized_locals : Array[Bool]
@@ -34,6 +36,8 @@ pub impl Show for TcState with fn output(self, logger) {
   self.stack.output(logger)
   logger.write_string(", reachable: ")
   self.reachable.output(logger)
+  logger.write_string(", polymorphic: ")
+  self.polymorphic.output(logger)
   logger.write_string(", escape: ")
   self.escape.output(logger)
   logger.write_string(", reachable_escape_depths: ")
@@ -55,18 +59,28 @@ pub trait Typecheck {
 fn TcState::set_unreachable(st : TcState) -> TcState {
   st.stack.clear()
   if !st.reachable {
-    return st
+    return TcState::{ ..st, polymorphic: true, }
   }
-  TcState::{ ..st, reachable: false, escape: TerminalTcEscape, }
+  TcState::{
+    ..st,
+    reachable: false,
+    polymorphic: true,
+    escape: TerminalTcEscape,
+  }
 }
 
 ///|
 fn TcState::set_branch_escape(st : TcState, depth : Int) -> TcState {
   st.stack.clear()
   if !st.reachable {
-    return st
+    return TcState::{ ..st, polymorphic: true, }
   }
-  TcState::{ ..st, reachable: false, escape: BranchTcEscape(depth), }
+  TcState::{
+    ..st,
+    reachable: false,
+    polymorphic: true,
+    escape: BranchTcEscape(depth),
+  }
 }
 
 ///|
@@ -256,7 +270,7 @@ fn TcState::check_branch_args_present(
 fn TcState::pop1(st : TcState) -> Result[(TcState, ValType), String] {
   match st.stack.pop() {
     None =>
-      if !st.reachable {
+      if st.polymorphic {
         // In unreachable code, missing values below the current frame are
         // polymorphic, but concrete values pushed afterward must still be
         // consumed from the real stack first.
@@ -290,7 +304,7 @@ fn TcState::pop_expect_error(st : TcState, expected : ValType) -> String? {
   let actual = match st.stack.pop() {
     Some(value) => value
     None =>
-      if !st.reachable {
+      if st.polymorphic {
         return None
       } else {
         return Some("stack underflow")
@@ -343,7 +357,7 @@ fn check_pop_types_from_top(
   while i >= 0 {
     let expected = ts[i]
     if stack_i < 0 {
-      if st.reachable {
+      if !st.polymorphic {
         return Err("stack underflow")
       }
     } else {
@@ -437,25 +451,19 @@ fn normalize_untyped_if_branch_exit_value(
   st : TcState,
   results : Array[ValType],
 ) -> TcIfBranchExit {
+  match validate_end_stack(st, results) {
+    Err(e) => return TcIfBranchExit::new(false, NoTcEscape, error=Some(e))
+    Ok(_) => ()
+  }
   if st.reachable {
-    match validate_end_stack(st, results) {
-      Err(e) => return TcIfBranchExit::new(false, NoTcEscape, error=Some(e))
-      Ok(_) => ()
-    }
     return TcIfBranchExit::new(true, NoTcEscape)
   }
   match st.escape {
-    NoTcEscape => {
-      match validate_end_stack(st, results) {
-        Err(e) => return TcIfBranchExit::new(false, NoTcEscape, error=Some(e))
-        Ok(_) => ()
-      }
+    NoTcEscape | TerminalTcEscape =>
       TcIfBranchExit::new(false, TerminalTcEscape)
-    }
     BranchTcEscape(0) => TcIfBranchExit::new(true, NoTcEscape)
     BranchTcEscape(depth) =>
       TcIfBranchExit::new(false, BranchTcEscape(depth - 1))
-    TerminalTcEscape => TcIfBranchExit::new(false, TerminalTcEscape)
   }
 }
 
@@ -490,30 +498,17 @@ fn normalize_untyped_block_exit(
   st : TcState,
   results : Array[ValType],
 ) -> Result[(Bool, TcEscape), String] {
+  match validate_end_stack(st, results) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
   if st.reachable {
-    match validate_end_stack(st, results) {
-      Err(e) => return Err(e)
-      Ok(_) => ()
-    }
     return Ok((true, NoTcEscape))
   }
   match st.escape {
-    NoTcEscape => {
-      match validate_end_stack(st, results) {
-        Err(e) => return Err(e)
-        Ok(_) => ()
-      }
-      Ok((false, TerminalTcEscape))
-    }
+    NoTcEscape | TerminalTcEscape => Ok((false, TerminalTcEscape))
     BranchTcEscape(0) => Ok((true, NoTcEscape))
     BranchTcEscape(depth) => Ok((false, BranchTcEscape(depth - 1)))
-    TerminalTcEscape => {
-      match validate_end_stack(st, results) {
-        Err(e) => return Err(e)
-        Ok(_) => ()
-      }
-      Ok((false, TerminalTcEscape))
-    }
   }
 }
 
@@ -522,11 +517,11 @@ fn normalize_loop_exit(
   st : TcState,
   results : Array[ValType],
 ) -> Result[(Bool, TcEscape), String] {
+  match validate_end_stack(st, results) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
   if st.reachable {
-    match validate_end_stack(st, results) {
-      Err(e) => return Err(e)
-      Ok(_) => ()
-    }
     return Ok((true, NoTcEscape))
   }
   match st.escape {
@@ -648,12 +643,12 @@ fn typecheck_select_untyped(st : TcState) -> TcResult {
     Ok(pair) => pair
   }
 
-  // unreachable: stack is polymorphic, result type can be bot
-  if !st.reachable {
-    return Ok(st3.push1(ValType::bottom()))
+  if t1 == ValType::bottom() {
+    return Ok(st3.push1(t2))
   }
-
-  // reachable: operands must have the same type (mutual match)
+  if t2 == ValType::bottom() {
+    return Ok(st3.push1(t1))
+  }
   let same = Match::matches(t1, t2, st.env) && Match::matches(t2, t1, st.env)
   if !same {
     return Err("select requires both operands to have the same type")
@@ -851,7 +846,8 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     env: env2,
     stack: body_stack,
     reachable: st1.reachable,
-    escape: st1.escape,
+    polymorphic: false,
+    escape: NoTcEscape,
     reachable_escape_depths: [],
     initialized_locals: tc_fork_initialized_for_body(
       st1.initialized_locals,
@@ -885,6 +881,7 @@ pub fn tc_state_finish_block(
       env: outer.env,
       stack: entry.stack,
       reachable: outer.reachable,
+      polymorphic: outer.polymorphic,
       escape: outer.escape,
       reachable_escape_depths: outer.reachable_escape_depths,
       initialized_locals: if base_reaches_merge {
@@ -898,12 +895,19 @@ pub fn tc_state_finish_block(
   Ok(
     TcState::{
       env: outer.env,
-      stack: [],
+      stack: entry.stack,
       reachable: false,
-      escape: block_escape,
+      polymorphic: outer.polymorphic,
+      escape: if outer.reachable {
+        block_escape
+      } else {
+        outer.escape
+      },
       reachable_escape_depths: outer.reachable_escape_depths,
       initialized_locals: outer.initialized_locals,
-    }.merge_child_reachable_escape_depths(body),
+    }
+    .merge_child_reachable_escape_depths(body)
+    .push_types(results),
   )
 }
 
@@ -942,7 +946,8 @@ fn typecheck_if(
     env: env_branch,
     stack: branch_stack,
     reachable: st1.reachable,
-    escape: st1.escape,
+    polymorphic: false,
+    escape: NoTcEscape,
     reachable_escape_depths: [],
     initialized_locals: tc_fork_initialized_for_body(
       st1.initialized_locals,
@@ -959,7 +964,8 @@ fn typecheck_if(
     env: env_branch,
     stack: tc_stack_from_types(params),
     reachable: st1.reachable,
-    escape: st1.escape,
+    polymorphic: false,
+    escape: NoTcEscape,
     reachable_escape_depths: [],
     initialized_locals: tc_fork_initialized_for_body(
       st1.initialized_locals,
@@ -1014,8 +1020,9 @@ pub fn tc_state_finish_if(
     let out = TcState::{
       env: st.env,
       stack: st1.stack,
-      reachable: true,
-      escape: NoTcEscape,
+      reachable: st.reachable,
+      polymorphic: st.polymorphic,
+      escape: st.escape,
       reachable_escape_depths: tc_escape_depths_merge(
         st.reachable_escape_depths,
         merged_child_depths,
@@ -1024,17 +1031,24 @@ pub fn tc_state_finish_if(
     }
     return Ok(out.push_types(results))
   }
-  Ok(TcState::{
-    env: st.env,
-    stack: [],
-    reachable: false,
-    escape: merge_nonfallthrough_if_exits(then_exit.escape, else_exit.escape),
-    reachable_escape_depths: tc_escape_depths_merge(
-      st.reachable_escape_depths,
-      merged_child_depths,
-    ),
-    initialized_locals: st.initialized_locals,
-  })
+  Ok(
+    TcState::{
+      env: st.env,
+      stack: st1.stack,
+      reachable: false,
+      polymorphic: st.polymorphic,
+      escape: if st.reachable {
+        merge_nonfallthrough_if_exits(then_exit.escape, else_exit.escape)
+      } else {
+        st.escape
+      },
+      reachable_escape_depths: tc_escape_depths_merge(
+        st.reachable_escape_depths,
+        merged_child_depths,
+      ),
+      initialized_locals: st.initialized_locals,
+    }.push_types(results),
+  )
 }
 
 ///|
@@ -1048,11 +1062,6 @@ fn typecheck_br_if(st : TcState, l : LabelIdx) -> TcResult {
   let st1 = match st.pop_expect(ValType::i32()) {
     Err(e) => return Err(e)
     Ok(s) => s
-  }
-
-  // If unreachable, the stack is polymorphic; br_if is fine
-  if !st.reachable {
-    return Ok(st1)
   }
 
   // Check that branch arguments are present.
@@ -1327,13 +1336,10 @@ fn typecheck_br_on_null(st : TcState, l : LabelIdx) -> TcResult {
   }
 
   // Branch target label has type t*
-  if st.reachable {
-    let _ = match st1.check_pop_types(ts) {
-      Err(e) => return Err(e)
-      Ok(_) => ()
-    }
+  let _ = match st1.check_pop_types(ts) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
-
   // Fallthrough refines to non-null (ref ht), preserving exactness.
   Ok(
     st1.push1(
@@ -1363,10 +1369,8 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
         _ =>
           return Err("br_on_non_null label must end with non-nullable ref type")
       }
-      if st.reachable {
-        if st1.check_pop_types_prefix(label_ts, end) is Err(t) {
-          return Err(t)
-        }
+      if st1.check_pop_types_prefix(label_ts, end) is Err(t) {
+        return Err(t)
       }
       Ok(st1)
     }
@@ -1387,10 +1391,8 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
       if !Match::matches(want_last, last, st.env) {
         return Err("br_on_non_null label must end with non-nullable ref type")
       }
-      if st.reachable {
-        if st1.check_pop_types_prefix(label_ts, end) is Err(t) {
-          return Err(t)
-        }
+      if st1.check_pop_types_prefix(label_ts, end) is Err(t) {
+        return Err(t)
       }
       Ok(st1)
     }
@@ -1440,15 +1442,12 @@ fn typecheck_br_on_cast(
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  if st.reachable {
-    // Check label args excluding rt_label (because branch keeps rt2 / rt_label)
-    // Per spec, label is t* rt, so the remaining stack must have t*
-    let _ = match st1.check_pop_types_prefix(label_ts, end) {
-      Err(e) => return Err(e)
-      Ok(_) => ()
-    }
+  // Check label args excluding rt_label (because branch keeps rt2 / rt_label)
+  // Per spec, label is t* rt, so the remaining stack must have t*
+  let _ = match st1.check_pop_types_prefix(label_ts, end) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
-
   // push (rt1 \ rt2)
   let rt_out = match diff(rt1, rt2) {
     Err(e) => return Err(e)
@@ -1554,11 +1553,9 @@ fn typecheck_br_on_cast_fail(
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  if st.reachable {
-    let _ = match st1.check_pop_types_prefix(label_ts, end) {
-      Err(e) => return Err(e)
-      Ok(_) => ()
-    }
+  let _ = match st1.check_pop_types_prefix(label_ts, end) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
   }
   Ok(st1.push1(ValType::ref_type(rt2)))
 }
@@ -1730,7 +1727,8 @@ fn typecheck_legacy_try(
     env: scoped_env,
     stack: tc_stack_from_types(params),
     reachable: st1.reachable,
-    escape: st1.escape,
+    polymorphic: false,
+    escape: NoTcEscape,
     reachable_escape_depths: [],
     initialized_locals: st1.initialized_locals.copy(),
   }
@@ -1765,7 +1763,8 @@ fn typecheck_legacy_try(
       env: scoped_env.with_legacy_catch_depth(scoped_env.legacy_catch_depth + 1),
       stack: tc_stack_from_types(initial_types),
       reachable: st1.reachable,
-      escape: st1.escape,
+      polymorphic: false,
+      escape: NoTcEscape,
       reachable_escape_depths: [],
       initialized_locals: st1.initialized_locals.copy(),
     }
@@ -1794,7 +1793,12 @@ fn typecheck_legacy_try(
       env: st.env,
       stack: st1.stack,
       reachable: any_reachable,
-      escape: checked_body.escape,
+      polymorphic: st.polymorphic,
+      escape: if st.reachable {
+        checked_body.escape
+      } else {
+        st.escape
+      },
       reachable_escape_depths: st.reachable_escape_depths,
       initialized_locals: st1.initialized_locals,
     }
@@ -1827,7 +1831,8 @@ fn typecheck_try_table(
     env: env2,
     stack: tc_stack_from_types(params),
     reachable: st1.reachable,
-    escape: st1.escape,
+    polymorphic: false,
+    escape: NoTcEscape,
     reachable_escape_depths: [],
     initialized_locals: st1.initialized_locals.copy(),
   }
@@ -2250,7 +2255,8 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     env: env2,
     stack: tc_stack_from_types(params),
     reachable: st1.reachable,
-    escape: st1.escape,
+    polymorphic: false,
+    escape: NoTcEscape,
     reachable_escape_depths: [],
     initialized_locals: tc_fork_initialized_for_body(
       st1.initialized_locals,
@@ -2283,6 +2289,7 @@ pub fn tc_state_finish_loop(
       env: st.env,
       stack: st1.stack,
       reachable: st.reachable,
+      polymorphic: st.polymorphic,
       escape: st.escape,
       reachable_escape_depths: st.reachable_escape_depths,
       initialized_locals: st_body.initialized_locals,
@@ -2292,12 +2299,19 @@ pub fn tc_state_finish_loop(
   Ok(
     TcState::{
       env: st.env,
-      stack: [],
+      stack: st1.stack,
       reachable: false,
-      escape: loop_escape,
+      polymorphic: st.polymorphic,
+      escape: if st.reachable {
+        loop_escape
+      } else {
+        st.escape
+      },
       reachable_escape_depths: st.reachable_escape_depths,
       initialized_locals: st.initialized_locals,
-    }.merge_child_reachable_escape_depths(st_body),
+    }
+    .merge_child_reachable_escape_depths(st_body)
+    .push_types(results),
   )
 }
 
@@ -5485,6 +5499,7 @@ pub fn make_state(env : Env, stack : Array[ValType]) -> TcState {
     env,
     stack: stack.copy(),
     reachable: true,
+    polymorphic: false,
     escape: NoTcEscape,
     reachable_escape_depths: [],
     initialized_locals,
@@ -5498,6 +5513,7 @@ pub fn make_state_owned(env : Env, stack : Array[ValType]) -> TcState {
     env,
     stack,
     reachable: true,
+    polymorphic: false,
     escape: NoTcEscape,
     reachable_escape_depths: [],
     initialized_locals,
@@ -5510,6 +5526,7 @@ pub fn tc_state_with_stack(state : TcState, stack : Array[ValType]) -> TcState {
     env: state.env,
     stack: stack.copy(),
     reachable: state.reachable,
+    polymorphic: state.polymorphic,
     escape: state.escape,
     reachable_escape_depths: state.reachable_escape_depths,
     initialized_locals: state.initialized_locals,
@@ -5522,6 +5539,7 @@ pub fn tc_state_clone(state : TcState) -> TcState {
     env: state.env,
     stack: state.stack.copy(),
     reachable: state.reachable,
+    polymorphic: state.polymorphic,
     escape: state.escape,
     reachable_escape_depths: state.reachable_escape_depths.copy(),
     initialized_locals: state.initialized_locals.copy(),
@@ -5537,6 +5555,7 @@ pub fn tc_state_with_owned_stack(
     env: state.env,
     stack,
     reachable: state.reachable,
+    polymorphic: state.polymorphic,
     escape: state.escape,
     reachable_escape_depths: state.reachable_escape_depths,
     initialized_locals: state.initialized_locals,
@@ -5553,13 +5572,17 @@ pub fn tc_state_fork_body(
   stack : Array[ValType],
 ) -> TcState {
   if !physical_equal(state.env.locals, env.locals) {
-    return tc_state_new(env, stack, state.reachable, state.escape)
+    return TcState::{
+      ..tc_state_new(env, stack, state.reachable, NoTcEscape),
+      polymorphic: false,
+    }
   }
   TcState::{
     env,
     stack,
     reachable: state.reachable,
-    escape: state.escape,
+    polymorphic: false,
+    escape: NoTcEscape,
     reachable_escape_depths: [],
     initialized_locals: state.initialized_locals,
   }
@@ -5577,6 +5600,7 @@ pub fn tc_state_new(
     env,
     stack,
     reachable,
+    polymorphic: !reachable,
     escape,
     reachable_escape_depths: [],
     initialized_locals,
@@ -5662,6 +5686,7 @@ test "tc_state_validate_end_stack accepts unreachable virtual-bottom suffixes" {
     env: empty_env(),
     stack: [],
     reachable: false,
+    polymorphic: true,
     escape: NoTcEscape,
     reachable_escape_depths: [],
     initialized_locals: [],
@@ -5847,11 +5872,13 @@ test "Typecheck loop accepts nested if branches that escape to the loop and func
         ],
         Some([Instruction::i32_const(I32(1)), Instruction::return_()]),
       ),
+      // Closing a child frame does not make this frame polymorphic.
+      Instruction::unreachable_(),
     ]),
   )
   let new_state = assert_ok(Typecheck::typecheck(loop_instr, state))
   assert_false(new_state.reachable)
-  assert_stack(new_state, [])
+  assert_stack(new_state, [ValType::i32()])
 }
 
 ///|
