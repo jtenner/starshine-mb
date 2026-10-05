@@ -113,8 +113,33 @@ fn spec_compile_module_def(
 }
 
 ///|
-fn spec_validate_binary_module(mod : @lib.Module) -> Result[Unit, String] {
-  match @validate.validate_module(mod) {
+fn spec_disabled_features(path : String) -> Array[@validate.ProposalFeature] {
+  if path.has_prefix("tests/spec/") {
+    let relative = path[11:].to_string()
+    if !relative.contains("/") || relative.has_prefix("legacy/") {
+      return match @validate.proposal_feature_by_name("stack-switching") {
+        Some(feature) => [feature]
+        None => []
+      }
+    }
+  }
+  []
+}
+
+///|
+fn spec_validate_module(
+  mod : @lib.Module,
+  path : String,
+) -> Result[Unit, @validate.ValidationError] {
+  @validate.validate_module(mod, disabled_features=spec_disabled_features(path))
+}
+
+///|
+fn spec_validate_binary_module(
+  mod : @lib.Module,
+  path : String,
+) -> Result[Unit, String] {
+  match spec_validate_module(mod, path) {
     Ok(_) => Ok(())
     Err(e) => Err("validation failed: \{@validate.validation_error_message(e)}")
   }
@@ -155,7 +180,7 @@ pub fn evaluate_wast_static_assertion(
     AssertMalformed(mod_def, _) =>
       match spec_compile_module_def(mod_def, path) {
         Ok(lowered) =>
-          match @validate.validate_module(lowered) {
+          match spec_validate_module(lowered, path) {
             Ok(_) =>
               Err(
                 "assert_malformed expected parse/lower/decode or validation failure, but module compiled and validated",
@@ -170,7 +195,7 @@ pub fn evaluate_wast_static_assertion(
         Err(e) =>
           return Err("assert_invalid expected compilable module, got: \{e}")
       }
-      match @validate.validate_module(lowered) {
+      match spec_validate_module(lowered, path) {
         Ok(_) =>
           Err(
             "assert_invalid expected validation failure, but module validated",
@@ -184,7 +209,7 @@ pub fn evaluate_wast_static_assertion(
         Err(e) =>
           return Err("assert_unlinkable expected compilable module, got: \{e}")
       }
-      match @validate.validate_module(lowered) {
+      match spec_validate_module(lowered, path) {
         Ok(_) => Ok({ kind: Unlinkable, stage: ValidBeforeLink, })
         Err(e) =>
           Err(
@@ -211,7 +236,7 @@ fn spec_check_command(
         Ok(v) => v
         Err(e) => return Err("module lower failed: \{e}")
       }
-      match spec_validate_binary_module(lowered) {
+      match spec_validate_binary_module(lowered, path) {
         Ok(_) => Ok((1, 0))
         Err(e) => Err(e)
       }
@@ -221,7 +246,7 @@ fn spec_check_command(
         Ok(v) => v
         Err(e) => return Err("binary module decode failed: \{e}")
       }
-      match spec_validate_binary_module(lowered) {
+      match spec_validate_binary_module(lowered, path) {
         Ok(_) => Ok((1, 0))
         Err(e) => Err(e)
       }
@@ -232,7 +257,7 @@ fn spec_check_command(
         Ok(v) => v
         Err(e) => return Err("module quote parse/lower failed: \{e}")
       }
-      match spec_validate_binary_module(lowered) {
+      match spec_validate_binary_module(lowered, path) {
         Ok(_) => Ok((1, 0))
         Err(e) => Err(e)
       }

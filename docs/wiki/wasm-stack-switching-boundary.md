@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-10-05
 sources:
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/stack-switching/blob/main/proposals/stack-switching/Explainer.md
@@ -58,12 +58,26 @@ The implementation is in [core types](../../src/lib/types.mbt),
 [DAE2 intake](../../src/passes/dead_argument_elimination2_intake_wbtest.mbt), and
 [GenValid](../../src/validate/gen_valid_dae2.mbt).
 
-Tags can have results at declaration time. `throw`, modern tagged catches,
+With stack switching enabled, tags can have results at declaration time.
+Disabling `stack-switching` rejects result-bearing defined and imported tags,
+continuation declarations and reference types, and continuation instructions,
+including those in unreachable code. `throw`, modern tagged catches,
 legacy tagged catches and `resume_throw` retain the exception-use restriction;
 `suspend` and resume handlers use the full control-tag signature. The
 [positive and negative tests](../../src/validate/binaryen132_continuation_wbtest.mbt)
 cover that distinction. Invalid GenValid mutations now throw a result-bearing
 tag instead of incorrectly treating its declaration as invalid.
+
+The [feature policy](../../src/validate/proposal_features.mbt) preserves the
+enabled extension by default. The [core spec harness](../../src/wast/spec_harness.mbt)
+disables it for root `tests/spec/*.wast` and legacy core files, because the
+[Core tag rule](https://webassembly.github.io/spec/core/valid/types.html#tag-types)
+requires empty function results. Proposal and user scripts keep the extension
+enabled. Binaryen 133 corroborates this boundary: a result-bearing tag validates
+with all features enabled and fails with stack switching disabled. The
+[feature regressions](../../src/validate/stack_switching_feature_wbtest.mbt)
+and [harness regressions](../../src/wast/stack_switching_policy_wbtest.mbt)
+protect both policies.
 
 Typed continuations are distinct from [JSPI](wasm-jspi-host-async-boundary.md),
 [ordinary exception handling](wasm-exception-handling-boundary.md),

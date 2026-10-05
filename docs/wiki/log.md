@@ -26346,3 +26346,20 @@ arrays/typecheck wrappers from the completed return packaging change.
   consumer's 30-second compiler budget and is build-cost risk, not runtime
   performance evidence. See [stack typing](validate/stack-polymorphism-and-bottom.md)
   and [descriptor typing](wast/reference-instruction-authoring.md).
+
+### 2026-10-05 — Separate core tags from suspension-tag policy
+
+- The [stack-switching feature](wasm-stack-switching-boundary.md) now discovers
+  resultful imported/defined tags, continuation declarations, abstract/shared
+  continuation heaps and all continuation instructions, including dead code.
+  Tag-free modules avoid an extra type-table collection.
+- The [spec harness](wast/exception-tag-authoring.md) disables this extension
+  only for direct core and legacy fixture paths, applying the same policy to
+  module directives and static assertions. Proposal/user scripts keep the
+  existing extension. This supersedes stale claims that Core accepts tag
+  results or that the default Starshine validator rejects suspension tags.
+- Eight feature/harness regressions pass in the 28-test focused repair suite.
+  The complete native spec aggregate passes with the accompanying validator
+  repairs. Binaryen 133 accepts a resultful tag with all features and rejects
+  it with stack switching disabled. The public interface adds only the
+  `StackSwitching` proposal-feature variant.
