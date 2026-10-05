@@ -863,6 +863,48 @@ fn rume_mark_ref_func(
 }
 
 ///|
+fn rume_mark_exported_return_ref_funcs(
+  expr : @lib.Expr,
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+) -> Unit {
+  let @lib.Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      @lib.RefFunc(func_idx) => rume_mark_func(queue, used_funcs, func_idx)
+      @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
+        rume_mark_exported_return_ref_funcs(body, queue, used_funcs)
+      @lib.If(_, yes, no) => {
+        rume_mark_exported_return_ref_funcs(
+          @lib.Expr::new(yes),
+          queue,
+          used_funcs,
+        )
+        match no {
+          Some(body) =>
+            rume_mark_exported_return_ref_funcs(
+              @lib.Expr::new(body),
+              queue,
+              used_funcs,
+            )
+          None => ()
+        }
+      }
+      @lib.Try(_, body, catches, _) => {
+        rume_mark_exported_return_ref_funcs(body, queue, used_funcs)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) =>
+              rume_mark_exported_return_ref_funcs(body, queue, used_funcs)
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
 fn rume_mark_defined_funcs(
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
@@ -3231,8 +3273,30 @@ fn rume_collect_liveness_with_import_parent_policy(
       for export_ in exports {
         let @lib.Export(_, idx) = export_
         match idx {
-          @lib.FuncExternIdx(func_idx) =>
+          @lib.FuncExternIdx(func_idx) => {
             rume_mark_func(queue, used_funcs, func_idx)
+            let returns_ref = match
+              analysis.env.get_functype_by_funcidx(func_idx) {
+              Some(@lib.FuncType(_, results)) =>
+                results.any(fn(result) { result is @lib.RefTypeValType(_) })
+              None => false
+            }
+            if returns_ref {
+              let @lib.FuncIdx(raw_idx) = func_idx
+              let def_idx = raw_idx.reinterpret_as_int() - func_imports
+              match mod_.code_sec {
+                Some(@lib.CodeSec(funcs)) =>
+                  match funcs.get(def_idx) {
+                    Some(@lib.Func(_, body)) =>
+                      rume_mark_exported_return_ref_funcs(
+                        body, queue, used_funcs,
+                      )
+                    None => ()
+                  }
+                None => ()
+              }
+            }
+          }
           @lib.GlobalExternIdx(global_idx) => {
             rume_mark_global(queue, used_globals, global_idx)
             let @lib.GlobalIdx(raw_idx) = global_idx
