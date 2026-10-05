@@ -421,6 +421,33 @@ measurements are separate scopes. The lowerer's existing quadratic prefix-
 producer scan remains an unmeasured performance risk; command-time attribution
 requires an actual scoped measurement.
 
+## October 5, 2026: resolved default-suite baseline
+
+The merged `master` development baseline initially ran 13,606 bounded default
+tests with 30 failures. The renewed run after red-first repairs passes
+**13,606/13,606** with zero failures; `moon fmt` and `moon info` pass and public
+`.mbti` files are unchanged. Independent WABT checks identified eighteen
+malformed WAT or hand-built fixtures; two tests had stale type/shape
+expectations. The remaining ten cases needed pass repairs in SSA no-merge,
+SimplifyLocalsNoStructure, and OptimizeInstructions. The focused tests assert
+valid transformed modules, specific IR/operand shapes, and preservation of the
+descriptor-operand null-check boundary. See the implementing files and
+[campaign log](../log.md#2026-10-05--resolve-the-30-saved-default-suite-failures).
+
+This renews the default-suite gate only. The independent P00 semantic and
+validation repros, full CI/coverage, performance targets, and broader pass
+parity remain open. The following checkpoint keeps its original 30-failure
+result as historical evidence.
+
+The post-repair native CLI and GenValid binaries (hashes in the
+[campaign log](../log.md#2026-10-05--resolve-the-30-saved-default-suite-failures))
+also completed 10,000 cases apiece for `ssa-nomerge-all`,
+`simplify-locals-nostructure-all`, and `pass-oi-all` against verified Binaryen
+133. Every lane has zero validation, generator, property and command failures.
+SSA's 6,250 allocation/shape residuals, SLNS's 1,662 size-losing tee-control
+cases, and OI's 1,377 measured smaller-output residuals retain their separate
+classifications; the pass comparison does not close those parity gaps.
+
 ## October 5, 2026: saved development checkpoint
 
 The last [full-command timing report](../raw/tooling/2026-10-04-starshine-v133-review.json)

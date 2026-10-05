@@ -1,3 +1,36 @@
+### 2026-10-05 — Resolve the 30 saved default-suite failures
+
+- Replayed the merged `master` baseline at 13,576/13,606 and repaired all 30
+  failing cases red-first. Eighteen tests had malformed WAT or hand-built
+  modules, two retained stale shape/type expectations, and ten exercised real
+  pass output gaps. The latter now cover SSA typed-loop proxy/store-model
+  no-fallthrough typing, SLNS `try_table` tail typing, and OI escaping-branch
+  `ref.get_desc` admission and lowered flattening. The descriptor-cast operand
+  still uses its stricter null-check guard.
+- `moon fmt`, `moon info`, and the complete bounded `moon test` pass:
+  **13,606/13,606**, zero failures. No public `.mbti` changed. The saved
+  [30-failure development checkpoint](tooling/validation-gates.md#october-5-2026-saved-development-checkpoint)
+  remains historical evidence; [the renewed gate](tooling/validation-gates.md#october-5-2026-resolved-default-suite-baseline)
+  records the current result. Other P00 runtime and validation blockers remain
+  open.
+- Fresh native CLI `cd38aff414ee34ddfd5383b93fe77c3fa96f091bc635d38c7242af8e9120d350`
+  and GenValid `9c41c144a2d6dea4e134cb20dbd542b7e570b986f315979189b8d19b1b89b2dc`
+  ran the three documented aggregate profiles at 10,000 cases each against
+  verified Binaryen 133, with eight subprocesses and independent wasm-tools
+  validation. All 30,000 comparisons completed with zero validation, generator,
+  property or command failures. Raw evidence is under
+  `.tmp/campaign-20261005-resolve30-*-v133/`.
+
+| Pass / profile | Canonical matches | Residuals | Classification |
+| --- | ---: | ---: | --- |
+| SSA no-merge / `ssa-nomerge-all` | 3,750 | 6,250 | Matches the saved v133 3,750/6,250 split; allocation/shape parity remains open, with zero canonically larger outputs. |
+| SLNS / `simplify-locals-nostructure-all` | 0 | 10,000 | Existing output-shape gap; the 1,662 tee-control cases remain 8 or 12 canonical bytes larger, while 8,338 are smaller. This is a size-losing parity gap, not an accepted representation difference. |
+| OI / `pass-oi-all` | 8,623 | 1,377 | 1,080 documented tuple-wrapper wins; 297 pure constant-condition value-if/drop shells select the same literal, remove the branch, and save exactly 16 canonical bytes each. No output is canonically larger. |
+
+The OI shell classification uses the inspected case-35 original/optimized WAT,
+the profile label and all 297 identical size deltas; neither arm has effects or
+traps. The SLNS tee-control family stays in the active output-quality backlog.
+
 ### 2026-10-05 — Second eight-agent optimizer correctness campaign
 
 - Merged the prior audit into local `master`, then landed red-first repairs for

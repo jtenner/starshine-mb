@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed October 4, 2026. Follow
+Active unreleased work only, reviewed October 5, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -153,13 +153,14 @@ quality gates. Keep traced inner and normal command measurements separate.
   (3 rather than fresh block 12). Focused repair is present; both-mode direct
   tests and native event/trap verification remain pending. Preserve RED traces
   in `.tmp/p00-focused-20261004/dae2-order-trace-red.log`.
-- **Affected-suite gate:** the last completed v3 replay ran 12,169 tests with 30
-  failures, all in legacy pass tests; validator, IR and command packages pass.
-  Earlier 40 failures reduce to 30 after terminal-control integration; sparse
-  DAE2 replay passes 5/5. Keep invalid input fixtures, valid-input SSA/SL/OI
-  output/shape gaps and LocalSubtyping dead-local narrowing separate. Details:
-  `.tmp/p00-focused-20261004/remaining-failures-v3.json`. This is a release blocker,
-  not an acceptance waiver; do not claim repository-wide validation or signoff.
+- **Affected-suite gate:** the saved v3 replay had 30 failures in 12,169 tests;
+  the later merged-`master` baseline repeated the same 30 names in 13,606
+  tests. Red-first fixture, expectation and pass repairs now make the bounded
+  default suite pass 13,606/13,606. The saved v3 list remains evidence at
+  `.tmp/p00-focused-20261004/remaining-failures-v3.json`; the current result is
+  [recorded separately](docs/wiki/tooling/validation-gates.md#october-5-2026-resolved-default-suite-baseline).
+  This closes the 30-test backlog item, not the independent P00 runtime and
+  validator repros or the repository-wide release gates.
 - **October 5 retry:** exact-package focused tests compiled intermediate output
   but initial/cached linking retries were terminated at thermal deadlines before
   tests ran. Host readings reached 100°C. The latest retained-call repair still
@@ -1269,9 +1270,11 @@ retain the detailed provenance.
   −1 canonical bytes per case across 765 cases; prove a benefit or remove the
   overhead. Preserve recursive-group and handler semantics.
 - **Other saved shape gaps:** replay code-pushing's 513 `br-if-value` cases
-  (+2,052 canonical bytes), no-structure SimplifyLocals' 1,662 tee-control cases
-  (+16,636), and trap-relaxed OI's 30 `direct-tiny-bulk` cases (+300), all historical
-  v132 figures. Ten SSA fixture families still differ in typed-loop proxies,
+  (+2,052 canonical bytes) and trap-relaxed OI's 30 `direct-tiny-bulk` cases
+  (+300), both historical v132 figures. The current verified-v133 10,000-case
+  no-structure SimplifyLocals aggregate confirms 1,662 tee-control outputs are
+  8 or 12 canonical bytes larger (+16,636 total); reduce this size-losing parity
+  gap. Ten SSA fixture families still differ in typed-loop proxies,
   reference/cast lowering and branch-table cleanup. Keep compact-import policy,
   name-metadata size gaps and unsampled tuple/downstream cases visible.
 - **Host-visible identity guards:** measure preset DFE/DIE size and performance
