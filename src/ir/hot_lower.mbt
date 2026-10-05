@@ -2674,6 +2674,11 @@ fn hot_lower_impl_emit_typed_param_block_with_entry_prefix(
   for idx = body_root_start; idx < root_ids.length(); idx = idx + 1 {
     body_root_ids.push(root_ids[idx])
   }
+  let body_label_stack = hot_lower_impl_push_label(
+    label_frames,
+    label_stack_head,
+    hot_control_node_label(func, id),
+  )
   let block_out : Array[Instruction] = []
   let body_stack = entry_values.copy()
   for _ in 0..<prefix_drop_root_count {
@@ -2695,7 +2700,7 @@ fn hot_lower_impl_emit_typed_param_block_with_entry_prefix(
       )
     }
     hot_lower_impl_emit_root(
-      func, child, use_def, label_frames, label_stack_head, body_stack, block_out,
+      func, child, use_def, label_frames, body_label_stack, body_stack, block_out,
       extra_locals, options,
     )
     let is_final_root = root_idx + 1 == body_root_ids.length()
@@ -2730,6 +2735,7 @@ fn hot_lower_impl_emit_typed_param_block_with_entry_prefix(
       Expr::new(block_out),
     ),
   )
+  hot_lower_impl_pop_label(label_frames, body_label_stack)
   hot_lower_impl_push_results(func, id, stack)
 }
 
@@ -3002,6 +3008,16 @@ fn hot_lower_impl_emit_root(
     }
   }
   let node = hot_node_get(func, id)
+  if node.op == HotOp::Block &&
+    node.imm1 == 0 &&
+    hot_lower_impl_label_is_used(label_frames, node.imm0) &&
+    hot_lower_impl_control_param_types(func, id).length() == 1 {
+    hot_lower_impl_emit_typed_param_block_with_entry_prefix(
+      func, id, use_def, label_frames, label_stack_head, stack, out, extra_locals,
+      options,
+    )
+    return
+  }
   if node.op == HotOp::Block &&
     node.imm1 == 0 &&
     !hot_lower_impl_label_is_used(label_frames, node.imm0) {

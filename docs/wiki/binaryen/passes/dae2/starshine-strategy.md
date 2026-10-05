@@ -3,6 +3,12 @@ kind: entity
 status: working
 last_reviewed: 2026-10-04
 sources:
+  - ../../../../../src/passes/dae2_effect_order_wbtest.mbt
+  - ../../../../../src/ir/hot_mutate.mbt
+  - ../../../../../src/ir/hot_verify.mbt
+  - ../../../../../src/ir/hot_virtual_entry_access_wbtest.mbt
+  - ../../../../../src/ir/hot_typed_prefix_verify_wbtest.mbt
+  - ../../../../../scripts/test/p00-correctness-runtime.ts
   - ../../../../../src/ir/hot_lift_typed_block_entry_wbtest.mbt
   - ../../../../../src/cmd/dae2_typed_block_entry_wbtest.mbt
   - ../../../../../src/passes/cleanup_subtree_reads_perf_wbtest.mbt
@@ -9011,3 +9017,26 @@ commands, full timing/RSS distributions and the separate unreachable evidence.
 Pre-existing staged/untracked work was preserved during this checkpoint.
 Validation and measurements above were recorded before the repair commit,
 with the pending candidates still present.
+
+
+## October 4, 2026: frame-correct typed entry boundaries
+
+The reachable multi-parameter entry repair above is retained. Focused replay
+additionally found a single-parameter live-label lowering error and captured
+mixed-tuple entry confusion. Inputs now precede the labeled block; its typed
+emitter manages the block label, while explicit prefixes distinguish pending
+outer values from entry lanes. Existing single-parameter implicit entries remain
+supported. Prefix verification checks lane arity/type with the module's type
+context, including indexed subtyping, rather than an empty environment.
+
+Polymorphic parents with virtual typed inputs undergo complete nested validation
+before dead computations are elided. No constants are inserted and concrete
+wrong types still reject. Elided bodies retain ordered `-1` source-local access
+slots for DAE2's consumers. Both DAE2 modes are covered, together with lower /
+encode / decode / validate controls and a dedicated external runtime lane for
+normal and forced-HOT routes. See [current bounded evidence and open gates](../../../tooling/validation-gates.md#october-4-2026-focused-frame-ordering-and-typed-entry-repairs).
+
+These are correctness repairs, not command-time gains. The existing quadratic
+prefix-producer scan is a separate performance risk pending measurement; complete
+DAE2 work includes analysis, replay, rewriting and cleanup outside narrow helper
+timers. Output-size gaps, 1× targets and renewed release gates remain open.

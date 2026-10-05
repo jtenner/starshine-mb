@@ -1220,6 +1220,7 @@ pub struct HotFunc {
   free_nodes : Array[Int]
   deleted_nodes : Array[Bool]
   mut revision : Int
+  mut validation_env : @validate.Env?
   mut lifted_local_accesses : HotLiftLocalAccesses?
 }
 pub fn HotFunc::new(locals? : HotLocals, body_result_type? : Int) -> Self

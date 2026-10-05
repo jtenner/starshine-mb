@@ -2414,6 +2414,46 @@ fn hot_lift_impl_lift_region(
 }
 
 ///|
+// Fully validated dead bodies may have virtual inputs and no HOT region. Keep
+// source-local slots in source order even when none of their nodes materialize.
+fn hot_lift_impl_reserve_elided_accesses(
+  body : Array[Instruction],
+  frames : HotLiftLabelFrames,
+) -> Unit {
+  for instr in body {
+    match instr {
+      Instruction::LocalGet(LocalIdx(index)) =>
+        frames.gets.push((index.reinterpret_as_int(), -1))
+      Instruction::LocalSet(LocalIdx(index))
+      | Instruction::LocalTee(LocalIdx(index)) =>
+        frames.writes.push((index.reinterpret_as_int(), -1))
+      Instruction::Block(_, Expr(nested))
+      | Instruction::Loop(_, Expr(nested))
+      | Instruction::TryTable(_, _, Expr(nested)) =>
+        hot_lift_impl_reserve_elided_accesses(nested, frames)
+      Instruction::If(_, yes, no) => {
+        hot_lift_impl_reserve_elided_accesses(yes, frames)
+        match no {
+          Some(nested) => hot_lift_impl_reserve_elided_accesses(nested, frames)
+          None => ()
+        }
+      }
+      Instruction::Try(_, Expr(nested), catches, _) => {
+        hot_lift_impl_reserve_elided_accesses(nested, frames)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, Expr(nested))
+            | @lib.LegacyCatchAll(Expr(nested)) =>
+              hot_lift_impl_reserve_elided_accesses(nested, frames)
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
 fn hot_lift_impl_lift_control(
   func : HotFunc,
   instr : Instruction,
@@ -2430,6 +2470,31 @@ fn hot_lift_impl_lift_control(
         hot_lift_impl_block_results(tc_state.env, block_type) {
         Ok(types) => types
         Err(err) => return Err(err)
+      }
+      if tc_state.polymorphic && values.length() < params.length() {
+        // Virtual bottom inputs have no concrete HOT producers. As with other
+        // unmaterializable instructions in a polymorphic frame, validate the
+        // complete instruction before eliding its unreachable computation.
+        // Concrete inputs and the child frame still receive all type checks.
+        let after_state = match Typecheck::typecheck(instr, tc_state) {
+          Ok(next) => next
+          Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
+        }
+        if label_frames.record_local_accesses {
+          hot_lift_impl_reserve_elided_accesses(body.0, label_frames)
+        }
+        match
+          hot_lift_impl_pop_typed_values_for_instr(
+            instr,
+            values,
+            concrete_values,
+            values.length(),
+            "concrete block entry values",
+          ) {
+          Ok(_) => ()
+          Err(err) => return Err(err)
+        }
+        return Ok(after_state)
       }
       let entry_state = match tc_state_pop_types(tc_state, params) {
         Ok(next) => next
@@ -2487,7 +2552,11 @@ fn hot_lift_impl_lift_control(
       }
       // Multi-parameter entries need an explicit prefix for lower's body stack.
       // Keep the established single-parameter carrier/spill lowering shape.
-      let entry_count = if params.length() > 1 {
+      let scalar_entry_has_outer_prefix = params.length() == 1 &&
+        entry_values.length() == 1 &&
+        hot_node_result_arity(func, entry_values[0]) == 1 &&
+        values.any(fn(value) { value != entry_values[0] })
+      let entry_count = if params.length() > 1 || scalar_entry_has_outer_prefix {
         entry_values.length()
       } else {
         0
@@ -3791,6 +3860,7 @@ pub fn hot_lift_body_result(
     },
   )
   let func = HotFunc::new(locals~)
+  func.validation_env = Some(env)
   hot_body_result_type_set(
     func,
     hot_type_intern_block_result(func, body_result_type),
@@ -3865,6 +3935,7 @@ fn hot_lift_impl_body_with_context_result(
     validation_locals~,
   )
   let func = HotFunc::new(locals~)
+  func.validation_env = Some(env)
   hot_body_result_type_set(
     func,
     hot_lift_impl_intern_control_result_type(

@@ -442,6 +442,70 @@ fn hot_verify_catch_payload_layout(
 }
 
 ///|
+fn hot_verify_explicit_block_prefix(
+  func : HotFunc,
+  id : NodeId,
+  node : HotNode,
+) -> Result[Unit, HotVerifyError] {
+  if node.imm1 < 0 || node.imm1 > node.child_count {
+    return Err(
+      HotVerifyError::InvalidControlChildCount(id, node.child_count, node.imm1),
+    )
+  }
+  if node.imm1 == 0 {
+    return Ok(())
+  }
+  let params = match hot_type_get(func, node.ty) {
+    BlockResultResolved(_, params, _) => params
+    _ => return Err(HotVerifyError::InvalidNodeType(id, node.ty))
+  }
+  let mut param = 0
+  let mut slot = 0
+  while slot < node.imm1 {
+    let child = hot_child_get(func, id, slot)
+    let types = hot_type_results(func, hot_node_type(func, child))
+    let mut end = slot + 1
+    while end < node.imm1 && hot_child_get(func, id, end) == child {
+      end += 1
+    }
+    let lanes = end - slot
+    if types.is_empty() {
+      if lanes != 1 {
+        return Err(HotVerifyError::InvalidControlChild(id, slot, child))
+      }
+    } else {
+      if lanes > types.length() || param + lanes > params.length() {
+        return Err(HotVerifyError::InvalidControlChild(id, slot, child))
+      }
+      for lane in 0..<lanes {
+        let actual = types[types.length() - lanes + lane]
+        let expected = params[param + lane]
+        if actual != expected && actual != @lib.ValType::bottom() {
+          let env = match func.validation_env {
+            Some(env) => env
+            None => @validate.empty_env()
+          }
+          let matches = @validate.Match::matches(actual, expected, env)
+          if !matches {
+            return Err(
+              HotVerifyError::InvalidControlChild(id, slot + lane, child),
+            )
+          }
+        }
+      }
+      param += lanes
+    }
+    slot = end
+  }
+  if param != params.length() {
+    return Err(
+      HotVerifyError::InvalidControlChildCount(id, param, params.length()),
+    )
+  }
+  Ok(())
+}
+
+///|
 pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
   hot_verify_control_impl(func)
 }
@@ -477,7 +541,7 @@ fn hot_verify_control_impl(
     }
 
     match node.op {
-      HotOp::Block | HotOp::Loop =>
+      HotOp::Block | HotOp::Loop => {
         for slot = 0; slot < node.child_count; slot = slot + 1 {
           let child_id = hot_child_get(func, node_id, slot)
           if child_id == HOT_NONE_NODE {
@@ -486,6 +550,13 @@ fn hot_verify_control_impl(
             )
           }
         }
+        if node.op == HotOp::Block {
+          match hot_verify_explicit_block_prefix(func, node_id, node) {
+            Ok(_) => ()
+            Err(err) => return Err(err)
+          }
+        }
+      }
       HotOp::If => {
         let entry_count = match hot_type_get(func, node.ty) {
           BlockResultResolved(_, params, _) => params.length()

@@ -344,6 +344,8 @@ pub struct HotFunc {
   free_nodes : Array[NodeId]
   deleted_nodes : Array[Bool]
   mut revision : Int
+  // Shared module type context, retained once per lifted function for verification.
+  mut validation_env : @validate.Env?
   mut lifted_local_accesses : HotLiftLocalAccesses?
 }
 
@@ -383,6 +385,7 @@ pub fn HotFunc::new(
     free_nodes: [],
     deleted_nodes: [],
     revision: 0,
+    validation_env: None,
     lifted_local_accesses: None,
   }
 }

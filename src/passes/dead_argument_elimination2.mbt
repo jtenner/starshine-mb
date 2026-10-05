@@ -2017,6 +2017,51 @@ test "dae2 scalar scratch retains nested GC tuple types" {
 }
 
 ///|
+test "dae2 keeps live single param labels and mixed tuple inputs on raw and HOT rewrite routes" {
+  for
+    source in [
+      "(module (func $callee (param i32 i32 i64) (result i32) local.get 0 block (param i32) (result i32) local.get 1 br_if 0 end) (func (export \"run\") (param i32 i32) (result i32) local.get 0 local.get 1 i64.const 99 call $callee))",
+      "(module (import \"host\" \"pair\" (func (result i32 i64))) (func $callee (param i32 i64 i32) (result i64) local.get 1 block (param i64) (result i64) i64.const 1 i64.add end) (func (export \"run\") (result i64) call 0 i32.const 99 call $callee))",
+      "(module (import \"host\" \"f\" (func (param i32) (result i32))) (func $callee (param i64 i32) (result i64) (local i64) i32.const 19 call 0 local.get 0 block (param i32 i64) (result i64) local.set 2 drop local.get 2 end) (func (export \"run\") (result i64) i64.const 23 i32.const 99 call $callee))",
+    ] {
+    let input = pass_test_module_from_wat(source)
+    let @lib.FuncType(original_params, _) = @validate.Env::new()
+      .with_module(input)
+      .get_functype_by_funcidx(
+        @lib.FuncIdx::new(dae_imported_func_count(input).to_uint()),
+      )
+      .unwrap()
+    let original_count = original_params.length()
+    for raw in [false, true] {
+      let output = dae2_run_module_pass(
+        input,
+        false,
+        raw_analysis=raw,
+        raw_conditionals=raw,
+        raw_rewrite=raw,
+        stack_suffix_rewrite=raw,
+      ).unwrap()
+      @validate.validate_module(output).unwrap()
+      let bytes = @binary.encode_module(output).unwrap()
+      @validate.validate_module(@binary.decode_module(bytes).unwrap()).unwrap()
+      let imported = dae_imported_func_count(output)
+      let @lib.FuncType(params, _) = @validate.Env::new()
+        .with_module(output)
+        .get_functype_by_funcidx(@lib.FuncIdx::new(imported.to_uint()))
+        .unwrap()
+      assert_true(params.length() < original_count)
+      let optimizing = run_hot_pipeline(output, HotPipelineOptions::new(), [
+        "simplify-locals", "vacuum",
+      ]).unwrap()
+      @validate.validate_module(optimizing).unwrap()
+      @validate.validate_module(
+        @binary.decode_module(@binary.encode_module(optimizing).unwrap()).unwrap(),
+      ).unwrap()
+    }
+  }
+}
+
+///|
 test "dae2 typed block entry preserves effectful producers when pruning a parameter" {
   let input = pass_test_module_from_wat(
     "(module (import \"host\" \"f\" (func (param i32) (result i32))) (global (export \"state\") (mut i32) (i32.const 0)) (func $callee (param i32 i32) (result i32) (local i32) i32.const 17 global.set 0 i32.const 19 call 0 local.get 0 block (param i32 i32) (result i32) i32.div_s end local.set 2 local.get 2 call 0) (func (export \"run\") (param i32) (result i32) local.get 0 i32.const 99 call $callee))",
