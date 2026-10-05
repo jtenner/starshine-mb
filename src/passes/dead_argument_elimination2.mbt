@@ -363,9 +363,10 @@ fn dae2_entry_read_sources(
           None => ()
         }
         let data = @ir.hot_node_get(func, item)
+        // This checked header bounds every slot; the source walk does not edit HOT.
         stack.push(-item - 1)
         for slot = data.child_count - 1; slot >= 0; slot = slot - 1 {
-          let child = @ir.hot_child_get(func, item, slot)
+          let child = func.children[data.child_base + slot]
           if child >= 0 {
             stack.push(child)
           }
@@ -409,7 +410,7 @@ fn dae2_entry_read_sources(
       }
     }
     for slot in 0..<data.child_count {
-      let child = @ir.hot_child_get(func, node, slot)
+      let child = func.children[data.child_base + slot]
       if child >= 0 && @ir.hot_node_is_live(func, child) {
         first_roots[child] = first_roots[child].min(first_roots[node])
         sources[child] = sources[child].max(sources[node])
@@ -547,6 +548,8 @@ fn dae2_analyze_function(
     }
     let value = info.node_location_base + node
     let data = @ir.hot_node_get(func, node)
+    // Bounded child loops reuse this checked, immutable header. Fixed/callee
+    // argument accesses retain the general getter and its slot checks.
     match data.op {
       @ir.LocalGet => {
         if !writes_scanned {
@@ -714,13 +717,13 @@ fn dae2_analyze_function(
       }
       @ir.Return =>
         for slot = 0; slot < data.child_count; slot = slot + 1 {
-          let child = @ir.hot_child_get(func, node, slot)
+          let child = func.children[data.child_base + slot]
           graph.edge(info.result_location, dae2_node_location(info, child))
         }
       @ir.Drop => ()
       @ir.Block | @ir.Loop =>
         for slot = 0; slot < data.child_count; slot = slot + 1 {
-          let child = @ir.hot_child_get(func, node, slot)
+          let child = func.children[data.child_base + slot]
           if child >= 0 && @ir.hot_node_result_arity(func, child) > 0 {
             graph.edge(value, dae2_node_location(info, child))
           }
@@ -732,13 +735,13 @@ fn dae2_analyze_function(
         for arm = 1; arm < data.child_count; arm = arm + 1 {
           graph.edge(
             value,
-            dae2_node_location(info, @ir.hot_child_get(func, node, arm)),
+            dae2_node_location(info, func.children[data.child_base + arm]),
           )
         }
       }
       @ir.TryTable => {
         for slot = 0; slot < data.child_count; slot = slot + 1 {
-          let child = @ir.hot_child_get(func, node, slot)
+          let child = func.children[data.child_base + slot]
           graph.observe(dae2_node_location(info, child))
         }
         for arm in @ir.hot_catch_info_get(func, data.imm1).catches {
@@ -753,7 +756,7 @@ fn dae2_analyze_function(
       }
       @ir.Continuation => {
         for slot = 0; slot < data.child_count; slot = slot + 1 {
-          let child = @ir.hot_child_get(func, node, slot)
+          let child = func.children[data.child_base + slot]
           graph.observe(dae2_node_location(info, child))
         }
         for label in @ir.hot_continuation_targets(func, node) {
@@ -768,7 +771,7 @@ fn dae2_analyze_function(
       | @ir.BrOnCast
       | @ir.BrOnCastFail => {
         for slot = 0; slot < data.child_count; slot = slot + 1 {
-          let child = @ir.hot_child_get(func, node, slot)
+          let child = func.children[data.child_base + slot]
           graph.observe(dae2_node_location(info, child))
         }
         // Branch payload types stay fixed. A result-bearing target therefore
@@ -785,7 +788,7 @@ fn dae2_analyze_function(
         if data.child_count > 0 {
           let removable = dae2_removable_node(func, node)
           for slot = 0; slot < data.child_count; slot = slot + 1 {
-            let child = @ir.hot_child_get(func, node, slot)
+            let child = func.children[data.child_base + slot]
             let source = dae2_node_location(info, child)
             if removable {
               graph.edge(value, source)
