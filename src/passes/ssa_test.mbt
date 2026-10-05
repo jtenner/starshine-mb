@@ -673,3 +673,34 @@ test "full ssa public pass handles explicit exceptional predecessors" {
   assert_true(locals.length() >= 4, msg=locals.to_string())
   assert_true(ssa_full_test_local_tee_indices(instrs).length() >= 2)
 }
+
+///|
+test "full ssa leaves throwing calls inside try-table local writes unchanged" {
+  // A call can throw after local 1 is written. The catch continuation must
+  // observe that write; the current merge graph lacks this call edge.
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func $thrower throw $e)
+    #|  (func (export "main") (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    block $h
+    #|      try_table (catch $e $h)
+    #|        i32.const 7
+    #|        local.set 1
+    #|        call $thrower
+    #|        unreachable
+    #|      end
+    #|    end
+    #|    local.get 1))
+  let input = pass_test_module_from_wat(source)
+  let output = pass_test_run_pipeline(source, ["ssa"]).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  let @lib.Func(_, @lib.Expr(before)) = input.code_sec.unwrap().0[1]
+  let @lib.Func(_, @lib.Expr(after)) = output.code_sec.unwrap().0[1]
+  @debug.assert_eq(after, before)
+  let hot_output = run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa"]).unwrap()
+  let @lib.Func(_, @lib.Expr(hot_after)) = hot_output.code_sec.unwrap().0[1]
+  @debug.assert_eq(hot_after, before)
+}

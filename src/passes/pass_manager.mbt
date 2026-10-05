@@ -32126,6 +32126,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     })
   }
   if descriptor.name == "ssa" {
+    if ssa_full_raw_has_call_in_try_table(instrs, false) {
+      return Some({
+        reason: "full-ssa-throwing-try-table-call-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     let hot_func = match
       @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
       Ok(hot_func) => hot_func
