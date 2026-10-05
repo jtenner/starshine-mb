@@ -509,3 +509,34 @@ Canonical size gaps remain DAE2-O +99,251 B, CL +78,800 B and OI +33,494 B.
 Full CI, coverage, renewed aggregates, quiet-host/clean-source balanced final
 comparison and complete correctness/runtime evidence remain release blockers.
 This checkpoint saves forward progress without claiming campaign completion.
+
+## October 5 2026 integrated validator renewal
+
+The Dewdrop-integrated `master` production tree at `1d4043c20` passes the
+complete bounded wasm-gc suite: **13,745/13,745**, zero failures. The native
+release aggregate over `tests/spec` also passes after branch payload, bottom
+reference, descriptor cast, branch-table and core tag-policy repairs. No new
+fixture skips, mismatch allowances or disabled passing tests were introduced.
+The 28 new validator/feature regressions, 544 affected metadata/flatten/RUME/
+command tests and 79 negative typecheck/branch-table tests pass separately.
+
+Commands and local raw logs:
+
+- `moon test --target wasm-gc -p jtenner/starshine`:
+  `.tmp/spec-repair-full-green.log`, 148.056 seconds including build/test work.
+- Native release `src/wast/spec_harness.mbt`, filtered to the complete fixture
+  aggregate: `.tmp/spec-repair-harness-final.log`, 49.232 seconds.
+- `.tmp/spec-repair-focused-final.log`, `.tmp/spec-repair-final-affected.log`
+  and `.tmp/spec-repair-negative-diagnostic.log` retain focused evidence.
+
+These are test-gate observations, not quiet-host performance comparisons.
+Both aggregate activities exceed Dewdrop's 30-second compiler activity budget;
+their build/run costs remain an operational risk. The older saved failing
+checkpoints remain historical evidence, not the current bounded-suite status.
+This renewal does not close the independent forced-HOT runtime-order,
+coverage, aggregate parity, artifact-size or release-performance blockers.
+
+The maintained contracts are [stack typing](../validate/stack-polymorphism-and-bottom.md),
+[descriptor branches](../wast/reference-instruction-authoring.md),
+[tag feature policy](../wast/exception-tag-authoring.md) and
+[structured versus opaque metadata](../wast/code-metadata-and-function-annotations.md).

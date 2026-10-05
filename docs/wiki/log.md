@@ -26379,3 +26379,16 @@ arrays/typecheck wrappers from the completed return packaging change.
   affected flatten, RUME, command and direct-metadata guard tests pass in the
   544-test wasm-gc lane. This restores narrow cleanup behavior without weakening
   generic guards or claiming full pass-fuzz/performance closeout.
+
+### 2026-10-05 — Renew the Dewdrop-integrated bounded validation gate
+
+- [The current integrated gate](tooling/validation-gates.md#october-5-2026-integrated-validator-renewal)
+  passes 13,745/13,745 bounded wasm-gc tests and the complete native spec
+  aggregate. It supersedes saved failure counts as the current test status,
+  while preserving them as historical debugging evidence. The final remaining
+  assertion was stale error text: concrete branch-table operands still reject,
+  now with an operand-based `type mismatch` diagnostic.
+- No production optimizer parity/performance closeout is inferred from these
+  tests. Independent P00 runtime, size, coverage and full release gates remain
+  open. Aggregate build/test costs exceed the consumer's 30-second activity
+  budget; captured times are not isolated performance comparisons.

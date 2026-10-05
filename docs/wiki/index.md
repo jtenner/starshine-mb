@@ -4,6 +4,8 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Integrated validator renewal](tooling/validation-gates.md#october-5-2026-integrated-validator-renewal) — The Dewdrop-integrated bounded wasm-gc suite passes 13,745/13,745; the complete native spec aggregate passes without new skips. Independent runtime, parity, size and performance release blockers remain open.
+
 - [Branch payload and bottom typing](validate/stack-polymorphism-and-bottom.md) — Conditional branches restore declared label types; reference null checks accept bottom; branch tables check actual operands against equal-arity targets. [Descriptor branches](wast/reference-instruction-authoring.md) use compatible GC heaps and preserve source exactness.
 - [Core tags and suspension policy](wast/exception-tag-authoring.md) — Core and legacy fixtures disable stack switching; user and proposal scripts keep the extension. [Feature discovery](wasm-stack-switching-boundary.md) covers resultful tags, continuation declarations, heap references and instructions.
 - [Branch-hint metadata policy](wast/code-metadata-and-function-annotations.md) — RUME remaps structured function annotations; the final-size lane discards known branch hints before guarding all remaining opaque offsets. Focused repair evidence does not claim a new full-pass parity signoff.

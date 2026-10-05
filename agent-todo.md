@@ -161,6 +161,11 @@ quality gates. Keep traced inner and normal command measurements separate.
   [recorded separately](docs/wiki/tooling/validation-gates.md#october-5-2026-resolved-default-suite-baseline).
   This closes the 30-test backlog item, not the independent P00 runtime and
   validator repros or the repository-wide release gates.
+- **Integrated bounded-suite renewal:** the Dewdrop-integrated `master` now
+  passes 13,745/13,745 wasm-gc tests and the complete native spec aggregate after
+  validator and narrow metadata repairs. [Current gate and scope](docs/wiki/tooling/validation-gates.md#october-5-2026-integrated-validator-renewal)
+  supersede saved failure counts, not the separate runtime, size or performance
+  blockers below.
 - **October 5 retry:** exact-package focused tests compiled intermediate output
   but initial/cached linking retries were terminated at thermal deadlines before
   tests ran. Host readings reached 100°C. The latest retained-call repair still
