@@ -517,6 +517,56 @@ fn ssa_nomerge_has_local_writes(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
+fn ssa_nomerge_subtree_has_local_write(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if ssa_nomerge_subtree_has_local_write(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ssa_nomerge_has_operand_writing_terminator(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::BrIf
+      | @ir.HotOp::BrTable
+      | @ir.HotOp::BrOnNull
+      | @ir.HotOp::BrOnNonNull
+      | @ir.HotOp::BrOnCast
+      | @ir.HotOp::BrOnCastFail => ()
+      _ => continue
+    }
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      if ssa_nomerge_subtree_has_local_write(
+          func,
+          @ir.hot_child_get(func, node_id, slot),
+        ) {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
 fn ssa_nomerge_is_control_region_slot(op : @ir.HotOp, slot : Int) -> Bool {
   match op {
     @ir.HotOp::Block | @ir.HotOp::Loop => true
@@ -859,6 +909,12 @@ fn ssa_nomerge_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   }
   let cfg = pass_require_cfg(ctx, func)
   let ssa = pass_require_ssa(ctx, func)
+  // Destruction inserts predecessor phi copies before a terminator root.
+  // Operand writes run while evaluating that root, so the copies would read
+  // the pre-branch value instead of the value reaching its successor.
+  if ssa_nomerge_has_operand_writing_terminator(func) {
+    return HotPassResult::unchanged()
+  }
   if !ssa_nomerge_needs_rewrite(func, ssa) {
     return HotPassResult::unchanged()
   }
