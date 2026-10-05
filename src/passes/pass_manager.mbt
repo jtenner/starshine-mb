@@ -646,9 +646,14 @@ fn vacuum_heap_is_removable_if_unused(
     if slot < 0 || slot >= @ir.hot_child_count(func, node_id) {
       return false
     }
-    match
-      @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, node_id, slot)) {
-      Some(@lib.I32Const(@lib.I32(value))) => value >= 0
+    let length_node = @ir.hot_child_get(func, node_id, slot)
+    let length = @ir.hot_node_get(func, length_node)
+    match length.op {
+      @ir.HotOp::Const =>
+        match @ir.hot_const_get(func, length.imm0) {
+          @ir.HotConstPayload::I32Const(@lib.I32(value)) => value >= 0
+          _ => false
+        }
       _ => false
     }
   }
