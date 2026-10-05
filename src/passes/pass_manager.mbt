@@ -642,14 +642,14 @@ fn vacuum_heap_is_removable_if_unused(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
 ) -> Bool {
-  let length_is_not_negative_const = fn(slot : Int) {
+  let length_is_nonnegative_const = fn(slot : Int) {
     if slot < 0 || slot >= @ir.hot_child_count(func, node_id) {
-      return true
+      return false
     }
     match
       @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, node_id, slot)) {
       Some(@lib.I32Const(@lib.I32(value))) => value >= 0
-      _ => true
+      _ => false
     }
   }
   match @ir.hot_node_exact_instr(func, node_id) {
@@ -660,9 +660,9 @@ fn vacuum_heap_is_removable_if_unused(
       | @lib.Instruction::RefEq
       | @lib.Instruction::RefI31
     ) => true
-    Some(@lib.Instruction::ArrayNew(_)) => length_is_not_negative_const(1)
+    Some(@lib.Instruction::ArrayNew(_)) => length_is_nonnegative_const(1)
     Some(@lib.Instruction::ArrayNewDefault(_)) =>
-      length_is_not_negative_const(0)
+      length_is_nonnegative_const(0)
     Some(@lib.Instruction::ContNew(_)) => {
       // Allocation itself has no observable effect when the result is unused.
       // Its nullable function operand can still trap (Binaryen effects.h).
