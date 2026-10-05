@@ -127,6 +127,8 @@ A branch instruction is only terminal after its own operands validate. For examp
 
 `br_table` requires equal target arity, not identical target types. The same actual payload must match every target: a virtual or explicit bottom value can match different numeric types, and a concrete reference can subtype multiple target references. Concrete incompatible operands still fail after `unreachable`. The [branch-table regressions](../../../src/validate/br_table_polymorphism_wbtest.mbt) cover these boundaries; Binaryen 133 accepts both the mixed-numeric unreachable fixture and the common-reference-subtype fixture.
 
+An incompatible concrete branch-table payload reports `type mismatch`, not a requirement for identical label types. The existing negative typecheck fixture retains its rejection assertion with that operand-based diagnostic.
+
 ### `br_if` fallthrough keeps payload values
 
 `br_if` is conditional. It pops the `i32` condition, consumes the target payload, and restores that payload using the declared label types on the not-taken path. It must not retain narrower input reference types. If the frame supplies missing operands through polymorphic underflow, the restored label types are concrete stack entries and still participate in end-stack checks. Reference branches likewise restore their declared label prefix before adding any fallthrough reference result. The [conditional branch regressions](../../../src/validate/conditional_branch_types_wbtest.mbt) cover subtype widening, missing operands, and preservation of deeper stack entries. The WAST-facing examples live in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md).

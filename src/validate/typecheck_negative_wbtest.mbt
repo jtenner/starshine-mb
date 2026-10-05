@@ -815,14 +815,12 @@ test "Typecheck br_table with invalid table label" {
 test "Typecheck br_table with mismatched label types" {
   let env = empty_env().with_labels([[ValType::i32()], [ValType::i64()]])
   let state = tcneg_make_state(env, [ValType::i32(), ValType::i32()])
-  // label 0 expects [i32], label 1 expects [i64] - mismatch
+  // The actual i32 payload matches label 0 but not label 1's i64 operand.
   let result = Typecheck::typecheck(
     Instruction::br_table([LabelIdx::new(1)], LabelIdx::new(0)),
     state,
   )
-  tcneg_assert_err_contains(
-    result, "br_table target labels have different argument types",
-  )
+  tcneg_assert_err_contains(result, "type mismatch")
 }
 
 ///|
