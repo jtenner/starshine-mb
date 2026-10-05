@@ -9040,3 +9040,13 @@ These are correctness repairs, not command-time gains. The existing quadratic
 prefix-producer scan is a separate performance risk pending measurement; complete
 DAE2 work includes analysis, replay, rewriting and cleanup outside narrow helper
 timers. Output-size gaps, 1× targets and renewed release gates remain open.
+
+The forced-HOT discarded-result runtime fixture additionally reproduced reversed
+import effects (`[23,19]` versus `[19,23]`) despite valid bytes and one call each.
+A fresh retained-prefix block hid the earlier internal call from lowering's
+carried-value query. Its replacement now retains the original call position;
+global mutation defaults remain unchanged. Both modes have a failing-before-fix
+regression in `src/passes/dae2_effect_order_wbtest.mbt`. Renewed direct tests and
+native event/trap verification remain pending; normal-route observations do not
+sign off the fallback. The intervening-global-write fixture already passed before
+this change and is a control rather than an additional confirmed defect.

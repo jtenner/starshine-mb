@@ -1535,6 +1535,23 @@ pub fn hot_replace_node_preserving_position(
 }
 
 ///|
+// A retained prefix can replace an expression with a separate region node.
+// Keep that region at the expression's position while retaining both nodes.
+pub fn hot_preserve_replacement_position(
+  func : HotFunc,
+  replacement : NodeId,
+  original : NodeId,
+) -> Unit {
+  let order = hot_node_get(func, original).order
+  hot_replace_node(
+    func,
+    replacement,
+    { ..hot_node_get(func, replacement), order, },
+    preserve_value_order=true,
+  )
+}
+
+///|
 pub fn hot_replace_local_set_with_drop(
   func : HotFunc,
   node_id : NodeId,

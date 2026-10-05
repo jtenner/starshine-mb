@@ -596,6 +596,8 @@ pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]
 
 pub fn hot_pass_requires(HotPassDescriptor) -> Array[HotAnalysis]
 
+pub fn hot_preserve_replacement_position(HotFunc, Int, Int) -> Unit
+
 pub fn hot_region_body_ref(HotFunc, Int) -> HotRegionRef
 
 pub fn hot_region_catch_list_ref(HotFunc, Int) -> HotRegionRef

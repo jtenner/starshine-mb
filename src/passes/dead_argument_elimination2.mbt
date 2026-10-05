@@ -1056,7 +1056,7 @@ fn dae2_rewrite_node(
           func,
           @ir.hot_node_type(func, call),
         )
-        if result_types.is_empty() {
+        let replacement = if result_types.is_empty() {
           dae2_void_sequence(func, prefix)
         } else {
           // Intern a resolved signature to retain multi-value calls.
@@ -1077,6 +1077,11 @@ fn dae2_rewrite_node(
             prefix,
           )
         }
+        // The equivalent wrapper retains argument and call effects inside its
+        // region. Its fresh order must not let a later root's carried value
+        // cross the original call position during lowering.
+        @ir.hot_preserve_replacement_position(func, replacement, node)
+        replacement
       }
     }
     @ir.Return =>
