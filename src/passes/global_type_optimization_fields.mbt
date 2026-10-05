@@ -222,6 +222,55 @@ fn gto_public_types(
       }
     None => ()
   }
+  let external_table_types : Array[@lib.RefType] = []
+  let external_tables = Array::make(context.tables.length(), false)
+  let mut imported_table_idx = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for @lib.Import(_, _, kind) in imports {
+        match kind {
+          @lib.TableExternType(@lib.TableType(ref_type, _)) => {
+            external_table_types.push(ref_type)
+            external_tables[imported_table_idx] = true
+            imported_table_idx += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for @lib.Export(_, kind) in exports {
+        match kind {
+          @lib.TableExternIdx(@lib.TableIdx(index)) => {
+            let @lib.TableType(ref_type, _) = context.tables[index.to_int()]
+            external_table_types.push(ref_type)
+            external_tables[index.to_int()] = true
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  if !external_table_types.is_empty() {
+    let env = @validate.Env::new().with_module(mod_)
+    for raw_idx, type_idx in context.func_type_idxs {
+      let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
+      if external_table_types.any(fn(table_type) {
+          gsi_func_ref_matches_table(env, func_idx, table_type)
+        }) {
+        dae_mark_used_type_idx(type_idx, exposed)
+      }
+    }
+    match mod_.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        for @lib.Func(_, @lib.Expr(body)) in funcs {
+          dae2_mark_host_table_call_types(body, external_tables, exposed)
+        }
+      None => ()
+    }
+  }
   for i, visible in exposed {
     if visible {
       graph.observe(i)
