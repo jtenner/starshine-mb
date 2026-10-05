@@ -39,6 +39,8 @@ related:
 
 # Starshine Strategy For `global-type-optimization`
 
+> **Superseded status:** The boundary-only and unimplemented claims below describe the original port plan. Starshine now has a partial closed-world implementation; see the [current pass index](./index.md) and [fuzzing status](./fuzzing.md). The October 2026 descriptor field-index repair is recorded in the index.
+
 Use this page together with the retained current-main source bridge [research note 0694](./index.md); the related living pages retain direct tagged source URLs for the earlier contract.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 

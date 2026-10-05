@@ -33,6 +33,7 @@ related:
 
 - `global-type-optimization` is an upstream Binaryen **module pass**.
 - Starshine now has a **partial closed-world implementation** in [`global_type_optimization.mbt`](../../../../../src/passes/global_type_optimization.mbt). It covers the Binaryen 133 descriptor placeholder cases and an isolated unread private struct. The older boundary-only descriptions in this dossier predate the v133 corpus; [current fuzzing status](./fuzzing.md) records the open parity gap.
+- Descriptor placeholder insertion now shifts every retained field access, including writes and atomic forms, and traverses `try`/`try_table` bodies and legacy catches. The [focused regressions](../../../../../src/passes/binaryen133_gto_red_wbtest.mbt) reproduce the former wrong-field write and nested read; this repairs a correctness bug in the partial implementation, not the broader parity gap.
 - Upstream Binaryen `pass.cpp` registers the short CLI name:
   - `gto`
 - The local tracker and registry use the fuller descriptive name:

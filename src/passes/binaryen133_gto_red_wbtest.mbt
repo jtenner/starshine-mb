@@ -140,6 +140,79 @@ test "Binaryen 133 GTO inserts inherited placeholders and remaps subtype field r
 }
 
 ///|
+test "GTO remaps descriptor writes after inserting a leading field" {
+  let input = match
+    @wast.wast_to_binary_module(
+      "(module (rec (type $s (sub (descriptor $d) (struct))) (type $d (sub (describes $s) (struct (field (mut i32)) (field (mut i32)))))) (func (export \"run\") (result i32) (local $d (ref null $d)) (local.set $d (struct.new $d (i32.const 10) (i32.const 20))) (drop (extern.convert_any (struct.new_default_desc $s (struct.new $d (i32.const 1) (i32.const 2))))) (drop (struct.get $d 0 (local.get $d))) (struct.get $d 1 (local.get $d))))",
+    ) {
+    Ok(input) => input
+    Err(err) => fail("parse: \{err}")
+  }
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("invalid fixture: \{err}")
+  }
+  let funcs = input.code_sec.unwrap().0.copy()
+  let @lib.Func(locals, @lib.Expr(original)) = funcs[0]
+  let body = original.copy()
+  let insertion = body.length() - 2
+  body.insert(insertion, @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  body.insert(insertion + 1, @lib.Instruction::i32_const(@lib.I32(99)))
+  body.insert(
+    insertion + 2,
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(1U), @lib.U32(1U)),
+  )
+  funcs[0] = @lib.Func::new(locals, @lib.Expr::new(body))
+  let output = binaryen133_run_gto_module(
+    input.with_code_sec(@lib.CodeSec::new(funcs)),
+  )
+  let fields = match cl_module_subtypes(output)[1].get_comptype() {
+    @lib.StructCompType(fields) => fields
+    _ => fail("expected descriptor struct")
+  }
+  assert_eq(fields.length(), 3)
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_true(body.any(fn(i) { i is @lib.StructSet(_, @lib.U32(2U)) }))
+}
+
+///|
+test "GTO remaps descriptor reads inside try table bodies" {
+  let input = pass_test_module_from_wat(
+    "(module (rec (type $s (sub (descriptor $d) (struct))) (type $d (sub (describes $s) (struct (field (mut i32)) (field (mut i32)))))) (func (export \"run\") (result i32) (local $d (ref null $d)) (local.set $d (struct.new $d (i32.const 10) (i32.const 20))) (drop (extern.convert_any (struct.new_default_desc $s (struct.new $d (i32.const 1) (i32.const 2))))) (drop (struct.get $d 0 (local.get $d))) (struct.get $d 1 (local.get $d))))",
+  )
+  let funcs = input.code_sec.unwrap().0.copy()
+  let @lib.Func(locals, @lib.Expr(original)) = funcs[0]
+  let body = original.copy()
+  let insertion = body.length() - 2
+  body.insert(
+    insertion,
+    @lib.Instruction::try_table(
+      @lib.BlockType::void_(),
+      [],
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::struct_get(@lib.TypeIdx::new(1U), @lib.U32(1U)),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  )
+  funcs[0] = @lib.Func::new(locals, @lib.Expr::new(body))
+  let output = binaryen133_run_gto_module(
+    input.with_code_sec(@lib.CodeSec::new(funcs)),
+  )
+  let @lib.Func(_, @lib.Expr(rewritten)) = output.code_sec.unwrap().0[0]
+  let mut found = false
+  for instr in rewritten {
+    match instr {
+      @lib.TryTable(_, _, @lib.Expr(nested)) =>
+        found = nested.any(fn(i) { i is @lib.StructGet(_, @lib.U32(2U)) })
+      _ => ()
+    }
+  }
+  assert_true(found)
+}
+
+///|
 test "Binaryen 133 GTO prunes inherited fields and makes surviving reads immutable" {
   let output = binaryen133_run_gto(
     "(module (type $base (sub (struct (field (mut i32))))) (type $mid (sub $base (struct (field (mut i32)) (field (mut i32))))) (type $leaf (sub final $mid (struct (field (mut i32)) (field (mut i32)) (field (mut i32))))) (func (export \"run\") (result i32) (struct.get $leaf 2 (struct.new $leaf (i32.const 1) (i32.const 2) (i32.const 3)))))",
