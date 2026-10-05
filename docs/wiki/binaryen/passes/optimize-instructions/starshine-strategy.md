@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-04
 sources:
+  - ../../../../../src/ir/hot_mutate.mbt
+  - ../../../../../src/cmd/p00_oi_order_wbtest.mbt
+  - ../../../../../scripts/test/p00-correctness-runtime.ts
   - ../../../../../src/passes/duplicate_function_elimination.mbt
   - ../../../../../src/passes/type_remap_lazy_wbtest.mbt
   - ../../../../../src/passes/type_remap_lazy_perf_wbtest.mbt
@@ -2522,3 +2525,24 @@ measurements are untouched. Manual review is not independent-agent signoff.
 All four 1× targets, canonical deficits, P00 correctness and deferred full CI,
 coverage and aggregate fuzz remain open. Local `encoded-string-free-*` records
 retain exact commands, input/build/source hashes, checks and measurement rows.
+
+
+## October 4, 2026: retain the replaced expression's evaluation position
+
+The saved zero-fold / intervening-select fixture reproduced `[1,2]` becoming
+`[2,1]` while the result stayed 5. Tracing `OiZeroBitsReplacementFact` through
+`OiDroppedChildrenReplacementFact` showed the equivalent replacement block
+receiving a fresh order (14) rather than the original expression's position (3).
+Lowering's carried-value dependency query does not inspect effects hidden inside
+that body region. The OI block-body replacement now copies the original node
+order through a dedicated position-preserving mutation helper; merely enabling
+`preserve_value_order` on a freshly ordered supplied node was insufficient.
+`hot_replace_node`'s global default and whole-function admission are unchanged.
+
+Direct and command controls prove that the zero-result fold stays active. The
+external runtime lane requires result 5, events `[1,2]`, exactly one execution of
+each import, and only `[1]` when the first import traps. [Repair evidence and open
+gates](../../../tooling/validation-gates.md#october-4-2026-focused-frame-ordering-and-typed-entry-repairs)
+also distinguish strict frame validation and raw lower integration from OI
+rewrites. Complete pipeline work outside the narrow inner OI timer remains the
+profiling target; no performance or 1× completion follows from this repair.

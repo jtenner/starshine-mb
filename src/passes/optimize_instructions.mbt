@@ -11894,6 +11894,53 @@ fn optimize_instructions_replace_with_const_i64(
 }
 
 ///|
+test "OI zero bits replacement retains the original expression evaluation position" {
+  let input = pass_test_module_from_wat(
+    "(module (import \"env\" \"log\" (func $log (param i32))) (func $se (param i32) (result i32) (call $log (local.get 0)) (i32.const 0)) (func (export \"f\") (result i32) (local i32) i32.const 1 call $se i32.const 0 i32.and i32.const 5 i32.const 0 i32.const 2 call $se i32.const 0 select local.set 0 i32.add))",
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(2U))
+  let mut zero = -1
+  for id in 0..<@ir.hot_node_count(func) {
+    if @ir.hot_node_exact_instr(func, id) == Some(@lib.Instruction::i32_and()) {
+      zero = id
+    }
+  }
+  assert_true(zero >= 0)
+  let old_order = @ir.hot_node_get(func, zero).order
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  let fact = OiZeroBitsReplacementFact::from_node(
+    ctx,
+    func,
+    @bitset.BitSet::new(@ir.hot_node_count(func)),
+    OptimizeInstructionsScratch::new(@ir.hot_node_count(func), 1),
+    zero,
+  ).unwrap()
+  assert_true(fact.dropped_children.needs_drops())
+  fact.apply(ctx, func, zero)
+  let replacement = @ir.hot_node_get(func, zero)
+  assert_true(replacement.op is @ir.HotOp::Block)
+  assert_eq(replacement.order, old_order)
+  let region = @ir.hot_region_body_ref(func, zero)
+  let roots = [
+    @ir.hot_region_get(func, region, 0),
+    @ir.hot_region_get(func, region, 1),
+  ]
+  assert_true(@ir.hot_node_op(func, roots[0]) is @ir.HotOp::Drop)
+  assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, roots[1]).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+  @ir.hot_verify_core(func).unwrap()
+  @ir.hot_verify_control(func).unwrap()
+}
+
+///|
 fn optimize_instructions_replace_with_block_body(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -11902,8 +11949,10 @@ fn optimize_instructions_replace_with_block_body(
   body : Array[Int],
 ) -> Unit {
   let temp = @ir.hot_build_block(func, block_type, body)
+  // This block retains the expression's effects at its original evaluation
+  // position. A fresh block order hides its body from carried-value queries.
   let replacement = @ir.hot_node_get(func, temp)
-  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_replace_node_preserving_position(func, node_id, replacement)
   @ir.hot_label_owner_set(
     func,
     @ir.hot_control_node_label(func, node_id),

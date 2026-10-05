@@ -680,6 +680,8 @@ pub fn hot_replace_local_tee_with_value(HotFunc, Int) -> Bool
 
 pub fn hot_replace_node(HotFunc, Int, HotNode, preserve_value_order? : Bool) -> Unit
 
+pub fn hot_replace_node_preserving_position(HotFunc, Int, HotNode) -> Unit
+
 pub fn hot_revision_bump(HotFunc) -> Unit
 
 pub fn hot_revision_current(HotFunc) -> Int

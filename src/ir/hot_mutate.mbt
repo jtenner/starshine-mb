@@ -1519,6 +1519,22 @@ pub fn hot_replace_node(
 }
 
 ///|
+// Equivalent computation replacements can retain effects inside a new region.
+// Such callers must keep the old evaluation position, not the fresh node order.
+pub fn hot_replace_node_preserving_position(
+  func : HotFunc,
+  id : NodeId,
+  new_node : HotNode,
+) -> Unit {
+  hot_replace_node(
+    func,
+    id,
+    { ..new_node, order: hot_node_get(func, id).order, },
+    preserve_value_order=true,
+  )
+}
+
+///|
 pub fn hot_replace_local_set_with_drop(
   func : HotFunc,
   node_id : NodeId,
