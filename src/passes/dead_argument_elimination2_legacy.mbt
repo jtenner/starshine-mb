@@ -13,14 +13,20 @@ priv struct Dae2LegacyState {
 }
 
 ///|
-priv enum Dae2LegacyLabels {
-  Root
-  Frame(Int, Int, Dae2LegacyLabels)
+priv struct Dae2LegacyLabelWorkspace {
+  heads : Array[Int]
+  offset_prefixes : Array[Int]
+}
+
+///|
+priv struct Dae2LegacyLabels {
+  workspace : Dae2LegacyLabelWorkspace
+  length : Int
 }
 
 ///|
 fn Dae2LegacyLabels::root() -> Dae2LegacyLabels {
-  Root
+  { workspace: { heads: [0], offset_prefixes: [0], }, length: 1, }
 }
 
 ///|
@@ -29,28 +35,32 @@ fn Dae2LegacyLabels::push(
   head : Int,
   tail_offset : Int,
 ) -> Dae2LegacyLabels {
-  Frame(head, tail_offset, self)
+  let index = self.length
+  let prefix = self.workspace.offset_prefixes[index - 1] + tail_offset
+  if index < self.workspace.heads.length() {
+    self.workspace.heads[index] = head
+    self.workspace.offset_prefixes[index] = prefix
+  } else {
+    self.workspace.heads.push(head)
+    self.workspace.offset_prefixes.push(prefix)
+  }
+  { workspace: self.workspace, length: index + 1, }
 }
 
 ///|
 fn Dae2LegacyLabels::resolve(self : Dae2LegacyLabels, depth : Int) -> Int {
-  match self {
-    Root => if depth == 0 { 0 } else { abort("invalid legacy label depth") }
-    Frame(head, offset, parent) =>
-      if depth == 0 {
-        head
-      } else {
-        parent.resolve(depth - 1) + offset
-      }
+  if depth < 0 || depth >= self.length {
+    abort("invalid legacy label depth")
   }
+  let ancestor = self.length - 1 - depth
+  self.workspace.heads[ancestor] +
+  self.workspace.offset_prefixes[self.length - 1] -
+  self.workspace.offset_prefixes[ancestor]
 }
 
 ///|
 fn Dae2LegacyLabels::frame_count(self : Dae2LegacyLabels) -> Int {
-  match self {
-    Root => 1
-    Frame(_, _, parent) => parent.frame_count() + 1
-  }
+  self.length
 }
 
 ///|

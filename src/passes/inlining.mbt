@@ -5308,9 +5308,10 @@ fn inl_func_has_dead_suffix_call(func : @lib.Func) -> Bool {
 }
 
 ///|
-struct InlGraphReachability {
+priv struct InlGraphReachability {
   graph : Array[Array[Int]]
   scc_by_node : Array[Int]
+  members_by_scc : Array[Array[Int]]
   scc_has_cycle : Array[Bool]
   mut cached_source : Int
   cached_reachable : Array[Bool]
@@ -5384,14 +5385,18 @@ fn inl_build_graph_reachability(
     }
     scc_count += 1
   }
-  let scc_sizes = Array::make(scc_count, 0)
+  let members_by_scc : Array[Array[Int]] = []
+  for _ in 0..<scc_count {
+    members_by_scc.push([])
+  }
   for node = 0; node < total; node = node + 1 {
-    scc_sizes[scc_by_node[node]] += 1
+    let scc = scc_by_node[node]
+    members_by_scc[scc].push(node)
   }
   let scc_has_cycle = Array::make(scc_count, false)
   for node = 0; node < total; node = node + 1 {
     let scc = scc_by_node[node]
-    if scc_sizes[scc] > 1 {
+    if members_by_scc[scc].length() > 1 {
       scc_has_cycle[scc] = true
       continue
     }
@@ -5405,11 +5410,29 @@ fn inl_build_graph_reachability(
   {
     graph,
     scc_by_node,
+    members_by_scc,
     scc_has_cycle,
     cached_source: -1,
     cached_reachable: Array::make(total, false),
     cached_touched: [],
   }
+}
+
+///|
+fn inl_reachability_scc_members(
+  reachability : InlGraphReachability,
+  node : Int,
+  visits? : Array[Int]? = None,
+) -> Array[Int] {
+  if node < 0 || node >= reachability.scc_by_node.length() {
+    return []
+  }
+  let members = reachability.members_by_scc[reachability.scc_by_node[node]]
+  match visits {
+    Some(counter) => counter[0] += members.length()
+    None => ()
+  }
+  members
 }
 
 ///|
@@ -5618,16 +5641,6 @@ fn inl_signature_result_count(
 }
 
 ///|
-fn inl_array_contains_string(items : Array[String], needle : String) -> Bool {
-  for item in items {
-    if item == needle {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn inl_prediction_retain_shadowed_void_cycle_result_helper(
   mod_ : @lib.Module,
   imports : Int,
@@ -5640,14 +5653,12 @@ fn inl_prediction_retain_shadowed_void_cycle_result_helper(
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
   let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
-  let used_sigs : Array[String] = []
+  let used_sigs : @set.Set[String] = @set.Set([])
   let mut idx = 0
   while idx < total {
     if idx < used.length() && used[idx] {
       let sig = signatures[idx]
-      if !inl_array_contains_string(used_sigs, sig) {
-        used_sigs.push(sig)
-      }
+      used_sigs.add(sig)
     }
     idx += 1
   }
@@ -5658,51 +5669,43 @@ fn inl_prediction_retain_shadowed_void_cycle_result_helper(
       idx += 1
       continue
     }
-    let scc_member = Array::make(total, false)
-    let mut scc_size = 0
-    let mut other = imports
-    while other < total {
-      if other == idx || inl_reachability_same_scc(reachability, idx, other) {
-        scc_member[other] = true
+    let scc_members = inl_reachability_scc_members(reachability, idx)
+    for other in scc_members {
+      if other >= imports {
         processed[other] = true
-        scc_size += 1
       }
-      other += 1
     }
-    if scc_size != 3 {
+    if scc_members.length() != 3 {
       idx += 1
       continue
     }
     let mut member_self_loop = false
-    let candidate_sigs : Array[String] = []
-    let root_sigs : Array[String] = []
+    let candidate_sigs : @set.Set[String] = @set.Set([])
+    let root_sigs : @set.Set[String] = @set.Set([])
     let mut has_void_private_member = false
-    other = imports
-    while other < total {
-      if scc_member[other] {
-        for next in graph[other] {
-          if next == other {
-            member_self_loop = true
-            break
-          }
+    for other in scc_members {
+      if other < imports {
+        continue
+      }
+      for next in graph[other] {
+        if next == other {
+          member_self_loop = true
+          break
         }
-        let sig = signatures[other]
-        if inl_array_contains_string(used_sigs, sig) {
-          if !inl_array_contains_string(root_sigs, sig) {
-            root_sigs.push(sig)
-          }
-        } else if !(other < used.length() && used[other]) {
-          if inl_signature_result_count(mod_, func_type_indices, other) == 0 {
-            has_void_private_member = true
-          } else if !inl_array_contains_string(candidate_sigs, sig) {
-            candidate_sigs.push(sig)
-          }
+      }
+      let sig = signatures[other]
+      if used_sigs.contains(sig) {
+        root_sigs.add(sig)
+      } else if !(other < used.length() && used[other]) {
+        if inl_signature_result_count(mod_, func_type_indices, other) == 0 {
+          has_void_private_member = true
+        } else {
+          candidate_sigs.add(sig)
         }
       }
       if member_self_loop {
         break
       }
-      other += 1
     }
     if member_self_loop || !has_void_private_member || root_sigs.length() == 0 {
       idx += 1
@@ -5710,12 +5713,12 @@ fn inl_prediction_retain_shadowed_void_cycle_result_helper(
     }
     for candidate_sig in candidate_sigs {
       let mut shadow_calls_root_and_candidate = false
-      other = imports
+      let mut other = imports
       while other < total {
-        if !scc_member[other] &&
+        if !inl_reachability_same_scc(reachability, idx, other) &&
           !(other < used.length() && used[other]) &&
           !reachable_from_root[other] &&
-          inl_array_contains_string(root_sigs, signatures[other]) {
+          root_sigs.contains(signatures[other]) {
           let mut calls_root_sig = false
           let mut calls_candidate = false
           for target in graph[other] {
@@ -5723,7 +5726,7 @@ fn inl_prediction_retain_shadowed_void_cycle_result_helper(
               let target_sig = inl_func_signature_key(
                 mod_, func_type_indices, target,
               )
-              if inl_array_contains_string(root_sigs, target_sig) {
+              if root_sigs.contains(target_sig) {
                 calls_root_sig = true
               }
               if target_sig == candidate_sig {
@@ -5767,24 +5770,18 @@ fn inl_prediction_drop_unique_private_self_loop_in_root_scc(
       idx += 1
       continue
     }
-    let scc_member = Array::make(total, false)
-    let mut scc_size = 0
-    let mut other = imports
-    while other < total {
-      if other == idx || inl_reachability_same_scc(reachability, idx, other) {
-        scc_member[other] = true
+    let scc_members = inl_reachability_scc_members(reachability, idx)
+    for other in scc_members {
+      if other >= imports {
         processed[other] = true
-        scc_size += 1
       }
-      other += 1
     }
-    if scc_size < 3 {
+    if scc_members.length() < 3 {
       idx += 1
       continue
     }
-    other = imports
-    while other < total {
-      if scc_member[other] &&
+    for other in scc_members {
+      if other >= imports &&
         other < reachable_from_root.length() &&
         reachable_from_root[other] &&
         !(other < used.length() && used[other]) {
@@ -5798,12 +5795,10 @@ fn inl_prediction_drop_unique_private_self_loop_in_root_scc(
         if self_loop {
           let sig = signatures[other]
           let mut scc_sig_count = 0
-          let mut scc_idx = imports
-          while scc_idx < total {
-            if scc_member[scc_idx] && signatures[scc_idx] == sig {
+          for scc_idx in scc_members {
+            if scc_idx >= imports && signatures[scc_idx] == sig {
               scc_sig_count += 1
             }
-            scc_idx += 1
           }
           if scc_sig_count == 1 {
             let cur = inl_hash_get_int(predicted, sig)
@@ -5813,7 +5808,6 @@ fn inl_prediction_drop_unique_private_self_loop_in_root_scc(
           }
         }
       }
-      other += 1
     }
     idx += 1
   }
@@ -6191,26 +6185,23 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
       continue
     }
     let root_sig = signatures[root]
-    let processed = Array::make(total, false)
+    let processed_sccs : @set.Set[Int] = @set.Set([])
     let mut seed = imports
     while seed < total {
-      if processed[seed] ||
+      let seed_scc = reachability.scc_by_node[seed]
+      if processed_sccs.contains(seed_scc) ||
         seed >= reachable_from_root.length() ||
         !reachable_from_root[seed] ||
         (seed < used.length() && used[seed]) {
         seed += 1
         continue
       }
-      let scc_member = Array::make(total, false)
-      let mut scc_size = 0
+      processed_sccs.add(seed_scc)
+      let scc_members = inl_reachability_scc_members(reachability, seed)
       let mut member_self_loop = false
       let sigs : @hashmap.HashMap[String, Int] = @hashmap.new()
-      let mut idx = imports
-      while idx < total {
-        if idx == seed || inl_reachability_same_scc(reachability, seed, idx) {
-          scc_member[idx] = true
-          processed[idx] = true
-          scc_size += 1
+      for idx in scc_members {
+        if idx >= imports {
           let sig = signatures[idx]
           inl_hash_inc_int(sigs, sig)
           for target in graph[idx] {
@@ -6219,14 +6210,12 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
             }
           }
         }
-        idx += 1
       }
-      if scc_size == 3 &&
+      if scc_members.length() == 3 &&
         !member_self_loop &&
         inl_hash_get_int(sigs, root_sig) == 1 {
-        idx = imports
-        while idx < total {
-          if scc_member[idx] {
+        for idx in scc_members {
+          if idx >= imports {
             let sig = signatures[idx]
             if sig != root_sig &&
               inl_hash_get_int(sigs, sig) == 2 &&
@@ -6238,17 +6227,14 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
               break
             }
           }
-          idx += 1
         }
-        idx = imports
-        while idx < total {
-          if scc_member[idx] &&
+        for idx in scc_members {
+          if idx >= imports &&
             signatures[idx] == root_sig &&
             inl_signature_result_count(mod_, func_type_indices, idx) > 0 {
             let mut has_result_pair = false
-            let mut other = imports
-            while other < total {
-              if scc_member[other] {
+            for other in scc_members {
+              if other >= imports {
                 let sig = signatures[other]
                 if sig != root_sig &&
                   inl_hash_get_int(sigs, sig) == 2 &&
@@ -6257,12 +6243,10 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
                   break
                 }
               }
-              other += 1
             }
             if !has_result_pair {
-              other = imports
-              while other < total {
-                if scc_member[other] {
+              for other in scc_members {
+                if other >= imports {
                   let sig = inl_func_signature_key(
                     mod_, func_type_indices, other,
                   )
@@ -6270,7 +6254,6 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
                     predicted.set(sig, 0)
                   }
                 }
-                other += 1
               }
               let cur = inl_hash_get_int(predicted, root_sig)
               if cur < 2 {
@@ -6280,7 +6263,6 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
             }
             break
           }
-          idx += 1
         }
       }
       seed += 1
@@ -6323,26 +6305,23 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
       continue
     }
     let root_sig = signatures[root]
-    let processed = Array::make(total, false)
+    let processed_sccs : @set.Set[Int] = @set.Set([])
     let mut seed = imports
     while seed < total {
-      if processed[seed] ||
+      let seed_scc = reachability.scc_by_node[seed]
+      if processed_sccs.contains(seed_scc) ||
         seed >= reachable_from_root.length() ||
         !reachable_from_root[seed] ||
         (seed < used.length() && used[seed]) {
         seed += 1
         continue
       }
-      let scc_member = Array::make(total, false)
-      let mut scc_size = 0
+      processed_sccs.add(seed_scc)
+      let scc_members = inl_reachability_scc_members(reachability, seed)
       let mut member_self_loop = false
       let sigs : @hashmap.HashMap[String, Int] = @hashmap.new()
-      let mut idx = imports
-      while idx < total {
-        if idx == seed || inl_reachability_same_scc(reachability, seed, idx) {
-          processed[idx] = true
-          scc_member[idx] = true
-          scc_size += 1
+      for idx in scc_members {
+        if idx >= imports {
           let sig = signatures[idx]
           inl_hash_inc_int(sigs, sig)
           for target in graph[idx] {
@@ -6351,14 +6330,12 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
             }
           }
         }
-        idx += 1
       }
-      if scc_size == 3 &&
+      if scc_members.length() == 3 &&
         !member_self_loop &&
         inl_hash_get_int(sigs, root_sig) == 1 {
-        idx = imports
-        while idx < total {
-          if scc_member[idx] {
+        for idx in scc_members {
+          if idx >= imports {
             let sig = signatures[idx]
             if sig != root_sig &&
               inl_hash_get_int(sigs, sig) == 2 &&
@@ -6367,12 +6344,10 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
               break
             }
           }
-          idx += 1
         }
         let mut has_result_pair = false
-        idx = imports
-        while idx < total {
-          if scc_member[idx] {
+        for idx in scc_members {
+          if idx >= imports {
             let sig = signatures[idx]
             if sig != root_sig &&
               inl_hash_get_int(sigs, sig) == 2 &&
@@ -6381,18 +6356,15 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
               break
             }
           }
-          idx += 1
         }
         if !has_result_pair {
-          idx = imports
-          while idx < total {
-            if scc_member[idx] {
+          for idx in scc_members {
+            if idx >= imports {
               let sig = signatures[idx]
               if sig != root_sig {
                 final_trim.set(sig, 0)
               }
             }
-            idx += 1
           }
         }
         final_trim.set(root_sig, if has_result_pair { 1 } else { 2 })
@@ -6567,26 +6539,25 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
   let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
-  let processed = Array::make(total, false)
+  let processed_sccs : @set.Set[Int] = @set.Set([])
   let mut root = 0
   while root < total {
-    if !(root < used.length() && used[root]) || processed[root] {
+    let root_scc = reachability.scc_by_node[root]
+    if !(root < used.length() && used[root]) ||
+      processed_sccs.contains(root_scc) {
       root += 1
       continue
     }
+    processed_sccs.add(root_scc)
     let root_sig = signatures[root]
-    let scc_member = Array::make(total, false)
-    let mut scc_size = 0
+    let scc_members = inl_reachability_scc_members(reachability, root)
+    let scc_size = scc_members.length()
     let mut root_sig_members = 0
     let mut nonroot_sig_members = 0
     let mut has_root_sig_self_loop_calling_root = false
-    let candidate_nonroot_sigs : Array[String] = []
-    let mut idx = imports
-    while idx < total {
-      if idx == root || inl_reachability_same_scc(reachability, root, idx) {
-        scc_member[idx] = true
-        processed[idx] = true
-        scc_size += 1
+    let candidate_nonroot_sigs : @set.Set[String] = @set.Set([])
+    for idx in scc_members {
+      if idx >= imports {
         let sig = signatures[idx]
         if sig == root_sig {
           root_sig_members += 1
@@ -6615,28 +6586,28 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
         if sig != root_sig &&
           !(idx < used.length() && used[idx]) &&
           self_loop &&
-          inl_signature_result_count(mod_, func_type_indices, idx) > 0 &&
-          !inl_array_contains_string(candidate_nonroot_sigs, sig) {
-          candidate_nonroot_sigs.push(sig)
+          inl_signature_result_count(mod_, func_type_indices, idx) > 0 {
+          candidate_nonroot_sigs.add(sig)
         }
       }
-      idx += 1
     }
     let mut has_orphan_nonself_root_sig_calling_root = false
     let mut has_orphan_self_root_sig_calling_root = false
     let mut has_orphan_other_sig_calls_scc = false
     let mut has_orphan_other_sig_calls_orphan_self_root = false
     let mut orphan_root_sig_calls_nonroot_candidate = false
-    idx = imports
+    let mut idx = imports
     while idx < total {
-      if !scc_member[idx] &&
+      if !inl_reachability_same_scc(reachability, root, idx) &&
         !(idx < used.length() && used[idx]) &&
         idx < reachable_from_root.length() &&
         !reachable_from_root[idx] {
         let idx_sig = signatures[idx]
         if idx_sig != root_sig {
           for target in graph[idx] {
-            if target >= 0 && target < scc_member.length() && scc_member[target] {
+            if target >= 0 &&
+              target < total &&
+              inl_reachability_same_scc(reachability, root, target) {
               has_orphan_other_sig_calls_scc = true
               break
             }
@@ -6658,7 +6629,7 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
                 target_sig == root_sig {
                 calls_used_root_sig = true
               }
-              if inl_array_contains_string(candidate_nonroot_sigs, target_sig) {
+              if candidate_nonroot_sigs.contains(target_sig) {
                 calls_nonroot_candidate = true
               }
             }
@@ -6668,7 +6639,7 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
               has_orphan_self_root_sig_calling_root = true
               let mut other = imports
               while other < total {
-                if !scc_member[other] &&
+                if !inl_reachability_same_scc(reachability, root, other) &&
                   !(other < used.length() && used[other]) &&
                   other < reachable_from_root.length() &&
                   !reachable_from_root[other] &&
@@ -6834,32 +6805,21 @@ fn inl_original_reachable_private_cycle_funcs(
         }
         root += 1
       }
-      let scc_member = Array::make(total, false)
-      let mut scc_size = 0
-      let mut other = imports
-      while other < total {
-        if other == idx || inl_reachability_same_scc(reachability, idx, other) {
-          scc_member[other] = true
-          scc_size += 1
-        }
-        other += 1
-      }
-      if scc_member[idx] && idx < used.length() && !used[idx] {
+      let scc_members = inl_reachability_scc_members(reachability, idx)
+      let scc_size = scc_members.length()
+      if idx < used.length() && !used[idx] {
         let mut representative = -1
-        other = imports
-        while other < total {
-          if scc_member[other] && other < used.length() && !used[other] {
+        for other in scc_members {
+          if other >= imports && other < used.length() && !used[other] {
             representative = other
             break
           }
-          other += 1
         }
         public_scc_representative[idx] = representative
       }
       let mut has_self_loop = false
-      other = imports
-      while other < total {
-        if scc_member[other] && !(other < used.length() && used[other]) {
+      for other in scc_members {
+        if other >= imports && !(other < used.length() && used[other]) {
           for next in graph[other] {
             if next == other {
               has_self_loop = true
@@ -6870,7 +6830,6 @@ fn inl_original_reachable_private_cycle_funcs(
         if has_self_loop {
           break
         }
-        other += 1
       }
       let mut root_edges_to_scc = 0
       root = 0
@@ -6879,8 +6838,8 @@ fn inl_original_reachable_private_cycle_funcs(
           for next in graph[root] {
             if next != root &&
               next >= 0 &&
-              next < scc_member.length() &&
-              scc_member[next] {
+              next < total &&
+              inl_reachability_same_scc(reachability, idx, next) {
               root_edges_to_scc += 1
             }
           }
@@ -6889,31 +6848,24 @@ fn inl_original_reachable_private_cycle_funcs(
       }
       let sig = signatures[idx]
       let mut scc_same_signature = true
-      other = imports
-      while other < total {
-        if scc_member[other] && signatures[other] != sig {
-          scc_same_signature = false
-          break
+      let scc_signatures : @set.Set[String] = @set.Set([])
+      for other in scc_members {
+        if other >= imports {
+          scc_signatures.add(signatures[other])
         }
-        other += 1
+        if other >= imports && signatures[other] != sig {
+          scc_same_signature = false
+        }
       }
       let mut has_orphan_self_loop_same_signature = false
       let mut has_orphan_self_loop_scc_signature = false
-      other = imports
+      let mut other = imports
       while other < total {
-        if !scc_member[other] &&
+        if !inl_reachability_same_scc(reachability, idx, other) &&
           !(other < used.length() && used[other]) &&
           !reachable_from_root[other] {
           let other_sig = signatures[other]
-          let mut matches_scc_signature = false
-          let mut scc_idx = imports
-          while scc_idx < total {
-            if scc_member[scc_idx] && signatures[scc_idx] == other_sig {
-              matches_scc_signature = true
-              break
-            }
-            scc_idx += 1
-          }
+          let matches_scc_signature = scc_signatures.contains(other_sig)
           for next in graph[other] {
             if next == other {
               if other_sig == sig {

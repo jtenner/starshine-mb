@@ -518,6 +518,97 @@ fn gsi_mark_imported_struct_origins(
 }
 
 ///|
+priv struct GsiExportedOriginRoots {
+  funcs : Array[Int]
+  globals : Array[Int]
+}
+
+///|
+fn gsi_exported_origin_roots(
+  mod_ : @lib.Module,
+  first_defined_func : Int,
+  defined_func_count : Int,
+  first_defined_global : Int,
+  defined_global_count : Int,
+) -> GsiExportedOriginRoots {
+  // One entity may be exported under many names. Plan each body or initializer
+  // once so export aliases do not multiply closed-world scanning work.
+  let funcs : Array[Int] = []
+  let globals : Array[Int] = []
+  let func_seen = Array::make(defined_func_count, false)
+  let global_seen = Array::make(defined_global_count, false)
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(raw_idx))) => {
+            let defined_idx = raw_idx.reinterpret_as_int() - first_defined_func
+            if defined_idx >= 0 &&
+              defined_idx < defined_func_count &&
+              !func_seen[defined_idx] {
+              func_seen[defined_idx] = true
+              funcs.push(defined_idx)
+            }
+          }
+          @lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(raw_idx))) => {
+            let defined_idx = raw_idx.reinterpret_as_int() -
+              first_defined_global
+            if defined_idx >= 0 &&
+              defined_idx < defined_global_count &&
+              !global_seen[defined_idx] {
+              global_seen[defined_idx] = true
+              globals.push(defined_idx)
+            }
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  { funcs, globals, }
+}
+
+///|
+priv struct GsiGlobalVisitStamps {
+  marks : Array[Int]
+  mut generation : Int
+}
+
+///|
+fn GsiGlobalVisitStamps::new() -> GsiGlobalVisitStamps {
+  { marks: [], generation: 0, }
+}
+
+///|
+fn GsiGlobalVisitStamps::begin_root(self : GsiGlobalVisitStamps) -> Unit {
+  if self.generation >= 0x7FFFFFFF {
+    for idx = 0; idx < self.marks.length(); idx = idx + 1 {
+      self.marks[idx] = 0
+    }
+    self.generation = 1
+  } else {
+    self.generation += 1
+  }
+}
+
+///|
+fn GsiGlobalVisitStamps::visit(self : GsiGlobalVisitStamps, slot : Int) -> Bool {
+  if slot < 0 {
+    return false
+  }
+  while self.marks.length() <= slot {
+    // Grow only when an immutable-global alias is actually traversed. Modules
+    // with exported functions but no global aliases retain an empty scratch.
+    self.marks.push(0)
+  }
+  if self.marks[slot] == self.generation {
+    return false
+  }
+  self.marks[slot] = self.generation
+  true
+}
+
+///|
 fn gsi_collect_returned_ref_funcs(
   env : @validate.Env,
   expr : @lib.Expr,
@@ -525,7 +616,7 @@ fn gsi_collect_returned_ref_funcs(
   callable_funcs : Array[@lib.FuncIdx],
   defined_globals : Array[@lib.Global],
   first_defined_global : Int,
-  visited_globals : Array[Bool],
+  visited_globals : GsiGlobalVisitStamps,
 ) -> Unit {
   let @lib.Expr(instrs) = expr
   for instr in instrs {
@@ -542,12 +633,9 @@ fn gsi_collect_returned_ref_funcs(
         }
       @lib.GlobalGet(@lib.GlobalIdx(raw_idx)) => {
         let defined_idx = raw_idx.reinterpret_as_int() - first_defined_global
-        if defined_idx >= 0 &&
-          defined_idx < defined_globals.length() &&
-          !visited_globals[defined_idx] {
+        if defined_idx >= 0 && defined_idx < defined_globals.length() {
           let @lib.Global(@lib.GlobalType(_, mutable_), init) = defined_globals[defined_idx]
-          if !mutable_ {
-            visited_globals[defined_idx] = true
+          if !mutable_ && visited_globals.visit(defined_idx) {
             gsi_collect_returned_ref_funcs(
               env, init, results, callable_funcs, defined_globals, first_defined_global,
               visited_globals,
@@ -612,9 +700,8 @@ fn gsi_mark_exported_param_struct_origins(
   cached_value_types : Array[@lib.ValType],
   cached_slots : Array[Array[Int]],
 ) -> Unit {
-  let exports = match mod_.export_sec {
-    Some(@lib.ExportSec(exports)) => exports
-    None => return
+  if mod_.export_sec is None {
+    return
   }
   let defined_funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -626,65 +713,78 @@ fn gsi_mark_exported_param_struct_origins(
     None => []
   }
   let first_defined_global = env.globals.length() - defined_globals.length()
-  for export_ in exports {
-    let callable_funcs : Array[@lib.FuncIdx] = []
-    let visited_globals = Array::make(defined_globals.length(), false)
-    match export_ {
-      @lib.Export(_, @lib.FuncExternIdx(func_idx)) => {
-        callable_funcs.push(func_idx)
-        let @lib.FuncIdx(raw_idx) = func_idx
-        let defined_idx = raw_idx.reinterpret_as_int() - first_defined_func
-        match
-          (
-            defined_funcs.get(defined_idx),
-            env.get_functype_by_funcidx(func_idx),
-          ) {
-          (Some(@lib.Func(_, @lib.Expr(body))), Some(@lib.FuncType(_, results))) =>
-            gsi_collect_returned_ref_funcs(
-              env,
-              @lib.Expr::new(body),
-              results,
-              callable_funcs,
-              defined_globals,
-              first_defined_global,
-              visited_globals,
-            )
-          _ => ()
-        }
-      }
-      @lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(raw_idx))) => {
-        let defined_idx = raw_idx.reinterpret_as_int() - first_defined_global
-        match defined_globals.get(defined_idx) {
-          Some(@lib.Global(@lib.GlobalType(value_type, false), init)) =>
-            gsi_collect_returned_ref_funcs(
-              env,
-              init,
-              [value_type],
-              callable_funcs,
-              defined_globals,
-              first_defined_global,
-              visited_globals,
-            )
-          None => ()
-          _ => ()
-        }
-      }
+  let roots = gsi_exported_origin_roots(
+    mod_,
+    first_defined_func,
+    defined_funcs.length(),
+    first_defined_global,
+    defined_globals.length(),
+  )
+  if roots.funcs.is_empty() && roots.globals.is_empty() {
+    return
+  }
+  let callable_funcs : Array[@lib.FuncIdx] = []
+  let visited_globals = GsiGlobalVisitStamps::new()
+  for defined_idx in roots.funcs {
+    let func_idx = @lib.FuncIdx::new(
+      (first_defined_func + defined_idx).reinterpret_as_uint(),
+    )
+    callable_funcs.push(func_idx)
+    visited_globals.begin_root()
+    match
+      (defined_funcs.get(defined_idx), env.get_functype_by_funcidx(func_idx)) {
+      (Some(@lib.Func(_, @lib.Expr(body))), Some(@lib.FuncType(_, results))) =>
+        gsi_collect_returned_ref_funcs(
+          env,
+          @lib.Expr::new(body),
+          results,
+          callable_funcs,
+          defined_globals,
+          first_defined_global,
+          visited_globals,
+        )
       _ => ()
     }
-    for func_idx in callable_funcs {
-      let @lib.FuncIdx(raw_idx) = func_idx
-      if raw_idx.reinterpret_as_int() < first_defined_func {
-        continue
+  }
+  for defined_idx in roots.globals {
+    match defined_globals.get(defined_idx) {
+      Some(@lib.Global(@lib.GlobalType(value_type, _), init)) => {
+        // Mutable exported globals expose their initial ref.func just as
+        // immutable globals do. Recursive alias traversal remains restricted
+        // to immutable globals inside gsi_collect_returned_ref_funcs.
+        visited_globals.begin_root()
+        gsi_collect_returned_ref_funcs(
+          env,
+          init,
+          [value_type],
+          callable_funcs,
+          defined_globals,
+          first_defined_global,
+          visited_globals,
+        )
       }
-      match env.get_functype_by_funcidx(func_idx) {
-        Some(@lib.FuncType(params, _)) =>
-          for param in params {
-            gsi_mark_external_struct_origins(
-              env, param, poisoned_type_slots, cached_value_types, cached_slots,
-            )
-          }
-        None => ()
-      }
+      None => ()
+    }
+  }
+  let callable_seen = Array::make(env.funcs.length(), false)
+  for func_idx in callable_funcs {
+    let @lib.FuncIdx(raw_idx) = func_idx
+    let slot = raw_idx.reinterpret_as_int()
+    if slot < first_defined_func ||
+      slot < 0 ||
+      slot >= callable_seen.length() ||
+      callable_seen[slot] {
+      continue
+    }
+    callable_seen[slot] = true
+    match env.get_functype_by_funcidx(func_idx) {
+      Some(@lib.FuncType(params, _)) =>
+        for param in params {
+          gsi_mark_external_struct_origins(
+            env, param, poisoned_type_slots, cached_value_types, cached_slots,
+          )
+        }
+      None => ()
     }
   }
 }

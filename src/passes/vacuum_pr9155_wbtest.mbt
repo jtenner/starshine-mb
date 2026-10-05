@@ -232,12 +232,14 @@ test "vacuum direct HOT cleanup revisits drops sunk into nested concrete arms" {
     false,
     fn(_) { () },
   )
+  let workspace = VacuumDroppedNodeWorkspace::new(@ir.hot_node_count(func))
   assert_true(
-    hot_pass_remove_region_nops(
+    hot_pass_remove_region_nops_with_workspace(
       ctx,
       func,
       @ir.HotRegionRef::root(),
       Array::make(@ir.hot_node_count(func), false),
+      workspace,
     ),
   )
   @ir.hot_verify_all_or_abort(func)

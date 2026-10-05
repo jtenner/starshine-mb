@@ -1,9 +1,93 @@
 ///|
+fn mso_heap_type_is_string(heap : @lib.HeapType) -> Bool {
+  match heap {
+    @lib.AbsHeapTypeHeapType(@lib.StringAbsHeapType)
+    | @lib.SharedAbsHeapTypeHeapType(@lib.StringAbsHeapType) => true
+    _ => false
+  }
+}
+
+///|
+fn mso_ref_type_is_string(ref_type : @lib.RefType) -> Bool {
+  mso_heap_type_is_string(ref_type.get_heap_type())
+}
+
+///|
+fn mso_val_type_is_string(value_type : @lib.ValType) -> Bool {
+  match value_type {
+    @lib.RefTypeValType(ref_type) => mso_ref_type_is_string(ref_type)
+    _ => false
+  }
+}
+
+///|
+fn mso_field_type_is_string(field : @lib.FieldType) -> Bool {
+  match field.get_storage_type() {
+    @lib.ValTypeStorageType(value_type) => mso_val_type_is_string(value_type)
+    @lib.PackTypeStorageType(_) => false
+  }
+}
+
+///|
+fn mso_subtype_has_string(subtype : @lib.SubType) -> Bool {
+  match subtype.get_comptype() {
+    @lib.FuncCompType(params, results) =>
+      params.any(mso_val_type_is_string) || results.any(mso_val_type_is_string)
+    @lib.StructCompType(fields) => fields.any(mso_field_type_is_string)
+    @lib.ArrayCompType(field) => mso_field_type_is_string(field)
+    @lib.ContCompType(_) => false
+  }
+}
+
+///|
+fn mso_block_type_has_string(block_type : @lib.BlockType) -> Bool {
+  match block_type {
+    @lib.ValTypeBlockType(value_type) => mso_val_type_is_string(value_type)
+    @lib.VoidBlockType | @lib.TypeIdxBlockType(_) => false
+  }
+}
+
+///|
+fn mso_instruction_has_string_surface(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.StringConst(_)
+    | @lib.StringMeasureWtf16
+    | @lib.StringConcat
+    | @lib.StringEq
+    | @lib.StringAsWtf16
+    | @lib.StringViewWtf16GetCodeunit
+    | @lib.StringViewWtf16Slice
+    | @lib.StringNewUtf8Array
+    | @lib.StringNewWtf16Array
+    | @lib.StringEncodeUtf8Array
+    | @lib.StringEncodeWtf16Array
+    | @lib.StringNewLossyUtf8Array
+    | @lib.StringNewWtf8Array
+    | @lib.StringEncodeLossyUtf8Array
+    | @lib.StringEncodeWtf8Array => true
+    @lib.RefNull(ref_type) => mso_ref_type_is_string(ref_type)
+    @lib.RefTest(_, _, heap) | @lib.RefCast(_, _, heap) =>
+      mso_heap_type_is_string(heap)
+    @lib.BrOnCast(_, _, source, target)
+    | @lib.BrOnCastFail(_, _, source, target) =>
+      mso_heap_type_is_string(source) || mso_heap_type_is_string(target)
+    @lib.Select(Some(value_types)) => value_types.any(mso_val_type_is_string)
+    @lib.Block(block_type, _)
+    | @lib.Loop(block_type, _)
+    | @lib.If(block_type, _, _)
+    | @lib.Try(block_type, _, _, _)
+    | @lib.TryTable(block_type, _, _) => mso_block_type_has_string(block_type)
+    _ => false
+  }
+}
+
+///|
 priv struct MsoReferences {
   indices : Map[UInt, UInt]
   functions : Array[@lib.FuncIdx]
   needs_table : Array[Bool]
   unsupported_branch_cast : Array[Bool]
+  unsupported_string : Array[Bool]
   types : Array[@lib.SubType]
 }
 
@@ -14,6 +98,7 @@ fn MsoReferences::new(types : Array[@lib.SubType]) -> MsoReferences {
     functions: [],
     needs_table: [false],
     unsupported_branch_cast: [false],
+    unsupported_string: [false],
     types,
   }
 }
@@ -34,6 +119,9 @@ fn MsoReferences::index(self : MsoReferences, raw : UInt) -> UInt {
 ///|
 fn MsoReferences::scan(self : MsoReferences, expr : @lib.Expr) -> Unit {
   for pos, instr in expr.0 {
+    if mso_instruction_has_string_surface(instr) {
+      self.unsupported_string[0] = true
+    }
     match instr {
       @lib.RefFunc(@lib.FuncIdx(raw)) => ignore(self.index(raw))
       @lib.CallRef(_) | @lib.ReturnCallRef(_) =>
@@ -69,6 +157,80 @@ fn MsoReferences::scan(self : MsoReferences, expr : @lib.Expr) -> Unit {
       }),
     )
   }
+}
+
+///|
+fn mso_module_has_string_surface(
+  mod_ : @lib.Module,
+  types : Array[@lib.SubType],
+  refs : MsoReferences,
+) -> Bool {
+  if mod_.stringrefs_sec is Some(_) ||
+    refs.unsupported_string[0] ||
+    types.any(mso_subtype_has_string) {
+    return true
+  }
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(
+            _,
+            _,
+            @lib.GlobalExternType(@lib.GlobalType(value_type, _))
+          ) => if mso_val_type_is_string(value_type) { return true }
+          @lib.Import(_, _, @lib.TableExternType(@lib.TableType(ref_type, _))) =>
+            if mso_ref_type_is_string(ref_type) {
+              return true
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for @lib.Global(@lib.GlobalType(value_type, _), _) in globals {
+        if mso_val_type_is_string(value_type) {
+          return true
+        }
+      }
+    None => ()
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for @lib.Table(@lib.TableType(ref_type, _), _) in tables {
+        if mso_ref_type_is_string(ref_type) {
+          return true
+        }
+      }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      for @lib.Elem(_, kind) in elems {
+        match kind {
+          @lib.TypedExprsElemKind(ref_type, _) =>
+            if mso_ref_type_is_string(ref_type) {
+              return true
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for @lib.Func(locals, _) in funcs {
+        for run in locals.runs() {
+          if mso_val_type_is_string(run.val_type()) {
+            return true
+          }
+        }
+      }
+    None => ()
+  }
+  false
 }
 
 ///|

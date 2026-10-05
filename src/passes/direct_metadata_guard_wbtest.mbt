@@ -19,8 +19,11 @@ fn direct_metadata_guard_assert_mutates_then_stops(
 }
 
 ///|
-test "offset metadata detector guards object relocation families" {
-  for section_name in ["reloc.DATA", "linking"] {
+test "offset metadata detector guards object relocation and external debug families" {
+  for
+    section_name in [
+      "reloc.DATA", "linking", "sourceMappingURL", "external_debug_info",
+    ] {
     let module_ = @lib.Module::new(custom_secs=[
       @lib.CustomSec::new(
         @lib.Name::from_string(section_name),
@@ -28,7 +31,26 @@ test "offset metadata detector guards object relocation families" {
       ),
     ])
     assert_true(pass_module_has_offset_sensitive_metadata(module_))
+    assert_true(oi_local_group_has_offset_metadata(module_))
   }
+}
+
+///|
+test "local branch-hint spelling is not offset-bearing code metadata" {
+  let annotations = @lib.FuncAnnotationSec::new([
+    @lib.FuncAnnotationAssoc::new(0U, [
+      @lib.FuncAnnotation::new("metadata.code.branch_hint", args=["\"\\01\""]),
+    ]),
+  ])
+  let module_ = pass_test_module_from_wat(
+    "(module (func (result i32) nop i32.const 7))",
+  ).with_func_annotation_sec(annotations)
+  assert_false(pass_module_has_offset_sensitive_metadata(module_))
+  assert_false(oi_local_group_has_offset_metadata(module_))
+  let optimized = run_hot_pipeline(module_, HotPipelineOptions::new(), [
+    "vacuum",
+  ]).unwrap()
+  assert_true(optimized != module_)
 }
 
 ///|

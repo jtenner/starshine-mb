@@ -1007,6 +1007,71 @@ test "no-inline unions split annotation associations" {
 }
 
 ///|
+test "no-inline preserves opaque annotation associations and multiplicity" {
+  let first = @lib.FuncAnnotationAssoc::new(0U, [
+    @lib.FuncAnnotation::new("vendor.keep", args=["x"]),
+    @lib.FuncAnnotation::new("vendor.keep", args=["x"]),
+    @lib.FuncAnnotation::new("starshine.no-partial-inline"),
+  ])
+  let second = @lib.FuncAnnotationAssoc::new(0U, [
+    @lib.FuncAnnotation::new("vendor.second"),
+  ])
+  let input = pass_test_module_from_wat("(module (func $target))").with_func_annotation_sec(
+    @lib.FuncAnnotationSec::new([first, second]),
+  )
+  let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
+    "no-inline=target",
+  ]).unwrap()
+  @debug.assert_eq(
+    output.func_annotation_sec,
+    Some(
+      @lib.FuncAnnotationSec::new([
+        first,
+        second,
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("starshine.no-full-inline"),
+        ]),
+      ]),
+    ),
+  )
+}
+
+///|
+test "no-inline clone policy copy preserves opaque annotation associations" {
+  let source = @lib.FuncAnnotationAssoc::new(0U, [
+    @lib.FuncAnnotation::new("starshine.no-full-inline"),
+    @lib.FuncAnnotation::new("starshine.no-partial-inline"),
+  ])
+  let target_first = @lib.FuncAnnotationAssoc::new(1U, [
+    @lib.FuncAnnotation::new("vendor.keep", args=["x"]),
+    @lib.FuncAnnotation::new("vendor.keep", args=["x"]),
+  ])
+  let target_second = @lib.FuncAnnotationAssoc::new(1U, [
+    @lib.FuncAnnotation::new("vendor.second"),
+  ])
+  let input = pass_test_module_from_wat(
+    "(module (func $source) (func $target))",
+  ).with_func_annotation_sec(
+    @lib.FuncAnnotationSec::new([source, target_first, target_second]),
+  )
+  let output = no_inline_copy_policy_annotations(input, 0U, 1U)
+  @debug.assert_eq(
+    output.func_annotation_sec,
+    Some(
+      @lib.FuncAnnotationSec::new([
+        source,
+        target_first,
+        target_second,
+        @lib.FuncAnnotationAssoc::new(1U, [
+          @lib.FuncAnnotation::new("starshine.no-full-inline"),
+          @lib.FuncAnnotation::new("starshine.no-partial-inline"),
+        ]),
+      ]),
+    ),
+  )
+}
+
+///|
 test "inlining strips split wrapper markers without dropping sibling annotations" {
   let input = pass_test_module_from_wat("(module (func $target))").with_func_annotation_sec(
     @lib.FuncAnnotationSec::new([

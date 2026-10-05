@@ -267,17 +267,56 @@ test "make-shared-objects fails closed on concrete function br_on_cast" {
 }
 
 ///|
-test "make-shared-objects maps stringref to shared i31" {
+test "make-shared-objects preserves unsupported string heaps" {
   for
     source in [
       @lib.HeapType::abs(@lib.AbsHeapType::string_()),
       @lib.HeapType::shared_abs(@lib.AbsHeapType::string_()),
     ] {
-    assert_eq(
-      mso_rewrite_heap_type(source, []),
-      @lib.HeapType::shared_abs(@lib.AbsHeapType::i31()),
-    )
+    assert_eq(mso_rewrite_heap_type(source, []), source)
   }
+}
+
+///|
+test "make-shared-objects fails closed on string producers" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (global stringref (string.const "global"))
+      #|  (func (export "run") (result stringref)
+      #|    (string.const "hello")))
+      #|),
+    ),
+  )
+  let validation = @validate.validate_module(input)
+  assert_true(validation.is_ok(), msg=@debug.to_string(validation))
+  assert_eq(make_shared_objects_run_module_pass(input), input)
+}
+
+///|
+test "make-shared-objects fails closed on string cast boundaries" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param externref) (result i32) (local.get 0) drop i32.const 0))",
+  )
+  let funcs = input.code_sec.unwrap().0.copy()
+  let @lib.Func(locals, _) = funcs[0]
+  let string_heap = @lib.HeapType::abs(@lib.AbsHeapType::string_())
+  funcs[0] = @lib.Func::new(
+    locals,
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_test_type(@lib.RefType::new(true, string_heap)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast_type(@lib.RefType::new(true, string_heap)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+    ]),
+  )
+  let input = input.with_code_sec(@lib.CodeSec::new(funcs))
+  let validation = @validate.validate_module(input)
+  assert_true(validation.is_ok(), msg=@debug.to_string(validation))
+  assert_eq(make_shared_objects_run_module_pass(input), input)
 }
 
 ///|

@@ -989,6 +989,14 @@ fn h2l_root_slot_from_index(slots : Array[Int], node_id : Int) -> Int? {
 }
 
 ///|
+fn h2l_sort_sequential_write_slots(
+  writes : Array[(Int, Int)],
+) -> Array[(Int, Int)] {
+  writes.sort_by(fn(left, right) { left.0.compare(right.0) })
+  writes
+}
+
+///|
 fn h2l_self_copy_write_matches(
   func : @ir.HotFunc,
   write_node_id : Int,
@@ -1047,19 +1055,6 @@ fn h2l_struct_alloc_write_info(
 }
 
 ///|
-fn h2l_write_is_next_struct_alloc_boundary(
-  func : @ir.HotFunc,
-  module_ctx : @ir.HotModuleContext,
-  local_id : Int,
-  write_node_id : Int,
-) -> Bool {
-  match h2l_struct_alloc_write_info(func, module_ctx, write_node_id, local_id) {
-    Some(_) => true
-    None => false
-  }
-}
-
-///|
 fn h2l_collect_sequential_source_use(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
@@ -1109,38 +1104,35 @@ fn h2l_find_sequential_candidates_for_local(
   if writes.length() <= 1 {
     return candidates
   }
+  let allocation_writes : Array[(Int, Int)] = []
   for write_node_id in writes {
-    if h2l_struct_alloc_write_info(func, module_ctx, write_node_id, local_id).is_none() &&
-      !h2l_self_copy_write_matches(func, write_node_id, local_id) {
+    let is_allocation = h2l_struct_alloc_write_info(
+      func, module_ctx, write_node_id, local_id,
+    ).is_some()
+    let is_self_copy = h2l_self_copy_write_matches(
+      func, write_node_id, local_id,
+    )
+    if !is_allocation && !is_self_copy {
       return []
     }
     match h2l_root_slot_from_index(root_slots, write_node_id) {
-      Some(root_slot) =>
+      Some(root_slot) => {
         // Conditional/nested allocation writes do not define straight-line
         // epochs. A later read may observe either owner, not this candidate.
-        if !h2l_self_copy_write_matches(func, write_node_id, local_id) &&
+        if is_allocation &&
           @ir.hot_region_get(func, @ir.HotRegionRef::root(), root_slot) !=
           write_node_id {
           return []
         }
+        if is_allocation {
+          allocation_writes.push((root_slot, write_node_id))
+        }
+      }
       None => return []
     }
   }
-  let root_ref = @ir.HotRegionRef::root()
-  let root_count = @ir.hot_region_root_count(func, root_ref)
-  let next_boundary_by_slot = Array::make(root_count, root_count)
-  let mut next_boundary = root_count
-  for slot = root_count - 1; slot >= 0; slot = slot - 1 {
-    next_boundary_by_slot[slot] = next_boundary
-    if h2l_write_is_next_struct_alloc_boundary(
-        func,
-        module_ctx,
-        local_id,
-        @ir.hot_region_get(func, root_ref, slot),
-      ) {
-      next_boundary = slot
-    }
-  }
+  let allocation_writes = h2l_sort_sequential_write_slots(allocation_writes)
+  let root_count = @ir.hot_root_count(func)
   let reads_by_slot : Array[(Int, Int)] = []
   for read_node_id in use_def.local_reads[local_id] {
     let read_slot = match h2l_root_slot_from_index(root_slots, read_node_id) {
@@ -1151,14 +1143,18 @@ fn h2l_find_sequential_candidates_for_local(
   }
   reads_by_slot.sort_by(fn(a, b) { a.0.compare(b.0) })
   let mut read_cursor = 0
-  for slot = 0; slot < root_count; slot = slot + 1 {
-    let write_node_id = @ir.hot_region_get(func, root_ref, slot)
+  for allocation_index, allocation_write in allocation_writes {
+    let (slot, write_node_id) = allocation_write
     let (struct_type, fields, init_node_id) = match
       h2l_struct_alloc_write_info(func, module_ctx, write_node_id, local_id) {
       Some(info) => info
-      None => continue
+      None => return []
     }
-    let end_slot = next_boundary_by_slot[slot]
+    let end_slot = if allocation_index + 1 < allocation_writes.length() {
+      allocation_writes[allocation_index + 1].0
+    } else {
+      root_count
+    }
     let use_sites : Array[H2LUseSite] = []
     let copy_sites : Array[H2LCopySite] = []
     while read_cursor < reads_by_slot.length() &&
@@ -1436,19 +1432,6 @@ fn h2l_array_alloc_write_info(
 }
 
 ///|
-fn h2l_write_is_next_array_alloc_boundary(
-  func : @ir.HotFunc,
-  module_ctx : @ir.HotModuleContext,
-  local_id : Int,
-  write_node_id : Int,
-) -> Bool {
-  match h2l_array_alloc_write_info(func, module_ctx, write_node_id, local_id) {
-    Some(_) => true
-    None => false
-  }
-}
-
-///|
 /// HOT IR preserves local effects as region order rather than data edges. If
 /// one scratch local carries more than one array allocation, rewriting another
 /// allocation in the same function can let reconstruction move a later scratch
@@ -1578,38 +1561,35 @@ fn h2l_find_sequential_array_candidates_for_local(
   if writes.length() <= 1 {
     return candidates
   }
+  let allocation_writes : Array[(Int, Int)] = []
   for write_node_id in writes {
-    if h2l_array_alloc_write_info(func, module_ctx, write_node_id, local_id).is_none() &&
-      !h2l_self_copy_write_matches(func, write_node_id, local_id) {
+    let is_allocation = h2l_array_alloc_write_info(
+      func, module_ctx, write_node_id, local_id,
+    ).is_some()
+    let is_self_copy = h2l_self_copy_write_matches(
+      func, write_node_id, local_id,
+    )
+    if !is_allocation && !is_self_copy {
       return []
     }
     match h2l_root_slot_from_index(root_slots, write_node_id) {
-      Some(root_slot) =>
+      Some(root_slot) => {
         // Conditional/nested allocation writes do not define straight-line
         // epochs. A later read may observe either owner, not this candidate.
-        if !h2l_self_copy_write_matches(func, write_node_id, local_id) &&
+        if is_allocation &&
           @ir.hot_region_get(func, @ir.HotRegionRef::root(), root_slot) !=
           write_node_id {
           return []
         }
+        if is_allocation {
+          allocation_writes.push((root_slot, write_node_id))
+        }
+      }
       None => return []
     }
   }
-  let root_ref = @ir.HotRegionRef::root()
-  let root_count = @ir.hot_region_root_count(func, root_ref)
-  let next_boundary_by_slot = Array::make(root_count, root_count)
-  let mut next_boundary = root_count
-  for slot = root_count - 1; slot >= 0; slot = slot - 1 {
-    next_boundary_by_slot[slot] = next_boundary
-    if h2l_write_is_next_array_alloc_boundary(
-        func,
-        module_ctx,
-        local_id,
-        @ir.hot_region_get(func, root_ref, slot),
-      ) {
-      next_boundary = slot
-    }
-  }
+  let allocation_writes = h2l_sort_sequential_write_slots(allocation_writes)
+  let root_count = @ir.hot_root_count(func)
   let reads_by_slot : Array[(Int, Int)] = []
   for read_node_id in use_def.local_reads[local_id] {
     let read_slot = match h2l_root_slot_from_index(root_slots, read_node_id) {
@@ -1620,14 +1600,18 @@ fn h2l_find_sequential_array_candidates_for_local(
   }
   reads_by_slot.sort_by(fn(a, b) { a.0.compare(b.0) })
   let mut read_cursor = 0
-  for slot = 0; slot < root_count; slot = slot + 1 {
-    let write_node_id = @ir.hot_region_get(func, root_ref, slot)
+  for allocation_index, allocation_write in allocation_writes {
+    let (slot, write_node_id) = allocation_write
     let (array_type, element, length, init_node_id) = match
       h2l_array_alloc_write_info(func, module_ctx, write_node_id, local_id) {
       Some(info) => info
-      None => continue
+      None => return []
     }
-    let end_slot = next_boundary_by_slot[slot]
+    let end_slot = if allocation_index + 1 < allocation_writes.length() {
+      allocation_writes[allocation_index + 1].0
+    } else {
+      root_count
+    }
     let use_sites : Array[H2LArrayUseSite] = []
     let copy_sites : Array[H2LCopySite] = []
     while read_cursor < reads_by_slot.length() &&

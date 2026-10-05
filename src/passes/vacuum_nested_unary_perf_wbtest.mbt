@@ -32,11 +32,15 @@ fn vacuum_nested_unary_perf_bench(it : @bench.T, depth : Int) -> Unit {
   let preflight = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(1U))
   let dropped = @ir.hot_root_get(preflight, 0)
   let top = @ir.hot_child_get(preflight, dropped, 0)
+  let preflight_workspace = VacuumDroppedNodeWorkspace::new(
+    @ir.hot_node_count(preflight),
+  )
   match
-    vacuum_dropped_parent_replacement(
+    vacuum_dropped_parent_replacement_with_workspace(
       vacuum_nested_unary_perf_ctx(),
       preflight,
       top,
+      preflight_workspace,
     ) {
     Some(replacement) => {
       if replacement.roots.length() != 1 ||
@@ -53,10 +57,13 @@ fn vacuum_nested_unary_perf_bench(it : @bench.T, depth : Int) -> Unit {
     None => abort("Vacuum did not decompose nested unary wrappers")
   }
   let ctx = vacuum_nested_unary_perf_ctx()
+  let workspace = VacuumDroppedNodeWorkspace::new(@ir.hot_node_count(preflight))
   it.bench(fn() {
     let func = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(1U))
     let top = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
-    let result = vacuum_dropped_parent_replacement(ctx, func, top)
+    let result = vacuum_dropped_parent_replacement_with_workspace(
+      ctx, func, top, workspace,
+    )
     it.keep(result)
   })
 }
@@ -65,11 +72,13 @@ fn vacuum_nested_unary_perf_bench(it : @bench.T, depth : Int) -> Unit {
 test "Vacuum nested unary rewrite retains effectful terminal once" {
   let fixture = vacuum_nested_unary_perf_fixture(32)
   let func = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(1U))
+  let workspace = VacuumDroppedNodeWorkspace::new(@ir.hot_node_count(func))
   assert_true(
-    hot_pass_vacuum_rewrite_dropped_parents_batch(
+    hot_pass_vacuum_rewrite_dropped_parents_batch_with_workspace(
       vacuum_nested_unary_perf_ctx(),
       func,
       @ir.HotRegionRef::root(),
+      workspace,
     ),
   )
   assert_eq(@ir.hot_root_count(func), 1)
@@ -91,11 +100,13 @@ test "Vacuum nested pure unary chain removes dropped root" {
     "(module (func (drop (i32.clz (i32.clz (i32.const 1))))))",
   )
   let func = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
+  let workspace = VacuumDroppedNodeWorkspace::new(@ir.hot_node_count(func))
   assert_true(
-    hot_pass_vacuum_rewrite_dropped_parents_batch(
+    hot_pass_vacuum_rewrite_dropped_parents_batch_with_workspace(
       vacuum_nested_unary_perf_ctx(),
       func,
       @ir.HotRegionRef::root(),
+      workspace,
     ),
   )
   assert_eq(@ir.hot_root_count(func), 0)

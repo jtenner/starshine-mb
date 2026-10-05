@@ -51,6 +51,81 @@ fn gsi_test_closed_world_candidate_indices(
 }
 
 ///|
+test "global-struct-inference deduplicates exported roots and reuses global visit stamps" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #| (module
+      #|   (type $box (sub (struct (field i32))))
+      #|   (type $reader (func (param (ref $box)) (result i32)))
+      #|   (func $read (type $reader)
+      #|     local.get 0
+      #|     struct.get $box 0)
+      #|   (global $reader (ref $reader) (ref.func $read))
+      #|   (export "read-a" (func $read))
+      #|   (export "read-b" (func $read))
+      #|   (export "reader-a" (global $reader))
+      #|   (export "reader-b" (global $reader)))
+      #|,
+    ),
+  )
+  let roots = gsi_exported_origin_roots(mod_, 0, 1, 0, 1)
+  @debug.assert_eq(roots.funcs, [0])
+  @debug.assert_eq(roots.globals, [0])
+
+  let visits = GsiGlobalVisitStamps::new()
+  assert_true(visits.marks.is_empty())
+  for generation in 0..<256 {
+    ignore(generation)
+    visits.begin_root()
+    assert_true(visits.visit(127))
+    assert_false(visits.visit(127))
+  }
+  @debug.assert_eq(visits.marks.length(), 128)
+}
+
+///|
+test "global-struct-inference rejects mutable callback aliases before allocating visit stamps" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #| (module
+      #|   (type $reader (func (result i32)))
+      #|   (func $read (type $reader) (i32.const 1))
+      #|   (elem declare func $read)
+      #|   (global $reader (mut (ref $reader)) (ref.func $read))
+      #|   (func (export "get") (result (ref $reader))
+      #|     global.get $reader))
+      #|,
+    ),
+  )
+  let env = @validate.Env::new().with_module(mod_)
+  let defined_globals = match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) => globals
+    None => abort("expected global section")
+  }
+  let body = match mod_.code_sec {
+    Some(@lib.CodeSec([_, @lib.Func(_, body), ..])) => body
+    _ => abort("expected callback getter body")
+  }
+  let value_type = match defined_globals[0] {
+    @lib.Global(@lib.GlobalType(value_type, _), _) => value_type
+  }
+  let callable_funcs : Array[@lib.FuncIdx] = []
+  let visits = GsiGlobalVisitStamps::new()
+  visits.begin_root()
+  gsi_collect_returned_ref_funcs(
+    env,
+    body,
+    [value_type],
+    callable_funcs,
+    defined_globals,
+    0,
+    visits,
+  )
+  assert_true(callable_funcs.is_empty())
+  assert_true(visits.marks.is_empty())
+}
+
+///|
 test "global-struct-inference closed-world facts include immutable top-level global candidates" {
   let input =
     #| (module

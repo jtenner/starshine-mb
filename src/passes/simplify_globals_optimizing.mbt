@@ -6026,7 +6026,7 @@ fn sgo_runtime_trace_trackable(
 }
 
 ///|
-struct SgoRuntimeTraceWorkspace {
+priv struct SgoRuntimeTraceWorkspace {
   facts : Array[@lib.Instruction?]
   marked : Array[Bool]
   touched : Array[Int]

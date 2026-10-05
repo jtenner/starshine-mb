@@ -35,10 +35,10 @@ fn mso_rewrite_heap_type(
   match heap {
     @lib.AbsHeapTypeHeapType(@lib.FuncAbsHeapType)
     | @lib.SharedAbsHeapTypeHeapType(@lib.FuncAbsHeapType)
-    | @lib.AbsHeapTypeHeapType(@lib.ExternAbsHeapType)
-    | @lib.AbsHeapTypeHeapType(@lib.StringAbsHeapType)
-    | @lib.SharedAbsHeapTypeHeapType(@lib.StringAbsHeapType) =>
+    | @lib.AbsHeapTypeHeapType(@lib.ExternAbsHeapType) =>
       @lib.HeapType::shared_abs(@lib.AbsHeapType::i31())
+    @lib.AbsHeapTypeHeapType(@lib.StringAbsHeapType)
+    | @lib.SharedAbsHeapTypeHeapType(@lib.StringAbsHeapType) => heap
     @lib.HeapType(idx) if mso_function_type(types, idx) =>
       @lib.HeapType::shared_abs(@lib.AbsHeapType::i31())
     @lib.AbsHeapTypeHeapType(@lib.NoFuncAbsHeapType)
@@ -835,7 +835,11 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   }
   let types = cl_module_subtypes(mod_)
   let refs = mso_collect_references(mod_, types)
-  if refs.unsupported_branch_cast[0] {
+  // String values need a distinct external-handle lowering. Rewriting their
+  // types to shared i31 while leaving string producers and casts in place can
+  // invalidate the module or conflate strings with arbitrary external refs.
+  if refs.unsupported_branch_cast[0] ||
+    mso_module_has_string_surface(mod_, types, refs) {
     return mod_
   }
   let original_table_count = @ir.hot_module_context_from_module(mod_).tables.length()

@@ -259,41 +259,7 @@ fn no_inline_annotation_present(
 }
 
 ///|
-fn no_inline_append_annotation_once(
-  annotations : Array[@lib.FuncAnnotation],
-  name : String,
-) -> Array[@lib.FuncAnnotation] {
-  let out = annotations.copy()
-  if !no_inline_annotation_present(out, name) {
-    out.push(@lib.FuncAnnotation::new(name))
-  }
-  out
-}
-
-///|
-fn no_inline_policy_annotations(
-  annotations : Array[@lib.FuncAnnotation],
-  mark_full : Bool,
-  mark_partial : Bool,
-) -> Array[@lib.FuncAnnotation] {
-  let mut out = annotations
-  if mark_full {
-    out = no_inline_append_annotation_once(
-      out,
-      no_inline_no_full_annotation_name(),
-    )
-  }
-  if mark_partial {
-    out = no_inline_append_annotation_once(
-      out,
-      no_inline_no_partial_annotation_name(),
-    )
-  }
-  out
-}
-
-///|
-fn no_inline_existing_annotation_map(
+fn no_inline_existing_policy_map(
   mod_ : @lib.Module,
   total : Int,
 ) -> Array[Array[@lib.FuncAnnotation]] {
@@ -309,13 +275,12 @@ fn no_inline_existing_annotation_map(
         let @lib.FuncAnnotationAssoc(raw_idx, annotations) = entry
         let slot = raw_idx.reinterpret_as_int()
         if slot >= 0 && slot < by_func.length() {
-          let merged = by_func[slot].copy()
           for annotation in annotations {
-            if !merged.contains(annotation) {
-              merged.push(annotation)
+            if no_inline_policy_annotation_name(annotation) &&
+              !no_inline_annotation_present(by_func[slot], annotation.name) {
+              by_func[slot].push(annotation)
             }
           }
-          by_func[slot] = merged
         }
       }
     None => ()
@@ -324,24 +289,18 @@ fn no_inline_existing_annotation_map(
 }
 
 ///|
-fn no_inline_build_annotation_sec(
-  by_func : Array[Array[@lib.FuncAnnotation]],
-) -> @lib.FuncAnnotationSec? {
-  let entries : Array[@lib.FuncAnnotationAssoc] = []
-  let mut idx = 0
-  while idx < by_func.length() {
-    if by_func[idx].length() > 0 {
-      entries.push(
-        @lib.FuncAnnotationAssoc::new(idx.reinterpret_as_uint(), by_func[idx]),
-      )
-    }
-    idx += 1
+fn no_inline_append_policy_associations(
+  mod_ : @lib.Module,
+  additions : Array[@lib.FuncAnnotationAssoc],
+) -> @lib.Module {
+  let entries = match mod_.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) => entries.copy()
+    None => []
   }
-  if entries.length() == 0 {
-    None
-  } else {
-    Some(@lib.FuncAnnotationSec::new(entries))
+  for association in additions {
+    entries.push(association)
   }
+  mod_.with_func_annotation_sec(@lib.FuncAnnotationSec::new(entries))
 }
 
 ///|
@@ -354,7 +313,8 @@ fn no_inline_run_module_pass(
   let total = no_inline_imported_func_count(mod_) +
     no_inline_defined_func_count(mod_)
   let names = no_inline_func_names(mod_, total)
-  let by_func = no_inline_existing_annotation_map(mod_, total)
+  let by_func = no_inline_existing_policy_map(mod_, total)
+  let additions : Array[@lib.FuncAnnotationAssoc] = []
   let wildcard = no_inline_wildcard_compile(pattern)
   let wildcard_visits = [0]
   let wildcard_first = Array::make(wildcard.word_count, 0UL)
@@ -372,14 +332,35 @@ fn no_inline_run_module_pass(
     if no_inline_wildcard_match_compiled(
         wildcard, name, wildcard_visits, wildcard_first, wildcard_second,
       ) {
-      let next = no_inline_policy_annotations(
-        by_func[idx],
-        mark_full,
-        mark_partial,
-      )
-      if next != by_func[idx] {
-        by_func[idx] = next
+      let owned : Array[@lib.FuncAnnotation] = []
+      if mark_full &&
+        !no_inline_annotation_present(
+          by_func[idx],
+          no_inline_no_full_annotation_name(),
+        ) {
+        let annotation = @lib.FuncAnnotation::new(
+          no_inline_no_full_annotation_name(),
+        )
+        by_func[idx].push(annotation)
+        owned.push(annotation)
         changed = true
+      }
+      if mark_partial &&
+        !no_inline_annotation_present(
+          by_func[idx],
+          no_inline_no_partial_annotation_name(),
+        ) {
+        let annotation = @lib.FuncAnnotation::new(
+          no_inline_no_partial_annotation_name(),
+        )
+        by_func[idx].push(annotation)
+        owned.push(annotation)
+        changed = true
+      }
+      if !owned.is_empty() {
+        additions.push(
+          @lib.FuncAnnotationAssoc::new(idx.reinterpret_as_uint(), owned),
+        )
       }
     }
     idx += 1
@@ -387,27 +368,7 @@ fn no_inline_run_module_pass(
   if !changed {
     return mod_
   }
-  @lib.Module::new(
-    custom_secs=mod_.custom_secs,
-    compiler_fact_custom_section=mod_.compiler_fact_custom_section,
-    type_sec=mod_.type_sec,
-    import_sec=mod_.import_sec,
-    func_annotation_sec=no_inline_build_annotation_sec(by_func),
-    func_sec=mod_.func_sec,
-    table_sec=mod_.table_sec,
-    mem_sec=mod_.mem_sec,
-    tag_sec=mod_.tag_sec,
-    stringrefs_sec=mod_.stringrefs_sec,
-    global_sec=mod_.global_sec,
-    export_sec=mod_.export_sec,
-    start_sec=mod_.start_sec,
-    elem_sec=mod_.elem_sec,
-    data_cnt_sec=mod_.data_cnt_sec,
-    code_sec=mod_.code_sec,
-    data_sec=mod_.data_sec,
-    name_sec=mod_.name_sec,
-    raw_name_sec_payload=mod_.raw_name_sec_payload,
-  )
+  no_inline_append_policy_associations(mod_, additions)
 }
 
 ///|
@@ -431,39 +392,21 @@ pub fn no_inline_copy_policy_annotations(
   if source < 0 || source >= total || target < 0 || target >= total {
     return mod_
   }
-  let by_func = no_inline_existing_annotation_map(mod_, total)
-  let mut changed = false
+  let by_func = no_inline_existing_policy_map(mod_, total)
+  let additions : Array[@lib.FuncAnnotation] = []
   for annotation in by_func[source] {
     if no_inline_policy_annotation_name(annotation) &&
       !no_inline_annotation_present(by_func[target], annotation.name) {
       by_func[target].push(annotation)
-      changed = true
+      additions.push(annotation)
     }
   }
-  if !changed {
+  if additions.is_empty() {
     return mod_
   }
-  @lib.Module::new(
-    custom_secs=mod_.custom_secs,
-    compiler_fact_custom_section=mod_.compiler_fact_custom_section,
-    type_sec=mod_.type_sec,
-    import_sec=mod_.import_sec,
-    func_annotation_sec=no_inline_build_annotation_sec(by_func),
-    func_sec=mod_.func_sec,
-    table_sec=mod_.table_sec,
-    mem_sec=mod_.mem_sec,
-    tag_sec=mod_.tag_sec,
-    stringrefs_sec=mod_.stringrefs_sec,
-    global_sec=mod_.global_sec,
-    export_sec=mod_.export_sec,
-    start_sec=mod_.start_sec,
-    elem_sec=mod_.elem_sec,
-    data_cnt_sec=mod_.data_cnt_sec,
-    code_sec=mod_.code_sec,
-    data_sec=mod_.data_sec,
-    name_sec=mod_.name_sec,
-    raw_name_sec_payload=mod_.raw_name_sec_payload,
-  )
+  no_inline_append_policy_associations(mod_, [
+    @lib.FuncAnnotationAssoc::new(target.reinterpret_as_uint(), additions),
+  ])
 }
 
 ///|

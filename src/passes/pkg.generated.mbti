@@ -645,10 +645,6 @@ type HotTupleOptimizationRootSlot derive(Eq, @debug.Debug)
 
 type HotTupleOptimizationSeedCollection derive(Eq, @debug.Debug)
 
-type InlGraphReachability
-
-type SgoRuntimeTraceWorkspace
-
 pub(all) enum SsaFullGetDecision {
   Retarget(Int)
   MaterializeDefault
