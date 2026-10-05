@@ -1250,25 +1250,12 @@ fn ls_refine_selects_instrs(
                   ls_call_ref_has_no_params(module_ctx, type_idx) {
                   match rewritten[len - 1] {
                     @lib.LocalGet(target_idx) => {
-                      let bottom_ref = @lib.ValType::ref_type(
-                        @lib.RefType::new(
-                          false,
-                          @lib.HeapType::abs(@lib.AbsHeapType::none()),
-                        ),
-                      )
-                      ignore(
-                        rewritten.set(
-                          len - 1,
-                          @lib.Instruction::block(
-                            @lib.BlockType::val_type(bottom_ref),
-                            @lib.Expr::new([
-                              @lib.Instruction::local_get(target_idx),
-                              @lib.Instruction::drop(),
-                              @lib.Instruction::unreachable_(),
-                            ]),
-                          ),
-                        ),
-                      )
+                      // Retain the target read at the call's evaluation position.
+                      // A closed bottom-reference block still has a concrete
+                      // result; only a direct trap makes this frame polymorphic.
+                      ignore(target_idx)
+                      rewritten.push(@lib.Instruction::drop())
+                      rewritten.push(@lib.Instruction::unreachable_())
                       changed = true
                     }
                     _ => rewritten.push(next_instr)
@@ -2169,4 +2156,26 @@ pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     iteration += 1
   }
   pass_cleanup_unused_type_groups(current_mod)
+}
+
+///|
+test "null call rewrite emits valid raw bytes for every result signature" {
+  for results in ["", "i32", "i64", "f32", "f64", "i32 i64", "funcref"] {
+    let result = if results == "" { "" } else { "(result " + results + ")" }
+    let input = pass_test_module_from_wat(
+      "(module (type $t (func " +
+      result +
+      ")) (func " +
+      result +
+      " (local (ref null $t)) ref.null nofunc local.set 0 local.get 0 call_ref $t))",
+    )
+    let output = local_subtyping_run_module_pass(input)
+    @validate.validate_module(output).unwrap()
+    @validate.validate_module(
+      @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap(),
+    ).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_true(body.any(fn(instr) { instr is @lib.Unreachable }))
+    assert_false(body.any(fn(instr) { instr is @lib.CallRef(_) }))
+  }
 }
