@@ -23046,6 +23046,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 inner_body.append(rewritten_body)
                 if body_fallthrough {
                   inner_body.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
+                } else {
+                  inner_body.push(@lib.Instruction::unreachable_())
                 }
                 let outer_body : Array[@lib.Instruction] = [
                   @lib.Instruction::block(
@@ -23168,6 +23170,9 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                     )
                   },
                 )
+                if !body_fallthrough {
+                  loop_body.push(@lib.Instruction::unreachable_())
+                }
                 if loop_result_types.length() == 0 {
                   rewritten.push(
                     @lib.Instruction::loop_(
@@ -74891,6 +74896,7 @@ fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_tail_try_table_catch_all
           @lib.Expr::new(try_body),
         ),
       )
+      out.push(@lib.Instruction::unreachable_())
       Some(out)
     }
     _ => None

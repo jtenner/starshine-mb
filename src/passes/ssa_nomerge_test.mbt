@@ -8029,7 +8029,8 @@ test "ssa-nomerge boundary: legacy rethrow remains outside HOT SSA" {
       #|    (try
       #|      (do (throw $e0))
       #|      (catch $e0
-      #|        (rethrow 0)))))
+      #|        (rethrow 0)))
+      #|    i32.const 0)
       #|)
     ),
   )
@@ -8107,6 +8108,7 @@ fn ssa_test_expect_typed_loop_boundary_output(
   source : String,
   min_local_count : Int,
   context : String,
+  reason? : String = "structured-local-writes-mutated",
 ) -> (@lib.Locals, Array[@lib.Instruction]) raise {
   let trace : Array[String] = []
   let optimized = match
@@ -8128,9 +8130,7 @@ fn ssa_test_expect_typed_loop_boundary_output(
         "expected typed loop-param \{context} ssa-nomerge output to validate, got \{@validate.validation_error_message(err)}",
       )
   }
-  ssa_test_assert_ssa_nomerge_raw_reason(
-    trace, "structured-local-writes-mutated",
-  )
+  ssa_test_assert_ssa_nomerge_raw_reason(trace, reason)
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() >= min_local_count, msg=locals.to_string())
   (locals, instrs)
@@ -11839,7 +11839,6 @@ test "ssa-nomerge rewrites no-throw try_table scalar proxy backedges" {
     #|          i32.add
     #|          br $l)))
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -11946,7 +11945,6 @@ test "ssa-nomerge rewrites throwing try_table typed loop backedges" {
     #|          br $l
     #|          throw $e)))
     #|    local.get 1))
-    #|)
   let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "throwing try_table typed-loop backedge",
   )
@@ -16853,7 +16851,6 @@ test "ssa-nomerge rewrites non-current scalar typed loop br_table targets" {
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   ssa_test_expect_loop_param_br_table_proxy(source, 2)
 }
 
@@ -16903,7 +16900,6 @@ test "ssa-nomerge rewrites try_table scalar proxy br_table catch-relabeling" {
     #|          br_table $l $l
     #|          drop)))
     #|    local.get 1))
-    #|)
   ssa_test_expect_loop_param_br_table_proxy(source, 2)
 }
 
@@ -16967,7 +16963,6 @@ test "ssa-nomerge rewrites try_table single-result br_table fallthrough store mo
     #|      end
     #|      return)
     #|    local.get 1))
-    #|)
   ssa_test_expect_loop_param_store_model(source, 3)
 }
 
@@ -17128,7 +17123,6 @@ test "ssa-nomerge rewrites copy-needing non-current scalar typed loop br_table t
     #|      end
     #|    end
     #|    local.get 2))
-    #|)
   ssa_test_expect_loop_param_br_table_proxy(source, 3)
 }
 
@@ -17178,7 +17172,6 @@ test "ssa-nomerge rewrites non-current single-result typed loop br_table targets
     #|      end
     #|      local.get 1
     #|    end))
-    #|)
   ssa_test_expect_loop_param_store_model(source, 3)
 }
 
@@ -17203,9 +17196,11 @@ test "ssa-nomerge rewrites non-current mixed-target scalar typed loop br_table t
     #|      end
     #|      unreachable
     #|    end))
-    #|)
   let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
-    source, 2, "non-current mixed-target scalar br_table",
+    source,
+    2,
+    "non-current mixed-target scalar br_table",
+    reason="null-throwref-debris-typed-loop-proxy",
   )
   assert_true(
     ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
@@ -17241,9 +17236,11 @@ test "ssa-nomerge rewrites non-current mixed-target multi-param typed loop br_ta
     #|      end
     #|      unreachable
     #|    end))
-    #|)
   let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
-    source, 3, "non-current mixed-target multi-param br_table",
+    source,
+    3,
+    "non-current mixed-target multi-param br_table",
+    reason="null-throwref-debris-typed-loop-proxy",
   )
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
@@ -32572,7 +32569,7 @@ test "ssa-nomerge compacts large branch-exit alias scratch locals" {
     #|(module
     #|  (memory 1)
     #|  (func $moonbit.array_length (param i32) (result i32) i32.const 1)
-    #|  (func $moonbit.check_range (param i32 i32) (result i32) local.get 0)
+    #|  (func $moonbit.check_range (param i32 i32 i32))
     #|  (func $moonbit.incref (param i32))
     #|  (func $_M0MPB3Map4growGsRPB4JsonE (param i32) (result i32) local.get 0)
     #|  (func $moonbit.gc.malloc (param i32) (result i32) local.get 0)

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-24
+last_reviewed: 2026-10-05
 sources:
   - ./index.md
   - ../../../../../src/passes/ssa_nomerge.mbt
@@ -25,6 +25,19 @@ related:
 ---
 
 # `ssa-nomerge` implementation structure and tests
+
+## October 5, 2026 typed-loop writeback repair
+
+The raw scalar proxy and single-result store-model adapters in
+[`pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) now end a
+rewritten loop body with explicit `unreachable` when flow analysis proves no
+fallthrough. Nested `try_table` and exhaustive `br_table` shapes can otherwise
+leave a value on the syntactic stack, making the adapted wrapper invalid and
+causing writeback to retain the original function. Seven focused
+[`ssa_nomerge_test.mbt`](../../../../../src/passes/ssa_nomerge_test.mbt)
+cases require the valid proxy or store-model rewrite, including catch-label
+and non-current branch-table targets. Their WAT no longer relies on parser
+recovery from stray trailing module delimiters.
 
 ## September 24, 2026 rewrite-plan lookup measurement
 
