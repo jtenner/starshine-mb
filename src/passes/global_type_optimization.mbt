@@ -250,7 +250,9 @@ fn global_type_optimization_run_module_pass(
   mod_ : @lib.Module,
   closed_world : Bool,
 ) -> @lib.Module {
-  if !closed_world {
+  if !closed_world ||
+    pass_module_has_offset_sensitive_metadata(mod_) ||
+    mod_.raw_name_sec_payload is Some(_) {
     return mod_
   }
   let mod_ = gto_optimize_fields(mod_)

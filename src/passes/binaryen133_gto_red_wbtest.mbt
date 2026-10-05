@@ -43,6 +43,31 @@ test "Binaryen 133 GTO removes an unread private struct field" {
 }
 
 ///|
+test "GTO boundary preserves code with opaque offset-sensitive metadata" {
+  // Opaque code offsets cannot be repaired after field-pruning changes the body.
+  let input = pass_test_module_from_wat(
+    "(module (type $t (struct (field (mut i32)))) (func (export \"run\") (result i32) (drop (struct.new $t (i32.const 1))) (i32.const 7)))",
+  ).with_custom_secs([
+    @lib.CustomSec::new(@lib.Name::new("metadata.code.branch_hint"), b"\x00"),
+  ])
+  let output = binaryen133_run_gto_module(input)
+  @debug.assert_eq(output.type_sec, input.type_sec)
+  @debug.assert_eq(output.code_sec, input.code_sec)
+  @debug.assert_eq(output.custom_secs, input.custom_secs)
+}
+
+///|
+test "GTO boundary preserves types with opaque raw name metadata" {
+  // The raw name payload may contain type and field indices GTO cannot remap.
+  let input = pass_test_module_from_wat(
+    "(module (type $t (struct (field (mut i32)))) (func (export \"run\") (result i32) (drop (struct.new $t (i32.const 1))) (i32.const 7)))",
+  ).with_raw_name_sec_payload(b"opaque-type-names")
+  let output = binaryen133_run_gto_module(input)
+  @debug.assert_eq(output.type_sec, input.type_sec)
+  @debug.assert_eq(output.raw_name_sec_payload, input.raw_name_sec_payload)
+}
+
+///|
 test "Binaryen 133 GTO keeps effects of an unread constructor field" {
   let output = binaryen133_run_gto(
     "(module (type $t (struct (field (mut i32)))) (global $g (mut i32) (i32.const 0)) (func $effect (result i32) (global.set $g (i32.const 9)) (i32.const 1)) (func (export \"run\") (result i32) (drop (struct.new $t (call $effect))) (global.get $g)))",
