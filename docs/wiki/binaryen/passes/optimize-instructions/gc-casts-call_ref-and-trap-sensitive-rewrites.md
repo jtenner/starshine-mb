@@ -1,9 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-14
+last_reviewed: 2026-10-05
 sources:
   - ./index.md
+  - ../../../../../src/passes/optimize_instructions.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/optimize_instructions_test.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -279,6 +282,16 @@ That is a very different family from arithmetic peepholes, but it still lives in
 ## GC field and array operations
 
 ## Non-null check removal
+
+The October 5 standalone `ref.get_desc` repair admits exact escaping `br` and
+`br_table` roots when labels are valid, every table target leaves the descriptor
+child block, and their children have no unsupported control or multivalue
+result. The descriptor-operand mode retains its fail-closed null check. The
+lowered bridge also flattens the exact `local.get; br; dead local.get` block
+followed by `ref.as_non_null; ref.get_desc; ref.cast_desc_eq`, retargeting the
+branch and omitting only unreachable suffix instructions. Focused
+[`optimize_instructions_test.mbt`](../../../../../src/passes/optimize_instructions_test.mbt)
+guards cover output shape and the preserved descriptor-operand boundary.
 
 For operations like:
 

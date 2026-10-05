@@ -52695,12 +52695,17 @@ test "optimize-instructions fail-closed on escaping-branch block ref.get_desc ch
     other => fail("expected ref.get_desc descriptor operand, got \{other}")
   }
   let get_desc_child = @ir.hot_child_get(func, descriptor_operand, 0)
-  match @ir.hot_node_get(func, get_desc_child).op {
-    @ir.HotOp::Block => ()
+  match @ir.hot_node_exact_instr(func, get_desc_child) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
     other =>
       fail(
-        "expected escaping block descriptor child to remain fail-closed, got \{other}",
+        "expected escaping block descriptor null check to remain fail-closed, got \{other}",
       )
+  }
+  let checked_child = @ir.hot_child_get(func, get_desc_child, 0)
+  match @ir.hot_node_get(func, checked_child).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected escaping block under null check, got \{other}")
   }
 }
 
@@ -81817,7 +81822,7 @@ test "optimize-instructions keeps constant boolean decision trees unwrapped in l
 ///|
 test "optimize-instructions keeps zero sentinels after returning ifs in result blocks" {
   let func = optimize_instructions_test_run_hot(
-    "(module (func (param i32) (result i32) (block (result i32) (if (result i32) (local.get 0) (then (block (return (i32.const 1)))) (else (block (return (i32.const 0))))) (i32.const 0))))",
+    "(module (func (param i32) (result i32) (block (result i32) (if (local.get 0) (then (block (return (i32.const 1)))) (else (block (return (i32.const 0))))) (i32.const 0))))",
   )
   let block = @ir.hot_root_get(func, 0)
   let body = @ir.hot_region_body_ref(func, block)
@@ -81835,7 +81840,7 @@ test "optimize-instructions keeps zero sentinels after returning ifs in result b
 ///|
 test "optimize-instructions keeps zero sentinels after wrapped returning ifs in result blocks" {
   let func = optimize_instructions_test_run_hot(
-    "(module (func (param i32) (result i32) (block (result i32) (block (result i32) (if (result i32) (local.get 0) (then (block (return (i32.const 1)))) (else (block (return (i32.const 0))))) (i32.const 0)))))",
+    "(module (func (param i32) (result i32) (block (result i32) (block (result i32) (if (local.get 0) (then (block (return (i32.const 1)))) (else (block (return (i32.const 0))))) (i32.const 0)))))",
   )
   let outer = @ir.hot_root_get(func, 0)
   let outer_body = @ir.hot_region_body_ref(func, outer)
@@ -81855,7 +81860,7 @@ test "optimize-instructions keeps zero sentinels after wrapped returning ifs in 
 ///|
 test "optimize-instructions keeps zero sentinels after returning ifs with dead arm suffixes" {
   let func = optimize_instructions_test_run_hot(
-    "(module (func (param i32) (result i32) (block (result i32) (if (local.get 0) (then (return (i32.const 1)) (i32.const 9)) (else (return (i32.const 0)) (i32.const 8))) (i32.const 0))))",
+    "(module (func (param i32) (result i32) (block (result i32) (if (local.get 0) (then (return (i32.const 1)) (i32.const 9) drop) (else (return (i32.const 0)) (i32.const 8) drop)) (i32.const 0))))",
   )
   let block = @ir.hot_root_get(func, 0)
   let body = @ir.hot_region_body_ref(func, block)
