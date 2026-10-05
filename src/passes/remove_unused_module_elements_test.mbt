@@ -3477,6 +3477,30 @@ test "remove-unused-module-elements closed world empties uncalled ref.func targe
 }
 
 ///|
+test "remove-unused-module-elements keeps a function exposed by an exported global" {
+  let input =
+    #|(module
+    #|  (type $callback (func (result i32)))
+    #|  (func $answer (type $callback) (i32.const 42))
+    #|  (elem declare func $answer)
+    #|  (global (export "callback") (ref $callback) (ref.func $answer)))
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-module-elements"],
+      options=HotPipelineOptions::new(closed_world=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected exported callback to survive RUME, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      assert_true(body.any(fn(instr) { instr is @lib.I32Const(@lib.I32(42)) }))
+    _ => fail("expected the exported callback body")
+  }
+}
+
+///|
 test "remove-unused-module-elements dispatcher drops nullified body label names" {
   let input = pass_test_module_from_wat(
     "(module (type (func)) (func (type 0) block nop end) (elem declare func 0) (func (export \"root\") (type 0) ref.func 0 drop))",

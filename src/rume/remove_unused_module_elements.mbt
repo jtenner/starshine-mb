@@ -3233,8 +3233,26 @@ fn rume_collect_liveness_with_import_parent_policy(
         match idx {
           @lib.FuncExternIdx(func_idx) =>
             rume_mark_func(queue, used_funcs, func_idx)
-          @lib.GlobalExternIdx(global_idx) =>
+          @lib.GlobalExternIdx(global_idx) => {
             rume_mark_global(queue, used_globals, global_idx)
+            let @lib.GlobalIdx(raw_idx) = global_idx
+            let def_idx = raw_idx.reinterpret_as_int() - global_imports
+            match mod_.global_sec {
+              Some(@lib.GlobalSec(globals)) =>
+                match globals.get(def_idx) {
+                  Some(@lib.Global(_, @lib.Expr(init))) =>
+                    for instr in init {
+                      match instr {
+                        @lib.RefFunc(func_idx) =>
+                          rume_mark_func(queue, used_funcs, func_idx)
+                        _ => ()
+                      }
+                    }
+                  None => ()
+                }
+              None => ()
+            }
+          }
           @lib.TableExternIdx(table_idx) =>
             rume_mark_table(
               queue,
