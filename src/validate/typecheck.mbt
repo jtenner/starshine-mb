@@ -408,24 +408,54 @@ fn normalize_untyped_if_branch_exit(
   st : TcState,
   results : Array[ValType],
 ) -> Result[(Bool, TcEscape), String] {
+  let exit = normalize_untyped_if_branch_exit_value(st, results)
+  match exit.error {
+    Some(error) => Err(error)
+    None => Ok((exit.reachable, exit.escape))
+  }
+}
+
+///|
+#valtype
+priv struct TcIfBranchExit {
+  reachable : Bool
+  escape : TcEscape
+  error : String?
+}
+
+///|
+fn TcIfBranchExit::new(
+  reachable : Bool,
+  escape : TcEscape,
+  error? : String? = None,
+) -> TcIfBranchExit {
+  { reachable, escape, error, }
+}
+
+///|
+fn normalize_untyped_if_branch_exit_value(
+  st : TcState,
+  results : Array[ValType],
+) -> TcIfBranchExit {
   if st.reachable {
     match validate_end_stack(st, results) {
-      Err(e) => return Err(e)
+      Err(e) => return TcIfBranchExit::new(false, NoTcEscape, error=Some(e))
       Ok(_) => ()
     }
-    return Ok((true, NoTcEscape))
+    return TcIfBranchExit::new(true, NoTcEscape)
   }
   match st.escape {
     NoTcEscape => {
       match validate_end_stack(st, results) {
-        Err(e) => return Err(e)
+        Err(e) => return TcIfBranchExit::new(false, NoTcEscape, error=Some(e))
         Ok(_) => ()
       }
-      Ok((false, TerminalTcEscape))
+      TcIfBranchExit::new(false, TerminalTcEscape)
     }
-    BranchTcEscape(0) => Ok((true, NoTcEscape))
-    BranchTcEscape(depth) => Ok((false, BranchTcEscape(depth - 1)))
-    TerminalTcEscape => Ok((false, TerminalTcEscape))
+    BranchTcEscape(0) => TcIfBranchExit::new(true, NoTcEscape)
+    BranchTcEscape(depth) =>
+      TcIfBranchExit::new(false, BranchTcEscape(depth - 1))
+    TerminalTcEscape => TcIfBranchExit::new(false, TerminalTcEscape)
   }
 }
 
@@ -953,19 +983,17 @@ pub fn tc_state_finish_if(
   st_else : TcState,
   results : Array[ValType],
 ) -> Result[TcState, String] {
-  let (base_then_reach, then_escape) = match
-    normalize_untyped_if_branch_exit(st_then, results) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  let then_exit = normalize_untyped_if_branch_exit_value(st_then, results)
+  if then_exit.error is Some(error) {
+    return Err(error)
   }
-  let (base_else_reach, else_escape) = match
-    normalize_untyped_if_branch_exit(st_else, results) {
-    Err(e) => return Err(e)
-    Ok(x) => x
+  let else_exit = normalize_untyped_if_branch_exit_value(st_else, results)
+  if else_exit.error is Some(error) {
+    return Err(error)
   }
-  let then_reach = base_then_reach ||
+  let then_reach = then_exit.reachable ||
     tc_escape_depths_has(st_then.reachable_escape_depths, 0)
-  let else_reach = base_else_reach ||
+  let else_reach = else_exit.reachable ||
     tc_escape_depths_has(st_else.reachable_escape_depths, 0)
   let merged_child_depths = tc_escape_depths_merge(
     tc_escape_depths_shift_to_parent(st_then.reachable_escape_depths),
@@ -1000,7 +1028,7 @@ pub fn tc_state_finish_if(
     env: st.env,
     stack: [],
     reachable: false,
-    escape: merge_nonfallthrough_if_exits(then_escape, else_escape),
+    escape: merge_nonfallthrough_if_exits(then_exit.escape, else_exit.escape),
     reachable_escape_depths: tc_escape_depths_merge(
       st.reachable_escape_depths,
       merged_child_depths,
