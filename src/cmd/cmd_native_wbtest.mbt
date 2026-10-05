@@ -1,32 +1,14 @@
 ///|
 #cfg(target="native")
-#borrow(name, value)
-extern "c" fn cmd_native_wbtest_setenv(
-  name : Bytes,
-  value : Bytes,
-  overwrite : Int,
-) -> Int = "setenv"
-
-///|
-#cfg(target="native")
-#borrow(name)
-extern "c" fn cmd_native_wbtest_unsetenv(name : Bytes) -> Int = "unsetenv"
-
-///|
-#cfg(target="native")
 fn cmd_native_wbtest_set_env(name : String, value : String) -> Bool {
-  cmd_native_wbtest_setenv(
-    cmd_native_c_string(name),
-    cmd_native_c_string(value),
-    1,
-  ) ==
-  0
+  @env.set_env_var(name, value)
+  @env.get_env_var(name) == Some(value)
 }
 
 ///|
 #cfg(target="native")
 fn cmd_native_wbtest_unset_env(name : String) -> Unit {
-  ignore(cmd_native_wbtest_unsetenv(cmd_native_c_string(name)))
+  @env.unset_env_var(name)
 }
 
 ///|

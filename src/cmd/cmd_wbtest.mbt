@@ -9171,20 +9171,6 @@ extern "c" fn native_remove(path : Bytes) -> Int = "remove"
 
 ///|
 #cfg(target="native")
-#borrow(name, value)
-extern "c" fn native_setenv(
-  name : Bytes,
-  value : Bytes,
-  overwrite : Int,
-) -> Int = "setenv"
-
-///|
-#cfg(target="native")
-#borrow(name)
-extern "c" fn native_unsetenv(name : Bytes) -> Int = "unsetenv"
-
-///|
-#cfg(target="native")
 extern "c" fn native_dup(fd : Int) -> Int = "dup"
 
 ///|
@@ -9289,11 +9275,6 @@ fn native_write_bytes(path : String, bytes : Bytes) -> Bool {
 
 ///|
 #cfg(target="native")
-#borrow(command)
-extern "c" fn native_system(command : Bytes) -> Int = "system"
-
-///|
-#cfg(target="native")
 fn native_read_bytes(path : String) -> Bytes? {
   let c_path = native_c_string(path)
   let c_mode = native_c_string("rb")
@@ -9347,7 +9328,7 @@ fn native_normalize_wasm_bytes_to_wat_for_test(
   let command = native_c_string(
     "wasm-opt \{in_path} -S --strip-debug -o \{out_path}",
   )
-  let code = native_system(command)
+  let code = cmd_native_system(command)
   let result = if code == 0 {
     match native_read_bytes(out_path) {
       Some(text) => Ok(bytes_to_ascii_string(text))
@@ -9370,7 +9351,7 @@ fn native_wat_to_wasm_bytes_for_test(source : String) -> Result[Bytes, String] {
     return Err("failed to stage wat fixture input")
   }
   let command = native_c_string("wasm-opt \{wat_path} -o \{wasm_path}")
-  let code = native_system(command)
+  let code = cmd_native_system(command)
   let result = if code == 0 {
     match native_read_bytes(wasm_path) {
       Some(bytes) => Ok(bytes)
@@ -9397,7 +9378,7 @@ fn native_validate_wasm_bytes_with_wasm_tools(
   let command = native_c_string(
     "wasm-tools validate \{wasm_path} > \{log_path} 2>&1",
   )
-  let code = native_system(command)
+  let code = cmd_native_system(command)
   let result = if code == 0 {
     Ok(())
   } else {
@@ -9414,16 +9395,14 @@ fn native_validate_wasm_bytes_with_wasm_tools(
 ///|
 #cfg(target="native")
 fn native_set_env(name : String, value : String) -> Bool {
-  let c_name = native_c_string(name)
-  let c_value = native_c_string(value)
-  native_setenv(c_name, c_value, 1) == 0
+  @env.set_env_var(name, value)
+  @env.get_env_var(name) == Some(value)
 }
 
 ///|
 #cfg(target="native")
 fn native_unset_env(name : String) -> Unit {
-  let c_name = native_c_string(name)
-  ignore(native_unsetenv(c_name))
+  @env.unset_env_var(name)
 }
 
 ///|
