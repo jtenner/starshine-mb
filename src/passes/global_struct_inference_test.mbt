@@ -2219,6 +2219,62 @@ test "global-struct-inference keeps exported nominal param origins in closed wor
 }
 
 ///|
+test "global-struct-inference keeps a param read in an exported callback" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (type $reader (func (param (ref $box)) (result i32)))
+    #|   (global $internal (ref $box) (struct.new $box (i32.const 7)))
+    #|   (func $read (type $reader)
+    #|     local.get 0
+    #|     struct.get $box 0)
+    #|   (elem declare func $read)
+    #|   (global (export "reader") (ref $reader) (ref.func $read)))
+    #|
+  let pretty = gsi_test_pretty(input, true)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "global-struct-inference keeps a param read in a returned callback" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (type $reader (func (param (ref $box)) (result i32)))
+    #|   (global $internal (ref $box) (struct.new $box (i32.const 7)))
+    #|   (func $read (type $reader)
+    #|     local.get 0
+    #|     struct.get $box 0)
+    #|   (elem declare func $read)
+    #|   (func (export "get") (result (ref $reader))
+    #|     ref.func $read))
+    #|
+  let pretty = gsi_test_pretty(input, true)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "global-struct-inference keeps a param read in a nested returned callback" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (type $reader (func (param (ref $box)) (result i32)))
+    #|   (global $internal (ref $box) (struct.new $box (i32.const 7)))
+    #|   (func $read (type $reader)
+    #|     local.get 0
+    #|     struct.get $box 0)
+    #|   (elem declare func $read)
+    #|   (func (export "get") (result (ref $reader))
+    #|     (block (result (ref $reader)) (ref.func $read))))
+    #|
+  let pretty = gsi_test_pretty(input, true)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
 test "global-struct-inference keeps exported-table callable nominal params" {
   let input =
     #| (module

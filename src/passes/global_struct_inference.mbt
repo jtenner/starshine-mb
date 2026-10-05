@@ -494,6 +494,60 @@ fn gsi_mark_imported_struct_origins(
 }
 
 ///|
+fn gsi_collect_returned_ref_funcs(
+  env : @validate.Env,
+  expr : @lib.Expr,
+  results : Array[@lib.ValType],
+  callable_funcs : Array[@lib.FuncIdx],
+) -> Unit {
+  let @lib.Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      @lib.RefFunc(target) =>
+        for result in results {
+          match result {
+            @lib.RefTypeValType(ref_type) =>
+              if gsi_func_ref_matches_table(env, target, ref_type) {
+                callable_funcs.push(target)
+              }
+            _ => ()
+          }
+        }
+      @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
+        gsi_collect_returned_ref_funcs(env, body, results, callable_funcs)
+      @lib.If(_, yes, no) => {
+        gsi_collect_returned_ref_funcs(
+          env,
+          @lib.Expr::new(yes),
+          results,
+          callable_funcs,
+        )
+        match no {
+          Some(body) =>
+            gsi_collect_returned_ref_funcs(
+              env,
+              @lib.Expr::new(body),
+              results,
+              callable_funcs,
+            )
+          None => ()
+        }
+      }
+      @lib.Try(_, body, catches, _) => {
+        gsi_collect_returned_ref_funcs(env, body, results, callable_funcs)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) =>
+              gsi_collect_returned_ref_funcs(env, body, results, callable_funcs)
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
 fn gsi_mark_exported_param_struct_origins(
   env : @validate.Env,
   mod_ : @lib.Module,
@@ -503,26 +557,65 @@ fn gsi_mark_exported_param_struct_origins(
     Some(@lib.ExportSec(exports)) => exports
     None => return
   }
-  let defined_func_count = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs.length()
-    None => 0
+  let defined_funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => []
   }
-  let first_defined_func = env.funcs.length() - defined_func_count
+  let first_defined_func = env.funcs.length() - defined_funcs.length()
+  let defined_globals = match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) => globals
+    None => []
+  }
+  let first_defined_global = env.globals.length() - defined_globals.length()
   for export_ in exports {
-    let func_idx = match export_ {
-      @lib.Export(_, @lib.FuncExternIdx(func_idx)) => func_idx
-      _ => continue
-    }
-    let @lib.FuncIdx(raw_idx) = func_idx
-    if raw_idx.reinterpret_as_int() < first_defined_func {
-      continue
-    }
-    match env.get_functype_by_funcidx(func_idx) {
-      Some(@lib.FuncType(params, _)) =>
-        for param in params {
-          gsi_mark_external_struct_origins(env, param, poisoned_type_slots)
+    let callable_funcs : Array[@lib.FuncIdx] = []
+    match export_ {
+      @lib.Export(_, @lib.FuncExternIdx(func_idx)) => {
+        callable_funcs.push(func_idx)
+        let @lib.FuncIdx(raw_idx) = func_idx
+        let defined_idx = raw_idx.reinterpret_as_int() - first_defined_func
+        match
+          (
+            defined_funcs.get(defined_idx),
+            env.get_functype_by_funcidx(func_idx),
+          ) {
+          (Some(@lib.Func(_, @lib.Expr(body))), Some(@lib.FuncType(_, results))) =>
+            gsi_collect_returned_ref_funcs(
+              env,
+              @lib.Expr::new(body),
+              results,
+              callable_funcs,
+            )
+          _ => ()
         }
-      None => ()
+      }
+      @lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(raw_idx))) => {
+        let defined_idx = raw_idx.reinterpret_as_int() - first_defined_global
+        match defined_globals.get(defined_idx) {
+          Some(@lib.Global(_, @lib.Expr(init))) =>
+            for instr in init {
+              match instr {
+                @lib.RefFunc(func_idx) => callable_funcs.push(func_idx)
+                _ => ()
+              }
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    for func_idx in callable_funcs {
+      let @lib.FuncIdx(raw_idx) = func_idx
+      if raw_idx.reinterpret_as_int() < first_defined_func {
+        continue
+      }
+      match env.get_functype_by_funcidx(func_idx) {
+        Some(@lib.FuncType(params, _)) =>
+          for param in params {
+            gsi_mark_external_struct_origins(env, param, poisoned_type_slots)
+          }
+        None => ()
+      }
     }
   }
 }

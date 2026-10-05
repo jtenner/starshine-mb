@@ -36,6 +36,7 @@ related:
 ## Role
 
 - `global-struct-inference` is an active implemented **module pass** in Starshine.
+- The 2026-10-04 callback regressions show that closed-world origin reasoning must treat `ref.func` targets exposed through exported globals or returned by exported functions as externally callable. Their struct parameters may come from outside the module. The [focused tests](../../../../../src/passes/global_struct_inference_test.mbt) failed before the guard and pass after it; v133 fuzz verification remains pending.
 - In upstream Binaryen `version_129`, the public `pass.cpp` description is basically:
   - globally optimize struct values
 
