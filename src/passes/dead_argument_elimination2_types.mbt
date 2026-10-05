@@ -174,7 +174,60 @@ fn dae2_host_abstract_funcref_tables(
       }
     None => ()
   }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        dae2_mark_runtime_funcref_table_ingress(body, context.tables, visible)
+      }
+    None => ()
+  }
   visible
+}
+
+///|
+fn dae2_mark_runtime_funcref_table_ingress(
+  instrs : Array[@lib.Instruction],
+  tables : Array[@lib.TableType],
+  visible : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae2_mark_runtime_funcref_table_ingress(body, tables, visible)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        dae2_mark_runtime_funcref_table_ingress(body, tables, visible)
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+              catch_body
+          }
+          dae2_mark_runtime_funcref_table_ingress(catch_body, tables, visible)
+        }
+      }
+      @lib.If(_, then_body, else_body) => {
+        dae2_mark_runtime_funcref_table_ingress(then_body, tables, visible)
+        match else_body {
+          Some(body) =>
+            dae2_mark_runtime_funcref_table_ingress(body, tables, visible)
+          None => ()
+        }
+      }
+      @lib.TableSet(table_idx)
+      | @lib.TableGrow(table_idx)
+      | @lib.TableFill(table_idx)
+      | @lib.TableCopy(table_idx, _) => {
+        let slot = dae2_table_slot(table_idx)
+        if slot >= 0 && slot < tables.length() &&
+          dae2_is_abstract_funcref_table(tables[slot]) {
+          visible[slot] = true
+        }
+      }
+      _ => ()
+    }
+  }
 }
 
 ///|

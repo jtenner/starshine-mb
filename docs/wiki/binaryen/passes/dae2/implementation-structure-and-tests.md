@@ -107,3 +107,7 @@ tail calls through them. The pass and command regressions use an exported table
 with an active element plus a separately retained direct sibling; before the fix,
 that independent rewrite opportunity changed the active target from
 `(i32) -> i32` to `() -> ()` while leaving the host-visible table intact.
+The mask also covers a private abstract `funcref` table written by `table.set`,
+`table.grow`, `table.fill`, or `table.copy`: a runtime value from an imported
+function can enter that table and be called indirectly. The round-two regression
+keeps the original `(i32) -> ()` indirect-call type after such an ingress.
