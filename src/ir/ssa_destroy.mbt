@@ -501,65 +501,32 @@ fn ssa_destroy_mark_reachable_region_tree(
 }
 
 ///|
-fn ssa_destroy_region_may_fall_through(
-  func : HotFunc,
-  region_ref : HotRegionRef,
-) -> Bool {
-  let mut reachable = true
-  for idx = 0; idx < hot_region_root_count(func, region_ref); idx = idx + 1 {
-    if !reachable {
-      break
-    }
-    reachable = ssa_destroy_node_may_fall_through(
-      func,
-      hot_region_get(func, region_ref, idx),
-    )
-  }
-  reachable
-}
-
-///|
-fn ssa_destroy_node_may_fall_through(func : HotFunc, node_id : NodeId) -> Bool {
-  if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
-    return true
-  }
-  let node = hot_node_get(func, node_id)
-  if cfg_op_is_terminator(node.op) {
-    return false
-  }
-  match node.op {
-    HotOp::Block =>
-      ssa_destroy_region_may_fall_through(
-        func,
-        hot_region_body_ref(func, node_id),
-      )
-    HotOp::If => {
-      let then_falls = ssa_destroy_region_may_fall_through(
-        func,
-        hot_region_then_ref(func, node_id),
-      )
-      let else_falls = match hot_region_else_ref(func, node_id) {
-        Some(region_ref) =>
-          ssa_destroy_region_may_fall_through(func, region_ref)
-        None => true
-      }
-      then_falls || else_falls
-    }
-    _ => true
-  }
-}
-
-///|
 fn ssa_destroy_reachable_nodes(func : HotFunc) -> Array[Bool] {
   let reachable_nodes = Array::make(hot_node_count(func), false)
-  let mut root_reachable = true
-  for idx = 0; idx < hot_root_count(func); idx = idx + 1 {
-    if !root_reachable {
-      break
+  let cfg = cfg_build(func)
+  let reachable_blocks = Array::make(cfg_block_count(cfg), false)
+  for block_id in cfg_reverse_postorder_with_exceptions(cfg) {
+    reachable_blocks[block_id] = true
+  }
+  let reachable_roots = Array::make(hot_root_count(func), false)
+  for entry in cfg.region_roots {
+    if entry.region_holder == HotRegionRef::root().holder &&
+      entry.slot >= 0 &&
+      entry.slot < reachable_roots.length() &&
+      entry.block >= 0 &&
+      entry.block < reachable_blocks.length() &&
+      reachable_blocks[entry.block] {
+      reachable_roots[entry.slot] = true
     }
-    let root_id = hot_root_get(func, idx)
-    ssa_destroy_mark_reachable_node_tree(func, root_id, reachable_nodes)
-    root_reachable = ssa_destroy_node_may_fall_through(func, root_id)
+  }
+  for idx = 0; idx < hot_root_count(func); idx = idx + 1 {
+    if reachable_roots[idx] {
+      ssa_destroy_mark_reachable_node_tree(
+        func,
+        hot_root_get(func, idx),
+        reachable_nodes,
+      )
+    }
   }
   reachable_nodes
 }

@@ -12,6 +12,18 @@ fn gto_scan_exposure(
       | @lib.StructGetU(_, @lib.U32(0U)) => first_field_read[0] = true
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
         gto_scan_exposure(body, exposure, first_field_read)
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        gto_scan_exposure(body, exposure, first_field_read)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        gto_scan_exposure(body, exposure, first_field_read)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(body))
+            | @lib.LegacyCatchAll(@lib.Expr(body)) =>
+              gto_scan_exposure(body, exposure, first_field_read)
+          }
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         gto_scan_exposure(then_body, exposure, first_field_read)
         match else_body {
@@ -82,6 +94,41 @@ fn gto_rewrite_subtype(subtype : @lib.SubType, plan : Int) -> @lib.SubType {
 }
 
 ///|
+fn gto_rewrite_field_access(
+  instr : @lib.Instruction,
+  plans : Array[Int],
+) -> @lib.Instruction {
+  let (type_idx, @lib.U32(field)) = match gto_field_access(instr) {
+    Some((type_idx, field, _, _)) => (type_idx, field)
+    None => return instr
+  }
+  if gto_type_plan(plans, type_idx) != 2 {
+    return instr
+  }
+  let shifted = @lib.U32(field + 1U)
+  match instr {
+    @lib.StructGet(_, _) => @lib.Instruction::struct_get(type_idx, shifted)
+    @lib.StructGetS(_, _) => @lib.Instruction::struct_get_s(type_idx, shifted)
+    @lib.StructGetU(_, _) => @lib.Instruction::struct_get_u(type_idx, shifted)
+    @lib.StructSet(_, _) => @lib.Instruction::struct_set(type_idx, shifted)
+    @lib.StructAtomicGet(order, _, _) =>
+      @lib.Instruction::struct_atomic_get(order, type_idx, shifted)
+    @lib.StructAtomicGetS(order, _, _) =>
+      @lib.Instruction::struct_atomic_get_s(order, type_idx, shifted)
+    @lib.StructAtomicGetU(order, _, _) =>
+      @lib.Instruction::struct_atomic_get_u(order, type_idx, shifted)
+    @lib.StructAtomicSet(order, _, _) =>
+      @lib.Instruction::struct_atomic_set(order, type_idx, shifted)
+    @lib.StructAtomicRmw(order, op, _, _) =>
+      @lib.Instruction::struct_atomic_rmw(op, type_idx, shifted, order~)
+    @lib.StructAtomicCmpxchg(order, _, _) =>
+      @lib.Instruction::struct_atomic_cmpxchg(type_idx, shifted, order~)
+    @lib.StructWait(_, _) => @lib.Instruction::struct_wait(type_idx, shifted)
+    _ => instr
+  }
+}
+
+///|
 fn gto_rewrite_expr(
   expr : @lib.Expr,
   plans : Array[Int],
@@ -130,16 +177,35 @@ fn gto_rewrite_expr(
         }
         out.push(@lib.Instruction::if_(block_type, next_then, next_else))
       }
-      @lib.StructGet(type_idx, @lib.U32(field)) => {
-        let increment = if gto_type_plan(plans, type_idx) == 2 {
-          1U
-        } else {
-          0U
-        }
+      @lib.TryTable(block_type, catches, body) =>
         out.push(
-          @lib.Instruction::struct_get(type_idx, @lib.U32(field + increment)),
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            gto_rewrite_expr(body, plans, old_subtypes, env, failed),
+          ),
         )
-      }
+      @lib.Try(block_type, body, catches, delegate) =>
+        out.push(
+          @lib.Instruction::try_(
+            block_type,
+            gto_rewrite_expr(body, plans, old_subtypes, env, failed),
+            catches.map(fn(c) {
+              match c {
+                @lib.LegacyCatch(tag, expr) =>
+                  @lib.LegacyCatch::tagged(
+                    tag,
+                    gto_rewrite_expr(expr, plans, old_subtypes, env, failed),
+                  )
+                @lib.LegacyCatchAll(expr) =>
+                  @lib.LegacyCatch::all(
+                    gto_rewrite_expr(expr, plans, old_subtypes, env, failed),
+                  )
+              }
+            }),
+            delegate~,
+          ),
+        )
       @lib.StructNew(type_idx) => {
         let plan = gto_type_plan(plans, type_idx)
         if plan != 0 {
@@ -173,7 +239,7 @@ fn gto_rewrite_expr(
         }
         out.push(instr)
       }
-      _ => out.push(instr)
+      _ => out.push(gto_rewrite_field_access(instr, plans))
     }
   }
   @lib.Expr::new(out)

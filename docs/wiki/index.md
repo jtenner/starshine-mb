@@ -38,6 +38,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 ## Schema And Operations
 
+- [Eight-agent optimizer correctness audit](log.md#2026-10-04--eight-agent-optimizer-correctness-audit) — Six red-first commits repair GTO, RUME, GSI, SSA destruction, and coalesce-locals. The default suite passes; five 10,000-case v133 lanes have no validation or command failures, with remaining SSA/coalesce parity residuals and GTO descriptor generator coverage stated explicitly.
 - [Active release and performance backlog](../../agent-todo.md) — Remaining P03a–g DAE2/O work, shared performance owners, size/correctness blockers, Vacuum indexed-input parity and final validation gates; completed histories stay in the owner dossiers and long fuzz follows performance iteration.
 
 - [Vacuum predicate scan order](binaryen/passes/vacuum/starshine-hot-ir-strategy.md#october-3-2026-reject-mismatched-vacuum-prefixes-before-recursive-scans) — Complete DAE2-O cleanup work−5.300%; standalone Vacuum1377→1265ms (1.471×133). Optimizing command gain remains unproved in two cohorts.13,447 tests/1296 observations and exact bytes/API pass; admitted-control costs and release/1× gaps remain.
