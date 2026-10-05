@@ -69,6 +69,86 @@ The DAE2 runtime lanes each report zero observed semantic mismatches; their
 validation do not close the listed parity or size gaps. The targeted red/green
 tests cover the new correctness families that these generators do not sample.
 
+### 2026-10-05 — Close the second optimizer correctness audit
+
+- A second eight-agent review repaired offset-sensitive source-map and external
+  debug guards, no-inline annotation preservation, UInt64 endpoint handling in
+  module-element removal, atomic detached-node deletion, legacy EH and
+  `br_on_*` target scans, and exported mutable-global callback liveness.
+  String references now stop make-shared-objects from rewriting a module that
+  uses string heaps. DAE batch type-index rebasing preserves recursive groups.
+  The boundaries are exercised in
+  [`direct_metadata_guard_wbtest.mbt`](../../src/passes/direct_metadata_guard_wbtest.mbt),
+  [`hot_mutate_preflight_wbtest.mbt`](../../src/ir/hot_mutate_preflight_wbtest.mbt),
+  [`second_control_eh_audit_wbtest.mbt`](../../src/passes/second_control_eh_audit_wbtest.mbt),
+  and [`dae_type_update_index_wbtest.mbt`](../../src/passes/dae_type_update_index_wbtest.mbt).
+- The review removed repeated full-function, root, SCC, local, label, and type
+  scans in code pushing, optimize-casts, remove-unused-names, memory packing,
+  DAE/DAE2, flatten, local-CSE, merge-blocks, merge-locals, Vacuum, inlining,
+  heap2local, heap-store optimization, global inference, and global type
+  ordering. Focused regressions cover the affected correctness boundaries and
+  sparse or deep workloads. The generated pass interface now hides two private
+  workspace types and has no other public API delta.
+  [`code_pushing.mbt`](../../src/passes/code_pushing.mbt),
+  [`local_cse.mbt`](../../src/passes/local_cse.mbt), and
+  [`pkg.generated.mbti`](../../src/passes/pkg.generated.mbti) show representative
+  work and interface changes.
+- `moon fmt`, `moon info`, the pass package check, and all focused affected
+  suites pass. The final `bun validate full --profile ci --target wasm-gc`
+  compiled with zero errors and ran 13,700 tests: 13,671 passed and the same
+  29 documented legacy failures remain. Two new flatten and merge-locals
+  regressions found during the full gate were fixed before this final run.
+- Fresh release binaries are SHA-256
+  `d4be403c9562b2c608d08f514b9a1d2d8ab7118bdbf221ccf608900ae4ec67cb`
+  (`src/cmd`) and
+  `c065bdb451aac9c619e4b4c02cc3621a4700f8ae8d9512dbcf2af9356f3da6b8`
+  (`src/fuzz`). The pass-local GenValid renewals use seed `0x5eed`, 10,000
+  cases per pass, independently validating `wasm-tools` 1.251.0, and verified
+  Binaryen 133 SHA-256
+  `d8da7e7cc717bb4da015475a106b25987a9941e87486ec8676fd8efc698f171d`.
+  All completed lanes have zero output-validation, generator, property, and
+  command failures. Reports are in ignored
+  `.tmp/audit-second-parity-*-v133-10000/result.json` directories.
+
+| Pass / aggregate | Direct | Cleanup normalized | Residual |
+| --- | ---: | ---: | ---: |
+| `local-cse` | 10,000 | 0 | 0 |
+| `inlining` / `pass-inlining` | 10,000 | 0 | 0 |
+| `optimize-casts` | 10,000 | 0 | 0 |
+| `global-struct-inference` / portable | 10,000 | 0 | 0 |
+| `make-shared-objects` / portable | 10,000 | 0 | 0 |
+| `remove-unused-names` / portable | 10,000 | 0 | 0 |
+| `code-pushing` | 4,493 | 5,507 | 0 |
+| `heap-store-optimization` | 2,155 | 7,845 | 0 |
+| `remove-unused-module-elements` | 4,106 | 5,894 | 0 |
+| `dae2` | 2,879 | 667 | 6,454 |
+| `dae-optimizing` | 5,153 | 1,212 | 3,635 |
+| `flatten` | 837 | 0 | 9,163 |
+| `vacuum` | 7,830 | 0 | 2,170 |
+| `merge-locals` | 9,353 | 0 | 647 |
+| `merge-blocks` | 7,007 | 0 | 2,993 |
+| `memory-packing` | 7,288 | 0 | 2,712 |
+| `heap2local` | 2,474 | 0 | 7,526 |
+| `simplify-globals-optimizing` | 5,055 | 0 | 4,945 |
+| `global-type-optimization` / portable, closed-world | 0 | 10,000 | 0 |
+
+The first-audit DAE2, DAE optimizing, flatten, and Vacuum counts repeat exactly;
+Flatten and Vacuum also keep the same case-by-case match pattern. The other
+raw families match their existing source-backed dossiers:
+[`merge-locals`](binaryen/passes/merge-locals/fuzzing.md),
+[`merge-blocks`](binaryen/passes/merge-blocks/fuzzing.md),
+[`memory-packing`](binaryen/passes/memory-packing/fuzzing.md),
+[`heap2local`](binaryen/passes/heap2local/fuzzing.md), and
+[`simplify-globals-optimizing`](binaryen/passes/simplify-globals-optimizing/fuzzing.md).
+The HSO raw control is 2,155 direct / 7,845 one-nop residuals; its documented
+[`local-cleanup-debris` normalization](binaryen/passes/heap-store-optimization/fuzzing.md)
+classifies all 7,845 without a remaining mismatch. These are agent judgments
+from inspected diff families and prior semantic/size evidence, not automatic
+claims from successful validation or smaller bytes alone.
+The GTO portable closed-world lane resolves entirely as unreachable-control
+cleanup; it does not supersede the broader random-all and GC-subtype parity
+gaps in the [GTO dossier](binaryen/passes/global-type-optimization/fuzzing.md).
+
 ### 2026-10-05 — Harden optimizer safety and sparse hot paths
 
 - An eight-agent pass audit repaired control/EH traversal, detached control-tree
