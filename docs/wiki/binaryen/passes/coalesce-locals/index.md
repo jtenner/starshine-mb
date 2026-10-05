@@ -182,3 +182,12 @@ For inputs 0, 1, 7, and 41, the old pass returned 0, 1, 7, and 41 instead of
 coalescing tests, including ordinary local compaction, pass, and the
 repeated `deep-core` map fixture passes Node and Wago. Other failed orders and
 the generated-pass lanes remain in the full repair gate.
+
+## October 2026 exception-call copy boundary
+
+A call inside `try_table` can throw before a temporary is copied to its
+destination. The catch continuation can then read the destination's prior
+value. Coalesce-locals now avoids CFG coloring for call-bearing `try_table`
+functions and rejects loop copy-through across a protected call. The focused
+regression checks that the original `5` is preserved instead of returning the
+temporary's `7`.

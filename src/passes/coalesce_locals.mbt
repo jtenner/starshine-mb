@@ -949,6 +949,7 @@ fn cl_loop_copy_through_dest_after_set(
   temp : Int,
   types : Array[@lib.ValType],
   param_count : Int,
+  inside_try_table : Bool,
 ) -> Int {
   if temp < param_count || temp >= types.length() {
     return -1
@@ -984,6 +985,8 @@ fn cl_loop_copy_through_dest_after_set(
           local_idx,
         ) ==
         temp => return -1
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) if inside_try_table =>
+        return -1
       _ => if cl_instr_blocks_loop_copy_through(instr) { return -1 }
     }
     idx += 1
@@ -1000,23 +1003,26 @@ fn cl_mark_loop_adjacent_copy_through_locals(
   tees : Array[Int],
   types : Array[@lib.ValType],
   param_count : Int,
+  inside_try_table : Bool,
 ) -> Unit {
   for instr in instrs {
     match instr {
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
         cl_mark_loop_adjacent_copy_through_locals(
-          body, passthrough_dest, gets, sets, tees, types, param_count,
+          body, passthrough_dest, gets, sets, tees, types, param_count, inside_try_table,
+        )
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        cl_mark_loop_adjacent_copy_through_locals(
+          body, passthrough_dest, gets, sets, tees, types, param_count, true,
         )
       @lib.If(_, then_body, else_body) => {
         cl_mark_loop_adjacent_copy_through_locals(
-          then_body, passthrough_dest, gets, sets, tees, types, param_count,
+          then_body, passthrough_dest, gets, sets, tees, types, param_count, inside_try_table,
         )
         match else_body {
           Some(body) =>
             cl_mark_loop_adjacent_copy_through_locals(
-              body, passthrough_dest, gets, sets, tees, types, param_count,
+              body, passthrough_dest, gets, sets, tees, types, param_count, inside_try_table,
             )
           None => ()
         }
@@ -1034,7 +1040,7 @@ fn cl_mark_loop_adjacent_copy_through_locals(
           sets[temp] == 1 &&
           tees[temp] == 0 {
           let dest = cl_loop_copy_through_dest_after_set(
-            instrs, idx, temp, types, param_count,
+            instrs, idx, temp, types, param_count, inside_try_table,
           )
           if dest >= 0 {
             passthrough_dest[temp] = dest
@@ -1504,6 +1510,7 @@ fn cl_rewrite_loop_func_unused_locals(
     tees,
     types,
     params.length(),
+    false,
   )
   cl_mark_loop_backedge_copy_aliases(
     original_instrs,
@@ -7930,7 +7937,8 @@ fn cl_rewrite_loop_func_cfg(
   let @lib.Func(body_locals, @lib.Expr(original_instrs)) = func
   if body_locals.length() <= 1 ||
     params.length() + body_locals.length() > cl_dense_coloring_local_limit() ||
-    cl_instrs_have_legacy_try(original_instrs) {
+    cl_instrs_have_legacy_try(original_instrs) ||
+    ssa_full_raw_has_call_in_try_table(original_instrs, false) {
     return { func, changed: false, }
   }
   // CFG/liveness and lowering never query original source-access provenance.

@@ -3125,6 +3125,38 @@ test "coalesce-locals keeps a loop-backedge copy when an earlier branch skips it
 }
 
 ///|
+test "coalesce-locals keeps catch-visible destination before a throwing copy" {
+  // The call throws before local 1 is copied to local 0. The catch then reads
+  // local 0's original value (5), so the two slots cannot be merged.
+  let input =
+    #| (module
+    #|   (tag $e)
+    #|   (func $thrower throw $e)
+    #|   (func (export "main") (result i32) (local i32 i32)
+    #|     i32.const 5
+    #|     local.set 0
+    #|     block $h
+    #|       loop
+    #|         try_table (catch $e $h)
+    #|           i32.const 7
+    #|           local.set 1
+    #|           call $thrower
+    #|           local.get 1
+    #|           local.set 0
+    #|         end
+    #|       end
+    #|     end
+    #|     local.get 0))
+    #|
+  let direct = coalesce_locals_run_module_pass(pass_test_module_from_wat(input))
+  let @lib.Func(direct_locals, _) = direct.code_sec.unwrap().0[1]
+  @debug.assert_eq(direct_locals.length(), 2)
+  let optimized = pass_test_run_pipeline(input, ["coalesce-locals"]).unwrap()
+  let @lib.Func(locals, _) = optimized.code_sec.unwrap().0[1]
+  @debug.assert_eq(locals.length(), 2)
+}
+
+///|
 test "coalesce-locals coalesces same-source copies before an inter-block copy" {
   let input =
     #| (module
