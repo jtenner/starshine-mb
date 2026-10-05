@@ -220,7 +220,8 @@ fn dae2_mark_runtime_funcref_table_ingress(
       | @lib.TableFill(table_idx)
       | @lib.TableCopy(table_idx, _) => {
         let slot = dae2_table_slot(table_idx)
-        if slot >= 0 && slot < tables.length() &&
+        if slot >= 0 &&
+          slot < tables.length() &&
           dae2_is_abstract_funcref_table(tables[slot]) {
           visible[slot] = true
         }

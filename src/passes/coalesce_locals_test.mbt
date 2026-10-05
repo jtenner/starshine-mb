@@ -3711,7 +3711,8 @@ test "coalesce-locals keeps a local separate when a legacy try branch bypasses i
     #|
   let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected legacy branch-bypass pipeline success, got \{err}")
+    Err(err) =>
+      fail("expected legacy branch-bypass pipeline success, got \{err}")
   }
   let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
     optimized,

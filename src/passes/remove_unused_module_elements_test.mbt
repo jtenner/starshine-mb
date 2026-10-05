@@ -3824,8 +3824,10 @@ test "remove-unused-module-elements boundary preserves code with opaque relocati
 ///|
 test "remove-unused-module-elements boundary preserves opaque raw name metadata" {
   let input = pass_test_module_from_wat(
-    "(module (func $dead nop) (func (export \"run\") nop))",
-  ).without_name_sec().with_raw_name_sec_payload(b"opaque-index-names")
+      "(module (func $dead nop) (func (export \"run\") nop))",
+    )
+    .without_name_sec()
+    .with_raw_name_sec_payload(b"opaque-index-names")
   let output = rume_run_module_pass(input)
   @debug.assert_eq(output.code_sec, input.code_sec)
   @debug.assert_eq(output.raw_name_sec_payload, input.raw_name_sec_payload)

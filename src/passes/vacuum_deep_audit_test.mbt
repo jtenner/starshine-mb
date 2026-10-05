@@ -80,8 +80,7 @@ test "vacuum keeps a dropped array allocation with a dynamic trapping length" {
     #|
   let output = audit_run(wat, "vacuum")
   assert_true(
-    audit_count(audit_body(output), fn(i) { i is @lib.ArrayNewDefault(_) }) >
-    0,
+    audit_count(audit_body(output), fn(i) { i is @lib.ArrayNewDefault(_) }) > 0,
     msg="dynamic negative lengths must still trap",
   )
 }

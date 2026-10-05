@@ -661,8 +661,7 @@ fn vacuum_heap_is_removable_if_unused(
       | @lib.Instruction::RefI31
     ) => true
     Some(@lib.Instruction::ArrayNew(_)) => length_is_nonnegative_const(1)
-    Some(@lib.Instruction::ArrayNewDefault(_)) =>
-      length_is_nonnegative_const(0)
+    Some(@lib.Instruction::ArrayNewDefault(_)) => length_is_nonnegative_const(0)
     Some(@lib.Instruction::ContNew(_)) => {
       // Allocation itself has no observable effect when the result is unused.
       // Its nullable function operand can still trap (Binaryen effects.h).
