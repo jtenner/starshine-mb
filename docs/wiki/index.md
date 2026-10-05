@@ -4,6 +4,8 @@
 
 This is the human-readable catalog for living wiki pages under `docs/wiki/`. Update it whenever a durable page is added, renamed, merged, or substantially reframed.
 
+- [Branch payload and bottom typing](validate/stack-polymorphism-and-bottom.md) — Conditional branches restore declared label types; reference null checks accept bottom; branch tables check actual operands against equal-arity targets. [Descriptor branches](wast/reference-instruction-authoring.md) use compatible GC heaps and preserve source exactness.
+
 - [Typed-block entry repair](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-retain-typed-block-entry-producers) — Restore typed-block entry operands and single evaluation of discarded effects; compact output and bounded execution checks pass, with stack-polymorphic entries and campaign signoff still open.
 - [Bounded native O3 experiment](tooling/tracing-playbook.md#october-4-2026-bounded-native-o3-build-experiment) — Same generated source moves all four paired command medians positively, with 19.395% larger executable and higher median RSS; defaults unchanged.
 - [CL scan result storage](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-inline-path-disjoint-scan-results) — Removes 2,311,558 result allocations and 0.7461% complete CL instructions with identical decisions and bytes.

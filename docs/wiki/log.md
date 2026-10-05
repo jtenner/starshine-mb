@@ -26326,3 +26326,23 @@ arrays/typecheck wrappers from the completed return packaging change.
   exact bytes/API pass; tiny admitted costs, control regressions, foreign load,
   canonical gaps and release gates stay explicit. Current attribution prioritizes
   exact SL cleanup/read/fallthrough and DAE2 dependencies over synthetic ratios.
+
+### 2026-10-05 — Repair branch payload and bottom validation
+
+- Eight reviewers traced the native spec harness's validation failures to
+  conditional branch fallthrough typing, bottom reference operands, descriptor
+  equality cast compatibility, and a separate tag-feature policy. Red-first
+  validator regressions now restore declared label prefixes (including virtual
+  operands), preserve descriptor source exactness, and accept bottom null checks.
+- The next full fixture replay exposed an additional `br_table` defect:
+  equal-arity labels may have different types when the actual operands match
+  every target. Six direct regressions protect bottom, common-reference-subtype,
+  arity and concrete-mismatch cases. Binaryen 133 accepts both positive WAT
+  oracles. The flatten regression now declares its inner block's valid base-type
+  fallthrough while retaining the narrow payload and distinct-temp assertions.
+- The combined repair worktree passes all 28 new focused tests and the complete
+  native spec-harness aggregate, without new fixture skips or allowances. The
+  native replay took 49.232 seconds including compilation; this exceeds the
+  consumer's 30-second compiler budget and is build-cost risk, not runtime
+  performance evidence. See [stack typing](validate/stack-polymorphism-and-bottom.md)
+  and [descriptor typing](wast/reference-instruction-authoring.md).

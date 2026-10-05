@@ -10276,8 +10276,10 @@ test "flatten shares one rich payload origin across chained br_if flow" {
 
 ///|
 test "flatten uses distinct target and flow temps for mismatched scalar br_if" {
+  // br_if retypes its fallthrough value to the outer label's base type. The
+  // original child-typed payload still requires a distinct flow temporary.
   let func = pass_test_lift_first_func(
-    "(module (type $base (sub (struct))) (type $child (sub $base (struct))) (func (param i32) (drop (block (result (ref null $base)) (block (result (ref null $child)) ref.null $child local.get 0 br_if 1)))))",
+    "(module (type $base (sub (struct))) (type $child (sub $base (struct))) (func (param i32) (drop (block (result (ref null $base)) (block (result (ref null $base)) ref.null $child local.get 0 br_if 1)))))",
   )
   let drop_id = @ir.hot_root_get(func, 0)
   let outer_block = @ir.hot_child_get(func, drop_id, 0)

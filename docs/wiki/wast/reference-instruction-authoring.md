@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-10-05
 sources:
   - ../binaryen/release-horizon-and-oracles.md
   - ../custom-descriptors/descriptor-instruction-surface.md
@@ -15,6 +15,7 @@ sources:
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
   - ../../../src/validate/typecheck.mbt
+  - ../../../src/validate/descriptor_branch_validation_wbtest.mbt
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/gen_valid.mbt
   - ../../../src/wast/arbitrary.mbt
@@ -118,6 +119,19 @@ Reference branches have two useful types to track: the type delivered to the bra
 | `br_on_cast_fail l rt1 rt2` | Branches on failed cast and supplies `diff(rt1, rt2)` as the final label payload slot. | Pushes `rt2`, the successful-cast target type. | [`typecheck_br_on_cast_fail`](../../../src/validate/typecheck.mbt) checks the label against the difference type and pushes `rt2` on success fallthrough. |
 
 This table is the fastest way to avoid optimizer bugs: do not move or rewrite one of these instructions as if it were an ordinary `br_if` plus a separate `ref.cast`. Both the branch label payload and the fallthrough stack type are part of the instruction's static contract.
+
+All conditional reference branches consume and restore the label prefix using
+its declared types. This widens narrower input types and materializes missing
+prefix operands in a polymorphic frame. Descriptor equality branches have
+their own compatibility rule: source and target must belong to compatible GC
+heap hierarchies, but target nullability and exactness need not subtype the
+source annotation. The branch payload is the target type for
+`br_on_cast_desc_eq`, and the source difference type for
+`br_on_cast_desc_eq_fail`; fallthrough carries the other type. The difference
+type preserves source exactness. The [descriptor regressions](../../../src/validate/descriptor_branch_validation_wbtest.mbt)
+cover both polarities, exact and unrelated GC sources, prefix typing, and
+incompatible heaps or labels. Ordinary cast branches retain their stricter
+source/target subtype requirement.
 
 ## Concrete WAST Shapes That Work Today
 
