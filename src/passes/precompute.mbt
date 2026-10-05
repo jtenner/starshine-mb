@@ -2728,9 +2728,11 @@ fn precompute_fresh_array_allocation_is_discardable(
         return false
       }
       let length = @ir.hot_child_get(func, node_id, count - 1)
-      if precompute_i32_const(func, length) is Some(@lib.I32(value)) &&
-        value < 0 {
-        return false
+      match precompute_i32_const(func, length) {
+        Some(@lib.I32(value)) if value >= 0 && precompute_fresh_array_length_is_interpretable(
+            value.reinterpret_as_uint(),
+          ) => ()
+        _ => return false
       }
     }
     Some(@lib.ArrayNewFixed(_, _)) => ()
