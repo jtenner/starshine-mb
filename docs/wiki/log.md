@@ -1,3 +1,53 @@
+### 2026-10-05 — Harden optimizer safety and sparse hot paths
+
+- An eight-agent pass audit repaired control/EH traversal, detached control-tree
+  deletion, duplicate data-name handling, effectful GC allocation admission,
+  structured-zero lifetime scanning, DAE/DAE2 indexing, and offset-sensitive
+  metadata preservation. Direct module-pass entrypoints now fail closed for
+  every `reloc.*`, `linking`, `.debug_*`, and `metadata.code.*` custom section;
+  metadata-only no-inline policy and explicit debug stripping remain allowed.
+- Dense node/local/type-sized scratch tables were replaced or reused in the
+  compiler-fact index, inlining reachability, code pushing, global inference,
+  local analyses, DAE paths, and module-element removal. Flatten local hazards
+  now use reverse sparse summaries, and no-inline wildcard matching uses a
+  compiled word-parallel NFA with reusable rows instead of quadratic suffix
+  retries.
+- Red-first and audit regressions cover malformed legacy controls, nested EH,
+  shared GC references, sparse extreme indices, duplicate metadata names,
+  direct API guards, deep stable paths, and adversarial wildcard/flatten
+  shapes. `moon check src/passes`, `moon info`, `moon fmt`, all 921 changed-file
+  tests, the 144-test inlining file, the 9 direct-metadata tests, and the 12
+  RUME tests pass. The 32-vector synthetic flatten threshold probe is now
+  skipped in the bounded default suite and remains available in the dedicated
+  performance lane. `bun validate full --profile ci --target wasm-gc` now
+  terminates with 13,633/13,662 tests passing and 29 visible legacy failures,
+  one fewer than the prior checkpoint after repairing an invalid inlining
+  fixture; the remaining failures are unchanged release-backlog work rather
+  than accepted audit regressions.
+- The fresh native CLI is SHA-256
+  `cb6fb80c395ce6d79a212bf5e4bf64b0e4aa515176e6b6676a43f33164440426`;
+  the generator is
+  `6d58f0f1b34d9130d0f686bef70e1a1a6070fd1cb7f9ff7f0572ac73b72f3e51`.
+  Eight 10,000-case GenValid lanes use seed `0x5eed`, eight subprocesses,
+  independent `wasm-tools` validation, and verified Binaryen 133 SHA-256
+  `d8da7e7cc717bb4da015475a106b25987a9941e87486ec8676fd8efc698f171d`.
+  Every lane has zero validation, property, generator, and command failures.
+
+| Pass / profile | Direct | Cleanup normalized | Residual | Classification |
+| --- | ---: | ---: | ---: | --- |
+| local-cse / `local-cse` | 10,000 | 0 | 0 | Canonical equality. |
+| DAE2 / `dae2` | 2,879 | 667 | 6,454 | Existing smaller sparse-cleanup/parity families; no size losses. |
+| DAE optimizing / `dae-optimizing` | 5,153 | 1,212 | 3,635 | Existing smaller cleanup-debris families; no size losses. |
+| flatten / `flatten-all` | 837 | 0 | 9,163 | Every residual is smaller and all 20 saved samples converge byte-for-byte after v133 `-Oz --strip-debug`. |
+| simplify-locals / `simplify-locals-all` | 380 | 0 | 9,620 | Existing smaller nop, pure-select/drop, and dead-local cleanup families. |
+| vacuum / `vacuum` | 7,830 | 0 | 2,170 | All 20 saved samples differ only by standalone nops retained by Binaryen. |
+| precompute / `precompute-all` | 3,238 | 6,762 | 0 | Dedicated aggregate parity. |
+| inlining / `pass-inlining` | 10,000 | 0 | 0 | Canonical equality. |
+
+The residual classifications are source- and replay-backed agent judgments,
+not conclusions inferred from validation or smaller size alone. Reports remain
+in ignored `.tmp/audit-first-parity-*-v133-10000*/result.json` directories.
+
 ### 2026-10-05 — Save focused validator, effect-order and typed-entry evidence
 
 - [Development checkpoint and preserved raw evidence](tooling/validation-gates.md#october-5-2026-saved-development-checkpoint): separate frame polymorphism from escape, retain replacement evaluation positions, validate virtual typed entries, and trace the saved MergeBlocks failure to pre-pass lowering. Historical command ratios are 2.780× / 2.315× / 1.899× / 1.936× versus verified Binaryen 133, with contention retained. The last affected suite has 30 legacy failures; the later forced-HOT retained-call repair remains unverified after thermal-limited linking attempts. All four 1× goals, output gaps, full CI/coverage and aggregate signoff stay open.
