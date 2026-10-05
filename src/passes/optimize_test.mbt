@@ -2122,6 +2122,46 @@ test "O4z rolls back caught try-table throw modules" {
 }
 
 ///|
+test "O4z caught try rollback retains trusted compiler fact materialization" {
+  let base = pass_test_module_from_wat(
+    (
+      #| (module
+      #|   (tag $e)
+      #|   (func $producer (result i32) i32.const 7)
+      #|   (func (export "run") (result i32)
+      #|     call $producer
+      #|     i32.const 7
+      #|     i32.eq)
+      #|   (func
+      #|     block $caught
+      #|       try_table (catch_all $caught)
+      #|         throw $e
+      #|       end
+      #|     end))
+      #|
+    ),
+  )
+  let input = compiler_fact_test_attach_value_fact(
+    base,
+    1U,
+    compiler_fact_test_i32_exact(7UL),
+  )
+  let optimized = run_hot_pipeline(
+    input,
+    HotPipelineOptions::new(
+      optimize_level=4,
+      shrink_level=4,
+      compiler_fact_policy=CompilerFactUsePolicy::trust_assertions(),
+    ),
+    ["optimize"],
+  ).unwrap()
+  assert_true(optimized.compiler_fact_custom_section is None)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
 test "O4z rolls back caught try-table nested in legacy try" {
   let input = pass_test_module_from_wat(
     "(module (tag $e) (func (block $exit (try (do (try_table (catch_all $exit) (throw $e))) (catch_all)))))",
@@ -2328,8 +2368,14 @@ test "vacuum preserves effectful operands of dropped GC allocations" {
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => {
-      assert_false(instrs.any(fn(instr) { instr is @lib.StructNew(_) }))
-      assert_false(instrs.any(fn(instr) { instr is @lib.ArrayNew(_) }))
+      assert_false(
+        instrs.any(fn(instr) { instr is @lib.StructNew(_) }),
+        msg=@debug.to_string(instrs),
+      )
+      assert_false(
+        instrs.any(fn(instr) { instr is @lib.ArrayNew(_) }),
+        msg=@debug.to_string(instrs),
+      )
       let mut calls = 0
       let mut drops = 0
       for instr in instrs {

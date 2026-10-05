@@ -33,6 +33,33 @@ fn gto_map_children(
 }
 
 ///|
+fn gto_visit_children(
+  instr : @lib.Instruction,
+  visit : (@lib.Expr) -> Unit,
+) -> Unit {
+  match instr {
+    @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
+      visit(body)
+    @lib.If(_, yes, no) => {
+      visit(@lib.Expr::new(yes))
+      match no {
+        Some(body) => visit(@lib.Expr::new(body))
+        None => ()
+      }
+    }
+    @lib.Try(_, body, catches, _) => {
+      visit(body)
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => visit(expr)
+        }
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
 fn gto_field_access(
   instr : @lib.Instruction,
 ) -> (@lib.TypeIdx, @lib.U32, Bool, Bool)? {
@@ -70,12 +97,44 @@ fn gto_scan_fields(
       }
       _ => ()
     }
-    ignore(
-      gto_map_children(instr, fn(body) {
-        gto_scan_fields(body, reads, writes)
-        body
-      }),
-    )
+    gto_visit_children(instr, fn(body) { gto_scan_fields(body, reads, writes) })
+  }
+}
+
+///|
+fn gto_visit_initializers(
+  mod_ : @lib.Module,
+  visit : (@lib.Expr) -> Unit,
+) -> Unit {
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for @lib.Global(_, init) in globals {
+        visit(init)
+      }
+    None => ()
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for @lib.Table(_, init) in tables {
+        match init {
+          Some(expr) => visit(expr)
+          None => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      for @lib.Elem(_, kind) in elems {
+        match kind {
+          @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+            for expr in exprs {
+              visit(expr)
+            }
+          _ => ()
+        }
+      }
+    None => ()
   }
 }
 
@@ -141,6 +200,7 @@ fn gto_public_types(
   for _ in context.subtypes {
     ignore(graph.location())
   }
+  let embedded_types_root = [-1]
   for i, subtype in context.subtypes {
     let base = bases[i]
     graph.edge(i, base)
@@ -156,12 +216,13 @@ fn gto_public_types(
     match subtype.get_comptype() {
       @lib.StructCompType(fields) =>
         for f in fields {
-          dae2_type_field_edges(graph, i, f, base)
+          dae2_type_field_edges(graph, i, f, base, embedded_types_root)
         }
-      @lib.ArrayCompType(f) => dae2_type_field_edges(graph, i, f, base)
+      @lib.ArrayCompType(f) =>
+        dae2_type_field_edges(graph, i, f, base, embedded_types_root)
       @lib.FuncCompType(params, results) =>
         for vt in params + results {
-          dae2_type_ref_edges(graph, i, vt, base)
+          dae2_type_ref_edges(graph, i, vt, base, embedded_types_root)
         }
       @lib.ContCompType(t) => graph.edge(i, dae2_type_slot(t, base))
     }
@@ -508,12 +569,7 @@ fn gto_optimize_fields(mod_ : @lib.Module) -> @lib.Module {
       }
     None => ()
   }
-  ignore(
-    gto_map_initializers(mod_, fn(body) {
-      gto_scan_fields(body, reads, writes)
-      body
-    }),
-  )
+  gto_visit_initializers(mod_, fn(body) { gto_scan_fields(body, reads, writes) })
   // Descriptor prototype handling has additional host constraints. The
   // descriptor-specific stage handles those groups after ordinary structs.
   for i, t in types {
@@ -527,28 +583,46 @@ fn gto_optimize_fields(mod_ : @lib.Module) -> @lib.Module {
       _ => -1
     }
   })
-  let all_reads = reads.map(fn(r) { r.copy() })
-  let all_writes = writes.map(fn(r) { r.copy() })
-  let mut changed = true
-  while changed {
-    changed = false
-    for i, p in parents {
-      if p < 0 {
-        continue
+  let children : Array[Array[Int]] = parents.map(fn(_) { [] })
+  for i, p in parents {
+    if p >= 0 {
+      children[p].push(i)
+    }
+  }
+  let all_reads = fields.map(fn(f) { Array::make(f.length(), false) })
+  let all_writes = fields.map(fn(f) { Array::make(f.length(), false) })
+  let pending : Array[(Int, Int, Bool)] = []
+  for i, type_fields in fields {
+    for f = 0; f < type_fields.length(); f = f + 1 {
+      if reads[i][f] || public_[i] {
+        all_reads[i][f] = true
+        pending.push((i, f, false))
       }
-      for f = 0; f < fields[p].length(); f = f + 1 {
-        let r = all_reads[p][f] || all_reads[i][f] || public_[p] || public_[i]
-        let w = all_writes[p][f] || all_writes[i][f] || public_[p] || public_[i]
-        if r != all_reads[p][f] ||
-          r != all_reads[i][f] ||
-          w != all_writes[p][f] ||
-          w != all_writes[i][f] {
-          changed = true
+      if writes[i][f] || public_[i] {
+        all_writes[i][f] = true
+        pending.push((i, f, true))
+      }
+    }
+  }
+  let mut pending_cursor = 0
+  while pending_cursor < pending.length() {
+    let (type_slot, field_slot, is_write) = pending[pending_cursor]
+    pending_cursor += 1
+    let parent = parents[type_slot]
+    if parent >= 0 && field_slot < fields[parent].length() {
+      let target = if is_write { all_writes[parent] } else { all_reads[parent] }
+      if !target[field_slot] {
+        target[field_slot] = true
+        pending.push((parent, field_slot, is_write))
+      }
+    }
+    for child in children[type_slot] {
+      if field_slot < fields[child].length() {
+        let target = if is_write { all_writes[child] } else { all_reads[child] }
+        if !target[field_slot] {
+          target[field_slot] = true
+          pending.push((child, field_slot, is_write))
         }
-        all_reads[p][f] = r
-        all_reads[i][f] = r
-        all_writes[p][f] = w
-        all_writes[i][f] = w
       }
     }
   }

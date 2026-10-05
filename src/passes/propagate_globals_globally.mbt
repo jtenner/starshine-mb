@@ -59,20 +59,26 @@ fn pgg_rewrite_globals(
 pub fn propagate_globals_globally_run_module_pass(
   mod_ : @lib.Module,
 ) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   let imported_globals = pgg_imported_global_count(mod_)
   let (global_sec, known, global_changed) = pgg_rewrite_globals(
     mod_.global_sec,
     imported_globals,
   )
   let remove_sets = Array::make(known.length(), false)
+  let aliases = sgo_empty_global_idx_array(known.length())
   let (elem_sec, elem_changed) = sgo_rewrite_elem_sec(
     mod_.elem_sec,
     known,
+    aliases,
     remove_sets,
   )
   let (data_sec, data_changed) = sgo_rewrite_data_sec(
     mod_.data_sec,
     known,
+    aliases,
     remove_sets,
   )
   if !global_changed && !elem_changed && !data_changed {

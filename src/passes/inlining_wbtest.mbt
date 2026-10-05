@@ -201,6 +201,27 @@ test "inlining graph reachability preserves cycle-only self reachability" {
   assert_false(inl_reachability_reaches(reachability, 0, 0))
   assert_false(inl_reachability_reaches(reachability, 0, 3))
   assert_false(inl_reachability_reaches(reachability, 3, 3))
+  @debug.assert_eq(reachability.scc_by_node.length(), graph.length())
+  @debug.assert_eq(reachability.cached_reachable.length(), graph.length())
+}
+
+///|
+test "inlining initializer reference scan marks only escaping ref.func targets" {
+  let used = Array::make(4, false)
+  inl_mark_used_refs(
+    [
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::ref_func(@lib.FuncIdx::new(2U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ],
+    used,
+  )
+  @debug.assert_eq(used, [false, false, true, false])
 }
 
 ///|

@@ -236,12 +236,13 @@ fn remove_unused_names_detach_peeled_blocks(
 
 ///|
 fn remove_unused_names_replacement_label_for_controls(
-  func : @ir.HotFunc,
   label_id : Int,
-  control_ids : Array[Int],
+  removed_labels : @bitset.BitSet,
   replacement_label : Int,
 ) -> Int {
-  if remove_unused_names_label_in_controls(func, label_id, control_ids) {
+  if label_id >= 0 &&
+    label_id < removed_labels.length() &&
+    removed_labels[label_id] {
     replacement_label
   } else {
     label_id
@@ -252,7 +253,7 @@ fn remove_unused_names_replacement_label_for_controls(
 fn remove_unused_names_retarget_node_labels(
   func : @ir.HotFunc,
   node_id : Int,
-  control_ids : Array[Int],
+  removed_labels : @bitset.BitSet,
   replacement_label : Int,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
@@ -265,9 +266,8 @@ fn remove_unused_names_retarget_node_labels(
     | @ir.HotOp::BrOnCastFail
     | @ir.HotOp::Delegate => {
       let next_label = remove_unused_names_replacement_label_for_controls(
-        func,
         node.imm0,
-        control_ids,
+        removed_labels,
         replacement_label,
       )
       if next_label != node.imm0 {
@@ -284,13 +284,13 @@ fn remove_unused_names_retarget_node_labels(
       let mut changed = false
       for target in old_targets {
         let next_target = remove_unused_names_replacement_label_for_controls(
-          func, target, control_ids, replacement_label,
+          target, removed_labels, replacement_label,
         )
         changed = changed || next_target != target
         new_targets.push(next_target)
       }
       let new_default = remove_unused_names_replacement_label_for_controls(
-        func, old_default, control_ids, replacement_label,
+        old_default, removed_labels, replacement_label,
       )
       changed = changed || new_default != old_default
       if changed {
@@ -302,7 +302,7 @@ fn remove_unused_names_retarget_node_labels(
       let old_targets = @ir.hot_continuation_targets(func, node_id)
       let new_targets = old_targets.map(fn(label) {
         remove_unused_names_replacement_label_for_controls(
-          func, label, control_ids, replacement_label,
+          label, removed_labels, replacement_label,
         )
       })
       if new_targets == old_targets {
@@ -333,7 +333,7 @@ fn remove_unused_names_retarget_node_labels(
             (label_id, fn(next_label) { @ir.HotCatchArm::all_ref(next_label) })
         }
         let next_label = remove_unused_names_replacement_label_for_controls(
-          func, old_label, control_ids, replacement_label,
+          old_label, removed_labels, replacement_label,
         )
         changed = changed || next_label != old_label
         new_catches.push(make_catch(next_label))
@@ -351,23 +351,23 @@ fn remove_unused_names_retarget_node_labels(
 fn remove_unused_names_retarget_subtree_labels(
   func : @ir.HotFunc,
   node_id : Int,
-  control_ids : Array[Int],
+  removed_labels : @bitset.BitSet,
   replacement_label : Int,
 ) -> Bool {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return false
-  }
-  let mut changed = remove_unused_names_retarget_node_labels(
-    func, node_id, control_ids, replacement_label,
-  )
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    changed = remove_unused_names_retarget_subtree_labels(
-        func,
-        @ir.hot_child_get(func, node_id, slot),
-        control_ids,
-        replacement_label,
+  let stack : Array[Int] = [node_id]
+  let mut changed = false
+  while stack.length() > 0 {
+    let current = stack.pop().unwrap()
+    if current < 0 || !@ir.hot_node_is_live(func, current) {
+      continue
+    }
+    changed = remove_unused_names_retarget_node_labels(
+        func, current, removed_labels, replacement_label,
       ) ||
       changed
+    for slot = 0; slot < @ir.hot_child_count(func, current); slot = slot + 1 {
+      stack.push(@ir.hot_child_get(func, current, slot))
+    }
   }
   changed
 }
@@ -376,7 +376,7 @@ fn remove_unused_names_retarget_subtree_labels(
 fn remove_unused_names_retarget_region_labels(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  control_ids : Array[Int],
+  removed_labels : @bitset.BitSet,
   replacement_label : Int,
 ) -> Bool {
   let mut changed = false
@@ -385,7 +385,7 @@ fn remove_unused_names_retarget_region_labels(
     changed = remove_unused_names_retarget_subtree_labels(
         func,
         @ir.hot_region_get(func, region_ref, idx),
-        control_ids,
+        removed_labels,
         replacement_label,
       ) ||
       changed
@@ -449,9 +449,16 @@ fn remove_unused_names_visit_control_node(
       if !removed_ids.is_empty() {
         let replacement_label = @ir.hot_control_node_label(func, node_id)
         let body_ref = @ir.hot_region_body_ref(func, node_id)
+        let removed_labels = @bitset.BitSet::new(func.labels.length())
+        for removed_id in removed_ids {
+          let label_id = @ir.hot_control_node_label(func, removed_id)
+          if label_id >= 0 && label_id < removed_labels.length() {
+            removed_labels[label_id] = true
+          }
+        }
         ignore(
           remove_unused_names_retarget_region_labels(
-            func, body_ref, removed_ids, replacement_label,
+            func, body_ref, removed_labels, replacement_label,
           ),
         )
         @ir.hot_region_replace_body(func, body_ref, peeled_roots)

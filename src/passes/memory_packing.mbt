@@ -1043,31 +1043,32 @@ fn mp_string_starts_with(text : String, prefix : String) -> Bool {
 }
 
 ///|
-fn mp_data_name_for_idx(mod_ : @lib.Module, idx : Int) -> @lib.Name? {
+fn mp_data_names_by_idx(
+  mod_ : @lib.Module,
+  data_count : Int,
+) -> Array[@lib.Name?] {
+  let names : Array[@lib.Name?] = Array::make(data_count, None)
   match mod_.name_sec {
     Some(name_sec) =>
       match name_sec.data_names {
         Some(@lib.NameMap(entries)) =>
           for entry in entries {
             let @lib.NameAssoc(raw_idx, name) = entry
-            if raw_idx.reinterpret_as_int() == idx {
-              return Some(name)
+            let idx = raw_idx.reinterpret_as_int()
+            if idx >= 0 && idx < data_count && names[idx] is None {
+              names[idx] = Some(name)
             }
           }
         None => ()
       }
     None => ()
   }
-  None
+  names
 }
 
 ///|
-fn mp_data_name_has_prefix(
-  mod_ : @lib.Module,
-  idx : Int,
-  prefix : String,
-) -> Bool {
-  match mp_data_name_for_idx(mod_, idx) {
+fn mp_data_name_has_prefix(name : @lib.Name?, prefix : String) -> Bool {
+  match name {
     Some(name) => mp_string_starts_with(mp_name_to_string(name), prefix)
     None => false
   }
@@ -2803,8 +2804,8 @@ fn mp_rewrite_code_sec_full(
 }
 
 ///|
-fn mp_should_skip_data_rewrite(mod_ : @lib.Module, idx : Int) -> Bool {
-  mp_data_name_has_prefix(mod_, idx, "__llvm")
+fn mp_should_skip_data_rewrite(name : @lib.Name?) -> Bool {
+  mp_data_name_has_prefix(name, "__llvm")
 }
 
 ///|
@@ -2813,6 +2814,9 @@ pub fn memory_packing_run_module_pass(
   traps_never_happen? : Bool = false,
   zero_filled_memory? : Bool = false,
 ) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   let datas = match mod_.data_sec {
     Some(@lib.DataSec(datas)) => datas.copy()
     None => return mod_
@@ -2844,6 +2848,7 @@ pub fn memory_packing_run_module_pass(
     datas.length(),
     MpSegmentPlan::new(-1, [], false, false, false, 0),
   )
+  let data_names = mp_data_names_by_idx(mod_, datas.length())
   let rewritten : Array[@lib.Data] = []
   let data_name_entries : Array[@lib.NameAssoc] = []
   let mut changed = false
@@ -2853,7 +2858,7 @@ pub fn memory_packing_run_module_pass(
     let data = datas[idx]
     match data {
       @lib.Data(@lib.Active(mem_idx, expr), bytes) => {
-        let next = if mp_should_skip_data_rewrite(mod_, idx) ||
+        let next = if mp_should_skip_data_rewrite(data_names[idx]) ||
           (segment_op_preflight.has_data_ops && user_scans[idx].has_array_data) {
           [data]
         } else {
@@ -2887,14 +2892,14 @@ pub fn memory_packing_run_module_pass(
         }
         mp_append_data_name_entries(
           data_name_entries,
-          mp_data_name_for_idx(mod_, idx),
+          data_names[idx],
           first_new_idx,
           next.length(),
         )
       }
       @lib.Data(@lib.Passive, bytes) => {
         let usage = usages[idx]
-        if mp_should_skip_data_rewrite(mod_, idx) {
+        if mp_should_skip_data_rewrite(data_names[idx]) {
           data_remap[idx] = rewritten.length()
           plans[idx] = MpSegmentPlan::new(
             data_remap[idx],
@@ -2907,7 +2912,7 @@ pub fn memory_packing_run_module_pass(
           rewritten.push(data)
           mp_append_data_name_entries(
             data_name_entries,
-            mp_data_name_for_idx(mod_, idx),
+            data_names[idx],
             data_remap[idx],
             1,
           )
@@ -2964,7 +2969,7 @@ pub fn memory_packing_run_module_pass(
             }
             mp_append_data_name_entries(
               data_name_entries,
-              mp_data_name_for_idx(mod_, idx),
+              data_names[idx],
               first_new_idx,
               parts.length(),
             )
@@ -2981,7 +2986,7 @@ pub fn memory_packing_run_module_pass(
             rewritten.push(data)
             mp_append_data_name_entries(
               data_name_entries,
-              mp_data_name_for_idx(mod_, idx),
+              data_names[idx],
               data_remap[idx],
               1,
             )
@@ -2999,7 +3004,7 @@ pub fn memory_packing_run_module_pass(
           rewritten.push(data)
           mp_append_data_name_entries(
             data_name_entries,
-            mp_data_name_for_idx(mod_, idx),
+            data_names[idx],
             data_remap[idx],
             1,
           )

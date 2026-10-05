@@ -597,6 +597,7 @@ fn merge_blocks_lift_expression_block_children(
   let mut previous_effects = 0U
   let lifted_prefixes : Array[Int] = []
   let next_children : Array[Int] = []
+  let branch_states = Array::make(@ir.hot_node_count(func), 0)
   let mut changed = false
   for slot = 0; slot < child_count; slot = slot + 1 {
     match root_node.op {
@@ -620,7 +621,7 @@ fn merge_blocks_lift_expression_block_children(
         let prefix_id = @ir.hot_region_get(func, body_ref, prefix_idx)
         prefix.push(prefix_id)
         prefix_effects = prefix_effects | @ir.effects_for_node(func, prefix_id)
-        if merge_blocks_node_has_branch(func, prefix_id) {
+        if merge_blocks_node_has_branch_memoized(func, prefix_id, branch_states) {
           prefix_has_branch = true
         }
       }
@@ -708,8 +709,30 @@ fn merge_blocks_drop_parent_index_contains(
 
 ///|
 fn merge_blocks_node_has_branch(func : @ir.HotFunc, node_id : Int) -> Bool {
+  merge_blocks_node_has_branch_memoized(
+    func,
+    node_id,
+    Array::make(@ir.hot_node_count(func), 0),
+  )
+}
+
+///|
+fn merge_blocks_node_has_branch_memoized(
+  func : @ir.HotFunc,
+  node_id : Int,
+  states : Array[Int],
+) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
+  }
+  if node_id >= states.length() {
+    return true
+  }
+  match states[node_id] {
+    1 => return true
+    2 => return false
+    3 => return true
+    _ => states[node_id] = 1
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -720,50 +743,64 @@ fn merge_blocks_node_has_branch(func : @ir.HotFunc, node_id : Int) -> Bool {
     | @ir.HotOp::BrOnNonNull
     | @ir.HotOp::BrOnCast
     | @ir.HotOp::BrOnCastFail
-    | @ir.HotOp::Delegate => return true
+    | @ir.HotOp::Delegate => {
+      states[node_id] = 3
+      return true
+    }
     @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try =>
-      if merge_blocks_region_has_branch(
+      if merge_blocks_region_has_branch_memoized(
           func,
           @ir.hot_region_body_ref(func, node_id),
+          states,
         ) {
+        states[node_id] = 3
         return true
       }
     @ir.HotOp::If => {
-      if merge_blocks_region_has_branch(
+      if merge_blocks_region_has_branch_memoized(
           func,
           @ir.hot_region_then_ref(func, node_id),
+          states,
         ) {
+        states[node_id] = 3
         return true
       }
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_ref) =>
-          if merge_blocks_region_has_branch(func, else_ref) {
+          if merge_blocks_region_has_branch_memoized(func, else_ref, states) {
+            states[node_id] = 3
             return true
           }
         None => ()
       }
     }
     @ir.HotOp::TryTable =>
-      if merge_blocks_region_has_branch(
+      if merge_blocks_region_has_branch_memoized(
           func,
           @ir.hot_region_body_ref(func, node_id),
+          states,
         ) ||
-        merge_blocks_region_has_branch(
+        merge_blocks_region_has_branch_memoized(
           func,
           @ir.hot_region_catch_list_ref(func, node_id),
+          states,
         ) {
+        states[node_id] = 3
         return true
       }
     _ => ()
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if merge_blocks_node_has_branch(
+    if merge_blocks_node_has_branch_memoized(
         func,
         @ir.hot_child_get(func, node_id, slot),
+        states,
       ) {
+      states[node_id] = 3
       return true
     }
   }
+  states[node_id] = 2
   false
 }
 
@@ -772,10 +809,24 @@ fn merge_blocks_region_has_branch(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
+  merge_blocks_region_has_branch_memoized(
+    func,
+    region_ref,
+    Array::make(@ir.hot_node_count(func), 0),
+  )
+}
+
+///|
+fn merge_blocks_region_has_branch_memoized(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  states : Array[Int],
+) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    if merge_blocks_node_has_branch(
+    if merge_blocks_node_has_branch_memoized(
         func,
         @ir.hot_region_get(func, region_ref, idx),
+        states,
       ) {
       return true
     }

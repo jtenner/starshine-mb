@@ -206,22 +206,67 @@ fn ca_widen(
     let mut lo = span.lo
     let mut hi = span.hi
     if lo < old.lo {
-      lo = 0UL
-      for threshold in thresholds {
-        if threshold <= span.lo && threshold > lo {
-          lo = threshold
-        }
-      }
+      lo = ca_threshold_floor(thresholds, span.lo)
     }
     if hi > old.hi {
-      hi = ca_max(next.bits)
-      for threshold in thresholds {
-        if threshold >= span.hi && threshold < hi {
-          hi = threshold
-        }
-      }
+      hi = ca_threshold_ceil(thresholds, span.hi, ca_max(next.bits))
     }
     spans.push({ lo, hi, })
   }
   ca_range(next.bits, spans)
+}
+
+///|
+fn ca_prepare_thresholds(thresholds : Array[UInt64]) -> Array[UInt64] {
+  let sorted = thresholds.copy()
+  sorted.sort_by(fn(a, b) { a.compare(b) })
+  let unique : Array[UInt64] = []
+  for value in sorted {
+    if unique.is_empty() || unique[unique.length() - 1] != value {
+      unique.push(value)
+    }
+  }
+  unique
+}
+
+///|
+fn ca_threshold_floor(thresholds : Array[UInt64], value : UInt64) -> UInt64 {
+  let mut lo = 0
+  let mut hi = thresholds.length()
+  while lo < hi {
+    let mid = lo + (hi - lo) / 2
+    if thresholds[mid] <= value {
+      lo = mid + 1
+    } else {
+      hi = mid
+    }
+  }
+  if lo == 0 {
+    0UL
+  } else {
+    thresholds[lo - 1]
+  }
+}
+
+///|
+fn ca_threshold_ceil(
+  thresholds : Array[UInt64],
+  value : UInt64,
+  maximum : UInt64,
+) -> UInt64 {
+  let mut lo = 0
+  let mut hi = thresholds.length()
+  while lo < hi {
+    let mid = lo + (hi - lo) / 2
+    if thresholds[mid] < value {
+      lo = mid + 1
+    } else {
+      hi = mid
+    }
+  }
+  if lo < thresholds.length() && thresholds[lo] <= maximum {
+    thresholds[lo]
+  } else {
+    maximum
+  }
 }

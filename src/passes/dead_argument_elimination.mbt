@@ -279,6 +279,7 @@ fn dae_function_exposure_primary_reason(
 priv struct DaeCurrentTopologyExtras {
   direct_return_callers : Array[Array[Int]]
   direct_return_callees_by_caller : Array[Array[Int]]
+  adjacency_membership : @hashmap.HashMap[(Int, Int, Int), Bool]
   has_outgoing_call_indirect : Array[Bool]
   has_outgoing_call_ref : Array[Bool]
   has_outgoing_return_call : Array[Bool]
@@ -1852,9 +1853,68 @@ priv struct DaeOriginalBoundarySnapshot {
 }
 
 ///|
+priv enum DaeStablePath {
+  Empty
+  Step(DaeStablePath, Int, Int)
+} derive(Eq, Debug)
+
+///|
+fn DaeStablePath::empty() -> DaeStablePath {
+  Empty
+}
+
+///|
+fn DaeStablePath::append(self : DaeStablePath, value : Int) -> DaeStablePath {
+  Step(self, value, self.length() + 1)
+}
+
+///|
+fn DaeStablePath::length(self : DaeStablePath) -> Int {
+  match self {
+    Empty => 0
+    Step(_, _, length) => length
+  }
+}
+
+///|
+fn DaeStablePath::append_to(self : DaeStablePath, out : Array[Int]) -> Unit {
+  let base = out.length()
+  let length = self.length()
+  out.resize(base + length, 0)
+  let mut cursor = self
+  let mut index = base + length - 1
+  while index >= base {
+    match cursor {
+      Empty => abort("dae stable path length disagrees with its links")
+      Step(parent, value, _) => {
+        out[index] = value
+        cursor = parent
+        index -= 1
+      }
+    }
+  }
+}
+
+///|
+fn DaeStablePath::to_array(self : DaeStablePath) -> Array[Int] {
+  let out = Array::new(capacity=self.length())
+  self.append_to(out)
+  out
+}
+
+///|
+fn dae_stable_path_from_array(path : Array[Int]) -> DaeStablePath {
+  let mut stable = DaeStablePath::empty()
+  for value in path {
+    stable = stable.append(value)
+  }
+  stable
+}
+
+///|
 priv struct DaeStableCallsite {
   caller_def : Int
-  path : Array[Int]
+  path : DaeStablePath
   callee_abs : Int
   active : Bool
   dropped : Bool
@@ -2102,7 +2162,7 @@ priv enum DaeResultAction {
 #warnings("-unused_value")
 priv struct DaeDirectCallIdentity {
   caller_def : Int
-  path : Array[Int]
+  path : DaeStablePath
   call_kind : DaeDirectCallKind
   callee_abs : Int
 } derive(Eq, Debug)
@@ -2943,6 +3003,7 @@ fn dae_empty_topology_extras(total_funcs : Int) -> DaeCurrentTopologyExtras {
   {
     direct_return_callers: dae_make_direct_callers(total_funcs),
     direct_return_callees_by_caller: dae_make_direct_callers(total_funcs),
+    adjacency_membership: @hashmap.new(),
     has_outgoing_call_indirect: Array::make(total_funcs, false),
     has_outgoing_call_ref: Array::make(total_funcs, false),
     has_outgoing_return_call: Array::make(total_funcs, false),
@@ -2952,9 +3013,20 @@ fn dae_empty_topology_extras(total_funcs : Int) -> DaeCurrentTopologyExtras {
 }
 
 ///|
-fn dae_topology_add_unique(row : Array[Int], value : Int) -> Unit {
-  if !row.contains(value) {
-    row.push(value)
+fn dae_adjacency_add_unique(
+  rows : Array[Array[Int]],
+  row : Int,
+  value : Int,
+  kind : Int,
+  membership : @hashmap.HashMap[(Int, Int, Int), Bool],
+) -> Unit {
+  if row < 0 || row >= rows.length() {
+    return
+  }
+  let key = (kind, row, value)
+  if membership.get(key) is None {
+    membership.set(key, true)
+    rows[row].push(value)
   }
 }
 
@@ -2985,15 +3057,21 @@ fn dae_scan_topology_extras_instrs(
           }
           let slot = dae_func_idx_slot(func_idx)
           if slot >= 0 && slot < topology.direct_return_callers.length() {
-            dae_topology_add_unique(
-              topology.direct_return_callers[slot],
+            dae_adjacency_add_unique(
+              topology.direct_return_callers,
+              slot,
               caller_abs,
+              0,
+              topology.adjacency_membership,
             )
             if caller_abs >= 0 &&
               caller_abs < topology.direct_return_callees_by_caller.length() {
-              dae_topology_add_unique(
-                topology.direct_return_callees_by_caller[caller_abs],
+              dae_adjacency_add_unique(
+                topology.direct_return_callees_by_caller,
+                caller_abs,
                 slot,
+                1,
+                topology.adjacency_membership,
               )
             }
           }
@@ -3507,20 +3585,17 @@ fn dae_dependency_adjacency_union(
     right.length()
   }
   let out = dae_dependency_adjacency_new(count)
+  let membership : @hashmap.HashMap[(Int, Int, Int), Bool] = @hashmap.new()
   let mut def_idx = 0
   while def_idx < count {
     if def_idx < left.length() {
       for dependency in left[def_idx] {
-        if !out[def_idx].contains(dependency) {
-          out[def_idx].push(dependency)
-        }
+        dae_adjacency_add_unique(out, def_idx, dependency, 0, membership)
       }
     }
     if def_idx < right.length() {
       for dependency in right[def_idx] {
-        if !out[def_idx].contains(dependency) {
-          out[def_idx].push(dependency)
-        }
+        dae_adjacency_add_unique(out, def_idx, dependency, 0, membership)
       }
     }
     def_idx += 1
@@ -3948,6 +4023,7 @@ fn dae_boundary_dependency_graph_build(
   let result_forwarders_by_def = dae_dependency_adjacency_new(defined)
   let result_dependencies_by_def = dae_dependency_adjacency_new(defined)
   let result_observers_by_def = dae_dependency_adjacency_new(defined)
+  let adjacency_membership : @hashmap.HashMap[(Int, Int, Int), Bool] = @hashmap.new()
   let direct_callers = graph.snapshot.call_facts.direct_callers
   let mut callee_def = 0
   while callee_def < defined {
@@ -3955,12 +4031,10 @@ fn dae_boundary_dependency_graph_build(
     if callee_abs >= 0 && callee_abs < direct_callers.length() {
       for caller_def in direct_callers[callee_abs] {
         if caller_def >= 0 && caller_def < defined {
-          if !callers_by_def[callee_def].contains(caller_def) {
-            callers_by_def[callee_def].push(caller_def)
-          }
-          if !callees_by_def[caller_def].contains(callee_def) {
-            callees_by_def[caller_def].push(callee_def)
-          }
+          // `direct_callers` is already unique per callee, and this outer loop
+          // visits each callee once, so both insertions are unique by construction.
+          callers_by_def[callee_def].push(caller_def)
+          callees_by_def[caller_def].push(callee_def)
         }
       }
     }
@@ -3974,30 +4048,24 @@ fn dae_boundary_dependency_graph_build(
         let caller_def = callsite.caller_def
         if callsite.active && caller_def >= 0 && caller_def < defined {
           if callsite.tail {
-            dae_topology_add_unique(
-              return_callers_by_def[callee_def],
-              caller_def,
+            dae_adjacency_add_unique(
+              return_callers_by_def, callee_def, caller_def, 2, adjacency_membership,
             )
-            dae_topology_add_unique(
-              result_forwarders_by_def[callee_def],
-              caller_def,
+            dae_adjacency_add_unique(
+              result_forwarders_by_def, callee_def, caller_def, 3, adjacency_membership,
             )
-            dae_topology_add_unique(
-              result_dependencies_by_def[caller_def],
-              callee_def,
+            dae_adjacency_add_unique(
+              result_dependencies_by_def, caller_def, callee_def, 4, adjacency_membership,
             )
           } else if !callsite.dropped {
-            dae_topology_add_unique(
-              result_observers_by_def[callee_def],
-              caller_def,
+            dae_adjacency_add_unique(
+              result_observers_by_def, callee_def, caller_def, 5, adjacency_membership,
             )
-            dae_topology_add_unique(
-              result_forwarders_by_def[callee_def],
-              caller_def,
+            dae_adjacency_add_unique(
+              result_forwarders_by_def, callee_def, caller_def, 3, adjacency_membership,
             )
-            dae_topology_add_unique(
-              result_dependencies_by_def[caller_def],
-              callee_def,
+            dae_adjacency_add_unique(
+              result_dependencies_by_def, caller_def, callee_def, 4, adjacency_membership,
             )
           }
         }
@@ -4041,10 +4109,10 @@ fn dae_boundary_dependency_graph_build(
   while target_def < parameter_forwarders_by_def.length() {
     for forwarder_def in parameter_forwarders_by_def[target_def] {
       if forwarder_def >= 0 && forwarder_def < defined {
-        if !forwarding_adjacency[target_def].contains(forwarder_def) {
-          forwarding_adjacency[target_def].push(forwarder_def)
-        }
-        if !forwarding_adjacency[forwarder_def].contains(target_def) {
+        // Parameter forwarders are unique per target. Each undirected pair is
+        // therefore emitted once in each direction; a self-edge needs one copy.
+        forwarding_adjacency[target_def].push(forwarder_def)
+        if forwarder_def != target_def {
           forwarding_adjacency[forwarder_def].push(target_def)
         }
       }
@@ -4986,6 +5054,7 @@ fn dae_body_only_boundary_graph_new(
     topology: {
       direct_return_callers: dae_make_direct_callers(total),
       direct_return_callees_by_caller: dae_make_direct_callers(total),
+      adjacency_membership: @hashmap.new(),
       has_outgoing_call_indirect: Array::make(total, false),
       has_outgoing_call_ref: Array::make(total, false),
       has_outgoing_return_call: Array::make(total, false),
@@ -6886,10 +6955,8 @@ fn dae_callsite_child_path(
 }
 
 ///|
-fn dae_callsite_path(path : Array[Int], instr_idx : Int) -> Array[Int] {
-  let callsite = path.copy()
-  callsite.push(instr_idx)
-  callsite
+fn dae_callsite_path(path : Array[Int], instr_idx : Int) -> DaeStablePath {
+  dae_stable_path_from_array(path).append(instr_idx)
 }
 
 ///|
@@ -6927,6 +6994,7 @@ fn dae_scan_current_call_facts_instrs(
   caller_seen_stamps : Array[Int],
   active : Bool,
   topology_out? : DaeCurrentTopologyExtras? = None,
+  stable_path? : DaeStablePath? = None,
 ) -> Bool {
   let mut idx = 0
   let mut current_active = active
@@ -6956,7 +7024,10 @@ fn dae_scan_current_call_facts_instrs(
           if slot < function_infos.length() {
             let callsite = {
               caller_def,
-              path: dae_callsite_path(path, idx),
+              path: match stable_path {
+                Some(prefix) => prefix.append(idx)
+                None => dae_callsite_path(path, idx)
+              },
               callee_abs: slot,
               active: current_active,
               dropped,
@@ -6989,15 +7060,21 @@ fn dae_scan_current_call_facts_instrs(
                 topology.has_outgoing_return_call[caller_abs] = true
               }
               if slot >= 0 && slot < topology.direct_return_callers.length() {
-                dae_topology_add_unique(
-                  topology.direct_return_callers[slot],
+                dae_adjacency_add_unique(
+                  topology.direct_return_callers,
+                  slot,
                   caller_abs,
+                  0,
+                  topology.adjacency_membership,
                 )
                 if caller_abs >= 0 &&
                   caller_abs < topology.direct_return_callees_by_caller.length() {
-                  dae_topology_add_unique(
-                    topology.direct_return_callees_by_caller[caller_abs],
+                  dae_adjacency_add_unique(
+                    topology.direct_return_callees_by_caller,
+                    caller_abs,
                     slot,
+                    1,
+                    topology.adjacency_membership,
                   )
                 }
               }
@@ -7010,7 +7087,10 @@ fn dae_scan_current_call_facts_instrs(
             if slot < function_infos.length() {
               let callsite = {
                 caller_def,
-                path: dae_callsite_path(path, idx),
+                path: match stable_path {
+                  Some(prefix) => prefix.append(idx)
+                  None => dae_callsite_path(path, idx)
+                },
                 callee_abs: slot,
                 active: true,
                 dropped: false,
@@ -7115,6 +7195,7 @@ fn dae_scan_current_call_facts_instrs(
           caller_seen_stamps,
           current_active,
           topology_out~,
+          stable_path~,
         )
         // A singleton Block chain ending in Unreachable contains no calls;
         // its summary is available after this required child scan. Other
@@ -7152,6 +7233,7 @@ fn dae_scan_current_call_facts_instrs(
             caller_seen_stamps,
             current_active,
             topology_out~,
+            stable_path~,
           ),
         )
       }
@@ -7173,6 +7255,7 @@ fn dae_scan_current_call_facts_instrs(
             caller_seen_stamps,
             current_active,
             topology_out~,
+            stable_path~,
           ),
         )
         ignore(
@@ -7192,6 +7275,7 @@ fn dae_scan_current_call_facts_instrs(
             caller_seen_stamps,
             current_active,
             topology_out~,
+            stable_path~,
           ),
         )
       }
@@ -7213,6 +7297,7 @@ fn dae_scan_current_call_facts_instrs(
             caller_seen_stamps,
             current_active,
             topology_out~,
+            stable_path~,
           ),
         )
       @lib.TryTable(_, _, @lib.Expr(body)) =>
@@ -7233,6 +7318,7 @@ fn dae_scan_current_call_facts_instrs(
             caller_seen_stamps,
             current_active,
             topology_out~,
+            stable_path~,
           ),
         )
       @lib.Try(_, @lib.Expr(body), catches, _) => {
@@ -7253,6 +7339,7 @@ fn dae_scan_current_call_facts_instrs(
             caller_seen_stamps,
             current_active,
             topology_out~,
+            stable_path~,
           ),
         )
         let mut catch_idx = 0
@@ -7277,6 +7364,7 @@ fn dae_scan_current_call_facts_instrs(
                   caller_seen_stamps,
                   current_active,
                   topology_out~,
+                  stable_path~,
                 ),
               )
           }
@@ -7390,6 +7478,7 @@ fn dae_collect_current_function_analysis(
             caller_seen_stamps,
             true,
             topology_out~,
+            stable_path=Some(DaeStablePath::empty()),
           ),
         )
         caller_def += 1
@@ -11012,7 +11101,13 @@ fn dae_classify_unused_parameter_actions_from_function_infos(
     }
     let @lib.Func(_, @lib.Expr(body)) = facts.graph.snapshot.funcs[callsite.caller_def]
     let (scope, call_idx, entry_stack_values) = match
-      dae_resolve_stable_callsite_scope(body, callsite.path, 0, 0, mod_) {
+      dae_resolve_stable_callsite_scope(
+        body,
+        callsite.path.to_array(),
+        0,
+        0,
+        mod_,
+      ) {
       Some(resolved) => resolved
       None => return None
     }
@@ -12731,7 +12826,13 @@ fn dae_resolve_uniform_callsite_operands(
     None => ()
   }
   let (scope, call_idx, entry_stack_values) = match
-    dae_resolve_stable_callsite_scope(body, callsite.path, 0, 0, mod_) {
+    dae_resolve_stable_callsite_scope(
+      body,
+      callsite.path.to_array(),
+      0,
+      0,
+      mod_,
+    ) {
     Some(resolved) => resolved
     None => return None
   }
@@ -13991,6 +14092,39 @@ fn dae_simple_func_type_lookup(
 }
 
 ///|
+priv struct DaeTypeUpdateIndex {
+  signatures : @hashmap.HashMap[String, @lib.TypeIdx]
+  groups : Array[@lib.RecType]
+  mut flat_count : Int
+}
+
+///|
+fn DaeTypeUpdateIndex::new(type_sec : @lib.TypeSec) -> DaeTypeUpdateIndex {
+  let @lib.TypeSec(groups) = type_sec
+  {
+    signatures: dae_simple_func_type_lookup(type_sec),
+    groups: groups.copy(),
+    flat_count: dae_type_sec_flattened_length(type_sec),
+  }
+}
+
+///|
+fn DaeTypeUpdateIndex::append_signature(
+  self : DaeTypeUpdateIndex,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> (@lib.TypeSec, @lib.TypeIdx) {
+  let next_type_idx = @lib.TypeIdx::new(self.flat_count.reinterpret_as_uint())
+  self.groups.push(
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func(params, results)),
+    ),
+  )
+  self.flat_count += 1
+  (@lib.TypeSec::new(self.groups), next_type_idx)
+}
+
+///|
 fn dae_find_equivalent_simple_func_type(
   type_sec : @lib.TypeSec,
   params : Array[@lib.ValType],
@@ -14566,13 +14700,30 @@ fn dae_update_defined_func_type(
   def_idx : Int,
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
+  type_update_index? : DaeTypeUpdateIndex? = None,
+  unique_scan_count? : Array[Int]? = None,
 ) -> (@lib.TypeSec, @lib.TypeIdx) {
   let old_type_idx = func_types[def_idx]
-  match dae_find_equivalent_simple_func_type(type_sec, params, results) {
+  let key = dae_simple_func_type_key(params, results)
+  let equivalent = match type_update_index {
+    Some(index) => index.signatures.get(key)
+    None => dae_find_equivalent_simple_func_type(type_sec, params, results)
+  }
+  match equivalent {
     Some(existing_idx) => return (type_sec, existing_idx)
     None => ()
   }
-  if dae_can_replace_unique_defined_func_type(
+  // Batch callers keep a signature index and deliberately append. In-place
+  // replacement requires whole-module reference scans for each candidate;
+  // appending preserves all existing identities and makes admission O(1).
+  if type_update_index is None {
+    match unique_scan_count {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+  }
+  if type_update_index is None &&
+    dae_can_replace_unique_defined_func_type(
       mod_, func_types, def_idx, old_type_idx,
     ) {
     match
@@ -14583,7 +14734,15 @@ fn dae_update_defined_func_type(
       None => ()
     }
   }
-  dae_append_new_func_type(type_sec, params, results)
+  let (next_type_sec, next_type_idx) = match type_update_index {
+    Some(index) => index.append_signature(params, results)
+    None => dae_append_new_func_type(type_sec, params, results)
+  }
+  match type_update_index {
+    Some(index) => index.signatures.set(key, next_type_idx)
+    None => ()
+  }
+  (next_type_sec, next_type_idx)
 }
 
 ///|
@@ -20942,9 +21101,8 @@ fn dae_direct_caller_cycle_flags(
     let callee_abs = imported + callee_def
     if callee_abs >= 0 && callee_abs < facts.direct_callers.length() {
       for caller_def in facts.direct_callers[callee_abs] {
-        if caller_def >= 0 &&
-          caller_def < defined &&
-          !callers_by_def[callee_def].contains(caller_def) {
+        if caller_def >= 0 && caller_def < defined {
+          // Direct callers are already unique per callee.
           callers_by_def[callee_def].push(caller_def)
         }
       }
@@ -21837,6 +21995,7 @@ fn dae_refresh_changed_caller_function_infos(
           refreshed_infos,
           caller_seen_stamps,
           true,
+          stable_path=Some(DaeStablePath::empty()),
         ),
       )
     }
@@ -22020,6 +22179,7 @@ fn dae_current_boundary_graph_adopt_dropped_result_batch_lightweight(
           refreshed_infos,
           caller_seen_stamps,
           true,
+          stable_path=Some(DaeStablePath::empty()),
         ),
       )
     }
@@ -22603,7 +22763,7 @@ fn dae_collect_target_call_identities(
     if callsite.active && callsite.callee_abs == callee_abs {
       identities.push({
         caller_def: callsite.caller_def,
-        path: callsite.path.copy(),
+        path: callsite.path,
         call_kind: if callsite.tail {
           DaeDirectReturnCall
         } else {
@@ -22798,7 +22958,7 @@ fn dae_rewrite_calls_from_stable_callsites(
     }
     let result = dae_rewrite_call_at_stable_path(
       current,
-      callsite.path,
+      callsite.path.to_array(),
       0,
       callee_abs,
       remove,
@@ -45161,6 +45321,7 @@ fn dae_apply_forwarded_param_scc_transaction(
   }
   let type_idxs = original_type_idxs.copy()
   let mut type_sec = original_type_sec
+  let type_update_index = DaeTypeUpdateIndex::new(type_sec)
   def_slot = 0
   while def_slot < defs.length() {
     let def_idx = defs[def_slot]
@@ -45197,6 +45358,7 @@ fn dae_apply_forwarded_param_scc_transaction(
       def_idx,
       rewrite.kept_params,
       results,
+      type_update_index=Some(type_update_index),
     )
     type_sec = next_type_sec
     type_idxs[def_idx] = next_type_idx
@@ -45994,6 +46156,7 @@ fn dae_build_forwarded_param_component_candidate(
   }
   let type_idxs = original_type_idxs.copy()
   let mut type_sec = original_type_sec
+  let type_update_index = DaeTypeUpdateIndex::new(type_sec)
   def_slot = 0
   while def_slot < defs.length() {
     let def_idx = defs[def_slot]
@@ -46047,6 +46210,7 @@ fn dae_build_forwarded_param_component_candidate(
       def_idx,
       rewrite.kept_params,
       results,
+      type_update_index=Some(type_update_index),
     )
     type_sec = next_type_sec
     type_idxs[def_idx] = next_type_idx
@@ -48517,6 +48681,7 @@ fn dae_restore_dead_suffix_self_operand_params(
   let touched = Array::make(current_funcs.length(), false)
   let type_idxs = current_type_idxs.copy()
   let mut type_sec = current_type_sec
+  let type_update_index = DaeTypeUpdateIndex::new(type_sec)
   let mut changed = false
   for def_idx in candidates {
     let callee_abs = imported + def_idx
@@ -48559,7 +48724,13 @@ fn dae_restore_dead_suffix_self_operand_params(
     if restored_params.length() == 1 &&
       restored_params[0] == @lib.ValType::f64() {
       let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
-        current, type_sec, type_idxs, def_idx, restored_params, current_results,
+        current,
+        type_sec,
+        type_idxs,
+        def_idx,
+        restored_params,
+        current_results,
+        type_update_index=Some(type_update_index),
       )
       type_sec = next_type_sec
       type_idxs[def_idx] = new_type_idx
@@ -51093,6 +51264,9 @@ fn dae_run_module_pass_with_trap_policy(
   perf? : HotPerfSession? = None,
   skip_param_removal? : Bool = false,
 ) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   let trace_fn = match trace {
     Some(cb) => cb
     None => fn(_line : String) { () }
@@ -51186,6 +51360,7 @@ fn dae_scan_current_call_facts_child(
   caller_seen_stamps : Array[Int],
   active : Bool,
   topology_out? : DaeCurrentTopologyExtras? = None,
+  stable_path? : DaeStablePath? = None,
 ) -> Bool {
   let parent_length = path.length()
   let collect_paths = !function_infos.is_empty()
@@ -51193,6 +51368,9 @@ fn dae_scan_current_call_facts_child(
     path.push(instr_idx)
     path.push(child_kind)
   }
+  let child_stable_path = stable_path.map(fn(prefix) {
+    prefix.append(instr_idx).append(child_kind)
+  })
   // Only recorded callsites copy a path. Recursive traversal borrows scratch;
   // shrinking restores the caller's prefix while retaining reusable capacity.
   let singleton_trap = dae_scan_current_call_facts_instrs(
@@ -51209,6 +51387,7 @@ fn dae_scan_current_call_facts_child(
     caller_seen_stamps,
     active,
     topology_out~,
+    stable_path=child_stable_path,
   )
   if collect_paths {
     path.resize(parent_length, 0)

@@ -76,6 +76,17 @@ test "CompilerFactIndex value map keeps selected body and first matching site" {
 }
 
 ///|
+test "CompilerFactIndex safely indexes sparse and high-bit function ids" {
+  let sparse = @representation.FunctionFacts::new(1000000U)
+  let high = @representation.FunctionFacts::new(0xffffffffU)
+  let index = CompilerFactIndex::new(
+    @representation.OptimizationFactsSec::new(functions=[sparse, high]),
+  )
+  assert_eq(index.function_facts(@lib.FuncIdx::new(1000000U)), Some(sparse))
+  assert_eq(index.function_facts(@lib.FuncIdx::new(0xffffffffU)), Some(high))
+}
+
+///|
 test "bench compiler-fact value lookup count=2048" (it : @bench.T) {
   compiler_fact_value_lookup_bench(it, 2048)
 }

@@ -53,12 +53,7 @@ fn GtoTypeOrder::block(self : GtoTypeOrder, bt : @lib.BlockType) -> Unit {
 ///|
 fn GtoTypeOrder::scan(self : GtoTypeOrder, expr : @lib.Expr) -> Unit {
   for instr in expr.0 {
-    ignore(
-      gto_map_children(instr, fn(body) {
-        self.scan(body)
-        body
-      }),
-    )
+    gto_visit_children(instr, fn(body) { self.scan(body) })
     match instr {
       @lib.Block(bt, _)
       | @lib.Loop(bt, _)

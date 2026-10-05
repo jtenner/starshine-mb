@@ -151,6 +151,39 @@ fn i64_lower_sat_rewrite_expr(
         }
         out.push(@lib.Instruction::if_(block_type, next_then, next_else))
       }
+      @lib.TryTable(block_type, catches, body) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            i64_lower_sat_rewrite_expr(body, f32_temp, f64_temp, changed),
+          ),
+        )
+      @lib.Try(block_type, body, catches, delegate) =>
+        out.push(
+          @lib.Instruction::try_(
+            block_type,
+            i64_lower_sat_rewrite_expr(body, f32_temp, f64_temp, changed),
+            catches.map(fn(catch_) {
+              match catch_ {
+                @lib.LegacyCatch(tag, catch_body) =>
+                  @lib.LegacyCatch::tagged(
+                    tag,
+                    i64_lower_sat_rewrite_expr(
+                      catch_body, f32_temp, f64_temp, changed,
+                    ),
+                  )
+                @lib.LegacyCatchAll(catch_body) =>
+                  @lib.LegacyCatch::all(
+                    i64_lower_sat_rewrite_expr(
+                      catch_body, f32_temp, f64_temp, changed,
+                    ),
+                  )
+              }
+            }),
+            delegate~,
+          ),
+        )
       _ => out.push(instr)
     }
   }
@@ -180,6 +213,24 @@ fn i64_lower_sat_expr_has_candidate(expr : @lib.Expr) -> Bool {
               return true
             }
           None => ()
+        }
+      }
+      @lib.TryTable(_, _, body) =>
+        if i64_lower_sat_expr_has_candidate(body) {
+          return true
+        }
+      @lib.Try(_, body, catches, _) => {
+        if i64_lower_sat_expr_has_candidate(body) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+              catch_body
+          }
+          if i64_lower_sat_expr_has_candidate(catch_body) {
+            return true
+          }
         }
       }
       _ => ()

@@ -425,14 +425,14 @@ pub struct ApplyCompilerFactsResult {
 
 pub struct CompilerFactIndex {
   facts : @representation.OptimizationFactsSec
-  functions : Array[@representation.FunctionFacts?]
-  bodies : Array[@representation.FunctionBodyFacts?]
+  functions : @hashmap.HashMap[UInt, @representation.FunctionFacts]
+  bodies : @hashmap.HashMap[UInt, @representation.FunctionBodyFacts]
   values : @hashmap.HashMap[@representation.ValueSite, @representation.ValueFacts]
   calls : @hashmap.HashMap[@representation.CodeSite, @representation.CallSiteFacts]
-  signatures : Array[@representation.SignatureFacts?]
-  types : Array[@representation.TypeFacts?]
-  globals : Array[@representation.GlobalFacts?]
-  tables : Array[@representation.TableFacts?]
+  signatures : @hashmap.HashMap[UInt, @representation.SignatureFacts]
+  types : @hashmap.HashMap[UInt, @representation.TypeFacts]
+  globals : @hashmap.HashMap[UInt, @representation.GlobalFacts]
+  tables : @hashmap.HashMap[UInt, @representation.TableFacts]
 } derive(@debug.Debug)
 pub fn CompilerFactIndex::allocation_facts(Self, @representation.ValueSite) -> @representation.AllocationFacts?
 pub fn CompilerFactIndex::body_facts(Self, @lib.FuncIdx) -> @representation.FunctionBodyFacts?
@@ -644,6 +644,10 @@ type HotTupleOptimizationRewriteCleanupPlan derive(Eq, @debug.Debug)
 type HotTupleOptimizationRootSlot derive(Eq, @debug.Debug)
 
 type HotTupleOptimizationSeedCollection derive(Eq, @debug.Debug)
+
+type InlGraphReachability
+
+type SgoRuntimeTraceWorkspace
 
 pub(all) enum SsaFullGetDecision {
   Retarget(Int)

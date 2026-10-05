@@ -13,19 +13,58 @@ priv struct Dae2LegacyState {
 }
 
 ///|
-fn dae2_legacy_label(
-  labels : Array[Int],
-  label : @lib.LabelIdx,
-) -> @lib.LabelIdx {
-  let @lib.LabelIdx(raw) = label
-  @lib.LabelIdx::new(labels[raw.to_int()].reinterpret_as_uint())
+priv enum Dae2LegacyLabels {
+  Root
+  Frame(Int, Int, Dae2LegacyLabels)
 }
 
 ///|
-fn dae2_legacy_push_labels(labels : Array[Int]) -> Array[Int] {
-  let next = [0]
-  next.append(labels.map(fn(depth) { depth + 1 }))
-  next
+fn Dae2LegacyLabels::root() -> Dae2LegacyLabels {
+  Root
+}
+
+///|
+fn Dae2LegacyLabels::push(
+  self : Dae2LegacyLabels,
+  head : Int,
+  tail_offset : Int,
+) -> Dae2LegacyLabels {
+  Frame(head, tail_offset, self)
+}
+
+///|
+fn Dae2LegacyLabels::resolve(self : Dae2LegacyLabels, depth : Int) -> Int {
+  match self {
+    Root => if depth == 0 { 0 } else { abort("invalid legacy label depth") }
+    Frame(head, offset, parent) =>
+      if depth == 0 {
+        head
+      } else {
+        parent.resolve(depth - 1) + offset
+      }
+  }
+}
+
+///|
+fn Dae2LegacyLabels::frame_count(self : Dae2LegacyLabels) -> Int {
+  match self {
+    Root => 1
+    Frame(_, _, parent) => parent.frame_count() + 1
+  }
+}
+
+///|
+fn dae2_legacy_label(
+  labels : Dae2LegacyLabels,
+  label : @lib.LabelIdx,
+) -> @lib.LabelIdx {
+  let @lib.LabelIdx(raw) = label
+  @lib.LabelIdx::new(labels.resolve(raw.to_int()).reinterpret_as_uint())
+}
+
+///|
+fn dae2_legacy_push_labels(labels : Dae2LegacyLabels) -> Dae2LegacyLabels {
+  labels.push(0, 1)
 }
 
 ///|
@@ -57,7 +96,10 @@ fn dae2_legacy_local(
 }
 
 ///|
-fn dae2_legacy_catch(catch_ : @lib.Catch, labels : Array[Int]) -> @lib.Catch {
+fn dae2_legacy_catch(
+  catch_ : @lib.Catch,
+  labels : Dae2LegacyLabels,
+) -> @lib.Catch {
   match catch_ {
     @lib.Catch(tag, label) =>
       @lib.Catch::new(tag, dae2_legacy_label(labels, label))
@@ -72,7 +114,7 @@ fn dae2_legacy_catch(catch_ : @lib.Catch, labels : Array[Int]) -> @lib.Catch {
 ///|
 fn dae2_legacy_handlers(
   handlers : Array[@lib.ResumeHandler],
-  labels : Array[Int],
+  labels : Dae2LegacyLabels,
 ) -> Array[@lib.ResumeHandler] {
   handlers.map(fn(handler) {
     match handler {
@@ -87,7 +129,7 @@ fn dae2_legacy_handlers(
 fn dae2_legacy_body(
   state : Dae2LegacyState,
   instrs : Array[@lib.Instruction],
-  labels : Array[Int],
+  labels : Dae2LegacyLabels,
   exceptions : Array[Int],
 ) -> Result[Array[@lib.Instruction], String] {
   let out : Array[@lib.Instruction] = []
@@ -241,8 +283,7 @@ fn dae2_legacy_body(
           for i = parameter_locals.length() - 1; i >= 0; i = i - 1 {
             out.push(@lib.Instruction::local_set(parameter_locals[i]))
           }
-          let body_labels = [count + 1]
-          body_labels.append(labels.map(fn(depth) { depth + count + 2 }))
+          let body_labels = labels.push(count + 1, count + 2)
           let rewritten_body = match
             dae2_legacy_body(state, body, body_labels, exceptions) {
             Ok(body) => body
@@ -297,8 +338,7 @@ fn dae2_legacy_body(
             ),
           ]
           for i = 0; i < count; i = i + 1 {
-            let handler_labels = [count - 1 - i]
-            handler_labels.append(labels.map(fn(depth) { depth + count - i }))
+            let handler_labels = labels.push(count - 1 - i, count - i)
             let exception = if state.needs_exception_identity {
               Some(dae2_legacy_local(state, @lib.ValType::ref_null_exn()))
             } else {
@@ -543,7 +583,8 @@ fn dae2_prepare_legacy_handlers(
       needs_exception_identity: dae2_legacy_has_rethrow(body),
       changed: false,
     }
-    let body = match dae2_legacy_body(state, body, [0], []) {
+    let body = match
+      dae2_legacy_body(state, body, Dae2LegacyLabels::root(), []) {
       Ok(body) => body
       Err(err) => return Err(err)
     }

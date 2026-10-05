@@ -60,3 +60,13 @@ test "bench constraint loop plan sibling loops=32" (it : @bench.T) {
 test "bench constraint loop plan sibling loops=64" (it : @bench.T) {
   ca_loop_plan_perf_bench(it, 64)
 }
+
+///|
+test "bench constraint loop plan sibling loops=256" (it : @bench.T) {
+  ca_loop_plan_perf_bench(it, 256)
+}
+
+///|
+test "bench constraint loop plan sibling loops=512" (it : @bench.T) {
+  ca_loop_plan_perf_bench(it, 512)
+}

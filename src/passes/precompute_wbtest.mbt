@@ -827,3 +827,119 @@ test "precompute recognizes recursively partial select conditions in HOT" {
   }
   assert_true(found)
 }
+
+///|
+test "precompute root nop coalescing preserves inputful control producers" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "tick" (func $tick (result i32)))
+      #|  (func (result i32 i32 i32)
+      #|    i32.const 7
+      #|    call $tick
+      #|    block (param i32) (result i32)
+      #|      nop
+      #|    end
+      #|    call $tick
+      #|    loop (param i32) (result i32)
+      #|      nop
+      #|    end))
+      #|,
+    ),
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(1U))
+  let module_ctx = @ir.hot_module_context_from_module(input)
+  let mut controls = 0
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block | @ir.HotOp::Loop => {
+        controls += 1
+        let body = @ir.hot_region_body_ref(func, node_id)
+        assert_true(
+          @ir.hot_child_count(func, node_id) >
+          @ir.hot_region_root_count(func, body),
+        )
+        assert_false(precompute_node_is_nop_tree(func, node_id))
+        let producer = @ir.hot_child_get(func, node_id, 0)
+        assert_true(@ir.hot_node_get(func, producer).op is @ir.HotOp::Call)
+        assert_true(@ir.hot_has_side_effect(func, producer))
+      }
+      _ => ()
+    }
+  }
+  @debug.assert_eq(controls, 2)
+  let ctx = HotPassContext::new(
+    precompute_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(module_ctx),
+  )
+  assert_false(precompute_coalesce_all_root_nops(ctx, func))
+  @debug.assert_eq(@ir.hot_region_root_count(func, @ir.HotRegionRef::root()), 3)
+}
+
+///|
+test "precompute root nop coalescing uses one bulk splice" {
+  let func = @ir.HotFunc::new()
+  for _ in 0..<1024 {
+    @ir.hot_root_append(func, @ir.hot_build_nop(func))
+  }
+  let ctx = HotPassContext::new(
+    precompute_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  let before = @ir.hot_revision_current(func)
+  assert_true(precompute_coalesce_all_root_nops(ctx, func))
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  @debug.assert_eq(@ir.hot_revision_current(func), before + 1)
+}
+
+///|
+test "precompute raw partial select rejects compound condition producers" {
+  let unary = [
+    @lib.Instruction::i32_const(@lib.I32(288)),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::select(),
+    @lib.Instruction::select(),
+    @lib.Instruction::i32_eqz(),
+  ]
+  assert_false(precompute_raw_try_partial_select_unary_tail(unary))
+
+  let binary = [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(10)),
+    @lib.Instruction::i32_const(@lib.I32(20)),
+    @lib.Instruction::select(),
+    @lib.Instruction::select(),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_add(),
+  ]
+  assert_false(precompute_raw_try_partial_select_tail(binary))
+
+  let nested_condition = [
+    @lib.Instruction::i32_const(@lib.I32(99)),
+    @lib.Instruction::i32_const(@lib.I32(10)),
+    @lib.Instruction::i32_const(@lib.I32(20)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::select(),
+    @lib.Instruction::select(),
+    @lib.Instruction::select(),
+  ]
+  assert_false(
+    precompute_raw_try_partial_select_condition_tail(nested_condition),
+  )
+}

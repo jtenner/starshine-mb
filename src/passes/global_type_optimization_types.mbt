@@ -167,7 +167,7 @@ fn gto_regroup_private_types(
 ) -> @lib.Module {
   let recs = mod_.type_sec.unwrap().0
   let live : Map[Int, Bool] = Map([])
-  for i in gto_collect_type_order(mod_) {
+  for i in type_order {
     live[i] = true
   }
   let public_groups : Array[@lib.RecType] = []

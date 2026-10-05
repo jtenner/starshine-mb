@@ -1436,12 +1436,12 @@ fn directize_try_rewrite_call_tail(
     | @lib.ReturnCallIndirect(type_idx, table_idx) => {
       let is_return = instr is @lib.ReturnCallIndirect(_, _)
       match directize_target_const(out[out.length() - 1]) {
-        Some(offset) => {
-          let input_producer = directize_call_input_producer(
-            out, scan_start, type_idx, info,
-          )
+        Some(offset) =>
           match directize_classify_target(info, table_idx, offset, type_idx) {
             DirectizeKnown(func_idx) => {
+              let input_producer = directize_call_input_producer(
+                out, scan_start, type_idx, info,
+              )
               ignore(out.pop())
               out.push(
                 if is_return {
@@ -1467,7 +1467,6 @@ fn directize_try_rewrite_call_tail(
               }
             DirectizeUnknown => None
           }
-        }
         None =>
           match out[out.length() - 1] {
             @lib.Select(_) =>
@@ -1719,15 +1718,17 @@ fn directize_remap_label_names(
     let code_idx = func_idx.reinterpret_as_int() - imported_funcs
     match insertions.get(code_idx) {
       Some(Some(positions)) if positions.length() > 0 => {
+        let ordered_positions = positions.copy()
+        ordered_positions.sort_by(fn(left, right) { left - right })
         let remapped : Array[@lib.NameAssoc] = []
         for label in labels {
           let @lib.NameAssoc(old_idx, name) = label
-          let mut new_idx = old_idx
-          for position in positions {
-            if position <= old_idx.reinterpret_as_int() {
-              new_idx = new_idx + 1U
-            }
-          }
+          let shift = directize_insertion_count_at_or_before(
+            ordered_positions,
+            old_idx.reinterpret_as_int(),
+            None,
+          )
+          let new_idx = old_idx + shift.reinterpret_as_uint()
           remapped.push(@lib.NameAssoc::new(new_idx, name))
         }
         rewritten.push(
@@ -1757,6 +1758,29 @@ fn directize_remap_label_names(
       tag_names=names.tag_names,
     ),
   )
+}
+
+///|
+fn directize_insertion_count_at_or_before(
+  positions : Array[Int],
+  target : Int,
+  visits : Array[Int]?,
+) -> Int {
+  let mut low = 0
+  let mut high = positions.length()
+  while low < high {
+    match visits {
+      Some(counter) => counter[0] += 1
+      None => ()
+    }
+    let middle = low + (high - low) / 2
+    if positions[middle] <= target {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  low
 }
 
 ///|
@@ -1794,6 +1818,9 @@ fn directize_exact_ref_call_replacement(
 
 ///|
 fn directize_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_

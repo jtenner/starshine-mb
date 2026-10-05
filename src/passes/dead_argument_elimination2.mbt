@@ -1189,6 +1189,9 @@ fn dae2_run_module_pass(
   raw_sparse_replay? : Bool = true,
   stack_suffix_rewrite? : Bool = true,
 ) -> Result[@lib.Module, String] {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return Ok(mod_)
+  }
   let prepare_start = perf_start_timer_opt(perf, "detail:dae2:prepare")
   let original = mod_
   let mod_ = match dae2_prepare_legacy_handlers(mod_) {

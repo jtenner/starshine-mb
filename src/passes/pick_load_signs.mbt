@@ -56,7 +56,6 @@ priv struct PLSCandidateLoad {
 
 ///|
 priv struct PLSShiftExtCacheEntry {
-  computed : Bool
   has_result : Bool
   is_signed : Bool
   bits : Int
@@ -77,15 +76,6 @@ priv struct PLSAnalysis {
   candidates : Array[PLSCandidateLoad]
   rewritable_candidates : Int
   elidable_uses : Array[PLSElidableUse]
-}
-
-///|
-fn pls_make_usage_by_local(num_locals : Int) -> Array[PLSUsage] {
-  let usage_by_local : Array[PLSUsage] = []
-  for _ in 0..<num_locals {
-    usage_by_local.push(PLSUsage::new())
-  }
-  usage_by_local
 }
 
 ///|
@@ -433,7 +423,7 @@ fn pls_extension_from_parent(
   use_def : @ir.HotUseDef,
   _read_node_id : Int,
   site : @ir.HotUseSite,
-  shift_ext_cache : Array[PLSShiftExtCacheEntry],
+  shift_ext_cache : @hashmap.HashMap[Int, PLSShiftExtCacheEntry],
 ) -> (Bool, Int, Int)? {
   if !pls_is_child_use_slot(site.kind) {
     return None
@@ -458,31 +448,22 @@ fn pls_extension_from_parent(
           Some(bits) => bits
           None => return None
         }
-        let cache = shift_ext_cache[parent_id]
-        if !cache.computed {
-          match
-            pls_extension_from_grandparent_zero_ext(
-              func, use_def, parent_id, shift_bits,
-            ) {
-            Some((is_signed, bits, root_id)) =>
-              shift_ext_cache[parent_id] = {
-                computed: true,
-                has_result: true,
-                is_signed,
-                bits,
-                root_id,
-              }
-            None =>
-              shift_ext_cache[parent_id] = {
-                computed: true,
-                has_result: false,
-                is_signed: false,
-                bits: 0,
-                root_id: -1,
-              }
+        let updated_cache = match shift_ext_cache.get(parent_id) {
+          Some(cache) => cache
+          None => {
+            let cache = match
+              pls_extension_from_grandparent_zero_ext(
+                func, use_def, parent_id, shift_bits,
+              ) {
+              Some((is_signed, bits, root_id)) =>
+                { has_result: true, is_signed, bits, root_id, }
+              None =>
+                { has_result: false, is_signed: false, bits: 0, root_id: -1, }
+            }
+            shift_ext_cache.set(parent_id, cache)
+            cache
           }
         }
-        let updated_cache = shift_ext_cache[parent_id]
         if updated_cache.has_result {
           return Some(
             (
@@ -504,31 +485,22 @@ fn pls_extension_from_parent(
           Some(bits) => bits
           None => return None
         }
-        let cache = shift_ext_cache[parent_id]
-        if !cache.computed {
-          match
-            pls_extension_from_grandparent_zero_ext64(
-              func, use_def, parent_id, shift_bits,
-            ) {
-            Some((is_signed, bits, root_id)) =>
-              shift_ext_cache[parent_id] = {
-                computed: true,
-                has_result: true,
-                is_signed,
-                bits,
-                root_id,
-              }
-            None =>
-              shift_ext_cache[parent_id] = {
-                computed: true,
-                has_result: false,
-                is_signed: false,
-                bits: 0,
-                root_id: -1,
-              }
+        let updated_cache = match shift_ext_cache.get(parent_id) {
+          Some(cache) => cache
+          None => {
+            let cache = match
+              pls_extension_from_grandparent_zero_ext64(
+                func, use_def, parent_id, shift_bits,
+              ) {
+              Some((is_signed, bits, root_id)) =>
+                { has_result: true, is_signed, bits, root_id, }
+              None =>
+                { has_result: false, is_signed: false, bits: 0, root_id: -1, }
+            }
+            shift_ext_cache.set(parent_id, cache)
+            cache
           }
         }
-        let updated_cache = shift_ext_cache[parent_id]
         if updated_cache.has_result {
           return Some(
             (updated_cache.is_signed, updated_cache.bits, updated_cache.root_id),
@@ -580,64 +552,57 @@ fn pls_extension_from_parent(
 }
 
 ///|
-fn pls_shift_ext_cache_make_empty(size : Int) -> Array[PLSShiftExtCacheEntry] {
-  let out : Array[PLSShiftExtCacheEntry] = []
-  for _ in 0..<size {
-    out.push({
-      computed: false,
-      has_result: false,
-      is_signed: false,
-      bits: 0,
-      root_id: -1,
-    })
-  }
-  out
-}
-
-///|
 fn pls_analyze_candidates(
   func : @ir.HotFunc,
   candidates : Array[PLSCandidateLoad],
   use_def : @ir.HotUseDef,
 ) -> PLSAnalysis {
-  let usage_by_local = pls_make_usage_by_local(@ir.hot_local_count(func))
-  let seen_local = @bitset.BitSet::new(usage_by_local.length())
+  let usage_by_local : Array[PLSUsage] = []
+  let usage_slot_by_local : @hashmap.HashMap[Int, Int] = @hashmap.new(
+    capacity=candidates.length() * 2 + 1,
+  )
   let local_work_list : Array[Int] = []
   let cleanup_uses : Array[PLSElidableUse] = []
-  let shift_ext_cache = pls_shift_ext_cache_make_empty(@ir.hot_node_count(func))
+  let shift_ext_cache : @hashmap.HashMap[Int, PLSShiftExtCacheEntry] = @hashmap.new(
+    capacity=candidates.length() * 2 + 1,
+  )
   for candidate in candidates {
     let local_idx = candidate.local_idx
-    if local_idx < 0 || local_idx >= usage_by_local.length() {
+    if local_idx < 0 || local_idx >= @ir.hot_local_count(func) {
       continue
     }
-    if seen_local[local_idx] {
-      continue
+    match usage_slot_by_local.get(local_idx) {
+      Some(_) => ()
+      None => {
+        usage_slot_by_local.set(local_idx, usage_by_local.length())
+        usage_by_local.push(PLSUsage::new())
+        local_work_list.push(local_idx)
+      }
     }
-    seen_local[local_idx] = true
-    local_work_list.push(local_idx)
   }
   for local_idx in local_work_list {
+    let usage_slot = usage_slot_by_local.get(local_idx).unwrap()
     for read_id in @ir.local_read_nodes_borrowed(use_def, local_idx) {
-      if usage_by_local[local_idx].invalid {
+      if usage_by_local[usage_slot].invalid {
         break
       }
       if !@ir.hot_node_is_live(func, read_id) {
         continue
       }
       for site in @ir.node_use_sites_borrowed(use_def, read_id) {
-        let usage = usage_by_local[local_idx]
+        let usage = usage_by_local[usage_slot]
         if usage.invalid {
           break
         }
         usage.total_usages += 1
-        usage_by_local[local_idx] = usage
+        usage_by_local[usage_slot] = usage
         match
           pls_extension_from_parent(
             func, use_def, read_id, site, shift_ext_cache,
           ) {
           Some((is_signed, bits, root_id)) =>
             if is_signed {
-              pls_record_signed_usage(usage_by_local, local_idx, bits)
+              pls_record_signed_usage(usage_by_local, usage_slot, bits)
               if root_id >= 0 {
                 cleanup_uses.push({
                   local_idx,
@@ -648,7 +613,7 @@ fn pls_analyze_candidates(
                 })
               }
             } else {
-              pls_record_unsigned_usage(usage_by_local, local_idx, bits)
+              pls_record_unsigned_usage(usage_by_local, usage_slot, bits)
               if root_id >= 0 {
                 cleanup_uses.push({
                   local_idx,
@@ -660,9 +625,9 @@ fn pls_analyze_candidates(
               }
             }
           None => {
-            let usage = usage_by_local[local_idx]
+            let usage = usage_by_local[usage_slot]
             usage.invalid = true
-            usage_by_local[local_idx] = usage
+            usage_by_local[usage_slot] = usage
           }
         }
       }
@@ -671,7 +636,8 @@ fn pls_analyze_candidates(
   let mut rewritable_candidates = 0
   for idx in 0..<candidates.length() {
     let candidate = candidates[idx]
-    let usage = usage_by_local[candidate.local_idx]
+    let usage_slot = usage_slot_by_local.get(candidate.local_idx).unwrap()
+    let usage = usage_by_local[usage_slot]
     let target_signed = pls_target_signedness(candidate, usage)
     if target_signed != candidate.current_signed {
       rewritable_candidates += 1
@@ -687,15 +653,13 @@ fn pls_analyze_candidates(
       target_signed,
     }
   }
-  let candidate_by_write : Array[PLSCandidateLoad?] = Array::make(
-    @ir.hot_node_count(func),
-    None,
+  let candidate_by_write : @hashmap.HashMap[Int, PLSCandidateLoad] = @hashmap.new(
+    capacity=candidates.length() * 2 + 1,
   )
   for candidate in candidates {
     if candidate.set_node >= 0 &&
-      candidate.set_node < candidate_by_write.length() &&
-      candidate_by_write[candidate.set_node] is None {
-      candidate_by_write[candidate.set_node] = Some(candidate)
+      candidate_by_write.get(candidate.set_node) is None {
+      candidate_by_write.set(candidate.set_node, candidate)
     }
   }
   let cleanup_eligibility : Array[(Int, Bool)?] = Array::make(
@@ -703,6 +667,7 @@ fn pls_analyze_candidates(
     None,
   )
   for local_idx in local_work_list {
+    let usage_slot = usage_slot_by_local.get(local_idx).unwrap()
     if local_idx < @ir.hot_param_count(func) {
       continue
     }
@@ -716,7 +681,7 @@ fn pls_analyze_candidates(
     let mut all_matching = true
     for write_id in writes {
       let candidate = match candidate_by_write.get(write_id) {
-        Some(Some(candidate)) => candidate
+        Some(candidate) => candidate
         _ => {
           all_matching = false
           break
@@ -735,22 +700,24 @@ fn pls_analyze_candidates(
       }
     }
     if all_matching && rewrites_opposite_load {
-      cleanup_eligibility[local_idx] = Some((bits, target_signed))
+      cleanup_eligibility[usage_slot] = Some((bits, target_signed))
     }
   }
   let elidable_uses : Array[PLSElidableUse] = []
-  let seen_roots = @bitset.BitSet::new(@ir.hot_node_count(func))
+  let seen_roots : @hashmap.HashMap[Int, Bool] = @hashmap.new(
+    capacity=cleanup_uses.length() * 2 + 1,
+  )
   for cleanup_use in cleanup_uses {
     if cleanup_use.root_id < 0 ||
-      cleanup_use.root_id >= seen_roots.length() ||
-      seen_roots[cleanup_use.root_id] {
+      seen_roots.get(cleanup_use.root_id) == Some(true) {
       continue
     }
-    match cleanup_eligibility[cleanup_use.local_idx] {
+    let usage_slot = usage_slot_by_local.get(cleanup_use.local_idx).unwrap()
+    match cleanup_eligibility[usage_slot] {
       Some((bits, target_signed)) if bits == cleanup_use.bits &&
         target_signed == cleanup_use.target_signed => {
         elidable_uses.push(cleanup_use)
-        seen_roots[cleanup_use.root_id] = true
+        seen_roots.set(cleanup_use.root_id, true)
       }
       _ => ()
     }

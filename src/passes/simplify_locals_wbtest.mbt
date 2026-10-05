@@ -10,6 +10,27 @@ fn simplify_locals_wbtest_ctx() -> HotPassContext {
 }
 
 ///|
+test "simplify-locals dead set-copy cleanup scans nop runs linearly" {
+  let width = 1024
+  let func = @ir.HotFunc::new()
+  for _ in 0..<width {
+    @ir.hot_root_append(func, @ir.hot_build_nop(func))
+  }
+  let visits = [0]
+  assert_false(
+    simplify_locals_fold_dead_set_copy_region(
+      simplify_locals_wbtest_ctx(),
+      func,
+      @ir.HotRegionRef::root(),
+      [],
+      [],
+      nop_scan_visits=Some(visits),
+    ),
+  )
+  assert_true(visits[0] <= width * 2, msg="nop visits={visits[0]}")
+}
+
+///|
 test "simplify-locals skips future call suffixes with no earlier operands" {
   let func = @ir.HotFunc::new()
   for _idx = 0; _idx < 128; _idx = _idx + 1 {

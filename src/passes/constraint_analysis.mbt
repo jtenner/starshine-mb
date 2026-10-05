@@ -1012,6 +1012,7 @@ fn constraint_analysis_run(
       }
     }
   }
+  let thresholds = ca_prepare_thresholds(thresholds)
   let loop_plan = ca_loop_plan(func, cfg)
   let values : Array[CaEval?] = Array::make(@ir.hot_node_count(func), None)
   let touched : Array[Int] = []
@@ -1347,6 +1348,16 @@ fn ca_loop_plan(func : @ir.HotFunc, cfg : @ir.HotCfg) -> CaLoopPlan {
   }
   let loop_depths = Array::make(@ir.hot_node_count(func), 0)
   let seen_generation = Array::make(@ir.hot_node_count(func), 0)
+  let blocks_by_holder : @hashmap.HashMap[Int, Array[Int]] = @hashmap.new()
+  for block in cfg.blocks {
+    if block.region_holder < 0 {
+      continue
+    }
+    match blocks_by_holder.get(block.region_holder) {
+      Some(blocks) => blocks.push(block.id)
+      None => blocks_by_holder.set(block.region_holder, [block.id])
+    }
+  }
   let work : Array[Int] = []
   let mut generation = 0
   for node = 0; node < @ir.hot_node_count(func); node = node + 1 {
@@ -1379,6 +1390,15 @@ fn ca_loop_plan(func : @ir.HotFunc, cfg : @ir.HotCfg) -> CaLoopPlan {
     // context, never to the initial producer's literal opcode.
     generation += 1
     seen_generation[node] = generation
+    match blocks_by_holder.get(node) {
+      Some(blocks) =>
+        for block in blocks {
+          for index = 0; index < params.length(); index = index + 1 {
+            plan.block_parameters[block].push((children[index], slots[index]))
+          }
+        }
+      None => ()
+    }
     work.clear()
     for index = params.length(); index < children.length(); index = index + 1 {
       work.push(children[index])
@@ -1392,6 +1412,15 @@ fn ca_loop_plan(func : @ir.HotFunc, cfg : @ir.HotCfg) -> CaLoopPlan {
       if @ir.hot_node_get(func, current).op is @ir.Loop {
         loop_depths[current] += 1
       }
+      match blocks_by_holder.get(current) {
+        Some(blocks) =>
+          for block in blocks {
+            for index = 0; index < params.length(); index = index + 1 {
+              plan.block_parameters[block].push((children[index], slots[index]))
+            }
+          }
+        None => ()
+      }
       let mut parameter = false
       for index = 0; index < params.length(); index = index + 1 {
         if current == children[index] {
@@ -1402,15 +1431,6 @@ fn ca_loop_plan(func : @ir.HotFunc, cfg : @ir.HotCfg) -> CaLoopPlan {
         for child in @ir.hot_child_span(func, current) {
           work.push(child)
         }
-      }
-    }
-    for block in cfg.blocks {
-      if block.region_holder < 0 ||
-        seen_generation[block.region_holder] != generation {
-        continue
-      }
-      for index = 0; index < params.length(); index = index + 1 {
-        plan.block_parameters[block.id].push((children[index], slots[index]))
       }
     }
   }

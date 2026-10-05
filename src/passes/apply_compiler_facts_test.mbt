@@ -52,6 +52,27 @@ fn compiler_fact_test_attach_exact_target(
 }
 
 ///|
+test "apply compiler facts ignore and hints-only tolerate sparse high-bit facts" {
+  let facts = @representation.OptimizationFactsSec::new(functions=[
+    @representation.FunctionFacts::new(0xffffffffU),
+  ])
+  let module_ = @lib.Module::new().with_compiler_fact_custom_section(
+    @representation.CompilerFactCustomSection::new(facts),
+  )
+  for
+    policy in [
+      CompilerFactUsePolicy::ignore(),
+      CompilerFactUsePolicy::hints_only(),
+    ] {
+    let result = apply_compiler_facts(module_, policy).unwrap()
+    assert_eq(result.module_, module_)
+    assert_eq(result.stats.fact_sections_seen, 1)
+    assert_eq(result.stats.function_facts_seen, 1)
+    assert_eq(result.stats.facts_blocked_by_trust, 0)
+  }
+}
+
+///|
 fn compiler_fact_test_simple_call_ref(tail? : Bool = false) -> @lib.Module {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)

@@ -8791,6 +8791,9 @@ fn cl_instrs_have_stack_carried_tee_parameter_alias(
 
 ///|
 pub fn coalesce_locals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   ignore(cl_imported_func_count(mod_))
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {

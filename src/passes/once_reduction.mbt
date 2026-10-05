@@ -1153,6 +1153,9 @@ fn or_optimize_once_bodies(
 
 ///|
 pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   let env = @validate.Env::new().with_module(mod_)
   let total_globals = env.globals.length()
   let total_funcs = env.funcs.length()
@@ -1279,38 +1282,62 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let func_once_set_singletons = or_initial_func_summary_singletons(
     once_func_slots,
   )
-  let mut changed_sets = true
-  while changed_sets {
-    changed_sets = false
-    for defined_idx = 0
-        defined_idx < funcs.length()
-        defined_idx = defined_idx + 1 {
-      if !func_needs_dataflow[defined_idx] {
-        continue
-      }
-      let abs_idx = imported_func_count + defined_idx
-      let @lib.Func(_, @lib.Expr(instrs)) = funcs[defined_idx]
-      let next = or_analyze_instrs(
-        instrs,
-        @bitset.BitSet::new(total_once_slots),
-        active_global_slots,
-        once_func_slots,
-        func_once_sets,
-        func_once_set_singletons,
-        once_func_slots[abs_idx] < 0,
-        func_may_throw~,
+  let callers : Array[Array[Int]] = []
+  for _ in 0..<total_funcs {
+    callers.push([])
+  }
+  for defined_idx = 0
+      defined_idx < funcs.length()
+      defined_idx = defined_idx + 1 {
+    let @lib.Func(_, @lib.Expr(instrs)) = funcs[defined_idx]
+    or_collect_throw_callers(instrs, imported_func_count + defined_idx, callers)
+  }
+  let summary_queue : Array[Int] = []
+  let summary_queued = @bitset.BitSet::new(funcs.length())
+  for defined_idx = 0
+      defined_idx < funcs.length()
+      defined_idx = defined_idx + 1 {
+    if func_needs_dataflow[defined_idx] {
+      summary_queue.push(defined_idx)
+      summary_queued[defined_idx] = true
+    }
+  }
+  let mut summary_head = 0
+  while summary_head < summary_queue.length() {
+    let defined_idx = summary_queue[summary_head]
+    summary_head += 1
+    summary_queued[defined_idx] = false
+    let abs_idx = imported_func_count + defined_idx
+    let @lib.Func(_, @lib.Expr(instrs)) = funcs[defined_idx]
+    let next = or_analyze_instrs(
+      instrs,
+      @bitset.BitSet::new(total_once_slots),
+      active_global_slots,
+      once_func_slots,
+      func_once_sets,
+      func_once_set_singletons,
+      once_func_slots[abs_idx] < 0,
+      func_may_throw~,
+    )
+    // Direct once functions and annotated idempotent functions guarantee
+    // their own synthetic fact on every normal return, including an early
+    // guard return whose condition already proves the fact at runtime.
+    or_bool_array_union_into(next, func_initial_once_sets[abs_idx])
+    if !or_bool_array_equal(next, func_once_sets[abs_idx]) {
+      func_once_sets[abs_idx] = next
+      func_once_set_singletons[abs_idx] = or_bool_array_is_singleton(
+        next,
+        once_func_slots[abs_idx],
       )
-      // Direct once functions and annotated idempotent functions guarantee
-      // their own synthetic fact on every normal return, including an early
-      // guard return whose condition already proves the fact at runtime.
-      or_bool_array_union_into(next, func_initial_once_sets[abs_idx])
-      if !or_bool_array_equal(next, func_once_sets[abs_idx]) {
-        func_once_sets[abs_idx] = next
-        func_once_set_singletons[abs_idx] = or_bool_array_is_singleton(
-          next,
-          once_func_slots[abs_idx],
-        )
-        changed_sets = true
+      for caller in callers[abs_idx] {
+        let caller_defined = caller - imported_func_count
+        if caller_defined >= 0 &&
+          caller_defined < funcs.length() &&
+          func_needs_dataflow[caller_defined] &&
+          !summary_queued[caller_defined] {
+          summary_queue.push(caller_defined)
+          summary_queued[caller_defined] = true
+        }
       }
     }
   }

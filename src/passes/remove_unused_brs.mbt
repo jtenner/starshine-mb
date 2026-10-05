@@ -1022,24 +1022,26 @@ fn remove_unused_brs_cleanup_detached_nodes(
   if candidates.is_empty() {
     return
   }
-  let is_unreferenced = fn(node_id : Int) -> Bool {
-    for root in func.roots {
-      if root == node_id {
-        return false
+  let references = Array::make(node_count, 0)
+  for root in func.roots {
+    if root >= 0 && root < node_count && in_candidate[root] {
+      references[root] += 1
+    }
+  }
+  for owner = 0; owner < node_count; owner = owner + 1 {
+    if !@ir.hot_node_is_live(func, owner) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, owner)
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      let child = @ir.hot_child_get(func, owner, slot)
+      if child >= 0 &&
+        child < node_count &&
+        child != owner &&
+        in_candidate[child] {
+        references[child] += 1
       }
     }
-    for owner = 0; owner < node_count; owner = owner + 1 {
-      if !@ir.hot_node_is_live(func, owner) || owner == node_id {
-        continue
-      }
-      let node = @ir.hot_node_get(func, owner)
-      for slot = 0; slot < node.child_count; slot = slot + 1 {
-        if @ir.hot_child_get(func, owner, slot) == node_id {
-          return false
-        }
-      }
-    }
-    true
   }
   let mut changed = false
   let mut progress = true
@@ -1052,8 +1054,17 @@ fn remove_unused_brs_cleanup_detached_nodes(
         !@ir.hot_node_is_live(func, node_id) {
         continue
       }
-      if !is_unreferenced(node_id) {
+      if references[node_id] != 0 {
         continue
+      }
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        let child = @ir.hot_child_get(func, node_id, slot)
+        if child >= 0 &&
+          child < node_count &&
+          child != node_id &&
+          in_candidate[child] {
+          references[child] -= 1
+        }
       }
       @ir.hot_delete_node(func, node_id)
       changed = true
@@ -8952,11 +8963,18 @@ fn remove_unused_brs_count_label_uses_in_roots(
       continue
     }
     seen[node_id] = true
-    match @ir.hot_branch_target(func, node_id) {
-      Some(label_id) if label_id == target_label => count += 1
-      _ => ()
-    }
     let node = @ir.hot_node_get(func, node_id)
+    // BrTable's generic branch target is its default target. Count that target
+    // only in the table-specific arm below so exact-one-use transforms do not
+    // conservatively reject a default-only table.
+    match node.op {
+      @ir.HotOp::BrTable => ()
+      _ =>
+        match @ir.hot_branch_target(func, node_id) {
+          Some(label_id) if label_id == target_label => count += 1
+          _ => ()
+        }
+    }
     match node.op {
       @ir.HotOp::BrTable => {
         if @ir.hot_branch_table_default_target(func, node.imm0) == target_label {

@@ -14743,13 +14743,13 @@ test "dae current call facts record direct tail callees inside structured bodies
   assert_eq(dropped.dropped_calls.length(), 1)
   assert_eq(dropped.calls[0].caller_def, 0)
   assert_eq(dropped.calls[0].callee_abs, 1)
-  assert_eq(dropped.calls[0].path, [0, 0, 0])
+  assert_eq(dropped.calls[0].path.to_array(), [0, 0, 0])
   assert_true(dropped.calls[0].active)
   assert_true(dropped.calls[0].dropped)
   assert_false(dropped.calls[0].tail)
   let tail = analysis.function_infos[2]
   assert_eq(tail.calls.length(), 1)
-  assert_eq(tail.calls[0].path, [2, 2, 0])
+  assert_eq(tail.calls[0].path.to_array(), [2, 2, 0])
   assert_true(tail.calls[0].tail)
 }
 
@@ -15036,7 +15036,7 @@ test "dae scalar rewrite plan commits caller callee type and touched transaction
   assert_eq(plan.expected_return_call_count, 0)
   assert_eq(plan.expected_call_identities.length(), 1)
   assert_eq(plan.expected_call_identities[0].caller_def, 1)
-  assert_eq(plan.expected_call_identities[0].path, [2])
+  assert_eq(plan.expected_call_identities[0].path.to_array(), [2])
   assert_eq(plan.expected_call_identities[0].call_kind, DaeDirectCall)
   assert_eq(plan.caller_rewrites.length(), 1)
   assert_eq(plan.local_projection.preserved_removed_params, [false, false])
@@ -17959,7 +17959,12 @@ test "dae specialized result family plan rejects stale identity and result epoch
   let stale_identity = {
     ..facts,
     active_call_identities: [
-      { caller_def: 0, path: [99], call_kind: DaeDirectCall, callee_abs: 0, },
+      {
+        caller_def: 0,
+        path: dae_stable_path_from_array([99]),
+        call_kind: DaeDirectCall,
+        callee_abs: 0,
+      },
     ],
   }
   let identity_application = dae_apply_specialized_result_family_plan(
@@ -19334,6 +19339,10 @@ test "dae GC result refinement joins all-return legacy try" {
       @lib.Instruction::try_(@lib.BlockType::void_(), returning_leaf(), [
         @lib.LegacyCatch::all(returning_leaf()),
       ]),
+      // A void control instruction does not propagate its arms' unreachable
+      // typing state to the enclosing expression. Keep the outer function
+      // valid while still requiring DAE to join both explicit return values.
+      @lib.Instruction::unreachable_(),
     ]),
   )
   let mod_ = parsed.with_code_sec(@lib.CodeSec::new(funcs))
@@ -21163,7 +21172,7 @@ test "dae component rewrite plan rejects changed exact call identity" {
   ).unwrap()
   let identities = plan.expected_call_identities.copy()
   assert_true(identities.length() > 0)
-  identities[0] = { ..identities[0], path: [99], }
+  identities[0] = { ..identities[0], path: dae_stable_path_from_array([99]), }
   let stale_plan = { ..plan, expected_call_identities: identities, }
   match dae_apply_component_rewrite_plan(mod_, graph, stale_plan) {
     DaeComponentPlanRejected(unchanged, DaeCallCountChanged) =>

@@ -56,6 +56,38 @@ test "local-subtyping prefilter detects only writes to ref body locals" {
 }
 
 ///|
+test "local-subtyping label census visits nested control and legacy EH bodies" {
+  let void = @lib.BlockType::void_()
+  let nested_try = @lib.Instruction::try_(
+    void,
+    @lib.Expr::new([@lib.Instruction::block(void, @lib.Expr::new([]))]),
+    [
+      @lib.LegacyCatch::tagged(
+        @lib.TagIdx::new(0U),
+        @lib.Expr::new([@lib.Instruction::loop_(void, @lib.Expr::new([]))]),
+      ),
+      @lib.LegacyCatch::all(
+        @lib.Expr::new([@lib.Instruction::if_(void, [], Some([]))]),
+      ),
+    ],
+  )
+  let body = [
+    @lib.Instruction::block(
+      void,
+      @lib.Expr::new([
+        @lib.Instruction::loop_(void, @lib.Expr::new([])),
+        @lib.Instruction::if_(
+          void,
+          [@lib.Instruction::try_table(void, [], @lib.Expr::new([]))],
+          Some([nested_try]),
+        ),
+      ]),
+    ),
+  ]
+  assert_eq(ls_label_count(body), 8U)
+}
+
+///|
 test "local-subtyping raw assignment scan keeps unreachable null bottoms" {
   let mod_ = pass_test_module_from_wat(
     (

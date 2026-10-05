@@ -431,11 +431,22 @@ fn gsi_mark_external_struct_origins(
   env : @validate.Env,
   value_type : @lib.ValType,
   poisoned_type_slots : Array[Bool],
+  cached_value_types : Array[@lib.ValType],
+  cached_slots : Array[Array[Int]],
 ) -> Unit {
   let external_type = match value_type {
     @lib.RefTypeValType(_) => value_type
     _ => return
   }
+  for cache_idx, cached_type in cached_value_types {
+    if cached_type == external_type {
+      for slot in cached_slots[cache_idx] {
+        poisoned_type_slots[slot] = true
+      }
+      return
+    }
+  }
+  let compatible_slots : Array[Int] = []
   let type_count = poisoned_type_slots.length()
   for slot = 0; slot < type_count; slot = slot + 1 {
     let type_idx = gsi_type_idx_from_slot(slot)
@@ -447,8 +458,11 @@ fn gsi_mark_external_struct_origins(
     )
     if @validate.Match::matches(exact_value_type, external_type, env) {
       poisoned_type_slots[slot] = true
+      compatible_slots.push(slot)
     }
   }
+  cached_value_types.push(external_type)
+  cached_slots.push(compatible_slots)
 }
 
 ///|
@@ -456,6 +470,8 @@ fn gsi_mark_imported_struct_origins(
   env : @validate.Env,
   mod_ : @lib.Module,
   poisoned_type_slots : Array[Bool],
+  cached_value_types : Array[@lib.ValType],
+  cached_slots : Array[Array[Int]],
 ) -> Unit {
   let imports = match mod_.import_sec {
     Some(@lib.ImportSec(imports)) => imports
@@ -465,18 +481,24 @@ fn gsi_mark_imported_struct_origins(
     let @lib.Import(_, _, external_type) = import_
     match external_type {
       @lib.GlobalExternType(@lib.GlobalType(value_type, _)) =>
-        gsi_mark_external_struct_origins(env, value_type, poisoned_type_slots)
+        gsi_mark_external_struct_origins(
+          env, value_type, poisoned_type_slots, cached_value_types, cached_slots,
+        )
       @lib.TableExternType(@lib.TableType(ref_type, _)) =>
         gsi_mark_external_struct_origins(
           env,
           @lib.ValType::ref_type(ref_type),
           poisoned_type_slots,
+          cached_value_types,
+          cached_slots,
         )
       @lib.FuncExternType(type_idx) =>
         match env.resolve_functype(type_idx) {
           Some(@lib.FuncType(_, results)) =>
             for result in results {
-              gsi_mark_external_struct_origins(env, result, poisoned_type_slots)
+              gsi_mark_external_struct_origins(
+                env, result, poisoned_type_slots, cached_value_types, cached_slots,
+              )
             }
           None => ()
         }
@@ -484,7 +506,9 @@ fn gsi_mark_imported_struct_origins(
         match env.resolve_functype(type_idx) {
           Some(@lib.FuncType(params, _)) =>
             for param in params {
-              gsi_mark_external_struct_origins(env, param, poisoned_type_slots)
+              gsi_mark_external_struct_origins(
+                env, param, poisoned_type_slots, cached_value_types, cached_slots,
+              )
             }
           None => ()
         }
@@ -499,6 +523,9 @@ fn gsi_collect_returned_ref_funcs(
   expr : @lib.Expr,
   results : Array[@lib.ValType],
   callable_funcs : Array[@lib.FuncIdx],
+  defined_globals : Array[@lib.Global],
+  first_defined_global : Int,
+  visited_globals : Array[Bool],
 ) -> Unit {
   let @lib.Expr(instrs) = expr
   for instr in instrs {
@@ -513,14 +540,35 @@ fn gsi_collect_returned_ref_funcs(
             _ => ()
           }
         }
+      @lib.GlobalGet(@lib.GlobalIdx(raw_idx)) => {
+        let defined_idx = raw_idx.reinterpret_as_int() - first_defined_global
+        if defined_idx >= 0 &&
+          defined_idx < defined_globals.length() &&
+          !visited_globals[defined_idx] {
+          let @lib.Global(@lib.GlobalType(_, mutable_), init) = defined_globals[defined_idx]
+          if !mutable_ {
+            visited_globals[defined_idx] = true
+            gsi_collect_returned_ref_funcs(
+              env, init, results, callable_funcs, defined_globals, first_defined_global,
+              visited_globals,
+            )
+          }
+        }
+      }
       @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
-        gsi_collect_returned_ref_funcs(env, body, results, callable_funcs)
+        gsi_collect_returned_ref_funcs(
+          env, body, results, callable_funcs, defined_globals, first_defined_global,
+          visited_globals,
+        )
       @lib.If(_, yes, no) => {
         gsi_collect_returned_ref_funcs(
           env,
           @lib.Expr::new(yes),
           results,
           callable_funcs,
+          defined_globals,
+          first_defined_global,
+          visited_globals,
         )
         match no {
           Some(body) =>
@@ -529,16 +577,25 @@ fn gsi_collect_returned_ref_funcs(
               @lib.Expr::new(body),
               results,
               callable_funcs,
+              defined_globals,
+              first_defined_global,
+              visited_globals,
             )
           None => ()
         }
       }
       @lib.Try(_, body, catches, _) => {
-        gsi_collect_returned_ref_funcs(env, body, results, callable_funcs)
+        gsi_collect_returned_ref_funcs(
+          env, body, results, callable_funcs, defined_globals, first_defined_global,
+          visited_globals,
+        )
         for catch_ in catches {
           match catch_ {
             @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) =>
-              gsi_collect_returned_ref_funcs(env, body, results, callable_funcs)
+              gsi_collect_returned_ref_funcs(
+                env, body, results, callable_funcs, defined_globals, first_defined_global,
+                visited_globals,
+              )
           }
         }
       }
@@ -552,6 +609,8 @@ fn gsi_mark_exported_param_struct_origins(
   env : @validate.Env,
   mod_ : @lib.Module,
   poisoned_type_slots : Array[Bool],
+  cached_value_types : Array[@lib.ValType],
+  cached_slots : Array[Array[Int]],
 ) -> Unit {
   let exports = match mod_.export_sec {
     Some(@lib.ExportSec(exports)) => exports
@@ -569,6 +628,7 @@ fn gsi_mark_exported_param_struct_origins(
   let first_defined_global = env.globals.length() - defined_globals.length()
   for export_ in exports {
     let callable_funcs : Array[@lib.FuncIdx] = []
+    let visited_globals = Array::make(defined_globals.length(), false)
     match export_ {
       @lib.Export(_, @lib.FuncExternIdx(func_idx)) => {
         callable_funcs.push(func_idx)
@@ -585,6 +645,9 @@ fn gsi_mark_exported_param_struct_origins(
               @lib.Expr::new(body),
               results,
               callable_funcs,
+              defined_globals,
+              first_defined_global,
+              visited_globals,
             )
           _ => ()
         }
@@ -592,14 +655,18 @@ fn gsi_mark_exported_param_struct_origins(
       @lib.Export(_, @lib.GlobalExternIdx(@lib.GlobalIdx(raw_idx))) => {
         let defined_idx = raw_idx.reinterpret_as_int() - first_defined_global
         match defined_globals.get(defined_idx) {
-          Some(@lib.Global(_, @lib.Expr(init))) =>
-            for instr in init {
-              match instr {
-                @lib.RefFunc(func_idx) => callable_funcs.push(func_idx)
-                _ => ()
-              }
-            }
+          Some(@lib.Global(@lib.GlobalType(value_type, false), init)) =>
+            gsi_collect_returned_ref_funcs(
+              env,
+              init,
+              [value_type],
+              callable_funcs,
+              defined_globals,
+              first_defined_global,
+              visited_globals,
+            )
           None => ()
+          _ => ()
         }
       }
       _ => ()
@@ -612,7 +679,9 @@ fn gsi_mark_exported_param_struct_origins(
       match env.get_functype_by_funcidx(func_idx) {
         Some(@lib.FuncType(params, _)) =>
           for param in params {
-            gsi_mark_external_struct_origins(env, param, poisoned_type_slots)
+            gsi_mark_external_struct_origins(
+              env, param, poisoned_type_slots, cached_value_types, cached_slots,
+            )
           }
         None => ()
       }
@@ -650,6 +719,8 @@ fn gsi_mark_external_table_callable_param_struct_origins(
   env : @validate.Env,
   mod_ : @lib.Module,
   poisoned_type_slots : Array[Bool],
+  cached_value_types : Array[@lib.ValType],
+  cached_slots : Array[Array[Int]],
 ) -> Unit {
   let external_table_types : Array[@lib.RefType] = []
   match mod_.import_sec {
@@ -703,7 +774,9 @@ fn gsi_mark_external_table_callable_param_struct_origins(
     match env.get_functype_by_funcidx(func_idx) {
       Some(@lib.FuncType(params, _)) =>
         for param in params {
-          gsi_mark_external_struct_origins(env, param, poisoned_type_slots)
+          gsi_mark_external_struct_origins(
+            env, param, poisoned_type_slots, cached_value_types, cached_slots,
+          )
         }
       None => ()
     }
@@ -717,15 +790,21 @@ fn gsi_build_closed_world_facts(
 ) -> GsiClosedWorldFacts {
   let type_count = env.global_types.length()
   let poisoned_type_slots : Array[Bool] = Array::make(type_count, false)
+  let cached_external_value_types : Array[@lib.ValType] = []
+  let cached_external_type_slots : Array[Array[Int]] = []
   let candidate_globals_by_type_slot : Array[Array[@lib.GlobalIdx]] = []
   for slot = 0; slot < type_count; slot = slot + 1 {
     ignore(slot)
     candidate_globals_by_type_slot.push([])
   }
-  gsi_mark_imported_struct_origins(env, mod_, poisoned_type_slots)
-  gsi_mark_exported_param_struct_origins(env, mod_, poisoned_type_slots)
+  gsi_mark_imported_struct_origins(
+    env, mod_, poisoned_type_slots, cached_external_value_types, cached_external_type_slots,
+  )
+  gsi_mark_exported_param_struct_origins(
+    env, mod_, poisoned_type_slots, cached_external_value_types, cached_external_type_slots,
+  )
   gsi_mark_external_table_callable_param_struct_origins(
-    env, mod_, poisoned_type_slots,
+    env, mod_, poisoned_type_slots, cached_external_value_types, cached_external_type_slots,
   )
 
   match mod_.code_sec {
@@ -3342,6 +3421,9 @@ fn gsi_run_module_pass(
   closed_world : Bool,
   optimize_desc_casts : Bool,
 ) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   if pass_module_has_legacy_try(mod_) {
     return mod_
   }

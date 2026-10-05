@@ -80,6 +80,25 @@ test "audit HOT local cse retains independent shared memory loads" {
 }
 
 ///|
+test "audit HOT local cse uses the required effects summary" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 1 i32.add))",
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    local_cse_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  ignore(local_cse_run(ctx, func))
+
+  assert_true(ctx.cache.effects is Some(_))
+}
+
+///|
 test "local cse invalidates transitive global reads on global set" {
   for
     expr in [

@@ -1,4 +1,30 @@
 ///|
+fn rume_module_has_offset_sensitive_metadata(mod_ : @lib.Module) -> Bool {
+  for custom in mod_.custom_secs {
+    let @lib.CustomSec(@lib.Name(raw_name), _) = custom
+    let name = raw_name.to_owned()
+    if name.starts_with("metadata.code.") ||
+      name.starts_with("reloc.") ||
+      name == "linking" ||
+      name.starts_with(".debug_") {
+      return true
+    }
+  }
+  match mod_.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for @lib.FuncAnnotationAssoc(_, annotations) in entries {
+        if annotations.any(fn(annotation) {
+            annotation.name == "metadata.code.branch_hint"
+          }) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 pub fn rume_summary() -> String {
   "Remove unreachable defined functions, globals, tables, memories, tags, element segments, and data segments while rewriting surviving module indices."
 }
@@ -238,15 +264,48 @@ fn rume_note_callable_func_from_expr(
 }
 
 ///|
-fn rume_spans_overlap(
-  start_a : UInt64,
-  len_a : UInt64,
-  start_b : UInt64,
-  len_b : UInt64,
+fn rume_interval_end(start : UInt64, len : UInt64) -> UInt64 {
+  let max = 0xffffffffffffffffUL
+  if len > max - start {
+    max
+  } else {
+    start + len
+  }
+}
+
+///|
+fn rume_sorted_spans_overlap(
+  spans : Array[(UInt64, UInt64)],
+  comparisons : Array[Int]?,
 ) -> Bool {
-  let end_a = start_a + len_a
-  let end_b = start_b + len_b
-  start_a < end_b && start_b < end_a
+  if spans.length() < 2 {
+    return false
+  }
+  spans.sort_by(fn(left, right) {
+    if left.0 < right.0 {
+      -1
+    } else if left.0 > right.0 {
+      1
+    } else {
+      0
+    }
+  })
+  let mut covered_end = rume_interval_end(spans[0].0, spans[0].1)
+  for idx = 1; idx < spans.length(); idx = idx + 1 {
+    match comparisons {
+      Some(counter) => counter[0] += 1
+      None => ()
+    }
+    let (start, len) = spans[idx]
+    if len > 0UL && start < covered_end {
+      return true
+    }
+    let end = rume_interval_end(start, len)
+    if end > covered_end {
+      covered_end = end
+    }
+  }
+  false
 }
 
 ///|
@@ -320,22 +379,19 @@ fn rume_build_flat_table_infos(
               Some(@lib.Elem(@lib.Active(_, offset), kind)) =>
                 match rume_const_offset_u64(offset) {
                   None => may_overlap = true
-                  Some(start) => {
-                    let len = rume_elem_kind_len(kind)
-                    for span in spans {
-                      let (other_start, other_len) = span
-                      if rume_spans_overlap(start, len, other_start, other_len) {
-                        may_overlap = true
-                      }
+                  Some(start) =>
+                    if !may_overlap {
+                      spans.push((start, rume_elem_kind_len(kind)))
                     }
-                    spans.push((start, len))
-                  }
                 }
               _ => ()
             }
           }
           None => ()
         }
+      }
+      if !may_overlap {
+        may_overlap = rume_sorted_spans_overlap(spans, None)
       }
       let prev = infos[slot]
       infos[slot] = {
@@ -6456,6 +6512,9 @@ pub fn rume_extract_functions(
   mod_ : @lib.Module,
   roots : Array[@lib.FuncIdx],
 ) -> Result[@lib.Module, String] {
+  if rume_module_has_offset_sensitive_metadata(mod_) {
+    return Ok(mod_)
+  }
   let normalized_roots = match rume_normalize_extract_roots(mod_, roots) {
     Ok(value) => value
     Err(err) => return Err(err)
@@ -6499,6 +6558,9 @@ pub fn rume_run_module_pass(
   traps_never_happen? : Bool = false,
   closed_world? : Bool = false,
 ) -> @lib.Module {
+  if rume_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   let (
     used_funcs,
     referenced_funcs,
@@ -6611,6 +6673,9 @@ pub fn rume_run_nonfunction_module_pass(
   traps_never_happen? : Bool = false,
   closed_world? : Bool = false,
 ) -> @lib.Module {
+  if rume_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   let (
     used_funcs,
     referenced_funcs,

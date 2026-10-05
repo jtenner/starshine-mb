@@ -11223,59 +11223,97 @@ priv struct FlattenStackCarriedLocalReadAcrossWriteFact {
 }
 
 ///|
-fn flatten_subtree_has_source_older_local_read(
+fn flatten_collect_subtree_local_access_extrema(
   func : @ir.HotFunc,
   root_id : Int,
-  local_id : Int,
-  barrier_id : Int,
-) -> Bool {
+  min_get_node_ids : Array[Int],
+  max_write_node_ids : Array[Int],
+  touched_get_locals : Array[Int],
+  touched_write_locals : Array[Int],
+  node_visits? : Array[Int]? = None,
+) -> Unit {
   let pending = [root_id]
   while !pending.is_empty() {
     let node_id = pending.pop().unwrap()
     if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
       continue
     }
+    match node_visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
-      @ir.HotOp::LocalGet if node.imm0 == local_id && node_id < barrier_id =>
-        return true
+      @ir.HotOp::LocalGet if node.imm0 >= 0 &&
+        node.imm0 < min_get_node_ids.length() => {
+        let previous = min_get_node_ids[node.imm0]
+        if previous < 0 {
+          touched_get_locals.push(node.imm0)
+          min_get_node_ids[node.imm0] = node_id
+        } else if node_id < previous {
+          min_get_node_ids[node.imm0] = node_id
+        }
+      }
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 >= 0 &&
+        node.imm0 < max_write_node_ids.length() => {
+        let previous = max_write_node_ids[node.imm0]
+        if previous < 0 {
+          touched_write_locals.push(node.imm0)
+          max_write_node_ids[node.imm0] = node_id
+        } else if node_id > previous {
+          max_write_node_ids[node.imm0] = node_id
+        }
+      }
       _ => ()
     }
     for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
       pending.push(@ir.hot_child_get(func, node_id, slot))
     }
   }
-  false
 }
 
 ///|
 fn flatten_region_has_stack_carried_local_read_across_write(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  node_visits? : Array[Int]? = None,
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
-  for earlier_idx = 0; earlier_idx < root_count; earlier_idx = earlier_idx + 1 {
-    let earlier_root = @ir.hot_region_get(func, region_ref, earlier_idx)
-    let earlier = @ir.hot_node_get(func, earlier_root)
-    let written_local = match earlier.op {
-      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => earlier.imm0
-      _ => -1
-    }
-    if written_local < 0 {
-      continue
-    }
-    for later_idx = earlier_idx + 1
-        later_idx < root_count
-        later_idx = later_idx + 1 {
-      if flatten_subtree_has_source_older_local_read(
-          func,
-          @ir.hot_region_get(func, region_ref, later_idx),
-          written_local,
-          earlier_root,
-        ) {
+  let local_count = @ir.hot_local_count(func)
+  let min_later_get_node_ids = Array::make(local_count, -1)
+  let root_min_get_node_ids = Array::make(local_count, -1)
+  let root_max_write_node_ids = Array::make(local_count, -1)
+  let touched_get_locals : Array[Int] = []
+  let touched_write_locals : Array[Int] = []
+  let mut root_idx = root_count - 1
+  while root_idx >= 0 {
+    touched_get_locals.clear()
+    touched_write_locals.clear()
+    flatten_collect_subtree_local_access_extrema(
+      func,
+      @ir.hot_region_get(func, region_ref, root_idx),
+      root_min_get_node_ids,
+      root_max_write_node_ids,
+      touched_get_locals,
+      touched_write_locals,
+      node_visits~,
+    )
+    for local_id in touched_write_locals {
+      let min_later_get = min_later_get_node_ids[local_id]
+      if min_later_get >= 0 && min_later_get < root_max_write_node_ids[local_id] {
         return true
       }
+      root_max_write_node_ids[local_id] = -1
     }
+    for local_id in touched_get_locals {
+      let root_min_get = root_min_get_node_ids[local_id]
+      let previous = min_later_get_node_ids[local_id]
+      if previous < 0 || root_min_get < previous {
+        min_later_get_node_ids[local_id] = root_min_get
+      }
+      root_min_get_node_ids[local_id] = -1
+    }
+    root_idx = root_idx - 1
   }
   for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
     let root_id = @ir.hot_region_get(func, region_ref, root_idx)
@@ -11284,6 +11322,7 @@ fn flatten_region_has_stack_carried_local_read_across_write(
         if flatten_region_has_stack_carried_local_read_across_write(
             func,
             @ir.hot_region_body_ref(func, root_id),
+            node_visits~,
           ) {
           return true
         }
@@ -11291,13 +11330,16 @@ fn flatten_region_has_stack_carried_local_read_across_write(
         if flatten_region_has_stack_carried_local_read_across_write(
             func,
             @ir.hot_region_then_ref(func, root_id),
+            node_visits~,
           ) {
           return true
         }
         match @ir.hot_region_else_ref(func, root_id) {
           Some(else_ref) =>
             if flatten_region_has_stack_carried_local_read_across_write(
-                func, else_ref,
+                func,
+                else_ref,
+                node_visits~,
               ) {
               return true
             }
@@ -11308,13 +11350,16 @@ fn flatten_region_has_stack_carried_local_read_across_write(
         if flatten_region_has_stack_carried_local_read_across_write(
             func,
             @ir.hot_region_body_ref(func, root_id),
+            node_visits~,
           ) {
           return true
         }
         match @ir.hot_region_catch_ref(func, root_id) {
           Some(catch_ref) =>
             if flatten_region_has_stack_carried_local_read_across_write(
-                func, catch_ref,
+                func,
+                catch_ref,
+                node_visits~,
               ) {
               return true
             }
@@ -11325,10 +11370,12 @@ fn flatten_region_has_stack_carried_local_read_across_write(
         if flatten_region_has_stack_carried_local_read_across_write(
             func,
             @ir.hot_region_body_ref(func, root_id),
+            node_visits~,
           ) ||
           flatten_region_has_stack_carried_local_read_across_write(
             func,
             @ir.hot_region_catch_list_ref(func, root_id),
+            node_visits~,
           ) {
           return true
         }

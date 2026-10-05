@@ -4,7 +4,8 @@ fn pass_module_has_offset_sensitive_metadata(mod_ : @lib.Module) -> Bool {
     let @lib.CustomSec(@lib.Name(raw_name), _) = custom
     let name = raw_name.to_owned()
     if name.starts_with("metadata.code.") ||
-      name == "reloc.CODE" ||
+      name.starts_with("reloc.") ||
+      name == "linking" ||
       name.starts_with(".debug_") {
       return true
     }
@@ -298,7 +299,10 @@ pub fn pass_raw_instrs_have_branch_control(
         if pass_raw_instrs_have_branch_control(then_body) {
           return true
         }
-      @lib.Instruction::Try(_, @lib.Expr(body), catches, _) => {
+      @lib.Instruction::Try(_, @lib.Expr(body), catches, delegate) => {
+        if delegate is Some(_) {
+          return true
+        }
         if pass_raw_instrs_have_branch_control(body) {
           return true
         }
@@ -920,16 +924,27 @@ pub fn pass_delete_detached_nodes(
   func : @ir.HotFunc,
   node_ids : Array[Int],
 ) -> Unit {
-  let mut changed = false
+  let live_node_ids : Array[Int] = []
+  let seen : @set.Set[Int] = @set.Set([])
+  let mut has_control = false
   for node_id in node_ids {
-    if @ir.hot_node_is_live(func, node_id) {
-      @ir.hot_delete_node(func, node_id)
-      changed = true
+    if @ir.hot_node_is_live(func, node_id) && !seen.contains(node_id) {
+      seen.add(node_id)
+      live_node_ids.push(node_id)
+      has_control = has_control || @ir.hot_is_control_node(func, node_id)
     }
   }
-  if changed {
-    pass_mark_mutated(ctx, func)
+  if live_node_ids.is_empty() {
+    return
   }
+  if has_control {
+    if !@ir.hot_delete_detached_forest(func, live_node_ids) {
+      abort("pass_delete_detached_nodes requires a detached control forest")
+    }
+  } else {
+    @ir.hot_delete_detached_nodes(func, live_node_ids)
+  }
+  pass_mark_mutated(ctx, func)
 }
 
 ///|

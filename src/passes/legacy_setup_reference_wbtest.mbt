@@ -36,7 +36,8 @@ fn dae2_legacy_setup_reference(
       needs_exception_identity: dae2_legacy_has_rethrow(body),
       changed: false,
     }
-    let body = match dae2_legacy_body(state, body, [0], []) {
+    let body = match
+      dae2_legacy_body(state, body, Dae2LegacyLabels::root(), []) {
       Ok(body) => body
       Err(err) => return Err(err)
     }
