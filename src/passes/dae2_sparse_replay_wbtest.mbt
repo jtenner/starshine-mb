@@ -231,7 +231,14 @@ fn dae2_sparse_replay_compare(input : @lib.Module) -> Unit raise {
   assert_eq(source.work, saved_work)
   assert_eq(source.edges, saved_edges)
   for closed_world in [false, true] {
-    let actual = dae2_run_module_pass(input, closed_world, raw_rewrite=false).unwrap()
+    let actual = match
+      dae2_run_module_pass(input, closed_world, raw_rewrite=false) {
+      Ok(output) => output
+      Err(error) =>
+        fail(
+          "DAE2 sparse replay rewrite failed (optimizing=\{closed_world}): \{error}; input=\{input}",
+        )
+    }
     let reference = dae2_run_module_pass(
       input,
       closed_world,
