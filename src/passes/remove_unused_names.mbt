@@ -400,6 +400,8 @@ fn remove_unused_names_visit_region(
   removed_ids : Array[Int],
   peeled_roots : Array[Int],
   used_labels : @bitset.BitSet,
+  removed_labels : @bitset.BitSet,
+  touched_removed_labels : Array[Int],
 ) -> Bool {
   let mut changed = false
   let root_count = @ir.hot_region_root_count(func, region_ref)
@@ -415,7 +417,8 @@ fn remove_unused_names_visit_region(
         | @ir.HotOp::Try
         | @ir.HotOp::TryTable =>
           changed = remove_unused_names_visit_control_node(
-              func, node_id, node, removed_ids, peeled_roots, used_labels,
+              func, node_id, node, removed_ids, peeled_roots, used_labels, removed_labels,
+              touched_removed_labels,
             ) ||
             changed
         _ => ()
@@ -439,6 +442,8 @@ fn remove_unused_names_visit_control_node(
   removed_ids : Array[Int],
   peeled_roots : Array[Int],
   used_labels : @bitset.BitSet,
+  removed_labels : @bitset.BitSet,
+  touched_removed_labels : Array[Int],
 ) -> Bool {
   let mut changed = false
   match node.op {
@@ -449,11 +454,17 @@ fn remove_unused_names_visit_control_node(
       if !removed_ids.is_empty() {
         let replacement_label = @ir.hot_control_node_label(func, node_id)
         let body_ref = @ir.hot_region_body_ref(func, node_id)
-        let removed_labels = @bitset.BitSet::new(func.labels.length())
+        for label_id in touched_removed_labels {
+          removed_labels[label_id] = false
+        }
+        touched_removed_labels.clear()
         for removed_id in removed_ids {
           let label_id = @ir.hot_control_node_label(func, removed_id)
           if label_id >= 0 && label_id < removed_labels.length() {
-            removed_labels[label_id] = true
+            if !removed_labels[label_id] {
+              removed_labels[label_id] = true
+              touched_removed_labels.push(label_id)
+            }
           }
         }
         ignore(
@@ -472,6 +483,8 @@ fn remove_unused_names_visit_control_node(
           removed_ids,
           peeled_roots,
           used_labels,
+          removed_labels,
+          touched_removed_labels,
         ) ||
         changed
     }
@@ -492,6 +505,8 @@ fn remove_unused_names_visit_control_node(
           removed_ids,
           peeled_roots,
           used_labels,
+          removed_labels,
+          touched_removed_labels,
         ) ||
         changed
     }
@@ -502,12 +517,15 @@ fn remove_unused_names_visit_control_node(
           removed_ids,
           peeled_roots,
           used_labels,
+          removed_labels,
+          touched_removed_labels,
         ) ||
         changed
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           changed = remove_unused_names_visit_region(
-              func, else_region, removed_ids, peeled_roots, used_labels,
+              func, else_region, removed_ids, peeled_roots, used_labels, removed_labels,
+              touched_removed_labels,
             ) ||
             changed
         None => ()
@@ -520,12 +538,15 @@ fn remove_unused_names_visit_control_node(
           removed_ids,
           peeled_roots,
           used_labels,
+          removed_labels,
+          touched_removed_labels,
         ) ||
         changed
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_region) =>
           changed = remove_unused_names_visit_region(
-              func, catch_region, removed_ids, peeled_roots, used_labels,
+              func, catch_region, removed_ids, peeled_roots, used_labels, removed_labels,
+              touched_removed_labels,
             ) ||
             changed
         None => ()
@@ -538,6 +559,8 @@ fn remove_unused_names_visit_control_node(
           removed_ids,
           peeled_roots,
           used_labels,
+          removed_labels,
+          touched_removed_labels,
         ) ||
         changed
       changed = remove_unused_names_visit_region(
@@ -546,6 +569,8 @@ fn remove_unused_names_visit_control_node(
           removed_ids,
           peeled_roots,
           used_labels,
+          removed_labels,
+          touched_removed_labels,
         ) ||
         changed
     }
@@ -562,12 +587,16 @@ fn remove_unused_names_run(
   let removed_ids : Array[Int] = []
   let peeled_roots : Array[Int] = []
   let used_labels = remove_unused_names_compute_live_label_uses(func)
+  let removed_labels = @bitset.BitSet::new(func.labels.length())
+  let touched_removed_labels : Array[Int] = []
   if !remove_unused_names_visit_region(
       func,
       @ir.HotRegionRef::root(),
       removed_ids,
       peeled_roots,
       used_labels,
+      removed_labels,
+      touched_removed_labels,
     ) {
     return HotPassResult::unchanged()
   }

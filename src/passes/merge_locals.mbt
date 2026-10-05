@@ -741,34 +741,83 @@ fn merge_locals_collect_subtree_min_local_reads(
   func : @ir.HotFunc,
   node_id : Int,
   minima : @hashmap.HashMap[Int, Int],
+  second_minima : @hashmap.HashMap[Int, Int],
+  pending : Array[Int],
+  visit_epochs : Array[Int],
+  epoch : Int,
+  region_worklist : Array[@ir.HotRegionRef],
+  queued_controls : Array[Bool],
   visits? : Array[Int]? = None,
 ) -> Unit {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return
-  }
-  match visits {
-    Some(count) => count[0] += 1
-    None => ()
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalGet =>
-      match minima.get(node.imm0) {
-        Some(previous) =>
-          if node_id < previous {
-            minima.set(node.imm0, node_id)
+  pending.clear()
+  pending.push(node_id)
+  while !pending.is_empty() {
+    let current = pending.pop().unwrap()
+    if current < 0 ||
+      current >= visit_epochs.length() ||
+      !@ir.hot_node_is_live(func, current) ||
+      visit_epochs[current] == epoch {
+      continue
+    }
+    visit_epochs[current] = epoch
+    match visits {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    let node = @ir.hot_node_get(func, current)
+    if !queued_controls[current] {
+      match node.op {
+        @ir.HotOp::Block | @ir.HotOp::Loop => {
+          queued_controls[current] = true
+          region_worklist.push(@ir.hot_region_body_ref(func, current))
+        }
+        @ir.HotOp::If => {
+          queued_controls[current] = true
+          region_worklist.push(@ir.hot_region_then_ref(func, current))
+          match @ir.hot_region_else_ref(func, current) {
+            Some(else_ref) => region_worklist.push(else_ref)
+            None => ()
           }
-        None => minima.set(node.imm0, node_id)
+        }
+        @ir.HotOp::Try => {
+          queued_controls[current] = true
+          region_worklist.push(@ir.hot_region_body_ref(func, current))
+          match @ir.hot_region_catch_ref(func, current) {
+            Some(catch_ref) => region_worklist.push(catch_ref)
+            None => ()
+          }
+        }
+        @ir.HotOp::TryTable => {
+          queued_controls[current] = true
+          region_worklist.push(@ir.hot_region_body_ref(func, current))
+          region_worklist.push(@ir.hot_region_catch_list_ref(func, current))
+        }
+        _ => ()
       }
-    _ => ()
-  }
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    merge_locals_collect_subtree_min_local_reads(
-      func,
-      @ir.hot_child_get(func, node_id, slot),
-      minima,
-      visits~,
-    )
+    }
+    match node.op {
+      @ir.HotOp::LocalGet =>
+        match minima.get(node.imm0) {
+          Some(previous) =>
+            if current != previous && current < previous {
+              second_minima.set(node.imm0, previous)
+              minima.set(node.imm0, current)
+            } else if current != previous {
+              match second_minima.get(node.imm0) {
+                Some(second) =>
+                  if current < second {
+                    second_minima.set(node.imm0, current)
+                  }
+                None => second_minima.set(node.imm0, current)
+              }
+            }
+          None => minima.set(node.imm0, current)
+        }
+      _ => ()
+    }
+    for slot = 0; slot < @ir.hot_child_count(func, current); slot = slot + 1 {
+      pending.push(@ir.hot_child_get(func, current, slot))
+    }
   }
 }
 
@@ -778,63 +827,65 @@ fn merge_locals_region_has_stack_carried_copy(
   region_ref : @ir.HotRegionRef,
   visits? : Array[Int]? = None,
 ) -> Bool {
-  let count = @ir.hot_region_root_count(func, region_ref)
+  let region_worklist = [region_ref]
+  let node_count = @ir.hot_node_count(func)
+  let visit_epochs = Array::make(node_count, 0)
+  let queued_controls = Array::make(node_count, false)
+  let pending_nodes : Array[Int] = []
+  let epoch = 1
   let later_min_reads : @hashmap.HashMap[Int, Int] = @hashmap.new()
-  for idx = count - 1; idx >= 0; idx = idx - 1 {
-    let root_id = @ir.hot_region_get(func, region_ref, idx)
-    let root = @ir.hot_node_get(func, root_id)
-    match root.op {
-      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if root.child_count == 1 => {
-        let value_id = @ir.hot_child_get(func, root_id, 0)
-        let value = @ir.hot_node_get(func, value_id)
-        match value.op {
-          @ir.HotOp::LocalGet if value.imm0 != root.imm0 =>
-            match later_min_reads.get(value.imm0) {
-              Some(read_id) if read_id < root_id => return true
+  let later_second_min_reads : @hashmap.HashMap[Int, Int] = @hashmap.new()
+  while !region_worklist.is_empty() {
+    let current_region = region_worklist.pop().unwrap()
+    let count = @ir.hot_region_root_count(func, current_region)
+    for idx = count - 1; idx >= 0; idx = idx - 1 {
+      let root_id = @ir.hot_region_get(func, current_region, idx)
+      if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+        continue
+      }
+      let root = @ir.hot_node_get(func, root_id)
+      match root.op {
+        @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if root.child_count == 1 => {
+          let value_id = @ir.hot_child_get(func, root_id, 0)
+          if value_id >= 0 && @ir.hot_node_is_live(func, value_id) {
+            let value = @ir.hot_node_get(func, value_id)
+            match value.op {
+              @ir.HotOp::LocalGet if value.imm0 != root.imm0 =>
+                match later_min_reads.get(value.imm0) {
+                  Some(read_id) => {
+                    let distinct_read_id = if read_id != value_id {
+                      read_id
+                    } else {
+                      match later_second_min_reads.get(value.imm0) {
+                        Some(second) => second
+                        None => -1
+                      }
+                    }
+                    if distinct_read_id >= 0 && distinct_read_id < root_id {
+                      return true
+                    }
+                  }
+                  _ => ()
+                }
               _ => ()
             }
-          _ => ()
+          }
         }
+        _ => ()
       }
-      _ => ()
+      merge_locals_collect_subtree_min_local_reads(
+        func,
+        root_id,
+        later_min_reads,
+        later_second_min_reads,
+        pending_nodes,
+        visit_epochs,
+        epoch,
+        region_worklist,
+        queued_controls,
+        visits~,
+      )
     }
-    match root.op {
-      @ir.HotOp::Block | @ir.HotOp::Loop =>
-        if merge_locals_region_has_stack_carried_copy(
-            func,
-            @ir.hot_region_body_ref(func, root_id),
-            visits~,
-          ) {
-          return true
-        }
-      @ir.HotOp::If => {
-        if merge_locals_region_has_stack_carried_copy(
-            func,
-            @ir.hot_region_then_ref(func, root_id),
-            visits~,
-          ) {
-          return true
-        }
-        match @ir.hot_region_else_ref(func, root_id) {
-          Some(else_ref) =>
-            if merge_locals_region_has_stack_carried_copy(
-                func,
-                else_ref,
-                visits~,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-    merge_locals_collect_subtree_min_local_reads(
-      func,
-      root_id,
-      later_min_reads,
-      visits~,
-    )
   }
   false
 }

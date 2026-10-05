@@ -59,6 +59,58 @@ priv struct HsoExternalRoots {
 }
 
 ///|
+priv struct HsoLocalOrderWorkspace {
+  maxima : Array[Int]
+  stamps : Array[Int]
+  mut generation : Int
+}
+
+///|
+fn hso_new_local_order_workspace(local_count : Int) -> HsoLocalOrderWorkspace {
+  {
+    maxima: Array::make(local_count, -1),
+    stamps: Array::make(local_count, 0),
+    generation: 0,
+  }
+}
+
+///|
+fn hso_local_order_workspace_begin(workspace : HsoLocalOrderWorkspace) -> Unit {
+  workspace.generation += 1
+}
+
+///|
+fn hso_local_order_workspace_note(
+  workspace : HsoLocalOrderWorkspace,
+  local_id : Int,
+  root_id : Int,
+) -> Unit {
+  if local_id < 0 || local_id >= workspace.maxima.length() {
+    return
+  }
+  if workspace.stamps[local_id] != workspace.generation {
+    workspace.stamps[local_id] = workspace.generation
+    workspace.maxima[local_id] = root_id
+  } else {
+    workspace.maxima[local_id] = Int::max(workspace.maxima[local_id], root_id)
+  }
+}
+
+///|
+fn hso_local_order_workspace_get(
+  workspace : HsoLocalOrderWorkspace,
+  local_id : Int,
+) -> Int {
+  if local_id < 0 ||
+    local_id >= workspace.maxima.length() ||
+    workspace.stamps[local_id] != workspace.generation {
+    -1
+  } else {
+    workspace.maxima[local_id]
+  }
+}
+
+///|
 fn hso_new_order_effects() -> HsoOrderEffects {
   {
     shared_memory_read: false,
@@ -3120,14 +3172,14 @@ fn hso_note_region_local_max_root(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   root_id : Int,
-  local_max_root : Array[Int],
+  local_order : HsoLocalOrderWorkspace,
 ) -> Unit {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     hso_note_subtree_local_max_root(
       func,
       @ir.hot_region_get(func, region_ref, idx),
       root_id,
-      local_max_root,
+      local_order,
     )
   }
 }
@@ -3137,7 +3189,7 @@ fn hso_note_subtree_local_max_root(
   func : @ir.HotFunc,
   node_id : Int,
   root_id : Int,
-  local_max_root : Array[Int],
+  local_order : HsoLocalOrderWorkspace,
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return
@@ -3145,9 +3197,7 @@ fn hso_note_subtree_local_max_root(
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::LocalGet | @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
-      if node.imm0 >= 0 && node.imm0 < local_max_root.length() {
-        local_max_root[node.imm0] = Int::max(local_max_root[node.imm0], root_id)
-      }
+      hso_local_order_workspace_note(local_order, node.imm0, root_id)
     _ => ()
   }
   let operand_count = pass_value_operand_count(func, node_id)
@@ -3156,7 +3206,7 @@ fn hso_note_subtree_local_max_root(
       func,
       @ir.hot_child_get(func, node_id, pass_value_operand_slot(node, slot)),
       root_id,
-      local_max_root,
+      local_order,
     )
   }
   match node.op {
@@ -3165,20 +3215,18 @@ fn hso_note_subtree_local_max_root(
         func,
         @ir.hot_region_body_ref(func, node_id),
         root_id,
-        local_max_root,
+        local_order,
       )
     @ir.HotOp::If => {
       hso_note_region_local_max_root(
         func,
         @ir.hot_region_then_ref(func, node_id),
         root_id,
-        local_max_root,
+        local_order,
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(region_ref) =>
-          hso_note_region_local_max_root(
-            func, region_ref, root_id, local_max_root,
-          )
+          hso_note_region_local_max_root(func, region_ref, root_id, local_order)
         None => ()
       }
     }
@@ -3187,13 +3235,11 @@ fn hso_note_subtree_local_max_root(
         func,
         @ir.hot_region_body_ref(func, node_id),
         root_id,
-        local_max_root,
+        local_order,
       )
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(region_ref) =>
-          hso_note_region_local_max_root(
-            func, region_ref, root_id, local_max_root,
-          )
+          hso_note_region_local_max_root(func, region_ref, root_id, local_order)
         None => ()
       }
     }
@@ -3202,13 +3248,13 @@ fn hso_note_subtree_local_max_root(
         func,
         @ir.hot_region_body_ref(func, node_id),
         root_id,
-        local_max_root,
+        local_order,
       )
       hso_note_region_local_max_root(
         func,
         @ir.hot_region_catch_list_ref(func, node_id),
         root_id,
-        local_max_root,
+        local_order,
       )
     }
     _ => ()
@@ -3221,10 +3267,10 @@ fn hso_note_swapped_readonly_root(
   func : @ir.HotFunc,
   node_masks : Array[UInt],
   root_id : Int,
-  local_max_root : Array[Int],
+  local_order : HsoLocalOrderWorkspace,
 ) -> Unit {
   if hso_subtree_is_trapless_reorderable(cache, func, node_masks, root_id, []) {
-    hso_note_subtree_local_max_root(func, root_id, root_id, local_max_root)
+    hso_note_subtree_local_max_root(func, root_id, root_id, local_order)
   }
 }
 
@@ -4613,6 +4659,7 @@ fn hso_process_node_regions(
   node_id : Int,
   active_catch_depth : Int,
   external_roots : HsoExternalRoots,
+  local_order : HsoLocalOrderWorkspace,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -4638,6 +4685,7 @@ fn hso_process_node_regions(
           @ir.hot_child_get(func, node_id, slot),
           active_catch_depth,
           external_roots,
+          local_order,
         ) ||
         child_changed
     }
@@ -4654,6 +4702,7 @@ fn hso_process_node_regions(
         active_catch_depth,
         Some(node_id),
         external_roots,
+        local_order,
       )
     @ir.HotOp::If => {
       let mut changed = hso_process_region(
@@ -4666,6 +4715,7 @@ fn hso_process_node_regions(
         active_catch_depth,
         Some(node_id),
         external_roots,
+        local_order,
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(region_ref) =>
@@ -4679,6 +4729,7 @@ fn hso_process_node_regions(
               active_catch_depth,
               Some(node_id),
               external_roots,
+              local_order,
             ) ||
             changed
         None => ()
@@ -4701,6 +4752,7 @@ fn hso_process_node_regions(
         body_catch_depth,
         Some(node_id),
         external_roots,
+        local_order,
       )
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(region_ref) =>
@@ -4714,6 +4766,7 @@ fn hso_process_node_regions(
               active_catch_depth,
               Some(node_id),
               external_roots,
+              local_order,
             ) ||
             changed
         None => ()
@@ -4731,6 +4784,7 @@ fn hso_process_node_regions(
         active_catch_depth + 1,
         Some(node_id),
         external_roots,
+        local_order,
       ) ||
       hso_process_region(
         cache,
@@ -4742,6 +4796,7 @@ fn hso_process_node_regions(
         active_catch_depth,
         Some(node_id),
         external_roots,
+        local_order,
       )
     _ => false
   }
@@ -5033,6 +5088,7 @@ fn hso_process_local_set_chain(
   active_catch_depth : Int,
   owner_id : Int?,
   external_roots : HsoExternalRoots,
+  local_order : HsoLocalOrderWorkspace,
 ) -> (Array[Int], Int, Bool) {
   match
     hso_try_fold_pure_plain_struct_set_chain(
@@ -5052,7 +5108,7 @@ fn hso_process_local_set_chain(
   let scratch_capacity = hso_chain_scratch_capacity(roots.length() - idx)
   let segment_roots : Array[Int] = Array::new(capacity=scratch_capacity)
   segment_roots.push(root_id)
-  let swapped_local_max_root = Array::make(@ir.hot_local_count(func), -1)
+  hso_local_order_workspace_begin(local_order)
   let mut segment_local_set_idx = 0
   let mut segment_has_swapped_prefix = false
   let mut changed = false
@@ -5067,8 +5123,8 @@ fn hso_process_local_set_chain(
             _ => break
           }
           if ref_local < 0 ||
-            ref_local >= swapped_local_max_root.length() ||
-            swapped_local_max_root[ref_local] > ref_id {
+            ref_local >= local_order.maxima.length() ||
+            hso_local_order_workspace_get(local_order, ref_local) > ref_id {
             break
           }
         }
@@ -5155,7 +5211,7 @@ fn hso_process_local_set_chain(
           func,
           node_masks,
           roots[next_idx],
-          swapped_local_max_root,
+          local_order,
         )
         segment_local_set_idx = last_idx
         segment_has_swapped_prefix = true
@@ -5182,7 +5238,7 @@ fn hso_process_local_set_chain(
           )
           for lifted_root_id in lifted_roots {
             hso_note_swapped_readonly_root(
-              cache, func, node_masks, lifted_root_id, swapped_local_max_root,
+              cache, func, node_masks, lifted_root_id, local_order,
             )
           }
           segment_local_set_idx = segment_local_set_idx + lifted_roots.length()
@@ -5211,7 +5267,7 @@ fn hso_process_local_set_chain(
               func,
               node_masks,
               roots[next_idx],
-              swapped_local_max_root,
+              local_order,
             )
             segment_local_set_idx = last_idx
             segment_has_swapped_prefix = true
@@ -5237,6 +5293,7 @@ fn hso_process_region(
   active_catch_depth : Int,
   owner_id : Int?,
   external_roots : HsoExternalRoots,
+  local_order : HsoLocalOrderWorkspace,
 ) -> Bool {
   if hso_try_fold_tiny_pure_plain_region(func, region_ref) {
     return true
@@ -5256,7 +5313,7 @@ fn hso_process_region(
       hso_external_roots_push(external_roots, roots, idx + 1)
       changed = hso_process_node_regions(
           cache, type_cache, func, module_ctx, node_masks, root_id, active_catch_depth,
-          external_roots,
+          external_roots, local_order,
         ) ||
         changed
       hso_external_roots_pop(external_roots)
@@ -5302,7 +5359,7 @@ fn hso_process_region(
                   let (segment_roots, next_idx, segment_changed) = hso_process_local_set_chain(
                     cache, type_cache, func, module_ctx, node_masks, roots, replacement_local_set_id,
                     idx, local_id, struct_new_id, type_idx, active_catch_depth, owner_id,
-                    external_roots,
+                    external_roots, local_order,
                   )
                   changed = segment_changed || changed
                   for segment_root_id in segment_roots {
@@ -5324,6 +5381,7 @@ fn hso_process_region(
             let (segment_roots, next_idx, segment_changed) = hso_process_local_set_chain(
               cache, type_cache, func, module_ctx, node_masks, roots, root_id, idx,
               local_id, struct_new_id, type_idx, active_catch_depth, owner_id, external_roots,
+              local_order,
             )
             changed = segment_changed || changed
             for segment_root_id in segment_roots {
@@ -5374,6 +5432,7 @@ fn heap_store_optimization_run(
       0,
       None,
       hso_new_external_roots(),
+      hso_new_local_order_workspace(@ir.hot_local_count(func)),
     ) {
     pass_mark_mutated(ctx, func)
     HotPassResult::changed()

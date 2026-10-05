@@ -630,29 +630,230 @@ fn mp_span_merge(lhs : MpSpan, rhs : MpSpan) -> MpSpan {
 }
 
 ///|
-fn mp_span_union_insert(covered : Array[MpSpan], span : MpSpan) -> Unit {
-  let mut low = 0
-  let mut high = covered.length()
-  while low < high {
-    let mid = low + (high - low) / 2
-    if covered[mid].start < span.start {
-      low = mid + 1
+priv struct MpSpanUnion {
+  spans : Array[MpSpan]
+  left : Array[Int]
+  right : Array[Int]
+  height : Array[Int]
+  mut root : Int
+}
+
+///|
+fn MpSpanUnion::new() -> MpSpanUnion {
+  { spans: [], left: [], right: [], height: [], root: -1, }
+}
+
+///|
+fn mp_span_union_height(union : MpSpanUnion, node : Int) -> Int {
+  if node < 0 {
+    0
+  } else {
+    union.height[node]
+  }
+}
+
+///|
+fn mp_span_union_update_height(union : MpSpanUnion, node : Int) -> Unit {
+  let left_height = mp_span_union_height(union, union.left[node])
+  let right_height = mp_span_union_height(union, union.right[node])
+  union.height[node] = 1 +
+    (if left_height > right_height { left_height } else { right_height })
+}
+
+///|
+fn mp_span_union_rotate_left(union : MpSpanUnion, node : Int) -> Int {
+  let pivot = union.right[node]
+  union.right[node] = union.left[pivot]
+  union.left[pivot] = node
+  mp_span_union_update_height(union, node)
+  mp_span_union_update_height(union, pivot)
+  pivot
+}
+
+///|
+fn mp_span_union_rotate_right(union : MpSpanUnion, node : Int) -> Int {
+  let pivot = union.left[node]
+  union.left[node] = union.right[pivot]
+  union.right[pivot] = node
+  mp_span_union_update_height(union, node)
+  mp_span_union_update_height(union, pivot)
+  pivot
+}
+
+///|
+fn mp_span_union_rebalance(union : MpSpanUnion, node : Int) -> Int {
+  if node < 0 {
+    return node
+  }
+  mp_span_union_update_height(union, node)
+  let balance = mp_span_union_height(union, union.left[node]) -
+    mp_span_union_height(union, union.right[node])
+  if balance > 1 {
+    let left = union.left[node]
+    if mp_span_union_height(union, union.left[left]) <
+      mp_span_union_height(union, union.right[left]) {
+      union.left[node] = mp_span_union_rotate_left(union, left)
+    }
+    return mp_span_union_rotate_right(union, node)
+  }
+  if balance < -1 {
+    let right = union.right[node]
+    if mp_span_union_height(union, union.right[right]) <
+      mp_span_union_height(union, union.left[right]) {
+      union.right[node] = mp_span_union_rotate_right(union, right)
+    }
+    return mp_span_union_rotate_left(union, node)
+  }
+  node
+}
+
+///|
+fn mp_span_union_insert_node(
+  union : MpSpanUnion,
+  root : Int,
+  node : Int,
+) -> Int {
+  if root < 0 {
+    return node
+  }
+  if union.spans[node].start < union.spans[root].start {
+    union.left[root] = mp_span_union_insert_node(union, union.left[root], node)
+  } else {
+    union.right[root] = mp_span_union_insert_node(
+      union,
+      union.right[root],
+      node,
+    )
+  }
+  mp_span_union_rebalance(union, root)
+}
+
+///|
+fn mp_span_union_min_node(union : MpSpanUnion, root : Int) -> Int {
+  let mut node = root
+  while union.left[node] >= 0 {
+    node = union.left[node]
+  }
+  node
+}
+
+///|
+fn mp_span_union_delete_node(
+  union : MpSpanUnion,
+  root : Int,
+  start : UInt64,
+) -> Int {
+  if root < 0 {
+    return root
+  }
+  if start < union.spans[root].start {
+    union.left[root] = mp_span_union_delete_node(union, union.left[root], start)
+  } else if start > union.spans[root].start {
+    union.right[root] = mp_span_union_delete_node(
+      union,
+      union.right[root],
+      start,
+    )
+  } else if union.left[root] < 0 {
+    return union.right[root]
+  } else if union.right[root] < 0 {
+    return union.left[root]
+  } else {
+    let successor = mp_span_union_min_node(union, union.right[root])
+    union.spans[root] = union.spans[successor]
+    union.right[root] = mp_span_union_delete_node(
+      union,
+      union.right[root],
+      union.spans[successor].start,
+    )
+  }
+  mp_span_union_rebalance(union, root)
+}
+
+///|
+fn mp_span_union_lower_bound(union : MpSpanUnion, start : UInt64) -> Int {
+  let mut node = union.root
+  let mut best = -1
+  while node >= 0 {
+    if union.spans[node].start >= start {
+      best = node
+      node = union.left[node]
     } else {
-      high = mid
+      node = union.right[node]
     }
   }
-  let mut at = low
+  best
+}
+
+///|
+fn mp_span_union_predecessor(union : MpSpanUnion, start : UInt64) -> Int {
+  let mut node = union.root
+  let mut best = -1
+  while node >= 0 {
+    if union.spans[node].start < start {
+      best = node
+      node = union.right[node]
+    } else {
+      node = union.left[node]
+    }
+  }
+  best
+}
+
+///|
+fn mp_span_union_successor(union : MpSpanUnion, start : UInt64) -> Int {
+  let mut node = union.root
+  let mut best = -1
+  while node >= 0 {
+    if union.spans[node].start > start {
+      best = node
+      node = union.left[node]
+    } else {
+      node = union.right[node]
+    }
+  }
+  best
+}
+
+///|
+fn mp_span_union_first_overlap(union : MpSpanUnion, span : MpSpan) -> Int {
+  let predecessor = mp_span_union_predecessor(union, span.start)
+  if predecessor >= 0 {
+    let candidate = union.spans[predecessor]
+    if candidate.end_at_limit || candidate.end_ > span.start {
+      return predecessor
+    }
+  }
+  mp_span_union_lower_bound(union, span.start)
+}
+
+///|
+fn mp_span_union_insert(covered : MpSpanUnion, span : MpSpan) -> Unit {
   let mut merged = span
-  if at > 0 && mp_span_reaches(covered[at - 1], merged.start) {
-    at -= 1
-    merged = mp_span_merge(covered[at], merged)
-    ignore(covered.remove(at))
+  let predecessor = mp_span_union_predecessor(covered, merged.start)
+  if predecessor >= 0 &&
+    mp_span_reaches(covered.spans[predecessor], merged.start) {
+    let predecessor_start = covered.spans[predecessor].start
+    merged = mp_span_merge(covered.spans[predecessor], merged)
+    covered.root = mp_span_union_delete_node(
+      covered,
+      covered.root,
+      predecessor_start,
+    )
   }
-  while at < covered.length() && mp_span_reaches(merged, covered[at].start) {
-    merged = mp_span_merge(merged, covered[at])
-    ignore(covered.remove(at))
+  let mut next = mp_span_union_lower_bound(covered, merged.start)
+  while next >= 0 && mp_span_reaches(merged, covered.spans[next].start) {
+    let next_start = covered.spans[next].start
+    merged = mp_span_merge(merged, covered.spans[next])
+    covered.root = mp_span_union_delete_node(covered, covered.root, next_start)
+    next = mp_span_union_lower_bound(covered, merged.start)
   }
-  covered.insert(at, merged)
+  let node = covered.spans.length()
+  covered.spans.push(merged)
+  covered.left.push(-1)
+  covered.right.push(-1)
+  covered.height.push(1)
+  covered.root = mp_span_union_insert_node(covered, covered.root, node)
 }
 
 ///|
@@ -679,7 +880,7 @@ fn mp_zero_out_trampled_data(datas : Array[@lib.Data]) -> Unit {
       _ => spans.push(None)
     }
   }
-  let covered : Array[MpSpan] = []
+  let covered = MpSpanUnion::new()
   for earlier_idx = datas.length() - 1
       earlier_idx >= 0
       earlier_idx = earlier_idx - 1 {
@@ -690,21 +891,11 @@ fn mp_zero_out_trampled_data(datas : Array[@lib.Data]) -> Unit {
     let (mode, original) = match datas[earlier_idx] {
       @lib.Data(mode, bytes) => (mode, bytes)
     }
-    let mut low = 0
-    let mut high = covered.length()
-    while low < high {
-      let mid = low + (high - low) / 2
-      if !covered[mid].end_at_limit && covered[mid].end_ <= span.start {
-        low = mid + 1
-      } else {
-        high = mid
-      }
-    }
-    let mut at = low
+    let mut at = mp_span_union_first_overlap(covered, span)
     let mut rewritten : Array[Byte]? = None
     let original_size = original.length().reinterpret_as_uint().to_uint64()
-    while at < covered.length() {
-      let overlap = covered[at]
+    while at >= 0 {
+      let overlap = covered.spans[at]
       let first = if overlap.start > span.start {
         overlap.start - span.start
       } else {
@@ -736,7 +927,7 @@ fn mp_zero_out_trampled_data(datas : Array[@lib.Data]) -> Unit {
           bytes[idx] = (0).to_byte()
         }
       }
-      at += 1
+      at = mp_span_union_successor(covered, overlap.start)
     }
     datas[earlier_idx] = @lib.Data::new(
       mode,

@@ -51,3 +51,24 @@ test "memory-packing suffix union matches pairwise at memory64 limit" {
   mp_zero_out_trampled_data(actual)
   @debug.assert_eq(actual, expected)
 }
+
+///|
+test "memory-packing span union stays balanced for descending disjoint spans" {
+  let covered = MpSpanUnion::new()
+  for index = 1023; index >= 0; index = index - 1 {
+    let start = (index * 4).reinterpret_as_uint().to_uint64()
+    mp_span_union_insert(covered, MpSpan::new(start, start + 2UL, false))
+  }
+  assert_true(mp_span_union_height(covered, covered.root) <= 16)
+  let mut node = mp_span_union_lower_bound(covered, 0UL)
+  let mut expected = 0
+  while node >= 0 {
+    @debug.assert_eq(
+      covered.spans[node].start,
+      (expected * 4).reinterpret_as_uint().to_uint64(),
+    )
+    expected += 1
+    node = mp_span_union_successor(covered, covered.spans[node].start)
+  }
+  assert_eq(expected, 1024)
+}

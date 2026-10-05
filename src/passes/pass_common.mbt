@@ -6,20 +6,11 @@ fn pass_module_has_offset_sensitive_metadata(mod_ : @lib.Module) -> Bool {
     if name.starts_with("metadata.code.") ||
       name.starts_with("reloc.") ||
       name == "linking" ||
+      name == "sourceMappingURL" ||
+      name == "external_debug_info" ||
       name.starts_with(".debug_") {
       return true
     }
-  }
-  match mod_.func_annotation_sec {
-    Some(@lib.FuncAnnotationSec(entries)) =>
-      for @lib.FuncAnnotationAssoc(_, annotations) in entries {
-        if annotations.any(fn(annotation) {
-            annotation.name == "metadata.code.branch_hint"
-          }) {
-          return true
-        }
-      }
-    None => ()
   }
   false
 }

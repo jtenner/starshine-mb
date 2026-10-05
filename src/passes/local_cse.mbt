@@ -3164,7 +3164,7 @@ priv struct LcseBinding {
 
 ///|
 priv struct LcseState {
-  mut bindings : @hashmap.HashMap[String, LcseBinding]
+  mut bindings : @hashmap.HashMap[Int, LcseBinding]
 }
 
 ///|
@@ -3173,44 +3173,183 @@ fn LcseState::new() -> LcseState {
 }
 
 ///|
+priv struct LcseStructuralIndex {
+  classes : Array[Int]
+  sizes : Array[Int]
+  has_local_write_or_string : Array[Bool]
+  representatives : Array[Int]
+  hash_heads : @hashmap.HashMap[Int, Int]
+  next_collision : Array[Int]
+  fact_visits : Array[Int]?
+}
+
+///|
+fn LcseStructuralIndex::new(
+  func : @ir.HotFunc,
+  fact_visits? : Array[Int]? = None,
+) -> LcseStructuralIndex {
+  let count = @ir.hot_node_count(func)
+  {
+    classes: Array::make(count, -1),
+    sizes: Array::make(count, 0),
+    has_local_write_or_string: Array::make(count, false),
+    representatives: [],
+    hash_heads: @hashmap.new(capacity=count),
+    next_collision: [],
+    fact_visits,
+  }
+}
+
+///|
+fn LcseStructuralIndex::ensure_capacity(
+  self : LcseStructuralIndex,
+  func : @ir.HotFunc,
+) -> Unit {
+  while self.classes.length() < @ir.hot_node_count(func) {
+    self.classes.push(-1)
+    self.sizes.push(0)
+    self.has_local_write_or_string.push(false)
+  }
+}
+
+///|
+fn lcse_structural_exact_equal(
+  lhs : @lib.Instruction?,
+  rhs : @lib.Instruction?,
+) -> Bool {
+  match (lhs, rhs) {
+    (Some(a), Some(b)) => pass_const_instruction_bits_equal(a, b)
+    (None, None) => true
+    _ => false
+  }
+}
+
+///|
+fn LcseStructuralIndex::nodes_equal(
+  self : LcseStructuralIndex,
+  func : @ir.HotFunc,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  let lhs = @ir.hot_node_get(func, lhs_id)
+  let rhs = @ir.hot_node_get(func, rhs_id)
+  if lhs.op != rhs.op ||
+    lhs.ty != rhs.ty ||
+    lhs.flags != rhs.flags ||
+    lhs.imm0 != rhs.imm0 ||
+    lhs.imm1 != rhs.imm1 ||
+    @ir.hot_child_count(func, lhs_id) != @ir.hot_child_count(func, rhs_id) ||
+    !lcse_structural_exact_equal(
+      @ir.hot_node_exact_instr(func, lhs_id),
+      @ir.hot_node_exact_instr(func, rhs_id),
+    ) {
+    return false
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, lhs_id); slot = slot + 1 {
+    let lhs_child = @ir.hot_child_get(func, lhs_id, slot)
+    let rhs_child = @ir.hot_child_get(func, rhs_id, slot)
+    if lhs_child < 0 ||
+      rhs_child < 0 ||
+      lhs_child >= self.classes.length() ||
+      rhs_child >= self.classes.length() ||
+      self.classes[lhs_child] != self.classes[rhs_child] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn LcseStructuralIndex::node_hash(
+  self : LcseStructuralIndex,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int {
+  // The exact comparison above is authoritative. This deliberately cheap hash
+  // keeps allocation-free lookup while collision chains preserve correctness.
+  let node = @ir.hot_node_get(func, node_id)
+  let mut hash = node.ty * 31 + node.imm0
+  hash = hash * 31 + node.imm1
+  hash = hash * 31 + node.flags.reinterpret_as_int()
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => hash = hash * 31 + instr.hash()
+    None => hash *= 31
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    hash = hash * 31 + self.classes[@ir.hot_child_get(func, node_id, slot)]
+  }
+  hash
+}
+
+///|
+fn LcseStructuralIndex::refresh_node(
+  self : LcseStructuralIndex,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  self.ensure_capacity(func)
+  if node_id < 0 ||
+    node_id >= self.classes.length() ||
+    !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  match self.fact_visits {
+    Some(visits) => visits[0] += 1
+    None => ()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let mut size = 1
+  let mut has_local_write_or_string = match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee | @ir.HotOp::StringOp => true
+    _ => false
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child = @ir.hot_child_get(func, node_id, slot)
+    if child < 0 || child >= self.classes.length() || self.classes[child] < 0 {
+      return
+    }
+    if size < 2 {
+      size = if self.sizes[child] > 0 { 2 } else { size }
+    }
+    if self.has_local_write_or_string[child] {
+      has_local_write_or_string = true
+    }
+  }
+  let hash = self.node_hash(func, node_id)
+  let mut class_id = -1
+  let mut candidate = match self.hash_heads.get(hash) {
+    Some(head) => head
+    None => -1
+  }
+  while candidate >= 0 {
+    if self.nodes_equal(func, self.representatives[candidate], node_id) {
+      class_id = candidate
+      break
+    }
+    candidate = self.next_collision[candidate]
+  }
+  if class_id < 0 {
+    class_id = self.representatives.length()
+    self.representatives.push(node_id)
+    self.next_collision.push(
+      match self.hash_heads.get(hash) {
+        Some(head) => head
+        None => -1
+      },
+    )
+    self.hash_heads.set(hash, class_id)
+  }
+  self.classes[node_id] = class_id
+  self.sizes[node_id] = size
+  self.has_local_write_or_string[node_id] = has_local_write_or_string
+}
+
+///|
 fn lcse_result_type(func : @ir.HotFunc, node_id : Int) -> @lib.ValType? {
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
     [ty] => Some(ty)
     _ => None
   }
-}
-
-///|
-fn lcse_node_exact_suffix(func : @ir.HotFunc, node_id : Int) -> String {
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(instr) => ":instr=\{@debug.to_string(instr)}"
-    None => ""
-  }
-}
-
-///|
-fn lcse_tree_key(func : @ir.HotFunc, node_id : Int) -> String? {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return None
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  let mut key = "op=\{node.op};results=\{@ir.hot_type_results(func, node.ty)};imm0=\{node.imm0};imm1=\{node.imm1};flags=\{node.flags}\{lcse_node_exact_suffix(func, node_id)}("
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    match lcse_tree_key(func, @ir.hot_child_get(func, node_id, slot)) {
-      Some(child_key) => key = key + child_key + ","
-      None => return None
-    }
-  }
-  Some(key + ")")
-}
-
-///|
-fn lcse_tree_size(func : @ir.HotFunc, node_id : Int) -> Int {
-  let mut size = 1
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    size += lcse_tree_size(func, @ir.hot_child_get(func, node_id, slot))
-  }
-  size
 }
 
 ///|
@@ -3225,50 +3364,32 @@ fn lcse_effect_mask_allowed(mask : @ir.EffectMask) -> Bool {
 }
 
 ///|
-fn lcse_tree_has_local_write_or_string_effect(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee | @ir.HotOp::StringOp =>
-      return true
-    _ => ()
-  }
-  for child in @ir.hot_child_span(func, node_id) {
-    if child >= 0 && lcse_tree_has_local_write_or_string_effect(func, child) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn lcse_candidate_key(
+fn lcse_candidate_class(
   func : @ir.HotFunc,
   effects : @ir.HotEffectsSummary,
+  structural : LcseStructuralIndex,
   node_id : Int,
-) -> String? {
+) -> Int {
   let node = @ir.hot_node_get(func, node_id)
   if lcse_result_type(func, node_id) is None {
-    return None
+    return -1
   }
   match node.op {
     @ir.HotOp::Const
     | @ir.HotOp::LocalGet
     | @ir.HotOp::GlobalGet
     | @ir.HotOp::RefNull
-    | @ir.HotOp::RefFunc => return None
-    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee | @ir.HotOp::Drop => return None
-    @ir.HotOp::Atomic => return None
+    | @ir.HotOp::RefFunc => return -1
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee | @ir.HotOp::Drop => return -1
+    @ir.HotOp::Atomic => return -1
     _ => ()
   }
-  if lcse_tree_size(func, node_id) < 2 ||
-    lcse_tree_has_local_write_or_string_effect(func, node_id) ||
+  if structural.sizes[node_id] < 2 ||
+    structural.has_local_write_or_string[node_id] ||
     !lcse_effect_mask_allowed(effects.node_masks[node_id]) {
-    return None
+    return -1
   }
-  lcse_tree_key(func, node_id)
+  structural.classes[node_id]
 }
 
 ///|
@@ -3294,9 +3415,9 @@ fn lcse_wrap_original(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   binding : LcseBinding,
-) -> Int {
+) -> (Int, Int) {
   if binding.local_id >= 0 {
-    return binding.local_id
+    return (binding.local_id, -1)
   }
   let local_id = @ir.hot_append_body_local(func, binding.ty)
   let tee_id = @ir.hot_build_local_tee(func, local_id, binding.original)
@@ -3308,7 +3429,7 @@ fn lcse_wrap_original(
   }
   binding.local_id = local_id
   pass_mark_mutated(ctx, func)
-  local_id
+  (local_id, tee_id)
 }
 
 ///|
@@ -3317,7 +3438,7 @@ fn lcse_replace_repeat(
   func : @ir.HotFunc,
   place : LcsePlace,
   local_id : Int,
-) -> Unit {
+) -> Int {
   let get_id = @ir.hot_build_local_get(func, local_id)
   match place {
     LcsePlace::Region(region_ref, idx) =>
@@ -3326,6 +3447,47 @@ fn lcse_replace_repeat(
       @ir.hot_child_set(func, parent_id, slot, get_id)
   }
   pass_mark_mutated(ctx, func)
+  get_id
+}
+
+///|
+fn lcse_consider_candidate(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  effects : @ir.HotEffectsSummary,
+  structural : LcseStructuralIndex,
+  state : LcseState,
+  node_id : Int,
+  place : LcsePlace,
+) -> Bool {
+  let class_id = lcse_candidate_class(func, effects, structural, node_id)
+  if class_id < 0 {
+    return false
+  }
+  match state.bindings.get(class_id) {
+    Some(binding) => {
+      let (local_id, tee_id) = lcse_wrap_original(ctx, func, binding)
+      if tee_id >= 0 {
+        structural.refresh_node(func, tee_id)
+      }
+      let get_id = lcse_replace_repeat(ctx, func, place, local_id)
+      structural.refresh_node(func, get_id)
+      true
+    }
+    None => {
+      match lcse_result_type(func, node_id) {
+        Some(ty) =>
+          state.bindings.set(class_id, {
+            original: node_id,
+            place,
+            local_id: -1,
+            ty,
+          })
+        None => ()
+      }
+      false
+    }
+  }
 }
 
 ///|
@@ -3333,19 +3495,33 @@ fn lcse_visit_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   effects : @ir.HotEffectsSummary,
+  structural : LcseStructuralIndex,
   state : LcseState,
   node_id : Int,
   place : LcsePlace,
 ) -> Unit {
   let node = @ir.hot_node_get(func, node_id)
+  if node_id < structural.classes.length() && structural.classes[node_id] >= 0 {
+    if lcse_consider_candidate(
+        ctx, func, effects, structural, state, node_id, place,
+      ) {
+      return
+    }
+    if lcse_barrier_clears_window(func, effects, node_id) {
+      state.bindings.clear()
+    }
+    return
+  }
   match node.op {
     @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable => {
       lcse_visit_region(
         ctx,
         func,
         effects,
+        structural,
         @ir.hot_region_body_ref(func, node_id),
       )
+      structural.refresh_node(func, node_id)
       state.bindings.clear()
       return
     }
@@ -3357,6 +3533,7 @@ fn lcse_visit_node(
             ctx,
             func,
             effects,
+            structural,
             state,
             condition,
             LcsePlace::Child(node_id, 0),
@@ -3367,12 +3544,15 @@ fn lcse_visit_node(
         ctx,
         func,
         effects,
+        structural,
         @ir.hot_region_then_ref(func, node_id),
       )
       match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_ref) => lcse_visit_region(ctx, func, effects, else_ref)
+        Some(else_ref) =>
+          lcse_visit_region(ctx, func, effects, structural, else_ref)
         None => ()
       }
+      structural.refresh_node(func, node_id)
       state.bindings.clear()
       return
     }
@@ -3386,33 +3566,18 @@ fn lcse_visit_node(
         ctx,
         func,
         effects,
+        structural,
         state,
         child,
         LcsePlace::Child(node_id, slot),
       )
     }
   }
-  match lcse_candidate_key(func, effects, node_id) {
-    Some(key) =>
-      match state.bindings.get(key) {
-        Some(binding) => {
-          let local_id = lcse_wrap_original(ctx, func, binding)
-          lcse_replace_repeat(ctx, func, place, local_id)
-          return
-        }
-        None =>
-          match lcse_result_type(func, node_id) {
-            Some(ty) =>
-              state.bindings.set(key, {
-                original: node_id,
-                place,
-                local_id: -1,
-                ty,
-              })
-            None => ()
-          }
-      }
-    None => ()
+  structural.refresh_node(func, node_id)
+  if lcse_consider_candidate(
+      ctx, func, effects, structural, state, node_id, place,
+    ) {
+    return
   }
   if lcse_barrier_clears_window(func, effects, node_id) {
     state.bindings.clear()
@@ -3424,6 +3589,7 @@ fn lcse_visit_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   effects : @ir.HotEffectsSummary,
+  structural : LcseStructuralIndex,
   region_ref : @ir.HotRegionRef,
 ) -> Unit {
   let state = LcseState::new()
@@ -3436,6 +3602,7 @@ fn lcse_visit_region(
       ctx,
       func,
       effects,
+      structural,
       state,
       root,
       LcsePlace::Region(region_ref, idx),
@@ -3447,13 +3614,32 @@ fn lcse_visit_region(
 }
 
 ///|
-pub fn local_cse_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
+fn local_cse_run_impl(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  fact_visits? : Array[Int]? = None,
+) -> HotPassResult {
   let before_revision = @ir.hot_revision_current(func)
   let effects = pass_require_effects(ctx, func)
-  lcse_visit_region(ctx, func, effects, @ir.HotRegionRef::root())
+  let structural = LcseStructuralIndex::new(func, fact_visits~)
+  lcse_visit_region(ctx, func, effects, structural, @ir.HotRegionRef::root())
   if @ir.hot_revision_current(func) != before_revision {
     HotPassResult::changed()
   } else {
     HotPassResult::unchanged()
   }
+}
+
+///|
+fn local_cse_run_with_fact_visits(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  fact_visits : Array[Int],
+) -> HotPassResult {
+  local_cse_run_impl(ctx, func, fact_visits=Some(fact_visits))
+}
+
+///|
+pub fn local_cse_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
+  local_cse_run_impl(ctx, func)
 }

@@ -24,10 +24,12 @@ fn vacuum_interleaved_dropped_local_bench(it : @bench.T, count : Int) -> Unit {
     fn(_) { () },
   )
   let preflight = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
-  if !hot_pass_vacuum_remove_dropped_local_gets_in_region(
+  let workspace = VacuumDroppedNodeWorkspace::new(@ir.hot_node_count(preflight))
+  if !hot_pass_vacuum_remove_dropped_local_gets_in_region_with_workspace(
       ctx,
       preflight,
       @ir.HotRegionRef::root(),
+      workspace,
     ) ||
     @ir.hot_region_root_count(preflight, @ir.HotRegionRef::root()) != count + 2 {
     abort("Vacuum interleaved fixture did not remove only local reads")
@@ -35,10 +37,11 @@ fn vacuum_interleaved_dropped_local_bench(it : @bench.T, count : Int) -> Unit {
   it.bench(fn() {
     let func = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
     ignore(
-      hot_pass_vacuum_remove_dropped_local_gets_in_region(
+      hot_pass_vacuum_remove_dropped_local_gets_in_region_with_workspace(
         ctx,
         func,
         @ir.HotRegionRef::root(),
+        workspace,
       ),
     )
     it.keep(func)
@@ -56,11 +59,13 @@ test "Vacuum batches interleaved dropped locals without removing survivors" {
     fn(_) { () },
   )
   let func = @ir.hot_lift_func(fixture, @lib.FuncIdx::new(0U))
+  let workspace = VacuumDroppedNodeWorkspace::new(@ir.hot_node_count(func))
   assert_true(
-    hot_pass_vacuum_remove_dropped_local_gets_in_region(
+    hot_pass_vacuum_remove_dropped_local_gets_in_region_with_workspace(
       ctx,
       func,
       @ir.HotRegionRef::root(),
+      workspace,
     ),
   )
   assert_eq(@ir.hot_region_root_count(func, @ir.HotRegionRef::root()), 34)

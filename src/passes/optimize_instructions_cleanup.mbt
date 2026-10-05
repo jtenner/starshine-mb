@@ -118,21 +118,13 @@ fn oi_local_group_has_offset_metadata(mod_ : @lib.Module) -> Bool {
     let @lib.CustomSec(@lib.Name(raw_name), _) = custom
     let name = raw_name.to_owned()
     if name.starts_with("metadata.code.") ||
-      name == "reloc.CODE" ||
+      name.starts_with("reloc.") ||
+      name == "linking" ||
+      name == "sourceMappingURL" ||
+      name == "external_debug_info" ||
       name.starts_with(".debug_") {
       return true
     }
-  }
-  match mod_.func_annotation_sec {
-    Some(@lib.FuncAnnotationSec(entries)) =>
-      for @lib.FuncAnnotationAssoc(_, annotations) in entries {
-        if annotations.any(fn(annotation) {
-            annotation.name == "metadata.code.branch_hint"
-          }) {
-          return true
-        }
-      }
-    None => ()
   }
   false
 }

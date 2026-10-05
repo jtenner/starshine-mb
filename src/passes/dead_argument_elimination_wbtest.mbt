@@ -17426,7 +17426,7 @@ fn dae_test_assert_retained_graph_matches_fresh(
       let retained_call = retained_info.calls[call_idx]
       let fresh_call = fresh_info.calls[call_idx]
       assert_eq(retained_call.caller_def, fresh_call.caller_def)
-      assert_eq(retained_call.path, fresh_call.path)
+      assert_true(dae_stable_path_equal(retained_call.path, fresh_call.path))
       assert_eq(retained_call.callee_abs, fresh_call.callee_abs)
       assert_eq(retained_call.active, fresh_call.active)
       assert_eq(retained_call.dropped, fresh_call.dropped)
@@ -17442,7 +17442,7 @@ fn dae_test_assert_retained_graph_matches_fresh(
       let retained_call = retained_info.dropped_calls[call_idx]
       let fresh_call = fresh_info.dropped_calls[call_idx]
       assert_eq(retained_call.caller_def, fresh_call.caller_def)
-      assert_eq(retained_call.path, fresh_call.path)
+      assert_true(dae_stable_path_equal(retained_call.path, fresh_call.path))
       assert_eq(retained_call.callee_abs, fresh_call.callee_abs)
       assert_eq(retained_call.active, fresh_call.active)
       assert_eq(retained_call.dropped, fresh_call.dropped)

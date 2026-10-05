@@ -11223,21 +11223,72 @@ priv struct FlattenStackCarriedLocalReadAcrossWriteFact {
 }
 
 ///|
+priv struct FlattenLocalAccessWorkspace {
+  min_later_get_node_ids : Array[Int]
+  root_min_get_node_ids : Array[Int]
+  root_max_write_node_ids : Array[Int]
+  touched_later_get_locals : Array[Int]
+  touched_get_locals : Array[Int]
+  touched_write_locals : Array[Int]
+  pending_nodes : Array[Int]
+  pending_regions : Array[@ir.HotRegionRef]
+  visit_epochs : Array[Int]
+  queued_controls : Array[Bool]
+  mut epoch : Int
+  local_scratch_cells : Int
+}
+
+///|
+fn FlattenLocalAccessWorkspace::new(
+  func : @ir.HotFunc,
+) -> FlattenLocalAccessWorkspace {
+  let local_count = @ir.hot_local_count(func)
+  {
+    min_later_get_node_ids: Array::make(local_count, -1),
+    root_min_get_node_ids: Array::make(local_count, -1),
+    root_max_write_node_ids: Array::make(local_count, -1),
+    touched_later_get_locals: [],
+    touched_get_locals: [],
+    touched_write_locals: [],
+    pending_nodes: [],
+    pending_regions: [],
+    visit_epochs: Array::make(@ir.hot_node_count(func), 0),
+    queued_controls: Array::make(@ir.hot_node_count(func), false),
+    epoch: 0,
+    local_scratch_cells: local_count * 3,
+  }
+}
+
+///|
+fn FlattenLocalAccessWorkspace::begin_region(
+  self : FlattenLocalAccessWorkspace,
+) -> Unit {
+  for local_id in self.touched_later_get_locals {
+    self.min_later_get_node_ids[local_id] = -1
+  }
+  self.touched_later_get_locals.clear()
+  self.epoch += 1
+}
+
+///|
 fn flatten_collect_subtree_local_access_extrema(
   func : @ir.HotFunc,
   root_id : Int,
-  min_get_node_ids : Array[Int],
-  max_write_node_ids : Array[Int],
-  touched_get_locals : Array[Int],
-  touched_write_locals : Array[Int],
+  workspace : FlattenLocalAccessWorkspace,
   node_visits? : Array[Int]? = None,
 ) -> Unit {
-  let pending = [root_id]
-  while !pending.is_empty() {
-    let node_id = pending.pop().unwrap()
-    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+  workspace.pending_nodes.clear()
+  workspace.pending_nodes.push(root_id)
+  while !workspace.pending_nodes.is_empty() {
+    let node_id = workspace.pending_nodes.pop().unwrap()
+    if node_id < 0 ||
+      node_id >= workspace.visit_epochs.length() ||
+      !@ir.hot_node_is_live(func, node_id) ||
+      workspace.visit_epochs[node_id] == workspace.epoch {
       continue
     }
+    workspace.visit_epochs[node_id] = workspace.epoch
+    flatten_queue_nested_local_access_regions(func, node_id, workspace)
     match node_visits {
       Some(count) => count[0] += 1
       None => ()
@@ -11245,30 +11296,74 @@ fn flatten_collect_subtree_local_access_extrema(
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
       @ir.HotOp::LocalGet if node.imm0 >= 0 &&
-        node.imm0 < min_get_node_ids.length() => {
-        let previous = min_get_node_ids[node.imm0]
+        node.imm0 < workspace.root_min_get_node_ids.length() => {
+        let previous = workspace.root_min_get_node_ids[node.imm0]
         if previous < 0 {
-          touched_get_locals.push(node.imm0)
-          min_get_node_ids[node.imm0] = node_id
+          workspace.touched_get_locals.push(node.imm0)
+          workspace.root_min_get_node_ids[node.imm0] = node_id
         } else if node_id < previous {
-          min_get_node_ids[node.imm0] = node_id
+          workspace.root_min_get_node_ids[node.imm0] = node_id
         }
       }
       @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 >= 0 &&
-        node.imm0 < max_write_node_ids.length() => {
-        let previous = max_write_node_ids[node.imm0]
+        node.imm0 < workspace.root_max_write_node_ids.length() => {
+        let previous = workspace.root_max_write_node_ids[node.imm0]
         if previous < 0 {
-          touched_write_locals.push(node.imm0)
-          max_write_node_ids[node.imm0] = node_id
+          workspace.touched_write_locals.push(node.imm0)
+          workspace.root_max_write_node_ids[node.imm0] = node_id
         } else if node_id > previous {
-          max_write_node_ids[node.imm0] = node_id
+          workspace.root_max_write_node_ids[node.imm0] = node_id
         }
       }
       _ => ()
     }
     for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-      pending.push(@ir.hot_child_get(func, node_id, slot))
+      workspace.pending_nodes.push(@ir.hot_child_get(func, node_id, slot))
     }
+  }
+}
+
+///|
+fn flatten_queue_nested_local_access_regions(
+  func : @ir.HotFunc,
+  root_id : Int,
+  workspace : FlattenLocalAccessWorkspace,
+) -> Unit {
+  if root_id < 0 ||
+    root_id >= workspace.queued_controls.length() ||
+    workspace.queued_controls[root_id] ||
+    !@ir.hot_node_is_live(func, root_id) {
+    return
+  }
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      workspace.queued_controls[root_id] = true
+      workspace.pending_regions.push(@ir.hot_region_body_ref(func, root_id))
+    }
+    @ir.HotOp::If => {
+      workspace.queued_controls[root_id] = true
+      workspace.pending_regions.push(@ir.hot_region_then_ref(func, root_id))
+      match @ir.hot_region_else_ref(func, root_id) {
+        Some(else_ref) => workspace.pending_regions.push(else_ref)
+        None => ()
+      }
+    }
+    @ir.HotOp::Try => {
+      workspace.queued_controls[root_id] = true
+      workspace.pending_regions.push(@ir.hot_region_body_ref(func, root_id))
+      match @ir.hot_region_catch_ref(func, root_id) {
+        Some(catch_ref) => workspace.pending_regions.push(catch_ref)
+        None => ()
+      }
+    }
+    @ir.HotOp::TryTable => {
+      workspace.queued_controls[root_id] = true
+      workspace.pending_regions.push(@ir.hot_region_body_ref(func, root_id))
+      workspace.pending_regions.push(
+        @ir.hot_region_catch_list_ref(func, root_id),
+      )
+    }
+    _ => ()
   }
 }
 
@@ -11277,109 +11372,49 @@ fn flatten_region_has_stack_carried_local_read_across_write(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   node_visits? : Array[Int]? = None,
+  scratch_cells? : Array[Int]? = None,
 ) -> Bool {
-  let root_count = @ir.hot_region_root_count(func, region_ref)
-  let local_count = @ir.hot_local_count(func)
-  let min_later_get_node_ids = Array::make(local_count, -1)
-  let root_min_get_node_ids = Array::make(local_count, -1)
-  let root_max_write_node_ids = Array::make(local_count, -1)
-  let touched_get_locals : Array[Int] = []
-  let touched_write_locals : Array[Int] = []
-  let mut root_idx = root_count - 1
-  while root_idx >= 0 {
-    touched_get_locals.clear()
-    touched_write_locals.clear()
-    flatten_collect_subtree_local_access_extrema(
-      func,
-      @ir.hot_region_get(func, region_ref, root_idx),
-      root_min_get_node_ids,
-      root_max_write_node_ids,
-      touched_get_locals,
-      touched_write_locals,
-      node_visits~,
-    )
-    for local_id in touched_write_locals {
-      let min_later_get = min_later_get_node_ids[local_id]
-      if min_later_get >= 0 && min_later_get < root_max_write_node_ids[local_id] {
-        return true
-      }
-      root_max_write_node_ids[local_id] = -1
-    }
-    for local_id in touched_get_locals {
-      let root_min_get = root_min_get_node_ids[local_id]
-      let previous = min_later_get_node_ids[local_id]
-      if previous < 0 || root_min_get < previous {
-        min_later_get_node_ids[local_id] = root_min_get
-      }
-      root_min_get_node_ids[local_id] = -1
-    }
-    root_idx = root_idx - 1
+  let workspace = FlattenLocalAccessWorkspace::new(func)
+  match scratch_cells {
+    Some(count) => count[0] += workspace.local_scratch_cells
+    None => ()
   }
-  for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
-    let root_id = @ir.hot_region_get(func, region_ref, root_idx)
-    match @ir.hot_node_get(func, root_id).op {
-      @ir.HotOp::Block | @ir.HotOp::Loop =>
-        if flatten_region_has_stack_carried_local_read_across_write(
-            func,
-            @ir.hot_region_body_ref(func, root_id),
-            node_visits~,
-          ) {
+  workspace.pending_regions.push(region_ref)
+  workspace.begin_region()
+  while !workspace.pending_regions.is_empty() {
+    let current_region = workspace.pending_regions.pop().unwrap()
+    let root_count = @ir.hot_region_root_count(func, current_region)
+    let mut root_idx = root_count - 1
+    while root_idx >= 0 {
+      let root_id = @ir.hot_region_get(func, current_region, root_idx)
+      workspace.touched_get_locals.clear()
+      workspace.touched_write_locals.clear()
+      flatten_collect_subtree_local_access_extrema(
+        func,
+        root_id,
+        workspace,
+        node_visits~,
+      )
+      for local_id in workspace.touched_write_locals {
+        let min_later_get = workspace.min_later_get_node_ids[local_id]
+        let max_write = workspace.root_max_write_node_ids[local_id]
+        if min_later_get >= 0 && min_later_get < max_write {
           return true
         }
-      @ir.HotOp::If => {
-        if flatten_region_has_stack_carried_local_read_across_write(
-            func,
-            @ir.hot_region_then_ref(func, root_id),
-            node_visits~,
-          ) {
-          return true
-        }
-        match @ir.hot_region_else_ref(func, root_id) {
-          Some(else_ref) =>
-            if flatten_region_has_stack_carried_local_read_across_write(
-                func,
-                else_ref,
-                node_visits~,
-              ) {
-              return true
-            }
-          None => ()
-        }
+        workspace.root_max_write_node_ids[local_id] = -1
       }
-      @ir.HotOp::Try => {
-        if flatten_region_has_stack_carried_local_read_across_write(
-            func,
-            @ir.hot_region_body_ref(func, root_id),
-            node_visits~,
-          ) {
-          return true
+      for local_id in workspace.touched_get_locals {
+        let root_min_get = workspace.root_min_get_node_ids[local_id]
+        let previous = workspace.min_later_get_node_ids[local_id]
+        if previous < 0 {
+          workspace.touched_later_get_locals.push(local_id)
+          workspace.min_later_get_node_ids[local_id] = root_min_get
+        } else if root_min_get < previous {
+          workspace.min_later_get_node_ids[local_id] = root_min_get
         }
-        match @ir.hot_region_catch_ref(func, root_id) {
-          Some(catch_ref) =>
-            if flatten_region_has_stack_carried_local_read_across_write(
-                func,
-                catch_ref,
-                node_visits~,
-              ) {
-              return true
-            }
-          None => ()
-        }
+        workspace.root_min_get_node_ids[local_id] = -1
       }
-      @ir.HotOp::TryTable =>
-        if flatten_region_has_stack_carried_local_read_across_write(
-            func,
-            @ir.hot_region_body_ref(func, root_id),
-            node_visits~,
-          ) ||
-          flatten_region_has_stack_carried_local_read_across_write(
-            func,
-            @ir.hot_region_catch_list_ref(func, root_id),
-            node_visits~,
-          ) {
-          return true
-        }
-      _ => ()
+      root_idx -= 1
     }
   }
   false

@@ -70,17 +70,19 @@ fn vacuum_nonempty_else_guard_perf_bench(it : @bench.T, count : Int) -> Unit {
     fn(_) { () },
   )
   let roots = @ir.HotRegionRef::root()
+  let workspace = VacuumDroppedNodeWorkspace::new(@ir.hot_node_count(func))
   if @ir.hot_region_root_count(func, roots) != count {
     abort("Vacuum nonempty else fixture root count changed")
   }
   it.bench(fn() {
     for idx in 0..<count {
-      if hot_pass_vacuum_remove_empty_if(
+      if hot_pass_vacuum_remove_empty_if_with_workspace(
           ctx,
           func,
           roots,
           idx,
           @ir.hot_region_get(func, roots, idx),
+          workspace,
         ) {
         abort("Vacuum nonempty else fixture unexpectedly transformed")
       }

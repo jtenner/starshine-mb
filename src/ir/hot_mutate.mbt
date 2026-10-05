@@ -1958,26 +1958,68 @@ pub fn hot_delete_detached_node(func : HotFunc, id : NodeId) -> Unit {
 }
 
 ///|
-/// Delete an exact distinct detached node set with one revision invalidation.
-pub fn hot_delete_detached_nodes(
+fn hot_mutate_detached_nodes_are_unreferenced(
   func : HotFunc,
   node_ids : Array[NodeId],
-) -> Unit {
-  let seen : @set.Set[NodeId] = @set.Set([])
+) -> Bool {
+  let node_count = hot_node_count(func)
+  let selected = @bitset.BitSet::new(node_count)
   for node_id in node_ids {
-    hot_mutate_require_live_node(func, node_id, "hot_delete_detached_nodes")
-    if seen.contains(node_id) {
-      abort("hot_delete_detached_nodes requires distinct node ids")
+    if node_id < 0 ||
+      node_id >= node_count ||
+      !hot_node_is_live(func, node_id) ||
+      selected[node_id] {
+      return false
     }
-    seen.add(node_id)
+    selected[node_id] = true
   }
-  if node_ids.is_empty() {
-    return
+  for root in func.roots {
+    if selected[root] {
+      return false
+    }
+  }
+  for owner = 0; owner < node_count; owner = owner + 1 {
+    if !hot_node_is_live(func, owner) || selected[owner] {
+      continue
+    }
+    let node = hot_node_get(func, owner)
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      let child = hot_child_get(func, owner, slot)
+      if child >= 0 && child < node_count && selected[child] {
+        return false
+      }
+    }
+  }
+  true
+}
+
+///|
+fn hot_mutate_delete_detached_nodes_if_unreferenced(
+  func : HotFunc,
+  node_ids : Array[NodeId],
+) -> Bool {
+  if !hot_mutate_detached_nodes_are_unreferenced(func, node_ids) {
+    return false
   }
   for node_id in node_ids {
     hot_delete_node_tombstone(func, node_id)
   }
   hot_revision_bump(func)
+  true
+}
+
+///|
+/// Delete an exact distinct detached node set with one revision invalidation.
+pub fn hot_delete_detached_nodes(
+  func : HotFunc,
+  node_ids : Array[NodeId],
+) -> Unit {
+  if node_ids.is_empty() {
+    return
+  }
+  if !hot_mutate_delete_detached_nodes_if_unreferenced(func, node_ids) {
+    abort("hot_delete_detached_nodes requires an unreferenced detached set")
+  }
 }
 
 ///|

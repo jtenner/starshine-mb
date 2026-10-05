@@ -1853,27 +1853,67 @@ priv struct DaeOriginalBoundarySnapshot {
 }
 
 ///|
-priv enum DaeStablePath {
-  Empty
-  Step(DaeStablePath, Int, Int)
-} derive(Eq, Debug)
+priv struct DaeStablePathNode {
+  parent : Int
+  value : Int
+  depth : Int
+}
+
+///|
+priv struct DaeStablePathWorkspace {
+  nodes : Array[DaeStablePathNode]
+  children : @hashmap.HashMap[(Int, Int), Int]
+  active_stamps : Array[Int]
+  call_stamps : Array[Int]
+  mut generation : Int
+}
+
+///|
+priv struct DaeStablePath {
+  workspace : DaeStablePathWorkspace
+  tail : Int
+  length : Int
+}
 
 ///|
 fn DaeStablePath::empty() -> DaeStablePath {
-  Empty
+  {
+    workspace: {
+      nodes: [],
+      children: @hashmap.new(),
+      active_stamps: [],
+      call_stamps: [],
+      generation: 0,
+    },
+    tail: -1,
+    length: 0,
+  }
 }
 
 ///|
 fn DaeStablePath::append(self : DaeStablePath, value : Int) -> DaeStablePath {
-  Step(self, value, self.length() + 1)
+  let key = (self.tail, value)
+  let tail = match self.workspace.children.get(key) {
+    Some(node) => node
+    None => {
+      let node = self.workspace.nodes.length()
+      self.workspace.nodes.push({
+        parent: self.tail,
+        value,
+        depth: self.length + 1,
+      })
+      self.workspace.active_stamps.push(0)
+      self.workspace.call_stamps.push(0)
+      self.workspace.children.set(key, node)
+      node
+    }
+  }
+  { workspace: self.workspace, tail, length: self.length + 1, }
 }
 
 ///|
 fn DaeStablePath::length(self : DaeStablePath) -> Int {
-  match self {
-    Empty => 0
-    Step(_, _, length) => length
-  }
+  self.length
 }
 
 ///|
@@ -1881,17 +1921,19 @@ fn DaeStablePath::append_to(self : DaeStablePath, out : Array[Int]) -> Unit {
   let base = out.length()
   let length = self.length()
   out.resize(base + length, 0)
-  let mut cursor = self
+  let mut cursor = self.tail
   let mut index = base + length - 1
   while index >= base {
-    match cursor {
-      Empty => abort("dae stable path length disagrees with its links")
-      Step(parent, value, _) => {
-        out[index] = value
-        cursor = parent
-        index -= 1
-      }
+    if cursor < 0 || cursor >= self.workspace.nodes.length() {
+      abort("dae stable path length disagrees with its links")
     }
+    let node = self.workspace.nodes[cursor]
+    out[index] = node.value
+    cursor = node.parent
+    index -= 1
+  }
+  if cursor >= 0 {
+    abort("dae stable path length disagrees with its links")
   }
 }
 
@@ -1909,6 +1951,36 @@ fn dae_stable_path_from_array(path : Array[Int]) -> DaeStablePath {
     stable = stable.append(value)
   }
   stable
+}
+
+///|
+fn dae_stable_path_equal(left : DaeStablePath, right : DaeStablePath) -> Bool {
+  if left.length != right.length {
+    return false
+  }
+  if physical_equal(left.workspace, right.workspace) && left.tail == right.tail {
+    return true
+  }
+  let mut left_tail = left.tail
+  let mut right_tail = right.tail
+  let mut remaining = left.length
+  while remaining > 0 {
+    if left_tail < 0 ||
+      left_tail >= left.workspace.nodes.length() ||
+      right_tail < 0 ||
+      right_tail >= right.workspace.nodes.length() {
+      return false
+    }
+    let left_node = left.workspace.nodes[left_tail]
+    let right_node = right.workspace.nodes[right_tail]
+    if left_node.value != right_node.value {
+      return false
+    }
+    left_tail = left_node.parent
+    right_tail = right_node.parent
+    remaining -= 1
+  }
+  left_tail < 0 && right_tail < 0
 }
 
 ///|
@@ -2165,7 +2237,34 @@ priv struct DaeDirectCallIdentity {
   path : DaeStablePath
   call_kind : DaeDirectCallKind
   callee_abs : Int
-} derive(Eq, Debug)
+}
+
+///|
+fn dae_direct_call_identity_equal(
+  left : DaeDirectCallIdentity,
+  right : DaeDirectCallIdentity,
+) -> Bool {
+  left.caller_def == right.caller_def &&
+  left.call_kind == right.call_kind &&
+  left.callee_abs == right.callee_abs &&
+  dae_stable_path_equal(left.path, right.path)
+}
+
+///|
+fn dae_direct_call_identities_equal(
+  left : Array[DaeDirectCallIdentity],
+  right : Array[DaeDirectCallIdentity],
+) -> Bool {
+  if left.length() != right.length() {
+    return false
+  }
+  for index in 0..<left.length() {
+    if !dae_direct_call_identity_equal(left[index], right[index]) {
+      return false
+    }
+  }
+  true
+}
 
 ///|
 priv struct DaeCallerEpochExpectation {
@@ -4608,7 +4707,10 @@ fn dae_apply_family_rewrite_plan(
     }
   }
   if plan.validate_call_identities &&
-    actual_call_identities != plan.expected_call_identities {
+    !dae_direct_call_identities_equal(
+      actual_call_identities,
+      plan.expected_call_identities,
+    ) {
     return dae_rewrite_plan_rejection(current, DaeCallCountChanged)
   }
   if plan.candidate.primary_def != plan.target_def ||
@@ -14078,9 +14180,13 @@ fn dae_simple_func_type_lookup(
     for subtype in group {
       match dae_simple_func_subtype_type(subtype) {
         Some(@lib.FuncType(params, results)) => {
+          let owner = @lib.TypeIdx::new(flat_idx.reinterpret_as_uint())
+          let (params, results) = dae_absolutize_signature(
+            type_sec, owner, params, results,
+          )
           let key = dae_simple_func_type_key(params, results)
           if lookup.get(key) is None {
-            lookup.set(key, @lib.TypeIdx::new(flat_idx.reinterpret_as_uint()))
+            lookup.set(key, owner)
           }
         }
         None => ()
@@ -14149,6 +14255,49 @@ fn dae_find_equivalent_simple_func_type(
     }
   }
   None
+}
+
+///|
+fn dae_absolutize_signature_val_type(
+  type_sec : @lib.TypeSec,
+  owner : @lib.TypeIdx,
+  value : @lib.ValType,
+) -> @lib.ValType {
+  match value {
+    @lib.RefTypeValType(
+      @lib.HeapTypeRefType(nullable, exact, @lib.HeapType(reference))
+    ) => {
+      let absolute = match
+        dae_type_sec_resolve_member_reference(type_sec, owner, reference) {
+        Some(index) => index
+        None =>
+          abort(
+            "DAE batch signature contains an invalid recursive type reference",
+          )
+      }
+      @lib.ValType::ref_type(
+        @lib.RefType::new(nullable, @lib.HeapType::new(absolute), exact~),
+      )
+    }
+    _ => value
+  }
+}
+
+///|
+fn dae_absolutize_signature(
+  type_sec : @lib.TypeSec,
+  owner : @lib.TypeIdx,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> (Array[@lib.ValType], Array[@lib.ValType]) {
+  (
+    params.map(fn(value) {
+      dae_absolutize_signature_val_type(type_sec, owner, value)
+    }),
+    results.map(fn(value) {
+      dae_absolutize_signature_val_type(type_sec, owner, value)
+    }),
+  )
 }
 
 ///|
@@ -14704,6 +14853,10 @@ fn dae_update_defined_func_type(
   unique_scan_count? : Array[Int]? = None,
 ) -> (@lib.TypeSec, @lib.TypeIdx) {
   let old_type_idx = func_types[def_idx]
+  let (params, results) = match type_update_index {
+    Some(_) => dae_absolutize_signature(type_sec, old_type_idx, params, results)
+    None => (params, results)
+  }
   let key = dae_simple_func_type_key(params, results)
   let equivalent = match type_update_index {
     Some(index) => index.signatures.get(key)
@@ -21489,17 +21642,18 @@ fn dae_try_apply_unread_param_batch(
     rewritten_funcs[plan.def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
       @lib.Func::new(callee_rewrite.locals, @lib.Expr::new(new_body)),
     )
-    let type_key = dae_simple_func_type_key(
+    let (next_params, next_results) = dae_absolutize_signature(
+      type_sec,
+      type_idxs[plan.def_idx],
       callee_rewrite.kept_params,
       plan.results,
     )
+    let type_key = dae_simple_func_type_key(next_params, next_results)
     let next_type_idx = match type_lookup.get(type_key) {
       Some(existing) => existing
       None => {
         let (next_type_sec, next_idx) = dae_append_new_func_type(
-          type_sec,
-          callee_rewrite.kept_params,
-          plan.results,
+          type_sec, next_params, next_results,
         )
         type_sec = next_type_sec
         type_lookup.set(type_key, next_idx)
@@ -21847,14 +22001,18 @@ fn dae_try_apply_dropped_result_batch(
     rewritten_funcs[plan.def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
       @lib.Func::new(callee_locals, @lib.Expr::new(next_body)),
     )
-    let type_key = dae_simple_func_type_key(plan.params, [])
+    let (next_params, next_results) = dae_absolutize_signature(
+      type_sec,
+      type_idxs[plan.def_idx],
+      plan.params,
+      [],
+    )
+    let type_key = dae_simple_func_type_key(next_params, next_results)
     let next_type_idx = match type_lookup.get(type_key) {
       Some(existing) => existing
       None => {
         let (next_type_sec, next_idx) = dae_append_new_func_type(
-          type_sec,
-          plan.params,
-          [],
+          type_sec, next_params, next_results,
         )
         type_sec = next_type_sec
         type_lookup.set(type_key, next_idx)
@@ -22930,6 +23088,254 @@ fn dae_rewrite_call_at_stable_path(
 }
 
 ///|
+priv struct DaeStableRewriteSelection {
+  workspace : DaeStablePathWorkspace
+  generation : Int
+  selected_nodes : Int
+}
+
+///|
+priv struct DaeStableRewriteStats {
+  mut scopes : Int
+  mut structured_rebuilds : Int
+  mut calls : Int
+}
+
+///|
+fn DaeStableRewriteStats::new() -> DaeStableRewriteStats {
+  { scopes: 0, structured_rebuilds: 0, calls: 0, }
+}
+
+///|
+fn dae_stable_rewrite_selection(
+  paths : Array[DaeStablePath],
+) -> DaeStableRewriteSelection? {
+  if paths.is_empty() {
+    return None
+  }
+  let workspace = paths[0].workspace
+  let generation = if workspace.generation == 2147483647 {
+    workspace.active_stamps.fill(0)
+    workspace.call_stamps.fill(0)
+    1
+  } else {
+    workspace.generation + 1
+  }
+  workspace.generation = generation
+  let mut selected_nodes = 0
+  for path in paths {
+    if !physical_equal(path.workspace, workspace) ||
+      path.tail < 0 ||
+      path.tail >= workspace.nodes.length() ||
+      path.length <= 0 ||
+      path.length % 2 == 0 {
+      return None
+    }
+    workspace.call_stamps[path.tail] = generation
+    let mut node_idx = path.tail
+    while node_idx >= 0 && workspace.active_stamps[node_idx] != generation {
+      let node = workspace.nodes[node_idx]
+      if node.depth % 2 == 0 && (node.value < 0 || node.value > 4) {
+        // Legacy catch arms are intentionally left to the conservative full
+        // traversal, whose child representation includes those handler bodies.
+        return None
+      }
+      workspace.active_stamps[node_idx] = generation
+      selected_nodes += 1
+      node_idx = node.parent
+    }
+  }
+  Some({ workspace, generation, selected_nodes, })
+}
+
+///|
+fn dae_stable_rewrite_selected_child(
+  selection : DaeStableRewriteSelection,
+  parent : Int,
+  value : Int,
+) -> Int? {
+  match selection.workspace.children.get((parent, value)) {
+    Some(node) if node >= 0 &&
+      node < selection.workspace.active_stamps.length() &&
+      selection.workspace.active_stamps[node] == selection.generation =>
+      Some(node)
+    _ => None
+  }
+}
+
+///|
+fn dae_rewrite_calls_from_stable_selection_scope(
+  instrs : Array[@lib.Instruction],
+  scope : Int,
+  selection : DaeStableRewriteSelection,
+  callee_abs : Int,
+  remove : Array[Bool],
+  entry_stack_values : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  localization : DaeCallsiteLocalizationContext,
+  traps_never_happen : Bool,
+  allow_stack_carried_void_effects : Bool,
+  stats? : DaeStableRewriteStats? = None,
+) -> DaeRewriteResult {
+  match stats {
+    Some(value) => value.scopes += 1
+    None => ()
+  }
+  let mut current = instrs.copy()
+  let mut calls_rewritten = 0
+  let mut instr_idx = instrs.length()
+  while instr_idx > 0 {
+    instr_idx -= 1
+    let instr_node = match
+      dae_stable_rewrite_selected_child(selection, scope, instr_idx) {
+      Some(node) => node
+      None => continue
+    }
+    if selection.workspace.call_stamps[instr_node] == selection.generation {
+      match
+        dae_target_callsite_evidence(
+          current[instr_idx],
+          callee_abs,
+          DaeTargetDirectOrReturnCall,
+        ) {
+        Some(_) => ()
+        None => return { instrs: [], calls_rewritten, ok: false, }
+      }
+      let evidence = match
+        dae_rewrite_callsite_with_localization_at(
+          current,
+          instr_idx,
+          remove,
+          localization.param_types,
+          entry_stack_values,
+          localization.first_scratch_local,
+          mod_,
+          func_type_indices,
+          existing_scratch_local_types=localization.scratch_local_types,
+          allow_stack_carried_void_effects~,
+          traps_never_happen~,
+        ) {
+        Some(value) => value
+        None => return { instrs: [], calls_rewritten, ok: false, }
+      }
+      localization.scratch_local_types.clear()
+      localization.scratch_local_types.append(evidence.scratch_local_types)
+      let mut param_idx = 0
+      while param_idx < evidence.localized_params.length() &&
+            param_idx < localization.localized_params.length() {
+        localization.localized_params[param_idx] = localization.localized_params[param_idx] ||
+          evidence.localized_params[param_idx]
+        param_idx += 1
+      }
+      current = evidence.instrs
+      calls_rewritten += 1
+      match stats {
+        Some(value) => value.calls += 1
+        None => ()
+      }
+      continue
+    }
+    let children = match
+      dae_nested_control_children_evidence(current[instr_idx], mod_) {
+      Some(value) => value
+      None => return { instrs: [], calls_rewritten, ok: false, }
+    }
+    let primary_kind = match current[instr_idx] {
+      @lib.Block(_, _) => 0
+      @lib.Loop(_, _) => 1
+      @lib.If(_, _, _) => 2
+      @lib.TryTable(_, _, _) => 4
+      _ => return { instrs: [], calls_rewritten, ok: false, }
+    }
+    let primary_node = dae_stable_rewrite_selected_child(
+      selection, instr_node, primary_kind,
+    )
+    let secondary_node = dae_stable_rewrite_selected_child(
+      selection, instr_node, 3,
+    )
+    if primary_node is None && secondary_node is None {
+      return { instrs: [], calls_rewritten, ok: false, }
+    }
+    let secondary = match secondary_node {
+      Some(node) => {
+        let body = match children.secondary_body {
+          Some(body) => body
+          None => return { instrs: [], calls_rewritten, ok: false, }
+        }
+        let result = dae_rewrite_calls_from_stable_selection_scope(
+          body,
+          node,
+          selection,
+          callee_abs,
+          remove,
+          children.entry_stack_values,
+          mod_,
+          func_type_indices,
+          localization,
+          traps_never_happen,
+          allow_stack_carried_void_effects,
+          stats~,
+        )
+        if !result.ok {
+          return {
+            instrs: [],
+            calls_rewritten: calls_rewritten + result.calls_rewritten,
+            ok: false,
+          }
+        }
+        calls_rewritten += result.calls_rewritten
+        Some(result.instrs)
+      }
+      None => children.secondary_body
+    }
+    let primary = match primary_node {
+      Some(node) => {
+        let result = dae_rewrite_calls_from_stable_selection_scope(
+          children.primary_body,
+          node,
+          selection,
+          callee_abs,
+          remove,
+          children.entry_stack_values,
+          mod_,
+          func_type_indices,
+          localization,
+          traps_never_happen,
+          allow_stack_carried_void_effects,
+          stats~,
+        )
+        if !result.ok {
+          return {
+            instrs: [],
+            calls_rewritten: calls_rewritten + result.calls_rewritten,
+            ok: false,
+          }
+        }
+        calls_rewritten += result.calls_rewritten
+        result.instrs
+      }
+      None => children.primary_body
+    }
+    current[instr_idx] = match
+      dae_rebuild_nested_control_children(
+        current[instr_idx],
+        children,
+        primary,
+        secondary,
+      ) {
+      Some(value) => value
+      None => return { instrs: [], calls_rewritten, ok: false, }
+    }
+    match stats {
+      Some(value) => value.structured_rebuilds += 1
+      None => ()
+    }
+  }
+  { instrs: current, calls_rewritten, ok: true, }
+}
+
+///|
 fn dae_rewrite_calls_from_stable_callsites(
   body : Array[@lib.Instruction],
   callee_abs : Int,
@@ -22941,55 +23347,59 @@ fn dae_rewrite_calls_from_stable_callsites(
   localization : DaeCallsiteLocalizationContext,
   traps_never_happen? : Bool = false,
   allow_stack_carried_void_effects? : Bool = false,
+  rewrite_stats? : DaeStableRewriteStats? = None,
 ) -> DaeRewriteResult {
   let initial_scratch = localization.scratch_local_types.copy()
   let initial_localized = localization.localized_params.copy()
-  let mut current = body
-  let mut calls_rewritten = 0
-  let mut callsite_idx = info.calls.length()
-  while callsite_idx > 0 {
-    callsite_idx -= 1
-    let callsite = info.calls[callsite_idx]
+  let selected_paths : Array[DaeStablePath] = []
+  for callsite in info.calls {
     if callsite.callee_abs != callee_abs ||
       callsite.caller_def != caller_def ||
       !callsite.active ||
       callsite.path.length() == 0 {
       continue
     }
-    let result = dae_rewrite_call_at_stable_path(
-      current,
-      callsite.path.to_array(),
-      0,
-      callee_abs,
-      remove,
-      0,
-      mod_,
-      func_type_indices,
-      localization,
-      traps_never_happen~,
-      allow_stack_carried_void_effects~,
-    )
-    if !result.ok {
-      localization.scratch_local_types.clear()
-      localization.scratch_local_types.append(initial_scratch)
-      localization.localized_params.clear()
-      localization.localized_params.append(initial_localized)
-      return dae_rewrite_calls_instrs(
+    selected_paths.push(callsite.path)
+  }
+  if selected_paths.is_empty() {
+    return { instrs: body, calls_rewritten: 0, ok: true, }
+  }
+  let result = match dae_stable_rewrite_selection(selected_paths) {
+    Some(selection) =>
+      dae_rewrite_calls_from_stable_selection_scope(
         body,
+        -1,
+        selection,
         callee_abs,
         remove,
         0,
         mod_,
         func_type_indices,
-        localization=Some(localization),
-        traps_never_happen~,
-        allow_stack_carried_void_effects~,
+        localization,
+        traps_never_happen,
+        allow_stack_carried_void_effects,
+        stats=rewrite_stats,
       )
-    }
-    current = result.instrs
-    calls_rewritten += result.calls_rewritten
+    None => { instrs: [], calls_rewritten: 0, ok: false, }
   }
-  { instrs: current, calls_rewritten, ok: true, }
+  if result.ok {
+    return result
+  }
+  localization.scratch_local_types.clear()
+  localization.scratch_local_types.append(initial_scratch)
+  localization.localized_params.clear()
+  localization.localized_params.append(initial_localized)
+  dae_rewrite_calls_instrs(
+    body,
+    callee_abs,
+    remove,
+    0,
+    mod_,
+    func_type_indices,
+    localization=Some(localization),
+    traps_never_happen~,
+    allow_stack_carried_void_effects~,
+  )
 }
 
 ///|
@@ -24052,7 +24462,10 @@ fn dae_apply_rewrite_plan(
     graph.snapshot,
     plan.target_abs,
   )
-  if current_call_identities != plan.expected_call_identities {
+  if !dae_direct_call_identities_equal(
+      current_call_identities,
+      plan.expected_call_identities,
+    ) {
     return dae_rewrite_plan_rejection(mod_, DaeCallCountChanged)
   }
   let mut direct_calls = 0
@@ -25487,8 +25900,10 @@ fn dae_specialized_result_facts_are_current(
     None => return false
   }
   if current_results != facts.expected_results ||
-    dae_collect_target_call_identities(graph.snapshot, facts.target_abs) !=
-    facts.active_call_identities {
+    !dae_direct_call_identities_equal(
+      dae_collect_target_call_identities(graph.snapshot, facts.target_abs),
+      facts.active_call_identities,
+    ) {
     return false
   }
   let dependencies = dae_boundary_dependency_graph_new(graph)
@@ -46489,7 +46904,10 @@ fn dae_apply_component_rewrite_plan(
       actual_call_identities.push(identity)
     }
   }
-  if actual_call_identities != plan.expected_call_identities {
+  if !dae_direct_call_identities_equal(
+      actual_call_identities,
+      plan.expected_call_identities,
+    ) {
     return DaeComponentPlanRejected(current, DaeCallCountChanged)
   }
   for expected in plan.expected_callers {

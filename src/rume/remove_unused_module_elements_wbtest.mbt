@@ -134,6 +134,35 @@ test "RUME proves directly rooted type sections without body scans" {
 }
 
 ///|
+test "RUME guards external source-map and debug references" {
+  let base = rume_perf_direct_type_root_fixture(1, 1)
+  assert_true(rume_run_module_pass(base) != base)
+  for section_name in ["sourceMappingURL", "external_debug_info"] {
+    let guarded = base.with_custom_secs([
+      @lib.CustomSec::new(
+        @lib.Name::from_string(section_name),
+        b"external-debug-reference",
+      ),
+    ])
+    assert_true(rume_module_has_offset_sensitive_metadata(guarded))
+    @debug.assert_eq(rume_run_module_pass(guarded), guarded)
+  }
+}
+
+///|
+test "RUME local branch-hint spelling is not offset-bearing metadata" {
+  let module_ = rume_perf_direct_type_root_fixture(1, 1).with_func_annotation_sec(
+    @lib.FuncAnnotationSec::new([
+      @lib.FuncAnnotationAssoc::new(0U, [
+        @lib.FuncAnnotation::new("metadata.code.branch_hint", args=["\"\\01\""]),
+      ]),
+    ]),
+  )
+  assert_false(rume_module_has_offset_sensitive_metadata(module_))
+  assert_true(rume_run_module_pass(module_) != module_)
+}
+
+///|
 test "RUME closes type dependencies with one visit per type" {
   let type_count = 64
   let rec_types : Array[@lib.RecType] = []
@@ -376,4 +405,12 @@ test "remove-unused-module-elements checks ordered element spans once" {
   let comparisons = [0]
   assert_false(rume_sorted_spans_overlap(spans, Some(comparisons)))
   @debug.assert_eq(comparisons[0], spans.length() - 1)
+}
+
+///|
+test "remove-unused-module-elements detects overlap at saturated UInt64 end" {
+  let max = 0xffffffffffffffffUL
+  assert_true(rume_sorted_spans_overlap([(max, 1UL), (max, 1UL)], None))
+  assert_false(rume_sorted_spans_overlap([(max - 1UL, 1UL), (max, 1UL)], None))
+  assert_false(rume_sorted_spans_overlap([(max, 0UL), (max, 1UL)], None))
 }

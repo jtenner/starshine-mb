@@ -174,6 +174,48 @@ fn code_pushing_wbtest_run_hot_func(func : @ir.HotFunc) -> @ir.HotFunc {
 }
 
 ///|
+test "code-pushing batches independent root rewrites in one scan" {
+  let source = StringBuilder::new()
+  source.write_string("(module (func (param i32)")
+  for _ in 0..<32 {
+    source.write_string(" (local i32)")
+  }
+  for local_id = 1; local_id <= 32; local_id = local_id + 1 {
+    source.write_string(" (local.set ")
+    source.write_string(local_id.to_string())
+    source.write_string(" (i32.const 7))")
+    source.write_string(" (if (local.get 0) (then (drop (local.get ")
+    source.write_string(local_id.to_string())
+    source.write_string("))))")
+  }
+  source.write_string("))")
+  let func = code_pushing_wbtest_lift_hot_raw(source.to_string())
+  let ctx = HotPassContext::new(
+    code_pushing_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  let inventory = CodePushingLocalInventory::from_func(func)
+  assert_true(
+    code_pushing_scan_region_once(
+      ctx,
+      func,
+      @ir.HotRegionRef::root(),
+      inventory,
+    ),
+  )
+  let mut replaced = 0
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    if @ir.hot_node_get(func, @ir.hot_root_get(func, idx)).op is @ir.HotOp::Nop {
+      replaced += 1
+    }
+  }
+  assert_eq(replaced, 32)
+}
+
+///|
 fn code_pushing_wbtest_expect_op(
   func : @ir.HotFunc,
   node_id : Int,

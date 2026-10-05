@@ -792,10 +792,71 @@ fn vacuum_branch_targets_only_label(
 }
 
 ///|
+priv struct VacuumDroppedNodeWorkspace {
+  states : Array[Int]
+  generations : Array[Int]
+  touched : Array[@ir.NodeId]
+  mut generation : Int
+}
+
+///|
+fn VacuumDroppedNodeWorkspace::new(
+  node_count : Int,
+) -> VacuumDroppedNodeWorkspace {
+  {
+    states: Array::make(node_count, 0),
+    generations: Array::make(node_count, 0),
+    touched: [],
+    generation: 0,
+  }
+}
+
+///|
+fn VacuumDroppedNodeWorkspace::begin_query(
+  self : VacuumDroppedNodeWorkspace,
+  node_count : Int,
+) -> Unit {
+  while self.states.length() < node_count {
+    self.states.push(0)
+    self.generations.push(0)
+  }
+  self.generation += 1
+  self.touched.clear()
+}
+
+///|
+fn VacuumDroppedNodeWorkspace::state(
+  self : VacuumDroppedNodeWorkspace,
+  node_id : @ir.NodeId,
+) -> Int {
+  if node_id < 0 || node_id >= self.states.length() {
+    return 0
+  }
+  if self.generations[node_id] == self.generation {
+    self.states[node_id]
+  } else {
+    0
+  }
+}
+
+///|
+fn VacuumDroppedNodeWorkspace::set_state(
+  self : VacuumDroppedNodeWorkspace,
+  node_id : @ir.NodeId,
+  state : Int,
+) -> Unit {
+  if self.generations[node_id] != self.generation {
+    self.generations[node_id] = self.generation
+    self.touched.push(node_id)
+  }
+  self.states[node_id] = state
+}
+
+///|
 fn vacuum_block_has_only_pure_self_branches(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
-  states : Array[Int],
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> Bool {
   let label_id = @ir.hot_control_node_label(func, node_id)
   let body_ref = @ir.hot_region_body_ref(func, node_id)
@@ -811,7 +872,7 @@ fn vacuum_block_has_only_pure_self_branches(
           if !vacuum_can_remove_dropped_node_memoized(
               func,
               @ir.hot_child_get(func, root, slot),
-              states,
+              workspace,
             ) {
             return false
           }
@@ -819,7 +880,7 @@ fn vacuum_block_has_only_pure_self_branches(
         saw_self_branch = true
       }
       _ =>
-        if !vacuum_can_remove_dropped_node_memoized(func, root, states) {
+        if !vacuum_can_remove_dropped_node_memoized(func, root, workspace) {
           return false
         }
     }
@@ -831,13 +892,13 @@ fn vacuum_block_has_only_pure_self_branches(
 fn vacuum_region_can_remove_dropped_nodes(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  states : Array[Int],
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if !vacuum_can_remove_dropped_node_memoized(
         func,
         @ir.hot_region_get(func, region_ref, idx),
-        states,
+        workspace,
       ) {
       return false
     }
@@ -846,34 +907,32 @@ fn vacuum_region_can_remove_dropped_nodes(
 }
 
 ///|
-fn vacuum_can_remove_dropped_node(
+fn vacuum_can_remove_dropped_node_with_workspace(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> Bool {
-  vacuum_can_remove_dropped_node_memoized(
-    func,
-    node_id,
-    Array::make(@ir.hot_node_count(func), 0),
-  )
+  workspace.begin_query(@ir.hot_node_count(func))
+  vacuum_can_remove_dropped_node_memoized(func, node_id, workspace)
 }
 
 ///|
 fn vacuum_can_remove_dropped_node_memoized(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
-  states : Array[Int],
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  if node_id >= states.length() {
+  if node_id >= workspace.states.length() {
     return false
   }
-  match states[node_id] {
+  match workspace.state(node_id) {
     1 => return false
     2 => return true
     3 => return false
-    _ => states[node_id] = 1
+    _ => workspace.set_state(node_id, 1)
   }
   let node = @ir.hot_node_get(func, node_id)
   let is_removable_shape = match node.op {
@@ -892,24 +951,24 @@ fn vacuum_can_remove_dropped_node_memoized(
     | @ir.HotOp::TupleExtract
     | @ir.HotOp::RefTest => true
     @ir.HotOp::Block =>
-      vacuum_block_has_only_pure_self_branches(func, node_id, states)
+      vacuum_block_has_only_pure_self_branches(func, node_id, workspace)
     @ir.HotOp::Loop =>
       vacuum_region_can_remove_dropped_nodes(
         func,
         @ir.hot_region_body_ref(func, node_id),
-        states,
+        workspace,
       )
     @ir.HotOp::If =>
       if !vacuum_region_can_remove_dropped_nodes(
           func,
           @ir.hot_region_then_ref(func, node_id),
-          states,
+          workspace,
         ) {
         false
       } else {
         match @ir.hot_region_else_ref(func, node_id) {
           Some(else_ref) =>
-            vacuum_region_can_remove_dropped_nodes(func, else_ref, states)
+            vacuum_region_can_remove_dropped_nodes(func, else_ref, workspace)
           None => false
         }
       }
@@ -922,7 +981,7 @@ fn vacuum_can_remove_dropped_node_memoized(
     _ => false
   }
   if !is_removable_shape {
-    states[node_id] = 3
+    workspace.set_state(node_id, 3)
     return false
   }
   let value_child_count = if node.op is @ir.HotOp::If {
@@ -936,13 +995,13 @@ fn vacuum_can_remove_dropped_node_memoized(
     if !vacuum_can_remove_dropped_node_memoized(
         func,
         @ir.hot_child_get(func, node_id, slot),
-        states,
+        workspace,
       ) {
-      states[node_id] = 3
+      workspace.set_state(node_id, 3)
       return false
     }
   }
-  states[node_id] = 2
+  workspace.set_state(node_id, 2)
   true
 }
 
@@ -1008,10 +1067,11 @@ priv struct VacuumDroppedParentReplacement {
 }
 
 ///|
-fn vacuum_dropped_parent_replacement(
+fn vacuum_dropped_parent_replacement_with_workspace(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> VacuumDroppedParentReplacement? {
   if node_id < 0 ||
     !@ir.hot_node_is_live(func, node_id) ||
@@ -1029,10 +1089,13 @@ fn vacuum_dropped_parent_replacement(
     }
     let wrapper_count = detached.length()
     let roots : Array[@ir.NodeId] = []
-    if vacuum_can_remove_dropped_node(func, current) {
+    if vacuum_can_remove_dropped_node_with_workspace(func, current, workspace) {
       detached.push(current)
     } else {
-      match vacuum_dropped_parent_replacement(ctx, func, current) {
+      match
+        vacuum_dropped_parent_replacement_with_workspace(
+          ctx, func, current, workspace,
+        ) {
         Some(nested) => {
           roots.append(nested.roots)
           detached.append(nested.detached)
@@ -1053,11 +1116,14 @@ fn vacuum_dropped_parent_replacement(
   let detached : Array[@ir.NodeId] = [node_id]
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
-    if vacuum_can_remove_dropped_node(func, child_id) {
+    if vacuum_can_remove_dropped_node_with_workspace(func, child_id, workspace) {
       detached.push(child_id)
       continue
     }
-    match vacuum_dropped_parent_replacement(ctx, func, child_id) {
+    match
+      vacuum_dropped_parent_replacement_with_workspace(
+        ctx, func, child_id, workspace,
+      ) {
       Some(nested) => {
         roots.append(nested.roots)
         detached.append(nested.detached)
@@ -1078,6 +1144,7 @@ fn vacuum_dropped_parent_replacement(
 fn vacuum_dropped_heap_constructor_replacement(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> Array[@ir.NodeId]? {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(
@@ -1096,7 +1163,7 @@ fn vacuum_dropped_heap_constructor_replacement(
   let replacement : Array[@ir.NodeId] = []
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     let operand = @ir.hot_child_get(func, node_id, slot)
-    if !vacuum_can_remove_dropped_node(func, operand) {
+    if !vacuum_can_remove_dropped_node_with_workspace(func, operand, workspace) {
       replacement.push(@ir.hot_build_drop(func, operand))
     }
   }
@@ -1113,6 +1180,7 @@ priv struct VacuumFreshArraySetReplacement {
 fn vacuum_fresh_array_set_replacement(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> VacuumFreshArraySetReplacement? {
   if @ir.hot_child_count(func, node_id) != 3 {
     return None
@@ -1144,7 +1212,9 @@ fn vacuum_fresh_array_set_replacement(
   }
   let value = @ir.hot_child_get(func, node_id, 2)
   Some({
-    roots: if vacuum_can_remove_dropped_node(func, value) {
+    roots: if vacuum_can_remove_dropped_node_with_workspace(
+        func, value, workspace,
+      ) {
       []
     } else {
       [@ir.hot_build_drop(func, value)]
@@ -1815,10 +1885,11 @@ fn vacuum_delete_known_detached_non_control_nodes_batch(
 }
 
 ///|
-fn hot_pass_vacuum_rewrite_dropped_parents_batch(
+fn hot_pass_vacuum_rewrite_dropped_parents_batch_with_workspace(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if root_count == 0 {
@@ -1832,7 +1903,10 @@ fn hot_pass_vacuum_rewrite_dropped_parents_batch(
     if @ir.hot_node_get(func, root_id).op is @ir.HotOp::Drop &&
       @ir.hot_child_count(func, root_id) == 1 {
       let child_id = @ir.hot_child_get(func, root_id, 0)
-      match vacuum_dropped_parent_replacement(ctx, func, child_id) {
+      match
+        vacuum_dropped_parent_replacement_with_workspace(
+          ctx, func, child_id, workspace,
+        ) {
         Some(rewrite) => {
           next_roots.append(rewrite.roots)
           detached.push(root_id)
@@ -1958,12 +2032,13 @@ fn hot_pass_vacuum_sink_drop_into_if_arms(
 }
 
 ///|
-fn hot_pass_vacuum_remove_empty_if(
+fn hot_pass_vacuum_remove_empty_if_with_workspace(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   idx : Int,
   node_id : @ir.NodeId,
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1989,7 +2064,9 @@ fn hot_pass_vacuum_remove_empty_if(
     return false
   }
   let condition = @ir.hot_child_get(func, node_id, 0)
-  let replacement = if vacuum_can_remove_dropped_node(func, condition) {
+  let replacement = if vacuum_can_remove_dropped_node_with_workspace(
+      func, condition, workspace,
+    ) {
     []
   } else {
     [@ir.hot_build_drop(func, condition)]
@@ -2057,6 +2134,7 @@ fn hot_pass_remove_node_nested_region_nops(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
   seen : Array[Bool],
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> Bool {
   if node_id < 0 ||
     node_id >= seen.length() ||
@@ -2069,19 +2147,21 @@ fn hot_pass_remove_node_nested_region_nops(
   let mut changed = false
   match node.op {
     @ir.HotOp::Block =>
-      changed = hot_pass_remove_region_nops(
+      changed = hot_pass_remove_region_nops_with_workspace(
           ctx,
           func,
           @ir.hot_region_body_ref(func, node_id),
           seen,
+          workspace,
         ) ||
         changed
     @ir.HotOp::Loop =>
-      changed = hot_pass_remove_region_nops(
+      changed = hot_pass_remove_region_nops_with_workspace(
           ctx,
           func,
           @ir.hot_region_body_ref(func, node_id),
           seen,
+          workspace,
         ) ||
         changed
     @ir.HotOp::If => {
@@ -2091,19 +2171,23 @@ fn hot_pass_remove_node_nested_region_nops(
             func,
             @ir.hot_child_get(func, node_id, 0),
             seen,
+            workspace,
           ) ||
           changed
       }
-      changed = hot_pass_remove_region_nops(
+      changed = hot_pass_remove_region_nops_with_workspace(
           ctx,
           func,
           @ir.hot_region_then_ref(func, node_id),
           seen,
+          workspace,
         ) ||
         changed
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
-          changed = hot_pass_remove_region_nops(ctx, func, else_region, seen) ||
+          changed = hot_pass_remove_region_nops_with_workspace(
+              ctx, func, else_region, seen, workspace,
+            ) ||
             changed
         None => ()
       }
@@ -2111,33 +2195,38 @@ fn hot_pass_remove_node_nested_region_nops(
         changed
     }
     @ir.HotOp::Try => {
-      changed = hot_pass_remove_region_nops(
+      changed = hot_pass_remove_region_nops_with_workspace(
           ctx,
           func,
           @ir.hot_region_body_ref(func, node_id),
           seen,
+          workspace,
         ) ||
         changed
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_region) =>
-          changed = hot_pass_remove_region_nops(ctx, func, catch_region, seen) ||
+          changed = hot_pass_remove_region_nops_with_workspace(
+              ctx, func, catch_region, seen, workspace,
+            ) ||
             changed
         None => ()
       }
     }
     @ir.HotOp::TryTable => {
-      changed = hot_pass_remove_region_nops(
+      changed = hot_pass_remove_region_nops_with_workspace(
           ctx,
           func,
           @ir.hot_region_body_ref(func, node_id),
           seen,
+          workspace,
         ) ||
         changed
-      changed = hot_pass_remove_region_nops(
+      changed = hot_pass_remove_region_nops_with_workspace(
           ctx,
           func,
           @ir.hot_region_catch_list_ref(func, node_id),
           seen,
+          workspace,
         ) ||
         changed
     }
@@ -2148,6 +2237,7 @@ fn hot_pass_remove_node_nested_region_nops(
             func,
             @ir.hot_child_get(func, node_id, slot),
             seen,
+            workspace,
           ) ||
           changed
       }
@@ -2161,6 +2251,7 @@ fn hot_pass_remove_node_child_nested_region_nops(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
   seen : Array[Bool],
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2184,6 +2275,7 @@ fn hot_pass_remove_node_child_nested_region_nops(
             func,
             @ir.hot_child_get(func, node_id, 0),
             seen,
+            workspace,
           ) ||
           changed
       }
@@ -2194,6 +2286,7 @@ fn hot_pass_remove_node_child_nested_region_nops(
             func,
             @ir.hot_child_get(func, node_id, slot),
             seen,
+            workspace,
           ) ||
           changed
       }
@@ -2256,10 +2349,11 @@ fn hot_pass_vacuum_batch_interleaved_dropped_local_gets(
 }
 
 ///|
-fn hot_pass_vacuum_remove_dropped_local_gets_in_region(
+fn hot_pass_vacuum_remove_dropped_local_gets_in_region_with_workspace(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> Bool {
   let mut changed = hot_pass_vacuum_batch_interleaved_dropped_local_gets(
     ctx, func, region_ref,
@@ -2269,7 +2363,9 @@ fn hot_pass_vacuum_remove_dropped_local_gets_in_region(
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     let node = @ir.hot_node_get(func, node_id)
     if node.op is @ir.HotOp::If &&
-      hot_pass_vacuum_remove_empty_if(ctx, func, region_ref, idx, node_id) {
+      hot_pass_vacuum_remove_empty_if_with_workspace(
+        ctx, func, region_ref, idx, node_id, workspace,
+      ) {
       changed = true
       continue
     }
@@ -2317,59 +2413,66 @@ fn hot_pass_vacuum_remove_dropped_local_gets_in_region(
     }
     match node.op {
       @ir.HotOp::Block | @ir.HotOp::Loop =>
-        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
+        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region_with_workspace(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            workspace,
           ) ||
           changed
       @ir.HotOp::If => {
-        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
+        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region_with_workspace(
             ctx,
             func,
             @ir.hot_region_then_ref(func, node_id),
+            workspace,
           ) ||
           changed
         match @ir.hot_region_else_ref(func, node_id) {
           Some(else_ref) =>
-            changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
-                ctx, func, else_ref,
+            changed = hot_pass_vacuum_remove_dropped_local_gets_in_region_with_workspace(
+                ctx, func, else_ref, workspace,
               ) ||
               changed
           None => ()
         }
-        if hot_pass_vacuum_remove_empty_if(ctx, func, region_ref, idx, node_id) {
+        if hot_pass_vacuum_remove_empty_if_with_workspace(
+            ctx, func, region_ref, idx, node_id, workspace,
+          ) {
           changed = true
           continue
         }
       }
       @ir.HotOp::Try => {
-        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
+        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region_with_workspace(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            workspace,
           ) ||
           changed
         match @ir.hot_region_catch_ref(func, node_id) {
           Some(catch_ref) =>
-            changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
-                ctx, func, catch_ref,
+            changed = hot_pass_vacuum_remove_dropped_local_gets_in_region_with_workspace(
+                ctx, func, catch_ref, workspace,
               ) ||
               changed
           None => ()
         }
       }
       @ir.HotOp::TryTable => {
-        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
+        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region_with_workspace(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
+            workspace,
           ) ||
           changed
-        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
+        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region_with_workspace(
             ctx,
             func,
             @ir.hot_region_catch_list_ref(func, node_id),
+            workspace,
           ) ||
           changed
       }
@@ -2381,23 +2484,24 @@ fn hot_pass_vacuum_remove_dropped_local_gets_in_region(
 }
 
 ///|
-fn hot_pass_remove_region_nops(
+fn hot_pass_remove_region_nops_with_workspace(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   seen : Array[Bool],
+  workspace : VacuumDroppedNodeWorkspace,
 ) -> Bool {
-  let mut changed = hot_pass_vacuum_rewrite_dropped_parents_batch(
-    ctx, func, region_ref,
+  let mut changed = hot_pass_vacuum_rewrite_dropped_parents_batch_with_workspace(
+    ctx, func, region_ref, workspace,
   )
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     changed = hot_pass_remove_node_child_nested_region_nops(
-        ctx, func, node_id, seen,
+        ctx, func, node_id, seen, workspace,
       ) ||
       changed
-    match vacuum_fresh_array_set_replacement(func, node_id) {
+    match vacuum_fresh_array_set_replacement(func, node_id, workspace) {
       Some(rewrite) => {
         let removed = pass_splice_region(
           ctx,
@@ -2455,7 +2559,9 @@ fn hot_pass_remove_region_nops(
         }
         match preserved_operand {
           Some(operand) => {
-            let replacement = if vacuum_can_remove_dropped_node(func, operand) {
+            let replacement = if vacuum_can_remove_dropped_node_with_workspace(
+                func, operand, workspace,
+              ) {
               []
             } else {
               [@ir.hot_build_drop(func, operand)]
@@ -2473,7 +2579,8 @@ fn hot_pass_remove_region_nops(
           }
           None => ()
         }
-        match vacuum_dropped_heap_constructor_replacement(func, child_id) {
+        match
+          vacuum_dropped_heap_constructor_replacement(func, child_id, workspace) {
           Some(replacement) => {
             let removed = pass_splice_region(
               ctx, func, region_ref, idx, 1, replacement,
@@ -2486,7 +2593,10 @@ fn hot_pass_remove_region_nops(
           }
           None => ()
         }
-        match vacuum_dropped_parent_replacement(ctx, func, child_id) {
+        match
+          vacuum_dropped_parent_replacement_with_workspace(
+            ctx, func, child_id, workspace,
+          ) {
           Some(rewrite) => {
             let removed = pass_splice_region(
               ctx,
@@ -2506,7 +2616,9 @@ fn hot_pass_remove_region_nops(
           }
           None => ()
         }
-        if vacuum_can_remove_dropped_node(func, child_id) {
+        if vacuum_can_remove_dropped_node_with_workspace(
+            func, child_id, workspace,
+          ) {
           let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [])
           vacuum_delete_detached_non_control_nodes(ctx, func, removed)
           changed = true
@@ -2515,7 +2627,9 @@ fn hot_pass_remove_region_nops(
       }
       @ir.HotOp::Block => {
         let body_ref = @ir.hot_region_body_ref(func, node_id)
-        changed = hot_pass_remove_region_nops(ctx, func, body_ref, seen) ||
+        changed = hot_pass_remove_region_nops_with_workspace(
+            ctx, func, body_ref, seen, workspace,
+          ) ||
           changed
         if @ir.hot_region_root_count(func, body_ref) == 0 &&
           @ir.hot_type_result_arity(func, node.ty) == 0 {
@@ -2577,29 +2691,33 @@ fn hot_pass_remove_region_nops(
         }
       }
       @ir.HotOp::Loop =>
-        changed = hot_pass_remove_region_nops(
+        changed = hot_pass_remove_region_nops_with_workspace(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
             seen,
+            workspace,
           ) ||
           changed
       @ir.HotOp::If => {
-        changed = hot_pass_remove_region_nops(
+        changed = hot_pass_remove_region_nops_with_workspace(
             ctx,
             func,
             @ir.hot_region_then_ref(func, node_id),
             seen,
+            workspace,
           ) ||
           changed
         match @ir.hot_region_else_ref(func, node_id) {
           Some(else_region) =>
-            changed = hot_pass_remove_region_nops(ctx, func, else_region, seen) ||
+            changed = hot_pass_remove_region_nops_with_workspace(
+                ctx, func, else_region, seen, workspace,
+              ) ||
               changed
           None => ()
         }
-        let removed_empty = hot_pass_vacuum_remove_empty_if(
-          ctx, func, region_ref, idx, node_id,
+        let removed_empty = hot_pass_vacuum_remove_empty_if_with_workspace(
+          ctx, func, region_ref, idx, node_id, workspace,
         )
         changed = removed_empty || changed
         if removed_empty {
@@ -2633,33 +2751,38 @@ fn hot_pass_remove_region_nops(
         }
       }
       @ir.HotOp::Try => {
-        changed = hot_pass_remove_region_nops(
+        changed = hot_pass_remove_region_nops_with_workspace(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
             seen,
+            workspace,
           ) ||
           changed
         match @ir.hot_region_catch_ref(func, node_id) {
           Some(catch_region) =>
-            changed = hot_pass_remove_region_nops(ctx, func, catch_region, seen) ||
+            changed = hot_pass_remove_region_nops_with_workspace(
+                ctx, func, catch_region, seen, workspace,
+              ) ||
               changed
           None => ()
         }
       }
       @ir.HotOp::TryTable => {
-        changed = hot_pass_remove_region_nops(
+        changed = hot_pass_remove_region_nops_with_workspace(
             ctx,
             func,
             @ir.hot_region_body_ref(func, node_id),
             seen,
+            workspace,
           ) ||
           changed
-        changed = hot_pass_remove_region_nops(
+        changed = hot_pass_remove_region_nops_with_workspace(
             ctx,
             func,
             @ir.hot_region_catch_list_ref(func, node_id),
             seen,
+            workspace,
           ) ||
           changed
       }
@@ -2800,7 +2923,14 @@ fn hot_pipeline_instr_scan_record_branch_targets(
   instr : @lib.Instruction,
 ) -> Unit {
   match instr {
-    @lib.Br(target) | @lib.BrIf(target) =>
+    @lib.Br(target)
+    | @lib.BrIf(target)
+    | @lib.BrOnNull(target)
+    | @lib.BrOnNonNull(target)
+    | @lib.BrOnCast(target, _, _, _)
+    | @lib.BrOnCastFail(target, _, _, _)
+    | @lib.BrOnCastDescEq(target, _, _)
+    | @lib.BrOnCastDescEqFail(target, _, _) =>
       hot_pipeline_instr_scan_mark_branch_target(state, summary, target)
     @lib.BrTable(targets, default_target) => {
       for target in targets {
@@ -3043,8 +3173,17 @@ fn run_hot_pipeline_instr_scan_impl(
           else_may_fallthrough ||
           targeted
       }
-      @lib.Try(_, @lib.Expr(body), catches, _) => {
+      @lib.Try(_, @lib.Expr(body), catches, delegate) => {
         summary.has_structured_control = true
+        // A legacy delegate depth is relative to the surrounding scope, not
+        // the Try label installed for its protected body and handlers.
+        match delegate {
+          Some(target) => {
+            summary.has_branches = true
+            hot_pipeline_instr_scan_mark_branch_target(state, summary, target)
+          }
+          None => ()
+        }
         let token = hot_pipeline_instr_scan_push_control(state)
         let body_summary = run_hot_pipeline_instr_scan_impl(body, state)
         hot_pipeline_instr_scan_merge(summary, body_summary)
@@ -79017,6 +79156,24 @@ fn run_hot_pipeline_raw_merge_locals_call_store_shape(
           None => ()
         }
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        let (body_call, body_store) = run_hot_pipeline_raw_merge_locals_call_store_shape(
+          body,
+        )
+        has_call = has_call || body_call
+        has_store = has_store || body_store
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, catch_expr) | @lib.LegacyCatchAll(catch_expr) =>
+              catch_expr
+          }
+          let (catch_call, catch_store) = run_hot_pipeline_raw_merge_locals_call_store_shape(
+            catch_body,
+          )
+          has_call = has_call || catch_call
+          has_store = has_store || catch_store
+        }
+      }
       _ => ()
     }
   }
@@ -93969,7 +94126,10 @@ fn hot_pass_run_with_aggregate_perf_timer(
     "ssa" => ssa_full_run(ctx, func)
     "ssa-nomerge" => ssa_nomerge_run(ctx, func)
     "merge-locals" => merge_locals_run(ctx, func)
-    "vacuum" =>
+    "vacuum" => {
+      let dropped_node_workspace = VacuumDroppedNodeWorkspace::new(
+        @ir.hot_node_count(func),
+      )
       if hot_pass_vacuum_should_skip_root_local_set_stack_hazard(func) {
         pipeline_trace_hook(
           ctx.trace,
@@ -93981,25 +94141,28 @@ fn hot_pass_run_with_aggregate_perf_timer(
       } else if hot_pass_vacuum_remove_local_only_void_body(ctx, func) {
         HotPassResult::changed()
       } else if hot_pass_vacuum_should_skip_branchy_structured_writes(func) {
-        if hot_pass_vacuum_remove_dropped_local_gets_in_region(
+        if hot_pass_vacuum_remove_dropped_local_gets_in_region_with_workspace(
             ctx,
             func,
             @ir.HotRegionRef::root(),
+            dropped_node_workspace,
           ) {
           HotPassResult::changed()
         } else {
           HotPassResult::unchanged()
         }
-      } else if hot_pass_remove_region_nops(
+      } else if hot_pass_remove_region_nops_with_workspace(
           ctx,
           func,
           @ir.HotRegionRef::root(),
           Array::make(@ir.hot_node_count(func), false),
+          dropped_node_workspace,
         ) {
         HotPassResult::changed()
       } else {
         HotPassResult::unchanged()
       }
+    }
     "dead-code-elimination" => dead_code_elimination_run(ctx, func)
     "remove-unused-names" => remove_unused_names_run(ctx, func)
     "remove-unused-brs" => remove_unused_brs_run(ctx, func)

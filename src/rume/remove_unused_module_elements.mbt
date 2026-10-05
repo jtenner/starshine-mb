@@ -6,20 +6,11 @@ fn rume_module_has_offset_sensitive_metadata(mod_ : @lib.Module) -> Bool {
     if name.starts_with("metadata.code.") ||
       name.starts_with("reloc.") ||
       name == "linking" ||
+      name == "sourceMappingURL" ||
+      name == "external_debug_info" ||
       name.starts_with(".debug_") {
       return true
     }
-  }
-  match mod_.func_annotation_sec {
-    Some(@lib.FuncAnnotationSec(entries)) =>
-      for @lib.FuncAnnotationAssoc(_, annotations) in entries {
-        if annotations.any(fn(annotation) {
-            annotation.name == "metadata.code.branch_hint"
-          }) {
-          return true
-        }
-      }
-    None => ()
   }
   false
 }
@@ -274,6 +265,11 @@ fn rume_interval_end(start : UInt64, len : UInt64) -> UInt64 {
 }
 
 ///|
+fn rume_interval_end_saturates(start : UInt64, len : UInt64) -> Bool {
+  len > 0UL && len > 0xffffffffffffffffUL - start
+}
+
+///|
 fn rume_sorted_spans_overlap(
   spans : Array[(UInt64, UInt64)],
   comparisons : Array[Int]?,
@@ -291,18 +287,26 @@ fn rume_sorted_spans_overlap(
     }
   })
   let mut covered_end = rume_interval_end(spans[0].0, spans[0].1)
+  let mut covered_end_saturates = rume_interval_end_saturates(
+    spans[0].0,
+    spans[0].1,
+  )
   for idx = 1; idx < spans.length(); idx = idx + 1 {
     match comparisons {
       Some(counter) => counter[0] += 1
       None => ()
     }
     let (start, len) = spans[idx]
-    if len > 0UL && start < covered_end {
+    if len > 0UL &&
+      (start < covered_end || (covered_end_saturates && start == covered_end)) {
       return true
     }
     let end = rume_interval_end(start, len)
     if end > covered_end {
       covered_end = end
+      covered_end_saturates = rume_interval_end_saturates(start, len)
+    } else if end == covered_end && rume_interval_end_saturates(start, len) {
+      covered_end_saturates = true
     }
   }
   false

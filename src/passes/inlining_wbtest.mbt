@@ -201,8 +201,30 @@ test "inlining graph reachability preserves cycle-only self reachability" {
   assert_false(inl_reachability_reaches(reachability, 0, 0))
   assert_false(inl_reachability_reaches(reachability, 0, 3))
   assert_false(inl_reachability_reaches(reachability, 3, 3))
+  @debug.assert_eq(inl_reachability_scc_members(reachability, 0), [0])
+  @debug.assert_eq(inl_reachability_scc_members(reachability, 1), [1, 2])
+  @debug.assert_eq(inl_reachability_scc_members(reachability, 2), [1, 2])
+  @debug.assert_eq(inl_reachability_scc_members(reachability, 3), [3])
   @debug.assert_eq(reachability.scc_by_node.length(), graph.length())
   @debug.assert_eq(reachability.cached_reachable.length(), graph.length())
+}
+
+///|
+test "inlining SCC member indexing scales across disconnected singletons" {
+  let count = 512
+  let graph : Array[Array[Int]] = []
+  for _ in 0..<count {
+    graph.push([])
+  }
+  let reachability = inl_build_graph_reachability(graph)
+  let visits = [0]
+  for node = 0; node < count; node = node + 1 {
+    @debug.assert_eq(
+      inl_reachability_scc_members(reachability, node, visits=Some(visits)),
+      [node],
+    )
+  }
+  assert_eq(visits[0], count)
 }
 
 ///|

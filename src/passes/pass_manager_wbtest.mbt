@@ -16626,7 +16626,10 @@ test "hot vacuum classifies dropped pure self-branch result blocks as removable"
   assert_true(@ir.hot_node_get(func, drop).op is @ir.HotOp::Drop)
   let block = @ir.hot_child_get(func, drop, 0)
   assert_true(@ir.hot_node_get(func, block).op is @ir.HotOp::Block)
-  assert_true(vacuum_can_remove_dropped_node(func, block))
+  let workspace = VacuumDroppedNodeWorkspace::new(@ir.hot_node_count(func))
+  assert_true(
+    vacuum_can_remove_dropped_node_with_workspace(func, block, workspace),
+  )
 }
 
 ///|

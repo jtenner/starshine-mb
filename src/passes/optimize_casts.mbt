@@ -649,18 +649,25 @@ fn oc_collect_written_locals(
   func : @ir.HotFunc,
   node_id : Int,
   writes : Array[Int],
+  write_mask : Array[Bool],
 ) -> Unit {
   if !@ir.hot_node_is_live(func, node_id) {
     return
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => writes.push(node.imm0)
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      if node.imm0 >= 0 &&
+        node.imm0 < write_mask.length() &&
+        !write_mask[node.imm0] {
+        write_mask[node.imm0] = true
+        writes.push(node.imm0)
+      }
     _ => ()
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
-    oc_collect_written_locals(func, child_id, writes)
+    oc_collect_written_locals(func, child_id, writes, write_mask)
   }
 }
 
@@ -1060,73 +1067,54 @@ fn oc_existing_fresh_can_feed_refinement_source(
 }
 
 ///|
-fn oc_refinements_allow_retarget(
+fn oc_indexed_refinement_blocks_retarget(
   module_ctx : @ir.HotModuleContext,
   func : @ir.HotFunc,
   refinements : Array[(Int, Int)],
+  refinement_heads : Array[Int],
+  refinement_next : Array[Int],
   local_id : Int,
   best_cast : Int,
   has_existing_fresh : Bool,
   moved_refinalized_refinements : Array[Int],
 ) -> Bool {
-  let mut saw_refinement = false
-  for refinement in refinements {
-    if refinement.0 == local_id {
-      saw_refinement = true
-      let can_feed_existing_equal = has_existing_fresh &&
-        oc_existing_fresh_can_feed_refinement_source(
-          func,
-          best_cast,
-          refinement.1,
-        )
-      let can_feed_refinalized_equal = oc_contains_local(
-          moved_refinalized_refinements,
-          refinement.1,
-        ) &&
-        oc_existing_fresh_can_feed_refinement_source(
-          func,
-          best_cast,
-          refinement.1,
-        )
-      let can_feed_existing_source = has_existing_fresh &&
-        oc_ref_cast_source_can_read_best_cast(
-          module_ctx,
-          func,
-          best_cast,
-          refinement.1,
-        )
-      if !oc_best_cast_can_feed_refinement_source(
-          module_ctx,
-          func,
-          best_cast,
-          refinement.1,
-        ) &&
-        !can_feed_existing_equal &&
-        !can_feed_refinalized_equal &&
-        !can_feed_existing_source {
-        return false
-      }
-    }
-  }
-  saw_refinement
-}
-
-///|
-fn oc_refinement_blocks_retarget(
-  module_ctx : @ir.HotModuleContext,
-  func : @ir.HotFunc,
-  refinements : Array[(Int, Int)],
-  local_id : Int,
-  best_cast : Int,
-  has_existing_fresh : Bool,
-  moved_refinalized_refinements : Array[Int],
-) -> Bool {
-  for refinement in refinements {
-    if refinement.0 == local_id {
-      return !oc_refinements_allow_retarget(
-        module_ctx, func, refinements, local_id, best_cast, has_existing_fresh, moved_refinalized_refinements,
+  let mut at = refinement_heads[local_id]
+  while at >= 0 {
+    let refinement = refinements[at]
+    let can_feed_existing_equal = has_existing_fresh &&
+      oc_existing_fresh_can_feed_refinement_source(
+        func,
+        best_cast,
+        refinement.1,
       )
+    let can_feed_refinalized_equal = oc_contains_local(
+        moved_refinalized_refinements,
+        refinement.1,
+      ) &&
+      oc_existing_fresh_can_feed_refinement_source(
+        func,
+        best_cast,
+        refinement.1,
+      )
+    let can_feed_existing_source = has_existing_fresh &&
+      oc_ref_cast_source_can_read_best_cast(
+        module_ctx,
+        func,
+        best_cast,
+        refinement.1,
+      )
+    if !oc_best_cast_can_feed_refinement_source(
+        module_ctx,
+        func,
+        best_cast,
+        refinement.1,
+      ) &&
+      !can_feed_existing_equal &&
+      !can_feed_refinalized_equal &&
+      !can_feed_existing_source {
+      return true
     }
+    at = refinement_next[at]
   }
   false
 }
@@ -1767,23 +1755,32 @@ fn oc_clear_pending_refinements(
 fn oc_clear_later_reuse(
   best_casts : Array[Int],
   fresh_locals : Array[Int],
+  active_best_mask : Array[Bool],
+  active_best_locals : Array[Int],
+  fresh_by_cast : Array[Int],
+  fresh_cast_ids : Array[Int],
 ) -> Unit {
-  for i = 0; i < best_casts.length(); i = i + 1 {
-    best_casts[i] = -1
-    fresh_locals[i] = -1
+  for local_id in active_best_locals {
+    best_casts[local_id] = -1
+    fresh_locals[local_id] = -1
+    active_best_mask[local_id] = false
   }
+  active_best_locals.clear()
+  for cast_id in fresh_cast_ids {
+    fresh_by_cast[cast_id] = -1
+  }
+  fresh_cast_ids.clear()
 }
 
 ///|
 fn oc_find_fresh_local_for_cast(
-  best_casts : Array[Int],
-  fresh_locals : Array[Int],
+  fresh_by_cast : Array[Int],
   cast_id : Int,
 ) -> Int? {
-  for i = 0; i < best_casts.length(); i = i + 1 {
-    if best_casts[i] == cast_id && fresh_locals[i] >= 0 {
-      return Some(fresh_locals[i])
-    }
+  if cast_id >= 0 &&
+    cast_id < fresh_by_cast.length() &&
+    fresh_by_cast[cast_id] >= 0 {
+    return Some(fresh_by_cast[cast_id])
   }
   None
 }
@@ -2188,6 +2185,17 @@ fn oc_later_reuse_scan_region(
   touched_get_locals : Array[Int],
   retarget_mask : Array[Bool],
   retarget_locals : Array[Int],
+  write_mask : Array[Bool],
+  writes : Array[Int],
+  refinements : Array[(Int, Int)],
+  refinement_aliases : Array[(Int, Int)],
+  refinement_heads : Array[Int],
+  refinement_next : Array[Int],
+  refinement_head_touched : Array[Int],
+  active_best_mask : Array[Bool],
+  active_best_locals : Array[Int],
+  fresh_by_cast : Array[Int],
+  fresh_cast_ids : Array[Int],
   region : @ir.HotRegionRef,
 ) -> Bool {
   let mut changed = false
@@ -2209,6 +2217,17 @@ fn oc_later_reuse_scan_region(
               touched_get_locals,
               retarget_mask,
               retarget_locals,
+              write_mask,
+              writes,
+              refinements,
+              refinement_aliases,
+              refinement_heads,
+              refinement_next,
+              refinement_head_touched,
+              active_best_mask,
+              active_best_locals,
+              fresh_by_cast,
+              fresh_cast_ids,
               @ir.hot_region_body_ref(func, block_id),
             ) {
             changed = true
@@ -2217,11 +2236,31 @@ fn oc_later_reuse_scan_region(
         }
       None => ()
     }
-    let writes : Array[Int] = []
-    oc_collect_written_locals(func, root_id, writes)
-    let refinements : Array[(Int, Int)] = []
+    for local_id in writes {
+      write_mask[local_id] = false
+    }
+    writes.clear()
+    oc_collect_written_locals(func, root_id, writes, write_mask)
+    for local_id in refinement_head_touched {
+      refinement_heads[local_id] = -1
+    }
+    refinement_head_touched.clear()
+    refinements.clear()
+    refinement_next.clear()
     oc_collect_refinements(func, root_id, refinements)
-    let refinement_aliases : Array[(Int, Int)] = []
+    for idx = 0; idx < refinements.length(); idx = idx + 1 {
+      let local_id = refinements[idx].0
+      if local_id >= 0 && local_id < local_count {
+        if refinement_heads[local_id] < 0 {
+          refinement_head_touched.push(local_id)
+        }
+        refinement_next.push(refinement_heads[local_id])
+        refinement_heads[local_id] = idx
+      } else {
+        refinement_next.push(-1)
+      }
+    }
+    refinement_aliases.clear()
     oc_collect_refinement_tee_source_aliases(func, root_id, refinement_aliases)
     for local_id in touched_get_locals {
       local_get_counts[local_id] = 0
@@ -2236,16 +2275,21 @@ fn oc_later_reuse_scan_region(
     retarget_locals.clear()
     let has_linear_barrier = oc_node_has_linear_block_barrier(func, root_id)
     if has_linear_barrier {
-      oc_clear_later_reuse(best_casts, fresh_locals)
+      oc_clear_later_reuse(
+        best_casts, fresh_locals, active_best_mask, active_best_locals, fresh_by_cast,
+        fresh_cast_ids,
+      )
     } else {
       for local_id in touched_get_locals {
         let best_cast = best_casts[local_id]
         if best_cast >= 0 &&
-          !oc_contains_local(writes, local_id) &&
-          !oc_refinement_blocks_retarget(
+          !write_mask[local_id] &&
+          !oc_indexed_refinement_blocks_retarget(
             module_ctx,
             func,
             refinements,
+            refinement_heads,
+            refinement_next,
             local_id,
             best_cast,
             fresh_locals[local_id] >= 0,
@@ -2254,8 +2298,7 @@ fn oc_later_reuse_scan_region(
           let fresh_local = if fresh_locals[local_id] >= 0 {
             fresh_locals[local_id]
           } else {
-            match
-              oc_find_fresh_local_for_cast(best_casts, fresh_locals, best_cast) {
+            match oc_find_fresh_local_for_cast(fresh_by_cast, best_cast) {
               Some(fresh) => {
                 fresh_locals[local_id] = fresh
                 fresh
@@ -2276,6 +2319,10 @@ fn oc_later_reuse_scan_region(
                 )
                 fresh_locals[local_id] = fresh
                 ignore(oc_wrap_refinement_with_tee(ctx, func, best_cast, fresh))
+                if best_cast >= 0 && best_cast < fresh_by_cast.length() {
+                  fresh_by_cast[best_cast] = fresh
+                  fresh_cast_ids.push(best_cast)
+                }
                 fresh
               }
             }
@@ -2314,6 +2361,10 @@ fn oc_later_reuse_scan_region(
     for refinement in refinements {
       let (local_id, cast_id) = refinement
       if local_id >= 0 && local_id < local_count {
+        if !active_best_mask[local_id] {
+          active_best_mask[local_id] = true
+          active_best_locals.push(local_id)
+        }
         if best_casts[local_id] < 0 ||
           oc_cast_is_more_refined(
             module_ctx,
@@ -2329,6 +2380,10 @@ fn oc_later_reuse_scan_region(
     for refinement in refinement_aliases {
       let (local_id, cast_id) = refinement
       if local_id >= 0 && local_id < local_count {
+        if !active_best_mask[local_id] {
+          active_best_mask[local_id] = true
+          active_best_locals.push(local_id)
+        }
         if best_casts[local_id] < 0 ||
           oc_cast_is_more_refined(
             module_ctx,
@@ -2359,6 +2414,17 @@ fn oc_later_reuse_run(
   let touched_get_locals : Array[Int] = []
   let retarget_mask = Array::make(local_count, false)
   let retarget_locals : Array[Int] = []
+  let write_mask = Array::make(local_count, false)
+  let writes : Array[Int] = []
+  let refinements : Array[(Int, Int)] = []
+  let refinement_aliases : Array[(Int, Int)] = []
+  let refinement_heads = Array::make(local_count, -1)
+  let refinement_next : Array[Int] = []
+  let refinement_head_touched : Array[Int] = []
+  let active_best_mask = Array::make(local_count, false)
+  let active_best_locals : Array[Int] = []
+  let fresh_by_cast = Array::make(@ir.hot_node_count(func), -1)
+  let fresh_cast_ids : Array[Int] = []
   oc_later_reuse_scan_region(
     ctx,
     func,
@@ -2371,6 +2437,17 @@ fn oc_later_reuse_run(
     touched_get_locals,
     retarget_mask,
     retarget_locals,
+    write_mask,
+    writes,
+    refinements,
+    refinement_aliases,
+    refinement_heads,
+    refinement_next,
+    refinement_head_touched,
+    active_best_mask,
+    active_best_locals,
+    fresh_by_cast,
+    fresh_cast_ids,
     @ir.HotRegionRef::root(),
   )
 }

@@ -71,3 +71,60 @@ test "flatten local dependency admission visits a wide region linearly" {
   )
   assert_true(node_visits[0] <= @ir.hot_node_count(func) * 2)
 }
+
+///|
+test "flatten local dependency admission visits a shared DAG once" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let mut value = @ir.hot_build_local_get(func, 0)
+  for _ in 0..<18 {
+    value = @ir.hot_build_binary(func, @lib.ValType::i32(), value, value)
+  }
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, value))
+  let node_visits = [0]
+  assert_false(
+    flatten_region_has_stack_carried_local_read_across_write(
+      func,
+      @ir.HotRegionRef::root(),
+      node_visits=Some(node_visits),
+    ),
+  )
+  assert_true(
+    node_visits[0] <= @ir.hot_node_count(func),
+    msg="visits=\{node_visits[0]} nodes=\{@ir.hot_node_count(func)}",
+  )
+}
+
+///|
+test "flatten local dependency admission reuses local scratch across deep control" {
+  let local_count = 128
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(
+      locals=Array::make(local_count, @lib.ValType::i32()),
+    ),
+  )
+  let mut root = @ir.hot_build_nop(func)
+  for _ in 0..<256 {
+    root = @ir.hot_build_block(func, @lib.BlockType::void_(), [root])
+  }
+  @ir.hot_root_append(func, root)
+  let scratch_cells = [0]
+  let node_visits = [0]
+  assert_false(
+    flatten_region_has_stack_carried_local_read_across_write(
+      func,
+      @ir.HotRegionRef::root(),
+      node_visits=Some(node_visits),
+      scratch_cells=Some(scratch_cells),
+    ),
+  )
+  assert_true(
+    scratch_cells[0] <= local_count * 3,
+    msg="scratch cells=\{scratch_cells[0]}",
+  )
+  assert_true(
+    node_visits[0] <= @ir.hot_node_count(func) * 2,
+    msg="visits=\{node_visits[0]} nodes=\{@ir.hot_node_count(func)}",
+  )
+}

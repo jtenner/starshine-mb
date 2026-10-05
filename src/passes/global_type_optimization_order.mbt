@@ -140,12 +140,7 @@ fn GtoTypeOrder::scan(self : GtoTypeOrder, expr : @lib.Expr) -> Unit {
 fn gto_collect_type_order(mod_ : @lib.Module) -> Array[Int] {
   let context = @ir.hot_module_context_from_module(mod_)
   let collector = GtoTypeOrder::new(context.subtypes)
-  ignore(
-    gto_map_initializers(mod_, fn(body) {
-      collector.scan(body)
-      body
-    }),
-  )
+  gto_visit_initializers(mod_, fn(body) { collector.scan(body) })
   for @lib.GlobalType(v, _) in context.globals {
     collector.value(v)
   }
