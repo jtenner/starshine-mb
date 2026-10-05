@@ -5350,13 +5350,11 @@ fn precompute_raw_try_fold_i16x8_narrow_i32x4_u(
   for lane = 0; lane < 8; lane = lane + 1 {
     let source = if lane < 4 { lhs } else { rhs }
     let source_lane = if lane < 4 { lane } else { lane - 4 }
-    let value = precompute_v128_read_u32(source, source_lane * 4).reinterpret_as_int()
-    let narrowed = if value < 0 {
-      0U
-    } else if value > 0xffff {
+    let value = precompute_v128_read_u32(source, source_lane * 4)
+    let narrowed = if value > 0xffffU {
       0xffffU
     } else {
-      value.reinterpret_as_uint()
+      value
     }
     out[lane * 2] = narrowed.to_byte()
     out[lane * 2 + 1] = (narrowed >> 8).to_byte()
