@@ -1172,7 +1172,7 @@ test "dead-code-elimination removes split drop roots after nonfallthrough result
 test "dead-code-elimination voidifies nonfinal nonfallthrough value blocks in lifted void regions" {
   let optimized = match
     pass_test_run_pipeline(
-      "(module (func (result i32) (local i32) i32.const 1 if block (result i32) block br 0 end i32.const 5 local.set 0 i32.const 1 return end local.get 0 drop end i32.const 7))",
+      "(module (func (result i32) (local i32) i32.const 1 if block (result i32) block br 0 end i32.const 5 local.set 0 i32.const 1 return end drop local.get 0 drop end i32.const 7))",
       ["dead-code-elimination"],
     ) {
     Ok(mod_) => mod_

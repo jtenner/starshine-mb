@@ -5127,7 +5127,8 @@ test "remove-unused-brs skips prefix-root scans for nested block dispatch ladder
     #|                 (br $carry (i32.const 11)))
     #|               (br $carry (i32.const 22)))
     #|             (br $carry (i32.const 33)))
-    #|           (i32.const 44))))))
+    #|           (i32.const 44))))
+    #|     unreachable))
     #|
 
   match

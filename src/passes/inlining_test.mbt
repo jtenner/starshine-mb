@@ -3320,7 +3320,8 @@ test "inlining-optimizing retains the result helper reached through a void root 
     #|    call $tiny
     #|    drop
     #|    block unreachable end
-    #|    call $void)
+    #|    call $void
+    #|    i64.const 0)
     #|  (func $void (type $void)
     #|    block unreachable end
     #|    call $helper

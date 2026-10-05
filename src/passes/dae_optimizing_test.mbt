@@ -14389,6 +14389,7 @@ test "dae-optimizing keeps originally-parameterized block self result suffixes" 
     #|    block
     #|      unreachable
     #|    end
+    #|    f64.const 0
     #|    call $f2
     #|    call $f1
     #|    drop
@@ -15270,7 +15271,7 @@ test "dae-optimizing preserves results with void dead-suffix side calls" {
     #|    local.get 0
     #|    local.get 1
     #|    call $f1
-    #|    drop)
+    #|    )
     #|  (func $f1 (param f32 f32)
     #|    (local f64 i64 i32)
     #|    block

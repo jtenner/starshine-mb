@@ -2975,6 +2975,7 @@ test "heap-store-optimization leaves unreachable set values to later DCE" {
           @lib.Expr::new([@lib.Instruction::unreachable_()]),
         ),
         @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
       ],
       1,
     ) {

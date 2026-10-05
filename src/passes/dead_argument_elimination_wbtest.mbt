@@ -19334,6 +19334,7 @@ test "dae GC result refinement joins all-return legacy try" {
       @lib.Instruction::try_(@lib.BlockType::void_(), returning_leaf(), [
         @lib.LegacyCatch::all(returning_leaf()),
       ]),
+      @lib.Instruction::ref_null(leaf_heap),
     ]),
   )
   let mod_ = parsed.with_code_sec(@lib.CodeSec::new(funcs))

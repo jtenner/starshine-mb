@@ -2285,7 +2285,7 @@ test "simplify-locals erases block-result local shuttles after exact cleanup" {
 test "simplify-locals does not move stacked multivalue if results out of place" {
   let optimized = match
     pass_test_run_pipeline(
-      "(module (func $exp (param i32 i32) (result i32 i32) local.get 0 i32.const 9) (func (param i32 i32) (result i32 i32) (local i32 i32) block (result i32) local.get 0 local.get 1 call $exp local.set 2 if (result i32) local.get 2 else i32.const 0 local.get 2 return end local.set 3 i32.const 1 local.get 3 return end i32.const 0 i32.const 0))",
+      "(module (func $exp (param i32 i32) (result i32 i32) local.get 0 i32.const 9) (func (param i32 i32) (result i32 i32) (local i32 i32) block (result i32) local.get 0 local.get 1 call $exp local.set 2 if (result i32) local.get 2 else i32.const 0 local.get 2 return end local.set 3 i32.const 1 local.get 3 return end drop i32.const 0 i32.const 0))",
       ["simplify-locals"],
     ) {
     Ok(mod_) => mod_

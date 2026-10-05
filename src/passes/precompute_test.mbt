@@ -615,7 +615,7 @@ test "precompute folds a block-local read after preserving its constant write" {
 test "precompute folds loop-carried constant breaks to the enclosing result" {
   let optimized = match
     pass_test_run_pipeline(
-      "(module (func (result i32) (block (result i32) (loop (br 1 (i32.const 1))))))",
+      "(module (func (result i32) (block (result i32) (loop (br 1 (i32.const 1))) unreachable)))",
       ["precompute"],
     ) {
     Ok(mod_) => mod_

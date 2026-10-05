@@ -706,9 +706,7 @@ test "local-subtyping replaces bottom call_ref refinalization with unreachable v
   }
   @debug.assert_eq(ls_test_first_body_locals(optimized), [
     nullfuncref,
-    @lib.ValType::ref_type(
-      @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::none())),
-    ),
+    @lib.ValType::anyref(),
   ])
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("call_ref"), msg=pretty)
