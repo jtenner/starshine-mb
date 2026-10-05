@@ -6311,6 +6311,7 @@ fn cl_legacy_definite_assignment_scan(
         assigned = merged.assigned
       }
       @lib.Try(_, @lib.Expr(body), catches, _) => {
+        let mut has_branch_exit = cl_instrs_have_branch_instruction(body)
         let mut merged = cl_legacy_definite_assignment_scan(
           body, source, dest, assigned,
         )
@@ -6319,6 +6320,8 @@ fn cl_legacy_definite_assignment_scan(
             @lib.LegacyCatch(_, @lib.Expr(catch_body))
             | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
           }
+          has_branch_exit = has_branch_exit ||
+            cl_instrs_have_branch_instruction(catch_body)
           // A protected-body throw may enter a catch before a copy in the body
           // executes. Only facts from before the try dominate catch entry.
           let catch_flow = cl_legacy_definite_assignment_scan(
@@ -6329,7 +6332,11 @@ fn cl_legacy_definite_assignment_scan(
         if !merged.safe || !merged.falls_through {
           return merged
         }
-        assigned = merged.assigned
+        assigned = if has_branch_exit {
+          assigned && merged.assigned
+        } else {
+          merged.assigned
+        }
       }
       _ =>
         if cl_instr_is_terminal(instr) {

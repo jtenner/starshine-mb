@@ -3697,6 +3697,33 @@ test "coalesce-locals keeps a legacy copy separate after an early destination re
 }
 
 ///|
+test "coalesce-locals keeps a local separate when a legacy try branch bypasses its copy" {
+  let input =
+    #| (module
+    #|   (func (export "f") (param i32) (result i32) (local i32)
+    #|     (try
+    #|       (do
+    #|         br 0
+    #|         local.get 0
+    #|         local.set 1)
+    #|       (catch_all unreachable))
+    #|     local.get 1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected legacy branch-bypass pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(
+    instrs[instrs.length() - 1],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+}
+
+///|
 test "coalesce-locals keeps a protected-body copy separate when a throw can bypass it" {
   let input =
     #| (module
