@@ -6570,17 +6570,9 @@ fn rume_has_unrewritable_metadata(mod_ : @lib.Module) -> Bool {
       return true
     }
   }
-  match mod_.func_annotation_sec {
-    Some(@lib.FuncAnnotationSec(entries)) =>
-      for @lib.FuncAnnotationAssoc(_, annotations) in entries {
-        if annotations.any(fn(annotation) {
-            annotation.name == "metadata.code.branch_hint"
-          }) {
-          return true
-        }
-      }
-    None => ()
-  }
+  // Structured function annotations carry remappable function indices rather
+  // than opaque code offsets, even when their name uses the branch-hint spelling.
+  // rume_rewrite_func_annotation_sec retains and rebases surviving entries.
   false
 }
 

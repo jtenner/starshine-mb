@@ -26363,3 +26363,19 @@ arrays/typecheck wrappers from the completed return packaging change.
   repairs. Binaryen 133 accepts a resultful tag with all features and rejects
   it with stack switching disabled. The public interface adds only the
   `StackSwitching` proposal-feature variant.
+
+### 2026-10-05 — Retain branch-hint cleanup under metadata guards
+
+- The [structured annotation boundary](wast/code-metadata-and-function-annotations.md)
+  differs from raw offset-bearing custom sections. RUME now retains and rebases
+  surviving local branch-hint annotations instead of blocking function pruning.
+  Raw branch-hint, debug, relocation and other opaque metadata still block it.
+- O4z's explicit final-size lane discards only the known branch-hint custom
+  section and annotation names before checking the remaining offset guard.
+  Remaining opaque metadata forbids body/index changes; guarded change reporting
+  compares only the stripped fields, avoiding a full-module encoding.
+- Three new positives failed before implementation, and the existing two
+  metadata regressions failed in the broad baseline. The four new tests and
+  affected flatten, RUME, command and direct-metadata guard tests pass in the
+  544-test wasm-gc lane. This restores narrow cleanup behavior without weakening
+  generic guards or claiming full pass-fuzz/performance closeout.

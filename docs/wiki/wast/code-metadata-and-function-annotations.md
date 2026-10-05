@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-05
 sources:
   - ../binaryen/release-horizon-and-oracles.md
   - https://webassembly.github.io/spec/core/appendix/custom.html
@@ -23,6 +23,10 @@ sources:
   - ../../../src/passes/duplicate_function_elimination.mbt
   - ../../../src/passes/duplicate_import_elimination.mbt
   - ../../../src/passes/remove_unused_module_elements.mbt
+  - ../../../src/rume/remove_unused_module_elements.mbt
+  - ../../../src/rume/branch_hint_metadata_wbtest.mbt
+  - ../../../src/passes/pass_manager.mbt
+  - ../../../src/passes/o4z_branch_hint_guard_wbtest.mbt
 related:
   - identifier-name-and-annotation-authoring.md
   - ../binary/custom-and-name-sections.md
@@ -134,7 +138,7 @@ Any pass that deletes, merges, duplicates, imports, or reorders functions must r
 Current examples:
 
 - [`duplicate_import_elimination`](../../../src/passes/duplicate_import_elimination.mbt) keeps annotations unchanged in the default host-safe mode. Its explicit stable-binding mode unions every removed alias's annotations onto the surviving imported function, removes exact duplicates, preserves first-seen order, and keeps same-name annotations with different arguments.
-- [`remove_unused_module_elements`](../../../src/passes/remove_unused_module_elements.mbt) drops annotations for removed functions and rewrites retained entries.
+- [`remove_unused_module_elements`](../../../src/rume/remove_unused_module_elements.mbt) drops annotations for removed functions and rewrites retained entries. A structured `FuncAnnotationSec` entry named `metadata.code.branch_hint` remains a local function annotation: its name does not turn it into opaque instruction-offset metadata. The [focused remapping regression](../../../src/rume/branch_hint_metadata_wbtest.mbt) requires the surviving function's annotations and export to follow the same index remap, while raw branch-hint and debug custom sections still prevent pruning.
 - [`inlining`](../../../src/passes/inlining.mbt) remaps annotations after helper compaction and deduplicates merged annotation arrays.
 - [`duplicate_function_elimination`](../../../src/passes/duplicate_function_elimination.mbt) treats function annotations as part of the function-equivalence key where they can affect optimizer behavior, then rewrites survivors.
 
@@ -147,6 +151,20 @@ Branch hints are not modeled locally yet. The current WebAssembly branch-hinting
 - [`duplicate-function-elimination`](../binaryen/passes/duplicate-function-elimination/type-compaction-and-metadata.md) teaches that non-semantic metadata such as branch hints does not block merging, while semantics-altering function annotations can.
 
 For Starshine work, do not claim branch-hint parity unless the change adds a local representation, parser/lowerer support, binary behavior, and pass tests that keep hints attached to the right expression after rewrites.
+
+The [O4z final-size candidate](../../../src/passes/pass_manager.mbt) deliberately
+discards the exact `metadata.code.branch_hint` custom-section and local annotation
+names before checking the remaining offset-sensitive metadata. This is a size
+policy for non-semantic hints, not instruction-offset repair or branch-hint payload
+support. If opaque debug, relocation, or other `metadata.code.*` payloads remain,
+the candidate preserves all bodies and module indices after stripping the known
+hints. Its guarded changed flag compares only the stripped custom-section and
+annotation fields; the unguarded path retains the encoding comparison against the
+original input. Removing hints therefore reports a change even when the remaining
+metadata blocks body optimization, without encoding that guarded module. The [focused O4z regressions](../../../src/passes/o4z_branch_hint_guard_wbtest.mbt)
+cover mixed hint/debug payloads and resuming typed-select canonicalization when
+branch hints were the only offset-sensitive metadata. These tests establish the
+narrow metadata policy, not a new full-pass or Binaryen parity signoff.
 
 ## Edge Cases And Invariants
 

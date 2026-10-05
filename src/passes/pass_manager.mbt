@@ -71213,20 +71213,28 @@ fn o4z_canonicalize_final_size_candidate_impl(
 
 ///|
 pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module {
-  if pass_module_has_offset_sensitive_metadata(mod_) {
-    return mod_
+  // This size lane explicitly discards branch hints. Strip them before the
+  // offset guard, which must still protect every remaining opaque payload.
+  let without_hints = o4z_canonicalize_final_size_strip_branch_hints(mod_)
+  if pass_module_has_offset_sensitive_metadata(without_hints) {
+    return without_hints
   }
-  o4z_canonicalize_final_size_candidate_impl(mod_)
+  o4z_canonicalize_final_size_candidate_impl(without_hints)
 }
 
 ///|
 pub fn o4z_canonicalize_final_size_candidate_with_changed(
   mod_ : @lib.Module,
 ) -> (@lib.Module, Bool) {
-  if pass_module_has_offset_sensitive_metadata(mod_) {
-    return (mod_, false)
+  let without_hints = o4z_canonicalize_final_size_strip_branch_hints(mod_)
+  if pass_module_has_offset_sensitive_metadata(without_hints) {
+    // Only the stripped metadata can have changed on this guarded path. These
+    // fields contain no floating-point instructions or NaN equality hazards.
+    let changed = mod_.custom_secs != without_hints.custom_secs ||
+      mod_.func_annotation_sec != without_hints.func_annotation_sec
+    return (without_hints, changed)
   }
-  let canonical = o4z_canonicalize_final_size_candidate_impl(mod_)
+  let canonical = o4z_canonicalize_final_size_candidate_impl(without_hints)
   let changed = match
     (@binary.encode_module(mod_), @binary.encode_module(canonical)) {
     (Ok(before), Ok(after)) => before != after
