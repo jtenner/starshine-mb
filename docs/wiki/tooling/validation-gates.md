@@ -113,16 +113,21 @@ The target whitelist is local to [`scripts/lib/task-runtime.ts`](../../../script
 
 The three jobs and their exact local equivalents are:
 
-1. **`format-and-tests`** refreshes interfaces, applies formatting, rejects any resulting tracked diff, and runs the complete default Moon test suite:
+1. **`format-and-tests`** refreshes interfaces, applies formatting, checks that the generated raw FFI wrappers and export-name map match those interfaces, rejects any resulting tracked diff, and runs the complete default Moon test suite:
 
    ```text
    moon update
    bun scripts/test/ci-workflow-contract.ts
    moon info
    moon fmt
+   bun ffi check
    git diff --exit-code
    moon test
    ```
+
+   The FFI check closes the gap between public `.mbti` changes and the checked-in
+   `ffi/src/ffi` wrapper surface. A new public function must not merge with stale
+   raw WasmGC exports.
 
 2. **`release-artifacts`** builds both supported release artifacts, externally validates the wasm-gc CLI with wasm-tools `1.251.0`, requires two no-pass Starshine decode/encode cycles to converge byte-for-byte, and runs the bounded binary-roundtrip fuzz suite:
 

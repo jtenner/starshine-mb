@@ -49,6 +49,7 @@ jobs:
         run: |
           moon info
           moon fmt
+          bun ffi check
           git diff --exit-code
 
       - name: Run full MoonBit test suite

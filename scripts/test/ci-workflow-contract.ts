@@ -30,6 +30,7 @@ export function runCiWorkflowContractTest(): void {
     ["    timeout-minutes: 30", "bounded format/test timeout"],
     ["moon info", "MoonBit interface refresh"],
     ["moon fmt", "MoonBit formatting"],
+    ["bun ffi check", "generated FFI freshness check"],
     ["git diff --exit-code", "format/interface cleanliness enforcement"],
     ["moon test", "full MoonBit test suite"],
     ["bun scripts/test/ci-workflow-contract.ts", "workflow self-contract"],
