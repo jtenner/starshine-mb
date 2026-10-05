@@ -9,6 +9,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 ## Schema And Operations
 
+- [Eight-agent optimizer correctness audit](log.md#2026-10-04--eight-agent-optimizer-correctness-audit) — Six red-first commits repair GTO, RUME, GSI, SSA destruction, and coalesce-locals. The default suite passes; five 10,000-case v133 lanes have no validation or command failures, with remaining SSA/coalesce parity residuals and GTO descriptor generator coverage stated explicitly.
 - [Active release and performance backlog](../../agent-todo.md) — Remaining P03a–g DAE2/O work, shared performance owners, size/correctness blockers, Vacuum indexed-input parity and final validation gates; completed histories stay in the owner dossiers and long fuzz follows performance iteration.
 
 - [DAE2 unread body writes](binaryen/passes/dae2/starshine-strategy.md#october-1-2026-retire-unread-optimizing-body-writes) — Retiring unread tees/sets saves 79,962 canonical bytes in 4,968 shrinking compiler functions with no growth. 13,274 tests and 1,524 fixed observations pass. The canonical gap is 99,251 bytes; raw output wins 9,949 against v133. Large optimizing improves 1.18%; active helper and tee costs remain open.

@@ -1,3 +1,33 @@
+### 2026-10-04 — Eight-agent optimizer correctness audit
+
+- Six red-first commits repair descriptor field remapping in GTO, callback escapes in
+  RUME and GSI, SSA block-exit reachability, and delegated-try block scope in
+  coalesce-locals. `moon info`, `moon fmt`, and the bounded default `moon test`
+  pass. The fresh native CLI is SHA-256 `e8f095e682a27cc3b006ecb05d3b603912b92357eac69c46378582a7a7d69484`;
+  the generator is `eb00074a794bcaddaef80f772275a9d5d2f15cd10c45d7a7575eb7b2af833db2`.
+  All comparisons use verified `wasm-opt version 133` (binary SHA-256
+  `d8da7e7cc717bb4da015475a106b25987a9941e87486ec8676fd8efc698f171d`),
+  seed `0x5eed`, 10,000 GenValid cases per pass, eight subprocesses, and
+  independent `wasm-tools` validation. Validation, generator, property and
+  command failures are zero in every lane. Results are in ignored
+  `.tmp/audit-*-v133/result.json` directories in this worktree.
+
+| Pass / profile | Direct | Cleanup normalized | Residual | Classification |
+| --- | ---: | ---: | ---: | --- |
+| GTO / portable | 0 | 10,000 | 0 | All raw diffs normalize after inert `nop` removal; this generator did not cover descriptor GC. |
+| RUME / `rume-all` | 4,106 | 5,894 | 0 | All raw residuals normalize after inert `nop` removal. |
+| GSI / portable | 10,000 | 0 | 0 | Canonical equality. |
+| SSA no-merge / `ssa-nomerge-all` | 3,750 | 0 | 6,250 | Same v133 aggregate counts as the prior dossier; allocation/shape residuals remain open. |
+| Coalesce / `coalesce-locals-all` | 3,750 | 5,000 | 1,250 | Same v133 aggregate counts as the prior dossier; known loop-copy-through residuals remain open. |
+
+The GTO and RUME raw runs retained 20 mismatch artifacts each; every inspected
+diff contains only removed standalone `nop` instructions, and canonical Starshine
+bytes are smaller in all raw mismatching cases. The cleanup runs use
+`--normalize unreachable-control-debris`, which removes those `nop`s; coalesce
+uses its documented `local-cleanup-debris` and `unreachable-control-debris`
+normalizers. These sampled diff classifications and normalizers do not close
+broader pass parity or substitute for the focused descriptor/callback tests.
+
 ### 2026-10-02 — Bound speculative branch-payload work
 
 - [Branch-value cost admission](binaryen/passes/remove-unused-brs/branch-exit-and-payload-rewrites.md#branch-value-speculation-cost-october-2-2026)
