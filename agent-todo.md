@@ -1120,8 +1120,9 @@ Require a verified v133 oracle, then each affected 10,000-case aggregate with
 explicit `_build/native/release/build/cmd/cmd.exe` and
 `_build/native/release/build/fuzz/fuzz.exe`, `--require-binaryen-version 133`,
 `--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`, independent
-validation and Node-v2 observations. Keep the default deterministic oracle cache;
-Starshine outputs are regenerated. Do not add `--wasm-smith` unless requested.
+validation and freshly executed Node-v2 observations. New runs regenerate inputs
+and oracle outputs without persistent caching; clean consumed artifacts and retain
+semantic differences. Do not add `--wasm-smith` unless requested.
 Historical commands and hashes live in the campaign report; regenerate source
 and binary identities for the final candidate. Also complete the repository
 release gates after iteration: `bun validate full --profile ci --target wasm-gc`,

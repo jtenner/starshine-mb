@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-05
 sources:
   - ../binaryen/release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen
@@ -12,7 +12,7 @@ sources:
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../scripts/lib/optimizer-runtime-executor.ts
-  - ../../../scripts/lib/optimizer-semantic-cache.ts
+  - ../../../scripts/lib/pass-fuzz-compare-uncached.test.ts
   - ../../../scripts/test/pass-fuzz-compare-command.ts
   - ../../../scripts/test/pass-fuzz-normalization-fixtures.ts
   - ../../../scripts/test/task-family-commands.ts
@@ -48,14 +48,13 @@ This workflow is grounded in the Binaryen and `wasm-tools` projects, the WebAsse
 Beginner mental model:
 
 1. generate or replay a `.wasm` input;
-2. reuse or populate the persistent input/oracle cache when enabled;
-3. validate the input with `wasm-tools validate`;
-4. run Starshine with the requested pass flags;
-5. validate Starshine's output;
-6. run or reuse Binaryen `wasm-opt` with matching pass flags;
-7. canonicalize and print both outputs with Binaryen;
-8. compare normalized WAT text;
-9. persist enough artifacts to replay every non-match or command failure.
+2. validate the input with `wasm-tools validate`;
+3. run Starshine with the requested pass flags;
+4. validate Starshine's output;
+5. run Binaryen `wasm-opt` with matching pass flags;
+6. canonicalize and print both outputs with Binaryen;
+7. compare normalized WAT text;
+8. persist enough artifacts to replay every non-match or command failure.
 
 This is a **semantic-oracle workflow**, not a byte-for-byte wasm comparison. A normalized match is evidence for the compared surface, not proof of every observable behavior or of raw-byte/custom-section parity. Ordinary passes also exclude name/debug parity; a lane containing `strip-debug` preserves names through the comparison projection so that the pass cannot receive a false match merely because the harness stripped its output again. A normalized mismatch is a harness **status**, not a verdict: a maintainer must classify it using the evidence rules below. The normalization fixture matrix in [`../../../scripts/test/pass-fuzz-normalization-fixtures.ts`](../../../scripts/test/pass-fuzz-normalization-fixtures.ts) locks representative equality/inequality expectations for debug stripping, default locals, NaN payload text, transparent block wrappers, local-name stripping, custom sections, and section-order drift.
 
@@ -91,7 +90,6 @@ bun fuzz compare-pass \
   [--property convergence --convergence-max 8] \
   [--commutator-left <pass> --commutator-right <pass>] \
   [--localize-first-divergence] \
-  [--cache-dir .tmp/pass-fuzz-cache|--no-cache] \
   [--semantic-reduction-relax-family] \
   [--resume] \
   [--min-compared <n>] \
@@ -171,23 +169,25 @@ Proposal-targeted GenValid batches may use `--require-feature descriptors`, `con
 
 The `gen-valid` path is why compare-pass depends on [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) and [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt) even though compare-pass is not itself a MoonBit fuzz suite. Runs that generate Starshine inputs now keep `inputs/gen-valid/manifest.json` beside the saved `.wasm` files; this file records the requested profile, filters, aggregate feature stats, per-input feature facts, and, for composite profiles, the per-input `selected_profile` for replay triage.
 
-## Persistent Cache
+## Run Artifacts And Cache Removal
 
-Compare-pass uses a persistent cache by default at `.tmp/pass-fuzz-cache`; override it with `--cache-dir <dir>` or disable it with `--no-cache`. The cache never stores Starshine outputs because those are the system under test. It only caches deterministic inputs and Binaryen oracle work:
+Persistent fuzz caching was removed on October 5, 2026 to prevent generated inputs, oracle artifacts, and semantic reports from accumulating across runs. This supersedes the former default `.tmp/pass-fuzz-cache` contract. The `--cache-dir` and `--no-cache` options are retired, and new results and case journals omit cache counters.
 
-- `wasm-smith` inputs are stored under `wasm-smith/wasm-tools-<tool-hash>/seed-<seed>/wasmsmith-<seed>-<index>.wasm` only for explicit `--wasm-smith` lanes, so rerunning the same seed and case index skips `wasm-tools smith`.
-- Binaryen oracle results are stored under `binaryen/schema-v1/wasm-opt-<tool-hash>/passes-<pass-hash>/input-<input-sha>/` with `binaryen.raw.wasm`, canonical `binaryen.wasm`, printed `binaryen.wat`, and a completion marker. The key includes the input bytes, Binaryen tool identity, and normalized Binaryen pass flags.
-- Binaryen/canonicalization command failures are recorded in case journals but never cached as oracle results. A later lane retries the command, so a transient tool failure cannot mask a successful result; older `failure.json` cache entries are ignored and removed on the next lookup.
+Every new run generates its inputs and executes Binaryen and observation-v2 afresh. The [bounded repeated-run regression](../../../scripts/lib/pass-fuzz-compare-uncached.test.ts) checks fresh generator, Binaryen and semantic execution, immediate input/report cleanup, shared paired-input lifetime, resume after cleanup, failure-cutoff cleanup, and preserved semantic-difference bytes with a zero mismatch artifact cap. Old `.tmp/pass-fuzz-cache*` directories are obsolete and may be removed.
 
-Observation-v2 reports use a separate `semantic-v2` cache keyed by raw original/Starshine/Binaryen bytes, seed, policy, observation mode, timeout, memory/table caps, runtime version, execution-contract revision, and Binaryen diagnostic state. The current invocation contract adds two bounded, seed-derived finite scalar vectors per callable export alongside defaults, boundaries, and pairwise vectors; the revision invalidates older reports that did not execute them. Earlier revisions also corrected the `call.without.effects` import stub and definite partial outcomes. Start a new output directory when changing the execution contract rather than resuming historical case records. `result.json` records `semanticHits` and `semanticMisses` alongside the wasm-smith and Binaryen counters. Cache hits still validate inputs and regenerate Starshine outputs; Starshine outputs themselves are never cached.
+Consumed GenValid inputs are removed after their last case use; paired bases are copied into the case work directory and shared source inputs survive until all dependent cases finish. Successful semantic reports, property modules/results, and per-case temporary outputs are removed. Compact journals, manifests, aggregate reports, and retained failure bundles remain in `--out-dir`.
+
+Every observed semantic difference retains the original input, Starshine and Binaryen outputs, and semantic report, including Binaryen-only differences. Semantic differences bypass the structural mismatch artifact cap. Unexpected case errors preserve available failure evidence before removing temporary outputs.
+
+Only interrupted runs keep pending GenValid inputs for same-run `--resume`; completed inputs are not required again. A finalized run, including a failure-budget cutoff, removes unused batch inputs. Replay source artifacts are never consumed or deleted. Historical cache counts and commands in pass dossiers describe the original runs only.
 
 ## Interrupted-Run Resume
 
-Pass `--resume` with the original `--out-dir` and `--count` to continue a run that was interrupted before `result.json` and `summary.json` were finalized. The harness reads the existing `cases.jsonl`, preserves those records and failure artifacts, and schedules only missing case indices. It does not merely use the line count: parallel workers can finish out of order, so resume computes the exact completed-index set and fills any holes. For GenValid lanes it reuses the already emitted `inputs/gen-valid/` batch and manifest rather than regenerating the batch.
+Pass `--resume` with the original `--out-dir` and `--count` to continue a run that was interrupted before `result.json` and `summary.json` were finalized. The harness reads the existing `cases.jsonl`, preserves those records and failure artifacts, and schedules only missing case indices. It does not merely use the line count: parallel workers can finish out of order, so resume computes the exact completed-index set and fills any holes. For GenValid lanes it reuses the still-pending `inputs/gen-valid/` inputs and manifest rather than regenerating completed cases. Stable case filenames preserve out-of-order journal holes after consumed inputs have been deleted.
 
-Repeat the original count, seed, generator/profile, feature filters and transforms, pass flags, optimizer flags, compiler-facts policy, normalizers, correctness/property modes, resource budgets, scheduling/failure policy, tool paths, cache selection, Starshine environment/config overlay, and output directory. `--count` remains the total requested run size, not the number of remaining cases. `toolchain.json` records a SHA-256 configuration identity over those normalized options, the names and hashed values of `STARSHINE_*` variables, and the selected Starshine config file content. It also records a source identity over the compare harness, Bun host, wasm-tools, Starshine and GenValid executables, and their resolved paths; node-v2 runs include the Node executable. Moon fallback commands additionally hash the Moon executable and the workspace `moon.mod`, `moon.pkg.json`, and `src/` contents. Binaryen keeps its separate verified version and executable-content check. A missing, obsolete, or changed identity requires a new output directory before any journal row or generated input is reused. A resumed result reconstructs aggregate comparison/failure/effect/profile counters from persisted case records, reports `resumedCaseCount`, and then adds newly completed cases. Case records persist observation-v2 primary/pattern outcomes, semantic property status/classification, localization state, structural idempotence/composition outcomes, Binaryen/semantic cache states, legacy correctness outcomes, and raw/canonical sizes. Full generated facts stay in the manifest and artifact-scale hazard arrays are excluded, keeping long journals bounded. Resume reconstructs semantic-idempotence, convergence, commutator, paired metamorphic, localization, cache, and legacy counters.
+Repeat the original count, seed, generator/profile, feature filters and transforms, pass flags, optimizer flags, compiler-facts policy, normalizers, correctness/property modes, resource budgets, scheduling/failure policy, tool paths, Starshine environment/config overlay, and output directory. `--count` remains the total requested run size, not the number of remaining cases. `toolchain.json` records a SHA-256 configuration identity over those normalized options, the names and hashed values of `STARSHINE_*` variables, and the selected Starshine config file content. It also records a source identity over the compare harness, Bun host, wasm-tools, Starshine and GenValid executables, and their resolved paths; node-v2 runs include the Node executable. Moon fallback commands additionally hash the Moon executable and the workspace `moon.mod`, `moon.pkg.json`, and `src/` contents. Binaryen keeps its separate verified version and executable-content check. A missing, obsolete, or changed identity requires a new output directory before any journal row or generated input is reused. A resumed result reconstructs aggregate comparison/failure/effect/profile counters from persisted case records, reports `resumedCaseCount`, and then adds newly completed cases. Case records persist observation-v2 primary/pattern outcomes, semantic property status/classification, localization state, structural idempotence/composition outcomes, legacy correctness outcomes, and raw/canonical sizes. Full generated facts stay in the manifest and artifact-scale hazard arrays are excluded, keeping long journals bounded. Resume reconstructs semantic-idempotence, convergence, commutator, paired metamorphic, localization, and legacy counters.
 
-Resume fails closed on a missing `cases.jsonl`, duplicate or out-of-range case indices, an incomplete saved GenValid input batch, or combinations with replay mode. Legacy `--runtime-execution` and optional external-validator aggregates remain rejected because their detailed per-case matrices are not yet persisted.
+Resume fails closed on a missing `cases.jsonl`, duplicate or out-of-range case indices, missing pending GenValid inputs or paired bases, or combinations with replay mode. Legacy `--runtime-execution` and optional external-validator aggregates remain rejected because their detailed per-case matrices are not yet persisted.
 
 Example:
 
@@ -211,9 +211,9 @@ For each case, [`runPassFuzzCompare(...)`](../../../scripts/lib/pass-fuzz-compar
 1. **Input validation:** `wasm-tools validate --features all input.wasm` must pass before the case can compare.
 2. **Starshine run:** Starshine receives the requested pass flags and `--out <starshine.raw.wasm> <input.wasm>`.
 3. **Starshine output validation:** `wasm-tools validate --features all starshine.raw.wasm` must pass. A failure here is a Starshine validation failure, not a Binaryen semantic mismatch. Configured `--external-validator` adapters can also check output with `wasm-tools`, Binaryen, or WABT validators; an unavailable configured binary records a skipped-tool counter and fails validation for that case. Keep this pass-fuzz surface distinct from the command-harness binary differential adapter schema in [`external-validator-adapters.md`](external-validator-adapters.md).
-4. **Binaryen oracle run or cache lookup:** `wasm-opt input.wasm --all-features <binaryen-pass-flags> -o binaryen.raw.wasm` produces the oracle output on a cache miss. A success cache entry records SHA-256 hashes for its raw, canonical, and WAT artifacts; all three are verified before reuse. Missing, legacy, or corrupt entries are regenerated. The cache key binds input bytes, Binaryen identity, and pass flags.
-5. **Canonicalization:** ordinary lanes pass both raw outputs through `wasm-opt --all-features --strip-debug -o <canonical.wasm>` on cache miss. A pass sequence containing `strip-debug` omits the projection's `--strip-debug`, preserving any name metadata that the requested pass failed to remove. Debug-preserving Binaryen cache entries use a separate schema path, so older stripped cache entries cannot mask the difference. Cached Binaryen canonical output is reused on a valid cache hit; Starshine canonicalization always reruns.
-6. **Text normalization:** ordinary lanes print both canonical outputs with `wasm-opt --all-features --strip-debug -S -o <wat>`. A pass sequence containing `strip-debug` again omits `--strip-debug`, making retained printable names visible in WAT. Cached Binaryen WAT is reused on a valid cache hit; Starshine text printing always reruns. `result.json.comparisonDebugPolicy` records `strip` or `preserve`.
+4. **Binaryen oracle run:** `wasm-opt input.wasm --all-features <binaryen-pass-flags> -o binaryen.raw.wasm` produces a fresh oracle output for every case.
+5. **Canonicalization:** ordinary lanes pass both raw outputs through `wasm-opt --all-features --strip-debug -o <canonical.wasm>`. A pass sequence containing `strip-debug` omits the projection's `--strip-debug`, preserving any name metadata that the requested pass failed to remove.
+6. **Text normalization:** ordinary lanes print both canonical outputs with `wasm-opt --all-features --strip-debug -S -o <wat>`. A pass sequence containing `strip-debug` again omits `--strip-debug`, making retained printable names visible in WAT. `result.json.comparisonDebugPolicy` records `strip` or `preserve`.
 7. **Primary self-semantic execution:** legacy `--self-semantic` retains the version 1 plan and observation path. `--semantic-oracle node-v2` is the stronger additive path: production callers invoke Starshine's `--emit-runtime-interface-json` on the original module, so `starshine.optimizer-runtime-interface.v1` comes directly from decoded MoonBit sections rather than reparsed WAT. The legacy wasm-tools text extractor remains only for component callers without a resolved Starshine command. The harness builds one deterministic bounded `starshine.optimizer-invocation-plan.v2`, executes original and Starshine first, and then executes Binaryen when available. The original is always primary; equal Starshine/Binaryen wrong behavior remains a Starshine failure. Binaryen tool failure does not skip original-versus-Starshine. Version 2 observes typed result bits, signed zero, NaN classes/payload policy, deterministic import event arguments/results and committed prefixes, start phase, imported/exported globals, every byte of in-cap memories, and table alias relations. Imported memory64 is directly constructible on the tested Node v26 runtime: the adapter preserves decoded string limits and passes `{ address: "i64", initial: BigInt(minimum), maximum: BigInt(maximum) }` to `WebAssembly.Memory`, adding `shared` when declared. The ordinary memory cap still bounds byte snapshots. It also executes nullable and bounded non-null `i31ref` function crossings through Node's signed-integer host representation, recording exact 31-bit patterns for exported calls and imported-function events. Over-cap resources, unsupported direct crossings, cross-table identity that Node cannot prove, and worker timeouts are blocked rather than sampled as matches. An aligned scalar return mismatch, return-versus-trap difference, or normalized trap-class difference remains a correctness failure when an unrelated export/resource surface is blocked; the comparison retains `completeness: incomplete` and the blocking diagnostics. Other reference-valued results, relaxed-SIMD values without an allowed-result oracle, unsupported outcomes, timeouts, and unknown incomplete surfaces remain blocked. `independent` reinstantiates for each exported call; `stateful` replays the full sequence on one instance per module. This general node-v2 path remains single-threaded. Reviewed atomic fixtures can separately call [`runNodeAtomicLitmusComparisonV1(...)`](../../../scripts/lib/optimizer-atomic-runtime.ts), which checks two-worker observations against a declarative allowed set rather than comparing one nondeterministic run to another; compare-pass does not infer that oracle for arbitrary generated modules.
 8. **Fresh-run determinism and codec stability:** `--determinism` optimizes two independent decodes of the same original bytes. Raw byte equality is the primary result; raw drift with equal canonical output is reported separately as canonical-only stability; canonical drift is `optimizer-nondeterminism`. `--codec-idempotence` performs two Starshine decode/encode cycles on the optimized output, independently validates the result, and requires stable bytes. Starshine outputs are never cached.
 9. **Optimizer properties:** `--property` may repeat. Structural `idempotence` and `composition` retain their previous meanings. `semantic-idempotence` compares `M`, `P(M)`, and `P(P(M))` semantically and reports structural drift separately. `convergence` records every generation's canonical hash, exact raw-byte hash, and byte size up to `--convergence-max`, detecting fixed points, cycles, late validation/semantic failures, persistent growth, and bounded nonconvergence. For a deterministic optimizer, only consecutive equal raw hashes establish a fixed point, and only a repeated raw hash establishes a cycle; canonical hashes remain projection diagnostics because distinct raw modules with one canonical projection can drive different optimizer behavior. A generation without exact raw identity cannot establish either condition, so the search continues to its bound unless later known raw states do. `--commutator-left P --commutator-right Q` validates and compares `M`, `P(M)`, `Q(M)`, `P(Q(M))`, and `Q(P(M))`, distinguishing a pass that fails alone, one failing order, two equal wrong orders, two differently wrong orders, blocked observation, and semantically equal orders with equal or different structure. Both commutator operands are mandatory and use the same strict pass-name registry. Semantic properties require `--semantic-oracle node-v2` and persist common `starshine.optimizer-property-result.v1` records plus generated Wasm artifacts.
@@ -279,14 +279,14 @@ Use `--list-passes` before starting a long lane; it is the script-owned list, no
 
 Every run writes:
 
-- `result.json` - aggregate comparison, size, cache, generator, property, and failure counters. `comparisonDebugPolicy` records whether the canonical WAT projection strips or preserves debug names. Additive semantic fields include the oracle/policy/mode/caps/timeout, v2 checked/match/blocked/mismatch counts, three-way pattern counts, semantic-idempotence, convergence, and commutator operands/counts/classifications, localization counts/recoveries, and the ordered `propertyModes` list. The legacy singular `propertyMode` remains for compatibility.
+- `result.json` - aggregate comparison, size, generator, property, and failure counters. `comparisonDebugPolicy` records whether the canonical WAT projection strips or preserves debug names. Additive semantic fields include the oracle/policy/mode/caps/timeout, v2 checked/match/blocked/mismatch counts, three-way pattern counts, semantic-idempotence, convergence, and commutator operands/counts/classifications, localization counts/recoveries, and the ordered `propertyModes` list. The legacy singular `propertyMode` remains for compatibility.
 - `summary.json` - compact `starshine.fuzz-summary-report.v1` counters for `bun fuzz coverage-delta`, with suite `compare-pass`, profile `<pass>+<generator>`, required requested/compared case counters, optional generator/GenValid transform/property/input-effect/runtime counters, run-status counters including exact normalized-match versus cleanup-normalized-match separation, failure-class counters, and failure-artifact counts.
 - `cases.jsonl` - one case record per attempted case, sorted by case index after the run; GenValid metamorphic cases include `transformId` when their manifest entry has `transform_id` and `genValidFeatureFacts` when their manifest entry has `feature_facts`; records also include input effect/trap facts, semantic/determinism/codec outcomes when requested, and raw/canonical output sizes for compared cases. Once an input exists, `compilerFactsContext` records whether exact raw `compiler.facts` custom-section bytes were present, their count and combined byte length, a SHA-256 over those encoded sections in module order, scan status, and the effective Starshine policy. The bounded record stores no section payload. Historical rows without this optional object remain resumable and are preserved unchanged.
-- `inputs/` - saved generator inputs for generated lanes.
-- `semantic-observations/case-XXXXXX.json` - every node-v2 three-way report, including runtime interface, invocation plan, three observations, three comparisons, and classification.
-- `property-results/` and `property-artifacts/` - common versioned semantic-idempotence, convergence, commutator, and metamorphic-equivalence results and their generated modules.
+- `inputs/` - pending GenValid inputs during a run, plus the retained manifest; consumed inputs and finalized unused inputs are removed.
+- `semantic-observations/case-XXXXXX.json` - retained failure and semantic-difference reports, including runtime interface, invocation plan, three observations, comparisons, and classification. Successful case reports are removed.
+- `property-results/` and `property-artifacts/` - retained failure results/modules for semantic-idempotence, convergence, commutator, and metamorphic equivalence; successful case artifacts are removed after their outcomes enter the journal.
 - `localizations/` and `localization-artifacts/` - all-prefix localization reports and persisted divergent/predecessor/standalone modules when requested.
-- `failures/case-<index>-<generator>/` or `failures/case-<index>-gen-valid-transform-<id>/` - copied per-case workdir files for generator failures, validation failures, command failures, and normalized mismatches.
+- `failures/case-<index>-<generator>/` or `failures/case-<index>-gen-valid-transform-<id>/` - copied per-case workdir files for generator failures, validation failures, command failures, and normalized mismatches, including every observed semantic difference regardless of the structural artifact cap.
 
 After writing these artifacts and the aggregate counters, compare-pass exits nonzero by default when it observed any normalized mismatch, validation failure, generator failure, command failure, property failure, legacy runtime semantic mismatch, or `--max-failures` cutoff. This makes the default command suitable for CI and parity signoff while preserving the complete report for diagnosis. Setup and argument errors can still fail before report creation.
 
@@ -294,7 +294,7 @@ After writing these artifacts and the aggregate counters, compare-pass exits non
 
 Use `--report-only` only for an intentional diagnostic collection where the caller will inspect and classify `result.json` separately. That option keeps exit zero for observed outcomes, but it does not suppress setup errors or an unmet explicit `--min-compared` requirement. `result.json` records the selected `exitPolicy` as `fail-on-observed-failures` or `report-only`.
 
-Each semantic-v2 failure directory additionally includes `semantic-v2.json`, `semantic-fingerprint.json`, `semantic-fingerprint.sha256`, and, when requested, `pass-localization.json`. Fingerprints retain the exact policy, outcomes/traps, first difference, resource/offset or import-event prefix, invocation plan hash, pass sequence, and localized boundary.
+Each `semantic-self-v2` failure directory additionally includes `semantic-v2.json`, `semantic-fingerprint.json`, `semantic-fingerprint.sha256`, and, when requested, `pass-localization.json`. Fingerprints retain the exact policy, outcomes/traps, first difference, resource/offset or import-event prefix, invocation plan hash, pass sequence, and localized boundary.
 
 Each failure directory includes:
 
@@ -355,7 +355,7 @@ For preset or neighborhood work, direct pass green is necessary but not sufficie
 
 ## Semantic campaign integration boundary
 
-The version 2 runtime, semantic-idempotence/convergence, commutator, emitted GenValid base/twin records, production metamorphic equivalence, exact fingerprint reduction, Moon-expanded localization, replay, external `wasm-reduce` predicates, and corpus paths are integrated as described above; the complete schema catalog and remaining limitations are in [`../fuzzing/semantic-optimizer-campaigns.md`](../fuzzing/semantic-optimizer-campaigns.md). Dedicated semantic profiles, explicit family relaxation, whole-Wasm neighborhood exploration, semantic resume/cache reconstruction, runtime adapters, and pinned CI are integrated. See the linked campaign page for completed August 29, 2026 evidence, its historical v131 limitations, and the current v132 renewal boundary.
+The version 2 runtime, semantic-idempotence/convergence, commutator, emitted GenValid base/twin records, production metamorphic equivalence, exact fingerprint reduction, Moon-expanded localization, replay, external `wasm-reduce` predicates, and corpus paths are integrated as described above; the complete schema catalog and remaining limitations are in [`../fuzzing/semantic-optimizer-campaigns.md`](../fuzzing/semantic-optimizer-campaigns.md). Dedicated semantic profiles, explicit family relaxation, whole-Wasm neighborhood exploration, semantic resume reconstruction, runtime adapters, and pinned CI are integrated. See the linked campaign page for completed August 29, 2026 evidence, its historical v131 limitations, and the current v132 renewal boundary.
 
 ## Sources
 
@@ -387,7 +387,7 @@ could leave nonterminating Wasm alive after `terminate()`: a generated run grew
 from 162 to 243 threads and used about 1,500 percent CPU. That run was stopped;
 its partial semantic observations are not signoff evidence.
 
-Semantic cache identity includes `node-v2-process-v1` and the installed Node
+Semantic resume identity includes the Node process adapter and installed Node
 version. Host-worker observations cannot be reused as Node process results.
 Regression tests check the actual Node version, three nonterminating starts,
 a successful observation afterward, state and import events, SIMD adapters,
@@ -404,12 +404,12 @@ Sources: `scripts/lib/optimizer-runtime-executor.ts`,
 
 ### Semantic resume identity
 
-`node-v2` cache entries and `toolchain.json` include the intrinsic-call execution
+`toolchain.json` includes the intrinsic-call execution
 contract, Node process adapter version, and installed Node version. A resumed run
 must use the same semantic mode and contract; missing or older node-v2 contracts
 require a fresh output directory. This check runs before generation or reuse of
 completed journal rows. See
-[`optimizer-semantic-cache.ts`](../../../scripts/lib/optimizer-semantic-cache.ts)
+[`optimizer-runtime-executor.ts`](../../../scripts/lib/optimizer-runtime-executor.ts)
 and [`the resume regression`](../../../scripts/lib/pass-fuzz-compare-task.test.ts).
 
 The general resume identity applies whether semantic-v2 is enabled or not. It

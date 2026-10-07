@@ -56,7 +56,6 @@ else fs.copyFileSync(args[0], output);
         "--wasm-smith",
         "--out-dir", outDir,
         "--report-only",
-        "--no-cache",
         "--jobs", "1",
         "--pass", "vacuum",
         "--compiler-facts", "trust",

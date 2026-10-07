@@ -60,10 +60,10 @@ const result = cp.spawnSync(process.env.REAL_WASM_TOOLS, args, { stdio: "inherit
     path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
     "--count", "1",
     "--wasm-smith",
-    "--no-cache",
     "--out-dir", outDir,
     "--starshine-bin", fakeStarshine,
     "--wasm-tools-bin", wasmToolsWrapper,
+    "--require-binaryen-version", "133",
     "--semantic-oracle", "node-v2",
     "--semantic-policy", "strict",
     "--observation-mode", "stateful",
@@ -89,14 +89,7 @@ const result = cp.spawnSync(process.env.REAL_WASM_TOOLS, args, { stdio: "inherit
   assert(summary.semanticV2ThreeWayPatterns["all-equal"] === 1, `expected all-equal pattern: ${JSON.stringify(summary, null, 2)}`);
 
   const reportPath = path.join(outDir, "semantic-observations", "case-000001.json");
-  assert(fs.existsSync(reportPath), `missing persisted semantic report ${reportPath}`);
-  const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
-  assert(report.schema === "starshine.optimizer-three-way-runtime-report.v1", `unexpected report schema ${report.schema}`);
-  assert(report.runtimeInterface.schema === "starshine.optimizer-runtime-interface.v1", "missing runtime interface");
-  assert(report.plan.schema === "starshine.optimizer-invocation-plan.v2", "missing invocation plan");
-  assert(report.original.schema === "starshine.optimizer-runtime-observation.v2", "missing original observation");
-  assert(report.starshine.schema === "starshine.optimizer-runtime-observation.v2", "missing Starshine observation");
-  assert(report.binaryen.schema === "starshine.optimizer-runtime-observation.v2", "missing Binaryen observation");
+  assert(!fs.existsSync(reportPath), `successful semantic report must be cleaned: ${reportPath}`);
 
   const wrongWatPath = path.join(tmpdir, "wrong.wat");
   const wrongWasmPath = path.join(tmpdir, "wrong.wasm");
@@ -120,8 +113,9 @@ fs.mkdirSync(path.dirname(out), { recursive: true }); fs.copyFileSync(process.en
   const wrongResult = spawnSync("bun", [
     path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
     "--report-only",
-    "--count", "1", "--wasm-smith", "--no-cache", "--out-dir", wrongOutDir,
+    "--count", "1", "--wasm-smith", "--out-dir", wrongOutDir,
     "--starshine-bin", wrongStarshine, "--wasm-tools-bin", wasmToolsWrapper,
+    "--require-binaryen-version", "133",
     "--semantic-oracle", "node-v2", "--semantic-policy", "strict",
     "--observation-mode", "independent", "--observation-memory-cap-bytes", String(256 * 1024),
     "--observation-table-entry-cap", "16", "--runtime-timeout-ms", "1000",
@@ -138,6 +132,14 @@ fs.mkdirSync(path.dirname(out), { recursive: true }); fs.copyFileSync(process.en
   assert(wrongSummary.semanticV2MismatchCount === 1, `expected one semantic mismatch: ${JSON.stringify(wrongSummary, null, 2)}`);
   assert(wrongSummary.propertyFailureClasses["semantic-self-v2"] === 1, "missing semantic-self-v2 failure class");
   const failureDir = wrongSummary.failureDirs[0];
+  const report = JSON.parse(fs.readFileSync(path.join(failureDir, "semantic-v2.json"), "utf8"));
+  assert(report.schema === "starshine.optimizer-three-way-runtime-report.v1", `unexpected report schema ${report.schema}`);
+  assert(report.runtimeInterface.schema === "starshine.optimizer-runtime-interface.v1", "missing runtime interface");
+  assert(report.plan.schema === "starshine.optimizer-invocation-plan.v2", "missing invocation plan");
+  assert(report.original.schema === "starshine.optimizer-runtime-observation.v2", "missing original observation");
+  assert(report.starshine.schema === "starshine.optimizer-runtime-observation.v2", "missing Starshine observation");
+  assert(report.binaryen.schema === "starshine.optimizer-runtime-observation.v2", "missing Binaryen observation");
+
   const fingerprintPath = path.join(failureDir, "semantic-fingerprint.json");
   assert(fs.existsSync(fingerprintPath), `missing semantic fingerprint ${fingerprintPath}`);
   const fingerprint = JSON.parse(fs.readFileSync(fingerprintPath, "utf8"));
@@ -155,8 +157,9 @@ const hasBoundary = args.includes("--remove-unused-brs"); fs.copyFileSync(hasBou
   const localizedResult = spawnSync("bun", [
     path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
     "--report-only",
-    "--count", "1", "--wasm-smith", "--no-cache", "--out-dir", localizedOutDir,
+    "--count", "1", "--wasm-smith", "--out-dir", localizedOutDir,
     "--starshine-bin", localizedStarshine, "--wasm-tools-bin", wasmToolsWrapper,
+    "--require-binaryen-version", "133",
     "--semantic-oracle", "node-v2", "--semantic-policy", "strict",
     "--localize-first-divergence",
     "--pass", "vacuum", "--pass", "remove-unused-brs",

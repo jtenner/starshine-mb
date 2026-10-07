@@ -31,8 +31,9 @@ const fs=require("node:fs"),path=require("node:path"),cp=require("node:child_pro
   const outDir = path.join(dir, "out");
   const result = spawnSync("bun", [
     path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
-    "--count", "1", "--wasm-smith", "--no-cache", "--out-dir", outDir,
+    "--count", "1", "--wasm-smith", "--out-dir", outDir,
     "--starshine-bin", starshine, "--wasm-tools-bin", wrapper,
+    "--require-binaryen-version", "133",
     "--semantic-oracle", "node-v2", "--semantic-policy", "strict",
     "--property", "semantic-idempotence", "--property", "convergence", "--convergence-max", "4",
     "--commutator-left", "vacuum", "--commutator-right", "remove-unused-brs",
@@ -55,19 +56,16 @@ const fs=require("node:fs"),path=require("node:path"),cp=require("node:child_pro
   assert(summary.commutatorMatchCount === 1, `unexpected commutator matches ${summary.commutatorMatchCount}`);
   assert(summary.commutatorClassifications["semantic-orders-structurally-equal"] === 1, `unexpected commutator classifications ${JSON.stringify(summary.commutatorClassifications)}`);
   assert(summary.propertyFailureCount === 0, `unexpected property failures ${summary.propertyFailureCount}`);
-  const propertyDir = path.join(outDir, "property-results");
-  const semantic = JSON.parse(fs.readFileSync(path.join(propertyDir, "case-000001-semantic-idempotence.json"), "utf8"));
-  const convergence = JSON.parse(fs.readFileSync(path.join(propertyDir, "case-000001-convergence.json"), "utf8"));
-  const commutator = JSON.parse(fs.readFileSync(path.join(propertyDir, "case-000001-commutator.json"), "utf8"));
-  assert(semantic.schema === "starshine.optimizer-property-result.v1", "semantic-idempotence result used wrong schema");
-  assert(semantic.classification === "structural-fixed-point", `unexpected semantic-idempotence classification ${semantic.classification}`);
-  assert(convergence.schema === "starshine.optimizer-property-result.v1", "convergence result used wrong schema");
-  assert(convergence.classification === "fixed-point", `unexpected convergence classification ${convergence.classification}`);
-  assert(convergence.fixedPointGeneration === 1, `unexpected fixed-point generation ${convergence.fixedPointGeneration}`);
-  assert(commutator.schema === "starshine.optimizer-property-result.v1", "commutator result used wrong schema");
-  assert(commutator.classification === "semantic-orders-structurally-equal", `unexpected commutator classification ${commutator.classification}`);
-  assert(commutator.generatedArtifacts.length === 5, `commutator did not persist all five modules: ${commutator.generatedArtifacts.length}`);
-  assert(commutator.semanticComparisons.length === 5, `commutator did not persist all five comparisons: ${commutator.semanticComparisons.length}`);
+  const record = JSON.parse(fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8"));
+  assert(JSON.stringify(record.semanticPropertyOutcomes) === JSON.stringify([
+    { kind: "semantic-idempotence", status: "pass", classification: "structural-fixed-point" },
+    { kind: "convergence", status: "pass", classification: "fixed-point" },
+    { kind: "commutator", status: "pass", classification: "semantic-orders-structurally-equal" },
+  ]), `unexpected persisted property outcomes ${JSON.stringify(record.semanticPropertyOutcomes)}`);
+  for (const directory of ["property-results", "property-artifacts", "semantic-observations"]) {
+    assert(fs.readdirSync(path.join(outDir, directory)).length === 0, `successful ${directory} must be cleaned`);
+  }
+
 }
 
 if (import.meta.main) runPassFuzzCompareSemanticPropertiesCommandTest();

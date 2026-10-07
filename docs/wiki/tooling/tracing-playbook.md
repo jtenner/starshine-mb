@@ -3177,10 +3177,11 @@ After performance iteration, the explicitly rebuilt native tools run the same
 23 affected 10,000-case GenValid aggregates and normalizers as the first campaign,
 with eight subprocesses, independent validation, the deterministic oracle cache
 and Node-v2 observations. Starshine outputs are freshly generated. Semantic
-observations may be cached: the [cache key](../../../scripts/lib/optimizer-semantic-cache.ts)
-includes all three exact wasm hashes, seed, policy, runtime identity/version,
-execution contract and observation limits. Cache hits therefore reuse runtime
-evidence for identical bytes, not a newly executed runtime trial. No external
+observations could be cached under the then-current cache key, which included all three exact wasm hashes, seed, policy, runtime identity/version,
+execution contract and observation limits. Those historical cache hits reused runtime
+evidence for identical bytes, not a newly executed runtime trial. Persistent
+fuzz caching was [removed on October 5](pass-fuzz-compare.md#run-artifacts-and-cache-removal);
+new campaigns execute the oracle and runtime observations afresh. No external
 wasm-smith lane is included. This v7 campaign was later stopped for the cleanup
 regression; the completed v8 renewal below supersedes it.
 

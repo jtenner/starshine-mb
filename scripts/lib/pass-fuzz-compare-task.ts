@@ -31,6 +31,7 @@ import {
   buildRuntimeInterfaceFromWasm,
   runNodeThreeWaySemanticOracleV2,
   nodeObservationRuntimeIdentity,
+  SEMANTIC_EXECUTION_CONTRACT,
   type NodeThreeWaySemanticOracleV2Report,
 } from "./optimizer-runtime-executor";
 import type { ObservationMode } from "./optimizer-runtime";
@@ -48,12 +49,6 @@ import {
   type PropertyHarness,
 } from "./optimizer-properties";
 import { loadExpandedPassQueueFromStarshine } from "./optimizer-expanded-pass-queue";
-import {
-  buildSemanticCacheKey,
-  SEMANTIC_EXECUTION_CONTRACT,
-  loadSemanticCacheEntry,
-  storeSemanticCacheEntry,
-} from "./optimizer-semantic-cache";
 import {
   fingerprintMatches,
   semanticFingerprintFromRuntimeReport,
@@ -185,7 +180,6 @@ type PassFuzzCompareOptions = {
   passFlags: string[];
   optimizerFlags: OptimizerModeFlag[];
   compilerFactsPolicy: CompilerFactsPolicy;
-  cacheDir: string | null;
   replayFailuresFrom: string | null;
   failureStatus: CaseStatus | null;
   failureClass: CommandFailureClass | null;
@@ -288,8 +282,6 @@ type CaseRecord = {
   };
   idempotenceOutcome?: "pass" | "fail";
   compositionOutcome?: "pass" | "fail";
-  binaryenCacheOutcome?: "hit" | "miss" | "failure-hit" | "failure-miss";
-  semanticCacheOutcome?: "hit" | "miss";
   binaryenToolSha256?: string;
   starshineRawBytes?: number;
   binaryenRawBytes?: number;
@@ -443,17 +435,6 @@ export type PassFuzzCompareSummary = {
   binaryenTool: VerifiedBinaryenToolIdentity;
   normalizers: CompareNormalizer[];
   compilerFactsPolicy: CompilerFactsPolicy;
-  cache: {
-    dir: string | null;
-    wasmSmithHits: number;
-    wasmSmithMisses: number;
-    binaryenHits: number;
-    binaryenMisses: number;
-    binaryenFailureHits: number;
-    binaryenFailureMisses: number;
-    semanticHits: number;
-    semanticMisses: number;
-  };
   failureDirs: string[];
 };
 
@@ -502,7 +483,6 @@ const RESERVED_OPTIONS = new Set([
   "--normalize",
   "--jobs",
   "--pass",
-  "--cache-dir",
   "--replay-failures-from",
   "--failure-status",
   "--failure-class",
@@ -680,8 +660,6 @@ const HELP_TEXT = [
   "                       After exact semantic reduction makes no progress, explicitly allow and record family-level relaxation",
   "  --normalize <name>   Enable compare normalizer. Supported: drop-consts, unreachable-control-debris, local-cleanup-debris, ssa-local-allocation-debris. May repeat",
   "  --jobs <n|auto>       Concurrent case jobs. Default: auto with --starshine-bin, otherwise 1; auto uses available parallelism; >1 requires --starshine-bin",
-  "  --cache-dir <dir>     Persistent cache for wasm-smith inputs and Binaryen oracle outputs. Default: .tmp/pass-fuzz-cache",
-  "  --no-cache            Disable persistent input/oracle caching",
   "  --pass <name>         Canonical pass name without leading --. May repeat",
   "  --traps-never-happen  Forward TNH trap mode to both Starshine and Binaryen",
   "  --ignore-implicit-traps",
@@ -2832,7 +2810,6 @@ function programSourceIdentity(
 function buildResumeIdentity(
   options: PassFuzzCompareOptions,
   binaryenPassFlags: string[],
-  resolvedCacheDir: string | null,
   starshineInvocation: StarshineInvocation,
   repoRoot: string,
 ): ResumeIdentityRecord {
@@ -2879,7 +2856,6 @@ function buildResumeIdentity(
     reduceMismatches: options.reduceMismatches,
     semanticReductionRelaxFamily: options.semanticReductionRelaxFamily,
     jobs: options.jobs,
-    cacheDir: resolvedCacheDir,
     starshineAmbientConfiguration: starshineAmbientConfigurationIdentity(repoRoot),
   };
   const needsWorkspaceHash = options.starshineBin === null ||
@@ -2925,29 +2901,6 @@ function buildResumeIdentity(
     configuration,
     sources,
   };
-}
-
-function safeCacheComponent(text: string): string {
-  return text.replace(/[^A-Za-z0-9._=-]+/g, "_").slice(0, 120) || "empty";
-}
-
-function readToolIdentity(command: string, args: string[], repoRoot: string): string {
-  const result = spawnSync(command, args, {
-    cwd: repoRoot,
-    env: makeRepoTmpEnv(repoRoot),
-    encoding: "utf8",
-    timeout: 5000,
-  });
-  if (result.status === 0) {
-    return `${command}\0${args.join("\0")}\0${result.stdout.trim()}\0${result.stderr.trim()}`;
-  }
-  try {
-    const resolved = fs.realpathSync(command);
-    const stat = fs.statSync(resolved);
-    return `${command}\0${resolved}\0${stat.size}\0${Math.trunc(stat.mtimeMs)}`;
-  } catch {
-    return `${command}\0unidentified`;
-  }
 }
 
 export type VerifiedBinaryenToolIdentity = {
@@ -3033,75 +2986,13 @@ function verifyBinaryenToolIdentity(
   };
 }
 
-type BinaryenCacheIdentity = {
-  wasmOpt: string;
-  passFlags: string[];
-  passFlagsHash: string;
-  preserveDebug: boolean;
-};
-
 type BinaryenOracleResult =
-  | { ok: true; wat: string; cacheHit: boolean }
-  | { ok: false; detail: string; cacheHit: boolean };
+  | { ok: true; wat: string }
+  | { ok: false; detail: string };
 
-function binaryenSuccessCacheIsComplete(cacheDir: string): boolean {
-  try {
-    const done = JSON.parse(fs.readFileSync(path.join(cacheDir, "done.json"), "utf8")) as {
-      ok?: unknown;
-      schema?: unknown;
-      rawSha256?: unknown;
-      canonicalSha256?: unknown;
-      watSha256?: unknown;
-    };
-    return done.ok === true && done.schema === 4 &&
-      done.rawSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.raw.wasm"))) &&
-      done.canonicalSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.wasm"))) &&
-      done.watSha256 === sha256Hex(fs.readFileSync(path.join(cacheDir, "binaryen.wat")));
-  } catch {
-    return false;
-  }
-}
-
-function publishCacheDir(stagingDir: string, finalDir: string): void {
-  fs.mkdirSync(path.dirname(finalDir), { recursive: true });
-  try {
-    fs.renameSync(stagingDir, finalDir);
-  } catch {
-    fs.rmSync(stagingDir, { recursive: true, force: true });
-  }
-}
-
-function makeSmithCachePath(cacheDir: string, wasmToolsIdentity: string, seed: bigint, replayIndex: number): string {
-  const toolHash = sha256Hex(wasmToolsIdentity).slice(0, 16);
-  return path.join(
-    cacheDir,
-    "wasm-smith",
-    `wasm-tools-${toolHash}`,
-    `seed-${safeCacheComponent(seedHex(seed))}`,
-    `wasmsmith-${safeCacheComponent(seedHex(seed))}-${String(replayIndex).padStart(6, "0")}.wasm`,
-  );
-}
-
-function makeBinaryenCacheDir(
-  cacheDir: string,
-  identity: BinaryenCacheIdentity,
-  inputBytes: Buffer,
-): string {
-  const toolHash = sha256Hex(identity.wasmOpt).slice(0, 16);
-  const inputHash = sha256Hex(inputBytes);
-  return path.join(
-    cacheDir,
-    "binaryen",
-    identity.preserveDebug ? "schema-v4-bounded-debug-preserving" : "schema-v4-bounded",
-    `wasm-opt-${toolHash}`,
-    `passes-${identity.passFlagsHash.slice(0, 16)}`,
-    `input-${inputHash}`,
-  );
-}
-
-async function runBinaryenOracleWithCache(
+async function runBinaryenOracle(
   options: PassFuzzCompareOptions,
-  binaryenIdentity: BinaryenCacheIdentity,
+  binaryenPassFlags: string[],
   inputPath: string,
   binaryenRawPath: string,
   binaryenPath: string,
@@ -3109,25 +3000,10 @@ async function runBinaryenOracleWithCache(
   repoRoot: string,
   repoTmpEnv: NodeJS.ProcessEnv,
 ): Promise<BinaryenOracleResult> {
-  const inputBytes = fs.readFileSync(inputPath);
-  const cacheRoot = options.cacheDir === null ? null : resolveRepoPath(repoRoot, options.cacheDir);
-  const cacheDir = cacheRoot === null ? null : makeBinaryenCacheDir(cacheRoot, binaryenIdentity, inputBytes);
-  const cacheDonePath = cacheDir === null ? null : path.join(cacheDir, "done.json");
-  if (cacheDir !== null && cacheDonePath !== null && binaryenSuccessCacheIsComplete(cacheDir)) {
-    fs.copyFileSync(path.join(cacheDir, "binaryen.raw.wasm"), binaryenRawPath);
-    fs.copyFileSync(path.join(cacheDir, "binaryen.wasm"), binaryenPath);
-    const wat = fs.readFileSync(path.join(cacheDir, "binaryen.wat"), "utf8");
-    fs.writeFileSync(binaryenWatPath, wat);
-    return { ok: true, wat, cacheHit: true };
-  }
-  if (cacheDir !== null && fs.existsSync(cacheDir)) {
-    fs.rmSync(cacheDir, { recursive: true, force: true });
-  }
-
   try {
     await runOrThrowAsync(
       options.wasmOptBin,
-      [inputPath, "--all-features", ...binaryenIdentity.passFlags, "-o", binaryenRawPath],
+      [inputPath, "--all-features", ...binaryenPassFlags, "-o", binaryenRawPath],
       { cwd: repoRoot, env: repoTmpEnv, timeoutMs: options.subprocessTimeoutMs },
     );
     await canonicalizeWasm(
@@ -3144,25 +3020,9 @@ async function runBinaryenOracleWithCache(
       repoRoot,
       options.passFlags,
     );
-    if (cacheDir !== null) {
-      const stagingDir = `${cacheDir}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      fs.mkdirSync(stagingDir, { recursive: true });
-      fs.copyFileSync(binaryenRawPath, path.join(stagingDir, "binaryen.raw.wasm"));
-      fs.copyFileSync(binaryenPath, path.join(stagingDir, "binaryen.wasm"));
-      fs.writeFileSync(path.join(stagingDir, "binaryen.wat"), wat);
-      fs.writeFileSync(path.join(stagingDir, "done.json"), JSON.stringify({
-        ok: true,
-        schema: 4,
-        rawSha256: sha256Hex(fs.readFileSync(binaryenRawPath)),
-        canonicalSha256: sha256Hex(fs.readFileSync(binaryenPath)),
-        watSha256: sha256Hex(wat),
-      }, null, 2) + "\n");
-      publishCacheDir(stagingDir, cacheDir);
-    }
-    return { ok: true, wat, cacheHit: false };
+    return { ok: true, wat };
   } catch (error) {
-    const detail = commandFailureDetail(error);
-    return { ok: false, detail, cacheHit: false };
+    return { ok: false, detail: commandFailureDetail(error) };
   }
 }
 
@@ -3190,14 +3050,6 @@ function generatorForIndex(mode: GeneratorMode, _index: number): GeneratorKind {
 
 function requiredGenValidCount(mode: GeneratorMode, totalCount: number): number {
   return mode === "gen-valid" ? totalCount : 0;
-}
-
-function listGeneratedGenValidInputs(dir: string): string[] {
-  return fs
-    .readdirSync(dir)
-    .filter((entry) => /^gen-valid-\d{6}\.wasm$/.test(entry))
-    .sort()
-    .map((entry) => path.join(dir, entry));
 }
 
 function emptyEffectTrapCounts(): EffectTrapCounts {
@@ -3325,6 +3177,14 @@ function noteSemanticV2Report(
 function semanticV2IsStarshineFailure(report: NodeThreeWaySemanticOracleV2Report): boolean {
   return report.classification.primary === "starshine-semantic-mismatch"
     || report.classification.primary === "starshine-correctness-failure";
+}
+
+function semanticV2HasDifference(report: NodeThreeWaySemanticOracleV2Report | null): boolean {
+  return report !== null && [
+    report.originalVsStarshine,
+    report.originalVsBinaryen,
+    report.starshineVsBinaryen,
+  ].some(comparison => comparison?.classification === "semantic-mismatch");
 }
 
 function persistSemanticV2Report(
@@ -4179,12 +4039,6 @@ function applyResumedCaseRecord(
   summary.idempotenceMatchCount += optimizer.idempotenceMatchCount;
   summary.compositionCheckedCount += optimizer.compositionCheckedCount;
   summary.compositionMatchCount += optimizer.compositionMatchCount;
-  summary.cache.binaryenHits += optimizer.cache.binaryenHits;
-  summary.cache.binaryenMisses += optimizer.cache.binaryenMisses;
-  summary.cache.binaryenFailureHits += optimizer.cache.binaryenFailureHits;
-  summary.cache.binaryenFailureMisses += optimizer.cache.binaryenFailureMisses;
-  summary.cache.semanticHits += optimizer.cache.semanticHits;
-  summary.cache.semanticMisses += optimizer.cache.semanticMisses;
   const sizes = passFuzzSizeCountersForTest([record]);
   summary.starshineRawBytes += sizes.starshineRawBytes;
   summary.binaryenRawBytes += sizes.binaryenRawBytes;
@@ -4396,14 +4250,6 @@ export function passFuzzResumedOptimizerCountersForTest(records: CaseRecord[]) {
     idempotenceMatchCount: 0,
     compositionCheckedCount: 0,
     compositionMatchCount: 0,
-    cache: {
-      binaryenHits: 0,
-      binaryenMisses: 0,
-      binaryenFailureHits: 0,
-      binaryenFailureMisses: 0,
-      semanticHits: 0,
-      semanticMisses: 0,
-    },
   };
   const increment = (record: Record<string, number>, key: string): void => {
     record[key] = (record[key] ?? 0) + 1;
@@ -4462,14 +4308,6 @@ export function passFuzzResumedOptimizerCountersForTest(records: CaseRecord[]) {
       counters.compositionCheckedCount += 1;
       if (record.compositionOutcome === "pass") counters.compositionMatchCount += 1;
     }
-    switch (record.binaryenCacheOutcome) {
-      case "hit": counters.cache.binaryenHits += 1; break;
-      case "miss": counters.cache.binaryenMisses += 1; break;
-      case "failure-hit": counters.cache.binaryenFailureHits += 1; break;
-      case "failure-miss": counters.cache.binaryenFailureMisses += 1; break;
-    }
-    if (record.semanticCacheOutcome === "hit") counters.cache.semanticHits += 1;
-    else if (record.semanticCacheOutcome === "miss") counters.cache.semanticMisses += 1;
   }
   return counters;
 }
@@ -4534,7 +4372,6 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let jobs: number | null = null;
   const passFlags: string[] = [];
   const optimizerFlags: OptimizerModeFlag[] = [];
-  let cacheDir: string | null = path.join(".tmp", "pass-fuzz-cache");
   let replayFailuresFrom: string | null = null;
   let failureStatus: CaseStatus | null = null;
   let failureClass: CommandFailureClass | null = null;
@@ -4796,14 +4633,6 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         optimizerFlags.push(token);
         i += 1;
         break;
-      case "--cache-dir":
-        cacheDir = argv[i + 1] ?? fail("missing value for --cache-dir");
-        i += 2;
-        break;
-      case "--no-cache":
-        cacheDir = null;
-        i += 1;
-        break;
       case "--replay-failures-from":
         replayFailuresFrom = argv[i + 1] ?? fail("missing value for --replay-failures-from");
         i += 2;
@@ -4952,11 +4781,6 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
           i += 1;
           break;
         }
-        if (token.startsWith("--cache-dir=")) {
-          cacheDir = token.substring("--cache-dir=".length);
-          i += 1;
-          break;
-        }
         if (RESERVED_OPTIONS.has(token)) {
           fail(`missing value for ${token}`);
         }
@@ -5085,7 +4909,6 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       passFlags,
       optimizerFlags,
       compilerFactsPolicy,
-      cacheDir,
       replayFailuresFrom,
       failureStatus,
       failureClass,
@@ -5126,25 +4949,16 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     ...options.optimizerFlags,
     ...options.passFlags.flatMap(normalizeBinaryenPassFlag),
   ];
-  const resolvedCacheDir = options.cacheDir === null ? null : resolveRepoPath(repoRoot, options.cacheDir);
   const starshineInvocation = resolveStarshineInvocation(repoRoot, options.starshineBin, options.moonBin);
-  const wasmToolsIdentity = readToolIdentity(options.wasmToolsBin, ["--version"], repoRoot);
   const verifiedBinaryenTool = verifyBinaryenToolIdentity(
     options.wasmOptBin,
     options.requiredBinaryenVersion,
     repoRoot,
     Math.min(options.subprocessTimeoutMs, 5000),
   );
-  const binaryenIdentity: BinaryenCacheIdentity = {
-    wasmOpt: JSON.stringify(verifiedBinaryenTool),
-    passFlags: binaryenPassFlags,
-    passFlagsHash: sha256Hex(JSON.stringify(binaryenPassFlags)),
-    preserveDebug: comparisonPreservesDebug(options.passFlags),
-  };
   const resumeIdentity = buildResumeIdentity(
     options,
     binaryenPassFlags,
-    resolvedCacheDir,
     starshineInvocation,
     repoRoot,
   );
@@ -5273,12 +5087,10 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       );
     }
   }
-  const genValidInputs = genValidCount > 0 ? listGeneratedGenValidInputs(genValidDir) : [];
-  if (options.resume && genValidInputs.length < genValidCount) {
-    fail(
-      `--resume found ${genValidInputs.length} GenValid inputs in ${genValidDir}, but ${genValidCount} are required`,
-    );
-  }
+  // Stable positions survive cleanup of completed cases and out-of-order resume.
+  const genValidInputs = Array.from({ length: genValidCount }, (_, index) =>
+    path.join(genValidDir, `gen-valid-${String(index + 1).padStart(6, "0")}.wasm`)
+  );
   const genValidManifestPath = path.join(genValidDir, "manifest.json");
   if (options.resume && genValidCount > 0 && !fs.existsSync(genValidManifestPath)) {
     fail(`--resume requires the saved GenValid manifest: ${genValidManifestPath}`);
@@ -5298,6 +5110,36 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     } catch (error) {
       fail(`failed to read gen-valid manifest ${genValidManifestPath}: ${commandFailureDetail(error)}`);
     }
+  }
+
+  const generatedInputsByCase = new Map<number, string[]>();
+  const generatedInputUses = new Map<string, number>();
+  for (const replayIndex of scheduledReplayIndexes) {
+    if (replayCases !== null || options.generator !== "gen-valid") continue;
+    const source = genValidInputs[replayIndex] ?? fail("not enough generated gen-valid inputs");
+    const inputs = [source];
+    if (options.emitMetamorphicPairs) {
+      const record = genValidManifestRecords.get(path.basename(source)) ?? null;
+      const baseName = genValidManifestPairField(record, "base_file_name")
+        ?? fail(`missing metamorphic base_file_name for ${path.basename(source)}`);
+      if (path.basename(baseName) !== baseName) fail(`invalid metamorphic base_file_name: ${baseName}`);
+      inputs.push(path.join(genValidDir, baseName));
+    }
+    for (const input of new Set(inputs)) {
+      if (!fs.existsSync(input)) {
+        fail(`${options.resume ? "--resume requires pending" : "missing generated"} GenValid input: ${input}`);
+      }
+      generatedInputUses.set(input, (generatedInputUses.get(input) ?? 0) + 1);
+    }
+    generatedInputsByCase.set(replayIndex, [...new Set(inputs)]);
+  }
+
+  const retainedArtifactCases = new Set<number>();
+  const completedCaseIndexes = new Set<number>();
+  function retainFailureArtifacts(...args: Parameters<typeof persistFailureArtifacts>): string {
+    const directory = persistFailureArtifacts(...args);
+    retainedArtifactCases.add(args[1]);
+    return directory;
   }
 
   const summary: PassFuzzCompareSummary = {
@@ -5439,17 +5281,6 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     requiredBinaryenVersion: options.requiredBinaryenVersion,
     binaryenTool: verifiedBinaryenTool,
     normalizers: options.normalizers,
-    cache: {
-      dir: options.cacheDir,
-      wasmSmithHits: 0,
-      wasmSmithMisses: 0,
-      binaryenHits: 0,
-      binaryenMisses: 0,
-      binaryenFailureHits: 0,
-      binaryenFailureMisses: 0,
-      semanticHits: 0,
-      semanticMisses: 0,
-    },
     failureDirs: [],
   };
 
@@ -5479,8 +5310,6 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       | "localizationOutcome"
       | "idempotenceOutcome"
       | "compositionOutcome"
-      | "binaryenCacheOutcome"
-      | "semanticCacheOutcome"
     >
   >();
   const caseSizeComparisons = new Map<
@@ -5546,12 +5375,6 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       ...(record.compositionOutcome === undefined && optimizerEvidence?.compositionOutcome !== undefined
         ? { compositionOutcome: optimizerEvidence.compositionOutcome }
         : {}),
-      ...(record.binaryenCacheOutcome === undefined && optimizerEvidence?.binaryenCacheOutcome !== undefined
-        ? { binaryenCacheOutcome: optimizerEvidence.binaryenCacheOutcome }
-        : {}),
-      ...(record.semanticCacheOutcome === undefined && optimizerEvidence?.semanticCacheOutcome !== undefined
-        ? { semanticCacheOutcome: optimizerEvidence.semanticCacheOutcome }
-        : {}),
       ...(record.starshineRawBytes === undefined &&
       sizeComparison?.starshineRawBytes !== undefined
         ? { starshineRawBytes: sizeComparison.starshineRawBytes }
@@ -5571,6 +5394,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     };
     caseRecords.push(enrichedRecord);
     fs.appendFileSync(casesPath, `${JSON.stringify(enrichedRecord)}\n`);
+    completedCaseIndexes.add(record.caseIndex);
   }
 
   function genValidInputIndexForReplayIndex(replayIndex: number): number {
@@ -5623,8 +5447,6 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         | "localizationOutcome"
         | "idempotenceOutcome"
         | "compositionOutcome"
-        | "binaryenCacheOutcome"
-        | "semanticCacheOutcome"
       >,
     ): void {
       caseOptimizerEvidence.set(caseNumber, {
@@ -5639,51 +5461,23 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     ): Promise<NodeThreeWaySemanticOracleV2Report | null> {
       if (options.semanticOracle === "off") return null;
       const semanticSeed = options.seed + BigInt(caseNumber);
-      const semanticCacheRoot = options.cacheDir === null ? null : resolveRepoPath(repoRoot, options.cacheDir);
-      const semanticCacheKey = semanticCacheRoot === null
-        ? null
-        : buildSemanticCacheKey({
-            original: fs.readFileSync(inputPath),
-            starshine: fs.readFileSync(starshineRawPath),
-            binaryen: binaryenWasmPath === null ? null : fs.readFileSync(binaryenWasmPath),
-            seed: semanticSeed,
-            policy: options.semanticPolicy,
-            mode: options.observationMode,
-            timeoutMs: options.runtimeTimeoutMs,
-            memoryCapBytes: options.observationMemoryCapBytes,
-            tableEntryCap: options.observationTableEntryCap,
-            runtimeVersion: `node-v2-process-v1:${nodeObservationRuntimeIdentity()}:${binaryenDiagnostic}`,
-          });
-      semanticV2Report = semanticCacheRoot === null || semanticCacheKey === null
-        ? null
-        : loadSemanticCacheEntry<NodeThreeWaySemanticOracleV2Report>(semanticCacheRoot, semanticCacheKey);
-      if (semanticV2Report === null) {
-        summary.cache.semanticMisses += 1;
-        updateCaseOptimizerEvidence({ semanticCacheOutcome: "miss" });
-        semanticV2Report = await runNodeThreeWaySemanticOracleV2(
-          inputPath,
-          starshineRawPath,
-          binaryenWasmPath,
-          {
-            seed: semanticSeed,
-            policy: options.semanticPolicy,
-            mode: options.observationMode,
-            timeoutMs: options.runtimeTimeoutMs,
-            memoryCapBytes: options.observationMemoryCapBytes,
-            tableEntryCap: options.observationTableEntryCap,
-            wasmToolsBin: options.wasmToolsBin,
-            starshineBin: starshineInvocation.command,
-            starshineArgsPrefix: starshineInvocation.argsPrefix,
-            binaryenDiagnostic,
-          },
-        );
-        if (semanticCacheRoot !== null && semanticCacheKey !== null) {
-          storeSemanticCacheEntry(semanticCacheRoot, semanticCacheKey, semanticV2Report);
-        }
-      } else {
-        summary.cache.semanticHits += 1;
-        updateCaseOptimizerEvidence({ semanticCacheOutcome: "hit" });
-      }
+      semanticV2Report = await runNodeThreeWaySemanticOracleV2(
+        inputPath,
+        starshineRawPath,
+        binaryenWasmPath,
+        {
+          seed: semanticSeed,
+          policy: options.semanticPolicy,
+          mode: options.observationMode,
+          timeoutMs: options.runtimeTimeoutMs,
+          memoryCapBytes: options.observationMemoryCapBytes,
+          tableEntryCap: options.observationTableEntryCap,
+          wasmToolsBin: options.wasmToolsBin,
+          starshineBin: starshineInvocation.command,
+          starshineArgsPrefix: starshineInvocation.argsPrefix,
+          binaryenDiagnostic,
+        },
+      );
       updateCaseOptimizerEvidence({
         semanticV2Outcome: {
           primary: semanticV2Report.classification.primary,
@@ -5841,8 +5635,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         if (options.emitMetamorphicPairs) {
           const baseFileName = genValidManifestPairField(genValidManifestEntry, "base_file_name") ?? fail(`missing metamorphic base_file_name for ${path.basename(source)}`);
           metamorphicRelationId = genValidManifestPairField(genValidManifestEntry, "relation_group_id") ?? fail(`missing metamorphic relation_group_id for ${path.basename(source)}`);
-          metamorphicBasePath = path.join(path.dirname(source), baseFileName);
-          if (!fs.existsSync(metamorphicBasePath)) fail(`missing emitted metamorphic base artifact ${metamorphicBasePath}`);
+          const emittedBasePath = path.join(path.dirname(source), baseFileName);
+          metamorphicBasePath = path.join(workDir, "metamorphic.base.wasm");
+          fs.copyFileSync(emittedBasePath, metamorphicBasePath);
         }
         if (transformId !== null) {
           caseTransformIds.set(caseNumber, transformId);
@@ -5859,39 +5654,19 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         }
         fs.copyFileSync(source, inputPath);
       } else {
-        const smithCachePath = resolvedCacheDir === null
-          ? null
-          : makeSmithCachePath(resolvedCacheDir, wasmToolsIdentity, options.seed, replayIndex);
-        let smith: { ok: boolean; stderr: string } = { ok: true, stderr: "" };
-        if (smithCachePath !== null && fs.existsSync(smithCachePath)) {
-          summary.cache.wasmSmithHits += 1;
-          fs.copyFileSync(smithCachePath, inputPath);
-        } else {
-          summary.cache.wasmSmithMisses += 1;
-          smith = await runSmith(
-            options.wasmToolsBin,
-            inputPath,
-            makeSmithSeedBytes(options.seed + BigInt(replayIndex)),
-            repoRoot,
-            options.subprocessTimeoutMs,
-          );
-          if (smith.ok && smithCachePath !== null) {
-            fs.mkdirSync(path.dirname(smithCachePath), { recursive: true });
-            const tempPath = `${smithCachePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-            fs.copyFileSync(inputPath, tempPath);
-            try {
-              fs.renameSync(tempPath, smithCachePath);
-            } catch {
-              fs.rmSync(tempPath, { force: true });
-            }
-          }
-        }
+        const smith = await runSmith(
+          options.wasmToolsBin,
+          inputPath,
+          makeSmithSeedBytes(options.seed + BigInt(replayIndex)),
+          repoRoot,
+          options.subprocessTimeoutMs,
+        );
         if (!smith.ok) {
           summary.generatorFailureCount += 1;
           failures += 1;
           const detail = `wasm-smith generation failed: ${smith.stderr || "unknown error"}`;
           summary.failureDirs.push(
-            persistFailureArtifacts(
+            retainFailureArtifacts(
               outDir,
               caseNumber,
               generator,
@@ -5927,7 +5702,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         failures += 1;
         const detail = `generated input failed validation: ${baselineValidation.stderr || "unknown error"}`;
         summary.failureDirs.push(
-          persistFailureArtifacts(
+          retainFailureArtifacts(
             outDir,
             caseNumber,
             generator,
@@ -5977,7 +5752,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         const failureClass = classifyCommandFailure(detail);
         noteCommandFailureClass(summary, failureClass);
         summary.failureDirs.push(
-          persistFailureArtifacts(
+          retainFailureArtifacts(
             outDir,
             caseNumber,
             generator,
@@ -6018,7 +5793,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           ? `Starshine output failed validation: ${starshineValidation.stderr || "unknown error"}`
           : `Starshine output failed external validation: ${externalValidation.stderr || "unknown error"}`;
         summary.failureDirs.push(
-          persistFailureArtifacts(
+          retainFailureArtifacts(
             outDir,
             caseNumber,
             generator,
@@ -6250,7 +6025,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           );
         }
         summary.failureDirs.push(
-          persistFailureArtifacts(
+          retainFailureArtifacts(
             outDir,
             caseNumber,
             generator,
@@ -6429,7 +6204,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           failures += 1;
           const detail = `${kind} property failed: ${result.classification}${result.firstFailure ? ` at ${result.firstFailure.stage}: ${result.firstFailure.detail}` : ""}`;
           summary.failureDirs.push(
-            persistFailureArtifacts(
+            retainFailureArtifacts(
               outDir,
               caseNumber,
               generator,
@@ -6481,7 +6256,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           failures += 1;
           const detail = `commutator property failed: ${result.classification}${result.firstFailure ? ` at ${result.firstFailure.stage}: ${result.firstFailure.detail}` : ""}`;
           summary.failureDirs.push(
-            persistFailureArtifacts(
+            retainFailureArtifacts(
               outDir,
               caseNumber,
               generator,
@@ -6536,7 +6311,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           failures += 1;
           const detail = `metamorphic-equivalence property failed: ${result.classification}${result.firstFailure ? ` at ${result.firstFailure.stage}: ${result.firstFailure.detail}` : ""}`;
           summary.failureDirs.push(
-            persistFailureArtifacts(
+            retainFailureArtifacts(
               outDir,
               caseNumber,
               generator,
@@ -6640,7 +6415,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             failures += 1;
             const detail = "idempotence property failed: pass(pass(input)) differed from pass(input)";
             summary.failureDirs.push(
-              persistFailureArtifacts(
+              retainFailureArtifacts(
                 outDir,
                 caseNumber,
                 generator,
@@ -6669,7 +6444,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           failures += 1;
           const detail = `idempotence property command failed: ${commandFailureDetail(error)}`;
           summary.failureDirs.push(
-            persistFailureArtifacts(
+            retainFailureArtifacts(
               outDir,
               caseNumber,
               generator,
@@ -6766,7 +6541,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             failures += 1;
             const detail = "composition property failed: combined pass invocation differed from sequential single-pass invocations";
             summary.failureDirs.push(
-              persistFailureArtifacts(
+              retainFailureArtifacts(
                 outDir,
                 caseNumber,
                 generator,
@@ -6795,7 +6570,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           failures += 1;
           const detail = `composition property command failed: ${commandFailureDetail(error)}`;
           summary.failureDirs.push(
-            persistFailureArtifacts(
+            retainFailureArtifacts(
               outDir,
               caseNumber,
               generator,
@@ -6822,9 +6597,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
 
       let starshineWat = "";
       let binaryenWat = "";
-      const binaryenOracle = await runBinaryenOracleWithCache(
+      const binaryenOracle = await runBinaryenOracle(
         options,
-        binaryenIdentity,
+        binaryenPassFlags,
         inputPath,
         binaryenRawPath,
         binaryenPath,
@@ -6833,22 +6608,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         repoTmpEnv,
       );
       if (binaryenOracle.ok) {
-        if (binaryenOracle.cacheHit) {
-          summary.cache.binaryenHits += 1;
-          updateCaseOptimizerEvidence({ binaryenCacheOutcome: "hit" });
-        } else {
-          summary.cache.binaryenMisses += 1;
-          updateCaseOptimizerEvidence({ binaryenCacheOutcome: "miss" });
-        }
         binaryenWat = binaryenOracle.wat;
       } else {
-        if (binaryenOracle.cacheHit) {
-          summary.cache.binaryenFailureHits += 1;
-          updateCaseOptimizerEvidence({ binaryenCacheOutcome: "failure-hit" });
-        } else {
-          summary.cache.binaryenFailureMisses += 1;
-          updateCaseOptimizerEvidence({ binaryenCacheOutcome: "failure-miss" });
-        }
         summary.commandFailureCount += 1;
         const detail = `Binaryen/canonicalization command failed: ${binaryenOracle.detail}`;
         const failureClass = classifyCommandFailure(detail);
@@ -6875,7 +6636,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           notePropertyFailureClass(summary, "semantic-self-v2");
           const semanticDetail = `semantic:self-v2 ${partialSemanticReport.classification.primary} pattern=${partialSemanticReport.classification.pattern}; ${detail}`;
           summary.failureDirs.push(
-            persistFailureArtifacts(
+            retainFailureArtifacts(
               outDir,
               caseNumber,
               generator,
@@ -6913,7 +6674,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         }
         if (!options.keepGoingAfterCommandFailures) failures += 1;
         summary.failureDirs.push(
-          persistFailureArtifacts(
+          retainFailureArtifacts(
             outDir,
             caseNumber,
             generator,
@@ -6966,7 +6727,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         const failureClass = classifyCommandFailure(detail);
         noteCommandFailureClass(summary, failureClass);
         summary.failureDirs.push(
-          persistFailureArtifacts(
+          retainFailureArtifacts(
             outDir,
             caseNumber,
             generator,
@@ -7013,7 +6774,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         failures += 1;
         const detail = `semantic:self-v2 ${completedSemanticReport.classification.primary} pattern=${completedSemanticReport.classification.pattern} difference=${completedSemanticReport.originalVsStarshine.firstDifferencePath ?? "unknown"}`;
         summary.failureDirs.push(
-          persistFailureArtifacts(
+          retainFailureArtifacts(
             outDir,
             caseNumber,
             generator,
@@ -7155,11 +6916,11 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             )
           : null;
         if (
-          summary.mismatchArtifactsPersistedCount <
-          options.maxMismatchArtifacts
+          summary.mismatchArtifactsPersistedCount < options.maxMismatchArtifacts ||
+          semanticV2HasDifference(semanticV2Report)
         ) {
           summary.failureDirs.push(
-            persistFailureArtifacts(
+            retainFailureArtifacts(
               outDir,
               caseNumber,
               generator,
@@ -7187,7 +6948,49 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
         });
       }
+    } catch (error) {
+      if (!retainedArtifactCases.has(caseNumber) && fs.existsSync(inputPath)) {
+        summary.failureDirs.push(retainFailureArtifacts(
+          outDir, caseNumber, generator, "command-failure",
+          `unexpected case failure: ${commandFailureDetail(error)}`,
+          workDir, options.wasmToolsBin, repoRoot, options.passFlags,
+          genValidManifestEntry, inputEffectTrapFacts,
+        ));
+      }
+      throw error;
     } finally {
+      // Any observed semantic difference retains its bytes and report even when
+      // the structural mismatch artifact budget is exhausted.
+      if (semanticV2HasDifference(semanticV2Report) && !retainedArtifactCases.has(caseNumber)) {
+        summary.failureDirs.push(retainFailureArtifacts(
+          outDir, caseNumber, generator, "mismatch",
+          `observed semantic difference: ${semanticV2Report!.classification.pattern}`,
+          workDir, options.wasmToolsBin, repoRoot, options.passFlags,
+          genValidManifestEntry, inputEffectTrapFacts,
+        ));
+      }
+      if (completedCaseIndexes.has(caseNumber)) {
+        if (!retainedArtifactCases.has(caseNumber)) {
+          const caseName = `case-${String(caseNumber).padStart(6, "0")}`;
+          for (const reportDir of ["semantic-observations", "localizations"]) {
+            fs.rmSync(path.join(outDir, reportDir, `${caseName}.json`), { force: true });
+          }
+          fs.rmSync(path.join(outDir, "localization-artifacts", caseName), { recursive: true, force: true });
+          for (const kind of ["semantic-idempotence", "convergence", "commutator", "metamorphic-equivalence"]) {
+            fs.rmSync(path.join(outDir, "property-results", `${caseName}-${kind}.json`), { force: true });
+            fs.rmSync(path.join(outDir, "property-artifacts", `${caseName}-${kind}`), { recursive: true, force: true });
+          }
+        }
+        for (const input of generatedInputsByCase.get(replayIndex) ?? []) {
+          const remaining = (generatedInputUses.get(input) ?? 1) - 1;
+          if (remaining === 0) {
+            generatedInputUses.delete(input);
+            fs.rmSync(input, { force: true });
+          } else {
+            generatedInputUses.set(input, remaining);
+          }
+        }
+      }
       fs.rmSync(workDir, { recursive: true, force: true });
     }
   }
@@ -7250,6 +7053,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
 
   await Promise.all(Array.from({ length: summary.jobs }, () => runWorker()));
 
+  // Finalized cutoff runs cannot resume past their exhausted failure budget.
+  // Only an interrupted run needs to keep inputs for cases not yet attempted.
+  for (const input of generatedInputUses.keys()) {
+    fs.rmSync(input, { force: true });
+  }
+  generatedInputUses.clear();
+
   summary.failureDirs.sort();
   caseRecords.sort((left, right) => left.caseIndex - right.caseIndex);
   fs.writeFileSync(
@@ -7270,7 +7080,6 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Compare-normalized matches: ${summary.cleanupNormalizedMatchCount}\n`);
   process.stdout.write(`Validation failures: ${summary.validationFailureCount}\n`);
   process.stdout.write(`Property failures: ${summary.propertyFailureCount}\n`);
-  process.stdout.write(`Cache: wasm-smith ${summary.cache.wasmSmithHits} hits/${summary.cache.wasmSmithMisses} misses; Binaryen ${summary.cache.binaryenHits} hits/${summary.cache.binaryenMisses} misses; Binaryen failures ${summary.cache.binaryenFailureHits} hits/${summary.cache.binaryenFailureMisses} misses; semantic-v2 ${summary.cache.semanticHits} hits/${summary.cache.semanticMisses} misses\n`);
   process.stdout.write(`Generator failures: ${summary.generatorFailureCount}\n`);
   process.stdout.write(`Command failures: ${summary.commandFailureCount}\n`);
   process.stdout.write(`Mismatches: ${summary.mismatchCount}\n`);
