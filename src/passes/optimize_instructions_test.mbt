@@ -81816,8 +81816,10 @@ test "optimize-instructions keeps constant boolean decision trees unwrapped in l
 
 ///|
 test "optimize-instructions keeps zero sentinels after returning ifs in result blocks" {
+  // The if arms return; the enclosing result block gets its fallthrough
+  // value from the explicit zero sentinel.
   let func = optimize_instructions_test_run_hot(
-    "(module (func (param i32) (result i32) (block (result i32) (if (result i32) (local.get 0) (then (block (return (i32.const 1)))) (else (block (return (i32.const 0))))) (i32.const 0))))",
+    "(module (func (param i32) (result i32) (block (result i32) (if (local.get 0) (then (block (return (i32.const 1)))) (else (block (return (i32.const 0))))) (i32.const 0))))",
   )
   let block = @ir.hot_root_get(func, 0)
   let body = @ir.hot_region_body_ref(func, block)
@@ -81835,7 +81837,7 @@ test "optimize-instructions keeps zero sentinels after returning ifs in result b
 ///|
 test "optimize-instructions keeps zero sentinels after wrapped returning ifs in result blocks" {
   let func = optimize_instructions_test_run_hot(
-    "(module (func (param i32) (result i32) (block (result i32) (block (result i32) (if (result i32) (local.get 0) (then (block (return (i32.const 1)))) (else (block (return (i32.const 0))))) (i32.const 0)))))",
+    "(module (func (param i32) (result i32) (block (result i32) (block (result i32) (if (local.get 0) (then (block (return (i32.const 1)))) (else (block (return (i32.const 0))))) (i32.const 0)))))",
   )
   let outer = @ir.hot_root_get(func, 0)
   let outer_body = @ir.hot_region_body_ref(func, outer)
@@ -81855,7 +81857,7 @@ test "optimize-instructions keeps zero sentinels after wrapped returning ifs in 
 ///|
 test "optimize-instructions keeps zero sentinels after returning ifs with dead arm suffixes" {
   let func = optimize_instructions_test_run_hot(
-    "(module (func (param i32) (result i32) (block (result i32) (if (local.get 0) (then (return (i32.const 1)) (i32.const 9)) (else (return (i32.const 0)) (i32.const 8))) (i32.const 0))))",
+    "(module (func (param i32) (result i32) (block (result i32) (if (local.get 0) (then (return (i32.const 1)) (i32.const 9) (drop)) (else (return (i32.const 0)) (i32.const 8) (drop))) (i32.const 0))))",
   )
   let block = @ir.hot_root_get(func, 0)
   let body = @ir.hot_region_body_ref(func, block)

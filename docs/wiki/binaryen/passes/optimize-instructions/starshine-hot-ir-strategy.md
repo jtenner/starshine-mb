@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-07
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize_instructions.mbt
@@ -20,6 +20,14 @@ related:
 ---
 
 # Current Starshine `optimize-instructions` HOT code map
+
+The October 7 default-gate repair makes three returning-`if` zero-sentinel
+fixtures valid Wasm. The `if` arms are void because both return; the enclosing
+result block receives its typed fallthrough value from the explicit zero.
+Dead arm suffixes use `drop` so they remain present without leaving an extra
+stack value. `wasm-tools validate` accepts all three inputs, and the tests
+still check that OptimizeInstructions keeps the sentinel. The owner file now
+has only three `ref.get_desc` behavior failures.
 
 This page is the exact MoonBit helper/code-map companion to [`./starshine-strategy.md`](./starshine-strategy.md).
 It describes the **current local implementation**, not upstream Binaryen's AST pass.
