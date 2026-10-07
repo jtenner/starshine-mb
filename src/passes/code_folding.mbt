@@ -1113,6 +1113,31 @@ fn code_folding_labels_equal_with_map(
 }
 
 ///|
+fn code_folding_exact_payload_field(op : @ir.HotOp) -> Int {
+  match op {
+    @ir.HotOp::Select
+    | @ir.HotOp::Heap
+    | @ir.HotOp::Continuation
+    | @ir.HotOp::Unary
+    | @ir.HotOp::Binary
+    | @ir.HotOp::Compare
+    | @ir.HotOp::Convert
+    | @ir.HotOp::StringOp
+    | @ir.HotOp::Simd => 1
+    @ir.HotOp::Load
+    | @ir.HotOp::Store
+    | @ir.HotOp::RefTest
+    | @ir.HotOp::RefCast
+    | @ir.HotOp::RefTestDesc
+    | @ir.HotOp::RefCastDescEq
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Atomic => 2
+    _ => 0
+  }
+}
+
+///|
 fn code_folding_nodes_equal_with_label_map(
   func : @ir.HotFunc,
   left_id : Int,
@@ -1131,11 +1156,17 @@ fn code_folding_nodes_equal_with_label_map(
   }
   let left = @ir.hot_node_get(func, left_id)
   let right = @ir.hot_node_get(func, right_id)
+  let payload_field = code_folding_exact_payload_field(left.op)
   if left.op != right.op ||
     left.ty != right.ty ||
     left.flags != right.flags ||
-    left.imm1 != right.imm1 ||
+    (payload_field != 2 && left.imm1 != right.imm1) ||
     left.child_count != right.child_count {
+    return false
+  }
+  if payload_field != 0 &&
+    @ir.hot_node_exact_instr(func, left_id) !=
+    @ir.hot_node_exact_instr(func, right_id) {
     return false
   }
   match left.op {
@@ -1195,7 +1226,7 @@ fn code_folding_nodes_equal_with_label_map(
         @ir.hot_call_sig_get(func, right.imm0) {
         return false
       }
-    _ => if left.imm0 != right.imm0 { return false }
+    _ => if payload_field != 1 && left.imm0 != right.imm0 { return false }
   }
   for slot = 0; slot < left.child_count; slot = slot + 1 {
     if !code_folding_nodes_equal_with_label_map(
@@ -1228,11 +1259,17 @@ fn code_folding_nodes_equal_exact_labels(
   }
   let left = @ir.hot_node_get(func, left_id)
   let right = @ir.hot_node_get(func, right_id)
+  let payload_field = code_folding_exact_payload_field(left.op)
   if left.op != right.op ||
     left.ty != right.ty ||
     left.flags != right.flags ||
-    left.imm1 != right.imm1 ||
+    (payload_field != 2 && left.imm1 != right.imm1) ||
     left.child_count != right.child_count {
+    return false
+  }
+  if payload_field != 0 &&
+    @ir.hot_node_exact_instr(func, left_id) !=
+    @ir.hot_node_exact_instr(func, right_id) {
     return false
   }
   match left.op {
@@ -1267,7 +1304,7 @@ fn code_folding_nodes_equal_exact_labels(
         @ir.hot_call_sig_get(func, right.imm0) {
         return false
       }
-    _ => if left.imm0 != right.imm0 { return false }
+    _ => if payload_field != 1 && left.imm0 != right.imm0 { return false }
   }
   for slot = 0; slot < left.child_count; slot = slot + 1 {
     if !code_folding_nodes_equal_exact_labels(
@@ -3986,6 +4023,12 @@ fn code_folding_terminating_node_imm0_hash(
   node_id : Int,
 ) -> Int {
   let node = @ir.hot_node_get(func, node_id)
+  if code_folding_exact_payload_field(node.op) == 1 {
+    return match @ir.hot_node_exact_instr(func, node_id) {
+      Some(instr) => instr.hash()
+      None => 0
+    }
+  }
   match node.op {
     @ir.HotOp::Const | @ir.HotOp::RefNull =>
       @debug.to_string(@ir.hot_const_get(func, node.imm0)).hash()
@@ -4008,6 +4051,21 @@ fn code_folding_terminating_node_imm0_hash(
       @debug.to_string(@ir.hot_call_sig_get(func, node.imm0)).hash()
     _ => node.imm0.hash()
   }
+}
+
+///|
+fn code_folding_terminating_node_imm1_hash(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int {
+  let node = @ir.hot_node_get(func, node_id)
+  if code_folding_exact_payload_field(node.op) == 2 {
+    return match @ir.hot_node_exact_instr(func, node_id) {
+      Some(instr) => instr.hash()
+      None => 0
+    }
+  }
+  node.imm1.hash()
 }
 
 ///|
@@ -4035,7 +4093,7 @@ fn code_folding_terminating_node_shallow_hash(
   hash = hash * 31 + node.ty.hash()
   hash = hash * 31 + node.flags.hash()
   hash = hash * 31 + code_folding_terminating_node_imm0_hash(func, node_id)
-  hash = hash * 31 + node.imm1.hash()
+  hash = hash * 31 + code_folding_terminating_node_imm1_hash(func, node_id)
   hash = hash * 31 + node.child_count.hash()
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
@@ -4047,7 +4105,7 @@ fn code_folding_terminating_node_shallow_hash(
       hash = hash * 31 + child.ty.hash()
       hash = hash * 31 + child.flags.hash()
       hash = hash * 31 + code_folding_terminating_node_imm0_hash(func, child_id)
-      hash = hash * 31 + child.imm1.hash()
+      hash = hash * 31 + code_folding_terminating_node_imm1_hash(func, child_id)
       hash = hash * 31 + child.child_count.hash()
     }
   }

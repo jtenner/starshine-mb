@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-10-07
 sources:
   - ./index.md
   - ./binaryen-strategy.md
@@ -10,6 +10,9 @@ sources:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/code_folding.mbt
+  - ../../../../../src/passes/code_folding_test.mbt
+  - ../../../../../src/cmd/code_folding_payload_wbtest.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/ir/hot_builders.mbt
   - ../../../../../src/ir/hot_region_edit.mbt
@@ -33,6 +36,23 @@ related:
 ---
 
 # Starshine `code-folding` port readiness and validation
+
+The October 7, 2026 suffix-equality repair compares exact instruction
+contents for HOT payload-bearing nodes, including payloads stored in either
+immediate field. Terminating-tail hashes use the same contents. Previously,
+separately lifted `i32.add` instructions had distinct payload IDs and blocked
+an otherwise valid common `if`-arm suffix. The focused arithmetic test failed
+before the repair and passes afterward; the command dispatcher test also
+passes. The full local owner file currently reports 204/205 passing: the
+`code-folding hoists block-exit tail before outer branch fallthrough` fixture
+aborts during WAT input conversion, before the pass. A verified Binaryen v133
+`code-folding-if-arms` GenValid lane matched 10,000/10,000 cases with no
+failures. The 10,000-case aggregate had 6,624 matches and 3,376 differences,
+all exactly one byte smaller in Starshine. All 20 retained diffs omit only an
+optional trailing `return` from a void function; the differences occur only in
+the generated returns and movement profiles. These are size wins with the same
+function exit behavior. Binaryen v133 also folds the focused arithmetic fixture
+to one `i32.add`.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

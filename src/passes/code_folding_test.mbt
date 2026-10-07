@@ -376,6 +376,53 @@ test "code-folding hoists identical if-arm suffixes" {
 }
 
 ///|
+test "code-folding hoists equal arithmetic suffixes with separate payloads" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    if (result i32)
+      #|      i32.const 1 drop
+      #|      local.get 1 i32.const 7 i32.add
+      #|    else
+      #|      i32.const 2 drop
+      #|      local.get 1 i32.const 7 i32.add
+      #|    end))
+      #|,
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.add"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding keeps different arithmetic suffix payloads" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    if (result i32)
+      #|      i32.const 1 drop
+      #|      local.get 1 i32.const 7 i32.add
+      #|    else
+      #|      i32.const 2 drop
+      #|      local.get 1 i32.const 7 i32.sub
+      #|    end))
+      #|,
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("i32.sub"), msg=pretty)
+}
+
+///|
 test "code-folding keeps unprofitable full void if arms" {
   let optimized = code_folding_test_run(
     "(module (func (param i32) local.get 0 if i32.const 7 drop else i32.const 7 drop end))",
