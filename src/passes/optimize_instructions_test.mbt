@@ -48626,7 +48626,7 @@ test "optimize-instructions lowers escaping-branch block ref.get_desc child like
       match body[1] {
         @lib.LocalGet(@lib.LocalIdx(1U)) => ()
         other =>
-          fail("expected escaping branch payload local.get 1, got \{other}")
+          fail("expected escaping branch payload local.get 1, got \{other}; body: \{body}")
       }
       match body[2] {
         @lib.Br(@lib.LabelIdx(0U)) => ()

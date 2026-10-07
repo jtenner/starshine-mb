@@ -227,6 +227,15 @@ The v130 matrix remains the implementation inventory, but new release-gating wor
 
 ## Porting takeaway
 
+October 7, 2026 test-gate repair: the OI-J raw descriptor bridge now accepts
+the exact escaping `block(local.get; br); ref.as_non_null; ref.get_desc;
+ref.cast_desc_eq` window. It keeps the payload before the branch, decreases
+the target depth after removing the inner block, and leaves the descriptor
+cast in place. The public pipeline test asserts the five lowered instructions
+directly and passes. Standalone escaping-branch null checks and the direct HOT
+descriptor-operand guard are still open, as is fresh Binaryen 133 aggregate
+parity.
+
 If Starshine ever needs a stricter source-level expansion of this pass, this page suggests a compact checklist:
 
 1. preserve the core pass shell and local prescan from `OptimizeInstructions.cpp`

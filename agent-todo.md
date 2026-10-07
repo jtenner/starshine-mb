@@ -78,7 +78,13 @@ oracle versions and checkpoints do not sign current source.
   scalar fixture now requires its precise specialized trace reason while
   retaining validation, proxy, selector, and local-count checks. The focused
   `br_table` and `try_table` groups and full SSA owner file pass.
-- [ ] Three OptimizeInstructions escaping-branch `ref.get_desc` failures.
+- [x] Public OptimizeInstructions descriptor-cast escaping `br` child: the raw
+  bridge now flattens `block(local.get; br); ref.as_non_null; ref.get_desc;
+  ref.cast_desc_eq`, retargets the branch once, and retains the cast. The
+  focused public test passes with its exact IR assertions.
+- [ ] Two OptimizeInstructions escaping-branch `ref.get_desc` failures:
+  standalone null-check movement over escaping `br`/`br_if`/`br_table`, and
+  direct HOT descriptor-operand fail-closed behavior.
 - [x] SimplifyLocalsNoStructure tail `catch_all_ref`: append an unreachable
   suffix after voiding the no-normal `try_table`, so the result block remains
   valid and writeback accepts it. The focused case and full owner test file

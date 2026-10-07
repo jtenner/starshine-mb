@@ -76766,6 +76766,30 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
     if i + 4 < instrs.length() {
       match (instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
         (
+          @lib.Block(_, @lib.Expr([payload, @lib.Br(label_idx)])),
+          @lib.RefAsNonNull,
+          @lib.RefGetDesc(_),
+          @lib.RefCastDescEq(_, _, _),
+        ) if (match payload {
+            @lib.LocalGet(_) => true
+            _ => false
+          }) =>
+          match RawOiEscapingLabelRetargetFact::retarget(label_idx) {
+            Some(retargeted) => {
+              kind = EscapingRefGetDescBrPayload
+              label_retarget_count = 1
+              rewritten.push(instrs[i])
+              rewritten.push(payload)
+              rewritten.push(@lib.Instruction::br(retargeted))
+              rewritten.push(instrs[i + 3])
+              rewritten.push(instrs[i + 4])
+              changed = true
+              end = i + 5
+              continue
+            }
+            None => ()
+          }
+        (
           @lib.Block(
             _,
             @lib.Expr(
