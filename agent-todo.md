@@ -23,9 +23,12 @@ oracle versions and checkpoints do not sign current source.
 - **Suggested tests:** original failing tests, paired valid-WAT controls,
   direct IR/opcode assertions, and small runtime replays where behavior is
   observable.
-- [ ] Six remaining fixture-load aborts: one legacy rethrow, one large SSA
-  case, one SimplifyLocals,
-  one DCE, and two DAEO.
+- [ ] Five remaining fixture-load aborts: one legacy rethrow, one large SSA
+  case, one DCE, and two DAEO.
+- [x] SimplifyLocals stacked multivalue `if` fixture: discard the typed
+  block's dead result before its two-value fallback. The stacked call and
+  local-order assertions remain; external validation and the focused test
+  pass.
 - [x] Nested RUB dispatch performance fixture: mark the syntactically possible
   but unreachable function fallthrough after the return wrapper. Its dispatch
   ladder and pass trace assertions remain; the WAT validates externally and
