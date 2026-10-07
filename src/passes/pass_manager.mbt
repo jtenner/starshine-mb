@@ -75137,6 +75137,7 @@ fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_tail_try_table_catch_all
           @lib.Expr::new(try_body),
         ),
       )
+      out.push(@lib.Instruction::unreachable_())
       Some(out)
     }
     _ => None

@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-10-07
 sources:
   - ./index.md
+  - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_nostructure_test.mbt
 related:
@@ -19,6 +20,16 @@ related:
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
 This page records Starshine's direct `simplify-locals-nostructure` parity against Binaryen `version_131` and the historical work that reached it.
+
+## October 7, 2026 tail `catch_all_ref` repair
+
+The refinalization-triggered tail rule for a result block with prefix statements
+voided its no-normal `try_table` but omitted the block's dead fallthrough
+`unreachable`. The writeback validator rejected that candidate and retained the
+larger original. The rule now appends `unreachable` after the void `try_table`.
+The existing `case-004556` regression and the full SLNS test file pass; the
+focused output shape agrees with verified Binaryen 133. A fresh aggregate
+10,000-case comparison is still required for current-source pass signoff.
 
 ## Binaryen-v131 verdict
 

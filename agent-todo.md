@@ -69,7 +69,10 @@ oracle versions and checkpoints do not sign current source.
   now has only its three `ref.get_desc` behavior failures (1418/1421 pass).
 - [ ] Seven SSA-nomerge loop and `br_table` model failures.
 - [ ] Three OptimizeInstructions escaping-branch `ref.get_desc` failures.
-- [ ] One SimplifyLocalsNoStructure catch-all-ref failure.
+- [x] SimplifyLocalsNoStructure tail `catch_all_ref`: append an unreachable
+  suffix after voiding the no-normal `try_table`, so the result block remains
+  valid and writeback accepts it. The focused case and full owner test file
+  pass; verified Binaryen 133 has the same tail shape.
 - [ ] One LocalSubtyping bottom call-ref failure.
 - [x] HeapStoreOptimization unreachable set-value fixture: add the required
   i32 function-result fallback after the dead `struct.set`. The constructor,
