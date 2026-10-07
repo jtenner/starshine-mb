@@ -4084,7 +4084,8 @@ test "code-folding hoists block-exit tail before outer branch fallthrough" {
       #|                        (call $sink)
       #|                        (br $out)))))
       #|                (br $mid (i32.const 0)))
-      #|              (i32.const 1)))))))
+      #|              (i32.const 1))))
+      #|        (unreachable))))
       #|  (func $sink (param i32)))
       #|,
     ),

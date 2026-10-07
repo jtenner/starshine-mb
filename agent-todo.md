@@ -23,9 +23,12 @@ oracle versions and checkpoints do not sign current source.
 - **Suggested tests:** original failing tests, paired valid-WAT controls,
   direct IR/opcode assertions, and small runtime replays where behavior is
   observable.
-- [ ] Nine remaining fixture-load aborts: one legacy rethrow, one large SSA
+- [ ] Eight remaining fixture-load aborts: one legacy rethrow, one large SSA
   case, one SimplifyLocals, one RemoveUnusedBrs, one performance fixture,
-  one DCE, two DAEO, and one CodeFolding.
+  one DCE, and two DAEO.
+- [x] CodeFolding nested block-exit fixture: mark the impossible outer-block
+  fallthrough `unreachable`. The branch and sink assertions remain; the WAT
+  validates externally and the focused test passes.
 - [x] Two RemoveUnusedBrs `catch_ref` transport fixtures: make the typed
   handler block's dead fallthrough explicit with `unreachable`. The original
   catch branches and assertions remain; both WAT inputs validate externally
