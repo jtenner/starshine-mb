@@ -68,6 +68,13 @@ command failures. The unnormalized diagnostic lane stopped after 29 cases on
 
 ### October 7, 2026 nop-tail scan repair
 
+The later default-gate repair gives the loop-carried constant-break fixture a
+syntactic `i32.const 0` after its unconditional loop branch. Wasm requires a
+value for the enclosing result block's fallthrough path, even though that path
+cannot run in this fixture. `wasm-tools validate` accepts the corrected input;
+the test still requires the branch value `1` and removal of the loop. The
+Precompute owner file now passes 124/124.
+
 The raw rewrite loop used to rescan its whole output after each appended
 `nop`, although a nop cannot create a tail-fold opportunity. It now skips that
 admission and still checks the prior non-nop instruction. A 512-nop regression

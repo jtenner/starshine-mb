@@ -23,9 +23,13 @@ oracle versions and checkpoints do not sign current source.
 - **Suggested tests:** original failing tests, paired valid-WAT controls,
   direct IR/opcode assertions, and small runtime replays where behavior is
   observable.
-- [ ] Fifteen fixture-load aborts: one legacy rethrow, one large SSA case,
-  one SimplifyLocals, three RemoveUnusedBrs, one Precompute, one performance
-  fixture, three OptimizeInstructions, one DCE, two DAEO, and one CodeFolding.
+- [ ] Fourteen remaining fixture-load aborts: one legacy rethrow, one large
+  SSA case, one SimplifyLocals, three RemoveUnusedBrs, one performance fixture,
+  three OptimizeInstructions, one DCE, two DAEO, and one CodeFolding.
+- [x] Precompute loop-carried break fixture: add the unreachable fallthrough
+  value required by Wasm block typing. The test still checks that the
+  unconditional branch yields `1` and that Precompute removes the loop;
+  wasm-tools validates the input and the owner file passes 124/124.
 - [ ] Seven SSA-nomerge loop and `br_table` model failures.
 - [ ] Three OptimizeInstructions escaping-branch `ref.get_desc` failures.
 - [ ] One SimplifyLocalsNoStructure catch-all-ref failure.
