@@ -55,3 +55,47 @@ test "merge-blocks branch memo scans legacy try catches" {
   @ir.hot_root_append(func, try_id)
   assert_true(merge_blocks_node_has_branch(func, try_id))
 }
+
+///|
+test "merge-blocks reuses loop presence across nested block checks" {
+  let source = StringBuilder::new()
+  source.write_string("(module (func ")
+  for _ in 0..<64 {
+    source.write_string("block ")
+  }
+  source.write_string("loop nop end ")
+  for _ in 0..<64 {
+    source.write_string("end ")
+  }
+  source.write_string("))")
+  let input = pass_test_module_from_wat(source.to_string())
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let workspace = MergeBlocksBranchScanWorkspace::new()
+  let visits = [0]
+  let mut region = @ir.HotRegionRef::root()
+  for _ in 0..<64 {
+    let block_id = @ir.hot_region_get(func, region, 0)
+    match @ir.hot_node_get(func, block_id).op {
+      @ir.HotOp::Block => ()
+      _ => fail("expected nested block")
+    }
+    region = @ir.hot_region_body_ref(func, block_id)
+    assert_true(
+      merge_blocks_region_contains_loop(
+        func,
+        region,
+        workspace=Some(workspace),
+        visits=Some(visits),
+      ),
+    )
+  }
+  assert_true(visits[0] <= 128, msg="loop scan visits=\{visits[0]}")
+  @ir.hot_region_replace_body(func, region, [])
+  assert_false(
+    merge_blocks_region_contains_loop(
+      func,
+      @ir.HotRegionRef::root(),
+      workspace=Some(workspace),
+    ),
+  )
+}

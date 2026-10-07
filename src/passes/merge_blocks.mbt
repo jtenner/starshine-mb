@@ -117,67 +117,127 @@ fn merge_blocks_block_has_params(
 fn merge_blocks_region_contains_loop(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  workspace? : MergeBlocksBranchScanWorkspace? = None,
+  visits? : Array[Int]? = None,
+) -> Bool {
+  let scan = match workspace {
+    Some(value) => value
+    None => MergeBlocksBranchScanWorkspace::new()
+  }
+  scan.loop_begin(func)
+  merge_blocks_region_contains_loop_memoized(func, region_ref, scan, visits)
+}
+
+///|
+fn merge_blocks_region_contains_loop_memoized(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  scan : MergeBlocksBranchScanWorkspace,
+  visits : Array[Int]?,
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    let root_id = @ir.hot_region_get(func, region_ref, idx)
-    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
-      continue
-    }
-    let node = @ir.hot_node_get(func, root_id)
-    match node.op {
-      @ir.HotOp::Loop => return true
-      @ir.HotOp::Block =>
-        if merge_blocks_region_contains_loop(
-            func,
-            @ir.hot_region_body_ref(func, root_id),
-          ) {
-          return true
-        }
-      @ir.HotOp::If => {
-        if merge_blocks_region_contains_loop(
-            func,
-            @ir.hot_region_then_ref(func, root_id),
-          ) {
-          return true
-        }
-        match @ir.hot_region_else_ref(func, root_id) {
-          Some(else_ref) =>
-            if merge_blocks_region_contains_loop(func, else_ref) {
-              return true
-            }
-          None => ()
-        }
-      }
-      @ir.HotOp::Try => {
-        if merge_blocks_region_contains_loop(
-            func,
-            @ir.hot_region_body_ref(func, root_id),
-          ) {
-          return true
-        }
-        match @ir.hot_region_catch_ref(func, root_id) {
-          Some(catch_ref) =>
-            if merge_blocks_region_contains_loop(func, catch_ref) {
-              return true
-            }
-          None => ()
-        }
-      }
-      @ir.HotOp::TryTable =>
-        if merge_blocks_region_contains_loop(
-            func,
-            @ir.hot_region_body_ref(func, root_id),
-          ) ||
-          merge_blocks_region_contains_loop(
-            func,
-            @ir.hot_region_catch_list_ref(func, root_id),
-          ) {
-          return true
-        }
-      _ => ()
+    if merge_blocks_node_contains_loop_memoized(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        scan,
+        visits,
+      ) {
+      return true
     }
   }
   false
+}
+
+///|
+fn merge_blocks_node_contains_loop_memoized(
+  func : @ir.HotFunc,
+  node_id : Int,
+  scan : MergeBlocksBranchScanWorkspace,
+  visits : Array[Int]?,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if node_id >= scan.loop_states.length() {
+    scan.loop_begin(func)
+  }
+  if scan.loop_revisions[node_id] == scan.loop_revision {
+    match scan.loop_states[node_id] {
+      1 | 3 => return true
+      2 => return false
+      _ => ()
+    }
+  }
+  scan.loop_revisions[node_id] = scan.loop_revision
+  scan.loop_states[node_id] = 1
+  match visits {
+    Some(count) => count[0] += 1
+    None => ()
+  }
+  let contains = match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Loop => true
+    @ir.HotOp::Block =>
+      merge_blocks_region_contains_loop_memoized(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        scan,
+        visits,
+      )
+    @ir.HotOp::If => {
+      let then_has_loop = merge_blocks_region_contains_loop_memoized(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+        scan,
+        visits,
+      )
+      if then_has_loop {
+        true
+      } else {
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_ref) =>
+            merge_blocks_region_contains_loop_memoized(
+              func, else_ref, scan, visits,
+            )
+          None => false
+        }
+      }
+    }
+    @ir.HotOp::Try => {
+      let body_has_loop = merge_blocks_region_contains_loop_memoized(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        scan,
+        visits,
+      )
+      if body_has_loop {
+        true
+      } else {
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_ref) =>
+            merge_blocks_region_contains_loop_memoized(
+              func, catch_ref, scan, visits,
+            )
+          None => false
+        }
+      }
+    }
+    @ir.HotOp::TryTable =>
+      merge_blocks_region_contains_loop_memoized(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        scan,
+        visits,
+      ) ||
+      merge_blocks_region_contains_loop_memoized(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+        scan,
+        visits,
+      )
+    _ => false
+  }
+  scan.loop_states[node_id] = if contains { 3 } else { 2 }
+  contains
 }
 
 ///|
@@ -541,6 +601,7 @@ fn merge_blocks_can_lift_block_child(
   block_id : Int,
   label_used : @bitset.BitSet,
   module_ctx : @ir.HotModuleContext?,
+  workspace : MergeBlocksBranchScanWorkspace,
 ) -> Bool {
   if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
     return false
@@ -556,7 +617,11 @@ fn merge_blocks_can_lift_block_child(
     return false
   }
   let body_ref = @ir.hot_region_body_ref(func, block_id)
-  if merge_blocks_region_contains_loop(func, body_ref) {
+  if merge_blocks_region_contains_loop(
+      func,
+      body_ref,
+      workspace=Some(workspace),
+    ) {
     return false
   }
   let root_count = @ir.hot_region_root_count(func, body_ref)
@@ -619,7 +684,9 @@ fn merge_blocks_lift_expression_block_children(
       _ => ()
     }
     let child_id = @ir.hot_child_get(func, root_id, slot)
-    if merge_blocks_can_lift_block_child(func, child_id, label_used, module_ctx) {
+    if merge_blocks_can_lift_block_child(
+        func, child_id, label_used, module_ctx, workspace,
+      ) {
       if !branch_epoch_started {
         workspace.begin(func)
         branch_epoch_started = true
@@ -728,11 +795,34 @@ priv struct MergeBlocksBranchScanWorkspace {
   epochs : Array[Int]
   mut epoch : Int
   mut initialized_cells : Int
+  loop_states : Array[Int]
+  loop_revisions : Array[Int]
+  mut loop_revision : Int
 }
 
 ///|
 fn MergeBlocksBranchScanWorkspace::new() -> MergeBlocksBranchScanWorkspace {
-  { states: [], epochs: [], epoch: 0, initialized_cells: 0, }
+  {
+    states: [],
+    epochs: [],
+    epoch: 0,
+    initialized_cells: 0,
+    loop_states: [],
+    loop_revisions: [],
+    loop_revision: -1,
+  }
+}
+
+///|
+fn MergeBlocksBranchScanWorkspace::loop_begin(
+  self : MergeBlocksBranchScanWorkspace,
+  func : @ir.HotFunc,
+) -> Unit {
+  while self.loop_states.length() < @ir.hot_node_count(func) {
+    self.loop_states.push(0)
+    self.loop_revisions.push(-1)
+  }
+  self.loop_revision = @ir.hot_revision_current(func)
 }
 
 ///|
@@ -904,6 +994,7 @@ fn merge_blocks_flatten_region_root_block(
   module_ctx : @ir.HotModuleContext?,
   enclosing_control_has_params : Bool,
   enclosing_control_is_loop : Bool,
+  workspace : MergeBlocksBranchScanWorkspace,
 ) -> Bool {
   let block_id = @ir.hot_region_get(func, region_ref, idx)
   if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
@@ -944,7 +1035,11 @@ fn merge_blocks_flatten_region_root_block(
     return false
   }
   let body_ref = @ir.hot_region_body_ref(func, block_id)
-  if merge_blocks_region_contains_loop(func, body_ref) {
+  if merge_blocks_region_contains_loop(
+      func,
+      body_ref,
+      workspace=Some(workspace),
+    ) {
     return false
   }
   merge_blocks_collect_region_roots(func, body_ref, flattened_roots)
@@ -967,6 +1062,7 @@ fn merge_blocks_flatten_branch_free_loop_body(
   label_used : @bitset.BitSet,
   flattened_roots : Array[Int],
   module_ctx : @ir.HotModuleContext?,
+  workspace : MergeBlocksBranchScanWorkspace,
 ) -> Bool {
   let loop_id = @ir.hot_region_get(func, region_ref, idx)
   if loop_id < 0 || !@ir.hot_node_is_live(func, loop_id) {
@@ -983,7 +1079,7 @@ fn merge_blocks_flatten_branch_free_loop_body(
   }
   let body_ref = @ir.hot_region_body_ref(func, loop_id)
   if @ir.hot_region_root_count(func, body_ref) < 2 ||
-    merge_blocks_region_contains_loop(func, body_ref) {
+    merge_blocks_region_contains_loop(func, body_ref, workspace=Some(workspace)) {
     return false
   }
   merge_blocks_collect_region_roots(func, body_ref, flattened_roots)
@@ -1003,6 +1099,7 @@ fn merge_blocks_flatten_branch_free_loop_block_body(
   label_used : @bitset.BitSet,
   flattened_roots : Array[Int],
   module_ctx : @ir.HotModuleContext?,
+  workspace : MergeBlocksBranchScanWorkspace,
 ) -> Bool {
   let loop_id = @ir.hot_region_get(func, region_ref, idx)
   if loop_id < 0 || !@ir.hot_node_is_live(func, loop_id) {
@@ -1035,7 +1132,11 @@ fn merge_blocks_flatten_branch_free_loop_block_body(
     return false
   }
   let block_body_ref = @ir.hot_region_body_ref(func, block_id)
-  if merge_blocks_region_contains_loop(func, block_body_ref) {
+  if merge_blocks_region_contains_loop(
+      func,
+      block_body_ref,
+      workspace=Some(workspace),
+    ) {
     return false
   }
   merge_blocks_collect_region_roots(func, block_body_ref, flattened_roots)
@@ -1245,13 +1346,13 @@ fn merge_blocks_visit_region(
       changed = true
     }
     if merge_blocks_flatten_branch_free_loop_body(
-        func, region_ref, idx, label_used, flattened_roots, module_ctx,
+        func, region_ref, idx, label_used, flattened_roots, module_ctx, branch_workspace,
       ) {
       changed = true
       continue
     }
     if merge_blocks_flatten_branch_free_loop_block_body(
-        func, region_ref, idx, label_used, flattened_roots, module_ctx,
+        func, region_ref, idx, label_used, flattened_roots, module_ctx, branch_workspace,
       ) {
       changed = true
       continue
@@ -1278,7 +1379,7 @@ fn merge_blocks_visit_region(
     }
     if merge_blocks_flatten_region_root_block(
         func, region_ref, idx, label_used, drop_parent_index, flattened_roots, module_ctx,
-        enclosing_control_has_params, enclosing_control_is_loop,
+        enclosing_control_has_params, enclosing_control_is_loop, branch_workspace,
       ) {
       changed = true
     } else {

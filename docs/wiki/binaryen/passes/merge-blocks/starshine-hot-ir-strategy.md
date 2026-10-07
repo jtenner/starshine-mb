@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-10-07
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ./index.md
@@ -11,6 +11,8 @@ sources:
   - ../../../../../src/passes/pass_common.mbt
   - ../../../../../src/passes/pass_common_wbtest.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
+  - ../../../../../src/passes/merge_blocks_audit_wbtest.mbt
+  - ../../../../../src/cmd/merge_blocks_loop_cache_wbtest.mbt
   - ../../../../../src/passes_perf_long/merge_blocks_perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -27,6 +29,23 @@ related:
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
 Read [`./starshine-strategy.md`](./starshine-strategy.md) for the design. This page is the exact current MoonBit map.
+
+The October 7, 2026 loop-presence check now memoizes each control subtree for
+the current HOT function revision. Four flattening and lifting sites share the
+workspace; region edits invalidate entries through the revision. A nested
+64-block test counted 2,080 node visits before the repair and at most 128
+after it, and a mutation test confirms that removing the inner loop clears the
+cached result. All 78 owner tests and the dispatcher regression pass.
+On a preserved 256-block Wasm fixture around an inner loop, native pass-local
+median time fell from 1.096 ms to 0.071 ms; the raw output stayed 807 bytes.
+Binaryen v133 took about 0.020 ms and emitted 37 bytes, which Starshine's
+canonical output also matches. The remaining pass-time and raw-shape gaps are
+separate from this repeated subtree scan.
+The verified-v133 `merge-blocks-all` lane compared 10,000/10,000 cases with
+7,007 direct matches and no validation or command failures. Its 2,993
+differences are all two bytes smaller in Starshine's canonical Wasm; all 20
+retained diffs omit only two effect-free `nop` instructions from the expression
+profile.
 
 ## What the local pass does
 
