@@ -71,7 +71,10 @@ oracle versions and checkpoints do not sign current source.
 - [ ] Three OptimizeInstructions escaping-branch `ref.get_desc` failures.
 - [ ] One SimplifyLocalsNoStructure catch-all-ref failure.
 - [ ] One LocalSubtyping bottom call-ref failure.
-- [ ] One HeapStoreOptimization abort.
+- [x] HeapStoreOptimization unreachable set-value fixture: add the required
+  i32 function-result fallback after the dead `struct.set`. The constructor,
+  unreachable value, and `struct.set` assertions remain; the focused test
+  passes.
 - [x] O4z branch-hint annotation failure: strip hints before the final size
   candidate checks for other offset-sensitive metadata. The command test file
   passes 230/230; direct protected-metadata tests pass 11/11.
