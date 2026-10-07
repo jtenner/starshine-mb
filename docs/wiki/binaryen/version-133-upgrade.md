@@ -142,11 +142,23 @@ different-looking output is not acceptance evidence.
 | Nullable and non-null `externref` across exported/imported functions; explicit `extern.convert_any` / `any.convert_extern` | `make-shared-objects` represents external references with dynamically grown table indices encoded as shared i31 references, adds boundary wrappers, and preserves null/non-null conversion. [Owner](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/MakeSharedObjects.cpp); [tests](https://github.com/WebAssembly/binaryen/blob/version_133/test/lit/passes/make-shared-objects.wast). | Green: five export/import/conversion cases in new-pass corpus. |
 | Ordinary struct and array definitions, their uses, and reference fields | `make-shared-objects` changes the definitions to shared types and remaps references; function definitions remain unshared. | Green: direct type-metadata assertions for struct, array, a recursive function signature, and a function-reference struct field in new-pass corpus. |
 | `funcref` and ordinary `anyref` in function signatures | Lower a function reference to a shared i31 index and an any reference to a shared any reference. | Green: direct signature-type assertions in new-pass corpus. |
+
 | Descriptor field that would become a JS prototype after an earlier field is removed or made immutable | GTO inserts an immutable i8 placeholder, retains externally visible prototype semantics, and updates struct indices after operand localization. This also applies through inherited descriptor fields and `struct.wait`. [Owner](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/GlobalTypeOptimization.cpp); [tests](https://github.com/WebAssembly/binaryen/blob/version_133/test/lit/passes/gto-jsinterop.wast). | Green: [direct and inherited GTO placeholder cases](../../../src/passes/binaryen133_gto_red_wbtest.mbt), including a subtype field-index remap; `struct.wait` remains a proposal boundary. |
 | Saturating `f32`/`f64` to signed/unsigned `i64` conversions, after flattening | `i64-to-i32-lowering` now lowers all four opcodes into i32 halves. Its documented float conversion arithmetic is wasm2js-oriented and does not preserve ordinary Wasm trap semantics in all cases. [Owner](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/I64ToI32Lowering.cpp); [tests](https://github.com/WebAssembly/binaryen/blob/version_133/test/lit/passes/flatten_i64-to-i32-lowering.wast). | Green: [four lowering cases](../../../src/passes/binaryen133_i64_lowering_red_wbtest.mbt). |
 | Tail `call.without.effects` intrinsic with static `ref.func` or a dynamic function reference | `intrinsic-lowering` keeps tail position as `return_call` or `return_call_ref`. [Owner](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/Intrinsics.cpp). | Green: [two intrinsic cases](../../../src/passes/binaryen133_intrinsic_tail_red_wbtest.mbt). |
 | Atomic load/store sent to `dealign` | Keep required natural alignment; ordinary non-atomic access may still be de-aligned. [Owner](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/DeAlign.cpp). | Green: [load and store cases](../../../src/passes/binaryen133_dealign_red_wbtest.mbt). |
 | Two identical atomic RMW results used by a `select` | Treat each read-write result as generative and retain both evaluations. The same rule now covers atomic cmpxchg, atomic wait/notify, waitqueue notify, and GC struct/array RMW/cmpxchg. [Owner](https://github.com/WebAssembly/binaryen/blob/version_133/src/ir/properties.cpp). | Covered: [atomic RMW behavior test](../../../src/passes/binaryen133_existing_coverage_wbtest.mbt) passes locally; remaining opcode variants open. |
+
+The October 7, 2026 `make-shared-objects` follow-up extends externref boundary
+wrappers to multi-result signatures. The wrapper stores results in reverse
+stack order, reloads them in signature order, and converts each externref.
+Scratch locals are allocated only when a result needs conversion. Import,
+export, three-result mixed, non-null result, encoded round-trip, and dispatcher
+regressions pass. The import and export tests failed before the repair because
+the pass returned the input module. Reusing identical boundary signatures
+reduced a 1,000-export fixture from 44,809 to 38,931 raw bytes; Binaryen v133
+emitted 37,916 bytes. Pass-local median time was 3.826 ms after signature
+reuse, against 1.450 ms for Binaryen. This speed gap remains open.
 
 Several released edits constrain existing passes rather than adding a new
 positive rewrite: open-world `merge-similar-functions` must not promote an

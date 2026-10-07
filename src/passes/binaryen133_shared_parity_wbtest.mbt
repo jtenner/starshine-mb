@@ -31,6 +31,121 @@ fn binaryen133_run_shared(
 }
 
 ///|
+test "make-shared-objects wraps a multi-result externref import" {
+  let output = binaryen133_run_shared(
+    (
+      #|(module
+      #|  (import "m" "pair" (func $pair (result externref i32)))
+      #|  (func (result externref i32) (call $pair)))
+    ),
+  )
+  assert_true(output.code_sec.unwrap().0.length() > 1)
+  let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::externref(), @lib.ValType::i32()]),
+  )
+  assert_eq(body, [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ])
+  let decoded = @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap()
+  assert_true(@validate.validate_module(decoded).is_ok())
+}
+
+///|
+test "make-shared-objects wraps a multi-result externref export" {
+  let output = binaryen133_run_shared(
+    (
+      #|(module
+      #|  (func (export "pair") (result externref i32)
+      #|    (ref.null extern)
+      #|    (i32.const 7)))
+    ),
+  )
+  assert_true(output.code_sec.unwrap().0.length() > 1)
+  let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([mso_shared_i31(true), @lib.ValType::i32()]),
+  )
+  assert_eq(body, [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ])
+  let decoded = @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap()
+  assert_true(@validate.validate_module(decoded).is_ok())
+}
+
+///|
+test "make-shared-objects converts each externref in a three-result import" {
+  let output = binaryen133_run_shared(
+    (
+      #|(module
+      #|  (import "m" "triple" (func $triple (result externref i32 externref)))
+      #|  (func (result externref i32 externref) (call $triple)))
+    ),
+  )
+  let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::externref(),
+      @lib.ValType::i32(),
+      @lib.ValType::externref(),
+    ]),
+  )
+  assert_eq(body, [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+  ])
+}
+
+///|
+test "make-shared-objects wraps a non-null multi-result externref import" {
+  let output = binaryen133_run_shared(
+    (
+      #|(module
+      #|  (import "m" "pair" (func $pair (result (ref extern) i32)))
+      #|  (func (result (ref extern) i32) (call $pair)))
+    ),
+  )
+  assert_true(output.code_sec.unwrap().0.length() > 1)
+  let decoded = @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap()
+  assert_true(@validate.validate_module(decoded).is_ok())
+}
+
+///|
+test "make-shared-objects reuses a repeated export boundary signature" {
+  let output = binaryen133_run_shared(
+    (
+      #|(module
+      #|  (type $pair (func (result externref i32)))
+      #|  (func (export "one") (type $pair)
+      #|    (ref.null extern) (i32.const 1))
+      #|  (func (export "two") (type $pair)
+      #|    (ref.null extern) (i32.const 2)))
+    ),
+  )
+  assert_eq(output.type_sec.unwrap().0.length(), 4)
+}
+
+///|
 test "Binaryen 133 shared objects lowers typed calls and tail calls through the same function table" {
   for tail in [false, true] {
     let input = pass_test_module_from_wat(

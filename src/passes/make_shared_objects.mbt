@@ -468,7 +468,13 @@ fn mso_append_signature(
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
   flat_count : Array[Int],
+  signatures : @hashmap.HashMap[String, @lib.TypeIdx],
 ) -> @lib.TypeIdx {
+  let key = dae_simple_func_type_key(params, results)
+  match signatures.get(key) {
+    Some(idx) => return idx
+    None => ()
+  }
   let idx = @lib.TypeIdx::new(flat_count[0].to_uint())
   flat_count[0] += 1
   rec_types.push(
@@ -476,6 +482,7 @@ fn mso_append_signature(
       @lib.SubType::comp_type(@lib.CompType::func(params, results)),
     ),
   )
+  signatures.set(key, idx)
   idx
 }
 
@@ -923,6 +930,9 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     (base + import_specs.length() + export_specs.length() + 1).to_uint(),
   )
   let flat_count = [types.length()]
+  let signatures = dae_simple_func_type_lookup(
+    @lib.TypeSec::new(rewritten_types),
+  )
   let next_imports : Array[@lib.Import] = []
   let redirects : Map[UInt, UInt] = Map([])
   for import_ in orig_imports {
@@ -937,7 +947,7 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
             mso_boundary_type(vt, types)
           })
           mso_append_signature(
-            rewritten_types, boundary_params, boundary_results, flat_count,
+            rewritten_types, boundary_params, boundary_results, flat_count, signatures,
           )
         } else {
           type_idx
@@ -1007,20 +1017,37 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     let (import_idx, type_idx) = spec
     redirects[import_idx] = (base + ordinal).to_uint()
     let (params, results) = mso_signature(types, type_idx).unwrap()
-    if results.length() > 1 {
-      return mod_
-    }
     let body : Array[@lib.Instruction] = []
     for i, param in params {
       body.push(@lib.Instruction::local_get(@lib.LocalIdx::new(i.to_uint())))
       mso_convert_to_ref(body, param, to_ref_idx)
     }
     body.push(@lib.Instruction::call(@lib.FuncIdx::new(import_idx)))
-    if results.length() == 1 {
+    let mut wrapper_locals = @lib.Locals::empty()
+    if results.length() > 1 && results.any(mso_is_extern) {
+      wrapper_locals = @lib.Locals::from_types(
+        results.map(fn(vt) { mso_boundary_type(vt, types) }),
+      )
+      for i = results.length() - 1; i >= 0; i = i - 1 {
+        body.push(
+          @lib.Instruction::local_set(
+            @lib.LocalIdx::new((params.length() + i).to_uint()),
+          ),
+        )
+      }
+      for i, result in results {
+        body.push(
+          @lib.Instruction::local_get(
+            @lib.LocalIdx::new((params.length() + i).to_uint()),
+          ),
+        )
+        mso_convert_to_index(body, result, to_index_idx)
+      }
+    } else if results.length() == 1 {
       mso_convert_to_index(body, results[0], to_index_idx)
     }
     next_func_types.push(type_idx)
-    next_funcs.push(@lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body)))
+    next_funcs.push(@lib.Func::new(wrapper_locals, @lib.Expr::new(body)))
   }
   for i = 0; i < orig_funcs.length(); i = i + 1 {
     let @lib.Func(locals, body) = next_funcs[i]
@@ -1032,14 +1059,12 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   for ordinal, spec in export_specs {
     let (raw, type_idx) = spec
     let (params, results) = mso_signature(types, type_idx).unwrap()
-    if results.length() > 1 {
-      return mod_
-    }
     let boundary_idx = mso_append_signature(
       rewritten_types,
       params.map(fn(vt) { mso_boundary_type(vt, types) }),
       results.map(fn(vt) { mso_boundary_type(vt, types) }),
       flat_count,
+      signatures,
     )
     let body : Array[@lib.Instruction] = []
     for i, param in params {
@@ -1048,11 +1073,31 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
     let target = redirects.get(raw).unwrap_or(raw)
     body.push(@lib.Instruction::call(@lib.FuncIdx::new(target)))
-    if results.length() == 1 {
+    let mut wrapper_locals = @lib.Locals::empty()
+    if results.length() > 1 && results.any(mso_is_extern) {
+      wrapper_locals = @lib.Locals::from_types(
+        results.map(fn(vt) { mso_rewrite_val_type(vt, types) }),
+      )
+      for i = results.length() - 1; i >= 0; i = i - 1 {
+        body.push(
+          @lib.Instruction::local_set(
+            @lib.LocalIdx::new((params.length() + i).to_uint()),
+          ),
+        )
+      }
+      for i, result in results {
+        body.push(
+          @lib.Instruction::local_get(
+            @lib.LocalIdx::new((params.length() + i).to_uint()),
+          ),
+        )
+        mso_convert_to_ref(body, result, to_ref_idx)
+      }
+    } else if results.length() == 1 {
       mso_convert_to_ref(body, results[0], to_ref_idx)
     }
     next_func_types.push(boundary_idx)
-    next_funcs.push(@lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body)))
+    next_funcs.push(@lib.Func::new(wrapper_locals, @lib.Expr::new(body)))
     export_redirects[raw] = (base + import_specs.length() + ordinal).to_uint()
   }
   for i, export_ in orig_exports {
@@ -1180,6 +1225,7 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         [@lib.ValType::externref()],
         [mso_shared_i31(true)],
         flat_count,
+        signatures,
       ),
     )
     next_funcs.push(mso_to_index_func(table_idx))
@@ -1189,6 +1235,7 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         [mso_shared_i31(true)],
         [@lib.ValType::externref()],
         flat_count,
+        signatures,
       ),
     )
     next_funcs.push(mso_to_ref_func(table_idx))
@@ -1224,6 +1271,7 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         [mso_shared_any(true)],
         [@lib.ValType::externref()],
         flat_count,
+        signatures,
       )
       host_any_to_extern = Some(@lib.FuncIdx::new(import_count.to_uint()))
       next_imports.push(
@@ -1240,6 +1288,7 @@ fn make_shared_objects_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         [@lib.ValType::externref()],
         [mso_shared_any(true)],
         flat_count,
+        signatures,
       )
       host_extern_to_any = Some(
         @lib.FuncIdx::new(
