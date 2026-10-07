@@ -1575,13 +1575,18 @@ fn mp_imported_func_count(mod_ : @lib.Module) -> Int {
 fn mp_changed_defined_funcs(
   before : @lib.CodeSec?,
   after : @lib.CodeSec?,
+  may_change : Array[Bool],
 ) -> Array[Bool] {
   match (before, after) {
     (Some(@lib.CodeSec(old_funcs)), Some(@lib.CodeSec(new_funcs))) => {
       let changed : Array[Bool] = []
       let count = old_funcs.length().min(new_funcs.length())
       for idx = 0; idx < count; idx = idx + 1 {
-        changed.push(old_funcs[idx] != new_funcs[idx])
+        changed.push(
+          idx < may_change.length() &&
+          may_change[idx] &&
+          old_funcs[idx] != new_funcs[idx],
+        )
       }
       changed
     }
@@ -2358,6 +2363,7 @@ fn mp_find_value_start(out : Array[@lib.Instruction], end_ : Int) -> Int? {
 priv struct MpSegmentOpPreflight {
   mut rewritable : Bool
   mut has_data_ops : Bool
+  func_has_data_ops : Array[Bool]
 }
 
 ///|
@@ -2365,7 +2371,7 @@ fn MpSegmentOpPreflight::new(
   rewritable? : Bool = true,
   has_data_ops? : Bool = false,
 ) -> MpSegmentOpPreflight {
-  { rewritable, has_data_ops, }
+  { rewritable, has_data_ops, func_has_data_ops: [], }
 }
 
 ///|
@@ -2438,7 +2444,12 @@ fn mp_module_segment_op_preflight(mod_ : @lib.Module) -> MpSegmentOpPreflight {
     Some(@lib.CodeSec(funcs)) =>
       for func_ in funcs {
         let @lib.Func(_, @lib.Expr(body)) = func_
+        let earlier_has_data_ops = result.has_data_ops
+        result.has_data_ops = false
         mp_segment_op_preflight_instrs(body, result)
+        let func_has_data_ops = result.has_data_ops
+        result.func_has_data_ops.push(func_has_data_ops)
+        result.has_data_ops = earlier_has_data_ops || func_has_data_ops
         if !result.rewritable {
           return result
         }
@@ -2956,6 +2967,8 @@ fn mp_rewrite_code_sec_full(
   plans : Array[MpSegmentPlan],
   global_idx : @lib.GlobalIdx?,
   address_type : MpMemoryAddressType,
+  func_has_data_ops : Array[Bool],
+  rebuilt_count? : Array[Int]? = None,
 ) -> @lib.CodeSec? {
   let initial_pages = match mp_sole_memory_type(mod_) {
     Some((mem_type, _)) => mp_memory_initial_pages(mem_type)
@@ -2966,6 +2979,14 @@ fn mp_rewrite_code_sec_full(
       let param_counts = mp_defined_func_param_counts(mod_)
       let rewritten : Array[@lib.Func] = []
       for i = 0; i < funcs.length(); i = i + 1 {
+        if i < func_has_data_ops.length() && !func_has_data_ops[i] {
+          rewritten.push(funcs[i])
+          continue
+        }
+        match rebuilt_count {
+          Some(count) => count[0] = count[0] + 1
+          None => ()
+        }
         let @lib.Func(locals, body) = funcs[i]
         let next_locals = locals.copy()
         let param_count = if i < param_counts.length() {
@@ -3211,11 +3232,29 @@ pub fn memory_packing_run_module_pass(
     changed = true
   }
   let next_code_sec = if segment_op_preflight.has_data_ops {
-    mp_rewrite_code_sec_full(mod_, plans, drop_state_global, address_type)
+    mp_rewrite_code_sec_full(
+      mod_,
+      plans,
+      drop_state_global,
+      address_type,
+      segment_op_preflight.func_has_data_ops,
+    )
   } else {
     mod_.code_sec
   }
-  if next_code_sec != mod_.code_sec {
+  let changed_funcs = mp_changed_defined_funcs(
+    mod_.code_sec,
+    next_code_sec,
+    segment_op_preflight.func_has_data_ops,
+  )
+  let mut code_changed = false
+  for func_changed in changed_funcs {
+    if func_changed {
+      code_changed = true
+      break
+    }
+  }
+  if code_changed {
     changed = true
   }
 
@@ -3237,9 +3276,9 @@ pub fn memory_packing_run_module_pass(
     mod_.name_sec,
     data_name_entries,
     mp_imported_func_count(mod_),
-    mp_changed_defined_funcs(mod_.code_sec, next_code_sec),
+    changed_funcs,
   )
-  let invalidates_compiler_facts = next_code_sec != mod_.code_sec ||
+  let invalidates_compiler_facts = code_changed ||
     next_global_sec != mod_.global_sec
   @lib.Module::new(
     custom_secs=mod_.custom_secs,

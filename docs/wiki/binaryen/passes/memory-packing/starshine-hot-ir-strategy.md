@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-07
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
   - index.md
   - ../../../../../src/passes/memory_packing.mbt
   - ../../../../../src/passes/memory_packing_test.mbt
+  - ../../../../../src/passes/memory_packing_rebuild_wbtest.mbt
+  - ../../../../../src/cmd/memory_packing_rebuild_wbtest.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -47,6 +49,21 @@ source-order overlap cleanup. The pass can zero entries in that copy without
 changing the caller's original module; the adjacent regression calls the pass
 and checks the original segment bytes afterward.
 
+The October 7 code-rebuild repair records data-operation use for each function
+during the existing preflight. A function without data operations keeps its
+original body and is excluded from changed-body comparisons. A focused module
+with one `data.drop` function and 128 unaffected functions now rebuilds one
+body instead of 129. The 48 owner tests and dispatcher regression pass.
+On a 1,025-function fixture, the saved pre-fix native CLI took 135 µs median
+pass-local time across ten warm samples; the rebuilt CLI took 44.5 µs, with
+identical raw output SHA-256
+`667ab7577168b0b02d0f22f3c784ae59f0494d00b39312cae992406a9866d335`.
+The post-fix verified-v133 sweep measured 0.049 ms Starshine pass time versus
+0.258 ms Binaryen. The verified-v133 10,000-case aggregate retained the
+previous 7,288 exact / 2,712 residual counts and zero validation, property,
+generator, or command failures. Its residuals remain the documented active
+zero-length and dynamic Memory64 families; this repair does not alter them.
+
 ## Why this remains a module pass
 
 The historical filename says `starshine-hot-ir-strategy`, but this pass is deliberately module-scoped. A correct rewrite needs the complete memory/import shape, every data segment and its source order, all segment users, index/name/data-count repair, and output validity limits. The module driver is [`memory_packing_run_module_pass(...)`](../../../../../src/passes/memory_packing.mbt); [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches the public spelling.
@@ -61,7 +78,7 @@ The historical filename says `starshine-hot-ir-strategy`, but this pass is delib
 | Startup trap preservation | `mp_should_preserve_trap`, `mp_preserve_trapping_top_byte` | A dropped zero tail cannot erase an observable active-segment out-of-bounds trap. |
 | Whole-module active legality | `mp_can_optimize`, `mp_active_spans_are_disjoint`, `mp_zero_out_trampled_data` | Memory index must be zero and offsets exact; overlap is detected with overflow-aware spans, then earlier bytes are zeroed in source order in a copied data array. Imported overlap additionally requires every active segment to be in bounds. |
 | Segment users and passive planning | `mp_collect_data_usages`, `mp_passive_user_scan`, passive split/replacement helpers | Supported passive `memory.init` / `data.drop` paths are rewritten; referrer counts reproduce Binaryen's `2 + 19 * memory.init + 3 * data.drop` interior threshold and `9 * memory.init` edge threshold; GC data users remain conservative no-split boundaries. |
-| Safe and cheap code traversal | `mp_module_segment_op_preflight` | One recursive preflight proves every flattened `memory.init` operand boundary before mutation and records whether any data-index operation exists; modules without such operations avoid cloning the complete code section. |
+| Safe and cheap code traversal | `mp_module_segment_op_preflight` | One recursive preflight proves every flattened `memory.init` operand boundary before mutation and records data-index use per function; the rewrite keeps unaffected function bodies. |
 | Output repair | segment-plan/remap/name/data-count helpers | Rebuilt data segments preserve surviving data-index users, names, and `data_count` semantics. |
 | Registry and presets | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | `memory-packing` is an active module pass in the early `optimize` and `shrink` module prefix. |
 | Focused behavior | [`src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt) | Locks positive active/imported/passive paths, traps, remapping, and conservative boundaries. |

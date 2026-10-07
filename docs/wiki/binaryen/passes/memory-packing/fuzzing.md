@@ -11,6 +11,14 @@ sources:
 
 # `memory-packing` Fuzzing Profile
 
+The October 7 selective function-rebuild repair was compared with the verified
+Binaryen 133 oracle on the 10,000-case `memory-packing-all` aggregate. The
+result retained the prior 7,288 exact matches and 2,712 known residuals, with
+zero validation, property, generator, or command failures. Canonical size
+classes also remain 1,382 smaller Starshine, 7,288 equal, and 1,330 larger
+Starshine. The repair avoids work in unaffected functions; it does not change
+the earlier zero-length or dynamic Memory64 mismatch families.
+
 > **Comparison baseline — September 25, 2026:** new comparisons use [Binaryen 133](../../version-133-upgrade.md). Recorded v131 and v132 results below retain their historical versions.
 
 ## September 25 shared segment-op preflight
