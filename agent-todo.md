@@ -23,9 +23,13 @@ oracle versions and checkpoints do not sign current source.
 - **Suggested tests:** original failing tests, paired valid-WAT controls,
   direct IR/opcode assertions, and small runtime replays where behavior is
   observable.
-- [ ] Seven remaining fixture-load aborts: one legacy rethrow, one large SSA
-  case, one SimplifyLocals, one performance fixture,
+- [ ] Six remaining fixture-load aborts: one legacy rethrow, one large SSA
+  case, one SimplifyLocals,
   one DCE, and two DAEO.
+- [x] Nested RUB dispatch performance fixture: mark the syntactically possible
+  but unreachable function fallthrough after the return wrapper. Its dispatch
+  ladder and pass trace assertions remain; the WAT validates externally and
+  the focused test passes.
 - [x] RemoveUnusedBrs value-carrying if-arm `br_table` boundary: add an
   unreachable suffix for the syntactic fallthrough of its typed blocks. The
   original table targets, payload assertions, and pass boundary remain;
