@@ -8003,8 +8003,8 @@ test "ssa-nomerge boundary: legacy rethrow remains outside HOT SSA" {
       #|    (try
       #|      (do (throw $e0))
       #|      (catch $e0
-      #|        (rethrow 0)))))
-      #|)
+      #|        (rethrow 0)))
+      #|    i32.const 0))
     ),
   )
   let (_, instrs) = try! ssa_test_first_defined_func(mod_)

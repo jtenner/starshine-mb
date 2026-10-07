@@ -23,8 +23,11 @@ oracle versions and checkpoints do not sign current source.
 - **Suggested tests:** original failing tests, paired valid-WAT controls,
   direct IR/opcode assertions, and small runtime replays where behavior is
   observable.
-- [ ] Two remaining fixture-load aborts: one legacy rethrow and one large SSA
-  case.
+- [ ] One remaining fixture-load abort: the large SSA branch-exit alias case.
+- [x] Legacy rethrow boundary fixture: close the WAT module correctly and
+  add a dead i32 fallback for the result function. The raw `try`/`throw`/
+  `rethrow` assertions remain; Binaryen 133 and Starshine admit the fixture,
+  and the focused test passes.
 - [x] DAEO void dead-suffix side-call fixture: remove the `drop` after a
   void-returning call. The side-call and result-preservation assertions
   remain; external validation and the focused test pass.
