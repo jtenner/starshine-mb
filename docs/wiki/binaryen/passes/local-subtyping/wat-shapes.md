@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-10-07
 sources:
   - ./index.md
+  - ../../../../../src/passes/local_subtyping.mbt
+  - ../../../../../src/passes/local_subtyping_test.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -501,7 +503,7 @@ Bottom-target variant:
 (local.set $x (call_ref $ret-any (local.get $f)))
 ```
 
-narrows `$f` to `nullfuncref`, narrows `$x` to `(ref none)`, and replaces the unemittable bottom `call_ref` with an unreachable value block that drops the target. Starshine currently implements this for represented zero-param adjacent-local-get targets; reopen for non-adjacent targets, parameterized bottom calls, argument side effects, or non-identical function params.
+narrows `$f` to `nullfuncref`, narrows `$x` to `(ref none)`, and replaces the bottom `call_ref` with a direct `unreachable` after the pure target `local.get`. The raw assignment scan now carries the bottom internal-reference type into the following dead `local.set`; otherwise the next iteration kept `$x` as `anyref`. Verified Binaryen 133 uses the same direct `local.get`/`unreachable` shape. The focused and full LocalSubtyping test file pass. A fresh aggregate comparison is still required for current-source signoff. Reopen for non-adjacent targets, parameterized bottom calls, argument side effects, or non-identical function params.
 
 ## Shape 6e-a: block terminal `return` can preserve already-dominated gets inside the block
 

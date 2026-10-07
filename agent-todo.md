@@ -73,7 +73,11 @@ oracle versions and checkpoints do not sign current source.
   suffix after voiding the no-normal `try_table`, so the result block remains
   valid and writeback accepts it. The focused case and full owner test file
   pass; verified Binaryen 133 has the same tail shape.
-- [ ] One LocalSubtyping bottom call-ref failure.
+- [x] LocalSubtyping bottom `call_ref`: carry explicit `unreachable` as a
+  bottom internal-reference assignment in the raw scan and remove the
+  redundant target drop. The local narrows to `(ref none)`, output validates,
+  the focused and full owner test file pass, and the direct shape matches
+  verified Binaryen 133.
 - [x] HeapStoreOptimization unreachable set-value fixture: add the required
   i32 function-result fallback after the dead `struct.set`. The constructor,
   unreachable value, and `struct.set` assertions remain; the focused test

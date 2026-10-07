@@ -1251,10 +1251,9 @@ fn ls_refine_selects_instrs(
                   match rewritten[len - 1] {
                     @lib.LocalGet(target_idx) => {
                       // Retain the target read at the call's evaluation position.
-                      // A closed bottom-reference block still has a concrete
-                      // result; only a direct trap makes this frame polymorphic.
+                      // The direct trap discards the pure local.get stack value
+                      // while making the remainder of the frame polymorphic.
                       ignore(target_idx)
-                      rewritten.push(@lib.Instruction::drop())
                       rewritten.push(@lib.Instruction::unreachable_())
                       changed = true
                     }
@@ -1446,6 +1445,21 @@ fn ls_collect_raw_assignments_instrs(
       @lib.F64Const(_) => stack.push(Some(@lib.ValType::f64()))
       @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         stack.push(Some(@lib.ValType::v128()))
+      @lib.Unreachable => {
+        stack.clear()
+        // A following reference write can take the polymorphic bottom value.
+        // The candidate subtype check rejects this heap for other hierarchies.
+        stack.push(
+          Some(
+            @lib.ValType::ref_type(
+              @lib.RefType::new(
+                false,
+                @lib.HeapType::abs(@lib.AbsHeapType::none()),
+              ),
+            ),
+          ),
+        )
+      }
       @lib.LocalGet(idx) =>
         stack.push(ls_local_declared_type(idx, param_types, body_locals))
       @lib.LocalSet(idx) =>

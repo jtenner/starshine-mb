@@ -713,6 +713,20 @@ test "local-subtyping replaces bottom call_ref refinalization with unreachable v
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("call_ref"), msg=pretty)
   assert_true(pretty.contains("unreachable"), msg=pretty)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body)), _])) => {
+      let mut adjacent = false
+      for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+        match (body[idx], body[idx + 1]) {
+          (@lib.LocalGet(@lib.LocalIdx(0U)), @lib.Unreachable) =>
+            adjacent = true
+          _ => ()
+        }
+      }
+      assert_true(adjacent, msg=body.to_string())
+    }
+    _ => fail("expected two defined functions")
+  }
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
