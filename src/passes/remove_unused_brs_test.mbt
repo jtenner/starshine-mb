@@ -1542,7 +1542,8 @@ test "remove-unused-brs keeps catch_ref caught throws as exnref transport" {
         #|  (func (result exnref)
         #|    (block $catch (result exnref)
         #|      (try_table (catch_ref $e $catch)
-        #|        (throw $e)))))
+        #|        (throw $e))
+        #|      (unreachable))))
         #|,
       ),
       ["remove-unused-brs"],
@@ -1566,7 +1567,8 @@ test "remove-unused-brs keeps catch_all_ref caught throws as exnref transport" {
         #|  (func (result exnref)
         #|    (block $catch (result exnref)
         #|      (try_table (catch_all_ref $catch)
-        #|        (throw $e)))))
+        #|        (throw $e))
+        #|      (unreachable))))
         #|,
       ),
       ["remove-unused-brs"],

@@ -23,9 +23,13 @@ oracle versions and checkpoints do not sign current source.
 - **Suggested tests:** original failing tests, paired valid-WAT controls,
   direct IR/opcode assertions, and small runtime replays where behavior is
   observable.
-- [ ] Eleven remaining fixture-load aborts: one legacy rethrow, one large SSA
-  case, one SimplifyLocals, three RemoveUnusedBrs, one performance fixture,
+- [ ] Nine remaining fixture-load aborts: one legacy rethrow, one large SSA
+  case, one SimplifyLocals, one RemoveUnusedBrs, one performance fixture,
   one DCE, two DAEO, and one CodeFolding.
+- [x] Two RemoveUnusedBrs `catch_ref` transport fixtures: make the typed
+  handler block's dead fallthrough explicit with `unreachable`. The original
+  catch branches and assertions remain; both WAT inputs validate externally
+  and both focused tests pass.
 - [x] Precompute loop-carried break fixture: add the unreachable fallthrough
   value required by Wasm block typing. The test still checks that the
   unconditional branch yields `1` and that Precompute removes the loop;
