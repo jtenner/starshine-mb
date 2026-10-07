@@ -2053,6 +2053,43 @@ fn lcse_raw_filter_active_local_only(
 }
 
 ///|
+fn lcse_raw_filter_active_for_idempotent_call(
+  exprs : Array[LcseRawExpr],
+  active : Array[Int],
+  instr : @lib.Instruction,
+  children : Array[Int],
+) -> Unit {
+  lcse_raw_compact_active(active, fn(expr_id) {
+    if expr_id < 0 || expr_id >= exprs.length() {
+      return false
+    }
+    let expr = exprs[expr_id]
+    if expr.reads_memory ||
+      expr.reads_memory_size ||
+      expr.reads_table_state ||
+      expr.reads_global ||
+      expr.reads_heap ||
+      expr.reads_atomic {
+      return false
+    }
+    if !expr.reads_call {
+      return true
+    }
+    match expr.instr {
+      @lib.Instruction::Call(_) => {
+        for child in expr.children {
+          if exprs[child].reads_call {
+            return false
+          }
+        }
+        lcse_raw_exprs_match(exprs, expr_id, instr, children)
+      }
+      _ => false
+    }
+  })
+}
+
+///|
 fn lcse_raw_filter_active_without_heap(
   exprs : Array[LcseRawExpr],
   active : Array[Int],
@@ -2233,10 +2270,8 @@ fn lcse_raw_scan_nested_repeats(
       | @lib.ElemDrop(_) => lcse_raw_filter_active_local_only(exprs, active)
       _ if lcse_raw_instr_is_allocation_or_string_effect(body[idx]) =>
         lcse_raw_filter_active_local_only(exprs, active)
-      @lib.Instruction::Call(call_idx) =>
-        if !lcse_raw_call_is_idempotent(call_infos, call_idx) {
-          lcse_raw_filter_active_local_only(exprs, active)
-        }
+      @lib.Instruction::Call(_) =>
+        lcse_raw_filter_active_local_only(exprs, active)
       @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
         lcse_raw_filter_active_local_only(exprs, active)
       other =>
@@ -2516,7 +2551,11 @@ fn lcse_raw_rewrite_instrs(
       | @lib.Instruction::ElemDrop(_) =>
         lcse_raw_filter_active_without_call(exprs, active)
       @lib.Instruction::Call(call_idx) =>
-        if !lcse_raw_call_is_idempotent(call_infos, call_idx) {
+        if lcse_raw_call_is_idempotent(call_infos, call_idx) {
+          lcse_raw_filter_active_for_idempotent_call(
+            exprs, active, instr, children,
+          )
+        } else {
           lcse_raw_filter_active_local_only(exprs, active)
         }
       @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>

@@ -44,6 +44,23 @@ For the exact upstream algorithm and source/test map, read:
 
 ## Current readiness status
 
+### October 7, 2026 idempotent-call effect repair
+
+An `@binaryen.idempotent` call can change module state on its first execution.
+LocalCSE now invalidates active expressions that depend on memory, globals,
+tables, heap state, atomic state, or another call at that boundary. It retains
+only local-only expressions and an exact repeated call with safe arguments.
+The focused global and memory regressions failed before this repair; direct
+tests now cover those state reads, different annotated callees, and preserved
+same-call reuse. The command dispatcher has a matching global-read test.
+The full `local_cse_test.mbt` file passes `210/210` tests. The verified-v133
+dedicated `local-cse` and regular GenValid lanes each compare `10000/10000`
+cases with zero canonical mismatches and zero validation, generator, property,
+or command failures. Their reports are in
+`.tmp/pass-fuzz-local-cse-audit-20261007` and
+`.tmp/pass-fuzz-local-cse-audit-20261007-regular`. The dedicated scalar lane
+does not sample annotations; the directed tests supply that coverage.
+
 Starshine now treats `local-cse` as an active direct pass.
 The owner file, direct tests, registry entry, dispatcher route, debug-artifact evidence, and 2026-05-06 refreshed direct-pass fuzz evidence have landed.
 

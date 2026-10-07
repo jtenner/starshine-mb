@@ -7288,6 +7288,75 @@ test "local-cse reuses annotated idempotent direct calls" {
 }
 
 ///|
+test "local-cse invalidates global value at first idempotent call" {
+  let input =
+    #| (module
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (@binaryen.idempotent)
+    #|   (func $set (result i32)
+    #|     (if (i32.eqz (global.get $g))
+    #|       (then (global.set $g (i32.const 1))))
+    #|     (i32.const 0))
+    #|   (func (result i32)
+    #|     (drop (i32.add (global.get $g) (i32.const 2)))
+    #|     (drop (call $set))
+    #|     (i32.add (global.get $g) (i32.const 2))))
+    #|
+  let output = pass_test_run_pipeline(input, ["local-cse"]).unwrap()
+  let @lib.Func(_, @lib.Expr(instrs)) = lcse_test_defined_func(output, 1)
+  @debug.assert_eq(
+    lcse_test_count_global_get(instrs, @lib.GlobalIdx::new(0U)),
+    2,
+  )
+}
+
+///|
+test "local-cse invalidates memory value at first idempotent call" {
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (@binaryen.idempotent)
+    #|   (func $set (result i32)
+    #|     (i32.store (i32.const 0) (i32.const 7))
+    #|     (i32.const 0))
+    #|   (func (result i32)
+    #|     (drop (i32.add (i32.load (i32.const 0)) (i32.const 2)))
+    #|     (drop (call $set))
+    #|     (i32.add (i32.load (i32.const 0)) (i32.const 2))))
+  let output = pass_test_run_pipeline(input, ["local-cse"]).unwrap()
+  let @lib.Func(_, @lib.Expr(instrs)) = lcse_test_defined_func(output, 1)
+  @debug.assert_eq(audit_count(instrs, fn(i) { i is @lib.I32Load(_) }), 2)
+}
+
+///|
+test "local-cse invalidates one idempotent callee at another" {
+  let input =
+    #| (module
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (@binaryen.idempotent)
+    #|   (func $read (result i32) (global.get $g))
+    #|   (@binaryen.idempotent)
+    #|   (func $set (result i32)
+    #|     (global.set $g (i32.const 1))
+    #|     (i32.const 0))
+    #|   (func (result i32)
+    #|     (drop (call $read))
+    #|     (drop (call $set))
+    #|     (call $read)))
+  let output = pass_test_run_pipeline(input, ["local-cse"]).unwrap()
+  let @lib.Func(_, @lib.Expr(instrs)) = lcse_test_defined_func(output, 2)
+  @debug.assert_eq(
+    audit_count(instrs, fn(i) {
+      match i {
+        @lib.Call(idx) => idx == @lib.FuncIdx::new(0U)
+        _ => false
+      }
+    }),
+    2,
+  )
+}
+
+///|
 test "local-cse does not reuse ordinary direct calls" {
   let input =
     #| (module
