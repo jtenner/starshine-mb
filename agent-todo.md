@@ -7,6 +7,32 @@ New comparisons require verified
 [Binaryen 133](docs/wiki/binaryen/release-horizon-and-oracles.md); historical
 oracle versions and checkpoints do not sign current source.
 
+## v0.1.1 — Default test gate repair [IR2-TEST-GATE-20261007]
+
+- **Goal / why:** repair all 29 failing default tests without weakening their
+  behavioral claims. A clean HEAD archive confirms the same 29 failure names.
+- **Deliverables / tasks:** make each fixture valid and each required pass
+  behavior pass; keep direct and dispatcher coverage; commit each coherent
+  repair after its focused tests pass.
+- **Required APIs / invariants:** preserve valid wasm, effect order, branch
+  values, exception control, metadata policy, and output shape contracts.
+  No public API change is planned.
+- **Dependencies / exit:** use `wasm-tools validate` for suspect WAT; test the
+  exact file after each repair; finish with `moon fmt`, `moon info`, default
+  `moon test`, and relevant verified Binaryen 133 comparisons.
+- **Suggested tests:** original failing tests, paired valid-WAT controls,
+  direct IR/opcode assertions, and small runtime replays where behavior is
+  observable.
+- [ ] Fifteen fixture-load aborts: one legacy rethrow, one large SSA case,
+  one SimplifyLocals, three RemoveUnusedBrs, one Precompute, one performance
+  fixture, three OptimizeInstructions, one DCE, two DAEO, and one CodeFolding.
+- [ ] Seven SSA-nomerge loop and `br_table` model failures.
+- [ ] Three OptimizeInstructions escaping-branch `ref.get_desc` failures.
+- [ ] One SimplifyLocalsNoStructure catch-all-ref failure.
+- [ ] One LocalSubtyping bottom call-ref failure.
+- [ ] One HeapStoreOptimization abort.
+- [ ] One O4z branch-hint annotation failure.
+
 ## v0.1.1 — October 7 pass audit repairs [IR2-PASS-AUDIT-20261007]
 
 - **Goal / why:** repair the ten concrete correctness, missed-optimization and
