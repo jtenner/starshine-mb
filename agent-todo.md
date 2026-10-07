@@ -87,8 +87,13 @@ oracle versions and checkpoints do not sign current source.
   uniform one-value `br_table` with local payload/index in the block movement
   proof. The direct `br`, value `br_if`, and value `br_table` assertions and
   related standalone test family pass.
-- [ ] Direct HOT OptimizeInstructions escaping descriptor-operand null-check
-  test: preserve the inexact cast and safely remove the explicit check.
+- [x] Direct HOT OptimizeInstructions escaping descriptor-operand null-check:
+  the standalone proof removes the redundant explicit check while leaving
+  the descriptor cast inexact and its block child intact. The focused test
+  and full OptimizeInstructions owner file pass.
+- [ ] Full default test gate and current-source Binaryen 133 signoff: run
+  `moon info`, `moon fmt`, `moon test`, then the required pass-targeted
+  comparisons on the freshly built native binary.
 - [x] SimplifyLocalsNoStructure tail `catch_all_ref`: append an unreachable
   suffix after voiding the no-normal `try_table`, so the result block remains
   valid and writeback accepts it. The focused case and full owner test file

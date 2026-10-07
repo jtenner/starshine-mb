@@ -238,8 +238,11 @@ redundant explicit null check when a child block exits through a one-value
 payload and index. The branch still bypasses both null-sensitive operations;
 normal fallthrough still traps in `ref.get_desc` on null. The direct `br`,
 value `br_if`, and value `br_table` assertions and related standalone tests
-pass. The direct HOT descriptor-operand guard and fresh Binaryen 133
-aggregate parity remain open.
+pass. The same standalone proof also removes the redundant explicit check
+from the direct HOT descriptor-operand fixture while leaving its cast inexact
+and its escaping block child intact. The focused direct HOT test and complete
+OptimizeInstructions owner test file pass. Fresh Binaryen 133 aggregate
+parity remains open.
 
 If Starshine ever needs a stricter source-level expansion of this pass, this page suggests a compact checklist:
 
