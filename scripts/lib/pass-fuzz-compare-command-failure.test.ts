@@ -81,14 +81,12 @@ const result = cp.spawnSync(process.env.REAL_WASM_TOOLS, args, { stdio: "inherit
 process.exit(result.status ?? 1);
 `);
       const outDir = path.join(root, "out");
-      const cacheDir = path.join(root, "cache");
       const commandArgs = [
         path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
         "--count", "1",
         "--wasm-smith",
         "--out-dir", outDir,
         "--report-only",
-        "--cache-dir", cacheDir,
         "--jobs", "1",
         "--pass", "vacuum",
         "--starshine-bin", starshine,
@@ -123,7 +121,6 @@ process.exit(result.status ?? 1);
         status: "command-failure",
         failureClass: "binaryen-command-failed",
         semanticV2Outcome: { primary: "semantic-match", pattern: "binaryen-discrepancy" },
-        binaryenCacheOutcome: "failure-miss",
       });
 
       fs.writeFileSync(
@@ -135,7 +132,6 @@ process.exit(result.status ?? 1);
           detail: "original-primary semantic match; Binaryen diagnostic unavailable: binaryen-command-failed",
           diagnosticFailureClass: "binaryen-command-failed",
           semanticV2Outcome: { primary: "semantic-match", pattern: "binaryen-discrepancy" },
-          binaryenCacheOutcome: "failure-miss",
         }) + "\n",
       );
       const resumed = spawnSync("bun", [...commandArgs, "--resume"], {
@@ -166,7 +162,7 @@ process.exit(result.status ?? 1);
       expect(recovered.status, `${recovered.stdout}\n${recovered.stderr}`).toBe(0);
       const recoveredSummary = JSON.parse(fs.readFileSync(path.join(recoveredOutDir, "result.json"), "utf8"));
       expect(recoveredSummary.comparedCount).toBe(1);
-      expect(recoveredSummary.cache.binaryenFailureHits).toBe(0);
+      expect(recoveredSummary.normalizedMatchCount).toBe(1);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

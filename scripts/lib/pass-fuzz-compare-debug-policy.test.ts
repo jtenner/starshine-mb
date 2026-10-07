@@ -71,14 +71,12 @@ if (args.includes("-S")) {
 fs.copyFileSync(source, output);
 `);
       const outDir = path.join(root, "out");
-      const cacheDir = path.join(root, "cache");
       const result = spawnSync("bun", [
         path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
         "--count", "1",
         "--wasm-smith",
         "--out-dir", outDir,
         "--report-only",
-        "--cache-dir", cacheDir,
         "--jobs", "1",
         "--pass", "strip-debug",
         "--starshine-bin", starshine,
@@ -103,8 +101,7 @@ fs.copyFileSync(source, output);
       expect(summary.comparedCount).toBe(1);
       expect(summary.normalizedMatchCount).toBe(0);
       expect(summary.mismatchCount).toBe(1);
-      expect(summary.cache.binaryenMisses).toBe(1);
-      expect(fs.existsSync(path.join(cacheDir, "binaryen", "schema-v4-bounded-debug-preserving"))).toBeTrue();
+      expect(summary).not.toHaveProperty("cache");
       const record = JSON.parse(fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8"));
       expect(record).toMatchObject({ status: "mismatch", generator: "wasm-smith" });
 
@@ -123,26 +120,11 @@ fs.copyFileSync(source, output);
         expect(args).not.toContain("--strip-debug");
       }
 
-      const findDone = (directory: string): string | null => {
-        for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-          const candidate = path.join(directory, entry.name);
-          if (entry.isDirectory()) {
-            const nested = findDone(candidate);
-            if (nested !== null) return nested;
-          } else if (entry.name === "done.json") {
-            return candidate;
-          }
-        }
-        return null;
-      };
-      const done = findDone(cacheDir);
-      expect(done).not.toBeNull();
-      fs.writeFileSync(path.join(path.dirname(done!), "binaryen.wasm"), "corrupt canonical output");
-      const secondOutDir = path.join(root, "out-after-corruption");
+      const secondOutDir = path.join(root, "out-repeat");
       const second = spawnSync("bun", [
         path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
         "--count", "1", "--wasm-smith", "--out-dir", secondOutDir,
-        "--report-only", "--cache-dir", cacheDir, "--jobs", "1",
+        "--report-only", "--jobs", "1",
         "--pass", "strip-debug", "--starshine-bin", starshine,
         "--wasm-opt-bin", wasmOpt, "--wasm-tools-bin", wasmTools,
       ], {
@@ -159,14 +141,14 @@ fs.copyFileSync(source, output);
       });
       expect(second.status, `${second.stdout}\n${second.stderr}`).toBe(0);
       const secondSummary = JSON.parse(fs.readFileSync(path.join(secondOutDir, "result.json"), "utf8"));
-      expect(secondSummary.cache.binaryenMisses).toBe(1);
-      expect(secondSummary.cache.binaryenHits).toBe(0);
+      expect(secondSummary.mismatchCount).toBe(1);
+      expect(secondSummary.comparisonDebugPolicy).toBe("preserve");
 
       const missingValidatorOutDir = path.join(root, "out-missing-validator");
       const missingValidator = spawnSync("bun", [
         path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
         "--count", "1", "--wasm-smith", "--out-dir", missingValidatorOutDir,
-        "--report-only", "--cache-dir", cacheDir, "--jobs", "1",
+        "--report-only", "--jobs", "1",
         "--pass", "strip-debug", "--starshine-bin", starshine,
         "--wasm-opt-bin", wasmOpt, "--wasm-tools-bin", wasmTools,
         "--external-validator", "wabt",
@@ -191,7 +173,7 @@ fs.copyFileSync(source, output);
       const timed = spawnSync("bun", [
         path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
         "--count", "1", "--wasm-smith", "--out-dir", timeoutOutDir,
-        "--report-only", "--no-cache", "--jobs", "1", "--pass", "strip-debug",
+        "--report-only", "--jobs", "1", "--pass", "strip-debug",
         "--starshine-bin", starshine, "--wasm-opt-bin", wasmOpt,
         "--wasm-tools-bin", wasmTools, "--subprocess-timeout-ms", "100",
       ], {

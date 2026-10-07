@@ -116,7 +116,7 @@ Use during implementation and before ordinary commit-sized parity slices:
 4. `moon build --target native --release src/cmd`
 5. Run the required pass-fuzz signoff matrix below.
 
-Compare-pass generates GenValid inputs by default. Add `--wasm-smith` only for the separate external-generator lane. The persistent `.tmp/pass-fuzz-cache` remains on by default for deterministic `wasm-smith` inputs when that lane is selected and for Binaryen oracle raw/canonical/WAT outputs plus repeatable Binaryen command failures. Do not disable this for ordinary signoff; use `--cache-dir <dir>` when an isolated/shared cache is needed, and `--no-cache` only when debugging cache behavior. Starshine outputs are never cached and are regenerated every run.
+Compare-pass generates GenValid inputs by default. Add `--wasm-smith` only for the separate external-generator lane. Compare-pass has no persistent input, oracle, or semantic-result cache. Each new run executes generation and comparison afresh; do not pass the retired `--cache-dir` or `--no-cache` flags. The harness cleans each case's consumed inputs, successful reports and temporary outputs. Keep failure bundles and all observed semantic differences, including Binaryen-only differences, even when the structural mismatch artifact cap is zero. Only interrupted runs retain pending inputs for `--resume`; finalized cutoff runs discard unused inputs.
 
 #### Required pass-fuzz signoff matrix
 
@@ -146,7 +146,7 @@ A proper pass signoff must run and report these four separate lanes unless the u
    bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5555 --pass <canonical-name> --gen-valid-profile <random-all-profiles-profile> --out-dir .tmp/pass-fuzz-<name>-genvalid-all-profiles-10000 --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
    ```
 
-Report the four lanes separately. Include requested count, compared count, normalized matches, cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, cache hit/miss counters, profile name, and selected subprofile counts when the manifest has `selected_profile`.
+Report the four lanes separately. Include requested count, compared count, normalized matches, cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, profile name, and selected subprofile counts when the manifest has `selected_profile`.
 
 ### Final pass closeout signoff
 
@@ -188,7 +188,7 @@ For DAE / `dae-optimizing` generated cleanup-debris lanes, add the documented co
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --normalize drop-consts --normalize unreachable-control-debris --out-dir .tmp/pass-fuzz-dae-optimizing --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-Report exact `normalizedMatchCount`, `cleanupNormalizedMatchCount`, remaining `mismatchCount`, command-failure classes, and `result.json.cache` hit/miss counters separately.
+Report exact `normalizedMatchCount`, `cleanupNormalizedMatchCount`, remaining `mismatchCount`, and command-failure classes separately.
 
 Required result:
 
@@ -247,7 +247,7 @@ When reporting pass signoff, include:
 - tests added or updated
 - focused Moon command results
 - standard Moon signoff results: `moon info`, `moon fmt`, `moon test`
-- required pass-fuzz matrix lanes, each reported independently with command, seed, out dir, explicit `--jobs auto`, `--max-subprocesses`, `--max-mismatch-artifacts`, explicit `--starshine-bin`, cache mode or cache dir when non-default, requested count, compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, raw/canonical Starshine-versus-Binaryen size totals and smaller/equal/larger counts, validation/generator/property failures, command-failure classification, and `result.json.cache` hit/miss counters:
+- required pass-fuzz matrix lanes, each reported independently with command, seed, out dir, explicit `--jobs auto`, `--max-subprocesses`, `--max-mismatch-artifacts`, explicit `--starshine-bin`, requested count, compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, raw/canonical Starshine-versus-Binaryen size totals and smaller/equal/larger counts, validation/generator/property failures, and command-failure classification:
   - regular GenValid: `--count 100000 --seed 0x5eed`
   - wasm-smith: `--wasm-smith --count 10000 --seed 0x5eed`
   - pass-specific GenValid profile: `--count 10000 --seed 0x5eed --gen-valid-profile <pass-specific-profile>`

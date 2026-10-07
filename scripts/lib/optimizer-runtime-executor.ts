@@ -31,6 +31,9 @@ import {
   type WasmRuntimeValueType,
 } from "./optimizer-runtime.ts";
 
+// Resumable runs must use the same observable execution contract.
+export const SEMANTIC_EXECUTION_CONTRACT = "node-v2-timeout-classification-v10";
+
 export type NodeObservationV2Options = {
   mode: ObservationMode;
   timeoutMs: number;

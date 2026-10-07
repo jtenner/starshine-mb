@@ -358,7 +358,7 @@ const args = process.argv.slice(2); if (args[0] === "smith") { const out = args[
   const result = spawnSync("bun", [
     path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"), "--count", "1", "--wasm-smith",
     "--out-dir", outDir, "--starshine-bin", fakeStarshine, "--wasm-opt-bin", fakeWasmOpt,
-    "--wasm-tools-bin", fakeWasmTools, "--no-cache", "--normalize", "drop-consts", "--pass", "dae-optimizing",
+    "--wasm-tools-bin", fakeWasmTools, "--normalize", "drop-consts", "--pass", "dae-optimizing",
   ], { cwd: repoRoot, encoding: "utf8" });
   if (result.error) throw result.error;
   if (result.status !== 0) fail(`pass-fuzz drop-consts command failed:\n${result.stderr}`);
@@ -411,7 +411,7 @@ const args = process.argv.slice(2); if (args[0] === "smith") { const out = args[
   const result = spawnSync("bun", [
     path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"), "--count", "1", "--wasm-smith",
     "--out-dir", outDir, "--starshine-bin", fakeStarshine, "--wasm-opt-bin", fakeWasmOpt,
-    "--wasm-tools-bin", fakeWasmTools, "--no-cache", "--normalize", "unreachable-control-debris",
+    "--wasm-tools-bin", fakeWasmTools, "--normalize", "unreachable-control-debris",
     "--pass", "remove-unused-brs",
   ], { cwd: repoRoot, encoding: "utf8" });
   if (result.error) throw result.error;
@@ -3713,6 +3713,8 @@ export function runPassFuzzCompareParallelJobsRequireStarshineBinTest(): void {
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
       "--count",
       "2",
+      "--require-binaryen-version",
+      "133",
       "--jobs",
       "2",
       "--generator",

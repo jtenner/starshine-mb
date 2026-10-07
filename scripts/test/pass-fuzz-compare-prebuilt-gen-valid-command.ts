@@ -94,7 +94,7 @@ process.exit(0);
       "--moon", fakeMoon, "--gen-valid-bin", fakeGenerator,
       "--starshine-bin", fakeStarshine, "--wasm-opt-bin", fakeWasmOpt,
       "--wasm-tools-bin", fakeWasmTools, "--primary-validator", "binaryen",
-      "--pass", "vacuum", "--no-cache", "--no-reduce-mismatches",
+      "--pass", "vacuum", "--no-reduce-mismatches",
     ], {
       cwd: repoRoot,
       env: { ...process.env, GENERATOR_LOG: generatorLog, MOON_MARKER: moonMarker,

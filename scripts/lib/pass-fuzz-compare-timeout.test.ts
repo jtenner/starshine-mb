@@ -96,7 +96,6 @@ function runHarness(
     "--count", "1",
     "--out-dir", outDir,
     "--report-only",
-    "--no-cache",
     "--jobs", "1",
     "--pass", "vacuum",
     "--starshine-bin", tools.starshine,

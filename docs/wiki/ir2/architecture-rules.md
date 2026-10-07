@@ -3696,7 +3696,7 @@ Existing SSA regression anchors are
 [`ssa_spill_fifth_audit_wbtest.mbt`](../../../src/passes/ssa_spill_fifth_audit_wbtest.mbt)
 and [`ssa_branchcopy_fifth_audit_wbtest.mbt`](../../../src/passes/ssa_branchcopy_fifth_audit_wbtest.mbt).
 Do not duplicate their already-covered invariants as new bugs. Harness follow-up
-also concerns [`optimizer-semantic-cache.ts`](../../../scripts/lib/optimizer-semantic-cache.ts)
+also concerns [`optimizer-runtime-executor.ts`](../../../scripts/lib/optimizer-runtime-executor.ts)
 and the execution contract when runtime behavior/configuration changes.
 
 #### Exact blocked sample index

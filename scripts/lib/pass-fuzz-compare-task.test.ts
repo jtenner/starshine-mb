@@ -1,4 +1,4 @@
-import { SEMANTIC_EXECUTION_CONTRACT } from "./optimizer-semantic-cache";
+import { SEMANTIC_EXECUTION_CONTRACT } from "./optimizer-runtime-executor";
 import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
@@ -28,7 +28,7 @@ import {
   passFuzzShouldReduceMismatchForTest,
 } from "./pass-fuzz-compare-task";
 
-describe("pass-fuzz persistent cache options", () => {
+describe("pass-fuzz command options", () => {
   test("accepts an explicit compiler facts policy independently from Binaryen pass flags", () => {
     const defaults = parsePassFuzzCompareArgs(["--pass", "vacuum"]);
     const trust = parsePassFuzzCompareArgs(["--pass", "vacuum", "--compiler-facts", "trust"]);
@@ -134,12 +134,12 @@ describe("pass-fuzz persistent cache options", () => {
     ])).toThrow("require-binaryen-version must be a decimal release number");
   });
 
-  test("defaults to the repo-local persistent pass-fuzz cache", () => {
+  test("has no persistent cache configuration", () => {
     const parsed = parsePassFuzzCompareArgs(["--pass", "remove-unused-brs"]);
 
     expect(parsed.kind).toBe("run");
     if (parsed.kind === "run") {
-      expect(parsed.options.cacheDir).toBe(path.join(".tmp", "pass-fuzz-cache"));
+      expect(parsed.options).not.toHaveProperty("cacheDir");
     }
   });
 
@@ -320,22 +320,13 @@ describe("pass-fuzz persistent cache options", () => {
     );
   });
 
-  test("accepts explicit cache dirs and no-cache", () => {
-    const withCache = parsePassFuzzCompareArgs([
-      "--pass",
-      "remove-unused-brs",
-      "--cache-dir",
-      ".tmp/custom-pass-cache",
-    ]);
-    const withoutCache = parsePassFuzzCompareArgs(["--pass", "remove-unused-brs", "--no-cache"]);
-
-    expect(withCache.kind).toBe("run");
-    if (withCache.kind === "run") {
-      expect(withCache.options.cacheDir).toBe(path.join(".tmp", "custom-pass-cache"));
-    }
-    expect(withoutCache.kind).toBe("run");
-    if (withoutCache.kind === "run") {
-      expect(withoutCache.options.cacheDir).toBeNull();
+  test("rejects intentionally retired persistent cache options", () => {
+    for (const flags of [
+      ["--cache-dir", ".tmp/custom-pass-cache"],
+      ["--cache-dir=.tmp/custom-pass-cache"],
+      ["--no-cache"],
+    ]) {
+      expect(() => parsePassFuzzCompareArgs(["--pass", "remove-unused-brs", ...flags])).toThrow();
     }
   });
 
@@ -526,7 +517,7 @@ describe("pass-fuzz persistent cache options", () => {
     });
   });
 
-  test("resume reconstructs semantic property localization and cache counters", () => {
+  test("resume reconstructs semantic property and localization counters", () => {
     const counters = passFuzzResumedOptimizerCountersForTest([
       {
         caseIndex: 1,
@@ -543,8 +534,6 @@ describe("pass-fuzz persistent cache options", () => {
         localizationOutcome: { classification: "reproduced", recoveryCount: 2 },
         idempotenceOutcome: "pass",
         compositionOutcome: "fail",
-        binaryenCacheOutcome: "hit",
-        semanticCacheOutcome: "miss",
       },
       {
         caseIndex: 2,
@@ -568,8 +557,6 @@ describe("pass-fuzz persistent cache options", () => {
     expect(counters.localizationRecoveriesCount).toBe(2);
     expect(counters.idempotenceMatchCount).toBe(1);
     expect(counters.compositionCheckedCount).toBe(1);
-    expect(counters.cache.binaryenHits).toBe(1);
-    expect(counters.cache.semanticMisses).toBe(1);
   });
 
   test("aggregates pass-local raw size wins and regressions", () => {

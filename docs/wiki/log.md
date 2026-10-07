@@ -26392,3 +26392,18 @@ arrays/typecheck wrappers from the completed return packaging change.
   tests. Independent P00 runtime, size, coverage and full release gates remain
   open. Aggregate build/test costs exceed the consumer's 30-second activity
   budget; captured times are not isolated performance comparisons.
+
+### 2026-10-05 — Remove persistent fuzz caching
+
+- [Compare-pass](tooling/pass-fuzz-compare.md#run-artifacts-and-cache-removal)
+  regenerates inputs, Binaryen outputs, and semantic observations on every new
+  run. Removed cache flags, cache storage helpers, and result/journal cache
+  counters after disk-space pressure. Consumed inputs, successful reports and
+  temporary outputs are cleaned after each case; finalized cutoff runs also
+  drop unused inputs. Every observed semantic difference retains its original
+  and output bytes regardless of the structural artifact cap. Interrupted-run
+  resume keeps pending inputs only. The [repeated-run regression](../../scripts/lib/pass-fuzz-compare-uncached.test.ts)
+  failed before implementation and now verifies fresh generation, oracle and
+  semantic execution without a cache directory. Historical cache evidence stays
+  under its original run/version; current repo rules, pass workflow and backlog
+  now require uncached runs.
