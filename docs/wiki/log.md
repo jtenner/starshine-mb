@@ -1,3 +1,16 @@
+### 2026-10-07 — Close the 29-test pass gate
+
+- Repaired all 29 failures shared by the audit worktree and clean `HEAD`.
+  Invalid WAT fixtures now satisfy wasm stack and control typing while their
+  pass assertions remain. SSA typed-loop carriers, SimplifyLocalsNoStructure
+  tail `catch_all_ref`, LocalSubtyping bottom `call_ref`, and OI-J escaping
+  descriptor branches now produce valid output and pass their direct tests.
+  The active detail is in [`agent-todo.md`](../../agent-todo.md) and the
+  affected pass dossiers.
+- `moon info` and `moon fmt` pass. The full default `moon test` now passes
+  13,733/13,733 tests with zero failures. No passing test was disabled or
+  weakened. Fresh native Binaryen 133 pass comparisons remain open.
+
 ### 2026-10-07 — Repair ten pass-audit findings
 
 - Correctness repairs cover Precompute catch depths, LocalCSE's first

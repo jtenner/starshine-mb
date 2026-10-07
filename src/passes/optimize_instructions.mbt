@@ -36004,26 +36004,34 @@ fn OiStandaloneRefGetDescRootShapeFact::from_root(
   let escaping_plain_branch_root = match root.op {
     @ir.HotOp::Br => {
       let label = OiStandaloneRefGetDescLabelOwnerFact::from_label(
-        func, root.imm0, block_id,
+        func,
+        root.imm0,
+        block_id,
       )
-      label.valid_label && !label.owner_matches &&
+      label.valid_label &&
+      !label.owner_matches &&
       @ir.hot_label_branch_arity(func, root.imm0) == 1 &&
       root.child_count == 1 &&
-      @ir.hot_node_get(func, @ir.hot_child_get(func, root_id, 0)).op is @ir.HotOp::LocalGet
+      @ir.hot_node_get(func, @ir.hot_child_get(func, root_id, 0)).op
+      is @ir.HotOp::LocalGet
     }
     @ir.HotOp::BrTable => {
       let default_label = @ir.hot_branch_table_default_target(func, root.imm0)
       let label = OiStandaloneRefGetDescLabelOwnerFact::from_label(
         func, default_label, block_id,
       )
-      let mut same_outer_target = label.valid_label && !label.owner_matches &&
+      let mut same_outer_target = label.valid_label &&
+        !label.owner_matches &&
         @ir.hot_label_branch_arity(func, default_label) == 1
       for target in @ir.hot_branch_table_targets(func, root.imm0) {
         same_outer_target = same_outer_target && target == default_label
       }
-      same_outer_target && root.child_count == 2 &&
-      @ir.hot_node_get(func, @ir.hot_child_get(func, root_id, 0)).op is @ir.HotOp::LocalGet &&
-      @ir.hot_node_get(func, @ir.hot_child_get(func, root_id, 1)).op is @ir.HotOp::LocalGet
+      same_outer_target &&
+      root.child_count == 2 &&
+      @ir.hot_node_get(func, @ir.hot_child_get(func, root_id, 0)).op
+      is @ir.HotOp::LocalGet &&
+      @ir.hot_node_get(func, @ir.hot_child_get(func, root_id, 1)).op
+      is @ir.HotOp::LocalGet
     }
     _ => false
   }
@@ -36326,8 +36334,10 @@ fn OiStandaloneRefGetDescBlockMoveFinalPayloadFact::from_final_root(
       !final_fact.disallowed_control_or_multivalue
     @ir.HotOp::Br | @ir.HotOp::BrTable =>
       final_fact.no_results &&
-      (!final_fact.disallowed_control_or_multivalue ||
-      final_fact.proves_escaping_plain_branch_root())
+      (
+        !final_fact.disallowed_control_or_multivalue ||
+        final_fact.proves_escaping_plain_branch_root()
+      )
     @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail =>
       final_fact.proves_internal_br_on_cast_root()
     _ => false

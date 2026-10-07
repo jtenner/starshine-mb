@@ -91,9 +91,11 @@ oracle versions and checkpoints do not sign current source.
   the standalone proof removes the redundant explicit check while leaving
   the descriptor cast inexact and its block child intact. The focused test
   and full OptimizeInstructions owner file pass.
-- [ ] Full default test gate and current-source Binaryen 133 signoff: run
-  `moon info`, `moon fmt`, `moon test`, then the required pass-targeted
-  comparisons on the freshly built native binary.
+- [x] Full default test gate: `moon info` and `moon fmt` passed; `moon test`
+  passed 13,733/13,733 tests with zero failures. The original 29 failures
+  and the mixed-target SSA regression are resolved without dropping tests.
+- [ ] Current-source Binaryen 133 signoff: build the native CLI, then run
+  required 10,000-case pass-targeted comparisons for the repaired passes.
 - [x] SimplifyLocalsNoStructure tail `catch_all_ref`: append an unreachable
   suffix after voiding the no-normal `try_table`, so the result block remains
   valid and writeback accepts it. The focused case and full owner test file
