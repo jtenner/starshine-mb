@@ -470,8 +470,15 @@ explicit `unreachable` after a rewritten body with no normal fallthrough.
 Without it, the value block underflowed and the writeback guard retained the
 input. The no-throw and throwing `try_table` scalar backedge tests now pass,
 as does the scalar `br_table` catch-relabeling test. Verified Binaryen 133
-uses the same dead value-block suffix. Four other typed-loop `br_table`
-regressions remain open; this focused result does not renew aggregate parity.
+uses the same dead value-block suffix. The same terminal typing rule applies
+to result-bearing store-model loops: when a rewritten loop body has no normal
+fallthrough, the void loop needs an explicit `unreachable` after the branch
+table rewrite. This repairs the try-table and non-current single-result table
+cases without changing branch payloads. The specialized post-collapse path
+also now handles the mixed-target scalar table case; its test requires the
+`null-throwref-debris-typed-loop-proxy` trace, output validation, proxy
+branches, and selector comparison. The focused table and try-table groups and
+the complete SSA owner test file pass. Aggregate parity remains open.
 
 ## `[SSANM-007b1]` typed-control source and fixture inventory
 

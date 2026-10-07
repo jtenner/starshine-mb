@@ -8082,6 +8082,18 @@ fn ssa_test_expect_typed_loop_boundary_output(
   min_local_count : Int,
   context : String,
 ) -> (@lib.Locals, Array[@lib.Instruction]) raise {
+  ssa_test_expect_typed_loop_boundary_output_with_reason(
+    source, min_local_count, context, "structured-local-writes-mutated",
+  )
+}
+
+///|
+fn ssa_test_expect_typed_loop_boundary_output_with_reason(
+  source : String,
+  min_local_count : Int,
+  context : String,
+  reason : String,
+) -> (@lib.Locals, Array[@lib.Instruction]) raise {
   let trace : Array[String] = []
   let optimized = match
     pass_test_run_pipeline(
@@ -8102,9 +8114,7 @@ fn ssa_test_expect_typed_loop_boundary_output(
         "expected typed loop-param \{context} ssa-nomerge output to validate, got \{@validate.validation_error_message(err)}",
       )
   }
-  ssa_test_assert_ssa_nomerge_raw_reason(
-    trace, "structured-local-writes-mutated",
-  )
+  ssa_test_assert_ssa_nomerge_raw_reason(trace, reason)
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() >= min_local_count, msg=locals.to_string())
   (locals, instrs)
@@ -11810,9 +11820,9 @@ test "ssa-nomerge rewrites no-throw try_table scalar proxy backedges" {
     #|        (try_table (catch_all $h)
     #|          local.get 1
     #|          i32.const 1
-      #|          i32.add
-      #|          br $l)))
-      #|    local.get 1))
+    #|          i32.add
+    #|          br $l)))
+    #|    local.get 1))
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -16940,7 +16950,6 @@ test "ssa-nomerge rewrites try_table single-result br_table fallthrough store mo
     #|      end
     #|      return)
     #|    local.get 1))
-    #|)
   ssa_test_expect_loop_param_store_model(source, 3)
 }
 
@@ -17151,7 +17160,6 @@ test "ssa-nomerge rewrites non-current single-result typed loop br_table targets
     #|      end
     #|      local.get 1
     #|    end))
-    #|)
   ssa_test_expect_loop_param_store_model(source, 3)
 }
 
@@ -17176,9 +17184,8 @@ test "ssa-nomerge rewrites non-current mixed-target scalar typed loop br_table t
     #|      end
     #|      unreachable
     #|    end))
-    #|)
-  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
-    source, 2, "non-current mixed-target scalar br_table",
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output_with_reason(
+    source, 2, "non-current mixed-target scalar br_table", "null-throwref-debris-typed-loop-proxy",
   )
   assert_true(
     ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),

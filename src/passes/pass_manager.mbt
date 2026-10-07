@@ -23425,6 +23425,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                   }
                   if body_fallthrough {
                     loop_body.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
+                  } else {
+                    loop_body.push(@lib.Instruction::unreachable_())
                   }
                   let block_body : Array[@lib.Instruction] = []
                   if result_block_type == block_type {

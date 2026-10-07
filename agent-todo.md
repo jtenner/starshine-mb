@@ -71,9 +71,13 @@ oracle versions and checkpoints do not sign current source.
   suffix after no-fallthrough rewritten bodies so typed result blocks validate.
   No-throw and throwing `try_table` backedges and the scalar table catch
   relabeling test now pass.
-- [ ] Four SSA-nomerge `br_table` model failures: non-current scalar,
-  single-result store model, copy-needing non-current scalar, and non-current
-  single-result.
+- [x] Four SSA-nomerge `br_table` model failures: the scalar proxy repair also
+  resolved the non-current and copy-needing scalar cases; result-bearing
+  store-model loops now end no-fallthrough rewrites with `unreachable`, so the
+  try-table and non-current single-result cases validate. The mixed-target
+  scalar fixture now requires its precise specialized trace reason while
+  retaining validation, proxy, selector, and local-count checks. The focused
+  `br_table` and `try_table` groups and full SSA owner file pass.
 - [ ] Three OptimizeInstructions escaping-branch `ref.get_desc` failures.
 - [x] SimplifyLocalsNoStructure tail `catch_all_ref`: append an unreachable
   suffix after voiding the no-normal `try_table`, so the result block remains
