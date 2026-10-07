@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-07
 sources:
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp
   - ../../../../../src/passes/rse.mbt
   - ../../../../../src/passes/rse_test.mbt
+  - ../../../../../src/passes/rse_candidate_index_wbtest.mbt
+  - ../../../../../src/cmd/rse_candidate_index_wbtest.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -38,6 +40,21 @@ Use this page with the direct current-main owner and fixture links cited by the 
 The most important teaching point remains the same: the future Starshine port needs a **small CFG/value-flow substrate**, not the stale straight-line-only plan from 2026-04-25.
 
 ## Honest current status
+
+The October 7 raw reference-local repair indexes candidate locals by value
+identity. The index is built on the first refined lookup, updated on local
+writes, and invalidated at branch/loop merges. It preserves ascending local
+order and keeps cloned branch states separate. A 512-local focused native
+benchmark measured 130.30 µs for the former full scan and 2.68 µs for the
+indexed lookup. This measures the lookup helper; it does not establish a
+whole-pass speed ratio. The direct candidate and dispatcher regressions pass.
+The verified-v133 `rse` aggregate compared 10,000 cases without validation,
+property, generator, or command failures. It had 7,656 exact matches and
+2,344 smaller Starshine outputs. The 20 retained differences contain only
+effect-free `nop` removal or flattening a loop with no branch; the three
+generated profile families account for 925, 449, and 970 cases respectively.
+These are output-shape wins in the inspected generated families, not a claim
+that validation alone proves semantic equivalence.
 
 `rse` is now **implemented as an active direct pass** in Starshine under the long upstream spelling `redundant-set-elimination`.
 

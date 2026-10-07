@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-13
+last_reviewed: 2026-10-07
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -13,6 +13,17 @@ sources:
 ---
 
 # `rse` Fuzzing Profile
+
+The October 7 verified Binaryen 133 aggregate used the current native release
+CLI, `--gen-valid-profile rse`, seed `0x5eed`, and 10,000 comparisons. It found
+7,656 exact matches and 2,344 smaller Starshine outputs, with zero validation,
+property, generator, or command failures. The residuals are 970 branch-free
+loop flattenings (three bytes smaller), 925 vacuum-tail `nop` removals (one
+byte smaller), and 449 exception-boundary `nop` removals (one byte smaller).
+All 20 retained diffs show one of those shapes. The inspected loop has no
+branch and the removed `nop`s have no effect; these are judged Starshine size
+wins for these generated families. The result tests the indexed-candidate
+repair for output drift but does not measure its pass-local speed.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

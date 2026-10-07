@@ -655,6 +655,7 @@ fn RseRawInterner::new(capacity : Int) -> RseRawInterner {
 ///|
 priv struct RseRawState {
   local_values : Array[Int]
+  mut candidates_by_value : @hashmap.HashMap[Int, Array[Int]]?
   mut initialized : Array[Bool]
   local_types : Array[@lib.ValType]
   interner : RseRawInterner
@@ -674,6 +675,7 @@ fn RseRawState::new(
 ) -> RseRawState {
   let state = {
     local_values: Array::make(local_types.length(), -1),
+    candidates_by_value: None,
     initialized: Array::makei(local_types.length(), fn(local_id) {
       let defaultable = match local_types[local_id] {
         @lib.RefTypeValType(ref_type) => ref_type.is_nullable()
@@ -709,6 +711,7 @@ fn RseRawState::new(
 fn RseRawState::clone_from(other : RseRawState) -> RseRawState {
   {
     local_values: other.local_values.copy(),
+    candidates_by_value: None,
     initialized: other.initialized.copy(),
     local_types: other.local_types,
     interner: other.interner,
@@ -1222,7 +1225,80 @@ fn rse_raw_local_get(state : RseRawState, local_id : Int) -> Int {
 ///|
 fn rse_raw_local_set(state : RseRawState, local_id : Int, value : Int) -> Unit {
   if local_id >= 0 && local_id < state.local_values.length() {
+    let previous = state.local_values[local_id]
+    if previous != value {
+      match state.candidates_by_value {
+        Some(index) => {
+          match index.get(previous) {
+            Some(candidates) =>
+              for position = 0
+                  position < candidates.length()
+                  position = position + 1 {
+                if candidates[position] == local_id {
+                  ignore(candidates.remove(position))
+                  if candidates.length() == 0 {
+                    index.remove(previous)
+                  }
+                  break
+                }
+              }
+            None => ()
+          }
+          if value != -1 {
+            match index.get(value) {
+              Some(candidates) => {
+                let mut position = 0
+                while position < candidates.length() &&
+                      candidates[position] < local_id {
+                  position = position + 1
+                }
+                candidates.insert(position, local_id)
+              }
+              None => index.set(value, [local_id])
+            }
+          }
+        }
+        None => ()
+      }
+    }
     state.local_values[local_id] = value
+  }
+}
+
+///|
+fn rse_raw_candidates_for_value(
+  state : RseRawState,
+  value : Int,
+  candidate_visits? : Array[Int]? = None,
+) -> Array[Int] {
+  if state.candidates_by_value is None {
+    let index : @hashmap.HashMap[Int, Array[Int]] = @hashmap.new(
+      capacity=state.local_values.length() * 2 + 1,
+    )
+    for local_id = 0
+        local_id < state.local_values.length()
+        local_id = local_id + 1 {
+      match candidate_visits {
+        Some(visits) => visits[0] = visits[0] + 1
+        None => ()
+      }
+      let local_value = state.local_values[local_id]
+      if local_value != -1 {
+        match index.get(local_value) {
+          Some(candidates) => candidates.push(local_id)
+          None => index.set(local_value, [local_id])
+        }
+      }
+    }
+    state.candidates_by_value = Some(index)
+  }
+  match state.candidates_by_value {
+    Some(index) =>
+      match index.get(value) {
+        Some(candidates) => candidates
+        None => []
+      }
+    None => []
   }
 }
 
@@ -1294,12 +1370,7 @@ fn rse_raw_refined_aggregate_receiver_type(
   let original = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(base_type)),
   )
-  for candidate_id = 0
-      candidate_id < state.local_values.length()
-      candidate_id = candidate_id + 1 {
-    if state.local_values[candidate_id] != receiver_value {
-      continue
-    }
+  for candidate_id in rse_raw_candidates_for_value(state, receiver_value) {
     match rse_raw_local_type(state, candidate_id) {
       Some(candidate) =>
         match rse_raw_concrete_ref_type_idx(candidate) {
@@ -1319,14 +1390,25 @@ fn rse_raw_refined_aggregate_receiver_type(
 }
 
 ///|
-fn rse_raw_refined_get_local(state : RseRawState, local_id : Int) -> Int {
+fn rse_raw_refined_get_local(
+  state : RseRawState,
+  local_id : Int,
+  candidate_visits? : Array[Int]? = None,
+) -> Int {
   let value = rse_raw_local_get(state, local_id)
   if value == -1 {
     return local_id
   }
-  for candidate_id = 0
-      candidate_id < state.local_values.length()
-      candidate_id = candidate_id + 1 {
+  for
+    candidate_id in rse_raw_candidates_for_value(
+      state,
+      value,
+      candidate_visits~,
+    ) {
+    match candidate_visits {
+      Some(visits) => visits[0] = visits[0] + 1
+      None => ()
+    }
     if state.initialized[candidate_id] &&
       state.local_values[candidate_id] == value &&
       rse_raw_is_strict_subtype_local(state, candidate_id, local_id) {
@@ -1338,6 +1420,7 @@ fn rse_raw_refined_get_local(state : RseRawState, local_id : Int) -> Int {
 
 ///|
 fn rse_raw_clear_values(state : RseRawState) -> Unit {
+  state.candidates_by_value = None
   for local_id = 0
       local_id < state.local_values.length()
       local_id = local_id + 1 {
@@ -1350,6 +1433,7 @@ fn rse_raw_merge_sources(
   state : RseRawState,
   sources : Array[Array[Int]],
 ) -> Unit {
+  state.candidates_by_value = None
   rse_raw_clear_stack(state)
   if sources.length() == 0 {
     rse_raw_clear_values(state)
@@ -2011,6 +2095,7 @@ fn rse_raw_rewrite_expr_scoped(
           state.next_unknown = loop_state.next_unknown
         }
         if loop_state.reachable && !scope.has_loop_branch {
+          state.candidates_by_value = None
           for local_id = 0
               local_id < state.local_values.length()
               local_id = local_id + 1 {
