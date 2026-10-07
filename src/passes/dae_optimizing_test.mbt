@@ -14389,6 +14389,7 @@ test "dae-optimizing keeps originally-parameterized block self result suffixes" 
     #|    block
     #|      unreachable
     #|    end
+    #|    f64.const 0
     #|    call $f2
     #|    call $f1
     #|    drop

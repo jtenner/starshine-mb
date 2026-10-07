@@ -23,8 +23,12 @@ oracle versions and checkpoints do not sign current source.
 - **Suggested tests:** original failing tests, paired valid-WAT controls,
   direct IR/opcode assertions, and small runtime replays where behavior is
   observable.
-- [ ] Four remaining fixture-load aborts: one legacy rethrow, one large SSA
-  case, and two DAEO.
+- [ ] Three remaining fixture-load aborts: one legacy rethrow, one large SSA
+  case, and one DAEO.
+- [x] DAEO originally-parameterized block self-result fixture: supply the
+  missing f64 argument before the f32-returning call. Its self-result and
+  parameter-elimination assertions remain; external validation and the
+  focused test pass.
 - [x] DCE nonfinal nonfallthrough value-block fixture: discard the dead
   result before the void `if` branch exits. Its voidification assertions
   remain; external and Starshine validation and the focused test pass.
