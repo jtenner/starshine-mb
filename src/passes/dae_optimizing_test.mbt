@@ -15270,8 +15270,7 @@ test "dae-optimizing preserves results with void dead-suffix side calls" {
     #|    end
     #|    local.get 0
     #|    local.get 1
-    #|    call $f1
-    #|    drop)
+    #|    call $f1)
     #|  (func $f1 (param f32 f32)
     #|    (local f64 i64 i32)
     #|    block
