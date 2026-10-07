@@ -9,7 +9,32 @@
   affected pass dossiers.
 - `moon info` and `moon fmt` pass. The full default `moon test` now passes
   13,733/13,733 tests with zero failures. No passing test was disabled or
-  weakened. Fresh native Binaryen 133 pass comparisons remain open.
+  weakened. Fresh native Binaryen 133 pass comparisons are recorded below.
+- Fresh CLI `020f898254de9e240d5029483cac43a50f90be1ef1b0626ae21a97b2d57ae024`
+  and GenValid `d2692ad47e8d4314bea988802c43ddc8f801a8c9a9661af4e0b72ff37a228bd0`
+  compared four pass aggregates against verified Binaryen 133
+  `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+  Each lane used seed `0x5eed`, 10,000 cases, `--jobs auto`,
+  `--max-subprocesses 8`, and a 20-artifact mismatch cap. No lane had a
+  validation, property, generator, or command failure; runtime observation
+  was off.
+
+  | Pass aggregate | Normalized matches | Residuals | Canonically larger |
+  | --- | ---: | ---: | ---: |
+  | `pass-oi-all` | 8,623 | 1,377 | 0 |
+  | `ssa-nomerge-all` | 3,750 | 6,250 | 0 |
+  | `local-subtyping-all` | 3,170 | 6,830 | 0 |
+  | `simplify-locals-nostructure-all` | 0 | 10,000 | 1,662 |
+
+  The OI residuals comprise 1,080 established tuple wrappers and 297 pure
+  literal result-`if` folds, each 16 canonical bytes smaller. The SSA,
+  LocalSubtyping, and SimplifyLocalsNoStructure residuals repeat documented
+  output-parity gaps; the 1,662 larger simplify-locals cases remain size
+  gaps. The [OI](binaryen/passes/optimize-instructions/fuzzing.md),
+  [SSA](binaryen/passes/ssa-nomerge/fuzzing.md),
+  [LocalSubtyping](binaryen/passes/local-subtyping/fuzzing.md), and
+  [SimplifyLocalsNoStructure](binaryen/passes/simplify-locals-nostructure/fuzzing.md)
+  dossiers record scope and report paths.
 
 ### 2026-10-07 — Repair ten pass-audit findings
 

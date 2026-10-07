@@ -14,6 +14,12 @@ sources:
 
 # `ssa-nomerge` Fuzzing Profile
 
+## October 7 default-gate repair renewal
+
+Fresh native CLI SHA-256 `020f898254de9e240d5029483cac43a50f90be1ef1b0626ae21a97b2d57ae024` and verified Binaryen 133 SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b` compared 10,000/10,000 `ssa-nomerge-all` GenValid cases at seed `0x5eed` with eight subprocesses. The split repeats the prior aggregate: 3,750 normalized matches and 6,250 residuals, with no validation, property, generator, or command failures. No canonical output is larger. Runtime observation was off. The report is `.tmp/test-gate-signoff-ssa-10000/result.json`.
+
+The inspected start of retained stress case 2 shows a local declaration layout difference; its long, exception-bearing body was not proved equivalent by this check. The 6,250 residuals stay open parity gaps under the existing dossier classifications. The repaired typed-loop and `br_table` regressions pass direct tests and external validation; this aggregate does not close the broader SSA parity backlog.
+
 ## September 27 follow-up allocation campaign renewal
 
 The [final follow-up report](../../../tooling/tracing-playbook.md#september-27-2026-follow-up-pass-allocation-campaign)

@@ -15,6 +15,12 @@ sources:
 
 # `simplify-locals-nostructure` Fuzzing Profile
 
+## October 7 default-gate repair renewal
+
+Fresh native CLI SHA-256 `020f898254de9e240d5029483cac43a50f90be1ef1b0626ae21a97b2d57ae024` and verified Binaryen 133 SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b` compared 10,000/10,000 `simplify-locals-nostructure-all` GenValid cases at seed `0x5eed` with eight subprocesses. The split repeats the prior aggregate: zero normalized matches, 10,000 residuals, and 1,662 canonically larger Starshine outputs. Validation, property, generator, and command failures are zero. Runtime observation was off. The report is `.tmp/test-gate-signoff-slns-10000/result.json`.
+
+Retained family case 1 includes nop removal, loop flattening, and local-layout differences. The 10,000 residuals remain open output-parity gaps, and the 1,662 larger cases remain size gaps. The repaired tail `catch_all_ref` behavior has direct tests and a verified Binaryen 133 shape check; this aggregate does not close the separate pass-family backlog.
+
 ## September 27 follow-up allocation campaign renewal
 
 The [final follow-up report](../../../tooling/tracing-playbook.md#september-27-2026-follow-up-pass-allocation-campaign)

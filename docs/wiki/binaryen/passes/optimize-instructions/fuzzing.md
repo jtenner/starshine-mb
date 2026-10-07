@@ -1,3 +1,9 @@
+## October 7 default-gate repair renewal
+
+The repaired source, native CLI SHA-256 `020f898254de9e240d5029483cac43a50f90be1ef1b0626ae21a97b2d57ae024`, and verified Binaryen 133 SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b` compared 10,000/10,000 `pass-oi-all` GenValid cases at seed `0x5eed` with eight subprocesses. There are 8,623 normalized matches, 1,377 output differences, and no validation, property, generator, or command failures. Runtime observation was off. The report is `.tmp/test-gate-signoff-oi-10000/result.json`.
+
+Exactly 1,080 residuals are the established tuple-wrapper family. The other 297 all select `oi-boolean-select:value-if-drop-shell`: Binaryen keeps two dropped result-`if` expressions with literal conditions and constant arms; Starshine selects the same literal values and keeps their `drop`s. Every removed condition and arm is a pure, nontrapping constant. Each of the 297 outputs is 16 canonical bytes smaller. This is a scoped source-level and measured size win, not a general claim about result-`if` folding. All 1,377 residuals are canonically smaller; no new size loss was observed. The previous tuple downstream and runtime evidence retains its stated scope.
+
 ## September 27 performance-campaign renewal
 
 The [shared final campaign](../../../tooling/tracing-playbook.md#september-27-2026-precompute-cleanup-and-pass-allocation-campaign)

@@ -12,6 +12,12 @@ sources:
 
 # `local-subtyping` fuzzing
 
+## October 7 default-gate repair renewal
+
+Fresh native CLI SHA-256 `020f898254de9e240d5029483cac43a50f90be1ef1b0626ae21a97b2d57ae024` and verified Binaryen 133 SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b` compared 10,000/10,000 `local-subtyping-all` GenValid cases at seed `0x5eed` with eight subprocesses. The split repeats the September v132 renewal: 3,170 normalized matches and 6,830 residuals; 765 raw outputs are larger, but none are canonically larger. Validation, property, generator, and command failures are zero. Runtime observation was off. The report is `.tmp/test-gate-signoff-ls-10000/result.json`.
+
+Retained cases 1 and 3 show exact-reference declaration and loop-shape differences. These are still output-parity gaps; validation and canonical size alone do not prove a Starshine win. The repaired bottom `call_ref` case has its own direct regression and verified Binaryen 133 shape check.
+
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
 ## Dedicated family aggregate

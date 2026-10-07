@@ -94,8 +94,16 @@ oracle versions and checkpoints do not sign current source.
 - [x] Full default test gate: `moon info` and `moon fmt` passed; `moon test`
   passed 13,733/13,733 tests with zero failures. The original 29 failures
   and the mixed-target SSA regression are resolved without dropping tests.
-- [ ] Current-source Binaryen 133 signoff: build the native CLI, then run
-  required 10,000-case pass-targeted comparisons for the repaired passes.
+- [x] Current-source Binaryen 133 comparison renewal: fresh native CLI and
+  GenValid binaries ran four 10,000-case pass-targeted aggregates with zero
+  validation, property, generator, or command failures. OI has 1,377 smaller
+  residuals: 1,080 established tuple wrappers and 297 pure literal value-`if`
+  folds, each 16 canonical bytes smaller. SSA repeats 3,750 exact / 6,250
+  residuals; LocalSubtyping repeats 3,170 / 6,830; SimplifyLocalsNoStructure
+  repeats 0 / 10,000 with 1,662 canonical size losses. Those last three
+  parity families stay open in their pass dossiers. A three-input SSA table
+  validation replay passes; focused CLI means are 1.7–1.8 ms for Starshine
+  versus 2.8–3.0 ms for Binaryen, including process startup.
 - [x] SimplifyLocalsNoStructure tail `catch_all_ref`: append an unreachable
   suffix after voiding the no-normal `try_table`, so the result block remains
   valid and writeback accepts it. The focused case and full owner test file
