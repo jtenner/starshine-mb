@@ -7,6 +7,85 @@ New comparisons require verified
 [Binaryen 133](docs/wiki/binaryen/release-horizon-and-oracles.md); historical
 oracle versions and checkpoints do not sign current source.
 
+## v0.1.1 — October 7 pass audit repairs [IR2-PASS-AUDIT-20261007]
+
+- **Goal / why:** repair the ten concrete correctness, missed-optimization and
+  performance findings from the October 7 pass audit, one at a time.
+- **Deliverables / tasks:** add a failing focused regression before each behavior
+  fix; preserve direct pass and dispatcher coverage; use focused before/after
+  benchmarks for each performance owner; update the relevant pass wiki pages.
+- **Required APIs / invariants:** no new public API is expected. Preserve valid
+  wasm, observable behavior, effect order, label depths, declared target
+  features and pass coverage. Keep benchmark fixtures out of default tests and
+  measure memory use as well as time where practical.
+- **Dependencies / exit:** finish correctness repairs first, then optimization
+  gaps, then measured performance risks. Run focused tests, native release build
+  and verified Binaryen 133 comparisons for touched passes; record any signoff
+  limit instead of treating an unrun lane as green.
+- **Suggested tests:** direct WAT fixtures with IR/opcode assertions, CLI pass
+  dispatch fixtures, execution checks for changed control flow, and narrow
+  skipped `passes_perf_long` benchmarks for the four cost owners.
+- **Full-suite baseline:** current `moon test` ran 13,732 tests with 29 failures;
+  a clean `HEAD` archive ran 13,703 tests with the same 29 failing test names.
+  The audit adds 29 passing tests and no new failures. Keep those baseline
+  failures visible under their existing owners.
+- [x] Precompute: preserve `try_table` catch label depths, and legacy `try`
+  branch depths, when folding a constant `if` tail. Direct and dispatcher
+  regressions pass; the original/optimized runtime replay returns `1`; the
+  verified-v133 `precompute-all` 10,000-case lane has zero residuals.
+- [x] LocalCSE: invalidate global/memory/table/heap-dependent expressions at
+  the first annotated idempotent call while retaining safe repeated-call reuse.
+  Direct file `210/210`, dispatcher test, and verified-v133 dedicated and
+  regular GenValid lanes `10000/10000` each pass with zero mismatches.
+- [x] TailCall: honor a `target_features` prohibition of `tail-call`.
+  Direct and dispatcher tests pass; verified-v133 regular GenValid compares
+  `10000/10000` with zero mismatches or failures.
+- [x] MakeSharedObjects: transform imported and exported externref signatures
+  with multiple results instead of returning the input module. Direct and
+  dispatcher tests pass; verified-v133 GenValid compares 10000/10000 with zero
+  mismatches. Reused signatures cut a 1,000-export fixture by 5,878 bytes.
+  Pass-local time remains 3.826 ms versus Binaryen's 1.450 ms on that fixture;
+  retain this speed gap in the performance backlog.
+- [x] Optimize preset: gather `string.const` values even when WAT lowering
+  leaves `stringrefs_sec` absent. The corrected O4z test failed before the
+  feature scan; direct O4z execution hoists a string global, all 145 optimize
+  tests pass, and the dispatcher queue test passes.
+- [x] CodeFolding: compare equivalent suffix instructions by content so
+  distinct payload IDs do not block folding. The arithmetic regression failed
+  before repair, direct and dispatcher cases now pass, and the verified-v133
+  10,000-case `if`-arms lane has zero mismatches. The aggregate has 3,376
+  one-byte smaller Starshine outputs from omitted trailing void returns; 20
+  retained diffs show that same family. One older full-file test aborts while
+  converting its WAT fixture, before this pass; keep that test failure visible.
+- [x] Precompute performance: remove quadratic tail scans over appended nops.
+  The 512-nop counter fell from 131,327 visits to zero; focused native helper
+  time at 4,096 nops fell from 5.49 ms to 54.27 µs. Direct and dispatcher
+  tests pass, and the verified-v133 `precompute-all` 10,000-case lane has zero
+  residual mismatches with the documented cleanup normalizers. The broader
+  8,192-nop pass time improved from 1.559 to 1.437 ms but remains above
+  Binaryen's 0.195 ms; that other work remains a performance gap.
+- [x] MergeBlocks performance: memoize nested-loop subtree checks by HOT
+  revision. The 64-block probe fell from 2,080 visits to at most 128 and
+  confirms invalidation after an edit. A preserved 256-block pass fixture fell
+  from 1.096 to 0.071 ms. Owner 78/78 and dispatcher tests pass. Verified-v133
+  aggregate compares 10,000/10,000 with no validation failures; its 2,993
+  differences are two-byte smaller Starshine outputs that omit two `nop`s in
+  the expression profile, confirmed in all 20 retained diffs.
+- [x] RSE performance: index candidate reference locals for repeated gets.
+  The red 512-local test scanned 262,144 candidates; the indexed case passes.
+  Focused native lookup time is 130.30 to 2.68 µs. Direct owner 43/43 and
+  dispatcher tests pass. Verified-v133 aggregate compares 10,000/10,000 with
+  no failures; 2,344 smaller Starshine outputs are branch-free loop flattening
+  or inert `nop` removal in the inspected generated families.
+- [x] MemoryPacking performance: avoid rebuilding unaffected function bodies.
+  The red 129-function case rebuilt all 129 bodies; the selective path rebuilds
+  one and excludes unchanged bodies from deep comparisons. Owner 48/48 and
+  dispatcher tests pass. The saved pre-fix native binary measured 135 µs
+  median pass time on a 1,025-function fixture; the post-fix binary measured
+  44.5 µs and identical output bytes. A verified-v133 sweep measured 0.049 ms
+  versus Binaryen's 0.258 ms. The 10,000-case aggregate retains the prior
+  7,288 exact / 2,712 known residual family counts with no failures.
+
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
 - **Goal / why:** make Starshine competitive before release by closing pass,

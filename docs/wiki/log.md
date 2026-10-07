@@ -1,3 +1,24 @@
+### 2026-10-07 — Repair ten pass-audit findings
+
+- Correctness repairs cover Precompute catch depths, LocalCSE's first
+  idempotent-call effect, TailCall target-feature bans, multi-result imported
+  and exported externref wrappers in MakeSharedObjects, O4z string-constant
+  discovery, and CodeFolding's payload-based suffix comparison. Direct and
+  dispatcher regressions cover each case. The active checklist and evidence
+  links are in [`agent-todo.md`](../../agent-todo.md).
+- Focused performance repairs remove Precompute's quadratic nop-tail scan,
+  memoize MergeBlocks loop-subtree checks, index RSE reference-local candidates,
+  and keep unaffected MemoryPacking function bodies. The 512-local RSE helper
+  fell from 130.30 to 2.68 µs; the 1,025-function MemoryPacking fixture fell
+  from 135 to 44.5 µs pass-local with identical output bytes. The pass dossiers
+  retain the other focused measurements and remaining speed gaps.
+- The current `moon test` ran 13,732 tests: 13,703 passed and 29 failed. A clean
+  `HEAD` archive ran 13,703 tests with the same 29 failing test names, so this
+  work adds 29 passing tests and no new failures. Verified Binaryen 133
+  10,000-case aggregate comparisons ran for each touched direct pass; the
+  inspected output differences and existing MemoryPacking residuals are
+  recorded in the respective pass dossiers.
+
 ### 2026-10-05 — Close the second optimizer correctness audit
 
 - A second eight-agent review repaired offset-sensitive source-map and external
