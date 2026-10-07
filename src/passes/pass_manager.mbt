@@ -23255,6 +23255,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 inner_body.append(rewritten_body)
                 if body_fallthrough {
                   inner_body.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
+                } else {
+                  inner_body.push(@lib.Instruction::unreachable_())
                 }
                 let outer_body : Array[@lib.Instruction] = [
                   @lib.Instruction::block(

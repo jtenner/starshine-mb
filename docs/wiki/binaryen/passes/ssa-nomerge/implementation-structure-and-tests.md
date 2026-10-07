@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-24
+last_reviewed: 2026-10-07
 sources:
   - ./index.md
   - ../../../../../src/passes/ssa_nomerge.mbt
@@ -464,6 +464,14 @@ Direct compare was not run for `[SSANM-007a2c]` because the closeout is document
 | No-throw `try_table` around multi-param/no-result and single-result typed-loop store models, catch relabeling, and `br_table` variants | Keep as typed-control / table-helper territory. Catch relabeling is a structural repair for the inserted wrapper blocks, not evidence of exceptional-edge SSA support. | Existing tests `ssa-nomerge rewrites no-throw try_table multi-param typed loop br backedges`, `ssa-nomerge rewrites no-throw try_table single-result typed loop br backedges`, `ssa-nomerge rewrites try_table scalar proxy br_if catch-relabeling`, `ssa-nomerge rewrites try_table scalar proxy br_table catch-relabeling`, `ssa-nomerge rewrites try_table single-result fallthrough store model`, and `ssa-nomerge rewrites try_table single-result br_table fallthrough store model`. |
 
 Classification conclusion: keep no-throw `try_table` bodies admitted only in the already-proven normal-flow categories above. Reopen real EH mutation only with exceptional successor/reaching-set support or an EH-aware repair helper, then add red-first positive tests plus direct `--pass ssa-nomerge` compare evidence. Because `[SSANM-007a3]` only added/strengthened regression locks and source/test documentation around existing behavior, direct compare was not rerun.
+
+October 7, 2026 correction: scalar typed-loop proxy writeback needed an
+explicit `unreachable` after a rewritten body with no normal fallthrough.
+Without it, the value block underflowed and the writeback guard retained the
+input. The no-throw and throwing `try_table` scalar backedge tests now pass,
+as does the scalar `br_table` catch-relabeling test. Verified Binaryen 133
+uses the same dead value-block suffix. Four other typed-loop `br_table`
+regressions remain open; this focused result does not renew aggregate parity.
 
 ## `[SSANM-007b1]` typed-control source and fixture inventory
 

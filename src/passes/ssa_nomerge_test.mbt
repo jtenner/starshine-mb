@@ -11810,10 +11810,9 @@ test "ssa-nomerge rewrites no-throw try_table scalar proxy backedges" {
     #|        (try_table (catch_all $h)
     #|          local.get 1
     #|          i32.const 1
-    #|          i32.add
-    #|          br $l)))
-    #|    local.get 1))
-    #|)
+      #|          i32.add
+      #|          br $l)))
+      #|    local.get 1))
   let optimized = match
     pass_test_run_pipeline(
       source,

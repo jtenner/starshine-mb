@@ -67,7 +67,13 @@ oracle versions and checkpoints do not sign current source.
   `if` arms and typed dead suffixes so the enclosing result block owns the
   explicit zero. All three WAT inputs validate with wasm-tools; the owner file
   now has only its three `ref.get_desc` behavior failures (1418/1421 pass).
-- [ ] Seven SSA-nomerge loop and `br_table` model failures.
+- [x] Three SSA-nomerge scalar typed-loop proxy failures: add an unreachable
+  suffix after no-fallthrough rewritten bodies so typed result blocks validate.
+  No-throw and throwing `try_table` backedges and the scalar table catch
+  relabeling test now pass.
+- [ ] Four SSA-nomerge `br_table` model failures: non-current scalar,
+  single-result store model, copy-needing non-current scalar, and non-current
+  single-result.
 - [ ] Three OptimizeInstructions escaping-branch `ref.get_desc` failures.
 - [x] SimplifyLocalsNoStructure tail `catch_all_ref`: append an unreachable
   suffix after voiding the no-normal `try_table`, so the result block remains
