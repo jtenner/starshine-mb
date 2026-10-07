@@ -232,9 +232,14 @@ the exact escaping `block(local.get; br); ref.as_non_null; ref.get_desc;
 ref.cast_desc_eq` window. It keeps the payload before the branch, decreases
 the target depth after removing the inner block, and leaves the descriptor
 cast in place. The public pipeline test asserts the five lowered instructions
-directly and passes. Standalone escaping-branch null checks and the direct HOT
-descriptor-operand guard are still open, as is fresh Binaryen 133 aggregate
-parity.
+directly and passes. The standalone `ref.get_desc` path now removes its
+redundant explicit null check when a child block exits through a one-value
+`br` with a local payload or a uniform one-value `br_table` with local
+payload and index. The branch still bypasses both null-sensitive operations;
+normal fallthrough still traps in `ref.get_desc` on null. The direct `br`,
+value `br_if`, and value `br_table` assertions and related standalone tests
+pass. The direct HOT descriptor-operand guard and fresh Binaryen 133
+aggregate parity remain open.
 
 If Starshine ever needs a stricter source-level expansion of this pass, this page suggests a compact checklist:
 

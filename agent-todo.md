@@ -82,9 +82,13 @@ oracle versions and checkpoints do not sign current source.
   bridge now flattens `block(local.get; br); ref.as_non_null; ref.get_desc;
   ref.cast_desc_eq`, retargets the branch once, and retains the cast. The
   focused public test passes with its exact IR assertions.
-- [ ] Two OptimizeInstructions escaping-branch `ref.get_desc` failures:
-  standalone null-check movement over escaping `br`/`br_if`/`br_table`, and
-  direct HOT descriptor-operand fail-closed behavior.
+- [x] Standalone OptimizeInstructions escaping-branch `ref.get_desc` null
+  checks: admit only an escaping one-value `br` with a local payload or a
+  uniform one-value `br_table` with local payload/index in the block movement
+  proof. The direct `br`, value `br_if`, and value `br_table` assertions and
+  related standalone test family pass.
+- [ ] Direct HOT OptimizeInstructions escaping descriptor-operand null-check
+  test: preserve the inexact cast and safely remove the explicit check.
 - [x] SimplifyLocalsNoStructure tail `catch_all_ref`: append an unreachable
   suffix after voiding the no-normal `try_table`, so the result block remains
   valid and writeback accepts it. The focused case and full owner test file
