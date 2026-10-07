@@ -308,10 +308,7 @@ test "O4z branch hints do not bypass other offset metadata guards" {
       @lib.Name::from_string("metadata.code.branch_hint"),
       b"hint",
     ),
-    @lib.CustomSec::new(
-      @lib.Name::from_string("reloc.CODE"),
-      b"opaque-offsets",
-    ),
+    @lib.CustomSec::new(@lib.Name::from_string("reloc.CODE"), b"opaque-offsets"),
   ])
   @debug.assert_eq(o4z_canonicalize_final_size_candidate(input), input)
   @debug.assert_eq(
