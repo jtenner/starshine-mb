@@ -1026,6 +1026,81 @@ test "precompute folds constant true result ifs to the chosen arm" {
 }
 
 ///|
+test "precompute keeps try-table catch depth when folding constant if" {
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (global $g (mut i32) (i32.const 0))
+    #|  (func (export "run")
+    #|    (block
+    #|      (i32.const 1)
+    #|      (if (then
+    #|        (try_table (catch_all 0) (throw $e))))
+    #|      (global.set $g (i32.const 1))))
+    #|  (func (export "get") (result i32) (global.get $g)))
+  let optimized = pass_test_run_pipeline(source, ["precompute"]).unwrap()
+  let body = match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body)), _])) => body
+    _ => fail("expected two function bodies")
+  }
+  match body[0] {
+    @lib.Block(_, @lib.Expr(outer)) =>
+      assert_true(
+        outer.any(fn(instr) {
+          match instr {
+            @lib.Block(_, @lib.Expr(inner)) =>
+              inner.any(fn(child) {
+                match child {
+                  @lib.TryTable(_, _, _) => true
+                  _ => false
+                }
+              })
+            _ => false
+          }
+        }),
+        msg="the selected if arm must keep its label around try_table",
+      )
+    _ => fail("expected outer block")
+  }
+}
+
+///|
+test "precompute keeps legacy try branch depth when folding constant if" {
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func
+    #|    (block
+    #|      (i32.const 1)
+    #|      (if (then
+    #|        (try (do (br 1)) (catch_all))))
+    #|      (nop))))
+  let optimized = pass_test_run_pipeline(source, ["precompute"]).unwrap()
+  let body = match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => body
+    _ => fail("expected one function body")
+  }
+  match body[0] {
+    @lib.Block(_, @lib.Expr(outer)) =>
+      assert_true(
+        outer.any(fn(instr) {
+          match instr {
+            @lib.Block(_, @lib.Expr(inner)) =>
+              inner.any(fn(child) {
+                match child {
+                  @lib.Try(_, _, _, _) => true
+                  _ => false
+                }
+              })
+            _ => false
+          }
+        }),
+      )
+    _ => fail("expected outer block")
+  }
+}
+
+///|
 test "precompute preserves labels when folding nested constant void ifs" {
   let source =
     #|(module

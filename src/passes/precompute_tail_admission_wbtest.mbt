@@ -116,3 +116,20 @@ test "root snapshot prefix retains active guards and the sixteenth live-instruct
     assert_eq(prefix, before)
   }
 }
+
+///|
+test "precompute appended nops use linear tail scan work" {
+  let instrs : Array[@lib.Instruction] = []
+  for _ in 0..<512 {
+    instrs.push(@lib.Instruction::nop())
+  }
+  let visits = [0]
+  let (output, changed) = precompute_raw_rewrite_instrs(
+    instrs,
+    None,
+    tail_scan_visits=Some(visits),
+  )
+  assert_false(changed)
+  assert_eq(output, instrs)
+  assert_true(visits[0] <= 512, msg="tail visits=\{visits[0]}")
+}

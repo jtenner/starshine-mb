@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-10-07
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - index.md
@@ -9,6 +9,9 @@ sources:
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/precompute_test.mbt
+  - ../../../../../src/passes/precompute_tail_admission_wbtest.mbt
+  - ../../../../../src/passes/precompute_tail_admission_perf_wbtest.mbt
+  - ../../../../../src/cmd/precompute_nop_tail_wbtest.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../scripts/lib/self-optimize-compare-task.ts
@@ -38,6 +41,45 @@ A 2026-06-20 release-gating refresh in [`index.md` (absorbed)](index.md) reopene
 The final v131 closeout and its July 26 correctness-repair renewal are retained as historical evidence. Both public variants completed fresh regular `100000`, dedicated `10000`, random-all `10000`, wasm-smith `10000` request lanes, `500`-case runtime/idempotence samples, and rebuilt debug-WASI artifact/timing checks after the repair. All residuals are classified as Starshine correctness, canonical-size wins, or—in plain mode—a small artifact size loss retained with a measured material pass-local speed win. Seven-run pass-local medians are plain `0.213x` Binaryen and propagation `1.661x`, inside the maintained `2x` ceiling.
 
 ## Current local contract
+
+### October 7, 2026 catch-depth repair
+
+Folding a constant `if` must retain the selected arm's label when a nested
+`try_table` has catch targets. The catch label is stored in metadata, so a scan
+of body instructions alone misses it. Legacy `try` is also kept behind the
+label boundary because its body, catches, or delegate can use relative labels.
+The direct and dispatcher regressions in
+[`precompute_test.mbt`](../../../../../src/passes/precompute_test.mbt) and
+[`precompute_catch_depth_wbtest.mbt`](../../../../../src/cmd/precompute_catch_depth_wbtest.mbt)
+cover both forms. The new `try_table` test failed before the repair and passes
+after it. The original Node replay and repaired output both return `1` from
+`get` after `run`; the pre-repair output returned `0`. The repaired output
+passes `wasm-tools validate --features all`. The comparison oracle is the
+official `version_133` x86_64 Linux archive with its published SHA-256 archive
+checksum verified; its `wasm-opt` reports `version_133` and has SHA-256
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+The fresh `precompute-all` lane at
+`.tmp/pass-fuzz-precompute-audit-20261007-normalized` compared `10000/10000`
+cases with the documented dropped-constant, local-cleanup, and unreachable
+control normalizers: `3238` direct matches, `6762` cleanup-normalized matches,
+zero raw residual mismatches, and zero validation, generator, property, or
+command failures. The unnormalized diagnostic lane stopped after 29 cases on
+20 known one-byte `nop` cleanup differences; one saved diff was inspected.
+
+### October 7, 2026 nop-tail scan repair
+
+The raw rewrite loop used to rescan its whole output after each appended
+`nop`, although a nop cannot create a tail-fold opportunity. It now skips that
+admission and still checks the prior non-nop instruction. A 512-nop regression
+counted 131,327 instruction visits before the repair and no visits afterward;
+the direct and dispatcher tests pass. Native release helper benchmarks measured
+94.40 µs versus 6.76 µs at 512 nops and 5.49 ms versus 54.27 µs at 4,096
+nops, comparing the old scan loop with the new rewrite. The full-pass 8,192-nop
+fixture measured 1.559 ms before and 1.437 ms after; Binaryen v133 measured
+about 0.2 ms. The remaining full-pass cost is outside this tail scan.
+The refreshed verified-v133 `precompute-all` lane compared 10,000/10,000
+cases: 3,238 direct matches, 6,762 cleanup-normalized matches, and no
+remaining mismatches or failures.
 
 Starshine `precompute` is an active HOT pass with the maintained current contract; the v131 evidence below is historical:
 

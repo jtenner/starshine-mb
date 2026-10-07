@@ -6960,10 +6960,12 @@ fn precompute_raw_instrs_have_label_relative_branch(
           None => ()
         }
       }
-      @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if precompute_raw_instrs_have_label_relative_branch(body) {
+      @lib.TryTable(_, catches, @lib.Expr(body)) =>
+        if !catches.is_empty() ||
+          precompute_raw_instrs_have_label_relative_branch(body) {
           return true
         }
+      @lib.Try(_, _, _, _) => return true
       _ => ()
     }
   }
@@ -7705,6 +7707,7 @@ fn precompute_raw_fold_output_tail(
   module_ctx? : @ir.HotModuleContext? = None,
   label_arities? : Array[Int?] = [],
   full_tail_checks? : Array[Int]? = None,
+  loop_tail_visits? : Array[Int]? = None,
 ) -> Bool {
   // The other tail folds end in an operator, control, or write. Ordinary
   // reads and scalar literals can only trigger infinite-loop tail cleanup.
@@ -7717,7 +7720,10 @@ fn precompute_raw_fold_output_tail(
     | Some(@lib.I64Const(_))
     | Some(@lib.F32Const(_))
     | Some(@lib.F64Const(_)) =>
-      return precompute_raw_try_mark_value_tail_after_infinite_loop(out)
+      return precompute_raw_try_mark_value_tail_after_infinite_loop(
+        out,
+        visits=loop_tail_visits,
+      )
     _ => ()
   }
   match full_tail_checks {
@@ -7876,7 +7882,10 @@ fn precompute_raw_fold_output_tail(
     precompute_raw_try_partial_select_tail(out) {
     return true
   }
-  if precompute_raw_try_mark_value_tail_after_infinite_loop(out) {
+  if precompute_raw_try_mark_value_tail_after_infinite_loop(
+      out,
+      visits=loop_tail_visits,
+    ) {
     return true
   }
   if out.length() >= 6 {
@@ -8920,6 +8929,7 @@ fn precompute_raw_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext?,
   label_arities? : Array[Int?] = [],
+  tail_scan_visits? : Array[Int]? = None,
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -8985,12 +8995,15 @@ fn precompute_raw_rewrite_instrs(
             }
             for child in prefix {
               out.push(child)
-              while precompute_raw_fold_output_tail(
-                      out,
-                      module_ctx~,
-                      label_arities~,
-                    ) {
-                changed = true
+              if child != @lib.Instruction::nop() {
+                while precompute_raw_fold_output_tail(
+                        out,
+                        module_ctx~,
+                        label_arities~,
+                        loop_tail_visits=tail_scan_visits,
+                      ) {
+                  changed = true
+                }
               }
             }
             if depth > 0U {
@@ -9016,8 +9029,17 @@ fn precompute_raw_rewrite_instrs(
     if nested_changed {
       changed = true
     }
-    while precompute_raw_fold_output_tail(out, module_ctx~, label_arities~) {
-      changed = true
+    // A nop cannot create a new tail fold. The prior prefix was checked
+    // when its last non-nop instruction was appended.
+    if !(out.last() is Some(@lib.Nop)) {
+      while precompute_raw_fold_output_tail(
+              out,
+              module_ctx~,
+              label_arities~,
+              loop_tail_visits=tail_scan_visits,
+            ) {
+        changed = true
+      }
     }
     if !terminates &&
       out.length() > 0 &&

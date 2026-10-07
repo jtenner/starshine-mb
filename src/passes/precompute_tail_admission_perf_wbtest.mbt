@@ -274,3 +274,50 @@ test "bench root snapshot prefix width=4096 active reference" (it : @bench.T) {
 test "bench root snapshot prefix width=4096 active streamed" (it : @bench.T) {
   precompute_root_snapshot_bench(it, 4096, true, false)
 }
+
+///|
+fn precompute_nop_tail_bench(
+  it : @bench.T,
+  width : Int,
+  reference : Bool,
+) -> Unit {
+  let instrs = Array::make(width, @lib.Instruction::nop())
+  it.bench(fn() {
+    if reference {
+      let out : Array[@lib.Instruction] = []
+      for instr in instrs {
+        out.push(instr)
+        while precompute_raw_fold_output_tail(out) {
+          ()
+        }
+      }
+      it.keep(out.length())
+    } else {
+      let (out, changed) = precompute_raw_rewrite_instrs(instrs, None)
+      if changed {
+        abort("nop-only rewrite changed behavior")
+      }
+      it.keep(out.length())
+    }
+  })
+}
+
+///|
+test "bench precompute nop tail width=512 reference" (it : @bench.T) {
+  precompute_nop_tail_bench(it, 512, true)
+}
+
+///|
+test "bench precompute nop tail width=512 admitted" (it : @bench.T) {
+  precompute_nop_tail_bench(it, 512, false)
+}
+
+///|
+test "bench precompute nop tail width=4096 reference" (it : @bench.T) {
+  precompute_nop_tail_bench(it, 4096, true)
+}
+
+///|
+test "bench precompute nop tail width=4096 admitted" (it : @bench.T) {
+  precompute_nop_tail_bench(it, 4096, false)
+}
