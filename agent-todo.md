@@ -23,7 +23,9 @@ oracle versions and checkpoints do not sign current source.
 - **Suggested tests:** original failing tests, paired valid-WAT controls,
   direct IR/opcode assertions, and small runtime replays where behavior is
   observable.
-- [ ] One remaining fixture-load abort: the large SSA branch-exit alias case.
+- [x] Large SSA branch-exit alias fixture: discard two unused stack values
+  before the loop ends. Its merge-carrier and local-count assertions remain;
+  external validation, Starshine pass validation, and the focused test pass.
 - [x] Legacy rethrow boundary fixture: close the WAT module correctly and
   add a dead i32 fallback for the result function. The raw `try`/`throw`/
   `rethrow` assertions remain; Binaryen 133 and Starshine admit the fixture,

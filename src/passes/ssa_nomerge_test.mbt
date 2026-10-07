@@ -32818,6 +32818,8 @@ test "ssa-nomerge compacts large branch-exit alias scratch locals" {
     #|      end
     #|      i32.const 0
     #|      drop
+    #|      drop
+    #|      drop
     #|    end
     #|    i32.const 0))
   let trace : Array[String] = []
