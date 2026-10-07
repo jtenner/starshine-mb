@@ -197,6 +197,9 @@ fn tail_call_rewrite_expr(
 
 ///|
 fn tail_call_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  if !msf_module_allows_tail_call_thunks(mod_) {
+    return mod_
+  }
   let @lib.CodeSec(funcs) = match mod_.code_sec {
     Some(section) => section
     None => return mod_

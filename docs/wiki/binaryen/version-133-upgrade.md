@@ -94,6 +94,17 @@ are **eligibility/safety boundaries**, not additional positive rewrite
 families. The released exception and TNH fixtures remain the source for
 expanding that guard corpus. Starshine now registers `tail-call` and converts
 the focused function-exit shapes with whole-module validation rollback.
+The October 7, 2026 target-feature repair also leaves a module unchanged when
+its `target_features` section declares `-tail-call`. The shared feature decoder
+rejects malformed feature payloads. Direct and command-dispatcher tests in
+[`tail_call_target_features_wbtest.mbt`](../../../src/passes/tail_call_target_features_wbtest.mbt)
+and [`src/cmd/tail_call_target_features_wbtest.mbt`](../../../src/cmd/tail_call_target_features_wbtest.mbt)
+cover the ban; a positive direct test keeps conversion enabled without it.
+The fresh verified-v133 regular GenValid lane at
+`.tmp/pass-fuzz-tail-call-audit-20261007` compared `10000/10000` cases with
+zero canonical mismatches and zero validation, generator, property, or command
+failures. The directed feature test covers a boundary absent from that random
+lane.
 
 ### `optimize-instructions`: publish and resume
 
