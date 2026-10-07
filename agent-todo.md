@@ -23,8 +23,11 @@ oracle versions and checkpoints do not sign current source.
 - **Suggested tests:** original failing tests, paired valid-WAT controls,
   direct IR/opcode assertions, and small runtime replays where behavior is
   observable.
-- [ ] Five remaining fixture-load aborts: one legacy rethrow, one large SSA
-  case, one DCE, and two DAEO.
+- [ ] Four remaining fixture-load aborts: one legacy rethrow, one large SSA
+  case, and two DAEO.
+- [x] DCE nonfinal nonfallthrough value-block fixture: discard the dead
+  result before the void `if` branch exits. Its voidification assertions
+  remain; external and Starshine validation and the focused test pass.
 - [x] SimplifyLocals stacked multivalue `if` fixture: discard the typed
   block's dead result before its two-value fallback. The stacked call and
   local-order assertions remain; external validation and the focused test
