@@ -9,7 +9,9 @@
   affected pass dossiers.
 - `moon info` and `moon fmt` pass. The full default `moon test` now passes
   13,733/13,733 tests with zero failures. No passing test was disabled or
-  weakened. Fresh native Binaryen 133 pass comparisons are recorded below.
+  weakened. `bun validate full --profile ci --target wasm-gc` passes
+  13,730/13,730 wasm-gc tests and all bounded CI fuzz suites. Fresh native
+  Binaryen 133 pass comparisons are recorded below.
 - Fresh CLI `020f898254de9e240d5029483cac43a50f90be1ef1b0626ae21a97b2d57ae024`
   and GenValid `d2692ad47e8d4314bea988802c43ddc8f801a8c9a9661af4e0b72ff37a228bd0`
   compared four pass aggregates against verified Binaryen 133

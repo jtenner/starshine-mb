@@ -94,6 +94,8 @@ oracle versions and checkpoints do not sign current source.
 - [x] Full default test gate: `moon info` and `moon fmt` passed; `moon test`
   passed 13,733/13,733 tests with zero failures. The original 29 failures
   and the mixed-target SSA regression are resolved without dropping tests.
+  `bun validate full --profile ci --target wasm-gc` also passed: 13,730/13,730
+  wasm-gc tests and every bounded CI fuzz suite.
 - [x] Current-source Binaryen 133 comparison renewal: fresh native CLI and
   GenValid binaries ran four 10,000-case pass-targeted aggregates with zero
   validation, property, generator, or command failures. OI has 1,377 smaller
