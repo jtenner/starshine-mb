@@ -6719,7 +6719,8 @@ test "remove-unused-brs boundary keeps value-carrying if-arm br_table threading 
     #|                 (local.get 1)))
     #|             (else
     #|               (i32.const 3)
-    #|               (br $outer))))))))
+    #|               (br $outer)))
+    #|           (unreachable))))))
   let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
     Ok(mod_) => mod_
     Err(err) =>
