@@ -164,6 +164,98 @@ fn sg_collect_strings(mod_ : @lib.Module) -> SgStringSet {
 }
 
 ///|
+fn sg_instrs_have_string_const(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.StringConst(_) => return true
+      @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
+        if sg_expr_has_string_const(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if sg_instrs_have_string_const(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if sg_instrs_have_string_const(body) { return true }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn sg_expr_has_string_const(expr : @lib.Expr) -> Bool {
+  let @lib.Expr(instrs) = expr
+  sg_instrs_have_string_const(instrs)
+}
+
+///|
+fn sg_module_has_string_const(mod_ : @lib.Module) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, body) = func
+        if sg_expr_has_string_const(body) {
+          return true
+        }
+      }
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for global in globals {
+        let @lib.Global(_, init) = global
+        if sg_expr_has_string_const(init) {
+          return true
+        }
+      }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      for elem in elems {
+        let @lib.Elem(mode, kind) = elem
+        match mode {
+          @lib.Active(_, offset) =>
+            if sg_expr_has_string_const(offset) {
+              return true
+            }
+          _ => ()
+        }
+        match kind {
+          @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+            for expr in exprs {
+              if sg_expr_has_string_const(expr) {
+                return true
+              }
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.data_sec {
+    Some(@lib.DataSec(datas)) =>
+      for data in datas {
+        let @lib.Data(mode, _) = data
+        match mode {
+          @lib.Active(_, offset) =>
+            if sg_expr_has_string_const(offset) {
+              return true
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 fn sg_imported_global_count(mod_ : @lib.Module) -> Int {
   let mut count = 0
   match mod_.import_sec {

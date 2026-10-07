@@ -55,6 +55,33 @@ test "public presets feature-gate GC multivalue and string passes" {
 }
 
 ///|
+test "O4z schedules string gathering for lowered string constants" {
+  let input = pass_test_module_from_wat(
+    "(module (func (export \"get\") (result stringref) (string.const \"shared\")))",
+  )
+  assert_true(input.stringrefs_sec is None)
+  let expanded = match
+    pass_registry_expanded_names_for_module(
+      input,
+      HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+      ["optimize"],
+    ) {
+    Ok(names) => names
+    Err(err) => fail("expected O4z expansion, got \{err}")
+  }
+  assert_true(expanded.contains("string-gathering"))
+  let optimized = run_hot_pipeline(
+    input,
+    HotPipelineOptions::new(optimize_level=4, shrink_level=4),
+    ["optimize"],
+  ).unwrap()
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_true(!globals.is_empty())
+    None => fail("expected gathered string global")
+  }
+}
+
+///|
 test "public O4z optimize preset executes the late RSE vacuum DAEO neighborhood" {
   let input = pass_test_module_from_wat(
     "(module (func (export \"run\") (result i32) nop i32.const 7))",

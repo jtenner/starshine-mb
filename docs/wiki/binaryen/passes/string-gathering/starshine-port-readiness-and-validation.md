@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-07
 sources:
   - ../late-pipeline-dispatch.md
   - ../reorder-globals/index.md
@@ -9,6 +9,8 @@ sources:
   - ../../../../../src/passes/string_gathering.mbt
   - ../../../../../src/passes/string_gathering_test.mbt
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../src/cmd/o4z_string_gathering_wbtest.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -42,6 +44,13 @@ The archived 2026-05-04 primary-source recheck in [research note 0431](./index.m
 ## Current readiness summary
 
 `string-gathering` is implemented as an active direct Starshine module pass.
+
+The October 7, 2026 O4z feature check now detects `string.const` instructions
+in function bodies and module initializer expressions. WAT lowering can leave
+`stringrefs_sec` absent, so checking that section alone skipped the scheduled
+`string-gathering` pass. A short-circuit scan adds no literal pool or retained
+state during feature detection. The direct O4z queue regression failed before
+this change; a command dispatcher queue test covers the same path.
 
 Landed local state:
 

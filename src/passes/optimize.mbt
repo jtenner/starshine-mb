@@ -845,7 +845,8 @@ fn hot_pipeline_module_feature_facts(
   let mut facts = HotPipelineFeatureFacts::{
     has_gc: false,
     has_multivalue: false,
-    has_strings: mod_.stringrefs_sec is Some(_),
+    has_strings: mod_.stringrefs_sec is Some(_) ||
+    sg_module_has_string_const(mod_),
     has_imported_functions: imported_function_count > 0,
     retain_initial_flatten: true,
     skip_initial_ssa: imported_function_count >= 2,
