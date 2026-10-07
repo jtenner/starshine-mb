@@ -35,7 +35,9 @@ oracle versions and checkpoints do not sign current source.
 - [ ] One SimplifyLocalsNoStructure catch-all-ref failure.
 - [ ] One LocalSubtyping bottom call-ref failure.
 - [ ] One HeapStoreOptimization abort.
-- [ ] One O4z branch-hint annotation failure.
+- [x] O4z branch-hint annotation failure: strip hints before the final size
+  candidate checks for other offset-sensitive metadata. The command test file
+  passes 230/230; direct protected-metadata tests pass 11/11.
 
 ## v0.1.1 — October 7 pass audit repairs [IR2-PASS-AUDIT-20261007]
 

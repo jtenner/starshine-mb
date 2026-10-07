@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-07
 sources:
   - ../binaryen/release-horizon-and-oracles.md
   - https://webassembly.github.io/spec/core/appendix/custom.html
@@ -23,6 +23,9 @@ sources:
   - ../../../src/passes/duplicate_function_elimination.mbt
   - ../../../src/passes/duplicate_import_elimination.mbt
   - ../../../src/passes/remove_unused_module_elements.mbt
+  - ../../../src/passes/pass_manager.mbt
+  - ../../../src/passes/direct_metadata_guard_wbtest.mbt
+  - ../../../src/cmd/cmd_wbtest.mbt
 related:
   - identifier-name-and-annotation-authoring.md
   - ../binary/custom-and-name-sections.md
@@ -107,6 +110,16 @@ Binaryen uses branch-hint examples in pass tests, and pass dossiers may describe
 7. The binary codec currently has no `FuncAnnotationSec` encoding or decoding path. WAST-origin function annotations are useful in memory during the same command/lowering pipeline, but they are not a binary roundtrip guarantee.
 
 ## Optimizer Policy And Rewrite Rules
+
+### O4z branch-hint removal
+
+The O4z final size candidate can remove `metadata.code.branch_hint` custom
+sections and same-named function annotations before changing code. The direct
+candidate first removes those hints, then checks for other offset-sensitive
+metadata. If a relocation or other protected section remains, it returns the
+original module unchanged. The command test checks that an unrelated function
+annotation and custom section survive; the direct guard test covers a branch
+hint together with `reloc.CODE`.
 
 ### Binaryen `js.called` markers
 

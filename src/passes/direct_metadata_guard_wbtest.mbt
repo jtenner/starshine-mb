@@ -298,3 +298,24 @@ test "direct O4z transforms preserve offset metadata" {
     outline_guarded,
   )
 }
+
+///|
+test "O4z branch hints do not bypass other offset metadata guards" {
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) i32.const 42 return))",
+  ).with_custom_secs([
+    @lib.CustomSec::new(
+      @lib.Name::from_string("metadata.code.branch_hint"),
+      b"hint",
+    ),
+    @lib.CustomSec::new(
+      @lib.Name::from_string("reloc.CODE"),
+      b"opaque-offsets",
+    ),
+  ])
+  @debug.assert_eq(o4z_canonicalize_final_size_candidate(input), input)
+  @debug.assert_eq(
+    o4z_canonicalize_final_size_candidate_with_changed(input),
+    (input, false),
+  )
+}

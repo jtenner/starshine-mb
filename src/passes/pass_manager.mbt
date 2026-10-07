@@ -71200,20 +71200,22 @@ fn o4z_canonicalize_final_size_candidate_impl(
 
 ///|
 pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module {
-  if pass_module_has_offset_sensitive_metadata(mod_) {
+  let without_branch_hints = o4z_canonicalize_final_size_strip_branch_hints(mod_)
+  if pass_module_has_offset_sensitive_metadata(without_branch_hints) {
     return mod_
   }
-  o4z_canonicalize_final_size_candidate_impl(mod_)
+  o4z_canonicalize_final_size_candidate_impl(without_branch_hints)
 }
 
 ///|
 pub fn o4z_canonicalize_final_size_candidate_with_changed(
   mod_ : @lib.Module,
 ) -> (@lib.Module, Bool) {
-  if pass_module_has_offset_sensitive_metadata(mod_) {
+  let without_branch_hints = o4z_canonicalize_final_size_strip_branch_hints(mod_)
+  if pass_module_has_offset_sensitive_metadata(without_branch_hints) {
     return (mod_, false)
   }
-  let canonical = o4z_canonicalize_final_size_candidate_impl(mod_)
+  let canonical = o4z_canonicalize_final_size_candidate_impl(without_branch_hints)
   let changed = match
     (@binary.encode_module(mod_), @binary.encode_module(canonical)) {
     (Ok(before), Ok(after)) => before != after
