@@ -3287,10 +3287,7 @@ fn encode_leaf_instruction_error(
       if encode_backing_array_load_opcode(op, buf) is Err(t) {
         return Some(t)
       }
-      if encode_array_memory_argument(memarg, buf) is Err(t) {
-        return Some(t)
-      }
-      if Encode::encode(i, buf) is Err(t) {
+      if encode_array_memory_argument(memarg, i, buf) is Err(t) {
         return Some(t)
       }
     }
@@ -3298,10 +3295,7 @@ fn encode_leaf_instruction_error(
       if encode_backing_array_store_opcode(op, buf) is Err(t) {
         return Some(t)
       }
-      if encode_array_memory_argument(memarg, buf) is Err(t) {
-        return Some(t)
-      }
-      if Encode::encode(i, buf) is Err(t) {
+      if encode_array_memory_argument(memarg, i, buf) is Err(t) {
         return Some(t)
       }
     }
@@ -4460,6 +4454,7 @@ pub impl[T : Encode] Encode for Array[T] with fn encode(val, buf) {
 ///|
 fn encode_array_memory_argument(
   ma : MemArg,
+  ti : @lib.TypeIdx,
   buf : @buffer.Buffer,
 ) -> Result[Unit, BinaryEncodeError] {
   let MemArg(U32(align), memory, @lib.U64(offset)) = ma
@@ -4467,6 +4462,9 @@ fn encode_array_memory_argument(
     return Err(BinaryEncodeError::InvalidMemArgEncoding)
   }
   if Encode::encode(@lib.U32(align | 0x20U), buf) is Err(err) {
+    return Err(err)
+  }
+  if Encode::encode(ti, buf) is Err(err) {
     return Err(err)
   }
   Encode::encode(@lib.U32(offset.to_uint()), buf)

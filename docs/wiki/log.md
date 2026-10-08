@@ -1,3 +1,14 @@
+### 2026-10-08 — Multibyte array memarg proposal order
+
+- Aligned array-backed scalar/SIMD load and store codec immediates with the
+  current proposal order: flags, type index, then 32-bit offset. Binaryen
+  [PR #9222](https://github.com/WebAssembly/binaryen/pull/9222) implements
+  [the proposal discussion](https://github.com/WebAssembly/multibyte-array-access/issues/10).
+  Independent unequal multibyte LEB fixtures cover decoded fields and emitted
+  bytes; linear-memory memarg controls retain their prior order. Binaryen 132/133
+  comparisons remain historical and do not establish an executable current-main
+  oracle result for this proposal slice.
+
 ### 2026-10-05 — Resolve the 30 saved default-suite failures
 
 - Replayed the merged `master` baseline at 13,576/13,606 and repaired all 30

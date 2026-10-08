@@ -4915,12 +4915,12 @@ fn decode_array_memory_argument(
   if (flags & 0xfffffff0U) != 0x20U || (flags & 15U) > 8U {
     return Err(BinaryDecodeError::InvalidMemArg)
   }
-  let (@lib.U32(offset), next) = match Decode::decode(bytes, next) {
+  let (ti, next) : (@lib.TypeIdx, Int) = match Decode::decode(bytes, next) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
   match Decode::decode(bytes, next) {
-    Ok((ti, next)) =>
+    Ok((@lib.U32(offset), next)) =>
       Ok((MemArg::new(flags & 15U, None, offset.to_uint64()), ti, next))
     Err(err) => Err(err)
   }
