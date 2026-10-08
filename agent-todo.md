@@ -1,206 +1,14 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed October 4, 2026. Follow
+Active unreleased work only, reviewed October 8, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
 [Binaryen 133](docs/wiki/binaryen/release-horizon-and-oracles.md); historical
 oracle versions and checkpoints do not sign current source.
 
-## v0.1.1 — Default test gate repair [IR2-TEST-GATE-20261007]
-
-- **Goal / why:** repair all 29 failing default tests without weakening their
-  behavioral claims. A clean HEAD archive confirms the same 29 failure names.
-- **Deliverables / tasks:** make each fixture valid and each required pass
-  behavior pass; keep direct and dispatcher coverage; commit each coherent
-  repair after its focused tests pass.
-- **Required APIs / invariants:** preserve valid wasm, effect order, branch
-  values, exception control, metadata policy, and output shape contracts.
-  No public API change is planned.
-- **Dependencies / exit:** use `wasm-tools validate` for suspect WAT; test the
-  exact file after each repair; finish with `moon fmt`, `moon info`, default
-  `moon test`, and relevant verified Binaryen 133 comparisons.
-- **Suggested tests:** original failing tests, paired valid-WAT controls,
-  direct IR/opcode assertions, and small runtime replays where behavior is
-  observable.
-- [x] Large SSA branch-exit alias fixture: discard two unused stack values
-  before the loop ends. Its merge-carrier and local-count assertions remain;
-  external validation, Starshine pass validation, and the focused test pass.
-- [x] Legacy rethrow boundary fixture: close the WAT module correctly and
-  add a dead i32 fallback for the result function. The raw `try`/`throw`/
-  `rethrow` assertions remain; Binaryen 133 and Starshine admit the fixture,
-  and the focused test passes.
-- [x] DAEO void dead-suffix side-call fixture: remove the `drop` after a
-  void-returning call. The side-call and result-preservation assertions
-  remain; external validation and the focused test pass.
-- [x] DAEO originally-parameterized block self-result fixture: supply the
-  missing f64 argument before the f32-returning call. Its self-result and
-  parameter-elimination assertions remain; external validation and the
-  focused test pass.
-- [x] DCE nonfinal nonfallthrough value-block fixture: discard the dead
-  result before the void `if` branch exits. Its voidification assertions
-  remain; external and Starshine validation and the focused test pass.
-- [x] SimplifyLocals stacked multivalue `if` fixture: discard the typed
-  block's dead result before its two-value fallback. The stacked call and
-  local-order assertions remain; external validation and the focused test
-  pass.
-- [x] Nested RUB dispatch performance fixture: mark the syntactically possible
-  but unreachable function fallthrough after the return wrapper. Its dispatch
-  ladder and pass trace assertions remain; the WAT validates externally and
-  the focused test passes.
-- [x] RemoveUnusedBrs value-carrying if-arm `br_table` boundary: add an
-  unreachable suffix for the syntactic fallthrough of its typed blocks. The
-  original table targets, payload assertions, and pass boundary remain;
-  external validation and the focused test pass.
-- [x] CodeFolding nested block-exit fixture: mark the impossible outer-block
-  fallthrough `unreachable`. The branch and sink assertions remain; the WAT
-  validates externally and the focused test passes.
-- [x] Two RemoveUnusedBrs `catch_ref` transport fixtures: make the typed
-  handler block's dead fallthrough explicit with `unreachable`. The original
-  catch branches and assertions remain; both WAT inputs validate externally
-  and both focused tests pass.
-- [x] Precompute loop-carried break fixture: add the unreachable fallthrough
-  value required by Wasm block typing. The test still checks that the
-  unconditional branch yields `1` and that Precompute removes the loop;
-  wasm-tools validates the input and the owner file passes 124/124.
-- [x] Three OptimizeInstructions zero-sentinel fixtures: use void returning
-  `if` arms and typed dead suffixes so the enclosing result block owns the
-  explicit zero. All three WAT inputs validate with wasm-tools; the owner file
-  now has only its three `ref.get_desc` behavior failures (1418/1421 pass).
-- [x] Three SSA-nomerge scalar typed-loop proxy failures: add an unreachable
-  suffix after no-fallthrough rewritten bodies so typed result blocks validate.
-  No-throw and throwing `try_table` backedges and the scalar table catch
-  relabeling test now pass.
-- [x] Four SSA-nomerge `br_table` model failures: the scalar proxy repair also
-  resolved the non-current and copy-needing scalar cases; result-bearing
-  store-model loops now end no-fallthrough rewrites with `unreachable`, so the
-  try-table and non-current single-result cases validate. The mixed-target
-  scalar fixture now requires its precise specialized trace reason while
-  retaining validation, proxy, selector, and local-count checks. The focused
-  `br_table` and `try_table` groups and full SSA owner file pass.
-- [x] Public OptimizeInstructions descriptor-cast escaping `br` child: the raw
-  bridge now flattens `block(local.get; br); ref.as_non_null; ref.get_desc;
-  ref.cast_desc_eq`, retargets the branch once, and retains the cast. The
-  focused public test passes with its exact IR assertions.
-- [x] Standalone OptimizeInstructions escaping-branch `ref.get_desc` null
-  checks: admit only an escaping one-value `br` with a local payload or a
-  uniform one-value `br_table` with local payload/index in the block movement
-  proof. The direct `br`, value `br_if`, and value `br_table` assertions and
-  related standalone test family pass.
-- [x] Direct HOT OptimizeInstructions escaping descriptor-operand null-check:
-  the standalone proof removes the redundant explicit check while leaving
-  the descriptor cast inexact and its block child intact. The focused test
-  and full OptimizeInstructions owner file pass.
-- [x] Full default test gate: `moon info` and `moon fmt` passed; `moon test`
-  passed 13,733/13,733 tests with zero failures. The original 29 failures
-  and the mixed-target SSA regression are resolved without dropping tests.
-  `bun validate full --profile ci --target wasm-gc` also passed: 13,730/13,730
-  wasm-gc tests and every bounded CI fuzz suite.
-- [x] Current-source Binaryen 133 comparison renewal: fresh native CLI and
-  GenValid binaries ran four 10,000-case pass-targeted aggregates with zero
-  validation, property, generator, or command failures. OI has 1,377 smaller
-  residuals: 1,080 established tuple wrappers and 297 pure literal value-`if`
-  folds, each 16 canonical bytes smaller. SSA repeats 3,750 exact / 6,250
-  residuals; LocalSubtyping repeats 3,170 / 6,830; SimplifyLocalsNoStructure
-  repeats 0 / 10,000 with 1,662 canonical size losses. Those last three
-  parity families stay open in their pass dossiers. A three-input SSA table
-  validation replay passes; focused CLI means are 1.7–1.8 ms for Starshine
-  versus 2.8–3.0 ms for Binaryen, including process startup.
-- [x] SimplifyLocalsNoStructure tail `catch_all_ref`: append an unreachable
-  suffix after voiding the no-normal `try_table`, so the result block remains
-  valid and writeback accepts it. The focused case and full owner test file
-  pass; verified Binaryen 133 has the same tail shape.
-- [x] LocalSubtyping bottom `call_ref`: carry explicit `unreachable` as a
-  bottom internal-reference assignment in the raw scan and remove the
-  redundant target drop. The local narrows to `(ref none)`, output validates,
-  the focused and full owner test file pass, and the direct shape matches
-  verified Binaryen 133.
-- [x] HeapStoreOptimization unreachable set-value fixture: add the required
-  i32 function-result fallback after the dead `struct.set`. The constructor,
-  unreachable value, and `struct.set` assertions remain; the focused test
-  passes.
-- [x] O4z branch-hint annotation failure: strip hints before the final size
-  candidate checks for other offset-sensitive metadata. The command test file
-  passes 230/230; direct protected-metadata tests pass 11/11.
-
-## v0.1.1 — October 7 pass audit repairs [IR2-PASS-AUDIT-20261007]
-
-- **Goal / why:** repair the ten concrete correctness, missed-optimization and
-  performance findings from the October 7 pass audit, one at a time.
-- **Deliverables / tasks:** add a failing focused regression before each behavior
-  fix; preserve direct pass and dispatcher coverage; use focused before/after
-  benchmarks for each performance owner; update the relevant pass wiki pages.
-- **Required APIs / invariants:** no new public API is expected. Preserve valid
-  wasm, observable behavior, effect order, label depths, declared target
-  features and pass coverage. Keep benchmark fixtures out of default tests and
-  measure memory use as well as time where practical.
-- **Dependencies / exit:** finish correctness repairs first, then optimization
-  gaps, then measured performance risks. Run focused tests, native release build
-  and verified Binaryen 133 comparisons for touched passes; record any signoff
-  limit instead of treating an unrun lane as green.
-- **Suggested tests:** direct WAT fixtures with IR/opcode assertions, CLI pass
-  dispatch fixtures, execution checks for changed control flow, and narrow
-  skipped `passes_perf_long` benchmarks for the four cost owners.
-- **Full-suite baseline:** current `moon test` ran 13,732 tests with 29 failures;
-  a clean `HEAD` archive ran 13,703 tests with the same 29 failing test names.
-  The audit adds 29 passing tests and no new failures. Keep those baseline
-  failures visible under their existing owners.
-- [x] Precompute: preserve `try_table` catch label depths, and legacy `try`
-  branch depths, when folding a constant `if` tail. Direct and dispatcher
-  regressions pass; the original/optimized runtime replay returns `1`; the
-  verified-v133 `precompute-all` 10,000-case lane has zero residuals.
-- [x] LocalCSE: invalidate global/memory/table/heap-dependent expressions at
-  the first annotated idempotent call while retaining safe repeated-call reuse.
-  Direct file `210/210`, dispatcher test, and verified-v133 dedicated and
-  regular GenValid lanes `10000/10000` each pass with zero mismatches.
-- [x] TailCall: honor a `target_features` prohibition of `tail-call`.
-  Direct and dispatcher tests pass; verified-v133 regular GenValid compares
-  `10000/10000` with zero mismatches or failures.
-- [x] MakeSharedObjects: transform imported and exported externref signatures
-  with multiple results instead of returning the input module. Direct and
-  dispatcher tests pass; verified-v133 GenValid compares 10000/10000 with zero
-  mismatches. Reused signatures cut a 1,000-export fixture by 5,878 bytes.
-  Pass-local time remains 3.826 ms versus Binaryen's 1.450 ms on that fixture;
-  retain this speed gap in the performance backlog.
-- [x] Optimize preset: gather `string.const` values even when WAT lowering
-  leaves `stringrefs_sec` absent. The corrected O4z test failed before the
-  feature scan; direct O4z execution hoists a string global, all 145 optimize
-  tests pass, and the dispatcher queue test passes.
-- [x] CodeFolding: compare equivalent suffix instructions by content so
-  distinct payload IDs do not block folding. The arithmetic regression failed
-  before repair, direct and dispatcher cases now pass, and the verified-v133
-  10,000-case `if`-arms lane has zero mismatches. The aggregate has 3,376
-  one-byte smaller Starshine outputs from omitted trailing void returns; 20
-  retained diffs show that same family. One older full-file test aborts while
-  converting its WAT fixture, before this pass; keep that test failure visible.
-- [x] Precompute performance: remove quadratic tail scans over appended nops.
-  The 512-nop counter fell from 131,327 visits to zero; focused native helper
-  time at 4,096 nops fell from 5.49 ms to 54.27 µs. Direct and dispatcher
-  tests pass, and the verified-v133 `precompute-all` 10,000-case lane has zero
-  residual mismatches with the documented cleanup normalizers. The broader
-  8,192-nop pass time improved from 1.559 to 1.437 ms but remains above
-  Binaryen's 0.195 ms; that other work remains a performance gap.
-- [x] MergeBlocks performance: memoize nested-loop subtree checks by HOT
-  revision. The 64-block probe fell from 2,080 visits to at most 128 and
-  confirms invalidation after an edit. A preserved 256-block pass fixture fell
-  from 1.096 to 0.071 ms. Owner 78/78 and dispatcher tests pass. Verified-v133
-  aggregate compares 10,000/10,000 with no validation failures; its 2,993
-  differences are two-byte smaller Starshine outputs that omit two `nop`s in
-  the expression profile, confirmed in all 20 retained diffs.
-- [x] RSE performance: index candidate reference locals for repeated gets.
-  The red 512-local test scanned 262,144 candidates; the indexed case passes.
-  Focused native lookup time is 130.30 to 2.68 µs. Direct owner 43/43 and
-  dispatcher tests pass. Verified-v133 aggregate compares 10,000/10,000 with
-  no failures; 2,344 smaller Starshine outputs are branch-free loop flattening
-  or inert `nop` removal in the inspected generated families.
-- [x] MemoryPacking performance: avoid rebuilding unaffected function bodies.
-  The red 129-function case rebuilt all 129 bodies; the selective path rebuilds
-  one and excludes unchanged bodies from deep comparisons. Owner 48/48 and
-  dispatcher tests pass. The saved pre-fix native binary measured 135 µs
-  median pass time on a 1,025-function fixture; the post-fix binary measured
-  44.5 µs and identical output bytes. A verified-v133 sweep measured 0.049 ms
-  versus Binaryen's 0.258 ms. The 10,000-case aggregate retains the prior
-  7,288 exact / 2,712 known residual family counts with no failures.
+Completed October 7 default-gate and ten-item audit repairs are recorded in
+[the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
@@ -236,7 +44,7 @@ oracle versions and checkpoints do not sign current source.
   typed-block failure was open at that checkpoint; the reachable abort is now
   repaired in the current checkpoint linked below. Full aggregate gates
   remain open.
-- **Current correctness checkpoint:** native `5bf4a1f5…` retains typed-block
+- **Earlier typed-entry checkpoint:** native `5bf4a1f5…` retains typed-block
   entry operands, preserves each discarded entry effect exactly once, and
   removes unnecessary branchless wrappers. 13,549 wasm-gc tests, native release
   and README/API sync pass; 27 fixtures/pass match original and verified 133
@@ -330,73 +138,125 @@ current speedup totals. Prioritize absolute large-module dependency/cleanup,
 CFG/lower and validation-envelope costs, preserving the 1× target and canonical
 quality gates. Keep traced inner and normal command measurements separate.
 
-### P00 — Correctness blockers from the October 3 baseline audit [IR2-RELEASE-CORRECTNESS]
+### P00 — Remaining correctness and verification blockers [IR2-RELEASE-CORRECTNESS]
 
-- **Goal / why:** restore validation and observable behavior before release;
-  baseline 3d46f7e52 and iterator candidate 8bfe3761 reproduce the same failures.
-- **October 4 focused repair state:** additions in the existing `ce2051ba7`
-  checkout preserve the author's staged changes, untracked controls, audit and
-  benchmark artifacts. [Current mechanisms and bounded evidence](docs/wiki/tooling/validation-gates.md#october-4-2026-focused-frame-ordering-and-typed-entry-repairs)
-  separate frame polymorphism, OI replacement order, virtual typed-input
-  validation/provenance, reachable label/prefix boundaries and raw lower stages.
-  The saved MergeBlocks failure first becomes invalid in pre-pass HOT lowering;
-  its flatten helper is not the confirmed owner. Full CI, coverage, renewed
-  aggregates, remaining audit/fixture failures and every 1× goal stay open.
-- **Forced-HOT order blocker:** native discarded typed-entry replay produces
-  `[23,19]` instead of `[19,23]`; static call counts and raw validation missed
-  this. The retained-prefix replacement must retain the original call order
-  (3 rather than fresh block 12). Focused repair is present; both-mode direct
-  tests and native event/trap verification remain pending. Preserve RED traces
-  in `.tmp/p00-focused-20261004/dae2-order-trace-red.log`.
-- **Affected-suite gate:** the last completed v3 replay ran 12,169 tests with 30
-  failures, all in legacy pass tests; validator, IR and command packages pass.
-  Earlier 40 failures reduce to 30 after terminal-control integration; sparse
-  DAE2 replay passes 5/5. Keep invalid input fixtures, valid-input SSA/SL/OI
-  output/shape gaps and LocalSubtyping dead-local narrowing separate. Details:
-  `.tmp/p00-focused-20261004/remaining-failures-v3.json`. This is a release blocker,
-  not an acceptance waiver; do not claim repository-wide validation or signoff.
-- **October 5 retry:** exact-package focused tests compiled intermediate output
-  but initial/cached linking retries were terminated at thermal deadlines before
-  tests ran. Host readings reached 100°C. The latest retained-call repair still
-  needs green tests and native event/trap evidence; no new timing is claimed.
-- **Separate performance risk:** the explicit-prefix producer occurrence lookup
-  in `hot_lower_impl_body_items` scans previous producers quadratically. Measure
-  the dedicated skipped prefix-scan bench before attributing artifact command
-  time; preserve shared mixed tuple lanes and avoid speculative heap caches.
-- **Source / owner:** [reduced cases and classifications](docs/wiki/tooling/validation-gates.md#october-3-2026-reproduced-baseline-correctness-blockers);
-  the preserved author-owned `claude_review_10_3_6.md` contains the broader
-  26-item baseline audit. Preserve its original contents and check repair ownership.
-- [ ] Repair control-frame validation after nested unreachable code: missing,
-  extra and wrong-typed values are accepted by Starshine but rejected by
-  wasm-tools/Node. Review runtime escape versus frame-polymorphism invariants.
-- [ ] Repair merge-blocks invalid carried-value/drop output (reproduced). Triage
-  reported code-folding/vacuum/DAE2/DAE2-O invalid-output families and DAE2
-  rewritten-module aborts (#2–4); obtain the review's reduced d93r artifact.
-- [ ] Repair typed-control lifting when unreachable stack polymorphism supplies
-  entry values without concrete producers. Valid repro:
-  `(module (func (param i32) (result i32) unreachable block (param i32 i32) (result i32) i32.div_s end))`.
-  Native `97a7d1cf…` rejects with `need 2, have 0`; verified Binaryen133 accepts
-  and emits valid output. Preserve nested validation and source-access provenance.
-  This is separate from the repaired reachable
-  [DAE2/O block-entry abort](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-retain-typed-block-entry-producers).
-- DAE audit #5–6 reduced cases are repaired by expanded operand-control CFGs;
-  [regressions and original/v133 execution](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands)
-  cover scalar branch values, constant self-tee and GC payload traps. Other
-  audit families and final DAE signoff remain open.
-- [ ] Repair OI effect ordering around intervening local.set/select (reproduced
-  [1,2]→[2,1]); triage SL/notee/inlining-optimizing ordering (#7–8).
-- [ ] Triage remaining reported precompute/SGO semantic errors (#9–11), native
-  aborts (#12/#26), legacy rethrow validation (#13), CLI parse exit status (#14),
-  EH/CFG/scanner/SSA/merge-locals failures (#15–19/#22/#24), and nested control
-  operand/return movement or invalid result shapes (#20–21/#23/#25). These
-  families are reported, not yet independently replayed in this campaign.
-- **APIs / invariants / dependencies:** existing validator, CFG, scanner, HOT
-  lift/lower and raw-pass contracts; preserve checks, frame types, branch-value
-  reads, effect/trap order and exception edges. No admission or coverage waiver.
-- **Deliverables / tests / exit:** focused failing regressions, minimal repairs,
-  valid wasm and original/Starshine/verified133 execution agreement, plus required
-  affected-suite checks. Classify every report and keep unresolved failures
-  visible; performance and canonical-size parity do not close semantic defects.
+- **Goal / why:** finish release correctness checks without losing optimizer
+  coverage, source order or valid output. The immutable October 3 audit remains
+  the source; its earlier failure counts do not describe current source.
+- **Earlier repair record:** [October 7 checkpoint](docs/wiki/tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs)
+  covers all virtual typed-entry controls, targeted OI exits, CodeFolding holders,
+  full-flow MergeLocals/full SSA, caught-call CFGs, CL liveness, source-order and
+  Flatten captures, shared Precompute holders, legacy SSA scans and DCE catch
+  targets, repeated scratch escapes and parameter If continuations. The current
+  pre-audit default wasm-gc gate passed 13,787/13,787 tests, including all 498 existing
+  SSA-nomerge tests. Fresh native execution now covers exception identity,
+  forced-HOT effect/trap order and pair/triple suffixes in both capture modes.
+- **October 7 bounded evidence:** native `f8c5b53a…` passes 24 fixtures / 476
+  observations (110 diagnostic earlier-binary rows), seven rethrow fixtures / 90
+  observations, 27 forced-HOT fixture names / 188 observations and six adapter
+  checks. `moon info`, `moon fmt`, default wasm-gc and README/API sync pass.
+  The n3 command cohort has −0.669% to +2.038% median time changes, with
+  background activity retained. Helper gains do not close enclosing command
+  parity or any of the four 1× goals. All output hashes validate; SSA-nomerge's
+  +9 raw / +6 canonical bytes repair inspected local dataflow and match v133 in
+  the growing bodies. Full-function runtime replay of those bodies remains open.
+- [ ] Attribute the P00 Precompute-propagate peak-RSS movement. The first n3
+  cohort has +6.179% and fails the chosen 5% follow-up budget. The fresh n3
+  cohort passes at +2.474%; a separate n5 repeat is +1.859%, with overlapping
+  ranges. The smaller CFG index reduces scratch payload, but current RSS does
+  not fall versus the first cohort; changing baseline medians explain much of
+  the smaller delta. Preserve all repeats and do not claim an RSS cause or win.
+- [ ] Obtain the missing SGO #11 and abort/undeclared-scratch #26 reduced
+  artifacts. The exact #9 select, #10 empty-then and #20/#25 nested-control
+  fixtures no longer reproduce; this does not close their broader families.
+- [ ] Coordinate the remaining SSA-nomerge EH overlay phis, typed loop values
+  and copy insertion inside operands. Ordinary repeated block escapes,
+  parameter If continuations and legacy catch reads now have focused repairs;
+  the wider mutation-policy boundaries remain explicit.
+- [ ] Reduce remaining full-SSA caught-call shape drift: the bounded validated
+  runtime fixture is 2 canonical bytes larger than v133 because conservative
+  try-entry edges retain an extra source. It remains a parity gap, not a win.
+- [ ] Reduce the retained bounded size gaps: SGO empty-then is 7 canonical bytes
+  larger, SSA-nomerge parameter If continuations are 8 bytes larger and the
+  rethrow-zero Vacuum/DAE2-O controls are 14 bytes larger than v133. Their
+  execution checks pass; no intentional shape win closes these parity gaps.
+- **APIs / invariants:** preserve exception identity, all-label depths, raw
+  source-access ordinals, typed entry/result lanes, handler liveness and local
+  defaults. LabelStack now carries a shared catch scope; review the generated
+  validator API diff. Ordinary control frames must not copy catch ancestry.
+- **Deliverables / exit / tests:** finish the deferred broad gates; validate
+  every final module and compare observable effects/traps against the
+  original and verified v133. Preserve failure bundles and measured size/RSS
+  deltas. Keep deferred aggregate/CI/coverage signoff and every 1× target open.
+
+#### P00a — Eight-agent audit repair queue [IR2-MASS-AUDIT]
+
+- **Goal / why:** finish broad correctness, parity and resource signoff after
+  the bounded audit repairs. Completed wrong-value, type/byte/IR, harness and
+  positive-coverage fixes are recorded in the
+  [October 8 checkpoint](docs/wiki/tooling/validation-gates.md#october-8-2026--mass-audit-repairs-and-green-default-suites).
+  Keep the [October 7 audit](docs/wiki/raw/tooling/2026-10-07-starshine-mass-audit.json)
+  under its original binaries, failure counts and oracle versions.
+- **Current default gate:** 13,890 Moon tests pass. The full Bun lane has
+  343 passes, zero failures and one existing opt-in Chromium skip. Source
+  repairs and corrected invalid fixtures preserve optimizer features and
+  strict parser/type/IR checks. No default passing test was disabled.
+- [ ] **Occurrence and lifetime admission (P00/P11/P12):** extend beyond the
+  repaired repeated linear tuple flow to complex control/call occurrences,
+  occurrence-specific SSA rewrites and typed-loop backedge values. Preserve
+  explicit conservative boundaries until sources, copies and effects can be
+  selected per evaluation. Add dynamic-value, trap/order and sibling controls.
+- [ ] **Complete shared legacy remapping (P08/P09):** the original DAE/caller
+  walkers and ordinary legacy siblings now work, but shared raw compact-local
+  reference remapping still lacks complete legacy traversal. Retain the DFE
+  grouping guard until every affected reference/index walk is complete. Test
+  handlers, payloads, delegation, metadata and mixed ordinary/legacy functions.
+- [ ] **Frontend/byte breadth (P13):** represent quote fragments as owned bytes
+  before UTF-8 decoding; current Array[String] storage cannot retain arbitrary
+  escaped bytes or a UTF-8 sequence split across fragments. Add a bounded
+  nested function-body reader rather than relying only on final span checks.
+  Extend ordinary unfolded legacy try/delegate authoring; current parser uses
+  explicit do clauses. Keep valid binary delegate/lift coverage independent.
+- [ ] **Oracle/proposal contracts (P00/P11):** renew external evidence for Core
+  frame-local initialization and aggregate atomic storage/reference rules.
+  Preserve the recorded v133/wasm-tools conflicts and explicit proposal scope.
+  Imported callable-reference boundaries now retain original observations;
+  narrowing that conservative protection requires a proved flow contract.
+- [ ] **DAE2 general shape and identity (P03/P03f):** general referenced/GC/
+  recursive-group fixed-point costs remain separate from the narrow private
+  scalar path. The singleton witness gap is closed in the bounded canonical
+  fixture: 59 bytes in both modes, versus original/before 60 and intermediate
+  63. Matching and mismatching indirect calls pass. Extend identity and root
+  rewrite evidence before widening scalar admission or closing general parity.
+- [ ] **Current resource checks (P03/P10):** preserve every matched native
+  cohort. The first expanded LocalCSE build added 44.776% wall time and
+  12.468% RSS for 849 fewer canonical bytes. Current `ee57fe32…` retains those
+  byte savings but costs 18.911% time / 8.027% RSS above the old narrow pass in
+  its matched cohort. Shared dependency rows retain exact output; their time
+  is +0.010% and RSS +0.338% versus packed `3c348752…`, with overlapping ranges.
+  No new clock or peak-memory win is established for that storage change.
+  The dedicated 4,098-function private-scalar fixture is 8.991% / 6.833% faster
+  than the witness build in DAE2/O, with four fewer canonical bytes. These are
+  complete-command results on fixed inputs, not general pass-local or allocation
+  results. Continue arena lifetime/profile work and preserve noisy control rows.
+- [ ] **Measured resource leads (P01–P14):** attribute remaining graph/source
+  queries, history/interner lookups, nested RSE probes, caller rebuilds,
+  per-allocation deletion, type-group/branch-state rebuilds, text flattening,
+  label copies, shallow-hash tail groups, discarded preset work and post-lift
+  CoalesceLocals dense storage. Keep HSO ownership-index cost and harness
+  report/solver preparation, subprocess slot release and Worker termination
+  visible. Source bounds alone do not establish current time/RSS/allocation cost.
+- **APIs / invariants / dependencies:** function-owned analyses, revision
+  invalidation, owned intern rows, tuple occurrence and lexical initialization,
+  trap/effect/handler order, type identity, metadata and valid encoded modules.
+  Reuse primitive bounded scratch; avoid per-use full scans and global caches.
+  Coordinate P01/P03/P05/P08/P11/P12/P13 before widening shared consumers.
+- **Deliverables / exit / suggested tests:** complete the remaining owners,
+  retain bounded positive/adverse controls and original/optimized execution,
+  classify every canonical difference from verified v133 with actual benefit
+  evidence, and renew affected aggregate 10000 GenValid profiles when the
+  campaign schedule permits. Final CI/coverage/aggregate gates, retained size
+  gaps and all four 1× goals remain open. Green unit tests do not close them.
 
 ### P01 — Write-heavy propagation state [IR2-PERF-PC-FLOW]
 
@@ -1207,12 +1067,13 @@ quality gates. Keep traced inner and normal command measurements separate.
   intact, fresh mutation reads, actual consumers and complete pass measurements.
   No widened admission or persistent snapshots; wrapper disappearance alone
   does not prove a throughput win.
-- [ ] Measure high-degree CFG reciprocal-edge verification: nested neighbor
-  scans can be quadratic on wide joins/switches. Current dependency snapshot
-  attributes.280b instructions to all CFG verification, without proving degree
-  dominance. Add bounded dedicated wide-edge controls and invalid/asymmetric/
-  duplicate-kind correctness tests before choosing an index; retain every check,
-  error admission and sparse no-map path. Avoid speculative heap caches.
+- [ ] Measure the remaining enclosing CFG verification cost after the completed
+  wide-edge reciprocal-membership repair. The historical dependency snapshot
+  attributes .280b instructions to all CFG verification, without proving degree
+  dominance. The October 7 checkpoint already has the sparse index, wide-edge
+  controls and invalid/asymmetric/duplicate-kind tests; do not implement them
+  again. Retain every check and the bounded no-map path. Renew complete-pass
+  time and memory evidence; helper gains do not close this remaining cost.
 - **APIs / invariants:** use checked scalar field getters and complete admission
   proofs; remove remaining full-header boundaries only with generated-native
   evidence. Invalidate compact facts or scratch on node/span/region/local/type

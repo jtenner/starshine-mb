@@ -1,3 +1,86 @@
+### 2026-10-08 — Repair the mass-audit regressions and restore green suites
+
+- Fixed value, scope, type, ownership, byte/text and module traversal faults.
+  Added positive optimizer coverage, including long LocalCSE regions and
+  private scalar DAE2 pruning with separate runtime type identities.
+- Corrected invalid fixtures while retaining their assertions and strict
+  parser, validator and IR checks. No passing test was disabled.
+- The default wasm-gc suite passes 13,890 tests. Bun passes 343 tests with
+  zero failures and one existing opt-in Chromium skip. Info, formatting and
+  README/API checks pass. Parent commands run serially after agent reports.
+- Retained original-versus-optimized native observations, type-identity probes,
+  size gaps and tool failures. Performance checks remain scoped to complete
+  commands. Final aggregate/CI/coverage and all four 1× goals remain open.
+- All 66 current native cases validate and match 86 original observations;
+  48 type-identity probes pass. Expanded LocalCSE output saves 849 canonical
+  bytes on the retained large input. Its latest matched complete-command
+  cost remains 18.911% time and 8.027% RSS above the old narrow pass, so the
+  resource item stays open. All earlier adverse and noisy samples remain.
+- Closed the bounded DAE2 singleton witness gap with an open carrier: both
+  canonical outputs are 59 bytes, versus original 60 and intermediate 63.
+  The dedicated scalar cohort reduces command time versus the witness build;
+  it does not close general DAE2 performance or parity. Shared LocalCSE rows
+  preserve exact output and alias isolation, without a measured clock gain.
+- Removed consumed source scratch while preserving reports, failing inputs,
+  executable hashes and independent measurement cohorts.
+
+Source: [repair checkpoint](tooling/validation-gates.md#october-8-2026--mass-audit-repairs-and-green-default-suites),
+[repair evidence](raw/tooling/2026-10-08-starshine-mass-repair.json),
+[active backlog](../../agent-todo.md#p00a--eight-agent-audit-repair-queue-ir2-mass-audit).
+
+### 2026-10-07 — Complete the eight-agent audit before parent verification
+
+- Used eight report/test-only agents; one owned both DAE2 modes. Agents ran no
+  Moon commands and all finished before parent compilation. No production or
+  interface source changed during the audit.
+- Added 74 bounded Moon tests and six bounded Bun harness tests. The full suite
+  has 13,861 tests, with 13,789 passing and 72 failing in new audit files only.
+  After test API and legacy-fixture corrections, the 74-test audit lane has two
+  passing controls and 72 behavior failures. The six harness tests also fail
+  from repository paths. The previous 13,787 tests remain green.
+- Recorded wrong-value, invalid-output, type/byte/IR contract and positive
+  coverage findings in active P00a. Kept oracle/proposal conflicts separate.
+  The nested-condition value hypothesis does not reproduce. Repeated tuple
+  capture needs 20 locals instead of eight for four pair calls; other resource
+  leads still need native timing, allocation and RSS evidence.
+- Preserved all eight source reports, artifact hashes and parent failure
+  records. Implementation, all four 1× targets and final release gates remain
+  open; this audit does not establish a speed or memory win.
+
+Source: [audit results](tooling/validation-gates.md#october-7-2026--eight-agent-speed-memory-correctness-and-parity-audit),
+[complete reports](raw/tooling/2026-10-07-starshine-mass-audit.json),
+[active repair queue](../../agent-todo.md#p00a--eight-agent-audit-repair-queue-ir2-mass-audit).
+
+### 2026-10-07 — Extend P00 control and exception coverage
+
+- Fixed virtual entries for all typed controls, full-flow local analysis,
+  caught-call edges, CL handler liveness, DCE catch continuation, captured tee
+  order, Flatten payload order and shared Precompute ownership.
+- Removed quadratic prefix lookup and wide CFG edge membership scans; kept
+  primitive scratch rows and skipped performance lanes. The 2,048-lane prefix
+  helper improves about 16.35×. The renewed wide cleanup and catch-hub helpers
+  improve about 33.1× and 11.5–12.4×; small adverse controls remain recorded.
+- Added all-label legacy rethrow validation/lift/lower/DAE2/vacuum repairs and
+  invalid-constant parse errors. Reviewed the small validator API extension.
+- Recorded the 12-fixture/211-observation native checkpoint separately from
+  later source. The renewed default wasm-gc gate passes 13,787 tests;
+  fresh native `f8c5b53a…` passes 24 fixtures / 476 observations, seven rethrow
+  fixtures / 90 observations, 27 forced-HOT fixture names / 188 observations
+  and six adapter checks. The tuple-suffix repair retains one producer event
+  in both capture modes. Full-command n3 changes are −0.669% to +2.038%; all
+  four 1× targets remain open. The sparse CFG index reduces scratch payload;
+  RSS attribution stays open because baseline medians vary between cohorts.
+  Static large SSA inspection confirms the +9 raw / +6 canonical-byte repair;
+  full-function runtime replay remains open.
+  Unused build/download/npm caches and completed build intermediates were
+  removed; failure evidence, executable hashes and measurements are retained.
+- Pruned completed October 7 backlog sections into their existing log records;
+  retained missing artifacts, broader alias/EH coverage and parity gaps.
+
+Source: [checkpoint](tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs),
+[measurement record](raw/tooling/2026-10-07-starshine-p00-checkpoint.json),
+[active backlog](../../agent-todo.md).
+
 ### 2026-10-07 — Close the 29-test pass gate
 
 - Repaired all 29 failures shared by the audit worktree and clean `HEAD`.
