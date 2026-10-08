@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-10-07
 sources:
   - ../binaryen/release-horizon-and-oracles.md
   - https://github.com/bytecodealliance/wasm-tools/blob/main/README.md
@@ -171,3 +171,20 @@ That means a command-harness `agree-valid` result is useful external evidence, b
 - Adapter implementation: [`../../../src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt)
 - Adapter and classifier tests: [`../../../src/cmd/fuzz_harness_wbtest.mbt`](../../../src/cmd/fuzz_harness_wbtest.mbt)
 - Related workflows: [`fuzz-runner.md`](fuzz-runner.md), [`pass-fuzz-compare.md`](pass-fuzz-compare.md), [`validation-gates.md`](validation-gates.md), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md)
+
+## Native text input order — October 7, 2026
+
+The native CLI text adapter now tries `wasm-tools parse` before `wat2wasm`.
+The installed WABT 1.0.42 returns success for a typed-reference fixture while
+emitting invalid section bytes. The wasm-tools path preserves a valid module
+without adding a second whole-module decode to the command path. WABT remains
+a fallback. Binary differential validator adapters retain their separate
+contracts above.
+
+Malformed `i32.const`, `i64.const`, `f32.const`, and `f64.const` tokens now fail
+at parsing; they cannot silently become zero. The lightweight lib-to-WAT
+printer emits proper infinity text, signed zero, and exact NaN payload bits.
+The old fallback masked invalid generated text and one uninterpolated test
+fixture. Both have direct regression coverage.
+
+Evidence: [cmd.mbt](../../../src/cmd/cmd.mbt), [p00_parse_errors_wbtest.mbt](../../../src/cmd/p00_parse_errors_wbtest.mbt), [module_wast_tests.mbt](../../../src/wast/module_wast_tests.mbt), [wat_api.mbt](../../../src/wat/wat_api.mbt), [scalar_float_roundtrip_wbtest.mbt](../../../src/wat/scalar_float_roundtrip_wbtest.mbt). See the [current checkpoint](validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.

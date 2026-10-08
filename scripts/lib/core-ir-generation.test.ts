@@ -56,10 +56,11 @@ describe("core IR binding generation", () => {
     );
 
     expect(generated.resourceCount).toBe(88);
-    expect(generated.constructorCount).toBe(860);
+    expect(generated.constructorCount).toBe(862);
     for (const constructor of [
       "no-waitqueue", "waitqueue", "relaxed", "waitqueue-new",
       "waitqueue-notify", "struct-wait", "struct-atomic-set", "array-atomic-set",
+      "publish", "ref-i31-shared",
     ]) {
       expect(generated.wit).toContain(`${constructor}: static func(`);
     }

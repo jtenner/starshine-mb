@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { spawn, spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { deserialize } from "node:v8";
 
 import {
   fail,
@@ -1329,6 +1331,64 @@ export async function runNodeExportInvocationMatrix(
   rightWasmPath: string,
   maxInvocations = 8,
   wasmToolsBin = "wasm-tools",
+  timeoutMs = 1000,
+): Promise<RuntimeExportInvocationReport[]> {
+  const blocked = (detail: string): RuntimeExportInvocationReport[] => [{
+    exportName: "<runtime>", args: [],
+    leftResult: { kind: "unsupported", detail },
+    rightResult: { kind: "unsupported", detail },
+    classification: "unsupported-runtime",
+  }];
+  // Synchronous Wasm start/export execution cannot be interrupted in the host.
+  // Release this invocation only after its isolated process has exited.
+  return await new Promise((resolve) => {
+    const worker = fileURLToPath(new URL("./optimizer-runtime-matrix-worker.ts", import.meta.url));
+    const grouped = process.platform !== "win32";
+    const child = spawn(process.execPath, [worker], { stdio: ["pipe", "pipe", "pipe"], detached: grouped });
+    const stop = () => {
+      if (grouped && child.pid !== undefined) {
+        try { process.kill(-child.pid, "SIGKILL"); return; } catch {}
+      }
+      child.kill("SIGKILL");
+    };
+    const chunks: Buffer[] = [];
+    let outputBytes = 0;
+    let failure: string | undefined;
+    child.stdout.on("data", (chunk: Buffer) => {
+      outputBytes += chunk.length;
+      if (outputBytes > 1024 * 1024) {
+        failure ??= "runtime matrix output limit exceeded";
+        stop();
+      } else chunks.push(chunk);
+    });
+    child.stderr.on("data", () => {});
+    child.on("error", (error) => { failure ??= error.message; });
+    child.stdin.on("error", (error) => { failure ??= error.message; });
+    const timer = setTimeout(() => {
+      failure = `runtime matrix timeout:${timeoutMs}ms`;
+      stop();
+    }, Math.max(1, timeoutMs));
+    child.on("close", (code, signal) => {
+      clearTimeout(timer);
+      if (failure) return resolve(blocked(failure));
+      if (code !== 0) return resolve(blocked(`runtime matrix process exited ${code ?? signal}`));
+      try {
+        const result = deserialize(Buffer.concat(chunks, outputBytes)) as { reports?: RuntimeExportInvocationReport[]; error?: string };
+        resolve(result.reports ?? blocked(result.error ?? "runtime matrix returned no report"));
+      } catch (error) {
+        resolve(blocked(`invalid runtime matrix report: ${String(error)}`));
+      }
+    });
+    child.stdin.end(JSON.stringify({ leftWasmPath, rightWasmPath, maxInvocations, wasmToolsBin }));
+  });
+}
+
+// Worker entry only. Public callers use the deadline-enforcing function above.
+export async function runNodeExportInvocationMatrixInProcess(
+  leftWasmPath: string,
+  rightWasmPath: string,
+  maxInvocations: number,
+  wasmToolsBin: string,
 ): Promise<RuntimeExportInvocationReport[]> {
   const leftInterface = buildRuntimeInterfaceFromWasm(leftWasmPath, wasmToolsBin);
   const rightInterface = buildRuntimeInterfaceFromWasm(rightWasmPath, wasmToolsBin);
@@ -1651,8 +1711,26 @@ function isDropConstExpression(text: string): boolean {
   if (!text.trimStart().startsWith("(drop")) return false;
   const unsafePattern = /\b(call|call_ref|return_call|local\.|global\.|load|store|memory\.|table\.|ref\.|struct\.|array\.|br|br_if|br_table|return|if|block|loop|try|try_table|throw|rethrow|delegate|select|unreachable|nop)\b/;
   if (unsafePattern.test(text)) return false;
-  if (/\.(?:div_s|div_u|rem_s|rem_u)\b/.test(text) && /\b[if](?:32|64)\.const\s+(?:0|-1)\b/.test(text)) {
-    return false;
+  const divisions = text.match(/\bi(?:32|64)\.(?:div_s|div_u|rem_s|rem_u)\b/g);
+  if (divisions !== null) {
+    // Only erase division debris with two direct constants. A closed computed
+    // divisor can still be zero; its lack of literal zero is not a trap proof.
+    const direct = /\(i(32|64)\.(div_s|div_u|rem_s|rem_u)\s+\(i\1\.const\s+([+-]?(?:0x[0-9a-fA-F_]+|[0-9_]+))\s*\)\s+\(i\1\.const\s+([+-]?(?:0x[0-9a-fA-F_]+|[0-9_]+))\s*\)\s*\)/g;
+    let safe = 0;
+    for (const match of text.matchAll(direct)) {
+      const width = Number(match[1]);
+      const parse = (raw: string): bigint => {
+        const clean = raw.replaceAll("_", "");
+        const negative = clean.startsWith("-");
+        const value = BigInt(/^[+-]/.test(clean) ? clean.slice(1) : clean);
+        return BigInt.asIntN(width, negative ? -value : value);
+      };
+      const left = parse(match[3]);
+      const right = parse(match[4]);
+      if (right === 0n || (match[2] === "div_s" && right === -1n && left === -(1n << BigInt(width - 1)))) return false;
+      safe += 1;
+    }
+    if (safe !== divisions.length) return false;
   }
   // Keep the first drop-consts normalizer intentionally syntax-scoped: it only
   // erases dropped closed numeric expression trees. Div/rem are accepted only
@@ -6817,6 +6895,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           binaryenRawPath,
           8,
           options.wasmToolsBin,
+          options.runtimeTimeoutMs,
         );
         runtimeInvocationReports = runtimeReports;
         noteRuntimeExportInvocationMatrix(summary, runtimeReports);

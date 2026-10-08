@@ -32,7 +32,7 @@ import {
 } from "./optimizer-runtime.ts";
 
 // Resumable runs must use the same observable execution contract.
-export const SEMANTIC_EXECUTION_CONTRACT = "node-v2-timeout-classification-v10";
+export const SEMANTIC_EXECUTION_CONTRACT = "node-v2-header-signatures-and-matrix-deadlines-v11";
 
 export type NodeObservationV2Options = {
   mode: ObservationMode;
@@ -113,6 +113,57 @@ function numericIndex(form: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
+// wasm-tools prints flat instructions, so nested block signature fields can
+// have the same parenthesis depth as function fields. Stop at the first body
+// token, rather than searching the complete function text for param/result.
+function runtimeSignatureHeader(form: string): string {
+  let cursor = 0;
+  let start = -1;
+  while (cursor < form.length) {
+    if (form[cursor] === '"') {
+      cursor += 1;
+      while (cursor < form.length && form[cursor] !== '"') {
+        cursor += form[cursor] === "\\" ? 2 : 1;
+      }
+    } else if (form[cursor] === "(" && /^\((?:func|tag)(?:\s|\))/.test(form.slice(cursor, cursor + 7))) {
+      start = cursor;
+      cursor += form.startsWith("(func", cursor) ? 5 : 4;
+      break;
+    }
+    cursor += 1;
+  }
+  if (start < 0) return "";
+  while (cursor < form.length) {
+    while (/\s/.test(form[cursor] ?? "")) cursor += 1;
+    if (form.startsWith("(;", cursor)) {
+      const end = form.indexOf(";)", cursor + 2);
+      if (end < 0) break;
+      cursor = end + 2;
+      continue;
+    }
+    if (form[cursor] === "$") {
+      while (cursor < form.length && !/[\s()]/.test(form[cursor])) cursor += 1;
+      continue;
+    }
+    if (!/^\((?:type|param|result|export|import)(?:\s|\))/.test(form.slice(cursor, cursor + 9))) break;
+    let depth = 0;
+    let inString = false;
+    for (; cursor < form.length; cursor += 1) {
+      const char = form[cursor];
+      if (inString) {
+        if (char === "\\") cursor += 1;
+        else if (char === '"') inString = false;
+      } else if (char === '"') inString = true;
+      else if (char === "(") depth += 1;
+      else if (char === ")" && --depth === 0) {
+        cursor += 1;
+        break;
+      }
+    }
+  }
+  return form.slice(start, cursor);
+}
+
 type NamedReferenceKind = "array" | "struct" | "function" | "continuation";
 
 function normalizeNamedReferenceType(
@@ -182,6 +233,7 @@ function signatureFromForm(
   types: Map<number, RuntimeFunctionSignature>,
   namedReferenceKinds: Map<string, NamedReferenceKind>,
 ): RuntimeFunctionSignature {
+  form = runtimeSignatureHeader(form);
   const direct = {
     params: typeTokens(form, "param", namedReferenceKinds),
     results: typeTokens(form, "result", namedReferenceKinds),
@@ -342,9 +394,10 @@ export function buildRuntimeInterfaceFromWasm(wasmPath: string, wasmToolsBin = "
     if (!form.startsWith("(type ") || !form.includes("(func")) continue;
     const index = numericIndex(form);
     if (index !== null) {
+      const header = runtimeSignatureHeader(form);
       types.set(index, {
-        params: typeTokens(form, "param", namedReferenceKinds),
-        results: typeTokens(form, "result", namedReferenceKinds),
+        params: typeTokens(header, "param", namedReferenceKinds),
+        results: typeTokens(header, "result", namedReferenceKinds),
       });
     }
   }

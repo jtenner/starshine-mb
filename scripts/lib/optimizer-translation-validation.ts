@@ -65,6 +65,13 @@ function exprSmt(expression: IntegerExpression): string {
   if (expression.kind === "const") return `(_ bv${unsigned(expression.value, expression.width)} ${expression.width})`;
   const left = exprSmt(expression.left); const right = exprSmt(expression.right);
   const op: Record<string, string> = { add: "bvadd", sub: "bvsub", mul: "bvmul", and: "bvand", or: "bvor", xor: "bvxor", shl: "bvshl", shr_u: "bvlshr", div_s: "bvsdiv", div_u: "bvudiv", rem_s: "bvsrem", rem_u: "bvurem" };
+  if (expression.kind === "shl" || expression.kind === "shr_u") {
+    const width = expression.width;
+    const count = (width & (width - 1)) === 0
+      ? `(bvand ${right} (_ bv${width - 1} ${width}))`
+      : `(bvurem ${right} (_ bv${width} ${width}))`;
+    return `(${op[expression.kind]} ${left} ${count})`;
+  }
   return `(${op[expression.kind]} ${left} ${right})`;
 }
 
