@@ -84,9 +84,6 @@ fn spec_quote_lines_to_source(lines : Array[String]) -> String {
   let out = StringBuilder::new()
   let mut i = 0
   while i < lines.length() {
-    if i > 0 {
-      out.write_string("\n")
-    }
     out.write_string(lines[i])
     i += 1
   }

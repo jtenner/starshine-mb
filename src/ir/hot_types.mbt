@@ -22,7 +22,19 @@ fn hot_intern_type(
     Some(id) => id
     None => {
       let id = func.types.length()
-      func.types.push(info)
+      // Caller rows can be scratch or mutable module metadata. Own them only
+      // on an intern miss; repeated type queries must not copy another row.
+      let owned = match info {
+        HotTypeInfo::Results(values) => HotTypeInfo::Results(values.copy())
+        HotTypeInfo::BlockResultResolved(block_type, params, results) =>
+          HotTypeInfo::BlockResultResolved(
+            block_type,
+            params.copy(),
+            results.copy(),
+          )
+        _ => info
+      }
+      func.types.push(owned)
       func.type_ids.set(key, id)
       id
     }

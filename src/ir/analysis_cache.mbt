@@ -24,6 +24,9 @@ pub struct HotEffectsSummary {
 
 ///|
 pub struct HotAnalysisCache {
+  // Every owned HotFunc has one stable root array. Use its physical identity,
+  // without retaining the whole function or comparing its mutable contents.
+  mut owner_roots : Array[NodeId]?
   mut cfg : HotCacheEntry[HotCfg]?
   mut orders : HotCacheEntry[HotCfgOrders]?
   mut dom : HotCacheEntry[HotDominators]?
@@ -38,6 +41,7 @@ pub struct HotAnalysisCache {
 ///|
 pub fn HotAnalysisCache::new() -> HotAnalysisCache {
   {
+    owner_roots: None,
     cfg: None,
     orders: None,
     dom: None,
@@ -88,6 +92,7 @@ fn cache_effects_build(func : HotFunc, cfg : HotCfg) -> HotEffectsSummary {
 
 ///|
 pub fn cache_invalidate_all(cache : HotAnalysisCache) -> Unit {
+  cache.owner_roots = None
   cache.cfg = None
   cache.orders = None
   cache.dom = None
@@ -139,10 +144,21 @@ pub fn cache_invalidate_analyses(
 }
 
 ///|
+fn cache_bind_func(cache : HotAnalysisCache, func : HotFunc) -> Unit {
+  match cache.owner_roots {
+    Some(roots) if physical_equal(roots, func.roots) => return
+    _ => ()
+  }
+  cache_invalidate_all(cache)
+  cache.owner_roots = Some(func.roots)
+}
+
+///|
 pub fn cache_get_or_build_cfg(
   cache : HotAnalysisCache,
   func : HotFunc,
 ) -> HotCfg {
+  cache_bind_func(cache, func)
   let revision = hot_revision_current(func)
   if cache_entry_is_current(cache.cfg, revision) {
     return cache_entry_value(cache.cfg)
@@ -157,6 +173,7 @@ pub fn cache_get_or_build_orders(
   cache : HotAnalysisCache,
   func : HotFunc,
 ) -> HotCfgOrders {
+  cache_bind_func(cache, func)
   let revision = hot_revision_current(func)
   if cache_entry_is_current(cache.orders, revision) {
     return cache_entry_value(cache.orders)
@@ -184,6 +201,7 @@ pub fn cache_get_or_build_dom(
   cache : HotAnalysisCache,
   func : HotFunc,
 ) -> HotDominators {
+  cache_bind_func(cache, func)
   let revision = hot_revision_current(func)
   if cache_entry_is_current(cache.dom, revision) {
     return cache_entry_value(cache.dom)
@@ -198,6 +216,7 @@ pub fn cache_get_or_build_postdom(
   cache : HotAnalysisCache,
   func : HotFunc,
 ) -> HotPostDominators {
+  cache_bind_func(cache, func)
   let revision = hot_revision_current(func)
   if cache_entry_is_current(cache.postdom, revision) {
     return cache_entry_value(cache.postdom)
@@ -212,6 +231,7 @@ pub fn cache_get_or_build_loop_info(
   cache : HotAnalysisCache,
   func : HotFunc,
 ) -> HotLoopInfo {
+  cache_bind_func(cache, func)
   let revision = hot_revision_current(func)
   if cache_entry_is_current(cache.loop_info, revision) {
     return cache_entry_value(cache.loop_info)
@@ -228,6 +248,7 @@ pub fn cache_get_or_build_use_def(
   cache : HotAnalysisCache,
   func : HotFunc,
 ) -> HotUseDef {
+  cache_bind_func(cache, func)
   let revision = hot_revision_current(func)
   if cache_entry_is_current(cache.use_def, revision) {
     return cache_entry_value(cache.use_def)
@@ -242,6 +263,7 @@ pub fn cache_get_or_build_liveness(
   cache : HotAnalysisCache,
   func : HotFunc,
 ) -> HotLiveness {
+  cache_bind_func(cache, func)
   let revision = hot_revision_current(func)
   if cache_entry_is_current(cache.liveness, revision) {
     return cache_entry_value(cache.liveness)
@@ -257,6 +279,7 @@ pub fn cache_get_or_build_effects(
   cache : HotAnalysisCache,
   func : HotFunc,
 ) -> HotEffectsSummary {
+  cache_bind_func(cache, func)
   let revision = hot_revision_current(func)
   if cache_entry_is_current(cache.effects, revision) {
     return cache_entry_value(cache.effects)
@@ -271,6 +294,7 @@ pub fn cache_get_or_build_ssa(
   cache : HotAnalysisCache,
   func : HotFunc,
 ) -> HotLocalSsa {
+  cache_bind_func(cache, func)
   let revision = hot_revision_current(func)
   if cache_entry_is_current(cache.ssa, revision) {
     return cache_entry_value(cache.ssa)

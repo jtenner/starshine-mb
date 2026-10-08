@@ -624,6 +624,9 @@ fn decode_unsigned_value(
       BinaryDecodeError::InvalidUnsignedLebBitWidth,
     )
   }
+  if index < 0 {
+    return UnsignedDecodeValue::failure(BinaryDecodeError::IndexOutOfBounds)
+  }
   let max_bytes = max_leb_bytes(nbits)
   let mut i = index
   let mut shift = 0
@@ -697,6 +700,9 @@ fn decode_signed(
 ) -> Result[(Int64, Int), BinaryDecodeError] {
   if nbits <= 0 || nbits > 64 {
     return Err(BinaryDecodeError::InvalidSignedLebBitWidth)
+  }
+  if index < 0 {
+    return Err(BinaryDecodeError::IndexOutOfBounds)
   }
   let max_bytes = max_leb_bytes(nbits)
   let mut i = index
@@ -811,7 +817,7 @@ pub impl Decode for @lib.U64 with fn decode(bytes, i) {
 
 ///|
 pub impl Decode for F32 with fn decode(bytes, i) {
-  if bytes.length() >= i + 4 {
+  if i >= 0 && i <= bytes.length() && bytes.length() - i >= 4 {
     let value : Int = (bytes.unsafe_get(i + 3).to_int() << 24) |
       (bytes.unsafe_get(i + 2).to_int() << 16) |
       (bytes.unsafe_get(i + 1).to_int() << 8) |
@@ -824,7 +830,7 @@ pub impl Decode for F32 with fn decode(bytes, i) {
 
 ///|
 pub impl Decode for F64 with fn decode(bytes, i) {
-  if bytes.length() >= i + 8 {
+  if i >= 0 && i <= bytes.length() && bytes.length() - i >= 8 {
     let value : Int64 = (bytes.unsafe_get(i + 7).to_int64() << 56) |
       (bytes.unsafe_get(i + 6).to_int64() << 48) |
       (bytes.unsafe_get(i + 5).to_int64() << 40) |
@@ -966,10 +972,10 @@ pub impl Decode for Name with fn decode(bytes, i) {
   if len < 0 {
     return Err(BinaryDecodeError::NegativeNameLength)
   }
-  let end = j + len
-  if end > bytes.length() {
+  if len > bytes.length() - j {
     return Err(BinaryDecodeError::IndexOutOfBounds)
   }
+  let end = j + len
   let name = @utf8.decode(bytes[j:end]) catch {
     _ => return Err(BinaryDecodeError::InvalidUtf8Name)
   }
@@ -995,12 +1001,11 @@ pub impl Decode for NameMap with fn decode(bytes, i) {
     Ok(t) => t
     Err(err) => return Err(err)
   }
-  let len = len_u.reinterpret_as_int()
   let entries : Array[NameAssoc] = []
   let mut next = i
   let mut prev_idx : UInt? = None
-  let mut remaining = len
-  while remaining > 0 {
+  let mut remaining = len_u
+  while remaining > 0U {
     let (entry, decoded_next) = match
       (Decode::decode(bytes, next) : Result[(NameAssoc, Int), BinaryDecodeError]) {
       Ok(t) => t
@@ -1015,7 +1020,7 @@ pub impl Decode for NameMap with fn decode(bytes, i) {
     prev_idx = Some(idx)
     entries.push(entry)
     next = decoded_next
-    remaining = remaining - 1
+    remaining = remaining - 1U
   }
   Ok((NameMap::new(entries), next))
 }
@@ -1039,12 +1044,11 @@ pub impl Decode for IndirectNameMap with fn decode(bytes, i) {
     Ok(t) => t
     Err(err) => return Err(err)
   }
-  let len = len_u.reinterpret_as_int()
   let entries : Array[IndirectNameAssoc] = []
   let mut next = i
   let mut prev_idx : UInt? = None
-  let mut remaining = len
-  while remaining > 0 {
+  let mut remaining = len_u
+  while remaining > 0U {
     let (entry, decoded_next) = match
       (
         Decode::decode(bytes, next) :
@@ -1061,7 +1065,7 @@ pub impl Decode for IndirectNameMap with fn decode(bytes, i) {
     prev_idx = Some(idx)
     entries.push(entry)
     next = decoded_next
-    remaining = remaining - 1
+    remaining = remaining - 1U
   }
   Ok((IndirectNameMap::new(entries), next))
 }
@@ -1103,22 +1107,24 @@ pub impl Decode for NameSec with fn decode(bytes, i) {
       Some(id) => id
       None => break
     }
-    match prev_subsection_id {
-      Some(prev) if subsection_id <= prev =>
-        return Err(BinaryDecodeError::InvalidNameSubsectionOrder)
-      _ => ()
+    // Unknown optional subsections do not change the order of known names.
+    if subsection_id <= 11 {
+      match prev_subsection_id {
+        Some(prev) if subsection_id <= prev =>
+          return Err(BinaryDecodeError::InvalidNameSubsectionOrder)
+        _ => ()
+      }
+      prev_subsection_id = Some(subsection_id)
     }
-    prev_subsection_id = Some(subsection_id)
     let (@lib.U32(payload_len_u), payload_start) = match
       Decode::decode(bytes, next + 1) {
       Ok(t) => t
       Err(err) => return Err(err)
     }
-    let payload_len = payload_len_u.reinterpret_as_int()
-    let payload_end = payload_start + payload_len
-    if payload_end > bytes.length() {
+    if payload_len_u > (bytes.length() - payload_start).reinterpret_as_uint() {
       return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
     }
+    let payload_end = payload_start + payload_len_u.reinterpret_as_int()
     match subsection_id {
       0 =>
         match
@@ -1192,7 +1198,7 @@ pub impl Decode for NameSec with fn decode(bytes, i) {
           Ok(names) => tag_names = Some(names)
           Err(err) => return Err(err)
         }
-      _ => return Err(BinaryDecodeError::InvalidNameSubsectionId)
+      _ => ()
     }
     next = payload_end
   }
@@ -1230,11 +1236,10 @@ fn[T : Decode] decode_section_vector_payload(
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  let len = len_u.reinterpret_as_int()
-  let payload_end = payload_start + len
-  if payload_end > bytes.length() {
+  if len_u > (bytes.length() - payload_start).reinterpret_as_uint() {
     return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
   }
+  let payload_end = payload_start + len_u.reinterpret_as_int()
   let (content, consumed) = match Decode::decode(bytes, payload_start) {
     Ok(t) => t
     Err(t) => return Err(t)
@@ -1259,11 +1264,10 @@ fn[T : Decode] decode_section_payload(
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  let len = len_u.reinterpret_as_int()
-  let payload_end = payload_start + len
-  if payload_end > bytes.length() {
+  if len_u > (bytes.length() - payload_start).reinterpret_as_uint() {
     return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
   }
+  let payload_end = payload_start + len_u.reinterpret_as_int()
   let (content, consumed) = match Decode::decode(bytes, payload_start) {
     Ok(t) => t
     Err(t) => return Err(t)
@@ -1286,10 +1290,9 @@ fn module_section_span(bytes : Bytes, section_start : Int) -> (Int, Int) {
   )
   match len_result {
     Ok((@lib.U32(payload_len_u), payload_start)) => {
-      let payload_len = payload_len_u.reinterpret_as_int()
-      let payload_end = payload_start + payload_len
-      let section_end = if payload_end <= bytes.length() {
-        payload_end
+      let remaining = bytes.length() - payload_start
+      let section_end = if payload_len_u <= remaining.reinterpret_as_uint() {
+        payload_start + payload_len_u.reinterpret_as_int()
       } else {
         bytes.length()
       }
@@ -1429,11 +1432,10 @@ fn decode_custom_section_header(
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  let len = len.reinterpret_as_int()
-  let end = i1 + len
-  if end > bytes.length() {
+  if len > (bytes.length() - i1).reinterpret_as_uint() {
     return Err(BinaryDecodeError::CustomSectionPayloadLengthOutOfRange)
   }
+  let end = i1 + len.reinterpret_as_int()
   let (name, payload_start) = match Decode::decode(bytes, i1) {
     Ok(t) => t
     Err(t) => return Err(t)
@@ -1996,29 +1998,43 @@ pub impl Decode for Locals with fn decode(bytes, i) {
 
 ///|
 pub impl Decode for Func with fn decode(bytes, i) {
-  match Decode::decode(bytes, i) {
-    Ok((@lib.U32(_size), i)) => // Read the length prefix first
-      match
-        (
-          Decode::decode(bytes, i) :
-          Result[(Array[@lib.LocalRun], Int), BinaryDecodeError]) {
-        Ok((locals, i)) => {
-          let mut total_locals : UInt64 = 0UL
-          for local_entry in locals {
-            total_locals += local_entry.count.to_uint64()
-            if total_locals > 4294967295UL {
-              return Err(BinaryDecodeError::InvalidModule)
-            }
-          }
-          match Decode::decode(bytes, i) {
-            Ok((expr, i)) => Ok((Func::new(Locals::new(locals), expr), i))
-            Err(t) => Err(t)
-          }
-        }
-        Err(t) => Err(t)
-      }
-    Err(t) => Err(t)
+  let (@lib.U32(size), body_start) = match Decode::decode(bytes, i) {
+    Ok(t) => t
+    Err(t) => return Err(t)
   }
+  if size > (bytes.length() - body_start).reinterpret_as_uint() {
+    return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
+  }
+  let body_end = body_start + size.reinterpret_as_int()
+  // A body needs a local-run count and its expression terminator.
+  if size < 2U {
+    return Err(BinaryDecodeError::InvalidModule)
+  }
+  let (locals, expr_start) = match
+    (
+      Decode::decode(bytes, body_start) :
+      Result[(Array[@lib.LocalRun], Int), BinaryDecodeError]) {
+    Ok(t) => t
+    Err(t) => return Err(t)
+  }
+  if expr_start >= body_end {
+    return Err(BinaryDecodeError::InvalidSectionPayloadTrailingBytes)
+  }
+  let mut total_locals : UInt64 = 0UL
+  for local_entry in locals {
+    total_locals += local_entry.count.to_uint64()
+    if total_locals > 4294967295UL {
+      return Err(BinaryDecodeError::InvalidModule)
+    }
+  }
+  let (expr, next) = match Decode::decode(bytes, expr_start) {
+    Ok(t) => t
+    Err(t) => return Err(t)
+  }
+  if next != body_end {
+    return Err(BinaryDecodeError::InvalidSectionPayloadTrailingBytes)
+  }
+  Ok((Func::new(Locals::new(locals), expr), next))
 }
 
 ///|
@@ -2087,11 +2103,10 @@ pub impl Decode for StringRefsSec with fn decode(bytes, i) {
     Ok(t) => t
     Err(t) => return Err(t)
   }
-  let len = len_u.reinterpret_as_int()
-  let payload_end = payload_start + len
-  if payload_end > bytes.length() {
+  if len_u > (bytes.length() - payload_start).reinterpret_as_uint() {
     return Err(BinaryDecodeError::SectionPayloadLengthOutOfRange)
   }
+  let payload_end = payload_start + len_u.reinterpret_as_int()
   if payload_start == payload_end || bytes[payload_start] != 0x00 {
     return Err(BinaryDecodeError::InvalidStringRefSection)
   }
@@ -2148,15 +2163,14 @@ pub impl Decode for Limits with fn decode(bytes, i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x00) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((@lib.U64(n), i)) => Ok((Limits::i32(n.to_uint(), None), i))
+        Ok((@lib.U32(n), i)) => Ok((Limits::i32(n, None), i))
         Err(t) => Err(t)
       }
     Some(0x01) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((@lib.U64(n), i)) =>
+        Ok((@lib.U32(n), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((@lib.U64(m), i)) =>
-              Ok((Limits::i32(n.to_uint(), Some(m.to_uint())), i))
+            Ok((@lib.U32(m), i)) => Ok((Limits::i32(n, Some(m)), i))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -2196,47 +2210,32 @@ pub impl Decode for MemType with fn decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((@lib.U64(min), next)) =>
-          Ok((MemType::new(Limits::i32(min.to_uint(), None)), next))
+        Ok((@lib.U32(min), next)) =>
+          Ok((MemType::new(Limits::i32(min, None)), next))
         Err(t) => Err(t)
       }
     Some(0x01) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((@lib.U64(min), next)) =>
+        Ok((@lib.U32(min), next)) =>
           match Decode::decode(bytes, next) {
-            Ok((@lib.U64(max), end)) =>
-              Ok(
-                (
-                  MemType::new(Limits::i32(min.to_uint(), Some(max.to_uint()))),
-                  end,
-                ),
-              )
+            Ok((@lib.U32(max), end)) =>
+              Ok((MemType::new(Limits::i32(min, Some(max))), end))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
       }
     Some(0x02) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((@lib.U64(min), next)) =>
-          Ok(
-            (MemType::new(Limits::i32(min.to_uint(), None), shared=true), next),
-          )
+        Ok((@lib.U32(min), next)) =>
+          Ok((MemType::new(Limits::i32(min, None), shared=true), next))
         Err(t) => Err(t)
       }
     Some(0x03) =>
       match Decode::decode(bytes, i + 1) {
-        Ok((@lib.U64(min), next)) =>
+        Ok((@lib.U32(min), next)) =>
           match Decode::decode(bytes, next) {
-            Ok((@lib.U64(max), end)) =>
-              Ok(
-                (
-                  MemType::new(
-                    Limits::i32(min.to_uint(), Some(max.to_uint())),
-                    shared=true,
-                  ),
-                  end,
-                ),
-              )
+            Ok((@lib.U32(max), end)) =>
+              Ok((MemType::new(Limits::i32(min, Some(max)), shared=true), end))
             Err(t) => Err(t)
           }
         Err(t) => Err(t)
@@ -2284,7 +2283,7 @@ pub impl Decode for GlobalType with fn decode(bytes, i) {
     Ok((vt, i)) =>
       match Decode::decode(bytes, i) {
         Ok((m, i)) => Ok((GlobalType::new(vt, m), i))
-        Err(_) => Ok((GlobalType::new(vt, false), i))
+        Err(t) => Err(t)
       }
     Err(t) => Err(t)
   }
@@ -2609,8 +2608,7 @@ pub impl Decode for StartSec with fn decode(bytes, i) {
 pub impl Decode for Bytes with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Err(t) => Err(t)
-    Ok((@lib.U32(len), i)) if len + i.reinterpret_as_uint() <=
-      bytes.length().reinterpret_as_uint() => {
+    Ok((@lib.U32(len), i)) if len <= (bytes.length() - i).reinterpret_as_uint() => {
       let next = i + len.reinterpret_as_int()
       let val = bytes[i:next].to_owned()
       Ok((val, next))
@@ -2718,6 +2716,9 @@ fn decode_atomic_memarg(
   let (@lib.U32(raw), decoded_next) = match Decode::decode(bytes, i) {
     Ok(decoded) => decoded
     Err(err) => return Err(err)
+  }
+  if (raw & 0xffffff80U) != 0U {
+    return Err(BinaryDecodeError::InvalidMemArg)
   }
   let mut next = decoded_next
   let has_order = (raw & 0x10U) != 0U

@@ -74,7 +74,7 @@ test "module_to_wast preserves struct access instruction keywords" {
     #|  (type (struct (field i32) (field (mut i8)) (field (mut i16))))
     #|  (func (drop (struct.get 0 0 (struct.new 0 (i32.const 1) (i32.const 2) (i32.const 3)))))
     #|  (func (drop (struct.get_s 0 1 (struct.new 0 (i32.const 4) (i32.const 5) (i32.const 6)))))
-    #|  (func (drop (struct.get_u 0 2 (struct.new 0 (i32.const 7) (i32.const 8) (i32.const 9)))))))
+    #|  (func (drop (struct.get_u 0 2 (struct.new 0 (i32.const 7) (i32.const 8) (i32.const 9))))))
   let mod = match wast_to_module(src) {
     Ok(m) => m
     Err(e) => fail("expected struct access parse success: \{e}")

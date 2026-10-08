@@ -922,52 +922,51 @@ fn WastParser::parse_index(self : WastParser) -> Index raise ParserError {
 }
 
 ///|
-fn WastParser::try_parse_index(self : WastParser) -> Index? {
+fn WastParser::try_parse_index(self : WastParser) -> Index? raise ParserError {
   match self.current.token_type {
-    Nat | Var => Some(self.parse_index()) catch { _ => None }
+    Nat | Var => Some(self.parse_index())
     _ => None
   }
 }
 
 ///|
-fn parse_uint(s : String) -> UInt {
-  let mut result : UInt = 0
-  let mut i = 0
-  // Handle hex prefix
-  if s.length() > 2 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X') {
-    i = 2
-    while i < s.length() {
-      let c = s[i]
-      if c == '_' {
-        i += 1
-        continue
-      }
-      let digit = if c >= '0' && c <= '9' {
-        c.to_int() - 0x30
-      } else if c >= 'a' && c <= 'f' {
-        c.to_int() - 0x61 + 10
-      } else if c >= 'A' && c <= 'F' {
-        c.to_int() - 0x41 + 10
-      } else {
-        0
-      }
-      result = (result << 4) | digit.reinterpret_as_uint()
-      i += 1
+fn parse_unsigned_literal(
+  s : String,
+  limit : UInt64,
+) -> UInt64 raise ParserError {
+  let hex = s.has_prefix("0x") || s.has_prefix("0X")
+  let radix = if hex { 16UL } else { 10UL }
+  let mut result = 0UL
+  let mut has_digit = false
+  for i = (if hex { 2 } else { 0 }); i < s.length(); i = i + 1 {
+    let c = s[i]
+    if c == '_' {
+      continue
     }
-  } else {
-    while i < s.length() {
-      let c = s[i]
-      if c == '_' {
-        i += 1
-        continue
-      }
-      if c >= '0' && c <= '9' {
-        result = result * 10 + (c.to_int() - 0x30).reinterpret_as_uint()
-      }
-      i += 1
+    let digit = if c >= '0' && c <= '9' {
+      (c.to_int() - 48).to_uint64()
+    } else if c >= 'a' && c <= 'f' {
+      (c.to_int() - 87).to_uint64()
+    } else if c >= 'A' && c <= 'F' {
+      (c.to_int() - 55).to_uint64()
+    } else {
+      raise Custom("invalid unsigned literal: \{s}")
     }
+    if digit >= radix || result > (limit - digit) / radix {
+      raise Custom("unsigned literal exceeds range: \{s}")
+    }
+    result = result * radix + digit
+    has_digit = true
+  }
+  if !has_digit {
+    raise Custom("invalid unsigned literal: \{s}")
   }
   result
+}
+
+///|
+fn parse_uint(s : String) -> UInt raise ParserError {
+  parse_unsigned_literal(s, 4294967295UL).to_uint()
 }
 
 ///|
@@ -980,43 +979,8 @@ fn WastParser::parse_nat(
 }
 
 ///|
-fn parse_uint64(s : String) -> UInt64 {
-  let mut result : UInt64 = 0UL
-  let mut i = 0
-  if s.length() > 2 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X') {
-    i = 2
-    while i < s.length() {
-      let c = s[i]
-      if c == '_' {
-        i += 1
-        continue
-      }
-      let digit = if c >= '0' && c <= '9' {
-        c.to_int() - 0x30
-      } else if c >= 'a' && c <= 'f' {
-        c.to_int() - 0x61 + 10
-      } else if c >= 'A' && c <= 'F' {
-        c.to_int() - 0x41 + 10
-      } else {
-        0
-      }
-      result = (result << 4) | digit.to_uint64()
-      i += 1
-    }
-  } else {
-    while i < s.length() {
-      let c = s[i]
-      if c == '_' {
-        i += 1
-        continue
-      }
-      if c >= '0' && c <= '9' {
-        result = result * 10UL + (c.to_int() - 0x30).to_uint64()
-      }
-      i += 1
-    }
-  }
-  result
+fn parse_uint64(s : String) -> UInt64 raise ParserError {
+  parse_unsigned_literal(s, 18446744073709551615UL)
 }
 
 // ============================================================================
@@ -1443,7 +1407,7 @@ fn WastParser::parse_type_use(self : WastParser) -> TypeUse raise ParserError {
 fn WastParser::parse_mem_arg(
   self : WastParser,
   default_align : UInt64,
-) -> MemArg {
+) -> MemArg raise ParserError {
   let mut offset : UInt64 = 0UL
   let mut align = default_align
 
@@ -2333,7 +2297,7 @@ fn WastParser::parse_opcode_instruction(
       let token = self.advance()
       let text = match token.token_type {
         Nat | Int => self.get_literal_text(token)
-        _ => "0"
+        _ => raise UnexpectedToken(token, "expected integer literal")
       }
       Const(op, text)
     }
@@ -2341,7 +2305,7 @@ fn WastParser::parse_opcode_instruction(
       let token = self.advance()
       let text = match token.token_type {
         Nat | Int | Float => self.get_literal_text(token)
-        _ => "0"
+        _ => raise UnexpectedToken(token, "expected numeric literal")
       }
       Const(op, text)
     }
@@ -2803,14 +2767,8 @@ fn WastParser::parse_inline_exports(
     if self.check(Export) {
       let _ = self.advance()
       let name_token = self.expect(Text, "expected export name")
-      let name = self.get_text(name_token)
-      // Remove quotes from string
-      let cleaned = if name.length() >= 2 {
-        name.sub(start=1, end=name.length() - 1).to_owned()
-      } else {
-        name
-      }
-      exports.push(InlineExport::Export(cleaned))
+      let name = self.decode_name(self.get_text(name_token))
+      exports.push(InlineExport::Export(name))
       self.expect_rpar()
     } else {
       self.restore_lexer_state(saved_state)
@@ -2841,8 +2799,8 @@ fn WastParser::parse_func(self : WastParser) -> ModuleField raise ParserError {
       let _ = self.advance()
       let module_token = self.expect(Text, "expected import module name")
       let field_token = self.expect(Text, "expected import field name")
-      let module_name = self.strip_quotes(self.get_text(module_token))
-      let field_name = self.strip_quotes(self.get_text(field_token))
+      let module_name = self.decode_name(self.get_text(module_token))
+      let field_name = self.decode_name(self.get_text(field_token))
       self.expect_rpar()
       if exports.length() > 0 {
         raise Custom(
@@ -3102,9 +3060,9 @@ fn WastParser::parse_tag_field(
     if self.check(Import) {
       let _ = self.advance()
       let module_token = self.expect(Text, "expected module name")
-      let module_name = self.strip_quotes(self.get_text(module_token))
+      let module_name = self.decode_name(self.get_text(module_token))
       let field_token = self.expect(Text, "expected field name")
-      let field_name = self.strip_quotes(self.get_text(field_token))
+      let field_name = self.decode_name(self.get_text(field_token))
       self.expect_rpar()
       Some((module_name, field_name))
     } else {
@@ -3248,10 +3206,10 @@ fn WastParser::parse_imports(
 ) -> Array[Import] raise ParserError {
   let _ = self.expect(Import, "expected 'import'")
   let module_token = self.expect(Text, "expected module name")
-  let module_name = self.strip_quotes(self.get_text(module_token))
+  let module_name = self.decode_name(self.get_text(module_token))
   if self.check(Text) {
     let field_token = self.advance()
-    let field_name = self.strip_quotes(self.get_text(field_token))
+    let field_name = self.decode_name(self.get_text(field_token))
     let (desc, id) = self.parse_import_desc()
     return [{ module_name, field_name, desc, id, annotations: [], }]
   }
@@ -3274,7 +3232,7 @@ fn WastParser::parse_imports(
       None
     }
     let token = self.expect(Text, "expected compact import item name")
-    let field_name = self.strip_quotes(self.get_text(token))
+    let field_name = self.decode_name(self.get_text(token))
     let desc : ImportDesc? = if self.check(Lpar) {
       let (desc, desc_id) = self.parse_import_desc()
       if desc_id is Some(_) {
@@ -3322,7 +3280,7 @@ fn WastParser::parse_imports(
 fn WastParser::parse_export(self : WastParser) -> Export raise ParserError {
   let _ = self.expect(Export, "expected 'export'")
   let name_token = self.expect(Text, "expected export name")
-  let name = self.strip_quotes(self.get_text(name_token))
+  let name = self.decode_name(self.get_text(name_token))
   self.expect_lpar()
   let desc = match self.current.token_type {
     Func => {
@@ -3362,6 +3320,7 @@ pub fn WastParser::parse_script(
     commands.push(cmd)
     self.expect_rpar()
   }
+  self.check_lexer_errors()
   { commands, }
 }
 
@@ -3425,7 +3384,7 @@ fn WastParser::parse_module_command(
 }
 
 ///|
-fn WastParser::parse_data_strings(self : WastParser) -> Bytes {
+fn WastParser::parse_data_strings(self : WastParser) -> Bytes raise ParserError {
   let buf = @buffer.new()
   while self.check(Text) {
     let token = self.advance()
@@ -3437,11 +3396,13 @@ fn WastParser::parse_data_strings(self : WastParser) -> Bytes {
 }
 
 ///|
-fn WastParser::parse_quote_strings(self : WastParser) -> Array[String] {
+fn WastParser::parse_quote_strings(
+  self : WastParser,
+) -> Array[String] raise ParserError {
   let strings : Array[String] = []
   while self.check(Text) {
     let token = self.advance()
-    strings.push(self.strip_quotes(self.get_text(token)))
+    strings.push(self.decode_name(self.get_text(token)))
   }
   strings
 }
@@ -3452,7 +3413,7 @@ fn WastParser::parse_register_command(
 ) -> WastCommand raise ParserError {
   let _ = self.expect(Register, "expected 'register'")
   let name_token = self.expect(Text, "expected register name")
-  let name = self.strip_quotes(self.get_text(name_token))
+  let name = self.decode_name(self.get_text(name_token))
   let module_id : String? = if self.current.token_type is Var {
     let token = self.advance()
     Some(self.get_text(token))
@@ -3476,7 +3437,7 @@ fn WastParser::parse_action(
         None
       }
       let name_token = self.expect(Text, "expected function name")
-      let name = self.strip_quotes(self.get_text(name_token))
+      let name = self.decode_name(self.get_text(name_token))
       let args = self.parse_wast_values()
       WastActionType::Invoke({ module_name, name, args, })
     }
@@ -3489,7 +3450,7 @@ fn WastParser::parse_action(
         None
       }
       let name_token = self.expect(Text, "expected global name")
-      let name = self.strip_quotes(self.get_text(name_token))
+      let name = self.decode_name(self.get_text(name_token))
       WastActionType::Get(module_name, name)
     }
     _ => raise UnexpectedToken(self.current, "expected 'invoke' or 'get'")
@@ -3643,14 +3604,14 @@ fn WastParser::parse_assert_trap(
     let action = self.parse_action()
     self.expect_rpar()
     let msg_token = self.expect(Text, "expected trap message")
-    let msg = self.strip_quotes(self.get_text(msg_token))
+    let msg = self.decode_name(self.get_text(msg_token))
     WastCommand::AssertTrap(action, msg)
   } else {
     // Module trap - treat as module definition that traps on instantiation
     let module_def = self.parse_module_def()
     self.expect_rpar()
     let msg_token = self.expect(Text, "expected trap message")
-    let msg = self.strip_quotes(self.get_text(msg_token))
+    let msg = self.decode_name(self.get_text(msg_token))
     // For module traps, we use AssertTrap with a dummy action
     // This could be refined with a separate AST variant
     WastCommand::AssertUnlinkable(module_def, msg)
@@ -3677,7 +3638,7 @@ fn WastParser::parse_assert_exhaustion(
   let action = self.parse_action()
   self.expect_rpar()
   let msg_token = self.expect(Text, "expected exhaustion message")
-  let msg = self.strip_quotes(self.get_text(msg_token))
+  let msg = self.decode_name(self.get_text(msg_token))
   WastCommand::AssertExhaustion(action, msg)
 }
 
@@ -3723,7 +3684,7 @@ fn WastParser::parse_assert_malformed(
   let module_def = self.parse_module_def()
   self.expect_rpar()
   let msg_token = self.expect(Text, "expected error message")
-  let msg = self.strip_quotes(self.get_text(msg_token))
+  let msg = self.decode_name(self.get_text(msg_token))
   WastCommand::AssertMalformed(module_def, msg)
 }
 
@@ -3736,7 +3697,7 @@ fn WastParser::parse_assert_invalid(
   let module_def = self.parse_module_def()
   self.expect_rpar()
   let msg_token = self.expect(Text, "expected error message")
-  let msg = self.strip_quotes(self.get_text(msg_token))
+  let msg = self.decode_name(self.get_text(msg_token))
   WastCommand::AssertInvalid(module_def, msg)
 }
 
@@ -3749,7 +3710,7 @@ fn WastParser::parse_assert_unlinkable(
   let module_def = self.parse_module_def()
   self.expect_rpar()
   let msg_token = self.expect(Text, "expected error message")
-  let msg = self.strip_quotes(self.get_text(msg_token))
+  let msg = self.decode_name(self.get_text(msg_token))
   WastCommand::AssertUnlinkable(module_def, msg)
 }
 
@@ -4010,7 +3971,7 @@ fn WastParser::parse_shuffle_lanes(
 fn WastParser::parse_simd_mem_arg(
   self : WastParser,
   default_align : UInt64,
-) -> MemArg {
+) -> MemArg raise ParserError {
   self.parse_mem_arg(default_align)
 }
 
@@ -4360,6 +4321,7 @@ pub fn WastParser::parse_module(self : WastParser) -> Module raise ParserError {
     }
   }
   self.expect_rpar()
+  self.check_lexer_errors()
   { id, fields, }
 }
 
@@ -4377,62 +4339,124 @@ fn WastParser::strip_quotes(_ : WastParser, s : String) -> String {
 }
 
 ///|
-fn WastParser::decode_string(self : WastParser, s : String) -> Bytes {
-  let buf = @buffer.new()
-  let inner = self.strip_quotes(s)
-  let mut i = 0
-  while i < inner.length() {
-    let c = inner[i]
-    if c == '\\' && i + 1 < inner.length() {
-      let next = inner[i + 1]
-      match next {
-        'n' => {
-          buf.write_byte(b'\n')
-          i += 2
-        }
-        't' => {
-          buf.write_byte(b'\t')
-          i += 2
-        }
-        'r' => {
-          buf.write_byte(b'\r')
-          i += 2
-        }
-        '"' => {
-          buf.write_byte(b'"')
-          i += 2
-        }
-        '\'' => {
-          buf.write_byte(b'\'')
-          i += 2
-        }
-        '\\' => {
-          buf.write_byte(b'\\')
-          i += 2
-        }
-        _ =>
-          // Hex escape \XX
-          if i + 2 < inner.length() {
-            let h1 = hex_val(inner[i + 1].unsafe_to_char())
-            let h2 = hex_val(inner[i + 2].unsafe_to_char())
-            if h1 >= 0 && h2 >= 0 {
-              buf.write_byte(((h1 << 4) | h2).to_byte())
-              i += 3
-            } else {
-              buf.write_byte(c.to_int().to_byte())
-              i += 1
-            }
-          } else {
-            buf.write_byte(c.to_int().to_byte())
-            i += 1
-          }
-      }
-    } else {
-      buf.write_byte(c.to_int().to_byte())
+fn WastParser::decode_string(
+  _ : WastParser,
+  s : String,
+) -> Bytes raise ParserError {
+  let quoted = s.length() >= 2 && s[0] == '"' && s[s.length() - 1] == '"'
+  let start = if quoted { 1 } else { 0 }
+  let end = if quoted { s.length() - 1 } else { s.length() }
+  let buf = @buffer.new(size_hint=end - start)
+  let mut i = start
+  while i < end {
+    let run_start = i
+    while i < end && s[i] != '\\' {
       i += 1
+    }
+    if i > run_start {
+      buf.write_string_utf8(s.sub(start=run_start, end=i))
+    }
+    if i == end {
+      break
+    }
+    if end - i < 2 {
+      raise Custom("incomplete string escape")
+    }
+    match s[i + 1] {
+      'n' => {
+        buf.write_byte(b'\n')
+        i += 2
+      }
+      't' => {
+        buf.write_byte(b'\t')
+        i += 2
+      }
+      'r' => {
+        buf.write_byte(b'\r')
+        i += 2
+      }
+      '"' => {
+        buf.write_byte(b'"')
+        i += 2
+      }
+      '\'' => {
+        buf.write_byte(b'\'')
+        i += 2
+      }
+      '\\' => {
+        buf.write_byte(b'\\')
+        i += 2
+      }
+      'u' => {
+        if end - i < 3 || s[i + 2] != '{' {
+          raise Custom("invalid Unicode escape")
+        }
+        i += 3
+        let mut scalar = 0
+        let mut has_digit = false
+        while i < end && s[i] != '}' {
+          if s[i] == '_' {
+            if !has_digit ||
+              end - i < 2 ||
+              hex_val(s[i + 1].unsafe_to_char()) < 0 {
+              raise Custom("invalid Unicode escape")
+            }
+            i += 1
+            continue
+          }
+          let digit = hex_val(s[i].unsafe_to_char())
+          if digit < 0 || scalar > (0x10ffff - digit) / 16 {
+            raise Custom("invalid Unicode escape")
+          }
+          scalar = scalar * 16 + digit
+          has_digit = true
+          i += 1
+        }
+        if i == end || !has_digit || (scalar >= 0xd800 && scalar <= 0xdfff) {
+          raise Custom("invalid Unicode escape")
+        }
+        buf.write_char_utf8(scalar.unsafe_to_char())
+        i += 1
+      }
+      _ => {
+        if end - i < 3 {
+          raise Custom("incomplete string escape")
+        }
+        let h1 = hex_val(s[i + 1].unsafe_to_char())
+        let h2 = hex_val(s[i + 2].unsafe_to_char())
+        if h1 < 0 || h2 < 0 {
+          raise Custom("invalid string escape")
+        }
+        buf.write_byte(((h1 << 4) | h2).to_byte())
+        i += 3
+      }
     }
   }
   buf.to_bytes()
+}
+
+///|
+fn WastParser::decode_name(
+  self : WastParser,
+  s : String,
+) -> String raise ParserError {
+  if !s.contains("\\") {
+    return self.strip_quotes(s)
+  }
+  @utf8.decode(self.decode_string(s)) catch {
+    _ => raise Custom("invalid UTF-8 name")
+  }
+}
+
+///|
+fn WastParser::check_lexer_errors(self : WastParser) -> Unit raise ParserError {
+  match self.lexer.get_errors().get(0) {
+    Some(error) =>
+      raise Custom(
+        "\{error.message} at \{error.location.filename}:\{error.location.line}:\{error.location.first_column}",
+      )
+    None => ()
+  }
 }
 
 ///|

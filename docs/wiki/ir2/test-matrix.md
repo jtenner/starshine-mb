@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-10-07
 sources:
   - https://webassembly.github.io/spec/core/syntax/instructions.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
@@ -208,3 +208,19 @@ For behavior or public API changes, use the repo validation floor from [`../../R
 - Lift/lower/verify: [`../../../src/ir/hot_lift_test.mbt`](../../../src/ir/hot_lift_test.mbt), [`../../../src/ir/hot_lower_test.mbt`](../../../src/ir/hot_lower_test.mbt), [`../../../src/ir/hot_lower_live_repro_test.mbt`](../../../src/ir/hot_lower_live_repro_test.mbt), [`../../../src/ir/hot_verify_test.mbt`](../../../src/ir/hot_verify_test.mbt)
 - Analysis and cache evidence: [`../../../src/ir/cfg_test.mbt`](../../../src/ir/cfg_test.mbt), [`../../../src/ir/cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt), [`../../../src/ir/cfg_order_test.mbt`](../../../src/ir/cfg_order_test.mbt), [`../../../src/ir/dominators_test.mbt`](../../../src/ir/dominators_test.mbt), [`../../../src/ir/postdominators_test.mbt`](../../../src/ir/postdominators_test.mbt), [`../../../src/ir/loop_info_test.mbt`](../../../src/ir/loop_info_test.mbt), [`../../../src/ir/use_def_test.mbt`](../../../src/ir/use_def_test.mbt), [`../../../src/ir/liveness_test.mbt`](../../../src/ir/liveness_test.mbt), [`../../../src/ir/effects_test.mbt`](../../../src/ir/effects_test.mbt), [`../../../src/ir/ssa_policy_test.mbt`](../../../src/ir/ssa_policy_test.mbt), [`../../../src/ir/ssa_local_test.mbt`](../../../src/ir/ssa_local_test.mbt), [`../../../src/ir/ssa_destroy_test.mbt`](../../../src/ir/ssa_destroy_test.mbt), [`../../../src/ir/analysis_cache_test.mbt`](../../../src/ir/analysis_cache_test.mbt)
 - Shared pass helpers and trace golden: [`../../../src/passes/pass_test_helpers.mbt`](../../../src/passes/pass_test_helpers.mbt), [`../../../src/passes/trace_golden_test.mbt`](../../../src/passes/trace_golden_test.mbt)
+
+## P00 direct and runtime coverage — October 7, 2026
+
+The P00 fixtures cover virtual typed entry in block/loop/if/try/try_table,
+source access ordinals after unreachable elision, partial tuple prefixes,
+carried tee ordering before escaping branches, protected-call local writes,
+and exact-once SSA operand actions. Assertions use fields, opcodes, graph edges,
+and encoded modules. Synthetic tuple-lane and catch-hub timing tests remain
+`#skip` in the default suite and run in the dedicated native performance lane.
+
+Dispatcher regressions accompany pass-local fixtures. The existing dedicated
+P00 runtime runner checks original/current/v133 execution and forced-HOT capture
+modes, including normal and trap-first event order. Full aggregate fuzz and
+release CI/coverage gates remain separate from these bounded checks.
+
+Evidence: [hot_virtual_entry_access_wbtest.mbt](../../../src/ir/hot_virtual_entry_access_wbtest.mbt), [hot_prefix_results_wbtest.mbt](../../../src/ir/hot_prefix_results_wbtest.mbt), [hot_source_order_escape_wbtest.mbt](../../../src/ir/hot_source_order_escape_wbtest.mbt), [cfg_caught_calls_wbtest.mbt](../../../src/ir/cfg_caught_calls_wbtest.mbt), [ssa_local_test.mbt](../../../src/ir/ssa_local_test.mbt), [p00-correctness-runtime.ts](../../../scripts/test/p00-correctness-runtime.ts). See the [current checkpoint](../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.

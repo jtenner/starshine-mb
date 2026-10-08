@@ -6340,6 +6340,8 @@ fn validate_invalid_binary_module_with_overwide_name_subsection_size_uleb() -> B
 
 ///|
 fn validate_invalid_binary_module_with_invalid_name_subsection_id_byte() -> Bytes {
+  // A known module-name subsection requires a name payload. Unknown ids are
+  // valid optional extensions, so an empty unknown subsection is not invalid.
   Bytes::from_array([
     (0x00).to_byte(),
     (0x61).to_byte(),
@@ -6356,7 +6358,7 @@ fn validate_invalid_binary_module_with_invalid_name_subsection_id_byte() -> Byte
     (0x61).to_byte(),
     (0x6d).to_byte(),
     (0x65).to_byte(),
-    (0x0c).to_byte(),
+    (0x00).to_byte(),
     (0x00).to_byte(),
   ])
 }

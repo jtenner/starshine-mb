@@ -240,7 +240,7 @@ test "hot lower live repro keeps call result spills behind mixed-typed call oper
     #|    call $callee
     #|    local.set 4
     #|    local.get 4
-    #|    i64.load offset=8 align=1))
+    #|    i64.load offset=8 align=1)
     #|)
   let fixture = ir_test_build_hot_from_wat(source)
   let lowered = hot_lower_func(fixture.hot_func)

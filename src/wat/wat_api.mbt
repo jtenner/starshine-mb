@@ -303,8 +303,8 @@ fn lib_instruction_to_wat(instr : @lib.Instruction) -> Result[String, String] {
     @lib.LocalTee(idx) => Ok("(local.tee \{lib_local_idx_to_uint(idx)})")
     @lib.I32Const(@lib.I32(v)) => Ok("(i32.const \{v})")
     @lib.I64Const(@lib.I64(v)) => Ok("(i64.const \{v})")
-    @lib.F32Const(@lib.F32(v)) => Ok("(f32.const \{v})")
-    @lib.F64Const(@lib.F64(v)) => Ok("(f64.const \{v})")
+    @lib.F32Const(@lib.F32(v)) => Ok("(f32.const \{lib_f32_to_wat(v)})")
+    @lib.F64Const(@lib.F64(v)) => Ok("(f64.const \{lib_f64_to_wat(v)})")
     @lib.I32Eqz => Ok("i32.eqz")
     @lib.I32Eq => Ok("i32.eq")
     @lib.I32Ne => Ok("i32.ne")
@@ -509,6 +509,44 @@ fn lib_export_to_wat(export_ : @lib.Export) -> Result[String, String] {
       )
     _ => Err("lib_module_to_wat does not yet print non-function exports")
   }
+}
+
+///|
+fn lib_f32_to_wat(value : Float) -> String {
+  let bits = value.reinterpret_as_int().reinterpret_as_uint()
+  let sign = if (bits & 0x80000000U) != 0U { "-" } else { "" }
+  let magnitude = bits & 0x7fffffffU
+  if magnitude >= 0x7f800000U {
+    let payload = magnitude & 0x007fffffU
+    return if payload == 0U {
+      "\{sign}inf"
+    } else {
+      "\{sign}nan:0x\{payload.to_string(radix=16)}"
+    }
+  }
+  if magnitude == 0U {
+    return "\{sign}0"
+  }
+  value.to_string()
+}
+
+///|
+fn lib_f64_to_wat(value : Double) -> String {
+  let bits = value.reinterpret_as_int64().reinterpret_as_uint64()
+  let sign = if (bits & 0x8000000000000000UL) != 0UL { "-" } else { "" }
+  let magnitude = bits & 0x7fffffffffffffffUL
+  if magnitude >= 0x7ff0000000000000UL {
+    let payload = magnitude & 0x000fffffffffffffUL
+    return if payload == 0UL {
+      "\{sign}inf"
+    } else {
+      "\{sign}nan:0x\{payload.to_string(radix=16)}"
+    }
+  }
+  if magnitude == 0UL {
+    return "\{sign}0"
+  }
+  value.to_string()
 }
 
 ///|

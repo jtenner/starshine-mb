@@ -414,6 +414,22 @@ test "module_to_wast preserves rec groups with gc type defs" {
 test "wast_to_module malformed fixtures return targeted parse diagnostics" {
   let fixtures : Array[(String, String, String, String)] = [
     (
+      "invalid i32 constant", "(module (func (result i32) i32.const banana))", "expected integer literal",
+      "i32-const-fixture.wast",
+    ),
+    (
+      "invalid i64 constant", "(module (func (result i64) i64.const banana))", "expected integer literal",
+      "i64-const-fixture.wast",
+    ),
+    (
+      "invalid f32 constant", "(module (func (result f32) f32.const banana))", "expected numeric literal",
+      "f32-const-fixture.wast",
+    ),
+    (
+      "invalid f64 constant", "(module (func (result f64) f64.const banana))", "expected numeric literal",
+      "f64-const-fixture.wast",
+    ),
+    (
       "unknown module field", "(module (oops))", "expected module field", "field-fixture.wast",
     ),
     (

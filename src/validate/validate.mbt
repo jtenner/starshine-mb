@@ -591,15 +591,38 @@ pub impl Validate for StorageType with fn validate(self, env) {
 }
 
 ///|
+fn validate_rectype_base(rt : RecType, env : Env) -> Int {
+  let group = match env.rec_stack.get(env.rec_stack.length() - 1) {
+    Some(group) => group
+    None => return env.global_types.length()
+  }
+  let already_scoped = match rt {
+    SingleRecType(st) => group.length() == 1 && physical_equal(group[0], st)
+    GroupRecType(sts) => physical_equal(group, sts)
+  }
+  if !already_scoped {
+    return env.global_types.length()
+  }
+  match suffix_start_index(env.global_types.length(), group.length()) {
+    Some(base) => base
+    None => env.global_types.length()
+  }
+}
+
+///|
 pub impl Validate for RecType with fn validate(self, env) {
   let sts = match self {
     SingleRecType(st) => [st]
     GroupRecType(sts) => sts
   }
+  let base = validate_rectype_base(self, env)
+  if validate_rectype_parent_order(sts, base) is Err(error) {
+    return Err(error)
+  }
   if Validate::validate(sts, env) is Err(t) {
     return Err(t)
   }
-  validate_descriptor_metadata_group(sts, env)
+  validate_descriptor_metadata_group(sts, env, base)
 }
 
 ///|
@@ -637,67 +660,39 @@ fn descriptor_target_lookup_subtype(
 }
 
 ///|
-fn validate_rectype_super_cycle_visit(
+fn validate_rectype_parent_order(
   sts : Array[SubType],
   base : Int,
-  idx : Int,
-  colors : Array[Int],
-) -> Bool {
-  match colors.get(idx) {
-    Some(1) => return true
-    Some(2) => return false
-    _ => ()
-  }
-  colors.set(idx, 1)
-  match sts[idx] {
-    SubType(_, supers, _, _) =>
-      for super_idx in supers {
-        let super_abs = match
-          descriptor_target_absolute_index(super_idx, base, sts.length()) {
-          Some(super_abs) => super_abs
-          None => continue
+) -> Result[Unit, String] {
+  for i in 0..<sts.length() {
+    match sts[i] {
+      SubType(_, supers, _, _) => {
+        if supers.length() > 1 {
+          return Err("subtype must have at most one supertype")
         }
-        match group_member_relative_index(base, sts.length(), super_abs) {
-          Some(super_rel) =>
-            if validate_rectype_super_cycle_visit(sts, base, super_rel, colors) {
-              return true
-            }
-          None => ()
+        for super_idx in supers {
+          let parent = match
+            descriptor_target_absolute_index(super_idx, base, sts.length()) {
+            Some(parent) => parent
+            None => return Err("Invalid subtype")
+          }
+          if parent < 0 || parent >= base + i {
+            return Err("supertype must be previously defined")
+          }
         }
       }
-    _ => ()
-  }
-  colors.set(idx, 2)
-  false
-}
-
-///|
-fn validate_rectype_has_super_cycle(sts : Array[SubType], base : Int) -> Bool {
-  let colors = Array::make(sts.length(), 0)
-  for i in 0..<sts.length() {
-    if validate_rectype_super_cycle_visit(sts, base, i, colors) {
-      return true
+      _ => ()
     }
   }
-  false
+  Ok(())
 }
 
 ///|
 fn validate_descriptor_metadata_group(
   sts : Array[SubType],
   env : Env,
+  base : Int,
 ) -> Result[Unit, String] {
-  // When the current rectype is already appended to `env`, recover its suffix
-  // start. Standalone `RecType` validation can also call this before append, in
-  // which case the current group starts immediately after the existing types.
-  let base = match suffix_start_index(env.global_types.length(), sts.length()) {
-    Some(base) => base
-    None => env.global_types.length()
-  }
-  if validate_rectype_has_super_cycle(sts, base) {
-    return Err("subtype supertype cycle")
-  }
-
   let mut i = 0
   while i < sts.length() {
     let st = sts[i]
@@ -835,24 +830,79 @@ fn validate_descriptor_metadata_group(
 }
 
 ///|
+fn validate_shared_val_type(vt : ValType, env : Env) -> Bool {
+  match vt {
+    RefTypeValType(rt) =>
+      heaptype_validation_domain(rt.get_heap_type(), env) >= 8
+    _ => true
+  }
+}
+
+///|
+fn validate_shared_comptype(ct : CompType, env : Env) -> Result[Unit, String] {
+  match ct {
+    StructCompType(fields) =>
+      for field in fields {
+        if !validate_shared_val_type(field.unpack(), env) {
+          return Err("shared composite type must contain shared types")
+        }
+      }
+    ArrayCompType(field) =>
+      if !validate_shared_val_type(field.unpack(), env) {
+        return Err("shared composite type must contain shared types")
+      }
+    FuncCompType(params, results) => {
+      for vt in params {
+        if !validate_shared_val_type(vt, env) {
+          return Err("shared composite type must contain shared types")
+        }
+      }
+      for vt in results {
+        if !validate_shared_val_type(vt, env) {
+          return Err("shared composite type must contain shared types")
+        }
+      }
+    }
+    ContCompType(func_type) =>
+      match env.resolve_subtype(func_type) {
+        Some(st) if st.metadata().is_shared() => ()
+        _ => return Err("shared continuation must use a shared function type")
+      }
+  }
+  Ok(())
+}
+
+///|
 pub impl Validate for SubType with fn validate(self, env) {
+  let ct = self.get_comptype()
+  if Validate::validate(ct, env) is Err(error) {
+    return Err(error)
+  }
+  let shared = self.metadata().is_shared()
+  if shared && validate_shared_comptype(ct, env) is Err(error) {
+    return Err(error)
+  }
   match self {
-    SubType(_, matches, _, ct) => {
-      for m in matches {
-        match Validate::validate(m, env) {
-          Ok(_) if env.resolve_subtype(m) is Some(t) &&
-            Match::matches(ct, t.get_comptype(), env) =>
-            match t {
-              SubType(true, _, _, _) => return Err("Invalid subtype")
-              _ => ()
-            }
-          Ok(_) => return Err("Invalid subtype")
-          Err(t) => return Err(t)
+    SubType(_, supers, _, _) => {
+      if supers.length() > 1 {
+        return Err("subtype must have at most one supertype")
+      }
+      for super_idx in supers {
+        let parent = match env.resolve_subtype(super_idx) {
+          Some(parent) => parent
+          None => return Err("Invalid subtype")
+        }
+        if parent is CompTypeSubType(_, _) || parent is SubType(true, _, _, _) {
+          return Err("Invalid subtype")
+        }
+        if shared != parent.metadata().is_shared() ||
+          !Match::matches(ct, parent.get_comptype(), env) {
+          return Err("Invalid subtype")
         }
       }
       Ok(())
     }
-    CompTypeSubType(_, ct) => Validate::validate(ct, env)
+    CompTypeSubType(_, _) => Ok(())
   }
 }
 
@@ -975,7 +1025,7 @@ pub impl Validate for MemType with fn validate(self, env) {
   }
   let max_pages = match lim {
     I32Limits(_, _) => 65536UL
-    I64Limits(_, _) => 18446744073709551615UL
+    I64Limits(_, _) => 281474976710656UL
   }
   ValidateMax::validate_max(lim, env, max_pages)
 }
@@ -984,7 +1034,13 @@ pub impl Validate for MemType with fn validate(self, env) {
 pub impl Validate for TableType with fn validate(self, env) {
   let TableType(rt, lim) = self
   match Validate::validate(rt, env) {
-    Ok(_) => ValidateMax::validate_max(lim, env, 4294967295)
+    Ok(_) => {
+      let max_elements = match lim {
+        I32Limits(_, _) => 4294967295UL
+        I64Limits(_, _) => 18446744073709551615UL
+      }
+      ValidateMax::validate_max(lim, env, max_elements)
+    }
     Err(t) => Err(t)
   }
 }
@@ -10994,7 +11050,7 @@ test "validate_module rejects uninitialized non-defaultable body local reads" {
 
 ///|
 test "validate_module rejects direct block-return non-defaultable unreachable-tail local get" {
-  let parent_type = RecType::new(SubType::comp_type(CompType::struct_([])))
+  let parent_type = RecType::new(SubType::new(false, [], CompType::struct_([])))
   let child_type = RecType::new(
     SubType::new(false, [TypeIdx::new(0U)], CompType::struct_([])),
   )

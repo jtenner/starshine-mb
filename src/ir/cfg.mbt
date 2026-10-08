@@ -407,6 +407,7 @@ fn cfg_builder_region_segments(
   builder : CfgBuilder,
   func : HotFunc,
   region_ref : HotRegionRef,
+  handler_target? : BlockId? = None,
 ) -> CfgRegionSegments {
   let segments = CfgRegionSegments::new()
   let region_holder = cfg_builder_region_holder(region_ref)
@@ -470,12 +471,12 @@ fn cfg_builder_region_segments(
               facts,
             ) {
             cfg_builder_collect_operand_nodes(
-              func, dependency, slot, seen, ordered_nodes, root_slots,
+              builder, func, dependency, slot, seen, ordered_nodes, root_slots,
             )
           }
         }
         cfg_builder_collect_operand_nodes(
-          func, root_id, slot, seen, ordered_nodes, root_slots,
+          builder, func, root_id, slot, seen, ordered_nodes, root_slots,
         )
       }
       None => {
@@ -490,7 +491,15 @@ fn cfg_builder_region_segments(
     while end < ordered_nodes.length() {
       let previous = ordered_nodes[end - 1]
       let previous_op = hot_node_get(func, previous).op
-      if cfg_op_is_terminator(previous_op) {
+      if cfg_op_is_terminator(previous_op) ||
+        (
+          handler_target is Some(_) &&
+          (
+            previous_op is HotOp::Call ||
+            previous_op is HotOp::CallIndirect ||
+            previous_op is HotOp::CallRef
+          )
+        ) {
         break
       }
       let next = ordered_nodes[end]
@@ -534,7 +543,179 @@ fn cfg_builder_region_segments(
 }
 
 ///|
+// Repeated entry evaluations can share one canonical CFG owner only when they
+// are straight-line. Keep branching, caught-call and label scopes on their
+// existing structured paths; do not invent a loop to approximate repetition.
+fn cfg_repeat_entry_is_straight_line(
+  func : HotFunc,
+  root : NodeId,
+  seen : @set.Set[NodeId],
+) -> Bool {
+  let work = [root]
+  while !work.is_empty() {
+    let id = work.pop().unwrap()
+    if id < 0 || seen.contains(id) {
+      continue
+    }
+    seen.add(id)
+    let node = hot_node_get(func, id)
+    if (node.flags & (HOT_FLAG_CALL | HOT_FLAG_BRANCH | HOT_FLAG_TERMINATOR)) !=
+      0U ||
+      (hot_is_control_node(func, id) && node.op != HotOp::Block) {
+      return false
+    }
+    // Entry-bearing blocks can forward an earlier captured stack value. That
+    // value needs its existing structured ownership, rather than replay here.
+    if node.op == HotOp::Block && node.imm1 > 0 {
+      return false
+    }
+    for child in hot_child_span(func, id) {
+      work.push(child)
+    }
+  }
+  true
+}
+
+///|
+fn cfg_builder_collect_inline_entry(
+  builder : CfgBuilder,
+  func : HotFunc,
+  node_id : NodeId,
+  root_slot : Int,
+  occurrence_seen : @set.Set[NodeId],
+  nodes : Array[NodeId],
+  root_slots : Array[Int],
+) -> Unit {
+  if node_id < 0 || occurrence_seen.contains(node_id) {
+    return
+  }
+  occurrence_seen.add(node_id)
+  if builder.operand_seen is Some(seen) {
+    // Body consumers forward these already-produced lanes. They must not
+    // replay the producer after the loop label is entered.
+    seen[node_id] = true
+  }
+  let node = hot_node_get(func, node_id)
+  if node.op == HotOp::Block {
+    for slot in 0..<node.imm1 {
+      cfg_builder_collect_inline_entry(
+        builder,
+        func,
+        hot_child_get(func, node_id, slot),
+        root_slot,
+        occurrence_seen,
+        nodes,
+        root_slots,
+      )
+    }
+    let body = hot_region_body_ref(func, node_id)
+    let count = hot_region_root_count(func, body)
+    let roots : Array[NodeId] = []
+    for slot in 0..<count {
+      roots.push(hot_region_get(func, body, slot))
+    }
+    let facts = if count > 1 {
+      match builder.source_order {
+        Some(facts) => Some(facts)
+        None => {
+          let facts = HotSourceOrderFacts::new(func)
+          builder.source_order = Some(facts)
+          Some(facts)
+        }
+      }
+    } else {
+      None
+    }
+    let suffix_minima = match facts {
+      Some(facts) => hot_source_order_future_suffix_minima(func, roots, facts)
+      None => None
+    }
+    for slot in 0..<count {
+      let root = roots[slot]
+      if slot + 1 < count && facts is Some(facts) {
+        for
+          dependency in hot_source_order_preceding_dependencies(
+            func,
+            root,
+            roots,
+            slot + 1,
+            suffix_minima,
+            facts,
+          ) {
+          cfg_builder_collect_inline_entry(
+            builder, func, dependency, root_slot, occurrence_seen, nodes, root_slots,
+          )
+        }
+      }
+      cfg_builder_collect_inline_entry(
+        builder, func, root, root_slot, occurrence_seen, nodes, root_slots,
+      )
+    }
+    return
+  }
+  for index in 0..<node.child_count {
+    let slot = hot_child_evaluation_slot(node, index)
+    cfg_builder_collect_inline_entry(
+      builder,
+      func,
+      hot_child_get(func, node_id, slot),
+      root_slot,
+      occurrence_seen,
+      nodes,
+      root_slots,
+    )
+  }
+  nodes.push(node_id)
+  root_slots.push(root_slot)
+}
+
+///|
+fn cfg_builder_collect_loop_entries(
+  builder : CfgBuilder,
+  func : HotFunc,
+  node : HotNode,
+  root_slot : Int,
+  seen : Array[Bool],
+  nodes : Array[NodeId],
+  root_slots : Array[Int],
+) -> Unit {
+  let count = hot_label_branch_arity(func, node.imm0)
+  let mut slot = 0
+  while slot < count {
+    let producer = func.children[node.child_base + slot]
+    let mut end = slot + 1
+    while end < count && func.children[node.child_base + end] == producer {
+      end += 1
+    }
+    let span = hot_node_result_arity(func, producer).max(1)
+    let evaluations = (end - slot + span - 1) / span
+    if evaluations > 1 {
+      // Reuse only within this producer group. A wide earlier producer must
+      // not impose its retained set capacity on later small producers.
+      let occurrence_seen : @set.Set[NodeId] = @set.Set([])
+      if cfg_repeat_entry_is_straight_line(func, producer, occurrence_seen) {
+        // All actions remain in one prefix block. Reuse this sparse mark set
+        // for the proof and for every complete evaluation in this prefix.
+        for _ in 0..<evaluations {
+          occurrence_seen.clear()
+          cfg_builder_collect_inline_entry(
+            builder, func, producer, root_slot, occurrence_seen, nodes, root_slots,
+          )
+        }
+        slot = end
+        continue
+      }
+    }
+    cfg_builder_collect_operand_nodes(
+      builder, func, producer, root_slot, seen, nodes, root_slots,
+    )
+    slot = end
+  }
+}
+
+///|
 fn cfg_builder_collect_operand_nodes(
+  builder : CfgBuilder,
   func : HotFunc,
   node_id : NodeId,
   root_slot : Int,
@@ -549,10 +730,16 @@ fn cfg_builder_collect_operand_nodes(
   let node = hot_node_get(func, node_id)
   // The control header owns its condition and value operands. Its branch
   // regions are built separately with their actual control-flow edges.
+  if node.op == HotOp::Loop {
+    cfg_builder_collect_loop_entries(
+      builder, func, node, root_slot, seen, nodes, root_slots,
+    )
+  }
   for index = 0; index < node.child_count; index = index + 1 {
     let slot = hot_child_evaluation_slot(node, index)
     if !use_def_region_slot(node, slot) {
       cfg_builder_collect_operand_nodes(
+        builder,
         func,
         hot_child_get(func, node_id, slot),
         root_slot,
@@ -1087,6 +1274,28 @@ fn cfg_builder_process_block(
         cfg_builder_exception_target(builder, handler_target),
         CfgEdgeKind::ExceptionalEdge,
       )
+    HotOp::Call | HotOp::CallIndirect | HotOp::CallRef => {
+      // Argument writes precede this edge; result consumers belong to the
+      // normal continuation. Traps and tail calls are not caught calls.
+      if handler_target is Some(_) {
+        cfg_builder_add_edge(
+          builder,
+          current_block,
+          cfg_builder_exception_target(builder, handler_target),
+          CfgEdgeKind::ExceptionalEdge,
+        )
+      }
+      match next_block {
+        Some(block_id) =>
+          cfg_builder_add_edge(
+            builder,
+            current_block,
+            block_id,
+            CfgEdgeKind::FallthroughEdge,
+          )
+        None => exits.push(current_block)
+      }
+    }
     HotOp::Delegate =>
       for
         target in cfg_builder_exception_branch_targets(builder, func, last_node) {
@@ -1129,7 +1338,12 @@ fn cfg_builder_build_region(
   if hot_region_root_count(func, region_ref) == 0 {
     return cfg_builder_region_build_empty(builder, region_ref, force_entry)
   }
-  let segments = cfg_builder_region_segments(builder, func, region_ref)
+  let segments = cfg_builder_region_segments(
+    builder,
+    func,
+    region_ref,
+    handler_target~,
+  )
   if segments.length() == 0 {
     return cfg_builder_region_build_empty(builder, region_ref, force_entry)
   }
@@ -1140,6 +1354,109 @@ fn cfg_builder_build_region(
     )
   }
   { entry_block: Some(segments.block_id(0)), exit_blocks: exits, }
+}
+
+///|
+fn cfg_edge_kind_bit(kind : CfgEdgeKind) -> UInt {
+  match kind {
+    FallthroughEdge => 1U
+    BranchEdge => 2U
+    ReturnEdge => 4U
+    ExceptionalEdge => 8U
+    UnreachableExitEdge => 16U
+  }
+}
+
+///|
+fn cfg_indexed_edge_symmetry_error(cfg : HotCfg) -> String? {
+  let count = cfg.blocks.length()
+  let heads = Array::make(count, -1)
+  let mut edge_count = 0
+  for block in cfg.blocks {
+    let wide_source = block.succs.length() > 8
+    for edge in block.succs {
+      if edge.block < 0 || edge.block >= count {
+        return Some("cfg successor target must reference a valid block id")
+      }
+      if wide_source || cfg.blocks[edge.block].preds.length() > 8 {
+        edge_count += 1
+      }
+    }
+  }
+  let rows = Array::make(edge_count * 3, 0)
+  let mut next_row = 0
+  for source in 0..<count {
+    let successors = cfg.blocks[source].succs
+    let wide_source = successors.length() > 8
+    for edge in successors {
+      if !wide_source && cfg.blocks[edge.block].preds.length() <= 8 {
+        let mut found = false
+        for pred in cfg.blocks[edge.block].preds {
+          if pred.block == source && pred.kind == edge.kind {
+            found = true
+            break
+          }
+        }
+        if !found {
+          return Some("cfg successors and predecessors must stay symmetric")
+        }
+        continue
+      }
+      let row = next_row
+      rows[row] = source
+      rows[row + 1] = cfg_edge_kind_bit(edge.kind).reinterpret_as_int()
+      rows[row + 2] = heads[edge.block]
+      next_row += 3
+      heads[edge.block] = row
+    }
+  }
+  let masks = Array::make(count, 0U)
+  for destination in 0..<count {
+    let predecessors = cfg.blocks[destination].preds
+    let wide_destination = predecessors.length() > 8
+    for edge in predecessors {
+      let source = edge.block
+      if source < 0 || source >= count {
+        return Some("cfg predecessor source must reference a valid block id")
+      }
+      if !wide_destination && cfg.blocks[source].succs.length() <= 8 {
+        let mut found = false
+        for succ in cfg.blocks[source].succs {
+          if succ.block == destination && succ.kind == edge.kind {
+            found = true
+            break
+          }
+        }
+        if !found {
+          return Some("cfg predecessors and successors must stay symmetric")
+        }
+        continue
+      }
+      masks[source] = masks[source] | cfg_edge_kind_bit(edge.kind)
+    }
+    let mut row = heads[destination]
+    while row >= 0 {
+      let source = rows[row]
+      let bit = rows[row + 1].reinterpret_as_uint()
+      if (masks[source] & bit) == 0U {
+        return Some("cfg successors and predecessors must stay symmetric")
+      }
+      masks[source] = masks[source] | (bit << 5)
+      row = rows[row + 2]
+    }
+    for edge in predecessors {
+      if (wide_destination || cfg.blocks[edge.block].succs.length() > 8) &&
+        (masks[edge.block] & (cfg_edge_kind_bit(edge.kind) << 5)) == 0U {
+        return Some("cfg predecessors and successors must stay symmetric")
+      }
+    }
+    // Clear after all kinds for this destination have been checked. Duplicate
+    // source/kind pairs share one mask; clearing during verification loses it.
+    for edge in predecessors {
+      masks[edge.block] = 0U
+    }
+  }
+  None
 }
 
 ///|
@@ -1166,39 +1483,52 @@ fn cfg_verify(
   } else {
     None
   }
+  // Keep the allocation-free bounded scan for ordinary small-degree CFGs.
+  // Shared catch hubs need indexed symmetry checks rather than one scan of
+  // all incoming calls for each call edge.
+  let indexed_edges = cfg.blocks.any(fn(block) {
+    block.preds.length() > 8 || block.succs.length() > 8
+  })
+  if indexed_edges {
+    if cfg_indexed_edge_symmetry_error(cfg) is Some(error) {
+      abort(error)
+    }
+  }
   for block_id = 0; block_id < cfg.blocks.length(); block_id = block_id + 1 {
     let block = cfg.blocks[block_id]
     if block.id != block_id {
       abort("cfg block ids must match their storage index")
     }
-    for succ in block.succs {
-      if succ.block < 0 || succ.block >= cfg.blocks.length() {
-        abort("cfg successor target must reference a valid block id")
-      }
-      let mut found = false
-      for pred in cfg.blocks[succ.block].preds {
-        if pred.block == block_id && pred.kind == succ.kind {
-          found = true
-          break
+    if !indexed_edges {
+      for succ in block.succs {
+        if succ.block < 0 || succ.block >= cfg.blocks.length() {
+          abort("cfg successor target must reference a valid block id")
+        }
+        let mut found = false
+        for pred in cfg.blocks[succ.block].preds {
+          if pred.block == block_id && pred.kind == succ.kind {
+            found = true
+            break
+          }
+        }
+        if !found {
+          abort("cfg successors and predecessors must stay symmetric")
         }
       }
-      if !found {
-        abort("cfg successors and predecessors must stay symmetric")
-      }
-    }
-    for pred in block.preds {
-      if pred.block < 0 || pred.block >= cfg.blocks.length() {
-        abort("cfg predecessor source must reference a valid block id")
-      }
-      let mut found = false
-      for succ in cfg.blocks[pred.block].succs {
-        if succ.block == block_id && succ.kind == pred.kind {
-          found = true
-          break
+      for pred in block.preds {
+        if pred.block < 0 || pred.block >= cfg.blocks.length() {
+          abort("cfg predecessor source must reference a valid block id")
         }
-      }
-      if !found {
-        abort("cfg predecessors and successors must stay symmetric")
+        let mut found = false
+        for succ in cfg.blocks[pred.block].succs {
+          if succ.block == block_id && succ.kind == pred.kind {
+            found = true
+            break
+          }
+        }
+        if !found {
+          abort("cfg predecessors and successors must stay symmetric")
+        }
       }
     }
   }

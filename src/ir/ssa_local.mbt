@@ -433,6 +433,18 @@ fn ssa_local_visit_node(
       None => ()
     }
   }
+  ssa_local_visit_action(func, ssa, node_id, local_stacks, pushed_locals)
+}
+
+///|
+fn ssa_local_visit_action(
+  func : HotFunc,
+  ssa : HotLocalSsa,
+  node_id : NodeId,
+  local_stacks : Array[Array[SsaValueId]],
+  pushed_locals : Array[LocalId],
+) -> Unit {
+  let node = hot_node_get(func, node_id)
   match node.op {
     HotOp::LocalGet => {
       let value_id = ssa_local_current_value(local_stacks, node.imm0)
@@ -512,7 +524,13 @@ fn ssa_local_visit_block(
     pushed_locals.push(local_id)
   }
   for node_id in cfg_block_get(cfg, block_id).nodes {
-    ssa_local_visit_node(func, ssa, node_id, local_stacks, pushed_locals)
+    if cfg.operands_expanded {
+      // Expanded blocks already list operands in execution order. Recursing
+      // here would duplicate definitions and use records across block owners.
+      ssa_local_visit_action(func, ssa, node_id, local_stacks, pushed_locals)
+    } else {
+      ssa_local_visit_node(func, ssa, node_id, local_stacks, pushed_locals)
+    }
   }
   ssa_local_record_successor_phi_inputs(cfg, ssa, block_id, local_stacks)
   for child_block in dom.children[block_id] {

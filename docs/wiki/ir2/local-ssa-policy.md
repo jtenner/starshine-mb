@@ -1,7 +1,7 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-08
 sources:
   - ../../../src/ir/local_graph_read_flow_wbtest.mbt
   - ../binaryen/passes/ssa-nomerge/index.md
@@ -544,3 +544,73 @@ Sources: [implementation](../../../src/ir/local_graph.mbt),
 [original reference](../../../src/ir/local_graph_borrow_reference_wbtest.mbt),
 [native controls](../../../src/ir/local_graph_borrow_perf_wbtest.mbt), and
 [dispatcher fixture](../../../src/cmd/perf_local_flow_borrow_wbtest.mbt).
+
+## Pass-local expanded SSA — October 7, 2026
+
+This update supersedes root-only graph descriptions for the full SSA pass
+and the admitted SSA-nomerge path. Each builds one operand-expanded CFG locally;
+the revision-only shared analysis cache retains its existing graph contract.
+Expanded SSA renaming handles each listed node's local action once. It does
+not recursively rename a producer again at its consumer. Root-only clients
+retain the recursive walk.
+
+The dispatcher keeps escaping block writes and legacy Try accesses on canonical
+locals. This includes repeated body-local and parameter definitions. A forward
+scan stops a pending escape at a dominating root overwrite. If arms share one
+alias boundary, so one arm's writes do not reach the other arm's reads.
+
+Parameter If writes use separate instruction flags. Incoming writes still
+freshen and the existing If entry copy restores them. Earlier writes can also
+freshen when a later canonical write dominates them in the same straight-line
+segment. Calls and control exits split those segments. Pending candidates use
+two primitive integer rows; each candidate is marked once. The scan has linear
+work and O(locals + regions + instructions) scratch, with no per-write objects
+or local-by-region matrix. The scan scratch is released before rewriting.
+Legacy Try bodies and catches enter the loop read/write scans as well.
+
+The fixed input-local limit includes scratch types added by preceding stages.
+New types added during this rewrite do not expand that limit. Escape and loop
+masks use that input limit. Seen-write heuristics retain the original declaration
+limit; alias rows grow only when a source lane actually freshens. This avoids
+copying unused appended aliases into each control arm. Allocator index heuristics
+retain the original declaration limit. A loop records first reads directly in
+one integer row, without a new read bitset or a full-local scan per instruction.
+Each loop scan uses O(loop subtree + input locals) work. Branch write masks are
+collected once per arm. Nested loop scans and later-read heuristics still have
+separate costs; this is not a claim that the whole legacy freshener is linear.
+
+The [direct regressions](../../../src/passes/p00_scratch_escapes_wbtest.mbt)
+cover both write forms, parameters, If continuations, conditional exits,
+legacy catches and independent freshening. EH phi/copy placement remains open.
+
+Evidence: [ssa_local.mbt](../../../src/ir/ssa_local.mbt), [ssa_local_test.mbt](../../../src/ir/ssa_local_test.mbt), [ssa.mbt](../../../src/passes/ssa.mbt), [ssa_nomerge.mbt](../../../src/passes/ssa_nomerge.mbt), [pass_manager.mbt](../../../src/passes/pass_manager.mbt), [p00_flow_wbtest.mbt](../../../src/cmd/p00_flow_wbtest.mbt). See the [current checkpoint](../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.
+
+The direct branch-operand repair also preserves only operand writes that
+supply phi inputs in the same predecessor. Copies placed before a branch cannot
+read a fresh local defined by that branch condition. One operand bitset, work
+array, and phi-input scan retain independent local transformations. See
+[`ssa_nomerge.mbt`](../../../src/passes/ssa_nomerge.mbt) and
+[the direct regression](../../../src/passes/p00_ssa_branch_operand_wbtest.mbt).
+
+## Cache ownership and repeated entries
+
+`HotAnalysisCache` binds derived analyses to the physical root array of one
+function, as well as its revision. Reusing a cache for another function clears
+its prior analyses. Verification reports `InvalidAnalysisOwner` if the cache
+owner differs. The generated interface adds the owner field and this public
+error variant; exhaustive external error matches must handle it.
+
+Full SSA, SSA-nomerge, MergeLocals, and the affected cleanup routes retain a
+conservative boundary for repeated entry evaluation until their mutation
+contracts can place copies for each occurrence. Straight-line expanded local
+flow can still represent those evaluations.
+
+Tuple materialization keeps source-positioned capture stores and uses nullable
+reference storage where required. Later observable-prefix and source-local
+capture scans do not capture those stable reads again. Their original producers
+retain their effects and execution count.
+
+Sources: [cache](../../../src/ir/analysis_cache.mbt),
+[verifier](../../../src/ir/hot_verify.mbt),
+[lift](../../../src/ir/hot_lift.mbt), and
+[direct ownership/capture tests](../../../src/ir/mass_audit_ir_wbtest.mbt).

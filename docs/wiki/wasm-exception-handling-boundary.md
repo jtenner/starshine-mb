@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-10-07
 sources:
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../../src/lib/types.mbt
@@ -132,3 +132,28 @@ When changing code or docs around Exception Handling:
 - Binary tag/resource guide: [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md)
 - Validation phase and stack-polymorphism guides: [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md)
 - Current Starshine code: [`src/lib/types.mbt`](../../src/lib/types.mbt), [`src/wast/parser.mbt`](../../src/wast/parser.mbt), [`src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`src/binary/decode.mbt`](../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../src/binary/encode.mbt), [`src/validate/validate.mbt`](../../src/validate/validate.mbt), [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt)
+
+## Legacy rethrow label identity — October 7, 2026
+
+A raw legacy `rethrow` depth counts every enclosing control label. Its target
+must be an active catch label. An ordinary block, loop, if, or protected try
+label is not a catch target. The validator checks the unsigned bound before
+conversion and matches a shared catch-prefix scope. `LabelStack` now carries
+`LegacyCatchScope`; `Env::legacy_rethrow_catch_ordinal` exposes the checked
+translation to the HOT lift boundary. Ordinary control frames share ancestry.
+
+HOT stores a catch ordinal. Lowering maps it back to the current catch label,
+or uses the captured exception local and `throw_ref` when adapting a handler.
+DAE2 adaptation uses a borrowed frame stack with push/pop. Removing or adding
+raw control labels must also remap rethrows. Constant-if cleanup retains a
+same-type block when the selected body depends on the removed label. These
+rules preserve exception identity across nested controls and multiple handlers.
+
+Evidence: [env.mbt](../../src/validate/env.mbt), [typecheck.mbt](../../src/validate/typecheck.mbt), [p00_rethrow_wbtest.mbt](../../src/validate/p00_rethrow_wbtest.mbt), [p00_rethrow_wbtest.mbt](../../src/wast/p00_rethrow_wbtest.mbt), [p00_rethrow_depth_wbtest.mbt](../../src/ir/p00_rethrow_depth_wbtest.mbt), [p00_rethrow_wbtest.mbt](../../src/cmd/p00_rethrow_wbtest.mbt). See the [current checkpoint](tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.
+
+Synthetic catch rethrow discovery includes value operands and control input
+prefixes. A sparse scalar node/depth worklist visits shared dependencies once
+per catch context. A rethrow inside a local-set result block therefore forces
+exception capture instead of targeting a synthetic ordinary block.
+[Operand regressions](../../src/ir/p00_rethrow_operand_wbtest.mbt) check the
+capture local, catch opcode, nested ordinal and encoded validity.

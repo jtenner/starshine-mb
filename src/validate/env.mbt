@@ -2,11 +2,19 @@
 type Stack[T] = Array[T]
 
 ///|
+// Catch scopes share their ancestors. Ordinary control frames allocate no
+// catch rows and do not copy the enclosing catches.
+pub enum LegacyCatchScope {
+  CatchLabel(Int, LegacyCatchScope?)
+} derive(Hash, Debug)
+
+///|
 pub(all) struct LabelStack {
   values : Array[Array[ValType]]
   parents : Array[Int]
   mut head : Int
   mut len : Int
+  mut legacy_catches : LegacyCatchScope?
 } derive(Hash, Debug)
 
 ///|
@@ -24,7 +32,7 @@ pub impl Show for LabelStack with fn output(self, logger) {
 
 ///|
 pub fn LabelStack::new() -> LabelStack {
-  { values: [], parents: [], head: -1, len: 0, }
+  { values: [], parents: [], head: -1, len: 0, legacy_catches: None, }
 }
 
 ///|
@@ -35,7 +43,7 @@ pub fn LabelStack::from_labels(labels : Array[Array[ValType]]) -> LabelStack {
     parents.push(head)
     head = idx
   }
-  { values: labels, parents, head, len: labels.length(), }
+  { values: labels, parents, head, len: labels.length(), legacy_catches: None, }
 }
 
 ///|
@@ -45,6 +53,7 @@ pub fn LabelStack::copy(stack : LabelStack) -> LabelStack {
     parents: stack.parents,
     head: stack.head,
     len: stack.len,
+    legacy_catches: stack.legacy_catches,
   }
 }
 
@@ -256,7 +265,38 @@ pub fn Env::with_return_type(env : Env, rt : Array[ValType]?) -> Env {
 
 ///|
 pub fn Env::with_legacy_catch_depth(env : Env, depth : Int) -> Env {
-  Env::{ ..env, legacy_catch_depth: depth, }
+  let labels = env.labels.copy()
+  if depth > env.legacy_catch_depth {
+    labels.legacy_catches = Some(
+      LegacyCatchScope::CatchLabel(labels.length(), labels.legacy_catches),
+    )
+  } else {
+    for _ in depth..<env.legacy_catch_depth {
+      if labels.legacy_catches is Some(LegacyCatchScope::CatchLabel(_, parent)) {
+        labels.legacy_catches = parent
+      }
+    }
+  }
+  Env::{ ..env, labels, legacy_catch_depth: depth, }
+}
+
+///|
+pub fn Env::legacy_rethrow_catch_ordinal(env : Env, raw_depth : UInt) -> Int? {
+  let label_count = env.labels.length()
+  if raw_depth >= label_count.reinterpret_as_uint() {
+    return None
+  }
+  let target_prefix = label_count - raw_depth.reinterpret_as_int()
+  let mut scope = env.labels.legacy_catches
+  let mut ordinal = 0
+  while scope is Some(LegacyCatchScope::CatchLabel(prefix, parent)) {
+    if prefix == target_prefix {
+      return Some(ordinal)
+    }
+    ordinal += 1
+    scope = parent
+  }
+  None
 }
 
 ///|

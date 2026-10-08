@@ -30,22 +30,33 @@ test "initialization intersection preserves empty and asymmetric inputs" {
 }
 
 ///|
-test "if initialization merge isolates both branch states and retains definite writes" {
-  let env = empty_env().with_locals(
-    @lib.Locals::new([@lib.LocalRun::new(3U, @lib.ValType::i32())]),
+test "if exit restores entry initialization and later writes isolate all masks" {
+  let nonnull = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::func())),
   )
-  let entry = make_state(env, [])
-  let yes = tc_state_clone(entry)
-  let no = tc_state_clone(entry)
-  yes.initialized_locals[1] = false
-  no.initialized_locals[2] = false
+  let env = empty_env().with_locals(
+    Locals::from_types([ValType::i32(), nonnull, nonnull]),
+  )
+  let entry = TcState::{
+    ..make_state(env, []),
+    initialized_locals: [true, false, false],
+  }
+  let yes = tc_state_clone(entry).mark_local_initialized(LocalIdx::new(1U))
+  let no = tc_state_clone(entry).mark_local_initialized(LocalIdx::new(1U))
   let merged = tc_state_finish_if(entry, entry, yes, no, []).unwrap()
+  // Each arm writes local 1, but its initialization scope ends with the if.
+  assert_true(yes.initialized_locals[1])
+  assert_true(no.initialized_locals[1])
   assert_eq(merged.initialized_locals, [true, false, false])
-  let later = merged.mark_local_initialized(@lib.LocalIdx::new(1U))
-  assert_true(later.initialized_locals[1])
-  assert_false(yes.initialized_locals[1])
+  assert_true(
+    physical_equal(merged.initialized_locals, entry.initialized_locals),
+  )
+  let later = merged.mark_local_initialized(LocalIdx::new(2U))
+  assert_eq(later.initialized_locals, [true, false, true])
+  assert_false(yes.initialized_locals[2])
   assert_false(no.initialized_locals[2])
-  assert_eq(entry.initialized_locals, [true, true, true])
+  assert_eq(merged.initialized_locals, [true, false, false])
+  assert_eq(entry.initialized_locals, [true, false, false])
 }
 
 ///|

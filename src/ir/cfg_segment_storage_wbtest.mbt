@@ -51,11 +51,11 @@ fn cfg_segment_storage_reference(
             facts,
           ) {
           cfg_builder_collect_operand_nodes(
-            func, dependency, slot, seen, ordered_nodes, root_slots,
+            builder, func, dependency, slot, seen, ordered_nodes, root_slots,
           )
         }
         cfg_builder_collect_operand_nodes(
-          func, root_id, slot, seen, ordered_nodes, root_slots,
+          builder, func, root_id, slot, seen, ordered_nodes, root_slots,
         )
       }
       None => {

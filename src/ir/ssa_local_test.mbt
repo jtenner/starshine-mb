@@ -1,4 +1,82 @@
 ///|
+test "expanded local SSA visits each nested local action once" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let inner = hot_build_local_tee(func, 0, hot_build_const_i32(func, 7))
+  let outer = hot_build_local_set(func, 1, inner)
+  let get1 = hot_build_local_get(func, 1)
+  let get0 = hot_build_local_get(func, 0)
+  hot_root_append(func, outer)
+  hot_root_append(func, hot_build_drop(func, get1))
+  hot_root_append(func, hot_build_drop(func, get0))
+  let cfg = cfg_build(func, expand_operand_control=true)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let live = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, live, use_def)
+  @debug.assert_eq(ssa.value_origins.length(), 4)
+  @debug.assert_eq(
+    ssa_value_for_local_get(ssa, get1),
+    ssa_def_for_local_set(ssa, outer),
+  )
+  @debug.assert_eq(
+    ssa_value_for_local_get(ssa, get0),
+    ssa_def_for_local_set(ssa, inner),
+  )
+  for node in [get1, get0] {
+    let value = ssa_value_for_local_get(ssa, node)
+    let mut count = 0
+    for use_item in ssa_uses_of_value(ssa, value) {
+      if use_item is HotSsaUseOrigin::LocalGetUse(id) && id == node {
+        count = count + 1
+      }
+    }
+    @debug.assert_eq(count, 1)
+  }
+}
+
+///|
+test "expanded local SSA visits a condition-block write once before both arms" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let write = hot_build_local_set(func, 1, hot_build_const_i32(func, 4))
+  let condition = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [write, hot_build_local_get(func, 0)],
+  )
+  let then_get = hot_build_local_get(func, 1)
+  let else_get = hot_build_local_get(func, 1)
+  let owner = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    condition,
+    [then_get],
+    else_body=Some([else_get]),
+  )
+  let final_get = hot_build_local_get(func, 1)
+  hot_root_append(func, hot_build_drop(func, owner))
+  hot_root_append(func, hot_build_drop(func, final_get))
+  let cfg = cfg_build(func, expand_operand_control=true)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let live = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, live, use_def)
+  let value = ssa_def_for_local_set(ssa, write)
+  @debug.assert_eq(ssa.value_origins.length(), 3)
+  for get in [then_get, else_get, final_get] {
+    @debug.assert_eq(ssa_value_for_local_get(ssa, get), value)
+  }
+  @debug.assert_eq(ssa_uses_of_value(ssa, value).length(), 3)
+}
+
+///|
 fn ssa_local_find_phi_input(
   inputs : Array[HotSsaPhiInput],
   predecessor : BlockId,
@@ -1119,7 +1197,6 @@ test "ssa local build lets arm value-blocks read condition-written locals" {
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   let fixture = ir_test_build_hot_from_wat(source)
   let func = fixture.hot_func
   let pre_set = hot_root_get(func, 0)

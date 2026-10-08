@@ -1,7 +1,7 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-08-14
+last_reviewed: 2026-10-08
 sources:
   - https://webassembly.github.io/spec/core/syntax/instructions.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
@@ -206,3 +206,39 @@ The `try` header has ordinary fallthrough into the body region and an exceptiona
 - Exception/tag catch payload guide: [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md)
 - Tail-call WAST authoring guide: [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md)
 - Typed-function-reference boundary for `return_call_ref` versus ordinary `call_ref`: [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md)
+
+## Caught calls and expanded operands — October 7, 2026
+
+Expanded CFG construction now splits after `call`, `call_indirect`, and
+`call_ref` when an enclosing handler is active. Argument effects occur before
+the exceptional edge; result consumers occur on the normal continuation.
+CoalesceLocals, MergeLocals, full SSA, and the admitted SSA-nomerge path use the
+expanded graph. Tail calls keep their return edge because their exceptions
+unwind the caller's handlers. Conservative try-entry edges remain; they can
+retain extra SSA sources and are an open output-quality gap.
+
+Edge symmetry verification uses its allocation-free scan for degree at most
+eight. Wider graphs use primitive adjacency rows and source masks in O(B+E)
+work. Only pairs with a source outdegree or destination indegree above eight
+enter the index; other counterpart scans are bounded by eight. Scratch uses
+about 8 bytes per block plus 12 bytes per indexed successor and array headers.
+The check still validates all five edge kinds and duplicate set membership.
+
+Evidence: [cfg.mbt](../../../src/ir/cfg.mbt), [cfg_caught_calls_wbtest.mbt](../../../src/ir/cfg_caught_calls_wbtest.mbt), [cfg_edge_symmetry_wbtest.mbt](../../../src/ir/cfg_edge_symmetry_wbtest.mbt), [cfg_catch_edges_perf_wbtest.mbt](../../../src/ir/cfg_catch_edges_perf_wbtest.mbt). See the [current checkpoint](../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.
+
+## Repeated typed entry evaluation
+
+A tuple producer repeated as loop entry operands is evaluated once per complete
+tuple group. Expanded CFG flow records each straight-line evaluation as ordered
+actions in its canonical block. Local flow and use-def read those actions,
+rather than treating a node id as one execution. Complex repeated control and
+call occurrences still need a wider occurrence contract; guarded SSA and local
+cleanup consumers preserve those forms.
+
+Transient occurrence sets are reused only within the same producer group. The
+repeated-entry admission map is replaced after a large width reduction, so
+clearing retained capacity does not impose a wide scan on each narrow group.
+Source and direct fixtures: [CFG](../../../src/ir/cfg.mbt),
+[local flow](../../../src/ir/local_graph.mbt),
+[IR tests](../../../src/ir/mass_audit_ir_wbtest.mbt), and
+[consumer guards](../../../src/passes/mass_audit_ir_wbtest.mbt).

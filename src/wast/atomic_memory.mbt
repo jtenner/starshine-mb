@@ -297,7 +297,7 @@ fn register_memory_atomic_keywords(
 fn WastParser::parse_memory_atomic(
   self : WastParser,
   op : MemoryAtomicOp,
-) -> Instruction {
+) -> Instruction raise ParserError {
   let memory = self.try_parse_index()
   let order = match op {
     MemoryAtomicNotify | MemoryAtomicWait32 | MemoryAtomicWait64 => SeqCst

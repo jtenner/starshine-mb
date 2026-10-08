@@ -58,11 +58,7 @@ fn quote_wast_bytes(bytes : Bytes) -> String {
 
 ///|
 fn string_to_bytes_for_parser(s : String) -> Bytes {
-  let bytes = @buffer.new(size_hint=s.length())
-  for i = 0; i < s.length(); i = i + 1 {
-    bytes.write_byte(s[i].to_int().to_byte())
-  }
-  bytes.to_bytes()
+  @utf8.encode(s.to_string_view())
 }
 
 ///|
@@ -1309,7 +1305,16 @@ pub fn wast_to_module(
 ) -> Result[Module, String] {
   let lexer = WastLexer::new(string_to_bytes_for_parser(source), filename)
   let parser = WastParser::new(lexer)
-  Result::Ok(parser.parse_module()) catch {
+  try {
+    let module_ = parser.parse_module()
+    if !parser.check(Eof) {
+      raise ParserError::UnexpectedToken(
+        parser.current,
+        "expected end of input",
+      )
+    }
+    Result::Ok(module_)
+  } catch {
     ParserError::UnexpectedToken(tok, msg) =>
       Err(
         "\{msg} at \{tok.location.filename}:\{tok.location.line}:\{tok.location.first_column}",

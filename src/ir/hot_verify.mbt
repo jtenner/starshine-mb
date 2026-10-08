@@ -45,6 +45,7 @@ pub enum HotVerifyError {
   InvalidSsaType(SsaValueId, ValType, ValType)
   InvalidSsaUse(SsaValueId, HotSsaUseOrigin)
   InvalidSsaDominance(SsaValueId, BlockId, BlockId)
+  InvalidAnalysisOwner
   InvalidAnalysisRevision(HotAnalysis, Int, Int)
   InvalidAnalysisDependency(HotAnalysis, HotAnalysis)
 } derive(Eq, Debug)
@@ -205,6 +206,14 @@ fn hot_verify_branch_targets(
 
 ///|
 pub fn hot_verify_core(func : HotFunc) -> Result[Unit, HotVerifyError] {
+  hot_verify_core_impl(func)
+}
+
+///|
+fn hot_verify_core_impl(
+  func : HotFunc,
+  postorder? : Array[NodeId]? = None,
+) -> Result[Unit, HotVerifyError] {
   if !hot_verify_type_id_is_valid(func, hot_body_result_type(func)) {
     return Err(
       HotVerifyError::InvalidBodyResultType(hot_body_result_type(func)),
@@ -367,6 +376,317 @@ pub fn hot_verify_core(func : HotFunc) -> Result[Unit, HotVerifyError] {
     }
   }
 
+  hot_verify_child_graph(func, postorder)
+}
+
+///|
+// Label backedges are not child edges. The owned expression graph must remain
+// acyclic, including live detached nodes that later edits can reattach.
+fn hot_verify_child_graph(
+  func : HotFunc,
+  postorder : Array[NodeId]?,
+) -> Result[Unit, HotVerifyError] {
+  let marks = Array::make(hot_node_count(func), b'\x00')
+  let nodes : Array[NodeId] = []
+  let slots : Array[Int] = []
+  for start in 0..<hot_node_count(func) {
+    if !hot_node_is_live(func, start) || marks[start] != b'\x00' {
+      continue
+    }
+    marks[start] = b'\x01'
+    nodes.push(start)
+    slots.push(0)
+    while !nodes.is_empty() {
+      let top = nodes.length() - 1
+      let current = nodes[top]
+      let node = hot_node_get(func, current)
+      let slot = slots[top]
+      if slot == node.child_count {
+        marks[current] = b'\x02'
+        if postorder is Some(order) {
+          order.push(current)
+        }
+        ignore(nodes.pop())
+        ignore(slots.pop())
+        continue
+      }
+      slots[top] = slot + 1
+      let child = hot_child_get(func, current, slot)
+      if child == HOT_NONE_NODE {
+        continue
+      }
+      if marks[child] == b'\x01' {
+        return Err(HotVerifyError::InvalidChildRef(current, slot, child))
+      }
+      if marks[child] == b'\x00' {
+        marks[child] = b'\x01'
+        nodes.push(child)
+        slots.push(0)
+      }
+    }
+  }
+  Ok(())
+}
+
+///|
+priv struct HotVerifyLabelScopes {
+  parents : Array[LabelId]
+  depths : Array[Int]
+  levels : Int
+  mut jumps : Array[LabelId]?
+}
+
+///|
+fn HotVerifyLabelScopes::new(count : Int) -> HotVerifyLabelScopes {
+  let mut levels = 1
+  let mut size = count
+  while size > 1 {
+    levels += 1
+    size = size / 2 + size % 2
+  }
+  {
+    parents: Array::make(count, -1),
+    depths: Array::make(count, -1),
+    levels,
+    jumps: None,
+  }
+}
+
+///|
+// Ordinary trees need no jump storage. A shared node with different enclosing
+// scopes uses their nearest common scope, with bounded logarithmic merge work.
+fn HotVerifyLabelScopes::jump(
+  self : HotVerifyLabelScopes,
+  label : LabelId,
+  level : Int,
+) -> LabelId {
+  if label < 0 {
+    return -1
+  }
+  if level == 0 {
+    return self.parents[label]
+  }
+  let rows = match self.jumps {
+    Some(rows) => rows
+    None => {
+      let rows = Array::make(self.parents.length() * self.levels, -3)
+      self.jumps = Some(rows)
+      rows
+    }
+  }
+  let key = label * self.levels + level
+  if rows[key] == -3 {
+    let halfway = self.jump(label, level - 1)
+    rows[key] = self.jump(halfway, level - 1)
+  }
+  rows[key]
+}
+
+///|
+fn HotVerifyLabelScopes::common(
+  self : HotVerifyLabelScopes,
+  first : LabelId,
+  second : LabelId,
+) -> LabelId {
+  if first == second || first == -3 {
+    return second
+  }
+  if second == -3 {
+    return first
+  }
+  if first < 0 || second < 0 {
+    return -1
+  }
+  let mut left = first
+  let mut right = second
+  if self.depths[left] < self.depths[right] {
+    left = second
+    right = first
+  }
+  let mut difference = self.depths[left] - self.depths[right]
+  let mut level = 0
+  while difference > 0 {
+    if difference % 2 == 1 {
+      left = self.jump(left, level)
+    }
+    difference /= 2
+    level += 1
+  }
+  if left == right {
+    return left
+  }
+  for power = self.levels - 1; power >= 0; power = power - 1 {
+    let lhs = self.jump(left, power)
+    let rhs = self.jump(right, power)
+    if lhs != rhs {
+      left = lhs
+      right = rhs
+    }
+  }
+  self.parents[left]
+}
+
+///|
+fn hot_verify_scope_body_slot(
+  func : HotFunc,
+  node : HotNode,
+  slot : Int,
+) -> Bool {
+  match node.op {
+    HotOp::Block => slot >= node.imm1
+    HotOp::Loop => slot >= hot_label_branch_arity(func, node.imm0)
+    HotOp::If => slot == 1 || slot == 2
+    HotOp::Try | HotOp::TryTable => true
+    _ => false
+  }
+}
+
+///|
+fn hot_verify_branch_scopes(
+  func : HotFunc,
+  postorder : Array[NodeId],
+) -> Result[Unit, HotVerifyError] {
+  let contexts = Array::make(hot_node_count(func), -3)
+  for root in func.roots {
+    contexts[root] = -1
+  }
+  let scopes = HotVerifyLabelScopes::new(func.labels.length())
+  // Reverse child postorder processes every predecessor before a shared node.
+  // Its context is the intersection of its incoming lexical scope chains.
+  for index = postorder.length() - 1; index >= 0; index = index - 1 {
+    let node_id = postorder[index]
+    let context = contexts[node_id]
+    if context == -3 {
+      continue
+    }
+    let node = hot_node_get(func, node_id)
+    let label = hot_control_node_label(func, node_id)
+    let active = if label >= 0 &&
+      hot_label_kind(func, label) != HotLabelKind::RegionLabel {
+      scopes.parents[label] = context
+      scopes.depths[label] = if context < 0 {
+        1
+      } else {
+        scopes.depths[context] + 1
+      }
+      label
+    } else {
+      context
+    }
+    for slot in 0..<node.child_count {
+      let child = hot_child_get(func, node_id, slot)
+      if child < 0 {
+        continue
+      }
+      let next = if hot_verify_scope_body_slot(func, node, slot) {
+        active
+      } else {
+        context
+      }
+      contexts[child] = scopes.common(contexts[child], next)
+    }
+  }
+  // The scope tree is complete now. Euler ranges make all target checks O(1),
+  // including deep ordinary bodies with many branches to an outer label.
+  let count = func.labels.length()
+  let heads = Array::make(count + 1, -1)
+  let next = Array::make(count, -1)
+  for label in 0..<count {
+    if scopes.depths[label] >= 0 {
+      let parent = scopes.parents[label] + 1
+      next[label] = heads[parent]
+      heads[parent] = label
+    }
+  }
+  let starts = Array::make(count, -1)
+  let ends = Array::make(count, -1)
+  let stack : Array[Int] = []
+  let mut root = heads[0]
+  let mut clock = 0
+  while root >= 0 || !stack.is_empty() {
+    if stack.is_empty() {
+      stack.push(root)
+      root = next[root]
+    }
+    let item = stack.pop().unwrap()
+    if item < 0 {
+      ends[-item - 1] = clock
+      continue
+    }
+    starts[item] = clock
+    clock += 1
+    stack.push(-item - 1)
+    let mut child = heads[item + 1]
+    while child >= 0 {
+      stack.push(child)
+      child = next[child]
+    }
+  }
+  fn check(node_id : NodeId, target : LabelId) -> Result[Unit, HotVerifyError] {
+    if target == HOT_IMPLICIT_FUNCTION_LABEL {
+      return Ok(())
+    }
+    let context = contexts[node_id]
+    if hot_query_op(func, node_id) == HotOp::Delegate && context == target {
+      return Err(HotVerifyError::InvalidBranchTarget(node_id, target))
+    }
+    if context < 0 ||
+      starts[target] < 0 ||
+      starts[target] > starts[context] ||
+      ends[context] > ends[target] {
+      return Err(HotVerifyError::InvalidBranchTarget(node_id, target))
+    }
+    Ok(())
+  }
+  for node_id in postorder {
+    if contexts[node_id] == -3 {
+      continue
+    }
+    let node = hot_node_get(func, node_id)
+    match node.op {
+      HotOp::BrTable => {
+        for target in hot_branch_table_targets_for_node(func, node_id) {
+          match check(node_id, target) {
+            Ok(_) => ()
+            Err(err) => return Err(err)
+          }
+        }
+        match check(node_id, hot_branch_table_default_target(func, node.imm0)) {
+          Ok(_) => ()
+          Err(err) => return Err(err)
+        }
+      }
+      HotOp::Continuation =>
+        for target in hot_branch_table_targets(func, node.imm1) {
+          match check(node_id, target) {
+            Ok(_) => ()
+            Err(err) => return Err(err)
+          }
+        }
+      HotOp::TryTable =>
+        for arm in hot_catch_info_get(func, node.imm1).catches {
+          let target = match arm {
+            HotCatchArm::CatchArm(_, label)
+            | HotCatchArm::CatchRefArm(_, label)
+            | HotCatchArm::CatchAllArm(label)
+            | HotCatchArm::CatchAllRefArm(label) => label
+          }
+          // try_table catch targets are resolved in the enclosing scope,
+          // before the try_table's own label is pushed.
+          match check(node_id, target) {
+            Ok(_) => ()
+            Err(err) => return Err(err)
+          }
+        }
+      _ =>
+        if hot_branch_target(func, node_id) is Some(target) {
+          match check(node_id, target) {
+            Ok(_) => ()
+            Err(err) => return Err(err)
+          }
+        }
+    }
+  }
   Ok(())
 }
 
@@ -520,7 +840,24 @@ fn hot_verify_control_impl(
     Some(calls) => calls[0] = calls[0] + 1
     None => ()
   }
-  match hot_verify_core(func) {
+  let needs_scopes = func.nodes.any(fn(node) {
+    node.op is HotOp::Br ||
+    node.op is HotOp::BrIf ||
+    node.op is HotOp::BrTable ||
+    node.op is HotOp::BrOnNull ||
+    node.op is HotOp::BrOnNonNull ||
+    node.op is HotOp::BrOnCast ||
+    node.op is HotOp::BrOnCastFail ||
+    node.op is HotOp::Delegate ||
+    node.op is HotOp::Continuation ||
+    node.op is HotOp::TryTable
+  })
+  let order : Array[NodeId] = []
+  match
+    hot_verify_core_impl(
+      func,
+      postorder=if needs_scopes { Some(order) } else { None },
+    ) {
     Ok(_) => ()
     Err(err) => return Err(err)
   }
@@ -773,7 +1110,11 @@ fn hot_verify_control_impl(
       Err(err) => return Err(err)
     }
   }
-  Ok(())
+  if needs_scopes {
+    hot_verify_branch_scopes(func, order)
+  } else {
+    Ok(())
+  }
 }
 
 ///|
@@ -1660,6 +2001,11 @@ pub fn hot_verify_cached_analyses(
   func : HotFunc,
   cache : HotAnalysisCache,
 ) -> Result[Unit, HotVerifyError] {
+  match cache.owner_roots {
+    Some(roots) if !physical_equal(roots, func.roots) =>
+      return Err(HotVerifyError::InvalidAnalysisOwner)
+    _ => ()
+  }
   let revision = hot_revision_current(func)
   match cache.cfg {
     Some(entry) => {

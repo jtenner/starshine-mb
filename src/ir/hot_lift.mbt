@@ -2058,7 +2058,12 @@ fn hot_lift_impl_capture_before_local_access(
     while end < prefix_end && values[end] == value_id {
       end += 1
     }
-    if !roots.any(fn(root) {
+    if !hot_lift_impl_is_stable_capture(
+        func,
+        value_id,
+        label_frames.local_count,
+      ) &&
+      !roots.any(fn(root) {
         hot_lift_impl_value_contains_node(func, root, value_id)
       }) {
       // A consumed tuple lane already anchors its producer. Capture remaining
@@ -2089,6 +2094,27 @@ fn hot_lift_impl_capture_before_local_access(
     }
     idx = end
   }
+}
+
+///|
+// Original instructions cannot access body locals appended by this lift. Once
+// captured, their reads remain stable across all later source instructions.
+fn hot_lift_impl_is_stable_capture(
+  func : HotFunc,
+  node_id : NodeId,
+  source_local_count : Int,
+) -> Bool {
+  let node = hot_node_get(func, node_id)
+  if node.op == HotOp::LocalGet {
+    return node.imm0 >= source_local_count
+  }
+  if node.op == HotOp::Unary &&
+    node.child_count == 1 &&
+    hot_node_exact_instr(func, node_id) is Some(@lib.RefAsNonNull) {
+    let read = hot_node_get(func, hot_child_get(func, node_id, 0))
+    return read.op == HotOp::LocalGet && read.imm0 >= source_local_count
+  }
+  false
 }
 
 ///|
@@ -2302,6 +2328,7 @@ fn hot_lift_impl_lift_region(
   let concrete_values : Array[ValType] = hot_lift_impl_copy_val_types(
     initial_value_types,
   )
+  let mut materialized_prefix = 0
   for instr in instrs {
     let old_root_count = roots.length()
     let old_node_count = hot_node_count(func)
@@ -2350,50 +2377,100 @@ fn hot_lift_impl_lift_region(
           while end <= last && values[end] == producer {
             end += 1
           }
-          for lane = end - 1; lane >= slot; lane = lane - 1 {
-            let scratch = hot_append_body_local(func, concrete_values[lane])
-            roots.push(hot_build_local_set(func, scratch, producer))
-            values[lane] = hot_build_local_get(func, scratch)
+          // Generated capture reads already have a source-positioned store.
+          // Keep those stores and capture only the remaining pending producer.
+          if !hot_lift_impl_is_stable_capture(
+              func,
+              producer,
+              label_frames.local_count,
+            ) {
+            for lane = end - 1; lane >= slot; lane = lane - 1 {
+              let scratch = hot_append_body_local(func, concrete_values[lane])
+              roots.push(hot_build_local_set(func, scratch, producer))
+              values[lane] = hot_build_local_get(func, scratch)
+            }
           }
           slot = end
         }
         roots.append(following)
       }
     }
-    if label_frames.materialize_multi_values && values.length() > 1 {
-      let last = values.length() - 1
-      if values[last] == values[last - 1] {
-        // Consume complete tuple producers before a later expression can
-        // split their lanes across control regions or argument rewrites.
-        let mut slot = 0
+    if label_frames.materialize_multi_values {
+      // Instructions pop and replace a stack suffix. Repair only the boundary
+      // of the known stable prefix; do not rescan all earlier captured lanes.
+      materialized_prefix = materialized_prefix.min(values.length())
+      while materialized_prefix > 0 &&
+            !hot_lift_impl_is_stable_capture(
+              func,
+              values[materialized_prefix - 1],
+              label_frames.local_count,
+            ) {
+        materialized_prefix -= 1
+      }
+      if values.length() > 1 &&
+        values[values.length() - 1] == values[values.length() - 2] {
+        let mut slot = materialized_prefix
         while slot < values.length() {
           let producer = values[slot]
           let mut end = slot + 1
           while end < values.length() && values[end] == producer {
             end += 1
           }
-          for lane = end - 1; lane >= slot; lane = lane - 1 {
-            let scratch = hot_append_body_local(func, concrete_values[lane])
-            roots.push(hot_build_local_set(func, scratch, producer))
-            values[lane] = hot_build_local_get(func, scratch)
+          if !hot_lift_impl_is_stable_capture(
+              func,
+              producer,
+              label_frames.local_count,
+            ) {
+            for lane = end - 1; lane >= slot; lane = lane - 1 {
+              let original_type = concrete_values[lane]
+              let storage_type = match original_type {
+                @lib.RefTypeValType(ref_type) =>
+                  @lib.ValType::ref_type(ref_type.make_nullable())
+                _ => original_type
+              }
+              let scratch = hot_append_body_local(func, storage_type)
+              roots.push(hot_build_local_set(func, scratch, producer))
+              let read = hot_build_local_get(func, scratch)
+              values[lane] = match original_type {
+                @lib.RefTypeValType(ref_type) if ref_type.is_non_nullable() => {
+                  let checked = hot_build_unary(func, original_type, read)
+                  hot_node_exact_instr_set(
+                    func,
+                    checked,
+                    @lib.Instruction::ref_as_non_null(),
+                  )
+                  checked
+                }
+                _ => read
+              }
+            }
           }
           slot = end
         }
+        materialized_prefix = values.length()
       }
     }
   }
   // A region result can remain on the operand stack across later effects.
   // It has no later consumer to anchor that lifetime during lowering, so
   // retain its source position explicitly among the region roots.
+  let mut maximum_root = -1
+  for root in roots {
+    maximum_root = maximum_root.max(root)
+  }
   let needs_effect_orders = tc_state.reachable &&
-    values.any(fn(value) { roots.any(fn(root) { root > value }) })
+    values.any(fn(value) {
+      value < maximum_root &&
+      !hot_lift_impl_is_stable_capture(func, value, label_frames.local_count)
+    })
   for value in values {
     let mut insert_at = roots.length()
-    if hot_node_result_arity(func, value) > 0 &&
+    if needs_effect_orders &&
+      !hot_lift_impl_is_stable_capture(func, value, label_frames.local_count) &&
+      hot_node_result_arity(func, value) > 0 &&
       !roots.any(fn(root) {
         hot_lift_impl_value_contains_node(func, root, value)
-      }) &&
-      needs_effect_orders {
+      }) {
       for idx = 0; idx < roots.length(); idx = idx + 1 {
         let root = roots[idx]
         let order = hot_lift_impl_first_effect_order(
@@ -2416,40 +2493,48 @@ fn hot_lift_impl_lift_region(
 ///|
 // Fully validated dead bodies may have virtual inputs and no HOT region. Keep
 // source-local slots in source order even when none of their nodes materialize.
+fn hot_lift_impl_reserve_elided_instruction_accesses(
+  instr : Instruction,
+  frames : HotLiftLabelFrames,
+) -> Unit {
+  match instr {
+    Instruction::LocalGet(LocalIdx(index)) =>
+      frames.gets.push((index.reinterpret_as_int(), -1))
+    Instruction::LocalSet(LocalIdx(index))
+    | Instruction::LocalTee(LocalIdx(index)) =>
+      frames.writes.push((index.reinterpret_as_int(), -1))
+    Instruction::Block(_, Expr(nested))
+    | Instruction::Loop(_, Expr(nested))
+    | Instruction::TryTable(_, _, Expr(nested)) =>
+      hot_lift_impl_reserve_elided_accesses(nested, frames)
+    Instruction::If(_, yes, no) => {
+      hot_lift_impl_reserve_elided_accesses(yes, frames)
+      match no {
+        Some(nested) => hot_lift_impl_reserve_elided_accesses(nested, frames)
+        None => ()
+      }
+    }
+    Instruction::Try(_, Expr(nested), catches, _) => {
+      hot_lift_impl_reserve_elided_accesses(nested, frames)
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, Expr(nested))
+          | @lib.LegacyCatchAll(Expr(nested)) =>
+            hot_lift_impl_reserve_elided_accesses(nested, frames)
+        }
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
 fn hot_lift_impl_reserve_elided_accesses(
   body : Array[Instruction],
   frames : HotLiftLabelFrames,
 ) -> Unit {
   for instr in body {
-    match instr {
-      Instruction::LocalGet(LocalIdx(index)) =>
-        frames.gets.push((index.reinterpret_as_int(), -1))
-      Instruction::LocalSet(LocalIdx(index))
-      | Instruction::LocalTee(LocalIdx(index)) =>
-        frames.writes.push((index.reinterpret_as_int(), -1))
-      Instruction::Block(_, Expr(nested))
-      | Instruction::Loop(_, Expr(nested))
-      | Instruction::TryTable(_, _, Expr(nested)) =>
-        hot_lift_impl_reserve_elided_accesses(nested, frames)
-      Instruction::If(_, yes, no) => {
-        hot_lift_impl_reserve_elided_accesses(yes, frames)
-        match no {
-          Some(nested) => hot_lift_impl_reserve_elided_accesses(nested, frames)
-          None => ()
-        }
-      }
-      Instruction::Try(_, Expr(nested), catches, _) => {
-        hot_lift_impl_reserve_elided_accesses(nested, frames)
-        for catch_ in catches {
-          match catch_ {
-            @lib.LegacyCatch(_, Expr(nested))
-            | @lib.LegacyCatchAll(Expr(nested)) =>
-              hot_lift_impl_reserve_elided_accesses(nested, frames)
-          }
-        }
-      }
-      _ => ()
-    }
+    hot_lift_impl_reserve_elided_instruction_accesses(instr, frames)
   }
 }
 
@@ -2464,37 +2549,50 @@ fn hot_lift_impl_lift_control(
   values : Array[NodeId],
   concrete_values : Array[ValType],
 ) -> Result[TcState, HotLiftError] {
+  if tc_state.polymorphic {
+    let (block_type, condition_count) = match instr {
+      Instruction::Block(block_type, _)
+      | Instruction::Loop(block_type, _)
+      | Instruction::Try(block_type, _, _, _)
+      | Instruction::TryTable(block_type, _, _) => (block_type, 0)
+      Instruction::If(block_type, _, _) => (block_type, 1)
+      _ => return Err(HotLiftError::UnsupportedInstruction(instr.to_string()))
+    }
+    let (params, _) = match
+      hot_lift_impl_block_results(tc_state.env, block_type) {
+      Ok(types) => types
+      Err(err) => return Err(err)
+    }
+    if values.length() < params.length() + condition_count {
+      // Virtual inputs have no HOT producers. Validate every arm and catch
+      // before omitting the dead control; concrete operands still need checks.
+      let after_state = match Typecheck::typecheck(instr, tc_state) {
+        Ok(next) => next
+        Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
+      }
+      if label_frames.record_local_accesses {
+        hot_lift_impl_reserve_elided_instruction_accesses(instr, label_frames)
+      }
+      match
+        hot_lift_impl_pop_typed_values_for_instr(
+          instr,
+          values,
+          concrete_values,
+          values.length(),
+          "concrete control entry values",
+        ) {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
+      return Ok(after_state)
+    }
+  }
   match instr {
     Instruction::Block(block_type, body) => {
       let (params, results) = match
         hot_lift_impl_block_results(tc_state.env, block_type) {
         Ok(types) => types
         Err(err) => return Err(err)
-      }
-      if tc_state.polymorphic && values.length() < params.length() {
-        // Virtual bottom inputs have no concrete HOT producers. As with other
-        // unmaterializable instructions in a polymorphic frame, validate the
-        // complete instruction before eliding its unreachable computation.
-        // Concrete inputs and the child frame still receive all type checks.
-        let after_state = match Typecheck::typecheck(instr, tc_state) {
-          Ok(next) => next
-          Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
-        }
-        if label_frames.record_local_accesses {
-          hot_lift_impl_reserve_elided_accesses(body.0, label_frames)
-        }
-        match
-          hot_lift_impl_pop_typed_values_for_instr(
-            instr,
-            values,
-            concrete_values,
-            values.length(),
-            "concrete block entry values",
-          ) {
-          Ok(_) => ()
-          Err(err) => return Err(err)
-        }
-        return Ok(after_state)
       }
       let entry_state = match tc_state_pop_types(tc_state, params) {
         Ok(next) => next
@@ -3316,7 +3414,7 @@ fn hot_lift_impl_lift_instruction(
           func,
           HotOp::Rethrow,
           hot_type_void(func),
-          imm0=raw_depth.reinterpret_as_int(),
+          imm0=tc_state.env.legacy_rethrow_catch_ordinal(raw_depth).unwrap(),
         ),
       )
       values.clear()

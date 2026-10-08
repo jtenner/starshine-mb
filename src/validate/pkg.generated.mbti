@@ -341,6 +341,7 @@ pub fn Env::get_table_type(Self, @lib.TableIdx) -> @lib.TableType?
 pub fn Env::get_tag(Self, @lib.TagIdx) -> @lib.TagType?
 pub fn Env::has_data(Self, @lib.DataIdx) -> Bool
 pub fn Env::has_func(Self, @lib.FuncIdx) -> Bool
+pub fn Env::legacy_rethrow_catch_ordinal(Self, UInt) -> Int?
 pub fn Env::new() -> Self
 pub fn Env::push_data(Self, @lib.Data) -> Self
 pub fn Env::push_elem(Self, @lib.Elem) -> Self
@@ -1826,6 +1827,7 @@ pub(all) struct LabelStack {
   parents : Array[Int]
   mut head : Int
   mut len : Int
+  mut legacy_catches : LegacyCatchScope?
 } derive(Hash, @debug.Debug)
 pub fn LabelStack::copy(Self) -> Self
 pub fn LabelStack::from_labels(Array[Array[@lib.ValType]]) -> Self
@@ -1834,6 +1836,10 @@ pub fn LabelStack::length(Self) -> Int
 pub fn LabelStack::new() -> Self
 pub fn LabelStack::push(Self, Array[@lib.ValType]) -> Unit
 pub impl Show for LabelStack
+
+pub enum LegacyCatchScope {
+  CatchLabel(Int, LegacyCatchScope?)
+} derive(Hash, @debug.Debug)
 
 pub enum ProposalFeature {
   AcquireReleaseAtomics

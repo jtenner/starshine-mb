@@ -2323,7 +2323,7 @@ test "invalid binary FZG033 decodes name-section overwide subsection size as inv
 }
 
 ///|
-test "invalid binary FZG034 decodes invalid name subsection ids and order as invalid" {
+test "invalid binary FZG034 rejects a known name id without its payload and invalid order" {
   for
     strategy in [
       "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id",

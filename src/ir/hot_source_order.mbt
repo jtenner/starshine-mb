@@ -338,6 +338,11 @@ fn hot_source_order_preceding_dependencies(
     })
   }
   let selected : Array[NodeId] = []
+  let escapes = (
+      hot_node_flags(func, current_root) &
+      (HOT_FLAG_BRANCH | HOT_FLAG_TERMINATOR)
+    ) !=
+    0U
   for node_id in carried {
     if (
         anti_dependencies[node_id] &&
@@ -361,6 +366,9 @@ fn hot_source_order_preceding_dependencies(
         facts,
         before_access_order=facts.value_orders[node_id],
         access_before_order=Some(consumer_bounds[node_id]),
+        preserve_before_escape=escapes &&
+          anti_dependencies[node_id] &&
+          facts.value_orders[node_id] < facts.first_effect_orders[current_root],
       ) ||
       // A stack value can read a local before a later root overwrites it.
       // Preserve this anti-dependence as well as writes consumed by roots.

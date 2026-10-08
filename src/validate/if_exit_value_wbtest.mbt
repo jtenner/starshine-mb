@@ -107,7 +107,7 @@ test "finish if reports then failure before else and leaves both states intact" 
 }
 
 ///|
-test "finish if retains branch reachability initialization joins and shifted observations" {
+test "finish if retains branch reachability entry initialization and shifted observations" {
   let env = empty_env().with_locals(Locals::single(2U, ValType::i32()))
   let parent = TcState::{ ..make_state(env, []), reachable_escape_depths: [5], }
   let yes = TcState::{
@@ -125,7 +125,10 @@ test "finish if retains branch reachability initialization joins and shifted obs
   assert_true(out.reachable)
   assert_eq(out.escape, NoTcEscape)
   assert_eq(out.stack, [ValType::i32()])
-  assert_eq(out.initialized_locals, [true, false])
+  assert_eq(out.initialized_locals, [true, true])
+  assert_true(physical_equal(out.initialized_locals, parent.initialized_locals))
+  assert_eq(yes.initialized_locals, [true, false])
+  assert_eq(no.initialized_locals, [false, true])
   assert_eq(out.reachable_escape_depths, [5, 1, 3])
   assert_eq(yes.stack, [])
   assert_eq(no.stack, [])

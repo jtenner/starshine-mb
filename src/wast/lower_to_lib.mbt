@@ -1,6 +1,10 @@
 ///|
 priv struct WTLowerCtx {
   type_recs : Array[@lib.RecType]
+  flat_types : Array[@lib.SubType]
+  mut indexed_type_recs : Int
+  mut type_match_env : @validate.Env?
+  mut scoped_type_recs : Int
   type_ids : Map[String, UInt]
   func_ids : Map[String, UInt]
   table_ids : Map[String, UInt]
@@ -23,6 +27,10 @@ priv struct WTLowerCtx {
 fn wt_new_ctx() -> WTLowerCtx {
   WTLowerCtx::{
     type_recs: [],
+    flat_types: [],
+    indexed_type_recs: 0,
+    type_match_env: None,
+    scoped_type_recs: 0,
     type_ids: Map([]),
     func_ids: Map([]),
     table_ids: Map([]),
@@ -465,15 +473,76 @@ fn wt_type_group(
 }
 
 ///|
+fn wt_index_types(ctx : WTLowerCtx) -> Unit {
+  // Type records only append during lowering. Index each record once.
+  while ctx.indexed_type_recs < ctx.type_recs.length() {
+    match ctx.type_recs[ctx.indexed_type_recs] {
+      SingleRecType(st) => ctx.flat_types.push(st)
+      GroupRecType(sts) =>
+        for st in sts {
+          ctx.flat_types.push(st)
+        }
+    }
+    ctx.indexed_type_recs += 1
+  }
+}
+
+///|
 fn wt_flat_type_count(ctx : WTLowerCtx) -> UInt {
-  let mut count = 0U
-  for rec in ctx.type_recs {
-    match rec {
-      SingleRecType(_) => count += 1
-      GroupRecType(sts) => count += sts.length().reinterpret_as_uint()
+  wt_index_types(ctx)
+  ctx.flat_types.length().reinterpret_as_uint()
+}
+
+///|
+fn wt_type_match_env(ctx : WTLowerCtx) -> @validate.Env {
+  wt_index_types(ctx)
+  let env = match ctx.type_match_env {
+    Some(env) => env
+    None => {
+      let env = @validate.Env::new().with_types(ctx.flat_types)
+      ctx.type_match_env = Some(env)
+      env
     }
   }
-  count
+  // Canonical reference comparisons need group scopes. Allocate these only
+  // when distinct reference annotations need comparison.
+  while ctx.scoped_type_recs < ctx.type_recs.length() {
+    match ctx.type_recs[ctx.scoped_type_recs] {
+      SingleRecType(st) => env.rec_stack.push([st])
+      GroupRecType(sts) => env.rec_stack.push(sts)
+    }
+    ctx.scoped_type_recs += 1
+  }
+  env
+}
+
+///|
+fn wt_same_value_types(
+  ctx : WTLowerCtx,
+  declared : Array[@lib.ValType],
+  inline : Array[@lib.ValType],
+) -> Bool {
+  if declared.length() != inline.length() {
+    return false
+  }
+  for i = 0; i < declared.length(); i = i + 1 {
+    let a = declared[i]
+    let b = inline[i]
+    if a == b {
+      continue
+    }
+    match (a, b) {
+      (@lib.RefTypeValType(_), @lib.RefTypeValType(_)) => {
+        let env = wt_type_match_env(ctx)
+        if !@validate.Match::matches(a, b, env) ||
+          !@validate.Match::matches(b, a, env) {
+          return false
+        }
+      }
+      _ => return false
+    }
+  }
+  true
 }
 
 ///|
@@ -522,13 +591,42 @@ fn wt_resolve_named_or_num_index(
 ///|
 fn wt_resolve_type_use(ctx : WTLowerCtx, tu : TypeUse) -> Result[UInt, String] {
   match tu.type_index {
-    Some(idx) =>
-      wt_resolve_named_or_num_index(
-        idx,
-        ctx.type_ids,
-        ctx.type_recs.length().reinterpret_as_uint(),
-        "type",
-      )
+    Some(idx) => {
+      let resolved = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          wt_flat_type_count(ctx),
+          "type",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      // An omitted inline signature inherits the explicit function type.
+      if tu.func_type.params.length() == 0 && tu.func_type.results.length() == 0 {
+        return Ok(resolved)
+      }
+      let declared = match ctx.flat_types.get(resolved.reinterpret_as_int()) {
+        Some(st) => st.get_comptype()
+        None => return Err("invalid type index: \{resolved}")
+      }
+      let (params, results) = match wt_func_sig(ctx, tu.func_type) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      match declared {
+        FuncCompType(declared_params, declared_results) =>
+          if wt_same_value_types(ctx, declared_params, params) &&
+            wt_same_value_types(ctx, declared_results, results) {
+            Ok(resolved)
+          } else {
+            Err(
+              "inline function signature does not match explicit type: \{resolved}",
+            )
+          }
+        _ => Err("type index does not reference a function type: \{resolved}")
+      }
+    }
     None => {
       let (params, results) = match wt_func_sig(ctx, tu.func_type) {
         Ok(v) => v
@@ -551,45 +649,15 @@ fn wt_type_param_count(
   ctx : WTLowerCtx,
   type_idx : UInt,
 ) -> Result[UInt, String] {
-  let mut flat = 0U
-  for rec in ctx.type_recs {
-    match rec {
-      SingleRecType(st) =>
-        match st.get_comptype() {
-          FuncCompType(params, _) => {
-            if flat == type_idx {
-              return Ok(params.length().reinterpret_as_uint())
-            }
-            flat += 1
-          }
-          _ => {
-            if flat == type_idx {
-              return Err(
-                "type index does not reference a function type: \{type_idx}",
-              )
-            }
-            flat += 1
-          }
-        }
-      GroupRecType(sts) =>
-        for st in sts {
-          match st.get_comptype() {
-            FuncCompType(params, _) =>
-              if flat == type_idx {
-                return Ok(params.length().reinterpret_as_uint())
-              }
-            _ =>
-              if flat == type_idx {
-                return Err(
-                  "type index does not reference a function type: \{type_idx}",
-                )
-              }
-          }
-          flat += 1
-        }
-    }
+  wt_index_types(ctx)
+  match ctx.flat_types.get(type_idx.reinterpret_as_int()) {
+    Some(st) =>
+      match st.get_comptype() {
+        FuncCompType(params, _) => Ok(params.length().reinterpret_as_uint())
+        _ => Err("type index does not reference a function type: \{type_idx}")
+      }
+    None => Err("invalid type index: \{type_idx}")
   }
-  Err("invalid type index: \{type_idx}")
 }
 
 ///|
@@ -996,14 +1064,8 @@ fn wt_block_type(
     None => Ok(@lib.BlockType::void_())
     Some(tu) =>
       match tu.type_index {
-        Some(idx) => {
-          let ti = match
-            wt_resolve_named_or_num_index(
-              idx,
-              ctx.type_ids,
-              ctx.type_recs.length().reinterpret_as_uint(),
-              "type",
-            ) {
+        Some(_) => {
+          let ti = match wt_resolve_type_use(ctx, tu) {
             Ok(v) => v
             Err(e) => return Err(e)
           }
@@ -1454,8 +1516,13 @@ fn wt_load_store(op : Opcode, ma : MemArg) -> Result[@lib.Instruction, String] {
 }
 
 ///|
+priv enum WTLegacyCatchScope {
+  CatchLabel(Int, WTLegacyCatchScope?)
+}
+
+///|
 priv struct WTLegacyCtx {
-  catch_depth : UInt
+  catch_scope : WTLegacyCatchScope?
   enclosing_try_count : UInt
   try_labels : Array[String]
 }
@@ -1470,15 +1537,31 @@ fn wt_index_text(idx : Index) -> String {
 
 ///|
 fn wt_default_legacy_ctx() -> WTLegacyCtx {
-  { catch_depth: 0U, enclosing_try_count: 0U, try_labels: [], }
+  { catch_scope: None, enclosing_try_count: 0U, try_labels: [], }
 }
 
 ///|
-fn wt_legacy_rethrow_valid(idx : Index, legacy : WTLegacyCtx) -> Bool {
-  match idx {
-    Num(n) => n < legacy.catch_depth
-    Id(_) => false
+fn wt_legacy_rethrow_valid(
+  idx : Index,
+  legacy : WTLegacyCtx,
+  label_count : Int,
+) -> Bool {
+  let raw = match idx {
+    Num(raw) => raw
+    Id(_) => return false
   }
+  if raw >= label_count.reinterpret_as_uint() {
+    return false
+  }
+  let target = label_count - raw.reinterpret_as_int()
+  let mut scope = legacy.catch_scope
+  while scope is Some(WTLegacyCatchScope::CatchLabel(prefix, parent)) {
+    if prefix == target {
+      return true
+    }
+    scope = parent
+  }
+  false
 }
 
 ///|
@@ -1493,81 +1576,6 @@ fn wt_legacy_delegate_valid(idx : Index, legacy : WTLegacyCtx) -> Bool {
       }
       false
     }
-  }
-}
-
-///|
-fn wt_legacy_instrs_invalid_reason(
-  instrs : Array[Instruction],
-  legacy : WTLegacyCtx,
-) -> String? {
-  for instr in instrs {
-    match wt_legacy_instr_invalid_reason(instr, legacy) {
-      Some(reason) => return Some(reason)
-      None => ()
-    }
-  }
-  None
-}
-
-///|
-fn wt_legacy_instr_invalid_reason(
-  instr : Instruction,
-  legacy : WTLegacyCtx,
-) -> String? {
-  match instr {
-    Rethrow(idx) =>
-      if wt_legacy_rethrow_valid(idx, legacy) {
-        None
-      } else {
-        Some("invalid legacy rethrow label: \{wt_index_text(idx)}")
-      }
-    Block(_, body) | Loop(_, body) =>
-      wt_legacy_instrs_invalid_reason(body, legacy)
-    If(_, then_body, else_body) =>
-      match wt_legacy_instrs_invalid_reason(then_body, legacy) {
-        Some(reason) => Some(reason)
-        None => wt_legacy_instrs_invalid_reason(else_body, legacy)
-      }
-    TryTable(_, _, body) => wt_legacy_instrs_invalid_reason(body, legacy)
-    TryLegacy(bt, body, catches, delegate_target) => {
-      if delegate_target is Some(idx) {
-        if !wt_legacy_delegate_valid(idx, legacy) {
-          return Some("invalid legacy delegate label: \{wt_index_text(idx)}")
-        }
-      }
-      let nested_labels = legacy.try_labels.copy()
-      match bt.label {
-        Some(lbl) => nested_labels.push(lbl)
-        None => ()
-      }
-      let nested_base : WTLegacyCtx = {
-        catch_depth: legacy.catch_depth,
-        enclosing_try_count: legacy.enclosing_try_count + 1U,
-        try_labels: nested_labels,
-      }
-      match wt_legacy_instrs_invalid_reason(body, nested_base) {
-        Some(reason) => return Some(reason)
-        None => ()
-      }
-      for clause in catches {
-        match clause {
-          LegacyCatch(_, catch_body) | LegacyCatchAll(catch_body) => {
-            let catch_ctx : WTLegacyCtx = {
-              catch_depth: nested_base.catch_depth + 1U,
-              enclosing_try_count: nested_base.enclosing_try_count,
-              try_labels: nested_base.try_labels,
-            }
-            match wt_legacy_instrs_invalid_reason(catch_body, catch_ctx) {
-              Some(reason) => return Some(reason)
-              None => ()
-            }
-          }
-        }
-      }
-      None
-    }
-    _ => None
   }
 }
 
@@ -1603,13 +1611,16 @@ fn wt_legacy_try_to_lib(
   labels : Array[String?],
   legacy : WTLegacyCtx,
 ) -> Result[@lib.Instruction, String] {
+  if delegate_target is Some(idx) && !wt_legacy_delegate_valid(idx, legacy) {
+    return Err("invalid legacy delegate label: \{wt_index_text(idx)}")
+  }
   let try_labels = legacy.try_labels.copy()
   match bt.label {
     Some(label) => try_labels.push(label)
     None => ()
   }
   let nested_base : WTLegacyCtx = {
-    catch_depth: legacy.catch_depth,
+    catch_scope: legacy.catch_scope,
     enclosing_try_count: legacy.enclosing_try_count + 1U,
     try_labels,
   }
@@ -1623,7 +1634,12 @@ fn wt_legacy_try_to_lib(
   let lib_catches : Array[@lib.LegacyCatch] = []
   for clause in catches {
     let catch_ctx : WTLegacyCtx = {
-      catch_depth: nested_base.catch_depth + 1U,
+      catch_scope: Some(
+        WTLegacyCatchScope::CatchLabel(
+          next_labels.length(),
+          nested_base.catch_scope,
+        ),
+      ),
       enclosing_try_count: nested_base.enclosing_try_count,
       try_labels: nested_base.try_labels,
     }
@@ -1935,7 +1951,7 @@ fn wt_instr_to_lib(
     }
     ThrowRef => Ok(@lib.Instruction::throw_ref())
     Rethrow(idx) =>
-      if wt_legacy_rethrow_valid(idx, legacy) {
+      if wt_legacy_rethrow_valid(idx, legacy, labels.length()) {
         match idx {
           Num(depth) => Ok(@lib.Instruction::rethrow(@lib.LabelIdx::new(depth)))
           Id(_) => Err("named legacy rethrow labels are unsupported")
@@ -1944,10 +1960,6 @@ fn wt_instr_to_lib(
         Err("invalid legacy rethrow label: \{wt_index_text(idx)}")
       }
     TryLegacy(bt, body, catches, delegate_target) => {
-      match wt_legacy_instr_invalid_reason(instr, legacy) {
-        Some(reason) => return Err(reason)
-        None => ()
-      }
       let lib_bt = match wt_block_type(ctx, bt) {
         Ok(v) => v
         Err(e) => return Err(e)
@@ -6734,7 +6746,7 @@ test "wast_to_binary_module resolves try_table catch labels across nested numeri
     #|          (catch $e2 2)
     #|          (catch $e3 $inner)
     #|          (catch $e4 $outer)
-    #|          (throw $e0)))))))
+    #|          (throw $e0))))))
   let lowered = match wast_to_binary_module(src) {
     Ok(m) => m
     Err(e) =>

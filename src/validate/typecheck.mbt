@@ -884,11 +884,8 @@ pub fn tc_state_finish_block(
       polymorphic: outer.polymorphic,
       escape: outer.escape,
       reachable_escape_depths: outer.reachable_escape_depths,
-      initialized_locals: if base_reaches_merge {
-        body.initialized_locals
-      } else {
-        entry.initialized_locals
-      },
+      // Inner writes cannot initialize a local in the parent control frame.
+      initialized_locals: entry.initialized_locals,
     }.merge_child_reachable_escape_depths(body)
     return Ok(out.push_types(results))
   }
@@ -1007,16 +1004,6 @@ pub fn tc_state_finish_if(
   )
 
   if then_reach || else_reach {
-    let merged_initialized = if then_reach && else_reach {
-      tc_initialized_join(
-        st_then.initialized_locals,
-        st_else.initialized_locals,
-      )
-    } else if then_reach {
-      st_then.initialized_locals
-    } else {
-      st_else.initialized_locals
-    }
     let out = TcState::{
       env: st.env,
       stack: st1.stack,
@@ -1027,7 +1014,8 @@ pub fn tc_state_finish_if(
         st.reachable_escape_depths,
         merged_child_depths,
       ),
-      initialized_locals: merged_initialized,
+      // Each arm's initialization scope ends with the if control frame.
+      initialized_locals: st1.initialized_locals,
     }
     return Ok(out.push_types(results))
   }
@@ -1601,7 +1589,7 @@ fn typecheck_throw_ref(st : TcState) -> TcResult {
 ///|
 fn typecheck_rethrow(st : TcState, catch_depth : LabelIdx) -> TcResult {
   let LabelIdx(raw_depth) = catch_depth
-  if raw_depth.reinterpret_as_int() >= st.env.legacy_catch_depth {
+  if st.env.legacy_rethrow_catch_ordinal(raw_depth) is None {
     return Err("invalid legacy rethrow catch depth")
   }
   Ok(st.set_unreachable())
@@ -2292,7 +2280,7 @@ pub fn tc_state_finish_loop(
       polymorphic: st.polymorphic,
       escape: st.escape,
       reachable_escape_depths: st.reachable_escape_depths,
-      initialized_locals: st_body.initialized_locals,
+      initialized_locals: st1.initialized_locals,
     }.merge_child_reachable_escape_depths(st_body)
     return Ok(out.push_types(results))
   }
@@ -2330,7 +2318,7 @@ fn typecheck_ref_is_null(st : TcState) -> TcResult {
     Ok(pair) => pair
   }
   match v {
-    RefTypeValType(_) => Ok(st1.push1(ValType::i32()))
+    RefTypeValType(_) | BotValType => Ok(st1.push1(ValType::i32()))
     _ => Err("ref.is_null expects a reference type")
   }
 }
@@ -2417,12 +2405,12 @@ fn typecheck_ref_eq(st : TcState) -> TcResult {
     RefType::new(true, HeapType::shared_abs(AbsHeapType::eq())),
   )
   if (
-      Match::matches(left, unshared, st.env) &&
-      Match::matches(right, unshared, st.env)
+      (left is BotValType || Match::matches(left, unshared, st.env)) &&
+      (right is BotValType || Match::matches(right, unshared, st.env))
     ) ||
     (
-      Match::matches(left, shared, st.env) &&
-      Match::matches(right, shared, st.env)
+      (left is BotValType || Match::matches(left, shared, st.env)) &&
+      (right is BotValType || Match::matches(right, shared, st.env))
     ) {
     Ok(st2.push1(ValType::i32()))
   } else {
@@ -2453,20 +2441,9 @@ fn typecheck_ref_test_or_cast_types_compatible(
   operand : RefType,
   env : Env,
 ) -> Bool {
-  Match::matches(target, operand, env) ||
-  Match::matches(operand, target, env) ||
-  (
-    Match::matches(
-      target.get_heap_type(),
-      HeapType::abs(AbsHeapType::eq()),
-      env,
-    ) &&
-    Match::matches(
-      operand.get_heap_type(),
-      HeapType::abs(AbsHeapType::eq()),
-      env,
-    )
-  )
+  let target_domain = heaptype_validation_domain(target.get_heap_type(), env)
+  target_domain >= 0 &&
+  target_domain == heaptype_validation_domain(operand.get_heap_type(), env)
 }
 
 ///|
@@ -2480,17 +2457,16 @@ fn typecheck_ref_test(
   if Validate::validate(rt, st.env) is Err(t) {
     return Err("invalid ref.test target reftype: " + t)
   }
-  let (st1, v) = match st.pop1() {
+  let (st1, rt_in) = match st.pop_ref_or_bot() {
     Err(e) => return Err(e)
     Ok(pair) => pair
   }
-  let rt_in = match v {
-    RefTypeValType(r) => r
-    _ => return Err("ref.test expects a reference operand")
-  }
-
-  if !typecheck_ref_test_or_cast_types_compatible(rt, rt_in, st.env) {
-    return Err("ref.test target does not match operand type")
+  match rt_in {
+    Some(rt_in) =>
+      if !typecheck_ref_test_or_cast_types_compatible(rt, rt_in, st.env) {
+        return Err("ref.test target does not match operand type")
+      }
+    None => ()
   }
   Ok(st1.push1(ValType::i32()))
 }
@@ -2796,7 +2772,12 @@ fn typecheck_struct_new_default_desc(st : TcState, x : TypeIdx) -> TcResult {
 }
 
 ///|
-fn typecheck_struct_get(st : TcState, x : TypeIdx, i : U32) -> TcResult {
+fn typecheck_struct_get(
+  st : TcState,
+  x : TypeIdx,
+  i : U32,
+  atomic? : Bool = false,
+) -> TcResult {
   let fields = match st.env.resolve_struct_fields(x) {
     Err(e) => return Err(e)
     Ok(fs) => fs
@@ -2810,12 +2791,20 @@ fn typecheck_struct_get(st : TcState, x : TypeIdx, i : U32) -> TcResult {
       "struct.get used on packed field; use struct.get_s or struct.get_u",
     )
   }
+  let val_ty = if atomic {
+    match aggregate_atomic_value_type(stor, st.env, references=true) {
+      Ok(vt) => vt
+      Err(error) => return Err(error)
+    }
+  } else {
+    stor.unpack()
+  }
   let st1 = match
     st.pop_expect(ValType::ref_type(RefType::new(true, HeapType::new(x)))) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  Ok(st1.push1(stor.unpack()))
+  Ok(st1.push1(val_ty))
 }
 
 ///|
@@ -2852,7 +2841,7 @@ fn typecheck_struct_atomic_get(
   x : TypeIdx,
   i : U32,
 ) -> TcResult {
-  typecheck_struct_get(st, x, i)
+  typecheck_struct_get(st, x, i, atomic=true)
 }
 
 ///|
@@ -2876,21 +2865,76 @@ fn typecheck_struct_atomic_get_u(
 }
 
 ///|
-fn aggregate_atomic_value_type(stor : StorageType) -> Result[ValType, String] {
+fn aggregate_atomic_value_type(
+  stor : StorageType,
+  env : Env,
+  references? : Bool = false,
+  equality? : Bool = false,
+) -> Result[ValType, String] {
   if stor.is_packed() {
     return Err("aggregate atomic RMW/cmpxchg requires non-packed field")
   }
   let vt = stor.unpack()
   match vt {
     NumTypeValType(I32NumType) | NumTypeValType(I64NumType) => Ok(vt)
-    _ => Err("aggregate atomic RMW/cmpxchg requires i32 or i64 storage")
+    RefTypeValType(rt) if references => {
+      let domain = heaptype_validation_domain(rt.get_heap_type(), env)
+      if domain != 0 && domain != 8 {
+        return Err(
+          "aggregate atomic reference storage must be an anyref subtype",
+        )
+      }
+      if equality {
+        let eq = if domain == 8 {
+          HeapType::shared_abs(AbsHeapType::eq())
+        } else {
+          HeapType::abs(AbsHeapType::eq())
+        }
+        if !Match::matches(rt.get_heap_type(), eq, env) {
+          return Err("aggregate atomic cmpxchg requires an eqref subtype")
+        }
+      }
+      Ok(vt)
+    }
+    _ =>
+      Err("aggregate atomic storage requires i32, i64, or an allowed reference")
+  }
+}
+
+///|
+fn aggregate_atomic_store_type(
+  stor : StorageType,
+  env : Env,
+) -> Result[ValType, String] {
+  if stor.is_packed() {
+    Ok(ValType::i32())
+  } else {
+    aggregate_atomic_value_type(stor, env, references=true)
+  }
+}
+
+///|
+fn aggregate_atomic_expected_type(vt : ValType, env : Env) -> ValType {
+  match vt {
+    RefTypeValType(rt) =>
+      ValType::ref_type(
+        RefType::new(
+          true,
+          if heaptype_validation_domain(rt.get_heap_type(), env) == 8 {
+            HeapType::shared_abs(AbsHeapType::eq())
+          } else {
+            HeapType::abs(AbsHeapType::eq())
+          },
+        ),
+      )
+    _ => vt
   }
 }
 
 ///|
 fn typecheck_struct_atomic_rmw(
   st : TcState,
-  _op : @lib.AggregateAtomicRmwOp,
+  op : @lib.AggregateAtomicRmwOp,
   x : TypeIdx,
   i : U32,
 ) -> TcResult {
@@ -2906,7 +2950,12 @@ fn typecheck_struct_atomic_rmw(
     return Err("struct.atomic.rmw on immutable field")
   }
   let FieldType(stor, _) = ft
-  let val_ty = match aggregate_atomic_value_type(stor) {
+  let val_ty = match
+    aggregate_atomic_value_type(
+      stor,
+      st.env,
+      references=op == @lib.AggregateAtomicRmwOp::xchg(),
+    ) {
     Err(e) => return Err(e)
     Ok(vt) => vt
   }
@@ -2940,7 +2989,8 @@ fn typecheck_struct_atomic_cmpxchg(
     return Err("struct.atomic.rmw.cmpxchg on immutable field")
   }
   let FieldType(stor, _) = ft
-  let val_ty = match aggregate_atomic_value_type(stor) {
+  let val_ty = match
+    aggregate_atomic_value_type(stor, st.env, references=true, equality=true) {
     Err(e) => return Err(e)
     Ok(vt) => vt
   }
@@ -2948,7 +2998,8 @@ fn typecheck_struct_atomic_cmpxchg(
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  let st2 = match st1.pop_expect(val_ty) {
+  let st2 = match
+    st1.pop_expect(aggregate_atomic_expected_type(val_ty, st.env)) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
@@ -2961,7 +3012,12 @@ fn typecheck_struct_atomic_cmpxchg(
 }
 
 ///|
-fn typecheck_struct_set(st : TcState, x : TypeIdx, i : U32) -> TcResult {
+fn typecheck_struct_set(
+  st : TcState,
+  x : TypeIdx,
+  i : U32,
+  atomic? : Bool = false,
+) -> TcResult {
   let fields = match st.env.resolve_struct_fields(x) {
     Err(e) => return Err(e)
     Ok(fs) => fs
@@ -2974,7 +3030,14 @@ fn typecheck_struct_set(st : TcState, x : TypeIdx, i : U32) -> TcResult {
     return Err("struct.set on immutable field")
   }
   let FieldType(stor, _) = ft
-  let val_ty = stor.unpack()
+  let val_ty = if atomic {
+    match aggregate_atomic_store_type(stor, st.env) {
+      Ok(vt) => vt
+      Err(error) => return Err(error)
+    }
+  } else {
+    stor.unpack()
+  }
 
   // pop value then ref
   let st1 = match st.pop_expect(val_ty) {
@@ -3434,7 +3497,8 @@ fn typecheck_i31_get(st : TcState) -> TcResult {
   let shared = ValType::ref_type(
     RefType::new(true, HeapType::shared_abs(AbsHeapType::i31())),
   )
-  if Match::matches(actual, ValType::i31ref_nullable(), st.env) ||
+  if actual is BotValType ||
+    Match::matches(actual, ValType::i31ref_nullable(), st.env) ||
     Match::matches(actual, shared, st.env) {
     Ok(next.push1(ValType::i32()))
   } else {
@@ -3535,7 +3599,11 @@ fn typecheck_array_new_fixed(st : TcState, x : TypeIdx, n : U32) -> TcResult {
 }
 
 ///|
-fn typecheck_array_get(st : TcState, x : TypeIdx) -> TcResult {
+fn typecheck_array_get(
+  st : TcState,
+  x : TypeIdx,
+  atomic? : Bool = false,
+) -> TcResult {
   let FieldType(sto, _) = match st.env.resolve_array_field(x) {
     Err(e) => return Err(e)
     Ok(ft) => ft
@@ -3545,6 +3613,14 @@ fn typecheck_array_get(st : TcState, x : TypeIdx) -> TcResult {
       "array.get used on packed element; use array.get_s or array.get_u",
     )
   }
+  let elem_ty = if atomic {
+    match aggregate_atomic_value_type(sto, st.env, references=true) {
+      Ok(vt) => vt
+      Err(error) => return Err(error)
+    }
+  } else {
+    sto.unpack()
+  }
   let st1 = match st.pop_expect(ValType::i32()) {
     Err(e) => return Err(e)
     Ok(s) => s
@@ -3553,7 +3629,7 @@ fn typecheck_array_get(st : TcState, x : TypeIdx) -> TcResult {
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  Ok(st2.push1(sto.unpack()))
+  Ok(st2.push1(elem_ty))
 }
 
 ///|
@@ -3583,7 +3659,11 @@ fn typecheck_array_get_u(st : TcState, x : TypeIdx) -> TcResult {
 }
 
 ///|
-fn typecheck_array_set(st : TcState, x : TypeIdx) -> TcResult {
+fn typecheck_array_set(
+  st : TcState,
+  x : TypeIdx,
+  atomic? : Bool = false,
+) -> TcResult {
   let ft = match st.env.resolve_array_field(x) {
     Err(e) => return Err(e)
     Ok(f) => f
@@ -3592,7 +3672,14 @@ fn typecheck_array_set(st : TcState, x : TypeIdx) -> TcResult {
     return Err("array.set on immutable array element type")
   }
   let FieldType(sto, _) = ft
-  let elem_vt = sto.unpack()
+  let elem_vt = if atomic {
+    match aggregate_atomic_store_type(sto, st.env) {
+      Ok(vt) => vt
+      Err(error) => return Err(error)
+    }
+  } else {
+    sto.unpack()
+  }
 
   // pop value
   let st1 = match st.pop_expect(elem_vt) {
@@ -3617,7 +3704,7 @@ fn typecheck_array_set(st : TcState, x : TypeIdx) -> TcResult {
 ///|
 fn typecheck_array_atomic_rmw(
   st : TcState,
-  _op : @lib.AggregateAtomicRmwOp,
+  op : @lib.AggregateAtomicRmwOp,
   x : TypeIdx,
 ) -> TcResult {
   let ft = match st.env.resolve_array_field(x) {
@@ -3628,7 +3715,12 @@ fn typecheck_array_atomic_rmw(
     return Err("array.atomic.rmw on immutable array element type")
   }
   let FieldType(sto, _) = ft
-  let elem_vt = match aggregate_atomic_value_type(sto) {
+  let elem_vt = match
+    aggregate_atomic_value_type(
+      sto,
+      st.env,
+      references=op == @lib.AggregateAtomicRmwOp::xchg(),
+    ) {
     Err(e) => return Err(e)
     Ok(vt) => vt
   }
@@ -3657,7 +3749,8 @@ fn typecheck_array_atomic_cmpxchg(st : TcState, x : TypeIdx) -> TcResult {
     return Err("array.atomic.rmw.cmpxchg on immutable array element type")
   }
   let FieldType(sto, _) = ft
-  let elem_vt = match aggregate_atomic_value_type(sto) {
+  let elem_vt = match
+    aggregate_atomic_value_type(sto, st.env, references=true, equality=true) {
     Err(e) => return Err(e)
     Ok(vt) => vt
   }
@@ -3665,7 +3758,8 @@ fn typecheck_array_atomic_cmpxchg(st : TcState, x : TypeIdx) -> TcResult {
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  let st2 = match st1.pop_expect(elem_vt) {
+  let st2 = match
+    st1.pop_expect(aggregate_atomic_expected_type(elem_vt, st.env)) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
@@ -4911,17 +5005,19 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
       typecheck_struct_atomic_get_u(st, order, x, i)
     StructAtomicRmw(_, op, x, i) => typecheck_struct_atomic_rmw(st, op, x, i)
     StructAtomicCmpxchg(_, x, i) => typecheck_struct_atomic_cmpxchg(st, x, i)
-    StructSet(x, i) | StructAtomicSet(_, x, i) => typecheck_struct_set(st, x, i)
+    StructSet(x, i) => typecheck_struct_set(st, x, i)
+    StructAtomicSet(_, x, i) => typecheck_struct_set(st, x, i, atomic=true)
     ArrayNew(x) => typecheck_array_new(st, x)
     ArrayNewDefault(x) => typecheck_array_new_default(st, x)
     ArrayNewFixed(x, n) => typecheck_array_new_fixed(st, x, n)
     ArrayGet(x) => typecheck_array_get(st, x)
     ArrayGetS(x) => typecheck_array_get_s(st, x)
     ArrayGetU(x) => typecheck_array_get_u(st, x)
-    ArrayAtomicGet(_, x) => typecheck_array_get(st, x)
+    ArrayAtomicGet(_, x) => typecheck_array_get(st, x, atomic=true)
     ArrayAtomicGetS(_, x) => typecheck_array_get_s(st, x)
     ArrayAtomicGetU(_, x) => typecheck_array_get_u(st, x)
-    ArraySet(x) | ArrayAtomicSet(_, x) => typecheck_array_set(st, x)
+    ArraySet(x) => typecheck_array_set(st, x)
+    ArrayAtomicSet(_, x) => typecheck_array_set(st, x, atomic=true)
     ArrayAtomicRmw(_, op, x) => typecheck_array_atomic_rmw(st, op, x)
     ArrayAtomicCmpxchg(_, x) => typecheck_array_atomic_cmpxchg(st, x)
     ArrayLoad(op, x, ma) => typecheck_array_load_op(st, op, x, ma)
@@ -8450,7 +8546,7 @@ test "Typecheck RefTest struct from eq" {
 }
 
 ///|
-test "Typecheck RefTest fails when target not subtype of operand" {
+test "Typecheck RefTest rejects operands from a distinct reference hierarchy" {
   let env = empty_env()
   // i31ref on stack, testing for funcref - these are incompatible hierarchies
   let state = make_state(env, [i31ref_type()])
@@ -8633,11 +8729,15 @@ test "Typecheck exact RefCastDescEq accepts nullable strict-subtype operands" {
   // descriptor cast. Non-null subtype values may trap at runtime, while null can
   // still pass the nullable target, so final validation must not reject the
   // Binaryen-shaped exactified cast.
-  let base = SubType::comp_type(
+  let base = SubType::new(
+    false,
+    [],
     CompType::struct_([]),
     metadata=TypeMetadata::new(descriptor=Some(TypeIdx::new(1U))),
   )
-  let base_descriptor = SubType::comp_type(
+  let base_descriptor = SubType::new(
+    false,
+    [],
     CompType::struct_([]),
     metadata=TypeMetadata::new(describes=Some(TypeIdx::new(0U))),
   )

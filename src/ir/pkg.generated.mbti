@@ -1063,6 +1063,7 @@ pub fn HotAnalysis::use_def() -> Self
 pub impl Show for HotAnalysis
 
 pub struct HotAnalysisCache {
+  mut owner_roots : Array[Int]?
   mut cfg : HotCacheEntry[HotCfg]?
   mut orders : HotCacheEntry[HotCfgOrders]?
   mut dom : HotCacheEntry[HotDominators]?
@@ -1684,6 +1685,7 @@ pub enum HotVerifyError {
   InvalidSsaType(Int, @lib.ValType, @lib.ValType)
   InvalidSsaUse(Int, HotSsaUseOrigin)
   InvalidSsaDominance(Int, Int, Int)
+  InvalidAnalysisOwner
   InvalidAnalysisRevision(HotAnalysis, Int, Int)
   InvalidAnalysisDependency(HotAnalysis, HotAnalysis)
 } derive(Eq, @debug.Debug)

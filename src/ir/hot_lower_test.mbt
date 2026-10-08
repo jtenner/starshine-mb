@@ -651,7 +651,7 @@ test "hot lower repacks split local.set carried values under result blocks" {
 ///|
 test "hot lower keeps wrapped local.set prefixes void when the carried local is written before a deeper parent exit" {
   let fixture = ir_test_build_hot_from_wat(
-    "(module (func (param i32) (result i32) (local i32 i32) (block $outer (block $inner (if (local.get 0) (then (local.set 2 (i32.const 7)) (br $inner)) (else (local.set 2 (i32.const 9)) (br $outer))) unreachable) (local.set 1 (local.get 2))) (local.get 1))))",
+    "(module (func (param i32) (result i32) (local i32 i32) (block $outer (block $inner (if (local.get 0) (then (local.set 2 (i32.const 7)) (br $inner)) (else (local.set 2 (i32.const 9)) (br $outer))) unreachable) (local.set 1 (local.get 2))) (local.get 1)))",
   )
   let lowered = hot_lower_func(fixture.hot_func)
   let mod_ = @lib.Module::new()
@@ -893,7 +893,7 @@ test "hot lower preserves final typed wrappers when the prefix has mixed if exit
     #|                      (i32.const 3))
     #|                    (br $side)))))
     #|            (local.get 1))))
-    #|      (i32.const 7)))))
+    #|      (i32.const 7))))
   let module_ = match @wast.wast_to_binary_module(source) {
     Ok(module_) => module_
     Err(err) => fail("expected module to parse, got \{err}")
@@ -2846,7 +2846,6 @@ test "hot lower preserves stack-carried call before intervening effect" {
         #|    call $effect
         #|    if
         #|    end))
-        #|,
       ),
     ) {
     Ok(module_) => module_
@@ -2874,7 +2873,6 @@ test "hot lower preserves stack-carried local tee before later local read" {
         #|    local.get 1
         #|    i32.load
         #|    drop))
-        #|,
       ),
     ) {
     Ok(module_) => module_

@@ -48,10 +48,17 @@ pub fn HotLowerOptions::new(
 }
 
 ///|
+#valtype
+priv struct HotLowerLegacyCatchFrame {
+  label_id : LabelId
+  local_idx : LocalIdx?
+}
+
+///|
 priv struct HotLowerLabelFrames {
   active : Array[LabelId]
   depths : Array[Int]
-  legacy_rethrow_locals : Array[LocalIdx?]
+  legacy_rethrow_frames : Array[HotLowerLegacyCatchFrame]
   used_labels : @bitset.BitSet
   mut source_order : HotSourceOrderFacts?
   mut node_effects : Array[EffectMask]?
@@ -63,7 +70,7 @@ fn hot_lower_impl_new_label_frames(func : HotFunc) -> HotLowerLabelFrames {
   {
     active: [],
     depths: [],
-    legacy_rethrow_locals: [],
+    legacy_rethrow_frames: [],
     used_labels: hot_lower_impl_build_used_labels(func),
     source_order: None,
     node_effects: None,
@@ -639,56 +646,94 @@ fn hot_lower_impl_catch_payload_prefix(
 }
 
 ///|
+priv struct HotLowerCatchVisits {
+  mut rows : Array[UInt64]
+  mut size : Int
+}
+
+///|
+fn hot_lower_impl_catch_visit_slot(
+  rows : Array[UInt64],
+  encoded : UInt64,
+) -> Int {
+  let key = encoded - 1UL
+  let mut hash = (key ^ (key >> 33)) * 0xff51afd7ed558ccdUL
+  hash = (hash ^ (hash >> 33)) * 0xc4ceb9fe1a85ec53UL
+  hash = hash ^ (hash >> 33)
+  let mask = rows.length() - 1
+  let mut slot = hash.to_int() & mask
+  while rows[slot] != 0UL && rows[slot] != encoded {
+    slot = (slot + 1) & mask
+  }
+  slot
+}
+
+///|
+fn HotLowerCatchVisits::add(self : HotLowerCatchVisits, key : UInt64) -> Bool {
+  // Node ids and catch depths are nonnegative Int values. Adding one cannot
+  // overflow the packed pair and reserves zero for an empty slot.
+  let encoded = key + 1UL
+  let mut slot = hot_lower_impl_catch_visit_slot(self.rows, encoded)
+  if self.rows[slot] != 0UL {
+    return false
+  }
+  if self.size >= self.rows.length() / 2 {
+    let next = Array::make(self.rows.length() * 2, 0UL)
+    for row in self.rows {
+      if row != 0UL {
+        next[hot_lower_impl_catch_visit_slot(next, row)] = row
+      }
+    }
+    self.rows = next
+    slot = hot_lower_impl_catch_visit_slot(next, encoded)
+  }
+  self.rows[slot] = encoded
+  self.size += 1
+  true
+}
+
+///|
 fn hot_lower_impl_catch_rethrow_count(
   func : HotFunc,
   region_ref : HotRegionRef,
   target_depth : Int,
 ) -> Int {
-  let mut count = 0
+  // Shared operands are visited once at each catch depth. Pack the node and
+  // depth into primitive rows and worklist keys. Unlike the linked set, this
+  // allocates no entry object for each node. Scratch follows the reached
+  // subgraph size. Ordinary control labels do not change this depth.
+  let pending : Array[UInt64] = []
+  let seen : HotLowerCatchVisits = { rows: Array::make(16, 0UL), size: 0, }
   for slot = 0; slot < hot_region_root_count(func, region_ref); slot = slot + 1 {
     let node_id = hot_region_get(func, region_ref, slot)
-    match hot_query_op(func, node_id) {
-      HotOp::Rethrow =>
-        if hot_node_get(func, node_id).imm0 == target_depth {
-          count += 1
-        }
-      HotOp::Block =>
-        count += hot_lower_impl_catch_rethrow_count(
-          func,
-          hot_region_body_ref(func, node_id),
-          target_depth,
-        )
-      HotOp::If => {
-        count += hot_lower_impl_catch_rethrow_count(
-          func,
-          hot_region_then_ref(func, node_id),
-          target_depth,
-        )
-        match hot_region_else_ref(func, node_id) {
-          Some(else_ref) =>
-            count += hot_lower_impl_catch_rethrow_count(
-              func, else_ref, target_depth,
-            )
-          None => ()
-        }
+    let key = (node_id.to_uint64() << 32) | target_depth.to_uint64()
+    if seen.add(key) {
+      pending.push(key)
+    }
+  }
+  let mut count = 0
+  while !pending.is_empty() {
+    let key = pending.pop().unwrap()
+    let node_id = (key >> 32).to_int()
+    let depth = key.to_int()
+    let node = hot_node_get(func, node_id)
+    if node.op == HotOp::Rethrow && node.imm0 == depth {
+      count += 1
+    }
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      let child = func.children[node.child_base + slot]
+      if child == HOT_NONE_NODE {
+        continue
       }
-      HotOp::Try => {
-        count += hot_lower_impl_catch_rethrow_count(
-          func,
-          hot_region_body_ref(func, node_id),
-          target_depth,
-        )
-        match hot_region_catch_ref(func, node_id) {
-          Some(catch_ref) =>
-            count += hot_lower_impl_catch_rethrow_count(
-              func,
-              catch_ref,
-              target_depth + 1,
-            )
-          None => ()
-        }
+      let child_depth = if node.op == HotOp::Try && slot == 1 {
+        depth + 1
+      } else {
+        depth
       }
-      _ => ()
+      let child_key = (child.to_uint64() << 32) | child_depth.to_uint64()
+      if seen.add(child_key) {
+        pending.push(child_key)
+      }
     }
   }
   count
@@ -1128,6 +1173,7 @@ fn hot_lower_impl_carried_local_write_conflicts(
   before_access_order? : Int = -1,
   access_before_order? : Int? = None,
   access_visits? : Array[Int]? = None,
+  preserve_before_escape? : Bool = false,
 ) -> Bool {
   // Reuse sparse local-access summaries. Allocating function-sized visited
   // and local arrays for every candidate pair makes wide constructors cubic.
@@ -1140,6 +1186,12 @@ fn hot_lower_impl_carried_local_write_conflicts(
       write.order > after_order &&
       write.imm0 >= 0 &&
       write.imm0 < hot_local_count(func) {
+      // An escape can skip a write whose value is consumed on fallthrough,
+      // even when the escape itself does not read that local.
+      if preserve_before_escape &&
+        write.order < facts.first_effect_orders[current_root] {
+        return true
+      }
       let accesses = hot_source_order_local_access_nodes(
         func, current_root, facts,
       )
@@ -1238,6 +1290,56 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
 }
 
 ///|
+fn hot_lower_impl_push_control_prefix(
+  func : HotFunc,
+  id : NodeId,
+  count : Int,
+  value_stack : Array[HotLowerStackValue],
+) -> Unit {
+  let node = hot_node_get(func, id)
+  let mut slot = 0
+  while slot < count {
+    let input_id = func.children[node.child_base + slot]
+    let mut end = slot + 1
+    while end < count && func.children[node.child_base + end] == input_id {
+      end += 1
+    }
+    // The verifier and input emitter group consecutive producers. Partial
+    // tuples use the suffix of their result row; a later run starts afresh.
+    // Borrow interned rows instead of copying one row for each entry lane.
+    match hot_type_get(func, hot_node_type(func, input_id)) {
+      VoidType | BlockResult(VoidBlockType) => ()
+      Value(val_type) | BlockResult(ValTypeBlockType(val_type)) =>
+        for _ in slot..<end {
+          value_stack.push({ node_id: input_id, val_type, })
+        }
+      BlockResult(TypeIdxBlockType(_)) =>
+        abort("unresolved control prefix result type")
+      BlockResultResolved(_, _, results) | Results(results) => {
+        let arity = results.length()
+        let lanes = end - slot
+        if lanes <= arity {
+          for lane in (arity - lanes)..<arity {
+            value_stack.push({ node_id: input_id, val_type: results[lane], })
+          }
+        } else if arity > 0 {
+          // Loop entries can repeat a complete producer. Mirror the emitter's
+          // repeated evaluations and retain the final requested lanes.
+          let start = (arity - lanes % arity) % arity
+          for lane in 0..<lanes {
+            value_stack.push({
+              node_id: input_id,
+              val_type: results[(start + lane) % arity],
+            })
+          }
+        }
+      }
+    }
+    slot = end
+  }
+}
+
+///|
 fn hot_lower_impl_body_items(
   func : HotFunc,
   id : NodeId,
@@ -1278,30 +1380,7 @@ fn hot_lower_impl_body_items(
     Some(values) => values.copy()
     None => []
   }
-  let input_ids : Array[NodeId] = []
-  let input_occurrences : Array[Int] = []
-  for i = 0; i < body_base; i = i + 1 {
-    let input_id = func.children[node.child_base + i]
-    let input_types = hot_type_results(func, hot_node_type(func, input_id))
-    let mut occurrence = 0
-    let mut existing = -1
-    for idx = 0; idx < input_ids.length(); idx = idx + 1 {
-      if input_ids[idx] == input_id {
-        occurrence = input_occurrences[idx]
-        existing = idx
-        break
-      }
-    }
-    if occurrence < input_types.length() {
-      value_stack.push({ node_id: input_id, val_type: input_types[occurrence], })
-    }
-    if existing >= 0 {
-      input_occurrences[existing] = occurrence + 1
-    } else {
-      input_ids.push(input_id)
-      input_occurrences.push(1)
-    }
-  }
+  hot_lower_impl_push_control_prefix(func, id, body_base, value_stack)
   let root_ids : Array[NodeId] = []
   for i = body_base; i < node.child_count; i = i + 1 {
     let child = func.children[node.child_base + i]
@@ -1320,23 +1399,13 @@ fn hot_lower_impl_body_items(
   // them again duplicates constants or spills effectful values unnecessarily.
   let mut entry_root_prefix = 0
   if entry_stack is Some(_) || (node.op == HotOp::Block && node.imm1 > 0) {
-    let mut lanes = 0
+    // Each forwarded root denotes one entry lane, including tuple suffixes.
     for root in root_ids {
-      let arity = hot_node_result_arity(func, root)
-      if arity == 0 || lanes + arity > value_stack.length() {
+      if entry_root_prefix >= value_stack.length() ||
+        hot_node_result_arity(func, root) == 0 ||
+        value_stack[entry_root_prefix].node_id != root {
         break
       }
-      let mut matches = true
-      for lane in lanes..<(lanes + arity) {
-        if value_stack[lane].node_id != root {
-          matches = false
-          break
-        }
-      }
-      if !matches {
-        break
-      }
-      lanes += arity
       entry_root_prefix += 1
     }
   }
@@ -2042,17 +2111,21 @@ fn hot_lower_impl_emit_instruction(
       )
     HotOp::ThrowRef => out.push(Instruction::throw_ref())
     HotOp::Rethrow => {
-      let slot = label_frames.legacy_rethrow_locals.length() - 1 - node.imm0
+      let slot = label_frames.legacy_rethrow_frames.length() - 1 - node.imm0
       let local_idx = if slot < 0 ||
-        slot >= label_frames.legacy_rethrow_locals.length() {
+        slot >= label_frames.legacy_rethrow_frames.length() {
         abort("hot lower legacy rethrow requires an active catch at its depth")
       } else {
-        match label_frames.legacy_rethrow_locals[slot] {
+        match label_frames.legacy_rethrow_frames[slot].local_idx {
           Some(local_idx) => local_idx
           None => {
             out.push(
               Instruction::rethrow(
-                LabelIdx::new(node.imm0.reinterpret_as_uint()),
+                hot_lower_impl_label_depth(
+                  label_frames,
+                  label_stack_head,
+                  label_frames.legacy_rethrow_frames[slot].label_id,
+                ),
               ),
             )
             return
@@ -2221,11 +2294,11 @@ fn hot_lower_impl_emit_instruction(
             hot_lower_impl_label_depth(label_frames, label_stack_head, target),
           )
         } else {
-          label_frames.legacy_rethrow_locals.push(None)
+          label_frames.legacy_rethrow_frames.push({ label_id, local_idx: None, })
           let catch_body = hot_lower_impl_region_body(
             func, catch_region, use_def, label_frames, try_stack, extra_locals, options,
           )
-          ignore(label_frames.legacy_rethrow_locals.pop())
+          ignore(label_frames.legacy_rethrow_frames.pop())
           if node.imm1 == -1 {
             catches.push(@lib.LegacyCatch::all(Expr::new(catch_body)))
           } else if node.imm1 > 0 {
@@ -2372,11 +2445,14 @@ fn hot_lower_impl_emit_instruction(
       )
       hot_lower_impl_pop_label(label_frames, table_stack)
       hot_lower_impl_pop_label(label_frames, handler_stack)
-      label_frames.legacy_rethrow_locals.push(rethrow_local)
+      label_frames.legacy_rethrow_frames.push({
+        label_id,
+        local_idx: rethrow_local,
+      })
       let catch_body = hot_lower_impl_region_body(
         func, catch_region, use_def, label_frames, try_stack, extra_locals, options,
       )
-      ignore(label_frames.legacy_rethrow_locals.pop())
+      ignore(label_frames.legacy_rethrow_frames.pop())
       hot_lower_impl_pop_label(label_frames, try_stack)
       let handler_type = match rethrow_local {
         Some(_) =>
@@ -3147,7 +3223,7 @@ fn hot_lower_impl_instr_targets_removed_label(
   owner_depth : Int,
 ) -> Bool {
   match instr {
-    Br(li) | BrIf(li) | BrOnNull(li) | BrOnNonNull(li) =>
+    Br(li) | BrIf(li) | BrOnNull(li) | BrOnNonNull(li) | Rethrow(li) =>
       hot_lower_impl_decoded_label_depth(li) == owner_depth
     BrTable(labels, fallback) => {
       if hot_lower_impl_decoded_label_depth(fallback) == owner_depth {
@@ -3171,6 +3247,27 @@ fn hot_lower_impl_instr_targets_removed_label(
           hot_lower_impl_body_targets_removed_label(else_body, owner_depth + 1)
         None => false
       }
+    }
+    Try(_, Expr(body), catches, delegate) => {
+      if delegate is Some(li) &&
+        hot_lower_impl_decoded_label_depth(li) == owner_depth {
+        return true
+      }
+      if hot_lower_impl_body_targets_removed_label(body, owner_depth + 1) {
+        return true
+      }
+      for arm in catches {
+        let Expr(catch_body) = match arm {
+          @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+        }
+        if hot_lower_impl_body_targets_removed_label(
+            catch_body,
+            owner_depth + 1,
+          ) {
+          return true
+        }
+      }
+      false
     }
     TryTable(_, catches, Expr(body)) => {
       for catch_ in catches {
@@ -3203,6 +3300,8 @@ fn hot_lower_impl_rebase_instr(
   owner_depth : Int,
 ) -> Instruction {
   match instr {
+    Rethrow(li) =>
+      Instruction::rethrow(hot_lower_impl_rebased_label_depth(li, owner_depth))
     Br(li) =>
       Instruction::br(hot_lower_impl_rebased_label_depth(li, owner_depth))
     BrIf(li) =>
@@ -3244,6 +3343,31 @@ fn hot_lower_impl_rebase_instr(
             Some(hot_lower_impl_rebase_body(else_body, owner_depth + 1))
           None => None
         },
+      )
+    Try(bt, Expr(body), catches, delegate) =>
+      Instruction::try_(
+        bt,
+        Expr::new(hot_lower_impl_rebase_body(body, owner_depth + 1)),
+        catches.map(fn(arm) {
+          match arm {
+            @lib.LegacyCatch(tag, Expr(catch_body)) =>
+              @lib.LegacyCatch::tagged(
+                tag,
+                Expr::new(
+                  hot_lower_impl_rebase_body(catch_body, owner_depth + 1),
+                ),
+              )
+            @lib.LegacyCatchAll(Expr(catch_body)) =>
+              @lib.LegacyCatch::all(
+                Expr::new(
+                  hot_lower_impl_rebase_body(catch_body, owner_depth + 1),
+                ),
+              )
+          }
+        }),
+        delegate=delegate.map(fn(li) {
+          hot_lower_impl_rebased_label_depth(li, owner_depth)
+        }),
       )
     TryTable(bt, catches, Expr(body)) => {
       let rebased_catches : Array[Catch] = []
@@ -3399,6 +3523,10 @@ fn hot_lower_impl_expand_branch_depths_above_instr(
   min_depth : Int,
 ) -> Instruction {
   match instr {
+    Rethrow(li) =>
+      Instruction::rethrow(
+        hot_lower_impl_expand_branch_depth_above(li, min_depth),
+      )
     Br(li) =>
       Instruction::br(hot_lower_impl_expand_branch_depth_above(li, min_depth))
     BrIf(li) =>
@@ -3494,6 +3622,39 @@ fn hot_lower_impl_expand_branch_depths_above_instr(
           None => None
         },
       )
+    Try(bt, Expr(body), catches, delegate) =>
+      Instruction::try_(
+        bt,
+        Expr::new(
+          hot_lower_impl_expand_branch_depths_above(body, min_depth + 1),
+        ),
+        catches.map(fn(arm) {
+          match arm {
+            @lib.LegacyCatch(tag, Expr(catch_body)) =>
+              @lib.LegacyCatch::tagged(
+                tag,
+                Expr::new(
+                  hot_lower_impl_expand_branch_depths_above(
+                    catch_body,
+                    min_depth + 1,
+                  ),
+                ),
+              )
+            @lib.LegacyCatchAll(Expr(catch_body)) =>
+              @lib.LegacyCatch::all(
+                Expr::new(
+                  hot_lower_impl_expand_branch_depths_above(
+                    catch_body,
+                    min_depth + 1,
+                  ),
+                ),
+              )
+          }
+        }),
+        delegate=delegate.map(fn(li) {
+          hot_lower_impl_expand_branch_depth_above(li, min_depth)
+        }),
+      )
     TryTable(bt, catches, Expr(body)) => {
       let shifted_catches : Array[Catch] = []
       for catch_ in catches {
@@ -3533,6 +3694,8 @@ fn hot_lower_impl_has_control_transfer(instr : Instruction) -> Bool {
     Block(_, _)
     | Loop(_, _)
     | If(_, _, _)
+    | Try(_, _, _, _)
+    | Rethrow(_)
     | TryTable(_, _, _)
     | Br(_)
     | BrIf(_)

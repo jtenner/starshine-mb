@@ -66,10 +66,18 @@ fn use_def_require_local_range(use_def : HotUseDef, local_id : LocalId) -> Unit 
 }
 
 ///|
-fn use_def_region_slot(node : HotNode, slot : Int) -> Bool {
+fn use_def_region_slot(
+  node : HotNode,
+  slot : Int,
+  func? : HotFunc? = None,
+) -> Bool {
   match node.op {
     HotOp::Block => slot >= node.imm1
-    HotOp::Loop => true
+    HotOp::Loop =>
+      match func {
+        Some(func) => slot >= hot_label_branch_arity(func, node.imm0)
+        None => true
+      }
     HotOp::If => slot == 1 || slot == 2
     HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
     _ => false
@@ -144,8 +152,9 @@ fn use_def_visit_node(
   let node = hot_node_get(func, node_id)
   match node.op {
     HotOp::Block | HotOp::Loop => {
-      if node.op == HotOp::Block {
-        for slot in 0..<node.imm1 {
+      let entry_count = hot_region_body_base_live(func, node_id)
+      if entry_count > 0 {
+        for slot in 0..<entry_count {
           let child_id = func.children[node.child_base + slot]
           use_def_add_site(node_uses, child_id, {
             user: node_id,
@@ -242,14 +251,30 @@ fn use_def_scan_block_node(
     Some(owner) if owner != block_id => return
     _ => ()
   }
+  let node = hot_node_get(func, node_id)
+  if cfg.operands_expanded {
+    match node.op {
+      HotOp::LocalGet =>
+        use_def_block_mark_use(local_count, defs, uses, node.imm0)
+      HotOp::LocalSet | HotOp::LocalTee =>
+        use_def_block_mark_def(
+          local_count,
+          defs,
+          block_id,
+          node.imm0,
+          local_write_blocks,
+        )
+      _ => ()
+    }
+    return
+  }
   if seen_stamps[node_id] == block_id {
     return
   }
   seen_stamps[node_id] = block_id
-  let node = hot_node_get(func, node_id)
   for index = 0; index < node.child_count; index = index + 1 {
     let slot = hot_child_evaluation_slot(node, index)
-    if use_def_region_slot(node, slot) {
+    if use_def_region_slot(node, slot, func=Some(func)) {
       continue
     }
     let child_id = func.children[node.child_base + slot]

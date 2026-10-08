@@ -146,12 +146,12 @@ fn WastLexer::get_text(self : WastLexer, offset : Int) -> String {
   if start >= self.buffer.length() || self.cursor <= start {
     return ""
   }
-  let len = self.cursor - start
-  let chars : Array[Char] = Array::make(len, '\u{00}')
-  for i = 0; i < len; i = i + 1 {
-    chars[i] = self.buffer[start + i].to_int().unsafe_to_char()
+  @utf8.decode(self.buffer[start:self.cursor]) catch {
+    _ => {
+      self.error("invalid UTF-8")
+      ""
+    }
   }
-  String::from_array(chars)
 }
 
 ///|
@@ -273,28 +273,30 @@ fn WastLexer::read_whitespace(self : WastLexer) -> Unit {
 
 ///|
 fn WastLexer::read_num(self : WastLexer) -> Bool {
-  if is_digit(self.peek_char()) {
-    let _ = self.read_char()
-    if self.match_char(0x5F) || is_digit(self.peek_char()) {
-      // '_'
-      return self.read_num()
-    }
-    return true
+  if !is_digit(self.peek_char()) {
+    return false
   }
-  false
+  while is_digit(self.peek_char()) {
+    let _ = self.read_char()
+    if self.match_char(0x5F) && !is_digit(self.peek_char()) {
+      return false
+    }
+  }
+  true
 }
 
 ///|
 fn WastLexer::read_hex_num(self : WastLexer) -> Bool {
-  if is_hex_digit(self.peek_char()) {
-    let _ = self.read_char()
-    if self.match_char(0x5F) || is_hex_digit(self.peek_char()) {
-      // '_'
-      return self.read_hex_num()
-    }
-    return true
+  if !is_hex_digit(self.peek_char()) {
+    return false
   }
-  false
+  while is_hex_digit(self.peek_char()) {
+    let _ = self.read_char()
+    if self.match_char(0x5F) && !is_hex_digit(self.peek_char()) {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -344,7 +346,11 @@ fn WastLexer::get_string_token(self : WastLexer) -> Token {
   let _ = self.read_char() // consume opening '"'
   while in_string {
     match self.read_char() {
-      c if c == eof => return self.bare_token(Eof)
+      c if c == eof => {
+        self.token_start = saved_token_start
+        self.error("EOF in string")
+        return self.bare_token(Eof)
+      }
       0x0A => {
         // '\n'
         self.token_start = self.cursor - 1
@@ -384,24 +390,31 @@ fn WastLexer::get_string_token(self : WastLexer) -> Token {
               has_error = true
               continue
             }
-            let mut scalar_value : UInt = 0
+            let mut scalar_value = 0U
+            let mut has_digit = false
+            let mut valid_scalar = true
             while is_hex_digit(self.peek_char()) {
-              let digit = parse_hex_digit(self.read_char())
-              scalar_value = (scalar_value << 4) | digit.reinterpret_as_uint()
-              if scalar_value >= 0x110000 {
-                self.error("bad escape")
-                has_error = true
+              let digit = parse_hex_digit(self.read_char()).reinterpret_as_uint()
+              if valid_scalar && scalar_value <= (0x10ffffU - digit) / 16U {
+                scalar_value = scalar_value * 16U + digit
+              } else {
+                valid_scalar = false
+              }
+              has_digit = true
+              if self.match_char(0x5F) && !is_hex_digit(self.peek_char()) {
+                valid_scalar = false
                 break
               }
             }
-            if self.peek_char() != 0x7D {
+            if !self.match_char(0x7D) {
               // '}'
               self.error("bad escape")
               has_error = true
               continue
             }
-            if scalar_value >= 0xD800 && scalar_value < 0xE000 {
-              let _ = self.read_char()
+            if !has_digit ||
+              !valid_scalar ||
+              (scalar_value >= 0xD800U && scalar_value < 0xE000U) {
               self.error("bad escape")
               has_error = true
             }

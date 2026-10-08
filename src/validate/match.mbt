@@ -78,30 +78,30 @@ pub impl Match for RefType with fn matches(self, other, env) {
       match ht0 {
         AbsHeapTypeHeapType(NoneAbsHeapType) =>
           match env.resolve_heaptype_subtype(ht1) {
-            Some(st) =>
+            Some(st) if !st.metadata().is_shared() =>
               match st.get_comptype() {
                 StructCompType(_) | ArrayCompType(_) => ()
                 _ => return false
               }
-            None => return false
+            _ => return false
           }
         AbsHeapTypeHeapType(NoFuncAbsHeapType) =>
           match env.resolve_heaptype_subtype(ht1) {
-            Some(st) =>
+            Some(st) if !st.metadata().is_shared() =>
               match st.get_comptype() {
                 FuncCompType(_, _) => ()
                 _ => return false
               }
-            None => return false
+            _ => return false
           }
         AbsHeapTypeHeapType(NoContAbsHeapType) =>
           match env.resolve_heaptype_subtype(ht1) {
-            Some(st) =>
+            Some(st) if !st.metadata().is_shared() =>
               match st.get_comptype() {
                 ContCompType(_) => ()
                 _ => return false
               }
-            None => return false
+            _ => return false
           }
         SharedAbsHeapTypeHeapType(NoneAbsHeapType) =>
           match env.resolve_heaptype_subtype(ht1) {
@@ -331,7 +331,9 @@ fn exact_group_canonical_sub_type(
         ),
       )
     CompTypeSubType(metadata, comp_type) =>
-      SubType::comp_type(
+      SubType::new(
+        true,
+        [],
         exact_group_canonical_comp_type(comp_type, group_start, group_length),
         metadata=exact_group_canonical_metadata(
           metadata, group_start, group_length,
@@ -476,7 +478,7 @@ fn exact_subtype_shape(
 ) -> (Bool, Array[TypeIdx], TypeMetadata, CompType) {
   match st {
     SubType(final_, supers, meta, ct) => (final_, supers, meta, ct)
-    CompTypeSubType(meta, ct) => (false, [], meta, ct)
+    CompTypeSubType(meta, ct) => (true, [], meta, ct)
   }
 }
 
@@ -657,7 +659,6 @@ pub impl Match for AbsHeapType with fn matches(self, other, _) {
     (NoneAbsHeapType, I31AbsHeapType) => true
     (NoneAbsHeapType, StructAbsHeapType) => true
     (NoneAbsHeapType, ArrayAbsHeapType) => true
-    (NoneAbsHeapType, StringAbsHeapType) => true
 
     // nofunc <: func, nocont <: cont
     (NoFuncAbsHeapType, FuncAbsHeapType) => true
@@ -666,11 +667,55 @@ pub impl Match for AbsHeapType with fn matches(self, other, _) {
 
     // string/noextern <: extern
     (StringAbsHeapType, ExternAbsHeapType) => true
+    (NoExternAbsHeapType, StringAbsHeapType) => true
     (NoExternAbsHeapType, ExternAbsHeapType) => true
 
     // noexn <: exn
     (NoExnAbsHeapType, ExnAbsHeapType) => true
     _ => false
+  }
+}
+
+///|
+// Base domains are any, func, extern, exn, cont, and waitqueue (0 through 5).
+fn absheaptype_validation_domain(abs : AbsHeapType) -> Int {
+  match abs {
+    AnyAbsHeapType
+    | EqAbsHeapType
+    | I31AbsHeapType
+    | StructAbsHeapType
+    | ArrayAbsHeapType
+    | NoneAbsHeapType => 0
+    FuncAbsHeapType | NoFuncAbsHeapType => 1
+    ExternAbsHeapType | NoExternAbsHeapType | StringAbsHeapType => 2
+    ExnAbsHeapType | NoExnAbsHeapType => 3
+    ContAbsHeapType | NoContAbsHeapType => 4
+    WaitqueueAbsHeapType | NoWaitqueueAbsHeapType => 5
+  }
+}
+
+///|
+// Shared domains add 8. Unresolved defined types return -1.
+fn heaptype_validation_domain(ht : HeapType, env : Env) -> Int {
+  match ht {
+    AbsHeapTypeHeapType(abs) => absheaptype_validation_domain(abs)
+    SharedAbsHeapTypeHeapType(abs) => absheaptype_validation_domain(abs) + 8
+    HeapType(_) | DefTypeHeapType(_) => {
+      let st = match env.resolve_heaptype_subtype(ht) {
+        Some(st) => st
+        None => return -1
+      }
+      let domain = match st.get_comptype() {
+        StructCompType(_) | ArrayCompType(_) => 0
+        FuncCompType(_, _) => 1
+        ContCompType(_) => 4
+      }
+      if st.metadata().is_shared() {
+        domain + 8
+      } else {
+        domain
+      }
+    }
   }
 }
 
@@ -750,7 +795,7 @@ fn subtype_as_heap_fuel(
     return false
   }
   let (is_final, supers, ct) = match st {
-    CompTypeSubType(_, ct) => (false, [], ct)
+    CompTypeSubType(_, ct) => (true, [], ct)
     SubType(is_final, supers, _, ct) => (is_final, supers, ct)
   }
 
@@ -797,8 +842,7 @@ fn comptype_matches_abs(ct : CompType, abs : AbsHeapType) -> Bool {
       abs == AbsHeapType::array() ||
       abs == AbsHeapType::eq() ||
       abs == AbsHeapType::any()
-    FuncCompType(_, _) =>
-      abs == AbsHeapType::func() || abs == AbsHeapType::any()
+    FuncCompType(_, _) => abs == AbsHeapType::func()
     ContCompType(_) => abs == AbsHeapType::cont()
   }
 }
@@ -861,7 +905,7 @@ fn abs_vs_typeidx_fuel(
     return false
   }
   match env.resolve_subtype(target) {
-    Some(st) =>
+    Some(st) if !st.metadata().is_shared() =>
       match (abs, st.get_comptype()) {
         (NoneAbsHeapType, StructCompType(_)) => true
         (NoneAbsHeapType, ArrayCompType(_)) => true
@@ -869,7 +913,7 @@ fn abs_vs_typeidx_fuel(
         (NoContAbsHeapType, ContCompType(_)) => true
         _ => false
       }
-    None => false
+    _ => false
   }
 }
 
@@ -899,8 +943,7 @@ fn deftype_matches_abs_fuel(
           abs == AbsHeapType::array() ||
           abs == AbsHeapType::eq() ||
           abs == AbsHeapType::any()
-        FuncCompType(_, _) =>
-          abs == AbsHeapType::func() || abs == AbsHeapType::any()
+        FuncCompType(_, _) => abs == AbsHeapType::func()
         ContCompType(_) => abs == AbsHeapType::cont()
       }
   }
@@ -1788,9 +1831,9 @@ test "nested ref type in struct field" {
 }
 
 ///|
-test "HeapType matches let final defined types keep declared supertypes" {
+test "HeapType matches final defined types against valid declared supertypes" {
   let env = Env::new().with_types([
-    SubType::comp_type(CompType::struct_([])),
+    SubType::new(false, [], CompType::struct_([])),
     SubType::new(true, [TypeIdx::new(0U)], CompType::struct_([])),
   ])
   assert_true(

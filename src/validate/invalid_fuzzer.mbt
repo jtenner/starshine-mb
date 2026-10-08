@@ -10245,7 +10245,7 @@ fn validate_invalid_ast_mutate_invalid_subtype_super_shape(
   let super_idx = TypeIdx::new(
     validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
   )
-  types.push(RecType::new(SubType::comp_type(CompType::func([], []))))
+  types.push(RecType::new(SubType::new(false, [], CompType::func([], []))))
   types.push(
     RecType::new(
       SubType::new(false, [super_idx], CompType::func([ValType::i32()], [])),
@@ -10290,7 +10290,7 @@ fn validate_invalid_ast_mutate_invalid_subtype_func_variance(
   let anyref = ValType::ref_type(RefType::abs(AbsHeapType::any()))
   let eqref = ValType::ref_type(RefType::abs(AbsHeapType::eq()))
   types.push(
-    RecType::new(SubType::comp_type(CompType::func([anyref], [eqref]))),
+    RecType::new(SubType::new(false, [], CompType::func([anyref], [eqref]))),
   )
   types.push(
     RecType::new(
@@ -10317,7 +10317,9 @@ fn validate_invalid_ast_mutate_invalid_subtype_mutable_field_variance(
   let eqref = ValType::ref_type(RefType::abs(AbsHeapType::eq()))
   types.push(
     RecType::new(
-      SubType::comp_type(
+      SubType::new(
+        false,
+        [],
         CompType::struct_([FieldType::new(StorageType::val_type(anyref), Var)]),
       ),
     ),
@@ -12756,7 +12758,7 @@ test "invalid subtype function variance strategy rejects and repairs" {
   let super_idx = TypeIdx::new(0U)
   let repaired = Module::new().with_type_sec(
     TypeSec::new([
-      RecType::new(SubType::comp_type(CompType::func([eqref], [anyref]))),
+      RecType::new(SubType::new(false, [], CompType::func([eqref], [anyref]))),
       RecType::new(
         SubType::new(false, [super_idx], CompType::func([anyref], [eqref])),
       ),

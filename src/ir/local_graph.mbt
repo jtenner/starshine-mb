@@ -376,10 +376,18 @@ fn local_graph_entry_state(local_count : Int) -> Array[Array[Int]] {
 }
 
 ///|
-fn local_graph_is_region_slot(node : HotNode, slot : Int) -> Bool {
+fn local_graph_is_region_slot(
+  node : HotNode,
+  slot : Int,
+  func? : HotFunc? = None,
+) -> Bool {
   match node.op {
     HotOp::Block => slot >= node.imm1
-    HotOp::Loop => true
+    HotOp::Loop =>
+      match func {
+        Some(func) => slot >= hot_label_branch_arity(func, node.imm0)
+        None => true
+      }
     HotOp::If => slot == 1 || slot == 2
     HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
     _ => false
@@ -578,7 +586,7 @@ fn local_graph_nested_operand_can_transfer(
   }
   for index = 0; index < node.child_count; index = index + 1 {
     let slot = hot_child_evaluation_slot(node, index)
-    if !local_graph_is_region_slot(node, slot) &&
+    if !local_graph_is_region_slot(node, slot, func=Some(func)) &&
       !local_graph_nested_operand_can_transfer(
         func,
         hot_child_get(func, node_id, slot),
@@ -656,9 +664,51 @@ fn local_graph_transfer_node(
       return
     }
   }
+  if node.op == HotOp::Loop {
+    // Entry operands run before the loop body, including repeated complete
+    // producers. Separate tuple state per evaluation avoids replay per lane.
+    let count = hot_label_branch_arity(func, node.imm0)
+    let mut slot = 0
+    while slot < count {
+      let producer = hot_child_get(func, node_id, slot)
+      let mut end = slot + 1
+      while end < count && hot_child_get(func, node_id, end) == producer {
+        end += 1
+      }
+      let span = hot_node_result_arity(func, producer).max(1)
+      let evaluations = (end - slot + span - 1) / span
+      if evaluations == 1 {
+        local_graph_transfer_node(
+          func, local_count, producer, state, get_sources, write_influences, true,
+          evaluated_tuples,
+        )
+      } else {
+        // Keep retained tuple marks within one producer group. Each complete
+        // evaluation already visits this same graph, which bounds clear work.
+        let occurrence = LocalGraphTupleState::new(
+          evaluated_tuples.slots,
+          join_visits=evaluated_tuples.join_visits,
+          local_count~,
+        )
+        occurrence.write_journal = evaluated_tuples.write_journal
+        for _ in 0..<evaluations {
+          match occurrence.evaluated {
+            Some(entries) => entries.clear()
+            None => ()
+          }
+          local_graph_transfer_node(
+            func, local_count, producer, state, get_sources, write_influences, true,
+            occurrence,
+          )
+        }
+      }
+      slot = end
+    }
+  }
   for index = 0; index < node.child_count; index = index + 1 {
     let slot = hot_child_evaluation_slot(node, index)
-    if local_graph_is_region_slot(node, slot) {
+    if node.op == HotOp::Loop ||
+      local_graph_is_region_slot(node, slot, func=Some(func)) {
       continue
     }
     local_graph_transfer_node(
@@ -1494,7 +1544,7 @@ fn local_graph_flatten_node(
   let node = hot_node_get(func, node_id)
   for index = 0; index < node.child_count; index = index + 1 {
     let slot = hot_child_evaluation_slot(node, index)
-    if local_graph_is_region_slot(node, slot) {
+    if local_graph_is_region_slot(node, slot, func=Some(func)) {
       continue
     }
     local_graph_flatten_node(func, hot_child_get(func, node_id, slot), out)
@@ -1540,7 +1590,7 @@ fn local_graph_reverse_actions_node(
   let node = hot_node_get(func, node_id)
   for index = 0; index < node.child_count; index = index + 1 {
     let slot = hot_child_evaluation_slot(node, index)
-    if local_graph_is_region_slot(node, slot) {
+    if local_graph_is_region_slot(node, slot, func=Some(func)) {
       continue
     }
     local_graph_reverse_actions_node(
@@ -1988,7 +2038,7 @@ fn local_graph_build_reverse_rows(
     for root in block.nodes {
       let data = hot_node_get(func, root)
       for slot = 0; slot < data.child_count; slot = slot + 1 {
-        if !local_graph_is_region_slot(data, slot) &&
+        if !local_graph_is_region_slot(data, slot, func=Some(func)) &&
           !local_graph_nested_block_node_is_straight_line(
             func,
             hot_child_get(func, root, slot),

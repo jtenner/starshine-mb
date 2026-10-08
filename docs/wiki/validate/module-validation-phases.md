@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-10-08
 sources:
   - ./ref-func-declarations.md
   - ../wast/exception-tag-authoring.md
@@ -328,3 +328,42 @@ These are helper controls; final pipeline measurements own pass-level claims.
 All four focused invariants pass, including a write after a nested read-only
 block that must not initialize the sibling arm. Local evidence:
 `.tmp/pass-perf-reuse-20260927/tc-fork-{controls-before,final-bench,final-green}.log`.
+
+
+## October 8, 2026 — Audit contract repairs
+
+Explicit subtypes validate their composite before parent matching. A member has
+at most one previously defined, non-final parent in the same shared domain.
+The shorthand composite form is final. Shared fields and function signatures
+must contain shared references. Parent order removes the need for recursive
+cycle search; immediate composite scans remain linear in their fields.
+
+Reference instructions accept virtual stack bottom. Concrete ref.test/ref.cast
+operands must have the target's hierarchy and shared domain; siblings within
+that hierarchy are permitted. Function references stay outside the internal
+any hierarchy. For Binaryen 133's represented string contract, noextern is the
+string bottom; none is not. See [v133 type source](https://github.com/WebAssembly/binaryen/blob/version_133/src/wasm/wasm-type.cpp#L949-L1052),
+[matching tests](../../../src/validate/string_bottom_wbtest.mbt) and
+[dispatcher test](../../../src/cmd/string_bottom_wbtest.mbt).
+
+Completed control frames restore entry local-initialization facts. A non-null
+local first written inside a frame is usable inside that frame, but the write
+does not initialize it outside. This follows the Core validation algorithm's
+frame reset rule. It differs from the recorded v133 acceptance of the audit
+fixtures; wasm-tools rejects those fixtures. Keep that oracle disagreement
+separate from a Starshine behavior defect.
+
+Atomic aggregate access reuses normal field, bounds, mutability and stack
+checks. Its storage domain follows the represented shared-everything proposal:
+integer/internal references, with packed storage for atomic set; xchg also
+admits anyref subtypes and cmpxchg admits eqref subtypes. Float/externref cases
+are rejected, although recorded v133 accepts them. The unshared eqref xchg
+fixture has proposal/v133 support and a wasm-tools disagreement. These are
+proposal-version conflicts, not universal cross-tool parity claims.
+
+Sources: [Core validation algorithm](https://webassembly.github.io/spec/core/appendix/algorithm.html#stacks),
+[shared-everything instruction contract](https://github.com/WebAssembly/shared-everything-threads/blob/main/proposals/shared-everything-threads/Overview.md#instructions),
+[20 direct audit tests](../../../src/validate/mass_audit_validate_wbtest.mbt),
+[historical oracle records](../raw/tooling/2026-10-07-starshine-mass-audit.json).
+Memory64 uses the Core 2^48-page limit; table64 uses the unsigned 64-bit limit.
+See [implementation](../../../src/validate/validate.mbt).
