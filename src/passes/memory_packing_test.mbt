@@ -454,7 +454,6 @@ test "memory-packing drops trapping active zeros when traps never happen" {
       #| (module
       #|   (memory 1)
       #|   (data (i32.const 65535) "\00\00"))
-      #|,
     ),
   )
   let optimized = match
@@ -552,7 +551,6 @@ test "memory-packing v131 neutralizes source-order trampling in defined memory" 
       #|  (memory 1)
       #|  (data (i32.const 1024) "ab")
       #|  (data (i32.const 1024) "Z"))
-      #|,
     ),
   )
   let optimized = match
@@ -575,7 +573,6 @@ test "memory-packing v131 admits in-bounds imported overlap when zero-filled" {
       #|  (import "env" "memory" (memory 1 1))
       #|  (data (i32.const 1024) "ab")
       #|  (data (i32.const 1024) "Z"))
-      #|,
     ),
   )
   let optimized = match
@@ -602,7 +599,6 @@ test "memory-packing v131 removes in-bounds imported zero trampling" {
       #|  (import "env" "memory" (memory 1 1))
       #|  (data (i32.const 1024) "x")
       #|  (data (i32.const 1024) "\00"))
-      #|,
     ),
   )
   let optimized = memory_packing_run_module_pass(input, zero_filled_memory=true)
@@ -617,7 +613,6 @@ test "memory-packing v131 preserves source order for partial trampling" {
       #|  (memory 1)
       #|  (data (i32.const 0) "ABCDEFGHIJK")
       #|  (data (i32.const 1) "ZZZZZZZZZ"))
-      #|,
     ),
   )
   let optimized = memory_packing_run_module_pass(input)
@@ -637,7 +632,6 @@ test "memory-packing v131 rejects imported overlap when any active segment may t
       #|  (data (i32.const 1024) "x")
       #|  (data (i32.const 1024) "\00")
       #|  (data (i32.const 65535) "yy"))
-      #|,
     ),
   )
   let optimized = match
@@ -661,7 +655,6 @@ test "memory-packing v131 rejects an out-of-bounds imported trampler" {
       #|  (import "env" "memory" (memory 1 1))
       #|  (data (i32.const 65535) "x")
       #|  (data (i32.const 65535) "\00\00"))
-      #|,
     ),
   )
   let optimized = memory_packing_run_module_pass(input, zero_filled_memory=true)

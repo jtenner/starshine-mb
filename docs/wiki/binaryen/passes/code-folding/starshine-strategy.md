@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-10-07
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -298,3 +298,9 @@ shape/size result, not a full-pipeline runtime-speed win. The debug CLI builds
 in 15.527 seconds. The native test build remains above the 30-second limit.
 Full regression replay and release GenValid closeout remain open; the full
 JSON bloom pipeline exposes a later runtime fault after this valid stage.
+
+## CodeFolding correctness repairs — October 7, 2026
+
+Preserve the final unreachable marker when hoisting a void block/loop/if from a typed result holder. The result lanes and validation contract remain intact.
+
+Evidence: [code_folding.mbt](../../../../../src/passes/code_folding.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.

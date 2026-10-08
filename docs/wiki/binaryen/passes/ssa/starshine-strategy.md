@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-30
+last_reviewed: 2026-10-07
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/LocalGraph.cpp
@@ -159,3 +159,9 @@ The direct HOT pass timer is zero because the active implementation runs in raw 
 ## Scheduler boundary
 
 `optimize` and `shrink` continue to schedule `ssa-nomerge`, matching the documented Binaryen default sibling split. Full `ssa` is public and fully runnable, but remains out of presets.
+
+## SSA correctness repairs — October 7, 2026
+
+Use one pass-local expanded CFG and full-flow local graph. Operand-local actions are renamed exactly once. The descriptor no longer asks for an unused root-only cached CFG. Conservative try-entry source drift remains open.
+
+Evidence: [ssa.mbt](../../../../../src/passes/ssa.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.

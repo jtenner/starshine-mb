@@ -400,7 +400,6 @@ test "make-shared-objects fails closed on string producers" {
       #|  (global stringref (string.const "global"))
       #|  (func (export "run") (result stringref)
       #|    (string.const "hello")))
-      #|),
     ),
   )
   let validation = @validate.validate_module(input)

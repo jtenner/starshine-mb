@@ -2915,7 +2915,6 @@ test "simplify-locals preserves stack-clearing set below a later local result" {
         #|    local.set 1
         #|    local.get 2
         #|    local.get 1))
-        #|,
       ),
       ["simplify-locals"],
     ) {
@@ -3952,7 +3951,6 @@ test "simplify-locals keeps SIMD countdown update before loop backedge" {
         #|      end
         #|    end
         #|    local.get 1))
-        #|,
       ),
       [
         "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse",
@@ -3987,7 +3985,6 @@ test "simplify-locals folds SIMD NaN fixup exposed by adjacent set get" {
         #|    local.get 0
         #|    f64x2.eq
         #|    v128.bitselect))
-        #|,
       ),
       ["simplify-locals"],
     ) {
@@ -4024,7 +4021,6 @@ test "simplify-locals carries call result across balanced statement" {
         #|      call $side
         #|      local.get 1
         #|    end))
-        #|,
       ),
       ["simplify-locals"],
     ) {
@@ -4056,7 +4052,6 @@ test "simplify-locals stackifies safe nested pair under structured tee guard" {
         #|      drop
         #|      local.get 1
         #|    end))
-        #|,
       ),
       ["simplify-locals"],
     ) {
@@ -4088,7 +4083,6 @@ test "simplify-locals resultifies a tail local beside return call" {
         #|      return_call $recur
         #|    end
         #|    local.get 2))
-        #|,
       ),
       ["simplify-locals"],
     ) {
@@ -4117,7 +4111,6 @@ test "simplify-locals lowers pure one-sided local assignment to select" {
         #|      local.set 2
         #|    end
         #|    local.get 2))
-        #|,
       ),
       ["simplify-locals"],
     ) {
@@ -4142,7 +4135,6 @@ test "simplify-locals lowers pure result if to select" {
         #|    else
         #|      local.get 0
         #|    end))
-        #|,
       ),
       ["simplify-locals"],
     ) {
@@ -4173,7 +4165,6 @@ test "simplify-locals keeps scalar pointer update before loop backedge" {
         #|      end
         #|    end
         #|    local.get 0))
-        #|,
       ),
       [
         "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse",

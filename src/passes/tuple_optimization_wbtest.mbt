@@ -22,7 +22,6 @@ test "tuple-optimization skips load-call-set ownership hazards" {
         #|    call $decref
         #|    local.set $out
         #|    local.get $out))
-        #|,
       ),
       ["tuple-optimization"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -422,7 +421,6 @@ test "tuple-optimization rewrite detail timers aggregate many source groups" {
         #|    drop
         #|    local.get 5
         #|    drop))
-        #|,
       ),
       ["tuple-optimization"],
       options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
@@ -498,7 +496,6 @@ test "tuple-optimization batched root removal skips nop prune for pure drop-only
         #|    drop
         #|    local.get 3
         #|    drop))
-        #|,
       ),
       ["tuple-optimization"],
       options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),

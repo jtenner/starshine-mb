@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: strong
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-07
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp
   - ./index.md
@@ -107,3 +107,9 @@ incoming state is unchanged, after a mandatory first visit. This preserves the
 fixed point and avoids repeated instruction walks; exact-state native controls
 and branch-join dispatcher coverage are documented in the
 [stable-transfer invariant](../../../ir2/local-ssa-policy.md#september-27-2026-stable-forward-transfers).
+
+## MergeLocals correctness repairs — October 7, 2026
+
+Build before/after local graphs from full flow and operand-expanded CFGs. A copy which is not executed on an exceptional path cannot replace that path's saved local.
+
+Evidence: [merge_locals.mbt](../../../../../src/passes/merge_locals.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.

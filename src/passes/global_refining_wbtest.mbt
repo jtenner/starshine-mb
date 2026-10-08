@@ -142,7 +142,6 @@ test "global-refining nominal ancestry reuses pass-scoped traversal scratch" {
       #|  (type $right (sub $base (struct)))
       #|  (type $left_leaf (sub $left (struct)))
       #|  (type $right_leaf (sub $right (struct))))
-      #|,
     ),
   )
   let env = @validate.Env::new().with_module(input)

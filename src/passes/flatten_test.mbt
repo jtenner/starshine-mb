@@ -1,4 +1,40 @@
 ///|
+test "flatten preserves the execution order of a shared rich br-if payload capture" {
+  let func = pass_test_lift_first_func(
+    "(module (memory 1) (func (export \"f\") (result i32) (local $x i32) (local $q i64) (i64.store (i32.const 0) (i64.const -1)) (local.set $x (block $v (result i32) (local.set $q (i64.load8_s (i32.const 0))) (br_if $v (i32.wrap_i64 (local.get $q)) (i32.const 0)))) (local.get $x)))",
+  )
+  let mut payload = -1
+  for id in 0..<@ir.hot_node_count(func) {
+    if @ir.hot_node_exact_instr(func, id) is Some(@lib.I32WrapI64) {
+      payload = id
+    }
+  }
+  assert_true(payload >= 0)
+  let source_order = @ir.hot_node_get(func, payload).order
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  ignore(flatten_run(ctx, func))
+  let mut captured_at_source = false
+  for id in 0..<@ir.hot_node_count(func) {
+    let node = @ir.hot_node_get(func, id)
+    if @ir.hot_node_is_live(func, id) &&
+      node.op is @ir.HotOp::LocalSet &&
+      node.imm0 >= 2 &&
+      @ir.hot_child_count(func, id) == 1 &&
+      @ir.hot_child_get(func, id, 0) == payload {
+      assert_eq(node.order, source_order)
+      captured_at_source = true
+    }
+  }
+  assert_true(captured_at_source)
+}
+
+///|
 fn flatten_test_classify(text : String) -> FlattenFlatnessReport {
   flatten_classify_hot(pass_test_lift_first_func(text))
 }

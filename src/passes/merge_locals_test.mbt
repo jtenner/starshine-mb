@@ -1,4 +1,18 @@
 ///|
+test "merge-locals retains source read after an exception skips the copy" {
+  let output = pass_test_run_pipeline(
+    "(module (import \"env\" \"log\" (func $log (param i32) (result i32))) (tag $t (param i32)) (func $thr (param i32) (if (local.get 0) (then (throw $t (i32.const 42))))) (func (param i32) (result i32) (local i32 i32) (local.set 1 (call $log (i32.const 1))) (block $h (try_table (catch_all $h) (call $thr (local.get 0)) (local.set 2 (local.get 1)))) (local.get 1)))",
+    ["merge-locals"],
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+  assert_eq(
+    body.last(),
+    Some(@lib.Instruction::local_get(@lib.LocalIdx::new(1U))),
+  )
+}
+
+///|
 fn merge_locals_test_first_func(mod_ : @lib.Module) -> @lib.Func {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>

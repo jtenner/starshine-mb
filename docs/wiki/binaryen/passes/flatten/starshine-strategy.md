@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-07
 sources:
   - ./index.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
@@ -606,3 +606,9 @@ Current Starshine `flatten` is an active, compared, and top-level preset-schedul
 - the accepted historical 120-function native-release benchmark measures `1,140 us` versus Binaryen v130's `285.236 us`, or `4.00x`.
 
 Behavior and timing closeout are reopened by the July 31 expanded O4z validity failure. The effective-terminal/no-fallthrough repair must pass focused and full tests, replay the original 1,000-case corpus with zero Starshine failures, complete the direct Binaryen matrix and idempotence lane, and remeasure the representative before `flatten` can be closed again. The active status and historical measurement source are [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).
+
+## Flatten correctness repairs — October 7, 2026
+
+Scalar br_if captures now use the source-order-aware local-set builder in loop and block/if/try paths. A capture cannot read the default before an effectful payload computes the value.
+
+Evidence: [flatten.mbt](../../../../../src/passes/flatten.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.

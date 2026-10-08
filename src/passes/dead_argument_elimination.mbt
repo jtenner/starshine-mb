@@ -7772,6 +7772,19 @@ fn dae_scan_local_use_ignoring_instrs(
           dae_scan_local_use_ignoring_instrs(
             body, local_use, callee_abs, param_count,
           )
+        @lib.Try(_, @lib.Expr(body), catches, _) => {
+          dae_scan_local_use_ignoring_instrs(
+            body, local_use, callee_abs, param_count,
+          )
+          for catch_ in catches {
+            let @lib.Expr(catch_body) = match catch_ {
+              @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+            }
+            dae_scan_local_use_ignoring_instrs(
+              catch_body, local_use, callee_abs, param_count,
+            )
+          }
+        }
         @lib.If(_, then_body, Some(else_body)) => {
           dae_scan_local_use_ignoring_instrs(
             then_body, local_use, callee_abs, param_count,
@@ -7796,7 +7809,7 @@ fn dae_instr_supports_param_entry_liveness(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) => false
     @lib.Throw(_) | @lib.ThrowRef => false
-    @lib.TryTable(_, _, _) => false
+    @lib.Try(_, _, _, _) | @lib.TryTable(_, _, _) => false
     @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
       body.all(fn(child) { dae_instr_supports_param_entry_liveness(child) })
     @lib.If(_, then_body, Some(else_body)) =>
@@ -7821,6 +7834,20 @@ fn dae_instr_contains_call(instr : @lib.Instruction) -> Bool {
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
       body.any(fn(child) { dae_instr_contains_call(child) })
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if body.any(dae_instr_contains_call) {
+        return true
+      }
+      for catch_ in catches {
+        let @lib.Expr(catch_body) = match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+        }
+        if catch_body.any(dae_instr_contains_call) {
+          return true
+        }
+      }
+      false
+    }
     @lib.If(_, then_body, Some(else_body)) =>
       then_body.any(fn(child) { dae_instr_contains_call(child) }) ||
       else_body.any(fn(child) { dae_instr_contains_call(child) })
@@ -8422,7 +8449,8 @@ fn dae_instr_stack_effect(
       }
     @lib.Block(block_type, _)
     | @lib.Loop(block_type, _)
-    | @lib.TryTable(block_type, _, _) =>
+    | @lib.TryTable(block_type, _, _)
+    | @lib.Try(block_type, _, _, _) =>
       dae_instr_stack_effect_from_block_type(block_type, mod_)
     @lib.If(block_type, _, _) =>
       match dae_instr_stack_effect_from_block_type(block_type, mod_) {
@@ -9602,6 +9630,15 @@ fn dae_next_free_local_idx(
           next = candidate
         }
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        next = dae_next_free_local_idx(body, next)
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          next = dae_next_free_local_idx(catch_body, next)
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         let then_candidate = dae_next_free_local_idx(then_body, next)
         if then_candidate > next {
@@ -9664,6 +9701,25 @@ fn dae_rewrite_instruction_locals(
         block_type,
         catches,
         @lib.Expr::new(dae_rewrite_locals_instrs(body, local_map)),
+      )
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) =>
+      @lib.Instruction::try_(
+        block_type,
+        @lib.Expr::new(dae_rewrite_locals_instrs(body, local_map)),
+        catches.map(fn(catch_) {
+          match catch_ {
+            @lib.LegacyCatch(tag, @lib.Expr(catch_body)) =>
+              @lib.LegacyCatch::tagged(
+                tag,
+                @lib.Expr::new(dae_rewrite_locals_instrs(catch_body, local_map)),
+              )
+            @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              @lib.LegacyCatch::all(
+                @lib.Expr::new(dae_rewrite_locals_instrs(catch_body, local_map)),
+              )
+          }
+        }),
+        delegate~,
       )
     @lib.If(block_type, then_body, else_body) =>
       @lib.Instruction::if_(
@@ -9740,6 +9796,19 @@ fn dae_collect_written_locals_instr(
       for child in body {
         dae_collect_written_locals_instr(child, written)
       }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      for child in body {
+        dae_collect_written_locals_instr(child, written)
+      }
+      for catch_ in catches {
+        let @lib.Expr(catch_body) = match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+        }
+        for child in catch_body {
+          dae_collect_written_locals_instr(child, written)
+        }
+      }
+    }
     @lib.If(_, then_body, Some(else_body)) => {
       for child in then_body {
         dae_collect_written_locals_instr(child, written)
@@ -10507,6 +10576,29 @@ fn dae_rewrite_instruction_param_consts(
         catches,
         @lib.Expr::new(dae_rewrite_param_const_instrs(body, const_params)),
       )
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) =>
+      @lib.Instruction::try_(
+        block_type,
+        @lib.Expr::new(dae_rewrite_param_const_instrs(body, const_params)),
+        catches.map(fn(catch_) {
+          match catch_ {
+            @lib.LegacyCatch(tag, @lib.Expr(catch_body)) =>
+              @lib.LegacyCatch::tagged(
+                tag,
+                @lib.Expr::new(
+                  dae_rewrite_param_const_instrs(catch_body, const_params),
+                ),
+              )
+            @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              @lib.LegacyCatch::all(
+                @lib.Expr::new(
+                  dae_rewrite_param_const_instrs(catch_body, const_params),
+                ),
+              )
+          }
+        }),
+        delegate~,
+      )
     @lib.If(block_type, then_body, else_body) =>
       @lib.Instruction::if_(
         block_type,
@@ -10981,7 +11073,12 @@ fn dae_collect_owned_callsite_param_slices_instrs(
   entry_stack_values : Int,
   out : Array[DaeValueSlice],
   allow_stack_carried_void_effects? : Bool = false,
+  legacy_tag_entries? : Array[Int]? = None,
 ) -> Bool {
+  let tag_entries = match legacy_tag_entries {
+    Some(entries) => entries
+    None => []
+  }
   let mut call_idx = 0
   while call_idx < instrs.length() {
     let call_kind = match instrs[call_idx] {
@@ -11016,6 +11113,58 @@ fn dae_collect_owned_callsite_param_slices_instrs(
         }
       None => ()
     }
+    match instrs[call_idx] {
+      @lib.Try(block_type, @lib.Expr(body), catches, _) => {
+        let body_entry = match
+          dae_control_entry_stack_values(block_type, mod_) {
+          Some(count) => count
+          None => return false
+        }
+        if !dae_collect_owned_callsite_param_slices_instrs(
+            facts,
+            mod_,
+            body,
+            callee_abs,
+            param_types,
+            param_idx,
+            epoch,
+            body_entry,
+            out,
+            allow_stack_carried_void_effects~,
+            legacy_tag_entries=Some(tag_entries),
+          ) {
+          return false
+        }
+        for catch_ in catches {
+          let catch_entry = match
+            dae_legacy_catch_entry_stack_values(catch_, mod_, tag_entries) {
+            Some(count) => count
+            None => return false
+          }
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          if !dae_collect_owned_callsite_param_slices_instrs(
+              facts,
+              mod_,
+              catch_body,
+              callee_abs,
+              param_types,
+              param_idx,
+              epoch,
+              catch_entry,
+              out,
+              allow_stack_carried_void_effects~,
+              legacy_tag_entries=Some(tag_entries),
+            ) {
+            return false
+          }
+        }
+        call_idx += 1
+        continue
+      }
+      _ => ()
+    }
     match dae_nested_control_children_evidence(instrs[call_idx], mod_) {
       Some(children) => {
         if !dae_collect_owned_callsite_param_slices_instrs(
@@ -11029,6 +11178,7 @@ fn dae_collect_owned_callsite_param_slices_instrs(
             children.entry_stack_values,
             out,
             allow_stack_carried_void_effects~,
+            legacy_tag_entries=Some(tag_entries),
           ) {
           return false
         }
@@ -11045,35 +11195,11 @@ fn dae_collect_owned_callsite_param_slices_instrs(
                 children.entry_stack_values,
                 out,
                 allow_stack_carried_void_effects~,
+                legacy_tag_entries=Some(tag_entries),
               ) {
               return false
             }
           None => ()
-        }
-        // Legacy try catches are not exposed by nested-control children evidence.
-        match instrs[call_idx] {
-          @lib.Try(_, _, catches, _) =>
-            for catch_ in catches {
-              match catch_ {
-                @lib.LegacyCatch(_, @lib.Expr(catch_body))
-                | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
-                  if !dae_collect_owned_callsite_param_slices_instrs(
-                      facts,
-                      mod_,
-                      catch_body,
-                      callee_abs,
-                      param_types,
-                      param_idx,
-                      epoch,
-                      children.entry_stack_values,
-                      out,
-                      allow_stack_carried_void_effects~,
-                    ) {
-                    return false
-                  }
-              }
-            }
-          _ => ()
         }
       }
       None => ()
@@ -11190,6 +11316,7 @@ fn dae_classify_unused_parameter_actions_from_function_infos(
   for _ in param_types {
     slices_by_param.push([])
   }
+  let tag_entries : Array[Int] = []
   let mut matched_calls = 0
   for callsite in function_infos[callee_abs].calls {
     if callsite.callee_abs != callee_abs ||
@@ -11209,6 +11336,7 @@ fn dae_classify_unused_parameter_actions_from_function_infos(
         0,
         0,
         mod_,
+        legacy_tag_entries=Some(tag_entries),
       ) {
       Some(resolved) => resolved
       None => return None
@@ -12057,6 +12185,90 @@ fn dae_rewrite_refined_gc_actuals_instrs(
 }
 
 ///|
+// One transient arity table per caller rewrite, filled only when a tagged
+// legacy catch needs it. Flatten type arities once; do not rescan all types
+// for each handler or construct a whole validation environment.
+fn dae_legacy_tag_payload_count(
+  mod_ : @lib.Module,
+  tag : @lib.TagIdx,
+  entries : Array[Int],
+) -> Int? {
+  if entries.is_empty() {
+    let arities : Array[Int] = []
+    match mod_.type_sec {
+      Some(@lib.TypeSec(types)) =>
+        for rec_type in types {
+          match rec_type {
+            @lib.SingleRecType(subtype) =>
+              arities.push(
+                match subtype.get_comptype() {
+                  @lib.FuncCompType(params, results) if results.is_empty() =>
+                    params.length()
+                  _ => -1
+                },
+              )
+            @lib.GroupRecType(group) =>
+              for subtype in group {
+                arities.push(
+                  match subtype.get_comptype() {
+                    @lib.FuncCompType(params, results) if results.is_empty() =>
+                      params.length()
+                    _ => -1
+                  },
+                )
+              }
+          }
+        }
+      None => ()
+    }
+    let append_tag = fn(tag_type : @lib.TagType) {
+      let @lib.TagType(type_idx) = tag_type
+      let count = match type_idx {
+        @lib.TypeIdx(raw) => arities.get(raw.reinterpret_as_int()).unwrap_or(-1)
+        @lib.RecIdx(_) => -1
+      }
+      entries.push(count)
+    }
+    match mod_.import_sec {
+      Some(@lib.ImportSec(imports)) =>
+        for import_ in imports {
+          match import_ {
+            @lib.Import(_, _, @lib.TagExternType(tag_type)) =>
+              append_tag(tag_type)
+            _ => ()
+          }
+        }
+      None => ()
+    }
+    match mod_.tag_sec {
+      Some(@lib.TagSec(tags)) =>
+        for tag_type in tags {
+          append_tag(tag_type)
+        }
+      None => ()
+    }
+  }
+  let @lib.TagIdx(raw) = tag
+  match entries.get(raw.reinterpret_as_int()) {
+    Some(count) if count >= 0 => Some(count)
+    _ => None
+  }
+}
+
+///|
+fn dae_legacy_catch_entry_stack_values(
+  catch_ : @lib.LegacyCatch,
+  mod_ : @lib.Module,
+  tag_entries : Array[Int],
+) -> Int? {
+  match catch_ {
+    @lib.LegacyCatch(tag, _) =>
+      dae_legacy_tag_payload_count(mod_, tag, tag_entries)
+    @lib.LegacyCatchAll(_) => Some(0)
+  }
+}
+
+///|
 fn dae_rewrite_calls_instr(
   instr : @lib.Instruction,
   callee_abs : Int,
@@ -12066,7 +12278,83 @@ fn dae_rewrite_calls_instr(
   localization? : DaeCallsiteLocalizationContext? = None,
   allow_stack_carried_void_effects? : Bool = false,
   traps_never_happen? : Bool = false,
+  legacy_tag_entries? : Array[Int]? = None,
 ) -> (@lib.Instruction, Int, Bool) {
+  let tag_entries = match legacy_tag_entries {
+    Some(entries) => entries
+    None => []
+  }
+  match instr {
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+      let entry_values = match
+        dae_control_entry_stack_values(block_type, mod_) {
+        Some(count) => count
+        None => return (instr, 0, false)
+      }
+      let primary = dae_rewrite_calls_instrs(
+        body,
+        callee_abs,
+        remove,
+        entry_values,
+        mod_,
+        func_type_indices,
+        localization~,
+        allow_stack_carried_void_effects~,
+        traps_never_happen~,
+        legacy_tag_entries=Some(tag_entries),
+      )
+      if !primary.ok {
+        return (instr, primary.calls_rewritten, false)
+      }
+      let mut calls = primary.calls_rewritten
+      let next_catches : Array[@lib.LegacyCatch] = []
+      for catch_ in catches {
+        let catch_entry = match
+          dae_legacy_catch_entry_stack_values(catch_, mod_, tag_entries) {
+          Some(count) => count
+          None => return (instr, calls, false)
+        }
+        let @lib.Expr(catch_body) = match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+        }
+        let rewritten = dae_rewrite_calls_instrs(
+          catch_body,
+          callee_abs,
+          remove,
+          catch_entry,
+          mod_,
+          func_type_indices,
+          localization~,
+          allow_stack_carried_void_effects~,
+          traps_never_happen~,
+          legacy_tag_entries=Some(tag_entries),
+        )
+        calls += rewritten.calls_rewritten
+        if !rewritten.ok {
+          return (instr, calls, false)
+        }
+        next_catches.push(
+          match catch_ {
+            @lib.LegacyCatch(tag, _) =>
+              @lib.LegacyCatch::tagged(tag, @lib.Expr::new(rewritten.instrs))
+            @lib.LegacyCatchAll(_) =>
+              @lib.LegacyCatch::all(@lib.Expr::new(rewritten.instrs))
+          },
+        )
+      }
+      return (
+        @lib.Instruction::try_(
+          block_type,
+          @lib.Expr::new(primary.instrs),
+          next_catches,
+          delegate~,
+        ),
+        calls,
+        true,
+      )
+    }
+    _ => ()
+  }
   let children = match dae_nested_control_children_evidence(instr, mod_) {
     Some(evidence) => evidence
     None =>
@@ -12089,6 +12377,7 @@ fn dae_rewrite_calls_instr(
     localization~,
     allow_stack_carried_void_effects~,
     traps_never_happen~,
+    legacy_tag_entries=Some(tag_entries),
   )
   if !primary_result.ok {
     return (instr, primary_result.calls_rewritten, false)
@@ -12106,6 +12395,7 @@ fn dae_rewrite_calls_instr(
         localization~,
         allow_stack_carried_void_effects~,
         traps_never_happen~,
+        legacy_tag_entries=Some(tag_entries),
       )
       calls += secondary_result.calls_rewritten
       if !secondary_result.ok {
@@ -12138,7 +12428,12 @@ fn dae_rewrite_calls_instrs(
   localization? : DaeCallsiteLocalizationContext? = None,
   allow_stack_carried_void_effects? : Bool = false,
   traps_never_happen? : Bool = false,
+  legacy_tag_entries? : Array[Int]? = None,
 ) -> DaeRewriteResult {
+  let tag_entries = match legacy_tag_entries {
+    Some(entries) => entries
+    None => []
+  }
   let current = instrs.copy()
   let mut idx = 0
   let mut calls = 0
@@ -12212,6 +12507,7 @@ fn dae_rewrite_calls_instrs(
           localization~,
           allow_stack_carried_void_effects~,
           traps_never_happen~,
+          legacy_tag_entries=Some(tag_entries),
         )
         if !ok {
           return {
@@ -12591,7 +12887,12 @@ fn dae_collect_uniform_const_actuals_instrs(
   allow_immutable_global_get? : Bool = false,
   collect_params? : Array[Bool]? = None,
   uniform_resolution_cache? : DaeUniformResolutionCache? = None,
+  legacy_tag_entries? : Array[Int]? = None,
 ) -> Bool {
+  let tag_entries = match legacy_tag_entries {
+    Some(entries) => entries
+    None => []
+  }
   let param_count = param_types.length()
   let active_params = match collect_params {
     Some(active) if active.length() == param_count => active
@@ -12696,6 +12997,63 @@ fn dae_collect_uniform_const_actuals_instrs(
         }
       None =>
         match instrs[idx] {
+          @lib.Try(block_type, @lib.Expr(body), catches, _) => {
+            let body_entry = match
+              dae_control_entry_stack_values(block_type, mod_) {
+              Some(count) => count
+              None => return false
+            }
+            if !dae_collect_uniform_const_actuals_instrs(
+                body,
+                callee_abs,
+                param_types,
+                body_entry,
+                caller_abs,
+                mod_,
+                func_type_indices,
+                boundary_facts,
+                visited,
+                seen,
+                invalid,
+                candidates,
+                allow_immutable_global_get~,
+                collect_params=Some(active_params),
+                uniform_resolution_cache~,
+                legacy_tag_entries=Some(tag_entries),
+              ) {
+              return false
+            }
+            for catch_ in catches {
+              let catch_entry = match
+                dae_legacy_catch_entry_stack_values(catch_, mod_, tag_entries) {
+                Some(count) => count
+                None => return false
+              }
+              let @lib.Expr(catch_body) = match catch_ {
+                @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+              }
+              if !dae_collect_uniform_const_actuals_instrs(
+                  catch_body,
+                  callee_abs,
+                  param_types,
+                  catch_entry,
+                  caller_abs,
+                  mod_,
+                  func_type_indices,
+                  boundary_facts,
+                  visited,
+                  seen,
+                  invalid,
+                  candidates,
+                  allow_immutable_global_get~,
+                  collect_params=Some(active_params),
+                  uniform_resolution_cache~,
+                  legacy_tag_entries=Some(tag_entries),
+                ) {
+                return false
+              }
+            }
+          }
           @lib.Block(_, @lib.Expr(_))
           | @lib.Loop(_, @lib.Expr(_))
           | @lib.TryTable(_, _, @lib.Expr(_))
@@ -12721,6 +13079,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                 allow_immutable_global_get~,
                 collect_params=Some(active_params),
                 uniform_resolution_cache~,
+                legacy_tag_entries=Some(tag_entries),
               ) {
               return false
             }
@@ -12742,6 +13101,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                     allow_immutable_global_get~,
                     collect_params=Some(active_params),
                     uniform_resolution_cache~,
+                    legacy_tag_entries=Some(tag_entries),
                   ) {
                   return false
                 }
@@ -12854,6 +13214,7 @@ fn dae_resolve_stable_callsite_scope(
   path_idx : Int,
   entry_stack_values : Int,
   mod_ : @lib.Module,
+  legacy_tag_entries? : Array[Int]? = None,
 ) -> (Array[@lib.Instruction], Int, Int)? {
   if path_idx < 0 || path_idx >= path.length() {
     return None
@@ -12869,6 +13230,46 @@ fn dae_resolve_stable_callsite_scope(
     return None
   }
   let child_kind = path[path_idx + 1]
+  let tag_entries = match legacy_tag_entries {
+    Some(entries) => entries
+    None => []
+  }
+  match instrs[instr_idx] {
+    @lib.Try(block_type, @lib.Expr(body), catches, _) => {
+      let (child_body, child_entry) = if child_kind == 4 {
+        let count = match dae_control_entry_stack_values(block_type, mod_) {
+          Some(count) => count
+          None => return None
+        }
+        (body, count)
+      } else if child_kind >= 5 {
+        let catch_ = match catches.get(child_kind - 5) {
+          Some(catch_) => catch_
+          None => return None
+        }
+        let count = match
+          dae_legacy_catch_entry_stack_values(catch_, mod_, tag_entries) {
+          Some(count) => count
+          None => return None
+        }
+        let @lib.Expr(catch_body) = match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+        }
+        (catch_body, count)
+      } else {
+        return None
+      }
+      return dae_resolve_stable_callsite_scope(
+        child_body,
+        path,
+        path_idx + 2,
+        child_entry,
+        mod_,
+        legacy_tag_entries=Some(tag_entries),
+      )
+    }
+    _ => ()
+  }
   let child_evidence = match
     dae_nested_control_children_evidence(instrs[instr_idx], mod_) {
     Some(evidence) => evidence
@@ -12892,6 +13293,7 @@ fn dae_resolve_stable_callsite_scope(
     path_idx + 2,
     child_evidence.entry_stack_values,
     mod_,
+    legacy_tag_entries=Some(tag_entries),
   )
 }
 
@@ -12914,6 +13316,7 @@ fn dae_resolve_uniform_callsite_operands(
   cache : @hashmap.HashMap[(Int, Int), DaeUniformCallsiteOperands]?,
   callsite_index : Int,
   resolutions : Array[Int]?,
+  legacy_tag_entries? : Array[Int]? = None,
 ) -> DaeUniformCallsiteOperands? {
   match cache {
     Some(entries) =>
@@ -12934,6 +13337,7 @@ fn dae_resolve_uniform_callsite_operands(
       0,
       0,
       mod_,
+      legacy_tag_entries~,
     ) {
     Some(resolved) => resolved
     None => return None
@@ -13026,6 +13430,7 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
   }
   // A tail call supplies the same parameter boundary as an ordinary call.
   // Its arguments must join the constant proof, including recursive updates.
+  let tag_entries : Array[Int] = []
   let callsites = function_infos[callee_abs].calls
   for callsite_index = 0
       callsite_index < callsites.length()
@@ -13041,8 +13446,16 @@ fn dae_collect_uniform_const_actuals_from_function_infos(
     let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
     let operands = match
       dae_resolve_uniform_callsite_operands(
-        mod_, body, callsite, callee_abs, param_count, func_type_indices, operand_cache,
-        callsite_index, stable_callsite_resolutions,
+        mod_,
+        body,
+        callsite,
+        callee_abs,
+        param_count,
+        func_type_indices,
+        operand_cache,
+        callsite_index,
+        stable_callsite_resolutions,
+        legacy_tag_entries=Some(tag_entries),
       ) {
       Some(operands) => operands
       None => return None
@@ -13796,8 +14209,12 @@ fn dae_prune_unused_simple_func_types(
   match mod_.table_sec {
     Some(@lib.TableSec(tables)) =>
       for table in tables {
-        let @lib.Table(table_type, _) = table
+        let @lib.Table(table_type, initializer) = table
         dae_mark_used_table_type(table_type, used)
+        match initializer {
+          Some(@lib.Expr(body)) => dae_collect_used_type_idx_instrs(body, used)
+          None => ()
+        }
       }
     None => ()
   }
@@ -22835,6 +23252,23 @@ fn dae_count_target_call_kinds_instrs(
         direct_calls += nested_direct
         return_calls += nested_return
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        let (body_direct, body_return) = dae_count_target_call_kinds_instrs(
+          body, callee_abs,
+        )
+        direct_calls += body_direct
+        return_calls += body_return
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          let (catch_direct, catch_return) = dae_count_target_call_kinds_instrs(
+            catch_body, callee_abs,
+          )
+          direct_calls += catch_direct
+          return_calls += catch_return
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         let (then_direct, then_return) = dae_count_target_call_kinds_instrs(
           then_body, callee_abs,
@@ -22884,6 +23318,23 @@ fn dae_count_active_target_call_kinds_instrs(
         )
         direct_calls += nested_direct
         return_calls += nested_return
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        let (body_direct, body_return) = dae_count_active_target_call_kinds_instrs(
+          body, callee_abs,
+        )
+        direct_calls += body_direct
+        return_calls += body_return
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          let (catch_direct, catch_return) = dae_count_active_target_call_kinds_instrs(
+            catch_body, callee_abs,
+          )
+          direct_calls += catch_direct
+          return_calls += catch_return
+        }
       }
       @lib.If(_, then_body, else_body) => {
         let (then_direct, then_return) = dae_count_active_target_call_kinds_instrs(
@@ -31980,7 +32431,10 @@ fn dae_run_core_once(
       has_direct_caller_cycle~,
     )
     let allow_written_uniform_const = params.length() > 0 &&
-      dae_instrs_support_param_entry_liveness(candidate_body)
+      (
+        dae_instrs_support_param_entry_liveness(candidate_body) ||
+        (optimize && pass_raw_instrs_have_legacy_try(candidate_body))
+      )
     let collect_const_params = Array::make(params.length(), false)
     let mut has_collect_const_param = false
     let mut collect_p = 0
@@ -44056,7 +44510,10 @@ fn dae_collect_uniform_immediate_i32_suffix_instrs(
   let mut idx = 0
   while idx < instrs.length() {
     match instrs[idx] {
-      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
+      @lib.Call(func_idx) | @lib.ReturnCall(func_idx) if dae_func_idx_slot(
+          func_idx,
+        ) ==
+        callee_abs => {
         if idx == 0 {
           return false
         }
@@ -44079,6 +44536,23 @@ fn dae_collect_uniform_immediate_i32_suffix_instrs(
           ) {
           return false
         }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if !dae_collect_uniform_immediate_i32_suffix_instrs(
+            body, callee_abs, expected, call_count,
+          ) {
+          return false
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          if !dae_collect_uniform_immediate_i32_suffix_instrs(
+              catch_body, callee_abs, expected, call_count,
+            ) {
+            return false
+          }
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         if !dae_collect_uniform_immediate_i32_suffix_instrs(
             then_body, callee_abs, expected, call_count,
@@ -51357,6 +51831,279 @@ fn dae_cleanup_touched_unread_locals(
 }
 
 ///|
+// Scope checks stay flat. Each stored instruction is inspected a bounded
+// number of times, even when many legacy regions are nested.
+fn dae_legacy_flat_scope_can_inline(body : Array[@lib.Instruction]) -> Bool {
+  for instr in body {
+    match instr {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _) => return false
+      _ => ()
+    }
+  }
+  run_hot_pipeline_raw_vacuum_body_can_flatten_no_throw_exception_region(body)
+}
+
+///|
+fn dae_legacy_cleanup_expr(
+  expr : @lib.Expr,
+  mod_ : @lib.Module,
+  tag_entries : Array[Int],
+) -> @lib.Expr {
+  let @lib.Expr(body) = expr
+  let (next, changed) = dae_flatten_proved_legacy_control(
+    body, mod_, tag_entries,
+  )
+  if changed {
+    @lib.Expr::new(next)
+  } else {
+    expr
+  }
+}
+
+///|
+// Keep borrowed instruction and catch arrays until a child actually changes.
+fn dae_legacy_cleanup_children(
+  instr : @lib.Instruction,
+  mod_ : @lib.Module,
+  tag_entries : Array[Int],
+) -> @lib.Instruction {
+  match instr {
+    @lib.Block(block_type, expr) => {
+      let next = dae_legacy_cleanup_expr(expr, mod_, tag_entries)
+      if physical_equal(next, expr) {
+        instr
+      } else {
+        @lib.Instruction::block(block_type, next)
+      }
+    }
+    @lib.Loop(block_type, expr) => {
+      let next = dae_legacy_cleanup_expr(expr, mod_, tag_entries)
+      if physical_equal(next, expr) {
+        instr
+      } else {
+        @lib.Instruction::loop_(block_type, next)
+      }
+    }
+    @lib.TryTable(block_type, catches, expr) => {
+      let next = dae_legacy_cleanup_expr(expr, mod_, tag_entries)
+      if physical_equal(next, expr) {
+        instr
+      } else {
+        @lib.Instruction::try_table(block_type, catches, next)
+      }
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (next_then, then_changed) = dae_flatten_proved_legacy_control(
+        then_body, mod_, tag_entries,
+      )
+      let mut else_changed = false
+      let next_else = match else_body {
+        Some(body) => {
+          let (next, changed) = dae_flatten_proved_legacy_control(
+            body, mod_, tag_entries,
+          )
+          else_changed = changed
+          Some(next)
+        }
+        None => None
+      }
+      if !then_changed && !else_changed {
+        instr
+      } else {
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+    }
+    @lib.Try(block_type, expr, catches, delegate) => {
+      let next_body = dae_legacy_cleanup_expr(expr, mod_, tag_entries)
+      let mut next_catches : Array[@lib.LegacyCatch]? = None
+      for idx = 0; idx < catches.length(); idx = idx + 1 {
+        let catch_ = catches[idx]
+        let expr = match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+        }
+        let next = dae_legacy_cleanup_expr(expr, mod_, tag_entries)
+        if physical_equal(next, expr) {
+          continue
+        }
+        let next = match catch_ {
+          @lib.LegacyCatch(tag, _) => @lib.LegacyCatch::tagged(tag, next)
+          @lib.LegacyCatchAll(_) => @lib.LegacyCatch::all(next)
+        }
+        match next_catches {
+          Some(copy) => copy[idx] = next
+          None => {
+            let copy = catches.copy()
+            copy[idx] = next
+            next_catches = Some(copy)
+          }
+        }
+      }
+      if physical_equal(next_body, expr) && next_catches is None {
+        instr
+      } else {
+        @lib.Instruction::try_(
+          block_type,
+          next_body,
+          next_catches.unwrap_or(catches),
+          delegate~,
+        )
+      }
+    }
+    _ => instr
+  }
+}
+
+///|
+// Remove only flat legacy scopes with a proved selected path and no branch.
+// A no-throw body cannot enter a catch. An exact zero-payload throw enters the
+// first matching catch. Delegation and effectful exception paths keep scopes.
+fn dae_flatten_proved_legacy_control(
+  instrs : Array[@lib.Instruction],
+  mod_ : @lib.Module,
+  tag_entries : Array[Int],
+) -> (Array[@lib.Instruction], Bool) {
+  let mut out : Array[@lib.Instruction]? = None
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let original = instrs[idx]
+    let mut replacement : Array[@lib.Instruction]? = None
+    match original {
+      @lib.Try(block_type, @lib.Expr(body), catches, None) =>
+        if dae_legacy_flat_scope_can_inline(body) {
+          replacement = Some(body)
+        } else {
+          match body {
+            [@lib.Throw(tag)] if dae_control_entry_stack_values(
+                block_type, mod_,
+              ) ==
+              Some(0) &&
+              dae_legacy_tag_payload_count(mod_, tag, tag_entries) == Some(0) =>
+              for catch_ in catches {
+                let selected = match catch_ {
+                  @lib.LegacyCatch(caught_tag, @lib.Expr(catch_body)) if caught_tag ==
+                    tag => Some(catch_body)
+                  @lib.LegacyCatchAll(@lib.Expr(catch_body)) => Some(catch_body)
+                  _ => None
+                }
+                match selected {
+                  Some(body) => {
+                    if dae_legacy_flat_scope_can_inline(body) {
+                      replacement = Some(body)
+                    }
+                    // Later handlers cannot replace the first matching handler.
+                    break
+                  }
+                  None => ()
+                }
+              }
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+    match replacement {
+      Some(body) => {
+        let copy = match out {
+          Some(copy) => copy
+          None => {
+            let copy = Array::new(capacity=instrs.length())
+            for prefix = 0; prefix < idx; prefix = prefix + 1 {
+              copy.push(instrs[prefix])
+            }
+            out = Some(copy)
+            copy
+          }
+        }
+        copy.append(body)
+      }
+      None => {
+        let next = dae_legacy_cleanup_children(original, mod_, tag_entries)
+        match out {
+          Some(copy) => copy.push(next)
+          None if !physical_equal(next, original) => {
+            let copy = Array::new(capacity=instrs.length())
+            for prefix = 0; prefix < idx; prefix = prefix + 1 {
+              copy.push(instrs[prefix])
+            }
+            copy.push(next)
+            out = Some(copy)
+          }
+          None => ()
+        }
+      }
+    }
+  }
+  match out {
+    Some(next) => (next, true)
+    None => (instrs, false)
+  }
+}
+
+///|
+fn dae_cleanup_touched_legacy_constants(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+  fold_constants? : Bool = true,
+) -> @lib.Module {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let imports = dae_imported_func_count(mod_)
+  let mut next_funcs : Array[@lib.Func]? = None
+  for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+    if def_idx >= touched.length() || !touched[def_idx] {
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    if !pass_raw_instrs_have_legacy_try(body) {
+      continue
+    }
+    let (flattened, changed) = dae_flatten_proved_legacy_control(body, mod_, [])
+    if !changed {
+      continue
+    }
+    let flattened = @lib.Func::new(locals, @lib.Expr::new(flattened))
+    let folded = if fold_constants {
+      let params = match
+        run_hot_pipeline_defined_func_params_from_sections(
+          mod_,
+          @lib.FuncIdx::new((imports + def_idx).reinterpret_as_uint()),
+        ) {
+        Some(params) => params
+        None => continue
+      }
+      let propagated = match
+        precompute_propagate_run_raw_straight_line_func(flattened, params, None) {
+        Some((next, _)) => next
+        None => flattened
+      }
+      match precompute_run_raw_func(propagated, None) {
+        Some((next, _, _)) => next
+        None => propagated
+      }
+    } else {
+      flattened
+    }
+    match next_funcs {
+      Some(copy) => copy[def_idx] = folded
+      None => {
+        let copy = funcs.copy()
+        copy[def_idx] = folded
+        next_funcs = Some(copy)
+      }
+    }
+  }
+  match next_funcs {
+    Some(copy) => mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec()
+    None => mod_
+  }
+}
+
+///|
 fn dae_run_nested_cleanup(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -51376,7 +52123,10 @@ fn dae_run_nested_cleanup(
   if folded_changed {
     trace("pass[dae-optimizing]:nested-cleanup nonnull-ref-is-null-fold")
   }
-  dae_cleanup_touched_unread_locals(folded, touched)
+  dae_cleanup_touched_unread_locals(
+    dae_cleanup_touched_legacy_constants(folded, touched),
+    touched,
+  )
 }
 
 ///| Validate the complete rewritten module environment, then only function

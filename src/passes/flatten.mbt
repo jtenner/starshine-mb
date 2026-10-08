@@ -8701,7 +8701,13 @@ fn flatten_try_route_scalar_br_if(
             ),
           )
         }
-        preludes.push(@ir.hot_build_local_set(func, locals[slot], payload_id))
+        preludes.push(
+          if payload_count == 1 {
+            @ir.hot_build_local_set_from_value(func, locals[slot], payload_id)
+          } else {
+            @ir.hot_build_local_set(func, locals[slot], payload_id)
+          },
+        )
       }
       let condition_id = @ir.hot_child_get(func, node_id, payload_count)
       ignore(@ir.hot_replace_child_span(func, node_id, [condition_id]))
@@ -8749,9 +8755,11 @@ fn flatten_try_route_scalar_br_if(
     ),
   )
   if flow_local == local_id {
-    preludes.push(@ir.hot_build_local_set(func, local_id, value_id))
+    preludes.push(@ir.hot_build_local_set_from_value(func, local_id, value_id))
   } else {
-    preludes.push(@ir.hot_build_local_set(func, flow_local, value_id))
+    preludes.push(
+      @ir.hot_build_local_set_from_value(func, flow_local, value_id),
+    )
     preludes.push(
       @ir.hot_build_local_set(
         func,

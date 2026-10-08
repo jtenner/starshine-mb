@@ -2060,7 +2060,7 @@ test "duplicate-function-elimination conservatively skips type compaction with d
 ///|
 test "duplicate-function-elimination conservatively skips type compaction with supertypes" {
   let base = @lib.RecType::new(
-    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+    @lib.SubType::new(false, [], @lib.CompType::func([], [])),
   )
   let sub_a = @lib.RecType::new(
     @lib.SubType::new(

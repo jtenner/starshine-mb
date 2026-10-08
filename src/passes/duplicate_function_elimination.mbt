@@ -2912,6 +2912,19 @@ fn dfe_mark_ref_func_identities_in_instruction(
       dfe_mark_ref_func_identities_in_expr(
         expr, imported_count, identity_visible,
       )
+    @lib.Try(_, body, catches, _) => {
+      dfe_mark_ref_func_identities_in_expr(
+        body, imported_count, identity_visible,
+      )
+      for catch_ in catches {
+        let expr = match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+        }
+        dfe_mark_ref_func_identities_in_expr(
+          expr, imported_count, identity_visible,
+        )
+      }
+    }
     @lib.If(_, then_body, else_body) => {
       dfe_mark_ref_func_identities_in_instructions(
         then_body, imported_count, identity_visible,
@@ -3107,6 +3120,42 @@ fn dfe_rewrite_instruction_func_idxs(
         instr
       } else {
         @lib.Instruction::try_table(block_type, catches, rewritten)
+      }
+    }
+    @lib.Try(block_type, body, catches, delegate) => {
+      let next_body = dfe_rewrite_expr_func_idxs(body, remap)
+      let mut next_catches : Array[@lib.LegacyCatch]? = None
+      for idx = 0; idx < catches.length(); idx = idx + 1 {
+        let catch_ = catches[idx]
+        let expr = match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+        }
+        let next_expr = dfe_rewrite_expr_func_idxs(expr, remap)
+        if physical_equal(next_expr, expr) {
+          continue
+        }
+        let next = match catch_ {
+          @lib.LegacyCatch(tag, _) => @lib.LegacyCatch::tagged(tag, next_expr)
+          @lib.LegacyCatchAll(_) => @lib.LegacyCatch::all(next_expr)
+        }
+        match next_catches {
+          Some(copy) => copy[idx] = next
+          None => {
+            let copy = catches.copy()
+            copy[idx] = next
+            next_catches = Some(copy)
+          }
+        }
+      }
+      if physical_equal(next_body, body) && next_catches is None {
+        instr
+      } else {
+        @lib.Instruction::try_(
+          block_type,
+          next_body,
+          next_catches.unwrap_or(catches),
+          delegate~,
+        )
       }
     }
     @lib.RefFunc(func_idx) => {
@@ -3729,6 +3778,42 @@ fn dfe_shape_instruction_hash(
         needs_debris_cleanup~,
         max_func_target~,
       )
+    }
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+      if dfe_block_type_mentions_type_idxs(block_type) {
+        match mentions_type_idxs {
+          Some(flag) => flag[0] = true
+          None => ()
+        }
+      }
+      let mut key = (1023 * 31 + delegate.hash()) * 31 +
+        dfe_shape_instruction_array_hash(
+          body,
+          mentions_type_idxs~,
+          needs_debris_cleanup~,
+          max_func_target~,
+        )
+      for catch_ in catches {
+        let expr = match catch_ {
+          @lib.LegacyCatch(tag, expr) => {
+            key = (key * 31 + 1025) * 31 + tag.hash()
+            expr
+          }
+          @lib.LegacyCatchAll(expr) => {
+            key = key * 31 + 1027
+            expr
+          }
+        }
+        let @lib.Expr(catch_body) = expr
+        key = key * 31 +
+          dfe_shape_instruction_array_hash(
+            catch_body,
+            mentions_type_idxs~,
+            needs_debris_cleanup~,
+            max_func_target~,
+          )
+      }
+      key
     }
     @lib.Call(func_idx) => {
       match max_func_target {
@@ -4826,8 +4911,7 @@ fn dfe_run_module_pass_with_perf(
   mod_ : @lib.Module,
   perf : HotPerfSession?,
 ) -> @lib.Module {
-  if pass_module_has_legacy_try(mod_) ||
-    pass_module_has_offset_sensitive_metadata(mod_) {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
   }
   let iteration_timer = dfe_perf_start_timer_opt(perf, "iterations")
@@ -4873,14 +4957,14 @@ pub fn dfe_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
-// The DFE entrypoint excludes legacy Try and strips names before this cleanup.
+// Local grouping keeps its legacy control barrier and preserves parameter indices.
 // Keep parameter indices stable and accept only an actual whole-module saving:
 // fewer declaration runs can otherwise lose to wider local-index encodings.
 fn dfe_group_numeric_locals_if_smaller(
   mod_ : @lib.Module,
   function_comparisons? : Array[Int]? = None,
 ) -> @lib.Module {
-  if mod_.code_sec is None {
+  if mod_.code_sec is None || pass_module_has_legacy_try(mod_) {
     return mod_
   }
   let grouped = run_hot_pipeline_raw_group_body_locals_by_type_module(mod_)
@@ -4910,8 +4994,7 @@ fn dfe_cleanup_raw_encoding(mod_ : @lib.Module) -> @lib.Module {
 
 ///|
 fn dfe_cleanup_simple_type_encoding(mod_ : @lib.Module) -> @lib.Module {
-  if pass_module_has_legacy_try(mod_) ||
-    (mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_)) {
+  if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
     return mod_
   }
   let grouped = mod_
@@ -4919,7 +5002,7 @@ fn dfe_cleanup_simple_type_encoding(mod_ : @lib.Module) -> @lib.Module {
     Some(@lib.TypeSec(types)) => types
     None => return grouped
   }
-  // DFE's entrypoint already excludes legacy Try. Restrict the shared remapper
+  // The type walker includes legacy bodies and catches. Restrict this remapper
   // to independent unshared function signatures; GC/proposal type graphs keep
   // their definitions until their complete reference surfaces are supported.
   for rec_type in types {

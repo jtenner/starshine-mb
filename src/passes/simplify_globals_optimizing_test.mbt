@@ -345,7 +345,6 @@ test "simplify-globals-optimizing promotes private never-written globals and rer
       #|    global.get $g
       #|    i32.const 1
       #|    i32.add))
-      #|,
     ),
   )
 
@@ -381,7 +380,6 @@ test "simplify-globals-optimizing only reruns cleanup on touched functions" {
       #|  (func $untouched
       #|    i32.const 99
       #|    drop))
-      #|,
     ),
   )
 
@@ -580,7 +578,6 @@ test "simplify-globals-optimizing removes pure dropped local reads during cheap 
       #|    i32.const 0
       #|    drop
       #|    global.get $g)
-      #|,
     ),
   )
   for _idx = 0; _idx < 256; _idx = _idx + 1 {
@@ -619,7 +616,6 @@ test "simplify-globals-optimizing final cleanup removes noops from unchanged fun
       #|      br 0
       #|    end
       #|    drop)
-      #|,
     ),
   )
   for _idx = 0; _idx < 255; _idx = _idx + 1 {
@@ -652,7 +648,6 @@ test "simplify-globals-optimizing removes branches exposed after final cleanup" 
       #|  (func (export "return") (result i32)
       #|    i32.const 10
       #|    return))
-      #|,
     ),
   )
   let branch_pretty = optimized.pretty_print_defined_func(1U)
@@ -677,7 +672,6 @@ test "simplify-globals-optimizing propagates constants exposed after final clean
       #|    i32.const 0
       #|    local.tee 0
       #|    i32.eqz))
-      #|,
     ),
   )
   let constant_pretty = optimized.pretty_print_defined_func(1U)
@@ -699,7 +693,6 @@ test "simplify-globals-optimizing merges safe blocks exposed by final cleanup" {
       #|    (block
       #|      (block
       #|        nop))))
-      #|,
     ),
   )
   let pretty = optimized.pretty_print_defined_func(1U)
@@ -720,7 +713,6 @@ test "simplify-globals-optimizing simplifies locals in the final cleanup suffix"
       #|    local.set 0
       #|    local.get 0
       #|    return))
-      #|,
     ),
   )
   let pretty = optimized.pretty_print_defined_func(1U)
@@ -755,7 +747,6 @@ test "simplify-globals-optimizing defers broad final cleanup for O4z stateful Em
       #|    local.set 0
       #|    local.get 0
       #|    return)
-      #|,
     ),
   )
   for _idx = 0; _idx < 38; _idx = _idx + 1 {
@@ -800,7 +791,6 @@ test "simplify-globals-optimizing coalesces locals exposed by final cleanup" {
       #|    drop
       #|    local.get 1
       #|    call $side))
-      #|,
     ),
   )
   match optimized.code_sec {
@@ -863,7 +853,6 @@ test "simplify-globals-optimizing final suffix preserves effectful result-if con
       #|      i32.const 0
       #|    end
       #|    drop))
-      #|,
     ),
   )
   let pretty = optimized.pretty_print_defined_func(1U)
@@ -892,7 +881,6 @@ test "simplify-globals-optimizing final cleanup voids dropped effectful terminal
       #|      br 0
       #|    end
       #|    drop))
-      #|,
     ),
   )
   let pretty = optimized.pretty_print_defined_func(1U)
@@ -926,7 +914,6 @@ test "simplify-globals-optimizing final cleanup keeps result blocks targeted by 
       #|      br 0
       #|    end
       #|    drop))
-      #|,
     ),
   )
   let pretty = optimized.pretty_print_defined_func(1U)
@@ -950,7 +937,6 @@ test "simplify-globals-optimizing final suffix removes pure result blocks withou
       #|      br 0
       #|    end
       #|    drop))
-      #|,
     ),
   )
   let pretty = optimized.pretty_print_defined_func(1U)
@@ -975,7 +961,6 @@ test "simplify-globals-optimizing final cleanup removes dropped reads after prio
       #|    i32.const 0
       #|    drop
       #|    global.get $g)
-      #|,
     ),
   )
   for _idx = 0; _idx < 256; _idx = _idx + 1 {
@@ -1002,7 +987,6 @@ test "simplify-globals-optimizing removes no-global unreachable drop debris" {
       #|      i32.const 7
       #|      unreachable)
       #|    unreachable))
-      #|,
     ),
   )
   let instrs = try! sgo_test_first_defined_func_instrs(optimized)
@@ -1390,7 +1374,6 @@ test "simplify-globals-optimizing propagates startup globals into data offsets w
       #|  (func $untouched
       #|    i32.const 12
       #|    drop))
-      #|,
     ),
   )
 
@@ -1417,7 +1400,6 @@ test "simplify-globals-optimizing canonicalizes immutable global copy chains" {
       #|  (global $copy2 i32 (global.get $copy))
       #|  (func (export "run") (result i32)
       #|    global.get $copy2))
-      #|,
     ),
   )
 
@@ -1440,7 +1422,6 @@ test "simplify-globals-optimizing preserves smaller single-use multi-instruction
       #|    i32.add)
       #|  (global $copy i32
       #|    global.get $source))
-      #|,
     ),
   )
 
@@ -1638,7 +1619,6 @@ test "simplify-globals-optimizing rewrites typed ref-func function body reads" {
       #|  (global $g (ref null $t) (ref.func $f))
       #|  (func (export "run") (result (ref null $t))
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -1659,7 +1639,6 @@ test "simplify-globals-optimizing rewrites typed ref-func aliases in function bo
       #|  (global $alias (ref null $t) (global.get $direct))
       #|  (func (export "run") (result (ref null $t))
       #|    global.get $alias))
-      #|,
     ),
   )
 
@@ -1684,7 +1663,6 @@ test "simplify-globals-optimizing rewrites typed ref-func reads inside block res
       #|    block (result (ref null $t))
       #|      global.get $g
       #|    end))
-      #|,
     ),
   )
 
@@ -1701,7 +1679,6 @@ test "simplify-globals-optimizing rewrites typed externref null function body re
       #|  (global $g (ref null extern) (ref.null extern))
       #|  (func (export "run") (result (ref null extern))
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -1719,7 +1696,6 @@ test "simplify-globals-optimizing rewrites typed externref null aliases in funct
       #|  (global $alias (ref null extern) (global.get $direct))
       #|  (func (export "run") (result (ref null extern))
       #|    global.get $alias))
-      #|,
     ),
   )
 
@@ -1741,7 +1717,6 @@ test "simplify-globals-optimizing rewrites typed externref null reads inside blo
       #|    block (result (ref null extern))
       #|      global.get $g
       #|    end))
-      #|,
     ),
   )
 
@@ -1760,7 +1735,6 @@ test "simplify-globals-optimizing rewrites typed ref-null function body reads th
       #|  (global $g (ref null $base) (ref.null $child))
       #|  (func (export "run") (result (ref null $base))
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -1779,7 +1753,6 @@ test "simplify-globals-optimizing removes same-as-init writes before reads" {
       #|    i32.const 7
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -1803,7 +1776,6 @@ test "simplify-globals-optimizing removes ref-null same-as-init writes before re
       #|    ref.null extern
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -1834,7 +1806,6 @@ test "simplify-globals-optimizing removes ref-func same-as-init writes before re
       #|    ref.func $f
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -1864,7 +1835,6 @@ test "simplify-globals-optimizing keeps non-init ref-func writes before reads" {
       #|    ref.func $h
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -1890,7 +1860,6 @@ test "simplify-globals-optimizing keeps exported ref-func same-as-init writes" {
       #|    ref.func $f
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -1915,7 +1884,6 @@ test "simplify-globals-optimizing canonicalizes defined global-get init before s
       #|    global.get $a
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -1943,7 +1911,6 @@ test "simplify-globals-optimizing second run removes canonicalized global-get in
       #|    global.get $a
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -1971,7 +1938,6 @@ test "simplify-globals-optimizing keeps imported global-get init same-as-init wr
       #|    global.get $a
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -1999,7 +1965,6 @@ test "simplify-globals-optimizing canonicalizes defined alias-chain init before 
       #|    global.get $alias
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2031,7 +1996,6 @@ test "simplify-globals-optimizing second run removes canonicalized alias-chain i
       #|    global.get $alias
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2060,7 +2024,6 @@ test "simplify-globals-optimizing keeps imported alias-chain same-as-init writes
       #|    global.get $alias
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2091,7 +2054,6 @@ test "simplify-globals-optimizing keeps exported alias-chain same-as-init writes
       #|    global.get $alias
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2122,7 +2084,6 @@ test "simplify-globals-optimizing canonicalizes defined reference alias-chain in
       #|    global.get $alias
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2156,7 +2117,6 @@ test "simplify-globals-optimizing second run removes canonicalized reference ali
       #|    global.get $alias
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2182,7 +2142,6 @@ test "simplify-globals-optimizing keeps imported reference alias-chain same-as-i
       #|    global.get $alias
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2215,7 +2174,6 @@ test "simplify-globals-optimizing keeps exported reference alias-chain same-as-i
       #|    global.get $alias
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2244,7 +2202,6 @@ test "simplify-globals-optimizing canonicalizes defined externref alias-chain in
       #|    global.get $alias
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2285,7 +2242,6 @@ test "simplify-globals-optimizing second run removes canonicalized externref ali
       #|    global.get $alias
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2316,7 +2272,6 @@ test "simplify-globals-optimizing keeps imported externref alias-chain same-as-i
       #|    global.get $alias
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2352,7 +2307,6 @@ test "simplify-globals-optimizing keeps exported externref alias-chain same-as-i
       #|    global.get $alias
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2388,7 +2342,6 @@ test "simplify-globals-optimizing keeps non-folded expression same-as-init write
       #|    i32.add
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2413,7 +2366,6 @@ test "simplify-globals-optimizing keeps result-block same-as-init writes" {
       #|    end
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2438,7 +2390,6 @@ test "simplify-globals-optimizing removes void-block direct-literal same-as-init
       #|      global.set $g
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2462,7 +2413,6 @@ test "simplify-globals-optimizing does not remove non-init writes before reads" 
       #|    i32.const 8
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -2488,7 +2438,6 @@ test "simplify-globals-optimizing removes narrow read-only-to-write self guards"
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -2515,7 +2464,6 @@ test "simplify-globals-optimizing removes reverse compare-const read-only-to-wri
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -2542,7 +2490,6 @@ test "simplify-globals-optimizing removes compare-const read-only-to-write self 
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -2568,7 +2515,6 @@ test "simplify-globals-optimizing removes eqz read-only-to-write self guards" {
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -2597,7 +2543,6 @@ test "simplify-globals-optimizing removes pure-condition read-only-to-write self
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -2640,7 +2585,6 @@ test "simplify-globals-optimizing removes bitwise pure-condition read-only-to-wr
       #|      i32.const 1
       #|      global.set $xor
       #|    end))
-      #|,
     ),
   )
 
@@ -2701,7 +2645,6 @@ test "simplify-globals-optimizing removes shift-rotate pure-condition read-only-
       #|      i32.const 2
       #|      global.set $rotr
       #|    end))
-      #|,
     ),
   )
 
@@ -2743,7 +2686,6 @@ test "simplify-globals-optimizing removes unary pure-condition read-only-to-writ
       #|      i32.const 2
       #|      global.set $popcnt
       #|    end))
-      #|,
     ),
   )
 
@@ -2851,7 +2793,6 @@ test "simplify-globals-optimizing removes i64 compare pure-condition read-only-t
       #|      i64.const 2
       #|      global.set $ge_u
       #|    end))
-      #|,
     ),
   )
 
@@ -2995,7 +2936,6 @@ test "simplify-globals-optimizing removes i64 value pure-condition read-only-to-
       #|      i64.const 2
       #|      global.set $rotr
       #|    end))
-      #|,
     ),
   )
 
@@ -3112,7 +3052,6 @@ test "simplify-globals-optimizing removes float compare pure-condition read-only
       #|      f64.const 2
       #|      global.set $f64ge
       #|    end))
-      #|,
     ),
   )
 
@@ -3161,7 +3100,6 @@ test "simplify-globals-optimizing removes float value pure-condition read-only-t
       #|      f64.const 4
       #|      global.set $f64
       #|    end))
-      #|,
     ),
   )
 
@@ -3209,7 +3147,6 @@ test "simplify-globals-optimizing removes float value pure-condition if-return g
       #|    end
       #|    f64.const 4
       #|    global.set $f64))
-      #|,
     ),
   )
 
@@ -3243,7 +3180,6 @@ test "simplify-globals-optimizing removes local get pure-condition self guards" 
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
 
@@ -3279,7 +3215,6 @@ test "simplify-globals-optimizing removes nontrapping ref pure-condition self gu
       #|      ref.null i31
       #|      global.set $refeq
       #|    end))
-      #|,
     ),
   )
 
@@ -3314,7 +3249,6 @@ test "simplify-globals-optimizing removes nontrapping ref pure-condition if-retu
       #|    end
       #|    ref.null i31
       #|    global.set $refeq))
-      #|,
     ),
   )
 
@@ -3342,7 +3276,6 @@ test "simplify-globals-optimizing keeps ref condition values flowing into local 
       #|      ref.func $f
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
 
@@ -3434,7 +3367,6 @@ test "simplify-globals-optimizing removes nontrapping conversion pure-condition 
       #|      f32.const 1
       #|      global.set $trunc_sat
       #|    end))
-      #|,
     ),
   )
 
@@ -3515,7 +3447,6 @@ test "simplify-globals-optimizing removes nontrapping conversion pure-condition 
       #|    end
       #|    f64.const 1
       #|    global.set $f64))
-      #|,
     ),
   )
 
@@ -3554,7 +3485,6 @@ test "simplify-globals-optimizing keeps trapping conversion pure-condition guard
       #|      f32.const 1
       #|      global.set $trap
       #|    end))
-      #|,
     ),
   )
 
@@ -3582,7 +3512,6 @@ test "simplify-globals-optimizing keeps conversion condition values flowing into
       #|      i32.const 2
       #|      global.set $i32
       #|    end))
-      #|,
     ),
   )
 
@@ -3611,7 +3540,6 @@ test "simplify-globals-optimizing keeps float condition values flowing into side
       #|      f32.const 2
       #|      global.set $f32
       #|    end))
-      #|,
     ),
   )
 
@@ -3637,7 +3565,6 @@ test "simplify-globals-optimizing keeps condition values flowing into side effec
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -3668,7 +3595,6 @@ test "simplify-globals-optimizing removes safe-side-effect if-arm read-only-to-w
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -3700,7 +3626,6 @@ test "simplify-globals-optimizing drops effectful result-if after removing guard
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -3745,7 +3670,6 @@ test "simplify-globals-optimizing removes nested safe-side-effect if-arm read-on
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -3785,7 +3709,6 @@ test "simplify-globals-optimizing removes nested if-arm values through pure oper
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -3819,7 +3742,6 @@ test "simplify-globals-optimizing removes safe-side-effect if-arm pure read-only
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -3852,7 +3774,6 @@ test "simplify-globals-optimizing removes safe-side-effect if-arm through post p
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -3885,7 +3806,6 @@ test "simplify-globals-optimizing removes safe-side-effect if-arm if-return guar
       #|    end
       #|    i32.const 1
       #|    global.set $once))
-      #|,
     ),
   )
 
@@ -3919,7 +3839,6 @@ test "simplify-globals-optimizing keeps if-arm if-return values flowing into sid
       #|    end
       #|    i32.const 1
       #|    global.set $once))
-      #|,
     ),
   )
 
@@ -3953,7 +3872,6 @@ test "simplify-globals-optimizing keeps if-arm post values flowing into side eff
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -3983,7 +3901,6 @@ test "simplify-globals-optimizing removes block prefix independent call read-onl
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4015,7 +3932,6 @@ test "simplify-globals-optimizing removes block prefix independent void call gua
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4058,7 +3974,6 @@ test "simplify-globals-optimizing removes block prefix independent memory guards
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4104,7 +4019,6 @@ test "simplify-globals-optimizing removes block prefix independent table guards"
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4152,7 +4066,6 @@ test "simplify-globals-optimizing removes block prefix independent table fill an
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4203,7 +4116,6 @@ test "simplify-globals-optimizing removes if-return block prefix independent tab
       #|    end
       #|    i32.const 1
       #|    global.set $once))
-      #|,
     ),
   )
 
@@ -4242,7 +4154,6 @@ test "simplify-globals-optimizing removes block prefix independent table.set gua
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4275,7 +4186,6 @@ test "simplify-globals-optimizing removes if-return block prefix independent tab
       #|    end
       #|    i32.const 1
       #|    global.set $once))
-      #|,
     ),
   )
 
@@ -4319,7 +4229,6 @@ test "simplify-globals-optimizing removes block prefix independent table.init an
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4369,7 +4278,6 @@ test "simplify-globals-optimizing removes if-return block prefix independent tab
       #|    end
       #|    i32.const 1
       #|    global.set $once))
-      #|,
     ),
   )
 
@@ -4411,7 +4319,6 @@ test "simplify-globals-optimizing keeps block prefix values flowing into table.i
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4445,7 +4352,6 @@ test "simplify-globals-optimizing keeps block prefix values flowing into table.s
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4477,7 +4383,6 @@ test "simplify-globals-optimizing keeps block prefix values flowing into table.f
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4511,7 +4416,6 @@ test "simplify-globals-optimizing removes if-return block prefix independent tab
       #|    end
       #|    i32.const 1
       #|    global.set $once))
-      #|,
     ),
   )
 
@@ -4546,7 +4450,6 @@ test "simplify-globals-optimizing keeps block prefix values flowing into table.g
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4579,7 +4482,6 @@ test "simplify-globals-optimizing removes if-return block prefix independent mem
       #|    end
       #|    i32.const 1
       #|    global.set $once))
-      #|,
     ),
   )
 
@@ -4614,7 +4516,6 @@ test "simplify-globals-optimizing removes if-return block prefix independent cal
       #|    end
       #|    i32.const 1
       #|    global.set $once))
-      #|,
     ),
   )
 
@@ -4648,7 +4549,6 @@ test "simplify-globals-optimizing removes if-return block prefix independent voi
       #|    end
       #|    i32.const 1
       #|    global.set $once))
-      #|,
     ),
   )
 
@@ -4682,7 +4582,6 @@ test "simplify-globals-optimizing keeps if-return block prefix values flowing in
       #|    end
       #|    i32.const 1
       #|    global.set $once))
-      #|,
     ),
   )
 
@@ -4723,7 +4622,6 @@ test "simplify-globals-optimizing removes block prefix independent local writes"
       #|    end
       #|    local.get $tmp
       #|    drop))
-      #|,
     ),
   )
 
@@ -4760,7 +4658,6 @@ test "simplify-globals-optimizing removes if-return block prefix independent loc
       #|    end
       #|    i32.const 1
       #|    global.set $once))
-      #|,
     ),
   )
 
@@ -4791,7 +4688,6 @@ test "simplify-globals-optimizing removes block prefix independent global writes
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4828,7 +4724,6 @@ test "simplify-globals-optimizing removes if-return block prefix independent glo
       #|    end
       #|    i32.const 1
       #|    global.set $once))
-      #|,
     ),
   )
 
@@ -4863,7 +4758,6 @@ test "simplify-globals-optimizing keeps block prefix values flowing into global 
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4891,7 +4785,6 @@ test "simplify-globals-optimizing keeps block prefix values flowing into local w
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4922,7 +4815,6 @@ test "simplify-globals-optimizing keeps block prefix values flowing into memory.
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4953,7 +4845,6 @@ test "simplify-globals-optimizing keeps block prefix values flowing into calls" 
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -4986,7 +4877,6 @@ test "simplify-globals-optimizing keeps if-arm condition values flowing into sid
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -5016,7 +4906,6 @@ test "simplify-globals-optimizing keeps self guards that set another global" {
       #|      i32.const 1
       #|      global.set $other
       #|    end))
-      #|,
     ),
   )
 
@@ -5042,7 +4931,6 @@ test "simplify-globals-optimizing keeps self guards with non-constant set operan
       #|      call $next
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -5071,7 +4959,6 @@ test "simplify-globals-optimizing keeps self guards with else arms" {
       #|    else
       #|      call $tick
       #|    end))
-      #|,
     ),
   )
 
@@ -5100,7 +4987,6 @@ test "simplify-globals-optimizing removes self guards through select condition f
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -5135,7 +5021,6 @@ test "simplify-globals-optimizing removes official side-effecting select read-on
       #|    end
       #|    local.get $tmp
       #|    drop))
-      #|,
     ),
   )
 
@@ -5175,7 +5060,6 @@ test "simplify-globals-optimizing removes side-effecting select eqz read-only-to
       #|    end
       #|    local.get $tmp
       #|    drop))
-      #|,
     ),
   )
 
@@ -5213,7 +5097,6 @@ test "simplify-globals-optimizing removes side-effecting select if-return guards
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -5252,7 +5135,6 @@ test "simplify-globals-optimizing removes side-effecting select eqz if-return gu
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -5285,7 +5167,6 @@ test "simplify-globals-optimizing removes select operand read with independent l
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -5314,7 +5195,6 @@ test "simplify-globals-optimizing removes select operand read with independent l
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -5346,7 +5226,6 @@ test "simplify-globals-optimizing removes select operand if-return read with ind
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -5376,7 +5255,6 @@ test "simplify-globals-optimizing removes select operand if-return read with ind
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -5409,7 +5287,6 @@ test "simplify-globals-optimizing keeps values flowing into local tee select gua
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -5441,7 +5318,6 @@ test "simplify-globals-optimizing keeps extra reads after local tee select guard
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -5470,7 +5346,6 @@ test "simplify-globals-optimizing removes select operand read with independent c
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -5504,7 +5379,6 @@ test "simplify-globals-optimizing removes select operand if-return read with ind
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -5536,7 +5410,6 @@ test "simplify-globals-optimizing removes compare operand read with independent 
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -5564,7 +5437,6 @@ test "simplify-globals-optimizing removes compare operand read with independent 
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -5595,7 +5467,6 @@ test "simplify-globals-optimizing removes compare operand if-return read with in
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -5626,7 +5497,6 @@ test "simplify-globals-optimizing removes compare operand read with local-fed lo
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -5654,7 +5524,6 @@ test "simplify-globals-optimizing removes compare operand read with local-fed lo
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -5685,7 +5554,6 @@ test "simplify-globals-optimizing removes compare operand if-return read with lo
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -5719,7 +5587,6 @@ test "simplify-globals-optimizing removes compare operand read with independent 
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -5749,7 +5616,6 @@ test "simplify-globals-optimizing removes compare operand read with independent 
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -5782,7 +5648,6 @@ test "simplify-globals-optimizing removes compare operand if-return read with in
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -5815,7 +5680,6 @@ test "simplify-globals-optimizing removes compare operand read with local-fed lo
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -5846,7 +5710,6 @@ test "simplify-globals-optimizing removes compare operand read with local-fed lo
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -5880,7 +5743,6 @@ test "simplify-globals-optimizing removes compare operand if-return read with lo
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -5914,7 +5776,6 @@ test "simplify-globals-optimizing keeps values flowing into local set compare gu
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -5947,7 +5808,6 @@ test "simplify-globals-optimizing removes compare operand read with independent 
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -5982,7 +5842,6 @@ test "simplify-globals-optimizing removes compare operand read with independent 
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -6016,7 +5875,6 @@ test "simplify-globals-optimizing removes compare operand if-return read with in
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -6051,7 +5909,6 @@ test "simplify-globals-optimizing removes compare operand read with local-fed gl
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6087,7 +5944,6 @@ test "simplify-globals-optimizing removes compare operand read with local-fed gl
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -6122,7 +5978,6 @@ test "simplify-globals-optimizing removes compare operand if-return read with lo
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -6159,7 +6014,6 @@ test "simplify-globals-optimizing removes compare operand read with independent 
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6192,7 +6046,6 @@ test "simplify-globals-optimizing removes compare operand read with independent 
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -6228,7 +6081,6 @@ test "simplify-globals-optimizing removes compare operand if-return read with in
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -6264,7 +6116,6 @@ test "simplify-globals-optimizing removes compare operand read with local-fed me
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6298,7 +6149,6 @@ test "simplify-globals-optimizing removes compare operand read with local-fed me
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -6335,7 +6185,6 @@ test "simplify-globals-optimizing removes compare operand if-return read with lo
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -6372,7 +6221,6 @@ test "simplify-globals-optimizing keeps values flowing into memory store compare
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6405,7 +6253,6 @@ test "simplify-globals-optimizing keeps values flowing into global set compare g
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6433,7 +6280,6 @@ test "simplify-globals-optimizing keeps values flowing into local tee compare gu
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6462,7 +6308,6 @@ test "simplify-globals-optimizing removes independent call compare read-only-to-
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6490,7 +6335,6 @@ test "simplify-globals-optimizing removes independent call compare read-only-to-
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6524,7 +6368,6 @@ test "simplify-globals-optimizing removes independent call compare if-return gua
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -6554,7 +6397,6 @@ test "simplify-globals-optimizing keeps values flowing into call compare guards"
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6583,7 +6425,6 @@ test "simplify-globals-optimizing removes independent table compare read-only-to
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6612,7 +6453,6 @@ test "simplify-globals-optimizing removes independent table compare read-only-to
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6640,7 +6480,6 @@ test "simplify-globals-optimizing removes independent table compare read-only-to
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6671,7 +6510,6 @@ test "simplify-globals-optimizing removes independent table compare read-only-to
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6716,7 +6554,6 @@ test "simplify-globals-optimizing removes independent table compare if-return gu
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -6745,7 +6582,6 @@ test "simplify-globals-optimizing removes independent table compare if-return gu
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -6777,7 +6613,6 @@ test "simplify-globals-optimizing removes independent table compare if-return gu
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -6821,7 +6656,6 @@ test "simplify-globals-optimizing removes local-fed table grow compare read-only
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6852,7 +6686,6 @@ test "simplify-globals-optimizing removes local-fed table grow compare read-only
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6889,7 +6722,6 @@ test "simplify-globals-optimizing removes local-fed table grow compare if-return
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -6922,7 +6754,6 @@ test "simplify-globals-optimizing keeps values flowing into table grow compare g
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6952,7 +6783,6 @@ test "simplify-globals-optimizing removes independent table select read-only-to-
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -6983,7 +6813,6 @@ test "simplify-globals-optimizing removes independent table select read-only-to-
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7013,7 +6842,6 @@ test "simplify-globals-optimizing removes independent table select read-only-to-
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7046,7 +6874,6 @@ test "simplify-globals-optimizing removes independent table select read-only-to-
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7093,7 +6920,6 @@ test "simplify-globals-optimizing removes independent table select if-return gua
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -7124,7 +6950,6 @@ test "simplify-globals-optimizing removes independent table select if-return gua
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -7158,7 +6983,6 @@ test "simplify-globals-optimizing removes independent table select if-return gua
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -7204,7 +7028,6 @@ test "simplify-globals-optimizing removes local-fed table grow select guards" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7237,7 +7060,6 @@ test "simplify-globals-optimizing removes local-fed table grow select guards" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7274,7 +7096,6 @@ test "simplify-globals-optimizing removes pure-add grow select guards" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7310,7 +7131,6 @@ test "simplify-globals-optimizing removes pure-add grow select guards" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7348,7 +7168,6 @@ test "simplify-globals-optimizing removes reverse pure-add grow select guards" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7384,7 +7203,6 @@ test "simplify-globals-optimizing removes reverse pure-add grow select guards" {
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -7436,7 +7254,6 @@ test "simplify-globals-optimizing removes reverse pure-add grow select guards" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7473,7 +7290,6 @@ test "simplify-globals-optimizing removes reverse pure-add grow select guards" {
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -7520,7 +7336,6 @@ test "simplify-globals-optimizing removes pure-add grow compare guards" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7555,7 +7370,6 @@ test "simplify-globals-optimizing removes pure-add grow compare guards" {
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -7610,7 +7424,6 @@ test "simplify-globals-optimizing removes pure-add grow compare guards" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7646,7 +7459,6 @@ test "simplify-globals-optimizing removes pure-add grow compare guards" {
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -7698,7 +7510,6 @@ test "simplify-globals-optimizing removes local-fed table grow select if-return 
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -7734,7 +7545,6 @@ test "simplify-globals-optimizing keeps values flowing into table grow select gu
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7763,7 +7573,6 @@ test "simplify-globals-optimizing removes independent memory compare read-only-t
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7791,7 +7600,6 @@ test "simplify-globals-optimizing removes independent memory compare read-only-t
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7819,7 +7627,6 @@ test "simplify-globals-optimizing removes independent memory compare read-only-t
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7849,7 +7656,6 @@ test "simplify-globals-optimizing removes independent memory compare read-only-t
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -7893,7 +7699,6 @@ test "simplify-globals-optimizing removes independent memory compare if-return g
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -7922,7 +7727,6 @@ test "simplify-globals-optimizing removes independent memory compare if-return g
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -7953,7 +7757,6 @@ test "simplify-globals-optimizing removes independent memory compare if-return g
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -7996,7 +7799,6 @@ test "simplify-globals-optimizing removes local-fed memory grow compare read-onl
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -8026,7 +7828,6 @@ test "simplify-globals-optimizing removes local-fed memory grow compare read-onl
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -8062,7 +7863,6 @@ test "simplify-globals-optimizing removes local-fed memory grow compare if-retur
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -8094,7 +7894,6 @@ test "simplify-globals-optimizing keeps values flowing into memory grow compare 
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -8124,7 +7923,6 @@ test "simplify-globals-optimizing removes select second operand read with indepe
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -8157,7 +7955,6 @@ test "simplify-globals-optimizing removes select operand read with independent m
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -8186,7 +7983,6 @@ test "simplify-globals-optimizing removes select operand read with independent m
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -8218,7 +8014,6 @@ test "simplify-globals-optimizing removes select second operand read with indepe
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -8247,7 +8042,6 @@ test "simplify-globals-optimizing removes select second operand read with indepe
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -8280,7 +8074,6 @@ test "simplify-globals-optimizing removes select operand if-return read with ind
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -8311,7 +8104,6 @@ test "simplify-globals-optimizing removes select operand if-return read with ind
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -8342,7 +8134,6 @@ test "simplify-globals-optimizing removes select operand if-return read with ind
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -8384,7 +8175,6 @@ test "simplify-globals-optimizing removes select operand if-return read with ind
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -8429,7 +8219,6 @@ test "simplify-globals-optimizing removes local-fed memory grow select guards" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -8461,7 +8250,6 @@ test "simplify-globals-optimizing removes local-fed memory grow select guards" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -8497,7 +8285,6 @@ test "simplify-globals-optimizing removes local-fed memory grow select if-return
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -8532,7 +8319,6 @@ test "simplify-globals-optimizing removes reverse local-fed memory and table sel
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -8564,7 +8350,6 @@ test "simplify-globals-optimizing removes reverse local-fed memory and table sel
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -8598,7 +8383,6 @@ test "simplify-globals-optimizing removes reverse local-fed memory and table sel
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -8631,7 +8415,6 @@ test "simplify-globals-optimizing removes reverse local-fed memory and table sel
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -8668,7 +8451,6 @@ test "simplify-globals-optimizing keeps select operand values flowing into memor
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -8727,7 +8509,6 @@ test "simplify-globals-optimizing removes independent call nontrapping i32 binar
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   try! sgo_assert_independent_call_binary_removed(mul_direct_optimized)
@@ -8750,7 +8531,6 @@ test "simplify-globals-optimizing removes independent call nontrapping i32 binar
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
   try! sgo_assert_independent_call_binary_removed(
@@ -8777,7 +8557,6 @@ test "simplify-globals-optimizing removes independent call nontrapping i32 binar
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   try! sgo_assert_independent_call_binary_removed(rotl_direct_optimized)
@@ -8799,7 +8578,6 @@ test "simplify-globals-optimizing removes independent call nontrapping i32 binar
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -8829,7 +8607,6 @@ test "simplify-globals-optimizing removes independent call binary pure suffix gu
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   try! sgo_assert_independent_call_binary_removed(eqz_direct_optimized)
@@ -8854,7 +8631,6 @@ test "simplify-globals-optimizing removes independent call binary pure suffix gu
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
   try! sgo_assert_independent_call_binary_removed(reverse_if_return_optimized)
@@ -8884,7 +8660,6 @@ test "simplify-globals-optimizing removes independent call binary pure suffix gu
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   try! sgo_assert_independent_call_binary_removed(clz_direct_optimized)
@@ -8908,7 +8683,6 @@ test "simplify-globals-optimizing removes independent call binary pure suffix gu
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   try! sgo_assert_independent_call_binary_removed(ctz_reverse_optimized)
@@ -8933,7 +8707,6 @@ test "simplify-globals-optimizing removes independent call binary pure suffix gu
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
   try! sgo_assert_independent_call_binary_removed(popcnt_if_return_optimized)
@@ -8964,7 +8737,6 @@ test "simplify-globals-optimizing removes independent call binary pure suffix gu
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   try! sgo_assert_independent_call_binary_removed(
@@ -8997,7 +8769,6 @@ test "simplify-globals-optimizing removes independent call binary pure suffix gu
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   try! sgo_assert_independent_call_binary_removed(compare_const_first_optimized)
@@ -9029,7 +8800,6 @@ test "simplify-globals-optimizing removes independent call binary pure suffix gu
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
   try! sgo_assert_independent_call_binary_removed(
@@ -9062,7 +8832,6 @@ test "simplify-globals-optimizing removes independent call binary pure suffix gu
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -9095,7 +8864,6 @@ test "simplify-globals-optimizing removes independent call binary pure suffix gu
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -9122,7 +8890,6 @@ test "simplify-globals-optimizing removes independent call binary pure suffix gu
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -9158,7 +8925,6 @@ test "simplify-globals-optimizing removes independent i64 call binary suffix gua
       #|      i64.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   try! sgo_assert_independent_i64_call_binary_removed(eqz_direct_optimized)
@@ -9183,7 +8949,6 @@ test "simplify-globals-optimizing removes independent i64 call binary suffix gua
       #|      i64.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   try! sgo_assert_independent_i64_call_binary_removed(
@@ -9216,7 +8981,6 @@ test "simplify-globals-optimizing removes independent i64 call binary suffix gua
       #|    end
       #|    i64.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
   try! sgo_assert_independent_i64_call_binary_removed(eqz_if_return_optimized)
@@ -9246,7 +9010,6 @@ test "simplify-globals-optimizing removes independent i64 call binary suffix gua
       #|      i64.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -9277,7 +9040,6 @@ test "simplify-globals-optimizing removes independent float call binary comparis
       #|      f32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -9310,7 +9072,6 @@ test "simplify-globals-optimizing removes independent float call binary comparis
       #|      f64.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -9365,7 +9126,6 @@ test "simplify-globals-optimizing removes independent float call binary comparis
       #|    end
       #|    f32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -9410,7 +9170,6 @@ test "simplify-globals-optimizing removes independent float call binary comparis
       #|      f32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -9440,7 +9199,6 @@ test "simplify-globals-optimizing removes independent float call binary comparis
       #|      f64.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -9482,7 +9240,6 @@ test "simplify-globals-optimizing removes independent float call binary comparis
       #|      f64.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -9523,7 +9280,6 @@ test "simplify-globals-optimizing removes independent float call binary comparis
       #|      f32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -9546,7 +9302,6 @@ test "simplify-globals-optimizing removes independent float call binary comparis
       #|      f64.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -9570,7 +9325,6 @@ test "simplify-globals-optimizing removes independent call add guards" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -9600,7 +9354,6 @@ test "simplify-globals-optimizing removes independent call add guards" {
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -9631,7 +9384,6 @@ test "simplify-globals-optimizing removes independent call add guards" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -9672,7 +9424,6 @@ test "simplify-globals-optimizing removes independent call add guards" {
       #|    end
       #|    i32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
 
@@ -9726,7 +9477,6 @@ test "simplify-globals-optimizing keeps select operand values flowing into calls
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
 
@@ -9754,7 +9504,6 @@ test "simplify-globals-optimizing keeps self guards through trapping memory load
       #|      i32.const 4
       #|      global.set $addr
       #|    end))
-      #|,
     ),
   )
 
@@ -9783,7 +9532,6 @@ test "simplify-globals-optimizing removes read-only-to-write self guards through
       #|        global.set $once
       #|      end
       #|    end))
-      #|,
     ),
   )
 
@@ -9810,7 +9558,6 @@ test "simplify-globals-optimizing removes self guards with no-op const drops bef
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -9837,7 +9584,6 @@ test "simplify-globals-optimizing removes block-wrapped read-only-to-write self 
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -9865,7 +9611,6 @@ test "simplify-globals-optimizing removes block-wrapped eqz read-only-to-write s
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -9908,7 +9653,6 @@ test "simplify-globals-optimizing removes block-wrapped pure-condition read-only
       #|      i64.const 1
       #|      global.set $i64
       #|    end))
-      #|,
     ),
   )
 
@@ -9942,7 +9686,6 @@ test "simplify-globals-optimizing removes block-wrapped self guards with no-op c
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -9977,7 +9720,6 @@ test "simplify-globals-optimizing removes nested read-only-to-write self guards"
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -10020,7 +9762,6 @@ test "simplify-globals-optimizing removes official multi-global nested read-only
       #|        end
       #|      end
       #|    end))
-      #|,
     ),
   )
 
@@ -10062,7 +9803,6 @@ test "simplify-globals-optimizing keeps mutual nested read-only-to-write body gu
       #|        end
       #|      end
       #|    end))
-      #|,
     ),
   )
 
@@ -10109,7 +9849,6 @@ test "simplify-globals-optimizing removes official nested-thrice read-only-to-wr
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -10159,7 +9898,6 @@ test "simplify-globals-optimizing removes block-yielded self-guard condition ope
       #|      i32.const 1
       #|      global.set $reverse
       #|    end))
-      #|,
     ),
   )
 
@@ -10217,7 +9955,6 @@ test "simplify-globals-optimizing removes block-yielded self-guard operators aft
       #|      i32.const 1
       #|      global.set $reverse
       #|    end))
-      #|,
     ),
   )
 
@@ -10262,7 +9999,6 @@ test "simplify-globals-optimizing removes block-yielded external pure-condition 
       #|      i64.const 1
       #|      global.set $i64
       #|    end))
-      #|,
     ),
   )
 
@@ -10329,7 +10065,6 @@ test "simplify-globals-optimizing removes block-yielded external short pure-cond
       #|      i64.const 1
       #|      global.set $i64eqz
       #|    end))
-      #|,
     ),
   )
 
@@ -10374,7 +10109,6 @@ test "simplify-globals-optimizing removes block-yielded reverse external pure-co
       #|      i64.const 1
       #|      global.set $i64
       #|    end))
-      #|,
     ),
   )
 
@@ -10467,7 +10201,6 @@ test "simplify-globals-optimizing keeps unsupported block-yielded external pure-
       #|      global.set $stack
       #|    end
       #|    drop))
-      #|,
     ),
   )
 
@@ -10499,7 +10232,6 @@ test "simplify-globals-optimizing removes exact if-return read-only-to-write gua
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -10528,7 +10260,6 @@ test "simplify-globals-optimizing removes eqz if-return read-only-to-write guard
       #|      i32.const 1
       #|      global.set $once
       #|    end))
-      #|,
     ),
   )
 
@@ -10566,7 +10297,6 @@ test "simplify-globals-optimizing removes compare if-return read-only-to-write g
       #|    end
       #|    i32.const 1
       #|    global.set $reverse))
-      #|,
     ),
   )
 
@@ -10614,7 +10344,6 @@ test "simplify-globals-optimizing removes pure-condition if-return read-only-to-
       #|    end
       #|    i64.const 1
       #|    global.set $i64))
-      #|,
     ),
   )
 
@@ -10648,7 +10377,6 @@ test "simplify-globals-optimizing keeps pure-condition if-return guards with tra
       #|    i32.const 1
       #|    global.set $once
       #|    nop))
-      #|,
     ),
   )
 
@@ -10701,7 +10429,6 @@ test "simplify-globals-optimizing removes block-wrapped set if-return guards" {
       #|      i32.const 1
       #|      global.set $compare
       #|    end))
-      #|,
     ),
   )
 
@@ -10754,7 +10481,6 @@ test "simplify-globals-optimizing removes block-wrapped if-return read-only-to-w
       #|    end
       #|    i32.const 1
       #|    global.set $compare))
-      #|,
     ),
   )
 
@@ -10801,7 +10527,6 @@ test "simplify-globals-optimizing removes block-wrapped pure-condition if-return
       #|    end
       #|    i64.const 1
       #|    global.set $i64))
-      #|,
     ),
   )
 
@@ -10837,7 +10562,6 @@ test "simplify-globals-optimizing keeps block-wrapped pure-condition if-return g
       #|    i32.const 1
       #|    global.set $once
       #|    nop))
-      #|,
     ),
   )
 
@@ -10894,7 +10618,6 @@ test "simplify-globals-optimizing removes nested block-wrapped if-return conditi
       #|    end
       #|    i32.const 1
       #|    global.set $compare))
-      #|,
     ),
   )
 
@@ -10953,7 +10676,6 @@ test "simplify-globals-optimizing removes block-wrapped condition and set if-ret
       #|      i32.const 1
       #|      global.set $compare
       #|    end))
-      #|,
     ),
   )
 
@@ -11008,7 +10730,6 @@ test "simplify-globals-optimizing removes block-yielded if-return condition oper
       #|    end
       #|    i32.const 1
       #|    global.set $reverse))
-      #|,
     ),
   )
 
@@ -11084,7 +10805,6 @@ test "simplify-globals-optimizing removes block-yielded if-return operators afte
       #|      i32.const 1
       #|      global.set $block_set
       #|    end))
-      #|,
     ),
   )
 
@@ -11147,7 +10867,6 @@ test "simplify-globals-optimizing removes block-yielded external pure-condition 
       #|      i32.const 1
       #|      global.set $block_set
       #|    end))
-      #|,
     ),
   )
 
@@ -11220,7 +10939,6 @@ test "simplify-globals-optimizing removes block-yielded external short pure-cond
       #|    end
       #|    i64.const 1
       #|    global.set $i64eqz))
-      #|,
     ),
   )
 
@@ -11283,7 +11001,6 @@ test "simplify-globals-optimizing removes block-yielded reverse external pure-co
       #|      i32.const 1
       #|      global.set $block_set
       #|    end))
-      #|,
     ),
   )
 
@@ -11344,7 +11061,6 @@ test "simplify-globals-optimizing keeps unsupported block-yielded external pure-
       #|    drop
       #|    i32.const 1
       #|    global.set $stack))
-      #|,
     ),
   )
 
@@ -11407,7 +11123,6 @@ test "simplify-globals-optimizing removes block-yielded condition operators with
       #|      i32.const 1
       #|      global.set $reverse
       #|    end))
-      #|,
     ),
   )
 
@@ -11438,7 +11153,6 @@ test "simplify-globals-optimizing keeps if-return guards with trailing code" {
       #|      global.set $once
       #|      nop
       #|    end))
-      #|,
     ),
   )
 
@@ -11465,7 +11179,6 @@ test "simplify-globals-optimizing keeps self guards with extra reads" {
       #|    end
       #|    global.get $once
       #|    drop))
-      #|,
     ),
   )
 
@@ -11488,7 +11201,6 @@ test "simplify-globals-optimizing propagates private global values along a linea
       #|    i32.const 5
       #|    global.set $g
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11509,7 +11221,6 @@ test "simplify-globals-optimizing stops runtime global propagation at calls" {
       #|    global.set $g
       #|    call $bar
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11529,7 +11240,6 @@ test "simplify-globals-optimizing propagates private global values into adjacent
       #|    block (result i32)
       #|      global.get $g
       #|    end))
-      #|,
     ),
   )
 
@@ -11552,7 +11262,6 @@ test "simplify-globals-optimizing keeps adjacent runtime block reads after calls
       #|    block (result i32)
       #|      global.get $g
       #|    end))
-      #|,
     ),
   )
 
@@ -11572,7 +11281,6 @@ test "simplify-globals-optimizing carries private global values out of adjacent 
       #|      global.set $g
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11595,7 +11303,6 @@ test "simplify-globals-optimizing does not carry runtime block values through ea
       #|      global.set $g
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11617,7 +11324,6 @@ test "simplify-globals-optimizing does not carry non-constant runtime block writ
       #|      global.set $g
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11639,7 +11345,6 @@ test "simplify-globals-optimizing keeps block runtime facts private across calls
       #|      call $tick
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11663,7 +11368,6 @@ test "simplify-globals-optimizing keeps nested branch block runtime facts conser
       #|      end
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11687,7 +11391,6 @@ test "simplify-globals-optimizing clears pre-block runtime facts across nested c
       #|      end
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11711,7 +11414,6 @@ test "simplify-globals-optimizing clears pre-block runtime facts across nested b
       #|      end
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11738,7 +11440,6 @@ test "simplify-globals-optimizing clears only same-global non-constant block wri
       #|    global.get $g
       #|    global.get $h
       #|    i32.add))
-      #|,
     ),
   )
 
@@ -11760,7 +11461,6 @@ test "simplify-globals-optimizing tracks exported global runtime block facts" {
       #|      global.set $g
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11784,7 +11484,6 @@ test "simplify-globals-optimizing keeps if-contained block runtime facts conserv
       #|      end
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11806,7 +11505,6 @@ test "simplify-globals-optimizing carries runtime facts through nested plain blo
       #|      end
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11829,7 +11527,6 @@ test "simplify-globals-optimizing uses latest runtime block write facts" {
       #|      global.set $g
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11853,7 +11550,6 @@ test "simplify-globals-optimizing keeps independent runtime block facts" {
       #|      global.set $h
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11877,7 +11573,6 @@ test "simplify-globals-optimizing preserves scalar facts across independent refe
       #|      global.set $r
       #|    end
       #|    global.get $i))
-      #|,
     ),
   )
 
@@ -11903,7 +11598,6 @@ test "simplify-globals-optimizing preserves reference facts across independent s
       #|      global.set $i
       #|    end
       #|    global.get $r))
-      #|,
     ),
   )
 
@@ -11927,7 +11621,6 @@ test "simplify-globals-optimizing preserves reference facts across independent s
       #|    local.get $x
       #|    global.set $i
       #|    global.get $r))
-      #|,
     ),
   )
 
@@ -11949,7 +11642,6 @@ test "simplify-globals-optimizing preserves scalar facts across independent refe
       #|    local.get $x
       #|    global.set $r
       #|    global.get $i))
-      #|,
     ),
   )
 
@@ -11970,7 +11662,6 @@ test "simplify-globals-optimizing tracks imported global runtime block facts" {
       #|      global.set $g
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -11997,7 +11688,6 @@ test "simplify-globals-optimizing clears imported and exported runtime facts acr
       #|    global.set $exp
       #|    call $unknown
       #|    global.get $exp))
-      #|,
     ),
   )
 
@@ -12026,7 +11716,6 @@ test "simplify-globals-optimizing clears imported and exported runtime facts aft
       #|    local.get $x
       #|    global.set $exp
       #|    global.get $exp))
-      #|,
     ),
   )
 
@@ -12049,7 +11738,6 @@ test "simplify-globals-optimizing keeps independent imported and exported runtim
       #|    i32.const 12
       #|    global.set $exp
       #|    global.get $imp))
-      #|,
     ),
   )
 
@@ -12082,7 +11770,6 @@ test "simplify-globals-optimizing keeps imported and exported post-if runtime jo
       #|      global.set $exp
       #|    end
       #|    global.get $exp))
-      #|,
     ),
   )
 
@@ -12106,7 +11793,6 @@ test "simplify-globals-optimizing tracks imported ref-func runtime block facts" 
       #|    block (result funcref)
       #|      global.get $g
       #|    end))
-      #|,
     ),
   )
 
@@ -12132,7 +11818,6 @@ test "simplify-globals-optimizing propagates exported ref-func facts into then b
       #|    else
       #|      ref.null func
       #|    end))
-      #|,
     ),
   )
 
@@ -12157,7 +11842,6 @@ test "simplify-globals-optimizing propagates imported externref null facts into 
       #|    else
       #|      ref.null extern
       #|    end))
-      #|,
     ),
   )
 
@@ -12187,7 +11871,6 @@ test "simplify-globals-optimizing keeps reference runtime facts behind barriers"
       #|    local.get $x
       #|    global.set $exp
       #|    global.get $exp))
-      #|,
     ),
   )
 
@@ -12213,7 +11896,6 @@ test "simplify-globals-optimizing carries ref-func facts through nested plain bl
       #|        global.get $g
       #|      end
       #|    end))
-      #|,
     ),
   )
 
@@ -12236,7 +11918,6 @@ test "simplify-globals-optimizing carries externref null facts through nested pl
       #|        global.get $g
       #|      end
       #|    end))
-      #|,
     ),
   )
 
@@ -12262,7 +11943,6 @@ test "simplify-globals-optimizing keeps externref then-body reads after calls" {
       #|    else
       #|      ref.null extern
       #|    end))
-      #|,
     ),
   )
 
@@ -12284,7 +11964,6 @@ test "simplify-globals-optimizing keeps externref loop runtime facts conservativ
       #|      call $tick
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12309,7 +11988,6 @@ test "simplify-globals-optimizing keeps externref try_table runtime facts conser
       #|      end
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12333,7 +12011,6 @@ test "simplify-globals-optimizing keeps externref post-if runtime joins conserva
       #|      global.set $g
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12360,7 +12037,6 @@ test "simplify-globals-optimizing keeps reference then-body reads after calls" {
       #|    else
       #|      ref.null func
       #|    end))
-      #|,
     ),
   )
 
@@ -12392,7 +12068,6 @@ test "simplify-globals-optimizing keeps reference loop runtime facts conservativ
       #|      br_if $again
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12421,7 +12096,6 @@ test "simplify-globals-optimizing keeps reference try_table runtime facts conser
       #|      end
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12447,7 +12121,6 @@ test "simplify-globals-optimizing keeps reference post-if runtime joins conserva
       #|      global.set $g
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12469,7 +12142,6 @@ test "simplify-globals-optimizing keeps loop-contained block runtime facts conse
       #|      end
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12492,7 +12164,6 @@ test "simplify-globals-optimizing keeps nested try_table block runtime facts con
       #|      end
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12514,7 +12185,6 @@ test "simplify-globals-optimizing propagates runtime block facts past drop noise
       #|      drop
       #|      global.get $g
       #|    end))
-      #|,
     ),
   )
 
@@ -12539,7 +12209,6 @@ test "simplify-globals-optimizing propagates runtime block facts past pure instr
       #|      drop
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12562,7 +12231,6 @@ test "simplify-globals-optimizing propagates runtime facts into no-else if bodie
       #|      global.get $g
       #|      drop
       #|    end))
-      #|,
     ),
   )
 
@@ -12587,7 +12255,6 @@ test "simplify-globals-optimizing propagates runtime facts into nested blocks in
       #|        drop
       #|      end
       #|    end))
-      #|,
     ),
   )
 
@@ -12612,7 +12279,6 @@ test "simplify-globals-optimizing stops no-else if body runtime propagation at c
       #|      global.get $g
       #|      drop
       #|    end))
-      #|,
     ),
   )
 
@@ -12635,7 +12301,6 @@ test "simplify-globals-optimizing keeps else-arm runtime reads conservative" {
       #|    else
       #|      global.get $g
       #|    end))
-      #|,
     ),
   )
 
@@ -12658,7 +12323,6 @@ test "simplify-globals-optimizing propagates runtime facts into then bodies with
       #|    else
       #|      i32.const 0
       #|    end))
-      #|,
     ),
   )
 
@@ -12685,7 +12349,6 @@ test "simplify-globals-optimizing propagates runtime facts into nested then bloc
       #|    else
       #|      nop
       #|    end))
-      #|,
     ),
   )
 
@@ -12712,7 +12375,6 @@ test "simplify-globals-optimizing stops then-body runtime propagation at calls w
       #|    else
       #|      nop
       #|    end))
-      #|,
     ),
   )
 
@@ -12733,7 +12395,6 @@ test "simplify-globals-optimizing does not carry then-body writes after if" {
       #|      global.set $g
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12757,7 +12418,6 @@ test "simplify-globals-optimizing does not infer post-if facts when both arms wr
       #|      global.set $g
       #|    end
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12783,7 +12443,6 @@ test "simplify-globals-optimizing keeps branchy then-body runtime reads conserva
       #|    else
       #|      nop
       #|    end))
-      #|,
     ),
   )
 
@@ -12805,7 +12464,6 @@ test "simplify-globals-optimizing tracks exported globals in then bodies" {
       #|      global.get $g
       #|      drop
       #|    end))
-      #|,
     ),
   )
 
@@ -12828,7 +12486,6 @@ test "simplify-globals-optimizing tracks imported globals in then bodies" {
       #|      global.get $g
       #|      drop
       #|    end))
-      #|,
     ),
   )
 
@@ -12853,7 +12510,6 @@ test "simplify-globals-optimizing keeps then rewrites local when else bodies cal
       #|    else
       #|      call $tick
       #|    end))
-      #|,
     ),
   )
 
@@ -12873,7 +12529,6 @@ test "simplify-globals-optimizing propagates top-level runtime facts past no-op 
       #|    global.set $g
       #|    nop
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12894,7 +12549,6 @@ test "simplify-globals-optimizing propagates top-level runtime facts past drop n
       #|    i32.const 0
       #|    drop
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12917,7 +12571,6 @@ test "simplify-globals-optimizing propagates top-level runtime facts past pure i
       #|    i32.add
       #|    drop
       #|    global.get $g))
-      #|,
     ),
   )
 
@@ -12935,7 +12588,6 @@ test "simplify-globals-optimizing rewrites dead global.set to cleanup-visible dr
       #|  (func (export "run")
       #|    i32.const 1
       #|    global.set $g))
-      #|,
     ),
   )
 
@@ -12963,7 +12615,6 @@ test "simplify-globals-optimizing preserves side effects from dead global.set op
       #|  (func (export "run")
       #|    call $effect
       #|    global.set $dead))
-      #|,
     ),
   )
 
@@ -12990,7 +12641,6 @@ test "simplify-globals-optimizing removes generic scalar call parent chains" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13018,7 +12668,6 @@ test "simplify-globals-optimizing removes generic scalar call parent chains" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13050,7 +12699,6 @@ test "simplify-globals-optimizing removes generic scalar call parent chains" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13074,7 +12722,6 @@ test "simplify-globals-optimizing removes generic scalar call parent chains" {
       #|      f32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13103,7 +12750,6 @@ test "simplify-globals-optimizing removes generic scalar call parent chains" {
       #|    end
       #|    f32.const 1
       #|    global.set $guard))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13136,7 +12782,6 @@ test "simplify-globals-optimizing removes generic scalar call parent chains" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13168,7 +12813,6 @@ test "simplify-globals-optimizing removes multiple constant-first scalar call pa
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13199,7 +12843,6 @@ test "simplify-globals-optimizing removes multiple constant-first scalar call pa
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13231,7 +12874,6 @@ test "simplify-globals-optimizing removes reverse call pre-parent same-type unar
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13265,7 +12907,6 @@ test "simplify-globals-optimizing removes reverse call pre-parent conversion" {
       #|      f64.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13301,7 +12942,6 @@ test "simplify-globals-optimizing preserves reverse call pre-parent trap" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13334,7 +12974,6 @@ test "simplify-globals-optimizing removes direct memory-size pre-parent unary" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13367,7 +13006,6 @@ test "simplify-globals-optimizing removes reverse memory-size pre-parent convers
       #|      f64.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13399,7 +13037,6 @@ test "simplify-globals-optimizing preserves independent load pre-parent trap" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13429,7 +13066,6 @@ test "simplify-globals-optimizing keeps guarded load addresses dependent" {
       #|      i32.const 1
       #|      global.set $guard
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13459,7 +13095,6 @@ test "simplify-globals-optimizing removes direct pure result-block producer" {
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13492,7 +13127,6 @@ test "simplify-globals-optimizing preserves direct result-block independent memo
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13530,7 +13164,6 @@ test "simplify-globals-optimizing preserves direct result-block pure-add memory 
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13566,7 +13199,6 @@ test "simplify-globals-optimizing keeps guarded result-block memory grow deltas 
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13594,7 +13226,6 @@ test "simplify-globals-optimizing promotes guarded values produced inside result
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13619,7 +13250,6 @@ test "simplify-globals-optimizing promotes guarded values produced inside result
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13648,7 +13278,6 @@ test "simplify-globals-optimizing promotes guarded values through pure result-lo
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13679,7 +13308,6 @@ test "simplify-globals-optimizing promotes guarded values through nested pure st
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13711,7 +13339,6 @@ test "simplify-globals-optimizing promotes guarded values through pure try-table
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13742,7 +13369,6 @@ test "simplify-globals-optimizing promotes guarded values produced inside branch
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13777,7 +13403,6 @@ test "simplify-globals-optimizing promotes guarded values produced inside branch
       #|    end
       #|    i32.const 1
       #|    global.set $g))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13810,7 +13435,6 @@ test "simplify-globals-optimizing keeps dangerous structured guard flow mutable"
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13841,7 +13465,6 @@ test "simplify-globals-optimizing keeps dangerous structured guard flow mutable"
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13876,7 +13499,6 @@ test "simplify-globals-optimizing removes independent scalar result loop produce
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13908,7 +13530,6 @@ test "simplify-globals-optimizing removes independent branchful result-block pro
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13939,7 +13560,6 @@ test "simplify-globals-optimizing folds observable result-block local set" {
       #|      global.set $g
       #|    end
       #|    local.get $tmp))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -13970,7 +13590,6 @@ test "simplify-globals-optimizing folds observable result-block local set" {
       #|      global.set $g
       #|    end
       #|    local.get $tmp))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -14005,7 +13624,6 @@ test "simplify-globals-optimizing folds local-fed observable result-block local 
       #|      global.set $g
       #|    end
       #|    local.get $tmp))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -14039,7 +13657,6 @@ test "simplify-globals-optimizing folds observable result-block local tee" {
       #|      global.set $g
       #|    end
       #|    local.get $tmp))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -14076,7 +13693,6 @@ test "simplify-globals-optimizing folds repeated constant result-block local rea
       #|    local.get $tmp
       #|    local.get $tmp
       #|    i32.add))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -14111,7 +13727,6 @@ test "simplify-globals-optimizing folds repeated constant result-block local rea
       #|    local.get $tmp
       #|    local.get $tmp
       #|    i32.add))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -14146,7 +13761,6 @@ test "simplify-globals-optimizing keeps guarded result-block local writes depend
       #|      global.set $g
       #|    end
       #|    local.get $tmp))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -14180,7 +13794,6 @@ test "simplify-globals-optimizing preserves direct result-block table grow" {
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -14216,7 +13829,6 @@ test "simplify-globals-optimizing keeps guarded result-block table grow deltas d
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -14247,7 +13859,6 @@ test "simplify-globals-optimizing preserves reverse result-block load trap" {
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -14280,7 +13891,6 @@ test "simplify-globals-optimizing removes reverse pure result-if producer" {
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -14313,7 +13923,6 @@ test "simplify-globals-optimizing preserves direct result-if condition call" {
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -14348,7 +13957,6 @@ test "simplify-globals-optimizing keeps guarded result-if conditions dependent" 
       #|      i32.const 1
       #|      global.set $g
       #|    end))
-      #|,
     ),
   )
   @debug.assert_eq(
@@ -14369,7 +13977,6 @@ test "simplify-globals-optimizing keeps exported mutable globals observable" {
       #|  (global $g (export "g") (mut i32) (i32.const 7))
       #|  (func (export "run") (result i32)
       #|    global.get $g))
-      #|,
     ),
   )
 

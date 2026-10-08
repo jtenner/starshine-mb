@@ -1215,7 +1215,6 @@ test "O4z late CFG coalesce uses loop liveness" {
       #|       local.get 2
       #|       i32.store
       #|     end))
-      #|,
     ),
   )
   let optimized = match

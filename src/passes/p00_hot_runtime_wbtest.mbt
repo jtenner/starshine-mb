@@ -104,6 +104,7 @@ test "direct HOT and direct pass runtime fixtures validate without print repair"
     (name, source) in [
       ("typed-live", "typed-live-branch-dae2"),
       ("typed-mixed-suffix", "typed-mixed-suffix"),
+      ("typed-mixed-suffix-triple", "typed-mixed-suffix-triple"),
     ] {
     let input = pass_test_module_from_wat(
       @sfs.read_file_sync(dir + source + ".wat").unwrap(),
@@ -129,6 +130,73 @@ test "direct HOT and direct pass runtime fixtures validate without print repair"
         dir + name + ".direct-" + captures.to_string() + ".wasm",
         bytes,
       ).unwrap()
+    }
+  }
+}
+
+///|
+#skip
+test "direct SSA no-merge branch operand runtime fixture" {
+  let (func, _, _, _, _, _) = p00_ssa_branch_operand_fixture()
+  let shell = pass_test_module_from_wat(
+    "(module (func (export \"f\") (param i32) (result i32) (local i32 i32) i32.const 0))",
+  )
+  let before = @ir.hot_lower_func(func)
+  let ctx = HotPassContext::new(
+    ssa_nomerge_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  ignore(hot_pass_run(ctx, func).unwrap())
+  @ir.hot_verify_all_or_abort(func)
+  for (stage, body) in [("before", before), ("after", @ir.hot_lower_func(func))] {
+    let output = shell.with_code_sec(@lib.CodeSec::new([body]))
+    @validate.validate_module(output).unwrap()
+    let bytes = @binary.encode_module(output).unwrap()
+    @validate.validate_module(@binary.decode_module(bytes).unwrap()).unwrap()
+    @sfs.write_file_bytes(
+      ".tmp/p00-hot-fallback-runtime/ssa-branch-operand." + stage + ".wasm",
+      bytes,
+    ).unwrap()
+  }
+}
+
+///|
+#skip
+test "direct raw scratch runtime fixtures retain appended locals" {
+  let dir = ".tmp/p00-hot-fallback-runtime/"
+  for
+    (name, appended) in [
+      ("scratch-appended-block", 1),
+      ("scratch-appended-loop", 2),
+    ] {
+    let input = pass_test_module_from_wat(
+      @sfs.read_file_sync(dir + name + ".wat").unwrap(),
+    )
+    let @lib.Func(_, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
+    let locals = @lib.Locals::from_types([@lib.ValType::i32()])
+    let extra = Array::make(appended, @lib.ValType::i32())
+    let rewritten = run_hot_pipeline_raw_freshen_param_scratch_writes(
+      body,
+      [],
+      locals,
+      extra,
+    )
+    let output = input.with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()] + extra),
+          @lib.Expr::new(rewritten),
+        ),
+      ]),
+    )
+    for (stage, module) in [("before", input), ("after", output)] {
+      @validate.validate_module(module).unwrap()
+      let bytes = @binary.encode_module(module).unwrap()
+      @validate.validate_module(@binary.decode_module(bytes).unwrap()).unwrap()
+      @sfs.write_file_bytes(dir + name + "." + stage + ".wasm", bytes).unwrap()
     }
   }
 }

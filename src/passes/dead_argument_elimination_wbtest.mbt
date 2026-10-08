@@ -9055,7 +9055,6 @@ test "dae broad exact-literal seed recognizes pure single-parameter expressions"
       #|    local.get 0
       #|    i32.const 1
       #|    i32.div_s))
-      #|,
     ),
   )
   assert_true(
@@ -9077,7 +9076,6 @@ test "dae shifted forwarding wrapper order is derived without definition identit
       #|  (func $wa2 (param i32 i32) local.get 1 call $ta)
       #|  (func $ta (param i32) local.get 0 drop)
       #|  (func $tb (param i32) local.get 0 drop))
-      #|,
     ),
   )
   assert_eq(dae_collect_shifted_forward_wrapper_callee_order(mod_, 0, 4), [4, 5])
@@ -17290,12 +17288,12 @@ test "dae synchronous body-only plans rely on epochs rather than call rescans" {
 test "dae body cleanup transactions retain the pass original snapshot" {
   let original_mod = pass_test_module_from_wat(
     (
-      #|(module (func (result i32) i32.const 7)),
+      #|(module (func (result i32) i32.const 7))
     ),
   )
   let current_mod = pass_test_module_from_wat(
     (
-      #|(module (func (export "visible") (result i32) i32.const 7)),
+      #|(module (func (export "visible") (result i32) i32.const 7))
     ),
   )
   let original = dae_collect_original_boundary_snapshot(original_mod)
@@ -17311,7 +17309,7 @@ test "dae body cleanup transactions retain the pass original snapshot" {
 test "dae dropped result batch compares candidate signatures without a graph rebuild" {
   let mod_ = pass_test_module_from_wat(
     (
-      #|(module (func (result i32) i32.const 7)),
+      #|(module (func (result i32) i32.const 7))
     ),
   )
   let type_indices = dae_collect_func_type_indices(mod_)
@@ -17671,7 +17669,6 @@ fn dae_test_generated_retained_graph_source(case_idx : Int) -> String {
       #|  (func $scalar (param i32 i32) (result i32)
       #|    local.get 1)
       #|  (func (export "run")
-      #|,
     ),
   )
   let prefix_count = 1 + case_idx % 5
@@ -17712,7 +17709,6 @@ fn dae_test_generated_retained_graph_source(case_idx : Int) -> String {
       #|    i32.const 50
       #|    i32.const 51
       #|    return_call $scalar))
-      #|,
     ),
   )
   out.to_string()

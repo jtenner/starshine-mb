@@ -2166,8 +2166,11 @@ fn h2l_try_fold_direct_ref_is_null(
 ) -> Bool {
   if !@ir.hot_node_is_live(func, node_id) ||
     @ir.hot_child_count(func, node_id) != 1 ||
-    @ir.hot_node_exact_instr(func, node_id) !=
-    Some(@lib.Instruction::ref_is_null()) {
+    (
+      !(@ir.hot_node_op(func, node_id) is @ir.HotOp::RefIsNull) &&
+      @ir.hot_node_exact_instr(func, node_id) !=
+      Some(@lib.Instruction::ref_is_null())
+    ) {
     return false
   }
   let operand = @ir.hot_child_get(func, node_id, 0)
@@ -2711,6 +2714,9 @@ fn h2l_variant_struct_get_field(
   module_ctx : @ir.HotModuleContext,
   node_id : Int,
 ) -> H2LVariantField? {
+  if !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
   let (type_idx, field_index) = match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::StructGet(type_idx, @lib.U32(raw_index))) =>
       (type_idx, raw_index.reinterpret_as_int())
@@ -3445,11 +3451,59 @@ fn h2l_delete_detached_live_nodes(
   func : @ir.HotFunc,
   detached_nodes : Array[Int],
 ) -> Unit {
+  if detached_nodes.is_empty() {
+    return
+  }
+  let node_count = @ir.hot_node_count(func)
+  let selected = @bitset.BitSet::new(node_count)
   for node_id in detached_nodes {
-    if @ir.hot_node_is_live(func, node_id) {
-      @ir.hot_delete_node(func, node_id)
+    if node_id >= 0 &&
+      node_id < node_count &&
+      @ir.hot_node_is_live(func, node_id) {
+      selected[node_id] = true
     }
   }
+  // A node detached by one rewrite can still be used by another live owner.
+  // Retain its selected descendants as well, so the final set has no incoming
+  // references from roots or nodes outside the set.
+  let retained : Array[Int] = []
+  for index in 0..<@ir.hot_root_count(func) {
+    let root = @ir.hot_root_get(func, index)
+    if root >= 0 && root < node_count && selected[root] {
+      selected[root] = false
+      retained.push(root)
+    }
+  }
+  for owner in 0..<node_count {
+    if !@ir.hot_node_is_live(func, owner) || selected[owner] {
+      continue
+    }
+    for slot in 0..<@ir.hot_child_count(func, owner) {
+      let child = @ir.hot_child_get(func, owner, slot)
+      if child >= 0 && child < node_count && selected[child] {
+        selected[child] = false
+        retained.push(child)
+      }
+    }
+  }
+  for cursor = 0; cursor < retained.length(); cursor = cursor + 1 {
+    let owner = retained[cursor]
+    for slot in 0..<@ir.hot_child_count(func, owner) {
+      let child = @ir.hot_child_get(func, owner, slot)
+      if child >= 0 && child < node_count && selected[child] {
+        selected[child] = false
+        retained.push(child)
+      }
+    }
+  }
+  let deletable : Array[Int] = []
+  for node_id in detached_nodes {
+    if node_id >= 0 && node_id < node_count && selected[node_id] {
+      selected[node_id] = false
+      deletable.push(node_id)
+    }
+  }
+  @ir.hot_delete_detached_nodes(func, deletable)
 }
 
 ///|

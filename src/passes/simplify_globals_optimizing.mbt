@@ -9742,18 +9742,207 @@ fn sgo_build_module(
 }
 
 ///|
+fn sgo_build_immutable_literal_consts(
+  mod_ : @lib.Module,
+) -> (Int, Array[@lib.Instruction?]) {
+  let mut imported_globals = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        if import_ is @lib.Import(_, _, @lib.GlobalExternType(_)) {
+          imported_globals += 1
+        }
+      }
+    None => ()
+  }
+  let globals = match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) => globals
+    None => return (imported_globals, [])
+  }
+  let consts = sgo_empty_const_array(globals.length())
+  for idx = 0; idx < globals.length(); idx = idx + 1 {
+    match globals[idx] {
+      @lib.Global(@lib.GlobalType(_, false), init) =>
+        consts[idx] = sgo_expr_single_const(init)
+      _ => ()
+    }
+  }
+  (imported_globals, consts)
+}
+
+///|
+fn sgo_rewrite_immutable_literal_instr(
+  instr : @lib.Instruction,
+  consts : Array[@lib.Instruction?],
+  imported_globals : Int,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.GlobalGet(idx) => {
+      let slot = sgo_global_idx_slot(idx) - imported_globals
+      if slot >= 0 && slot < consts.length() {
+        consts[slot]
+      } else {
+        None
+      }
+    }
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (next, changed) = sgo_rewrite_immutable_literal_instrs(
+        body, consts, imported_globals,
+      )
+      if changed {
+        Some(@lib.Instruction::block(block_type, @lib.Expr::new(next)))
+      } else {
+        None
+      }
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (next, changed) = sgo_rewrite_immutable_literal_instrs(
+        body, consts, imported_globals,
+      )
+      if changed {
+        Some(@lib.Instruction::loop_(block_type, @lib.Expr::new(next)))
+      } else {
+        None
+      }
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (next_then, then_changed) = sgo_rewrite_immutable_literal_instrs(
+        then_body, consts, imported_globals,
+      )
+      let (next_else, else_changed) = match else_body {
+        Some(body) => {
+          let (next, changed) = sgo_rewrite_immutable_literal_instrs(
+            body, consts, imported_globals,
+          )
+          (Some(next), changed)
+        }
+        None => (None, false)
+      }
+      if then_changed || else_changed {
+        Some(@lib.Instruction::if_(block_type, next_then, next_else))
+      } else {
+        None
+      }
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (next, changed) = sgo_rewrite_immutable_literal_instrs(
+        body, consts, imported_globals,
+      )
+      if changed {
+        Some(
+          @lib.Instruction::try_table(block_type, catches, @lib.Expr::new(next)),
+        )
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn sgo_rewrite_immutable_literal_instrs(
+  instrs : Array[@lib.Instruction],
+  consts : Array[@lib.Instruction?],
+  imported_globals : Int,
+) -> (Array[@lib.Instruction], Bool) {
+  let mut next : Array[@lib.Instruction]? = None
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match
+      sgo_rewrite_immutable_literal_instr(instrs[idx], consts, imported_globals) {
+      Some(rewritten) => {
+        let out = match next {
+          Some(out) => out
+          None => {
+            let out = instrs.copy()
+            next = Some(out)
+            out
+          }
+        }
+        out[idx] = rewritten
+      }
+      None => ()
+    }
+  }
+  match next {
+    Some(out) => (out, true)
+    None => (instrs, false)
+  }
+}
+
+///|
+fn sgo_run_immutable_literal_siblings(mod_ : @lib.Module) -> SgoPassResult {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return { mod_out: mod_, touched: [], }
+  }
+  let touched = Array::make(funcs.length(), false)
+  if mod_.global_sec is None {
+    return { mod_out: mod_, touched, }
+  }
+  let mut next_funcs : Array[@lib.Func]? = None
+  let mut literal_consts : Array[@lib.Instruction?]? = None
+  let mut imported_globals = 0
+  for idx = 0; idx < funcs.length(); idx = idx + 1 {
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[idx]
+    // The full write planner does not cover legacy handlers yet. Keep those
+    // functions intact and fold only declared immutable globals in siblings.
+    if precompute_raw_instrs_have_legacy_try(body) ||
+      !precompute_raw_instrs_have_global_get(body) {
+      continue
+    }
+    let consts = match literal_consts {
+      Some(consts) => consts
+      None => {
+        let (imported, consts) = sgo_build_immutable_literal_consts(mod_)
+        imported_globals = imported
+        literal_consts = Some(consts)
+        consts
+      }
+    }
+    let (next_body, changed) = sgo_rewrite_immutable_literal_instrs(
+      body, consts, imported_globals,
+    )
+    if changed {
+      let out = match next_funcs {
+        Some(out) => out
+        None => {
+          let out = funcs.copy()
+          next_funcs = Some(out)
+          out
+        }
+      }
+      out[idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+      touched[idx] = true
+    }
+  }
+  let mod_out = match next_funcs {
+    Some(funcs) => mod_.with_code_sec(@lib.CodeSec::new(funcs))
+    None => mod_
+  }
+  { mod_out, touched, }
+}
+
+///|
 fn sgo_run_core(
   mod_ : @lib.Module,
   trace : (String) -> Unit,
   perf? : HotPerfSession? = None,
+  legacy_try? : Bool? = None,
 ) -> SgoPassResult {
-  if pass_module_has_legacy_try(mod_) ||
-    pass_module_has_offset_sensitive_metadata(mod_) {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
     let touched = match mod_.code_sec {
       Some(@lib.CodeSec(funcs)) => Array::make(funcs.length(), false)
       None => []
     }
     return { mod_out: mod_, touched, }
+  }
+  let has_legacy_try = match legacy_try {
+    Some(flag) => flag
+    None => pass_module_has_legacy_try(mod_)
+  }
+  if has_legacy_try {
+    return sgo_run_immutable_literal_siblings(mod_)
   }
   let collect_start_us = perf_start_timer_opt(
     perf, "detail:sgo:collect-global-infos",

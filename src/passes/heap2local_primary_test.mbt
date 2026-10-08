@@ -376,7 +376,6 @@ test "heap2local primary folds fresh multi-field struct reference null tests" {
         #|        (struct.new $outer
         #|          (struct.new_default $inner)
         #|          (i32.const 42))))))
-        #|,
       ),
     ),
   )

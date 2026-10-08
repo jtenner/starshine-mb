@@ -533,15 +533,44 @@ test "remove-unused-names retargets try_table catches when peeling equivalent wr
 
 ///|
 test "remove-unused-names label-use helper marks delegate targets" {
-  let func = @ir.HotFunc::new()
-  let inner = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
-  let target = @ir.hot_control_node_label(func, inner)
-  let delegate = @ir.hot_build_delegate(func, target)
-  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, inner), [
-    delegate,
-  ])
-  let outer = @ir.hot_build_block(func, @lib.BlockType::void_(), [inner])
-  @ir.hot_root_append(func, outer)
+  let inner_try = @lib.Instruction::try_(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([@lib.Instruction::nop()]),
+    [],
+    delegate=Some(@lib.LabelIdx::new(0U)),
+  )
+  let outer_try = @lib.Instruction::try_(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([inner_try]),
+    [@lib.LegacyCatch::all(@lib.Expr::new([@lib.Instruction::nop()]))],
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([outer_try])),
+      ]),
+    )
+  @validate.validate_module(module_).unwrap()
+  @validate.validate_module(
+    @binary.decode_module(@binary.encode_module(module_).unwrap()).unwrap(),
+  ).unwrap()
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_root_get(func, 0)
+  let inner = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
+  let catch_region = match @ir.hot_region_catch_ref(func, inner) {
+    Some(region) => region
+    None => fail("expected inner legacy delegate handler")
+  }
+  let target = @ir.hot_control_node_label(func, outer)
+  let delegate = @ir.hot_region_get(func, catch_region, 0)
+  assert_true(@ir.hot_node_get(func, delegate).op is @ir.HotOp::Delegate)
+  @debug.assert_eq(@ir.hot_node_get(func, delegate).imm0, target)
   @ir.hot_verify_all_or_abort(func)
   let label_used = pass_compute_label_used(func)
   assert_true(pass_label_is_used(target, label_used))

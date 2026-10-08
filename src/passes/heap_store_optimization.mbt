@@ -3869,29 +3869,104 @@ fn hso_try_flatten_block_wrapper(func : @ir.HotFunc, node_id : Int) -> Bool {
     None => return false
   }
   let root_id = @ir.hot_region_get(func, body_ref, 0)
-  let root_self_targets = root_id >= 0 &&
-    @ir.hot_node_is_live(func, root_id) &&
-    hso_subtree_targets_owner_label(func, root_id, root_id)
-  if root_self_targets {
-    let root_node = @ir.hot_node_get(func, root_id)
-    match root_node.op {
-      @ir.HotOp::Block => {
-        let old_label_id = @ir.hot_control_node_label(func, root_id)
-        let new_label_id = @ir.hot_control_node_label(func, node_id)
-        hso_retarget_subtree_label(func, root_id, old_label_id, new_label_id)
-      }
-      _ => return false
-    }
-  }
   if root_id < 0 ||
     !@ir.hot_node_is_live(func, root_id) ||
-    Some(block_type) != hso_sequence_result_type(func, root_id) ||
+    Some(block_type) != hso_sequence_result_type(func, root_id) {
+    return false
+  }
+  let root_node = @ir.hot_node_get(func, root_id)
+  if root_node.op is @ir.HotOp::Block {
+    // Keep the outer block and its entry operands. Peeling an inner block with
+    // entry operands would lose their evaluation, and changing a shared inner
+    // body would also change its other occurrences.
+    if pass_value_operand_count(func, root_id) != 0 {
+      return false
+    }
+    if !hso_wrapper_has_one_reference_bounded(func, root_id) {
+      return false
+    }
+    let inner_ref = @ir.hot_region_body_ref(func, root_id)
+    let roots = Array::makei(@ir.hot_region_root_count(func, inner_ref), fn(
+      index,
+    ) {
+      @ir.hot_region_get(func, inner_ref, index)
+    })
+    let old_label_id = @ir.hot_control_node_label(func, root_id)
+    let new_label_id = @ir.hot_control_node_label(func, node_id)
+    if old_label_id < 0 || old_label_id >= 1024 {
+      return false
+    }
+    hso_retarget_subtree_label(func, root_id, old_label_id, new_label_id)
+    @ir.hot_region_replace_body(func, body_ref, roots)
+    @ir.hot_region_replace_body(func, inner_ref, [])
+    return true
+  }
+  // Forwarding a non-block root cannot discard the typed outer prefix.
+  if pass_value_operand_count(func, node_id) != 0 ||
     hso_subtree_targets_owner_label(func, root_id, node_id) ||
     hso_subtree_targets_owner_label(func, root_id, root_id) {
     return false
   }
-  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, root_id))
+  @ir.hot_replace_node(func, node_id, root_node)
   true
+}
+
+///|
+// This new peel path requires an exclusive inner owner. Keep the proof bounded
+// instead of building a whole-function use-count overlay for every wrapper.
+// Incomplete ownership scans reject before any mutation.
+fn hso_wrapper_has_one_reference_bounded(
+  func : @ir.HotFunc,
+  target : Int,
+) -> Bool {
+  let node_count = @ir.hot_node_count(func)
+  let root_count = @ir.hot_root_count(func)
+  if node_count > 1024 || root_count > 1024 - node_count {
+    return false
+  }
+  let mut budget = 1024 - node_count - root_count
+  let mut references = 0
+  for index in 0..<root_count {
+    if @ir.hot_root_get(func, index) == target {
+      references += 1
+      if references > 1 {
+        return false
+      }
+    }
+  }
+  for owner in 0..<node_count {
+    if !@ir.hot_node_is_live(func, owner) {
+      continue
+    }
+    let child_count = @ir.hot_child_count(func, owner)
+    if child_count > budget {
+      return false
+    }
+    budget -= child_count
+    let node = @ir.hot_node_get(func, owner)
+    let target_count = match node.op {
+      @ir.HotOp::BrTable =>
+        @ir.hot_branch_table_targets(func, node.imm0).length() + 1
+      @ir.HotOp::TryTable =>
+        @ir.hot_catch_info_get(func, node.imm1).catches.length()
+      @ir.HotOp::Continuation =>
+        @ir.hot_branch_table_targets(func, node.imm1).length()
+      _ => 0
+    }
+    if target_count > budget {
+      return false
+    }
+    budget -= target_count
+    for slot in 0..<child_count {
+      if @ir.hot_child_get(func, owner, slot) == target {
+        references += 1
+        if references > 1 {
+          return false
+        }
+      }
+    }
+  }
+  references == 1
 }
 
 ///|
@@ -3906,112 +3981,26 @@ fn hso_retarget_subtree_label(
     from_label_id == to_label_id {
     return
   }
-  match @ir.hot_branch_target(func, node_id) {
-    Some(label_id) =>
-      if label_id == from_label_id {
-        match @ir.hot_node_get(func, node_id).op {
-          @ir.HotOp::Br => {
-            let values : Array[Int] = []
-            for slot = 0
-                slot < @ir.hot_child_count(func, node_id)
-                slot = slot + 1 {
-              values.push(@ir.hot_child_get(func, node_id, slot))
-            }
-            let replacement_id = @ir.hot_build_br(func, to_label_id, values~)
-            let replacement = @ir.hot_node_get(func, replacement_id)
-            @ir.hot_delete_node(func, replacement_id)
-            @ir.hot_replace_node(func, node_id, replacement)
-          }
-          _ => ()
-        }
-      }
-    None => ()
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  let operand_node = @ir.hot_node_get(func, node_id)
-  let operand_count = pass_value_operand_count(func, node_id)
-  for slot = 0; slot < operand_count; slot = slot + 1 {
-    hso_retarget_subtree_label(
-      func,
-      @ir.hot_child_get(
-        func,
-        node_id,
-        pass_value_operand_slot(operand_node, slot),
+  let removed_labels = @bitset.BitSet::new(from_label_id + 1)
+  removed_labels[from_label_id] = true
+  let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
+  let pending = [node_id]
+  while !pending.is_empty() {
+    let current = pending.pop().unwrap()
+    if current < 0 || !@ir.hot_node_is_live(func, current) || seen[current] {
+      continue
+    }
+    seen[current] = true
+    // Use the existing complete node-label remap for branches, tables,
+    // continuation handlers, and try_table catch destinations.
+    ignore(
+      remove_unused_names_retarget_node_labels(
+        func, current, removed_labels, to_label_id,
       ),
-      from_label_id,
-      to_label_id,
     )
-  }
-  match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop =>
-      hso_retarget_region_label(
-        func,
-        @ir.hot_region_body_ref(func, node_id),
-        from_label_id,
-        to_label_id,
-      )
-    @ir.HotOp::If => {
-      hso_retarget_region_label(
-        func,
-        @ir.hot_region_then_ref(func, node_id),
-        from_label_id,
-        to_label_id,
-      )
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(region_ref) =>
-          hso_retarget_region_label(
-            func, region_ref, from_label_id, to_label_id,
-          )
-        None => ()
-      }
+    for slot in 0..<@ir.hot_child_count(func, current) {
+      pending.push(@ir.hot_child_get(func, current, slot))
     }
-    @ir.HotOp::Try => {
-      hso_retarget_region_label(
-        func,
-        @ir.hot_region_body_ref(func, node_id),
-        from_label_id,
-        to_label_id,
-      )
-      match @ir.hot_region_catch_ref(func, node_id) {
-        Some(region_ref) =>
-          hso_retarget_region_label(
-            func, region_ref, from_label_id, to_label_id,
-          )
-        None => ()
-      }
-    }
-    @ir.HotOp::TryTable => {
-      hso_retarget_region_label(
-        func,
-        @ir.hot_region_body_ref(func, node_id),
-        from_label_id,
-        to_label_id,
-      )
-      hso_retarget_region_label(
-        func,
-        @ir.hot_region_catch_list_ref(func, node_id),
-        from_label_id,
-        to_label_id,
-      )
-    }
-    _ => ()
-  }
-}
-
-///|
-fn hso_retarget_region_label(
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-  from_label_id : Int,
-  to_label_id : Int,
-) -> Unit {
-  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    hso_retarget_subtree_label(
-      func,
-      @ir.hot_region_get(func, region_ref, idx),
-      from_label_id,
-      to_label_id,
-    )
   }
 }
 

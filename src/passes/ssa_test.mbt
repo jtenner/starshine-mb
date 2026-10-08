@@ -1,4 +1,28 @@
 ///|
+test "full SSA merges the write bypassed by a branch inside an operand" {
+  let text = "(module (func (export \"f\") (param $p i32) (result i32) (local $x i32) (local.set $x (i32.const 5)) (drop (block $v (result i32) (local.set $x (if (result i32) (local.get $p) (then (br_if $v (i32.const 0) (i32.const 1))) (else (i32.const 0)))) (i32.const 0))) (local.get $x)))"
+  for
+    output in [
+      pass_test_run_pipeline(text, ["ssa"]).unwrap().code_sec.unwrap().0[0],
+    ] {
+    let @lib.Func(_, @lib.Expr(body)) = output
+    let target = match body.last() {
+      Some(@lib.LocalGet(target)) => target
+      _ => abort("expected final SSA local read")
+    }
+    assert_eq(
+      audit_count(body, fn(instr) {
+        match instr {
+          @lib.LocalSet(local) | @lib.LocalTee(local) => local == target
+          _ => false
+        }
+      }),
+      2,
+    )
+  }
+}
+
+///|
 fn ssa_full_test_first_defined_func(
   mod_ : @lib.Module,
 ) -> (@lib.Locals, Array[@lib.Instruction]) raise {

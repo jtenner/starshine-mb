@@ -892,6 +892,9 @@ fn merge_locals_region_has_stack_carried_copy(
 
 ///|
 fn merge_locals_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
+  if pass_has_repeated_entry_evaluation(func) {
+    return HotPassResult::unchanged()
+  }
   if merge_locals_region_has_stack_carried_copy(func, @ir.HotRegionRef::root()) {
     return HotPassResult::unchanged()
   }
@@ -901,7 +904,7 @@ fn merge_locals_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   }
 
   // Carried control must execute once at its source position in both graphs.
-  let pre_graph = @ir.local_graph_build(
+  let pre_graph = @ir.local_graph_build_full_flow(
     func,
     @ir.cfg_build(func, expand_operand_control=true),
   )
@@ -909,7 +912,7 @@ fn merge_locals_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let kept = if optimized.is_empty() {
     0
   } else {
-    let post_graph = @ir.local_graph_build(
+    let post_graph = @ir.local_graph_build_full_flow(
       func,
       @ir.cfg_build(func, expand_operand_control=true),
     )

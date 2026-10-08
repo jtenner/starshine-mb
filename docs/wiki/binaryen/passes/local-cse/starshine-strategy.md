@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-25
+last_reviewed: 2026-10-08
 sources:
   - ./index.md
   - https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md
@@ -336,3 +336,114 @@ It is:
 - **exact preset claim still gated**
 - **neighbor map clear**
 - **parity proof still pending for the ordered slots**
+
+## October 8, 2026 — Long regions and owned replay storage
+
+The raw region path now covers bodies longer than 16 instructions while keeping
+64 active candidates and 32-node candidate trees. The direct HOT and active
+command paths retain positive 17-instruction controls. Type, trap, effect,
+local-write and memory/global/heap/atomic barriers remain required.
+
+The first expanded native build (`b8e8069f…`) reduced the retained large output
+by 617 raw / 849 canonical bytes, but whole-command median time increased
+44.776% and median peak RSS increased 12.468% versus `f8c5b53a…`. That cohort
+is adverse evidence; broader coverage alone does not justify its resource cost.
+
+The storage repair passes one first-child type to private result queries rather
+than allocating mapped child-expression arrays. Empty child, dependency and
+replay rows share one region-owned read-only row. A first write installs owned
+storage; materialized child IDs allocate at most the unchanged candidate size.
+After cancellation, regions without replay avoid instruction-sized index rows.
+Parents still visit every child control. A nested body without outer replay
+retains its source storage before child rewriting, which emits separate arrays.
+No preflight, length cutoff, cache or new barrier was added.
+
+The request scan is O(expressions); scheduling remains O(expressions + points +
+nested repeats). All empty index reads use guarded -1 sentinels. Replay
+completeness rejects unfilled slots, and emission order is unchanged. Exact
+output comparison and fresh time/RSS measurements are required before claiming
+resource recovery. The [repair checkpoint](../../../tooling/validation-gates.md#october-8-2026--mass-audit-repairs-and-green-default-suites)
+retains both native cohorts, final tests and measured limits.
+
+Sources: [raw owner](../../../../../src/passes/local_cse.mbt),
+[bounded positive tests](../../../../../src/passes/mass_audit_locals_wbtest.mbt),
+[active dispatcher tests](../../../../../src/cmd/mass_repair_dispatch_wbtest.mbt),
+[existing replay/barrier tests](../../../../../src/passes/local_cse_test.mbt).
+
+### Stable scalar leaves and the candidate window
+
+The follow-up storage and matcher cohorts retain their adverse time and RSS
+rows; neither established full recovery versus the old narrow pass. Read-only
+child checks now precede opcode equality, and optional child types are created
+only for instructions that inspect them. Both changes retain exact output.
+
+Local reads and numeric/vector constants now compare directly as leaf children.
+They cannot be profitable roots by themselves, so they use no availability slot
+and require no canonicalization lookup. Other leaf families retain their old
+handling. Parent matching still requires equal child counts, valid indices,
+matching canonical keys or exact allowed leaf instructions, and bit-exact root
+instructions. Parent availability still enforces every local-write, effect,
+trap, memory and heap dependency. No alias map or persistent cache is added.
+
+The 64 remaining candidates and 32-node tree bound stay fixed. Discovery remains
+linear under those bounds. Two bounded tests first failed because unrelated
+constant leaves evicted an earlier tree. Their final fixtures retain a seven-op
+repeated tree, stop reuse after a local write, validate encoded output and
+require a positive encoded-byte saving. Native controls also retain distinct
+NaN payloads and signed-zero bits. Wider candidate retention can change output;
+measure its size and runtime rather than treating validation alone as parity.
+
+Sources: [direct availability and byte tests](../../../../../src/passes/mass_audit_locals_wbtest.mbt),
+[active command tests](../../../../../src/cmd/mass_repair_dispatch_wbtest.mbt).
+Final measurements and all historical adverse cohorts remain in the
+[repair evidence](../../../raw/tooling/2026-10-08-starshine-mass-repair.json).
+
+### Packed read dependencies
+
+The seven private read properties now use one integer: memory, memory size,
+table state, global, heap, atomic and call dependencies occupy bits 0 through 6.
+Opcode classification sets the same properties. One bitwise OR propagates all
+child properties. Each availability filter checks the exact union of its prior
+exclusion bits; local dependencies remain separate owned rows. No unknown bits
+are emitted. This removes six primitive fields per expression and six extra
+conditional property updates per child. It adds no allocation, cache or scan.
+
+The existing stable-order and invalid-ID filter expectations remain unchanged.
+Packing must preserve exact raw and canonical output on the retained large
+input and pass the full 13,886-test default suite. Current complete-command
+measurements and every adverse intermediate row remain in the repair evidence;
+source bounds alone do not establish a general speed or peak-memory win.
+
+### Shared local dependency rows
+
+Dependency rows are immutable after expression publication. A parent can borrow
+its first nonempty child row. Before it appends a missing local from another
+child or its own tee destination, it copies that row once. Later appends use
+owned storage. Oversized trees retain the existing empty dependency sentinel;
+the size stays above 32, so no later write reaches the sentinel. Availability
+filters only read the rows. Dependency order, the 32-node bound and the
+64-candidate window remain unchanged.
+
+A bounded test keeps `x + 3` available after an ancestor adds dependency `y`
+and a later statement writes `y`. It covers both a second child and a tee
+parent, retains the original parent/write operations, and validates encoded
+output. This guards against contamination of a published child row.
+
+The source change removes dependency row construction from parents whose later
+children add no new local. It adds one transient ownership flag, with no new
+expression field or cache. Actual command time and peak RSS require the next
+matched native cohort; source sharing alone is not a measured allocation or
+memory win.
+
+Sources: [raw dependency owner](../../../../../src/passes/local_cse.mbt),
+[alias isolation control](../../../../../src/passes/local_cse_cow_wbtest.mbt),
+[repair evidence](../../../raw/tooling/2026-10-08-starshine-mass-repair.json).
+
+
+Final `ee57fe32…` passes the 13,890-test suite and both native alias fixtures.
+Its large output is exact against packed `3c348752…`. Matched command time is
+1081.030 versus 1080.924 ms (+0.010%); median RSS is 159,172 versus 158,636 KiB
+(+0.338%), with overlapping ranges. The narrow baseline remains 909.105 ms /
+147,344 KiB, so the expanded pass still costs +18.911% time / +8.027% RSS for
+849 fewer canonical bytes. This cohort does not prove a storage clock or peak
+memory gain. Retained-expression arena cost stays on the active backlog.

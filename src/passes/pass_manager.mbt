@@ -480,16 +480,12 @@ pub fn pipeline_verify_checkpoint(
       }
     HotPipelineVerifyPolicy::AfterEachPass =>
       match target {
-        HotPipelineVerifyTarget::HotFuncTarget(func) => {
-          match @ir.hot_verify_core(func) {
-            Ok(_) => ()
-            Err(err) => return Err("\{label}: \{err}")
-          }
+        HotPipelineVerifyTarget::HotFuncTarget(func) =>
+          // Control verification includes the complete core and cycle checks.
           match @ir.hot_verify_control(func) {
             Ok(_) => Ok(())
             Err(err) => Err("\{label}: \{err}")
           }
-        }
         HotPipelineVerifyTarget::HotFuncWithCacheTarget(func, cache) => {
           match @ir.hot_verify_control(func) {
             Ok(_) => ()
@@ -15865,15 +15861,34 @@ fn run_hot_pipeline_dce_raw_instrs_branch_to_depth(
           }
         }
       }
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
         if run_hot_pipeline_dce_raw_instrs_branch_to_depth(
             body,
             target_depth + 1,
           ) {
           return true
         }
+      @lib.TryTable(_, catches, @lib.Expr(body)) => {
+        // Catch labels use the enclosing label space, outside the try body.
+        for arm in catches {
+          let label = match arm {
+            @lib.Catch(_, label)
+            | @lib.CatchRef(_, label)
+            | @lib.CatchAll(label)
+            | @lib.CatchAllRef(label) => label
+          }
+          let @lib.LabelIdx(raw) = label
+          if raw.reinterpret_as_int() == target_depth {
+            return true
+          }
+        }
+        if run_hot_pipeline_dce_raw_instrs_branch_to_depth(
+            body,
+            target_depth + 1,
+          ) {
+          return true
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         if run_hot_pipeline_dce_raw_instrs_branch_to_depth(
             then_body,
@@ -18104,6 +18119,19 @@ fn run_hot_pipeline_raw_collect_local_ref_counts(
               body, local_gets, local_sets, local_tees,
             )
           None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        run_hot_pipeline_raw_collect_local_ref_counts(
+          body, local_gets, local_sets, local_tees,
+        )
+        for arm in catches {
+          let @lib.Expr(catch_body) = match arm {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          run_hot_pipeline_raw_collect_local_ref_counts(
+            catch_body, local_gets, local_sets, local_tees,
+          )
         }
       }
       _ => ()
@@ -24453,17 +24481,15 @@ fn run_hot_pipeline_raw_no_else_branch_merge_locals(
   let locals = @bitset.BitSet::new(base_local_count)
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
-      @lib.If(_, then_body, else_body) =>
+      @lib.If(_, then_body, else_body) => {
+        let then_writes = @bitset.BitSet::new(base_local_count)
+        let else_writes = @bitset.BitSet::new(base_local_count)
+        run_hot_pipeline_raw_mark_instrs_local_writes(then_body, then_writes)
+        if else_body is Some(body) {
+          run_hot_pipeline_raw_mark_instrs_local_writes(body, else_writes)
+        }
         for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
-          let then_writes = run_hot_pipeline_raw_branch_writes_local(
-            then_body, local_id,
-          )
-          let else_writes = match else_body {
-            Some(body) =>
-              run_hot_pipeline_raw_branch_writes_local(body, local_id)
-            None => false
-          }
-          if then_writes &&
+          if then_writes[local_id] &&
             else_body is None &&
             run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
               instrs,
@@ -24472,7 +24498,7 @@ fn run_hot_pipeline_raw_no_else_branch_merge_locals(
             ) {
             locals[local_id] = true
           } else if local_id >= param_count &&
-            then_writes != else_writes &&
+            then_writes[local_id] != else_writes[local_id] &&
             run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
               instrs,
               idx + 1,
@@ -24481,6 +24507,7 @@ fn run_hot_pipeline_raw_no_else_branch_merge_locals(
             locals[local_id] = true
           }
         }
+      }
       _ => ()
     }
   }
@@ -24488,26 +24515,42 @@ fn run_hot_pipeline_raw_no_else_branch_merge_locals(
 }
 
 ///|
-fn run_hot_pipeline_raw_mark_instr_local_reads(
+fn run_hot_pipeline_raw_mark_instr_first_local_reads(
   instr : @lib.Instruction,
-  locals : @bitset.BitSet,
+  first_accesses : Array[Int],
 ) -> Unit {
   match instr {
     @lib.LocalGet(@lib.LocalIdx(raw)) => {
       let local_id = raw.reinterpret_as_int()
-      if local_id >= 0 && local_id < locals.length() {
-        locals[local_id] = true
+      if local_id >= 0 &&
+        local_id < first_accesses.length() &&
+        first_accesses[local_id] == 0 {
+        first_accesses[local_id] = 1
       }
     }
     @lib.Block(_, @lib.Expr(body))
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
-      run_hot_pipeline_raw_mark_instrs_local_reads(body, locals)
+      run_hot_pipeline_raw_mark_instrs_first_local_reads(body, first_accesses)
     @lib.If(_, then_body, else_body) => {
-      run_hot_pipeline_raw_mark_instrs_local_reads(then_body, locals)
+      run_hot_pipeline_raw_mark_instrs_first_local_reads(
+        then_body, first_accesses,
+      )
       match else_body {
-        Some(body) => run_hot_pipeline_raw_mark_instrs_local_reads(body, locals)
+        Some(body) =>
+          run_hot_pipeline_raw_mark_instrs_first_local_reads(
+            body, first_accesses,
+          )
         None => ()
+      }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      run_hot_pipeline_raw_mark_instrs_first_local_reads(body, first_accesses)
+      for arm in catches {
+        let @lib.Expr(body) = match arm {
+          @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+        }
+        run_hot_pipeline_raw_mark_instrs_first_local_reads(body, first_accesses)
       }
     }
     _ => ()
@@ -24515,12 +24558,12 @@ fn run_hot_pipeline_raw_mark_instr_local_reads(
 }
 
 ///|
-fn run_hot_pipeline_raw_mark_instrs_local_reads(
+fn run_hot_pipeline_raw_mark_instrs_first_local_reads(
   instrs : Array[@lib.Instruction],
-  locals : @bitset.BitSet,
+  first_accesses : Array[Int],
 ) -> Unit {
   for instr in instrs {
-    run_hot_pipeline_raw_mark_instr_local_reads(instr, locals)
+    run_hot_pipeline_raw_mark_instr_first_local_reads(instr, first_accesses)
   }
 }
 
@@ -24546,6 +24589,15 @@ fn run_hot_pipeline_raw_mark_instr_local_writes(
         Some(body) =>
           run_hot_pipeline_raw_mark_instrs_local_writes(body, locals)
         None => ()
+      }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      run_hot_pipeline_raw_mark_instrs_local_writes(body, locals)
+      for arm in catches {
+        let @lib.Expr(body) = match arm {
+          @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+        }
+        run_hot_pipeline_raw_mark_instrs_local_writes(body, locals)
       }
     }
     _ => ()
@@ -24590,20 +24642,11 @@ fn run_hot_pipeline_raw_loop_carried_merge_locals(
                 first_accesses[local_id] = 2
               }
             }
-            _ => {
-              let instr_reads = @bitset.BitSet::new(base_local_count)
-              run_hot_pipeline_raw_mark_instr_local_reads(
+            _ =>
+              run_hot_pipeline_raw_mark_instr_first_local_reads(
                 body[idx],
-                instr_reads,
+                first_accesses,
               )
-              for local_id = 0
-                  local_id < base_local_count
-                  local_id = local_id + 1 {
-                if instr_reads[local_id] && first_accesses[local_id] == 0 {
-                  first_accesses[local_id] = 1
-                }
-              }
-            }
           }
         }
         for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
@@ -24681,6 +24724,342 @@ fn run_hot_pipeline_raw_count_call_like(
 }
 
 ///|
+priv struct RawScratchEscapes {
+  canonical : @bitset.BitSet
+  conditional : @bitset.BitSet
+  region_ends : Array[Int]
+  region_starts : Array[Int]
+  param_count : Int
+  mut next_region : Int
+}
+
+///|
+fn RawScratchEscapes::new(
+  local_count : Int,
+  param_count : Int,
+  region_ends : Array[Int],
+  region_starts : Array[Int],
+  instr_count : Int,
+) -> RawScratchEscapes {
+  {
+    canonical: @bitset.BitSet::new(local_count),
+    conditional: @bitset.BitSet::new(
+      if param_count == 0 {
+        0
+      } else {
+        instr_count
+      },
+    ),
+    region_ends,
+    region_starts,
+    param_count,
+    next_region: 0,
+  }
+}
+
+///|
+priv struct RawScratchEscapeScan {
+  plan : RawScratchEscapes
+  pending_starts : Array[Int]
+  pending_ends : Array[Int]
+  conditional_starts : Array[Int]
+  conditional_ends : Array[Int]
+  param_epochs : Array[Int]
+  last_param_writes : @bitset.BitSet
+  candidate_heads : Array[Int]
+  candidate_positions : Array[Int]
+  candidate_next : Array[Int]
+  mut epoch : Int
+}
+
+///|
+fn RawScratchEscapeScan::new(plan : RawScratchEscapes) -> RawScratchEscapeScan {
+  let locals = plan.canonical.length()
+  let params = plan.param_count
+  {
+    plan,
+    pending_starts: Array::make(locals, 0),
+    pending_ends: Array::make(locals, plan.region_ends[0]),
+    conditional_starts: Array::make(params, 0),
+    conditional_ends: Array::make(params, plan.region_ends[0]),
+    param_epochs: Array::make(params, 0),
+    last_param_writes: @bitset.BitSet::new(plan.conditional.length()),
+    candidate_heads: Array::make(params, -1),
+    candidate_positions: [],
+    candidate_next: [],
+    epoch: 0,
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_collect_scratch_regions(
+  instrs : Array[@lib.Instruction],
+  region_ends : Array[Int],
+  region_starts : Array[Int],
+  position : Int,
+) -> Int {
+  let region = region_ends.length()
+  region_ends.push(region)
+  // Reserve a contiguous instruction row for this region before its children.
+  region_starts.push(position)
+  let mut next_position = position + instrs.length()
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        next_position = run_hot_pipeline_raw_collect_scratch_regions(
+          body, region_ends, region_starts, next_position,
+        )
+      @lib.If(_, then_body, else_body) => {
+        let branch_region = region_ends.length()
+        next_position = run_hot_pipeline_raw_collect_scratch_regions(
+          then_body, region_ends, region_starts, next_position,
+        )
+        if else_body is Some(body) {
+          next_position = run_hot_pipeline_raw_collect_scratch_regions(
+            body, region_ends, region_starts, next_position,
+          )
+        }
+        // Both arms discard their aliases at the same continuation. Their
+        // writes cannot reach reads in the other arm.
+        region_ends[branch_region] = region_ends.length() - 1
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        next_position = run_hot_pipeline_raw_collect_scratch_regions(
+          body, region_ends, region_starts, next_position,
+        )
+        for arm in catches {
+          let @lib.Expr(body) = match arm {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          next_position = run_hot_pipeline_raw_collect_scratch_regions(
+            body, region_ends, region_starts, next_position,
+          )
+        }
+      }
+      _ => ()
+    }
+  }
+  region_ends[region] = region_ends.length() - 1
+  next_position
+}
+
+///|
+fn run_hot_pipeline_raw_scratch_write_barrier(instr : @lib.Instruction) -> Bool {
+  if run_hot_pipeline_raw_simplify_locals_instr_is_early_terminator(instr) {
+    return true
+  }
+  match instr {
+    @lib.Block(_, _)
+    | @lib.Loop(_, _)
+    | @lib.If(_, _, _)
+    | @lib.Try(_, _, _, _)
+    | @lib.TryTable(_, _, _)
+    | @lib.Call(_)
+    | @lib.CallIndirect(_, _)
+    | @lib.CallRef(_)
+    | @lib.Rethrow(_)
+    | @lib.BrOnNull(_)
+    | @lib.BrOnNonNull(_)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _)
+    | @lib.BrOnCastDescEq(_, _, _)
+    | @lib.BrOnCastDescEqFail(_, _, _)
+    | @lib.Suspend(_)
+    | @lib.Resume(_, _)
+    | @lib.ResumeThrow(_, _, _)
+    | @lib.ResumeThrowRef(_, _)
+    | @lib.StackSwitch(_, _) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_mark_scratch_escapes(
+  instrs : Array[@lib.Instruction],
+  scan : RawScratchEscapeScan,
+  region : Int,
+  alias_region : Int,
+  param_alias_region : Int,
+  legacy : Bool,
+) -> Int {
+  let plan = scan.plan
+  let param_count = plan.param_count
+  if param_count > 0 {
+    // A later canonical write in the same straight-line segment kills an
+    // earlier parameter alias. Only the final write needs the If escape guard.
+    // Calls and every possible control exit split segments. One epoch array
+    // and one instruction bitset avoid per-arm rows and repeated lookahead.
+    scan.epoch += 1
+    for i = instrs.length() - 1; i >= 0; i = i - 1 {
+      match instrs[i] {
+        @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+          let id = raw.reinterpret_as_int()
+          if id >= 0 && id < param_count && scan.param_epochs[id] != scan.epoch {
+            scan.last_param_writes[plan.region_starts[region] + i] = true
+            scan.param_epochs[id] = scan.epoch
+          }
+        }
+        _ =>
+          if run_hot_pipeline_raw_scratch_write_barrier(instrs[i]) {
+            scan.epoch += 1
+          }
+      }
+    }
+  }
+  let mut next_region = region + 1
+  for instr_index = 0
+      instr_index < instrs.length()
+      instr_index = instr_index + 1 {
+    let instr = instrs[instr_index]
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let id = raw.reinterpret_as_int()
+        if id >= 0 && id < plan.canonical.length() {
+          if legacy {
+            // The raw freshener retains legacy bodies unchanged.
+            plan.canonical[id] = true
+          }
+          if region == 0 {
+            scan.pending_starts[id] = 0
+            scan.pending_ends[id] = plan.region_ends[0]
+            if id < param_count {
+              scan.conditional_starts[id] = 0
+              scan.conditional_ends[id] = plan.region_ends[0]
+              scan.candidate_heads[id] = -1
+            }
+          } else {
+            let boundary = if id < param_count {
+              param_alias_region
+            } else {
+              alias_region
+            }
+            if boundary > 0 {
+              scan.pending_starts[id] = Int::max(
+                scan.pending_starts[id],
+                boundary,
+              )
+              scan.pending_ends[id] = Int::min(
+                scan.pending_ends[id],
+                plan.region_ends[boundary],
+              )
+            }
+            if id < param_count {
+              scan.conditional_starts[id] = Int::max(
+                scan.conditional_starts[id],
+                alias_region,
+              )
+              scan.conditional_ends[id] = Int::min(
+                scan.conditional_ends[id],
+                plan.region_ends[alias_region],
+              )
+              let position = plan.region_starts[region] + instr_index
+              if !legacy && scan.last_param_writes[position] {
+                let row = scan.candidate_positions.length()
+                scan.candidate_positions.push(position)
+                scan.candidate_next.push(scan.candidate_heads[id])
+                scan.candidate_heads[id] = row
+              }
+            }
+          }
+        }
+      }
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let id = raw.reinterpret_as_int()
+        if id >= 0 &&
+          id < plan.canonical.length() &&
+          (
+            legacy ||
+            region < scan.pending_starts[id] ||
+            region > scan.pending_ends[id]
+          ) {
+          plan.canonical[id] = true
+        }
+        if id >= 0 &&
+          id < param_count &&
+          (
+            region < scan.conditional_starts[id] ||
+            region > scan.conditional_ends[id]
+          ) {
+          // Each candidate is marked once, then removed from this pending
+          // chain. Later independent If arms retain their freshening.
+          let mut row = scan.candidate_heads[id]
+          while row >= 0 {
+            plan.conditional[scan.candidate_positions[row]] = true
+            row = scan.candidate_next[row]
+          }
+          scan.candidate_heads[id] = -1
+          scan.conditional_starts[id] = 0
+          scan.conditional_ends[id] = plan.region_ends[0]
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        next_region = run_hot_pipeline_raw_mark_scratch_escapes(
+          body, scan, next_region, next_region, next_region, legacy,
+        )
+      @lib.If(_, then_body, else_body) => {
+        let branch_region = next_region
+        next_region = run_hot_pipeline_raw_mark_scratch_escapes(
+          then_body, scan, next_region, branch_region, param_alias_region, legacy,
+        )
+        if else_body is Some(body) {
+          next_region = run_hot_pipeline_raw_mark_scratch_escapes(
+            body, scan, next_region, branch_region, param_alias_region, legacy,
+          )
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        next_region = run_hot_pipeline_raw_mark_scratch_escapes(
+          body, scan, next_region, next_region, next_region, true,
+        )
+        for arm in catches {
+          let @lib.Expr(body) = match arm {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          next_region = run_hot_pipeline_raw_mark_scratch_escapes(
+            body, scan, next_region, next_region, next_region, true,
+          )
+        }
+      }
+      _ => ()
+    }
+  }
+  next_region
+}
+
+///|
+fn run_hot_pipeline_raw_escaping_scratch_locals(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+  local_count : Int,
+) -> RawScratchEscapes {
+  let ends : Array[Int] = []
+  let starts : Array[Int] = []
+  let count = run_hot_pipeline_raw_collect_scratch_regions(
+    instrs, ends, starts, 0,
+  )
+  let plan = RawScratchEscapes::new(
+    local_count, param_count, ends, starts, count,
+  )
+  // The scan scratch is released before rewriting. No per-write objects,
+  // ancestor copies, or local-by-region matrix are retained.
+  ignore(
+    run_hot_pipeline_raw_mark_scratch_escapes(
+      instrs,
+      RawScratchEscapeScan::new(plan),
+      0,
+      0,
+      0,
+      false,
+    ),
+  )
+  plan
+}
+
+///|
 fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   instrs : Array[@lib.Instruction],
   root_instrs : Array[@lib.Instruction],
@@ -24689,6 +25068,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   extra_local_types : Array[@lib.ValType],
   param_aliases : Array[@lib.LocalIdx?],
   inherited_no_else_branch_merge_locals : @bitset.BitSet,
+  escaping_scratch_locals? : RawScratchEscapes? = None,
+  in_if? : Bool = false,
 ) -> Array[@lib.Instruction] {
   let rewritten : Array[@lib.Instruction] = []
   let freshen_params = run_hot_pipeline_raw_instrs_have_memory_access(instrs)
@@ -24710,16 +25091,33 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
     instrs.length() == root_instrs.length()
   let freshen_repeated_body_scratch = !two_call_allocator_body
   let base_local_count = params.length() + locals.length()
+  // Keep nested definitions canonical when a read leaves their subtree.
+  // Other scratch lanes retain the existing freshening schedule. The two
+  // linear region walks share compact write flags across recursion.
+  let plan = match escaping_scratch_locals {
+    Some(bits) => bits
+    None =>
+      run_hot_pipeline_raw_escaping_scratch_locals(
+        root_instrs,
+        params.length(),
+        base_local_count + extra_local_types.length(),
+      )
+  }
+  let escaping = plan.canonical
+  // The input limit stays fixed while rewriting appends new scratch types.
+  let known_local_count = escaping.length()
+  let region = plan.next_region
+  plan.next_region += 1
   let seen_local_writes : Array[Bool] = Array::make(base_local_count, false)
   let no_else_branch_merge_locals = run_hot_pipeline_raw_no_else_branch_merge_locals(
     instrs,
     params.length(),
-    base_local_count,
+    known_local_count,
   )
   let loop_carried_merge_locals = run_hot_pipeline_raw_loop_carried_merge_locals(
-    instrs, base_local_count,
+    instrs, known_local_count,
   )
-  for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+  for local_id = 0; local_id < known_local_count; local_id = local_id + 1 {
     if loop_carried_merge_locals[local_id] {
       no_else_branch_merge_locals[local_id] = true
     }
@@ -24738,7 +25136,10 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   let mut previous_was_i32_sub = false
   let mut previous_was_select = false
   let mut previous_local_get_id = -1
-  for instr in instrs {
+  for instr_index = 0
+      instr_index < instrs.length()
+      instr_index = instr_index + 1 {
+    let instr = instrs[instr_index]
     match instr {
       @lib.LocalGet(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
@@ -24820,6 +25221,10 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
             value_if_suffix_sub_set
           ) &&
           local_id >= 0 &&
+          !(local_id < escaping.length() && escaping[local_id]) &&
+          !(in_if &&
+          local_id < plan.param_count &&
+          plan.conditional[plan.region_starts[region] + instr_index]) &&
           (
             local_id >= no_else_branch_merge_locals.length() ||
             !no_else_branch_merge_locals[local_id]
@@ -24930,6 +25335,10 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         if (freshen_params || (two_call_allocator_body && previous_was_select)) &&
           !preserve_param_branch_carrier_tee &&
           local_id >= 0 &&
+          !(local_id < escaping.length() && escaping[local_id]) &&
+          !(in_if &&
+          local_id < plan.param_count &&
+          plan.conditional[plan.region_starts[region] + instr_index]) &&
           (
             local_id >= no_else_branch_merge_locals.length() ||
             !no_else_branch_merge_locals[local_id]
@@ -25048,6 +25457,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                 extra_local_types,
                 param_aliases.copy(),
                 no_else_branch_merge_locals,
+                escaping_scratch_locals=Some(plan),
+                in_if~,
               ),
             ),
           ),
@@ -25077,6 +25488,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                 extra_local_types,
                 param_aliases.copy(),
                 loop_merge_locals,
+                escaping_scratch_locals=Some(plan),
+                in_if~,
               ),
             ),
           ),
@@ -25106,6 +25519,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                 extra_local_types,
                 param_aliases.copy(),
                 no_else_branch_merge_locals,
+                escaping_scratch_locals=Some(plan),
+                in_if~,
               ),
             ),
           ),
@@ -25123,14 +25538,13 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_select = false
         previous_local_get_id = -1
         let branch_aliases = param_aliases.copy()
+        let branch_writes = @bitset.BitSet::new(known_local_count)
+        run_hot_pipeline_raw_mark_instrs_local_writes(then_body, branch_writes)
+        if else_body is Some(body) {
+          run_hot_pipeline_raw_mark_instrs_local_writes(body, branch_writes)
+        }
         for local_id = 0; local_id < params.length(); local_id = local_id + 1 {
-          let else_writes = match else_body {
-            Some(body) =>
-              run_hot_pipeline_raw_branch_writes_local(body, local_id)
-            None => false
-          }
-          if run_hot_pipeline_raw_branch_writes_local(then_body, local_id) ||
-            else_writes {
+          if branch_writes[local_id] {
             if local_id >= 0 && local_id < branch_aliases.length() {
               match branch_aliases[local_id] {
                 Some(mapped_local) => {
@@ -25158,6 +25572,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
               extra_local_types,
               branch_aliases.copy(),
               no_else_branch_merge_locals,
+              escaping_scratch_locals=Some(plan),
+              in_if=true,
             ),
             match else_body {
               Some(body) =>
@@ -25170,6 +25586,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                     extra_local_types,
                     branch_aliases.copy(),
                     no_else_branch_merge_locals,
+                    escaping_scratch_locals=Some(plan),
+                    in_if=true,
                   ),
                 )
               None => None
@@ -25183,25 +25601,20 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
             None,
           )
         }
-        for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
-          if run_hot_pipeline_raw_branch_writes_local(then_body, local_id) {
+        for local_id = 0; local_id < known_local_count; local_id = local_id + 1 {
+          if branch_writes[local_id] {
             run_hot_pipeline_raw_set_param_alias(param_aliases, local_id, None)
-          } else {
-            match else_body {
-              Some(body) =>
-                if run_hot_pipeline_raw_branch_writes_local(body, local_id) {
-                  run_hot_pipeline_raw_set_param_alias(
-                    param_aliases,
-                    local_id,
-                    None,
-                  )
-                }
-              None => ()
-            }
           }
         }
       }
       _ => {
+        if instr is @lib.Try(_, _, catches, _) {
+          // Legacy bodies are retained, but their region rows must be consumed
+          // so following rewritten siblings keep their instruction positions.
+          for _ in 0..<(catches.length() + 1) {
+            plan.next_region = plan.region_ends[plan.next_region] + 1
+          }
+        }
         previous_was_local_tee = false
         previous_was_call = false
         previous_was_table_size = false
@@ -25240,6 +25653,9 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes(
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
 ) -> Array[@lib.Instruction] {
+  let known_local_count = params.length() +
+    locals.length() +
+    extra_local_types.length()
   let param_aliases : Array[@lib.LocalIdx?] = Array::make(
     params.length() + locals.length(),
     None,
@@ -25251,7 +25667,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes(
     locals,
     extra_local_types,
     param_aliases,
-    @bitset.BitSet::new(params.length() + locals.length()),
+    @bitset.BitSet::new(known_local_count),
   )
 }
 
@@ -27468,6 +27884,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
         run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(body, written)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(body, written)
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(
+            catch_body, written,
+          )
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(then_body, written)
         match else_body {
@@ -28314,6 +28741,38 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_instr(
         None => None
       }
       @lib.Instruction::if_(block_type, rewritten_then, rewritten_else)
+    }
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+      let rewritten_body = run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
+        body, params, locals, written_locals, changed,
+      )
+      let rewritten_catches = catches.map(fn(catch_) {
+        match catch_ {
+          @lib.LegacyCatch(tag, @lib.Expr(catch_body)) =>
+            @lib.LegacyCatch::tagged(
+              tag,
+              @lib.Expr::new(
+                run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
+                  catch_body, params, locals, written_locals, changed,
+                ),
+              ),
+            )
+          @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+            @lib.LegacyCatch::all(
+              @lib.Expr::new(
+                run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
+                  catch_body, params, locals, written_locals, changed,
+                ),
+              ),
+            )
+        }
+      })
+      @lib.Instruction::try_(
+        block_type,
+        @lib.Expr::new(rewritten_body),
+        rewritten_catches,
+        delegate~,
+      )
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
       @lib.Instruction::try_table(
@@ -32473,7 +32932,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     }
     let local_graph = @ir.local_graph_build_full_flow(
       hot_func,
-      @ir.cfg_build(hot_func),
+      @ir.cfg_build(hot_func, expand_operand_control=true),
     )
     let plan = ssa_full_build_merge_rewrite_plan(hot_func, local_graph)
     let (rewritten, changed) = ssa_full_rewrite_raw_func(original, params, plan)
@@ -61867,7 +62326,8 @@ fn run_hot_pipeline_raw_vacuum_instr_targets_if_or_outer(
     @lib.Br(label)
     | @lib.BrIf(label)
     | @lib.BrOnNull(label)
-    | @lib.BrOnNonNull(label) =>
+    | @lib.BrOnNonNull(label)
+    | @lib.Rethrow(label) =>
       run_hot_pipeline_raw_vacuum_label_idx_depth(label) >= owner_depth
     @lib.BrTable(labels, fallback) => {
       if run_hot_pipeline_raw_vacuum_label_idx_depth(fallback) >= owner_depth {
@@ -61901,6 +62361,8 @@ fn run_hot_pipeline_raw_vacuum_instr_targets_if_or_outer(
         None => false
       }
     }
+    // Legacy handler labels need their existing surrounding control scope.
+    @lib.Try(_, _, _, _) => true
     @lib.TryTable(_, _, @lib.Expr(body)) =>
       run_hot_pipeline_raw_vacuum_body_targets_if_or_outer(
         body,
@@ -65726,7 +66188,14 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
                 }
                 true
               } else {
-                false
+                ignore(rewritten.pop())
+                rewritten.push(
+                  @lib.Instruction::block(
+                    active_block_type,
+                    @lib.Expr::new(selected),
+                  ),
+                )
+                true
               }
             }
             _ => false
@@ -65760,11 +66229,14 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
                   }
                   changed = true
                 } else {
+                  ignore(rewritten.pop())
                   rewritten.push(
-                    @lib.Instruction::if_(
-                      active_block_type, next_then, normalized_else,
+                    @lib.Instruction::block(
+                      active_block_type,
+                      @lib.Expr::new(selected),
                     ),
                   )
+                  changed = true
                 }
               }
               _ =>
@@ -78998,7 +79470,12 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   }
   let cleaned = if descriptor_name == "precompute" ||
     descriptor_name == "precompute-propagate" {
-    pass_lower_cleanup_branchless_blocks(cleaned, mod_, module_env~).0
+    pass_lower_cleanup_branchless_blocks(
+      cleaned,
+      mod_,
+      module_env~,
+      flatten_scalar_identity_blocks=true,
+    ).0
   } else {
     cleaned
   }
@@ -80392,6 +80869,7 @@ fn run_hot_pipeline_func(
             mod_, module_state, options,
           ),
         ),
+        flatten_scalar_identity_blocks=true,
       )
       return Ok({
         reason: result.reason,
@@ -80790,6 +81268,7 @@ fn run_hot_pipeline_func(
                 mod_, module_state, options,
               ),
             ),
+            flatten_scalar_identity_blocks=true,
           )
         } else {
           (original, false)
@@ -83045,6 +83524,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
                 defs[code_idx],
                 current_mod,
                 module_env=cleanup_module_env,
+                flatten_scalar_identity_blocks=true,
               )
             }
             if changed {
@@ -83121,6 +83601,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
             lowered_func,
             current_mod,
             module_env=cleanup_module_env,
+            flatten_scalar_identity_blocks=true,
           ).0
         } else {
           lowered_func
@@ -83336,6 +83817,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
                 defs[code_idx],
                 current_mod,
                 module_env=cleanup_module_env,
+                flatten_scalar_identity_blocks=true,
               )
             }
             if changed {
@@ -83416,6 +83898,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
             lowered_func,
             current_mod,
             module_env=cleanup_module_env,
+            flatten_scalar_identity_blocks=true,
           ).0
         } else {
           lowered_func
@@ -91545,6 +92028,13 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
       payload="name=\{pass_name}",
     )
     if pass_name == "precompute-propagate" {
+      // Proved flat legacy scopes must expose their local writes before the
+      // shared propagation stage; this keeps folding in the ordered roster.
+      current = dae_cleanup_touched_legacy_constants(
+        current,
+        touched,
+        fold_constants=false,
+      )
       current = match
         run_hot_pipeline_apply_hot_pass_to_touched(
           current,
@@ -92726,7 +93216,18 @@ fn run_hot_pipeline_apply_sgo_optimizing_module_pass(
     )
     return Ok(mod_)
   }
-  let result = sgo_run_core(mod_, options.trace, perf=options.perf)
+  let has_legacy_try = pass_module_has_legacy_try(mod_)
+  let result = sgo_run_core(
+    mod_,
+    options.trace,
+    perf=options.perf,
+    legacy_try=Some(has_legacy_try),
+  )
+  if has_legacy_try {
+    // This route changes only literal reads in ordinary sibling functions.
+    // The generic cleanup roster must not change legacy handler bodies.
+    return Ok(result.mod_out)
+  }
   let cleaned = match
     run_hot_pipeline_apply_sgo_nested_cleanup(
       result.mod_out,
@@ -94221,6 +94722,7 @@ fn hot_pass_run_with_aggregate_perf_timer(
     }
     "code-pushing" => code_pushing_run(ctx, func)
     "code-folding" => code_folding_run(ctx, func)
+    "local-cse" => local_cse_run(ctx, func)
     "tuple-optimization" => tuple_optimization_run(ctx, func)
     "simplify-locals" => simplify_locals_run(ctx, func)
     "simplify-locals-notee" | "simplify-locals-no-tee" =>

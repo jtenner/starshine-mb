@@ -431,8 +431,8 @@ fn inl_combined_binary_size_within_limit(
 ) -> Bool {
   // Binaryen estimates 2.5 encoded bytes per expression and uses a strict
   // comparison against the configured combined-size ceiling.
-  let combined_exprs = caller_size + callee_size
-  combined_exprs * 5 < max_combined_binary_size * 2
+  let combined_exprs = caller_size.to_int64() + callee_size.to_int64()
+  combined_exprs * 5L < max_combined_binary_size.to_int64() * 2L
 }
 
 ///|
@@ -1133,6 +1133,15 @@ fn inl_mark_used_refs(
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) => inl_mark_used_refs(body, used)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        inl_mark_used_refs(body, used)
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          inl_mark_used_refs(catch_body, used)
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         inl_mark_used_refs(then_body, used)
         match else_body {
@@ -1151,6 +1160,8 @@ fn inl_scan_refs(
   refs : Array[Int],
   used : Array[Bool],
   direct_targets? : Array[Int]? = None,
+  legacy_bodies? : Array[Bool]? = None,
+  source_abs? : Int = -1,
 ) -> Unit {
   for instr in instrs {
     match instr {
@@ -1174,13 +1185,69 @@ fn inl_scan_refs(
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        inl_scan_refs(body, refs, used, direct_targets~)
+        inl_scan_refs(
+          body,
+          refs,
+          used,
+          direct_targets~,
+          legacy_bodies~,
+          source_abs~,
+        )
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        match legacy_bodies {
+          Some(flags) if source_abs >= 0 && source_abs < flags.length() =>
+            flags[source_abs] = true
+          _ => ()
+        }
+        inl_scan_refs(
+          body,
+          refs,
+          used,
+          direct_targets~,
+          legacy_bodies~,
+          source_abs~,
+        )
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          inl_scan_refs(
+            catch_body,
+            refs,
+            used,
+            direct_targets~,
+            legacy_bodies~,
+            source_abs~,
+          )
+        }
+      }
       @lib.If(_, then_body, Some(else_body)) => {
-        inl_scan_refs(then_body, refs, used, direct_targets~)
-        inl_scan_refs(else_body, refs, used, direct_targets~)
+        inl_scan_refs(
+          then_body,
+          refs,
+          used,
+          direct_targets~,
+          legacy_bodies~,
+          source_abs~,
+        )
+        inl_scan_refs(
+          else_body,
+          refs,
+          used,
+          direct_targets~,
+          legacy_bodies~,
+          source_abs~,
+        )
       }
       @lib.If(_, then_body, None) =>
-        inl_scan_refs(then_body, refs, used, direct_targets~)
+        inl_scan_refs(
+          then_body,
+          refs,
+          used,
+          direct_targets~,
+          legacy_bodies~,
+          source_abs~,
+        )
       _ => ()
     }
   }
@@ -1945,6 +2012,10 @@ fn inl_apply_partial_pattern_a_splits(
       continue
     }
     let @lib.Func(locals, @lib.Expr(body)) = original_funcs[def_idx]
+    if pass_raw_instrs_have_legacy_try(body) {
+      def_idx += 1
+      continue
+    }
     let source_annotations = annotations[abs].copy()
     let mut split_this = false
     let pattern_a = if infos[abs].results.length() == 0 {
@@ -2125,6 +2196,9 @@ fn inl_build_function_infos(
   let imports = inl_imported_func_count(mod_)
   let total = imports + inl_defined_func_count(mod_)
   let refs = Array::make(total, 0)
+  // Fill one flat flag array during the existing reference walk. Legacy
+  // functions stay opaque to HOT inlining; ordinary siblings remain candidates.
+  let legacy_bodies = Array::make(total, false)
   let used = Array::make(total, false)
   inl_mark_global_uses(mod_, used)
   let direct_targets_by_func : Array[Array[Int]] = []
@@ -2136,7 +2210,14 @@ fn inl_build_function_infos(
       for func in funcs {
         let @lib.Func(_, @lib.Expr(body)) = func
         let direct_targets : Array[Int] = []
-        inl_scan_refs(body, refs, used, direct_targets=Some(direct_targets))
+        inl_scan_refs(
+          body,
+          refs,
+          used,
+          direct_targets=Some(direct_targets),
+          legacy_bodies=Some(legacy_bodies),
+          source_abs=direct_targets_by_func.length(),
+        )
         direct_targets_by_func.push(direct_targets)
       }
     None => ()
@@ -2220,7 +2301,8 @@ fn inl_build_function_infos(
             NeverInline => false
             AlwaysInline => false
           }
-          let classification_required = !partial_wrapper &&
+          let classification_required = !legacy_bodies[abs] &&
+            !partial_wrapper &&
             (classify_uncalled || refs[abs] > 0) &&
             !no_full_policy &&
             hint_requires_classification
@@ -2351,6 +2433,7 @@ fn inl_build_function_infos(
       }
     }
     let inlineable = abs >= imports &&
+      !legacy_bodies[abs] &&
       !no_full_policy &&
       block_type_ok &&
       profitable
@@ -4437,7 +4520,8 @@ fn inl_rewrite_func_body(
     inl_instrs_have_function_exit_br_table(body, 0U) {
     return func
   }
-  if inl_instrs_have_try_table(body) ||
+  if pass_raw_instrs_have_legacy_try(body) ||
+    inl_instrs_have_try_table(body) ||
     inl_instrs_have_stack_carried_local_across_import_call(body, imports) {
     return func
   }
@@ -4537,47 +4621,132 @@ fn inl_rewrite_instruction_func_idxs(
   remap : Array[UInt],
 ) -> @lib.Instruction {
   match instr {
-    @lib.Block(block_type, expr) =>
-      @lib.Instruction::block(
-        block_type,
-        inl_rewrite_expr_func_idxs(expr, remap),
-      )
-    @lib.Loop(block_type, expr) =>
-      @lib.Instruction::loop_(
-        block_type,
-        inl_rewrite_expr_func_idxs(expr, remap),
-      )
-    @lib.If(block_type, then_body, else_body) => {
-      let next_then : Array[@lib.Instruction] = []
-      for nested in then_body {
-        next_then.push(inl_rewrite_instruction_func_idxs(nested, remap))
+    @lib.Block(block_type, expr) => {
+      let next = inl_rewrite_expr_func_idxs(expr, remap)
+      if physical_equal(next, expr) {
+        instr
+      } else {
+        @lib.Instruction::block(block_type, next)
       }
+    }
+    @lib.Loop(block_type, expr) => {
+      let next = inl_rewrite_expr_func_idxs(expr, remap)
+      if physical_equal(next, expr) {
+        instr
+      } else {
+        @lib.Instruction::loop_(block_type, next)
+      }
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let next_then = inl_rewrite_instrs_func_idxs(then_body, remap)
+      let mut else_changed = false
       let next_else = match else_body {
         Some(body) => {
-          let out : Array[@lib.Instruction] = []
-          for nested in body {
-            out.push(inl_rewrite_instruction_func_idxs(nested, remap))
-          }
-          Some(out)
+          let next = inl_rewrite_instrs_func_idxs(body, remap)
+          else_changed = !physical_equal(next, body)
+          Some(next)
         }
         None => None
       }
-      @lib.Instruction::if_(block_type, next_then, next_else)
+      if physical_equal(next_then, then_body) && !else_changed {
+        instr
+      } else {
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
     }
-    @lib.Call(func_idx) =>
-      @lib.Instruction::call(inl_rewrite_func_idx(func_idx, remap))
-    @lib.ReturnCall(func_idx) =>
-      @lib.Instruction::return_call(inl_rewrite_func_idx(func_idx, remap))
-    @lib.TryTable(block_type, catches, body) =>
-      @lib.Instruction::try_table(
-        block_type,
-        catches,
-        inl_rewrite_expr_func_idxs(body, remap),
-      )
-    @lib.RefFunc(func_idx) =>
-      @lib.Instruction::ref_func(inl_rewrite_func_idx(func_idx, remap))
+    @lib.Call(func_idx) => {
+      let next = inl_rewrite_func_idx(func_idx, remap)
+      if next == func_idx {
+        instr
+      } else {
+        @lib.Instruction::call(next)
+      }
+    }
+    @lib.ReturnCall(func_idx) => {
+      let next = inl_rewrite_func_idx(func_idx, remap)
+      if next == func_idx {
+        instr
+      } else {
+        @lib.Instruction::return_call(next)
+      }
+    }
+    @lib.TryTable(block_type, catches, body) => {
+      let next = inl_rewrite_expr_func_idxs(body, remap)
+      if physical_equal(next, body) {
+        instr
+      } else {
+        @lib.Instruction::try_table(block_type, catches, next)
+      }
+    }
+    @lib.Try(block_type, body, catches, delegate) => {
+      let next_body = inl_rewrite_expr_func_idxs(body, remap)
+      let mut next_catches : Array[@lib.LegacyCatch]? = None
+      for idx = 0; idx < catches.length(); idx = idx + 1 {
+        let catch_ = catches[idx]
+        let expr = match catch_ {
+          @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+        }
+        let next_expr = inl_rewrite_expr_func_idxs(expr, remap)
+        if physical_equal(next_expr, expr) {
+          continue
+        }
+        let next = match catch_ {
+          @lib.LegacyCatch(tag, _) => @lib.LegacyCatch::tagged(tag, next_expr)
+          @lib.LegacyCatchAll(_) => @lib.LegacyCatch::all(next_expr)
+        }
+        match next_catches {
+          Some(copy) => copy[idx] = next
+          None => {
+            let copy = catches.copy()
+            copy[idx] = next
+            next_catches = Some(copy)
+          }
+        }
+      }
+      if physical_equal(next_body, body) && next_catches is None {
+        instr
+      } else {
+        @lib.Instruction::try_(
+          block_type,
+          next_body,
+          next_catches.unwrap_or(catches),
+          delegate~,
+        )
+      }
+    }
+    @lib.RefFunc(func_idx) => {
+      let next = inl_rewrite_func_idx(func_idx, remap)
+      if next == func_idx {
+        instr
+      } else {
+        @lib.Instruction::ref_func(next)
+      }
+    }
     _ => instr
   }
+}
+
+///|
+fn inl_rewrite_instrs_func_idxs(
+  instrs : Array[@lib.Instruction],
+  remap : Array[UInt],
+) -> Array[@lib.Instruction] {
+  let mut output : Array[@lib.Instruction]? = None
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let next = inl_rewrite_instruction_func_idxs(instrs[idx], remap)
+    if physical_equal(next, instrs[idx]) {
+      continue
+    }
+    match output {
+      Some(copy) => copy[idx] = next
+      None => {
+        let copy = instrs.copy()
+        copy[idx] = next
+        output = Some(copy)
+      }
+    }
+  }
+  output.unwrap_or(instrs)
 }
 
 ///|
@@ -4586,11 +4755,12 @@ fn inl_rewrite_expr_func_idxs(
   remap : Array[UInt],
 ) -> @lib.Expr {
   let @lib.Expr(instrs) = expr
-  let out : Array[@lib.Instruction] = []
-  for instr in instrs {
-    out.push(inl_rewrite_instruction_func_idxs(instr, remap))
+  let next = inl_rewrite_instrs_func_idxs(instrs, remap)
+  if physical_equal(next, instrs) {
+    expr
+  } else {
+    @lib.Expr::new(next)
   }
-  @lib.Expr::new(out)
 }
 
 ///|
@@ -5256,6 +5426,15 @@ fn inl_collect_call_targets(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
         inl_collect_call_targets(body, out)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        inl_collect_call_targets(body, out)
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          inl_collect_call_targets(catch_body, out)
+        }
+      }
       @lib.If(_, then_body, Some(else_body)) => {
         inl_collect_call_targets(then_body, out)
         inl_collect_call_targets(else_body, out)
@@ -8059,6 +8238,19 @@ fn inl_instrs_have_matching_call(
         if inl_instrs_have_matching_call(body, 0, matches) {
           return true
         }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if inl_instrs_have_matching_call(body, 0, matches) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          if inl_instrs_have_matching_call(catch_body, 0, matches) {
+            return true
+          }
+        }
+      }
       @lib.If(_, then_body, Some(else_body)) =>
         if inl_instrs_have_matching_call(then_body, 0, matches) ||
           inl_instrs_have_matching_call(else_body, 0, matches) {
@@ -9185,6 +9377,15 @@ fn inl_count_direct_target_calls(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
         count += inl_count_direct_target_calls(body, target_abs)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        count += inl_count_direct_target_calls(body, target_abs)
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+          }
+          count += inl_count_direct_target_calls(catch_body, target_abs)
+        }
+      }
       @lib.If(_, then_body, Some(else_body)) => {
         count += inl_count_direct_target_calls(then_body, target_abs)
         count += inl_count_direct_target_calls(else_body, target_abs)
@@ -9741,8 +9942,7 @@ fn inlining_run_module_pass_with_perf(
   partial_inlining_ifs? : Int = 0,
   perf? : HotPerfSession? = None,
 ) -> @lib.Module {
-  if pass_module_has_legacy_try(mod_) ||
-    pass_module_has_offset_sensitive_metadata(mod_) {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
   }
   if optimize && inl_module_has_typeidx_loop(mod_) {

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-10-04
+last_reviewed: 2026-10-08
 sources:
   - ../../../../../src/passes/dae2_effect_order_wbtest.mbt
   - ../../../../../src/ir/hot_mutate.mbt
@@ -9050,3 +9050,102 @@ regression in `src/passes/dae2_effect_order_wbtest.mbt`. Renewed direct tests an
 native event/trap verification remain pending; normal-route observations do not
 sign off the fallback. The intervening-global-write fixture already passed before
 this change and is a control rather than an additional confirmed defect.
+
+## DAE2 correctness repairs — October 7, 2026
+
+Lift stack-polymorphic typed entry without invented values. Preserve nested source-access reservations. Lower consecutive multi-result producers with a linear borrowed-prefix walk. Translate legacy rethrow targets by label identity and preserve the captured exception.
+
+Evidence: [dead_argument_elimination2_legacy.mbt](../../../../../src/passes/dead_argument_elimination2_legacy.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.
+
+
+## October 8, 2026 — Imported targets and private scalar identities
+
+An imported callable-reference parameter makes materialized function targets
+observable. DAE2/O now retains their original signature families, including
+references passed through local storage and concrete function-reference imports.
+The import scan uses cached signatures once; it adds no per-call alias search.
+This conservative boundary also protects ordinary opaque host callbacks, whose
+recorded v133 closed-world transform changes the original observation. The
+intrinsic v133 abort remains a separate tool failure.
+
+Private element references can use a narrower closed-world scalar path. It
+requires final singleton numeric/vector function types, one original structural
+class owner per candidate, abstract private funcref tables, scalar locals/globals
+and flat scalar code. GC, EH, indirect/reference calls, indexed control,
+concrete references and expression element segments retain the existing fallback.
+Public type closure and the original identity checks remain required.
+
+Multiple changed signatures enter distinct slots in one new recursive group.
+Exactly one changed signature now uses an open singleton with no supertype.
+Every admitted source singleton is final, so this carrier remains distinct from
+an equal final caller signature. Full subtype equality and the final bit in
+identity partitioning prevent canonical cleanup from merging them. Source type
+indices stay fixed until lowering finishes; existing simple-type cleanup then
+removes the unused index-free source row and remaps names. The earlier carrier
+kept an original-signature witness member; its measured size gap remains in
+historical evidence.
+
+The new branch removes that witness definition and three unused private helper
+arguments. It adds no cache or callsite walk. The existing all-singleton type
+cleanup becomes active, so its time/RSS cost still needs measurement. Original
+equivalent identities are never split. Preflight, type-class counting and final
+root/remap scans use linear expected work and O(types + functions + changed
+signatures) temporary storage. General fallback fixed-point cost remains open.
+
+Two size tests failed before implementation; the command size control also
+failed. The new plain carrier passes strict nameless encoded-size shrinkage.
+The optimizing cleanup retains Vacuum's existing empty-function nop form;
+its test requires no growth versus the input and removal of the witness cost.
+A first strict-shrink assertion for both modes exposed that extra byte and
+was corrected to this source-backed contract. Existing Vacuum expectations
+remain unchanged. Both modes retain separate identities, subtype field checks,
+encoded roundtrip validation and input immutability. Matching and mismatching
+indirect calls on copies after optimization remain the runtime signoff.
+
+Sources: [private-element owner](../../../../../src/passes/dae2_private_elements.mbt),
+[boundary scan and rewrite](../../../../../src/passes/dead_argument_elimination2.mbt),
+[type owner](../../../../../src/passes/dead_argument_elimination2_types.mbt),
+[audit regressions](../../../../../src/passes/mass_audit_dae2_wbtest.mbt),
+[singleton/equivalent-member/concrete-import controls](../../../../../src/passes/mass_repair_dae2_wbtest.mbt),
+[nameless size and identity tests](../../../../../src/passes/mass_repair_dae2_singleton_size_wbtest.mbt),
+[active dispatcher size control](../../../../../src/cmd/mass_repair_dispatch_wbtest.mbt).
+Bounded final execution and canonical-size evidence belong in the
+[validation gate](../../../tooling/validation-gates.md); this admission change
+alone does not close parity, aggregate, performance or release targets.
+
+## October 8, 2026 — Verify rewritten graphs once
+
+Successful DAE2 rewrites call the complete control verifier once. That verifier
+already performs every core and cycle check and reuses its postorder for scope
+checks. The pass checkpoint also removes its preceding duplicate core call.
+DAE2 repeats core verification only after an error to retain the original
+core-versus-control diagnostic prefix and first-error order.
+
+Each successful rewrite avoids one O(nodes + edges) graph traversal, its mark
+row, depth-bounded primitive stack rows and repeated type-key work. Scope,
+catch, type, cycle and ownership checks remain unchanged. Scratch is local to
+the verification call. The earlier calls ran sequentially, so fewer allocations
+do not by themselves prove lower peak RSS. Fresh complete-command measurements
+and their adverse controls are recorded in the
+[repair checkpoint](../../../tooling/validation-gates.md#october-8-2026--mass-audit-repairs-and-green-default-suites).
+
+Sources: [combined verifier](../../../../../src/ir/hot_verify.mbt),
+[rewrite call](../../../../../src/passes/dead_argument_elimination2.mbt),
+[pass checkpoint](../../../../../src/passes/pass_manager.mbt).
+
+
+The final `ee57fe32…` singleton is 59 canonical bytes in both modes, compared
+with original/before 60 and the witness intermediate 63. All 48 retained
+matching/mismatching identity probes pass. Direct nameless encoded bytes are
+59 plain / 60 optimizing because Vacuum retains an empty-function nop; the
+fixed no-pass v133 writer normalizes it. The corrected test contract preserves
+that existing behavior and still rejects the old witness increase.
+
+A dedicated 4,098-function scalar fixture activates the existing single-type
+cleanup. Precise n5 command medians drop 21.083→19.188 ms (−8.991%) plain and
+43.564→40.587 ms (−6.833%) optimizing versus the witness binary. The independent
+small-launcher peak RSS medians are 17,808→17,676 and 19,856→19,572 KiB.
+Canonical output shrinks 16,452→16,448 bytes, and the exported run observations
+match the input in all lanes. Coarse earlier timing and uniform launcher RSS
+floors remain in historical evidence. This fixed scalar result closes the
+witness gap, not general type-family cost, broad parity or any 1× target.

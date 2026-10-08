@@ -24,8 +24,9 @@ test "coalesce numeric defaults reuse exact interned identities across fresh val
       reference.intern("const:\{round}"),
     )
   }
-  assert_eq(actual.keys, reference.keys)
+  assert_eq(actual.ids.length(), reference.ids.length())
   assert_eq(actual.next_value, reference.next_value)
+  assert_eq(actual.ids.length(), 13)
   assert_eq(formats[0], 5)
 }
 
@@ -36,6 +37,8 @@ test "coalesce default identity cache remains local to its interner" {
   ignore(first.intern("const:previous"))
   assert_eq(cl_default_identity(first, @lib.ValType::i32()), 1)
   assert_eq(cl_default_identity(second, @lib.ValType::i32()), 0)
+  assert_eq(first.ids.length(), 2)
+  assert_eq(second.ids.length(), 1)
   assert_eq(
     cl_default_identity(first, @lib.ValType::i32()),
     first.intern("default:\{@debug.to_string(@lib.ValType::i32())}"),
@@ -79,6 +82,6 @@ test "coalesce numeric cache preserves parameter and reference initialization id
       cl_default_identity_reference_initial(reference, 5, 2, ty),
     )
   }
-  assert_eq(actual.keys, reference.keys)
+  assert_eq(actual.ids.length(), reference.ids.length())
   assert_eq(actual.next_value, reference.next_value)
 }

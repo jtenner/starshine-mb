@@ -20056,7 +20056,6 @@ test "raw simplify-locals keeps stack-carried producer writes before destination
       #|    call $callee
       #|    local.get 2
       #|    i32.add))
-      #|,
     ),
   )
   let func_idx = @lib.FuncIdx::new(1U)
@@ -20095,7 +20094,6 @@ test "raw simplify-locals stackifies a set across independent expressions" {
       #|    i32.add
       #|    local.get 1
       #|    i32.add))
-      #|,
     ),
   )
   let func_idx = @lib.FuncIdx::new(0U)
@@ -20137,7 +20135,6 @@ test "raw simplify-locals owns exact stackification in bounded small functions" 
       #|    i32.const 7
       #|    drop
       #|    local.get 1))
-      #|,
     ),
   )
   let result = match
@@ -20212,7 +20209,6 @@ test "raw simplify-locals does not consume an older stack value as a carrier" {
       #|    local.set 1
       #|    drop
       #|    local.get 1))
-      #|,
     ),
   )
   let func_idx = @lib.FuncIdx::new(0U)
@@ -21206,7 +21202,6 @@ test "merge-blocks pipeline flattens scalar spill blocks introduced beside dropp
       #|    (drop
       #|      (block (result (ref null nofunc))
       #|        (br_if 0 (ref.null nofunc) (i32.const 1))))))
-      #|,
     ),
   )
   let optimized = match
@@ -25308,7 +25303,7 @@ test "coalesce-locals rolls back invalid candidates without losing valid neighbo
     (
       #|(module
       #|  (func (result i32) i32.const 0)
-      #|  (func (result i32) i32.const 1)),
+      #|  (func (result i32) i32.const 1))
     ),
   )
   let funcs = match original.code_sec {

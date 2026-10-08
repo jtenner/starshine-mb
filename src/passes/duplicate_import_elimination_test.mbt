@@ -168,7 +168,6 @@ test "duplicate-import-elimination preserves duplicate import slots and users" {
     #|    (drop (ref.func $bar))
     #|  )
     #|)
-    #|,
   let input = pass_test_module_from_wat(source)
   let optimized = try! die_test_run(source)
 
@@ -196,7 +195,6 @@ test "duplicate-import-elimination preserves non-function and different-signatur
     #|    (drop (global.get $h))
     #|  )
     #|)
-    #|,
   let input = pass_test_module_from_wat(source)
   let optimized = try! die_test_run(source)
 
@@ -219,7 +217,6 @@ test "duplicate-import-elimination preserves repeated lookups across type mismat
     #|  (import "env" "waka" (func $second (type $v)))
     #|  (import "env" "waka" (func $third (type $v)))
     #|)
-    #|,
   let input = pass_test_module_from_wat(source)
   let optimized = try! die_test_run(source)
 

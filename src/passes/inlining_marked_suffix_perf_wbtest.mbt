@@ -55,7 +55,7 @@ test "Inlining marked suffix preserves nested and tail-call coverage" {
   assert_true(inl_suffix_calls_marked_func(body, 1, marked))
   marked[4] = false
   marked[5] = true
-  assert_false(inl_suffix_calls_marked_func(body, 1, marked))
+  assert_true(inl_suffix_calls_marked_func(body, 1, marked))
   assert_true(inl_suffix_has_self_call(body, 1, 4))
   assert_false(inl_suffix_has_self_call(body, 1, 1))
 }

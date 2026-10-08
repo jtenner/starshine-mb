@@ -39,6 +39,7 @@ priv struct OptimizeInstructionsLocalFacts {
   mut unsigned_max_ready : Bool
   mut label_used_revision : Int
   mut label_used : @bitset.BitSet
+  mut boolean_exit_labels : @bitset.BitSet?
 }
 
 ///|
@@ -210,6 +211,7 @@ fn OptimizeInstructionsLocalFacts::new(
     unsigned_max_ready: false,
     label_used_revision: -1,
     label_used: @bitset.BitSet::new(0),
+    boolean_exit_labels: None,
   }
 }
 
@@ -33905,6 +33907,7 @@ fn optimize_instructions_should_keep_i64_eq_zero_if_condition(
       func,
       operand_id,
       @lib.ValType::i64(),
+      scratch.local_facts,
     ) {
     Some(fact) =>
       optimize_instructions_i64_const(func, dead, fact.value_id) is None
@@ -40469,6 +40472,7 @@ fn OiBooleanEqzFallthroughValueFact::from_operand(
   func : @ir.HotFunc,
   operand_id : Int,
   expected_type : @lib.ValType,
+  local_facts : OptimizeInstructionsLocalFacts,
 ) -> OiBooleanEqzFallthroughValueFact? {
   // Binaryen v130 `Properties::getImmediateFallthrough` looks through unnamed
   // nonempty blocks, direct local.tee values, loop bodies, the live arm of an
@@ -40480,6 +40484,30 @@ fn OiBooleanEqzFallthroughValueFact::from_operand(
     _ => return None
   }
   let operand = @ir.hot_node_get(func, operand_id)
+  match operand.op {
+    @ir.HotOp::Block | @ir.HotOp::If | @ir.HotOp::Try => {
+      // A branch to this label supplies another result, independent of the
+      // lexical tail. OI only copies existing branch targets (the nested-if
+      // rewrite does so too); it never introduces a new target. A pass-local
+      // conservative inventory therefore stays sound after target removal or
+      // holder movement, without a whole-function scan after each rewrite.
+      let labels = match local_facts.boolean_exit_labels {
+        Some(labels) => labels
+        None => {
+          let labels = pass_compute_label_used(func)
+          local_facts.boolean_exit_labels = Some(labels)
+          labels
+        }
+      }
+      if pass_label_is_used(
+          @ir.hot_control_node_label(func, operand_id),
+          labels,
+        ) {
+        return None
+      }
+    }
+    _ => ()
+  }
   match operand.op {
     @ir.HotOp::Block => {
       let body_ref = @ir.hot_region_body_ref(func, operand_id)
@@ -40611,6 +40639,7 @@ fn OiBooleanEqzFallthroughChainFact::from_operand(
   func : @ir.HotFunc,
   operand_id : Int,
   expected_type : @lib.ValType,
+  local_facts : OptimizeInstructionsLocalFacts,
 ) -> OiBooleanEqzFallthroughChainFact? {
   // Binaryen v130 `Properties::getFallthrough` repeatedly applies immediate
   // fallthrough selection. Accumulate the selected value and whether any
@@ -40621,7 +40650,7 @@ fn OiBooleanEqzFallthroughChainFact::from_operand(
   for depth = 0; depth < 16; depth = depth + 1 {
     let step = match
       OiBooleanEqzFallthroughValueFact::from_operand(
-        func, value_id, expected_type,
+        func, value_id, expected_type, local_facts,
       ) {
       Some(fact) if fact.proves_supported_wrapper() => fact
       _ => break
@@ -40642,7 +40671,7 @@ fn OiBooleanEqzFallthroughChainFact::from_operand(
   }
   match
     OiBooleanEqzFallthroughValueFact::from_operand(
-      func, value_id, expected_type,
+      func, value_id, expected_type, local_facts,
     ) {
     Some(_) => None
     None => Some({ value_id, preservation, })
@@ -40661,6 +40690,7 @@ fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
+  local_facts : OptimizeInstructionsLocalFacts,
 ) -> OiBooleanEqzFallthroughConstFact? {
   // Binaryen v130 `optimizeBoolean` asks `Properties::getFallthrough` for an
   // i32.eqz operand before folding a constant fallthrough. Represent nonempty
@@ -40682,6 +40712,7 @@ fn OiBooleanEqzFallthroughConstFact::from_i32_eqz(
       func,
       operand_id,
       @lib.ValType::i32(),
+      local_facts,
     ) {
     Some(fact) => fact
     None => return None
@@ -40700,6 +40731,7 @@ fn OiBooleanEqzFallthroughConstFact::from_i64_eqz(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
+  local_facts : OptimizeInstructionsLocalFacts,
 ) -> OiBooleanEqzFallthroughConstFact? {
   // Binaryen's sibling EqZInt64 path has the same i32 result and preservation
   // contract, including proven-nonthrowing try body tails; only the fallthrough
@@ -40718,6 +40750,7 @@ fn OiBooleanEqzFallthroughConstFact::from_i64_eqz(
       func,
       operand_id,
       @lib.ValType::i64(),
+      local_facts,
     ) {
     Some(fact) => fact
     None => return None
@@ -40777,6 +40810,7 @@ fn OiBooleanContextLeafRewriteFact::from_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
+  local_facts : OptimizeInstructionsLocalFacts,
 ) -> OiBooleanContextLeafRewriteFact {
   // Binaryen v130 `optimizeBoolean` forwards exact `i32.ne(x, 0)` and
   // `i32.sub(0, x)` shells, and rewrites supported signed remainder shells to
@@ -40792,7 +40826,10 @@ fn OiBooleanContextLeafRewriteFact::from_node(
   if !OiLiveNodeFact::proves_node_live(func, dead, node_id) {
     return no_rewrite
   }
-  match OiBooleanEqzFallthroughConstFact::from_i32_eqz(func, dead, node_id) {
+  match
+    OiBooleanEqzFallthroughConstFact::from_i32_eqz(
+      func, dead, node_id, local_facts,
+    ) {
     Some(eqz_fallthrough_const_fact) =>
       return {
         kind: BooleanContextLeafFoldEqzFallthroughConst,
@@ -40803,7 +40840,10 @@ fn OiBooleanContextLeafRewriteFact::from_node(
       }
     None => ()
   }
-  match OiBooleanEqzFallthroughConstFact::from_i64_eqz(func, dead, node_id) {
+  match
+    OiBooleanEqzFallthroughConstFact::from_i64_eqz(
+      func, dead, node_id, local_facts,
+    ) {
     Some(eqz_fallthrough_const_fact) =>
       return {
         kind: BooleanContextLeafFoldEqzFallthroughConst,
@@ -41136,6 +41176,7 @@ fn optimize_instructions_rewrite_boolean_context_node(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
+  local_facts : OptimizeInstructionsLocalFacts,
 ) -> OiBooleanContextRewriteOutcome {
   // Follow Binaryen v130 `optimizeBoolean` source order: direct unary/binary
   // rewrites first, then recursive i32.or, block, if, select, and try contexts.
@@ -41143,7 +41184,7 @@ fn optimize_instructions_rewrite_boolean_context_node(
     return OiBooleanContextRewriteOutcome::unchanged(node_id)
   }
   match
-    OiBooleanContextLeafRewriteFact::from_node(func, dead, node_id).apply_selected_rewrite(
+    OiBooleanContextLeafRewriteFact::from_node(func, dead, node_id, local_facts).apply_selected_rewrite(
       func,
     ) {
     Some(replacement_id) => return { result_id: replacement_id, changed: true, }
@@ -41155,11 +41196,13 @@ fn optimize_instructions_rewrite_boolean_context_node(
         func,
         dead,
         fact.left_id,
+        local_facts,
       )
       let right = optimize_instructions_rewrite_boolean_context_node(
         func,
         dead,
         fact.right_id,
+        local_facts,
       )
       if left.result_id != fact.left_id {
         @ir.hot_child_set(func, fact.or_id, 0, left.result_id)
@@ -41177,6 +41220,7 @@ fn optimize_instructions_rewrite_boolean_context_node(
         func,
         dead,
         fact.tail_id,
+        local_facts,
       )
       if tail.result_id != fact.tail_id {
         ignore(
@@ -41198,11 +41242,13 @@ fn optimize_instructions_rewrite_boolean_context_node(
         func,
         dead,
         fact.then_arm.tail_id,
+        local_facts,
       )
       let else_result = optimize_instructions_rewrite_boolean_context_node(
         func,
         dead,
         fact.else_arm.tail_id,
+        local_facts,
       )
       if then_result.result_id != fact.then_arm.tail_id {
         ignore(
@@ -41237,11 +41283,13 @@ fn optimize_instructions_rewrite_boolean_context_node(
         func,
         dead,
         fact.true_id,
+        local_facts,
       )
       let false_result = optimize_instructions_rewrite_boolean_context_node(
         func,
         dead,
         fact.false_id,
+        local_facts,
       )
       if true_result.result_id != fact.true_id {
         @ir.hot_child_set(func, fact.select_id, 0, true_result.result_id)
@@ -41262,6 +41310,7 @@ fn optimize_instructions_rewrite_boolean_context_node(
         func,
         dead,
         fact.body_arm.tail_id,
+        local_facts,
       )
       if body_result.result_id != fact.body_arm.tail_id {
         ignore(
@@ -41279,6 +41328,7 @@ fn optimize_instructions_rewrite_boolean_context_node(
             func,
             dead,
             catch_arm.tail_id,
+            local_facts,
           )
           if result.result_id != catch_arm.tail_id {
             ignore(
@@ -41313,6 +41363,7 @@ fn optimize_instructions_try_optimize_boolean_condition_context(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
+  scratch : OptimizeInstructionsScratch,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -41321,7 +41372,10 @@ fn optimize_instructions_try_optimize_boolean_condition_context(
   }
   let condition_id = @ir.hot_child_get(func, node_id, 0)
   let outcome = optimize_instructions_rewrite_boolean_context_node(
-    func, dead, condition_id,
+    func,
+    dead,
+    condition_id,
+    scratch.local_facts,
   )
   if !outcome.changed {
     return false
@@ -41919,7 +41973,7 @@ fn optimize_instructions_visit_node(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_optimize_boolean_condition_context(
-        ctx, func, dead, node_id,
+        ctx, func, dead, node_id, scratch,
       ) ||
       optimize_instructions_try_optimize_if_condition(ctx, func, dead, node_id) ||
       optimize_instructions_try_wrap_boolean_if_value_in_eqz(

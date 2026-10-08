@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-28
+last_reviewed: 2026-10-07
 sources:
   - index.md
   - ../../../../../src/passes/precompute.mbt
@@ -251,3 +251,23 @@ The [follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-fo
 separates new helper evidence from this pass's enclosing timings and final
 aggregate status. Prior signoff does not automatically cover the new sources;
 guarded paths and remaining size/parity gaps retain their existing limits.
+
+## Precompute propagation correctness repairs — October 7, 2026
+
+Preserve every use of a shared payload holder. Delay transparent holder inlining to a separate phase with one lazy use-count snapshot. Inline only sole-use holders; a shared holder remains attached to all consumers. Keep per-use source effects in order.
+
+Evidence: [precompute.mbt](../../../../../src/passes/precompute.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.
+
+Transparent inlining now visits all normal operands in one parent walk and
+checks/deletes detached holders in one batch per phase. Copied terminating
+values are excluded from later candidates before their checked batch deletion.
+The exact scalar identity prefix can move to its consumer without deleting
+the shared producer. Other explicit prefixes need an effect-retention proof.
+[Direct tests](../../../../../src/passes/p00_precompute_cleanup_wbtest.mbt)
+and [command tests](../../../../../src/cmd/p00_precompute_cleanup_wbtest.mbt)
+cover both precompute variants, retained call order and valid output.
+
+The raw path removes an empty scalar identity block directly when its one input
+and result type are equal. It preserves the already evaluated input and adds
+no nop or HOT lift. This closes the active plain-precompute dispatch gap found
+by the command regression above.

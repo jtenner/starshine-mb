@@ -363,6 +363,7 @@ fn pass_lower_flatten_branchless_blocks_into(
   out : Array[@lib.Instruction],
   label_keep? : Array[Bool]? = None,
   flatten_parameter_blocks? : Bool = false,
+  flatten_scalar_identity_blocks? : Bool = false,
 ) -> (Bool, Bool) {
   let mut changed = false
   let mut branchless = true
@@ -373,6 +374,7 @@ fn pass_lower_flatten_branchless_blocks_into(
       env,
       label_keep~,
       flatten_parameter_blocks~,
+      flatten_scalar_identity_blocks~,
     )
     changed = changed || child_changed
     children_branchless = children_branchless && child_branchless
@@ -403,6 +405,7 @@ fn pass_lower_flatten_branchless_blocks_into(
           out,
           label_keep~,
           flatten_parameter_blocks~,
+          flatten_scalar_identity_blocks~,
         )
         changed = changed || body_changed
         branchless = branchless && body_branchless
@@ -411,8 +414,15 @@ fn pass_lower_flatten_branchless_blocks_into(
           match env.expand_blocktype(block_type) {
             // With no control transfers, the validated body consumes the same
             // entry values and leaves the same results without its wrapper.
-            Ok((params, _)) if flatten_parameter_blocks || params.is_empty() =>
-              flatten = true
+            Ok((params, results)) if flatten_parameter_blocks ||
+              params.is_empty() ||
+              (
+                flatten_scalar_identity_blocks &&
+                params.length() == 1 &&
+                results.length() == 1 &&
+                params[0] == results[0] &&
+                body.all(fn(instr) { instr is @lib.Nop })
+              ) => flatten = true
             _ => ()
           }
         }
@@ -486,6 +496,7 @@ fn pass_lower_flatten_branchless_blocks(
   env : @validate.Env,
   label_keep? : Array[Bool]? = None,
   flatten_parameter_blocks? : Bool = false,
+  flatten_scalar_identity_blocks? : Bool = false,
 ) -> (Array[@lib.Instruction], Bool, Bool) {
   let out : Array[@lib.Instruction] = []
   let (changed, branchless) = pass_lower_flatten_branchless_blocks_into(
@@ -494,6 +505,7 @@ fn pass_lower_flatten_branchless_blocks(
     out,
     label_keep~,
     flatten_parameter_blocks~,
+    flatten_scalar_identity_blocks~,
   )
   (out, changed, branchless)
 }
@@ -504,6 +516,7 @@ fn pass_lower_cleanup_branchless_blocks(
   mod_ : @lib.Module,
   module_env? : @validate.Env? = None,
   flatten_parameter_blocks? : Bool = false,
+  flatten_scalar_identity_blocks? : Bool = false,
 ) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(body)) = func
   let env = match module_env {
@@ -514,6 +527,7 @@ fn pass_lower_cleanup_branchless_blocks(
     body,
     env,
     flatten_parameter_blocks~,
+    flatten_scalar_identity_blocks~,
   )
   if changed {
     (@lib.Func::new(locals, @lib.Expr::new(body)), true)

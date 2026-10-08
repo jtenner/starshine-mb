@@ -961,7 +961,6 @@ test "simplify-locals-nostructure bounds WAGO 1793b cleanup expansion" {
         #|    v128.xor
         #|    global.set $g1
         #|    i64.const 36))
-        #|,
       ),
       [
         "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
@@ -4195,7 +4194,6 @@ test "simplify-locals-nostructure keeps initialization before stack-carried call
         #|    call $release
         #|    i32.const 1
         #|    i32.const 0))
-        #|,
       ),
       ["simplify-locals-nostructure"],
     ) {

@@ -165,14 +165,14 @@ fn cl_copy_weight_degree(weights : CLCopyWeights, local_idx : Int) -> Int {
 
 ///|
 priv struct CLValueInterner {
-  keys : Array[String]
+  ids : @hashmap.HashMap[String, Int]
   mut next_value : Int
   mut numeric_defaults : Array[Int]?
 }
 
 ///|
 fn CLValueInterner::new() -> CLValueInterner {
-  { keys: [], next_value: 0, numeric_defaults: None, }
+  { ids: @hashmap.new(capacity=17), next_value: 0, numeric_defaults: None, }
 }
 
 ///|
@@ -184,13 +184,14 @@ fn CLValueInterner::fresh(self : CLValueInterner) -> Int {
 
 ///|
 fn CLValueInterner::intern(self : CLValueInterner, key : String) -> Int {
-  for idx = 0; idx < self.keys.length(); idx = idx + 1 {
-    if self.keys[idx] == key {
-      return idx
+  match self.ids.get(key) {
+    Some(value) => value
+    None => {
+      let value = self.fresh()
+      self.ids.set(key, value)
+      value
     }
   }
-  self.keys.push(key)
-  self.keys.length() - 1
 }
 
 ///|
@@ -7079,26 +7080,28 @@ fn cl_cfg_collect_block_node_actions(
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return
   }
-  match @ir.cfg_block_for_node(cfg, node_id) {
-    Some(owner) if owner != block_id => return
-    _ => ()
-  }
-  if seen_stamps[node_id] == block_id {
-    return
-  }
-  seen_stamps[node_id] = block_id
   let node = @ir.hot_node_get(func, node_id)
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if cl_cfg_hot_region_slot(node.op, slot) {
-      continue
+  if !cfg.operands_expanded {
+    match @ir.cfg_block_for_node(cfg, node_id) {
+      Some(owner) if owner != block_id => return
+      _ => ()
     }
-    let child_id = @ir.hot_child_get(func, node_id, slot)
-    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
-      continue
+    if seen_stamps[node_id] == block_id {
+      return
     }
-    cl_cfg_collect_block_node_actions(
-      func, cfg, child_id, block_id, seen_stamps, actions, action_node_ids,
-    )
+    seen_stamps[node_id] = block_id
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      if cl_cfg_hot_region_slot(node.op, slot) {
+        continue
+      }
+      let child_id = @ir.hot_child_get(func, node_id, slot)
+      if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+        continue
+      }
+      cl_cfg_collect_block_node_actions(
+        func, cfg, child_id, block_id, seen_stamps, actions, action_node_ids,
+      )
+    }
   }
   let action = match node.op {
     @ir.HotOp::LocalGet =>
@@ -7136,7 +7139,11 @@ fn cl_cfg_collect_block_actions(
   cfg : @ir.HotCfg,
 ) -> Array[CLCfgBlockActions] {
   let out : Array[CLCfgBlockActions] = []
-  let seen_stamps = Array::make(@ir.hot_node_count(func), -1)
+  let seen_stamps = if cfg.operands_expanded {
+    []
+  } else {
+    Array::make(@ir.hot_node_count(func), -1)
+  }
   for block_id = 0; block_id < @ir.cfg_block_count(cfg); block_id = block_id + 1 {
     let actions : Array[CLAction] = []
     let node_ids : Array[@ir.NodeId] = []
@@ -7937,6 +7944,11 @@ fn cl_rewrite_loop_func_cfg(
     Ok(hot) => hot
     Err(_) => return { func, changed: false, }
   }
+  // Dead-write cleanup is indexed by node ID. It cannot remove only one
+  // occurrence of a definition inside a repeated entry producer.
+  if pass_has_repeated_entry_evaluation(hot) {
+    return { func, changed: false, }
+  }
   // Lifting captures stack values before conflicting accesses and conditional
   // operands. Those locals participate in the same liveness and interference
   // analysis as source locals, even when the two access counts happen to match.
@@ -7952,7 +7964,11 @@ fn cl_rewrite_loop_func_cfg(
   }
   let cfg = @ir.cfg_build(hot, expand_operand_control=true)
   // This consumer needs complete block liveness, not node/local use-site rows.
-  let liveness = @ir.liveness_build_from_func(hot, cfg)
+  let liveness = @ir.liveness_build_from_func(
+    hot,
+    cfg,
+    include_exceptional_edges=true,
+  )
   let block_actions = cl_cfg_collect_block_actions(hot, cfg)
   let raw_actions : Array[CLAction] = []
   cl_collect_instrs(original_instrs, raw_actions, total_locals)

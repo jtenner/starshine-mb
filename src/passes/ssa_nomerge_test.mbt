@@ -608,7 +608,6 @@ test "ssa-nomerge planner classifies mixed fresh and canonical merge regions" {
     #|    i32.const 40
     #|    local.set 1
     #|    local.get 1))
-    #|)
   let mixed = ssa_nomerge_test_mixed_plan_summary_from_wat(source, 1)
 
   @debug.assert_eq(mixed.plan_freshen_writes, 2)
@@ -632,7 +631,6 @@ test "ssa-nomerge shadow records branch-local already-SSA alignment" {
     #|    else
     #|      nop
     #|    end))
-    #|)
   let shadow = try! ssa_nomerge_test_shadow_summary_from_wat(source)
 
   @debug.assert_eq(shadow.plan_freshen_writes, 0)
@@ -3003,7 +3001,6 @@ test "ssa-nomerge does not freshen multi-param branch-carried body locals" {
     #|    local.get $result
     #|    local.get $suffix
     #|    i32.add))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
   assert_true(
@@ -3084,7 +3081,6 @@ test "ssa-nomerge spills br_table arm load across following call" {
     #|    call $fmt
     #|    local.set $suffix1
     #|    local.get $suffix1))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_defined_func(optimized, 3)
   assert_true(
@@ -3584,7 +3580,6 @@ test "ssa-nomerge artifact parity freshens parameter scratch writes in nested un
     #|        end
     #|      end
     #|    end))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() >= 6, msg=locals.to_string())
@@ -3630,7 +3625,6 @@ test "ssa-nomerge preserves the original local after an unrelated nested mask up
     #|      return
     #|    end
     #|    i32.const 0))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
@@ -3861,7 +3855,6 @@ test "ssa-nomerge artifact parity freshens tee-set loop base scratch" {
     #|      end
     #|    end
     #|    local.get 2))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
   assert_true(locals.length() >= 4, msg=locals.to_string())
@@ -4000,7 +3993,6 @@ test "ssa-nomerge artifact parity lowers loop-param block-branch scratch" {
     #|      end
     #|    end
     #|    i32.const 0))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_defined_func(optimized, 5)
   assert_true(locals.length() >= 38, msg=locals.to_string())
@@ -4121,7 +4113,6 @@ test "ssa-nomerge artifact parity freshens memory growth page temporaries only" 
     #|      local.get 0
     #|      global.set 0
     #|    end))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
   assert_true(locals.length() >= 5, msg=locals.to_string())
@@ -4502,7 +4493,6 @@ test "ssa-nomerge artifact parity keeps loop-carried result update in canonical 
     #|      i32.const 0
     #|      return
     #|    end))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
   assert_true(locals.length() <= 1, msg=locals.to_string())
@@ -5451,7 +5441,6 @@ test "ssa-nomerge preserves dropped local increments without local writes" {
     #|    i32.const 1
     #|    i32.add
     #|    drop))
-    #|)
   let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -5479,7 +5468,6 @@ test "ssa-nomerge rewrites functions containing dropped local increment debris" 
     #|
     #|    local.get 0
     #|    drop))
-    #|)
   assert_true(
     ssa_test_hot_path_revision_changed(source),
     msg="expected hot-path rewrite for dropped increment debris",
@@ -5501,7 +5489,6 @@ test "ssa-nomerge preserves reaching local after dropped increment debris" {
     #|
     #|    local.get 0
     #|    drop))
-    #|)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
     Err(err) => fail("expected dropped increment hot-path success, got \{err}")
@@ -5539,7 +5526,6 @@ test "ssa-nomerge handles dropped increment after local.tee" {
     #|
     #|    local.get 0
     #|    drop))
-    #|)
   assert_true(
     ssa_test_hot_path_revision_changed(source),
     msg="expected hot-path rewrite after local.tee",
@@ -5582,7 +5568,6 @@ test "ssa-nomerge validates reversed dropped local increment boundary" {
     #|
     #|    local.get 0
     #|    drop))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   let text = instrs.to_string()
@@ -5605,7 +5590,6 @@ test "ssa-nomerge validates non-one dropped increment boundary" {
     #|
     #|    local.get 0
     #|    drop))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   let text = instrs.to_string()
@@ -7372,7 +7356,6 @@ test "ssa-nomerge keeps call-bearing try_table bodies off no-throw local rewrite
     #|      end
     #|    end
     #|    local.get 0))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -7414,7 +7397,6 @@ test "ssa-nomerge does not mutate unsupported exceptional-flow functions" {
     #|        local.set 0
     #|        throw $e))
     #|    local.get 0))
-    #|)
   match
     pass_test_run_pipeline(
       source,
@@ -7453,7 +7435,6 @@ test "ssa-nomerge keeps throwing try_table catch exits off planned structured pa
     #|        local.set 1
     #|        throw $e))
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -7497,7 +7478,6 @@ test "ssa-nomerge keeps conditional catch_all throws off planned structured path
     #|          throw $e
     #|        end))
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -7535,7 +7515,6 @@ test "ssa-nomerge preserves try-table local writes across exceptional exits" {
     #|        local.set 0
     #|        throw $e))
     #|    local.get 0))
-    #|)
   let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
     Ok(mod_) => mod_
     Err(err) => fail("expected try-table ssa-nomerge success, got \{err}")
@@ -7558,7 +7537,6 @@ test "ssa-nomerge preserves try-table default local at catch continuation" {
     #|      (try_table (catch $e $h)
     #|        throw $e))
     #|    local.get 0))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   let text = instrs.to_string()
@@ -7586,7 +7564,6 @@ test "ssa-nomerge preserves local written before conditional throw to catch" {
     #|          throw $e
     #|        end))
     #|    local.get 1))
-    #|)
   ssa_test_hot_exceptional_local_traffic_preserved(source)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
@@ -8016,20 +7993,43 @@ test "ssa-nomerge boundary: legacy rethrow remains outside HOT SSA" {
 
 ///|
 test "ssa-nomerge preserves delegate shapes without hot local corruption" {
-  // Nested legacy delegate WAT does not survive `hot_lift_func`; build HOT IR directly.
-  let func = @ir.HotFunc::new(
-    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  // A delegate is the handler of an inner legacy try. Its target is the
+  // enclosing try, rather than a detached block or its own control label.
+  let inner_try = @lib.Instruction::try_(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([@lib.Instruction::nop()]),
+    [],
+    delegate=Some(@lib.LabelIdx::new(0U)),
   )
-  let set = @ir.hot_build_local_set(
-    func,
-    0,
-    @ir.hot_build_const_i32(func, @lib.I32(7)),
+  let outer_try = @lib.Instruction::try_(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([inner_try]),
+    [@lib.LegacyCatch::all(@lib.Expr::new([@lib.Instruction::nop()]))],
   )
-  let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
-  let target = @ir.hot_control_node_label(func, block)
-  let delegate = @ir.hot_build_delegate(func, target)
-  @ir.hot_root_append(func, set)
-  @ir.hot_root_append(func, delegate)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            outer_try,
+          ]),
+        ),
+      ]),
+    )
+  @validate.validate_module(module_).unwrap()
+  @validate.validate_module(
+    @binary.decode_module(@binary.encode_module(module_).unwrap()).unwrap(),
+  ).unwrap()
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
   ssa_test_unsupported_exceptional_hot_no_mutation(func)
 }
 
@@ -8257,7 +8257,6 @@ test "ssa-nomerge rewrites direct scalar typed loop-param br backedge" {
     #|      end
     #|    end
     #|    local.get 1))
-    #|)
   ssa_test_expect_scalar_loop_param_branch_proxy(source, 2, false)
 }
 
@@ -8279,7 +8278,6 @@ test "ssa-nomerge rewrites no-copy scalar typed loop-param br_if backedge" {
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -8311,7 +8309,6 @@ test "ssa-nomerge rewrites no-copy scalar typed loop-param br_if for i64" {
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   ssa_test_expect_scalar_loop_param_br_if_proxy(source, 2)
 }
 
@@ -8333,7 +8330,6 @@ test "ssa-nomerge rewrites no-copy scalar typed loop-param br_if for f32" {
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   ssa_test_expect_scalar_loop_param_br_if_proxy(source, 2)
 }
 
@@ -8355,7 +8351,6 @@ test "ssa-nomerge rewrites no-copy scalar typed loop-param br_if for f64" {
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   ssa_test_expect_scalar_loop_param_br_if_proxy(source, 2)
 }
 
@@ -8382,7 +8377,6 @@ test "ssa-nomerge rewrites nested no-copy scalar typed loop-param br_if" {
     #|      end
     #|    end
     #|    local.get 1))
-    #|)
   ssa_test_expect_scalar_loop_param_br_if_proxy(source, 2)
 }
 
@@ -8418,7 +8412,6 @@ test "ssa-nomerge keeps canonical merges in scalar typed loop-param br_if" {
     #|      local.set 2
     #|    end
     #|    local.get 2))
-    #|)
   ssa_test_assert_canonical_merge_encoding(
     pass_test_module_from_wat(source),
     Some(78),
@@ -8440,7 +8433,6 @@ test "ssa-nomerge rewrites nullable reference typed loop-param br_if" {
     #|      drop
     #|    end
     #|    local.get 2))
-    #|)
   ssa_test_expect_scalar_loop_param_br_if_proxy(source, 2)
 }
 
@@ -8461,7 +8453,6 @@ test "ssa-nomerge rewrites non-null reference typed loop-param br_if" {
     #|    end
     #|    local.get 2
     #|    ref.as_non_null))
-    #|)
   ssa_test_expect_scalar_loop_param_br_if_proxy(source, 2)
 }
 
@@ -8491,7 +8482,6 @@ test "ssa-nomerge keeps canonical merges in nullable reference typed loop-param 
     #|      local.set 3
     #|    end
     #|    local.get 3))
-    #|)
   ssa_test_assert_canonical_merge_encoding(
     pass_test_module_from_wat(source),
     Some(81),
@@ -8526,7 +8516,6 @@ test "ssa-nomerge keeps canonical merges in non-null reference typed loop-param 
     #|      local.set 3
     #|    end
     #|    local.get 3))
-    #|)
   ssa_test_assert_canonical_merge_encoding(
     pass_test_module_from_wat(source),
     Some(82),
@@ -8734,7 +8723,6 @@ test "ssa-nomerge rewrites multi-param typed loop direct br backedges" {
     #|      end
     #|    end
     #|    local.get 1))
-    #|)
   ssa_test_expect_loop_param_store_model(source, 3)
 }
 
@@ -8763,7 +8751,6 @@ test "ssa-nomerge rewrites multi-param typed loop br_if backedges" {
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   ssa_test_expect_loop_param_store_model(source, 3)
 }
 
@@ -8856,7 +8843,6 @@ test "ssa-nomerge rewrites scalar typed loop br_table backedges" {
     #|      br_table $l $l
     #|    end
     #|    local.get 1))
-    #|)
   ssa_test_expect_loop_param_br_table_proxy(source, 2)
 }
 
@@ -8888,7 +8874,6 @@ test "ssa-nomerge rewrites copy-needing scalar typed loop br_table backedges" {
     #|      br_table $l $l
     #|    end
     #|    local.get 2))
-    #|)
   ssa_test_expect_loop_param_br_table_proxy(source, 3)
 }
 
@@ -8913,7 +8898,6 @@ test "ssa-nomerge rewrites multi-param typed loop br_table backedges" {
     #|      br_table $l $l
     #|    end
     #|    local.get 1))
-    #|)
   ssa_test_expect_loop_param_store_model(source, 3)
 }
 
@@ -10460,7 +10444,9 @@ test "ssa-nomerge rewrites struct-subtype-new-default-tested multi-param typed l
   let input = @lib.Module::new()
     .with_type_sec(
       @lib.TypeSec::new([
-        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
         @lib.RecType::new(
           @lib.SubType::new(false, [base_idx], @lib.CompType::struct_([])),
         ),
@@ -10537,7 +10523,7 @@ test "ssa-nomerge rewrites array-subtype-new-default-tested multi-param typed lo
     .with_type_sec(
       @lib.TypeSec::new([
         @lib.RecType::new(
-          @lib.SubType::comp_type(@lib.CompType::array(array_field)),
+          @lib.SubType::new(false, [], @lib.CompType::array(array_field)),
         ),
         @lib.RecType::new(
           @lib.SubType::new(
@@ -10615,7 +10601,9 @@ test "ssa-nomerge rewrites ref-func-subtype-tested multi-param typed loop br_on_
   let input = @lib.Module::new()
     .with_type_sec(
       @lib.TypeSec::new([
-        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::func([], [])),
+        ),
         @lib.RecType::new(
           @lib.SubType::new(false, [base_idx], @lib.CompType::func([], [])),
         ),
@@ -11873,7 +11861,6 @@ test "ssa-nomerge rewrites no-throw try_table multi-param typed loop br backedge
     #|          local.get 2
     #|          br $l)))
     #|    local.get 1))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 2, msg=locals.to_string())
@@ -11902,7 +11889,6 @@ test "ssa-nomerge rewrites no-throw try_table single-result typed loop br backed
     #|          local.get 2
     #|          br $l))
     #|      unreachable)))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 2, msg=locals.to_string())
@@ -11929,7 +11915,6 @@ test "ssa-nomerge rewrites throwing try_table typed loop backedges" {
     #|          br $l
     #|          throw $e)))
     #|    local.get 1))
-    #|)
   let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "throwing try_table typed-loop backedge",
   )
@@ -16836,7 +16821,6 @@ test "ssa-nomerge rewrites non-current scalar typed loop br_table targets" {
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   ssa_test_expect_loop_param_br_table_proxy(source, 2)
 }
 
@@ -16857,7 +16841,6 @@ test "ssa-nomerge rewrites try_table scalar proxy br_if catch-relabeling" {
     #|          br_if $l
     #|          drop)))
     #|    local.get 1))
-    #|)
   let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "try_table scalar proxy br_if catch-label relabeling",
   )
@@ -16886,7 +16869,6 @@ test "ssa-nomerge rewrites try_table scalar proxy br_table catch-relabeling" {
     #|          br_table $l $l
     #|          drop)))
     #|    local.get 1))
-    #|)
   ssa_test_expect_loop_param_br_table_proxy(source, 2)
 }
 
@@ -16914,7 +16896,6 @@ test "ssa-nomerge rewrites try_table single-result fallthrough store model" {
     #|      end
     #|      return)
     #|    local.get 1))
-    #|)
   let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "try_table single-result fallthrough store model",
   )
@@ -16979,7 +16960,6 @@ test "ssa-nomerge rewrites nested non-void loop self-backedges" {
     #|      br $outer
     #|    end
     #|    local.get 1))
-    #|)
   let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
     source, 3, "nested non-void loop self-backedge",
   )
@@ -17013,7 +16993,6 @@ test "ssa-nomerge rewrites nested non-void loop direct self-backedges" {
     #|      br $outer
     #|    end
     #|    local.get 1))
-    #|)
   let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
     source, 3, "nested non-void loop direct self-backedge",
   )
@@ -17041,7 +17020,6 @@ test "ssa-nomerge rewrites nested other-label branches under typed loop params" 
     #|      br $outer
     #|    end
     #|    local.get 1))
-    #|)
   let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
     source, 2, "nested other-label branch under typed loop param",
   )
@@ -17070,7 +17048,6 @@ test "ssa-nomerge rewrites nested other-label br_if branches under typed loop pa
     #|      br $outer
     #|    end
     #|    local.get 1))
-    #|)
   let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
     source, 2, "nested other-label br_if under typed loop param",
   )
@@ -17110,7 +17087,6 @@ test "ssa-nomerge rewrites copy-needing non-current scalar typed loop br_table t
     #|      end
     #|    end
     #|    local.get 2))
-    #|)
   ssa_test_expect_loop_param_br_table_proxy(source, 3)
 }
 
@@ -17135,7 +17111,6 @@ test "ssa-nomerge rewrites non-current multi-param typed loop br_table targets" 
     #|      end
     #|    end
     #|    local.get 1))
-    #|)
   ssa_test_expect_loop_param_store_model(source, 3)
 }
 
@@ -17221,7 +17196,6 @@ test "ssa-nomerge rewrites non-current mixed-target multi-param typed loop br_ta
     #|      end
     #|      unreachable
     #|    end))
-    #|)
   let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
     source, 3, "non-current mixed-target multi-param br_table",
   )
@@ -17261,7 +17235,6 @@ test "ssa-nomerge rewrites mixed scalar typed loop br_table and br_if backedges"
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
     source, 2, "mixed scalar br_table and br_if",
   )
@@ -17355,7 +17328,6 @@ test "ssa-nomerge rewrites mixed scalar typed loop br and br_if backedges" {
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 1, msg=locals.to_string())
@@ -19353,7 +19325,6 @@ test "ssa-nomerge does not mutate branch-bearing nested loops without loop-carri
     #|      end
     #|    end
     #|    local.get 1))
-    #|)
   // Boundary coverage: this fixture has branch-bearing nested control but no
   // backedge carrying a new value to the typed outer loop, so ssa-nomerge has
   // no required no-merge rewrite to perform.
@@ -19379,7 +19350,6 @@ test "ssa-nomerge rewrites typed loop-param control functions" {
     #|      else
     #|        local.get 1
     #|      end)))
-    #|)
   let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "typed loop-param control function",
   )
@@ -19412,7 +19382,6 @@ test "ssa-nomerge rewrites locals written before typed loop-param control" {
     #|      else
     #|        local.get 1
     #|      end)))
-    #|)
   let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "locals before typed loop-param control",
   )
@@ -19447,7 +19416,6 @@ test "ssa-nomerge rewrites typed loop-param backedge values separate from body l
     #|      else
     #|        local.get 1
     #|      end)))
-    #|)
   let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "typed loop-param backedge/body-local separation",
   )
@@ -19513,7 +19481,6 @@ test "ssa-nomerge rewrites typed loop-carried induction values" {
     #|      else
     #|        local.get 1
     #|      end)))
-    #|)
   let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "typed loop-carried induction value",
   )
@@ -19547,7 +19514,6 @@ test "ssa-nomerge rewrites simple nested value-block local traffic" {
     #|    drop
     #|    local.get 0
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -19565,7 +19531,6 @@ test "ssa-nomerge preserves reaching local from nested value-block local.set" {
     #|    drop
     #|    local.get 0
     #|    drop))
-    #|)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -19593,7 +19558,6 @@ test "ssa-nomerge handles simple nested value-block local.tee" {
     #|    drop
     #|    local.get 0
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
@@ -19639,7 +19603,6 @@ test "ssa-nomerge preserves distinct locals around nested value-block traffic" {
     #|    drop
     #|    local.get 0
     #|    drop))
-    #|)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -19674,7 +19637,6 @@ test "ssa-nomerge rewrites simple nested result-if local traffic" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -19700,7 +19662,6 @@ test "ssa-nomerge preserves reaching local from nested result-if arms" {
     #|
     #|    local.get 1
     #|    drop))
-    #|)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -19741,7 +19702,6 @@ test "ssa-nomerge handles local.tee in simple nested result-if arm" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
@@ -19787,7 +19747,6 @@ test "ssa-nomerge preserves distinct locals around nested result-if traffic" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -19829,7 +19788,6 @@ test "ssa-nomerge rewrites simple nested result-if with i64 result" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -19851,7 +19809,6 @@ test "ssa-nomerge rewrites simple nested result-if with f32 result" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -19873,7 +19830,6 @@ test "ssa-nomerge rewrites simple nested result-if with f64 result" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -19895,7 +19851,6 @@ test "ssa-nomerge preserves i64 local traffic inside nested result-if" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -19930,7 +19885,6 @@ test "ssa-nomerge preserves f32 local traffic inside nested result-if" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -19965,7 +19919,6 @@ test "ssa-nomerge preserves f64 local traffic inside nested result-if" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -20002,7 +19955,6 @@ test "ssa-nomerge rewrites nested result-if with condition local.set" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20025,7 +19977,6 @@ test "ssa-nomerge rewrites nested result-if with condition local.tee" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
@@ -20065,7 +20016,6 @@ test "ssa-nomerge preserves condition-written local across nested result-if arms
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -20106,7 +20056,6 @@ test "ssa-nomerge lets nested result-if arms read condition-written locals" {
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
@@ -20140,7 +20089,6 @@ test "ssa-nomerge handles scalar result-if with condition local write" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20165,7 +20113,6 @@ test "ssa-nomerge rewrites nested result-if with condition value-block local.set
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20189,7 +20136,6 @@ test "ssa-nomerge rewrites nested result-if with condition value-block local.tee
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20216,7 +20162,6 @@ test "ssa-nomerge preserves condition-block-written local across nested result-i
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -20259,7 +20204,6 @@ test "ssa-nomerge lets nested result-if arms read condition-block-written locals
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -20295,7 +20239,6 @@ test "ssa-nomerge handles scalar result-if with condition value-block" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20323,7 +20266,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with branch in co
     #|    end
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -20353,7 +20295,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with br_if in con
     #|    end
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -20381,7 +20322,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with nested loop 
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -20466,11 +20406,11 @@ test "ssa-nomerge rejects unsupported nested result-if with branch in condition"
     ]),
   )
   let drop = @ir.hot_build_drop(func, result_if)
-  @ir.hot_root_append(func, drop)
-  @ir.hot_root_append(
-    func,
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, outer), [
+    drop,
     @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)),
-  )
+  ])
+  @ir.hot_root_append(func, outer)
   assert_false(
     @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
     msg="branch in condition is unsupported boundary",
@@ -20499,7 +20439,6 @@ test "ssa-nomerge rewrites drop operand result-if with simple condition value-bl
     #|    drop
     #|    (local.get 1)
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20523,7 +20462,6 @@ test "ssa-nomerge rewrites nested result-if with value-block arms" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20546,7 +20484,6 @@ test "ssa-nomerge rewrites nested result-if with one value-block arm" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20569,7 +20506,6 @@ test "ssa-nomerge handles local.tee inside result-if arm value-block" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20601,7 +20537,6 @@ test "ssa-nomerge lets arm value-blocks read condition-written locals" {
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20625,7 +20560,6 @@ test "ssa-nomerge handles scalar result-if with scalar arm value-blocks" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20654,7 +20588,6 @@ test "ssa-nomerge handles condition value-block plus arm value-blocks" {
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20680,7 +20613,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with branch in ar
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -20708,7 +20640,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with br_if in arm
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -20735,7 +20666,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with nested if in
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -20761,7 +20691,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with nested loop 
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -20792,7 +20721,6 @@ test "ssa-nomerge rewrites nested result-if with void prefixes before arm value-
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20820,7 +20748,6 @@ test "ssa-nomerge rewrites nested result-if with one mixed arm value-block" {
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20854,7 +20781,6 @@ test "ssa-nomerge lets arm value-blocks read prefix-written locals" {
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20889,7 +20815,6 @@ test "ssa-nomerge handles condition value-block plus mixed arm roots" {
     #|    drop
     #|    local.get 3
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20919,7 +20844,6 @@ test "ssa-nomerge handles scalar result-if with mixed scalar arm value-blocks" {
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -20947,7 +20871,6 @@ test "ssa-nomerge handles drop prefixes before arm value-blocks" {
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_nested_cfg_hot_mutates(source)
 }
 
@@ -21228,7 +21151,6 @@ test "ssa-nomerge does not mutate unsupported mixed arm with nested block inside
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -21304,7 +21226,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with nested if in
     #|    drop
     #|    (local.get 1)
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -21329,7 +21250,6 @@ test "ssa-nomerge rewrites nested result-if when one arm does not overwrite cond
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   let optimized = match ssa_test_run_hot_path_only(source) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -21365,7 +21285,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with multi-value 
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -21390,7 +21309,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with br" {
     #|      drop)
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -21416,7 +21334,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with br_if" {
     #|      drop)
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -21441,7 +21358,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with nested loop"
     #|    drop
     #|    local.get 1
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -21467,7 +21383,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if with nested if" {
     #|    drop
     #|    local.get 2
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -21493,7 +21408,6 @@ test "ssa-nomerge does not mutate unsupported nested result-if under value block
     #|      end)
     #|    drop
     #|    local.get 1))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
   ssa_test_nested_cfg_hot_local_traffic_preserved(source)
@@ -21521,7 +21435,6 @@ test "ssa-nomerge does not mutate unsupported nested value block with br" {
     #|        local.get 1)
     #|      drop)
     #|    local.get 1))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
@@ -21549,7 +21462,6 @@ test "ssa-nomerge does not mutate unsupported nested value block with br_if" {
     #|        local.get 1)
     #|      drop)
     #|    local.get 1))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
@@ -21568,7 +21480,6 @@ test "ssa-nomerge does not mutate unsupported nested loop under value block" {
     #|    drop
     #|    local.get 0
     #|    drop))
-    #|)
   ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
   ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
@@ -21756,7 +21667,6 @@ test "ssa-nomerge LocalGraph straight-line tee keeps folded effect operand singl
     #|    (drop (i32.add (local.tee 0 (call $make)) (i32.const 10)))
     #|    (drop (local.tee 0 (i32.const 2)))
     #|    (local.get 0)))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -22291,7 +22201,6 @@ test "ssa-nomerge keeps loop-carried plain br boundary canonical" {
     #|      end
     #|    end
     #|    local.get $carrier))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -22373,7 +22282,6 @@ test "ssa-nomerge keeps medium loop-carried plain br scanner boundary canonical"
     #|      end
     #|    end
     #|    local.get $carrier))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -22578,7 +22486,6 @@ test "ssa-nomerge keeps typed loop-param local.set plain br boundary canonical" 
     #|    local.get $x
     #|    call $sink
     #|    local.get $carrier))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -22669,7 +22576,6 @@ test "ssa-nomerge keeps nested typed loop-param plain br boundary canonical" {
     #|      end
     #|    end
     #|    local.get $idx))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -23449,7 +23355,6 @@ test "ssa-nomerge LocalGraph straight-line stack-carried tee keeps later gets li
     #|    call $drop
     #|    local.set 3
     #|    local.get 3))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -23545,7 +23450,6 @@ test "ssa-nomerge preserves branch-carried parameter tee boundary canonical" {
     #|    local.get 3
     #|    i32.add
     #|    i32.store))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24059,7 +23963,6 @@ test "ssa-nomerge LocalGraph freshens ordinary structured set writes" {
     #|      drop
     #|    end
     #|    i32.const 0))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24114,7 +24017,6 @@ test "ssa-nomerge LocalGraph freshens ordinary nested block set writes" {
     #|      end
     #|    end
     #|    i32.const 0))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24186,7 +24088,6 @@ test "ssa-nomerge preserves post-if merge read after condition tee" {
     #|    end
     #|    local.get 1)
     #|  (func $side (param i32)))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24238,7 +24139,6 @@ test "ssa-nomerge preserves branch reload merge carrier used by suffix store" {
     #|    i32.or
     #|    i32.store)
     #|  (func $side (param i32)))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24298,7 +24198,6 @@ test "ssa-nomerge preserves loop-carried decrement before backedge" {
     #|    local.get 1)
     #|  (func $make (param i32) (result i32) (i32.const 0))
     #|  (func $done (param i32) (result i32) (i32.const 0)))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24405,7 +24304,6 @@ test "ssa-nomerge preserves table-growth loop counter before backedge" {
     #|    i32.store offset=8
     #|    local.get 4)
     #|  (func $alloc (param i32) (result i32) (i32.const 0)))
-    #|)
   let input = pass_test_module_from_wat(source)
   let hot = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
   let preserve_writes = ssa_nomerge_loop_carried_canonical_writes(hot)
@@ -24475,7 +24373,6 @@ test "ssa-nomerge LocalGraph freshens mixed structured non-merge writes" {
     #|    i32.const 40
     #|    local.set 1
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24541,7 +24438,6 @@ test "ssa-nomerge LocalGraph preserves merge sets between ordinary fresh sets" {
     #|      end
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24608,7 +24504,6 @@ test "ssa-nomerge LocalGraph freshens mixed structured tee writes" {
     #|    local.tee 1
     #|    local.get 1
     #|    i32.add))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24666,7 +24561,6 @@ test "ssa-nomerge LocalGraph freshens mixed br_if early-exit writes" {
     #|      local.set 1
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24719,7 +24613,6 @@ test "ssa-nomerge keeps mixed plain br regions off LocalGraph path" {
     #|      local.set 1
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24766,7 +24659,6 @@ test "ssa-nomerge keeps mixed br_table regions off LocalGraph path" {
     #|      local.set 1
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24810,7 +24702,6 @@ test "ssa-nomerge keeps ordinary plain br local-source regions off planned struc
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24857,7 +24748,6 @@ test "ssa-nomerge keeps ordinary br_if local-source regions off planned structur
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24907,7 +24797,6 @@ test "ssa-nomerge keeps ordinary br_table local-source regions off planned struc
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -24965,7 +24854,6 @@ test "ssa-nomerge keeps nested br_if to outer block off planned structured path"
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -25021,7 +24909,6 @@ test "ssa-nomerge keeps nested loop-exit br_if off planned structured path" {
     #|      drop
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -25077,7 +24964,6 @@ test "ssa-nomerge keeps plain br multi-source merges off LocalGraph path" {
     #|      local.set 1
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -25151,7 +25037,6 @@ test "ssa-nomerge keeps value br operands off LocalGraph path" {
     #|    end
     #|    drop
     #|    local.get 1))
-    #|)
   let instrs = try! ssa_test_expect_value_branch_boundary_output(
     source, "plain br operand",
   )
@@ -25177,7 +25062,6 @@ test "ssa-nomerge keeps value br_if operands off LocalGraph path" {
     #|    end
     #|    drop
     #|    local.get 1))
-    #|)
   let instrs = try! ssa_test_expect_value_branch_boundary_output(
     source, "conditional br_if operand",
   )
@@ -25204,7 +25088,6 @@ test "ssa-nomerge keeps value br_table operands off LocalGraph path" {
     #|    end
     #|    drop
     #|    local.get 1))
-    #|)
   let instrs = try! ssa_test_expect_value_branch_boundary_output(
     source, "br_table operand",
   )
@@ -25232,7 +25115,6 @@ test "ssa-nomerge keeps mixed-target value br_table operands off LocalGraph path
     #|    end
     #|    drop
     #|    local.get 1))
-    #|)
   let instrs = try! ssa_test_expect_value_branch_boundary_output(
     source, "mixed-target br_table operand",
   )
@@ -25259,7 +25141,6 @@ test "ssa-nomerge keeps br_table multi-source merges off LocalGraph path" {
     #|      local.set 1
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -25313,7 +25194,6 @@ test "ssa-nomerge LocalGraph freshens nested mixed block if writes" {
     #|    i32.const 40
     #|    local.set 1
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -25364,7 +25244,6 @@ test "ssa-nomerge keeps mixed loop regions off LocalGraph path" {
     #|      br_if 0
     #|    end
     #|    local.get 1))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -25464,7 +25343,6 @@ test "ssa-nomerge keeps call result assigned when a later loop reads the local" 
     #|      drop
     #|    end
     #|    i32.const 0))
-    #|)
   let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -26725,7 +26603,6 @@ test "ssa-nomerge materializes no-write numeric and simd default local reads" {
     #|    local.get 2
     #|    drop
     #|    unreachable))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -27132,7 +27009,6 @@ test "ssa-nomerge keeps no-write unreachable debris cleanup separate from defaul
     #|      unreachable
     #|      unreachable)
     #|    unreachable))
-    #|)
   let optimized = match
     pass_test_run_pipeline(
       source,
@@ -27216,7 +27092,6 @@ test "ssa-nomerge locks no-write default families off HOT fallback" {
     #|      unreachable
     #|      unreachable)
     #|    unreachable))
-    #|)
   let debris_output = try! ssa_nomerge_test_run_trace_locked_raw_exit(
     debris_source, "no-local-writes-unreachable-debris", "no-write unreachable-debris fallback lock",
   )
@@ -27350,7 +27225,6 @@ test "ssa-nomerge removes dropped unreachable debris before a following unreacha
     #|      unreachable
     #|      unreachable)
     #|    unreachable))
-    #|)
   let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
     Ok(mod_) => mod_
     Err(err) => fail("expected unreachable-debris rewrite success, got \{err}")
@@ -32934,7 +32808,6 @@ test "ssa-nomerge avoids loop-backedge alias copies for header-read locals" {
     #|    end
     #|    local.get $digitsbox
     #|    i32.load offset=8 align=1))
-    #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_defined_func(optimized, 2)
   assert_true(locals.length() <= 6, msg=locals.to_string())
@@ -32994,7 +32867,6 @@ test "hot pipeline admits multivalue block-local br_table" {
         #|      i32.const 0
         #|      br_table 0 0
         #|    end))
-        #|,
       ),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),

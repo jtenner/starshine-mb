@@ -13,13 +13,11 @@ fn LcseRawExpr::review2_fixture(kind : Int) -> LcseRawExpr {
     } else {
       []
     },
-    reads_memory: kind == 2,
-    reads_memory_size: kind == 3,
-    reads_table_state: kind == 4,
-    reads_global: kind == 5,
-    reads_heap: kind == 6,
-    reads_atomic: kind == 7,
-    reads_call: kind == 8,
+    read_flags: if kind >= 2 {
+      1 << (kind - 2)
+    } else {
+      0
+    },
     cache_child_for_replay: false,
     repeat_of: -1,
     local_id: -1,

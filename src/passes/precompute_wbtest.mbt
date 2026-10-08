@@ -27,7 +27,6 @@ test "precompute HOT classifies ref.i31 of a constant as discardable" {
       #|   (func (local anyref)
       #|     (local.set 0 (struct.new_default $s))
       #|     (drop (ref.i31 (i32.const 0)))))
-      #|,
     ),
   )
   let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
@@ -68,7 +67,6 @@ test "precompute propagate marks result-if tee writes unsafe" {
       #|    local.tee 1
       #|    drop
       #|    local.get 1))
-      #|,
     ),
   )
   let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
@@ -133,7 +131,6 @@ test "precompute raw TLSF shaped prologue preserves declared writes" {
     #|        br 1
     #|      end
     #|    end))
-    #|)
   let mod_ = pass_test_module_from_wat(source)
   let func = match mod_.code_sec {
     Some(@lib.CodeSec(defs)) => defs[0]
@@ -162,7 +159,6 @@ test "precompute raw flow keeps trapping prefixes and folds an escaping br_if" {
       #|      (f64.mul
       #|        (br_if $out (f64.const 4) (i32.const 1))
       #|        (f64.const 5)))))
-      #|,
     ),
   )
   let func = match mod_.code_sec {
@@ -210,7 +206,6 @@ test "precompute raw flow reaches an escaping branch behind a trapping dropped p
       #|                  (f32.const 6)))))
       #|          (else (i32.const 7))))
       #|      (f64.const 8))))
-      #|,
     ),
   )
   let func = match mod_.code_sec {
@@ -356,7 +351,6 @@ test "precompute family preserves legacy rethrow semantics" {
       #|    (try
       #|      (do (throw $e))
       #|      (catch $e (rethrow 0)))))
-      #|),
     ),
   )
   match input.code_sec {
@@ -844,7 +838,6 @@ test "precompute root nop coalescing preserves inputful control producers" {
       #|    loop (param i32) (result i32)
       #|      nop
       #|    end))
-      #|,
     ),
   )
   let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(1U))

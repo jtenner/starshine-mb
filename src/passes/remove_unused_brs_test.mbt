@@ -1370,7 +1370,6 @@ test "remove-unused-brs rewrites catch_all throws to branches and drops payloads
         #|        (i32.const 7)
         #|        (throw $e))
         #|      (unreachable))))
-        #|,
       ),
       ["remove-unused-brs"],
     ) {
@@ -1399,7 +1398,6 @@ test "remove-unused-brs rewrites exact caught throws to payload branches" {
         #|        (i32.const 9)
         #|        (throw $e))
         #|      (unreachable))))
-        #|,
       ),
       ["remove-unused-brs"],
     ) {
@@ -1429,7 +1427,6 @@ test "remove-unused-brs folds caught throw through empty block before unreachabl
         #|        (try_table (catch $e $outer)
         #|          (throw $e))
         #|        (unreachable)))))
-        #|,
       ),
       ["remove-unused-brs"],
     ) {
@@ -1494,7 +1491,6 @@ test "remove-unused-brs keeps caught throw exit when a live suffix follows" {
         #|      (try_table (catch $e $outer)
         #|        (throw $e))
         #|      (global.set $g (i32.const 1)))))
-        #|,
       ),
       ["remove-unused-brs"],
     ) {
@@ -1520,7 +1516,6 @@ test "remove-unused-brs keeps tag-mismatched caught throws" {
         #|    (block $catch
         #|      (try_table (catch $f $catch)
         #|        (throw $e)))))
-        #|,
       ),
       ["remove-unused-brs"],
     ) {
@@ -1544,7 +1539,6 @@ test "remove-unused-brs keeps catch_ref caught throws as exnref transport" {
         #|      (try_table (catch_ref $e $catch)
         #|        (throw $e))
         #|      (unreachable))))
-        #|,
       ),
       ["remove-unused-brs"],
     ) {
@@ -1569,7 +1563,6 @@ test "remove-unused-brs keeps catch_all_ref caught throws as exnref transport" {
         #|      (try_table (catch_all_ref $catch)
         #|        (throw $e))
         #|      (unreachable))))
-        #|,
       ),
       ["remove-unused-brs"],
     ) {
@@ -1618,7 +1611,6 @@ test "remove-unused-brs keeps earlier catch_ref before later catch_all" {
         #|          (throw $e))
         #|        (unreachable))
         #|      (unreachable))))
-        #|,
       ),
       ["remove-unused-brs"],
     ) {
@@ -1642,7 +1634,6 @@ test "remove-unused-brs folds constant br-if conditions" {
         #|  (func (export "main")
         #|    (loop (br_if 0 (i32.const 1)))
         #|    (block (br_if 0 (i32.const 0)))))
-        #|,
       ),
       ["remove-unused-brs"],
     ) {
@@ -1699,7 +1690,6 @@ test "remove-unused-brs drops void self-branch blocks inside constant ifs" {
         #|    (if (i32.const 1)
         #|      (then (block (br 0)))
         #|      (else (nop)))))
-        #|,
       ),
       ["remove-unused-brs"],
     ) {
@@ -1860,7 +1850,6 @@ test "remove-unused-brs skips load-call-set ownership hazards" {
         #|    local.set $out
         #|    block br 0 end
         #|    local.get $out))
-        #|,
       ),
       ["remove-unused-brs"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -1927,7 +1916,6 @@ test "remove-unused-brs skips loop bodies that branch to an outer block" {
         #|      end
         #|    end
         #|    i32.const 1))
-        #|,
       ),
       ["remove-unused-brs"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -4911,7 +4899,7 @@ test "remove-unused-brs lowers scalar returned ladders with side-effect arms to 
 test "remove-unused-brs lowers nested scalar returned ladders with side-effect arms" {
   let optimized = match
     pass_test_run_pipeline(
-      "(module (func (param i32 i32) (result i32) (local i32) (block (result i32) (return (if (result i32) (local.get 0) (then (local.set 2 (i32.const 7)) (return (local.get 2))) (else (return (block (result i32) (if (result i32) (local.get 1) (then (drop (i32.const 9)) (return (i32.const 1))) (else (drop (i32.const 8)) (return (i32.const 2)))))))))))))",
+      "(module (func (param i32 i32) (result i32) (local i32) (block (result i32) (return (if (result i32) (local.get 0) (then (local.set 2 (i32.const 7)) (return (local.get 2))) (else (return (block (result i32) (if (result i32) (local.get 1) (then (drop (i32.const 9)) (return (i32.const 1))) (else (drop (i32.const 8)) (return (i32.const 2))))))))))))",
       ["remove-unused-brs"],
     ) {
     Ok(mod_) => mod_

@@ -171,6 +171,7 @@ priv struct SimplifyLocalsSinkables {
   scratch_local_write_stamps : Array[Int]
   mut next_scratch_stamp : Int
   source_gets : Array[Array[(Int, Int)]]
+  captures : PassSourceCaptures
   mut effect_scan_workspace : SimplifyLocalsEffectScanWorkspace?
   mut value_order_minimums : SimplifyLocalsValueOrderMinimums?
 }
@@ -205,7 +206,12 @@ fn simplify_locals_new_sinkables(
   func : @ir.HotFunc,
   module_ctx? : @ir.HotModuleContext? = None,
   source_gets? : Array[Array[(Int, Int)]]? = None,
+  captures? : PassSourceCaptures? = None,
 ) -> SimplifyLocalsSinkables {
+  let captures = match captures {
+    Some(captures) => captures
+    None => PassSourceCaptures::new(func)
+  }
   let source_gets = match source_gets {
     Some(reads) => reads
     None => {
@@ -241,6 +247,7 @@ fn simplify_locals_new_sinkables(
     scratch_local_write_stamps: Array::make(@ir.hot_local_count(func), 0),
     next_scratch_stamp: 1,
     source_gets,
+    captures,
     effect_scan_workspace: None,
     value_order_minimums: None,
   }
@@ -3709,7 +3716,10 @@ fn simplify_locals_scan_region(
     ) {
     return false
   }
+  let capture_depth = sinkables.captures.touched.length()
   let mut changed = false
+  let mut previous_root = -1
+  let mut lane = 0
   let initial_revision = @ir.hot_revision_current(func)
   let mut future_input_suffix_mins : Array[Int]? = None
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
@@ -3781,6 +3791,14 @@ fn simplify_locals_scan_region(
     } else {
       false
     }
+    let arity = @ir.hot_node_result_arity(func, node_id)
+    lane = if previous_root == node_id { lane + 1 } else { 0 }
+    let force_eval = arity == 0 ||
+      (
+        sinkables.captures.is_region_capture(node_id, capture_depth) &&
+        (lane == 0 || lane % arity == 0)
+      )
+    previous_root = node_id
     if simplify_locals_scan_node(
         func,
         node_id,
@@ -3795,10 +3813,13 @@ fn simplify_locals_scan_region(
         inside_control,
         flat_parent_is_local_set,
         deferred_sets,
+        force_eval~,
       ) {
       changed = true
     }
+    sinkables.captures.mark(node_id)
   }
+  sinkables.captures.rewind(capture_depth)
   changed
 }
 
@@ -3922,6 +3943,36 @@ fn simplify_locals_scan_node(
   inside_control : Bool,
   flat_sink_parent_is_local_set : Bool,
   deferred_sets : Array[Int],
+  force_eval? : Bool = false,
+) -> Bool {
+  if !force_eval && sinkables.captures.contains(node_id) {
+    return false
+  }
+  let capture_depth = sinkables.captures.touched.length()
+  let changed = simplify_locals_scan_node_uncaptured(
+    func, node_id, sinkables, first_cycle, get_counts, detached, policy, parent_region,
+    root_idx, protect_control_embedded_local_tee, inside_control, flat_sink_parent_is_local_set,
+    deferred_sets,
+  )
+  sinkables.captures.rewind(capture_depth)
+  changed
+}
+
+///|
+fn simplify_locals_scan_node_uncaptured(
+  func : @ir.HotFunc,
+  node_id : Int,
+  sinkables : SimplifyLocalsSinkables,
+  first_cycle : Bool,
+  get_counts : Array[Int],
+  detached : Array[Int],
+  policy : SimplifyLocalsPolicy,
+  parent_region : @ir.HotRegionRef?,
+  root_idx : Int,
+  protect_control_embedded_local_tee : Bool,
+  inside_control : Bool,
+  flat_sink_parent_is_local_set : Bool,
+  deferred_sets : Array[Int],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -3933,6 +3984,43 @@ fn simplify_locals_scan_node(
   }
   let mut changed = false
   let node = @ir.hot_node_get(func, node_id)
+  let mut previous_input = -1
+  let mut lane = 0
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::If =>
+      for index = 0
+          index < pass_value_operand_count(func, node_id)
+          index = index + 1 {
+        let slot = pass_value_operand_slot(node, index)
+        let input = @ir.hot_child_get(func, node_id, slot)
+        let arity = @ir.hot_node_result_arity(func, input)
+        lane = if previous_input == input { lane + 1 } else { 0 }
+        let force_eval = arity == 0 || (lane > 0 && lane % arity == 0)
+        previous_input = input
+        if simplify_locals_scan_node(
+            func,
+            input,
+            sinkables,
+            first_cycle,
+            get_counts,
+            detached,
+            policy,
+            None,
+            -1,
+            protect_control_embedded_local_tee,
+            inside_control,
+            false,
+            deferred_sets,
+            force_eval~,
+          ) {
+          changed = true
+        }
+        if !(node.op is @ir.HotOp::If && slot == 0) {
+          sinkables.captures.mark(input)
+        }
+      }
+    _ => ()
+  }
   match node.op {
     @ir.HotOp::Block => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
@@ -3975,6 +4063,7 @@ fn simplify_locals_scan_node(
       let loop_sinkables = simplify_locals_new_sinkables(
         func,
         source_gets=Some(sinkables.source_gets),
+        captures=Some(sinkables.captures),
         module_ctx=sinkables.module_ctx,
       )
       if simplify_locals_scan_region(
@@ -4012,28 +4101,11 @@ fn simplify_locals_scan_node(
       return changed
     }
     @ir.HotOp::If => {
-      let condition_id = @ir.hot_child_get(func, node_id, 0)
-      if simplify_locals_scan_node(
-          func,
-          condition_id,
-          sinkables,
-          first_cycle,
-          get_counts,
-          detached,
-          policy,
-          None,
-          -1,
-          protect_control_embedded_local_tee,
-          true,
-          false,
-          deferred_sets,
-        ) {
-        changed = true
-      }
       simplify_locals_clear_sinkables(sinkables)
       let then_sinkables = simplify_locals_new_sinkables(
         func,
         source_gets=Some(sinkables.source_gets),
+        captures=Some(sinkables.captures),
         module_ctx=sinkables.module_ctx,
       )
       if simplify_locals_scan_region(
@@ -4055,6 +4127,7 @@ fn simplify_locals_scan_node(
           let else_sinkables = simplify_locals_new_sinkables(
             func,
             source_gets=Some(sinkables.source_gets),
+            captures=Some(sinkables.captures),
             module_ctx=sinkables.module_ctx,
           )
           if simplify_locals_scan_region(
@@ -4112,6 +4185,7 @@ fn simplify_locals_scan_node(
           let catch_sinkables = simplify_locals_new_sinkables(
             func,
             source_gets=Some(sinkables.source_gets),
+            captures=Some(sinkables.captures),
             module_ctx=sinkables.module_ctx,
           )
           if simplify_locals_scan_region(
@@ -4148,6 +4222,7 @@ fn simplify_locals_scan_node(
       let catch_sinkables = simplify_locals_new_sinkables(
         func,
         source_gets=Some(sinkables.source_gets),
+        captures=Some(sinkables.captures),
         module_ctx=sinkables.module_ctx,
       )
       if simplify_locals_scan_region(
@@ -5614,12 +5689,36 @@ fn simplify_locals_run_structure_rewrites(
 priv struct SimplifyLocalsEquivalentState {
   rep_of_local : Array[Int]
   members_of_rep : Array[Array[Int]]
+  captures : PassSourceCaptures
+  local_versions : Array[Int]
+  read_versions : Array[Int]
+  next_version : Array[Int]
 }
 
 ///|
 fn simplify_locals_new_equivalences(
   func : @ir.HotFunc,
+  captures? : PassSourceCaptures? = None,
+  read_versions? : Array[Int]? = None,
+  next_version? : Array[Int]? = None,
 ) -> SimplifyLocalsEquivalentState {
+  let captures = match captures {
+    Some(captures) => captures
+    None => PassSourceCaptures::new(func)
+  }
+  let read_versions = match read_versions {
+    Some(versions) => versions
+    None => Array::make(@ir.hot_node_count(func), -1)
+  }
+  let next_version = match next_version {
+    Some(next) => next
+    None => [0]
+  }
+  let local_versions = Array::makei(@ir.hot_local_count(func), fn(_) {
+    let version = next_version[0]
+    next_version[0] += 1
+    version
+  })
   let rep_of_local = Array::make(@ir.hot_local_count(func), 0)
   let members_of_rep : Array[Array[Int]] = []
   for local_id = 0
@@ -5628,7 +5727,14 @@ fn simplify_locals_new_equivalences(
     rep_of_local[local_id] = local_id
     members_of_rep.push([local_id])
   }
-  { rep_of_local, members_of_rep, }
+  {
+    rep_of_local,
+    members_of_rep,
+    captures,
+    local_versions,
+    read_versions,
+    next_version,
+  }
 }
 
 ///|
@@ -5642,6 +5748,10 @@ fn simplify_locals_clone_equivalences(
   {
     rep_of_local: equivalences.rep_of_local.copy(),
     members_of_rep: cloned_members,
+    captures: equivalences.captures,
+    local_versions: equivalences.local_versions.copy(),
+    read_versions: equivalences.read_versions,
+    next_version: equivalences.next_version,
   }
 }
 
@@ -5653,6 +5763,8 @@ fn simplify_locals_clear_equivalences(
       local_id < equivalences.rep_of_local.length()
       local_id = local_id + 1 {
     equivalences.rep_of_local[local_id] = local_id
+    equivalences.local_versions[local_id] = equivalences.next_version[0]
+    equivalences.next_version[0] += 1
     equivalences.members_of_rep[local_id] = [local_id]
   }
 }
@@ -5769,6 +5881,26 @@ fn simplify_locals_equivalent_local_get_value(
 }
 
 ///|
+fn simplify_locals_equivalent_read_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int {
+  let mut current = node_id
+  while current >= 0 && @ir.hot_node_is_live(func, current) {
+    let node = @ir.hot_node_get(func, current)
+    if node.op is @ir.HotOp::LocalGet {
+      return current
+    }
+    match @ir.hot_node_exact_instr(func, current) {
+      Some(@lib.Instruction::RefAsNonNull) if node.child_count == 1 =>
+        current = @ir.hot_child_get(func, current, 0)
+      _ => return -1
+    }
+  }
+  -1
+}
+
+///|
 fn simplify_locals_type_env(ctx : HotPassContext) -> @validate.Env? {
   match ctx.module_ctx {
     Some(module_ctx) =>
@@ -5858,18 +5990,38 @@ fn simplify_locals_scan_equivalent_region(
   get_counts : Array[Int],
   tee_defined_locals : Array[Bool],
 ) -> Bool {
+  let capture_depth = equivalences.captures.touched.length()
   let mut changed = false
+  let mut previous_root = -1
+  let mut lane = 0
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
       continue
     }
+    let arity = @ir.hot_node_result_arity(func, node_id)
+    lane = if previous_root == node_id { lane + 1 } else { 0 }
+    let force_eval = arity == 0 ||
+      (
+        equivalences.captures.is_region_capture(node_id, capture_depth) &&
+        (lane == 0 || lane % arity == 0)
+      )
+    previous_root = node_id
     if simplify_locals_scan_equivalent_node(
-        env, func, node_id, equivalences, get_counts, tee_defined_locals, false,
+        env,
+        func,
+        node_id,
+        equivalences,
+        get_counts,
+        tee_defined_locals,
+        false,
+        force_eval~,
       ) {
       changed = true
     }
+    equivalences.captures.mark(node_id)
   }
+  equivalences.captures.rewind(capture_depth)
   changed
 }
 
@@ -5891,8 +6043,22 @@ fn simplify_locals_scan_equivalent_current(
     @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
       let local_id = node.imm0
       let value_id = @ir.hot_child_get(func, node_id, 0)
-      match simplify_locals_equivalent_local_get_value(func, value_id) {
-        Some(value_local) =>
+      let read_id = simplify_locals_equivalent_read_node(func, value_id)
+      let source_local = simplify_locals_equivalent_local_get_value(
+        func, value_id,
+      )
+      let source_is_current = match source_local {
+        Some(source) =>
+          read_id >= 0 &&
+          read_id < equivalences.read_versions.length() &&
+          equivalences.read_versions[read_id] ==
+          equivalences.local_versions[source]
+        None => false
+      }
+      equivalences.local_versions[local_id] = equivalences.next_version[0]
+      equivalences.next_version[0] += 1
+      match source_local {
+        Some(value_local) if source_is_current =>
           if simplify_locals_equivalent_check(
               equivalences, local_id, value_local,
             ) {
@@ -5902,7 +6068,7 @@ fn simplify_locals_scan_equivalent_current(
             simplify_locals_add_equivalence(equivalences, local_id, value_local)
             false
           }
-        None => {
+        _ => {
           simplify_locals_reset_equivalent_local(equivalences, local_id)
           false
         }
@@ -5910,6 +6076,10 @@ fn simplify_locals_scan_equivalent_current(
     }
     @ir.HotOp::LocalGet => {
       let local_id = node.imm0
+      while equivalences.read_versions.length() <= node_id {
+        equivalences.read_versions.push(-1)
+      }
+      equivalences.read_versions[node_id] = equivalences.local_versions[local_id]
       let best = simplify_locals_pick_best_equivalent_local(
         env, func, equivalences, get_counts, local_id,
       )
@@ -5940,6 +6110,7 @@ fn simplify_locals_scan_equivalent_current(
         node_id,
         simplify_locals_make_local_get(func, best),
       )
+      equivalences.read_versions[node_id] = equivalences.local_versions[best]
       if best >= 0 && best < get_counts.length() {
         get_counts[best] = get_counts[best] + 1
       }
@@ -5963,12 +6134,65 @@ fn simplify_locals_scan_equivalent_node(
   get_counts : Array[Int],
   tee_defined_locals : Array[Bool],
   protect_tee_defined_locals : Bool,
+  force_eval? : Bool = false,
+) -> Bool {
+  if !force_eval && equivalences.captures.contains(node_id) {
+    return false
+  }
+  let capture_depth = equivalences.captures.touched.length()
+  let changed = simplify_locals_scan_equivalent_node_uncaptured(
+    env, func, node_id, equivalences, get_counts, tee_defined_locals, protect_tee_defined_locals,
+  )
+  equivalences.captures.rewind(capture_depth)
+  changed
+}
+
+///|
+fn simplify_locals_scan_equivalent_node_uncaptured(
+  env : @validate.Env?,
+  func : @ir.HotFunc,
+  node_id : Int,
+  equivalences : SimplifyLocalsEquivalentState,
+  get_counts : Array[Int],
+  tee_defined_locals : Array[Bool],
+  protect_tee_defined_locals : Bool,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
   let mut changed = false
   let node = @ir.hot_node_get(func, node_id)
+  let mut previous_input = -1
+  let mut lane = 0
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::If =>
+      for index = 0
+          index < pass_value_operand_count(func, node_id)
+          index = index + 1 {
+        let slot = pass_value_operand_slot(node, index)
+        let input = @ir.hot_child_get(func, node_id, slot)
+        let arity = @ir.hot_node_result_arity(func, input)
+        lane = if previous_input == input { lane + 1 } else { 0 }
+        let force_eval = arity == 0 || (lane > 0 && lane % arity == 0)
+        previous_input = input
+        if simplify_locals_scan_equivalent_node(
+            env,
+            func,
+            input,
+            equivalences,
+            get_counts,
+            tee_defined_locals,
+            false,
+            force_eval~,
+          ) {
+          changed = true
+        }
+        if !(node.op is @ir.HotOp::If && slot == 0) {
+          equivalences.captures.mark(input)
+        }
+      }
+    _ => ()
+  }
   match node.op {
     @ir.HotOp::Block => {
       if simplify_locals_scan_equivalent_region(
@@ -5993,13 +6217,6 @@ fn simplify_locals_scan_equivalent_node(
       return changed
     }
     @ir.HotOp::If => {
-      let condition_id = @ir.hot_child_get(func, node_id, 0)
-      if simplify_locals_scan_equivalent_node(
-          env, func, condition_id, equivalences, get_counts, tee_defined_locals,
-          false,
-        ) {
-        changed = true
-      }
       let then_equivalences = simplify_locals_clone_equivalences(equivalences)
       if simplify_locals_scan_equivalent_region(
           env,
@@ -6028,7 +6245,12 @@ fn simplify_locals_scan_equivalent_node(
       return changed
     }
     @ir.HotOp::Loop => {
-      let loop_equivalences = simplify_locals_new_equivalences(func)
+      let loop_equivalences = simplify_locals_new_equivalences(
+        func,
+        captures=Some(equivalences.captures),
+        read_versions=Some(equivalences.read_versions),
+        next_version=Some(equivalences.next_version),
+      )
       if simplify_locals_scan_equivalent_region(
           env,
           func,
@@ -6043,7 +6265,12 @@ fn simplify_locals_scan_equivalent_node(
       return changed
     }
     @ir.HotOp::Try => {
-      let body_equivalences = simplify_locals_new_equivalences(func)
+      let body_equivalences = simplify_locals_new_equivalences(
+        func,
+        captures=Some(equivalences.captures),
+        read_versions=Some(equivalences.read_versions),
+        next_version=Some(equivalences.next_version),
+      )
       if simplify_locals_scan_equivalent_region(
           env,
           func,
@@ -6056,7 +6283,12 @@ fn simplify_locals_scan_equivalent_node(
       }
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_ref) => {
-          let catch_equivalences = simplify_locals_new_equivalences(func)
+          let catch_equivalences = simplify_locals_new_equivalences(
+            func,
+            captures=Some(equivalences.captures),
+            read_versions=Some(equivalences.read_versions),
+            next_version=Some(equivalences.next_version),
+          )
           if simplify_locals_scan_equivalent_region(
               env, func, catch_ref, catch_equivalences, get_counts, tee_defined_locals,
             ) {
@@ -6069,7 +6301,12 @@ fn simplify_locals_scan_equivalent_node(
       return changed
     }
     @ir.HotOp::TryTable => {
-      let body_equivalences = simplify_locals_new_equivalences(func)
+      let body_equivalences = simplify_locals_new_equivalences(
+        func,
+        captures=Some(equivalences.captures),
+        read_versions=Some(equivalences.read_versions),
+        next_version=Some(equivalences.next_version),
+      )
       if simplify_locals_scan_equivalent_region(
           env,
           func,
@@ -6080,7 +6317,12 @@ fn simplify_locals_scan_equivalent_node(
         ) {
         changed = true
       }
-      let catch_equivalences = simplify_locals_new_equivalences(func)
+      let catch_equivalences = simplify_locals_new_equivalences(
+        func,
+        captures=Some(equivalences.captures),
+        read_versions=Some(equivalences.read_versions),
+        next_version=Some(equivalences.next_version),
+      )
       if simplify_locals_scan_equivalent_region(
           env,
           func,

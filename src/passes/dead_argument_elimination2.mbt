@@ -1225,8 +1225,17 @@ fn dae2_run_module_pass(
     total_funcs,
     indices,
   )
+  let private_elements = dae2_private_element_mask(
+    mod_, context, exposure, closed_world,
+  )
   let type_infos = dae2_prepare_type_locations(
-    mod_, context, graph, infos, exposure, closed_world,
+    mod_,
+    context,
+    graph,
+    infos,
+    exposure,
+    closed_world,
+    private_elements~,
   )
   let boundary_count = graph.used.length()
   let intrinsic_imports = dae2_intrinsic_import_mask(context)
@@ -1409,6 +1418,7 @@ fn dae2_run_module_pass(
   }
   let type_workspace = Dae2TypeWorkspace::new(source_types)
   let new_indices : Array[@lib.TypeIdx] = []
+  let mut private_group : Dae2PrivateGroup? = None
   let bodies : Array[@lib.Func] = []
   let local_remaps : Array[Array[Int]?] = []
   let control_types : @hashmap.HashMap[Int, @lib.TypeIdx] = @hashmap.new()
@@ -1594,17 +1604,20 @@ fn dae2_run_module_pass(
         )
         run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
         type_workspace.adopt_lower_types(lower_state)
-        match @ir.hot_verify_core(func) {
-          Ok(_) => ()
-          Err(err) =>
-            return Err("dae2: rewritten HOT function \{index}: \{err}")
-        }
+        // Control verification includes core checks and supplies the same
+        // child postorder to scope checks. Repeat core only on the error path
+        // to retain the existing core-versus-control diagnostic prefix.
         match @ir.hot_verify_control(func) {
           Ok(_) => ()
           Err(err) =>
-            return Err(
-              "dae2: rewritten HOT control in function \{index}: \{err}",
-            )
+            match @ir.hot_verify_core(func) {
+              Err(core_err) =>
+                return Err("dae2: rewritten HOT function \{index}: \{core_err}")
+              Ok(_) =>
+                return Err(
+                  "dae2: rewritten HOT control in function \{index}: \{err}",
+                )
+            }
         }
         let lower_start = perf_start_timer_opt(
           perf, "detail:dae2:rewrite:lower",
@@ -1657,7 +1670,28 @@ fn dae2_run_module_pass(
         !graph.used[loc]
       }) ||
       (!info.results.is_empty() && !graph.used[type_info.result_location])
-    if dae_function_exposure_blocks_boundary(exposure[index]) ||
+    let private_element = match private_elements {
+      Some(mask) => mask[index]
+      None => false
+    }
+    if private_element &&
+      (kept_params != info.params || results != info.results) {
+      let group = match private_group {
+        Some(group) => group
+        None => {
+          let group = Dae2PrivateGroup::new()
+          private_group = Some(group)
+          group
+        }
+      }
+      group.slots.push(new_indices.length())
+      group.signatures.push(
+        @lib.SubType::comp_type(@lib.CompType::func(kept_params, results)),
+      )
+      // Assign the final group member index after all lowering has appended
+      // its block signatures. Original module indices stay valid until then.
+      new_indices.push(indices[index])
+    } else if dae_function_exposure_blocks_boundary(exposure[index]) ||
       (kept_params == info.params && results == info.results && !type_changed) {
       new_indices.push(indices[index])
     } else {
@@ -1673,6 +1707,10 @@ fn dae2_run_module_pass(
   )
   perf_record_timer_elapsed_opt(perf, "detail:dae2:rewrite:lower", lower_us)
   let finalize_start = perf_start_timer_opt(perf, "detail:dae2:finalize")
+  let private_group_changed = match private_group {
+    Some(group) => group.append(type_workspace, new_indices)
+    None => false
+  }
   let types = dae2_rewrite_type_section(
     type_workspace.types,
     graph,
@@ -1744,6 +1782,9 @@ fn dae2_run_module_pass(
     ).0
   })
   candidate = candidate.with_code_sec(@lib.CodeSec::new(cleaned_bodies))
+  if private_group_changed {
+    candidate = dae2_prune_private_element_source_types(candidate)
+  }
   perf_stop_timer_opt(perf, "detail:dae2:finalize:cleanup", cleanup_start)
   // No mutation escapes until every definition and call site has its new
   // signature. The module dispatcher rebuilds the HOT module context/caches.

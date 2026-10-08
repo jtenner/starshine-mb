@@ -1247,7 +1247,6 @@ test "precompute-propagate preserves locals written from result-if values" {
         #|    local.tee 1
         #|    drop
         #|    local.get 1))
-        #|,
       ),
       ["precompute-propagate"],
     ) {

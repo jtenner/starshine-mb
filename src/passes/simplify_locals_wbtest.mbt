@@ -647,7 +647,7 @@ test "simplify-locals does not collect block exits through typed child carriers"
       #|      (local.set 2)
       #|    )
       #|    (local.get 2))
-      #|),
+      #|)
     ),
   )
   let outer_id = @ir.hot_root_get(func, 0)
@@ -709,7 +709,7 @@ test "simplify-locals does not rewrite block returns when the fallthrough value 
       #|      (local.set 2)
       #|    )
       #|    (local.get 2))
-      #|),
+      #|)
     ),
   )
   let detached : Array[Int] = []
@@ -767,7 +767,6 @@ test "simplify-locals bulk-clear gate follows active sinkable density" {
       #|  (func
       #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
       #|    nop))
-      #|),
     ),
   )
   let sinkables = simplify_locals_new_sinkables(func)
@@ -819,7 +818,6 @@ test "simplify-locals deferred follow-up records only scanned first-cycle sets" 
       #|      local.get 2
       #|      drop
       #|    end))
-      #|),
     ),
   )
   let detached : Array[Int] = []

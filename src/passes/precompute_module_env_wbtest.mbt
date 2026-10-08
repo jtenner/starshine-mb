@@ -1,5 +1,5 @@
 ///|
-test "precompute cleanup shares a module snapshot without flattening parameter blocks" {
+test "precompute cleanup shares a module snapshot and removes scalar identity blocks" {
   let mod_ = pass_test_module_from_wat(
     (
       #|(module
@@ -33,7 +33,8 @@ test "precompute cleanup shares a module snapshot without flattening parameter b
     @validate.validate_module(mod_.with_code_sec(@lib.CodeSec::new(outputs))).unwrap()
     let @lib.Func(_, @lib.Expr(first_body)) = outputs[0]
     assert_eq(first_body, [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))])
-    assert_eq(outputs[1], mod_.code_sec.unwrap().0[1])
+    let @lib.Func(_, @lib.Expr(second_body)) = outputs[1]
+    assert_eq(second_body, [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))])
     assert_true(state.validation_module_env is Some(_), msg=descriptor.name)
     assert_eq(
       trace
@@ -57,13 +58,10 @@ test "precompute cleanup resolves block types from each new module snapshot" {
       "(module (type (func (param i32) (result i32))) (func (param i32) (result i32) local.get 0 block (type 0) end))",
     ] {
     let mod_ = pass_test_module_from_wat(text)
-    let expected = pass_lower_cleanup_branchless_blocks(
-        mod_.code_sec.unwrap().0[0],
-        mod_,
-      ).0
     for name in ["precompute", "precompute-propagate"] {
       let output = run_hot_pipeline(mod_, HotPipelineOptions::new(), [name]).unwrap()
-      assert_eq(output.code_sec.unwrap().0[0], expected)
+      let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+      assert_eq(body, [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))])
       @validate.validate_module(output).unwrap()
     }
   }

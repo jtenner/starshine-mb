@@ -1114,3 +1114,113 @@ fn globals_are_provably_disjoint(
   @ir.hot_module_resolve_global_init(module_ctx, lhs) is Some(_) ||
   @ir.hot_module_resolve_global_init(module_ctx, rhs) is Some(_)
 }
+
+///|
+// One node can be one tuple's several lanes. More lanes than its arity in the
+// same entry prefix require another evaluation, which node-indexed rewrites
+// cannot select separately. Reuse one sparse count row across controls.
+fn pass_has_repeated_entry_evaluation(func : @ir.HotFunc) -> Bool {
+  let mut counts : @hashmap.HashMap[@ir.NodeId, Int]? = None
+  let mut retained_width = 0
+  for node_id in 0..<@ir.hot_node_count(func) {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    let (start, count) = match node.op {
+      @ir.HotOp::Block => (0, node.imm1)
+      @ir.HotOp::Loop => (0, @ir.hot_label_branch_arity(func, node.imm0))
+      @ir.HotOp::If => (3, node.child_count - 3)
+      _ => (0, 0)
+    }
+    if count < 2 {
+      continue
+    }
+    let row = match counts {
+      Some(row) if count >= retained_width / 2 => {
+        row.clear()
+        row
+      }
+      _ => {
+        // clear visits retained capacity. Drop a wide row before narrow
+        // prefixes, so every clear remains bounded by this prefix's width.
+        let row : @hashmap.HashMap[@ir.NodeId, Int] = @hashmap.new(
+          capacity=count,
+        )
+        counts = Some(row)
+        retained_width = count
+        row
+      }
+    }
+    retained_width = retained_width.max(count)
+    for slot in start..<(start + count) {
+      let producer = @ir.hot_child_get(func, node_id, slot)
+      let occurrences = row.get(producer).unwrap_or(0) + 1
+      if occurrences > @ir.hot_node_result_arity(func, producer).max(1) {
+        return true
+      }
+      row.set(producer, occurrences)
+    }
+  }
+  false
+}
+
+///|
+// Capture marks belong to the current region and its enclosing entries.
+// Rewind removes branch/body marks while retaining incoming stack producers.
+priv struct PassSourceCaptures {
+  seen : Array[Bool]
+  depths : Array[Int]
+  touched : Array[Int]
+}
+
+///|
+fn PassSourceCaptures::new(func : @ir.HotFunc) -> PassSourceCaptures {
+  {
+    seen: Array::make(@ir.hot_node_count(func), false),
+    depths: Array::make(@ir.hot_node_count(func), -1),
+    touched: [],
+  }
+}
+
+///|
+fn PassSourceCaptures::contains(
+  self : PassSourceCaptures,
+  node_id : Int,
+) -> Bool {
+  node_id >= 0 && node_id < self.seen.length() && self.seen[node_id]
+}
+
+///|
+fn PassSourceCaptures::mark(self : PassSourceCaptures, node_id : Int) -> Unit {
+  if node_id < 0 {
+    return
+  }
+  while self.seen.length() <= node_id {
+    self.seen.push(false)
+    self.depths.push(-1)
+  }
+  if !self.seen[node_id] {
+    self.seen[node_id] = true
+    self.depths[node_id] = self.touched.length()
+    self.touched.push(node_id)
+  }
+}
+
+///|
+fn PassSourceCaptures::rewind(self : PassSourceCaptures, depth : Int) -> Unit {
+  while self.touched.length() > depth {
+    let node_id = self.touched.pop().unwrap()
+    self.seen[node_id] = false
+    self.depths[node_id] = -1
+  }
+}
+
+///|
+fn PassSourceCaptures::is_region_capture(
+  self : PassSourceCaptures,
+  node_id : Int,
+  depth : Int,
+) -> Bool {
+  self.contains(node_id) && self.depths[node_id] >= depth
+}

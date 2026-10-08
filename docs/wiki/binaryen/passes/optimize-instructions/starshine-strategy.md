@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-04
+last_reviewed: 2026-10-07
 sources:
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/cmd/p00_oi_order_wbtest.mbt
@@ -2546,3 +2546,9 @@ gates](../../../tooling/validation-gates.md#october-4-2026-focused-frame-orderin
 also distinguish strict frame validation and raw lower integration from OI
 rewrites. Complete pipeline work outside the narrow inner OI timer remains the
 profiling target; no performance or 1× completion follows from this repair.
+
+## OptimizeInstructions correctness repairs — October 7, 2026
+
+A block/if/try with a targeted exit cannot be proved boolean from its lexical tail alone. Build the exit-label bitset lazily once per pass. Current rewrites copy or move existing target labels.
+
+Evidence: [optimize_instructions.mbt](../../../../../src/passes/optimize_instructions.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.

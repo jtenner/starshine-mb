@@ -436,7 +436,11 @@ fn ls_test_module_with_ret_any_and_i31_call_ref(
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
   let ret_any_type = @lib.RecType::new(
-    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::anyref()])),
+    @lib.SubType::new(
+      false,
+      [],
+      @lib.CompType::func([], [@lib.ValType::anyref()]),
+    ),
   )
   let ret_i31_type = @lib.RecType::new(
     @lib.SubType::new(

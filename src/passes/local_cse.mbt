@@ -36,17 +36,12 @@ priv struct LcseRawExpr {
   size : Int
   children : Array[Int]
   reads_locals : Array[Int]
-  reads_memory : Bool
-  reads_memory_size : Bool
-  reads_table_state : Bool
-  reads_global : Bool
-  reads_heap : Bool
-  reads_atomic : Bool
-  reads_call : Bool
+  // Memory, size, table, global, heap, atomic and call dependencies: bits 0..6.
+  read_flags : Int
   cache_child_for_replay : Bool
   mut repeat_of : Int
   mut local_id : Int
-  replay_local_ids : Array[Int]
+  mut replay_local_ids : Array[Int]
 }
 
 ///|
@@ -1432,10 +1427,10 @@ fn lcse_raw_instr_operand_count(
 
 ///|
 fn lcse_ref_as_non_null_result_type(
-  child_exprs : Array[LcseRawExpr],
+  first_child_type : @lib.ValType?,
 ) -> @lib.ValType? {
-  match child_exprs.get(0) {
-    Some({ ty: @lib.RefTypeValType(ref_type), .. }) =>
+  match first_child_type {
+    Some(@lib.RefTypeValType(ref_type)) =>
       Some(
         @lib.ValType::ref_type(
           @lib.RefType::new(
@@ -1501,7 +1496,7 @@ fn lcse_raw_array_field_type(
 fn lcse_raw_ref_get_desc_result_type(
   subtypes : Array[@lib.SubType],
   type_idx : @lib.TypeIdx,
-  child_exprs : Array[LcseRawExpr],
+  first_child_type : @lib.ValType?,
 ) -> @lib.ValType? {
   let descriptor_type = match lcse_raw_subtype_for_idx(subtypes, type_idx) {
     Some(subtype) =>
@@ -1511,8 +1506,8 @@ fn lcse_raw_ref_get_desc_result_type(
       }
     None => return None
   }
-  let exact = match child_exprs.get(0) {
-    Some({ ty: @lib.RefTypeValType(ref_type), .. }) =>
+  let exact = match first_child_type {
+    Some(@lib.RefTypeValType(ref_type)) =>
       ref_type.is_exact() &&
       ref_type.get_heap_type() == @lib.HeapType::new(type_idx)
     _ => false
@@ -1527,18 +1522,22 @@ fn lcse_raw_ref_get_desc_result_type(
 ///|
 fn lcse_raw_result_type(
   instr : @lib.Instruction,
-  all_locals : Array[@lib.ValType],
-  child_exprs : Array[LcseRawExpr],
+  params : Array[@lib.ValType],
+  local_types : Array[@lib.ValType],
+  first_child_type : @lib.ValType?,
   call_infos : Array[LcseRawCallInfo],
   subtypes : Array[@lib.SubType],
   env? : @validate.Env? = None,
 ) -> @lib.ValType? {
   match instr {
-    @lib.Instruction::LocalGet(idx) | @lib.Instruction::LocalTee(idx) =>
-      match all_locals.get(cl_local_idx_raw(idx)) {
-        Some(ty) => Some(ty)
-        None => None
+    @lib.Instruction::LocalGet(idx) | @lib.Instruction::LocalTee(idx) => {
+      let local_id = cl_local_idx_raw(idx)
+      if local_id < params.length() {
+        params.get(local_id)
+      } else {
+        local_types.get(local_id - params.length())
       }
+    }
     @lib.Instruction::GlobalGet(idx) =>
       match env {
         Some(env) => env.get_global_type(idx).map(fn(ty) { ty.0 })
@@ -1675,7 +1674,7 @@ fn lcse_raw_result_type(
     | @lib.Instruction::ArrayNewElem(type_idx, _) =>
       Some(@lib.ValType::ref_array_nonnull(type_idx))
     @lib.Instruction::RefAsNonNull =>
-      lcse_ref_as_non_null_result_type(child_exprs)
+      lcse_ref_as_non_null_result_type(first_child_type)
     @lib.Instruction::RefCast(nullable, exact, heap_type)
     | @lib.Instruction::RefCastDescEq(nullable, exact, heap_type) =>
       Some(
@@ -1683,7 +1682,7 @@ fn lcse_raw_result_type(
       )
     @lib.Instruction::RefI31 => Some(@lib.ValType::i31ref())
     @lib.Instruction::RefGetDesc(type_idx) =>
-      lcse_raw_ref_get_desc_result_type(subtypes, type_idx, child_exprs)
+      lcse_raw_ref_get_desc_result_type(subtypes, type_idx, first_child_type)
     @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
     | @lib.Instruction::V128Load(_)
     | @lib.Instruction::V128Load8x8S(_)
@@ -1742,11 +1741,7 @@ fn lcse_raw_result_type(
     @lib.Instruction::ArrayGet(type_idx) =>
       lcse_raw_array_field_type(subtypes, type_idx)
     @lib.Instruction::Select(Some([ty])) => Some(ty)
-    @lib.Instruction::Select(_) =>
-      match child_exprs.get(0) {
-        Some(expr) => Some(expr.ty)
-        None => None
-      }
+    @lib.Instruction::Select(_) => first_child_type
     @lib.Instruction::Call(idx) =>
       match lcse_raw_call_info(call_infos, idx) {
         Some({ result: Some(ty), idempotent: true, .. }) => Some(ty)
@@ -1834,13 +1829,26 @@ fn lcse_raw_result_type(
 }
 
 ///|
-fn lcse_cancel_request_tree(exprs : Array[LcseRawExpr], expr_id : Int) -> Unit {
-  if expr_id < 0 || expr_id >= exprs.length() {
+fn lcse_cancel_request_tree(
+  exprs : Array[LcseRawExpr],
+  expr_id : Int,
+  cancelled : Array[Bool],
+  pending : Array[Int],
+) -> Unit {
+  if expr_id < 0 || expr_id >= exprs.length() || cancelled[expr_id] {
     return
   }
-  exprs[expr_id].repeat_of = -1
-  for child in exprs[expr_id].children {
-    lcse_cancel_request_tree(exprs, child)
+  pending.push(expr_id)
+  while !pending.is_empty() {
+    let current = pending.pop().unwrap()
+    if current < 0 || current >= exprs.length() || cancelled[current] {
+      continue
+    }
+    cancelled[current] = true
+    exprs[current].repeat_of = -1
+    for child in exprs[current].children {
+      pending.push(child)
+    }
   }
 }
 
@@ -1943,8 +1951,7 @@ fn lcse_raw_filter_active_without_memory(
   lcse_raw_compact_active(active, fn(expr_id) {
     expr_id >= 0 &&
     expr_id < exprs.length() &&
-    !exprs[expr_id].reads_memory &&
-    !exprs[expr_id].reads_call
+    (exprs[expr_id].read_flags & 65) == 0
   })
 }
 
@@ -1956,9 +1963,7 @@ fn lcse_raw_filter_active_without_memory_or_size(
   lcse_raw_compact_active(active, fn(expr_id) {
     expr_id >= 0 &&
     expr_id < exprs.length() &&
-    !exprs[expr_id].reads_memory &&
-    !exprs[expr_id].reads_memory_size &&
-    !exprs[expr_id].reads_call
+    (exprs[expr_id].read_flags & 67) == 0
   })
 }
 
@@ -2014,7 +2019,9 @@ fn lcse_raw_filter_active_without_call(
   active : Array[Int],
 ) -> Unit {
   lcse_raw_compact_active(active, fn(expr_id) {
-    expr_id >= 0 && expr_id < exprs.length() && !exprs[expr_id].reads_call
+    expr_id >= 0 &&
+    expr_id < exprs.length() &&
+    (exprs[expr_id].read_flags & 64) == 0
   })
 }
 
@@ -2026,8 +2033,7 @@ fn lcse_raw_filter_active_without_global(
   lcse_raw_compact_active(active, fn(expr_id) {
     expr_id >= 0 &&
     expr_id < exprs.length() &&
-    !exprs[expr_id].reads_global &&
-    !exprs[expr_id].reads_call
+    (exprs[expr_id].read_flags & 72) == 0
   })
 }
 
@@ -2039,13 +2045,7 @@ fn lcse_raw_filter_active_local_only(
   lcse_raw_compact_active(active, fn(expr_id) {
     if expr_id >= 0 && expr_id < exprs.length() {
       let expr = exprs[expr_id]
-      !expr.reads_memory &&
-      !expr.reads_memory_size &&
-      !expr.reads_table_state &&
-      !expr.reads_global &&
-      !expr.reads_heap &&
-      !expr.reads_atomic &&
-      !expr.reads_call
+      expr.read_flags == 0
     } else {
       false
     }
@@ -2064,21 +2064,16 @@ fn lcse_raw_filter_active_for_idempotent_call(
       return false
     }
     let expr = exprs[expr_id]
-    if expr.reads_memory ||
-      expr.reads_memory_size ||
-      expr.reads_table_state ||
-      expr.reads_global ||
-      expr.reads_heap ||
-      expr.reads_atomic {
+    if (expr.read_flags & 63) != 0 {
       return false
     }
-    if !expr.reads_call {
+    if (expr.read_flags & 64) == 0 {
       return true
     }
     match expr.instr {
       @lib.Instruction::Call(_) => {
         for child in expr.children {
-          if exprs[child].reads_call {
+          if (exprs[child].read_flags & 64) != 0 {
             return false
           }
         }
@@ -2097,9 +2092,21 @@ fn lcse_raw_filter_active_without_heap(
   lcse_raw_compact_active(active, fn(expr_id) {
     expr_id >= 0 &&
     expr_id < exprs.length() &&
-    !exprs[expr_id].reads_heap &&
-    !exprs[expr_id].reads_call
+    (exprs[expr_id].read_flags & 80) == 0
   })
+}
+
+///|
+fn lcse_raw_stable_leaf(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.LocalGet(_)
+    | @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => true
+    _ => false
+  }
 }
 
 ///|
@@ -2113,8 +2120,7 @@ fn lcse_raw_exprs_match(
     return false
   }
   let lhs = exprs[lhs_id]
-  if !pass_const_instruction_bits_equal(lhs.instr, instr) ||
-    lhs.children.length() != children.length() {
+  if lhs.children.length() != children.length() {
     return false
   }
   for idx = 0; idx < children.length(); idx = idx + 1 {
@@ -2126,11 +2132,33 @@ fn lcse_raw_exprs_match(
       lhs_child >= exprs.length() {
       return false
     }
-    if exprs[rhs_child].key != exprs[lhs_child].key {
-      return false
+    let rhs = exprs[rhs_child]
+    let lhs = exprs[lhs_child]
+    if rhs.key != lhs.key {
+      // Parent availability already enforces every local-write dependency.
+      // Constants and unchanged local reads need no candidate or intern row.
+      if !rhs.children.is_empty() ||
+        !lhs.children.is_empty() ||
+        !lcse_raw_stable_leaf(lhs.instr) ||
+        !pass_const_instruction_bits_equal(lhs.instr, rhs.instr) {
+        return false
+      }
     }
   }
-  true
+  pass_const_instruction_bits_equal(lhs.instr, instr)
+}
+
+///|
+fn lcse_raw_append_active(active : Array[Int], expr_id : Int) -> Unit {
+  // Keep availability work bounded on large straight-line regions. Small
+  // regions retain their original candidate order and replay decisions.
+  if active.length() == 64 {
+    for idx = 1; idx < active.length(); idx = idx + 1 {
+      active[idx - 1] = active[idx]
+    }
+    ignore(active.pop())
+  }
+  active.push(expr_id)
 }
 
 ///|
@@ -2286,20 +2314,6 @@ fn lcse_raw_scan_nested_repeats(
 }
 
 ///|
-fn lcse_raw_nested_repeat_for_parent(
-  repeats : Array[LcseRawNestedRepeat],
-  parent_idx : Int,
-  start : Int,
-) -> LcseRawNestedRepeat? {
-  for repeat in repeats {
-    if repeat.parent_idx == parent_idx && repeat.start == start {
-      return Some(repeat)
-    }
-  }
-  None
-}
-
-///|
 fn lcse_raw_original_has_materialization(original : LcseRawExpr) -> Bool {
   if original.replay_local_ids.length() > 0 {
     if original.cache_child_for_replay &&
@@ -2341,62 +2355,32 @@ fn lcse_raw_push_replay(
 }
 
 ///|
-fn lcse_raw_materialize_point_exists(
-  points : Array[LcseRawMaterializePoint],
-  instr_idx : Int,
-  original : Int,
-  child_slot : Int,
-) -> Bool {
-  for point in points {
-    if point.instr_idx == instr_idx &&
-      point.original == original &&
-      point.child_slot == child_slot {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn lcse_raw_schedule_materialization(
   exprs : Array[LcseRawExpr],
   points : Array[LcseRawMaterializePoint],
+  scheduled : Array[Bool],
   original_id : Int,
 ) -> Unit {
-  match exprs.get(original_id) {
-    Some(original) =>
-      if original.cache_child_for_replay {
-        for slot = 0; slot < original.children.length(); slot = slot + 1 {
-          match exprs.get(original.children[slot]) {
-            Some(child) =>
-              if !lcse_raw_materialize_point_exists(
-                  points,
-                  child.end,
-                  original_id,
-                  slot,
-                ) {
-                points.push({
-                  instr_idx: child.end,
-                  original: original_id,
-                  child_slot: slot,
-                })
-              }
-            None => ()
-          }
-        }
-      } else if !lcse_raw_materialize_point_exists(
-          points,
-          original.end,
-          original_id,
-          -1,
-        ) {
-        points.push({
-          instr_idx: original.end,
-          original: original_id,
-          child_slot: -1,
-        })
-      }
-    None => ()
+  if original_id < 0 || original_id >= exprs.length() || scheduled[original_id] {
+    return
+  }
+  scheduled[original_id] = true
+  let original = exprs[original_id]
+  if original.cache_child_for_replay {
+    for slot = 0; slot < original.children.length(); slot = slot + 1 {
+      let child = exprs[original.children[slot]]
+      points.push({
+        instr_idx: child.end,
+        original: original_id,
+        child_slot: slot,
+      })
+    }
+  } else {
+    points.push({
+      instr_idx: original.end,
+      original: original_id,
+      child_slot: -1,
+    })
   }
 }
 
@@ -2432,10 +2416,11 @@ fn lcse_raw_record_materialized_local(
   local_id : Int,
 ) -> Unit {
   if point.child_slot >= 0 {
-    let ids = exprs[point.original].replay_local_ids
-    while ids.length() <= point.child_slot {
-      ids.push(-1)
+    let original = exprs[point.original]
+    if original.replay_local_ids.is_empty() {
+      original.replay_local_ids = Array::make(original.children.length(), -1)
     }
+    let ids = original.replay_local_ids
     ids[point.child_slot] = local_id
     if exprs[point.original].local_id < 0 {
       exprs[point.original].local_id = local_id
@@ -2450,23 +2435,30 @@ fn lcse_raw_rewrite_nested_with_outer_repeats(
   body : Array[@lib.Instruction],
   parent_idx : Int,
   repeats : Array[LcseRawNestedRepeat],
+  first_repeat : Int,
   exprs : Array[LcseRawExpr],
 ) -> (Array[@lib.Instruction], Bool) {
+  if first_repeat < 0 {
+    return (body, false)
+  }
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
+  let mut repeat_idx = first_repeat
   while i < body.length() {
-    match lcse_raw_nested_repeat_for_parent(repeats, parent_idx, i) {
-      Some(repeat) => {
-        let original = exprs[repeat.original]
-        if lcse_raw_original_has_materialization(original) {
-          lcse_raw_push_replay(out, original, original)
-          changed = true
-          i = repeat.end + 1
-          continue
-        }
+    if repeat_idx >= 0 &&
+      repeat_idx < repeats.length() &&
+      repeats[repeat_idx].parent_idx == parent_idx &&
+      repeats[repeat_idx].start == i {
+      let repeat = repeats[repeat_idx]
+      repeat_idx += 1
+      let original = exprs[repeat.original]
+      if lcse_raw_original_has_materialization(original) {
+        lcse_raw_push_replay(out, original, original)
+        changed = true
+        i = repeat.end + 1
+        continue
       }
-      None => ()
     }
     out.push(body[i])
     i += 1
@@ -2485,19 +2477,24 @@ fn lcse_raw_rewrite_instrs(
   allow_nondefault_result_locals : Bool,
   env? : @validate.Env? = None,
 ) -> (Array[@lib.Instruction], Bool) {
-  if instrs.length() > 16 {
-    return (instrs, false)
-  }
-  let all_locals = params.copy()
-  for ty in local_types {
-    all_locals.push(ty)
-  }
+  // These empty rows remain read-only. Allocate owned rows only for writes.
+  let empty_ids : Array[Int] = []
   let exprs : Array[LcseRawExpr] = []
+  let cancelled : Array[Bool] = []
+  let cancel_pending : Array[Int] = []
   let stack : Array[Int] = []
   let active : Array[Int] = []
   let nested_repeats : Array[LcseRawNestedRepeat] = []
+  let mut has_nested_controls = false
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let instr = instrs[idx]
+    match instr {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.TryTable(_, _, _) => has_nested_controls = true
+      _ => ()
+    }
     let operand_count = match
       lcse_raw_instr_operand_count(instr, call_infos, subtypes) {
       Some(count) => count
@@ -2515,12 +2512,12 @@ fn lcse_raw_rewrite_instrs(
         continue
       }
     }
-    let children : Array[Int] = []
     if stack.length() < operand_count {
       stack.clear()
       active.clear()
       continue
     }
+    let children : Array[Int] = if operand_count == 0 { empty_ids } else { [] }
     let first_child_stack = stack.length() - operand_count
     for child_idx = first_child_stack
         child_idx < stack.length()
@@ -2587,8 +2584,10 @@ fn lcse_raw_rewrite_instrs(
       @lib.Instruction::Drop => ()
       _ =>
         for child in children {
-          if child >= 0 && child < exprs.length() && exprs[child].reads_call {
-            lcse_cancel_request_tree(exprs, child)
+          if child >= 0 &&
+            child < exprs.length() &&
+            (exprs[child].read_flags & 64) != 0 {
+            lcse_cancel_request_tree(exprs, child, cancelled, cancel_pending)
             lcse_raw_remove_active_expr(active, child)
           }
         }
@@ -2604,11 +2603,21 @@ fn lcse_raw_rewrite_instrs(
       }
       _ => ()
     }
+    let first_child_type = match instr {
+      @lib.RefAsNonNull | @lib.RefGetDesc(_) | @lib.Select(_) =>
+        if children.is_empty() {
+          None
+        } else {
+          Some(exprs[children[0]].ty)
+        }
+      _ => None
+    }
     match
       lcse_raw_result_type(
         instr,
-        all_locals,
-        children.map(fn(id) { exprs[id] }),
+        params,
+        local_types,
+        first_child_type,
         call_infos,
         subtypes,
         env~,
@@ -2616,73 +2625,65 @@ fn lcse_raw_rewrite_instrs(
       Some(ty) => {
         let mut start = idx
         let mut size = 1
-        let reads_locals : Array[Int] = []
-        let mut reads_memory = lcse_instr_reads_memory(instr)
-        let mut reads_memory_size = match instr {
-          @lib.Instruction::MemorySize(_) => true
-          _ => false
+        let mut reads_locals : Array[Int] = empty_ids
+        let mut reads_locals_owned = false
+        let mut read_flags = if lcse_instr_reads_memory(instr) { 1 } else { 0 }
+        match instr {
+          @lib.MemorySize(_) => read_flags = read_flags | 2
+          @lib.TableGet(_)
+          | @lib.TableSize(_)
+          | @lib.CallIndirect(_, _)
+          | @lib.CallRef(_) => read_flags = read_flags | 4
+          @lib.GlobalGet(_) => read_flags = read_flags | 8
+          @lib.StructGet(_, _)
+          | @lib.StructGetS(_, _)
+          | @lib.StructGetU(_, _)
+          | @lib.StructAtomicGet(_, _, _)
+          | @lib.StructAtomicGetS(_, _, _)
+          | @lib.StructAtomicGetU(_, _, _)
+          | @lib.ArrayGet(_)
+          | @lib.ArrayGetS(_)
+          | @lib.ArrayGetU(_)
+          | @lib.ArrayLen => read_flags = read_flags | 16
+          @lib.Call(_) => read_flags = read_flags | 64
+          _ => ()
         }
-        let mut reads_table_state = match instr {
-          @lib.Instruction::TableGet(_)
-          | @lib.Instruction::TableSize(_)
-          | @lib.Instruction::CallIndirect(_, _)
-          | @lib.Instruction::CallRef(_) => true
-          _ => false
-        }
-        let mut reads_global = match instr {
-          @lib.Instruction::GlobalGet(_) => true
-          _ => false
-        }
-        let mut reads_heap = match instr {
-          @lib.Instruction::StructGet(_, _)
-          | @lib.Instruction::StructGetS(_, _)
-          | @lib.Instruction::StructGetU(_, _)
-          | @lib.Instruction::StructAtomicGet(_, _, _)
-          | @lib.Instruction::StructAtomicGetS(_, _, _)
-          | @lib.Instruction::StructAtomicGetU(_, _, _)
-          | @lib.Instruction::ArrayGet(_)
-          | @lib.Instruction::ArrayGetS(_)
-          | @lib.Instruction::ArrayGetU(_)
-          | @lib.Instruction::ArrayLen => true
-          _ => false
-        }
-        let mut reads_atomic = lcse_raw_instr_is_atomic(instr)
-        let mut reads_call = match instr {
-          @lib.Instruction::Call(_) => true
-          _ => false
+        if lcse_raw_instr_is_atomic(instr) {
+          read_flags = read_flags | 32
         }
         for child in children {
           let child_expr = exprs[child]
           if child_expr.start < start {
             start = child_expr.start
           }
-          size += child_expr.size
-          for local_id in child_expr.reads_locals {
-            if !reads_locals.contains(local_id) {
-              reads_locals.push(local_id)
+          if size <= 32 {
+            size = if child_expr.size > 32 - size {
+              33
+            } else {
+              size + child_expr.size
             }
           }
-          if child_expr.reads_memory {
-            reads_memory = true
+          if size <= 32 {
+            if reads_locals.is_empty() && !child_expr.reads_locals.is_empty() {
+              // Published child dependency rows remain read-only.
+              reads_locals = child_expr.reads_locals
+              reads_locals_owned = false
+            } else {
+              for local_id in child_expr.reads_locals {
+                if !reads_locals.contains(local_id) {
+                  if !reads_locals_owned {
+                    reads_locals = reads_locals.copy()
+                    reads_locals_owned = true
+                  }
+                  reads_locals.push(local_id)
+                }
+              }
+            }
+          } else {
+            reads_locals = empty_ids
+            reads_locals_owned = false
           }
-          if child_expr.reads_memory_size {
-            reads_memory_size = true
-          }
-          if child_expr.reads_table_state {
-            reads_table_state = true
-          }
-          if child_expr.reads_global {
-            reads_global = true
-          }
-          if child_expr.reads_heap {
-            reads_heap = true
-          }
-          if child_expr.reads_atomic {
-            reads_atomic = true
-          }
-          if child_expr.reads_call {
-            reads_call = true
-          }
+          read_flags = read_flags | child_expr.read_flags
         }
         match instr {
           @lib.Instruction::LocalGet(local_idx)
@@ -2690,8 +2691,17 @@ fn lcse_raw_rewrite_instrs(
             // A tee's destination is also a dependency: replay must not erase
             // its write after another assignment to that local.
             let local_id = cl_local_idx_raw(local_idx)
-            if !reads_locals.contains(local_id) {
-              reads_locals.push(local_id)
+            if size <= 32 && !reads_locals.contains(local_id) {
+              if reads_locals.is_empty() {
+                reads_locals = [local_id]
+                reads_locals_owned = true
+              } else {
+                if !reads_locals_owned {
+                  reads_locals = reads_locals.copy()
+                  reads_locals_owned = true
+                }
+                reads_locals.push(local_id)
+              }
             }
           }
           _ => ()
@@ -2709,26 +2719,27 @@ fn lcse_raw_rewrite_instrs(
         // span unrelated statements, whose effects must not be deleted.
         let contiguous = idx - start + 1 == size
         let reusable_root = match instr {
-          _ if !contiguous => false
-          _ if has_shared_memory && (reads_memory || reads_memory_size) => false
+          _ if !contiguous || size > 32 => false
+          _ if has_shared_memory && (read_flags & 3) != 0 => false
           @lib.Instruction::MemoryGrow(_) | @lib.Instruction::TableGrow(_) =>
             false
           _ if lcse_raw_instr_is_allocation_or_string_effect(instr) => false
-          _ if reads_atomic => false
-          _ if reads_call =>
+          _ if (read_flags & 32) != 0 => false
+          _ if (read_flags & 64) != 0 =>
             match instr {
               @lib.Instruction::Call(call_idx) =>
                 lcse_raw_call_is_idempotent(call_infos, call_idx) &&
-                !reads_table_state &&
+                (read_flags & 4) == 0 &&
                 can_cache_child_for_replay
               _ => false
             }
-          _ => !reads_table_state && can_cache_child_for_replay
+          _ => (read_flags & 4) == 0 && can_cache_child_for_replay
         }
         let materializable_root = cache_child_for_replay ||
           @lib.has_default(ty) ||
           materialize_nondefault_result
-        let key_match_id = if reusable_root && size <= 32 {
+        let stable_leaf = children.is_empty() && lcse_raw_stable_leaf(instr)
+        let key_match_id = if reusable_root && size <= 32 && !stable_leaf {
           lcse_raw_find_active_match(exprs, active, instr, children)
         } else {
           -1
@@ -2748,28 +2759,23 @@ fn lcse_raw_rewrite_instrs(
           size,
           children,
           reads_locals,
-          reads_memory,
-          reads_memory_size,
-          reads_table_state,
-          reads_global,
-          reads_heap,
-          reads_atomic,
-          reads_call,
+          read_flags,
           cache_child_for_replay,
           repeat_of: -1,
           local_id: -1,
-          replay_local_ids: [],
+          replay_local_ids: empty_ids,
         }
         exprs.push(expr)
+        cancelled.push(false)
         if original_id >= 0 {
           if lcse_raw_expr_profitable(expr) {
             exprs[expr_id].repeat_of = original_id
             for child in children {
-              lcse_cancel_request_tree(exprs, child)
+              lcse_cancel_request_tree(exprs, child, cancelled, cancel_pending)
             }
           }
-        } else if reusable_root {
-          active.push(expr_id)
+        } else if reusable_root && !stable_leaf {
+          lcse_raw_append_active(active, expr_id)
         }
         stack.push(expr_id)
       }
@@ -2823,31 +2829,82 @@ fn lcse_raw_rewrite_instrs(
       _ => ()
     }
   }
-  let repeat_start = Array::make(instrs.length(), -1)
+  let mut has_replays = !nested_repeats.is_empty()
+  if !has_replays {
+    for expr in exprs {
+      if expr.repeat_of >= 0 {
+        has_replays = true
+        break
+      }
+    }
+  }
+  if !has_replays && !has_nested_controls {
+    return (instrs, false)
+  }
+  let repeat_start = if has_replays {
+    Array::make(instrs.length(), -1)
+  } else {
+    empty_ids
+  }
   let materialize_points : Array[LcseRawMaterializePoint] = []
-  for expr_id = 0; expr_id < exprs.length(); expr_id = expr_id + 1 {
-    let expr = exprs[expr_id]
-    if expr.repeat_of >= 0 {
-      repeat_start[expr.start] = expr_id
+  if has_replays {
+    let scheduled = Array::make(exprs.length(), false)
+    for expr_id = 0; expr_id < exprs.length(); expr_id = expr_id + 1 {
+      let expr = exprs[expr_id]
+      if expr.repeat_of >= 0 {
+        repeat_start[expr.start] = expr_id
+        lcse_raw_schedule_materialization(
+          exprs,
+          materialize_points,
+          scheduled,
+          expr.repeat_of,
+        )
+      }
+    }
+    for repeat in nested_repeats {
       lcse_raw_schedule_materialization(
         exprs,
         materialize_points,
-        expr.repeat_of,
+        scheduled,
+        repeat.original,
       )
     }
   }
-  for repeat in nested_repeats {
-    lcse_raw_schedule_materialization(
-      exprs,
-      materialize_points,
-      repeat.original,
-    )
+  let materialize_heads = if materialize_points.is_empty() {
+    empty_ids
+  } else {
+    Array::make(instrs.length(), -1)
+  }
+  let materialize_next = if materialize_points.is_empty() {
+    empty_ids
+  } else {
+    Array::make(materialize_points.length(), -1)
+  }
+  let mut point_idx = materialize_points.length() - 1
+  while point_idx >= 0 {
+    let instr_idx = materialize_points[point_idx].instr_idx
+    materialize_next[point_idx] = materialize_heads[instr_idx]
+    materialize_heads[instr_idx] = point_idx
+    point_idx -= 1
+  }
+  let nested_repeat_heads = if nested_repeats.is_empty() {
+    empty_ids
+  } else {
+    Array::make(instrs.length(), -1)
+  }
+  for repeat_idx = 0
+      repeat_idx < nested_repeats.length()
+      repeat_idx = repeat_idx + 1 {
+    let parent = nested_repeats[repeat_idx].parent_idx
+    if nested_repeat_heads[parent] < 0 {
+      nested_repeat_heads[parent] = repeat_idx
+    }
   }
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
-    let repeat_id = repeat_start[i]
+    let repeat_id = if has_replays { repeat_start[i] } else { -1 }
     if repeat_id >= 0 {
       let original_id = exprs[repeat_id].repeat_of
       let original = exprs[original_id]
@@ -2861,7 +2918,15 @@ fn lcse_raw_rewrite_instrs(
     let rewritten_instr = match instrs[i] {
       @lib.Instruction::Block(block_type, @lib.Expr(body)) => {
         let (outer_body, outer_body_changed) = lcse_raw_rewrite_nested_with_outer_repeats(
-          body, i, nested_repeats, exprs,
+          body,
+          i,
+          nested_repeats,
+          if nested_repeats.is_empty() {
+            -1
+          } else {
+            nested_repeat_heads[i]
+          },
+          exprs,
         )
         let (next_body, body_changed) = lcse_raw_rewrite_instrs(
           outer_body,
@@ -2896,7 +2961,15 @@ fn lcse_raw_rewrite_instrs(
       }
       @lib.Instruction::If(block_type, then_body, else_body) => {
         let (outer_then, outer_then_changed) = lcse_raw_rewrite_nested_with_outer_repeats(
-          then_body, i, nested_repeats, exprs,
+          then_body,
+          i,
+          nested_repeats,
+          if nested_repeats.is_empty() {
+            -1
+          } else {
+            nested_repeat_heads[i]
+          },
+          exprs,
         )
         let (next_then, then_changed) = lcse_raw_rewrite_instrs(
           outer_then,
@@ -2931,7 +3004,15 @@ fn lcse_raw_rewrite_instrs(
       }
       @lib.Instruction::TryTable(block_type, catches, @lib.Expr(body)) => {
         let (outer_body, outer_body_changed) = lcse_raw_rewrite_nested_with_outer_repeats(
-          body, i, nested_repeats, exprs,
+          body,
+          i,
+          nested_repeats,
+          if nested_repeats.is_empty() {
+            -1
+          } else {
+            nested_repeat_heads[i]
+          },
+          exprs,
         )
         let (next_body, body_changed) = lcse_raw_rewrite_instrs(
           outer_body,
@@ -2955,18 +3036,23 @@ fn lcse_raw_rewrite_instrs(
       other => other
     }
     out.push(rewritten_instr)
-    for point in materialize_points {
-      if point.instr_idx == i {
-        let local_id = params.length() + local_types.length()
-        local_types.push(lcse_raw_materialize_point_type(exprs, point))
-        lcse_raw_record_materialized_local(exprs, point, local_id)
-        out.push(
-          @lib.Instruction::local_tee(
-            @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
-          ),
-        )
-        changed = true
-      }
+    let mut materialize_idx = if materialize_points.is_empty() {
+      -1
+    } else {
+      materialize_heads[i]
+    }
+    while materialize_idx >= 0 {
+      let point = materialize_points[materialize_idx]
+      let local_id = params.length() + local_types.length()
+      local_types.push(lcse_raw_materialize_point_type(exprs, point))
+      lcse_raw_record_materialized_local(exprs, point, local_id)
+      out.push(
+        @lib.Instruction::local_tee(
+          @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
+        ),
+      )
+      changed = true
+      materialize_idx = materialize_next[materialize_idx]
     }
     i += 1
   }
@@ -3212,6 +3298,17 @@ fn LcseState::new() -> LcseState {
 }
 
 ///|
+fn LcseState::clear(self : LcseState) -> Unit {
+  // Entries only grow between barriers. Reset a wide table before small
+  // windows, since HashMap::clear visits retained capacity.
+  if self.bindings.length() > 64 {
+    self.bindings = @hashmap.new(capacity=64)
+  } else {
+    self.bindings.clear()
+  }
+}
+
+///|
 priv struct LcseStructuralIndex {
   classes : Array[Int]
   sizes : Array[Int]
@@ -3220,6 +3317,7 @@ priv struct LcseStructuralIndex {
   hash_heads : @hashmap.HashMap[Int, Int]
   next_collision : Array[Int]
   fact_visits : Array[Int]?
+  captures : PassSourceCaptures
 }
 
 ///|
@@ -3236,6 +3334,7 @@ fn LcseStructuralIndex::new(
     hash_heads: @hashmap.new(capacity=count),
     next_collision: [],
     fact_visits,
+    captures: PassSourceCaptures::new(func),
   }
 }
 
@@ -3538,16 +3637,80 @@ fn lcse_visit_node(
   state : LcseState,
   node_id : Int,
   place : LcsePlace,
+  capture_entry? : Bool = false,
+  force_eval? : Bool = false,
 ) -> Unit {
+  if !force_eval && structural.captures.contains(node_id) {
+    return
+  }
+  let capture_depth = structural.captures.touched.length()
+  lcse_visit_node_uncaptured(
+    ctx,
+    func,
+    effects,
+    structural,
+    state,
+    node_id,
+    place,
+    capture_entry~,
+  )
+  structural.captures.rewind(capture_depth)
+}
+
+///|
+fn lcse_visit_node_uncaptured(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  effects : @ir.HotEffectsSummary,
+  structural : LcseStructuralIndex,
+  state : LcseState,
+  node_id : Int,
+  place : LcsePlace,
+  capture_entry? : Bool = false,
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
   let node = @ir.hot_node_get(func, node_id)
+  let mut previous_input = -1
+  let mut lane = 0
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::If =>
+      for index = 0
+          index < pass_value_operand_count(func, node_id)
+          index = index + 1 {
+        let slot = pass_value_operand_slot(node, index)
+        let input = @ir.hot_child_get(func, node_id, slot)
+        let arity = @ir.hot_node_result_arity(func, input)
+        lane = if previous_input == input { lane + 1 } else { 0 }
+        let force_eval = arity == 0 || (lane > 0 && lane % arity == 0)
+        previous_input = input
+        lcse_visit_node(
+          ctx,
+          func,
+          effects,
+          structural,
+          state,
+          input,
+          LcsePlace::Child(node_id, slot),
+          capture_entry=!(node.op is @ir.HotOp::If && slot == 0),
+          force_eval~,
+        )
+        if !(node.op is @ir.HotOp::If && slot == 0) {
+          structural.captures.mark(input)
+        }
+      }
+    _ => ()
+  }
   if node_id < structural.classes.length() && structural.classes[node_id] >= 0 {
-    if lcse_consider_candidate(
+    if !capture_entry &&
+      lcse_consider_candidate(
         ctx, func, effects, structural, state, node_id, place,
       ) {
       return
     }
     if lcse_barrier_clears_window(func, effects, node_id) {
-      state.bindings.clear()
+      state.clear()
     }
     return
   }
@@ -3561,24 +3724,10 @@ fn lcse_visit_node(
         @ir.hot_region_body_ref(func, node_id),
       )
       structural.refresh_node(func, node_id)
-      state.bindings.clear()
+      state.clear()
       return
     }
     @ir.HotOp::If => {
-      if @ir.hot_child_count(func, node_id) > 0 {
-        let condition = @ir.hot_child_get(func, node_id, 0)
-        if condition >= 0 && @ir.hot_node_is_live(func, condition) {
-          lcse_visit_node(
-            ctx,
-            func,
-            effects,
-            structural,
-            state,
-            condition,
-            LcsePlace::Child(node_id, 0),
-          )
-        }
-      }
       lcse_visit_region(
         ctx,
         func,
@@ -3592,7 +3741,7 @@ fn lcse_visit_node(
         None => ()
       }
       structural.refresh_node(func, node_id)
-      state.bindings.clear()
+      state.clear()
       return
     }
     _ => ()
@@ -3613,13 +3762,14 @@ fn lcse_visit_node(
     }
   }
   structural.refresh_node(func, node_id)
-  if lcse_consider_candidate(
+  if !capture_entry &&
+    lcse_consider_candidate(
       ctx, func, effects, structural, state, node_id, place,
     ) {
     return
   }
   if lcse_barrier_clears_window(func, effects, node_id) {
-    state.bindings.clear()
+    state.clear()
   }
 }
 
@@ -3631,12 +3781,24 @@ fn lcse_visit_region(
   structural : LcseStructuralIndex,
   region_ref : @ir.HotRegionRef,
 ) -> Unit {
+  let capture_depth = structural.captures.touched.length()
   let state = LcseState::new()
+  let mut previous_root = -1
+  let mut lane = 0
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     let root = @ir.hot_region_get(func, region_ref, idx)
     if root < 0 || !@ir.hot_node_is_live(func, root) {
       continue
     }
+    let arity = @ir.hot_node_result_arity(func, root)
+    lane = if previous_root == root { lane + 1 } else { 0 }
+    let force_eval = arity == 0 ||
+      (
+        structural.captures.is_region_capture(root, capture_depth) &&
+        (lane == 0 || lane % arity == 0)
+      )
+    previous_root = root
+    let already_captured = !force_eval && structural.captures.contains(root)
     lcse_visit_node(
       ctx,
       func,
@@ -3645,11 +3807,15 @@ fn lcse_visit_region(
       state,
       root,
       LcsePlace::Region(region_ref, idx),
+      force_eval~,
     )
-    if lcse_barrier_clears_window(func, effects, root) {
-      state.bindings = @hashmap.new(capacity=64)
+    structural.captures.mark(root)
+    structural.captures.mark(@ir.hot_region_get(func, region_ref, idx))
+    if !already_captured && lcse_barrier_clears_window(func, effects, root) {
+      state.clear()
     }
   }
+  structural.captures.rewind(capture_depth)
 }
 
 ///|

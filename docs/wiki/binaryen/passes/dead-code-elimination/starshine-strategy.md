@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-10-07
 sources:
   - ./index.md
   - ../../../../../src/passes/dead_code_elimination.mbt
@@ -136,3 +136,9 @@ That keeps the pass honest for Starshine today while leaving the upstream Binary
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+
+## DeadCodeElimination correctness repairs — October 7, 2026
+
+Resolve all four try_table catch targets in the enclosing label space. Only the protected body adds a try_table depth. Cleanup must retain the catch continuation and its live writes.
+
+Evidence: [dead_code_elimination.mbt](../../../../../src/passes/dead_code_elimination.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.

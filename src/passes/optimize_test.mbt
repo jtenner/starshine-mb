@@ -188,7 +188,6 @@ test "level-zero vacuum continues pure-drop cleanup after result block flattenin
         #|    (drop (i32.add (i32.const 1) (i32.const 2)))
         #|    (drop (i32.trunc_f64_s (f64.const 12)))
         #|    (block (result i32) (i32.const 7))))
-        #|,
       ),
       ["vacuum"],
       options=HotPipelineOptions::new(optimize_level=0, shrink_level=0),
@@ -384,7 +383,6 @@ test "vacuum removes unused binary parents and preserves ordered child effects" 
       #|      (i32.add
       #|        (call $a)
       #|        (i32.div_s (i32.const 1) (i32.const 0))))))
-      #|)
     ),
   )
   let optimized = match
@@ -455,7 +453,6 @@ test "vacuum recursively strips defaultable parents and keeps nondefaultable mul
       #|        (call $ra)
       #|        (call $rb)
       #|        (i32.const 1)))))
-      #|)
     ),
   )
   let optimized = match
@@ -587,7 +584,6 @@ test "vacuum folds constant result if expressions" {
         #|    (if (result i32) (i32.const 0)
         #|      (then (i32.const 107452))
         #|      (else (i32.const 107453)))))
-        #|)
       ),
       ["vacuum"],
     ) {
@@ -631,7 +627,6 @@ test "vacuum removes dropped pure result if expressions" {
         #|      (if (result i32) (local.get 0)
         #|        (then (call $touch))
         #|        (else (i32.const 10))))))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -664,7 +659,6 @@ test "vacuum removes pure self-branch block debris" {
         #|      (block $vector (result v128)
         #|        (br_if $vector (v128.const i32x4 0 0 0 0) (i32.const 0))))
         #|    (block $effect (call $touch) (br $effect))))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -695,7 +689,6 @@ test "vacuum removes proven dropped control beside local writes" {
         #|        (unreachable)))
         #|    (i32.const 47)
         #|    (i64.const 53)))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -729,7 +722,6 @@ test "vacuum collapses local-only nested outer-branch dead tails" {
         #|          (br $outer (i32.const 19))
         #|          (unreachable))
         #|        (unreachable)))))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -759,7 +751,6 @@ test "vacuum reevaluates dropped result blocks after child cleanup" {
         #|        (unreachable)))
         #|    (i32.const 47)
         #|    (i64.const 53)))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -791,7 +782,6 @@ test "vacuum reevaluates direct branch blocks after dead-tail cleanup" {
         #|        (unreachable)))
         #|    (i32.const 47)
         #|    (i64.const 53)))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -819,7 +809,6 @@ test "vacuum removes dropped pure nonbranching result loops" {
         #|    (drop (loop (result i32) (i32.const 968)))
         #|    (i32.const 47)
         #|    (i64.const 53)))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -849,7 +838,6 @@ test "vacuum removes fully dropped pure multivalue blocks" {
         #|    (drop)
         #|    (i32.const 47)
         #|    (i64.const 53)))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -879,7 +867,6 @@ test "vacuum removes pure-condition empty ifs in branchy loops" {
         #|      (if (i32.const 1) (then (drop (local.get 2))))
         #|      (local.set 2 (local.get 1))
         #|      (br_if $loop (local.get 2)))))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -906,7 +893,6 @@ test "vacuum flattens exception regions whose bodies cannot throw" {
         #|        (drop (local.get 0))
         #|        (local.get 1))
         #|      (catch $e (i32.const 0)))))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -928,7 +914,6 @@ test "vacuum flattens exception regions whose bodies cannot throw" {
         #|      (do (unreachable))
         #|      (catch_all (local.set 1 (local.get 0))))
         #|    (drop (local.get 1))))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -955,7 +940,6 @@ test "vacuum flattens owner-targeted try tables whose bodies cannot throw" {
         #|        global.set 0
         #|      end
         #|    end))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -989,7 +973,6 @@ test "vacuum removes try_table wrappers around statically null throw_ref traps" 
         #|        throw_ref
         #|      end
         #|    end))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -1031,7 +1014,6 @@ test "vacuum retains try_table around dynamically nullable throw_ref" {
         #|        throw_ref
         #|      end
         #|    end))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -1064,7 +1046,6 @@ test "vacuum cleans legacy catch bodies without flattening throwing tries" {
         #|        (local.set 1 (local.get 0))
         #|        (drop (local.get 0))
         #|        (local.get 1)))))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -1102,7 +1083,6 @@ test "vacuum removes unread local ref i31 and default struct assignments" {
         #|  (func (local anyref)
         #|    (local.set 0 (ref.i31 (i32.const 1)))
         #|    (local.set 0 (struct.new_default $s))))
-        #|,
       ),
       ["vacuum"],
     ) {
@@ -1127,7 +1107,6 @@ test "vacuum removes dropped pure SIMD shuffles" {
       #|    drop
       #|    i32.const 7
       #|    global.set 0))
-      #|,
     ),
   )
   let optimized = match
@@ -1160,7 +1139,6 @@ test "vacuum strips dropped SIMD replace lanes but preserves load traps" {
       #|    drop
       #|    i32.const 7
       #|    global.set 0))
-      #|,
     ),
   )
   let optimized = match
@@ -1199,7 +1177,6 @@ test "vacuum removes dropped pure SIMD shuffle arithmetic trees" {
       #|    drop
       #|    i32.const 7
       #|    global.set 0))
-      #|,
     ),
   )
   let optimized = match
@@ -1229,7 +1206,6 @@ test "vacuum removes dropped SIMD shells and preserves tee assignments as sets" 
       #|    drop
       #|    local.get 2
       #|    global.set 0))
-      #|,
     ),
   )
   let optimized = match
@@ -1727,7 +1703,6 @@ fn vacuum_test_make_large_nested_value_debris() -> String {
     #|    )
     #|  )
     #|)
-    #|,
   out.write_string(tail)
   out.to_string()
 }
@@ -2485,7 +2460,6 @@ test "vacuum removes dropped multi-field struct shells with pure roots" {
       #|  (func (local (ref null $inner))
       #|    i32.const 42 struct.new $inner local.set 0
       #|    v128.const i32x4 1 2 3 4 local.get 0 struct.new $outer drop))
-      #|,
     ),
   )
   let optimized = match
@@ -3577,7 +3551,6 @@ fn vacuum_test_make_large_const_if_scaffold() -> String {
       #|    (then (block (br 0)))
       #|    (else (nop)))
       #|))
-      #|,
     ),
   )
   out.to_string()

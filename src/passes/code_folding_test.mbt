@@ -361,7 +361,6 @@ test "code-folding hoists identical if-arm suffixes" {
       #|      i32.const 7
       #|      drop
       #|    end))
-      #|,
     ),
   )
 
@@ -389,7 +388,6 @@ test "code-folding hoists equal arithmetic suffixes with separate payloads" {
       #|      i32.const 2 drop
       #|      local.get 1 i32.const 7 i32.add
       #|    end))
-      #|,
     ),
   )
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
@@ -414,7 +412,6 @@ test "code-folding keeps different arithmetic suffix payloads" {
       #|      i32.const 2 drop
       #|      local.get 1 i32.const 7 i32.sub
       #|    end))
-      #|,
     ),
   )
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
@@ -455,7 +452,6 @@ test "code-folding replaces worthwhile identical full void arms with condition d
       #|      i32.const 8
       #|      drop
       #|    end))
-      #|,
     ),
   )
 
@@ -490,7 +486,6 @@ test "code-folding hoists identical full value if arms" {
       #|        i32.const 7
       #|      end
       #|    end))
-      #|,
     ),
   )
 
@@ -515,7 +510,6 @@ test "code-folding keeps simple full value if arms for optimize-instructions" {
       #|        (f32.const 0))
       #|      (else
       #|        (f32.const 0)))))
-      #|,
     ),
   )
 
@@ -542,7 +536,6 @@ test "code-folding folds full multi-root non-block value arms" {
       #|      (else
       #|        (nop)
       #|        (f32.const 0)))))
-      #|,
     ),
   )
 
@@ -577,7 +570,6 @@ test "code-folding folds embedded select full multi-root value if arms" {
       #|          (f32.const 0)))
       #|      (f32.const 1)
       #|      (local.get 0))))
-      #|,
     ),
   )
 
@@ -610,7 +602,6 @@ test "code-folding folds embedded select partial value if suffixes" {
       #|          (f32.const 0)))
       #|      (f32.const 1)
       #|      (local.get 0))))
-      #|,
     ),
   )
 
@@ -641,7 +632,6 @@ test "code-folding folds embedded drop partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -754,7 +744,6 @@ test "code-folding folds embedded call partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -786,7 +775,6 @@ test "code-folding folds embedded binary partial value if suffixes" {
       #|          (drop)
       #|          (f32.const 0)))
       #|      (f32.const 1))))
-      #|,
     ),
   )
 
@@ -818,7 +806,6 @@ test "code-folding folds embedded local.set partial value if suffixes" {
       #|          (drop)
       #|          (f32.const 0))))
       #|    (drop (local.get 1))))
-      #|,
     ),
   )
 
@@ -849,7 +836,6 @@ test "code-folding folds embedded local.tee partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -880,7 +866,6 @@ test "code-folding folds embedded global.set partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -913,7 +898,6 @@ test "code-folding folds embedded store partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -944,7 +928,6 @@ test "code-folding folds embedded return partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -977,7 +960,6 @@ test "code-folding folds embedded br payload partial value if suffixes" {
       #|            (drop)
       #|            (f32.const 0))))
       #|      (f32.const 1))))
-      #|,
     ),
   )
 
@@ -1012,7 +994,6 @@ test "code-folding folds embedded br_if payload partial value if suffixes" {
       #|              (f32.const 0)))
       #|          (i32.const 1)))
       #|      (f32.const 1))))
-      #|,
     ),
   )
 
@@ -1045,7 +1026,6 @@ test "code-folding folds embedded br_if condition partial value if suffixes" {
       #|            (drop)
       #|            (i32.const 0))))))
       #|)
-      #|,
     ),
   )
 
@@ -1076,7 +1056,6 @@ test "code-folding folds embedded unary partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -1107,7 +1086,6 @@ test "code-folding folds embedded convert partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -1138,7 +1116,6 @@ test "code-folding folds embedded load partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (i32.const 0))))))
-      #|,
     ),
   )
 
@@ -1170,7 +1147,6 @@ test "code-folding folds embedded compare partial value if suffixes" {
       #|          (drop)
       #|          (i32.const 0)))
       #|      (i32.const 0))))
-      #|,
     ),
   )
 
@@ -1201,7 +1177,6 @@ test "code-folding folds embedded ref.is_null partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (ref.null func))))))
-      #|,
     ),
   )
 
@@ -1285,7 +1260,6 @@ test "code-folding folds embedded ref.eq partial value if suffixes" {
       #|        (then (i32.const 1) (drop) (ref.null eq))
       #|        (else (i32.const 2) (drop) (ref.null eq)))
       #|      (ref.null eq))))
-      #|,
     ),
   )
 
@@ -1310,7 +1284,6 @@ test "code-folding folds embedded any.convert_extern partial value if suffixes" 
       #|        (local.get 0)
       #|        (then (i32.const 1) (drop) (ref.null extern))
       #|        (else (i32.const 2) (drop) (ref.null extern))))))
-      #|,
     ),
   )
 
@@ -1335,7 +1308,6 @@ test "code-folding folds embedded extern.convert_any partial value if suffixes" 
       #|        (local.get 0)
       #|        (then (i32.const 1) (drop) (ref.null any))
       #|        (else (i32.const 2) (drop) (ref.null any))))))
-      #|,
     ),
   )
 
@@ -1360,7 +1332,6 @@ test "code-folding folds embedded ref.i31 partial value if suffixes" {
       #|        (local.get 0)
       #|        (then (i32.const 1) (drop) (i32.const 7))
       #|        (else (i32.const 2) (drop) (i32.const 7))))))
-      #|,
     ),
   )
 
@@ -1490,7 +1461,6 @@ test "code-folding folds embedded table.copy dest partial value if suffixes" {
       #|          (i32.const 0)))
       #|      (i32.const 1)
       #|      (i32.const 1))))
-      #|,
     ),
   )
 
@@ -1525,7 +1495,6 @@ test "code-folding folds embedded table.init dest partial value if suffixes" {
       #|          (i32.const 42)))
       #|      (i32.const 0)
       #|      (i32.const 1))))
-      #|,
     ),
   )
 
@@ -1557,7 +1526,6 @@ test "code-folding folds embedded table.get partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (i32.const 0))))))
-      #|,
     ),
   )
 
@@ -1590,7 +1558,6 @@ test "code-folding folds embedded table.set index partial value if suffixes" {
       #|          (drop)
       #|          (i32.const 0)))
       #|      (ref.null func))))
-      #|,
     ),
   )
 
@@ -1625,7 +1592,6 @@ test "code-folding folds embedded call_indirect partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (i32.const 0))))))
-      #|,
     ),
   )
 
@@ -1793,8 +1759,6 @@ test "code-folding folds embedded return_call partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (f32.const 0))))))
-      #|)
-      #|,
     ),
   )
 
@@ -1831,8 +1795,6 @@ test "code-folding folds embedded return_call_indirect partial value if suffixes
       #|          (drop)
       #|          (f32.const 0)))
       #|      (i32.const 0))))
-      #|)
-      #|,
     ),
   )
 
@@ -1864,7 +1826,6 @@ test "code-folding folds embedded struct.new field partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (i32.const 42))))))
-      #|,
     ),
   )
 
@@ -3057,7 +3018,6 @@ test "code-folding folds embedded memory.grow partial value if suffixes" {
       #|          (i32.const 2)
       #|          (drop)
       #|          (i32.const 0))))))
-      #|,
     ),
   )
 
@@ -3090,7 +3050,6 @@ test "code-folding folds embedded table.grow partial value if suffixes" {
       #|          (drop)
       #|          (ref.null func)))
       #|      (i32.const 1))))
-      #|,
     ),
   )
 
@@ -3124,7 +3083,6 @@ test "code-folding folds embedded table.fill value partial value if suffixes" {
       #|          (drop)
       #|          (ref.null func)))
       #|      (i32.const 1))))
-      #|,
     ),
   )
 
@@ -3158,7 +3116,6 @@ test "code-folding folds embedded memory.fill dest partial value if suffixes" {
       #|    (i32.const 7)
       #|    (i32.const 1)
       #|    memory.fill))
-      #|,
     ),
   )
 
@@ -3192,7 +3149,6 @@ test "code-folding folds embedded memory.copy dest partial value if suffixes" {
       #|    (i32.const 4)
       #|    (i32.const 1)
       #|    memory.copy))
-      #|,
     ),
   )
 
@@ -3227,7 +3183,6 @@ test "code-folding folds embedded memory.init dest partial value if suffixes" {
       #|    (i32.const 0)
       #|    (i32.const 1)
       #|    memory.init 0))
-      #|,
     ),
   )
 
@@ -3257,7 +3212,6 @@ test "code-folding folds embedded call full multi-root value if arms" {
       #|        (else
       #|          (nop)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -3287,7 +3241,6 @@ test "code-folding folds embedded binary full multi-root value if arms" {
       #|          (nop)
       #|          (f32.const 0)))
       #|      (f32.const 1))))
-      #|,
     ),
   )
 
@@ -3317,7 +3270,6 @@ test "code-folding hoists identical partial value if suffixes" {
       #|      drop
       #|      i32.const 9
       #|    end))
-      #|,
     ),
   )
 
@@ -3343,7 +3295,6 @@ test "code-folding hoists exact partial non-block value if suffix" {
       #|        (f32.const 0))
       #|      (else
       #|        (f32.const 0)))))
-      #|,
     ),
   )
 
@@ -3372,7 +3323,6 @@ test "code-folding hoists one-block then-arm value suffix" {
       #|          (f32.const 0)))
       #|      (else
       #|        (f32.const 0)))))
-      #|,
     ),
   )
 
@@ -3406,7 +3356,6 @@ test "code-folding hoists one-block else-arm value suffix" {
       #|          (local.get 0)
       #|          (call $sink)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -3444,7 +3393,6 @@ test "code-folding hoists one-block multi-root value suffix" {
       #|        (local.get 1)
       #|        (call $sink)
       #|        (f32.const 0)))))
-      #|,
     ),
   )
 
@@ -3487,7 +3435,6 @@ test "code-folding hoists one-block else-arm multi-root value suffix" {
       #|          (local.get 1)
       #|          (call $sink)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -3527,7 +3474,6 @@ test "code-folding hoists one-block value suffixes with both arm prefixes" {
       #|        (i32.const 2)
       #|        (drop)
       #|        (f32.const 0)))))
-      #|,
     ),
   )
 
@@ -3564,7 +3510,6 @@ test "code-folding folds tiny full one-block void arms" {
       #|      (else
       #|        (i32.const 7)
       #|        (drop)))))
-      #|,
     ),
   )
 
@@ -3601,7 +3546,6 @@ test "code-folding folds full one-block void arms" {
       #|        (call $sink)
       #|        (i32.const 7)
       #|        (drop)))))
-      #|,
     ),
   )
 
@@ -3637,7 +3581,6 @@ test "code-folding folds full one-block value arms" {
       #|          (f32.const 0)))
       #|      (else
       #|        (f32.const 0)))))
-      #|,
     ),
   )
 
@@ -3674,7 +3617,6 @@ test "code-folding hoists two-block value if suffixes" {
       #|          (i32.const 42)
       #|          (drop)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -3720,7 +3662,6 @@ test "code-folding hoists two-block multi-root value if suffixes" {
       #|          (local.get 1)
       #|          (call $sink)
       #|          (f32.const 0))))))
-      #|,
     ),
   )
 
@@ -3770,7 +3711,6 @@ test "code-folding hoists identical structured suffixes" {
       #|        drop
       #|      end
       #|    end))
-      #|,
     ),
   )
 
@@ -3801,7 +3741,6 @@ test "code-folding hoists identical outer-branch tails" {
       #|        br $out
       #|      end
       #|    end))
-      #|,
     ),
   )
 
@@ -3830,7 +3769,6 @@ test "code-folding hoists block-exit tail shared with fallthrough" {
       #|      i32.const 7
       #|      drop
       #|    end))
-      #|,
     ),
   )
 
@@ -3854,7 +3792,6 @@ test "code-folding hoists typed block-exit branch payload shared with fallthroug
       #|        (then
       #|          (br $out (i32.const 7))))
       #|      (i32.const 7))))
-      #|,
     ),
   )
 
@@ -3882,7 +3819,6 @@ test "code-folding hoists typed block-exit branch payloads without fallthrough" 
       #|          (br $out (i32.const 7))))
       #|      (i32.const 9)
       #|      (return))))
-      #|,
     ),
   )
 
@@ -3916,7 +3852,6 @@ test "code-folding hoists typed block-exit multi-root payload suffix with fallth
       #|      (local.get 1)
       #|      (call $sink)
       #|      (i32.const 7))))
-      #|,
     ),
   )
 
@@ -3954,7 +3889,6 @@ test "code-folding hoists typed block-exit multi-root payload suffixes without f
       #|          (br $out (i32.const 7))))
       #|      (i32.const 9)
       #|      (return))))
-      #|,
     ),
   )
 
@@ -3994,7 +3928,6 @@ test "code-folding hoists multi-value block-exit payload suffix with fallthrough
       #|      (call $sink)
       #|      (i32.const 7)
       #|      (f32.const 0))))
-      #|,
     ),
   )
 
@@ -4036,7 +3969,6 @@ test "code-folding hoists multi-value block-exit payload suffixes without fallth
       #|          (call $sink)
       #|          (br $out (i32.const 7) (f32.const 0))))
       #|      (unreachable))))
-      #|,
     ),
   )
 
@@ -4087,7 +4019,6 @@ test "code-folding hoists block-exit tail before outer branch fallthrough" {
       #|              (i32.const 1))))
       #|        (unreachable))))
       #|  (func $sink (param i32)))
-      #|,
     ),
   )
 
@@ -4120,7 +4051,6 @@ test "code-folding intentionally leaves block-exit suffixes in typed tail region
       #|            (br $out)
       #|            (i32.const 1))))))
       #|  (func $sink (param i32)))
-      #|,
     ),
   )
 
@@ -4155,7 +4085,6 @@ test "code-folding shares full if arms ending in return" {
       #|        (drop)
       #|        (return))))
       #|  (func $sink (param i32)))
-      #|,
     ),
   )
 
@@ -4189,7 +4118,6 @@ test "code-folding shares full if arms ending in unreachable" {
       #|        (call $sink)
       #|        (unreachable))))
       #|  (func $sink (param i32)))
-      #|,
     ),
   )
 
@@ -4226,7 +4154,6 @@ test "code-folding shares if-then and fallthrough return tails" {
       #|    (i32.const 7)
       #|    (drop)
       #|    (return)))
-      #|,
     ),
   )
 
@@ -4259,7 +4186,6 @@ test "code-folding shares if-then and fallthrough unreachable tails" {
       #|    (local.get 1)
       #|    (call $sink)
       #|    (unreachable)))
-      #|,
     ),
   )
 
@@ -4302,7 +4228,6 @@ test "code-folding shares non-adjacent return tails" {
       #|    (nop)
       #|    (nop)
       #|    (return)))
-      #|,
     ),
   )
 
@@ -4349,7 +4274,6 @@ test "code-folding shares non-root return tail subsets" {
       #|    (nop)
       #|    (nop)
       #|    (unreachable)))
-      #|,
     ),
   )
 
@@ -4408,7 +4332,6 @@ test "code-folding shares non-root return subsets excluding a different root ret
       #|    (nop)
       #|    (nop)
       #|    (return)))
-      #|,
     ),
   )
 
@@ -4473,7 +4396,6 @@ test "code-folding shares arbitrary non-root return subset among distractor tail
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -4541,7 +4463,6 @@ test "code-folding shares arbitrary non-root unreachable subset among distractor
       #|        (unreachable)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -4580,7 +4501,6 @@ test "code-folding keeps simple return operand tails unshared" {
       #|        (local.get 1)
       #|        (return)))
       #|    (i32.const 99)))
-      #|,
     ),
   )
 
@@ -4643,7 +4563,6 @@ test "code-folding folds deeper non-root return subset then shallow fixpoint" {
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -4691,7 +4610,6 @@ test "code-folding shares non-root structured block return suffixes" {
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -4738,7 +4656,6 @@ test "code-folding shares non-root structured if return suffixes" {
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -4786,7 +4703,6 @@ test "code-folding shares non-root structured loop return suffixes" {
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -4831,7 +4747,6 @@ test "code-folding shares non-root self-branch block return suffixes" {
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -4874,7 +4789,6 @@ test "code-folding shares internal-target conditional branch return suffixes" {
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -4921,7 +4835,6 @@ test "code-folding shares internal-target br-table return suffixes" {
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -4973,7 +4886,6 @@ test "code-folding shares internal-target br-table unreachable suffixes" {
       #|        (unreachable)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5026,7 +4938,6 @@ test "code-folding shares internal-target br-table return-call suffixes" {
       #|        (return_call $target)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5080,7 +4991,6 @@ test "code-folding shares non-root nested self-branch block return suffixes" {
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5134,7 +5044,6 @@ test "code-folding keeps crossed nested self-branch return suffixes" {
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5184,7 +5093,6 @@ test "code-folding shares non-root self-branch block unreachable suffixes" {
       #|        (unreachable)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5233,7 +5141,6 @@ test "code-folding shares non-root nested self-branch block unreachable suffixes
       #|        (unreachable)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5287,7 +5194,6 @@ test "code-folding keeps crossed nested self-branch unreachable suffixes" {
       #|        (unreachable)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5334,7 +5240,6 @@ test "code-folding keeps conditional return suffixes that branch to an ancestor 
       #|            (i32.const 7)
       #|            (drop))
       #|          (return))))))
-      #|,
     ),
   )
 
@@ -5377,7 +5282,6 @@ test "code-folding keeps return suffixes that branch to an outside target" {
       #|            (drop)
       #|            (br $exit))
       #|          (return))))))
-      #|,
     ),
   )
 
@@ -5430,7 +5334,6 @@ test "code-folding shares safe return subset past outside-target distractor" {
       #|          (nop)
       #|          (nop)
       #|          (return))))))
-      #|,
     ),
   )
 
@@ -5485,7 +5388,6 @@ test "code-folding shares non-root return tail subsets with root fallthrough" {
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5535,7 +5437,6 @@ test "code-folding shares block-backed unreachable tails" {
       #|    (i32.const 8)
       #|    (drop)
       #|    (unreachable)))
-      #|,
     ),
   )
 
@@ -5579,7 +5480,6 @@ test "code-folding shares non-root unreachable tail subsets with root fallthroug
       #|        (unreachable)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5624,7 +5524,6 @@ test "code-folding shares direct return-call tails with typed results" {
       #|    (nop)
       #|    (nop)
       #|    (return_call $target)))
-      #|,
     ),
   )
 
@@ -5664,7 +5563,6 @@ test "code-folding keeps simple result return-call sibling tails unshared" {
       #|        (local.get 1)
       #|        (return_call $target)))
       #|    (i32.const 99)))
-      #|,
     ),
   )
 
@@ -5714,7 +5612,6 @@ test "code-folding shares non-root direct return-call tail subsets with root fal
       #|        (return_call $target)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5770,7 +5667,6 @@ test "code-folding shares arbitrary non-root direct return-call subset among dis
       #|        (return_call $target)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5825,7 +5721,6 @@ test "code-folding shares non-root self-branch block return-call suffixes" {
       #|        (return_call $target)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5877,7 +5772,6 @@ test "code-folding shares non-root nested self-branch return-call suffixes" {
       #|        (return_call $target)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5934,7 +5828,6 @@ test "code-folding keeps crossed nested self-branch return-call suffixes" {
       #|        (return_call $target)))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -5987,7 +5880,6 @@ test "code-folding shares return-call-indirect tails" {
       #|    (nop)
       #|    (nop)
       #|    (return_call_indirect (type $t))))
-      #|,
     ),
   )
 
@@ -6032,7 +5924,6 @@ test "code-folding keeps simple result return-call-indirect sibling tails unshar
       #|        (local.get 2)
       #|        (return_call_indirect (type $t))))
       #|    (i32.const 99)))
-      #|,
     ),
   )
 
@@ -6086,7 +5977,6 @@ test "code-folding shares non-root return-call-indirect tail subsets with root f
       #|        (return_call_indirect (type $t))))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -6147,7 +6037,6 @@ test "code-folding shares arbitrary non-root return-call-indirect subset among d
       #|        (return_call_indirect (type $t))))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -6212,7 +6101,6 @@ test "code-folding prefers deeper return-call-indirect subset over shallow all-t
       #|        (return_call_indirect (type $t))))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -6274,7 +6162,6 @@ test "code-folding shares non-root nested self-branch return-call-indirect suffi
       #|        (return_call_indirect (type $t))))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -6336,7 +6223,6 @@ test "code-folding keeps crossed nested self-branch return-call-indirect suffixe
       #|        (return_call_indirect (type $t))))
       #|    (i32.const 99)
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -6708,7 +6594,6 @@ test "code-folding reaches a root-anchored terminating-tail fixpoint" {
       #|    (nop)
       #|    (nop)
       #|    (return)))
-      #|,
     ),
   )
 
@@ -6755,7 +6640,6 @@ test "code-folding O4z late branch-cleanup removes redundant inner block exits" 
         #|        (drop)
         #|        (local.get 0)
         #|        (br_if $outer)))))
-        #|,
       ),
       [
         "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
@@ -6823,7 +6707,6 @@ test "code-folding late branch-cleanup neighborhood keeps fixpoint-exposed retur
         #|    (nop)
         #|    (nop)
         #|    (return)))
-        #|,
       ),
       [
         "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
@@ -6885,7 +6768,6 @@ test "code-folding late branch-cleanup neighborhood keeps shared return tail val
         #|    (nop)
         #|    (nop)
         #|    (return)))
-        #|,
       ),
       [
         "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
@@ -6938,7 +6820,6 @@ test "code-folding late branch-cleanup neighborhood keeps non-root return subset
         #|        (return)))
         #|    (i32.const 99)
         #|    (drop)))
-        #|,
       ),
       [
         "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
@@ -7008,7 +6889,6 @@ test "code-folding late branch-cleanup neighborhood keeps arbitrary non-root ret
         #|        (return)))
         #|    (i32.const 99)
         #|    (drop)))
-        #|,
       ),
       [
         "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
@@ -7074,7 +6954,6 @@ test "code-folding late branch-cleanup neighborhood keeps shared return-call tai
         #|        (return_call $target)))
         #|    (i32.const 99)
         #|    (drop)))
-        #|,
       ),
       [
         "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
@@ -7124,7 +7003,6 @@ test "code-folding late branch-cleanup neighborhood keeps simple return-call bai
         #|        (local.get 1)
         #|        (return_call $target)))
         #|    (i32.const 99)))
-        #|,
       ),
       [
         "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
@@ -7219,7 +7097,6 @@ test "code-folding keeps br-if-poisoned block-exit payload suffixes" {
       #|      (local.get 1)
       #|      (call $sink)
       #|      (i32.const 7))))
-      #|,
     ),
   )
 
@@ -7254,7 +7131,6 @@ test "code-folding keeps br-table-poisoned block-exit suffixes" {
       #|        (br $out))
       #|      (i32.const 7)
       #|      (drop))))
-      #|,
     ),
   )
 
@@ -7290,7 +7166,6 @@ test "code-folding hoists br-if block-exit suffixes targeting an enclosing block
       #|        (drop)
       #|        (local.get 0)
       #|        (br_if $outer)))))
-      #|,
     ),
   )
 
@@ -7331,7 +7206,6 @@ test "code-folding keeps br-table block-exit suffixes targeting an enclosing blo
       #|        (drop)
       #|        (local.get 0)
       #|        (br_table $outer $outer)))))
-      #|,
     ),
   )
 
@@ -7371,7 +7245,6 @@ test "code-folding hoists br-table if-arm suffixes targeting an enclosing block"
       #|          (drop)
       #|          (local.get 0)
       #|          (br_table $outer $outer))))))
-      #|,
     ),
   )
 
@@ -7418,7 +7291,6 @@ test "code-folding keeps outside-target switch-like return tails" {
       #|                    (local.get 1)))))
       #|            (return))))))
       #|)
-      #|,
     ),
   )
 
@@ -7454,7 +7326,6 @@ test "code-folding keeps careful switch target scopes" {
       #|        (br $label$1))
       #|      (unreachable)))
       #|)
-      #|,
     ),
   )
 
@@ -7491,7 +7362,6 @@ test "code-folding folds non-terminal try-table if-arm body suffixes" {
       #|          (call $sink)
       #|          (i32.const 7)
       #|          (drop))))))
-      #|,
     ),
   )
 
@@ -7529,7 +7399,6 @@ test "code-folding folds catch try-table if-arm body suffixes" {
       #|          (call $sink)
       #|          (i32.const 7)
       #|          (drop))))))
-      #|,
     ),
   )
 
@@ -7575,7 +7444,6 @@ test "code-folding folds catch-ref try-table throwing-body if-arm suffixes" {
       #|        (throw $e))
       #|      (unreachable))
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -7622,7 +7490,6 @@ test "code-folding late branch-cleanup neighborhood drops unused catch-ref paylo
         #|        (throw $e))
         #|      (unreachable))
         #|    (drop)))
-        #|,
       ),
       [
         "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
@@ -7670,7 +7537,6 @@ test "code-folding folds catch-all-ref try-table throwing-body if-arm suffixes" 
       #|        (throw $e))
       #|      (unreachable))
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -7708,7 +7574,6 @@ test "code-folding keeps catch-ref try-table terminal tails as EH bailout" {
       #|        (return))
       #|      (unreachable))
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -7746,7 +7611,6 @@ test "code-folding keeps catch-all-ref try-table terminal tails as EH bailout" {
       #|        (return))
       #|      (unreachable))
       #|    (drop)))
-      #|,
     ),
   )
 
@@ -7785,7 +7649,6 @@ test "code-folding folds try-table if-arm partial terminal return suffixes" {
       #|          (i32.const 7)
       #|          (drop)
       #|          (return))))))
-      #|,
     ),
   )
 
@@ -7820,7 +7683,6 @@ test "code-folding folds try-table if-arm throwing suffixes" {
       #|          (i32.const 7)
       #|          (drop)
       #|          (throw $e))))))
-      #|,
     ),
   )
 
@@ -7859,7 +7721,6 @@ test "code-folding folds nested try-table if-arm body suffixes" {
       #|            (call $sink)
       #|            (i32.const 7)
       #|            (drop)))))))
-      #|,
     ),
   )
 
@@ -7899,7 +7760,6 @@ test "code-folding keeps outer-catch try-table terminal tails as EH bailout" {
       #|        (local.get 1)
       #|        (call $sink)
       #|        (return)))))
-      #|,
     ),
   )
 
@@ -7929,7 +7789,6 @@ test "code-folding keeps try-table terminal tails as EH bailout" {
       #|      (local.get 1)
       #|      (call $sink)
       #|      (return))))
-      #|,
     ),
   )
 
@@ -7958,7 +7817,6 @@ test "code-folding keeps try-table block-exit suffixes as EH bailout" {
       #|            (br $exit))))
       #|      (i32.const 7)
       #|      (drop))))
-      #|,
     ),
   )
 
@@ -7988,7 +7846,6 @@ test "code-folding keeps live-label structured if suffixes" {
       #|          (i32.const 7)
       #|          (drop)
       #|          (br $else_tail))))))
-      #|,
     ),
   )
 
@@ -8026,7 +7883,6 @@ test "code-folding keeps crossed live-label structured if suffixes" {
       #|          (i32.const 8)
       #|          (drop)
       #|          (br $else_outer))))))
-      #|,
     ),
   )
 
@@ -8121,7 +7977,6 @@ test "code-folding removes trailing unreachable after exiting root without crash
       #|      return
       #|    end
       #|    unreachable))
-      #|,
     ),
   )
 
@@ -8153,7 +8008,6 @@ test "code-folding removes nested loop trailing unreachable after exiting contro
       #|      return
       #|    end
       #|    unreachable))
-      #|,
     ),
   )
 
@@ -8180,12 +8034,40 @@ test "code-folding keeps root trailing unreachable for exiting result functions"
       #|      return
       #|    end
       #|    unreachable))
-      #|,
     ),
   )
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "code-folding retains bottom tail after a void branch-table block" {
+  let output = code_folding_test_run(
+    "(module (func (param i32) (result i32) block (result i32) block i32.const 243 local.get 0 br_table 1 1 unreachable end unreachable end))",
+  )
+  @validate.validate_module(
+    @binary.decode_module(@binary.encode_module(output).unwrap()).unwrap(),
+  ).unwrap()
+  let body = match output.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => body
+    _ => fail("expected function")
+  }
+  let outer = match body {
+    [@lib.Block(_, @lib.Expr(outer))] => outer
+    _ => fail("expected result block")
+  }
+  assert_eq(outer.last(), Some(@lib.Instruction::unreachable_()))
+  let inner = match outer[0] {
+    @lib.Block(_, @lib.Expr(inner)) => inner
+    _ => fail("expected branch-table block")
+  }
+  assert_eq(inner[0], @lib.Instruction::i32_const(@lib.I32::new(243)))
+  assert_true(
+    inner.any(fn(instr) {
+      instr is @lib.BrTable([@lib.LabelIdx(1U)], @lib.LabelIdx(1U))
+    }),
+  )
 }
 
 ///|
@@ -8214,7 +8096,6 @@ test "code-folding keeps bottom unreachable after folding a loop exit" {
       #|      end
       #|      unreachable
       #|    end))
-      #|,
     ),
   )
 
@@ -8232,7 +8113,6 @@ test "code-folding keeps multi-result exiting block valid before bottom tail" {
       #|      (block)
       #|      unreachable)
       #|    unreachable))
-      #|,
     ),
   )
 
@@ -8254,7 +8134,6 @@ test "code-folding removes size-losing dead multi-result wrapper before root unr
       #|      (block)
       #|      unreachable)
       #|    unreachable))
-      #|,
     ),
   )
 
@@ -8275,7 +8154,6 @@ test "code-folding removes duplicate bottom tail in typed dead block" {
       #|      unreachable
       #|      unreachable)
       #|    unreachable))
-      #|,
     ),
   )
 
@@ -8296,7 +8174,6 @@ test "code-folding removes pure simd debris after bottom in typed dead block" {
       #|      unreachable
       #|      unreachable)
       #|    unreachable))
-      #|,
     ),
   )
 
@@ -8316,7 +8193,6 @@ test "code-folding keeps typed loop bottom tail until enclosing unreachable" {
       #|      unreachable
       #|      unreachable)
       #|    unreachable))
-      #|,
     ),
   )
 
@@ -8343,7 +8219,6 @@ test "code-folding removes pure float debris after loop bottom" {
       #|        unreachable)
       #|      unreachable)
       #|    unreachable))
-      #|,
     ),
   )
 
@@ -8392,7 +8267,6 @@ test "code-folding accepts typed try-table bottom before root unreachable" {
       #|    (try_table (result v128)
       #|      unreachable)
       #|    unreachable))
-      #|,
     ),
   )
 
@@ -8414,7 +8288,6 @@ test "code-folding keeps root bottom sentinel before trailing typed debris" {
       #|    v128.const i32x4 0 0 0 0
       #|    unreachable
       #|    unreachable))
-      #|,
     ),
   )
 
@@ -8444,7 +8317,6 @@ test "code-folding keeps exiting blocks with live branch labels" {
       #|      unreachable
       #|    end
       #|    i32.const 2))
-      #|,
     ),
   )
 
@@ -8464,7 +8336,6 @@ test "code-folding flattens exiting dead value blocks" {
       #|      unreachable
       #|    end
       #|    unreachable))
-      #|,
     ),
   )
 
@@ -8502,7 +8373,6 @@ test "code-folding hoists two-block void if suffixes" {
       #|          call $sink
       #|          i32.const 7
       #|          drop)))))
-      #|,
     ),
   )
 
@@ -8541,7 +8411,6 @@ test "code-folding shares terminating returns with internal structured payloads"
       #|            (i32.const 2) drop
       #|            (i32.const 3)))))
       #|    (unreachable)))
-      #|,
     ),
   )
 
@@ -8580,7 +8449,6 @@ test "code-folding preserves Binaryen terminating-tail helper cost boundary" {
       #|        (i32.const 1) drop
       #|        (i32.const 2) drop
       #|        (return)))))
-      #|,
     ),
   )
 

@@ -1,6 +1,8 @@
 ///|
 pub fn ssa_full_descriptor() -> @ir.HotPassDescriptor {
-  @ir.HotPassDescriptor::new("ssa", requires=[@ir.HotAnalysis::cfg()], invalidates=[
+  // Full SSA builds an operand-expanded graph. The shared cached CFG is
+  // root-only, so preparing that cache would duplicate the graph work.
+  @ir.HotPassDescriptor::new("ssa", invalidates=[
     @ir.HotAnalysis::cfg(),
     @ir.HotAnalysis::dominance(),
     @ir.HotAnalysis::liveness(),
@@ -144,6 +146,10 @@ pub fn ssa_full_build_merge_rewrite_plan(
   func : @ir.HotFunc,
   graph : @ir.HotLocalGraph,
 ) -> SsaFullRewritePlan {
+  // One plan row per node cannot rewrite distinct repeated evaluations.
+  if pass_has_repeated_entry_evaluation(func) {
+    return { write_rewrites: [], get_rewrites: [], merge_gets: [], }
+  }
   let write_rewrites : Array[SsaFullWriteRewrite] = []
   let target_by_write = Array::make(@ir.hot_node_count(func), -1)
   let mut next_local = @ir.hot_local_count(func)
@@ -732,7 +738,10 @@ fn ssa_full_rewrite_raw_func(
 
 ///|
 fn ssa_full_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
-  let cfg = pass_require_cfg(ctx, func)
+  if pass_has_repeated_entry_evaluation(func) {
+    return HotPassResult::unchanged()
+  }
+  let cfg = @ir.cfg_build(func, expand_operand_control=true)
   let graph = @ir.local_graph_build_full_flow(func, cfg)
   let plan = ssa_full_build_merge_rewrite_plan(func, graph)
   ssa_full_apply_plan(ctx, func, plan)

@@ -24,6 +24,34 @@ test "command DAE2 modes accept virtual typed block inputs and retain concrete c
 }
 
 ///|
+test "command DAE2 modes accept virtual inputs for every control kind" {
+  for pass in ["dae2", "dae2-optimizing"] {
+    for
+      control in [
+        "loop (param i32 i32) (result i32) i32.div_s end", "if (param i32 i32) (result i32) i32.div_s else i32.div_s end",
+        "i32.const 1 if (param i32 i32) (result i32) i32.div_s else i32.div_s end",
+        "(try (param i32 i32) (result i32) (do i32.div_s) (catch_all i32.const 7))",
+        "try_table (param i32 i32) (result i32) i32.div_s end",
+      ] {
+      for prefix in ["", "i32.const 9 "] {
+        let source = "(module (func (param i32) (result i32) unreachable " +
+          prefix +
+          control +
+          "))"
+        let output = cmd_deep_audit_run(source, pass)
+        @validate.validate_module(output).unwrap()
+        @validate.validate_module(
+          decode_module_bytes(encode_module_bytes(output)),
+        ).unwrap()
+        assert_eq(cmd_deep_audit_body(output), [
+          @lib.Instruction::unreachable_(),
+        ])
+      }
+    }
+  }
+}
+
+///|
 test "command DAE2 polymorphic entry retains nested body validation" {
   let input = @wast.wast_to_binary_module(
     "(module (func (result i32) unreachable block (param i32 i32) (result i32) f64.add end))",

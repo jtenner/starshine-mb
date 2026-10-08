@@ -59,7 +59,7 @@ test "dae stable rewrite rebuilds each nested scope once" {
     "(module (type (func (param i32))) (func $target (type 0) (param i32)) (func",
   )
   for value in 0..<depth {
-    source.write_string(" i32.const {value} call $target")
+    source.write_string(" i32.const \{value} call $target")
     if value + 1 < depth {
       source.write_string(" block")
     }

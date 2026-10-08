@@ -94,7 +94,6 @@ test "merge-similar-functions shares large literal-only siblings" {
       #|  (func (result i32)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 43))
-      #|,
     ),
   )
   match (optimized.func_sec, optimized.code_sec) {
@@ -168,7 +167,6 @@ test "merge-similar-functions reuses repeated literal difference vectors" {
       #|  (func (result i32)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 43 i32.const 43 i32.add))
-      #|,
     ),
   )
   match optimized.code_sec {
@@ -200,7 +198,6 @@ test "merge-similar-functions shifts original non-parameter locals" {
       #|  (func (param i32) (result i32) (local i32)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 43 local.get 0 i32.add local.get 1 i32.add))
-      #|,
     ),
   )
   match optimized.code_sec {
@@ -245,7 +242,6 @@ test "merge-similar-functions parameterizes same-type direct callees" {
       #|  (func (result i32)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    call $callee1))
-      #|,
     ),
   )
   match optimized.code_sec {
@@ -346,7 +342,6 @@ test "merge-similar-functions preserves incompatible callee types" {
       #|  (func $callee1 (type $b) (param i32))
       #|  (func nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop call $callee0)
       #|  (func nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop i32.const 0 call $callee1))
-      #|,
     ),
   )
   let optimized = match
@@ -374,7 +369,6 @@ test "merge-similar-functions preserves return-call indirection" {
       #|  (func (result i32)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    return_call $callee1))
-      #|,
     ),
   )
   match optimized.code_sec {
@@ -406,7 +400,6 @@ test "merge-similar-functions rewrites nested literal sites" {
       #|  (func (param i32) (result i32)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    block (result i32) i32.const 43 end))
-      #|,
     ),
   )
   match optimized.code_sec {
@@ -440,7 +433,6 @@ test "merge-similar-functions orders helpers by primary function index" {
       #|  (func (result i32)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 11))
-      #|,
     ),
   )
   match optimized.type_sec {
@@ -478,7 +470,6 @@ test "merge-similar-functions shares profitable exact duplicates" {
       #|  (func (result i32)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 42))
-      #|,
     ),
   )
   match optimized.code_sec {
@@ -506,7 +497,6 @@ test "merge-similar-functions merges duplicate simple function type indices" {
       #|  (func (type $b) (result i32)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 43))
-      #|,
     ),
   )
   match optimized.code_sec {
@@ -526,7 +516,6 @@ test "merge-similar-functions preserves differing local declaration types" {
       #|  (func (result i32) (local i64)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 43))
-      #|,
     ),
   )
   let optimized = match
@@ -550,7 +539,6 @@ test "O4z similar-functions portfolio includes generic MSF" {
       #|  (func (result i64)
       #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i64.const 43))
-      #|,
     ),
   )
   let optimized = o4z_outline_similar_size_functions(input)

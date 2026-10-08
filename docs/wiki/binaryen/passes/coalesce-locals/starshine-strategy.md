@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-03
+last_reviewed: 2026-10-07
 sources:
   - ./index.md
   - ../../../../../src/passes/coalesce_locals.mbt
@@ -1978,3 +1978,9 @@ affects only Node replay, never raw size/hash evidence. Manual review is not
 independent-agent signoff. All four 1× goals, canonical deficits, P00 correctness
 and full CI/coverage/aggregate fuzz remain open. Local `cl-path-scan-value-*`
 records retain exact builds, sources, commands, native worker and all samples.
+
+## CoalesceLocals correctness repairs — October 7, 2026
+
+Include exceptional edges in expanded loop liveness. Pre-entry writes, protected writes, and call-argument tees stay live until their catch continuation. Lowering preserves earlier carried tee effects before an escaping branch.
+
+Evidence: [coalesce_locals.mbt](../../../../../src/passes/coalesce_locals.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.

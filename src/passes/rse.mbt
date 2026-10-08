@@ -42,6 +42,11 @@ priv struct RseState {
   value_ids : @hashmap.HashMap[String, Int]
   scopes : Array[RseLabelScope]
   next_value : Array[Int]
+  captured_values : Array[Int]
+  captured_depths : Array[Int]
+  captured_nodes : Array[Int]
+  previous_captured_values : Array[Int]
+  previous_captured_depths : Array[Int]
   mut changed : Bool
   mut reachable : Bool
 }
@@ -60,6 +65,11 @@ fn RseState::new(func : @ir.HotFunc) -> RseState {
     value_ids: @hashmap.new(capacity=@ir.hot_local_count(func) * 2 + 17),
     scopes: [],
     next_value: [0],
+    captured_values: Array::make(@ir.hot_node_count(func), -2),
+    captured_depths: Array::make(@ir.hot_node_count(func), -1),
+    captured_nodes: [],
+    previous_captured_values: [],
+    previous_captured_depths: [],
     changed: false,
     reachable: true,
   }
@@ -83,6 +93,11 @@ fn RseState::clone_from(other : RseState) -> RseState {
     value_ids: other.value_ids,
     scopes: other.scopes,
     next_value: other.next_value,
+    captured_values: other.captured_values,
+    captured_depths: other.captured_depths,
+    captured_nodes: other.captured_nodes,
+    previous_captured_values: other.previous_captured_values,
+    previous_captured_depths: other.previous_captured_depths,
     changed: other.changed,
     reachable: other.reachable,
   }
@@ -265,7 +280,6 @@ fn rse_structural_value(
   func : @ir.HotFunc,
   state : RseState,
   node_id : Int,
-  child_values : Array[Int],
 ) -> Int? {
   if !rse_node_can_structurally_value(func, node_id) {
     return None
@@ -277,7 +291,6 @@ fn rse_structural_value(
     @ir.HotOp::RefFunc => "ref.func:\{node.ty}:\{node.imm0}"
     _ => return None
   }
-  ignore(child_values)
   Some(rse_intern_value(state, key))
 }
 
@@ -306,6 +319,19 @@ fn rse_replace_redundant_tee(
 }
 
 ///|
+fn rse_rewind_captures(state : RseState, depth : Int) -> Unit {
+  while state.captured_nodes.length() > depth {
+    let node_id = state.captured_nodes.pop().unwrap()
+    state.captured_values[node_id] = state.previous_captured_values
+      .pop()
+      .unwrap()
+    state.captured_depths[node_id] = state.previous_captured_depths
+      .pop()
+      .unwrap()
+  }
+}
+
+///|
 fn rse_visit_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -314,17 +340,32 @@ fn rse_visit_region(
 ) -> Unit {
   // A nested region can establish initialization only inside its own frame.
   let entry_initialized = state.initialized.copy()
+  let capture_depth = state.captured_nodes.length()
   let mut idx = 0
+  let mut previous_root = -1
+  let mut lane = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
     if !state.reachable {
       break
     }
     let root_id = @ir.hot_region_get(func, region_ref, idx)
     if root_id >= 0 && @ir.hot_node_is_live(func, root_id) {
-      ignore(rse_visit_node(ctx, func, state, root_id))
+      let arity = @ir.hot_node_result_arity(func, root_id)
+      lane = if previous_root == root_id { lane + 1 } else { 0 }
+      let force_eval = arity == 0 ||
+        (
+          root_id < state.captured_depths.length() &&
+          state.captured_depths[root_id] >= capture_depth &&
+          (lane == 0 || lane % arity == 0)
+        )
+      ignore(
+        rse_visit_node(ctx, func, state, root_id, capture=true, force_eval~),
+      )
+      previous_root = root_id
     }
     idx += 1
   }
+  rse_rewind_captures(state, capture_depth)
   state.initialized = entry_initialized
 }
 
@@ -335,11 +376,6 @@ fn rse_visit_if(
   state : RseState,
   node_id : Int,
 ) -> Int {
-  if @ir.hot_child_count(func, node_id) > 0 {
-    ignore(
-      rse_visit_node(ctx, func, state, @ir.hot_child_get(func, node_id, 0)),
-    )
-  }
   let scope = RseLabelScope::new(
     @ir.hot_control_node_label(func, node_id),
     RseLabelKind::RseExitLabel,
@@ -386,6 +422,31 @@ fn rse_visit_control(
   node_id : Int,
 ) -> Int {
   let node = @ir.hot_node_get(func, node_id)
+  let mut previous_input = -1
+  let mut lane = 0
+  for index = 0
+      index < pass_value_operand_count(func, node_id)
+      index = index + 1 {
+    let slot = pass_value_operand_slot(node, index)
+    let input = @ir.hot_child_get(func, node_id, slot)
+    let arity = @ir.hot_node_result_arity(func, input)
+    lane = if previous_input == input { lane + 1 } else { 0 }
+    let force_eval = arity == 0 || (lane > 0 && lane % arity == 0)
+    previous_input = input
+    ignore(
+      rse_visit_node(
+        ctx,
+        func,
+        state,
+        input,
+        capture=!(node.op is @ir.HotOp::If && slot == 0),
+        force_eval~,
+      ),
+    )
+    if !state.reachable {
+      return rse_fresh_value(state, node_id)
+    }
+  }
   match node.op {
     @ir.HotOp::If => rse_visit_if(ctx, func, state, node_id)
     @ir.HotOp::Block => {
@@ -502,6 +563,38 @@ fn rse_visit_node(
   func : @ir.HotFunc,
   state : RseState,
   node_id : Int,
+  capture? : Bool = false,
+  force_eval? : Bool = false,
+) -> Int {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return -1
+  }
+  while state.captured_values.length() <= node_id {
+    state.captured_values.push(-2)
+    state.captured_depths.push(-1)
+  }
+  if !force_eval && state.captured_values[node_id] != -2 {
+    return state.captured_values[node_id]
+  }
+  let capture_depth = state.captured_nodes.length()
+  let value = rse_visit_uncaptured_node(ctx, func, state, node_id)
+  rse_rewind_captures(state, capture_depth)
+  if capture {
+    state.previous_captured_values.push(state.captured_values[node_id])
+    state.previous_captured_depths.push(state.captured_depths[node_id])
+    state.captured_depths[node_id] = state.captured_nodes.length()
+    state.captured_values[node_id] = value
+    state.captured_nodes.push(node_id)
+  }
+  value
+}
+
+///|
+fn rse_visit_uncaptured_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  state : RseState,
+  node_id : Int,
 ) -> Int {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return -1
@@ -516,21 +609,28 @@ fn rse_visit_node(
     _ => ()
   }
 
-  let child_values : Array[Int] = []
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    child_values.push(
-      rse_visit_node(ctx, func, state, @ir.hot_child_get(func, node_id, slot)),
+  let child_count = @ir.hot_child_count(func, node_id)
+  let mut first_child_value = -1
+  for slot = 0; slot < child_count; slot = slot + 1 {
+    let value = rse_visit_node(
+      ctx,
+      func,
+      state,
+      @ir.hot_child_get(func, node_id, slot),
     )
+    if slot == 0 {
+      first_child_value = value
+    }
   }
 
   match node.op {
     @ir.HotOp::LocalGet => rse_local_value_get(state, node.imm0)
     @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
-      if child_values.length() != 1 {
+      if child_count != 1 {
         return rse_fresh_value(state, node_id)
       }
       let value_id = @ir.hot_child_get(func, node_id, 0)
-      let value = child_values[0]
+      let value = first_child_value
       let current = rse_local_value_get(state, node.imm0)
       if state.initialized[node.imm0] && value >= 0 && current == value {
         match node.op {
@@ -588,7 +688,7 @@ fn rse_visit_node(
       rse_fresh_value(state, node_id)
     }
     _ =>
-      match rse_structural_value(func, state, node_id, child_values) {
+      match rse_structural_value(func, state, node_id) {
         Some(value) => value
         None => rse_fresh_value(state, node_id)
       }

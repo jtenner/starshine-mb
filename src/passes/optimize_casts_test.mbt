@@ -331,7 +331,7 @@ test "optimize-casts follows validator abstract heap bottom subtyping" {
       @lib.HeapType::abs(@lib.AbsHeapType::i31()),
     ),
     (
-      @lib.HeapType::abs(@lib.AbsHeapType::none()),
+      @lib.HeapType::abs(@lib.AbsHeapType::no_extern()),
       @lib.HeapType::abs(@lib.AbsHeapType::string_()),
     ),
     (

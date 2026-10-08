@@ -286,6 +286,7 @@ fn dae2_prepare_type_locations(
   infos : Array[Dae2Function],
   exposure : Array[DaeFunctionExposure],
   closed_world : Bool,
+  private_elements? : Array[Bool]? = None,
 ) -> Array[Int] {
   let total = context.subtypes.length()
   let bases = Array::make(total, 0)
@@ -381,28 +382,18 @@ fn dae2_prepare_type_locations(
   }
   let host_abstract_tables = dae2_host_abstract_funcref_tables(mod_, context)
   let has_host_abstract_table = host_abstract_tables.any(fn(visible) { visible })
+  let has_host_callable_parameter = dae2_has_host_callable_parameter(context)
   for index = 0; index < exposure.length(); index = index + 1 {
     let e = exposure[index]
     let type_index = dae2_type_slot(context.func_type_idxs[index], 0)
-    let type_info = infos[type_infos[type_index]]
     if dae_function_exposure_blocks_boundary(e) {
-      let info = infos[index]
-      for param = 0; param < info.param_locations.length(); param = param + 1 {
-        graph.edge(
-          info.param_locations[param],
-          type_info.param_locations[param],
-        )
-        graph.edge(
-          type_info.param_locations[param],
-          info.param_locations[param],
-        )
-      }
-      graph.edge(info.result_location, type_info.result_location)
-      graph.edge(type_info.result_location, info.result_location)
       if !closed_world ||
         e.imported ||
         e.exported ||
-        (has_host_abstract_table && dae2_function_reference_may_reach_table(e)) {
+        (
+          (has_host_abstract_table || has_host_callable_parameter) &&
+          dae2_function_reference_may_reach_table(e)
+        ) {
         public_types.observe(type_index)
       }
     }
@@ -463,6 +454,44 @@ fn dae2_prepare_type_locations(
     }
   }
   public_types.solve()
+  // Build boundary edges after the public closure. A private scalar element
+  // target can use a new group identity while its original type stays fixed.
+  for index = 0; index < exposure.length(); index = index + 1 {
+    let e = exposure[index]
+    let type_index = dae2_type_slot(context.func_type_idxs[index], 0)
+    let type_info = infos[type_infos[type_index]]
+    let private_element = match private_elements {
+      Some(mask) => {
+        mask[index] = mask[index] && !public_types.used[type_index]
+        mask[index]
+      }
+      None => false
+    }
+    if private_element {
+      for location in type_info.param_locations {
+        graph.observe(location)
+      }
+      graph.observe(type_info.result_location)
+      // This is the pass-local boundary view. Keep the separate mask so final
+      // signature allocation preserves the runtime reference identity.
+      e.active_element = false
+      e.passive_element = false
+    } else if dae_function_exposure_blocks_boundary(e) {
+      let info = infos[index]
+      for param = 0; param < info.param_locations.length(); param = param + 1 {
+        graph.edge(
+          info.param_locations[param],
+          type_info.param_locations[param],
+        )
+        graph.edge(
+          type_info.param_locations[param],
+          info.param_locations[param],
+        )
+      }
+      graph.edge(info.result_location, type_info.result_location)
+      graph.edge(type_info.result_location, info.result_location)
+    }
+  }
   for index = 0; index < total; index = index + 1 {
     if public_types.used[index] && type_infos[index] >= 0 {
       let info = infos[type_infos[index]]

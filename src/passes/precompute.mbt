@@ -3559,16 +3559,46 @@ fn precompute_try_simplify_self_branch_value_block(
 }
 
 ///|
+priv struct PrecomputeTransparentBlockCleanup {
+  holders : Array[Int]
+  copied_values : Array[Int]
+}
+
+///|
+fn PrecomputeTransparentBlockCleanup::new() -> PrecomputeTransparentBlockCleanup {
+  { holders: [], copied_values: [], }
+}
+
+///|
+fn precompute_finish_transparent_block_cleanup(
+  func : @ir.HotFunc,
+  cleanup : PrecomputeTransparentBlockCleanup,
+) -> Unit {
+  // Remove copied operands before checking the detached control forest. A
+  // copied value may retain edges to controls still owned by its replacement.
+  if !cleanup.copied_values.is_empty() {
+    @ir.hot_delete_detached_nodes(func, cleanup.copied_values)
+  }
+  if !cleanup.holders.is_empty() &&
+    !@ir.hot_delete_detached_control_forest(func, cleanup.holders) {
+    abort("precompute failed to delete detached transparent value blocks")
+  }
+}
+
+///|
 fn precompute_try_inline_transparent_value_block_child(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
   label_used : @bitset.BitSet,
+  use_counts : @ir.HotNodeUseCounts,
+  cleanup? : PrecomputeTransparentBlockCleanup? = None,
 ) -> Bool {
   if @ir.hot_is_control_node(func, node_id) {
     return false
   }
   let child_count = @ir.hot_child_count(func, node_id)
+  let mut changed = false
   for slot = 0; slot < child_count; slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
     if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
@@ -3585,6 +3615,9 @@ fn precompute_try_inline_transparent_value_block_child(
     if pass_label_is_used(label_id, label_used) {
       continue
     }
+    if @ir.hot_node_use_count(use_counts, child_id) != 1 {
+      continue
+    }
     let body_ref = @ir.hot_region_body_ref(func, child_id)
     if @ir.hot_region_root_count(func, body_ref) != 1 {
       continue
@@ -3593,17 +3626,43 @@ fn precompute_try_inline_transparent_value_block_child(
     if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
       continue
     }
+    let prefix_count = @ir.hot_node_get(func, child_id).imm1
+    if prefix_count > 0 &&
+      !(prefix_count == 1 &&
+      @ir.hot_child_count(func, child_id) == 2 &&
+      @ir.hot_child_get(func, child_id, 0) == value_id) {
+      // Only a scalar identity proves that removing its entry prefix cannot
+      // lose input effects. Other typed holders keep their represented entry.
+      continue
+    }
     if slot == 0 && @ir.hot_is_terminator_node(func, value_id) {
+      if @ir.hot_node_use_count(use_counts, value_id) != 1 {
+        continue
+      }
       precompute_replace_node_rehoming_control_label(
         func,
         node_id,
         @ir.hot_node_get(func, value_id),
       )
       @ir.hot_region_replace_body(func, body_ref, [])
-      if !@ir.hot_delete_detached_control_forest(func, [child_id]) {
-        abort("precompute failed to delete detached terminating value block")
+      match cleanup {
+        Some(cleanup) => {
+          cleanup.holders.push(child_id)
+          cleanup.copied_values.push(value_id)
+          // These nodes are detached. Exclude them from later candidates in
+          // this owned phase snapshot while their checked deletion is pending.
+          use_counts.counts[child_id] = 0
+          use_counts.counts[value_id] = 0
+        }
+        None => {
+          if !@ir.hot_delete_detached_control_forest(func, [child_id]) {
+            abort(
+              "precompute failed to delete detached terminating value block",
+            )
+          }
+          @ir.hot_delete_node(func, value_id)
+        }
       }
-      @ir.hot_delete_node(func, value_id)
       pass_mark_mutated(ctx, func)
       return true
     }
@@ -3611,14 +3670,27 @@ fn precompute_try_inline_transparent_value_block_child(
       continue
     }
     @ir.hot_child_set(func, node_id, slot, value_id)
-    @ir.hot_region_replace_body(func, body_ref, [])
-    if !@ir.hot_delete_detached_control_forest(func, [child_id]) {
-      abort("precompute failed to delete detached transparent value block")
+    if prefix_count == 0 {
+      @ir.hot_region_replace_body(func, body_ref, [])
+    } else {
+      // The prefix and result refer to the same scalar producer. The parent
+      // now owns its remaining reference, so retain that producer once.
+      ignore(@ir.hot_replace_child_span(func, child_id, []))
+    }
+    match cleanup {
+      Some(cleanup) => {
+        cleanup.holders.push(child_id)
+        use_counts.counts[child_id] = 0
+      }
+      None =>
+        if !@ir.hot_delete_detached_control_forest(func, [child_id]) {
+          abort("precompute failed to delete detached transparent value block")
+        }
     }
     pass_mark_mutated(ctx, func)
-    return true
+    changed = true
   }
-  false
+  changed
 }
 
 ///|
@@ -4478,10 +4550,16 @@ fn precompute_raw_try_fold_i32_trunc(
       }
       return Some(@lib.Instruction::i32_const(@lib.I32(result)))
     }
-    if value.is_nan() || value < -2147483648.0 || value >= 2147483648.0 {
+    if value.is_nan() || value <= -2147483649.0 || value >= 2147483648.0 {
       return None
     }
-    return Some(@lib.Instruction::i32_const(@lib.I32(value.to_int())))
+    // Truncation removes the fractional part before the range check.
+    let result = if value < -2147483648.0 {
+      -2147483647 - 1
+    } else {
+      value.to_int()
+    }
+    return Some(@lib.Instruction::i32_const(@lib.I32(result)))
   }
   if saturating {
     let result = if value.is_nan() || value <= 0.0 {
@@ -4495,12 +4573,11 @@ fn precompute_raw_try_fold_i32_trunc(
       @lib.Instruction::i32_const(@lib.I32(result.reinterpret_as_int())),
     )
   }
-  if value.is_nan() || value < 0.0 || value >= 4294967296.0 {
+  if value.is_nan() || value <= -1.0 || value >= 4294967296.0 {
     return None
   }
-  Some(
-    @lib.Instruction::i32_const(@lib.I32(value.to_uint().reinterpret_as_int())),
-  )
+  let result = if value < 0.0 { 0U } else { value.to_uint() }
+  Some(@lib.Instruction::i32_const(@lib.I32(result.reinterpret_as_int())))
 }
 
 ///|
@@ -4551,14 +4628,15 @@ fn precompute_raw_try_fold_i64_trunc(
       @lib.Instruction::i64_const(@lib.I64(result.reinterpret_as_int64())),
     )
   }
-  if value.is_nan() || value < 0.0 || value >= 18446744073709551616.0 {
+  if value.is_nan() || value <= -1.0 || value >= 18446744073709551616.0 {
     return None
   }
-  Some(
-    @lib.Instruction::i64_const(
-      @lib.I64(precompute_trunc_double_to_uint64(value).reinterpret_as_int64()),
-    ),
-  )
+  let result = if value < 0.0 {
+    0UL
+  } else {
+    precompute_trunc_double_to_uint64(value)
+  }
+  Some(@lib.Instruction::i64_const(@lib.I64(result.reinterpret_as_int64())))
 }
 
 ///|
@@ -7905,7 +7983,7 @@ fn precompute_raw_fold_output_tail(
         @lib.LocalGet(accumulator_local),
         @lib.LocalGet(read_scratch),
         @lib.I32Add,
-        @lib.LocalTee(final_local) as final_write,
+        @lib.LocalTee(final_local),
       )
       | (
         @lib.I32Const(_) as scratch_const,
@@ -7913,17 +7991,12 @@ fn precompute_raw_fold_output_tail(
         @lib.LocalGet(accumulator_local),
         @lib.LocalGet(read_scratch),
         @lib.I32Add,
-        @lib.LocalSet(final_local) as final_write,
+        @lib.LocalSet(final_local),
       ) if scratch_local == read_scratch &&
         accumulator_local == final_local &&
         scratch_local != accumulator_local => {
-        for _ in 0..<6 {
-          ignore(out.pop())
-        }
-        out.push(@lib.Instruction::local_get(accumulator_local))
-        out.push(scratch_const)
-        out.push(@lib.Instruction::i32_add())
-        out.push(final_write)
+        // Later reads can still need the scratch write. Replace only this read.
+        out[base + 3] = scratch_const
         return true
       }
       _ => ()
@@ -8669,6 +8742,60 @@ fn precompute_raw_rewrite_instr(
         (instr, false)
       }
     }
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+      // Share one temporary label frame across the protected and catch bodies.
+      label_arities.push(
+        precompute_raw_block_label_arity(block_type, module_ctx),
+      )
+      let (next_body, body_changed) = precompute_raw_rewrite_instrs(
+        body,
+        module_ctx,
+        label_arities~,
+      )
+      let mut next_catches : Array[@lib.LegacyCatch]? = None
+      for idx = 0; idx < catches.length(); idx = idx + 1 {
+        let catch_ = catches[idx]
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(body))
+          | @lib.LegacyCatchAll(@lib.Expr(body)) => body
+        }
+        let (next_catch_body, changed) = precompute_raw_rewrite_instrs(
+          catch_body,
+          module_ctx,
+          label_arities~,
+        )
+        if changed {
+          let out = match next_catches {
+            Some(out) => out
+            None => {
+              let out = catches.copy()
+              next_catches = Some(out)
+              out
+            }
+          }
+          out[idx] = match catch_ {
+            @lib.LegacyCatch(tag_idx, _) =>
+              @lib.LegacyCatch::tagged(tag_idx, @lib.Expr::new(next_catch_body))
+            @lib.LegacyCatchAll(_) =>
+              @lib.LegacyCatch::all(@lib.Expr::new(next_catch_body))
+          }
+        }
+      }
+      ignore(label_arities.pop())
+      if body_changed || next_catches is Some(_) {
+        (
+          @lib.Instruction::try_(
+            block_type,
+            @lib.Expr::new(next_body),
+            next_catches.unwrap_or(catches),
+            delegate~,
+          ),
+          true,
+        )
+      } else {
+        (instr, false)
+      }
+    }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
       let (next_body, changed) = precompute_raw_rewrite_instrs(
         body,
@@ -8934,6 +9061,27 @@ fn precompute_raw_rewrite_instrs(
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   for instr in instrs {
+    // An empty typed identity changes no stack value or effect. Remove it
+    // directly; routing this case through HOT or creating a nop adds work.
+    match instr {
+      @lib.Block(@lib.TypeIdxBlockType(type_idx), @lib.Expr(body)) =>
+        match module_ctx {
+          Some(ctx) =>
+            match @ir.hot_module_resolve_type_func_type(ctx, type_idx) {
+              Some(@lib.FuncType(params, results)) =>
+                if params.length() == 1 &&
+                  results.length() == 1 &&
+                  params[0] == results[0] &&
+                  precompute_raw_instrs_are_all_nops(body) {
+                  changed = true
+                  continue
+                }
+              None => ()
+            }
+          None => ()
+        }
+      _ => ()
+    }
     let (rewritten, nested_changed) = precompute_raw_rewrite_instr(
       instr, module_ctx, label_arities,
     )
@@ -10139,6 +10287,29 @@ fn precompute_propagate_run_raw_straight_line_func(
 }
 
 ///|
+fn precompute_has_transparent_value_block_child(
+  func : @ir.HotFunc,
+  node_id : Int,
+  label_used : @bitset.BitSet,
+) -> Bool {
+  if @ir.hot_is_control_node(func, node_id) {
+    return false
+  }
+  for slot in 0..<@ir.hot_child_count(func, node_id) {
+    let child = @ir.hot_child_get(func, node_id, slot)
+    if child >= 0 &&
+      @ir.hot_node_is_live(func, child) &&
+      @ir.hot_node_get(func, child).op is @ir.HotOp::Block &&
+      @ir.hot_node_result_arity(func, child) == 1 &&
+      !pass_label_is_used(@ir.hot_control_node_label(func, child), label_used) &&
+      @ir.hot_region_root_count(func, @ir.hot_region_body_ref(func, child)) == 1 {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let mut changed_any = false
   let mut changed_round = true
@@ -10149,6 +10320,7 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
       changed_any = true
     }
     let label_used = pass_compute_label_used(func)
+    let mut inline_candidates : Array[Int]? = None
     for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
       if !@ir.hot_node_is_live(func, node_id) {
         continue
@@ -10163,12 +10335,11 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
         changed_any = true
         continue
       }
-      if precompute_try_inline_transparent_value_block_child(
-          ctx, func, node_id, label_used,
-        ) {
-        changed_round = true
-        changed_any = true
-        continue
+      if precompute_has_transparent_value_block_child(func, node_id, label_used) {
+        match inline_candidates {
+          Some(candidates) => candidates.push(node_id)
+          None => inline_candidates = Some([node_id])
+        }
       }
       if precompute_try_fold_global_get(ctx, func, node_id) {
         changed_round = true
@@ -10250,6 +10421,49 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
         changed_round = true
         changed_any = true
       }
+    }
+    // Only this phase changes ownership while its count snapshot is live.
+    // An inline transfers the sole holder edge to the value; terminating
+    // replacement detaches the copied value's old edges. Counts can therefore
+    // only stay equal or decrease. Shared holders remain for later rounds.
+    // Check and delete all detached nodes once after the phase, rather than
+    // scanning the complete function for each empty holder.
+    match inline_candidates {
+      Some(candidates) => {
+        let label_used = pass_compute_label_used(func)
+        let mut counts : @ir.HotNodeUseCounts? = None
+        let cleanup = PrecomputeTransparentBlockCleanup::new()
+        for node_id in candidates {
+          if !@ir.hot_node_is_live(func, node_id) ||
+            !precompute_has_transparent_value_block_child(
+              func, node_id, label_used,
+            ) {
+            continue
+          }
+          let use_counts = match counts {
+            Some(counts) => counts
+            None => {
+              let snapshot = @ir.hot_node_use_counts_build(func)
+              counts = Some(snapshot)
+              snapshot
+            }
+          }
+          if @ir.hot_node_use_count(use_counts, node_id) > 0 &&
+            precompute_try_inline_transparent_value_block_child(
+              ctx,
+              func,
+              node_id,
+              label_used,
+              use_counts,
+              cleanup=Some(cleanup),
+            ) {
+            changed_round = true
+            changed_any = true
+          }
+        }
+        precompute_finish_transparent_block_cleanup(func, cleanup)
+      }
+      None => ()
     }
     if changed_round &&
       precompute_trim_region_nops(ctx, func, @ir.HotRegionRef::root()) {
@@ -11638,6 +11852,11 @@ fn precompute_propagate_prefix_fold_local_gets(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> Bool {
+  // A node-indexed SSA overlay cannot choose a different origin per repeated
+  // producer evaluation. Preserve this phase before it queries that overlay.
+  if pass_has_repeated_entry_evaluation(func) {
+    return false
+  }
   let ssa = pass_require_ssa(ctx, func)
   let label_used = pass_compute_label_used(func)
   // Scalar reaching writes must include control nested in value operands.

@@ -43,7 +43,6 @@ test "flatten synthetic legacy-WAST detector rejects a mixed-result block-loop l
       #|           i32.add))
       #|       (drop (loop (result i64) i64.const 3))
       #|       unreachable)))
-      #|,
     ),
   )
   assert_false(flatten_has_synthetic_legacy_wast_check(func))

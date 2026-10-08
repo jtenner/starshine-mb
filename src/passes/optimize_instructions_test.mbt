@@ -1,4 +1,15 @@
 ///|
+test "optimize-instructions eqz retains values from branches to its block" {
+  let output = pass_test_run_pipeline(
+    "(module (func (param i32) (result i32) block (result i32) i32.const 3 local.get 0 br_if 0 drop i32.const 0 end i32.eqz if (result i32) i32.const 11 else i32.const 22 end))",
+    ["optimize-instructions"],
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_eq(audit_count(body, fn(instr) { instr is @lib.I32Eqz }), 1)
+}
+
+///|
 fn optimize_instructions_large_local_fixture() -> String {
   let out = StringBuilder::new()
   out.write_string("(module (func (local i32")
@@ -100,7 +111,6 @@ fn optimize_instructions_loop_gate_fixture() -> String {
     #|        local.set 0
     #|        br $l
     #|      end)))
-    #|,
   )
 }
 
@@ -231,7 +241,6 @@ test "optimize-instructions preserves multi-use local assignment payloads" {
         #|      i32.store8
         #|    end
         #|    local.get 1))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(optimize_level=4, shrink_level=4),
@@ -294,7 +303,6 @@ test "optimize-instructions preserves stack-carried call results across zero shi
       #|    i32.const 0
       #|    i32.shl
       #|    i32.add))
-      #|,
     ),
     "stack-carried-call-zero-shift-optimize-instructions-noop",
   )
@@ -316,7 +324,6 @@ test "optimize-instructions defers global call tee control meshes" {
       #|      local.get 1
       #|      drop
       #|    end))
-      #|,
     ),
     "global-call-tee-control-optimize-instructions-noop",
   )
@@ -335,7 +342,6 @@ test "optimize-instructions preserves subtracted locals with multiple later read
       #|    local.get 1
       #|    drop
       #|    local.get 1))
-      #|,
     ),
     "subtracted-local-multi-use-optimize-instructions-noop",
   )
@@ -372,7 +378,6 @@ test "optimize-instructions preserves stack-carried accumulator reads across sib
         #|      end
         #|    end
         #|    local.get 2))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -406,7 +411,6 @@ test "optimize-instructions preserves stack-carried store addresses across tee v
         #|    i32.const 1744
         #|    local.tee 0
         #|    i32.store offset=8))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -435,7 +439,6 @@ test "optimize-instructions drops nested zero-size memory copy without stale par
         #|      i32.const 0
         #|      memory.copy
         #|    end))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(
@@ -489,7 +492,6 @@ test "optimize-instructions public pipeline still cleans neutral add outside raw
         #|    local.get 0
         #|    i32.const 0
         #|    i32.add))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -518,7 +520,6 @@ test "optimize-instructions raw path folds simple constant adds before HOT" {
         #|    i32.const 41
         #|    i32.const 1
         #|    i32.add))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -575,7 +576,6 @@ test "optimize-instructions raw skip removes local-carried add-zero before sign 
         #|    i64.add
         #|    i64.extend32_s
         #|    drop))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -618,7 +618,6 @@ test "optimize-instructions keeps sign extends after conflicting local facts" {
         #|    drop
         #|    i32.const 32767
         #|    local.set $x))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -665,7 +664,6 @@ test "optimize-instructions removes i32 but keeps i64 local-carried unsigned mas
         #|    i64.const 255
         #|    i64.and
         #|    drop))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -699,7 +697,6 @@ test "optimize-instructions erases pure block operands after maxBits compare fol
         #|      (block (result i32)
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -730,7 +727,6 @@ test "optimize-instructions erases pure block prefixes after maxBits compare fol
         #|        (drop (i32.const 99))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -761,7 +757,6 @@ test "optimize-instructions preserves effectful block prefixes after maxBits com
         #|        (local.set $tmp (i32.const 7))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -793,7 +788,6 @@ test "optimize-instructions preserves memory-store block prefixes after maxBits 
         #|        (i32.store (i32.const 0) (i32.const 7))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -825,7 +819,6 @@ test "optimize-instructions preserves call block prefixes after maxBits compare 
         #|        (call $side)
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -857,7 +850,6 @@ test "optimize-instructions preserves drop-call block prefixes after maxBits com
         #|        (drop (call $side))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -891,7 +883,6 @@ test "optimize-instructions preserves call_indirect block prefixes after maxBits
         #|        (call_indirect (type $t) (i32.const 0))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -925,7 +916,6 @@ test "optimize-instructions preserves drop-call_indirect block prefixes after ma
         #|        (drop (call_indirect (type $t) (i32.const 0)))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1083,7 +1073,6 @@ test "optimize-instructions preserves global-set block prefixes after maxBits co
         #|        (global.set $g (i32.const 7))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1116,7 +1105,6 @@ test "optimize-instructions preserves table-set block prefixes after maxBits com
         #|        (table.set 0 (i32.const 0) (ref.func $side))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1147,7 +1135,6 @@ test "optimize-instructions preserves data-drop block prefixes after maxBits com
         #|        (data.drop $d)
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1178,7 +1165,6 @@ test "optimize-instructions preserves memory-init block prefixes after maxBits c
         #|        (memory.init $d (i32.const 0) (i32.const 0) (local.get $n))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1208,7 +1194,6 @@ test "optimize-instructions preserves memory-copy block prefixes after maxBits c
         #|        (memory.copy (i32.const 1) (i32.const 0) (local.get $n))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1238,7 +1223,6 @@ test "optimize-instructions preserves memory-fill block prefixes after maxBits c
         #|        (memory.fill (i32.const 0) (i32.const 7) (local.get $n))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1270,7 +1254,6 @@ test "optimize-instructions preserves elem-drop block prefixes after maxBits com
         #|        (elem.drop $e)
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1300,7 +1283,6 @@ test "optimize-instructions preserves table-fill block prefixes after maxBits co
         #|        (table.fill 0 (i32.const 0) (ref.null func) (local.get $n))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1332,7 +1314,6 @@ test "optimize-instructions preserves table-copy block prefixes after maxBits co
         #|        (table.copy 0 0 (i32.const 1) (i32.const 0) (local.get $n))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1364,7 +1345,6 @@ test "optimize-instructions preserves table-init block prefixes after maxBits co
         #|        (table.init $e (i32.const 1) (i32.const 0) (local.get $n))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1395,7 +1375,6 @@ test "optimize-instructions preserves table-grow drop block prefixes after maxBi
         #|        (drop (table.grow 0 (ref.null func) (local.get $n)))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1547,7 +1526,6 @@ test "optimize-instructions preserves struct-atomic-get drop block prefixes afte
         #|        (drop (struct.atomic.get $S 0 (local.get $s)))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1580,7 +1558,6 @@ test "optimize-instructions preserves struct-atomic-rmw drop block prefixes afte
         #|        (drop (struct.atomic.rmw.add $S 0 (local.get $s) (local.get $v)))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1618,7 +1595,6 @@ test "optimize-instructions preserves struct-atomic-cmpxchg drop block prefixes 
         #|        (drop (struct.atomic.rmw.cmpxchg $S 0 (local.get $s) (local.get $e) (local.get $v)))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1657,7 +1633,6 @@ test "optimize-instructions preserves array-atomic-rmw drop block prefixes after
         #|        (drop (array.atomic.rmw.add $A (local.get $a) (local.get $i) (local.get $v)))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1691,7 +1666,6 @@ test "optimize-instructions preserves array-atomic-cmpxchg drop block prefixes a
         #|        (drop (array.atomic.rmw.cmpxchg $A (local.get $a) (local.get $i) (local.get $e) (local.get $v)))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -1985,7 +1959,6 @@ test "optimize-instructions preserves memory-grow drop block prefixes after maxB
         #|        (drop (memory.grow (local.get $n)))
         #|        (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -2014,7 +1987,6 @@ test "optimize-instructions preserves local.tee while folding maxBits compares" 
         #|    (i32.eq
         #|      (local.tee $tmp (i32.and (local.get $x) (i32.const 255)))
         #|      (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -2042,7 +2014,6 @@ test "optimize-instructions carries local maxBits through loop fallthrough assig
         #|      (loop (result i32)
         #|        (i32.and (local.get $x) (i32.const 255))))
         #|    (i32.eq (local.get $tmp) (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -2079,7 +2050,6 @@ test "optimize-instructions carries local maxBits through one-sided if assignmen
         #|        (then unreachable)
         #|        (else (i32.and (local.get $x) (i32.const 255)))))
         #|    (i32.eq (local.get $tmp) (i32.const 256))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -2127,7 +2097,6 @@ test "optimize-instructions removes i32 but keeps i64 block-produced masks" {
         #|    i64.const 65535
         #|    i64.and
         #|    drop))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -2154,7 +2123,6 @@ test "optimize-instructions public pipeline canonicalizes simple stack-carried c
         #|    i32.add)
         #|  (func $one (result i32)
         #|    i32.const 1))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -2190,7 +2158,6 @@ test "optimize-instructions skips functions mixing loads and calls" {
         #|    i32.const 0
         #|    i32.eqz
         #|    drop))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -2222,7 +2189,6 @@ test "optimize-instructions folds load-call constant memory offsets through narr
         #|    i32.load offset=4
         #|    drop
         #|    call $touch))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -2269,7 +2235,6 @@ test "optimize-instructions intentionally keeps nonconstant load-call offset bou
         #|    i32.load offset=4
         #|    drop
         #|    call $touch))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -2312,7 +2277,6 @@ test "optimize-instructions skips call-local-write functions" {
         #|    i32.const 0
         #|    i32.eqz
         #|    drop))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -2350,7 +2314,6 @@ test "optimize-instructions skips stack-carried values across effect barriers" {
         #|    i32.eqz
         #|    drop
         #|    local.get $out))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -26731,7 +26694,6 @@ test "optimize-instructions orders runtime store8 restore i64 xor operands like 
     #|    i64.const 8
     #|    i64.shl
     #|    i64.xor))
-    #|,
   let optimized = match
     pass_test_run_pipeline(source, ["optimize-instructions"]) {
     Ok(mod_) => mod_
@@ -29946,7 +29908,6 @@ test "optimize-instructions keeps i64 sign-extension equality outside range" {
         #|    i64.extend32_s
         #|    i64.const 2147483648
         #|    i64.eq))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -29989,7 +29950,6 @@ test "optimize-instructions keeps i32 sign-extension relational compares outside
         #|    i32.extend16_s
         #|    i32.const -32769
         #|    i32.gt_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -30398,7 +30358,6 @@ test "optimize-instructions rewrites boolean maxBits binary consumers" {
         #|    i32.eqz
         #|    i32.const 1
         #|    i32.xor))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -30442,7 +30401,6 @@ test "optimize-instructions preserves effects for boolean maxBits or-one" {
         #|    i64.and
         #|    i64.const 1
         #|    i64.or))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -30496,7 +30454,6 @@ test "optimize-instructions rewrites i64 boolean maxBits binary consumers" {
         #|    i64.and
         #|    i64.const 1
         #|    i64.xor))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -30830,7 +30787,6 @@ test "optimize-instructions keeps unsigned compares after widened local facts" {
         #|    drop
         #|    i32.const 65535
         #|    local.set $x))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -30866,7 +30822,6 @@ test "optimize-instructions folds local unsigned maxBits compares" {
         #|    local.get $n
         #|    i64.const 42
         #|    i64.ge_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -30904,7 +30859,6 @@ test "optimize-instructions folds i32.wrap_i64 unsigned maxBits compares" {
         #|    local.get $n
         #|    i32.const 128
         #|    i32.lt_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -30943,7 +30897,6 @@ test "optimize-instructions folds i64.extend_i32_u unsigned maxBits compares" {
         #|    i64.extend_i32_u
         #|    i64.const 300
         #|    i64.gt_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -30986,7 +30939,6 @@ test "optimize-instructions rewrites unsigned maxBits signed compare spelling" {
         #|    i32.load8_u
         #|    i32.const 128
         #|    i32.lt_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -31059,7 +31011,6 @@ test "optimize-instructions rewrites unsigned maxBits signed div rem shift spell
         #|    i64.xor
         #|    i64.const 1
         #|    i64.shr_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -31105,7 +31056,6 @@ test "optimize-instructions rewrites eqz wrap_i64 with unsigned maxBits" {
         #|    i64.and
         #|    i32.wrap_i64
         #|    i32.eqz))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -31140,7 +31090,6 @@ test "optimize-instructions removes extend wrap_i64 with unsigned maxBits" {
         #|    i64.and
         #|    i32.wrap_i64
         #|    i64.extend_i32_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -31176,7 +31125,6 @@ test "optimize-instructions rewrites signed extend wrap_i64 to extend32 fallback
         #|    i64.and
         #|    i32.wrap_i64
         #|    i64.extend_i32_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -34388,6 +34336,40 @@ test "optimize-instructions folds ref.test from loop fallthrough facts" {
 }
 
 ///|
+fn optimize_instructions_test_validate_br_on_hot(
+  module_ : @lib.Module,
+  defined_idx : Int,
+  func : @ir.HotFunc,
+) -> Unit raise {
+  match @ir.hot_verify_all(func, cache=Some(())) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid BrOn HOT fixture, got \{err}")
+  }
+  let code = match module_.code_sec {
+    Some(@lib.CodeSec(code)) => code.copy()
+    None => fail("expected BrOn fixture code section")
+  }
+  code[defined_idx] = @ir.hot_lower_func(func)
+  let lowered = module_.with_code_sec(@lib.CodeSec::new(code))
+  match @validate.validate_module(lowered) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid lowered BrOn fixture, got \{err}")
+  }
+  let encoded = match @binary.encode_module(lowered) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected BrOn fixture encoding, got \{err}")
+  }
+  let decoded = match @binary.decode_module(encoded) {
+    Ok(module_) => module_
+    Err(err) => fail("expected BrOn fixture decoding, got \{err}")
+  }
+  match @validate.validate_module(decoded) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid decoded BrOn fixture, got \{err}")
+  }
+}
+
+///|
 test "optimize-instructions folds ref.test from br_on_null fallthrough facts" {
   // OI-J fallthrough-type fact slice: Binaryen version_130
   // `Properties::getImmediateFallthrough` returns `BrOn::ref`, so a direct HOT
@@ -34427,10 +34409,8 @@ test "optimize-instructions folds ref.test from br_on_null fallthrough facts" {
   let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
   let ref_test = @ir.hot_root_get(func, 0)
   let ref_i31 = @ir.hot_child_get(func, ref_test, 0)
-  let target = @ir.hot_control_node_label(
-    func,
-    @ir.hot_build_block(func, @lib.BlockType::void_(), []),
-  )
+  let outer = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let target = @ir.hot_control_node_label(func, outer)
   let br_on_null = @ir.hot_build_node(
     func,
     @ir.HotOp::br_on_null(),
@@ -34444,6 +34424,12 @@ test "optimize-instructions folds ref.test from br_on_null fallthrough facts" {
     [br_on_null],
   )
   @ir.hot_child_set(func, ref_test, 0, fallthrough_block)
+  let result_local = @ir.hot_append_body_local(func, @lib.ValType::i32())
+  let set = @ir.hot_build_local_set(func, result_local, ref_test)
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, outer), [set])
+  @ir.hot_root_set(func, 0, outer)
+  @ir.hot_root_append(func, @ir.hot_build_local_get(func, result_local))
+  optimize_instructions_test_validate_br_on_hot(module_, 0, func)
   let ctx = HotPassContext::new(
     optimize_instructions_descriptor(),
     @ir.HotAnalysisCache::new(),
@@ -34456,7 +34442,8 @@ test "optimize-instructions folds ref.test from br_on_null fallthrough facts" {
     Err(err) =>
       fail("expected br_on_null fallthrough ref.test HOT success, got \{err}")
   }
-  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, set, 0), ref_test)
+  let root = ref_test
   match @ir.hot_node_get(func, root).op {
     @ir.HotOp::Block => ()
     other => fail("expected folded br_on_null ref.test block, got \{other}")
@@ -34468,6 +34455,7 @@ test "optimize-instructions folds ref.test from br_on_null fallthrough facts" {
     other =>
       fail("expected folded true constant after br_on_null drop, got \{other}")
   }
+  optimize_instructions_test_validate_br_on_hot(module_, 0, func)
 }
 
 ///|
@@ -44790,7 +44778,9 @@ test "optimize-instructions exactifies nullable descriptor casts on strict-subty
     .with_type_sec(
       @lib.TypeSec::new([
         @lib.RecType::group([
-          @lib.SubType::comp_type(
+          @lib.SubType::new(
+            false,
+            [],
             @lib.CompType::struct_([
               @lib.FieldType::new(
                 @lib.StorageType::val_type(@lib.ValType::i32()),
@@ -44801,7 +44791,9 @@ test "optimize-instructions exactifies nullable descriptor casts on strict-subty
               descriptor=Some(base_descriptor_type),
             ),
           ),
-          @lib.SubType::comp_type(
+          @lib.SubType::new(
+            false,
+            [],
             @lib.CompType::struct_([]),
             metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
           ),
@@ -55697,12 +55689,17 @@ test "optimize-instructions folds impossible ref.test and ref.cast between non-f
             ]),
           ),
         ),
+        // A single-parent chain keeps a possible overlap for the guard case.
         @lib.RecType::group([
-          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
           @lib.SubType::new(false, [], @lib.CompType::struct_([])),
           @lib.SubType::new(
             false,
-            [overlapping_a_type, overlapping_b_type],
+            [overlapping_a_type],
+            @lib.CompType::struct_([]),
+          ),
+          @lib.SubType::new(
+            false,
+            [overlapping_b_type],
             @lib.CompType::struct_([]),
           ),
         ]),
@@ -57595,12 +57592,14 @@ test "optimize-instructions directizes br_on_null fallthrough call_ref targets" 
         ),
       ]),
     )
-  let rewrite_target_to_br_on_null = fn(func : @ir.HotFunc, root : Int) {
+  let rewrite_target_to_br_on_null = fn(
+    func : @ir.HotFunc,
+    root : Int,
+    tail : Bool,
+  ) {
     let ref_func = @ir.hot_child_get(func, root, 0)
-    let branch_target = @ir.hot_control_node_label(
-      func,
-      @ir.hot_build_block(func, @lib.BlockType::void_(), []),
-    )
+    let outer = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+    let branch_target = @ir.hot_control_node_label(func, outer)
     let br_on_null = @ir.hot_build_node(
       func,
       @ir.HotOp::br_on_null(),
@@ -57609,6 +57608,22 @@ test "optimize-instructions directizes br_on_null fallthrough call_ref targets" 
       children=[ref_func],
     )
     @ir.hot_child_set(func, root, 0, br_on_null)
+    if tail {
+      @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, outer), [
+        root,
+      ])
+      @ir.hot_root_set(func, 0, outer)
+      @ir.hot_root_append(func, @ir.hot_build_const_i32(func, @lib.I32(7)))
+    } else {
+      let result_local = @ir.hot_append_body_local(func, @lib.ValType::i32())
+      let set = @ir.hot_build_local_set(func, result_local, root)
+      @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, outer), [
+        set,
+      ])
+      @ir.hot_root_set(func, 0, outer)
+      @ir.hot_root_append(func, @ir.hot_build_local_get(func, result_local))
+    }
+    branch_target
   }
   let ctx = HotPassContext::new(
     optimize_instructions_descriptor(),
@@ -57619,23 +57634,21 @@ test "optimize-instructions directizes br_on_null fallthrough call_ref targets" 
   )
   let call_ref_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(1U))
   let call_ref = @ir.hot_root_get(call_ref_func, 0)
-  rewrite_target_to_br_on_null(call_ref_func, call_ref)
+  let call_target = rewrite_target_to_br_on_null(call_ref_func, call_ref, false)
+  optimize_instructions_test_validate_br_on_hot(module_, 1, call_ref_func)
   match hot_pass_run(ctx, call_ref_func) {
     Ok(_) => ()
     Err(err) =>
       fail("expected br_on_null call_ref target fact success, got \{err}")
   }
-  match @ir.hot_node_get(call_ref_func, @ir.hot_root_get(call_ref_func, 0)).op {
+  match @ir.hot_node_get(call_ref_func, call_ref).op {
     @ir.HotOp::Block => ()
     other =>
       fail(
         "expected br_on_null call_ref target to become block+call, got \{other}",
       )
   }
-  let call_ref_body = @ir.hot_region_body_ref(
-    call_ref_func,
-    @ir.hot_root_get(call_ref_func, 0),
-  )
+  let call_ref_body = @ir.hot_region_body_ref(call_ref_func, call_ref)
   @debug.assert_eq(@ir.hot_region_root_count(call_ref_func, call_ref_body), 2)
   match
     @ir.hot_node_get(
@@ -57647,9 +57660,26 @@ test "optimize-instructions directizes br_on_null fallthrough call_ref targets" 
       fail("expected direct call after dropped br_on_null target, got \{other}")
   }
 
+  let call_drop = @ir.hot_region_get(call_ref_func, call_ref_body, 0)
+  let call_branch = @ir.hot_child_get(call_ref_func, call_drop, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(call_ref_func, call_branch).op,
+    @ir.HotOp::br_on_null(),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(call_ref_func, call_branch).imm0,
+    call_target,
+  )
+  optimize_instructions_test_validate_br_on_hot(module_, 1, call_ref_func)
+
   let return_call_ref_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(2U))
   let return_call_ref = @ir.hot_root_get(return_call_ref_func, 0)
-  rewrite_target_to_br_on_null(return_call_ref_func, return_call_ref)
+  let return_target = rewrite_target_to_br_on_null(
+    return_call_ref_func, return_call_ref, true,
+  )
+  optimize_instructions_test_validate_br_on_hot(
+    module_, 2, return_call_ref_func,
+  )
   match hot_pass_run(ctx, return_call_ref_func) {
     Ok(_) => ()
     Err(err) =>
@@ -57657,11 +57687,7 @@ test "optimize-instructions directizes br_on_null fallthrough call_ref targets" 
         "expected br_on_null return_call_ref target fact success, got \{err}",
       )
   }
-  match
-    @ir.hot_node_get(
-      return_call_ref_func,
-      @ir.hot_root_get(return_call_ref_func, 0),
-    ).op {
+  match @ir.hot_node_get(return_call_ref_func, return_call_ref).op {
     @ir.HotOp::Block => ()
     other =>
       fail(
@@ -57669,8 +57695,7 @@ test "optimize-instructions directizes br_on_null fallthrough call_ref targets" 
       )
   }
   let return_body = @ir.hot_region_body_ref(
-    return_call_ref_func,
-    @ir.hot_root_get(return_call_ref_func, 0),
+    return_call_ref_func, return_call_ref,
   )
   @debug.assert_eq(
     @ir.hot_region_root_count(return_call_ref_func, return_body),
@@ -57685,15 +57710,27 @@ test "optimize-instructions directizes br_on_null fallthrough call_ref targets" 
     other =>
       fail("expected return_call after dropped br_on_null target, got \{other}")
   }
+  let return_drop = @ir.hot_region_get(return_call_ref_func, return_body, 0)
+  let return_branch = @ir.hot_child_get(return_call_ref_func, return_drop, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(return_call_ref_func, return_branch).op,
+    @ir.HotOp::br_on_null(),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(return_call_ref_func, return_branch).imm0,
+    return_target,
+  )
+  optimize_instructions_test_validate_br_on_hot(
+    module_, 2, return_call_ref_func,
+  )
 }
 
 ///|
 test "optimize-instructions directizes br_on_non_null and cast fallthrough call_ref targets" {
-  // Structure-only OI-H BrOn fallthrough-target coverage: the preceding slice
-  // implemented the Binaryen v130 `Properties::getImmediateFallthrough`
-  // `BrOn::ref` fact for every represented `br_on_*` opcode. This regression
-  // guard locks the non-null/cast/fail siblings without widening beyond the
-  // existing target-drop semantics or claiming ChildLocalizer/control/EH repair.
+  // Each reference branch targets the result block that contains it. The
+  // non-null branch has no reference fallthrough value, so its normal path
+  // supplies the same ref.func explicitly. Cast branches retain their scalar
+  // fallthrough reference. Every path supplies the tested direct callee.
   let target_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)
   let target_heap = @lib.HeapType::new(target_type_idx)
@@ -57734,10 +57771,12 @@ test "optimize-instructions directizes br_on_non_null and cast fallthrough call_
     )
   let rewrite_target_to_br_on = fn(func : @ir.HotFunc, root : Int, kind : Int) {
     let ref_func = @ir.hot_child_get(func, root, 0)
-    let branch_target = @ir.hot_control_node_label(
+    let target_block = @ir.hot_build_block(
       func,
-      @ir.hot_build_block(func, @lib.BlockType::val_type(typed_func_ref), []),
+      @lib.BlockType::val_type(typed_func_ref),
+      [],
     )
+    let branch_target = @ir.hot_control_node_label(func, target_block)
     let hot_op = if kind == 0 {
       @ir.HotOp::br_on_non_null()
     } else if kind == 1 {
@@ -57777,17 +57816,48 @@ test "optimize-instructions directizes br_on_non_null and cast fallthrough call_
     let branch = @ir.hot_build_node(
       func,
       hot_op,
-      @ir.hot_node_type(func, ref_func),
+      if kind == 0 {
+        @ir.hot_type_void(func)
+      } else {
+        @ir.hot_node_type(func, ref_func)
+      },
       imm0=branch_target,
       imm1=payload_id,
       children=[ref_func],
     )
-    @ir.hot_child_set(func, root, 0, branch)
+    let body = if kind == 0 {
+      [
+        branch,
+        @ir.hot_build_ref_func(
+          func,
+          @lib.FuncIdx::new(0U),
+          @lib.RefType::new(false, target_heap),
+        ),
+      ]
+    } else {
+      [branch]
+    }
+    @ir.hot_region_replace_body(
+      func,
+      @ir.hot_region_body_ref(func, target_block),
+      body,
+    )
+    @ir.hot_child_set(func, root, 0, target_block)
+    branch
   }
   let assert_directized = fn(kind : Int, name : String) raise {
     let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(1U))
     let root = @ir.hot_root_get(func, 0)
-    rewrite_target_to_br_on(func, root, kind)
+    let branch = rewrite_target_to_br_on(func, root, kind)
+    @debug.assert_eq(
+      @ir.hot_node_result_arity(func, branch),
+      if kind == 0 {
+        0
+      } else {
+        1
+      },
+    )
+    optimize_instructions_test_validate_br_on_hot(module_, 1, func)
     let ctx = HotPassContext::new(
       optimize_instructions_descriptor(),
       @ir.HotAnalysisCache::new(),
@@ -57813,6 +57883,17 @@ test "optimize-instructions directizes br_on_non_null and cast fallthrough call_
       other =>
         fail("expected direct call after dropped \{name} target, got \{other}")
     }
+    let drop = @ir.hot_region_get(func, body, 0)
+    let target_block = @ir.hot_child_get(func, drop, 0)
+    @debug.assert_eq(
+      @ir.hot_control_node_label(func, target_block),
+      @ir.hot_node_get(func, branch).imm0,
+    )
+    @debug.assert_eq(
+      @ir.hot_region_get(func, @ir.hot_region_body_ref(func, target_block), 0),
+      branch,
+    )
+    optimize_instructions_test_validate_br_on_hot(module_, 1, func)
   }
   assert_directized(0, "br_on_non_null")
   assert_directized(1, "br_on_cast")
@@ -59237,7 +59318,6 @@ test "optimize-instructions revisits memory.copy after child select rewrite" {
         #|    i32.const 0
         #|    i32.const 1
         #|    select))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -59291,7 +59371,6 @@ test "optimize-instructions revisits memory.fill after child select rewrite" {
         #|    i32.const 0
         #|    i32.const 1
         #|    select))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -59318,7 +59397,6 @@ test "optimize-instructions expands one-byte memory.copy to load8/store8" {
         #|    local.get $src
         #|    i32.const 1
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -59350,7 +59428,6 @@ test "optimize-instructions expands stack-carried effectful tiny memory.copy" {
         #|    call $src
         #|    i32.const 8
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -59399,7 +59476,6 @@ test "optimize-instructions expands stack-carried effectful v128 memory.copy" {
         #|    call $src
         #|    i32.const 16
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -59439,7 +59515,6 @@ test "optimize-instructions keeps size-16 memory.copy at shrink level one" {
         #|    local.get $src
         #|    i32.const 16
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(shrink_level=1),
@@ -59476,7 +59551,6 @@ test "optimize-instructions expands stack-carried parameterized tiny memory.copy
         #|    call $src
         #|    i32.const 8
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -59528,7 +59602,6 @@ test "optimize-instructions expands stack-carried mixed parameterized tiny memor
         #|    call $src1
         #|    i32.const 8
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -59583,7 +59656,6 @@ test "optimize-instructions expands wider tiny memory.copy to exact load/store" 
         #|    local.get $src
         #|    i32.const 16
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -59680,7 +59752,6 @@ test "optimize-instructions keeps nonconstant larger tiny memory.fill for Binary
         #|    local.get $val
         #|    i32.const 8
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -59839,7 +59910,6 @@ test "optimize-instructions keeps memory.copy outside exact tiny lowering bounda
         #|    local.get $src
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -59892,7 +59962,6 @@ test "optimize-instructions drops zero-size stack bulk-memory under trap-relaxed
         #|    call $val
         #|    i32.const 0
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(
@@ -59945,7 +60014,6 @@ test "optimize-instructions keeps zero-size bulk-memory with effectful operands"
         #|    call $val
         #|    i32.const 0
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -59982,7 +60050,6 @@ test "optimize-instructions drops same-address memory.copy under trap-relaxed fa
         #|    local.get $addr
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60020,7 +60087,6 @@ test "optimize-instructions drops localtee same-address memory.copy under trap-r
         #|    local.get $tmp
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60058,7 +60124,6 @@ test "optimize-instructions drops block-fallthrough same-address memory.copy und
         #|    local.get $addr
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60098,7 +60163,6 @@ test "optimize-instructions drops right block-fallthrough same-address memory.co
         #|      local.get $addr)
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60139,7 +60203,6 @@ test "optimize-instructions drops right block unrelated-state same-address memor
         #|      local.get $addr)
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60180,7 +60243,6 @@ test "optimize-instructions drops right block unrelated local.set same-address m
         #|      local.get $addr)
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60217,7 +60279,6 @@ test "optimize-instructions drops raw right localtee memory.copy" {
         #|      (local.get $addr)
         #|      (local.tee $tmp (local.get $addr))
         #|      (local.get $size))))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60253,7 +60314,6 @@ test "optimize-instructions drops left localtee payload same-address memory.copy
         #|    local.get $addr
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60296,7 +60356,6 @@ test "optimize-instructions drops select-tree same-address memory.copy" {
         #|    select
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60336,7 +60395,6 @@ test "optimize-instructions drops right block unrelated global.set global-addres
         #|      global.get $addr)
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60374,7 +60432,6 @@ test "optimize-instructions drops load-read same-address memory.copy" {
         #|      (i32.load (local.get $addr))
         #|      (i32.load (local.get $addr))
         #|      (local.get $size))))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60410,7 +60467,6 @@ test "optimize-instructions drops load-read memory.size-address same-address mem
         #|    i32.load
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60449,7 +60505,6 @@ test "optimize-instructions drops load-read table.size-address same-address memo
         #|    i32.load
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60490,7 +60545,6 @@ test "optimize-instructions keeps load-read memory.size-address after memory.gro
         #|      i32.load)
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60529,7 +60583,6 @@ test "optimize-instructions keeps load-read table.size-address after table.grow"
         #|      i32.load)
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60698,7 +60751,6 @@ test "optimize-instructions keeps store-interfered load-read memory.copy" {
         #|        (i32.store (local.get $store_addr) (local.get $value))
         #|        (i32.load (local.get $addr)))
         #|      (local.get $size))))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60738,7 +60790,6 @@ test "optimize-instructions drops state-read same-address memory.copy" {
         #|    table.size 0
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60793,7 +60844,6 @@ test "optimize-instructions drops state-read scalar-tree same-address memory.cop
         #|    i32.add
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60857,7 +60907,6 @@ test "optimize-instructions keeps growth-interfered state-read scalar-tree memor
         #|      i32.add)
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60909,7 +60958,6 @@ test "optimize-instructions keeps growth-interfered state-read memory.copy" {
         #|      table.size 0)
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60946,7 +60994,6 @@ test "optimize-instructions drops const same-address memory.copy under trap-rela
         #|    i32.const 16
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -60985,7 +61032,6 @@ test "optimize-instructions drops right block const same-address memory.copy" {
         #|      i32.const 16)
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61026,7 +61072,6 @@ test "optimize-instructions drops pure binary same-address memory.copy under tra
         #|    i32.add
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61086,7 +61131,6 @@ test "optimize-instructions drops flat pure scalar same-address memory.copy" {
         #|    i32.add
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61134,7 +61178,6 @@ test "optimize-instructions drops commuted flat add same-address memory.copy" {
         #|    i32.add
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61201,7 +61244,6 @@ test "optimize-instructions drops commuted flat integer op same-address memory.c
         #|    i32.xor
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61267,7 +61309,6 @@ test "optimize-instructions drops commuted flat equality same-address memory.cop
         #|    i64.ne
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61333,7 +61374,6 @@ test "optimize-instructions drops same-order flat relational same-address memory
         #|    i64.ge_s
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61380,7 +61420,6 @@ test "optimize-instructions drops i64 const flat compare same-address memory.cop
         #|    i64.lt_s
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61429,7 +61468,6 @@ test "optimize-instructions drops float flat compare same-address memory.copy" {
         #|    f64.lt
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61500,7 +61538,6 @@ test "optimize-instructions drops wide flat numeric same-address memory.copy" {
         #|    i32.trunc_f32_s
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61537,7 +61574,6 @@ test "optimize-instructions keeps swapped flat relational memory.copy outside eq
         #|    i32.lt_u
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61570,7 +61606,6 @@ test "optimize-instructions keeps swapped flat shift memory.copy outside equalit
         #|    i32.shl
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61636,7 +61671,6 @@ test "optimize-instructions drops long flat stack same-address memory.copy" {
         #|    i32.add
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61689,7 +61723,6 @@ test "optimize-instructions drops nested flat stack same-address memory.copy" {
         #|    i32.sub
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61730,7 +61763,6 @@ test "optimize-instructions keeps different nested flat stack memory.copy outsid
         #|    i32.sub
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61769,7 +61801,6 @@ test "optimize-instructions keeps swapped flat sub memory.copy outside equality 
         #|    i32.sub
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61805,7 +61836,6 @@ test "optimize-instructions keeps different pure binary memory.copy outside equa
         #|    i32.add
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61843,7 +61873,6 @@ test "optimize-instructions keeps right-prefix write pure binary memory.copy" {
         #|        local.set $addr
         #|        (i32.add (local.get $addr) (i32.const 4)))
         #|      (local.get $size))))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61880,7 +61909,6 @@ test "optimize-instructions keeps different-const memory.copy outside equality f
         #|    i32.const 32
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61917,7 +61945,6 @@ test "optimize-instructions keeps interfering right global.set global-address me
         #|      global.get $addr)
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61955,7 +61982,6 @@ test "optimize-instructions keeps interfering right local.set same-address memor
         #|      local.get $addr)
         #|    local.get $size
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -61998,7 +62024,6 @@ test "optimize-instructions drops zero-size bulk-memory under trap-relaxed facts
         #|    local.get $val
         #|    i32.const 0
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(traps_never_happen=true),
@@ -62043,7 +62068,6 @@ test "optimize-instructions keeps nonconstant bulk-memory with effectful size" {
         #|    call $val
         #|    call $size
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -62087,7 +62111,6 @@ test "optimize-instructions keeps local dynamic-size bulk-memory" {
         #|    local.get $val
         #|    local.get $size
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -62134,7 +62157,6 @@ test "optimize-instructions keeps global dynamic-size bulk-memory" {
         #|    local.get $val
         #|    global.get $n
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -62168,7 +62190,6 @@ test "optimize-instructions expands tiny bulk-memory inside dead if shells" {
       #|(module
       #|  (memory 1)
       #|  (func (param $dst i32) (param $src i32) (local
-      #|,
     ),
   )
   for i = 0; i < 65; i = i + 1 {
@@ -62245,7 +62266,6 @@ test "optimize-instructions expands tiny bulk-memory inside dead if shells" {
       #|      i32.const 16
       #|      memory.fill
       #|    end
-      #|,
     ),
   )
   for i = 0; i < 260; i = i + 1 {
@@ -62324,7 +62344,6 @@ test "optimize-instructions expands dynamic self tiny memory.copy" {
         #|      i32.load8_u
         #|      drop
         #|    end))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -62378,7 +62397,6 @@ test "optimize-instructions drops narrow-store masks after dead bulk-memory raw 
         #|    i64.const 255
         #|    i64.and
         #|    i64.store8))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -62460,7 +62478,6 @@ test "optimize-instructions raw partial lowers commuted constant memory addresse
         #|    i32.add
         #|    i32.const 1
         #|    memory.copy))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -62502,7 +62519,6 @@ test "optimize-instructions expands tiny constant memory.fill to store" {
         #|    i32.const 7
         #|    i32.const 1
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -62532,7 +62548,6 @@ test "optimize-instructions expands byte memory.fill with local and call values"
         #|    call $get
         #|    i32.const 1
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -62576,7 +62591,6 @@ test "optimize-instructions expands stack-carried parameterized byte memory.fill
         #|    call $val1
         #|    i32.const 1
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -62654,7 +62668,6 @@ test "optimize-instructions expands stack-carried multi-parameter bulk-memory ca
         #|    call $value2
         #|    i32.const 1
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -62713,7 +62726,6 @@ test "optimize-instructions expands stack-carried global bulk-memory calls" {
         #|    call $val
         #|    i32.const 1
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -62766,7 +62778,6 @@ test "optimize-instructions truncates constant byte memory.fill values before st
         #|    i32.const 511
         #|    i32.const 1
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -62794,7 +62805,6 @@ test "optimize-instructions expands constant two-byte memory.fill to store16" {
         #|    i32.const 171
         #|    i32.const 2
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -62820,7 +62830,6 @@ test "optimize-instructions expands constant four-byte memory.fill to store" {
         #|    i32.const 127
         #|    i32.const 4
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -62846,7 +62855,6 @@ test "optimize-instructions expands constant eight-byte memory.fill to store" {
         #|    i32.const 1
         #|    i32.const 8
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -62877,7 +62885,6 @@ test "optimize-instructions expands constant sixteen-byte memory.fill to v128.st
         #|    i32.const 171
         #|    i32.const 16
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -62931,7 +62938,6 @@ test "optimize-instructions keeps shrink-level one memory.fill size/value bounda
         #|    i32.const 171
         #|    i32.const 2
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
       options=HotPipelineOptions::new(shrink_level=1),
@@ -62963,7 +62969,6 @@ test "optimize-instructions keeps local two-byte memory.fill for Binaryen parity
         #|    local.get $value
         #|    i32.const 2
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -62995,7 +63000,6 @@ test "optimize-instructions keeps size-3 memory.fill outside exact lowering boun
         #|    local.get $value
         #|    i32.const 3
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63032,7 +63036,6 @@ test "optimize-instructions keeps size-5 bulk-memory outside exact lowering boun
         #|    local.get $value
         #|    i32.const 5
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63073,7 +63076,6 @@ test "optimize-instructions keeps size-6 bulk-memory outside exact lowering boun
         #|    local.get $value
         #|    i32.const 6
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63116,7 +63118,6 @@ test "optimize-instructions keeps size-7 bulk-memory outside exact lowering boun
         #|    local.get $value
         #|    i32.const 7
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63159,7 +63160,6 @@ test "optimize-instructions keeps size-9 bulk-memory outside exact lowering boun
         #|    local.get $value
         #|    i32.const 9
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63200,7 +63200,6 @@ test "optimize-instructions keeps size-10 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 10
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63244,7 +63243,6 @@ test "optimize-instructions keeps size-11 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 11
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63286,7 +63284,6 @@ test "optimize-instructions keeps size-12 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 12
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63330,7 +63327,6 @@ test "optimize-instructions keeps size-13 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 13
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63372,7 +63368,6 @@ test "optimize-instructions keeps size-14 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 14
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63416,7 +63411,6 @@ test "optimize-instructions keeps size-15 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 15
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63461,7 +63455,6 @@ test "optimize-instructions keeps size-17 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 17
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63506,7 +63499,6 @@ test "optimize-instructions keeps size-18 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 18
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63551,7 +63543,6 @@ test "optimize-instructions keeps size-19 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 19
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63596,7 +63587,6 @@ test "optimize-instructions keeps size-20 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 20
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63641,7 +63631,6 @@ test "optimize-instructions keeps size-21 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 21
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63686,7 +63675,6 @@ test "optimize-instructions keeps size-22 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 22
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63731,7 +63719,6 @@ test "optimize-instructions keeps size-23 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 23
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63775,7 +63762,6 @@ test "optimize-instructions keeps size-24 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 24
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63820,7 +63806,6 @@ test "optimize-instructions keeps size-25 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 25
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63864,7 +63849,6 @@ test "optimize-instructions keeps size-26 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 26
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63909,7 +63893,6 @@ test "optimize-instructions keeps size-27 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 27
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63953,7 +63936,6 @@ test "optimize-instructions keeps size-28 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 28
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -63997,7 +63979,6 @@ test "optimize-instructions keeps size-29 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 29
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64042,7 +64023,6 @@ test "optimize-instructions keeps size-30 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 30
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64087,7 +64067,6 @@ test "optimize-instructions keeps size-31 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 31
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64132,7 +64111,6 @@ test "optimize-instructions keeps size-32 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 32
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64177,7 +64155,6 @@ test "optimize-instructions keeps size-33 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 33
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64222,7 +64199,6 @@ test "optimize-instructions keeps size-34 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 34
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64267,7 +64243,6 @@ test "optimize-instructions keeps size-35 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 35
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64312,7 +64287,6 @@ test "optimize-instructions keeps size-36 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 36
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64356,7 +64330,6 @@ test "optimize-instructions keeps size-37 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 37
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64400,7 +64373,6 @@ test "optimize-instructions keeps size-38 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 38
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64444,7 +64416,6 @@ test "optimize-instructions keeps size-39 bulk-memory outside exact lowering bou
         #|    local.get $value
         #|    i32.const 39
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64479,7 +64450,6 @@ test "optimize-instructions keeps local four-byte memory.fill for Binaryen parit
         #|    local.get $value
         #|    i32.const 4
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64506,7 +64476,6 @@ test "optimize-instructions keeps local eight-byte memory.fill for Binaryen pari
         #|    local.get $value
         #|    i32.const 8
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64557,7 +64526,6 @@ test "optimize-instructions intentionally keeps non-local wider memory.fill valu
         #|    local.get $value
         #|    i32.const 16
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64596,7 +64564,6 @@ test "optimize-instructions keeps zero-size memory.fill without trap mode suppor
         #|    i32.const 7
         #|    i32.const 0
         #|    memory.fill))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64626,7 +64593,6 @@ test "optimize-instructions drops masked low bits before narrow stores" {
         #|    i32.const 65535
         #|    i32.and
         #|    i32.store16))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64661,7 +64627,6 @@ test "optimize-instructions widens narrow stores of i32.wrap_i64 to matching i64
         #|    local.get $x
         #|    i32.wrap_i64
         #|    i32.store))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64701,7 +64666,6 @@ test "optimize-instructions preserves memargs when widening i32.wrap_i64 stores"
         #|    local.get $x
         #|    i32.wrap_i64
         #|    i32.store offset=12 align=1))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64736,7 +64700,6 @@ test "optimize-instructions intentionally keeps multi-use i32.wrap_i64 store bou
         #|    local.tee $w
         #|    i32.store8
         #|    local.get $w))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64775,7 +64738,6 @@ test "optimize-instructions rewrites reinterpret stores to representation stores
         #|    local.get $f64
         #|    i64.reinterpret_f64
         #|    i64.store))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64820,7 +64782,6 @@ test "optimize-instructions preserves memargs when rewriting reinterpret stores"
         #|    local.get $f64
         #|    i64.reinterpret_f64
         #|    i64.store offset=16 align=4))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64866,7 +64827,6 @@ test "optimize-instructions intentionally keeps local-carried reinterpret-store 
         #|    local.get $ptr
         #|    local.get $tmp
         #|    f32.store))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64912,7 +64872,6 @@ test "optimize-instructions rewrites reinterpret loads to representation loads" 
         #|    local.get $ptr
         #|    f64.load
         #|    i64.reinterpret_f64))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -64968,7 +64927,6 @@ test "optimize-instructions preserves memargs when rewriting representation load
         #|    local.get $ptr
         #|    i32.load16_s offset=12 align=1
         #|    i64.extend_i32_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65020,7 +64978,6 @@ test "optimize-instructions intentionally keeps local-carried representation-loa
         #|    drop
         #|    local.get $tmp
         #|    i64.extend_i32_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65082,7 +65039,6 @@ test "optimize-instructions rewrites i64.extend_i32 loads to representation load
         #|    local.get $ptr
         #|    i32.load16_u
         #|    i64.extend_i32_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65148,7 +65104,6 @@ test "optimize-instructions keeps i64.extend_i32 before i64 narrow stores as a B
         #|    local.get $x
         #|    i64.extend_i32_s
         #|    i64.store8))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65240,7 +65195,6 @@ test "optimize-instructions folds identity binary operands" {
         #|    i32.const 0
         #|    local.get $x
         #|    i32.sub))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65305,7 +65259,6 @@ test "optimize-instructions canonicalizes masked constant shift amounts" {
         #|    i64.const 127
         #|    i64.rotr
         #|    drop))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65380,7 +65333,6 @@ test "optimize-instructions folds div/rem/rot identity operands" {
         #|    call $effect
         #|    i32.const 1
         #|    i32.rem_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65457,7 +65409,6 @@ test "optimize-instructions folds absorbing binary operands" {
         #|    call $effect
         #|    i32.const -1
         #|    i32.rem_s))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65517,7 +65468,6 @@ test "optimize-instructions keeps superset low-bit masks before narrow stores li
         #|    i64.const 8589934591
         #|    i64.and
         #|    i64.store32))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65559,7 +65509,6 @@ test "optimize-instructions keeps value-changing masks before narrow stores" {
         #|    i32.const 32767
         #|    i32.and
         #|    i32.store16))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65600,7 +65549,6 @@ test "optimize-instructions keeps i64 low-bit masks before narrow stores like Bi
         #|    i64.const 255
         #|    i64.and
         #|    i64.store8))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65667,7 +65615,6 @@ test "optimize-instructions drops only exact i32 commuted masks before narrow st
         #|    i32.const 255
         #|    i32.and
         #|    i32.store8))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65716,7 +65663,6 @@ test "optimize-instructions truncates constant narrow store values" {
         #|    local.get $ptr
         #|    i64.const 4294967296
         #|    i64.store32))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65760,7 +65706,6 @@ test "optimize-instructions intentionally keeps sign extensions before narrow st
         #|    local.get $value64
         #|    i64.extend16_s
         #|    i64.store16))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65809,7 +65754,6 @@ test "optimize-instructions intentionally keeps signed loads before narrow store
         #|    local.get $src
         #|    i64.load32_s
         #|    i64.store32))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65853,7 +65797,6 @@ test "optimize-instructions keeps value-changing masks before i64 narrow stores"
         #|    i64.const 2147483647
         #|    i64.and
         #|    i64.store32))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65884,7 +65827,6 @@ test "optimize-instructions keeps pure struct.get of struct.new like Binaryen v1
         #|    i64.const 9
         #|    struct.new $s
         #|    struct.get $s 1))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65927,7 +65869,6 @@ test "optimize-instructions keeps struct.get of struct.new_default like Binaryen
         #|  (func (export "get_ref") (result externref)
         #|    struct.new_default $s
         #|    struct.get $s 4))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -65967,7 +65908,6 @@ test "optimize-instructions keeps packed struct.get of struct.new_default like B
         #|  (func (export "getu16") (result i32)
         #|    struct.new_default $s
         #|    struct.get_u $s 1))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -66015,7 +65955,6 @@ test "optimize-instructions keeps packed struct.get of struct.new like Binaryen 
         #|    i32.const 65535
         #|    struct.new $s
         #|    struct.get_u $s 2))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -72790,7 +72729,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|      local.get $x
         #|      call $side)
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "simplify-locals"],
     ) {
@@ -72818,7 +72756,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|      local.get $x
         #|      call $side)
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -72850,7 +72787,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|      call $side_b)
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -72886,7 +72822,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -72926,7 +72861,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -72970,7 +72904,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73018,7 +72951,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73070,7 +73002,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73126,7 +73057,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73186,7 +73116,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73250,7 +73179,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73318,7 +73246,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73390,7 +73317,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73466,7 +73392,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73546,7 +73471,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73630,7 +73554,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73718,7 +73641,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|    drop
         #|    drop))
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73813,7 +73735,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|  )
         #|)
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -73912,7 +73833,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|  )
         #|)
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -74015,7 +73935,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|  )
         #|)
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -74122,7 +74041,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|  )
         #|)
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -74233,7 +74151,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|  )
         #|)
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -74348,7 +74265,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|  )
         #|)
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -74467,7 +74383,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|  )
         #|)
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -74590,7 +74505,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|  )
         #|)
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -74717,7 +74631,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|  )
         #|)
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -74848,7 +74761,6 @@ test "optimize-instructions preserves ordered multivalue effects without wrapper
         #|    drop
         #|  )
         #|)
-        #|,
       ),
       ["optimize-instructions", "tuple-optimization"],
     ) {
@@ -79538,7 +79450,6 @@ test "optimize-instructions keeps struct.get over fresh constructors like Binary
         #|  (func (export "default") (result i32)
         #|    struct.new_default $s
         #|    struct.get $s 0))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -79567,7 +79478,6 @@ test "optimize-instructions keeps later effectful fresh struct.get like Binaryen
         #|    call $effect
         #|    struct.new $s
         #|    struct.get $s 0))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -79596,7 +79506,6 @@ test "optimize-instructions keeps earlier effectful fresh struct.get like Binary
         #|    i32.const 8
         #|    struct.new $s
         #|    struct.get $s 1))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -79626,7 +79535,6 @@ test "optimize-instructions keeps selected effectful fresh struct.get like Binar
         #|    call $b
         #|    struct.new $s
         #|    struct.get $s 0))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -79668,7 +79576,6 @@ test "optimize-instructions keeps multi-use and multi-result struct.new boundari
         #|    call $pair
         #|    struct.new $s
         #|    struct.get $s 0))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -79828,7 +79735,6 @@ test "optimize-instructions intentionally keeps nonconstant pointer-add memory o
         #|    i32.add
         #|    local.get $v
         #|    i32.store offset=8))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -81585,7 +81491,6 @@ test "optimize-instructions preserves typed try_table reachability after eqz if 
         #|      return
         #|    end
         #|    i32.const 4))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -81618,7 +81523,6 @@ test "optimize-instructions preserves result block suffixes reached by catch_ref
         #|    end
         #|    drop
         #|    return))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -81878,7 +81782,7 @@ test "optimize-instructions keeps zero sentinels after returning ifs with dead a
 test "optimize-instructions keeps wrapped local.set prefixes void when child exits still target the parent" {
   let optimized = match
     pass_test_run_pipeline(
-      "(module (func (param i32 i32) (result i32) (local i32) (block $outer (block $mid (local.get 0) (i32.const 0) (i32.eq) (if (then (br $outer)) (else (local.get 1) (if (then (i32.const 7) (local.set 2) (br $mid)) (else (br $outer))) unreachable)) unreachable) (local.get 2) (local.set 1) (local.get 1) return) (i32.const 0))))",
+      "(module (func (param i32 i32) (result i32) (local i32) (block $outer (block $mid (local.get 0) (i32.const 0) (i32.eq) (if (then (br $outer)) (else (local.get 1) (if (then (i32.const 7) (local.set 2) (br $mid)) (else (br $outer))) unreachable)) unreachable) (local.get 2) (local.set 1) (local.get 1) return) (i32.const 0)))",
       ["optimize-instructions"],
     ) {
     Ok(mod_) => mod_
@@ -82087,7 +81991,6 @@ test "optimize-instructions folds or with all-ones absorbing operand" {
         #|    i32.const -1
         #|    call $effect
         #|    i32.or))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -82110,7 +82013,6 @@ test "optimize-instructions folds or with all-ones absorbing operand" {
         #|    call $effect
         #|    i32.const -1
         #|    i32.or))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -82126,7 +82028,6 @@ test "optimize-instructions folds or with all-ones absorbing operand" {
         #|    call $effect
         #|    i32.const -1
         #|    i32.or))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -83697,7 +83598,6 @@ test "optimize-instructions v131 raw fallback folds identical if arms and sinks 
         #|    (if (local.get 0)
         #|      (then (drop (local.get 1)))
         #|      (else (drop (local.get 1))))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -83739,7 +83639,6 @@ test "optimize-instructions v131 precomputed identical selects take the exact ra
       #|    (local.set 1 (i32.const 0))
       #|    (nop)
       #|    (select (local.get 0) (local.get 0) (local.get 2))))
-      #|,
     ),
   )
   let trace : Array[String] = []
@@ -83779,7 +83678,6 @@ test "optimize-instructions v131 raw fallback finishes double eqz constants" {
         #|  (func (local i32)
         #|    (drop (i32.add (local.tee 0 (i32.const 13)) (i32.const 0)))
         #|    (drop (i32.eqz (i32.eqz (i32.const 1))))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -83830,7 +83728,6 @@ test "optimize-instructions v131 preserves both nonfoldable equal ref.eq operand
         #|    (ref.eq
         #|      (block (result eqref) (call $nothing) (local.get 0))
         #|      (block (result eqref) (call $nothing) (local.get 0)))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -83875,7 +83772,6 @@ test "optimize-instructions v131 orders idempotent call effects before repeated 
         #|    (drop (f32.abs (f32.mul
         #|      (call $id (global.get $g))
         #|      (call $id (global.get $g)))))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -83913,7 +83809,6 @@ test "optimize-instructions v131 localizes identical idempotent select arms" {
         #|  (func $effect (result i32) (i32.const 1))
         #|  (func (result i32)
         #|    (select (call $id) (call $id) (call $effect))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -83954,7 +83849,6 @@ test "optimize-instructions v131 keeps identical nonfoldable selects when reorde
         #|      (block (result i32)
         #|        (drop (local.get $y))
         #|        (local.get $c)))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -84090,7 +83984,6 @@ test "optimize-instructions v131 does not materialize non-concrete select arms" 
         #|        (ref.as_non_null (ref.null nofunc))
         #|        (ref.as_non_null (ref.null nofunc))
         #|        (call $condition)))))
-        #|,
       ),
       ["optimize-instructions"],
     ) {
@@ -84286,7 +84179,6 @@ test "optimize-instructions cancels exact i32 conversion roundtrips" {
         #|  (func (param i64) (result i64) local.get 0 f64.reinterpret_i64 i64.reinterpret_f64)
         #|  (func (param f32) (result f32) local.get 0 i32.reinterpret_f32 f32.reinterpret_i32)
         #|  (func (param f64) (result f64) local.get 0 i64.reinterpret_f64 f64.reinterpret_i64))
-        #|,
       ),
       ["optimize-instructions"],
     ) {

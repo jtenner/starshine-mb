@@ -43,7 +43,6 @@ test "dispatcher removes case 144 same-target br_table shells through seven pass
     #|      unreachable))
     #|    i32.const 47
     #|    i64.const 53))
-    #|)
   let input = @passes.pass_test_module_from_wat(wat)
   let optimized = optimize_module_with_pass_flags(
     input,

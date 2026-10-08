@@ -2205,7 +2205,6 @@ test "O4z size portfolio preserves host identities while considering global-refi
       #|    global.get $g ref.is_null)
       #|  (func (export "set-f") ref.func $f global.set $g)
       #|  (func (export "set-other") ref.func $other global.set $g))
-      #|,
     ),
   )
   let directly_refined = match
@@ -2685,7 +2684,6 @@ test "O4z size portfolio removes proven-success constant assert calls" {
       #|  (func
       #|    i32.const 1 i32.const 1 call $assert
       #|    i32.const 0 i32.const 0 call $assert))
-      #|,
     ),
   )
   let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
@@ -3008,7 +3006,6 @@ test "O4z size portfolio outlines constant-step recurrence siblings" {
       #|    loop local.get 0 if local.get 1 i32.const 48 i32.add local.set 1 local.get 0 i32.const 1 i32.sub local.set 0 br 1 end end local.get 1)
       #|  (func (param i32) (result i32) (local i32)
       #|    loop local.get 0 if local.get 1 i32.const 64 i32.add local.set 1 local.get 0 i32.const 1 i32.sub local.set 0 br 1 end end local.get 1))
-      #|,
     ),
   )
   let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
@@ -3037,7 +3034,6 @@ test "O4z size portfolio outlines bulk-memory constant siblings" {
       #|  (func (param i32) (result i32) loop local.get 0 if i32.const 8192 i32.const 0 i32.const 4096 memory.copy local.get 0 i32.const 1 i32.sub local.set 0 br 1 end end i32.const 8192 i32.load8_u)
       #|  (func (param i32) (result i32) loop local.get 0 if i32.const 32784 i32.const 32768 i32.const 4096 memory.copy local.get 0 i32.const 1 i32.sub local.set 0 br 1 end end i32.const 32784 i32.load8_u)
       #|  (func (param i32) (result i32) loop local.get 0 if i32.const 49152 i32.const 165 i32.const 4096 memory.fill local.get 0 i32.const 1 i32.sub local.set 0 br 1 end end i32.const 49152 i32.load8_u))
-      #|,
     ),
   )
   let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
@@ -3083,7 +3079,6 @@ test "O4z size portfolio outlines five-byte memory comparator siblings" {
       #|    local.get 0 i32.const 3 i32.add i32.const 101 call $compare
       #|    local.get 0 i32.const 4 i32.add i32.const 104 call $compare
       #|    i32.and i32.and i32.and i32.and))
-      #|,
     ),
   )
   let optimized = @passes.o4z_outline_similar_size_functions(input)
@@ -3147,7 +3142,6 @@ test "O4z final cleanup defaults one-field nullable structs" {
       #|(module
       #|  (type $s (struct (field (ref null func))))
       #|  (func (result (ref $s)) ref.null nofunc struct.new $s))
-      #|,
     ),
   )
   let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
@@ -3170,7 +3164,6 @@ test "O4z final cleanup combines split local-add constants" {
       #|    local.get 0 i32.const 150 i32.add
       #|    local.get 0 i32.const 299 i32.add
       #|    i32.add i32.add))
-      #|,
     ),
   )
   let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
@@ -3196,7 +3189,6 @@ test "O4z final cleanup folds constant i31 roundtrips" {
       #|(module
       #|  (func (result i32) i32.const 1073741824 ref.i31 i31.get_s)
       #|  (func (result i32) i32.const -1 ref.i31 i31.get_u))
-      #|,
     ),
   )
   let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
@@ -3260,7 +3252,6 @@ test "O4z final cleanup removes overwritten ref.func local initialization" {
       #|    end
       #|    local.get 2)
       #|  (elem declare func $check))
-      #|,
     ),
   )
   let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
@@ -3757,7 +3748,6 @@ test "O4z final canonicalization preserves root global snapshots" {
       #|    local.set 1
       #|    local.get 1
       #|    return))
-      #|,
     ),
   )
   let optimized = @passes.o4z_canonicalize_final_size_candidate(input)
@@ -3794,7 +3784,6 @@ test "O4z final canonicalization restores emscripten stackAlloc snapshots" {
       #|    global.get $sp)
       #|  (func (export "stackSave"))
       #|  (func (export "stackRestore"))
-      #|,
     ),
   )
   for idx = 5; idx < 48; idx = idx + 1 {
@@ -4072,7 +4061,6 @@ test "O4z size portfolio detects stack-carried SIMD truncation global writes" {
       #|    i32.trunc_f64_s
       #|    v128.const i32x4 0 0 0 0
       #|    global.set 0))
-      #|,
     ),
   )
   assert_true(
@@ -4116,7 +4104,6 @@ test "O4z size portfolio detects nested stack-carried SIMD truncation global wri
       #|      v128.const i32x4 0 0 0 0
       #|      global.set 0
       #|    end))
-      #|,
     ),
   )
   assert_true(
@@ -4364,7 +4351,6 @@ test "O4z size portfolio detects zero-memory dense i64 runtime hazards" {
       #|    i64.const 1 i64.const 2 i64.mul i64.const 3 i64.mul i64.const 4 i64.mul i64.const 5 i64.mul)
       #|  (func (export "mulhi") (param i64 i64) (result i64)
       #|    local.get 0 local.get 1 i64.mul i64.const 6 i64.mul i64.const 7 i64.mul i64.const 8 i64.mul))
-      #|,
     ),
   )
   let ordinary = @passes.pass_test_module_from_wat(
@@ -4443,7 +4429,6 @@ test "O4z post-canonical cleanup preserves stack-carried Fibonacci accumulators"
       #|      end
       #|    end
       #|    local.get 2))
-      #|,
     ),
   )
   let late_cleaned = match
@@ -7550,7 +7535,6 @@ test "run_cmd_with_adapter preserves repeated duplicate-import lookups" {
     #|  (import "env" "waka" (func $bar (type $v)))
     #|  (func (call $bar))
     #|)
-    #|,
   let wasm = encode_module_bytes(@passes.pass_test_module_from_wat(source))
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -7619,7 +7603,6 @@ test "run_cmd_with_adapter applies stable-binding duplicate-import elimination" 
     #|  (import "env" "waka" (func $bar (type $v)))
     #|  (func (call $bar))
     #|)
-    #|,
   let wasm = encode_module_bytes(@passes.pass_test_module_from_wat(source))
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -7676,7 +7659,6 @@ test "run_cmd_with_adapter accepts string-gathering as an active module pass" {
     #|(module
     #|  (func (result i32) i32.const 7)
     #|)
-    #|,
   let wasm = encode_module_bytes(@passes.pass_test_module_from_wat(source))
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -7714,7 +7696,6 @@ test "run_cmd_with_adapter accepts reorder-globals as an active module pass" {
     #|  (global $b i32 (i32.const 2))
     #|  (func (drop (global.get $b)))
     #|)
-    #|,
   let wasm = encode_module_bytes(@passes.pass_test_module_from_wat(source))
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(

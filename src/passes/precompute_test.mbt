@@ -18,7 +18,6 @@ test "precompute skips load-call-set ownership hazards" {
         #|    i32.eqz
         #|    drop
         #|    local.get $out))
-        #|,
       ),
       ["precompute"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -52,7 +51,6 @@ test "precompute keeps stack-carried call producers before intervening effects" 
         #|      i32.const 0
         #|      drop
         #|    end))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -169,7 +167,6 @@ test "precompute preserves folded tee writes observed after stack-carried values
         #|    i32.add
         #|    global.set $stack
         #|    local.get 2))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -489,7 +486,6 @@ test "precompute-propagate folds constant selects while retaining chosen effects
         #|        (global.set $state (i32.const 7))
         #|        (i32.const 2))
         #|      (i32.const 0))))
-        #|,
       ),
       ["precompute-propagate"],
     ) {
@@ -514,7 +510,6 @@ test "precompute-propagate folds constant-true branches after loop effects" {
         #|      (br_if $again (i32.const 1))
         #|      (local.set $value (i32.const 9)))
         #|    (i32.const 10)))
-        #|,
       ),
       ["precompute-propagate"],
     ) {
@@ -555,7 +550,6 @@ test "precompute propagates an escaping branch through constant if and numeric p
         #|                  (f32.const 6)))))
         #|          (else (i32.const 7))))
         #|      (f64.const 8))))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -582,7 +576,6 @@ test "precompute does not treat a conditionally self-exiting block as an outer t
         #|        (br $outer))
         #|      (return (i32.const 1)))
         #|    (i32.const 2)))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -792,7 +785,6 @@ test "precompute preserves label depth while folding a constant if with an escap
         #|          (then (br $out (i32.const 7)))
         #|          (else (i32.const 8)))
         #|        (i32.const 9)))))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -832,7 +824,6 @@ test "precompute removes constant-false self-branch loop debris" {
         #|    (loop (br_if 0 (i32.const 0)))
         #|    (i32.const 7)
         #|    (drop)))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -856,7 +847,6 @@ test "precompute folds constant br-if and self-branch debris" {
         #|    (loop (br_if 0 (i32.const 1)))
         #|    (block (br_if 0 (i32.const 0)))
         #|    (block (br 0))))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -1248,7 +1238,6 @@ test "precompute preserves labels when folding nested constant void ifs" {
     #|      i32.const 0
     #|      br 0
     #|    end))
-    #|)
   let trace : Array[String] = []
   match
     pass_test_run_pipeline(
@@ -1286,7 +1275,6 @@ test "precompute rehomes labels when folding constant ifs to blocks" {
     #|    else
     #|      i32.const 7
     #|    end))
-    #|)
   match pass_test_run_pipeline(source, ["precompute"]) {
     Ok(_) => ()
     Err(err) =>
@@ -1428,7 +1416,6 @@ test "precompute flattens a nested same-target br_table value exit" {
         #|      end
         #|      unreachable
         #|    end))
-        #|),
       ),
       ["precompute"],
     ) {
@@ -1462,7 +1449,6 @@ test "precompute preserves effects and traps before a folded self br_table" {
         #|      i32.const 1
         #|      br_table 0 0
         #|    end))
-        #|),
       ),
       ["precompute"],
     ) {
@@ -1511,7 +1497,6 @@ test "precompute keeps effectful selectors and multivalue br_table payloads" {
     #|      i32.const 0
     #|      br_table 0 0
     #|    end))
-    #|)
   let optimized = match pass_test_run_pipeline(source, ["precompute"]) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -1623,7 +1608,6 @@ test "precompute removes dropped pure i31 references" {
       #|   (func (local anyref)
       #|     (local.set 0 (struct.new_default $s))
       #|     (drop (ref.i31 (i32.const 0)))))
-      #|,
     ),
     "(module (func (param eqref eqref) (drop (ref.eq (local.get 0) (local.get 1)))))",
     "(module (func (param externref) (drop (any.convert_extern (local.get 0)))))",
@@ -1794,7 +1778,6 @@ test "precompute marks constant-true self-branch loop tails unreachable after bl
         #|    (loop i32.const 1 br_if 0)
         #|    (block br 0)
         #|    i32.const 310))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -2002,7 +1985,6 @@ test "precompute preserves TLSF shaped explicit resetting loops" {
     #|        br 1
     #|      end
     #|    end))
-    #|)
   let optimized = match pass_test_run_pipeline(source, ["precompute"]) {
     Ok(mod_) => mod_
     Err(err) => fail("expected valid loop optimization, got \{err}")
@@ -2064,7 +2046,6 @@ test "precompute preserves TLSF shaped memory prologue local writes" {
     #|        br 1
     #|      end
     #|    end))
-    #|)
   let optimized = match pass_test_run_pipeline(source, ["precompute"]) {
     Ok(mod_) => mod_
     Err(err) => fail("expected valid prologue optimization, got \{err}")
@@ -2259,7 +2240,6 @@ test "precompute partially evaluates parents through select arms" {
         #|    select
         #|    i32.const 3
         #|    i32.add))
-        #|,
       ),
       ["precompute"],
       options=HotPipelineOptions::new(optimize_level=2),
@@ -2284,7 +2264,6 @@ test "precompute folds fresh GC allocation identity against null" {
         #|    struct.new $s
         #|    ref.null $s
         #|    ref.eq))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -2313,7 +2292,6 @@ test "precompute folds null identity and propagated null tests" {
         #|    (local $x (ref null $s))
         #|    (local.set $x (ref.null $s))
         #|    (ref.is_null (local.get $x))))
-        #|,
       ),
       ["precompute-propagate"],
     ) {
@@ -2456,7 +2434,6 @@ test "precompute-propagate collapses aggregate construction after unreachable ch
         #|  (type $record (struct (field i32)))
         #|  (func (result (ref $record))
         #|    (struct.new $record (unreachable))))
-        #|,
       ),
       ["precompute-propagate"],
     ) {
@@ -2520,7 +2497,6 @@ test "precompute folds immutable struct reads from fresh allocations" {
         #|    i32.const 42
         #|    struct.new $s
         #|    struct.get $s 0))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -2555,7 +2531,6 @@ test "precompute partially folds immutable heap reads across select arms" {
         #|        (global.get $b)
         #|        (local.get 0))
         #|      (global.get $a))))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -2597,7 +2572,6 @@ test "precompute-propagate folds nested immutable aggregate reads" {
         #|    (struct.get $inner 0
         #|      (struct.get $outer 0
         #|        (struct.new $outer (global.get $inner-global))))))
-        #|,
       ),
       ["precompute-propagate"],
     ) {
@@ -2634,7 +2608,6 @@ test "precompute-propagate emits ref.func from nested immutable reads" {
         #|      (struct.get $inner 0
         #|        (struct.get $outer 0
         #|          (local.get $outer-local))))))
-        #|,
       ),
       ["precompute-propagate"],
     ) {
@@ -2662,7 +2635,6 @@ test "precompute recursively folds select conditions through deterministic paren
         #|            (i32.const 0)
         #|            (i32.const 20)
         #|            (local.get 0)))))))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -2685,7 +2657,6 @@ test "precompute folds returned integer unary rotate and conversion values" {
         #|  (func (result i32) i32.const 8 i32.clz)
         #|  (func (result i32) i32.const 1 i32.const 3 i32.rotl)
         #|  (func (result i64) i32.const -1 i64.extend_i32_u))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -2718,7 +2689,6 @@ test "precompute folds constant SIMD reductions from WAGO isa_simd_reduce" {
         #|  (func (result i32) (i32x4.bitmask (v128.const i32x4 0x12345678 0xfedcba98 0x13579bdf 0x2468ace0)))
         #|  (func (result i32) (i64x2.all_true (v128.const i32x4 0x12345678 0xfedcba98 0x13579bdf 0x2468ace0)))
         #|  (func (result i32) (i64x2.bitmask (v128.const i32x4 0x12345678 0xfedcba98 0x13579bdf 0x2468ace0))))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -2761,7 +2731,6 @@ test "precompute folds constant SIMD NaN fixup chains from WAGO 1793d" {
         #|    i8x16.shr_s
         #|    f32x4.convert_i32x4_s
         #|    f64x2.floor))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -2801,7 +2770,6 @@ test "precompute folds materialized local SIMD NaN fixup chains" {
         #|    local.get 1
         #|    local.get 2
         #|    v128.bitselect))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -2877,7 +2845,6 @@ test "precompute folds zero SIMD lane extractions from edge-of-memory" {
         #|  (func (result i64) (i64x2.extract_lane 1 (v128.const i32x4 0 0 0 0)))
         #|  (func (result f32) (f32x4.extract_lane 3 (v128.const i32x4 0 0 0 0)))
         #|  (func (result f64) (f64x2.extract_lane 1 (v128.const i32x4 0 0 0 0))))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -2927,7 +2894,6 @@ test "precompute combines repeated same-local i32 constant additions" {
         #|    i32.const 1 i32.add local.tee 0
         #|    i32.const 1 i32.add local.set 0
         #|    local.get 0))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -2975,7 +2941,6 @@ test "precompute-propagate raw-folds structured repeated SIMD accumulators" {
         #|    (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.tee 1
         #|    (v128.any_true (v128.const i32x4 1 2 3 4)) i32.add local.set 1
         #|    local.get 1))
-        #|,
       ),
       ["precompute-propagate"],
     ) {
@@ -3046,7 +3011,6 @@ test "precompute folds deterministic SIMD constants but preserves relaxed SIMD" 
         #|    (i16x8.narrow_i32x4_u
         #|      (v128.const i32x4 -1 96 65535 65536)
         #|      (v128.const i32x4 0 1 65534 70000))))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -3138,7 +3102,6 @@ test "precompute folds constant SIMD promote bnot compare bitmask chains" {
         #|            (f64x2.promote_low_f32x4
         #|              (v128.const i32x4 -1 -2134900737 -2134963702 -2134963702)))
         #|          (v128.const i32x4 0 0 0 0))))))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -3187,7 +3150,6 @@ test "precompute folds f32x4 abs before v128 not" {
         #|    (v128.not
         #|      (f32x4.abs
         #|        (v128.const i32x4 0 0 0 0)))))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -3331,7 +3293,6 @@ test "precompute folds constant SIMD comparison shift negation extension chains"
         #|              (f32x4.eq
         #|                (v128.const f32x4 nan nan nan nan)
         #|                (v128.const f32x4 nan nan nan nan)))))))))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -3379,7 +3340,6 @@ test "precompute folds returned floating unary min and copysign values" {
         #|  (func (result f64) f64.const 9 f64.sqrt)
         #|  (func (result f32) f32.const 1.5 f32.const 2.5 f32.min)
         #|  (func (result f64) f64.const 4 f64.const -1 f64.copysign))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -3594,7 +3554,6 @@ test "precompute-propagate substitutes string constants through locals" {
         #|    (local $value stringref)
         #|    (local.set $value (string.const "hello"))
         #|    (local.get $value)))
-        #|,
       ),
       ["precompute-propagate"],
     ) {
@@ -3620,7 +3579,6 @@ test "precompute-propagate folds local tee allocation identity" {
         #|        (local.tee $x (struct.new $s))
         #|        (local.get $x)))
         #|    (local.get $result)))
-        #|,
       ),
       ["precompute-propagate"],
     ) {
@@ -3812,7 +3770,6 @@ test "precompute family keeps local writes while exposing exact parent values" {
           #|    local.tee 0
           #|    i32.const 2
           #|    i32.add))
-          #|,
         ),
         [pass_name],
       ) {
@@ -3839,7 +3796,6 @@ test "precompute family preserves multiple ordered local writes while folding pa
           #|    i32.const 20
           #|    local.tee 0
           #|    i32.add))
-          #|,
         ),
         [pass_name],
       ) {
@@ -3867,7 +3823,6 @@ test "precompute reads a local written earlier in the same expression" {
           #|    local.tee 0
           #|    local.get 0
           #|    i32.add))
-          #|,
         ),
         [pass_name],
       ) {
@@ -3925,7 +3880,6 @@ test "precompute family preserves nested local and global writes while folding p
           #|      i32.const 40
           #|    end
           #|    i32.add))
-          #|,
         ),
         [pass_name],
       ) {
@@ -3956,7 +3910,6 @@ test "precompute folds floating nearest signed zero and saturating conversions" 
         #|  (func (result i64) f64.const 42.75 i64.trunc_f64_s)
         #|  (func (result i64) f64.const 9223372036854775808 i64.trunc_f64_u)
         #|  (func (result i64) f64.const 18446744073709549568 i64.trunc_f64_u))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -4047,7 +4000,6 @@ test "precompute matches Binaryen floating NaN infinity and subnormal folds" {
         #|    f64.const 0
         #|    f64.max
         #|    i64.reinterpret_f64))
-        #|,
       ),
       ["precompute"],
     ) {
@@ -4118,7 +4070,6 @@ test "precompute repeatedly evaluates unary parents through select arms" {
         #|    i32.const 3
         #|    i32.add
         #|    i32.eqz))
-        #|,
       ),
       ["precompute"],
       options=HotPipelineOptions::new(optimize_level=2),

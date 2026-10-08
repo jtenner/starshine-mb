@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-10-07
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/ssa_nomerge.mbt
@@ -229,3 +229,9 @@ Final evidence on native SHA-256 `61a3639b184350a2d85faa9ae80e149ebc63d25d69af44
   - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/ssa-nomerge_enable-simd.txt>
   - <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/ssa.wast>
   - <https://github.com/WebAssembly/binaryen/blob/version_130/test/gtest/local-graph.cpp>
+
+## SSA-nomerge correctness repairs — October 7, 2026
+
+Legacy try protected/catch bodies participate in local-write, reference, default-materialization and loop-carrier scans. Preserve escaping nested body-local and parameter writes, including repeated definitions. The raw rewrite keeps legacy-touched locals canonical. Separate If write flags retain incoming parameter aliases and earlier writes with a dominating canonical overwrite. Shared If boundaries exclude sibling-arm flow. Two region walks and primitive candidate chains use linear work and O(locals + regions + instructions) scratch, with no per-write objects. The input-local limit includes earlier scratch types and stays fixed during rewriting. Loop reads update one first-access row directly, removing the per-instruction read bitset and full-local scan. Each loop scan is O(subtree + input locals); branch write masks are collected once per arm. Nested-scan and later-read costs remain. The admitted overlay uses one local expanded graph; existing EH, typed-loop and nested-copy policy guards stay explicit.
+
+Evidence: [ssa_nomerge.mbt](../../../../../src/passes/ssa_nomerge.mbt), [raw scratch tests](../../../../../src/passes/p00_scratch_escapes_wbtest.mbt), and [dispatcher tests](../../../../../src/cmd/p00_flow_wbtest.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.

@@ -87,7 +87,6 @@ test "propagate-globals-globally rewrites direct and compound global initializer
       #|    i32.add)
       #|  (func (result i32)
       #|    global.get $b))
-      #|,
     ),
   )
 
@@ -115,7 +114,6 @@ test "propagate-globals-globally intentionally does not promote arithmetic compo
       #|    i32.const 2
       #|    i32.add)
       #|  (global $copy i32 (global.get $sum)))
-      #|,
     ),
   )
 
@@ -141,7 +139,6 @@ test "propagate-globals-globally rewrites string globals inside GC constant expr
       #|    global.get $left
       #|    global.get $right
       #|    struct.new $pair))
-      #|,
     ),
   )
 
@@ -163,7 +160,6 @@ test "propagate-globals-globally rewrites active data offsets" {
       #|  (global $offset i32 (i32.const 8))
       #|  (memory 1)
       #|  (data (global.get $offset) "abc"))
-      #|,
     ),
   )
 
@@ -182,7 +178,6 @@ test "propagate-globals-globally rewrites active element offsets" {
       #|  (global $offset i32 (i32.const 1))
       #|  (table 4 funcref)
       #|  (elem (global.get $offset) func $target))
-      #|,
     ),
   )
 
@@ -200,7 +195,6 @@ test "propagate-globals-globally preserves unknown imported globals and passive 
       #|  (global $copy i32 (global.get $offset))
       #|  (memory 1)
       #|  (data "abc"))
-      #|,
     ),
   )
 

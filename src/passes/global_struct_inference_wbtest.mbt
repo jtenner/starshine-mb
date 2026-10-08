@@ -65,7 +65,6 @@ test "global-struct-inference deduplicates exported roots and reuses global visi
       #|   (export "read-b" (func $read))
       #|   (export "reader-a" (global $reader))
       #|   (export "reader-b" (global $reader)))
-      #|,
     ),
   )
   let roots = gsi_exported_origin_roots(mod_, 0, 1, 0, 1)
@@ -94,7 +93,6 @@ test "global-struct-inference rejects mutable callback aliases before allocating
       #|   (global $reader (mut (ref $reader)) (ref.func $read))
       #|   (func (export "get") (result (ref $reader))
       #|     global.get $reader))
-      #|,
     ),
   )
   let env = @validate.Env::new().with_module(mod_)

@@ -30,12 +30,12 @@ fn oc_abs_heap_matches(
     | (@lib.NoneAbsHeapType, @lib.I31AbsHeapType)
     | (@lib.NoneAbsHeapType, @lib.EqAbsHeapType)
     | (@lib.NoneAbsHeapType, @lib.AnyAbsHeapType)
-    | (@lib.NoneAbsHeapType, @lib.StringAbsHeapType)
     | (@lib.NoFuncAbsHeapType, @lib.FuncAbsHeapType)
     | (@lib.NoContAbsHeapType, @lib.ContAbsHeapType)
     | (@lib.NoWaitqueueAbsHeapType, @lib.WaitqueueAbsHeapType)
     | (@lib.StringAbsHeapType, @lib.ExternAbsHeapType)
     | (@lib.NoExternAbsHeapType, @lib.ExternAbsHeapType)
+    | (@lib.NoExternAbsHeapType, @lib.StringAbsHeapType)
     | (@lib.NoExnAbsHeapType, @lib.ExnAbsHeapType)
     | (@lib.I31AbsHeapType, @lib.EqAbsHeapType)
     | (@lib.I31AbsHeapType, @lib.AnyAbsHeapType)
@@ -578,12 +578,35 @@ fn oc_count_local_gets(
 }
 
 ///|
+// Restore a proven non-null result only when its storage was weakened.
+fn oc_restore_capture_type(
+  func : @ir.HotFunc,
+  value_id : Int,
+  ref_type : @lib.RefType,
+) -> Int {
+  if ref_type.is_nullable() {
+    return value_id
+  }
+  match oc_ref_type_from_node(func, value_id) {
+    Some(value_type) if value_type == ref_type => value_id
+    _ =>
+      @ir.hot_build_heap(
+        func,
+        [@lib.ValType::ref_type(ref_type)],
+        @lib.Instruction::ref_as_non_null(),
+        [value_id],
+      )
+  }
+}
+
+///|
 fn oc_retarget_local_gets_from_map(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
   retarget : Array[Bool],
   fresh_locals : Array[Int],
+  best_casts : Array[Int],
 ) -> Int {
   if !@ir.hot_node_is_live(func, node_id) {
     return 0
@@ -596,7 +619,15 @@ fn oc_retarget_local_gets_from_map(
     retarget[node.imm0] {
     let fresh_local = fresh_locals[node.imm0]
     if fresh_local >= 0 {
-      let temp = @ir.hot_build_local_get(func, fresh_local)
+      let ref_type = match oc_ref_type_from_node(func, best_casts[node.imm0]) {
+        Some(ref_type) => ref_type
+        None => return 0
+      }
+      let temp = oc_restore_capture_type(
+        func,
+        @ir.hot_build_local_get(func, fresh_local),
+        ref_type,
+      )
       let replacement = @ir.hot_node_get(func, temp)
       @ir.hot_delete_node(func, temp)
       pass_replace_node(ctx, func, node_id, replacement)
@@ -606,7 +637,7 @@ fn oc_retarget_local_gets_from_map(
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
     count += oc_retarget_local_gets_from_map(
-      ctx, func, child_id, retarget, fresh_locals,
+      ctx, func, child_id, retarget, fresh_locals, best_casts,
     )
   }
   count
@@ -1298,6 +1329,10 @@ fn oc_wrap_refinement_with_tee(
   if !@ir.hot_node_is_live(func, cast_id) {
     return false
   }
+  let ref_type = match oc_ref_type_from_node(func, cast_id) {
+    Some(ref_type) => ref_type
+    None => return false
+  }
   let cast_node = @ir.hot_node_get(func, cast_id)
   let clone = @ir.hot_build_node(
     func,
@@ -1308,8 +1343,9 @@ fn oc_wrap_refinement_with_tee(
     children=oc_node_children(func, cast_id),
   )
   let tee = @ir.hot_build_local_tee(func, fresh_local, clone)
-  let replacement = @ir.hot_node_get(func, tee)
-  @ir.hot_delete_node(func, tee)
+  let temp = oc_restore_capture_type(func, tee, ref_type)
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
   pass_replace_node(ctx, func, cast_id, replacement)
   true
 }
@@ -1773,6 +1809,20 @@ fn oc_clear_later_reuse(
 }
 
 ///|
+// -2 marks an inner-frame cast without an allocated carrier.
+// The site mark can remain across barriers; it does not retain a reuse fact.
+fn oc_mark_scope_limited_cast(
+  fresh_by_cast : Array[Int],
+  cast_id : Int,
+) -> Unit {
+  if cast_id >= 0 &&
+    cast_id < fresh_by_cast.length() &&
+    fresh_by_cast[cast_id] == -1 {
+    fresh_by_cast[cast_id] = -2
+  }
+}
+
+///|
 fn oc_find_fresh_local_for_cast(
   fresh_by_cast : Array[Int],
   cast_id : Int,
@@ -2197,6 +2247,7 @@ fn oc_later_reuse_scan_region(
   fresh_by_cast : Array[Int],
   fresh_cast_ids : Array[Int],
   region : @ir.HotRegionRef,
+  inside_control_frame : Bool,
 ) -> Bool {
   let mut changed = false
   let root_count = @ir.hot_region_root_count(func, region)
@@ -2229,6 +2280,7 @@ fn oc_later_reuse_scan_region(
               fresh_by_cast,
               fresh_cast_ids,
               @ir.hot_region_body_ref(func, block_id),
+              true,
             ) {
             changed = true
           }
@@ -2308,8 +2360,11 @@ fn oc_later_reuse_scan_region(
                   Some(ref_type) => ref_type
                   None => continue
                 }
+                // An inner-frame write cannot initialize a parent-frame local.
+                let can_escape_frame = best_cast >= fresh_by_cast.length() ||
+                  fresh_by_cast[best_cast] == -2
                 let fresh_ref_type = @lib.RefType::new(
-                  ref_type.is_nullable(),
+                  ref_type.is_nullable() || can_escape_frame,
                   ref_type.get_heap_type(),
                   exact=ref_type.is_exact(),
                 )
@@ -2334,7 +2389,7 @@ fn oc_later_reuse_scan_region(
       }
       if !retarget_locals.is_empty() &&
         oc_retarget_local_gets_from_map(
-          ctx, func, root_id, retarget_mask, fresh_locals,
+          ctx, func, root_id, retarget_mask, fresh_locals, best_casts,
         ) >
         0 {
         changed = true
@@ -2374,6 +2429,9 @@ fn oc_later_reuse_scan_region(
           ) {
           best_casts[local_id] = cast_id
           fresh_locals[local_id] = -1
+          if inside_control_frame {
+            oc_mark_scope_limited_cast(fresh_by_cast, cast_id)
+          }
         }
       }
     }
@@ -2393,6 +2451,9 @@ fn oc_later_reuse_scan_region(
           ) {
           best_casts[local_id] = cast_id
           fresh_locals[local_id] = -1
+          if inside_control_frame {
+            oc_mark_scope_limited_cast(fresh_by_cast, cast_id)
+          }
         }
       }
     }
@@ -2449,6 +2510,7 @@ fn oc_later_reuse_run(
     fresh_by_cast,
     fresh_cast_ids,
     @ir.HotRegionRef::root(),
+    false,
   )
 }
 

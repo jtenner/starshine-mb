@@ -2315,7 +2315,6 @@ test "remove-unused-module-elements v131 removes wrong-type elem without table i
       #|    (drop (call_indirect $table (type $i32) (i32.const 0))))
       #|  (func $i32 (type $i32) (result i32) (i32.const 0))
       #|  (func $i64 (result i64) (unreachable)))
-      #|,
     ),
   )
   let optimized = rume_run_module_pass(input)

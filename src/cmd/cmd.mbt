@@ -7804,8 +7804,8 @@ fn cmd_native_lower_text_module(
   let in_q = cmd_native_shell_quote(in_path)
   let out_q = cmd_native_shell_quote(out_path)
   let commands = [
-    "wat2wasm \{in_q} -o \{out_q}",
     "wasm-tools parse \{in_q} -o \{out_q}",
+    "wat2wasm \{in_q} -o \{out_q}",
   ]
   let mut lowered = false
   for command in commands {
@@ -9795,12 +9795,13 @@ test "direct DFE preserves address-taken internal function identities" {
 }
 
 ///|
-test "direct performance consumers preserve definitely initialized reference branches" {
+test "direct performance consumers preserve references initialized before branches" {
   let input = @passes.pass_test_module_from_wat(
     (
       #|(module (type $f (func))
       #| (func (export "choose") (param (ref $f) i32) (result (ref $f))
       #|   (local (ref $f) (ref $f))
+      #|   local.get 0 local.set 2
       #|   local.get 1 if local.get 0 local.set 2 else local.get 0 local.set 2 end
       #|   local.get 2))
     ),

@@ -136,11 +136,18 @@ fn dae2_legacy_handlers(
 }
 
 ///|
+#valtype
+priv struct Dae2LegacyExceptionFrame {
+  source_label_count : Int
+  local_id : Int
+}
+
+///|
 fn dae2_legacy_body(
   state : Dae2LegacyState,
   instrs : Array[@lib.Instruction],
   labels : Dae2LegacyLabels,
-  exceptions : Array[Int],
+  exceptions : Array[Dae2LegacyExceptionFrame],
 ) -> Result[Array[@lib.Instruction], String] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -249,8 +256,12 @@ fn dae2_legacy_body(
             Err(err) => return Err(err)
           }
           let next_catches : Array[@lib.LegacyCatch] = []
-          let handler_exceptions = [-1]
-          handler_exceptions.append(exceptions)
+          // Borrow one catch stack; push/pop avoids copying ancestor rows.
+          let handler_exceptions = exceptions
+          handler_exceptions.push({
+            source_label_count: inner.frame_count(),
+            local_id: -1,
+          })
           for catch_ in catches {
             let catch_body = match catch_ {
               @lib.LegacyCatch(_, @lib.Expr(body))
@@ -270,6 +281,7 @@ fn dae2_legacy_body(
               },
             )
           }
+          ignore(handler_exceptions.pop())
           @lib.Instruction::try_(
             bt,
             @lib.Expr::new(body),
@@ -354,13 +366,14 @@ fn dae2_legacy_body(
             } else {
               None
             }
-            let handler_exceptions = [
-              match exception {
-                Some(@lib.LocalIdx(raw)) => raw.to_int()
+            let handler_exceptions = exceptions
+            handler_exceptions.push({
+              source_label_count: handler_labels.frame_count(),
+              local_id: match exception {
+                Some(index) => index.0.to_int()
                 None => -1
               },
-            ]
-            handler_exceptions.append(exceptions)
+            })
             let catch_body = match catches[i] {
               @lib.LegacyCatch(_, @lib.Expr(body))
               | @lib.LegacyCatchAll(@lib.Expr(body)) => body
@@ -372,6 +385,7 @@ fn dae2_legacy_body(
               Ok(body) => body
               Err(err) => return Err(err)
             }
+            ignore(handler_exceptions.pop())
             let next = [
               @lib.Instruction::block(
                 dae2_legacy_block_type(state, payload_types[i]),
@@ -392,23 +406,31 @@ fn dae2_legacy_body(
           @lib.Instruction::block(result_bt, @lib.Expr::new(nested))
         }
       @lib.Instruction::Rethrow(@lib.LabelIdx(depth)) => {
-        let target = exceptions[depth.to_int()]
-        if target >= 0 {
+        if depth >= labels.frame_count().reinterpret_as_uint() {
+          return Err("invalid legacy rethrow label depth")
+        }
+        let target_prefix = labels.frame_count() - depth.reinterpret_as_int()
+        let mut target = None
+        for i = exceptions.length() - 1; i >= 0; i = i - 1 {
+          if exceptions[i].source_label_count == target_prefix {
+            target = Some(exceptions[i].local_id)
+            break
+          }
+        }
+        let local_id = match target {
+          Some(id) => id
+          None => return Err("legacy rethrow must target an active catch label")
+        }
+        if local_id >= 0 {
           out.push(
             @lib.Instruction::local_get(
-              @lib.LocalIdx::new(target.reinterpret_as_uint()),
+              @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
             ),
           )
           @lib.Instruction::throw_ref()
         } else {
-          let mut retained = 0
-          for i = 0; i < depth.to_int(); i = i + 1 {
-            if exceptions[i] < 0 {
-              retained += 1
-            }
-          }
           @lib.Instruction::rethrow(
-            @lib.LabelIdx::new(retained.reinterpret_as_uint()),
+            dae2_legacy_label(labels, @lib.LabelIdx::new(depth)),
           )
         }
       }

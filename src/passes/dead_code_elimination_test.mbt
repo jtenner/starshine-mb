@@ -206,7 +206,6 @@ test "dead-code-elimination raw-skips final void nonfallthrough if" {
         #|    else
         #|      unreachable
         #|    end))
-        #|,
       ),
       ["dead-code-elimination"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -241,7 +240,6 @@ test "dead-code-elimination skips load-call-set ownership hazards" {
         #|    call $decref
         #|    local.set $out
         #|    local.get $out))
-        #|,
       ),
       ["dead-code-elimination"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -277,7 +275,6 @@ test "dead-code-elimination skips loop bodies that branch to an outer block" {
         #|      end
         #|    end
         #|    i32.const 1))
-        #|,
       ),
       ["dead-code-elimination"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
@@ -1862,9 +1859,27 @@ test "dead-code-elimination retargets split wrappers with store-store-return tai
 }
 
 ///|
+fn dce_assert_typed_if_fixture_module(func : @ir.HotFunc) -> Unit {
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([@ir.hot_lower_func(func)]))
+  @validate.validate_module(module_).unwrap()
+  @validate.validate_module(
+    @binary.decode_module(@binary.encode_module(module_).unwrap()).unwrap(),
+  ).unwrap()
+}
 
 ///|
-test "dead-code-elimination keeps typed if wrappers with hidden region-label payload branches" {
+test "dead-code-elimination keeps typed if wrappers with hidden payload branches" {
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(
     func,
@@ -1878,7 +1893,7 @@ test "dead-code-elimination keeps typed if wrappers with hidden region-label pay
     else_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
   )
   let then_region = @ir.hot_region_then_ref(func, if_id)
-  let then_label = @ir.hot_control_node_label(func, then_region.holder)
+  let then_label = @ir.hot_control_node_label(func, if_id)
   @ir.hot_region_replace_body(func, then_region, [
     @ir.hot_build_br(func, then_label, values=[
       @ir.hot_build_const_i32(func, @lib.I32(1)),
@@ -1902,6 +1917,7 @@ test "dead-code-elimination keeps typed if wrappers with hidden region-label pay
     Ok(_) => ()
     Err(err) => fail("expected test fixture control verification, got \{err}")
   }
+  dce_assert_typed_if_fixture_module(func)
   match hot_pass_run(ctx, func) {
     Ok(_) => ()
     Err(err) =>
@@ -1910,6 +1926,7 @@ test "dead-code-elimination keeps typed if wrappers with hidden region-label pay
       )
   }
 
+  dce_assert_typed_if_fixture_module(func)
   @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 1)
   match @ir.hot_verify_core(func) {
     Ok(_) => ()
@@ -1932,7 +1949,7 @@ test "dead-code-elimination keeps typed if wrappers with hidden br_table payload
     else_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
   )
   let then_region = @ir.hot_region_then_ref(func, if_id)
-  let then_label = @ir.hot_control_node_label(func, then_region.holder)
+  let then_label = @ir.hot_control_node_label(func, if_id)
   @ir.hot_region_replace_body(func, then_region, [
     @ir.hot_build_br_table(
       func,
@@ -1961,12 +1978,14 @@ test "dead-code-elimination keeps typed if wrappers with hidden br_table payload
     Err(err) =>
       fail("expected br_table fixture control verification, got \{err}")
   }
+  dce_assert_typed_if_fixture_module(func)
   match hot_pass_run(ctx, func) {
     Ok(_) => ()
     Err(err) =>
       fail("expected dead-code-elimination hidden br_table success, got \{err}")
   }
 
+  dce_assert_typed_if_fixture_module(func)
   @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 1)
   match @ir.hot_verify_core(func) {
     Ok(_) => ()

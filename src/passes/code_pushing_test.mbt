@@ -5735,7 +5735,6 @@ test "code-pushing flattens dead typed block before unreachable" {
       #|      (f64.const 0)
       #|      unreachable)
       #|    unreachable))
-      #|,
     ),
   )
 
@@ -5839,7 +5838,6 @@ test "code-pushing sinks global get past local-only setup into sole using if arm
       #|      local.get 1
       #|      drop
       #|    end))
-      #|,
     ),
   )
 
@@ -5889,7 +5887,6 @@ test "code-pushing sinks global get through value if before later side effect" {
       #|    i32.store
       #|    local.get 2
       #|    drop))
-      #|,
     ),
   )
 
@@ -5927,7 +5924,6 @@ test "code-pushing sinks local.get set after unrelated effectful if" {
       #|    end
       #|    local.get 1
       #|    drop))
-      #|,
     ),
   )
 
@@ -5970,7 +5966,6 @@ test "code-pushing sinks local.get set when source write is nested in previous r
       #|    end
       #|    local.get 2
       #|    drop))
-      #|,
     ),
   )
 
@@ -5997,7 +5992,6 @@ test "code-pushing sinks local.get set after immediately following effectful if"
       #|    end
       #|    local.get 2
       #|    drop))
-      #|,
     ),
   )
 
@@ -6038,7 +6032,6 @@ test "code-pushing keeps local.get set before multivalue value if" {
         #|    drop
         #|    local.get 2
         #|    drop))
-        #|,
       ),
       ["code-pushing"],
     ) {

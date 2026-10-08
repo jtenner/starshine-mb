@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-08
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -124,3 +124,25 @@ Future work may still choose a local extension, but only with focused tests, dir
 - [`./two-phase-dataflow.md`](./two-phase-dataflow.md) - strict vs loose safety split
 - [`./wat-shapes.md`](./wat-shapes.md) - concrete shapes and bailouts
 - [`./starshine-strategy.md`](./starshine-strategy.md) - current active-pass status, direct parity evidence, and remaining neighborhood map
+
+
+## October 8, 2026 — Capture local initialization
+
+A cast result reused outside a value block uses nullable carrier storage. The
+capture tee and each rewritten non-null read of that weakened storage restore
+the proven result type with ref.as_non_null. The original cast remains at its original effect position
+and executes once. Existing source-write and control barriers still apply.
+This prevents an invalid outer read of a non-defaultable local initialized only
+inside the block.
+
+Function-frame captures retain their original nullability and add no restore
+check. Inner-frame sites use one marker in the existing cast cache. The existing
+best-cast row supplies each result type through one lookup. Weakened storage
+adds one unary node per changed non-null use, with no new wide buffer or per-use
+graph scan. Added checks are a correctness cost; their size and runtime effect
+require ordinary dedicated pass signoff.
+
+Sources: [implementation](../../../../../src/passes/optimize_casts.mbt),
+[direct storage/type/encoded-validation regression](../../../../../src/passes/mass_audit_ir_wbtest.mbt),
+[existing value-block regression](../../../../../src/passes/optimize_casts_test.mbt),
+[validator initialization contract](../../../validate/module-validation-phases.md#october-8-2026--audit-contract-repairs).
