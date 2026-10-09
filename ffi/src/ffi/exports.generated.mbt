@@ -69,6 +69,16 @@ pub fn ffi_binary_encode_module(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_encoded_module_sizes")
+pub fn ffi_binary_encoded_module_sizes(
+  value0 : @lib.Module,
+  value1 : @lib.Module,
+) -> Result[(Int, Int), @binary.EncodeError] {
+  @binary.encoded_module_sizes(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_size_signed")
 pub fn ffi_binary_size_signed(
   value0 : Int64,
@@ -2461,6 +2471,17 @@ pub fn ffi_ir_hot_build_ref_null(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ir_hot_build_region")
+pub fn ffi_ir_hot_build_region(
+  value0 : @ir.HotFunc,
+  value1 : Array[Int],
+  value2 : Int,
+) -> Int {
+  @ir.hot_build_region(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ir_hot_build_resolved_block")
 pub fn ffi_ir_hot_build_resolved_block(
   value0 : @ir.HotFunc,
@@ -3118,6 +3139,7 @@ pub fn ffi_ir_hot_lift_func_with_context_result(
   value2 : @ir.HotModuleContext,
   capture_stack_locals : Bool?,
   materialize_multi_values : Bool?,
+  record_local_accesses : Bool?,
 ) -> Result[@ir.HotFunc, @ir.HotLiftError] {
   @ir.hot_lift_func_with_context_result(
     value0,
@@ -3125,6 +3147,7 @@ pub fn ffi_ir_hot_lift_func_with_context_result(
     value2,
     capture_stack_locals?,
     materialize_multi_values?,
+    record_local_accesses?,
   )
 }
 
@@ -3293,6 +3316,15 @@ pub fn ffi_ir_hot_module_context_from_module(
   value0 : @lib.Module,
 ) -> @ir.HotModuleContext {
   @ir.hot_module_context_from_module(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_hot_module_context_validation_env")
+pub fn ffi_ir_hot_module_context_validation_env(
+  value0 : @ir.HotModuleContext,
+) -> @validate.Env {
+  @ir.hot_module_context_validation_env(value0)
 }
 
 ///|
@@ -3695,6 +3727,13 @@ pub fn ffi_ir_hot_node_may_throw_exception(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ir_hot_node_op")
+pub fn ffi_ir_hot_node_op(value0 : @ir.HotFunc, value1 : Int) -> @ir.HotOp {
+  @ir.hot_node_op(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ir_hot_node_promote_to_block")
 pub fn ffi_ir_hot_node_promote_to_block(
   value0 : @ir.HotFunc,
@@ -3802,6 +3841,17 @@ pub fn ffi_ir_hot_pass_requires(
   value0 : @ir.HotPassDescriptor,
 ) -> Array[@ir.HotAnalysis] {
   @ir.hot_pass_requires(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_hot_preserve_replacement_position")
+pub fn ffi_ir_hot_preserve_replacement_position(
+  value0 : @ir.HotFunc,
+  value1 : Int,
+  value2 : Int,
+) -> Unit {
+  @ir.hot_preserve_replacement_position(value0, value1, value2)
 }
 
 ///|
@@ -4237,6 +4287,17 @@ pub fn ffi_ir_hot_replace_node(
   preserve_value_order : Bool?,
 ) -> Unit {
   @ir.hot_replace_node(value0, value1, value2, preserve_value_order?)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_hot_replace_node_preserving_position")
+pub fn ffi_ir_hot_replace_node_preserving_position(
+  value0 : @ir.HotFunc,
+  value1 : Int,
+  value2 : @ir.HotNode,
+) -> Unit {
+  @ir.hot_replace_node_preserving_position(value0, value1, value2)
 }
 
 ///|
@@ -4685,6 +4746,17 @@ pub fn ffi_ir_liveness_build(
 
 ///|
 #doc(hidden)
+#export_name("ffi_ir_liveness_build_from_func")
+pub fn ffi_ir_liveness_build_from_func(
+  value0 : @ir.HotFunc,
+  value1 : @ir.HotCfg,
+  include_exceptional_edges : Bool?,
+) -> @ir.HotLiveness {
+  @ir.liveness_build_from_func(value0, value1, include_exceptional_edges?)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_ir_local_graph_build")
 pub fn ffi_ir_local_graph_build(
   value0 : @ir.HotFunc,
@@ -4701,6 +4773,17 @@ pub fn ffi_ir_local_graph_build_full_flow(
   value1 : @ir.HotCfg,
 ) -> @ir.HotLocalGraph {
   @ir.local_graph_build_full_flow(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_local_graph_build_read_sources")
+pub fn ffi_ir_local_graph_build_read_sources(
+  value0 : @ir.HotFunc,
+  value1 : @ir.HotCfg,
+  selected_gets : Array[Bool]??,
+) -> @ir.HotLocalReadSources {
+  @ir.local_graph_build_read_sources(value0, value1, selected_gets?)
 }
 
 ///|
@@ -4804,6 +4887,38 @@ pub fn ffi_ir_local_graph_node_is_write(
   value1 : Int,
 ) -> Bool {
   @ir.local_graph_node_is_write(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_local_graph_reaching_source_count_for_get")
+pub fn ffi_ir_local_graph_reaching_source_count_for_get(
+  value0 : @ir.HotLocalGraph,
+  value1 : Int,
+) -> Int {
+  @ir.local_graph_reaching_source_count_for_get(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_local_graph_reaching_source_for_get")
+pub fn ffi_ir_local_graph_reaching_source_for_get(
+  value0 : @ir.HotLocalGraph,
+  value1 : Int,
+  value2 : Int,
+) -> @ir.HotLocalGraphSource {
+  @ir.local_graph_reaching_source_for_get(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_local_graph_reaching_source_value_for_get")
+pub fn ffi_ir_local_graph_reaching_source_value_for_get(
+  value0 : @ir.HotLocalGraph,
+  value1 : Int,
+  value2 : Int,
+) -> @ir.HotLocalGraphSourceValue {
+  @ir.local_graph_reaching_source_value_for_get(value0, value1, value2)
 }
 
 ///|
@@ -4936,6 +5051,27 @@ pub fn ffi_ir_local_read_nodes_borrowed(
   value1 : Int,
 ) -> Array[Int] {
   @ir.local_read_nodes_borrowed(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_local_read_source_count_for_get")
+pub fn ffi_ir_local_read_source_count_for_get(
+  value0 : @ir.HotLocalReadSources,
+  value1 : Int,
+) -> Int {
+  @ir.local_read_source_count_for_get(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ir_local_read_source_value_for_get")
+pub fn ffi_ir_local_read_source_value_for_get(
+  value0 : @ir.HotLocalReadSources,
+  value1 : Int,
+  value2 : Int,
+) -> @ir.HotLocalGraphSourceValue {
+  @ir.local_read_source_value_for_get(value0, value1, value2)
 }
 
 ///|
@@ -12352,6 +12488,13 @@ pub fn ffi_lib_Instruction_nop() -> @lib.Instruction {
 
 ///|
 #doc(hidden)
+#export_name("ffi_lib_Instruction_publish")
+pub fn ffi_lib_Instruction_publish() -> @lib.Instruction {
+  @lib.Instruction::publish()
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_lib_Instruction_ref_as_non_null")
 pub fn ffi_lib_Instruction_ref_as_non_null() -> @lib.Instruction {
   @lib.Instruction::ref_as_non_null()
@@ -12433,6 +12576,13 @@ pub fn ffi_lib_Instruction_ref_get_desc(
 #export_name("ffi_lib_Instruction_ref_i31")
 pub fn ffi_lib_Instruction_ref_i31() -> @lib.Instruction {
   @lib.Instruction::ref_i31()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_lib_Instruction_ref_i31_shared")
+pub fn ffi_lib_Instruction_ref_i31_shared() -> @lib.Instruction {
+  @lib.Instruction::ref_i31_shared()
 }
 
 ///|
@@ -17960,6 +18110,7 @@ pub fn ffi_passes_HotPassContext_new(
   value4 : (String) -> Unit,
   traps_never_happen : Bool?,
   ignore_implicit_traps : Bool?,
+  fast_math : Bool?,
   perf : @passes.HotPerfSession??,
   module_ctx : @ir.HotModuleContext??,
   optimize_level : Int?,
@@ -17973,6 +18124,7 @@ pub fn ffi_passes_HotPassContext_new(
     value4,
     traps_never_happen?,
     ignore_implicit_traps?,
+    fast_math?,
     perf?,
     module_ctx?,
     optimize_level?,
@@ -18100,6 +18252,7 @@ pub fn ffi_passes_HotPipelineOptions_new(
   traps_never_happen : Bool?,
   ignore_implicit_traps : Bool?,
   zero_filled_memory : Bool?,
+  fast_math : Bool?,
   compiler_fact_policy : @passes.CompilerFactUsePolicy?,
   optimize_level : Int?,
   shrink_level : Int?,
@@ -18120,6 +18273,7 @@ pub fn ffi_passes_HotPipelineOptions_new(
     traps_never_happen?,
     ignore_implicit_traps?,
     zero_filled_memory?,
+    fast_math?,
     compiler_fact_policy?,
     optimize_level?,
     shrink_level?,
@@ -21033,6 +21187,16 @@ pub fn ffi_validate_gen_valid_engine_state_trap_family(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_gen_valid_engine_tiering_profile_case_label")
+pub fn ffi_validate_gen_valid_engine_tiering_profile_case_label(
+  value0 : @validate.GenValidProfile,
+  value1 : UInt64,
+) -> String? {
+  @validate.gen_valid_engine_tiering_profile_case_label(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_gen_valid_feature_facts")
 pub fn ffi_validate_gen_valid_feature_facts(
   value0 : @lib.Module,
@@ -21517,6 +21681,17 @@ pub fn ffi_validate_tc_state_finish_try_table(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_tc_state_fork_body")
+pub fn ffi_validate_tc_state_fork_body(
+  value0 : @validate.TcState,
+  value1 : @validate.Env,
+  value2 : Array[@lib.ValType],
+) -> @validate.TcState {
+  @validate.tc_state_fork_body(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_tc_state_merge_nonfallthrough_if_exits")
 pub fn ffi_validate_tc_state_merge_nonfallthrough_if_exits(
   value0 : @validate.TcEscape,
@@ -21629,6 +21804,16 @@ pub fn ffi_validate_tc_state_with_stack(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_typecheck_expr_for_probe")
+pub fn ffi_validate_typecheck_expr_for_probe(
+  value0 : @lib.Expr,
+  value1 : @validate.TcState,
+) -> Result[@validate.TcState, String] {
+  @validate.typecheck_expr_for_probe(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_validate_codesec")
 pub fn ffi_validate_validate_codesec(
   value0 : @lib.CodeSec?,
@@ -21697,6 +21882,17 @@ pub fn ffi_validate_validate_exportsec(
   value1 : @validate.Env,
 ) -> Result[Unit, String] {
   @validate.validate_exportsec(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_validate_validate_func_body_against_functype")
+pub fn ffi_validate_validate_func_body_against_functype(
+  value0 : @validate.Env,
+  value1 : @lib.FuncType,
+  value2 : @lib.Func,
+) -> Result[Unit, String] {
+  @validate.validate_func_body_against_functype(value0, value1, value2)
 }
 
 ///|

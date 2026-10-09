@@ -23434,6 +23434,9 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                       body, 0U,
                     )
                   if preserve_plain_result_loop_carrier {
+                    if !body_fallthrough {
+                      loop_body.push(@lib.Instruction::unreachable_())
+                    }
                     rewritten.push(
                       @lib.Instruction::loop_(
                         result_block_type,
@@ -32919,6 +32922,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     })
   }
   if descriptor.name == "ssa" {
+    if ssa_full_raw_has_call_in_try_table(instrs, false) {
+      return Some({
+        reason: "full-ssa-throwing-try-table-call-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     let hot_func = match
       @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
       Ok(hot_func) => hot_func
@@ -71676,28 +71687,28 @@ fn o4z_canonicalize_final_size_candidate_impl(
 
 ///|
 pub fn o4z_canonicalize_final_size_candidate(mod_ : @lib.Module) -> @lib.Module {
-  let without_branch_hints = o4z_canonicalize_final_size_strip_branch_hints(
-    mod_,
-  )
-  if pass_module_has_offset_sensitive_metadata(without_branch_hints) {
-    return mod_
+  // This size lane explicitly discards branch hints. Strip them before the
+  // offset guard, which must still protect every remaining opaque payload.
+  let without_hints = o4z_canonicalize_final_size_strip_branch_hints(mod_)
+  if pass_module_has_offset_sensitive_metadata(without_hints) {
+    return without_hints
   }
-  o4z_canonicalize_final_size_candidate_impl(without_branch_hints)
+  o4z_canonicalize_final_size_candidate_impl(without_hints)
 }
 
 ///|
 pub fn o4z_canonicalize_final_size_candidate_with_changed(
   mod_ : @lib.Module,
 ) -> (@lib.Module, Bool) {
-  let without_branch_hints = o4z_canonicalize_final_size_strip_branch_hints(
-    mod_,
-  )
-  if pass_module_has_offset_sensitive_metadata(without_branch_hints) {
-    return (mod_, false)
+  let without_hints = o4z_canonicalize_final_size_strip_branch_hints(mod_)
+  if pass_module_has_offset_sensitive_metadata(without_hints) {
+    // Only the stripped metadata can have changed on this guarded path. These
+    // fields contain no floating-point instructions or NaN equality hazards.
+    let changed = mod_.custom_secs != without_hints.custom_secs ||
+      mod_.func_annotation_sec != without_hints.func_annotation_sec
+    return (without_hints, changed)
   }
-  let canonical = o4z_canonicalize_final_size_candidate_impl(
-    without_branch_hints,
-  )
+  let canonical = o4z_canonicalize_final_size_candidate_impl(without_hints)
   let changed = match
     (@binary.encode_module(mod_), @binary.encode_module(canonical)) {
     (Ok(before), Ok(after)) => before != after
@@ -77244,7 +77255,11 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
     if i + 4 < instrs.length() {
       match (instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
         (
-          @lib.Block(_, @lib.Expr([payload, @lib.Br(label_idx)])),
+          @lib.Block(_, @lib.Expr([payload, @lib.Br(label_idx)]))
+          | @lib.Block(
+            _,
+            @lib.Expr([payload, @lib.Br(label_idx), @lib.LocalGet(_)])
+          ),
           @lib.RefAsNonNull,
           @lib.RefGetDesc(_),
           @lib.RefCastDescEq(_, _, _),

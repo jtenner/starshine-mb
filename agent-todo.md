@@ -14,10 +14,10 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 
 - **Goal / why:** make Starshine competitive before release by closing pass,
   pipeline, command and output-quality gaps without removing transformations.
-- **Current execution checkout:** work directly on `main` in the primary local
-  repository, as requested October 2. The performance branch and latest remote
-  correctness fixes are integrated; preserve historical branch measurements
-  under their frozen source versions. Do not create another performance worktree.
+- **Current execution checkout:** the October 5 correctness campaign is merged
+  into local `master` for direct `origin/master` integration. Preserve historical
+  branch measurements under their frozen source versions; follow the latest
+  user-requested checkout for subsequent work.
 - **Execution priority:** reach ≤1× for DAE2, DAE2-O, CoalesceLocals and
   OptimizeInstructions; finish P03 DAE2/DAE2-O first, especially remaining HOT
   field reads, temporary-buffer churn, reaching-definition/source-order work and
@@ -737,6 +737,11 @@ quality gates. Keep traced inner and normal command measurements separate.
   capture/conflict walks and weighted/wider coloring on the current revision.
   Reduce unused block-write metadata only with complete full-graph semantics.
   Retain raw liveness copy weights and measure sparse/dense crossover.
+- [ ] Represent call-origin exceptional edges in CFG coloring before admitting
+  call-bearing `try_table` loops again. The current guard preserves the
+  catch-visible destination across a throwing copy; prove first-iteration and
+  nested-handler values with the focused red-first regression before removing
+  that guard.
   Attribution precedes new retained metadata or analysis reuse.
 - **Active controls / memory:** retained strip storage active-tee16+30.90ns,
   weightless-search weighted63+.34µs, scalar-clique wide fallback+10.47ns;
@@ -1215,6 +1220,23 @@ retain them as parity/size gaps.
 
 ## v0.1.1 — Parity and safety [IR2-PARITY / IR2-SAFETY]
 
+### Call-origin exception edges in full SSA [IR2-SSA-EH-CALL]
+
+- **Goal / why:** restore safe full-SSA rewrites in call-bearing `try_table`
+  regions. The current public guard leaves these functions unchanged because
+  a call can throw after a local write while the merge plan selects the
+  pre-try value at the catch continuation.
+- **Deliverables / tasks:** materialize call-to-handler exceptional edges in
+  the full-flow local graph, use them in merge inputs, then remove the narrow
+  dispatcher guard only when the red-first catch-value fixture stays green.
+- **Required APIs / invariants:** retain call effects, traps, handler labels,
+  source local values and validated lowering; keep no-throw SSA behavior and
+  public `.mbti` stable unless a deliberate API change is required.
+- **Dependencies / exit / tests:** coordinate with the Coalesce CFG edge owner;
+  rerun focused public/HOT exception tests, the bounded default suite, and the
+  verified-v133 `ssa-all` aggregate. An unchanged valid module remains the
+  safety boundary until the graph proof is complete.
+
 ### Engine-profile follow-up [FZG036 / IR2-PARITY]
 
 - **Goal / why:** resolve the actionable Starshine findings from the September
@@ -1304,9 +1326,11 @@ retain the detailed provenance.
   −1 canonical bytes per case across 765 cases; prove a benefit or remove the
   overhead. Preserve recursive-group and handler semantics.
 - **Other saved shape gaps:** replay code-pushing's 513 `br-if-value` cases
-  (+2,052 canonical bytes), no-structure SimplifyLocals' 1,662 tee-control cases
-  (+16,636), and trap-relaxed OI's 30 `direct-tiny-bulk` cases (+300), all historical
-  v132 figures. Ten SSA fixture families still differ in typed-loop proxies,
+  (+2,052 canonical bytes) and trap-relaxed OI's 30 `direct-tiny-bulk` cases
+  (+300), both historical v132 figures. The current verified-v133 10,000-case
+  no-structure SimplifyLocals aggregate confirms 1,662 tee-control outputs are
+  8 or 12 canonical bytes larger (+16,636 total); reduce this size-losing parity
+  gap. Ten SSA fixture families still differ in typed-loop proxies,
   reference/cast lowering and branch-table cleanup. Keep compact-import policy,
   name-metadata size gaps and unsampled tuple/downstream cases visible.
 - **Host-visible identity guards:** measure preset DFE/DIE size and performance

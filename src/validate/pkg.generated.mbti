@@ -1847,6 +1847,7 @@ pub enum ProposalFeature {
   SharedEverything
   Multibyte
   RelaxedSimd
+  StackSwitching
 } derive(Eq, @debug.Debug)
 
 pub enum TcEscape {

@@ -385,15 +385,22 @@ fn TcState::check_pop_types(
 }
 
 ///|
-fn TcState::check_pop_types_prefix(
+fn TcState::retype_label_prefix(
   st : TcState,
   ts : Array[ValType],
   prefix_len : Int,
-) -> Result[Unit, String] {
-  match check_pop_types_from_top(st, ts, prefix_len) {
-    Ok(_) => Ok(())
-    Err(e) => Err(e)
+) -> TcResult {
+  for i = prefix_len - 1; i >= 0; i = i - 1 {
+    if st.pop_expect_error(ts[i]) is Some(error) {
+      return Err(error)
+    }
   }
+  // Conditional branch fallthrough uses the declared label types. This also
+  // materializes operands supplied by polymorphic underflow in a dead frame.
+  for i in 0..<prefix_len {
+    st.stack.push(ts[i])
+  }
+  Ok(st)
 }
 
 ///|
@@ -1052,15 +1059,11 @@ fn typecheck_br_if(st : TcState, l : LabelIdx) -> TcResult {
     Ok(s) => s
   }
 
-  // Check that branch arguments are present.
-  // Important: do NOT keep the popped state; this is only a type check.
-  let _ = match st1.check_pop_types(ts) {
+  let st2 = match st1.pop_types(ts) {
     Err(e) => return Err(e)
-    Ok(_) => ()
+    Ok(s) => s
   }
-
-  // Not-taken path continues with the stack after popping only the condition
-  Ok(st1)
+  Ok(st2.push_types(ts))
 }
 
 ///|
@@ -1079,16 +1082,20 @@ fn typecheck_br_table(
     Some(x) => x
   }
 
-  // Every label in the table must have the same types as the default
+  // Every target consumes the same number of operands, but its types need not
+  // be identical: one actual operand can be a subtype of several reference
+  // types, and a polymorphic bottom operand matches distinct numeric types.
+  // Check each target against the same unconsumed operand stack.
   for l in ls {
     let ts_l = match st.env.get_label_types(l) {
       None => return Err("invalid label index in br_table")
       Some(x) => x
     }
-    let same = Match::matches(ts_l, ts, st.env) &&
-      Match::matches(ts, ts_l, st.env)
-    if !same {
-      return Err("br_table target labels have different argument types")
+    if ts_l.length() != ts.length() {
+      return Err("br_table target labels have different argument arities")
+    }
+    if st1.check_pop_types(ts_l) is Err(error) {
+      return Err(error)
     }
   }
 
@@ -1315,25 +1322,22 @@ fn typecheck_br_on_null(st : TcState, l : LabelIdx) -> TcResult {
     Err(e) => return Err(e)
     Ok(pair) => pair
   }
-  let (ht, rt_in) = match expect_branch_ref(v) {
+  let refined = match v {
+    BotValType => ValType::bottom()
+    RefTypeValType(rt_in) => {
+      let ht = rt_in.get_heap_type()
+      if Validate::validate(ht, st.env) is Err(t) {
+        return Err("Invalid heap type in br_on_null operand: " + t)
+      }
+      ValType::ref_type(RefType::new(false, ht, exact=rt_in.is_exact()))
+    }
+    _ => return Err("expected a reference type")
+  }
+  let st2 = match st1.pop_types(ts) {
     Err(e) => return Err(e)
-    Ok(x) => x
+    Ok(s) => s
   }
-  if Validate::validate(ht, st.env) is Err(t) {
-    return Err("Invalid heap type in br_on_null operand: " + t)
-  }
-
-  // Branch target label has type t*
-  let _ = match st1.check_pop_types(ts) {
-    Err(e) => return Err(e)
-    Ok(_) => ()
-  }
-  // Fallthrough refines to non-null (ref ht), preserving exactness.
-  Ok(
-    st1.push1(
-      ValType::ref_type(RefType::new(false, ht, exact=rt_in.is_exact())),
-    ),
-  )
+  Ok(st2.push_types(ts).push1(refined))
 }
 
 ///|
@@ -1351,17 +1355,12 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
     None => return Err("br_on_non_null label type too short")
   }
   match v {
-    BotValType => {
+    BotValType =>
       match label_ts[end] {
         RefTypeValType(_) => ()
         _ =>
           return Err("br_on_non_null label must end with non-nullable ref type")
       }
-      if st1.check_pop_types_prefix(label_ts, end) is Err(t) {
-        return Err(t)
-      }
-      Ok(st1)
-    }
     _ => {
       let (ht, rt_in) = match expect_branch_ref(v) {
         Err(e) => return Err(e)
@@ -1379,12 +1378,9 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
       if !Match::matches(want_last, last, st.env) {
         return Err("br_on_non_null label must end with non-nullable ref type")
       }
-      if st1.check_pop_types_prefix(label_ts, end) is Err(t) {
-        return Err(t)
-      }
-      Ok(st1)
     }
   }
+  st1.retype_label_prefix(label_ts, end)
 }
 
 ///|
@@ -1432,16 +1428,16 @@ fn typecheck_br_on_cast(
   }
   // Check label args excluding rt_label (because branch keeps rt2 / rt_label)
   // Per spec, label is t* rt, so the remaining stack must have t*
-  let _ = match st1.check_pop_types_prefix(label_ts, end) {
+  let st2 = match st1.retype_label_prefix(label_ts, end) {
     Err(e) => return Err(e)
-    Ok(_) => ()
+    Ok(s) => s
   }
   // push (rt1 \ rt2)
   let rt_out = match diff(rt1, rt2) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
-  Ok(st1.push1(ValType::ref_type(rt_out)))
+  Ok(st2.push1(ValType::ref_type(rt_out)))
 }
 
 ///|
@@ -1452,6 +1448,31 @@ fn typecheck_br_on_cast_desc_eq(
   target : RefType,
   fail : Bool,
 ) -> TcResult {
+  if Validate::validate(source, st.env) is Err(error) {
+    return Err("Invalid descriptor cast source: " + error)
+  }
+  if Validate::validate(target, st.env) is Err(error) {
+    return Err("Invalid descriptor cast target: " + error)
+  }
+  // Descriptor equality supports casts between compatible GC heaps without
+  // requiring the target's nullability or exactness to subtype the source.
+  let nullable_source = RefType::new(
+    true,
+    source.get_heap_type(),
+    exact=source.is_exact(),
+  )
+  let nullable_target = RefType::new(
+    true,
+    target.get_heap_type(),
+    exact=target.is_exact(),
+  )
+  if !typecheck_ref_test_or_cast_types_compatible(
+      nullable_target,
+      nullable_source,
+      st.env,
+    ) {
+    return Err("descriptor cast types are incompatible")
+  }
   let descriptor_idx = match target.get_heap_type() {
     HeapType(type_idx) =>
       match st.env.resolve_subtype(type_idx) {
@@ -1471,29 +1492,36 @@ fn typecheck_br_on_cast_desc_eq(
     Ok(next) => next
     Err(err) => return Err(err)
   }
-  let op = CastOp::new(
-    source.is_nullable(),
-    target.is_nullable(),
-    source_exact=source.is_exact(),
-    target_exact=target.is_exact(),
-  )
-  if fail {
-    typecheck_br_on_cast_fail(
-      st1,
-      l,
-      op,
-      source.get_heap_type(),
-      target.get_heap_type(),
-    )
-  } else {
-    typecheck_br_on_cast(
-      st1,
-      l,
-      op,
-      source.get_heap_type(),
-      target.get_heap_type(),
-    )
+  let label_types = match st1.check_branch_args_present(l) {
+    Ok(types) => types
+    Err(error) => return Err(error)
   }
+  let end = match latest_stack_index(label_types.length()) {
+    Some(end) => end
+    None => return Err("descriptor cast label type too short")
+  }
+  let label_ref = match label_types[end] {
+    RefTypeValType(ref_type) => ref_type
+    _ => return Err("descriptor cast label must end with a reftype")
+  }
+  let source_diff = match diff(source, target) {
+    Ok(ref_type) => ref_type
+    Err(error) => return Err(error)
+  }
+  let branch_ref = if fail { source_diff } else { target }
+  if !Match::matches(branch_ref, label_ref, st.env) {
+    return Err("descriptor cast result does not match label rt")
+  }
+  let st2 = match st1.pop_expect(ValType::ref_type(source)) {
+    Ok(next) => next
+    Err(error) => return Err(error)
+  }
+  let st3 = match st2.retype_label_prefix(label_types, end) {
+    Ok(next) => next
+    Err(error) => return Err(error)
+  }
+  let fallthrough_ref = if fail { target } else { source_diff }
+  Ok(st3.push1(ValType::ref_type(fallthrough_ref)))
 }
 
 ///|
@@ -1541,11 +1569,11 @@ fn typecheck_br_on_cast_fail(
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  let _ = match st1.check_pop_types_prefix(label_ts, end) {
+  let st2 = match st1.retype_label_prefix(label_ts, end) {
     Err(e) => return Err(e)
-    Ok(_) => ()
+    Ok(s) => s
   }
-  Ok(st1.push1(ValType::ref_type(rt2)))
+  Ok(st2.push1(ValType::ref_type(rt2)))
 }
 
 ///|

@@ -6,7 +6,7 @@ pub fn diff(rt1 : RefType, rt2 : RefType) -> Result[RefType, String] {
 
   // Result nullability: nullable only if rt1 was nullable AND rt2 was not
   let null_out = n1 && !n2
-  Ok(RefType::new(null_out, ht1))
+  Ok(RefType::new(null_out, ht1, exact=rt1.is_exact()))
 }
 
 ///|

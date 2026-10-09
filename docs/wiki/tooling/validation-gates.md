@@ -115,16 +115,21 @@ The target whitelist is local to [`scripts/lib/task-runtime.ts`](../../../script
 
 The three jobs and their exact local equivalents are:
 
-1. **`format-and-tests`** refreshes interfaces, applies formatting, rejects any resulting tracked diff, and runs the complete default Moon test suite:
+1. **`format-and-tests`** refreshes interfaces, applies formatting, checks that the generated raw FFI wrappers and export-name map match those interfaces, rejects any resulting tracked diff, and runs the complete default Moon test suite:
 
    ```text
    moon update
    bun scripts/test/ci-workflow-contract.ts
    moon info
    moon fmt
+   bun ffi check
    git diff --exit-code
    moon test
    ```
+
+   The FFI check closes the gap between public `.mbti` changes and the checked-in
+   `ffi/src/ffi` wrapper surface. A new public function must not merge with stale
+   raw WasmGC exports.
 
 2. **`release-artifacts`** builds both supported release artifacts, externally validates the wasm-gc CLI with wasm-tools `1.251.0`, requires two no-pass Starshine decode/encode cycles to converge byte-for-byte, and runs the bounded binary-roundtrip fuzz suite:
 
@@ -422,6 +427,33 @@ any of the four 1× goals. Traced command, complete pass/pipeline and narrow hel
 measurements are separate scopes. The lowerer's existing quadratic prefix-
 producer scan remains an unmeasured performance risk; command-time attribution
 requires an actual scoped measurement.
+
+## October 5, 2026: resolved default-suite baseline
+
+The merged `master` development baseline initially ran 13,606 bounded default
+tests with 30 failures. The renewed run after red-first repairs passes
+**13,606/13,606** with zero failures; `moon fmt` and `moon info` pass and public
+`.mbti` files are unchanged. Independent WABT checks identified eighteen
+malformed WAT or hand-built fixtures; two tests had stale type/shape
+expectations. The remaining ten cases needed pass repairs in SSA no-merge,
+SimplifyLocalsNoStructure, and OptimizeInstructions. The focused tests assert
+valid transformed modules, specific IR/operand shapes, and preservation of the
+descriptor-operand null-check boundary. See the implementing files and
+[campaign log](../log.md#2026-10-05--resolve-the-30-saved-default-suite-failures).
+
+This renews the default-suite gate only. The independent P00 semantic and
+validation repros, full CI/coverage, performance targets, and broader pass
+parity remain open. The following checkpoint keeps its original 30-failure
+result as historical evidence.
+
+The post-repair native CLI and GenValid binaries (hashes in the
+[campaign log](../log.md#2026-10-05--resolve-the-30-saved-default-suite-failures))
+also completed 10,000 cases apiece for `ssa-nomerge-all`,
+`simplify-locals-nostructure-all`, and `pass-oi-all` against verified Binaryen
+133. Every lane has zero validation, generator, property and command failures.
+SSA's 6,250 allocation/shape residuals, SLNS's 1,662 size-losing tee-control
+cases, and OI's 1,377 measured smaller-output residuals retain their separate
+classifications; the pass comparison does not close those parity gaps.
 
 ## October 5, 2026: saved development checkpoint
 
@@ -975,3 +1007,34 @@ clock/RSS or allocation-byte gains, and its larger v133 shape difference is
 not aggregate parity signoff. All four 1× targets and deferred final CI,
 coverage and 10,000-case GenValid campaigns remain open. Exact records are in
 [repair evidence](../raw/tooling/2026-10-08-starshine-mass-repair.json).
+
+## October 5 2026 integrated validator renewal
+
+The Dewdrop-integrated `master` production tree at `1d4043c20` passes the
+complete bounded wasm-gc suite: **13,745/13,745**, zero failures. The native
+release aggregate over `tests/spec` also passes after branch payload, bottom
+reference, descriptor cast, branch-table and core tag-policy repairs. No new
+fixture skips, mismatch allowances or disabled passing tests were introduced.
+The 28 new validator/feature regressions, 544 affected metadata/flatten/RUME/
+command tests and 79 negative typecheck/branch-table tests pass separately.
+
+Commands and local raw logs:
+
+- `moon test --target wasm-gc -p jtenner/starshine`:
+  `.tmp/spec-repair-full-green.log`, 148.056 seconds including build/test work.
+- Native release `src/wast/spec_harness.mbt`, filtered to the complete fixture
+  aggregate: `.tmp/spec-repair-harness-final.log`, 49.232 seconds.
+- `.tmp/spec-repair-focused-final.log`, `.tmp/spec-repair-final-affected.log`
+  and `.tmp/spec-repair-negative-diagnostic.log` retain focused evidence.
+
+These are test-gate observations, not quiet-host performance comparisons.
+Both aggregate activities exceed Dewdrop's 30-second compiler activity budget;
+their build/run costs remain an operational risk. The older saved failing
+checkpoints remain historical evidence, not the current bounded-suite status.
+This renewal does not close the independent forced-HOT runtime-order,
+coverage, aggregate parity, artifact-size or release-performance blockers.
+
+The maintained contracts are [stack typing](../validate/stack-polymorphism-and-bottom.md),
+[descriptor branches](../wast/reference-instruction-authoring.md),
+[tag feature policy](../wast/exception-tag-authoring.md) and
+[structured versus opaque metadata](../wast/code-metadata-and-function-annotations.md).

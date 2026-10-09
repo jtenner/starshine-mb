@@ -2086,6 +2086,51 @@ fn ssa_test_run_hot_path_only(text : String) -> Result[@lib.Module, String] {
 }
 
 ///|
+test "ssa-nomerge boundary preserves a local.tee condition before taken-edge copies" {
+  // The condition writes local 1 before the taken edge; a predecessor copy
+  // inserted before the entire br_if would read its old value.
+  let source =
+    #| (module
+    #|   (func (export "run") (param i32) (result i32) (local i32)
+    #|     i32.const 7
+    #|     local.set 1
+    #|     block
+    #|       local.get 0
+    #|       local.tee 1
+    #|       br_if 0
+    #|       i32.const 9
+    #|       local.set 1
+    #|     end
+    #|     local.get 1))
+    #|
+  let input = pass_test_module_from_wat(source)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected operand-writing branch SSA success, got \{err}")
+  }
+  @validate.validate_module(input).unwrap()
+  @validate.validate_module(optimized).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
+  assert_eq(
+    body.last(),
+    Some(@lib.Instruction::local_get(@lib.LocalIdx::new(1U))),
+  )
+  let branch_body = match body[2] {
+    @lib.Block(_, @lib.Expr(branch_body)) => branch_body
+    other => fail("expected branch block, got \{other}")
+  }
+  // The operand tee must write the merge local before br_if. No predecessor
+  // copy can be placed before it. The fallthrough write may still freshen.
+  assert_eq(branch_body[0], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  assert_eq(branch_body[1], @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)))
+  assert_eq(branch_body[2], @lib.Instruction::br_if(@lib.LabelIdx::new(0U)))
+  assert_eq(
+    branch_body.last(),
+    Some(@lib.Instruction::local_set(@lib.LocalIdx::new(1U))),
+  )
+}
+
+///|
 test "ssa-nomerge leaves already SSA nested compare tee canonical" {
   // Reduced from current debug-WASI `defined=1474 abs=1501`: the local.tee
   // feeds a straight-line nested compare chain and the original local is already

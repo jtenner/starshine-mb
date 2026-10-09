@@ -69,3 +69,18 @@ test "deep audit vacuum type pruning excludes opaque position metadata" {
   assert_eq(output.custom_secs, input.custom_secs)
   assert_eq(output.type_sec.unwrap().0.length(), 2)
 }
+
+///|
+test "vacuum keeps a dropped array allocation with a dynamic trapping length" {
+  let wat =
+    #| (module
+    #|   (type $a (array i32))
+    #|   (func (export "run") (param i32)
+    #|     (drop (array.new_default $a (local.get 0)))))
+    #|
+  let output = audit_run(wat, "vacuum")
+  assert_true(
+    audit_count(audit_body(output), fn(i) { i is @lib.ArrayNewDefault(_) }) > 0,
+    msg="dynamic negative lengths must still trap",
+  )
+}

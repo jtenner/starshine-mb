@@ -26,6 +26,19 @@ related:
 
 # `ssa-nomerge` implementation structure and tests
 
+## October 5, 2026 typed-loop writeback repair
+
+The raw scalar proxy and single-result store-model adapters in
+[`pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) now end a
+rewritten loop body with explicit `unreachable` when flow analysis proves no
+fallthrough. Nested `try_table` and exhaustive `br_table` shapes can otherwise
+leave a value on the syntactic stack, making the adapted wrapper invalid and
+causing writeback to retain the original function. Seven focused
+[`ssa_nomerge_test.mbt`](../../../../../src/passes/ssa_nomerge_test.mbt)
+cases require the valid proxy or store-model rewrite, including catch-label
+and non-current branch-table targets. Their WAT no longer relies on parser
+recovery from stray trailing module delimiters.
+
 ## September 24, 2026 rewrite-plan lookup measurement
 
 The [native plan benchmark](../../../../../src/passes_perf_long/ssa_plan_lookup_perf_test.mbt) constructs a validated straight-line fixture and HOT LocalGraph before timing. At 256 write/read pairs, `ssa-nomerge` planning fell from `69.12 µs` to `53.33 µs` (`1.30×` faster) after replacing per-get linear write-rewrite lookup with a NodeId-indexed fresh-local table; the 64-pair case fell from `14.48 µs` to `13.44 µs`. The raw occurrence plan indexes the first rewrite for each repeated write NodeId, retaining its prior lookup rule. This is plan-only synthetic timing, not a new Binaryen comparison.

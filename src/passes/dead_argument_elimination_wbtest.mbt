@@ -19335,10 +19335,7 @@ test "dae GC result refinement joins all-return legacy try" {
       @lib.Instruction::try_(@lib.BlockType::void_(), returning_leaf(), [
         @lib.LegacyCatch::all(returning_leaf()),
       ]),
-      // A void control instruction does not propagate its arms' unreachable
-      // typing state to the enclosing expression. Keep the outer function
-      // valid while still requiring DAE to join both explicit return values.
-      @lib.Instruction::unreachable_(),
+      @lib.Instruction::ref_null(leaf_heap),
     ]),
   )
   let mod_ = parsed.with_code_sec(@lib.CodeSec::new(funcs))

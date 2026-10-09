@@ -52689,12 +52689,17 @@ test "optimize-instructions fail-closed on escaping-branch block ref.get_desc ch
     other => fail("expected ref.get_desc descriptor operand, got \{other}")
   }
   let get_desc_child = @ir.hot_child_get(func, descriptor_operand, 0)
-  match @ir.hot_node_get(func, get_desc_child).op {
-    @ir.HotOp::Block => ()
+  match @ir.hot_node_exact_instr(func, get_desc_child) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
     other =>
       fail(
-        "expected escaping block descriptor child to remain fail-closed, got \{other}",
+        "expected escaping block descriptor null check to remain fail-closed, got \{other}",
       )
+  }
+  let checked_child = @ir.hot_child_get(func, get_desc_child, 0)
+  match @ir.hot_node_get(func, checked_child).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected escaping block under null check, got \{other}")
   }
 }
 

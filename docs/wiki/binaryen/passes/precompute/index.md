@@ -36,6 +36,15 @@ related:
 
 # `precompute`
 
+The 2026-10-04 correctness repair makes `i16x8.narrow_i32x4_u` constant folding
+clamp its source lanes as unsigned 32-bit values. A source lane of `0xffffffff`
+must become `0xffff`, not zero. The [exact-byte SIMD test](../../../../../src/passes/precompute_test.mbt)
+failed before the repair and all 122 tests in that file pass afterward.
+Fresh-array identity folding now requires a known, interpretable nonnegative
+length. An unknown length can be negative and trap before `ref.is_null` returns;
+the [dynamic-length regression](../../../../../src/passes/precompute_array_trap_campaign_test.mbt)
+failed before the guard and passes afterward.
+
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
 ## Binaryen 132 update

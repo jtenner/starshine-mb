@@ -29,3 +29,22 @@ test "campaign precompute preserves negative array allocation trap" {
     )
   }
 }
+
+///|
+test "precompute preserves a dynamic array allocation trap under ref.is_null" {
+  let input =
+    #| (module
+    #|   (type $a (array i32))
+    #|   (func (export "run") (param i32) (result i32)
+    #|     (ref.is_null (array.new_default $a (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dynamic array precompute success, got \{err}")
+  }
+  assert_true(
+    audit_count(audit_body(optimized), fn(i) { i is @lib.ArrayNewDefault(_) }) >
+    0,
+    msg="dynamic negative lengths must still trap",
+  )
+}

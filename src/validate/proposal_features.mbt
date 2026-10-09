@@ -7,6 +7,7 @@ pub enum ProposalFeature {
   SharedEverything
   Multibyte
   RelaxedSimd
+  StackSwitching
 } derive(Eq, Debug)
 
 ///|
@@ -17,6 +18,7 @@ pub fn controlled_proposal_features() -> Array[ProposalFeature] {
     SharedEverything,
     Multibyte,
     RelaxedSimd,
+    StackSwitching,
   ]
 }
 
@@ -28,6 +30,7 @@ pub fn proposal_feature_name(feature : ProposalFeature) -> String {
     SharedEverything => "shared-everything"
     Multibyte => "multibyte"
     RelaxedSimd => "relaxed-simd"
+    StackSwitching => "stack-switching"
   }
 }
 
@@ -53,6 +56,14 @@ fn proposal_note(
 
 ///|
 fn proposal_heap(out : Array[ProposalFeature], heap : HeapType) -> Unit {
+  match heap {
+    AbsHeapTypeHeapType(ContAbsHeapType)
+    | AbsHeapTypeHeapType(NoContAbsHeapType)
+    | SharedAbsHeapTypeHeapType(ContAbsHeapType)
+    | SharedAbsHeapTypeHeapType(NoContAbsHeapType) =>
+      proposal_note(out, StackSwitching)
+    _ => ()
+  }
   match heap {
     SharedAbsHeapTypeHeapType(_)
     | AbsHeapTypeHeapType(WaitqueueAbsHeapType)
@@ -102,6 +113,7 @@ fn proposal_rec_type(out : Array[ProposalFeature], rec : RecType) -> Unit {
         for field in fields {
           proposal_field(out, field)
         }
+      ContCompType(_) => proposal_note(out, StackSwitching)
       _ => ()
     }
   }
@@ -158,6 +170,13 @@ fn proposal_instruction(
     _ => ()
   }
   match instruction {
+    ContNew(_)
+    | ContBind(_, _)
+    | Suspend(_)
+    | Resume(_, _)
+    | ResumeThrow(_, _, _)
+    | ResumeThrowRef(_, _)
+    | StackSwitch(_, _) => proposal_note(out, StackSwitching)
     StructAtomicSet(_, _, _)
     | ArrayAtomicSet(_, _)
     | StructAtomicGet(_, _, _)
@@ -241,11 +260,21 @@ fn proposal_instruction(
 }
 
 ///|
+fn proposal_tag(out : Array[ProposalFeature], tag : TagType, env : Env) -> Unit {
+  let TagType(type_idx) = tag
+  if env.resolve_comptype(type_idx) is Some(FuncCompType(_, results)) &&
+    !results.is_empty() {
+    proposal_note(out, StackSwitching)
+  }
+}
+
+///|
 // Infer requirements from all declarations and expression regions, including
 // initializers and unreachable code. Stable order is independent of traversal.
 pub fn module_proposal_features(module_ : Module) -> Array[ProposalFeature] {
   let out : Array[ProposalFeature] = []
   let work : Array[Array[Instruction]] = []
+  let tag_declarations : Array[TagType] = []
   if module_.type_sec is Some(TypeSec(groups)) {
     for rec in groups {
       proposal_rec_type(out, rec)
@@ -258,8 +287,26 @@ pub fn module_proposal_features(module_ : Module) -> Array[ProposalFeature] {
         GlobalExternType(GlobalType(value, _)) => proposal_value(out, value)
         TableExternType(TableType(ref_type, _)) =>
           proposal_heap(out, ref_type.get_heap_type())
+        TagExternType(tag) => tag_declarations.push(tag)
         _ => ()
       }
+    }
+  }
+  if module_.tag_sec is Some(TagSec(tags)) {
+    for tag in tags {
+      tag_declarations.push(tag)
+    }
+  }
+  if !tag_declarations.is_empty() {
+    let base_env = empty_env()
+    let (global_types, rec_stack) = env_collect_module_types(
+      base_env.global_types,
+      base_env.rec_stack,
+      module_,
+    )
+    let env = Env::{ ..base_env, global_types, rec_stack, }
+    for tag in tag_declarations {
+      proposal_tag(out, tag, env)
     }
   }
   if module_.global_sec is Some(GlobalSec(globals)) {

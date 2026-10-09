@@ -3079,7 +3079,7 @@ test "precompute folds deterministic SIMD constants but preserves relaxed SIMD" 
       let @lib.Func(_, @lib.Expr(narrow_instrs)) = funcs[11]
       @debug.assert_eq(narrow_instrs, [
         @lib.Instruction::v128_const(
-          b'\x00', b'\x00', b'\x60', b'\x00', b'\xff', b'\xff', b'\xff', b'\xff',
+          b'\xff', b'\xff', b'\x60', b'\x00', b'\xff', b'\xff', b'\xff', b'\xff',
           b'\x00', b'\x00', b'\x01', b'\x00', b'\xfe', b'\xff', b'\xff', b'\xff',
         ),
       ])

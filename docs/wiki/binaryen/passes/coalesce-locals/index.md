@@ -36,6 +36,7 @@ related:
 - `coalesce-locals` is an upstream Binaryen late local-cleanup pass.
 - It is now an active Starshine module pass implemented in [`../../../../../src/passes/coalesce_locals.mbt`](../../../../../src/passes/coalesce_locals.mbt) and wired through the registry, dispatcher, CLI, and pass-fuzz harness.
 - The 2026-10-04 delegate regression requires a void block to remain when its body contains a legacy `try` with a delegate label. Flattening that block changes the delegate's numeric target. The [whitebox regression](../../../../../src/passes/coalesce_delegate_block_wbtest.mbt) failed before the guard; the [public pipeline fixture](../../../../../src/passes/coalesce_locals_test.mbt) and whitebox test pass after it. The [v133 audit](../../../log.md#2026-10-04--eight-agent-optimizer-correctness-audit) matches the earlier aggregate counts; the loop-copy-through residual remains open.
+- A legacy `try` body can branch out before a local copy. Definite-assignment analysis now retains the incoming assignment state when a branch in the body or a catch can bypass that copy, so the destination is not aliased to the source on the exit path. The [public pipeline regression](../../../../../src/passes/coalesce_locals_test.mbt) failed before the guard and all 93 tests in that file pass afterward.
 - Despite the broad CLI name, Binaryen `version_129` uses it for a narrower and more structured job: compute which locals can safely reuse the same storage slot, then renumber the function so those locals share indices and redundant copies disappear.
 
 ## Why it matters
@@ -181,3 +182,12 @@ For inputs 0, 1, 7, and 41, the old pass returned 0, 1, 7, and 41 instead of
 coalescing tests, including ordinary local compaction, pass, and the
 repeated `deep-core` map fixture passes Node and Wago. Other failed orders and
 the generated-pass lanes remain in the full repair gate.
+
+## October 2026 exception-call copy boundary
+
+A call inside `try_table` can throw before a temporary is copied to its
+destination. The catch continuation can then read the destination's prior
+value. Coalesce-locals now avoids CFG coloring for call-bearing `try_table`
+functions and rejects loop copy-through across a protected call. The focused
+regression checks that the original `5` is preserved instead of returning the
+temporary's `7`.

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-06
+last_reviewed: 2026-10-05
 sources:
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../../../src/wast/parser.mbt
@@ -30,7 +30,7 @@ related:
 
 # WAST Exception Tag Authoring
 
-> **Tag validation update — September 10, 2026:** result-bearing tag declarations and imports are accepted. Exception instruction uses still require empty results. The [regressions](../../../src/validate/binaryen132_continuation_wbtest.mbt) supersede older stricter-declaration claims below; historical diagnostics remain source evidence.
+> **Tag validation policy — October 5, 2026:** default validation accepts result-bearing suspension tags as a stack-switching extension. Disabling `stack-switching` rejects them. The core spec harness disables this extension for root and legacy core fixtures, while proposal and user scripts retain it. Exception instruction uses always require empty results. See the [feature regressions](../../../src/validate/stack_switching_feature_wbtest.mbt) and [script-policy regressions](../../../src/wast/stack_switching_policy_wbtest.mbt).
 
 ## Overview
 
@@ -39,7 +39,7 @@ Exception handling in Starshine crosses three layers:
 1. **Feature status**: Exception Handling is a finished/Core-3.0 WebAssembly surface for ordinary `tag`, `throw`, `throw_ref`, and `try_table` claims. It is not an active proposal gap, and it is not the same as active Stack Switching continuations, JSPI host async wrappers, or Relaxed Dead Code Validation.
 2. **Text/WAST authoring**: fixtures use `(tag ...)`, `throw`, `throw_ref`, and `try_table` catch clauses. Starshine also accepts legacy `try` / `delegate` / `rethrow` text as compatibility syntax; accepted legacy `try` now lowers to a preserved core `Instruction::Try`, while `rethrow` retains narrower compatibility behavior.
 3. **Core module representation**: tags occupy the same imported-prefix `TagIdx` space whether they come from imports or from the tag section; instructions carry numeric `TagIdx` and `LabelIdx` values.
-4. **Validation and execution constraints**: Starshine currently requires tag types to point at function types with no results; `throw` consumes a tag payload and makes control unreachable; `throw_ref` consumes nullable `exnref` and makes control unreachable, while execution still traps on null; `try_table` catches branch to labels outside the temporary try body. Current Core 3.0 source is slightly broader at tag-declaration validation time, so keep the local-versus-official split below visible.
+4. **Validation and execution constraints**: Core tag declarations require empty-result function types. Default Starshine validation also accepts result-bearing suspension tags, controlled by the `stack-switching` feature; exception operations still reject those tags. `throw` consumes a tag payload and makes control unreachable; `throw_ref` consumes nullable `exnref` and makes control unreachable, while execution still traps on null; `try_table` catches branch to labels outside the temporary try body.
 
 Use this page when adding WAST fixtures, fuzz-prelude shapes, validation tests, or pass rewrite rules that touch exception tags. Start from the root boundary page [`../wasm-exception-handling-boundary.md`](../wasm-exception-handling-boundary.md) when the question is feature status or cross-layer routing. The broader binary section guide in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) explains section id `13` and imported-prefix index spaces; this page focuses on text syntax, lowering, validation, and execution-preservation traps that are easiest to miss.
 
@@ -131,7 +131,7 @@ Starshine's lowering gives the `try_table` body its own temporary label for resu
 | WAST parse | [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Parses tag fields, inline tag imports, inline tag exports, `throw`, `throw_ref`, modern `try_table`, and legacy `try` / `do` / `catch` / `catch_all` / `delegate` / `rethrow`. |
 | WAST print | [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Prints tag fields, tag import/export descriptors, throw forms, modern `try_table` catches, and legacy catch syntax. |
 | WAST lowering | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | Resolves tag ids to absolute imported-prefix `TagIdx`, converts modern `try_table` to core `TryTable`, validates labels during lowering, and preserves accepted legacy protected/catch bodies plus delegate targets as core `Try`. |
-| Module validation | [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Validates tag definitions after memories and before globals; each `TagType` must resolve to a function type with no results. |
+| Module validation | [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`src/validate/proposal_features.mbt`](../../../src/validate/proposal_features.mbt) | Validates tag definitions after memories and before globals; each `TagType` resolves to a function type. Result-bearing declarations require the enabled stack-switching extension. |
 | Instruction typecheck | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | Checks `throw`, nullable-operand `throw_ref`, `try_table`, and catch payload-to-label compatibility, with `catch_ref` / `catch_all_ref` adding non-null `(ref exn)` to branch payloads. |
 | Fuzz/text coverage | [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt), [`src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt) | WAST arbitrary generation includes representative exception syntax; invalid lanes include tag-family diagnostics and unlinkable tag-import seeds. |
 | Feature/proposal routing | [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md), [`../wasm-stack-switching-boundary.md`](../wasm-stack-switching-boundary.md), [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md) | Keeps Core Exception Handling separate from active Stack Switching continuations, JSPI host async wrappers, relaxed dead-code validator policy, and Starshine-only legacy text compatibility. |
@@ -176,17 +176,17 @@ passes static checking without its former mismatch allowance.
 
 ### Tag result-shape split: declaration versus EH use site
 
-Current Core 3.0 and current Starshine agree that exception **use sites** need empty-result tag expansions, but they disagree about where a resultful tag is rejected:
+Core validation requires empty-result tag declarations. Starshine's default validator additionally accepts result-bearing suspension tags for Binaryen-compatible stack switching; exception **use sites** still need empty-result tag expansions:
 
 | Shape | Current Core 3.0 model | Current Starshine model | How to classify fixtures today |
 | --- | --- | --- | --- |
 | `(tag (type (func (param i32))))` | Valid tag declaration; `throw` / `catch` consume or branch with the `i32` payload. | Valid tag declaration; instruction validation uses the same payload. | Ordinary portable positive. |
-| `(tag (type (func (result i32))))` with no EH use | Tag type validation accepts a function type expansion with results. | `Validate for TagType` rejects the tag during `importsec` / `tagsec` validation. | Local validator-gap evidence, not an ordinary portable positive. |
-| `throw` / `catch` / `catch_ref` selecting a resultful tag | Rejected at the EH instruction rule because the selected tag must expand as `func params -> epsilon`. | Already rejected earlier by the strict tag declaration rule, so the use-site check is not reached. | If Starshine widens tag declarations later, keep this rejection in instruction validation. |
+| `(tag (type (func (result i32))))` with no EH use | Invalid: the tag's function results must be empty. | Accepted by default; rejected when `stack-switching` is disabled. | Suspension-extension positive, core negative. |
+| `throw` / `catch` / `catch_ref` selecting a resultful tag | Invalid declaration and invalid EH use. | Rejected at the EH use site even with stack switching enabled. | Exception-use negative under either policy. |
 
-This split is intentionally visible because it affects where tests should live. A declaration-only resultful tag belongs in a validator-widening test for [`src/validate/validate.mbt`](../../../src/validate/validate.mbt). A future resultful-tag `throw` / `try_table` test belongs in [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) after declaration validation is widened.
+The [feature tests](../../../src/validate/stack_switching_feature_wbtest.mbt) cover both declared and imported suspension tags and ordinary exception tags. The [continuation tests](../../../src/validate/binaryen132_continuation_wbtest.mbt) retain the independent EH use-site restriction. The [spec harness](../../../src/wast/spec_harness.mbt) applies the strict core policy to direct `tests/spec/*.wast` and `tests/spec/legacy/` paths, including ordinary module directives and static assertions. `tests/spec/proposals/` and user script paths retain default validation.
 
-- **Tag result lists are a local/spec split.** Current Core 3.0 validates a tag type use as any function-type expansion at declaration time, while the `throw`, `catch`, and `catch_ref` instruction rules still require the selected tag to expand as `func params -> epsilon`. Starshine keeps the older/stricter rule in [`Validate for TagType`](../../../src/validate/validate.mbt): a tag type index resolving to `(func (result i32))` is rejected in `importsec` / `tagsec` before any EH use site is checked. Treat resultful tag declarations as validator-gap evidence until a deliberate widening moves the empty-result check to exception-instruction validation.
+- **Tag result lists depend on feature policy.** Current [Core tag validation](https://webassembly.github.io/spec/core/valid/types.html#tag-types) requires empty results. Starshine accepts result-bearing tags only under its default enabled stack-switching extension; disabling the feature rejects defined and imported result-bearing tags. Binaryen 133 likewise reports that tags with result types require stack switching when that feature is disabled.
 - **`throw` is stack-polymorphic after consuming payload.** It pops the tag's parameters and makes the remaining path unreachable; the general bottom-value and concrete-stack-junk boundary is [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 - **`throw_ref` consumes nullable `exnref`.** [`typecheck_throw_ref`](../../../src/validate/typecheck.mbt) pops `ValType::ref_null_exn()` before marking the path unreachable. A non-null exception reference is accepted by subtyping, but validation does not require non-nullness; runtime execution must still preserve the null-trap versus non-null-throw distinction.
 - **Catch payloads must match their target labels.** `catch` expects the tag payload at the branch target; `catch_ref` expects payload plus non-null `(ref exn)`; `catch_all` expects no values; `catch_all_ref` expects non-null `(ref exn)`.

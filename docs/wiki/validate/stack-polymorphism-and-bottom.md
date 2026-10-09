@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-04
+last_reviewed: 2026-10-05
 sources:
   - ../wasm-relaxed-dead-code-validation-boundary.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/typecheck_negative_wbtest.mbt
+  - ../../../src/validate/conditional_branch_types_wbtest.mbt
+  - ../../../src/validate/br_table_polymorphism_wbtest.mbt
   - ../../../src/validate/validate.mbt
 related:
   - ../wasm-relaxed-dead-code-validation-boundary.md
@@ -123,9 +125,15 @@ The validator uses the reachable branch's result. If both branches are nonfallth
 
 A branch instruction is only terminal after its own operands validate. For example, a reachable `br` to a label expecting `[i32, i64]` still fails if those payload values are missing. The test `Typecheck br with insufficient stack for label types` keeps that distinction visible.
 
+`br_table` requires equal target arity, not identical target types. The same actual payload must match every target: a virtual or explicit bottom value can match different numeric types, and a concrete reference can subtype multiple target references. Concrete incompatible operands still fail after `unreachable`. The [branch-table regressions](../../../src/validate/br_table_polymorphism_wbtest.mbt) cover these boundaries; Binaryen 133 accepts both the mixed-numeric unreachable fixture and the common-reference-subtype fixture.
+
+An incompatible concrete branch-table payload reports `type mismatch`, not a requirement for identical label types. The existing negative typecheck fixture retains its rejection assertion with that operand-based diagnostic.
+
 ### `br_if` fallthrough keeps payload values
 
-`br_if` is conditional. It validates the target payload, pops the `i32` condition, and leaves the payload on the not-taken path. The WAST-facing explanation and examples live in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md); the typechecker owner is `typecheck_br_if(...)` in [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt).
+`br_if` is conditional. It pops the `i32` condition, consumes the target payload, and restores that payload using the declared label types on the not-taken path. It must not retain narrower input reference types. If the frame supplies missing operands through polymorphic underflow, the restored label types are concrete stack entries and still participate in end-stack checks. Reference branches likewise restore their declared label prefix before adding any fallthrough reference result. The [conditional branch regressions](../../../src/validate/conditional_branch_types_wbtest.mbt) cover subtype widening, missing operands, and preservation of deeper stack entries. The WAST-facing examples live in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md).
+
+`br_on_null` and `ref.is_null` accept both virtual and explicit bottom reference operands. Concrete numeric operands remain invalid, including numbers pushed after `unreachable`. A bottom operand on the `br_on_null` fallthrough stays bottom while the label prefix becomes concrete.
 
 ### Concrete stack junk is rejected
 

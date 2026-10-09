@@ -35958,13 +35958,22 @@ fn OiStandaloneRefGetDescLabelOwnerFact::proves_owner(
 }
 
 ///|
+fn OiStandaloneRefGetDescLabelOwnerFact::proves_escape(
+  self : OiStandaloneRefGetDescLabelOwnerFact,
+) -> Bool {
+  self.valid_label && !self.owner_matches
+}
+
+///|
 priv struct OiStandaloneRefGetDescRootShapeFact {
   live : Bool
   no_results : Bool
   disallowed_control_or_multivalue : Bool
   escaping_plain_branch_root : Bool
   internal_br_on_non_null_root : Bool
+  escaping_br_root : Bool
   escaping_br_if_root : Bool
+  escaping_br_table_root : Bool
   internal_br_on_cast_root : Bool
   br_on_null_local_root : Bool
   internal_br_on_null_trampoline_root : Bool
@@ -35978,7 +35987,9 @@ fn OiStandaloneRefGetDescRootShapeFact::empty() -> OiStandaloneRefGetDescRootSha
     disallowed_control_or_multivalue: false,
     escaping_plain_branch_root: false,
     internal_br_on_non_null_root: false,
+    escaping_br_root: false,
     escaping_br_if_root: false,
+    escaping_br_table_root: false,
     internal_br_on_cast_root: false,
     br_on_null_local_root: false,
     internal_br_on_null_trampoline_root: false,
@@ -36043,20 +36054,47 @@ fn OiStandaloneRefGetDescRootShapeFact::from_root(
       OiDescriptorInternalLabelFact::from_label(func, block_id, root.imm0).proves_internal()
     _ => false
   }
+  let mut child_disallowed = false
+  for slot = 0; slot < root.child_count; slot = slot + 1 {
+    child_disallowed = child_disallowed ||
+      OiStandaloneRefGetDescControlShapeFact::from_node(
+        func,
+        block_id,
+        @ir.hot_child_get(func, root_id, slot),
+      ).proves_disallowed_control_or_multivalue()
+  }
+  let escaping_br_root = match root.op {
+    @ir.HotOp::Br =>
+      no_results &&
+      !child_disallowed &&
+      OiStandaloneRefGetDescLabelOwnerFact::from_label(
+        func,
+        root.imm0,
+        block_id,
+      ).proves_escape()
+    _ => false
+  }
   let escaping_br_if_root = match root.op {
-    @ir.HotOp::BrIf => {
-      let mut child_disallowed = false
-      for slot = 0; slot < root.child_count; slot = slot + 1 {
-        child_disallowed = child_disallowed ||
-          OiStandaloneRefGetDescControlShapeFact::from_node(
-            func,
-            block_id,
-            @ir.hot_child_get(func, root_id, slot),
-          ).proves_disallowed_control_or_multivalue()
-      }
+    @ir.HotOp::BrIf =>
       !OiDescriptorInternalLabelFact::from_label(func, block_id, root.imm0).proves_internal() &&
       no_results &&
       !child_disallowed
+    _ => false
+  }
+  let escaping_br_table_root = match root.op {
+    @ir.HotOp::BrTable => {
+      let mut all_escape = OiStandaloneRefGetDescLabelOwnerFact::from_label(
+        func,
+        @ir.hot_branch_table_default_target(func, root.imm0),
+        block_id,
+      ).proves_escape()
+      for target in @ir.hot_branch_table_targets(func, root.imm0) {
+        all_escape = all_escape &&
+          OiStandaloneRefGetDescLabelOwnerFact::from_label(
+            func, target, block_id,
+          ).proves_escape()
+      }
+      no_results && !child_disallowed && all_escape
     }
     _ => false
   }
@@ -36209,7 +36247,9 @@ fn OiStandaloneRefGetDescRootShapeFact::from_root(
     disallowed_control_or_multivalue,
     escaping_plain_branch_root,
     internal_br_on_non_null_root,
+    escaping_br_root,
     escaping_br_if_root,
+    escaping_br_table_root,
     internal_br_on_cast_root,
     br_on_null_local_root,
     internal_br_on_null_trampoline_root,
@@ -36235,6 +36275,20 @@ fn OiStandaloneRefGetDescRootShapeFact::proves_escaping_br_if_root(
   self : OiStandaloneRefGetDescRootShapeFact,
 ) -> Bool {
   self.live && self.escaping_br_if_root
+}
+
+///|
+fn OiStandaloneRefGetDescRootShapeFact::proves_escaping_br_root(
+  self : OiStandaloneRefGetDescRootShapeFact,
+) -> Bool {
+  self.live && self.escaping_br_root
+}
+
+///|
+fn OiStandaloneRefGetDescRootShapeFact::proves_escaping_br_table_root(
+  self : OiStandaloneRefGetDescRootShapeFact,
+) -> Bool {
+  self.live && self.escaping_br_table_root
 }
 
 ///|
@@ -36293,7 +36347,9 @@ fn OiStandaloneRefGetDescBlockMovePrefixPayloadFact::from_region_prefix(
       saw_internal_ref_branch = true
     } else if root_fact.proves_escaping_br_if_root() {
       ()
-    } else if root_fact.proves_escaping_plain_branch_root() {
+    } else if root_fact.proves_escaping_plain_branch_root() ||
+      root_fact.proves_escaping_br_root() ||
+      root_fact.proves_escaping_br_table_root() {
       ()
     } else if root_fact.disallowed_control_or_multivalue {
       roots_allowed = false
@@ -36336,10 +36392,14 @@ fn OiStandaloneRefGetDescBlockMoveFinalPayloadFact::from_final_root(
       OiResultShapeFact::from_node(func, final_id).proves_single_nullable_ref_result() &&
       !final_fact.disallowed_control_or_multivalue
     @ir.HotOp::Br | @ir.HotOp::BrTable =>
-      final_fact.no_results &&
+      final_fact.proves_escaping_br_root() ||
+      final_fact.proves_escaping_br_table_root() ||
       (
-        !final_fact.disallowed_control_or_multivalue ||
-        final_fact.proves_escaping_plain_branch_root()
+        final_fact.no_results &&
+        (
+          !final_fact.disallowed_control_or_multivalue ||
+          final_fact.proves_escaping_plain_branch_root()
+        )
       )
     @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail =>
       final_fact.proves_internal_br_on_cast_root()
@@ -36689,6 +36749,20 @@ fn optimize_instructions_try_move_standalone_ref_get_desc_null_check(
   let get_desc_fact = match OiRefGetDescFact::from_node(func, descriptor_id) {
     Some(fact) => fact
     None => return false
+  }
+  // The standalone rewrite admits a small escaping-branch block family. A
+  // descriptor cast must use the stricter descriptor-operand proof instead:
+  // moving its null check can let the cast exactify across an escaping branch.
+  for parent_id = 0; parent_id < func.nodes.length(); parent_id = parent_id + 1 {
+    if @ir.hot_node_is_live(func, parent_id) &&
+      (
+        @ir.hot_node_get(func, parent_id).op is @ir.HotOp::RefCastDescEq ||
+        @ir.hot_node_get(func, parent_id).op is @ir.HotOp::RefTestDesc
+      ) &&
+      @ir.hot_child_count(func, parent_id) > 1 &&
+      @ir.hot_child_get(func, parent_id, 1) == descriptor_id {
+      return false
+    }
   }
   if ctx.traps_never_happen {
     let mut is_standalone_root = false

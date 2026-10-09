@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-10-05
 sources:
   - ./index.md
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/simplify_locals_nostructure_test.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -17,6 +19,14 @@ related:
 ---
 
 # Binaryen `simplify-locals-nostructure` Implementation Structure And Tests
+
+The October 5 tail `catch_all_ref` repair keeps an explicit `unreachable` after
+voiding a no-normal-result `try_table` inside a nonvoid block. The EH catch
+branch still transports the reference; the terminator satisfies the block's
+syntactic fallthrough type. Without it, final writeback rejected the malformed
+output and retained the original local traffic. The focused
+[`simplify_locals_nostructure_test.mbt`](../../../../../src/passes/simplify_locals_nostructure_test.mbt)
+case now requires the valid canonicalized result.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

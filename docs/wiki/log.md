@@ -142,6 +142,88 @@ Source: [checkpoint](tooling/validation-gates.md#october-7-2026--p00-control-exc
   inspected output differences and existing MemoryPacking residuals are
   recorded in the respective pass dossiers.
 
+### 2026-10-08 — Multibyte array memarg proposal order
+
+- Aligned array-backed scalar/SIMD load and store codec immediates with the
+  current proposal order: flags, type index, then 32-bit offset. Binaryen
+  [PR #9222](https://github.com/WebAssembly/binaryen/pull/9222) implements
+  [the proposal discussion](https://github.com/WebAssembly/multibyte-array-access/issues/10).
+  Independent unequal multibyte LEB fixtures cover decoded fields and emitted
+  bytes; linear-memory memarg controls retain their prior order. Binaryen 132/133
+  comparisons remain historical and do not establish an executable current-main
+  oracle result for this proposal slice.
+
+### 2026-10-05 — Resolve the 30 saved default-suite failures
+
+- Replayed the merged `master` baseline at 13,576/13,606 and repaired all 30
+  failing cases red-first. Eighteen tests had malformed WAT or hand-built
+  modules, two retained stale shape/type expectations, and ten exercised real
+  pass output gaps. The latter now cover SSA typed-loop proxy/store-model
+  no-fallthrough typing, SLNS `try_table` tail typing, and OI escaping-branch
+  `ref.get_desc` admission and lowered flattening. The descriptor-cast operand
+  still uses its stricter null-check guard.
+- `moon fmt`, `moon info`, and the complete bounded `moon test` pass:
+  **13,606/13,606**, zero failures. No public `.mbti` changed. The saved
+  [30-failure development checkpoint](tooling/validation-gates.md#october-5-2026-saved-development-checkpoint)
+  remains historical evidence; [the renewed gate](tooling/validation-gates.md#october-5-2026-resolved-default-suite-baseline)
+  records the current result. Other P00 runtime and validation blockers remain
+  open.
+- Fresh native CLI `cd38aff414ee34ddfd5383b93fe77c3fa96f091bc635d38c7242af8e9120d350`
+  and GenValid `9c41c144a2d6dea4e134cb20dbd542b7e570b986f315979189b8d19b1b89b2dc`
+  ran the three documented aggregate profiles at 10,000 cases each against
+  verified Binaryen 133, with eight subprocesses and independent wasm-tools
+  validation. All 30,000 comparisons completed with zero validation, generator,
+  property or command failures. Raw evidence is under
+  `.tmp/campaign-20261005-resolve30-*-v133/`.
+
+| Pass / profile | Canonical matches | Residuals | Classification |
+| --- | ---: | ---: | --- |
+| SSA no-merge / `ssa-nomerge-all` | 3,750 | 6,250 | Matches the saved v133 3,750/6,250 split; allocation/shape parity remains open, with zero canonically larger outputs. |
+| SLNS / `simplify-locals-nostructure-all` | 0 | 10,000 | Existing output-shape gap; the 1,662 tee-control cases remain 8 or 12 canonical bytes larger, while 8,338 are smaller. This is a size-losing parity gap, not an accepted representation difference. |
+| OI / `pass-oi-all` | 8,623 | 1,377 | 1,080 documented tuple-wrapper wins; 297 pure constant-condition value-if/drop shells select the same literal, remove the branch, and save exactly 16 canonical bytes each. No output is canonically larger. |
+
+The OI shell classification uses the inspected case-35 original/optimized WAT,
+the profile label and all 297 identical size deltas; neither arm has effects or
+traps. The SLNS tee-control family stays in the active output-quality backlog.
+
+### 2026-10-05 — Second eight-agent optimizer correctness campaign
+
+- Merged the prior audit into local `master`, then landed red-first repairs for
+  legacy-try local copies, unsigned SIMD narrowing, dynamic array allocation
+  traps in Precompute and Vacuum, opaque metadata guards in GTO and RUME,
+  SSA branch operands and throwing calls, DAE2 private-table host ingress,
+  GTO table-exposed type layouts, and coalesce-locals catch-visible copies.
+  The last coalesce WAT replay returned `7` before its repair and `5` after.
+- `moon info` and `moon fmt` pass. The audit branch's 13,305 default tests all
+  passed. On merged `master`, 13,576 of 13,606 pass; the 30 failures have
+  exactly the same test names as the saved
+  [October 5 baseline](tooling/validation-gates.md#october-5-2026-saved-development-checkpoint).
+  They remain release blockers, not regressions attributed to this campaign.
+- Fresh native CLI SHA-256 `5fbfe78baab3f4c42f0d29a14722610aef2df73559f743a41dfa846878bd20f0`
+  and GenValid SHA-256 `3bd2cdd6f407a1db2832bc7f4680a8b1ad6c46a2a7eca7d934cd41e6daf13e6f`
+  ran 10,000 GenValid comparisons per lane against verified Binaryen 133
+  (`d8da7e7cc717bb4da015475a106b25987a9941e87486ec8676fd8efc698f171d`),
+  with eight subprocesses, independent `wasm-tools` validation, and at most 20
+  mismatch artifacts. No lane has validation, generator, property, or command
+  failures. The raw runs remain under `.tmp/campaign-20261005-*-v133/`.
+
+| Pass / profile | Direct | Cleanup normalized | Residual | Classification |
+| --- | ---: | ---: | ---: | --- |
+| Coalesce / `coalesce-locals-all` | 3,750 | 5,000 | 1,250 | Existing loop-copy shape gap; no larger canonical outputs. |
+| DAE2 / open | 2,879 | 667 | 6,454 | Existing parity gaps; 9,312 three-way runtime matches, 688 original-runtime blocked. |
+| DAE2 / closed | 0 | 100 | 9,900 | Existing parity and size gaps, including 706 canonically larger outputs; same runtime counts. |
+| Precompute / `precompute-all` | 3,238 | 6,762 | 0 | All residuals normalize as local/control cleanup; separate Node-v2 lane has 9,551 matches, 449 blocked, zero semantic mismatches. |
+| RUME / `rume-all` | 4,106 | 5,894 | 0 | All residuals normalize as unreachable control debris. |
+| Vacuum / `vacuum` | 7,830 | 2,170 | 0 | All residuals normalize as unreachable control debris. |
+| GTO / closed portable | 0 | 10,000 | 0 | Inert control debris normalizes; portable generator does not exercise the focused table/type metadata cases. |
+| SSA / `ssa-all` | 8,713 | 640 | 647 | Existing typed-control shape family; canonically smaller Starshine outputs, with historical runtime evidence in the [SSA dossier](binaryen/passes/ssa/fuzzing.md). |
+| SSA no-merge / `ssa-nomerge-all` | 3,750 | 0 | 6,250 | Existing allocation/output-shape parity gap. |
+
+The DAE2 runtime lanes each report zero observed semantic mismatches; their
+688 blocked cases remain unverified. Matching saved aggregate counts and
+validation do not close the listed parity or size gaps. The targeted red/green
+tests cover the new correctness families that these generators do not sample.
+
 ### 2026-10-05 — Close the second optimizer correctness audit
 
 - A second eight-agent review repaired offset-sensitive source-map and external
@@ -26400,6 +26482,71 @@ arrays/typecheck wrappers from the completed return packaging change.
   canonical gaps and release gates stay explicit. Current attribution prioritizes
   exact SL cleanup/read/fallthrough and DAE2 dependencies over synthetic ratios.
 
+### 2026-10-05 — Repair branch payload and bottom validation
+
+- Eight reviewers traced the native spec harness's validation failures to
+  conditional branch fallthrough typing, bottom reference operands, descriptor
+  equality cast compatibility, and a separate tag-feature policy. Red-first
+  validator regressions now restore declared label prefixes (including virtual
+  operands), preserve descriptor source exactness, and accept bottom null checks.
+- The next full fixture replay exposed an additional `br_table` defect:
+  equal-arity labels may have different types when the actual operands match
+  every target. Six direct regressions protect bottom, common-reference-subtype,
+  arity and concrete-mismatch cases. Binaryen 133 accepts both positive WAT
+  oracles. The flatten regression now declares its inner block's valid base-type
+  fallthrough while retaining the narrow payload and distinct-temp assertions.
+- The combined repair worktree passes all 28 new focused tests and the complete
+  native spec-harness aggregate, without new fixture skips or allowances. The
+  native replay took 49.232 seconds including compilation; this exceeds the
+  consumer's 30-second compiler budget and is build-cost risk, not runtime
+  performance evidence. See [stack typing](validate/stack-polymorphism-and-bottom.md)
+  and [descriptor typing](wast/reference-instruction-authoring.md).
+
+### 2026-10-05 — Separate core tags from suspension-tag policy
+
+- The [stack-switching feature](wasm-stack-switching-boundary.md) now discovers
+  resultful imported/defined tags, continuation declarations, abstract/shared
+  continuation heaps and all continuation instructions, including dead code.
+  Tag-free modules avoid an extra type-table collection.
+- The [spec harness](wast/exception-tag-authoring.md) disables this extension
+  only for direct core and legacy fixture paths, applying the same policy to
+  module directives and static assertions. Proposal/user scripts keep the
+  existing extension. This supersedes stale claims that Core accepts tag
+  results or that the default Starshine validator rejects suspension tags.
+- Eight feature/harness regressions pass in the 28-test focused repair suite.
+  The complete native spec aggregate passes with the accompanying validator
+  repairs. Binaryen 133 accepts a resultful tag with all features and rejects
+  it with stack switching disabled. The public interface adds only the
+  `StackSwitching` proposal-feature variant.
+
+### 2026-10-05 — Retain branch-hint cleanup under metadata guards
+
+- The [structured annotation boundary](wast/code-metadata-and-function-annotations.md)
+  differs from raw offset-bearing custom sections. RUME now retains and rebases
+  surviving local branch-hint annotations instead of blocking function pruning.
+  Raw branch-hint, debug, relocation and other opaque metadata still block it.
+- O4z's explicit final-size lane discards only the known branch-hint custom
+  section and annotation names before checking the remaining offset guard.
+  Remaining opaque metadata forbids body/index changes; guarded change reporting
+  compares only the stripped fields, avoiding a full-module encoding.
+- Three new positives failed before implementation, and the existing two
+  metadata regressions failed in the broad baseline. The four new tests and
+  affected flatten, RUME, command and direct-metadata guard tests pass in the
+  544-test wasm-gc lane. This restores narrow cleanup behavior without weakening
+  generic guards or claiming full pass-fuzz/performance closeout.
+
+### 2026-10-05 — Renew the Dewdrop-integrated bounded validation gate
+
+- [The current integrated gate](tooling/validation-gates.md#october-5-2026-integrated-validator-renewal)
+  passes 13,745/13,745 bounded wasm-gc tests and the complete native spec
+  aggregate. It supersedes saved failure counts as the current test status,
+  while preserving them as historical debugging evidence. The final remaining
+  assertion was stale error text: concrete branch-table operands still reject,
+  now with an operand-based `type mismatch` diagnostic.
+- No production optimizer parity/performance closeout is inferred from these
+  tests. Independent P00 runtime, size, coverage and full release gates remain
+  open. Aggregate build/test costs exceed the consumer's 30-second activity
+  budget; captured times are not isolated performance comparisons.
 
 ### 2026-10-05 — Remove persistent fuzz caching
 

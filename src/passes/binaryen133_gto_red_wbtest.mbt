@@ -43,6 +43,77 @@ test "Binaryen 133 GTO removes an unread private struct field" {
 }
 
 ///|
+test "GTO boundary preserves code with opaque offset-sensitive metadata" {
+  // Opaque code offsets cannot be repaired after field-pruning changes the body.
+  let input = pass_test_module_from_wat(
+    "(module (type $t (struct (field (mut i32)))) (func (export \"run\") (result i32) (drop (struct.new $t (i32.const 1))) (i32.const 7)))",
+  ).with_custom_secs([
+    @lib.CustomSec::new(@lib.Name::new("metadata.code.branch_hint"), b"\x00"),
+  ])
+  let output = binaryen133_run_gto_module(input)
+  @debug.assert_eq(output.type_sec, input.type_sec)
+  @debug.assert_eq(output.code_sec, input.code_sec)
+  @debug.assert_eq(output.custom_secs, input.custom_secs)
+}
+
+///|
+test "GTO boundary preserves types with opaque raw name metadata" {
+  // The raw name payload may contain type and field indices GTO cannot remap.
+  let input = pass_test_module_from_wat(
+    "(module (type $t (struct (field (mut i32)))) (func (export \"run\") (result i32) (drop (struct.new $t (i32.const 1))) (i32.const 7)))",
+  ).with_raw_name_sec_payload(b"opaque-type-names")
+  let output = binaryen133_run_gto_module(input)
+  @debug.assert_eq(output.type_sec, input.type_sec)
+  @debug.assert_eq(output.raw_name_sec_payload, input.raw_name_sec_payload)
+}
+
+///|
+test "GTO preserves struct fields in an exported table callback signature" {
+  let source =
+    #| (module
+    #|   (type $box (struct (field i32) (field i32)))
+    #|   (type $reader (func (param (ref $box)) (result i32)))
+    #|   (table (export "callbacks") 1 funcref)
+    #|   (elem (i32.const 0) func $read)
+    #|   (func $read (type $reader) (param (ref $box)) (result i32)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let output = binaryen133_run_gto(source)
+  let structs = cl_module_subtypes(output).filter(fn(t) {
+    t.get_comptype() is @lib.StructCompType(_)
+  })
+  match structs[0].get_comptype() {
+    @lib.StructCompType(fields) => assert_eq(fields.length(), 2)
+    _ => fail("expected callback parameter struct")
+  }
+}
+
+///|
+test "GTO preserves struct fields in an imported table indirect-call signature" {
+  let source =
+    #| (module
+    #|   (type $box (struct (field i32) (field i32)))
+    #|   (type $reader (func (param (ref $box)) (result i32)))
+    #|   (import "env" "callbacks" (table 1 funcref))
+    #|   (func (export "run") (result i32)
+    #|     i32.const 1
+    #|     i32.const 2
+    #|     struct.new $box
+    #|     i32.const 0
+    #|     call_indirect (type $reader)))
+    #|
+  let output = binaryen133_run_gto(source)
+  let structs = cl_module_subtypes(output).filter(fn(t) {
+    t.get_comptype() is @lib.StructCompType(_)
+  })
+  match structs[0].get_comptype() {
+    @lib.StructCompType(fields) => assert_eq(fields.length(), 2)
+    _ => fail("expected indirect-call parameter struct")
+  }
+}
+
+///|
 test "Binaryen 133 GTO keeps effects of an unread constructor field" {
   let output = binaryen133_run_gto(
     "(module (type $t (struct (field (mut i32)))) (global $g (mut i32) (i32.const 0)) (func $effect (result i32) (global.set $g (i32.const 9)) (i32.const 1)) (func (export \"run\") (result i32) (drop (struct.new $t (call $effect))) (global.get $g)))",
