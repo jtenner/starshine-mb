@@ -1,3 +1,26 @@
+### 2026-10-09 — Repair direct-pass effects and IR invariants
+
+- [The October 9 repair checkpoint](tooling/validation-gates.md#october-9-2026--optimizer-and-ir-repairs)
+  records SIMD and string effect fixes, side-table ownership, exact-instruction
+  type checks, compact-CFG SSA loop entries, natural-loop reachability, batched
+  mutation preflight, and bounded carried-local access checks. Focused IR,
+  pass, and command-dispatch regressions cover the repaired cases. The fresh
+  native CLI preserves all three SIMD runtime observations, and four pinned
+  Binaryen 133 aggregate lanes compare 10,000 cases each without tool or
+  validation failures. The active backlog retains unproven output-shape
+  families and measured performance signoff.
+
+### 2026-10-09 — Audit optimizer effects and IR integrity
+
+- [The optimizer and IR audit](tooling/validation-gates.md#october-9-2026--optimizer-and-ir-audit)
+  records three current-source SIMD wrong behaviors reproduced by execution,
+  a direct-pass string trap deletion seen in validated output, confirmed IR API
+  defects, and performance paths needing benchmarks. The default preset kept
+  the reduced fixtures safe.
+  IR and pass package tests passed 676/676 and 9,173/9,173. The active backlog
+  retained repair and verification work; no optimizer source was changed during
+  the audit phase.
+
 ### 2026-10-08 — Repair the mass-audit regressions and restore green suites
 
 - Fixed value, scope, type, ownership, byte/text and module traversal faults.

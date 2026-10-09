@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-09
 sources:
   - ../raw/tooling/2026-10-04-starshine-v133-review.json
   - ../raw/tooling/2026-10-05-starshine-p00-checkpoint.json
@@ -1006,6 +1006,173 @@ clock/RSS or allocation-byte gains, and its larger v133 shape difference is
 not aggregate parity signoff. All four 1× targets and deferred final CI,
 coverage and 10,000-case GenValid campaigns remain open. Exact records are in
 repair evidence (local-only record).
+
+## October 9, 2026 — Optimizer and IR audit
+
+Eight agents and an independent Claude Code review inspected `src/passes`
+and `src/ir` without editing repository source. Claude's prescribed `--bare`
+mode could not use the local OAuth
+login; the user approved `--safe-mode` with `Read,Glob,Grep` only. Its findings
+were checked against source and by separate agents. `moon test src/ir` passed
+676/676 and `moon test src/passes` passed 9,173/9,173 before changes. These
+suites did not detect the three executed semantic differences below or the
+proposal trap deletion found by direct OptimizeInstructions.
+
+- **Reproduced wrong behavior, SimplifyLocals:** a valid module with an unused
+  local assignment from an out-of-bounds `v128.load` traps before the pass but
+  returns after `--simplify-locals`. Current-source `moon run src/cmd` produced
+  an empty function body; Node execution confirmed `RuntimeError` before and
+  normal return after. [HOT lift](../../../src/ir/hot_lift.mbt) classifies SIMD
+  memory instructions as `HotOp::Simd`, while [HOT flags](../../../src/ir/hot_flags.mbt),
+  [shared effects](../../../src/ir/effects.mbt), and the private
+  [SimplifyLocals effects](../../../src/passes/simplify_locals.mbt) omit their
+  memory and trap effects. Minimal WAT: `(module (memory 1) (func (export
+  "run") (local v128) i32.const 65536 v128.load local.set 0))`.
+- **Reproduced wrong value, MergeBlocks:** a function that adds a memory-reading
+  call result to a result block containing `v128.store` returns 1 before
+  `--merge-blocks` and 2 after it. Current-source output validates. The same
+  zero SIMD effect mask lets [MergeBlocks](../../../src/passes/merge_blocks.mbt)
+  lift the store before the call through the purity test in
+  [pass_common.mbt](../../../src/passes/pass_common.mbt). A reduced valid WAT
+  case uses a one-page memory, a reader function with `i32.load 0`, and
+  `i32.add (call $reader) (block (result i32) (v128.store 0
+  (v128.const i32x4 1 2 3 4)) (i32.const 1))`.
+- **Reproduced wrong value, CodePushing with `--ignore-implicit-traps`:** a
+  scalar load from address zero moves past a `v128.store` to that address.
+  Current-source output validates; fresh Node instances return 0 before
+  `--code-pushing` and 1 afterward for both values of an intervening `if`
+  condition. The trap-relaxation option permits moving the scalar load, but
+  the zero SIMD effect mask incorrectly permits crossing its memory write.
+  The default trap policy blocks this particular movement.
+- **Validated output loses a required trap, OptimizeInstructions:** a valid
+  proposal module with null references passed to `string.encode_utf8_array` and two
+  nested `i32.shr_u` operations is accepted by the current CLI. Direct
+  `--optimize-instructions --validate` reduces its body to `i32.const 0`,
+  deleting the encoder and its null-reference trap. The
+  [stringref proposal](https://github.com/WebAssembly/stringref/blob/main/proposals/stringref/Overview.md)
+  requires a trap for a null `stringref`. [Shared effects](../../../src/ir/effects.mbt)
+  omit the `StringOp` trap and array-write bits. Binaryen's shell and Wasmtime
+  both reject this proposal opcode, so execution was not observed in an
+  independent runtime; the finding rests on accepted input, exact output and
+  the string instruction's trap contract.
+- **Source-confirmed, behavior impact pending:** SimplifyLocals' private
+  heap mask omits `ArrayLoad` and `ArrayStore`. A valid direct replay with an
+  array load, intervening array store, and later local read preserved the
+  original value: the rewrite kept the load before the store with a scratch
+  local. The missing mask remains a contract gap, but that simple wrong-value
+  claim is withdrawn. Find a distinct executable trigger before assigning
+  output impact to this mask gap.
+- **Confirmed IR API defects in isolated wasm-gc tests:** a caller can mutate
+  the array returned by [branch-table side-table access](../../../src/ir/hot_side_tables.mbt)
+  without a revision bump. HOT verification still passes, fresh CFG edges
+  change, and the cached CFG remains stale. The normal pass retargeting paths
+  use revision-bumping setters; no active pass misuse was found. The public
+  [exact-instruction setter](../../../src/ir/hot_mutate.mbt) also accepts an
+  `i64.add` payload for an `i32.add` node; HOT verification and lowering pass,
+  but module validation rejects the output. Active OptimizeInstructions code
+  uses this setter, with no confirmed bad instruction at a current call site.
+  A valid typed loop whose body is `unreachable` leaves its entry `local.get`
+  unmapped in [default SSA](../../../src/ir/ssa_local.mbt); the expanded CFG
+  maps it correctly. Active SSA destruction guards typed loops. A separate
+  typed loop with a body write maps correctly, so a broad claim that all typed
+  loop entries are skipped is withdrawn. [Natural-loop analysis](../../../src/ir/loop_info.mbt)
+  includes a dead `nop` predecessor in a loop in an isolated failing test,
+  although no active pass consumes LoopInfo today. Promote these temporary
+  tests into repository regressions before repair.
+- **Unverified IR leads:** [batch child rewrites](../../../src/ir/hot_mutate.mbt)
+  can mutate earlier spans before a later preflight failure. The carried-local
+  global-minimum dependency query in [HOT lower](../../../src/ir/hot_lower.mbt)
+  warrants a semantic HOT fixture and a production pass-origin witness.
+- **Performance leads:** `effects_for_node` allocates a full node-count array
+  and bitset per call; CodePushing repeats a full node-count allocation while
+  checking rethrows; nested changed struct constructors can trigger repeated
+  rewriting in GlobalTypeOptimization. Benchmark pass-local time and allocated
+  bytes before claiming a measured regression. The older, source-specific
+  Binaryen 133 command ratios in [the active backlog](../../../agent-todo.md)
+  remain historical measurements, not a current pass-local signoff.
+
+No source fix, regression test, broad fuzz comparison, or full validation gate
+was part of this audit. A string-gathering table-global candidate was withdrawn:
+the validator processes table initializers before defined globals, so its
+proposed input was invalid; imported global indices stay stable.
+On the reduced SIMD and string fixtures, the default `--optimize` preset
+preserved the original behavior or bytes; these observations prove direct-pass
+defects and do not establish a preset failure.
+
+## October 9, 2026 — Optimizer and IR repairs
+
+This checkpoint follows the [same-day audit](#october-9-2026--optimizer-and-ir-audit).
+The audit text above keeps its original observations and pre-repair test counts.
+
+- [Exact SIMD and string effects](../../../src/ir/effects.mbt) now classify all
+  SIMD memory loads, stores and lane forms, plus string array reads, writes and
+  null-reference traps. `string.eq` remains pure for nullable operands, and
+  synthesized `ref.as_non_null` retains its trap flag. HOT construction and
+  mutation give exact SIMD, string, and unary nodes matching flags. SIMD stores
+  have no value flag, and direct node mutation refreshes exact flags;
+  [SimplifyLocals](../../../src/passes/simplify_locals.mbt)
+  reads those flags and classifies `ArrayLoad` and `ArrayStore` in its private
+  heap mask. Focused pass tests and [command dispatch tests](../../../src/cmd/cmd.mbt)
+  retain the trapping load and encoder and preserve load/call order before a
+  SIMD store. The stringref trap is still source-backed rather than runtime
+  executed because the available engines reject that proposal opcode.
+- [Branch and catch side tables](../../../src/ir/hot_side_tables.mbt) copy
+  mutable arrays on construction, allocation, and return, so retained payload
+  objects and accessor results cannot silently alter CFG targets or catch arms.
+  The `HotFunc` fields remain public; direct field writes still require the
+  caller to manage revisions. A duplicate continuation copy was removed.
+- [Exact-instruction mutation](../../../src/ir/hot_mutate.mbt) now checks
+  operand and result types for concrete binary and comparison nodes before
+  storing the payload. It rejects the tested `i64.add` replacement of an
+  `i32.add` node. Polymorphic operands and other exact families can be
+  assembled in stages by active passes and remain outside this setter guard;
+  the pipeline's final module validation still checks them.
+- [Compact-CFG local SSA](../../../src/ir/ssa_local.mbt) visits loop-entry
+  operands before the loop body, including a typed loop with an unreachable
+  body. Repeated tuple entry lanes and shared operand references record each
+  static local definition once. [Natural-loop analysis](../../../src/ir/loop_info.mbt) admits only
+  header-dominated predecessors, excluding the reproduced dead `nop` block.
+  Batched control rewrites now validate planned region labels before writing
+  child spans. [HOT lowering](../../../src/ir/hot_lower.mbt) searches for a
+  later conflicting local read when the cached first read is below the query
+  bound; the bounded index scans a wide reader set once for multiple writers.
+  Reduced two-local correctness and 32-local work-count tests failed before
+  these changes.
+
+The focused IR suite passed 691/691 after these fixes. Direct pass and
+command-dispatch regressions passed for the four affected passes; final
+`moon fmt`, `moon info`, and `moon test --no-render` passed, with 13,964/13,964
+tests and zero type errors. Native command SHA-256 is
+`ef9d25da69bc5a1832d7c12a4f8f3f2ef33a5759fb58190f8fbd1dee55e07b30`;
+the verified Binaryen 133 oracle SHA-256 is
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+The fresh native CLI and Node return the original observations after each
+direct pass: the out-of-bounds SIMD load traps, MergeBlocks returns `1`, and
+CodePushing with `--ignore-implicit-traps` returns `0`. All three optimized
+modules pass independent `wasm-tools validate --features all`. The CLI's WAT
+frontend rejects the stringref proposal syntax; the API/dispatcher regression
+validates the accepted binary and retains `string.encode_utf8_array`.
+
+Fresh seed `0x5eed` GenValid aggregate runs used the two explicit prebuilt
+native binaries, eight workers, the pinned oracle, and `wasm-tools` as the
+primary validator. Each requested and compared 10,000 cases with zero
+validation, generator, property, or command failures:
+
+| Pass and profile | Normalized | Cleanup normalized | Raw residuals | Judgment |
+| --- | ---: | ---: | ---: | --- |
+| `merge-blocks`, `merge-blocks-all` | 7,007 | 0 | 2,993 | Sampled expression cases remove two effect-free empty-arm `nop`s and save two canonical bytes. This is a measured size win for that family. |
+| `simplify-locals`, `simplify-locals-all` | 380 | 0 | 9,620 | Every canonical output is smaller, but the seven selected profile families include effect reordering. Retained samples show pure debris removal and an unused global read moved across a load. Treat the remaining aggregate as open parity evidence until each family has a semantic and downstream check. |
+| `code-pushing`, `code-pushing-all` | 4,493 | 5,507 | 0 | The documented `local-cleanup-debris` normalizer accounts for the output differences. No unnormalized residual remains. |
+| `optimize-instructions`, `pass-oi-all` | 8,623 | 0 | 1,377 | A sampled `boolean-select` case folds constant conditions and saves 16 canonical bytes. The 1,080 tuple-profile residuals are smaller but retain the documented downstream-size risk, so they stay open parity gaps. |
+
+The reports are under `.tmp/optimizer-ir-fix-{merge-blocks,simplify-locals,code-pushing,optimize-instructions}-v133-10000/`.
+Only 20 ordinary mismatch bundles per lane were retained; every case record
+remains in its report. Runtime semantic observation was off in these four
+lanes. These generated profiles do not replace the direct SIMD and string
+regressions, which they do not target.
+The performance findings from the audit remain leads until pass-local time and
+allocated bytes are measured on comparable fixtures. The [active backlog](../../../agent-todo.md#p00b--october-9-optimizer-and-ir-follow-up-ir2-effect-correctness)
+tracks that evidence and the remaining aggregate comparisons.
 
 ## October 5 2026 integrated validator renewal
 

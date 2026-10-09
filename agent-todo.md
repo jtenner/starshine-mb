@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed October 8, 2026. Follow
+Active unreleased work only, reviewed October 9, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -257,6 +257,45 @@ quality gates. Keep traced inner and normal command measurements separate.
   evidence, and renew affected aggregate 10000 GenValid profiles when the
   campaign schedule permits. Final CI/coverage/aggregate gates, retained size
   gaps and all four 1× goals remain open. Green unit tests do not close them.
+
+#### P00b — October 9 optimizer and IR follow-up [IR2-EFFECT-CORRECTNESS]
+
+- **Goal / why:** finish signoff for the [October 9 repairs](docs/wiki/tooling/validation-gates.md#october-9-2026--optimizer-and-ir-repairs).
+  The direct-pass SIMD and string effect defects, IR side-table aliasing,
+  exact-instruction mismatch, compact-CFG typed-loop SSA omission and repeated
+  entry definitions, dead loop membership, batch-rewrite preflight, and bounded
+  carried-local access query now have focused regressions and source fixes.
+  This queue keeps only work that still needs evidence.
+- **Deliverables / tasks:** classify the current generated output families and
+  benchmark the source-level scaling leads below. Keep the verified v133 report
+  paths and direct runtime fixtures linked from the repair checkpoint.
+- [x] Run verified Binaryen 133 aggregate 10,000-case comparisons for each
+  affected pass with the freshly built native CLI. All four runs completed
+  without validation, generator, property, or command failures.
+- [ ] Reduce and classify the existing `simplify-locals-all` effect and cleanup
+  families and the `pass-oi-all` tuple family with semantic and downstream
+  evidence. Smaller canonical output alone does not close these parity gaps.
+- [x] Replay the three direct-pass SIMD modules in independent Node instances
+  after the native build; all match the input behavior and validate with
+  `wasm-tools`. The available stringref runtimes and the CLI WAT frontend do
+  not accept that proposal syntax, so its null-trap contract remains
+  source-backed until a compatible independent runtime is available.
+- [ ] Benchmark full-arena effect and rethrow query allocations, nested changed
+  struct constructor rewriting, the exact-instruction setter's per-call
+  typecheck allocation, repeated bounded carried-local queries, and other
+  source-level scaling leads. Measure pass time and allocated bytes on
+  doubling fixtures before assigning performance severity. Keep historical
+  Binaryen 133 timings under their original source versions.
+- **Required APIs / invariants / dependencies:** keep exact instruction effects,
+  owned side-table accessor results, revision-bumping mutations, typed-loop
+  entry definitions, and valid encoded modules. Use the pinned Binaryen 133
+  oracle, fresh native Starshine binary, and independent validator for new
+  parity evidence; a compatible stringref runtime is still unavailable.
+- **Exit / suggested tests:** classify every current residual family with
+  source and semantic evidence plus canonical and downstream size deltas;
+  measure pass time and allocated bytes on doubling fixtures. Keep direct SIMD
+  trap/value replay, null-string trap retention, and the full default suite
+  green. Do not mark pass-local speed closed from this repair alone.
 
 ### P01 — Write-heavy propagation state [IR2-PERF-PC-FLOW]
 
