@@ -22318,6 +22318,16 @@ pub fn ffi_validate_Env_has_func(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_Env_legacy_rethrow_catch_ordinal")
+pub fn ffi_validate_Env_legacy_rethrow_catch_ordinal(
+  receiver : @validate.Env,
+  value1 : UInt,
+) -> Int? {
+  @validate.Env::legacy_rethrow_catch_ordinal(receiver, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_Env_new")
 pub fn ffi_validate_Env_new() -> @validate.Env {
   @validate.Env::new()

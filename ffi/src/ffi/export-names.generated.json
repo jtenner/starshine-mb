@@ -2630,6 +2630,7 @@
   "ffi_validate_Env_get_tag": "Env::get_tag",
   "ffi_validate_Env_has_data": "Env::has_data",
   "ffi_validate_Env_has_func": "Env::has_func",
+  "ffi_validate_Env_legacy_rethrow_catch_ordinal": "Env::legacy_rethrow_catch_ordinal",
   "ffi_validate_Env_new": "Env::new",
   "ffi_validate_Env_push_data": "Env::push_data",
   "ffi_validate_Env_push_elem": "Env::push_elem",
