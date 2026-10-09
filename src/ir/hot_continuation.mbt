@@ -46,7 +46,7 @@ pub fn hot_continuation_targets(
   if node.op != HotOp::Continuation {
     return []
   }
-  hot_branch_table_targets(func, node.imm1).copy()
+  hot_branch_table_targets(func, node.imm1)
 }
 
 ///|
@@ -66,7 +66,7 @@ pub fn hot_continuation_targets_set(
   }
   let table = hot_alloc_branch_table(
     func,
-    HotBranchTable::new(targets.copy(), HOT_IMPLICIT_FUNCTION_LABEL),
+    HotBranchTable::new(targets, HOT_IMPLICIT_FUNCTION_LABEL),
   )
   hot_node_set(func, node_id, { ..node, imm1: table, })
 }

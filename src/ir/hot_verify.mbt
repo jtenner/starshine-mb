@@ -291,7 +291,7 @@ fn hot_verify_core_impl(
     if !hot_verify_type_id_is_valid(func, node.ty) {
       return Err(HotVerifyError::InvalidNodeType(node_id, node.ty))
     }
-    let expected_flags = hot_default_flags_for_op(node.op)
+    let expected_flags = hot_flags_for_exact_payload(func, node.op, node.imm0)
     if node.flags != expected_flags {
       return Err(
         HotVerifyError::InvalidNodeFlags(node_id, node.flags, expected_flags),

@@ -107,22 +107,25 @@ test "exact payload reads remain fresh after mutation and incomplete deletion in
     HotInstrPayload::new(@lib.Instruction::i64_add()),
   )
   let dead = hot_build_nop(func)
-  let id = hot_build_nop(func)
+  let lhs = hot_build_const_i32(func, @lib.I32(1))
+  let rhs = hot_build_const_i32(func, @lib.I32(2))
+  let id = hot_build_node(
+    func,
+    HotOp::Binary,
+    hot_type_intern_value(func, @lib.ValType::i32()),
+    imm0=first,
+    children=[lhs, rhs],
+  )
   hot_delete_node(func, dead)
   // Intentionally incomplete deletion metadata must use the existing fallback.
   func.deleted_nodes.clear()
-  hot_node_set(func, id, {
-    ..hot_node_get(func, id),
-    op: HotOp::Binary,
-    imm0: first,
-  })
   let revision = hot_revision_current(func)
   assert_eq(hot_node_exact_instr(func, id), Some(@lib.Instruction::i32_add()))
   assert_true(hot_verify_node_exact_instr_payload(func, id))
   assert_eq(hot_revision_current(func), revision)
   assert_eq(func.free_nodes, [dead])
-  hot_node_exact_instr_set(func, id, @lib.Instruction::i64_add())
-  assert_eq(hot_node_exact_instr(func, id), Some(@lib.Instruction::i64_add()))
+  hot_node_exact_instr_set(func, id, @lib.Instruction::i32_sub())
+  assert_eq(hot_node_exact_instr(func, id), Some(@lib.Instruction::i32_sub()))
   hot_node_set(func, id, {
     ..hot_node_get(func, id),
     op: HotOp::Load,

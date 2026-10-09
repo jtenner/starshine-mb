@@ -116,6 +116,49 @@ pub fn hot_default_flags_for_op(op : HotOp) -> UInt {
 }
 
 ///|
+fn hot_flags_for_exact_payload(
+  func : HotFunc,
+  op : HotOp,
+  payload_id : SideTableId,
+) -> UInt {
+  let base = hot_default_flags_for_op(op)
+  if payload_id < 0 || payload_id >= func.instr_payloads.length() {
+    return base
+  }
+  let mask = match op {
+    HotOp::Unary =>
+      effects_mask_for_numeric_exact(
+        Some(hot_instr_payload_get(func, payload_id).instr),
+      )
+    HotOp::Simd =>
+      effects_mask_for_simd_exact(
+        Some(hot_instr_payload_get(func, payload_id).instr),
+      )
+    HotOp::StringOp =>
+      effects_mask_for_string_exact(
+        Some(hot_instr_payload_get(func, payload_id).instr),
+      )
+    _ => return base
+  }
+  let mut flags = if op == HotOp::Simd &&
+    (mask & EFFECT_MASK_MEMORY_WRITE) != 0U {
+    base
+  } else {
+    base | HOT_FLAG_VALUE
+  }
+  if (mask & EFFECT_MASK_MEMORY_READ) != 0U {
+    flags = flags | HOT_FLAG_LOAD
+  }
+  if (mask & EFFECT_MASK_MEMORY_WRITE) != 0U {
+    flags = flags | HOT_FLAG_STORE | HOT_FLAG_SIDE_EFFECT
+  }
+  if (mask & EFFECT_MASK_TRAP) != 0U {
+    flags = flags | HOT_FLAG_MAY_TRAP
+  }
+  flags
+}
+
+///|
 pub fn hot_node_flags(func : HotFunc, node_id : NodeId) -> UInt {
   func.nodes[node_id].flags
 }

@@ -8,6 +8,24 @@ fn loop_info_test_exit_targets(exits : Array[HotLoopExit]) -> Array[BlockId] {
 }
 
 ///|
+test "loop info excludes unreachable predecessors of a latch" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (loop (block br 0 nop) i32.const 1 br_if 0)))",
+  )
+  let cfg = cfg_build(fixture.hot_func)
+  let dom = dom_build(cfg)
+  let loops = loop_info_build(cfg, dom)
+  let mut unreachable_count = 0
+  for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
+    if block_id != cfg_entry_block(cfg) && dom_idom(dom, block_id) is None {
+      unreachable_count += 1
+      assert_eq(loop_for_block(loops, block_id), None)
+    }
+  }
+  assert_true(unreachable_count > 0)
+}
+
+///|
 test "loop info builds one natural loop with header body latch and exit" {
   let func = hot_lift_body(
     @lib.Expr::new([

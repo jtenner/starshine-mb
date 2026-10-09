@@ -55,10 +55,10 @@ fn ssa_local_record_use(
 }
 
 ///|
-fn ssa_local_is_region_slot(node : HotNode, slot : Int) -> Bool {
+fn ssa_local_is_region_slot(func : HotFunc, node : HotNode, slot : Int) -> Bool {
   match node.op {
     HotOp::Block => slot >= node.imm1
-    HotOp::Loop => true
+    HotOp::Loop => slot >= hot_label_branch_arity(func, node.imm0)
     HotOp::If => slot == 1 || slot == 2
     HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
     _ => false
@@ -403,13 +403,23 @@ fn ssa_local_visit_node(
   pushed_locals : Array[LocalId],
 ) -> Unit {
   let node = hot_node_get(func, node_id)
+  let mut tuple_entry_id = HOT_NONE_NODE
+  let mut tuple_entry_end = 0
   for index = 0; index < node.child_count; index = index + 1 {
     let slot = hot_child_evaluation_slot(node, index)
-    if ssa_local_is_region_slot(node, slot) {
+    if ssa_local_is_region_slot(func, node, slot) {
       continue
     }
     match ssa_local_live_child(func, node, slot) {
-      Some(child_id) =>
+      Some(child_id) => {
+        if node.op == HotOp::Loop &&
+          slot < hot_label_branch_arity(func, node.imm0) {
+          if child_id == tuple_entry_id && slot < tuple_entry_end {
+            continue
+          }
+          tuple_entry_id = child_id
+          tuple_entry_end = slot + hot_node_result_arity(func, child_id).max(1)
+        }
         if node.op == HotOp::Drop &&
           ssa_simple_drop_value_block_allowed(func, node_id, slot, child_id) {
           ssa_local_visit_region_roots(
@@ -430,6 +440,7 @@ fn ssa_local_visit_node(
         } else {
           ssa_local_visit_node(func, ssa, child_id, local_stacks, pushed_locals)
         }
+      }
       None => ()
     }
   }
@@ -447,11 +458,17 @@ fn ssa_local_visit_action(
   let node = hot_node_get(func, node_id)
   match node.op {
     HotOp::LocalGet => {
+      if ssa.local_get_values[node_id] >= 0 {
+        return
+      }
       let value_id = ssa_local_current_value(local_stacks, node.imm0)
       ssa.local_get_values[node_id] = value_id
       ssa_local_record_use(ssa, value_id, HotSsaUseOrigin::LocalGetUse(node_id))
     }
     HotOp::LocalSet => {
+      if ssa.local_write_defs[node_id] >= 0 {
+        return
+      }
       let value_id = ssa_local_add_value(
         ssa,
         ssa_local_require_local_type(func, node.imm0),
@@ -462,6 +479,9 @@ fn ssa_local_visit_action(
       pushed_locals.push(node.imm0)
     }
     HotOp::LocalTee => {
+      if ssa.local_write_defs[node_id] >= 0 {
+        return
+      }
       let value_id = ssa_local_add_value(
         ssa,
         ssa_local_require_local_type(func, node.imm0),

@@ -45,7 +45,7 @@ test "uniform source-order conflicts preserve both directions and strict bounds"
         hot_lower_impl_carried_local_write_conflicts(func, write, root, facts),
         local == 0,
       )
-      assert_false(
+      assert_eq(
         hot_lower_impl_carried_local_write_conflicts(
           func,
           write,
@@ -53,6 +53,7 @@ test "uniform source-order conflicts preserve both directions and strict bounds"
           facts,
           before_access_order=hot_node_get(func, roots[0]).order,
         ),
+        local == 0 && root != roots[0],
       )
       assert_false(
         hot_lower_impl_carried_local_write_conflicts(

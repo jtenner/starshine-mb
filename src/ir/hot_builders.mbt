@@ -65,7 +65,7 @@ pub fn hot_build_node(
   let node = {
     op,
     ty,
-    flags: hot_default_flags_for_op(op),
+    flags: hot_flags_for_exact_payload(func, op, imm0),
     order: -1,
     imm0,
     imm1,
@@ -101,7 +101,7 @@ fn hot_build_node0(
   hot_alloc_node(func, {
     op,
     ty,
-    flags: hot_default_flags_for_op(op),
+    flags: hot_flags_for_exact_payload(func, op, imm0),
     order: -1,
     imm0,
     imm1,
@@ -124,7 +124,7 @@ fn hot_build_node1(
     {
       op,
       ty,
-      flags: hot_default_flags_for_op(op),
+      flags: hot_flags_for_exact_payload(func, op, imm0),
       order: -1,
       imm0,
       imm1,
@@ -150,7 +150,7 @@ fn hot_build_node2(
     {
       op,
       ty,
-      flags: hot_default_flags_for_op(op),
+      flags: hot_flags_for_exact_payload(func, op, imm0),
       order: -1,
       imm0,
       imm1,
@@ -178,7 +178,7 @@ fn hot_build_node3(
     {
       op,
       ty,
-      flags: hot_default_flags_for_op(op),
+      flags: hot_flags_for_exact_payload(func, op, imm0),
       order: -1,
       imm0,
       imm1,

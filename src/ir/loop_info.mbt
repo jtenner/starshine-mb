@@ -87,6 +87,7 @@ fn loop_info_contains_exit(
 ///|
 fn loop_info_build_one(
   cfg : HotCfg,
+  dom : HotDominators,
   header : BlockId,
   latches : Array[BlockId],
 ) -> LoopInfoTemp {
@@ -101,7 +102,8 @@ fn loop_info_build_one(
   while worklist.length() > 0 {
     let block_id = worklist.pop().unwrap()
     for pred in cfg_predecessor_edges(cfg, block_id) {
-      if pred.kind == CfgEdgeKind::ExceptionalEdge {
+      if pred.kind == CfgEdgeKind::ExceptionalEdge ||
+        !dom_dominates(dom, header, pred.block) {
         continue
       }
       if bitset_set(block_bits, pred.block) {
@@ -235,7 +237,7 @@ pub fn loop_info_build(cfg : HotCfg, dom : HotDominators) -> HotLoopInfo {
     if latches_by_header[header].length() == 0 {
       continue
     }
-    temps.push(loop_info_build_one(cfg, header, latches_by_header[header]))
+    temps.push(loop_info_build_one(cfg, dom, header, latches_by_header[header]))
   }
 
   let parents = Array::make(temps.length(), -1)

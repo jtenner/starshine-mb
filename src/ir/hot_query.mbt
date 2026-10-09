@@ -607,7 +607,7 @@ pub fn hot_branch_table_targets_for_node(
 ) -> Array[LabelId] {
   let node = hot_node_get(func, node_id)
   match node.op {
-    HotOp::BrTable => hot_branch_table_targets(func, node.imm0).copy()
+    HotOp::BrTable => hot_branch_table_targets(func, node.imm0)
     _ => []
   }
 }

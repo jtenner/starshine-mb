@@ -225,8 +225,58 @@ fn effects_mask_for_numeric_exact(instr : Instruction?) -> EffectMask {
     | Some(Instruction::I64TruncF32S)
     | Some(Instruction::I64TruncF32U)
     | Some(Instruction::I64TruncF64S)
-    | Some(Instruction::I64TruncF64U) => EFFECT_MASK_TRAP
+    | Some(Instruction::I64TruncF64U)
+    | Some(Instruction::RefAsNonNull) => EFFECT_MASK_TRAP
     _ => 0U
+  }
+}
+
+///|
+fn effects_mask_for_simd_exact(instr : Instruction?) -> EffectMask {
+  match instr {
+    Some(Instruction::V128Load(_))
+    | Some(Instruction::V128Load8x8S(_))
+    | Some(Instruction::V128Load8x8U(_))
+    | Some(Instruction::V128Load16x4S(_))
+    | Some(Instruction::V128Load16x4U(_))
+    | Some(Instruction::V128Load32x2S(_))
+    | Some(Instruction::V128Load32x2U(_))
+    | Some(Instruction::V128Load8Splat(_))
+    | Some(Instruction::V128Load16Splat(_))
+    | Some(Instruction::V128Load32Splat(_))
+    | Some(Instruction::V128Load64Splat(_))
+    | Some(Instruction::V128Load8Lane(_, _))
+    | Some(Instruction::V128Load16Lane(_, _))
+    | Some(Instruction::V128Load32Lane(_, _))
+    | Some(Instruction::V128Load64Lane(_, _))
+    | Some(Instruction::V128Load32Zero(_))
+    | Some(Instruction::V128Load64Zero(_)) =>
+      EFFECT_MASK_MEMORY_READ | EFFECT_MASK_TRAP
+    Some(Instruction::V128Store(_))
+    | Some(Instruction::V128Store8Lane(_, _))
+    | Some(Instruction::V128Store16Lane(_, _))
+    | Some(Instruction::V128Store32Lane(_, _))
+    | Some(Instruction::V128Store64Lane(_, _)) =>
+      EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
+    _ => 0U
+  }
+}
+
+///|
+fn effects_mask_for_string_exact(instr : Instruction?) -> EffectMask {
+  match instr {
+    Some(Instruction::StringEncodeUtf8Array)
+    | Some(Instruction::StringEncodeWtf16Array)
+    | Some(Instruction::StringEncodeLossyUtf8Array)
+    | Some(Instruction::StringEncodeWtf8Array) =>
+      EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
+    Some(Instruction::StringNewUtf8Array)
+    | Some(Instruction::StringNewWtf16Array)
+    | Some(Instruction::StringNewLossyUtf8Array)
+    | Some(Instruction::StringNewWtf8Array) =>
+      EFFECT_MASK_MEMORY_READ | EFFECT_MASK_TRAP
+    Some(Instruction::StringEq) => 0U
+    _ => EFFECT_MASK_TRAP
   }
 }
 
@@ -307,12 +357,16 @@ fn effects_mask_for_node_exact(func : HotFunc, node_id : NodeId) -> EffectMask {
       EFFECT_MASK_TABLE_WRITE
     HotOp::TableCopy | HotOp::TableInit =>
       EFFECT_MASK_TABLE_READ | EFFECT_MASK_TABLE_WRITE
-    HotOp::Binary | HotOp::Convert =>
+    HotOp::Binary | HotOp::Unary | HotOp::Convert =>
       effects_mask_for_numeric_exact(
         effects_node_exact_instr_opt(func, node_id),
       )
     HotOp::Atomic =>
       effects_mask_for_atomic_exact(effects_node_exact_instr_opt(func, node_id))
+    HotOp::Simd =>
+      effects_mask_for_simd_exact(effects_node_exact_instr_opt(func, node_id))
+    HotOp::StringOp =>
+      effects_mask_for_string_exact(effects_node_exact_instr_opt(func, node_id))
     HotOp::Heap =>
       effects_mask_for_heap_exact(effects_node_exact_instr_opt(func, node_id))
     _ => 0U

@@ -1055,6 +1055,48 @@ pub fn hot_loop_entry_values_clear(
 }
 
 ///|
+fn hot_mutate_child_spans_control_preflight(
+  func : HotFunc,
+  control_id : NodeId,
+  rewrites : Array[HotChildSpanRewrite],
+) -> Bool {
+  let node = hot_node_get(func, control_id)
+  if !hot_label_is_live(func, hot_control_node_label(func, control_id)) {
+    return false
+  }
+  let mut planned_children : Array[NodeId]? = None
+  for rewrite in rewrites {
+    if rewrite.node_id == control_id {
+      planned_children = Some(rewrite.new_children)
+    }
+  }
+  let child_count = match planned_children {
+    Some(children) => children.length()
+    None => node.child_count
+  }
+  for slot_info in hot_control_region_slot_info(node.op) {
+    let holder = match slot_info.role {
+      HotControlRegionRole::BodyRegion if node.op is HotOp::Block ||
+        node.op is HotOp::Loop => control_id
+      _ =>
+        if slot_info.slot >= child_count {
+          HOT_NONE_NODE
+        } else {
+          match planned_children {
+            Some(children) => children[slot_info.slot]
+            None => hot_child_get(func, control_id, slot_info.slot)
+          }
+        }
+    }
+    if holder != HOT_NONE_NODE &&
+      !hot_label_is_live(func, hot_control_node_label(func, holder)) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 pub fn hot_replace_child_spans_and_control_result_type(
   func : HotFunc,
   control_id : NodeId,
@@ -1076,6 +1118,13 @@ pub fn hot_replace_child_spans_and_control_result_type(
     for child_id in rewrite.new_children {
       hot_mutate_require_child_ref(func, child_id)
     }
+  }
+  if !hot_mutate_child_spans_control_preflight(func, control_id, rewrites) {
+    abort(
+      "hot_replace_child_spans_and_control_result_type requires live control labels",
+    )
+  }
+  for rewrite in rewrites {
     let node = hot_node_get(func, rewrite.node_id)
     let base = hot_alloc_child_span(func, rewrite.new_children.length())
     hot_mutate_write_child_span(func, base, rewrite.new_children)
@@ -1340,6 +1389,7 @@ pub fn hot_node_set(func : HotFunc, id : NodeId, node : HotNode) -> Unit {
   hot_mutate_require_node_shape(func, node, "hot node_set")
   func.nodes[id] = {
     ..node,
+    flags: hot_flags_for_exact_payload(func, node.op, node.imm0),
     order: if node.order < func.nodes[id].order {
       func.nodes[id].order
     } else {
@@ -1472,6 +1522,11 @@ pub fn hot_node_exact_instr_set(
   let node = hot_node_get(func, id)
   match hot_node_exact_instr_payload_id(func, id) {
     Some(_) => {
+      if !hot_mutate_exact_instr_matches_node(func, id, instr) {
+        abort(
+          "hot node_exact_instr_set requires matching operand and result types",
+        )
+      }
       let payload_id = hot_alloc_instr_payload(
         func,
         HotInstrPayload::new(instr),
@@ -1486,12 +1541,78 @@ pub fn hot_node_exact_instr_set(
         | HotOp::BrOnCast
         | HotOp::BrOnCastFail
         | HotOp::Atomic => { ..node, imm1: payload_id, }
-        _ => { ..node, imm0: payload_id, }
+        _ =>
+          {
+            ..node,
+            imm0: payload_id,
+            flags: hot_flags_for_exact_payload(func, node.op, payload_id),
+          }
       }
       func.nodes[id] = next_node
       hot_revision_bump(func)
     }
     None => abort("hot node_exact_instr_set requires an exact-instruction node")
+  }
+}
+
+///|
+fn hot_mutate_exact_instr_matches_node(
+  func : HotFunc,
+  id : NodeId,
+  instr : Instruction,
+) -> Bool {
+  let node = hot_node_get(func, id)
+  // Other exact families can be assembled in stages by lift and passes.
+  // Concrete binary and comparison operands can be checked here.
+  if !(node.op is HotOp::Binary || node.op is HotOp::Compare) {
+    return true
+  }
+  let env = match func.validation_env {
+    Some(value) => value
+    None => @validate.empty_env()
+  }
+  let operands : Array[@lib.ValType] = []
+  let mut slot = 0
+  while slot < hot_child_count(func, id) {
+    let child = hot_child_get(func, id, slot)
+    if child == HOT_NONE_NODE {
+      // The pass may attach an opcode before filling a staged child slot.
+      return true
+    }
+    let types = hot_type_results(func, hot_node_type(func, child))
+    if types.length() == 0 {
+      // Unreachable operands are polymorphic until the enclosing rewrite
+      // reaches its final form.
+      return true
+    }
+    let mut end = slot + 1
+    while end < hot_child_count(func, id) &&
+          hot_child_get(func, id, end) == child {
+      end += 1
+    }
+    let lanes = end - slot
+    if types.length() == 1 {
+      for _ in 0..<lanes {
+        operands.push(types[0])
+      }
+    } else if types.length() >= lanes {
+      for lane in 0..<lanes {
+        operands.push(types[types.length() - lanes + lane])
+      }
+    } else {
+      return false
+    }
+    slot = end
+  }
+  let state = @validate.tc_state_new(
+    env,
+    operands,
+    true,
+    @validate.tc_escape_none(),
+  )
+  match @validate.Typecheck::typecheck(instr, state) {
+    Ok(after) => after.stack == hot_type_results(func, node.ty)
+    Err(_) => false
   }
 }
 
@@ -1507,7 +1628,7 @@ pub fn hot_replace_node(
   }
   hot_node_set(func, id, {
     ..new_node,
-    flags: hot_default_flags_for_op(new_node.op),
+    flags: hot_flags_for_exact_payload(func, new_node.op, new_node.imm0),
   })
   // Removing a proven identity wrapper forwards its already evaluated value.
   // Its source can precede intervening roots, unlike a newly computed value

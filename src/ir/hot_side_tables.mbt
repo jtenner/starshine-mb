@@ -48,7 +48,7 @@ pub fn HotBranchTable::new(
   targets : Array[LabelId],
   default_target : LabelId,
 ) -> HotBranchTable {
-  { targets, default_target, }
+  { targets: targets.copy(), default_target, }
 }
 
 ///|
@@ -76,7 +76,7 @@ pub fn HotCatchArm::all_ref(label_id : LabelId) -> HotCatchArm {
 
 ///|
 pub fn HotCatchInfo::new(catches : Array[HotCatchArm]) -> HotCatchInfo {
-  { catches, }
+  { catches: catches.copy(), }
 }
 
 ///|
@@ -125,7 +125,9 @@ pub fn hot_alloc_branch_table(
   table : HotBranchTable,
 ) -> SideTableId {
   let id = func.branch_tables.length()
-  func.branch_tables.push(table)
+  func.branch_tables.push(
+    HotBranchTable::new(table.targets, table.default_target),
+  )
   id
 }
 
@@ -134,7 +136,7 @@ pub fn hot_branch_table_targets(
   func : HotFunc,
   id : SideTableId,
 ) -> Array[LabelId] {
-  func.branch_tables[id].targets
+  func.branch_tables[id].targets.copy()
 }
 
 ///|
@@ -148,13 +150,13 @@ pub fn hot_branch_table_default_target(
 ///|
 pub fn hot_alloc_catch_info(func : HotFunc, info : HotCatchInfo) -> SideTableId {
   let id = func.catches.length()
-  func.catches.push(info)
+  func.catches.push(HotCatchInfo::new(info.catches))
   id
 }
 
 ///|
 pub fn hot_catch_info_get(func : HotFunc, id : SideTableId) -> HotCatchInfo {
-  func.catches[id]
+  { catches: func.catches[id].catches.copy(), }
 }
 
 ///|

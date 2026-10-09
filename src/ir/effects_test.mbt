@@ -14,6 +14,67 @@ test "effect summaries distinguish pure arithmetic from memory access" {
 }
 
 ///|
+test "SIMD memory nodes retain read write and trap effects" {
+  let load_fixture = ir_test_build_hot_from_wat(
+    "(module (memory 1) (func (local v128) i32.const 0 v128.load local.set 0))",
+  )
+  let load_func = load_fixture.hot_func
+  let load = hot_child_get(load_func, hot_root_get(load_func, 0), 0)
+  let load_mask = effects_for_node(load_func, load)
+  assert_true((load_mask & EFFECT_MASK_MEMORY_READ) != 0U)
+  assert_true((load_mask & EFFECT_MASK_TRAP) != 0U)
+
+  let store_fixture = ir_test_build_hot_from_wat(
+    "(module (memory 1) (func i32.const 0 v128.const i32x4 1 2 3 4 v128.store))",
+  )
+  let store_func = store_fixture.hot_func
+  let store_mask = effects_for_node(store_func, hot_root_get(store_func, 0))
+  assert_true((store_mask & EFFECT_MASK_MEMORY_WRITE) != 0U)
+  assert_true((store_mask & EFFECT_MASK_TRAP) != 0U)
+  assert_false(
+    hot_node_has_flag(store_func, hot_root_get(store_func, 0), HOT_FLAG_VALUE),
+  )
+}
+
+///|
+test "string array encoding retains memory write and null trap effects" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (type $u8 (array (mut i8))) (func (result i32) ref.null noextern ref.null $u8 i32.const 0 string.encode_utf8_array))",
+  )
+  let func = fixture.hot_func
+  let encode = hot_root_get(func, 0)
+  let mask = effects_for_node(func, encode)
+  assert_true((mask & EFFECT_MASK_MEMORY_WRITE) != 0U)
+  assert_true((mask & EFFECT_MASK_TRAP) != 0U)
+  assert_true(hot_has_side_effect(func, encode))
+}
+
+///|
+test "synthesized ref.as_non_null retains its trap effect" {
+  let func = HotFunc::new()
+  let nullable = @lib.RefType::abs(@lib.AbsHeapType::extern_())
+  let nonnull = @lib.RefType::new(
+    false,
+    @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+  )
+  let operand = hot_build_ref_null(func, nullable)
+  let checked = hot_build_unary(func, @lib.ValType::ref_type(nonnull), operand)
+  hot_node_exact_instr_set(func, checked, @lib.Instruction::ref_as_non_null())
+  assert_true((effects_for_node(func, checked) & EFFECT_MASK_TRAP) != 0U)
+}
+
+///|
+test "string.eq accepts null operands without a trap effect" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (result i32) ref.null noextern ref.null noextern string.eq))",
+  )
+  let func = fixture.hot_func
+  let eq = hot_root_get(func, 0)
+  assert_true(effects_is_pure(effects_for_node(func, eq)))
+  assert_false(hot_may_trap(func, eq))
+}
+
+///|
 test "effect summaries mark exact trapping numeric instructions" {
   let div_func = hot_lift_body(
     @lib.Expr::new([

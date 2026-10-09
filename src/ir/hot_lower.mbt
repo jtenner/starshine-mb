@@ -1180,6 +1180,7 @@ fn hot_lower_impl_carried_local_write_conflicts(
   let writes = hot_source_order_local_access_nodes(func, carried_id, facts)
   let mut first_access = hot_node_count(func)
   let mut indexed_orders : @hashmap.HashMap[Int, Int]? = None
+  let mut bounded_orders : @hashmap.HashMap[Int, Int]? = None
   for write_id in writes {
     let write = hot_node_get(func, write_id)
     if (write.op is HotOp::LocalSet || write.op is HotOp::LocalTee) &&
@@ -1226,8 +1227,34 @@ fn hot_lower_impl_carried_local_write_conflicts(
           }
         }
         let order = orders.get(write.imm0).or(hot_node_count(func))
-        if order < first_access {
+        if order > before_access_order && order < first_access {
           first_access = order
+        } else if order <= before_access_order {
+          // The first access to this local is outside the requested interval.
+          // A later access to the same local can still conflict.
+          let later = match bounded_orders {
+            Some(later) => later
+            None => {
+              let later : @hashmap.HashMap[Int, Int] = @hashmap.HashMap::new()
+              for access_id in accesses {
+                match access_visits {
+                  Some(count) => count[0] += 1
+                  None => ()
+                }
+                let access = hot_node_get(func, access_id)
+                if access.order > before_access_order &&
+                  access.order < later.get(access.imm0).or(hot_node_count(func)) {
+                  later.set(access.imm0, access.order)
+                }
+              }
+              bounded_orders = Some(later)
+              later
+            }
+          }
+          let later_order = later.get(write.imm0).or(hot_node_count(func))
+          if later_order < first_access {
+            first_access = later_order
+          }
         }
       } else {
         for access_id in accesses {
@@ -1236,7 +1263,9 @@ fn hot_lower_impl_carried_local_write_conflicts(
             None => ()
           }
           let access = hot_node_get(func, access_id)
-          if access.imm0 == write.imm0 && access.order < first_access {
+          if access.imm0 == write.imm0 &&
+            access.order > before_access_order &&
+            access.order < first_access {
             first_access = access.order
           }
         }
