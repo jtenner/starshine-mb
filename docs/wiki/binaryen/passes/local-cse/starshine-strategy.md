@@ -396,7 +396,7 @@ measure its size and runtime rather than treating validation alone as parity.
 Sources: [direct availability and byte tests](../../../../../src/passes/mass_audit_locals_wbtest.mbt),
 [active command tests](../../../../../src/cmd/mass_repair_dispatch_wbtest.mbt).
 Final measurements and all historical adverse cohorts remain in the
-[repair evidence](../../../raw/tooling/2026-10-08-starshine-mass-repair.json).
+repair evidence (local-only record).
 
 ### Packed read dependencies
 
@@ -437,7 +437,7 @@ memory win.
 
 Sources: [raw dependency owner](../../../../../src/passes/local_cse.mbt),
 [alias isolation control](../../../../../src/passes/local_cse_cow_wbtest.mbt),
-[repair evidence](../../../raw/tooling/2026-10-08-starshine-mass-repair.json).
+repair evidence (local-only record).
 
 
 Final `ee57fe32…` passes the 13,890-test suite and both native alias fixtures.

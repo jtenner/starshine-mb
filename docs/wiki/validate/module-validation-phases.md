@@ -364,6 +364,6 @@ proposal-version conflicts, not universal cross-tool parity claims.
 Sources: [Core validation algorithm](https://webassembly.github.io/spec/core/appendix/algorithm.html#stacks),
 [shared-everything instruction contract](https://github.com/WebAssembly/shared-everything-threads/blob/main/proposals/shared-everything-threads/Overview.md#instructions),
 [20 direct audit tests](../../../src/validate/mass_audit_validate_wbtest.mbt),
-[historical oracle records](../raw/tooling/2026-10-07-starshine-mass-audit.json).
+historical oracle records (local-only record).
 Memory64 uses the Core 2^48-page limit; table64 uses the unsigned 64-bit limit.
 See [implementation](../../../src/validate/validate.mbt).

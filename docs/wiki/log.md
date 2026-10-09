@@ -25,7 +25,7 @@
   executable hashes and independent measurement cohorts.
 
 Source: [repair checkpoint](tooling/validation-gates.md#october-8-2026--mass-audit-repairs-and-green-default-suites),
-[repair evidence](raw/tooling/2026-10-08-starshine-mass-repair.json),
+repair evidence (local-only record),
 [active backlog](../../agent-todo.md#p00a--eight-agent-audit-repair-queue-ir2-mass-audit).
 
 ### 2026-10-07 — Complete the eight-agent audit before parent verification
@@ -48,7 +48,7 @@ Source: [repair checkpoint](tooling/validation-gates.md#october-8-2026--mass-aud
   open; this audit does not establish a speed or memory win.
 
 Source: [audit results](tooling/validation-gates.md#october-7-2026--eight-agent-speed-memory-correctness-and-parity-audit),
-[complete reports](raw/tooling/2026-10-07-starshine-mass-audit.json),
+complete reports (local-only record),
 [active repair queue](../../agent-todo.md#p00a--eight-agent-audit-repair-queue-ir2-mass-audit).
 
 ### 2026-10-07 — Extend P00 control and exception coverage
@@ -78,7 +78,7 @@ Source: [audit results](tooling/validation-gates.md#october-7-2026--eight-agent-
   retained missing artifacts, broader alias/EH coverage and parity gaps.
 
 Source: [checkpoint](tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs),
-[measurement record](raw/tooling/2026-10-07-starshine-p00-checkpoint.json),
+measurement record (local-only record),
 [active backlog](../../agent-todo.md).
 
 ### 2026-10-07 — Close the 29-test pass gate

@@ -14,10 +14,10 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 
 - **Goal / why:** make Starshine competitive before release by closing pass,
   pipeline, command and output-quality gaps without removing transformations.
-- **Current execution checkout:** the October 5 correctness campaign is merged
-  into local `master` for direct `origin/master` integration. Preserve historical
-  branch measurements under their frozen source versions; follow the latest
-  user-requested checkout for subsequent work.
+- **Current execution checkout:** work on `main` in the primary local repository.
+  The October 5 correctness campaign is integrated from local `master`.
+  Preserve historical branch measurements under their frozen source versions;
+  follow the latest user-requested checkout for subsequent work.
 - **Execution priority:** reach ≤1× for DAE2, DAE2-O, CoalesceLocals and
   OptimizeInstructions; finish P03 DAE2/DAE2-O first, especially remaining HOT
   field reads, temporary-buffer churn, reaching-definition/source-order work and
@@ -195,7 +195,7 @@ quality gates. Keep traced inner and normal command measurements separate.
   the bounded audit repairs. Completed wrong-value, type/byte/IR, harness and
   positive-coverage fixes are recorded in the
   [October 8 checkpoint](docs/wiki/tooling/validation-gates.md#october-8-2026--mass-audit-repairs-and-green-default-suites).
-  Keep the [October 7 audit](docs/wiki/raw/tooling/2026-10-07-starshine-mass-audit.json)
+  Keep the October 7 audit (local-only record)
   under its original binaries, failure counts and oracle versions.
 - **Current default gate:** 13,890 Moon tests pass. The full Bun lane has
   343 passes, zero failures and one existing opt-in Chromium skip. Source

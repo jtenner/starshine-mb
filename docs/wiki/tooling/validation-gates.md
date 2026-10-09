@@ -5,7 +5,6 @@ last_reviewed: 2026-10-08
 sources:
   - ../raw/tooling/2026-10-04-starshine-v133-review.json
   - ../raw/tooling/2026-10-05-starshine-p00-checkpoint.json
-  - ../raw/tooling/2026-10-07-starshine-p00-checkpoint.json
   - ../../../claude_review_10_3_6.md
   - ../../../src/passes/dae2_effect_order_wbtest.mbt
   - ../../../src/ir/hot_mutate.mbt
@@ -720,7 +719,7 @@ index is slower than the earlier larger index's roughly 17.3–17.5 µs wide-hub
 control; that memory/time tradeoff is explicit and remains far below the
 quadratic reference.
 
-[Machine-readable evidence](../raw/tooling/2026-10-07-starshine-p00-checkpoint.json)
+Machine-readable evidence (local-only record)
 records source and executable hashes, command rows and spreads, helper build
 metadata, static SSA fragments, runtime counts, canonical size deltas and
 retained failures. Unused build, download and npm caches were removed;
@@ -810,7 +809,7 @@ gates remain open.
 
 The [active repair queue](../../../agent-todo.md#p00a--eight-agent-audit-repair-queue-ir2-mass-audit)
 contains the implementation tasks and invariants. The
-[machine-readable evidence](../raw/tooling/2026-10-07-starshine-mass-audit.json)
+machine-readable evidence (local-only record)
 contains all eight reports, source/test/artifact hashes, oracle identities,
 parent commands, failure messages and passing-control status. At this audit checkpoint, production fixes were open and the default gate was
 red. The October 8 checkpoint below records the subsequent implementation.
@@ -935,7 +934,7 @@ noisy: packed median 2587.951 ms, minimum 2072.826 ms, maximum 3154.217 ms and
 MAD 515.125 ms. Retain it without assigning a causal change to LocalCSE packing.
 No allocation-byte profile, broad performance proof or aggregate parity signoff
 is claimed. All four 1× goals and final CI/coverage/10,000-case campaigns remain
-open. The [repair evidence](../raw/tooling/2026-10-08-starshine-mass-repair.json)
+open. The repair evidence (local-only record)
 retains the exact records, not just selected medians.
 
 
@@ -1006,7 +1005,7 @@ This bounded scalar result reduces witness cost. It does not establish broad
 clock/RSS or allocation-byte gains, and its larger v133 shape difference is
 not aggregate parity signoff. All four 1× targets and deferred final CI,
 coverage and 10,000-case GenValid campaigns remain open. Exact records are in
-[repair evidence](../raw/tooling/2026-10-08-starshine-mass-repair.json).
+repair evidence (local-only record).
 
 ## October 5 2026 integrated validator renewal
 
