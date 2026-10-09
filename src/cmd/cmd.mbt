@@ -10799,6 +10799,83 @@ test "dae2 optimizing retains ordered calls across scalar and nop runs" {
 }
 
 ///|
+fn cmd_test_collect_simd_effect_order(
+  body : Array[@lib.Instruction],
+  events : Array[Int],
+) -> Unit {
+  for instr in body {
+    match instr {
+      @lib.Call(_) => events.push(1)
+      @lib.V128Store(_) => events.push(2)
+      @lib.I32Load(_) => events.push(3)
+      @lib.Block(_, @lib.Expr(nested)) =>
+        cmd_test_collect_simd_effect_order(nested, events)
+      @lib.If(_, then_body, else_body) => {
+        cmd_test_collect_simd_effect_order(then_body, events)
+        cmd_test_collect_simd_effect_order(else_body.unwrap_or([]), events)
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+test "direct pass dispatcher retains SIMD and string effects" {
+  let load_input = @wast.wast_to_binary_module(
+    "(module (memory 1) (func (local v128) i32.const 65536 v128.load local.set 0))",
+  ).unwrap()
+  let load_output = optimize_module_with_pass_flags(
+    load_input,
+    ["simplify-locals"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  let @lib.Func(_, @lib.Expr(load_body)) = load_output.code_sec.unwrap().0[0]
+  assert_true(load_body.any(fn(instr) { instr is @lib.V128Load(_) }))
+
+  let string_input = @wast.wast_to_binary_module(
+    "(module (type $u8 (array (mut i8))) (func (result i32) ref.null noextern ref.null $u8 i32.const 0 string.encode_utf8_array i32.const 20 i32.shr_u i32.const 20 i32.shr_u))",
+  ).unwrap()
+  let string_output = optimize_module_with_pass_flags(
+    string_input,
+    ["optimize-instructions"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  let @lib.Func(_, @lib.Expr(string_body)) = string_output.code_sec.unwrap().0[0]
+  assert_true(
+    string_body.any(fn(instr) { instr is @lib.StringEncodeUtf8Array }),
+  )
+}
+
+///|
+test "direct pass dispatcher keeps SIMD stores after earlier memory reads" {
+  let merge_input = @wast.wast_to_binary_module(
+    "(module (memory 1) (func $reader (result i32) (i32.load (i32.const 0))) (func (result i32) (i32.add (call $reader) (block (result i32) (v128.store (i32.const 0) (v128.const i32x4 1 2 3 4)) (i32.const 1)))))",
+  ).unwrap()
+  let merge_output = optimize_module_with_pass_flags(
+    merge_input,
+    ["merge-blocks"],
+    OptimizeOptions::new(),
+  ).unwrap()
+  let @lib.Func(_, @lib.Expr(merge_body)) = merge_output.code_sec.unwrap().0[1]
+  let merge_events : Array[Int] = []
+  cmd_test_collect_simd_effect_order(merge_body, merge_events)
+  assert_eq(merge_events, [1, 2])
+
+  let push_input = @wast.wast_to_binary_module(
+    "(module (memory 1) (func (param i32) (result i32) (local i32) (local.set 1 (i32.load (i32.const 0))) (v128.store (i32.const 0) (v128.const i32x4 1 2 3 4)) (if (local.get 0) (then (nop))) (local.get 1)))",
+  ).unwrap()
+  let push_output = optimize_module_with_pass_flags(
+    push_input,
+    ["code-pushing"],
+    OptimizeOptions::new(ignore_implicit_traps=true),
+  ).unwrap()
+  let @lib.Func(_, @lib.Expr(push_body)) = push_output.code_sec.unwrap().0[0]
+  let push_events : Array[Int] = []
+  cmd_test_collect_simd_effect_order(push_body, push_events)
+  assert_eq(push_events, [3, 2])
+}
+
+///|
 test "dae2 optimizing retains nested read dependencies while removing dead arguments" {
   let input = @wast.wast_to_binary_module(
     (

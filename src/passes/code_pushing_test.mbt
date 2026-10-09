@@ -277,6 +277,31 @@ fn code_pushing_test_run_hot_func(
 }
 
 ///|
+test "code-pushing keeps SIMD store after an earlier memory load" {
+  let source =
+    #|(module (memory 1)
+    #|  (func (export "run") (param i32) (result i32) (local i32)
+    #|    (local.set 1 (i32.load (i32.const 0)))
+    #|    (v128.store (i32.const 0) (v128.const i32x4 1 2 3 4))
+    #|    (if (local.get 0) (then (nop)))
+    #|    (local.get 1)))
+  let output = pass_test_run_pipeline(
+    source,
+    ["code-pushing"],
+    options=HotPipelineOptions::new(ignore_implicit_traps=true),
+  ).unwrap()
+  let events : Array[Int] = []
+  for instr in audit_body(output) {
+    match instr {
+      @lib.I32Load(_) => events.push(1)
+      @lib.V128Store(_) => events.push(2)
+      _ => ()
+    }
+  }
+  assert_eq(events, [1, 2])
+}
+
+///|
 fn code_pushing_test_run_hot(
   text : String,
   ignore_implicit_traps? : Bool = false,

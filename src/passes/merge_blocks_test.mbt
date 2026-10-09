@@ -18,6 +18,33 @@ fn merge_blocks_test_count_substring(text : String, needle : String) -> Int {
 }
 
 ///|
+test "merge-blocks keeps a SIMD store after an earlier call" {
+  let output = pass_test_run_pipeline(
+    "(module (memory 1) (func $reader (result i32) (i32.load (i32.const 0))) (func (export \"run\") (result i32) (i32.add (call $reader) (block (result i32) (v128.store (i32.const 0) (v128.const i32x4 1 2 3 4)) (i32.const 1)))))",
+    ["merge-blocks"],
+  ).unwrap()
+  let events : Array[Int] = []
+  merge_blocks_test_collect_call_store(audit_body(output, index=1), events)
+  assert_eq(events, [1, 2])
+}
+
+///|
+fn merge_blocks_test_collect_call_store(
+  body : Array[@lib.Instruction],
+  events : Array[Int],
+) -> Unit {
+  for instr in body {
+    match instr {
+      @lib.Call(_) => events.push(1)
+      @lib.V128Store(_) => events.push(2)
+      @lib.Block(_, @lib.Expr(nested)) =>
+        merge_blocks_test_collect_call_store(nested, events)
+      _ => ()
+    }
+  }
+}
+
+///|
 fn merge_blocks_large_jsonas_like_fixture() -> String {
   let out = StringBuilder::new()
   out.write_string("(module (func (local i32")

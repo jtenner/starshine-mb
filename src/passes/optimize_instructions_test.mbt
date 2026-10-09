@@ -84447,3 +84447,21 @@ fn optimize_instructions_assert_flat_effect_sequence(
   }
   @debug.assert_eq(body, expected)
 }
+
+///|
+test "optimize-instructions retains trapping string array encode" {
+  let source =
+    #|(module (type $u8 (array (mut i8)))
+    #|  (func (result i32)
+    #|    ref.null noextern ref.null $u8 i32.const 0
+    #|    string.encode_utf8_array
+    #|    i32.const 20 i32.shr_u i32.const 20 i32.shr_u))
+  let output = pass_test_run_pipeline(source, ["optimize-instructions"]).unwrap()
+  assert_true(@validate.validate_module(output).is_ok())
+  assert_eq(
+    audit_count(audit_body(output), fn(instr) {
+      instr is @lib.StringEncodeUtf8Array
+    }),
+    1,
+  )
+}

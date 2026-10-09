@@ -80,6 +80,16 @@ test "simplify-locals keeps global delta reads before realloc calls" {
 }
 
 ///|
+test "simplify-locals retains a trapping SIMD load in an unused local" {
+  let output = pass_test_run_pipeline(
+    "(module (memory 1) (func (local v128) i32.const 65536 v128.load local.set 0))",
+    ["simplify-locals"],
+  ).unwrap()
+  let body = audit_body(output)
+  assert_true(body.any(fn(instr) { instr is @lib.V128Load(_) }))
+}
+
+///|
 test "simplify-locals preserves snapshots across same-global writes in result blocks" {
   let input =
     #|(module

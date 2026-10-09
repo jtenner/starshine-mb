@@ -1006,11 +1006,13 @@ fn simplify_locals_effects_mask_for_heap_exact(
     | Some(@lib.Instruction::ArrayGet(_))
     | Some(@lib.Instruction::ArrayGetS(_))
     | Some(@lib.Instruction::ArrayGetU(_))
+    | Some(@lib.Instruction::ArrayLoad(_, _, _))
     | Some(@lib.Instruction::ArrayLen)
     | Some(@lib.Instruction::RefGetDesc(_)) =>
       @ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_TRAP
     Some(@lib.Instruction::StructSet(_, _))
     | Some(@lib.Instruction::ArraySet(_))
+    | Some(@lib.Instruction::ArrayStore(_, _, _))
     | Some(@lib.Instruction::ArrayFill(_)) =>
       @ir.EFFECT_MASK_MEMORY_WRITE | @ir.EFFECT_MASK_TRAP
     Some(@lib.Instruction::StructNew(_))
@@ -1084,7 +1086,8 @@ fn simplify_locals_effects_mask_for_exact_node(
         | Some(@lib.I64TruncF32S)
         | Some(@lib.I64TruncF32U)
         | Some(@lib.I64TruncF64S)
-        | Some(@lib.I64TruncF64U) => @ir.EFFECT_MASK_TRAP
+        | Some(@lib.I64TruncF64U)
+        | Some(@lib.RefAsNonNull) => @ir.EFFECT_MASK_TRAP
         _ => 0U
       }
     @ir.HotOp::StringOp =>
@@ -1099,8 +1102,19 @@ fn simplify_locals_effects_mask_for_exact_node(
         | Some(@lib.StringNewLossyUtf8Array)
         | Some(@lib.StringNewWtf8Array) =>
           @ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_TRAP
+        Some(@lib.StringEq) => 0U
         _ => @ir.EFFECT_MASK_TRAP
       }
+    @ir.HotOp::Simd => {
+      let mut mask = 0U
+      if (node.flags & @ir.HOT_FLAG_LOAD) != 0U {
+        mask = mask | @ir.EFFECT_MASK_MEMORY_READ
+      }
+      if (node.flags & @ir.HOT_FLAG_STORE) != 0U {
+        mask = mask | @ir.EFFECT_MASK_MEMORY_WRITE
+      }
+      mask
+    }
     @ir.HotOp::Atomic =>
       simplify_locals_effects_mask_for_atomic_exact(
         @ir.hot_node_exact_instr(func, node_id),
