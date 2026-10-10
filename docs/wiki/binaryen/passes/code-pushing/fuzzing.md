@@ -1,18 +1,122 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-26
+last_reviewed: 2026-10-09
 sources:
+  - ../../../raw/tooling/2026-10-09-output-differences-v133.json
   - ../../../tooling/tracing-playbook.md
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_wbtest.mbt
+  - ../../../../../src/passes/code_pushing.mbt
+  - ../../../../../src/passes/code_pushing_value_br_if_encoding_wbtest.mbt
+  - ../../../../../src/cmd/code_pushing_value_br_if_encoding_wbtest.mbt
 
 ---
 
 # `code-pushing` Fuzzing Profile
+
+## October 9, 2026 final native comparison renewal
+
+The final native CLI, SHA-256 `42f386573da7ccab4ae923122b17e29e9069a5686fb91921f89f439fd2de85a3`,
+completed 10,000 new `code-pushing-all` comparisons with seed `0x5eed`,
+eight workers, at most eight subprocesses, and verified Binaryen 133.
+The complete result is `.tmp/output-difference-final-cp-v133-10000-renewed/result.json`;
+the [durable evidence record](../../../raw/tooling/2026-10-09-output-differences-v133.json)
+retains its counts and toolchain identity. There are 5,006 normalized matches,
+4,994 cleanup-normalized matches and 0 residual output differences.
+Raw totals are 513,317/539,804 bytes
+(Starshine/Binaryen); canonical totals are
+532,778/544,794 bytes.
+No output is larger under either size measure. Validation, generator, property
+and command failures are zero. Independent `wasm-tools` validation was required.
+Runtime observation was off in this aggregate; the family evidence below
+provides the scoped semantic judgments. The final bounded wasm-gc suite passes
+14,001/14,001 tests. Earlier measurements retain their original binary scope.
+
+## October 9, 2026 Binaryen 133 output-family audit and value-branch repair
+
+The post-fix `code-pushing-all` lane in
+`.tmp/output-difference-cp-v133-10000/result.json` at seed `0x5eed` compared
+10,000 inputs with verified Binaryen 133: 5,006
+canonical matches, 4,994 `local-cleanup-debris` matches, and no residual
+mismatches or validation, generator, property, or command failures. Starshine
+raw bytes total 513,317 versus Binaryen 539,804; canonical bytes total 532,778
+versus 544,794. Starshine is smaller in 4,994 cases and equal in 5,006 cases
+under both size measures, with no larger cases. The harness runtime lane was
+off. The [generator](../../../../../src/validate/gen_valid.mbt) dispatches
+twenty fixed leaf templates. This run has the same profile counts and input
+hashes as the frozen pre-fix lane: exactly one input hash and one static
+instruction count per leaf. Direct regeneration of all twenty leaves matched
+their manifest input hashes exactly.
+
+The pre-fix 10,000-case lane had 4,493 canonical matches, 5,507 cleanup
+matches, and 513 canonically larger `br-if-value` cases. Those counts remain
+historical evidence for the earlier CLI.
+
+| Differing leaf | Cases | Star minus Binaryen bytes, raw / canonical | Classification |
+| --- | ---: | ---: | --- |
+| `after-if` | 505 | -2 / -2 | Binaryen retains two `nop`s. |
+| `if-arm` | 519 | -2 / -2 | Binaryen retains two `nop`s. |
+| `multi-set` | 493 | -2 / -2 | Binaryen retains two `nop`s. |
+| `multi-set-drop-window` | 478 | -2 / -2 | Binaryen retains two `nop`s. |
+| `multi-set-global-get-window` | 500 | -2 / -2 | Binaryen retains two `nop`s. |
+| `multi-set-local-copy` | 460 | -2 / -2 | Binaryen retains two `nop`s. |
+| `multi-set-local-get-window` | 522 | -2 / -2 | Binaryen retains two `nop`s. |
+| `multi-set-nop-window` | 525 | -3 / -3 | Binaryen retains three `nop`s. |
+| `zero-read` | 493 | -1 / -1 | Binaryen retains one `nop`. |
+| `br-on-non-null-prefix` | 499 | -35 / -6 | Star sinks two pure sets after the branch; Binaryen adds seven scratch locals and nested copies. |
+
+For the first nine rows, stripping only `nop` lines from the two printed pass
+outputs makes the WAT identical. The [movement predicates](../../../../../src/passes/code_pushing.mbt)
+reject trapping values and effectful calls by default, check crossed reads and
+writes, and require all affected reads after the push point. The prefix move is
+bounded to 16 roots and one write per moved local. Separate Wasmtime spot
+checks of the exact unique fixtures agreed in exit status and visible return
+values on both branch choices; most fixture functions return no value. Separate
+division-by-zero and mutable-global probes preserved traps and effects on both
+paths for ordinary `if` and `br_on_non_null` prefix cases. These checks are
+outside the 10,000-case harness runtime lane.
+
+For each differing leaf, a live function export was added to its exact unique
+input and to both pass outputs. Common verified v133 `-O` and `-Oz` runs gave
+equal original/Starshine/Binaryen sizes within each leaf; the pass-local size
+wins disappear after downstream cleanup, with no measured downstream size loss.
+Nine other leaves have equal raw and canonical sizes. The historical
+`br-if-value` leaf had 513 cases with equal raw sizes but Starshine was four
+canonical bytes larger per case. The [value-branch insertion helper](../../../../../src/passes/code_pushing.mbt)
+now places moved sets after the immediate drop of the fallthrough branch
+payload. This prevents lowering from adding a spill local. The
+[pass regression](../../../../../src/passes/code_pushing_value_br_if_encoding_wbtest.mbt)
+checks the exact instruction order for two moved sets and one moved set; the
+[command regression](../../../../../src/cmd/code_pushing_value_br_if_encoding_wbtest.mbt)
+checks the two-set path. A frozen post-fix native CLI, SHA-256
+`f8552a2f8ab03346557f7947bbddda5378fa0b51000172c0a187339b4eb69a44`,
+validated all twenty exact leaf inputs. Its two-set `br-if-value` output is
+byte-identical to v133 at 51 raw and 51 canonical bytes; the single-set
+regression is byte-identical at 44 bytes. The other nineteen leaves retained
+their baseline raw sizes. The post-fix 10,000-case lane confirms the same
+51/51 raw and canonical bytes for all 513 `br-if-value` selections. This
+supersedes the September 26 open-gap status for these fixed templates and does
+not establish behavior for broader generated shapes.
+
+Two later native CLIs, SHA-256
+`17d4da47c7bc8788b98a6d4995275b41b8f9d65dd83b38e9d3912f12202602ec`
+and `9d2f32298a86fe13ded4cd7ed3f97cf33a9f9ae03bd5f8d0c4a3b95e6289523b`,
+each validated all twenty exact leaf inputs. Every output wasm file from both
+builds is byte-identical to the frozen post-fix CLI output above. The
+10,000-case counts come from the earlier post-fix CLI; these later replays
+establish byte-for-byte continuity across every distinct input in that fixed
+corpus.
+
+The final source-frozen CLI, SHA-256
+`42f386573da7ccab4ae923122b17e29e9069a5686fb91921f89f439fd2de85a3`
+(local replay record: `/tmp/code-pushing-final-replay-42f3.json`), validated
+the same twenty exact inputs. All twenty output wasm files are byte-identical
+to the preserved `9d2f3229` outputs, with zero differences. This is a
+distinct-input replay, not a 10,000-case harness result for the final CLI.
 
 ## September 26 final allocation/indexing renewal
 

@@ -1212,6 +1212,41 @@ fn code_pushing_push_point_kind(func : @ir.HotFunc, node_id : Int) -> String {
 }
 
 ///|
+fn code_pushing_insert_after_branch_value_drop(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  push_idx : Int,
+  push_id : Int,
+) -> Int {
+  let insert_idx = push_idx + 1
+  if insert_idx >= @ir.hot_region_root_count(func, region_ref) ||
+    push_id < 0 ||
+    !@ir.hot_node_is_live(func, push_id) {
+    return insert_idx
+  }
+  let branch = @ir.hot_node_get(func, push_id)
+  if !(branch.op is @ir.HotOp::BrIf) ||
+    @ir.hot_child_count(func, push_id) != 2 ||
+    !(@ir.hot_label_kind(func, branch.imm0) is @ir.HotLabelKind::BlockLabel) ||
+    @ir.hot_label_branch_arity(func, branch.imm0) != 1 {
+    return insert_idx
+  }
+  let drop_id = @ir.hot_region_get(func, region_ref, insert_idx)
+  if drop_id < 0 || !@ir.hot_node_is_live(func, drop_id) {
+    return insert_idx
+  }
+  let drop = @ir.hot_node_get(func, drop_id)
+  if drop.op is @ir.HotOp::Drop &&
+    @ir.hot_child_count(func, drop_id) == 1 &&
+    @ir.hot_child_get(func, drop_id, 0) == @ir.hot_child_get(func, push_id, 0) {
+    // The branch leaves its payload on the fallthrough stack. Discard that
+    // value before moved sets so lowering does not spill it to a new local.
+    return insert_idx + 1
+  }
+  insert_idx
+}
+
+///|
 fn code_pushing_segment_window_diagnostic(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -2203,7 +2238,10 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
       ),
     )
   }
-  ignore(pass_splice_region(ctx, func, region_ref, idx + 1, 0, pushed_sets))
+  let insert_idx = code_pushing_insert_after_branch_value_drop(
+    func, region_ref, idx, push_id,
+  )
+  ignore(pass_splice_region(ctx, func, region_ref, insert_idx, 0, pushed_sets))
   for move_idx = 0; move_idx < set_ids.length(); move_idx = move_idx + 1 {
     let nop = @ir.hot_build_nop(func)
     pass_replace_node(ctx, func, set_ids[move_idx], @ir.hot_node_get(func, nop))
@@ -2505,9 +2543,13 @@ fn code_pushing_try_sink_set_after_if_push_point(
     return false
   }
   let pushed_set = code_pushing_make_local_set_clone(func, local_id, value_id)
-  ignore(
-    pass_splice_region(ctx, func, region_ref, push_idx + 1, 0, [pushed_set]),
+  let insert_idx = code_pushing_insert_after_branch_value_drop(
+    func,
+    region_ref,
+    push_idx,
+    @ir.hot_region_get(func, region_ref, push_idx),
   )
+  ignore(pass_splice_region(ctx, func, region_ref, insert_idx, 0, [pushed_set]))
   let nop = @ir.hot_build_nop(func)
   pass_replace_node(ctx, func, set_id, @ir.hot_node_get(func, nop))
   true
