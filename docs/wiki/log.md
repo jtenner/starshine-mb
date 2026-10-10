@@ -1,3 +1,20 @@
+### 2026-10-10 — Preserve the npm artifact discrepancy before source publication
+
+- [The same-input checkpoint](tooling/node-package-surface.md#october-10-2026--same-input-binaryen-comparison)
+  records exact original GC/WASI hashes, six independently optimized outputs,
+  explicit runtime feature flags, one-sample timings/RSS and isolated packed
+  consumer/behavior controls. Binaryen reduces these exact artifacts more, with
+  different pipelines/resources; no universal speed/equivalence claim is made.
+- The qualified Starshine O4s package and all raw inputs remain preserved.
+  Bulky comparison artifacts and local measurement helpers stay under ignored
+  `dist/npm/`; durable hashes, commands and limits are committed here.
+- Source publication to `origin/master` is authorized; a fresh pre-push fetch
+  found no newer work beyond `f91f5ec3`. Existing baseline Coverage Report and
+  Examples CLI Native failures remain visible. License selection and npm
+  publication remain undecided. A separate Sol 6.1 High task will investigate
+  the discrepancy after the verified push; no optimization investigation starts
+  in this preparation task.
+
 ### 2026-10-10 — Qualify O4s for npm self-optimization
 
 - [The package build](../../scripts/lib/build-node-package.mjs) uses the requested

@@ -1,8 +1,9 @@
 # npm WasmGC beta preparation handoff
 
-This is local preparation for `@jtenner/starshine@0.1.2-beta.0`. No package was
-published, no tag/release created, and no branch pushed or merged. No account
-credentials were changed.
+This prepares `@jtenner/starshine@0.1.2-beta.0`. Source publication to
+`origin/master` was explicitly authorized on October 10 after local qualification.
+No npm package was published, no tag/release created, and no account credentials
+were changed. Licensing remains undecided and blocks an npm release.
 
 ## Checkout and authority
 
@@ -11,7 +12,10 @@ credentials were changed.
 - Baseline: verified local and remote `master`,
   `f91f5ec300ec72027342a5942b4a86c96bd53c5e`, rather than stale `main`.
 - Other worktrees and active tasks were inspected and preserved. Unrelated
-  DAE2/O work was not resumed. Local commits are listed by `git log master..HEAD`.
+  DAE2/O work was not resumed. Preparation commits are listed by
+  `git log f91f5ec300ec72027342a5942b4a86c96bd53c5e..HEAD`.
+- Before the authorized source push, a fresh fetch still found `origin/master`
+  at that baseline; no newer source or integration conflict was present.
 
 ## Generated API
 
@@ -81,7 +85,8 @@ and `ffi/src/npm/toolchain.json`. Exact local reports and tarballs live in ignor
 - O4s qualification: the packed gate first rejected the preserved O1 report, then passed with levels 4/1 and the exact queue. Three API fixtures preserve results 42 / 7 / 9; the packed CLI also executes the ambient-stack return regression with O4s and result 42.
 - Focused existing MoonBit O4s ambient-stack return regression: one passed on WasmGC.
 - Node suite: 44 passed, zero failed or skipped.
-- Generated FFI/npm drift: passed. CI workflow passes actionlint; remote CI is unrun.
+- Generated FFI/npm drift: passed. CI workflow passes actionlint; remote CI was
+  unrun at the initial local qualification checkpoint.
 - Coverage: `bun validate coverage --top 5 --baseline .github/coverage-baseline.txt` exceeded a ten-minute execution budget. After stopping its instrumented Wasm test and parent Moon process, it emitted a partial report: 59,436 uncovered lines / 243 files versus the unchanged baseline 28,138 / 196 (delta +31,298 / +47). The report command exited zero, but the collection was interrupted; no completed coverage or regression pass is claimed. These partial counts do not attribute a regression to this package change or repair previously reported coverage failures.
 
 O4s build measurement: 29,637 ms locally, including bootstrap, generation,
@@ -147,12 +152,31 @@ with no new concrete defect. Licensing remains undecided.
   available. Provision the documented snapshot or qualify a newer compiler with
   drift and consumer gates. Bun, wasm-tools and TypeScript are pinned/documented;
   CI installs the available Moon compiler and checks generated drift.
-- Remote CI is unrun because this branch remains local. Repository coverage and
-  broader release/performance gates are independent of package consumer success.
+- Initial package qualification was local. On pre-push `origin/master` at
+  `f91f5ec3`, [Required CI](https://github.com/jtenner/starshine-mb/actions/runs/38014936990),
+  [Fuzz Suites](https://github.com/jtenner/starshine-mb/actions/runs/38014937050)
+  and [Node API Surface Tests](https://github.com/jtenner/starshine-mb/actions/runs/38014936998)
+  passed, while [Coverage Report](https://github.com/jtenner/starshine-mb/actions/runs/38014936994)
+  and [Examples CLI Native](https://github.com/jtenner/starshine-mb/actions/runs/38014937021)
+  failed. Exact pushed-head CI must be
+  reported separately; these prior results do not sign the new source head.
+  Repository coverage and broader release/performance gates are independent of
+  package consumer success.
   Native-debug MoonBit issue #1322 was not exercised or cleared by this work.
 - The JavaScript callback facade does not invoke `CmdIO.printTextModule`; the
   live bundled CLI is the complete command route. Generic/raising/callback
   unsupported placeholders remain documented API limits.
 
-npm publication remains pending user approval. Push and merge require further
-instruction even after the release decisions are resolved.
+npm publication remains pending user approval. Source publication authorization
+does not authorize an npm publish, tag/release, deployment or credential change.
+
+## Discrepancy investigation handoff
+
+The [same-input comparison](wiki/tooling/node-package-surface.md#october-10-2026--same-input-binaryen-comparison)
+records the observed Starshine/Binaryen artifact size and local time/RSS gap,
+exact input/output hashes, feature limits and reproduction commands. The selected
+build remains Starshine O4s; comparison candidate tarballs are separate evidence.
+All original unoptimized inputs and the qualified tarball remain under ignored
+`dist/npm/`, including preserved O1 and Binaryen comparison reports. The user
+requested a new Sol 6.1 High task to investigate the discrepancy after source
+publication. That optimization investigation is not part of this preparation.

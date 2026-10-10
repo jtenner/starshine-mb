@@ -94,6 +94,111 @@ installs the exact tarball into empty JavaScript and strict TypeScript consumers
 outside the source tree and exercises every public export and the CLI.
 
 
+## October 10, 2026 — Same-input Binaryen comparison
+
+This frozen checkpoint qualifies source head
+`754562d4f5e822d5f1ae630be79cbb19c6e669bd`. The selected npm build uses
+**neither Binaryen transformation nor Binaryen validation**: native Starshine
+transforms and wasm-tools validates. Source publication was subsequently
+authorized; npm publication and licensing remain release decisions. The user
+requested a separate Sol 6.1 High task to fix the observed discrepancy.
+
+Both optimizers read copies of the identical original name-stripped compiler
+artifacts. No chained optimization or idempotence comparison was performed.
+Matching optimization/shrink knobs do not imply matching pass queues: current
+Starshine O4s levels 4/1 select its five-pass fast queue, while Binaryen's supported
+`-O4 -s 1` selects its own default pipeline. Binaryen `-Oz` is a separate size preset.
+
+| Artifact | Original bytes | Optimizer | Output bytes | Seconds | Peak RSS MiB | Controls |
+| --- | ---: | --- | ---: | ---: | ---: | --- |
+| WasmGC | 7,452,107 | Starshine O4s | 7,287,538 | 8.239 | 255.6 | pass |
+| WasmGC | 7,452,107 | Binaryen `-O4 -s 1` | 5,545,109 | 25.986 | 1,003.1 | pass |
+| WasmGC | 7,452,107 | Binaryen `-Oz` | 5,551,472 | 14.909 | 471.4 | pass |
+| WASI | 6,748,730 | Starshine O4s | 6,347,850 | 8.469 | 234.9 | pass |
+| WASI | 6,748,730 | Binaryen `-O4 -s 1` | 6,148,533 | 28.034 | 1,223.6 | pass |
+| WASI | 6,748,730 | Binaryen `-Oz` | 4,857,635 | 10.351 | 489.3 | pass |
+
+Each reported row passes independent validation, preservation of every original
+export name (2,849 GC / 2 WASI), unchanged absent `target_features` metadata,
+raw-baseline API/CLI-help observations, and isolated exact-candidate packed JS and
+strict TypeScript consumers on Node 26.11.1 / TypeScript 5.8.3 across all nine
+public entries. The fixtures cover parse/validate/optimize/encode, arithmetic,
+locals, GC, errors, bounded fuzz and CLI ambient-stack returns. These bounded
+controls do not prove universal semantic equivalence. No performance or size
+improvement is promised for other inputs.
+
+The native bootstrap hash is
+`26eb438928292397fce2d79700444521a7c881b6ed81b39bf55cc28513d904ed`.
+Installed oracle: `wasm-opt version 133 (version_133-60-g93d6e9de7)` from the
+local emsdk 6.0.12 installation. Binaryen runs use `BINARYEN_CORES=8`; all
+measurements are single serial samples with 60-second transform budgets.
+Times exclude validation/consumer tests, and RSS covers optimizer processes.
+They are not matched-worker or universal speed comparisons.
+
+Original input SHA-256 (preserved locally in `dist/npm/*.unoptimized` and
+`dist/npm/binaryen-comparison/*.unoptimized`):
+
+- WasmGC: `059555428f569dcd57275757be8453a4f4881eb80592f9f80e402b4987072de3`.
+- WASI: `b7dd0896d7b41989e1aa29bd297d3fd63097b7e3b7f76883e9897f25010add52`.
+
+Output SHA-256:
+
+- GC / Starshine: `6ace60a63b33dda84c15067ca2ab60b702a6e74e3edb7bfca7d158761984bbea`.
+- GC / Binaryen O4s: `7dfda2ce7376008cf6467d11cc360a95ae47115cc843ca6dca2d286858db9099`.
+- GC / Binaryen Oz: `bd038e0f18f81737c4c25ab645f643675ea9be7cba22a109519fe574fc320bf7`.
+- WASI / Starshine: `40e8be933bb3105aa74a1d54f9f4f350e4695d74ac64a9eceff05aa15bd52570`.
+- WASI / Binaryen O4s: `5ea825c5cff80c377410d5ce90fc61588a69fb4ec4586f975485ad9d235e158c`.
+- WASI / Binaryen Oz: `afcc27ae7a69fd6a344898395e08e461312f2f475f45e641e1de08cdfb939f02`.
+
+Reproduce from the checkout with the toolchains documented in
+[`node/README.md`](../../../node/README.md). Preserve the original input hashes
+above before rebuilding: if compiler outputs differ, that is a new comparison.
+Apply each command to the same original input, writing separate output paths:
+
+```sh
+# Starshine: freshly compiled native bootstrap, independent of npm package.
+_build/native/release/build/cmd/cmd.exe --optimize --optimize-level 4 \
+  --shrink-level 1 INPUT.wasm --out STARSHINE.wasm
+
+# Binaryen: qualify installed version 133 first. This flag set accepts GC input.
+BINARYEN_CORES=8 wasm-opt --mvp-features --enable-mutable-globals \
+  --enable-sign-ext --enable-nontrapping-float-to-int --enable-bulk-memory \
+  --enable-reference-types --enable-multivalue --enable-gc --enable-tail-call \
+  --enable-extended-const -O4 -s 1 INPUT.wasm -o BINARYEN-O4S.wasm
+# For WASI, additionally pass --enable-simd: the original input already uses it.
+# For Oz, replace only -O4 -s 1 with -Oz; retain the same input/features.
+wasm-tools validate --features=wasm2,gc,function-references,tail-call,extended-const OUTPUT.wasm
+```
+
+The local reproduction helpers and full commands/logs/hashes reside under ignored
+`dist/npm/binaryen-comparison/`. `report.json` holds all samples, including
+unqualified diagnostics; `comparison.md` summarizes qualified rows. The helpers
+`measure-single-worker.py`, `measure-eight-workers.py`,
+`measure-runtime-features.py`, `measure-runtime-features-wasi-simd.py`,
+`check-exports-features.mjs` and `consumer-controls.py` retain time/RSS and control
+procedures. For consumer qualification, the controls clone the selected tarball,
+substitute only comparison Wasm files, pack with `--ignore-scripts` to avoid a
+rebuild, and run a copied
+[`npm-packed-consumers.mjs`](../../../scripts/test/npm-packed-consumers.mjs)
+with an explicit candidate archive path in an isolated harness. Do not replace
+the selected package or reports with candidate artifacts.
+
+The selected tarball remains 4,821,600 bytes, SHA-256
+`0d4cc321fef5554fce32cf95ee30a1d7be30a84380df048e75f07302775d9ab2`.
+Separate 47-file comparison tarballs are 2,999,850 bytes (O4s,
+`82e675f10c830f4a1c32219af6bf3ace7128517dbb9fc21c4c5cdf88785153fe`)
+and 2,891,722 bytes (Oz,
+`4ad4d227815963565433b25fa9d6ea845392f645390210973547b0854c199260`).
+They are evidence only and are not the selected npm package.
+
+Initial Binaryen `--all-features` outputs introduced custom-descriptor exact
+references and compact imports rejected by stock Node, despite passing all-feature
+wasm-tools validation; those outputs are unqualified. Single-worker O4s on both
+inputs and GC Oz exceeded 60 seconds. Initial restricted WASI probes omitted its
+existing SIMD and failed input validation before optimization. Qualified runs use
+the explicit feature set above (plus SIMD for WASI), with no unsafe assumptions,
+feature lowering or experimental Node custom-descriptor flag.
+
 ## Current Export Shape
 
 [`node/package.json`](../../../node/package.json) currently exports these public subpaths. Each listed subpath has both a `types` target and an `import` target, so the package contract is two-sided: consumers need the declaration shape and the runtime export shape to agree.
