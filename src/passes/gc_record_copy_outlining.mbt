@@ -1,5 +1,10 @@
-// Original Starshine implementation; licensing scope: ../../LICENSE.
-// Copyright 2026 Joshua Tenner. No upstream counterpart is claimed.
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2026 Joshua Tenner. No specific upstream counterpart is claimed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
 
 ///|
 // Only an ordinary immutable i32 record copy is outlined. The helper creates
