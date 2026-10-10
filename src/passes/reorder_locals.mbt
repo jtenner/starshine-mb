@@ -169,6 +169,11 @@ fn rl_sort_used_body_locals(
 }
 
 ///|
+fn rl_grouping_type_key(_ty : @lib.ValType) -> UInt64? {
+  None
+}
+
+///|
 // Equal-frequency permutations preserve the weighted local-index ULEB size,
 // including width boundaries. Compress declaration runs only when their actual
 // encoded bytes strictly improve; retain first-use ordering on ties/no gain.
