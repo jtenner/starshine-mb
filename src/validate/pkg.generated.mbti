@@ -1591,6 +1591,7 @@ pub enum GenValidProfile {
   MergeSimilarFunctionsNestedProfile
   MergeSimilarFunctionsCallTargetsProfile
   MergeSimilarFunctionsTailCallsProfile
+  MergeSimilarFunctionsRecordCopyProfile
   MergeSimilarFunctionsAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
