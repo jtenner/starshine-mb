@@ -382,3 +382,20 @@ Final validation is unchanged. See the [size proof and error controls](../../../
 
 The renewed artifact matrix and dedicated correctness lanes are recorded in the
 [follow-up report](../../../tooling/tracing-playbook.md#september-28-2026-follow-up-performance-campaign).
+
+## October 10 GC compaction storage reuse
+
+The bounded singleton compactor uses a sparse changed-index map for operands.
+Explicit identity entries make the shared optional reference rewriter rebuild
+otherwise unchanged types and bodies. A separate dense name map, allocated only
+when name metadata exists, preserves unmoved name ownership and canonical-source
+selection. The compactor skips the generic whole type-section rewrite because
+it installs rewritten retained groups itself; other remapper callers retain
+the default full rewrite. Admission and immutable input ownership are unchanged.
+
+`dfe_gc_retention_wbtest.mbt` first fails on unnecessary body reconstruction,
+then protects physical sharing of unmoved typed bodies/subtypes, dense type names,
+validation, size reduction and original encoded bytes. Widths 1/8/32 remain
+bounded. Existing public alias/shifted-group/proposal fixtures cover moved indices.
+Resource qualification and limitations belong in the
+[npm discrepancy investigation](../../../tooling/npm-optimizer-discrepancy.md).

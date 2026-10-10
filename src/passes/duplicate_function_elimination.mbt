@@ -2953,9 +2953,11 @@ fn dfe_rewrite_module_type_idxs(
   remap : Map[UInt, UInt],
   perf? : HotPerfSession? = None,
   code_rewrite_flags? : @bitset.BitSet? = None,
+  rewrite_type_sec? : Bool = true,
 ) -> @lib.Module {
   let mut rewritten = mod_
   match mod_.type_sec {
+    _ if !rewrite_type_sec => ()
     Some(@lib.TypeSec(rec_types)) => {
       let timer = dfe_perf_start_timer_opt(perf, "type-rewrite:type-sec")
       let next : Array[@lib.RecType] = []
@@ -4473,7 +4475,14 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
         return mod_
       }
       let remap_timer = dfe_perf_start_timer_opt(perf, "type-canon:remap")
+      // Operand rewriting needs only changed indices; explicit identity entries
+      // make the shared optional reference rewriter reconstruct unchanged trees.
+      // Names still need dense ownership/remapping to preserve unmoved entries.
       let type_remap : Map[UInt, UInt] = Map([])
+      let name_remap : Map[UInt, UInt]? = match mod_.name_sec {
+        Some(_) => Some(Map([]))
+        None => None
+      }
       old_idx = 0
       while old_idx < flat_type_count {
         let raw_old_idx = old_idx.reinterpret_as_uint()
@@ -4481,7 +4490,15 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
           .get(raw_old_idx)
           .unwrap_or(raw_old_idx)
         match old_to_new.get(canonical_old_idx) {
-          Some(new_idx) => type_remap[raw_old_idx] = new_idx
+          Some(new_idx) => {
+            if raw_old_idx != new_idx {
+              type_remap[raw_old_idx] = new_idx
+            }
+            match name_remap {
+              Some(names) => names[raw_old_idx] = new_idx
+              None => ()
+            }
+          }
           None => return mod_
         }
         old_idx += 1
@@ -4493,6 +4510,7 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
         type_remap,
         perf~,
         code_rewrite_flags~,
+        rewrite_type_sec=false,
       )
       let rewritten_kept_types : Array[@lib.RecType] = []
       for kept_type in kept_types {
@@ -4506,12 +4524,10 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
       let with_types = rewritten.with_type_sec(
         @lib.TypeSec::new(rewritten_kept_types),
       )
-      match with_types.name_sec {
-        Some(name_sec) =>
-          with_types.with_name_sec(
-            dfe_rewrite_type_name_sec(name_sec, type_remap),
-          )
-        None => with_types
+      match (with_types.name_sec, name_remap) {
+        (Some(name_sec), Some(names)) =>
+          with_types.with_name_sec(dfe_rewrite_type_name_sec(name_sec, names))
+        _ => with_types
       }
     }
     None => mod_
