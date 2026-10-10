@@ -713,6 +713,13 @@ this slice. The focused tests are
 [`vacuum_unread_tees_o4s_wbtest.mbt`](../../../../../src/passes/vacuum_unread_tees_o4s_wbtest.mbt).
 The tee rewriter copies each changed region once, starting at its first change,
 and shares untouched control nodes and arrays. Focused COW tests preserve shared
-children and source bytes through following ReorderLocals. Fresh artifact/resource
-qualification for this allocation follow-up is pending; this is not a complete
-Vacuum audit closeout.
+children, else-only/both-arm changes, and source bytes through following
+ReorderLocals and the SimplifyLocals borrowed-helper call path.
+[`vacuum_unread_tee_cow_wbtest.mbt`](../../../../../src/passes/vacuum_unread_tee_cow_wbtest.mbt)
+reproduces three failures among four tests on the pristine `cd4ad41`
+checkpoint; all six expanded focused tests pass after the repair, including
+the explicitly selected skipped 65,536/65,537 compressed-run boundary. The nine numeric 4/1 behavior tests also
+pass. [Targeted generation and actual runtime evidence](fuzzing.md#october-10-targeted-globally-unread-tee-coverage)
+cover serial/fused controls and preserve remaining raw size and generator I/O
+gaps. Developer build-memory cost is a tradeoff, not evidence of output-runtime
+memory behavior. This is not a complete Vacuum audit closeout.

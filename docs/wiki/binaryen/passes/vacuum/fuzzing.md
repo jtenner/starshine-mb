@@ -9,7 +9,7 @@ sources:
 
 # `vacuum` Fuzzing Profile
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — October 10, 2026:** new local comparisons use verified [Binaryen 133](../../release-horizon-and-oracles.md). The September 10 v132 baseline and recorded v131/v132 sources, commands, artifacts and results retain their historical versions; they do not establish v133 signoff. Historical campaign and CI pins are not changed by this local qualification.
 
 ## October 10 targeted globally unread tee coverage
 
@@ -54,8 +54,82 @@ Runtime qualification requires actual export calls and comparisons of values,
 ordered host events, state and traps on the identical original/optimized inputs.
 Validation or successful instantiation alone does not establish equivalence.
 Report runtime-blocked cases explicitly and supplement unsupported reference/EH
-surfaces with retained reduced host-effect fixtures. Dedicated generated/runtime
-qualification is pending; this profile does not close the full Vacuum audit.
+surfaces with retained reduced host-effect fixtures. The exact source/native qualification below remains separate from integrated
+coverage, package consumers and CI. This profile does not close the full Vacuum
+audit.
+
+The native source checkpoint is `4121f5e2a9798c764b85a1f310b53019e76d7772`.
+The CLI SHA-256 is
+`2a644911b4e0c196bc02060ca7b0292ba9f36e15086687eff08746421138c628`;
+the generator SHA-256 is
+`c772cc9969e8796c4f5e4365dc47bbd924b726691b85a7d65968b33589e80208`.
+Both are fresh `_build/native/release/build/{cmd/cmd.exe,fuzz/fuzz.exe}`
+executables. The verified Binaryen oracle is
+`133 (version_133-60-g93d6e9de7)`, SHA-256
+`646443d963e0ea180a57a6dc92a4b31ebbb0693cb85149598f8a7c5ac503bb1a`;
+independent wasm-tools is `1.251.0 (a1a178a02 2026-05-28)`.
+
+The retained independent profile sample contains 104 unique input SHA-256s and
+all 13 families. Default Node **25.8.1** and **26.11.1** each execute **5,096**
+calls across original, serial Vacuum, serial/fused Vacuum+SimplifyLocals,
+serial/fused numeric 4/1 Optimize, and Binaryen Vacuum: **3,717 values** and
+**1,379 traps**, with no blocked variant. Explicit family expectations check
+one ordered producer event, multivalue order, externref result identity,
+exported mutable state, both conditional arms, catches, division and memory
+traps, independently of original-versus-output comparison. The initial
+52-input sample covered only 11 families and failed the all-family assertion;
+it is retained as incomplete, not credited as 13-family runtime coverage.
+
+Ten retained host-effect/weighted fixtures also pass default Node25/26: each
+runtime executes **660** calls (**528 values**, **132 traps**). All original
+and five Starshine modes execute. Four Binaryen-only variants are blocked: GC
+nullable/nonnullable and weighted GC reference outputs require experimental
+custom descriptors; legacy-handler-read fails with unknown import kind
+`0x7f`. Node26 with the explicit experimental custom-descriptor flag separately
+executes 690 calls; the Binaryen legacy variant remains blocked. This flagged
+result does not establish default runtime compatibility. Retained original
+and Starshine observations check ordered effects/state, externref identity and
+distinct exported function identities.
+
+The first restricted 10,000-case attempt was interrupted with exit **130** at
+6,080 completed journal rows: its generic workers returned EPERM write errors
+and zero observation steps. It establishes no runtime equivalence. A fresh
+escalated 52-case run corrected execution permissions: all 52 primary
+comparisons are actual three-way runtime matches; its normal exit **1**
+retains 36 structural differences. The fresh escalated **10,000/10,000**
+qualification uses explicit default Node26: all 10,000 primary runtime
+comparisons match three ways, with **zero blocked executions**, semantic
+mismatches, validation failures, generator failures or command failures. The
+manifest contains 10,000 unique case seeds and 10,000 unique FNV-1a64 module
+hashes across all 13 families; every input reports `local_tee`. These finite
+seeded comparisons are not exhaustive proof.
+
+The full lane exits **1** normally for **7,747 structural mismatches**, with
+**2,253 normalized matches**. It retains 20 mismatch bundles and records the
+remaining 7,727 in its complete journal. Canonical output totals are Starshine
+**863,298** versus Binaryen **894,504** bytes (−31,206); 7,747 cases are smaller,
+2,253 equal, none larger. Raw totals are **912,526** versus **886,644** bytes
+(+25,882); the 786 multivalue cases are smaller and 9,214 cases larger. The
+complete per-family histogram preserves these distinctions and the normal
+failing structural exit.
+
+Representative inspection of every family shows a raw and canonical byte win
+for multivalue tee retirement, which avoids Binaryen writer copy-local
+expansion. Other unread families improve canonical bytes by two per tee
+(four for both arms), while raw Starshine output retains duplicate type
+serialization overhead. Read/opaque controls normalize equally. Raw size
+losses remain parity gaps; validation and runtime equivalence do not waive
+them or close the full Vacuum audit.
+
+Evidence is retained in the local task-9 `unread-tee-evidence/` directory:
+`provenance.json`, exact generation manifests, `profile-runtime104/`,
+`runtime/`, `representative-diffs/`, and separate restricted/escalated journals.
+Command diagnostic times are not paired pass-local performance or RSS
+measurements. Native generation succeeds with fresh relative or absolute
+output directories; reusing a preexisting directory aborts with SIGABRT
+(`-6`), including under corrected execution permissions. That retained
+generator I/O defect is separate from the profile and requires a fresh output
+directory for this qualification.
 
 ## September 23 saved seven-pass dead GC type cleanup
 

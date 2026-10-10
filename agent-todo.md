@@ -1444,6 +1444,19 @@ retain the detailed provenance.
   legacy-EH locals, RemoveUnusedBrs switch/multi-function and constraint-loop
   siblings need reproduction and family-level evidence. Do not extrapolate
   retained representative fixes to the historical aggregate.
+- **Globally unread tee Vacuum:** the numeric 4/1 wrapper and targeted
+  `vacuum-unread-tee` profile preserve producers, stack values, read/legacy
+  boundaries and COW ownership. Keep duplicate-type raw serialization losses
+  open despite measured canonical tee-removal gains and actual runtime parity;
+  retain the multivalue raw/canonical win separately. Integrated coverage,
+  generated FFI/npm consumers and CI still require exact-head renewal.
+  [Targeted evidence and limits](docs/wiki/binaryen/passes/vacuum/fuzzing.md#october-10-targeted-globally-unread-tee-coverage).
+- **Native generator I/O:** fresh absolute/relative output directories work;
+  a preexisting empty output directory aborts with SIGABRT (`-6`), including
+  under corrected process permissions. Reduce and repair the shared
+  `src/fs/fs.mbt` / xfs create-directory error path with a failing-first native
+  regression. Do not count this as a profile validation or semantic failure;
+  existing successful fresh-directory campaigns remain unchanged.
 - **EH/Vacuum:** renew the dedicated 10,000-case aggregate and resolve raw-size
   losses. The historical 256-case campaign had 128 differences. Layouts 1/7
   have canonical projection wins but raw losses; 54 of their 64 rows have only
