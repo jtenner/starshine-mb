@@ -1,3 +1,13 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2025 WebAssembly Community Group participants
+// Counterpart: src/passes/DeadArgumentElimination2.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 // Binaryen 132 DAE2: parameter and whole-result liveness share a least fixed
 // point. All locations start unused. Observable uses seed a backwards worklist;

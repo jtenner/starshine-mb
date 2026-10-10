@@ -40,6 +40,9 @@ From the repository root with those tools installed:
 
 ```sh
 moon update
+# Native C compilation can spill large assembly files; use disk-backed scratch.
+mkdir -p .tmp/npm-build
+export TMPDIR="$PWD/.tmp/npm-build"
 npm run build --prefix node
 npm run check-generated --prefix node
 bun test scripts/lib/ffi-generation.test.ts scripts/lib/node-generation.test.ts scripts/lib/npm-process.test.ts
@@ -47,6 +50,8 @@ node --test node/test/*.test.mjs
 # TSC_BIN can be an absolute path if tsc is not available on PATH.
 bun scripts/test/npm-packed-consumers.mjs
 ```
+
+On the tested Linux host, one build exhausted the shared 32 GiB `/tmp` tmpfs while the native compiler wrote assembly; retrying with disk-backed `TMPDIR` avoids that capacity limit. This is a build-host requirement and adds no consumer dependency.
 
 The last command executes the real `npm pack` prepack build, inspects the tarball and installs it into empty JS and strict NodeNext TypeScript projects outside the checkout. It exercises every export, runtime initialization, roundtrips, optimization, errors, a short fuzz case and the CLI with MoonBit absent from runtime PATH. Reports and tarballs are in ignored `dist/npm/`.
 
@@ -74,4 +79,8 @@ The tarball allowlist includes public JS/declarations, shared runtime, required 
 
 ## Release decisions
 
-Root `LICENSE` says MIT, while `moon.mod` says Apache-2.0. The npm package has no silently selected license or bundled license text; reconcile ownership and licensing before publication. Confirm the beta version and publishing/provenance configuration, and resolve or explicitly assess repository release gates. Repository native-debug builds use initialized lower-stack storage to avoid MoonBit issue #1322 without changing the WasmGC API. Large native debug test linking uses a per-process 64 MiB stack (`ulimit -s 65536`). The upstream compiler issue and complete coverage qualification remain separately tracked in the repository handoff. No npm publication, release, tag, push or merge is performed by these commands.
+Joshua Tenner’s original portions are offered under MIT; the compiled bundle also contains third-party material under Apache-2.0 and the terms retained in MoonBit Core’s NOTICE. Package metadata uses `SEE LICENSE IN LICENSE`, with scoped `LICENSE`, `NOTICE`, `licenses/Apache-2.0.txt`, the full `licenses/Binaryen-LICENSE.txt`, and the complete `licenses/moonbit-core-NOTICE.txt` included. Binaryen notice retention follows the owner’s conservative choice; unknown pass provenance remains unknown and the existing MoonBit module Apache-2.0 declaration remains; this is not an MIT-only bundle or a dual-license choice. See [the source provenance audit](https://github.com/jtenner/starshine-mb/blob/master/docs/wiki/tooling/license-provenance.md).
+
+Build generation checks notice drift; the build verifies reviewed installed Core 0.10.14+7d59c7ec9 license/NOTICE bytes and x 0.5.1 metadata before compilation. A dependency upgrade requires a notice/provenance review.
+
+Confirm the beta version and publishing/provenance configuration, and resolve or explicitly assess repository release gates. Repository native-debug builds use initialized lower-stack storage to avoid MoonBit issue #1322 without changing the WasmGC API. Large native debug test linking uses a per-process 64 MiB stack (`ulimit -s 65536`). The upstream compiler issue and complete coverage qualification remain separately tracked in the repository handoff. No npm publication, release, tag, push or merge is performed by these commands.

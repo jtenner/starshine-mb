@@ -74,7 +74,12 @@
     "internal/generated/cmd.generated.js",
     "internal/starshine.wasm-gc.wasm",
     "internal/starshine.wasm-wasi.wasm",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "licenses/Apache-2.0.txt",
+    "licenses/Binaryen-LICENSE.txt",
+    "licenses/moonbit-core-NOTICE.txt"
   ],
   "engines": {
     "node": ">=25"
@@ -100,5 +105,6 @@
   "publishConfig": {
     "access": "public",
     "tag": "beta"
-  }
+  },
+  "license": "SEE LICENSE IN LICENSE"
 }

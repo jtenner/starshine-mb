@@ -1,3 +1,15 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Copyright 2023 WebAssembly Community Group participants.
+// Retained historical upstream notice; current derivation remains unconfirmed.
+// Conservative attribution from pinned Binaryen version_130 counterpart:
+// Copyright 2021 WebAssembly Community Group participants
+// Counterpart: src/passes/MergeSimilarFunctions.cpp (5d704ad5); origin remains unconfirmed.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 pub fn merge_similar_functions_summary() -> String {
   "Merge profitable near-duplicate defined functions through shared parameterized helpers and preserving thunks."

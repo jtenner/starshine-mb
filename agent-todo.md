@@ -50,8 +50,13 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   evidence. Later raw-size changes involve changing compiler type order and
   do not establish causal memory or speed improvements. Preserve the original
   immutable inputs separately from freshly compiled package artifacts.
-- [ ] Reconcile root MIT / MoonBit Apache-2.0 and approve candidate version,
-  provenance route and npm publication. No license is silently selected.
+- [ ] Approve candidate version, publishing/provenance route and npm publication.
+  The owner-authorized [conservative licensing treatment](docs/wiki/tooling/license-provenance.md)
+  retains full Binaryen terms and conditional source/change notices without
+  pretending unknown provenance is resolved. Josh-owned originals are scoped
+  MIT; embedded Core/x and upstream portions retain their terms. Five legal
+  assets are packaged; the module stays declared Apache-2.0. Further authorship
+  evidence is needed before changing that treatment or claiming MIT-only passes.
 - Unsupported ABI identities/reasons stay guarded; supported signatures derive
   solely from FFI exports. Preserve nominal ownership and runtime requirements.
   Keep the separate no-benefit baseline allocation route out. Coordinate held

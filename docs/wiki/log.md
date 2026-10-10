@@ -1,3 +1,16 @@
+### 2026-10-10 — Retain scoped MIT and conservative Binaryen redistribution notices
+
+- [The provenance matrix](tooling/license-provenance.md) records the owner's
+  conservative Binaryen notice-retention choice without resolving unknown
+  authorship. Josh-owned originals retain MIT; incorporated upstream expression
+  and compiled dependencies retain their applicable terms.
+- Full pinned Binaryen license, source scope/change notices, historical notices
+  and 40 exact counterpart attributions are preserved. Five package legal assets
+  are copied verbatim, drift-checked and checked after offline installation.
+- This local follow-up is separate from published b0b3 and its historical
+  notice-free archive. Unknown provenance does not permit future MIT-only
+  relabeling; npm publication and candidate/provenance approval remain pending.
+
 ### 2026-10-10 — Rescue targeted unread-tee coverage and preserve raw-size gaps
 
 - [Vacuum's qualification](binaryen/passes/vacuum/fuzzing.md) distinguishes the

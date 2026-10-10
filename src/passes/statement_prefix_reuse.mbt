@@ -1,3 +1,10 @@
+// Licensing scope: see ../../LICENSE and this directory's LICENSE and NOTICE.
+// Potentially incorporated Binaryen expression retains Apache-2.0 terms.
+// Original Starshine contributions use the scoped MIT grant in ../../LICENSE.
+// Modified for Starshine through 2026: implementation and validation use
+// Starshine's representations and APIs; this is not an unchanged upstream file.
+// Conservative notice retention does not establish copying or independence.
+
 ///|
 // Expr typechecking is a left-to-right fold over Instruction. Once a prefix
 // fails, extending it cannot repair that earlier error. Keep the state only

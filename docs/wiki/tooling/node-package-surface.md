@@ -461,3 +461,15 @@ remains failed at 28,244 / 226 (+106 / +30), without resetting the baseline.
 - WAST static assertion stage model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)
 - MoonBit workspace/package map: [`./moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md), [`../../../moon.mod`](../../../moon.mod), and the official [MoonBit package configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html)
 - MoonBit source signatures: [`../../../src/cli/pkg.generated.mbti`](../../../src/cli/pkg.generated.mbti), [`../../../src/cmd/pkg.generated.mbti`](../../../src/cmd/pkg.generated.mbti), [`../../../src/validate/pkg.generated.mbti`](../../../src/validate/pkg.generated.mbti), [`../../../src/wast/pkg.generated.mbti`](../../../src/wast/pkg.generated.mbti)
+
+## Scoped licensing follow-up
+
+The October 10 [provenance audit](license-provenance.md) supersedes the earlier
+no-bundled-license state. Josh-owned original portions use MIT; compiled Core/x
+and identified Binaryen adaptations retain upstream terms. `SEE LICENSE IN
+LICENSE` describes the scoped arrangement. Five explicitly packed legal assets
+are byte-checked in the installed consumer, mirrored by generated-drift checks,
+and matched to the reviewed installed dependency notices before source builds.
+The owner chose conservative Binaryen notice retention; full upstream license,
+source/change notices and pinned counterpart attribution are retained while
+unknown factual provenance stays unknown. No npm publication follows.

@@ -823,3 +823,5 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - No pages yet.
 
 - [October 5 development checkpoint and raw timing/replay evidence](tooling/validation-gates.md#october-5-2026-saved-development-checkpoint).
+
+- [Starshine license provenance](tooling/license-provenance.md): scoped original MIT, owner-authorized conservative Binaryen/source notices, exact dependency terms and packaged legal assets; factual provenance remains unknown where unconfirmed.

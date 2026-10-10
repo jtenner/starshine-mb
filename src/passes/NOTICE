@@ -1,0 +1,124 @@
+Starshine pass-source redistribution notices
+===========================================
+
+Original Starshine contributions: Copyright 2026 Joshua Tenner.
+MIT applies only to original rights he owns; see ../../LICENSE.
+The existing module Apache-2.0 declaration remains in place.
+
+Potentially adapted Binaryen expression retains Apache-2.0 terms.
+Copyright 2023 WebAssembly Community Group participants (historical Starshine
+pass notices); Copyright 2017 WebAssembly Community Group participants
+(PickLoadSigns.cpp). Full upstream license: LICENSE in this directory and
+../../licenses/Binaryen-LICENSE.txt. https://github.com/WebAssembly/binaryen
+
+Starshine changed/rebuilt these implementations through 2026 for its MoonBit
+IR/HOT representations, graph/control traversal, typed boundaries, pass
+scheduling, encoding and validation. Prominent notices in each production file
+record that these are not unchanged upstream files. File-specific Git history
+records further changes. This conservative redistribution policy was authorized
+by the owner; unknown provenance remains unknown. Neither matching algorithms
+nor restored historical notices prove every file was copied, and MIT for own
+contributions does not waive terms on incorporated upstream expression.
+
+Known adaptations: pick_load_signs.mbt retains upstream usage-field order,
+signedness guards and weighted choice. binaryen132_descriptor_test.mbt and
+dead_argument_elimination2_intake_wbtest.mbt adapt version_132 regression inputs;
+source links and prominent modification notices are retained in those files.
+Other owners/helpers remain unclassified as to factual derivation.
+
+The following current production paths match historical notice-bearing owners:
+- avoid_reinterprets.mbt
+- coalesce_locals.mbt
+- code_folding.mbt
+- code_pushing.mbt
+- dead_code_elimination.mbt
+- directize.mbt
+- duplicate_function_elimination.mbt
+- duplicate_import_elimination.mbt
+- flatten.mbt
+- global_effects.mbt
+- global_refining.mbt
+- global_struct_inference.mbt
+- global_type_optimization.mbt
+- heap2local.mbt
+- heap_store_optimization.mbt
+- i64_to_i32_lowering.mbt
+- inlining.mbt
+- local_cse.mbt
+- local_subtyping.mbt
+- memory_packing.mbt
+- merge_blocks.mbt
+- merge_locals.mbt
+- merge_similar_functions.mbt
+- once_reduction.mbt
+- optimize.mbt
+- optimize_casts.mbt
+- optimize_instructions.mbt
+- pick_load_signs.mbt
+- precompute.mbt
+- remove_unused_brs.mbt
+- remove_unused_names.mbt
+- reorder_globals.mbt
+- reorder_locals.mbt
+- simplify_locals.mbt
+- tuple_optimization.mbt
+- untee.mbt
+
+The reviewed originating/comparison source trees version_130 (5d704ad5...),
+version_132 (79dfe6b4...) and version_133 (fba5005a...) contain no NOTICE file;
+there is no upstream NOTICE text to invent. Their full LICENSE texts are
+byte-identical and preserved, including the upstream FP16 reference. That
+reference describes Binaryen's own distribution: no FP16/LLVM incorporation
+was found here and it supplies no alternative license for the main passes.
+See ../../NOTICE and ../../docs/wiki/tooling/license-provenance.md for exact
+revisions, evidence, dependencies and remaining provenance limitations.
+
+Pinned counterpart attributions retained conservatively
+-------------------------------------------------------
+The following copyright lines are reproduced from the exact version_130
+source counterparts at 5d704ad52bc77a258e8fa3f9d34fcc5e8799c1c3. Matching filenames
+identify reviewed candidates, not proven origins. Retaining their notices does
+not determine whether a particular current implementation contains adapted
+expression. Any incorporated upstream portion keeps its applicable rights.
+src/passes/AvoidReinterprets.cpp: Copyright 2017 WebAssembly Community Group participants
+src/passes/CoalesceLocals.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/CodeFolding.cpp: Copyright 2017 WebAssembly Community Group participants
+src/passes/CodePushing.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/DeAlign.cpp: Copyright 2020 WebAssembly Community Group participants
+src/passes/DeadArgumentElimination.cpp: Copyright 2018 WebAssembly Community Group participants
+src/passes/DeadArgumentElimination2.cpp: Copyright 2025 WebAssembly Community Group participants
+src/passes/DeadCodeElimination.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/Directize.cpp: Copyright 2019 WebAssembly Community Group participants
+src/passes/DuplicateFunctionElimination.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/DuplicateImportElimination.cpp: Copyright 2019 WebAssembly Community Group participants
+src/passes/Flatten.cpp: Copyright 2017 WebAssembly Community Group participants
+src/passes/GlobalEffects.cpp: Copyright 2022 WebAssembly Community Group participants
+src/passes/GlobalRefining.cpp: Copyright 2021 WebAssembly Community Group participants
+src/passes/GlobalStructInference.cpp: Copyright 2022 WebAssembly Community Group participants
+src/passes/GlobalTypeOptimization.cpp: Copyright 2021 WebAssembly Community Group participants
+src/passes/Heap2Local.cpp: Copyright 2021 WebAssembly Community Group participants
+src/passes/HeapStoreOptimization.cpp: Copyright 2024 WebAssembly Community Group participants
+src/passes/I64ToI32Lowering.cpp: Copyright 2017 WebAssembly Community Group participants
+src/passes/Inlining.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/LocalCSE.cpp: Copyright 2017 WebAssembly Community Group participants
+src/passes/LocalSubtyping.cpp: Copyright 2021 WebAssembly Community Group participants
+src/passes/MemoryPacking.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/MergeBlocks.cpp: Copyright 2015 WebAssembly Community Group participants
+src/passes/MergeLocals.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/MergeSimilarFunctions.cpp: Copyright 2021 WebAssembly Community Group participants
+src/passes/NoInline.cpp: Copyright 2023 WebAssembly Community Group participants
+src/passes/OnceReduction.cpp: Copyright 2021 WebAssembly Community Group participants
+src/passes/OptimizeCasts.cpp: Copyright 2022 WebAssembly Community Group participants
+src/passes/OptimizeInstructions.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/PickLoadSigns.cpp: Copyright 2017 WebAssembly Community Group participants
+src/passes/Precompute.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/RemoveUnusedBrs.cpp: Copyright 2015 WebAssembly Community Group participants
+src/passes/RemoveUnusedModuleElements.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/RemoveUnusedNames.cpp: Copyright 2015 WebAssembly Community Group participants
+src/passes/ReorderGlobals.cpp: Copyright 2022 WebAssembly Community Group participants
+src/passes/ReorderLocals.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/SimplifyLocals.cpp: Copyright 2015 WebAssembly Community Group participants
+src/passes/TupleOptimization.cpp: Copyright 2023 WebAssembly Community Group participants
+src/passes/Untee.cpp: Copyright 2017 WebAssembly Community Group participants
+
+This NOTICE is informational and does not modify the supplied license terms.

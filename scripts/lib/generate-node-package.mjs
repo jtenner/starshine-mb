@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { repoRootFromScript } from './self-optimized-artifacts.mjs';
+import { syncNpmLicenses } from './npm-licenses.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1234,6 +1235,7 @@ export function assertUnsupportedAbiPolicy(actual, policy) {
 
 export function generateNodePackage({ check = false } = {}) {
   checking = check;
+  syncNpmLicenses(repoRoot, { check });
   const generated = generateFfiPackage([...collectFfiInterfaces(repoRoot), ...standardTraitInterfaces()]);
   ffiSchema = generated.schema;
   for (const item of collectFfiInterfaces(repoRoot)) EXTERNAL_ALIAS_IMPORTS.set(`@${item.alias}`, item.packagePath);

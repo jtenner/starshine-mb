@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { repoRootFromScript } from '../lib/self-optimized-artifacts.mjs';
 import { runNpmCommand } from '../lib/npm-process.mjs';
+import { npmLicenseFiles } from '../lib/npm-licenses.mjs';
 
 const root = repoRootFromScript(import.meta.url);
 const dist = path.join(root, 'dist/npm');
@@ -33,6 +34,7 @@ try {
   assert.equal(files.some(file => /(?:\.mbt|\.mbti|\.map|\.log|\.unoptimized|build-report\.json|\/test\/|credentials|unsupported-exports|export-schema)/.test(file)), false, 'private/build-only files entered npm tarball');
   assert(files.includes('package/internal/starshine.wasm-gc.wasm'));
   assert(files.includes('package/internal/starshine.wasm-wasi.wasm'));
+  for (const file of npmLicenseFiles) assert(files.includes(`package/${file}`), `missing distribution license/notice: ${file}`);
   assert.equal(files.includes('package/internal/generated/cmd.generated.d.ts'), false, 'unused private backend declarations entered the tarball');
   const consumerEnv = { ...process.env, PATH: `${path.dirname(fs.realpathSync((await run('which', [nodeBin], root)).trim()))}:/usr/bin:/bin`, npm_config_cache: path.join(scratch, 'cache'), npm_config_offline: 'true' };
   const report = { tarball, sha256: createHash('sha256').update(fs.readFileSync(tarball)).digest('hex'), packedBytes: fs.statSync(tarball).size, node: (await run(nodeBin, ['--version'], scratch, consumerEnv)).trim(), typescript: (await run(process.env.TSC_BIN ?? 'tsc', ['--version'], scratch, consumerEnv)).trim(), files, consumers: [] };
@@ -46,6 +48,8 @@ try {
     fs.writeFileSync(path.join(cwd, 'isolation.mjs'), `import assert from 'node:assert/strict'; import fs from 'node:fs'; for (const file of process.argv.slice(2)) assert.throws(() => fs.readFileSync(file), { code: 'ERR_ACCESS_DENIED' });`);
     await run(nodeBin, [...runtimeArgs, 'isolation.mjs', path.join(root, 'moon.mod'), path.join(os.homedir(), '.moon/bin/moon')], cwd, consumerEnv);
     const manifest = JSON.parse(fs.readFileSync(path.join(pkg, 'package.json'), 'utf8'));
+    assert.equal(manifest.license, 'SEE LICENSE IN LICENSE');
+    for (const file of npmLicenseFiles) assert(fs.readFileSync(path.join(pkg, file)).equals(fs.readFileSync(path.join(root, file))), `installed license/notice drift: ${file}`);
     for (const entry of Object.values(manifest.exports)) for (const field of ['types', 'import']) assert(fs.existsSync(path.join(pkg, entry[field])));
     // Copy the observation harness into the empty consumer. It imports only
     // the installed package, with no source-tree module or compiler available.

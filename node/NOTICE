@@ -1,0 +1,128 @@
+Starshine third-party attribution and distribution scope
+=======================================================
+
+Original Starshine portions: Copyright 2026 Joshua Tenner.
+See LICENSE for the scoped MIT grant. No third-party rights are relicensed.
+
+MoonBit Core
+------------
+The compiled WasmGC API and WASI CLI incorporate moonbitlang/core
+0.10.14+7d59c7ec9 from the reviewed MoonBit installation.
+Copyright 2025 International Digital Economy Academy.
+https://github.com/moonbitlang/core
+License: Apache-2.0; full installed license in licenses/Apache-2.0.txt.
+The complete installed NOTICE, including V8/fdlibm, Go, Arm MIT and FreeBSD
+terms, is retained without exclusions in licenses/moonbit-core-NOTICE.txt.
+Retention does not assert that every named routine survived compiler DCE.
+
+MoonBit experimental library
+---------------------------
+The binaries incorporate moonbitlang/x 0.5.1, including its filesystem bridge.
+Copyright 2025 International Digital Economy Academy.
+https://github.com/moonbitlang/x
+License: Apache-2.0; see licenses/Apache-2.0.txt. Source notices are retained
+in the upstream dependency. The installed 0.5.1 module has no NOTICE file.
+
+MoonBit runtime support notices retained conservatively
+------------------------------------------------------
+Copyright 2026 International Digital Economy Academy.
+Installed native support files runtime.c, utf.c, env.c, sync_io.c and backtrace.c
+carry Apache-2.0; see licenses/Apache-2.0.txt. The native bootstrap is not
+distributed, and this retention does not assert those C files are linked into
+the Wasm artifacts. Exact compiler-provided runtime inclusion has not been
+exhaustively mapped; any incorporated upstream runtime portions retain their
+applicable original terms.
+
+Binaryen source adaptations and fixtures
+---------------------------------------
+Copyright 2017 WebAssembly Community Group participants (PickLoadSigns.cpp).
+Copyright 2023 WebAssembly Community Group participants (historical Starshine
+pass-source notices retained as provenance).
+https://github.com/WebAssembly/binaryen
+License: Apache-2.0; full upstream license in licenses/Binaryen-LICENSE.txt.
+
+src/passes/pick_load_signs.mbt retains the upstream usage-field organization,
+signedness guard sequence and weighted selection rule, alongside Starshine's
+HOT graph implementation, typed boundaries, caching and validation checks.
+It is conservatively treated as an adapted source file; original modifications
+do not remove the incorporated upstream terms.
+
+src/passes/binaryen132_descriptor_test.mbt and
+src/passes/dead_argument_elimination2_intake_wbtest.mbt adapt selected Binaryen
+version_132 regression inputs into Starshine assertions and encoded fixtures.
+They are repository test sources, not files shipped in the npm archive.
+Any copied upstream source/fixture excerpts in docs/wiki/raw/binaryen retain
+Apache-2.0 upstream terms; original analysis and oracle logs do not become
+derivative code merely because they discuss Binaryen.
+
+Historical pass-source notices existed before the optimizer was removed and
+rebuilt. The owner has authorized conservative Binaryen license/notice
+retention for potentially adapted expression in all current pass owners/helpers.
+Their source files carry prominent Starshine modification/scope notices;
+historical copyright notices are retained on matching owners. The existing
+module Apache-2.0 declaration remains. This is not a claim that every file is
+derivative or independently authored; factual provenance remains unknown where
+unconfirmed. See src/passes/NOTICE and the audit for exact scope and history.
+
+Binaryen is a development comparison oracle, not a linked npm dependency.
+The inspected version_130, version_132 and version_133 source trees have no
+NOTICE file (respectively 5d704ad52bc77a258e8fa3f9d34fcc5e8799c1c3,
+79dfe6b412a3c22bfdb190ed6a4d79adf734db5d,
+and fba5005a132d85d578be5bd010e0487ed8e2ce3e). Its separately licensed FP16 and LLVM subtrees were not
+found in the Starshine distributed source/assets; no claim of their inclusion
+or of rights under their alternative terms is made.
+
+Pinned counterpart attributions retained conservatively
+-------------------------------------------------------
+The following copyright lines are reproduced from the exact version_130
+source counterparts at 5d704ad52bc77a258e8fa3f9d34fcc5e8799c1c3. Matching filenames
+identify reviewed candidates, not proven origins. Retaining their notices does
+not determine whether a particular current implementation contains adapted
+expression. Any incorporated upstream portion keeps its applicable rights.
+src/passes/AvoidReinterprets.cpp: Copyright 2017 WebAssembly Community Group participants
+src/passes/CoalesceLocals.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/CodeFolding.cpp: Copyright 2017 WebAssembly Community Group participants
+src/passes/CodePushing.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/DeAlign.cpp: Copyright 2020 WebAssembly Community Group participants
+src/passes/DeadArgumentElimination.cpp: Copyright 2018 WebAssembly Community Group participants
+src/passes/DeadArgumentElimination2.cpp: Copyright 2025 WebAssembly Community Group participants
+src/passes/DeadCodeElimination.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/Directize.cpp: Copyright 2019 WebAssembly Community Group participants
+src/passes/DuplicateFunctionElimination.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/DuplicateImportElimination.cpp: Copyright 2019 WebAssembly Community Group participants
+src/passes/Flatten.cpp: Copyright 2017 WebAssembly Community Group participants
+src/passes/GlobalEffects.cpp: Copyright 2022 WebAssembly Community Group participants
+src/passes/GlobalRefining.cpp: Copyright 2021 WebAssembly Community Group participants
+src/passes/GlobalStructInference.cpp: Copyright 2022 WebAssembly Community Group participants
+src/passes/GlobalTypeOptimization.cpp: Copyright 2021 WebAssembly Community Group participants
+src/passes/Heap2Local.cpp: Copyright 2021 WebAssembly Community Group participants
+src/passes/HeapStoreOptimization.cpp: Copyright 2024 WebAssembly Community Group participants
+src/passes/I64ToI32Lowering.cpp: Copyright 2017 WebAssembly Community Group participants
+src/passes/Inlining.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/LocalCSE.cpp: Copyright 2017 WebAssembly Community Group participants
+src/passes/LocalSubtyping.cpp: Copyright 2021 WebAssembly Community Group participants
+src/passes/MemoryPacking.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/MergeBlocks.cpp: Copyright 2015 WebAssembly Community Group participants
+src/passes/MergeLocals.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/MergeSimilarFunctions.cpp: Copyright 2021 WebAssembly Community Group participants
+src/passes/NoInline.cpp: Copyright 2023 WebAssembly Community Group participants
+src/passes/OnceReduction.cpp: Copyright 2021 WebAssembly Community Group participants
+src/passes/OptimizeCasts.cpp: Copyright 2022 WebAssembly Community Group participants
+src/passes/OptimizeInstructions.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/PickLoadSigns.cpp: Copyright 2017 WebAssembly Community Group participants
+src/passes/Precompute.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/RemoveUnusedBrs.cpp: Copyright 2015 WebAssembly Community Group participants
+src/passes/RemoveUnusedModuleElements.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/RemoveUnusedNames.cpp: Copyright 2015 WebAssembly Community Group participants
+src/passes/ReorderGlobals.cpp: Copyright 2022 WebAssembly Community Group participants
+src/passes/ReorderLocals.cpp: Copyright 2016 WebAssembly Community Group participants
+src/passes/SimplifyLocals.cpp: Copyright 2015 WebAssembly Community Group participants
+src/passes/TupleOptimization.cpp: Copyright 2023 WebAssembly Community Group participants
+src/passes/Untee.cpp: Copyright 2017 WebAssembly Community Group participants
+
+WebAssembly specification tests
+------------------------------
+tests/spec has its own retained Apache-2.0 LICENSE. It is not included in npm.
+Any repository redistribution must retain its source notices and license.
+
+This NOTICE is informational and does not modify the supplied license terms.

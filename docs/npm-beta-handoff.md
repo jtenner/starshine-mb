@@ -3,7 +3,7 @@
 This prepares `@jtenner/starshine@0.1.2-beta.0`. Source publication to
 `origin/master` was explicitly authorized on October 10 after local qualification.
 No npm package was published, no tag/release created, and no account credentials
-were changed. Licensing remains undecided and blocks an npm release.
+were changed. The later scoped licensing audit offers Josh-owned originals under MIT, preserves third-party terms, and records unknown pass provenance under owner-authorized conservative Binaryen notice retention; see [the provenance matrix](wiki/tooling/license-provenance.md).
 
 ## Checkout and authority
 
@@ -132,7 +132,7 @@ The tarball includes public JS/declarations, shared runtime/declarations, the
 required private command JS, README/examples, executable and both optimized Wasm
 files. Unused private backend declarations were removed with an explicit file
 allowlist. No source, tests, schema, debug maps, raw baselines or reports are
-packed. There are no runtime dependencies or bundled license text.
+packed. There are no runtime package dependencies. The original candidate omitted bundled license text; the later [licensing correction](wiki/tooling/license-provenance.md) adds five required scope/license/notice assets.
 
 The consumer harness uses empty projects under `/tmp`, installs the exact packed
 archive offline with no lifecycle scripts or runtime dependencies, and removes
