@@ -704,11 +704,15 @@ The existing module writeback validation remains mandatory. ReorderLocals
 subsequently removes unused declarations and remaps local names. Lower-level
 admission and the existing HOT hazard guards remain unchanged.
 
-Proof storage is capped at 65,536 parameters plus locals. Compressed unsigned
+Proof storage is capped at 65,536 parameters plus locals and 65,536 declaration
+runs; the latter cap precedes the compressed run snapshot. Compressed unsigned
 local runs are checked against the remaining budget before signed conversion
 or addition; functions above the cap retain the prior Vacuum result. The
 optional fused/stacked pass path does not use this wrapper and remains outside
 this slice. The focused tests are
 [`vacuum_unread_tees_o4s_wbtest.mbt`](../../../../../src/passes/vacuum_unread_tees_o4s_wbtest.mbt).
-Artifact, runtime and dedicated GenValid qualification are pending; this is
-not a complete Vacuum audit closeout.
+The tee rewriter copies each changed region once, starting at its first change,
+and shares untouched control nodes and arrays. Focused COW tests preserve shared
+children and source bytes through following ReorderLocals. Fresh artifact/resource
+qualification for this allocation follow-up is pending; this is not a complete
+Vacuum audit closeout.

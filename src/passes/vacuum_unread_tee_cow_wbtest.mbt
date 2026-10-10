@@ -48,6 +48,13 @@ test "unread tee cleanup preserves an untouched conditional arm under copy-on-wr
 #skip
 test "unread tee proof intentionally rejects oversized compressed declaration-run lists" {
   // Dedicated resource-boundary control, not an optimizer workload or default stress test.
+  let admitted = @lib.Locals::from_decl_runs_preserving_groups(
+    Array::make(65536, @lib.LocalRun::new(0U, @lib.ValType::i32())),
+  )
+  @debug.assert_eq(
+    run_hot_pipeline_vacuum_unread_tee_local_count(65536, admitted),
+    Some(65536),
+  )
   let locals = @lib.Locals::from_decl_runs_preserving_groups(
     Array::make(65537, @lib.LocalRun::new(0U, @lib.ValType::i32())),
   )
@@ -55,6 +62,8 @@ test "unread tee proof intentionally rejects oversized compressed declaration-ru
     run_hot_pipeline_vacuum_unread_tee_local_count(0, locals),
     None,
   )
+  @debug.assert_eq(admitted.run_count(), 65536)
+  @debug.assert_eq(locals.run_count(), 65537)
 }
 
 ///|
@@ -87,4 +96,61 @@ test "unread tee cleanup never mutates a child shared by multiple parents" {
   ]).unwrap()
   @validate.validate_module(output).unwrap()
   @debug.assert_eq(@binary.encode_module(shared_input).unwrap(), before)
+}
+
+///|
+test "unread tee cleanup copies else-only and both-arm changes exactly" {
+  for then_has_tee in [false, true] {
+    let then_body = if then_has_tee {
+      "i32.const 2 local.tee 1 drop"
+    } else {
+      "local.get 0 drop"
+    }
+    let input = pass_test_module_from_wat(
+      "(module (func (param i32) (local i32) local.get 0 if \{then_body} else i32.const 3 local.tee 1 drop end))",
+    )
+    let before = @binary.encode_module(input).unwrap()
+    let @lib.Func(_, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
+    let (rewritten, count) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+      body,
+      [2, 0],
+    )
+    @debug.assert_eq(count, if then_has_tee { 2 } else { 1 })
+    match (body[1], rewritten[1]) {
+      (
+        @lib.If(_, old_then, Some(old_else)),
+        @lib.If(_, new_then, Some(new_else)),
+      ) => {
+        @debug.assert_eq(physical_equal(old_then, new_then), !then_has_tee)
+        assert_true(!physical_equal(old_else, new_else))
+        @debug.assert_eq(new_else, [
+          @lib.Instruction::i32_const(3),
+          @lib.Instruction::drop(),
+        ])
+      }
+      _ => fail("expected retained conditional")
+    }
+    @debug.assert_eq(@binary.encode_module(input).unwrap(), before)
+  }
+}
+
+///|
+test "SimplifyLocals borrowed unread tee helper preserves source bytes" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32) (local i32) block local.get 0 drop i32.const 3 local.tee 1 drop end))",
+  )
+  let before = @binary.encode_module(input).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = input.code_sec.unwrap().0[0]
+  let env = @validate.Env::new()
+    .with_module(input)
+    .with_locals(@lib.Locals::single(2U, @lib.ValType::i32()))
+  let (rewritten, count) = run_hot_pipeline_raw_simplify_locals_rewrite_structured_copy_call_tails_bounded(
+    body, env, 2,
+  )
+  assert_true(count > 0)
+  let gets = [0, 0]
+  let tees = [0, 0]
+  run_hot_pipeline_raw_collect_local_ref_counts(rewritten, gets, [], tees)
+  @debug.assert_eq(tees, [0, 0])
+  @debug.assert_eq(@binary.encode_module(input).unwrap(), before)
 }

@@ -11463,74 +11463,95 @@ fn run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
   instrs : Array[@lib.Instruction],
   local_gets : Array[Int],
 ) -> (Array[@lib.Instruction], Int) {
-  let rewritten : Array[@lib.Instruction] = []
+  let mut rewritten : Array[@lib.Instruction]? = None
   let mut rewrite_count = 0
+  let mut cursor = 0
   for instr in instrs {
+    let mut next_instr = instr
+    let mut removed = false
+    let mut changes = 0
     match instr {
       @lib.Block(bt, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+        let (next_body, nested) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
           body, local_gets,
         )
-        rewritten.push(
-          @lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)),
-        )
-        rewrite_count += nested_rewrites
+        if nested > 0 {
+          next_instr = @lib.Instruction::block(bt, @lib.Expr::new(next_body))
+          changes = nested
+        }
       }
       @lib.Loop(bt, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+        let (next_body, nested) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
           body, local_gets,
         )
-        rewritten.push(
-          @lib.Instruction::loop_(bt, @lib.Expr::new(rewritten_body)),
-        )
-        rewrite_count += nested_rewrites
+        if nested > 0 {
+          next_instr = @lib.Instruction::loop_(bt, @lib.Expr::new(next_body))
+          changes = nested
+        }
       }
       @lib.TryTable(bt, catches, @lib.Expr(body)) => {
-        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+        let (next_body, nested) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
           body, local_gets,
         )
-        rewritten.push(
-          @lib.Instruction::try_table(
+        if nested > 0 {
+          next_instr = @lib.Instruction::try_table(
             bt,
             catches,
-            @lib.Expr::new(rewritten_body),
-          ),
-        )
-        rewrite_count += nested_rewrites
+            @lib.Expr::new(next_body),
+          )
+          changes = nested
+        }
       }
       @lib.If(bt, then_body, else_body) => {
-        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+        let (next_then, then_changes) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
           then_body, local_gets,
         )
-        let rewritten_else = match else_body {
+        changes = then_changes
+        let mut next_else = else_body
+        match else_body {
           Some(body) => {
-            let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+            let (next_body, nested) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
               body, local_gets,
             )
-            rewrite_count += nested_rewrites
-            Some(rewritten_body)
+            if nested > 0 {
+              next_else = Some(next_body)
+              changes += nested
+            }
           }
-          None => None
+          None => ()
         }
-        rewritten.push(
-          @lib.Instruction::if_(bt, rewritten_then, rewritten_else),
-        )
-        rewrite_count += then_rewrites
+        if changes > 0 {
+          next_instr = @lib.Instruction::if_(bt, next_then, next_else)
+        }
       }
       @lib.LocalTee(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
         if local_id >= 0 &&
           local_id < local_gets.length() &&
           local_gets[local_id] == 0 {
-          rewrite_count += 1
-        } else {
-          rewritten.push(instr)
+          removed = true
+          changes = 1
         }
       }
-      _ => rewritten.push(instr)
+      _ => ()
     }
+    // Allocate each changed region once. Copy its prefix once, then append the
+    // remainder; unchanged regions and their existing immutable nodes are shared.
+    if changes > 0 && rewritten is None {
+      let prefix : Array[@lib.Instruction] = []
+      for idx = 0; idx < cursor; idx = idx + 1 {
+        prefix.push(instrs[idx])
+      }
+      rewritten = Some(prefix)
+    }
+    match rewritten {
+      Some(out) => if !removed { out.push(next_instr) }
+      None => ()
+    }
+    rewrite_count += changes
+    cursor += 1
   }
-  (rewritten, rewrite_count)
+  (rewritten.unwrap_or(instrs), rewrite_count)
 }
 
 ///|
@@ -80635,14 +80656,15 @@ fn run_hot_pipeline_func(
 
 ///|
 // Keep the two dense proof arrays bounded even when declarations are compressed.
-// Count unsigned runs against the remaining budget before any signed conversion
-// or addition; larger functions retain the existing Vacuum path.
+// Bound the compressed run snapshot before Locals.runs() copies it. Count
+// unsigned runs against the remaining budget before signed conversion/addition;
+// larger functions retain the existing Vacuum path.
 fn run_hot_pipeline_vacuum_unread_tee_local_count(
   param_count : Int,
   locals : @lib.Locals,
 ) -> Int? {
   let budget = 65536
-  if param_count < 0 || param_count > budget {
+  if param_count < 0 || param_count > budget || locals.run_count() > budget {
     return None
   }
   let mut count = param_count
