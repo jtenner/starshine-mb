@@ -691,3 +691,24 @@ RED/GREEN resource guard, source-reference check, diagnostics and runtime rows:
 `vacuum-scan-*`/`dae2-cleanup-{copy-tail-baseline,vacuum-scan-candidate}.*`.
 The [renewed DAE2-O priorities](../dae2/starshine-strategy.md#october-3-2026-renew-optimizing-cleanup-priorities)
 retain larger exact-cleanup/read/fallthrough and dependency/lift/lower work.
+
+
+## October 10, 2026 numeric 4/1 unread-tee cleanup
+
+The ordinary raw Vacuum dispatch at optimization level at least 4 and shrink
+level at least 1 removes `local.tee` only when the resulting function has no
+`local.get` of that index anywhere. This scan includes both conditional arms
+and all legacy exception handlers. Producers, stack values, observable calls
+and writes remain in place; legacy `Try` bodies stay opaque to this rewrite.
+The existing module writeback validation remains mandatory. ReorderLocals
+subsequently removes unused declarations and remaps local names. Lower-level
+admission and the existing HOT hazard guards remain unchanged.
+
+Proof storage is capped at 65,536 parameters plus locals. Compressed unsigned
+local runs are checked against the remaining budget before signed conversion
+or addition; functions above the cap retain the prior Vacuum result. The
+optional fused/stacked pass path does not use this wrapper and remains outside
+this slice. The focused tests are
+[`vacuum_unread_tees_o4s_wbtest.mbt`](../../../../../src/passes/vacuum_unread_tees_o4s_wbtest.mbt).
+Artifact, runtime and dedicated GenValid qualification are pending; this is
+not a complete Vacuum audit closeout.

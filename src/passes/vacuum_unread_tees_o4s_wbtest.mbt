@@ -99,3 +99,68 @@ test "O4s unread tee cleanup preserves live parameters and stack value order" {
     @lib.Instruction::i32_add(),
   ])
 }
+
+///|
+test "unread tee retirement keeps lower-level Vacuum admission unchanged" {
+  for (optimize_level, shrink_level) in [(0, 0), (4, 0), (3, 1)] {
+    let input = pass_test_module_from_wat(
+      "(module (import \"env\" \"produce\" (func (result i32))) (func (export \"run\") (result i32) (local i32) call 0 local.tee 0))",
+    )
+    let original = @binary.encode_module(input).unwrap()
+    let output = run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(
+        optimize_level~,
+        shrink_level~,
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+      ),
+      ["vacuum", "reorder-locals"],
+    ).unwrap()
+    @debug.assert_eq(@binary.encode_module(output).unwrap(), original)
+  }
+}
+
+///|
+test "unread tee proof intentionally falls back above its compressed local budget" {
+  let ty = @lib.ValType::i32()
+  @debug.assert_eq(
+    run_hot_pipeline_vacuum_unread_tee_local_count(
+      1,
+      @lib.Locals::single(65535U, ty),
+    ),
+    Some(65536),
+  )
+  @debug.assert_eq(
+    run_hot_pipeline_vacuum_unread_tee_local_count(
+      1,
+      @lib.Locals::single(65536U, ty),
+    ),
+    None,
+  )
+  @debug.assert_eq(
+    run_hot_pipeline_vacuum_unread_tee_local_count(65537, @lib.Locals::empty()),
+    None,
+  )
+  // Inspect only the compressed count; this never expands or optimizes it.
+  @debug.assert_eq(
+    run_hot_pipeline_vacuum_unread_tee_local_count(
+      0,
+      @lib.Locals::single(0xffffffffU, ty),
+    ),
+    None,
+  )
+  @debug.assert_eq(
+    run_hot_pipeline_vacuum_unread_tee_local_count(-1, @lib.Locals::empty()),
+    None,
+  )
+  @debug.assert_eq(
+    run_hot_pipeline_vacuum_unread_tee_local_count(
+      0,
+      @lib.Locals::new([
+        @lib.LocalRun::new(32768U, ty),
+        @lib.LocalRun::new(32769U, @lib.ValType::i64()),
+      ]),
+    ),
+    None,
+  )
+}

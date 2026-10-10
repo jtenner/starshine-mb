@@ -80556,7 +80556,107 @@ fn run_hot_pipeline_raw_i32_ctz_count(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
+// The numeric 4/1 spine can retire a globally unread tee without entering HOT
+// regions rejected by Vacuum's existing guards. Producers and stack values stay
+// in place. The following module writeback validation and ReorderLocals owner
+// remain responsible for validity, declaration removal and name remapping.
 fn run_hot_pipeline_func(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+  module_state : HotPipelineModuleState,
+  lower_state : HotPipelineLowerState,
+  options : HotPipelineOptions,
+) -> Result[HotPipelineFuncResult, String] {
+  let result = match
+    run_hot_pipeline_func_before_unread_tees(
+      mod_, func_idx, descriptor, module_state, lower_state, options,
+    ) {
+    Ok(result) => result
+    Err(err) => return Err(err)
+  }
+  if descriptor.name != "vacuum" ||
+    options.optimize_level < 4 ||
+    options.shrink_level < 1 {
+    return Ok(result)
+  }
+  let subtypes = run_hot_pipeline_require_raw_types(mod_, module_state, None)
+  let indices = run_hot_pipeline_func_type_indices(mod_, module_state)
+  let @lib.FuncIdx(raw_func_idx) = func_idx
+  let params = match indices.get(raw_func_idx.reinterpret_as_int()) {
+    Some(@lib.TypeIdx(raw_type_idx)) =>
+      match subtypes.get(raw_type_idx.reinterpret_as_int()) {
+        Some(subtype) =>
+          match subtype.get_comptype() {
+            @lib.FuncCompType(params, _) => params
+            _ => return Ok(result)
+          }
+        None => return Ok(result)
+      }
+    _ => return Ok(result)
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = result.func
+  let total_locals = match
+    run_hot_pipeline_vacuum_unread_tee_local_count(params.length(), locals) {
+    Some(count) => count
+    None => return Ok(result)
+  }
+  if total_locals == 0 {
+    return Ok(result)
+  }
+  let gets = Array::make(total_locals, 0)
+  let tees = Array::make(total_locals, 0)
+  // The read collector includes both arms and all legacy handler bodies. The
+  // removal helper deliberately leaves legacy Try regions opaque.
+  run_hot_pipeline_raw_collect_local_ref_counts(body, gets, [], tees)
+  let mut has_unread_tee = false
+  for idx = 0; idx < total_locals; idx = idx + 1 {
+    if tees[idx] > 0 && gets[idx] == 0 {
+      has_unread_tee = true
+      break
+    }
+  }
+  if !has_unread_tee {
+    return Ok(result)
+  }
+  let (rewritten, changes) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+    body, gets,
+  )
+  if changes == 0 {
+    return Ok(result)
+  }
+  Ok({
+    reason: "\{result.reason}-unread-tees",
+    func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+    unchanged_original: false,
+    trace_skip_raw: result.trace_skip_raw,
+  })
+}
+
+///|
+// Keep the two dense proof arrays bounded even when declarations are compressed.
+// Count unsigned runs against the remaining budget before any signed conversion
+// or addition; larger functions retain the existing Vacuum path.
+fn run_hot_pipeline_vacuum_unread_tee_local_count(
+  param_count : Int,
+  locals : @lib.Locals,
+) -> Int? {
+  let budget = 65536
+  if param_count < 0 || param_count > budget {
+    return None
+  }
+  let mut count = param_count
+  for run in locals.runs() {
+    if run.count() > (budget - count).reinterpret_as_uint() {
+      return None
+    }
+    count += run.count().reinterpret_as_int()
+  }
+  Some(count)
+}
+
+///|
+fn run_hot_pipeline_func_before_unread_tees(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
