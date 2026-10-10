@@ -6,11 +6,13 @@ import { createHash } from 'node:crypto';
 import { repoRootFromScript } from '../lib/self-optimized-artifacts.mjs';
 import { runNpmCommand } from '../lib/npm-process.mjs';
 import { npmLicenseFiles } from '../lib/npm-licenses.mjs';
+import { assertNpmSelfOptimizationQueue } from '../lib/npm-preset.mjs';
+import { createExternalNpmConsumerScratch } from '../lib/npm-consumer-scratch.mjs';
 
 const root = repoRootFromScript(import.meta.url);
 const dist = path.join(root, 'dist/npm');
 fs.mkdirSync(dist, { recursive: true });
-const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'starshine-npm-consumers-'));
+const scratch = createExternalNpmConsumerScratch(root, process.env.NPM_CONSUMER_TMPDIR ?? os.tmpdir());
 const nodeBin = process.env.NODE_BIN ?? 'node';
 const npmBin = process.env.NPM_BIN ?? 'npm';
 async function run(command, args, cwd, env = process.env, stage = 'consumer', logFile) {
@@ -27,7 +29,7 @@ try {
     assert.equal(buildReport.presetName, 'O4s', 'npm builds must use the requested O4s preset');
     assert.equal(buildReport.optimizeLevel, 4);
     assert.equal(buildReport.shrinkLevel, 1);
-    assert.deepEqual(buildReport.expandedPasses, ['duplicate-function-elimination', 'constraint-analysis', 'vacuum', 'reorder-locals', 'strip-debug']);
+    assertNpmSelfOptimizationQueue(buildReport);
   }
   tarball = path.resolve(tarball);
   const files = (await run('tar', ['-tzf', tarball], scratch)).trim().split('\n');
@@ -84,6 +86,8 @@ if (parsed.ok) {
   if (optimized.ok) { binary.encodeModule(optimized.value); validate.validateModule(optimized.value); }
 }
 binary.sizeUnsigned(255n, 32);
+const copyProfile = validate.genValidProfileByName('merge-similar-functions-record-copy');
+if (copyProfile.ok) validate.genValidProfileName(copyProfile.value);
 cli.CliParseResult.new(undefined, [], undefined, undefined, undefined, undefined, undefined, cli.CliInputFormat.wasm());
 cmd.runCmdWithAdapter(['--help'], cmd.CmdIO.new());
 // @ts-expect-error opaque Module handles cannot be constructed structurally
@@ -96,7 +100,7 @@ binary.encodeModule(cli.TrapMode.never());
       fs.writeFileSync(path.join(cwd, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, target: 'ES2022', module: 'NodeNext', moduleResolution: 'NodeNext', noEmit: true, skipLibCheck: false }, files: ['consumer.ts'] }));
       await run(process.env.TSC_BIN ?? 'tsc', ['--project', 'tsconfig.json'], cwd, consumerEnv);
     }
-    report.consumers.push({ kind, exports: Object.keys(observation.exports), behavior: true, cli: true, cliVersion: `v${manifest.version}`, runtimeIsolation: 'consumer-only filesystem permissions; checkout and MoonBit reads denied', strictTypes: kind === 'typescript' });
+    report.consumers.push({ kind, exports: Object.keys(observation.exports), behavior: true, recordCopy: observation.recordCopy, recordCopyProfile: observation.recordCopyProfile, cli: true, cliVersion: `v${manifest.version}`, runtimeIsolation: 'consumer-only filesystem permissions; checkout and MoonBit reads denied', strictTypes: kind === 'typescript' });
   }
   fs.writeFileSync(path.join(dist, 'consumer-report.json'), `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify(report, null, 2));

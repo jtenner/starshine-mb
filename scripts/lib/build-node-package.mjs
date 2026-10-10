@@ -12,6 +12,7 @@ import { generateNodePackage } from './generate-node-package.mjs';
 import { stripWasmCustomSection, listWasmExportNames } from './wasm-export-renaming.ts';
 import { runNpmCommand } from './npm-process.mjs';
 import { prepareNpmDependencyLicenses } from './npm-licenses.mjs';
+import { assertNpmSelfOptimizationQueue } from './npm-preset.mjs';
 
 const repoRoot = repoRootFromScript(import.meta.url);
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -63,7 +64,7 @@ export async function buildNodePackage({ repoRoot: root = repoRoot, moonBin = re
     assert.equal(queue.optimizeLevel, report.optimizeLevel);
     assert.equal(queue.shrinkLevel, report.shrinkLevel);
     report.expandedPasses = queue.passes.map(pass => pass.name);
-    assert.deepEqual(report.expandedPasses, ['duplicate-function-elimination', 'constraint-analysis', 'vacuum', 'reorder-locals', 'strip-debug'], 'O4s pass selection changed; qualify the new scheduler explicitly');
+    assertNpmSelfOptimizationQueue(report);
     await run(optimizer, [...report.preset, fixtureBefore, '--out', fixtureAfter], root, 'optimizer');
     await run(process.env.WASM_TOOLS_BIN ?? 'wasm-tools', ['validate', '--features', 'all', fixtureAfter], root);
     assert.notDeepEqual(fs.readFileSync(fixtureBefore), fs.readFileSync(fixtureAfter), 'bootstrap preset failed to transform its duplicate-function fixture');
@@ -105,7 +106,7 @@ export async function buildNodePackage({ repoRoot: root = repoRoot, moonBin = re
     const help = [];
     for (const pkg of [beforePackage, afterPackage]) help.push(await run(nodeBin, [path.join(pkg, 'bin/starshine.js'), '--help'], scratch));
     assert.equal(help[1], help[0]);
-    report.parity = { api: true, cliHelp: true, observationSha256: sha256(JSON.stringify(observations[0])), wallMs: Math.round(performance.now() - observationStarted) };
+    report.parity = { api: true, cliHelp: true, recordCopy: observations[0].recordCopy, recordCopyProfile: observations[0].recordCopyProfile, observationSha256: sha256(JSON.stringify(observations[0])), wallMs: Math.round(performance.now() - observationStarted) };
     // Promote only validated, parity-checked optimized bytes.
     for (const artifact of artifacts) fs.copyFileSync(path.join(dist, artifact.name), path.join(internal, artifact.name));
     report.buildMs = Math.round(performance.now() - started);

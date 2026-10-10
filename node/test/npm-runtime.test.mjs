@@ -56,3 +56,9 @@ test('the public API runs the active optimizer with semantic roundtrips', async 
   assert.equal(binary.decodeModule(new Uint8Array([1, 2, 3])).ok, false);
   assert.equal(passes.optimizeModule(parsed.value, ['vacuum'], undefined, 1).ok, true);
 });
+
+test('the WasmGC API outlines immutable record copies with observable parity', async () => {
+  const { observeRecordCopyOutlining } = await import('../../scripts/lib/npm-behavior.mjs');
+  const result = await observeRecordCopyOutlining(await import('../index.js'));
+  assert.equal(result.observations.length, 3);
+});
