@@ -61,7 +61,7 @@ Both the outline transaction and its combination with ordinary MSF require a
 strict reduction in complete encoded module bytes and successful full-module
 validation. Failure rolls back the new transaction. This does not change the
 existing ordinary MSF candidate's separate validation/profitability contract.
-The separately qualified preset proposal adds MSF only at exact numeric
+The fast preset adds MSF only at exact numeric
 optimize level 4 and shrink level 1, after `reorder-locals` and before
 `strip-debug`. Neighboring fast levels and the O4z scheduler retain their
 previous queues.

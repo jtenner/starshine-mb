@@ -1100,6 +1100,11 @@ fn hot_pipeline_fast_preset_passes(
   if optimize_level >= 3 || shrink_level >= 1 {
     passes.append(["constraint-analysis", "vacuum", "reorder-locals"])
   }
+  // Only the measured numeric 4/1 lane adds the bounded MSF cleanup. Other
+  // fast levels and the explicit O4z scheduler keep their existing queues.
+  if optimize_level == 4 && shrink_level == 1 {
+    passes.push("merge-similar-functions")
+  }
   passes.push("strip-debug")
   passes
 }
