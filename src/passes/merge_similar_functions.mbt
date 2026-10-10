@@ -1256,7 +1256,7 @@ fn msf_collect_classes(
 }
 
 ///|
-fn msf_run_module_pass_with_perf(
+fn msf_run_similarity_module_pass_with_perf(
   mod_ : @lib.Module,
   perf : HotPerfSession?,
 ) -> @lib.Module {
@@ -1412,4 +1412,26 @@ pub fn merge_similar_functions_run_module_pass(
   mod_ : @lib.Module,
 ) -> @lib.Module {
   msf_run_module_pass_with_perf(mod_, None)
+}
+
+///|
+fn msf_run_module_pass_with_perf(
+  mod_ : @lib.Module,
+  perf : HotPerfSession?,
+) -> @lib.Module {
+  let outlined = gc_record_copy_outline_module(mod_)
+  let candidate = msf_run_similarity_module_pass_with_perf(outlined, perf)
+  if physical_equal(outlined, mod_) {
+    return candidate
+  }
+  // The new owner admits only a complete encoded win, including any subsequent
+  // ordinary MSF rewrite, and rolls back the whole addition on invalid output.
+  match @binary.encoded_module_sizes(mod_, candidate) {
+    Ok((before, after)) if after < before =>
+      if @validate.validate_module(candidate) is Ok(_) {
+        return candidate
+      }
+    _ => ()
+  }
+  mod_
 }

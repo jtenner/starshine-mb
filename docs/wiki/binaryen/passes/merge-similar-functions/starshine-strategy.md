@@ -22,6 +22,50 @@ related:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
+## October 10, 2026 immutable record-copy cleanup
+
+The direct MSF owner first tries an original Starshine slice in
+[`gc_record_copy_outlining.mbt`](../../../../../src/passes/gc_record_copy_outlining.mbt),
+before the ordinary similarity matcher excludes unsupported GC bodies. It
+recognizes at least eight copies of one ordinary, final, unshared immutable
+record with 8–512 i32 fields. Each copy reads fields in declaration order from
+one local, replaces exactly one field with an i32 literal, and constructs one
+fresh record. Arbitrary replacement expressions, mutable or packed fields,
+subtyping, descriptors, shared records, exact function/local references and
+opaque exception regions remain outside this slice.
+
+A private appended helper receives the source, selected field and replacement.
+It reads each immutable field and uses scalar `select` to produce the chosen
+field value, then performs one fresh `struct.new`. Every admitted original copy
+already reads at least seven source fields. The helper's additional read of the
+replaced field therefore preserves nullable traps after the same preceding
+host effects. It preserves old aliases, allocation count and fresh identity.
+Original type and function indices, imports, exports, global/table references
+and `ref.func` targets retain their original identity; only private helpers and
+their signatures are appended.
+
+Admission bounds imports, flattened types and function totals to 65,536,
+helpers to 32, sites to 4,096 and control depth to 128. One eight-million-unit
+budget covers all function bodies, declarations and initializer expressions,
+including functions excluded from rewriting and active segment offsets.
+Compressed local runs are bounded before snapshot conversion and unsigned
+parameter/local totals before dense allocation. Unsupported or excessive
+resources return the original module.
+
+Both the outline transaction and its combination with ordinary MSF require a
+strict reduction in complete encoded module bytes and successful full-module
+validation. Failure rolls back the new transaction. This does not change the
+existing ordinary MSF candidate's separate validation/profitability contract.
+The separately qualified preset proposal adds MSF only at exact numeric
+optimize level 4 and shrink level 1, after `reorder-locals` and before
+`strip-debug`. Neighboring fast levels and the O4z scheduler retain their
+previous queues.
+
+This is a bounded cleanup slice, not a complete GC or MSF audit. Production
+size/runtime results and the dedicated generated qualification must be tied
+to the actual frozen source and executable; manually outlined projections
+establish the causal shape only.
+
 ## September 25, 2026 call-type shape-collision measurement
 
 The shape hash now includes the cached target type index for direct and return calls, matching the existing equivalence rule that permits different call targets only when those type indices match. Distinct target types no longer enter one pairwise class-comparison bucket. In the [native white-box benchmark](../../../../../src/passes/merge_similar_functions_shape_collision_perf_wbtest.mbt), 128 same-shaped wrappers calling imports with distinct type IDs improved from `191.41` to `1.94 µs` (98.7×), and 256 improved from `767.40` to `3.91 µs` (196.3×). A same-type-target regression and 24 existing MergeSimilar tests pass. These are class-collection timings; full-pass impact remains unmeasured.
