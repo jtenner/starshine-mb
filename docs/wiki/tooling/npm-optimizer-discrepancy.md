@@ -247,3 +247,26 @@ cost, not a speed win. Full source/package qualification is recorded separately
 in the npm handoff. The later GC canonicalization and memory-repair checkpoints
 remain isolated pending the owner's memory decision; their results are not
 attributed to this initialized-storage change.
+
+## Follow-up after the reviewed checkpoint
+
+The reviewed `62ba4012f` checkpoint is retained for the preparation owner's
+coordinated integration. Follow-up starts on a separate local branch at that
+commit. Original GC has 15,944 types (10,889 function / 4,651 struct / 404 array)
+and 105 explicit recursive groups; checkpoint keeps all types while Binaryen
+O4/s1 retains 6,757. Direct inlining and DAE execute on the original, so their
+omission from the fast queue is distinct from blanket admission failure.
+
+RUME disables all type compaction when any recursive group has more than one
+member. A reduced public-pipeline regression requires whole-group removal,
+last-member-only rooting and the dependency of an otherwise unrooted sibling;
+it currently retains five recursive entries rather than three. The proposed
+extension must retain all members/order of every live group, without splitting
+or merging, and use flat type indices for roots/remapping.
+
+Independent source review found prerequisites: the standalone RUME remapper
+omits legacy exception children/catches, continuation operands and descriptor
+branch casts; both shared remapper copies lose exactness flags when rebuilding
+ordinary branch casts. Focused regressions reproduce these omissions. They must
+be repaired before recursive-group admission. No fast preset or packaging
+contract has changed in this follow-up.
