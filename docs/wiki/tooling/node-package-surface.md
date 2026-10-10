@@ -396,6 +396,17 @@ is now exported; wider internals still require a separate API decision.
 5. Reconcile the older `runValidateInvalidFuzz` naming with the current MoonBit `run_validate_invalid_ast_fuzz(...)` surface through either a compatibility alias or a documented semver plan.
 6. Only then decide whether to add new package subpaths such as `diff`, `validate_trace`, or `fuzz`; exposing `ir` and `passes` should be treated as a larger API-design decision, not a parity cleanup.
 
+## October 10, 2026 — npm bridge coverage
+
+Six tests in [`npm_test.mbt`](../../../src/ffi_bridge/npm_test.mbt) exercise
+explicit precompute/vacuum transformations, independent optional optimization
+levels, intentionally invalid pass/validation/encoding errors, recovery and
+GC/import/memory constructor roundtrips. Direct IR and byte assertions cover
+real bridge behavior. All fourteen bridge tests pass on WasmGC. Complete local
+coverage improves to 28,251 uncovered lines in 226 files against the retained
+28,138 / 196 baseline. The remaining +113 / +30 is an open gate; local analysis
+completion is not a passing baseline check or exact-head CI result.
+
 ## Sources
 
 - WASI runner / Preview boundary: [Node `node:wasi` documentation](https://nodejs.org/api/wasi.html), [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)

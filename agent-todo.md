@@ -24,13 +24,23 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 - Exact `9057a5d8` package CI hit the old 180-second native release compiler
   timeout; baseline native compilation took 328,583 ms. Separate bounded cold
   compile/prepack budgets retain the optimizer deadline and full failure logs.
-  Qualify the follow-up exact source head in CI before marking this gate passed.
+  Exact follow-up head `564c11e` passed cold package CI in 360,624 ms;
+  its exact tarball matches local evidence and all nine packed exports pass.
+  Its three required checks and Fuzz Suites passed. Keep later local hardening
+  and the separate native-debug/coverage gates distinct from this package result.
   Subsequent source publication must preflight the three required checks;
   the initial normal push implicitly bypassed missing checks via existing rights.
-- After verified source publication, start a separate Sol 6.1 High task for the
+- A separate Sol 6.1 High investigation is active from published `9057a5d8` for the
   [same-input artifact discrepancy](docs/wiki/tooling/node-package-surface.md#october-10-2026--same-input-binaryen-comparison).
   Preserve both exact raw inputs and the selected O4s package; do not use chained
   optimization or idempotence as the comparison measure.
+- New unsupported ABI mappings must fail against the reviewed identity/reason
+  policy; supported signatures continue to derive solely from FFI exports.
+- The completed published-head coverage delta is +141 lines / +31 files;
+  pre-push source already contributed +139 / +30. Six bridge behavior tests
+  eliminate npm's uncovered lines and improve complete local coverage to
+  28,251 / 226 (+113 / +30 against the retained baseline). Obtain exact-head CI;
+  the baseline still fails and must not be reset.
 - Native-debug compiler issue #1322 and coverage failures remain separate gates;
   this package work does not reset their baselines or revive DAE2/O campaigns.
 
