@@ -358,3 +358,95 @@ test "GC record-copy outlining rolls back a whole-module validation failure" {
   assert_true(@validate.validate_module(invalid) is Err(_))
   assert_true(physical_equal(gc_record_copy_outline_module(invalid), invalid))
 }
+
+///|
+#skip("dedicated artifact-depth admission regression")
+test "GC record-copy outlining preserves unrelated artifact-depth bodies" {
+  let input = gc_copy_test_module(12, 12)
+  let mut deep = [@lib.Instruction::nop()]
+  for _ in 0..<567 {
+    deep = [
+      @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(deep)),
+    ]
+  }
+  let types = input.func_sec.unwrap().0.copy()
+  let funcs = input.code_sec.unwrap().0.copy()
+  types.push(@lib.TypeIdx::new(1U))
+  let untouched = @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(deep))
+  funcs.push(untouched)
+  let original = input
+    .with_func_sec(@lib.FuncSec::new(types))
+    .with_code_sec(@lib.CodeSec::new(funcs))
+  @validate.validate_module(original).unwrap()
+  let output = gc_record_copy_outline_module(original)
+  assert_eq(output.code_sec.unwrap().0.length(), funcs.length() + 1)
+  assert_true(physical_equal(output.code_sec.unwrap().0[2], untouched))
+  @validate.validate_module(output).unwrap()
+}
+
+///|
+#skip("dedicated validation ceiling and rollback regression")
+test "GC record-copy outlining bounds deep validation separately from rewriting" {
+  for depth in [1024, 1025] {
+    let mut deep = [@lib.Instruction::nop()]
+    for _ in 0..<depth {
+      deep = [
+        @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(deep)),
+      ]
+    }
+    let budget = [8000000, 0]
+    assert_eq(
+      gc_record_copy_preflight(deep, budget),
+      if depth == 1024 {
+        Some(1024)
+      } else {
+        None
+      },
+    )
+    let input = gc_copy_test_module(12, 12)
+    let types = input.func_sec.unwrap().0.copy()
+    let funcs = input.code_sec.unwrap().0.copy()
+    types.push(@lib.TypeIdx::new(1U))
+    let untouched = @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(deep))
+    funcs.push(untouched)
+    let original = input
+      .with_func_sec(@lib.FuncSec::new(types))
+      .with_code_sec(@lib.CodeSec::new(funcs))
+    let output = gc_record_copy_outline_module(original)
+    if depth == 1024 {
+      assert_eq(output.code_sec.unwrap().0.length(), funcs.length() + 1)
+      assert_true(physical_equal(output.code_sec.unwrap().0[2], untouched))
+      @validate.validate_module(output).unwrap()
+    } else {
+      assert_true(physical_equal(output, original))
+    }
+  }
+}
+
+///|
+#skip("dedicated deep-invalid full candidate rollback")
+test "GC record-copy outlining rolls back invalid deep untouched bodies" {
+  for
+    leaf in [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(99U)),
+      @lib.Instruction::br(@lib.LabelIdx::new(9999U)),
+      @lib.Instruction::i32_const(1),
+    ] {
+    let input = gc_copy_test_module(12, 12)
+    let mut deep = [leaf]
+    for _ in 0..<567 {
+      deep = [
+        @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(deep)),
+      ]
+    }
+    let types = input.func_sec.unwrap().0.copy()
+    let funcs = input.code_sec.unwrap().0.copy()
+    types.push(@lib.TypeIdx::new(1U))
+    funcs.push(@lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(deep)))
+    let invalid = input
+      .with_func_sec(@lib.FuncSec::new(types))
+      .with_code_sec(@lib.CodeSec::new(funcs))
+    assert_true(@validate.validate_module(invalid) is Err(_))
+    assert_true(physical_equal(gc_record_copy_outline_module(invalid), invalid))
+  }
+}

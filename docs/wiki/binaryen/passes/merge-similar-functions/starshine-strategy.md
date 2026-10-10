@@ -45,7 +45,7 @@ and `ref.func` targets retain their original identity; only private helpers and
 their signatures are appended.
 
 Admission bounds imports, flattened types and function totals to 65,536,
-helpers to 32, sites to 4,096 and control depth to 128. One eight-million-unit
+helpers to 32, sites to 4,096 and recursive rewrite depth to 128. An iterative whole-module preflight permits bounded validation depth up to 1,024; deeper functions remain physically shared and are never matched or rewritten. Inputs exceeding the validation ceiling fail closed. One eight-million-unit
 budget covers all function bodies, declarations and initializer expressions,
 including functions excluded from rewriting and active segment offsets.
 Compressed local runs are bounded before snapshot conversion and unsigned

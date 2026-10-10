@@ -165,6 +165,49 @@ fn gc_record_copy_match(
 }
 
 ///|
+// Full candidate validation sees every body, even those we never rewrite.
+// Bound it independently from the recursive matcher/rewrite ceiling. DFS keeps
+// only suspended parent/sibling frames, borrowing arrays rather than slicing.
+fn gc_record_copy_preflight(
+  body : Array[@lib.Instruction],
+  budget : Array[Int],
+) -> Int? {
+  let pending : Array[(Array[@lib.Instruction], Int, Int)] = [(body, 0, 0)]
+  let mut maximum = 0
+  while pending.length() > 0 {
+    let (xs, idx, depth) = pending.pop().unwrap()
+    if idx == 0 {
+      if depth > 1024 || xs.length() > budget[0] {
+        return None
+      }
+      budget[0] -= xs.length()
+      if depth > maximum {
+        maximum = depth
+      }
+    }
+    if idx >= xs.length() {
+      continue
+    }
+    if idx + 1 < xs.length() {
+      pending.push((xs, idx + 1, depth))
+    }
+    match xs[idx] {
+      @lib.Block(_, @lib.Expr(child)) | @lib.Loop(_, @lib.Expr(child)) =>
+        pending.push((child, 0, depth + 1))
+      @lib.If(_, left, right) => {
+        if right is Some(child) {
+          pending.push((child, 0, depth + 1))
+        }
+        pending.push((left, 0, depth + 1))
+      }
+      @lib.Try(_) | @lib.TryTable(_) => return None
+      _ => ()
+    }
+  }
+  Some(maximum)
+}
+
+///|
 fn gc_record_copy_scan(
   body : Array[@lib.Instruction],
   fields_by_type : @hashmap.HashMap[UInt, Int],
@@ -340,7 +383,9 @@ fn gc_record_copy_initializer_bounded(
     return false
   }
   budget[0] -= 1
-  gc_record_copy_scan(expr.0, fields, counts, budget, 0, false)
+  ignore(fields)
+  ignore(counts)
+  gc_record_copy_preflight(expr.0, budget) is Some(_)
 }
 
 ///|
@@ -505,9 +550,15 @@ fn gc_record_copy_outline_module(mod_ : @lib.Module) -> @lib.Module {
     // Full validation initializes every local, including excluded functions.
     // Charge that dense work as well as the compressed declaration traversal.
     budget[0] -= local_count
-    let eligible = gc_record_copy_function_supported(signature, locals)
+    let maximum = match gc_record_copy_preflight(body, budget) {
+      Some(maximum) => maximum
+      None => return mod_
+    }
+    let eligible = maximum <= 128 &&
+      gc_record_copy_function_supported(signature, locals)
     supported.push(eligible)
-    if !gc_record_copy_scan(body, fields_by_type, counts, budget, 0, eligible) {
+    if eligible &&
+      !gc_record_copy_scan(body, fields_by_type, counts, budget, 0, true) {
       return mod_
     }
   }
