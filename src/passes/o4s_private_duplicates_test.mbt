@@ -72,7 +72,15 @@ test "O4s private merging preserves exported and materialized identities" {
       assert_eq(
         exports[entry_idx],
         @lib.Export::new(
-          @lib.Name::from_string(if entry_idx == 0 { "a" } else if entry_idx == 1 { "b" } else { "run" }),
+          @lib.Name::from_string(
+            if entry_idx == 0 {
+              "a"
+            } else if entry_idx == 1 {
+              "b"
+            } else {
+              "run"
+            },
+          ),
           @lib.ExternIdx::func(@lib.FuncIdx::new(func_idx)),
         ),
       )

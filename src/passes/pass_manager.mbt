@@ -84447,7 +84447,10 @@ fn run_hot_pipeline_apply_coalesce_locals_to_touched(
         return Err("missing defined function params for code index \{code_idx}")
     }
     let @lib.Func(_, @lib.Expr(instrs)) = funcs[code_idx]
-    if cl_instrs_have_stack_carried_tee_parameter_alias(
+    if run_hot_pipeline_raw_precompute_has_stack_carried_overwritten_local(
+        instrs,
+      ) ||
+      cl_instrs_have_stack_carried_tee_parameter_alias(
         instrs,
         func_params.length(),
       ) ||
@@ -84586,6 +84589,33 @@ pub fn o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(
 }
 
 ///|
+// Artifact-scale admission is per body, with a fixed upper bound on dense
+// liveness/coloring. Control/continuation containers retain the existing lane.
+fn run_hot_pipeline_tiny_flat_coalesce_selected(
+  func : @lib.Func,
+  parameter_count : Int,
+) -> Bool {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if locals.length() == 0 ||
+    locals.length() > 64 ||
+    parameter_count > 32 ||
+    instrs.length() > 128 {
+    return false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _) => return false
+      _ => if cl_instr_is_control_transfer_barrier(instr) { return false }
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_bounded_coalesce_touched(
   mod_ : @lib.Module,
   requested : Array[Bool],
@@ -84594,6 +84624,15 @@ fn run_hot_pipeline_bounded_coalesce_touched(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return []
   }
+  if funcs.is_empty() {
+    return []
+  }
+  let artifact_scale = funcs.length() >= 2000
+  let params = if artifact_scale {
+    cl_defined_func_param_cache(mod_)
+  } else {
+    []
+  }
   let protect_optimized_primes_variadic_pack = o4z_size_candidate_has_optimized_primes_variadic_pack_runtime(
     mod_,
   )
@@ -84601,15 +84640,30 @@ fn run_hot_pipeline_bounded_coalesce_touched(
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     let @lib.Func(locals, _) = funcs[code_idx]
     let local_count = locals.length()
+    let tiny_flat_selected = if artifact_scale {
+      match params.get(code_idx) {
+        Some(parameters) =>
+          run_hot_pipeline_tiny_flat_coalesce_selected(
+            funcs[code_idx],
+            parameters.length(),
+          )
+        None => false
+      }
+    } else {
+      false
+    }
     touched.push(
       code_idx < requested.length() &&
       requested[code_idx] &&
       !(protect_optimized_primes_variadic_pack &&
       run_hot_pipeline_has_optimized_primes_variadic_pack_locals(locals)) &&
       !cl_locals_have_nondefaultable_type(locals) &&
-      run_hot_pipeline_o4z_coalesce_local_count_selected(
-        funcs.length(),
-        local_count,
+      (
+        run_hot_pipeline_o4z_coalesce_local_count_selected(
+          funcs.length(),
+          local_count,
+        ) ||
+        tiny_flat_selected
       ),
     )
   }

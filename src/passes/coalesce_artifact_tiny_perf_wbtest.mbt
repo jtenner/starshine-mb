@@ -25,5 +25,8 @@ test "O4s direct coalescing rewrites flat tiny bodies in a 2000-function module"
     Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 2000)
     None => fail("expected retained function bodies")
   }
-  assert_true(@binary.encode_module(output).unwrap().length() < @binary.encode_module(input).unwrap().length())
+  assert_true(
+    @binary.encode_module(output).unwrap().length() <
+    @binary.encode_module(input).unwrap().length(),
+  )
 }

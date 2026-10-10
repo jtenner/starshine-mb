@@ -1,8 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-10
 sources:
+  - ../../../../../src/passes/coalesce_artifact_tiny_perf_wbtest.mbt
+  - ../../../../../src/passes/coalesce_bounded_test.mbt
+  - ../../../../../src/passes/coalesce_tiny_budget_wbtest.mbt
+  - ../../../../../src/passes/pass_manager.mbt
   - ./index.md
   - ../../../../../src/passes/coalesce_locals.mbt
   - ../../../../../src/passes/coalesce_locals_resume_handler_test.mbt
@@ -32,6 +36,22 @@ related:
 ---
 
 # Starshine Strategy For `coalesce-locals`
+
+## Artifact-scale flat coalescing
+
+Numeric levels 4/1 previously excluded every ordinary body once a module had
+2,000 defined functions. The bounded path now additionally admits flat bodies
+with at most 64 body locals, 32 parameters and 128 instructions. It excludes
+blocks, loops, both EH forms and control/continuation transfers; those retain
+the preexisting module-size lane. Dense analysis has at most 96 local slots
+for each newly admitted body. Admission and rewriting each collect parameter facts in a linear module traversal.
+
+Nondefaultable body-local, special runtime, stack-carried alias, snapshot and
+memory guards remain. The touched-body path now also applies the full direct
+pass's stack-carried overwrite guard before rewriting; validation cannot
+establish preservation of overwritten call arguments. Changed bodies retain
+batch validation and per-body rollback. The synthetic 2,000-function regression
+is skipped by default and run explicitly in its dedicated threshold lane.
 
 ## September 27 follow-up allocation campaign renewal
 
