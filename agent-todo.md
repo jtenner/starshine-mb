@@ -30,7 +30,8 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and the separate native-debug/coverage gates distinct from this package result.
   Subsequent source publication must preflight the three required checks;
   the initial normal push implicitly bypassed missing checks via existing rights.
-- A separate Sol 6.1 High investigation is active from published `9057a5d8` for the
+- Active isolated optimizer implementation: [discrepancy investigation](docs/wiki/tooling/npm-optimizer-discrepancy.md), based on verified `9057a5d8a`. Private DFE admission and omitted cleanup owners require reduced red regressions, independent review, original-input measurements and coordinated package qualification.
+- After verified source publication, the separate Sol 6.1 High task owns the
   [same-input artifact discrepancy](docs/wiki/tooling/node-package-surface.md#october-10-2026--same-input-binaryen-comparison).
   Preserve both exact raw inputs and the selected O4s package; do not use chained
   optimization or idempotence as the comparison measure.
