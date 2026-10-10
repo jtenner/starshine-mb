@@ -1,6 +1,6 @@
 ///|
 test "HOT input prefix reuses an existing tuple with one comparison per lane" {
-  let stack : Array[HotLowerStackValue] = Array::makei(32, fn(_) {
+  let stack : HotLowerValueStack = hot_lower_value_stack_makei(32, fn(_) {
     { node_id: 7, val_type: @lib.ValType::i32(), }
   })
   let inputs = Array::make(32, 7)
@@ -30,9 +30,13 @@ test "HOT input prefix selects the longest suffix without losing repeated lanes"
       ([1, 1, 2], [1, 1], 0),
       ([1, 1, 1], [1, 1], 2),
     ] {
-    let stack : Array[HotLowerStackValue] = nodes.map(fn(node_id) {
-      { node_id, val_type: @lib.ValType::i32(), }
-    })
+    let stack : HotLowerValueStack = hot_lower_value_stack_makei(
+      nodes.length(),
+      fn(index) {
+        let node_id = nodes[index]
+        { node_id, val_type: @lib.ValType::i32(), }
+      },
+    )
     assert_eq(hot_lower_impl_matching_input_prefix(stack, inputs[:]), expected)
     assert_eq(stack.map(fn(value) { value.node_id }), nodes)
   }

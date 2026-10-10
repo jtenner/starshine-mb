@@ -12,51 +12,42 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 
 ## npm WasmGC beta preparation [NPM-WASMGC-BETA]
 
-- Local implementation and exact packed-consumer evidence are recorded in
-  [the handoff](docs/npm-beta-handoff.md). Preserve the isolated beta branch.
-- O4s numeric levels 4/1 now qualify both package artifacts; retain the prior
-  O1 snapshot and its historical gates. Licensing remains undecided.
-- Release decisions remain: reconcile root MIT / MoonBit Apache-2.0, approve the
-  candidate version and publication/provenance route, provision or qualify the
-  documented MoonBit toolchain, and assess outstanding repository release gates.
-- Source publication to `origin/master` is authorized. npm publication, tags,
-  releases, deployment and credential changes remain unauthorized.
-- Exact `9057a5d8` package CI hit the old 180-second native release compiler
-  timeout; baseline native compilation took 328,583 ms. Separate bounded cold
-  compile/prepack budgets retain the optimizer deadline and full failure logs.
-  Exact follow-up head `564c11e` passed cold package CI in 360,624 ms;
-  its exact tarball matches local evidence and all nine packed exports pass.
-  Its three required checks and Fuzz Suites passed. Keep later local hardening
-  and the separate native-debug/coverage gates distinct from this package result.
-  Subsequent source publication must preflight the three required checks;
-  the initial normal push implicitly bypassed missing checks via existing rights.
-- The ten reviewed optimizer commits through `62ba4012f` are integrated on the
-  beta branch at `d0fbed55a`. Private DFE admission, OI optional-arm analysis and
-  bounded flat coalescing retain their separate red-first regressions and the
-  five-pass O4s queue. Combined source passes all 14,019 default tests and exact
-  packed JS/strict TS consumers on Node 25/26, plus 44 Node and 45 optimizer
-  runtime cases. Protected-head CI must qualify the combined publication.
-  See the [discrepancy investigation](docs/wiki/tooling/npm-optimizer-discrepancy.md).
-- Exact `c9fc25cd2` package/full-test/release/fuzz checks passed; its required DAE
-  job exceeded the old 30-minute total after successful native builds and
-  deterministic comparisons. A bounded 45-minute job and comparison-evidence
-  retention are under qualification; counts/profiles/failure policy stay intact.
-  Exact complete coverage is now 28,244 / 226 (+106 / +30), still failed.
-- The separate Sol 6.1 High task continues isolated GC follow-up for the
-  [same-input artifact discrepancy](docs/wiki/tooling/node-package-surface.md#october-10-2026--same-input-binaryen-comparison).
-  Preserve both exact raw inputs and the selected O4s package; do not use chained
-  optimization or idempotence as the comparison measure. Its later changes are
-  not part of this reviewed integration; broader GC/preset and effectful OI gaps
-  remain open.
-- New unsupported ABI mappings must fail against the reviewed identity/reason
-  policy; supported signatures continue to derive solely from FFI exports.
-- The completed published-head coverage delta is +141 lines / +31 files;
-  pre-push source already contributed +139 / +30. Six bridge behavior tests
-  eliminate npm's uncovered lines and improve complete local coverage to
-  28,251 / 226 (+113 / +30 against the retained baseline). Obtain exact-head CI;
-  the baseline still fails and must not be reset.
-- Native-debug compiler issue #1322 and coverage failures remain separate gates;
-  this package work does not reset their baselines or revive DAE2/O campaigns.
+- The tested build/pack/install route, generated types and preserved artifacts
+  are recorded in [the handoff](docs/npm-beta-handoff.md). Keep the isolated
+  beta branch and historical O1/O4s evidence.
+- Source publication to `origin/master` is authorized. Exact `113af3874` was
+  published by a normal fast-forward after all three protected contexts passed;
+  master package CI reproduces the qualified 47-file archive. npm publication,
+  tags, releases, deployment and credential changes remain unauthorized.
+- The ten reviewed optimizer commits through `62ba4012f` are integrated. Private
+  DFE admission, optional-arm analysis and bounded flat coalescing retain their
+  red-first regressions and the five-pass O4s numeric 4/1 queue. The unchanged
+  original-input comparison and residual limits are recorded in the
+  [discrepancy dossier](docs/wiki/tooling/npm-optimizer-discrepancy.md).
+- The bounded 45-minute required differential job passes on exact published
+  `113af3874`; its original case counts, profiles, oracle and failure policy
+  remain intact. Complete published-head coverage still fails at 28,244 / 226
+  against the unchanged 28,138 / 196 baseline. Native-debug examples fail at
+  compiler issue #1322. Preserve both failures until exact repair CI qualifies.
+- The repair candidate adds independent bridge/compiler-facts behavior tests
+  and private initialized native lower-stack storage. Actual native debug
+  examples and installed-validator tests pass locally. Fresh compatible traces
+  report 28,104 uncovered lines, 34 below the unchanged baseline. The fresh
+  47-file/4,802,894-byte archive
+  passes isolated Node25/26 JS and strict TS consumers. Exact-head CI must
+  independently qualify the combined candidate before source publication.
+  Do not reset coverage, replace debug with release, or disable assertions.
+- The later GC canonicalization/memory checkpoints remain isolated pending the
+  owner's memory acceptance. Preserve the exact raw input and selected package;
+  do not combine unlike RSS baselines or use chained/idempotent output as the
+  comparison measure. Broader GC/preset and effectful OI gaps remain open.
+- New unsupported ABI mappings fail against the reviewed identity/reason policy;
+  supported signatures continue to derive solely from FFI exports.
+- Release decisions remain: reconcile root MIT / MoonBit Apache-2.0, approve
+  candidate version and publication/provenance route, and qualify the documented
+  MoonBit toolchain and remaining repository gates. Upstream #1322 remains a
+  compiler issue despite the local compatibility workaround. Do not revive
+  unrelated DAE2/O campaigns as part of this package task.
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 

@@ -1,3 +1,25 @@
+### 2026-10-10 — Repair native compatibility and strengthen codec contracts
+
+- [The native qualification](tooling/npm-optimizer-discrepancy.md#october-10-2026--native-debug-compatibility-and-resource-qualification)
+  replaces uninitialized mixed-record arrays only in the private native lower
+  stack. Other targets keep Array storage, value types and optimizer behavior.
+  Native debug examples and validator tests pass with bounded process-stack
+  requirements; CI watches IR changes and retains its debug and validator gates.
+- [Version-1 metadata tests](binary/compiler-facts-v1.md#october-10-2026--version-1-codec-contract-qualification)
+  add independent wire, malformed-section, discriminator and truncation
+  contracts. Public bridge tests assert concrete index, initializer, opcode
+  and WASI-schema behavior. Coverage keeps the existing baseline; complete
+  exact-head qualification remains separate from selected tests.
+- All 14,032 instrumented tests pass before the final hint witness;
+  all eight selected metadata tests pass. Fresh compatible traces report
+  28,104 uncovered lines, 34 below the unchanged baseline; exact-head CI
+  remains independently required. The fresh 47-file/4,802,894-byte package
+  passes isolated Node25/26 JS and strict TS consumers and 44 Node tests.
+  The tarball is 1,103 bytes larger than the previous source checkpoint.
+  Three paired release samples preserve every optimized output. The WASI median is 3.4% slower, with overlapping ranges and
+  less than 1 MiB median RSS differences; no speed win is claimed. The later GC
+  canonicalization/memory work remains isolated pending the owner's decision.
+
 ### 2026-10-10 — Qualify bounded npm optimizer fixes
 
 - [The optimizer checkpoint](tooling/npm-optimizer-discrepancy.md) records private

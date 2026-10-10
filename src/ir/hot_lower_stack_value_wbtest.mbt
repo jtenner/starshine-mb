@@ -6,14 +6,16 @@ test "lower stack updates preserve saturating discard and terminal clearing" {
   let reference = @lib.ValType::ref_null(
     @lib.HeapType::abs(@lib.AbsHeapType::any()),
   )
-  let seed : Array[HotLowerStackValue] = [
-    { node_id: 31, val_type: reference, },
-    { node_id: 37, val_type: @lib.ValType::i64(), },
-    { node_id: 41, val_type: @lib.ValType::i32(), },
-  ]
+  let seed : HotLowerValueStack = hot_lower_value_stack_makei(3, fn(index) {
+    match index {
+      0 => { node_id: 31, val_type: reference, }
+      1 => { node_id: 37, val_type: @lib.ValType::i64(), }
+      _ => { node_id: 41, val_type: @lib.ValType::i32(), }
+    }
+  })
   for width in [0, 1, 3] {
     for consumed in [-1, 0, 1, 2, 3, 4] {
-      let stack = seed[0:width].to_owned()
+      let stack = hot_lower_value_stack_makei(width, fn(index) { seed[index] })
       let saved = stack.copy()
       let expected = stack.copy()
       for _ in 0..<consumed {
@@ -27,7 +29,11 @@ test "lower stack updates preserve saturating discard and terminal clearing" {
       )
       assert_eq(
         saved.map(fn(x) { (x.node_id, x.val_type) }),
-        seed[0:width].to_owned().map(fn(x) { (x.node_id, x.val_type) }),
+        hot_lower_value_stack_makei(width, fn(index) { seed[index] }).map(fn(
+          x,
+        ) {
+          (x.node_id, x.val_type)
+        }),
       )
       hot_lower_impl_update_stack(func, terminal, consumed, stack)
       assert_true(stack.is_empty())
@@ -45,7 +51,13 @@ test "lower stack values retain scalar and reference snapshots across writes and
     val_type: @lib.ValType::i32(),
   }
   let second : HotLowerStackValue = { node_id: 9, val_type: reference, }
-  let stack = [first, second]
+  let stack = hot_lower_value_stack_makei(2, fn(index) {
+    if index == 0 {
+      first
+    } else {
+      second
+    }
+  })
   let saved = stack.copy()
   let last = stack.last().unwrap()
   stack[1] = { node_id: 11, val_type: @lib.ValType::i64(), }

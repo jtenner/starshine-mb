@@ -15,7 +15,7 @@ test "control prefix stack retains mixed tuple suffixes and separate scalar runs
   let block = hot_build_block(func, @lib.BlockType::void_(), [
     void_id, scalar, tuple, tuple, scalar,
   ])
-  let stack : Array[HotLowerStackValue] = []
+  let stack : HotLowerValueStack = hot_lower_value_stack_new()
   hot_lower_impl_push_control_prefix(func, block, 5, stack)
   assert_eq(stack.map(fn(value) { value.node_id }), [
     scalar, tuple, tuple, scalar,
@@ -29,7 +29,7 @@ test "control prefix stack retains mixed tuple suffixes and separate scalar runs
   let full = hot_build_block(func, @lib.BlockType::void_(), [
     tuple, tuple, tuple,
   ])
-  let full_stack : Array[HotLowerStackValue] = []
+  let full_stack : HotLowerValueStack = hot_lower_value_stack_new()
   hot_lower_impl_push_control_prefix(func, full, 3, full_stack)
   assert_eq(full_stack.map(fn(value) { value.val_type }), [
     @lib.ValType::i32(),

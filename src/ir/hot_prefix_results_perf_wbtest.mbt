@@ -3,7 +3,7 @@ fn hot_prefix_results_reference(
   func : HotFunc,
   id : NodeId,
   count : Int,
-  value_stack : Array[HotLowerStackValue],
+  value_stack : HotLowerValueStack,
 ) -> Unit {
   let node = hot_node_get(func, id)
   let input_ids : Array[NodeId] = []
@@ -41,7 +41,7 @@ fn hot_prefix_results_bench(it : @bench.T, before : Bool) -> Unit {
   }
   let block = hot_build_block(func, @lib.BlockType::void_(), inputs)
   it.bench(fn() {
-    let stack : Array[HotLowerStackValue] = []
+    let stack : HotLowerValueStack = hot_lower_value_stack_new()
     if before {
       hot_prefix_results_reference(func, block, inputs.length(), stack)
     } else {

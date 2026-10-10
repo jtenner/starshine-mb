@@ -9,7 +9,7 @@ priv struct HotLowerStackValue {
 priv struct HotLowerBodyResult {
   body : Array[Instruction]
   extra_locals : Array[ValType]
-  final_stack : Array[HotLowerStackValue]
+  final_stack : HotLowerValueStack
 }
 
 ///|
@@ -438,7 +438,7 @@ fn hot_lower_impl_clear_stack_after_emit(op : HotOp) -> Bool {
 fn hot_lower_impl_push_results(
   func : HotFunc,
   id : NodeId,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
 ) -> Unit {
   // Stack bookkeeping only reads interned result rows. Keep the public
   // hot_type_results query owned, but avoid its scalar arrays and tuple copies.
@@ -459,7 +459,7 @@ fn hot_lower_impl_push_results(
 
 ///|
 fn hot_lower_impl_matching_input_prefix(
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   inputs : ArrayView[NodeId],
   comparisons? : Array[Int]? = None,
 ) -> Int {
@@ -495,7 +495,7 @@ fn hot_lower_impl_update_stack(
   func : HotFunc,
   id : NodeId,
   pop_count : Int,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
 ) -> Unit {
   let node = hot_node_get(func, id)
   if hot_lower_impl_clear_stack_after_emit(node.op) {
@@ -832,7 +832,7 @@ fn hot_lower_impl_direct_delegate_target(
 
 ///|
 fn hot_lower_impl_stack_has_node(
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   node_id : NodeId,
 ) -> Bool {
   stack.any(fn(value) { value.node_id == node_id })
@@ -1286,7 +1286,7 @@ fn hot_lower_impl_emit_preceding_future_dependencies(
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   out : Array[Instruction],
   extra_locals : Array[ValType],
   options : HotLowerOptions,
@@ -1323,7 +1323,7 @@ fn hot_lower_impl_push_control_prefix(
   func : HotFunc,
   id : NodeId,
   count : Int,
-  value_stack : Array[HotLowerStackValue],
+  value_stack : HotLowerValueStack,
 ) -> Unit {
   let node = hot_node_get(func, id)
   let mut slot = 0
@@ -1377,7 +1377,7 @@ fn hot_lower_impl_body_items(
   label_stack_head : Int,
   extra_locals : Array[ValType],
   options : HotLowerOptions,
-  entry_stack? : Array[HotLowerStackValue]? = None,
+  entry_stack? : HotLowerValueStack? = None,
 ) -> Array[Instruction] {
   let out : Array[Instruction] = []
   let mut next_stack = label_stack_head
@@ -1405,9 +1405,9 @@ fn hot_lower_impl_body_items(
   } else {
     hot_label_branch_arity(func, label_id)
   }
-  let value_stack : Array[HotLowerStackValue] = match entry_stack {
+  let value_stack : HotLowerValueStack = match entry_stack {
     Some(values) => values.copy()
-    None => []
+    None => hot_lower_value_stack_new()
   }
   hot_lower_impl_push_control_prefix(func, id, body_base, value_stack)
   let root_ids : Array[NodeId] = []
@@ -1500,7 +1500,7 @@ fn hot_lower_impl_region_body(
   label_stack_head : Int,
   extra_locals : Array[ValType],
   options : HotLowerOptions,
-  entry_stack? : Array[HotLowerStackValue]? = None,
+  entry_stack? : HotLowerValueStack? = None,
 ) -> Array[Instruction] {
   if id == HOT_NONE_NODE {
     return []
@@ -1522,9 +1522,9 @@ fn hot_lower_impl_region_body(
     )
   }
   let out : Array[Instruction] = []
-  let value_stack : Array[HotLowerStackValue] = match entry_stack {
+  let value_stack : HotLowerValueStack = match entry_stack {
     Some(values) => values.copy()
-    None => []
+    None => hot_lower_value_stack_new()
   }
   hot_lower_impl_emit_root(
     func, id, use_def, label_frames, label_stack_head, value_stack, out, extra_locals,
@@ -1637,7 +1637,7 @@ fn hot_lower_impl_drop_dead_nonfinal_root_results(
   use_def : HotNodeUseCounts,
   preserve_region_result : Bool,
   is_final_root : Bool,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   out : Array[Instruction],
 ) -> Unit {
   if is_final_root || preserve_region_result {
@@ -1656,7 +1656,7 @@ fn hot_lower_impl_drop_dead_nonfinal_root_results(
 ///|
 fn hot_lower_impl_drop_dead_stack_before_unreachable(
   id : NodeId,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   out : Array[Instruction],
 ) -> Unit {
   ignore(id)
@@ -1846,7 +1846,7 @@ fn hot_lower_impl_tail_proves_terminal(body : Array[Instruction]) -> Bool {
 fn hot_lower_impl_finalize_region_stack(
   func : HotFunc,
   keep_count : Int,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   out : Array[Instruction],
   extra_locals : Array[ValType],
 ) -> Unit {
@@ -2244,7 +2244,7 @@ fn hot_lower_impl_emit_instruction(
       } else {
         let params = hot_lower_impl_control_param_types(func, id)
         Some(
-          Array::makei(params.length(), fn(index) {
+          hot_lower_value_stack_makei(params.length(), fn(index) {
             {
               node_id: func.children[condition_region_base + 3 + index],
               val_type: params[index],
@@ -2589,7 +2589,7 @@ fn hot_lower_impl_emit_value(
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   out : Array[Instruction],
   extra_locals : Array[ValType],
   options : HotLowerOptions,
@@ -2616,7 +2616,7 @@ fn hot_lower_impl_emit_inputs(
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   out : Array[Instruction],
   extra_locals : Array[ValType],
   options : HotLowerOptions,
@@ -2657,7 +2657,7 @@ fn hot_lower_impl_emit_typed_param_block_with_entry_prefix(
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   out : Array[Instruction],
   extra_locals : Array[ValType],
   options : HotLowerOptions,
@@ -2674,7 +2674,7 @@ fn hot_lower_impl_emit_typed_param_block_with_entry_prefix(
       root_ids.push(child)
     }
   }
-  let entry_values : Array[HotLowerStackValue] = []
+  let entry_values : HotLowerValueStack = hot_lower_value_stack_new()
   let mut entry_root_count = 0
   let mut prefix_drop_root_count = 0
   let mut used_carrier_child_prefix = false
@@ -2692,7 +2692,7 @@ fn hot_lower_impl_emit_typed_param_block_with_entry_prefix(
       entry_root_count += 1
     }
   } else {
-    let entry_stack : Array[HotLowerStackValue] = []
+    let entry_stack : HotLowerValueStack = hot_lower_value_stack_new()
     if root_ids.length() > 0 &&
       hot_child_count(func, root_ids[0]) >= param_types.length() {
       used_carrier_child_prefix = true
@@ -2851,7 +2851,7 @@ fn hot_lower_impl_emit_transparent_param_block(
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   out : Array[Instruction],
   extra_locals : Array[ValType],
   options : HotLowerOptions,
@@ -2869,7 +2869,7 @@ fn hot_lower_impl_emit_transparent_param_block(
       root_ids.push(child)
     }
   }
-  let entry_values : Array[HotLowerStackValue] = []
+  let entry_values : HotLowerValueStack = hot_lower_value_stack_new()
   let mut entry_root_count = 0
   let mut used_carrier_child_prefix = false
   if stack.length() >= param_types.length() {
@@ -2886,7 +2886,7 @@ fn hot_lower_impl_emit_transparent_param_block(
       entry_root_count += 1
     }
   } else {
-    let entry_stack : Array[HotLowerStackValue] = []
+    let entry_stack : HotLowerValueStack = hot_lower_value_stack_new()
     if root_ids.length() > 0 &&
       hot_child_count(func, root_ids[0]) >= param_types.length() {
       used_carrier_child_prefix = true
@@ -2933,7 +2933,7 @@ fn hot_lower_impl_emit_transparent_param_block(
   for idx = scratch_locals.length() - 1; idx >= 0; idx = idx - 1 {
     out.push(Instruction::local_set(scratch_locals[idx]))
   }
-  let body_stack : Array[HotLowerStackValue] = []
+  let body_stack : HotLowerValueStack = hot_lower_value_stack_new()
   for idx = 0; idx < scratch_locals.length(); idx = idx + 1 {
     out.push(Instruction::local_get(scratch_locals[idx]))
     body_stack.push(entry_values[idx])
@@ -3039,7 +3039,7 @@ fn hot_lower_impl_transparent_unused_result_block_roots(
 fn hot_lower_impl_reuse_buried_scalar(
   func : HotFunc,
   id : NodeId,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   out : Array[Instruction],
   extra_locals : Array[ValType],
 ) -> Bool {
@@ -3088,7 +3088,7 @@ fn hot_lower_impl_emit_root(
   use_def : HotNodeUseCounts,
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   out : Array[Instruction],
   extra_locals : Array[ValType],
   options : HotLowerOptions,
@@ -5856,7 +5856,7 @@ fn hot_lower_body_with_extras_unverified_with_options(
   let use_def = hot_node_use_counts_build(func)
   let label_frames = hot_lower_impl_new_label_frames(func)
   let out : Array[Instruction] = []
-  let value_stack : Array[HotLowerStackValue] = []
+  let value_stack : HotLowerValueStack = hot_lower_value_stack_new()
   let extra_locals : Array[ValType] = []
   let root_ids = hot_root_span(func)
   let preserve_region_results = hot_lower_impl_preserve_region_result_roots(

@@ -376,3 +376,76 @@ release was provisioned inside ignored `.tmp/component-tools/` after checking
 the official release digest. Component generation/build/independent validation
 passes, with no generated signature or ABI changes. The npm commands do not
 publish npm, tags or releases.
+
+
+## Native compatibility and unchanged-baseline coverage repair
+
+This supersedes the earlier native/coverage failure status for the local repair
+candidate while retaining the exact published `113af3874` failures. Published
+master Required CI, package, Fuzz and README all pass; Coverage reports 28,244 /
+226 and Native Examples fails at upstream MoonBit #1322. Downloaded master
+package bytes match the qualified combined archive. The native initialized-stack
+workaround and its measured cost are recorded in the
+[optimizer dossier](wiki/tooling/npm-optimizer-discrepancy.md#october-10-2026--native-debug-compatibility-and-resource-qualification).
+
+All 14,032 fresh instrumented wasm tests pass. A final added hint witness passes
+with all eight selected metadata tests and byte-identical production trace maps;
+combining only compatible fresh traces reports **28,104 uncovered lines / 224
+files**, 34 below the unchanged **28,138 / 196** baseline. The legacy line-total
+gate keeps the higher file count and native-only conditional branches visible.
+No exclusion or baseline reset is used. The prior automatic reporter failed
+because recursive discovery mixed stale traces; its failed log is retained, and
+this local report explicitly supplies fresh maps/traces. Clean exact-head CI
+must independently confirm the repair. The
+[codec guide](wiki/binary/compiler-facts-v1.md#october-10-2026--version-1-codec-contract-qualification)
+records independent golden bytes, nested truncation/error boundaries and bridge
+assertions. Internal review verified the source, all 54 production-map hashes,
+corrected golden tags and both native IR workflow triggers.
+
+The later GC checkpoint `680fd66c14899375fddc26b7a2979db2abe183d4` remains isolated.
+It retains the additional 271,688-byte GC saving but its reported median peak
+remains 36.7 MiB above the first checkpoint. Its 21,612 KiB improvement compares
+a different paired memory-repair baseline; these results are not subtracted as
+one baseline. No later GC canonicalization/memory code is part of this repair.
+Licensing, candidate/provenance approval and npm publication remain human release
+decisions. No npm publication, tag/release, deployment or credential change occurs.
+
+
+The repaired source builds and packs a fresh 47-file / **4,802,894-byte** archive,
+SHA-256 `f5bace9daf4947dd3982a7950d634d498b3efb2470397dff1197e8ecced154a8`.
+This is 1,103 bytes larger than the prior combined archive; source inputs and
+README changed, so it is not an equal-input optimizer size comparison. The
+preserved-input paired optimizer outputs remain byte-identical.
+
+| Fresh repaired artifact | Raw bytes | Optimized bytes | Saved bytes |
+| --- | ---: | ---: | ---: |
+| WasmGC API | 7,452,543 | 7,232,943 | 219,600 |
+| WASI CLI | 6,748,603 | 6,240,407 | 508,196 |
+
+Raw SHA-256 GC/WASI:
+`3ec5a69b6f07bef913bfaf8df7f2bab0c4dc34cae2cbeed0e2037da3f412c072` /
+`150a6be577fbeb31a2ef299158f686fd6112db43b7196d1d6e5375a72c7370be`.
+Optimized SHA-256 GC/WASI:
+`b9c9466080b86996f2d616e41bf9c4eadf18a0ce5c8038699fabac154c9d290b` /
+`48a9a9a2b63a5c6b5bc7aff4bcbe244bb7d8d745582be269f25938c2807e84f0`.
+Fresh native bootstrap SHA-256:
+`b5ff64f355fe6b415b662a79d3762faf36276641f22f8628f8d45c6cc41faf36`.
+Build wall time is 297,603 ms; GC/WASI optimization plus validation is
+8,305 / 9,084 ms; API/help parity takes 644 ms. The observation hash remains
+`49034fc667f46d450d3147c525c10c9bb54f7663c85711df7cb9a1089ec0593c`.
+These are single build observations, not a timing improvement claim.
+
+The exact fresh archive passes normal offline install into empty JS and strict
+NodeNext TypeScript 5.8.3 consumers on Node 25.8.1 and 26.11.1. Both consumer kinds
+exercise all nine exports, real GC initialization, parse/validate/optimize/encode,
+errors and CLI execution with checkout/MoonBit filesystem access denied and
+MoonBit absent from PATH. All 44 actual Node tests, 18 generation/process helper
+tests, FFI/declaration/product-version drift, README/API sync, workflow contracts
+and actionlint pass. Tar inspection confirms both required optimized Wasm files,
+public JS/declarations, internal runtime/shared declarations, generated command
+JS, CLI mode 0755, examples and README; zero runtime dependencies. No source,
+schema, tests, raw/debug artifacts, logs or private backend declarations enter
+the archive. Both Wasm files extracted from this exact archive independently
+validate. Artifacts/reports remain in ignored `dist/npm/qualified-native-coverage/`
+and `dist/npm/source-publication/native-debug-investigation/`. Clean exact-head
+CI and protected source-push preflight remain the final source qualification.

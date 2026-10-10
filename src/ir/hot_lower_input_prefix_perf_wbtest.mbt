@@ -1,6 +1,6 @@
 ///|
 fn hot_lower_input_prefix_reference(
-  stack : Array[HotLowerStackValue],
+  stack : HotLowerValueStack,
   inputs : ArrayView[NodeId],
 ) -> Int {
   let max_count = if stack.length() < inputs.length() {
@@ -37,7 +37,10 @@ fn hot_lower_input_prefix_bench(
   if mode == 2 && width > 0 {
     nodes[width - 1] = 8
   }
-  let stack : Array[HotLowerStackValue] = nodes.map(fn(node_id) {
+  let stack : HotLowerValueStack = hot_lower_value_stack_makei(nodes.length(), fn(
+    index,
+  ) {
+    let node_id = nodes[index]
     { node_id, val_type: @lib.ValType::i32(), }
   })
   let expected = hot_lower_input_prefix_reference(stack, inputs[:])

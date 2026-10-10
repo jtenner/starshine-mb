@@ -207,3 +207,43 @@ coverage/native-example CI gates and exact integrated-head release qualification
 remain with preparation owner/parent; they are not claimed here. Licensing stays
 undecided. Local commits are ready for coordinated source integration; this task
 performs no push, npm publication, release/tag, deployment or credential changes.
+
+
+## October 10, 2026 — Native-debug compatibility and resource qualification
+
+MoonBit 0.1.20260920 / moonc 0.10.14+7d59c7ec9 fails native-debug lowering
+of uninitialized non-null reference arrays containing the mixed `#valtype`
+`HotLowerStackValue` record (upstream issue #1322). The private native stack
+now uses an initialized `FixedArray` and a logical count. Other targets retain
+core `Array` storage. Push growth and copy initialize every slot; indexed access
+checks logical bounds. Pop, clear and truncate retain slots like core Array,
+keeping their constant-time cost and the observations of retained iterators.
+The record remains a value type; no optimizer algorithm or public API changes.
+
+Native regressions cross both growth boundaries with scalar and nullable
+reference types, check every value/type in a copy and retained iterator, and
+exercise replacement, removal and empty states. Existing lower-stack fixtures
+use target-aware factories with their assertions preserved. Actual native-debug
+CLI compilation, all three example groups (six independently validated outputs)
+and the existing installed-validator test pass. Large debug test linking also
+needs `ulimit -s 65536` with this compiler: the default 8 MiB process stack
+reported a compiler stack overflow after the array issue was cleared. CI applies
+this 64 MiB limit only in the relevant test processes, keeps the debug target,
+and watches IR changes in both push and pull-request filters.
+
+Three paired serial native-release O4s runs per preserved package input produce
+identical output hashes and sizes before/after this compatibility change. All
+12 outputs independently validate. Order alternates between baseline and
+candidate. Local median wall time and peak child RSS are:
+
+| Input | Baseline seconds | Candidate seconds | Baseline KiB | Candidate KiB |
+| --- | ---: | ---: | ---: | ---: |
+| WasmGC | 8.634 | 8.613 | 268,412 | 268,080 |
+| WASI | 9.535 | 9.859 | 278,688 | 279,016 |
+
+The WASI median is about 3.4% slower; ranges overlap and median RSS differences are
+under 1 MiB. This short sample supports compatibility and bounded resource
+cost, not a speed win. Full source/package qualification is recorded separately
+in the npm handoff. The later GC canonicalization and memory-repair checkpoints
+remain isolated pending the owner's memory decision; their results are not
+attributed to this initialized-storage change.

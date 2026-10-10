@@ -9,6 +9,7 @@ on:
       - "package.json"
       - "src/cmd/**"
       - "src/cli/**"
+      - "src/ir/**"
       - "src/passes/**"
       - "src/wast/**"
       - "src/wat/**"
@@ -28,6 +29,7 @@ on:
       - "package.json"
       - "src/cmd/**"
       - "src/cli/**"
+      - "src/ir/**"
       - "src/passes/**"
       - "src/wast/**"
       - "src/wat/**"
@@ -89,12 +91,20 @@ jobs:
             cargo install wasm-tools --locked --version "$WASM_TOOLS_VERSION"
           fi
 
+      - name: Run native lower value stack regressions
+        run: |
+          ulimit -s 65536
+          moon test --target native \
+            --package jtenner/starshine/ir \
+            --file hot_lower_value_stack_wbtest.mbt
+
       - name: Run examples CLI smoke checks (native target)
         run: |
           bun examples smoke
 
       - name: Run native fuzz harness differential test
         run: |
+          ulimit -s 65536
           moon test --target native \
             --package jtenner/starshine/cmd \
             --file fuzz_harness_wbtest.mbt \

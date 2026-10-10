@@ -2,7 +2,7 @@
 fn lower_stack_update_bench(it : @bench.T, width : Int) -> Unit {
   let func = HotFunc::new()
   let id = hot_build_const_i32(func, @lib.I32(7))
-  let stack : Array[HotLowerStackValue] = []
+  let stack : HotLowerValueStack = hot_lower_value_stack_new()
   it.bench(fn() {
     stack.clear()
     for index in 0..<width {

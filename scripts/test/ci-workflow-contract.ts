@@ -127,6 +127,11 @@ export function runCiWorkflowContractTest(): void {
     "clean-checkout Node package static contract",
   );
 
+  const nativeExamples = fs.readFileSync(path.join(workflowDir, "examples-cli-native.yml"), "utf8");
+  if (nativeExamples.split('      - "src/ir/**"').length - 1 !== 2) {
+    fail("native examples must watch IR changes in both push and pull-request path filters");
+  }
+
   const staleMainTriggers: string[] = [];
   const missingMoonUpdates: string[] = [];
   const staleNodePrefixes: string[] = [];
