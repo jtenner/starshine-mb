@@ -20128,7 +20128,12 @@ fn OiStateWriteSetFact::from_value_subtree(
       _ => ()
     }
     for slot = 0; slot < @ir.hot_child_count(func, id); slot = slot + 1 {
-      walk(@ir.hot_child_get(func, id, slot))
+      let child_id = @ir.hot_child_get(func, id, slot)
+      // Optional else/catch regions use HOT's absent-node sentinel. They have
+      // no writes to collect; all present children still require a live node.
+      if child_id != -1 {
+        walk(child_id)
+      }
     }
   }
   walk(node_id)

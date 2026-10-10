@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-10
 sources:
+  - ../../../../../src/passes/oi_optional_control_wbtest.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/cmd/p00_oi_order_wbtest.mbt
   - ../../../../../scripts/test/p00-correctness-runtime.ts
@@ -28,6 +29,16 @@ related:
 ---
 
 # Current Starshine `optimize-instructions` strategy
+
+## Optional control-arm state analysis
+
+The write-set walk skips the HOT `-1` sentinel for an absent optional else or
+catch arm. Present children still pass through the normal live-node check; the
+walk continues collecting local/global writes from every present arm. A valid
+no-else `if` regression reproduced the live-node abort before this change and
+checks that its global write remains visible afterward. This also repairs the
+same analysis path reached by instruction reordering on the original npm GC
+artifact; final artifact validation remains separate from the focused test.
 
 ## October 1, 2026 large-module local-group validation
 
