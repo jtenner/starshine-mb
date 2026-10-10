@@ -424,3 +424,34 @@ The trusted output validates, returns `11`, changes the exported mutable global 
 ## Component Model Boundary
 
 The generated Component Model facade remains rooted at `@lib.Module`. Representation-owned fact constructors are intentionally not recursively exposed through WIT. Compiler facts enter through the native/library representation API or binary decode. Component clients may preserve or clear an existing section without constructing the full representation graph.
+
+
+## October 10, 2026 — Version-1 codec contract qualification
+
+The binary tests in `compiler_facts_tag_boundaries_wbtest.mbt` exercise valid
+version-1 enum values alongside invalid discriminator bytes, option presence,
+booleans, custom-section framing, reserved names and duplicate-section errors.
+Optimization-hint goldens preserve site/function targets and a loop count beyond
+32 bits, and test truncation within each nested field.
+Independent golden bytes cover nontrivial reference indices and allocation
+identities; closure remains tag 2 and box tag 3. Valid witnesses also reject
+every strict encoded prefix. These fixtures preserve the established protocol;
+they do not change production encoding or relax malformed-input handling.
+
+The public bridge tests in `src/ffi_bridge/compiler_bridge_test.mbt` independently
+check imported index prefixes, reference order and duplicates, carrier/global
+initializers, scalar/SIMD memory-opcode bytes and WASI direction/depth/buffer
+limits. They complement codec roundtrips with concrete expected behavior.
+Coverage is measured against the unchanged repository baseline; selected tests
+and local fresh reports do not substitute for complete exact-head CI.
+
+
+The completed instrumented wasm run passes 14,032 tests. After adding the hint
+witness, all eight selected metadata tests pass with unchanged production trace
+maps (SHA-256 checked). Combining only these fresh compatible traces reports
+28,104 uncovered lines / 224 files, 34 lines below the unchanged 28,138 / 196
+baseline. The gate compares line totals; the higher file total stays visible.
+The legacy reporter counts native-only conditional branches in the wasm report;
+no exclusions are added. Old recursive traces from other build directories are
+not mixed into this local report. Exact-head clean CI must independently confirm
+the repair; this does not label the earlier stale-trace report failure as passed.
