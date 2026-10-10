@@ -8,6 +8,7 @@ sources:
   - ../../../src/passes/optimize.mbt
   - ../../../src/passes/duplicate_function_elimination.mbt
   - ../../../src/passes/o4s_private_duplicates_test.mbt
+  - ../../../src/passes/dfe_gc_retention_wbtest.mbt
   - ../../../src/passes/oi_optional_control_wbtest.mbt
   - ../../../src/passes/pass_manager.mbt
   - ../../../src/passes/coalesce_artifact_tiny_perf_wbtest.mbt
@@ -413,3 +414,95 @@ local branch based exactly there; coordinate the integrated baseline and apply
 its separate regression/fix commits through that owner, without concurrent
 master pushes. Parent messaging currently returns `thread not found`; the
 platform handoff and retained local progress/evidence provide the handoff path.
+
+## Qualified GC compaction memory follow-up
+
+The reviewed `ae6900cb0` checkpoint stays intact. Separate red
+`435cb5cfa357977d5cc5713096b94ff0e60db0a2` exposes unnecessary reconstruction of
+unmoved typed bodies/subtypes. Repair
+`121084db47bcf56aadbad459db1d1b85b056683f` uses sparse changed operand mappings,
+a separate dense name ownership map only with name metadata, and skips the
+generic type-section rewrite that retained-group rebuilding immediately
+discarded. Other remapper callers keep the default full rewrite. Type admission,
+proposal preservation, presets and immutable input ownership are unchanged.
+Focused physical-sharing/name/immutability controls at widths 1/8/32 pass; all
+14,033 default tests, including shifted groups and proposal remappers, pass.
+Independent authorized read-only source and resource evidence reviews approve
+this scope.
+
+Fresh native SHA-256
+`df2c4d5c01d21509718c4c6b65b3659de77285b0c0d456c959c1f36c7795bb9b`
+starts each measurement directly from the ORIGINAL GC/WASI hashes above. Three
+alternating control/repair GC runs use isolated fresh-child measurements; no
+other heavy build/benchmark runs concurrently. These short local samples do
+not establish a universal time or memory bound.
+
+| Numeric 4/1 native CLI | Peak RSS KiB samples | Median KiB | Wall seconds samples |
+| --- | --- | ---: | --- |
+| Previous pre-GC checkpoint | 268,636 / 265,468 / 267,604 | 267,604 | 8.478 / 9.664 / 8.314 |
+| Reviewed GC checkpoint, paired controls | 321,536 / 322,052 / 321,712 | 321,712 | 8.882 / 8.685 / 8.581 |
+| Storage repair | 318,612 / 318,136 / 324,420 | 318,612 | 8.900 / 8.578 / 8.705 |
+
+The repair median is 3,100KiB lower, but its maximum is higher and ranges
+overlap: no reliable upper-peak improvement follows. The remaining median
+increase versus the pre-GC checkpoint is 51,008KiB (about 49.8MiB). Paired GC
+wall medians 8.685/8.705s provide no meaningful speed claim. One WASI control
+278,672KiB/9.020s versus repaired 278,836KiB/9.804s is retained, including its
+adverse timing; one pair does not establish speed parity or a regression trend.
+
+Local GDB snapshots visit occupied blocks in the synchronous native default
+mimalloc heap. They count rounded allocated slots including headers/capacity,
+not cumulative allocations, whole-process memory or phase maxima. Instrumented
+RSS/time remain diagnostic and are excluded from the normal peak table. Libc
+Massif does not observe this static mimalloc build.
+
+| Phase | GC checkpoint occupied bytes | Repair occupied bytes | Removed bytes |
+| --- | ---: | ---: | ---: |
+| After pre-canonicalization | 225,218,288 | 221,737,808 | 3,480,480 |
+| After DFE, before first constraint analysis | 234,658,576 | 231,292,816 | 3,365,760 |
+| Before writing encoded output | 7,178,160 | 7,178,160 | 0 |
+| Allocator process shutdown entry | 98,400 | 98,400 | 0 |
+
+Before canonicalization both occupy 148,543,968 bytes. Most of the increase
+therefore consists of live overlapping immutable input/transformed IR, not only
+freed pages retained by the allocator. Its extra logical data is transient in
+this CLI sample; RSS can remain high after those objects are released. This is
+not a whole-process leak guarantee or repeated npm-API heap qualification.
+Changed concrete indices still require new immutable trees. Scratch maps/arrays
+are bounded by flat type count; unchanged regions now share storage. Existing
+dictionary collision/repeated-scan behavior is unchanged. Three independently
+validated, identity-protected fixtures requiring changed concrete references
+at widths 128/512/2048 add 65,040/257,040/1,025,040 occupied bytes across the
+pre-canonicalization boundary: `500*width + 1040` for this fixed type shape.
+That demonstrates repaired-path growth in these controls, not repair savings
+against the old tool or a universal graph-complexity bound.
+
+All original outputs remain byte-identical to the reviewed GC checkpoint:
+GC 6,960,836 and WASI 6,240,505 bytes with the same hashes above. Reduced alias/
+shifted-group/subtype outputs also byte-match, and fresh Node observers preserve
+48 results, mutated state, six RuntimeError classes, host call order and three
+function identities. Trap messages/locations and non-null typed host arguments
+remain outside the observation scope. Original outputs validate independently.
+
+Strict dedicated DFE renewal uses this fresh native, verified v133, seed 0x5eed,
+eight subprocesses, an explicit unchanged generator, independent validation and
+15s subprocess limits. It completes all 10,000 cases: 5,000 normalized matches
+and 5,000 existing private fixed-point caller residuals, with zero validation/
+generator/command failures. The complete input manifest hashes exactly to the
+prior run, `40549dec6f139a14ef049220951f04440d13fa407472a6fee310a90c0d248454`;
+all 20 retained input/Starshine/Binaryen bundles byte-match. Existing independent
+source/reviewer reasoning classifies that bounded private constant/caller family
+as six-byte Starshine wins, rather than calling mismatch output safe by size
+alone. Runtime/property modes are off; this aggregate does not cover GC aliases.
+The initial 39-case default-stop run and a preliminary 10,000-case run with
+default validator/timeout/reduction settings remain separate from this stricter
+qualification. No final whole-pass audit closure is claimed.
+
+The remaining O4/s1 gaps stay 1,415,727 GC/91,972 WASI bytes. This allocation-only
+repair does not rerun Binaryen because output bytes are unchanged; the retained
+verified-v133 identical-original comparison remains the target. Prior original-
+package and fresh-source FFI/types/packed JS/strict-TS checks remain historical
+qualification of `ae6900cb0`, not a new package build of this repair. Per parent
+coordination, this follow-up performs no npm action; integrated-head package/CI
+qualification stays with the preparation owner. Broader recursive-type/body/
+preset work and the scoped effectful OI gap remain open.

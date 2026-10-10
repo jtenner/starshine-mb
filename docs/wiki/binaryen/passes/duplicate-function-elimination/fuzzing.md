@@ -10,6 +10,21 @@ sources:
 
 # `duplicate-function-elimination` Fuzzing Profile
 
+## October 10 GC storage repair renewal
+
+The [memory follow-up](../../../tooling/npm-optimizer-discrepancy.md#qualified-gc-compaction-memory-follow-up)
+records fresh native `df2c4d5c01d21509718c4c6b65b3659de77285b0c0d456c959c1f36c7795bb9b`,
+verified v133 and an identical owned-profile manifest at seed 0x5eed. All 10,000
+cases complete under explicit independent validation, 15s subprocess limits
+and eight workers: 5,000 normalized matches plus 5,000 existing private-caller
+residuals, zero validation/generator/command failures. Every retained bundle
+byte-matches the previous reviewed checkpoint; its scoped six-byte-win
+classification carries forward with the same source contract and limitations.
+Runtime/property modes are off and no GC alias coverage follows from this lane.
+Default 14,033 tests and reduced public alias/shifted/subtype runtime observations
+pass; memory sample overlap and retained allocator pages are qualified separately.
+This remains scoped implementation signoff, not final whole-pass audit closure.
+
 ## October 10 bounded GC canonicalization renewal
 
 The [npm discrepancy follow-up](../../../tooling/npm-optimizer-discrepancy.md#qualified-bounded-gc-follow-up)

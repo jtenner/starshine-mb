@@ -20,6 +20,19 @@
   less than 1 MiB median RSS differences; no speed win is claimed. The later GC
   canonicalization/memory work remains isolated pending the owner's decision.
 
+### 2026-10-10 — Qualify GC compaction storage and memory cost
+
+- [Resource qualification](tooling/npm-optimizer-discrepancy.md#qualified-gc-compaction-memory-follow-up)
+  preserves the reviewed GC checkpoint and separately repairs identity-map and
+  discarded type-section reconstruction, with red storage-reuse regression,
+  independent review and 14,033 passing tests. Original outputs stay exact.
+- Occupied default-heap storage falls 3,480,480 bytes after pre-canonicalization;
+  both versions release extra logical data before writing. Normal RSS ranges
+  overlap; repaired median remains about 49.8MiB above pre-GC. Native transient
+  lifetime and fixed-shape scaling do not imply general leak/peak guarantees.
+- No npm or licensing action; integrated package/CI qualification stays with
+  preparation owner. Broader optimizer disparity remains open.
+
 ### 2026-10-10 — Qualify bounded GC type canonicalization
 
 - [The follow-up checkpoint](tooling/npm-optimizer-discrepancy.md#qualified-bounded-gc-follow-up)
