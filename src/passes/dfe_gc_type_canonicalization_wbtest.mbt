@@ -34,3 +34,18 @@ test "DFE singleton interning keeps recursive groups and proposal identity bound
   ]
   @debug.assert_eq(dfe_duplicate_simple_type_canonical_map(rec_types), { 1U: 0U, 5U: 4U })
 }
+
+///|
+test "DFE mixed GC interning normalizes equivalent abstract reference sugar" {
+  let abbrev = @lib.ValType::funcref()
+  let expanded = @lib.ValType::ref_type(@lib.RefType::new(
+    true, @lib.HeapType::abs(@lib.AbsHeapType::func()),
+  ))
+  @debug.assert_eq(abbrev, expanded)
+  let types = [abbrev, expanded].map(value =>
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([
+      @lib.FieldType::new(@lib.StorageType::val_type(value), @lib.Mut::const_()),
+    ]))),
+  )
+  @debug.assert_eq(dfe_duplicate_simple_type_canonical_map(types), { 1U: 0U })
+}
