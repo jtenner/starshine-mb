@@ -423,6 +423,17 @@ fuzz, coverage and native-example workflows. The workflow contract fails if
 either push or pull-request filters omit them; legacy JSON triggers remain.
 These triggers preserve the separate native-debug and coverage failures.
 
+The reviewed optimizer checkpoint through `62ba4012f` is integrated at
+`d0fbed55a` on the package branch. Fresh combined source produces a 47-file,
+4,801,791-byte archive, SHA-256
+`c59a32ef17ee6538a1c9c6e4c5515b9b0b4763bae16d5067e99d2e78ebf2d411`.
+GC/WASI sizes are 7,452,238 -> 7,232,670 and 6,748,815 -> 6,240,581 bytes.
+All 14,019 default tests, 44 Node cases, 45 optimizer host controls and isolated
+Node25/26 JS/strict TS consumers pass. The [handoff](../../npm-beta-handoff.md#combined-optimizer-checkpoint)
+separates fresh build evidence from the owner's same-original comparisons and
+records the exact-head CI publication precondition. The separate GC follow-up,
+licensing, coverage and native-debug failures remain open.
+
 ## Sources
 
 - WASI runner / Preview boundary: [Node `node:wasi` documentation](https://nodejs.org/api/wasi.html), [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)

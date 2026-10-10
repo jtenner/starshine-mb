@@ -62,7 +62,8 @@ and requires those levels and the expanded queue: duplicate-function elimination
 constraint analysis, vacuum, reorder locals and strip debug. This is the current
 fast preset; the full O4z scheduler requires levels 4/4.
 A duplicate-function fixture must transform and preserve execution result 84
-before/after; its measured size changes from 70 to 54 bytes. Both actual package
+before/after; the integrated checkpoint changes it from 70 to 48 bytes
+(the earlier checkpoint produced 54 bytes). Both actual package
 artifacts shrink in this qualification. Size or runtime gains are not promised.
 Each optimizer command has a default 180-second budget; consumer commands have
 a 240-second budget. Cold compiler commands have separate 900-second deadlines,
@@ -268,7 +269,55 @@ build remains Starshine O4s; comparison candidate tarballs are separate evidence
 All original unoptimized inputs and the qualified tarball remain under ignored
 `dist/npm/`, including preserved O1 and Binaryen comparison reports. The user
 requested a new Sol 6.1 High task to investigate the discrepancy after source
-publication. That optimization investigation is not part of this preparation.
+publication. Its reviewed ten-commit checkpoint through `62ba4012f` is now
+integrated into this preparation branch; later GC follow-up remains isolated.
+
+## Combined optimizer checkpoint
+
+The ten optimizer commits were cherry-picked with original commit attribution
+onto the version-consistent package branch. Combined implementation head is
+`d0fbed55a8bfedc3877740b61961e1e8c8816b08`; pass sources and regressions match
+the owner's reviewed `62ba4012f` checkpoint. Backlog/wiki conflicts preserve
+both the package release blockers and the remaining optimizer gaps. All 14,019
+default MoonBit tests pass, alongside generator/process/version/component helper
+tests, the workflow contract and actionlint. An identical explicit-target test
+rerun was stopped after the default WasmGC suite passed; it is not counted as
+an additional passing gate.
+
+The [scoped optimizer dossier](wiki/tooling/npm-optimizer-discrepancy.md)
+records private DFE admission, absent optional-arm analysis and bounded flat
+coalescing. O4s retains its five-pass queue. The three dedicated 10,000-case
+GenValid comparisons have no validation/generator/command failures, but
+runtime/property modes were off and structural residuals remain. This is
+scoped integration evidence, not full pass closure or universal equivalence.
+The owner's same-original samples save an additional 55,014 GC / 107,345 WASI
+bytes; the remaining Binaryen O4/s1 gaps are 1,687,415 / 91,972 bytes. Those
+frozen-input samples are distinct from this combined source's fresh artifacts.
+
+The combined source's fresh tarball contains 47 files and 4,801,791 bytes,
+SHA-256 `c59a32ef17ee6538a1c9c6e4c5515b9b0b4763bae16d5067e99d2e78ebf2d411`.
+Preserved evidence is under `dist/npm/qualified-combined/`, including raw and
+optimized artifacts, build report, snapshot hashes and both consumer reports.
+WasmGC changes from 7,452,238 to 7,232,670 bytes; WASI from 6,748,815 to
+6,240,581 bytes. Local build time is 278,892 ms, including changed native source
+compilation; optimization plus independent validation takes 8,410 / 9,138 ms.
+API/CLI parity takes 627 ms and retains observation hash
+`49034fc667f46d450d3147c525c10c9bb54f7663c85711df7cb9a1089ec0593c`.
+These are single local samples, not a runtime-performance claim.
+
+Normal offline installation into empty JS and strict NodeNext TypeScript
+projects passes on Node 25.8.1 and 26.11.1 with TypeScript 5.8.3. All nine
+exports, initialization, parse/validate/optimize/encode behavior and errors,
+nominal type rejection, installed CLI `v0.1.2-beta.0`, transformation and
+ambient-stack fixtures pass with checkout/compiler reads denied. The archive
+includes both Wasm artifacts, declared JS/types, CLI and examples, with no
+source, schema, private backend declarations, tests, raw artifacts or logs.
+All 44 Node cases and 45 optimizer host/grow-select cases (90 expectations),
+28 helper cases (105 expectations), generated drift and README sync pass.
+Independent internal review found no new concrete defect and confirmed the
+integration and package contracts. Exact final committed-head CI remains the
+precondition for a normal nonforce master update; baseline native-debug and
+coverage failures remain separate release gates.
 
 ## Candidate version consistency
 

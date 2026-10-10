@@ -30,11 +30,19 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and the separate native-debug/coverage gates distinct from this package result.
   Subsequent source publication must preflight the three required checks;
   the initial normal push implicitly bypassed missing checks via existing rights.
-- Active isolated optimizer implementation: [discrepancy investigation](docs/wiki/tooling/npm-optimizer-discrepancy.md), based on verified `9057a5d8a`. Private DFE admission, OI optional-arm analysis and bounded flat coalescing have tested local fixes, independent review, original-input measurements and fresh-source packed qualification. Integrate through parent; broader GC/preset and effectful OI gaps remain open.
-- After verified source publication, the separate Sol 6.1 High task owns the
+- The ten reviewed optimizer commits through `62ba4012f` are integrated on the
+  beta branch at `d0fbed55a`. Private DFE admission, OI optional-arm analysis and
+  bounded flat coalescing retain their separate red-first regressions and the
+  five-pass O4s queue. Combined source passes all 14,019 default tests and exact
+  packed JS/strict TS consumers on Node 25/26, plus 44 Node and 45 optimizer
+  runtime cases. Protected-head CI must qualify the combined publication.
+  See the [discrepancy investigation](docs/wiki/tooling/npm-optimizer-discrepancy.md).
+- The separate Sol 6.1 High task continues isolated GC follow-up for the
   [same-input artifact discrepancy](docs/wiki/tooling/node-package-surface.md#october-10-2026--same-input-binaryen-comparison).
   Preserve both exact raw inputs and the selected O4s package; do not use chained
-  optimization or idempotence as the comparison measure.
+  optimization or idempotence as the comparison measure. Its later changes are
+  not part of this reviewed integration; broader GC/preset and effectful OI gaps
+  remain open.
 - New unsupported ABI mappings must fail against the reviewed identity/reason
   policy; supported signatures continue to derive solely from FFI exports.
 - The completed published-head coverage delta is +141 lines / +31 files;

@@ -6,9 +6,14 @@
 - Exact-original O4s saves another 55,014 GC / 107,345 WASI bytes; the same-input
   Binaryen gap and resource costs remain explicit. The five-pass beta queue is
   retained after the small incremental coalescing payoff.
-- Fresh-source FFI/TypeScript generation, O4s self-build, API/CLI parity and
-  isolated packed consumers pass. Broader optimizer, license and integrated CI
-  release gates remain open; no source push or package publication occurs here.
+- The ten reviewed commits through `62ba4012f` are integrated on the package
+  branch at `d0fbed55a`; pass sources match the reviewed checkpoint. Combined
+  default tests pass 14,019/14,019. The fresh 47-file/4,801,791-byte archive passes
+  isolated Node25/26 JS and strict TS consumers, 44 Node and 45 host controls;
+  [the handoff](../npm-beta-handoff.md#combined-optimizer-checkpoint) records exact
+  hashes and build/parity costs. Protected exact-head CI qualifies source
+  publication separately. Broader optimizer, license and
+  release gates remain open; npm publication is not authorized.
 
 ### 2026-10-10 — Preserve the npm artifact discrepancy before source publication
 
@@ -36,8 +41,8 @@
   version text now agree; package observations assert this at runtime. Current
   MoonBit metadata path filters are covered by the workflow contract.
   License selection and npm publication remain undecided. A separate Sol 6.1
-  High investigation is active from the published baseline; optimizer internals
-  remain outside this preparation task.
+  High investigation supplied the reviewed optimizer checkpoint now integrated
+  into this preparation; its later GC follow-up remains isolated.
 
 ### 2026-10-10 — Qualify O4s for npm self-optimization
 
