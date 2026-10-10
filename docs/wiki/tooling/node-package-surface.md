@@ -83,8 +83,8 @@ consumers on Node 25.8.1/26.11.1; source API 45/45 on both. Its SHA-256 is
 `075f466115558f43b21ca7d7d298fcb77eea60ef696d9d81db71c22a215d6389`.
 The integrated full WasmGC gate passes 14,104 tests and all fourteen CI fuzz
 suites; plain default passes 14,107 tests. The ordinary MSF 10k passes normalized
-and semantic comparison, preserving its raw encoding loss. Coverage and remote
-CI remain pending. The external consumer
+and semantic comparison, preserving its raw encoding loss. Coverage passes against its unchanged baseline (28,075 lines / 227 files,
+−63 lines / +31 files). Exact-head remote CI remains pending. The external consumer
 scratch guard rejects checkout-local directories and symlink aliases;
 `NPM_CONSUMER_TMPDIR` is independent of compiler `TMPDIR`.
 The frozen 1cb checkpoint passed all six exact-head workflows. The separate bootstrap fixture is
@@ -93,7 +93,7 @@ remain historical evidence in [the handoff](../../npm-beta-handoff.md).
 
 The current six-pass build requires an installed-package immutable-record-copy
 proof before promotion. Source build and exact-tarball consumers pass; final
-coverage and remote CI qualification remain pending. The published 1cb checkpoint does not qualify
+remote CI qualification remains pending. The published 1cb checkpoint does not qualify
 these changes. No size or runtime improvement is promised for future builds.
 
 The archive is 4,297,012 packed / 12,095,344 unpacked bytes. Relative to frozen

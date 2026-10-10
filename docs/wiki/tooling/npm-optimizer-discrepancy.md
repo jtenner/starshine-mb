@@ -815,6 +815,8 @@ The integrated full WasmGC gate passes 14,104/14,104 tests and all fourteen
 CI fuzz suites (100,784 attempts, seed 117419138004019635). Plain default Wasm
 passes 14,107/14,107. The ordinary MSF 10k has 10,000 normalized and semantic
 matches, exit 0, with equal total canonical size 1,747,794 bytes; its raw output
-remains 28,329 bytes larger. Coverage and exact-head remote CI remain pending. Shipping release controls pass 16/16. Broader MSF audit, memory P1,
+remains 28,329 bytes larger. Coverage passes normally at 28,075 uncovered lines / 227 files against unchanged
+28,138 / 196 (−63 lines / +31 files). Exact-head remote CI remains pending.
+Shipping release controls pass 16/16. Broader MSF audit, memory P1,
 sixteen historical differential discrepancies and held type projections remain
 open. Npm publication remains a separate user-approved release action.

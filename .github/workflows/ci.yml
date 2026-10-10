@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - master
+      - codex/npm-wasmgc-beta
 
 concurrency:
   group: required-ci-${{ github.workflow }}-${{ github.ref }}

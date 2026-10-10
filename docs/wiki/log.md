@@ -17,7 +17,7 @@
   despite unpacked reduction; tiny copy calls slow, memory P1 stays open.
 - Integrated full WasmGC passes 14,104 tests and all fourteen CI fuzz suites.
   Plain default passes 14,107 tests and ordinary MSF 10k matches normalized
-  output and semantics, retaining its raw-size gap. Coverage and remote CI remain pending;
+  output and semantics, retaining its raw-size gap. Coverage passes against the unchanged baseline; remote CI remains pending;
   npm publication, tags/releases and protection changes are excluded.
 
 ### 2026-10-10 — Retain scoped MIT and conservative Binaryen redistribution notices

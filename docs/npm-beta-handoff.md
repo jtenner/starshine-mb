@@ -44,18 +44,23 @@ and two Wasms change. The integrated full WasmGC gate passes 14,104/14,104 tests
 CI fuzz suites (100,784 attempts, seed 117419138004019635). Plain default Wasm
 passes 14,107/14,107. The ordinary MSF 10k has 10,000 normalized and semantic
 matches, exit 0, with equal total canonical size 1,747,794 bytes; its raw output
-remains 28,329 bytes larger. Coverage and exact-head remote CI remain pending.
+remains 28,329 bytes larger. Coverage passes normally: 28,075 uncovered lines / 227 files
+against unchanged 28,138 / 196 (−63 lines / +31 files). Exact-head CI continues.
 No projected gain signs the package; rough concurrent performance measurements
 and small-fixture slowdowns remain diagnostic. Broad MSF audit, memory P1 and
 sixteen historical differential discrepancies remain open.
 
-For the next source checkpoint, five manual workflow runs can qualify the
-existing preparation branch. Fuzz is excluded from manual dispatch because that
-event enables the external generator without a separate request. Manual success
-is qualification evidence, not an eligible protected-branch status. Master still
-requires an eligible-check route or a new scoped publication decision; earlier
-administrative bypass exceptions do not authorize another bypass. No force push,
-protection change or npm release follows from the source authorization.
+The source publication route runs Required CI on a push to the existing
+`codex/npm-wasmgc-beta` preparation branch. This provides eligible checks for
+`format-and-tests`, `release-artifacts` and `dae-differential` before a normal
+master fast-forward. The workflow retains its existing jobs, permissions and
+master/pull-request triggers; a contract regression requires the preparation
+push trigger. Four other workflows can qualify the same head by manual dispatch.
+Fuzz is excluded from manual dispatch because that event enables the unrequested
+external generator; normal master push runs its ordinary jobs. Manual success
+alone does not satisfy protected requirements, as [GitHub documents](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#checks-from-some-workflow-jobs-are-not-evaluated).
+No protection setting, force push, new PR or administrative bypass is required
+by this route. Earlier bypass exceptions remain historical and scoped.
 
 - Initial preparation branch: `codex/npm-wasmgc-beta`; current local branch:
   `codex/npm-license-provenance`.

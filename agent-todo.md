@@ -54,8 +54,12 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   bytes match, while raw Starshine bytes remain 28,329 larger. The triggering
   record-copy 10k has 10,000 semantic matches and smaller outputs; retain its
   structural comparison exit 1 and exact-manifest replay requirement.
-- [ ] Finish unchanged-baseline coverage and exact-head remote CI for the reviewed
-  record-copy source and selective preset, then complete the guarded source route. The new owner must retain nullable
+- Coverage passes normally: 28,075 uncovered lines / 227 files against unchanged
+  28,138 / 196 (−63 lines / +31 files); no baseline or exclusions were changed.
+- [ ] Finish exact-head remote CI for the reviewed record-copy source and selective
+  preset, then complete the guarded normal source fast-forward. Required CI now
+  runs on preparation-branch pushes to provide eligible protected checks. The new
+  owner must retain nullable
   traps, fresh allocations, old aliases/fields, host effects, original public
   identities, bounded preflight and complete-size/full-validation rollback.
   Run its actual-triggering 10k profile separately from the unchanged ordinary

@@ -24,6 +24,7 @@ export function runCiWorkflowContractTest(): void {
     ["name: \"Required CI\"", "workflow name"],
     ["pull_request:", "pull-request trigger"],
     ["      - master", "master push trigger"],
+    ["  push:\n    branches:\n      - master\n      - codex/npm-wasmgc-beta", "eligible preparation branch push trigger"],
     ["permissions:\n  contents: read", "read-only default permissions"],
     ["concurrency:", "concurrency cancellation"],
     ["  format-and-tests:", "format and full-test job"],
