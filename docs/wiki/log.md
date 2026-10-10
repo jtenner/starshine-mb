@@ -1,3 +1,21 @@
+### 2026-10-10 — Prepare the WasmGC npm beta route
+
+- [The npm package surface](tooling/node-package-surface.md) replaces the disabled
+  generator/prebuilt adapter dependency with authoritative FFI-derived signatures,
+  generated concrete adapter source and deterministic JS/TS declarations. Constructor
+  argument positions and callback record projections preserve compatibility.
+- The fresh native bootstrap self-optimizes both package Wasm artifacts with the
+  bounded O1 preset. Independent Wasm validation, ABI checks and copied-package
+  before/after observations gate promotion. Package bytes currently do not shrink;
+  a separate 70-to-54-byte fixture proves transformation and identical execution.
+- The exact tarball is installed into empty JS and strict TypeScript projects,
+  exercising every promised export, meaningful optimization/roundtrips, errors,
+  a bounded fuzz case and the bundled CLI. Internal read-only review led to fixes
+  for nominal handle ownership, optional holes, enum representations and `osize`.
+- [The release handoff](../npm-beta-handoff.md) records validation and unresolved
+  decisions. Root MIT versus MoonBit Apache-2.0 remains unresolved. Publication,
+  releases, tags, pushes, merges and account changes remain outside this work.
+
 ### 2026-10-09 — Classify the exposed generated output families
 
 - [The output comparison checkpoint](tooling/validation-gates.md#october-9-2026--classify-and-repair-generated-output-differences)

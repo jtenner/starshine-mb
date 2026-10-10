@@ -102,6 +102,7 @@ Use this section for lower-frequency details that help humans and agents orient 
 - `examples/` contains runnable examples.
 - `component/` is a nested MoonBit module generated from `component/wit/starshine.wit` plus the `src/lib/pkg.generated.mbti`-derived `core-ir.generated.wit`; it builds the portable Component Model facade against the local Starshine checkout.
 - `tests/spec/` and `tests/node/` hold external and integration coverage.
+- `node/` is the npm export boundary; `ffi/src/npm` is its FFI-derived WasmGC adapter. Exact tarball checks and self-optimization evidence live in ignored `dist/npm/`.
 - `scripts/` contains Bun entrypoints only: `validate.ts`, `fuzz.ts`, `self-opt.ts`, `make.ts`, `examples.ts`, `pass-fuzz-compare.ts`, and `pass-performance-sweep.ts`.
 - `scripts/lib/*` contains shared script code.
 - `scripts/test/*` contains script tests.

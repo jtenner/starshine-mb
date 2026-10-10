@@ -10,6 +10,17 @@ oracle versions and checkpoints do not sign current source.
 Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
+## npm WasmGC beta preparation [NPM-WASMGC-BETA]
+
+- Local implementation and exact packed-consumer evidence are recorded in
+  [the handoff](docs/npm-beta-handoff.md). Preserve the isolated beta branch.
+- Release decisions remain: reconcile root MIT / MoonBit Apache-2.0, approve the
+  candidate version and publication/provenance route, provision or qualify the
+  documented MoonBit toolchain, and assess outstanding repository release gates.
+- No publication, tag, release, push, merge or credential change is authorized.
+- Native-debug compiler issue #1322 and coverage failures remain separate gates;
+  this package work does not reset their baselines or revive DAE2/O campaigns.
+
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
 - **Goal / why:** make Starshine competitive before release by closing pass,
