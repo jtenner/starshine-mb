@@ -1164,19 +1164,6 @@ fn run_hot_pipeline_imported_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn run_hot_pipeline_has_host_boundary(mod_ : @lib.Module) -> Bool {
-  let has_imports = match mod_.import_sec {
-    Some(@lib.ImportSec(imports)) => !imports.is_empty()
-    None => false
-  }
-  let has_exports = match mod_.export_sec {
-    Some(@lib.ExportSec(exports)) => !exports.is_empty()
-    None => false
-  }
-  has_imports || has_exports
-}
-
-///|
 fn run_hot_pipeline_module_has_memory(mod_ : @lib.Module) -> Bool {
   let has_defined_memory = match mod_.mem_sec {
     Some(@lib.MemSec(mems)) => mems.length() > 0
@@ -1418,24 +1405,8 @@ pub fn run_hot_pipeline(
       skip_o4z_late_convergence_entries -= 1
       continue
     }
-    // A host can observe function references through exports, tables, globals,
-    // and imported callbacks. Keep preset DFE's whole-module merge for closed
-    // modules, where no function identity can cross the module boundary.
-    if from_preset &&
-      entry.name == "duplicate-function-elimination" &&
-      (
-        run_hot_pipeline_has_host_boundary(mod_) ||
-        run_hot_pipeline_has_host_boundary(current)
-      ) {
-      match flush_hot_passes() {
-        Ok(_) => ()
-        Err(err) => return Err(err)
-      }
-      (options.trace)(
-        "pass[duplicate-function-elimination]:skip reason=host-visible-function-identity",
-      )
-      continue
-    }
+    // DFE protects exported and address-materialized identities individually;
+    // imports/exports do not prevent safe private helper merging.
     // Repeated lookup of an imported function name can invoke a host getter
     // more than once and can return distinct functions. Direct DIE remains an
     // explicit opt-in pass; presets preserve the original import slots.

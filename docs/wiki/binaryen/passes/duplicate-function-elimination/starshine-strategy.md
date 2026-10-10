@@ -131,40 +131,28 @@ What this local core does:
 
 The target-insensitive hash is deliberately an over-approximation: direct `call`, `return_call`, and `ref.func` targets use opcode-shape hashes, while exact equality after canonical remapping remains the safety proof. Structured bodies, locals, annotations, and non-remappable instruction payloads remain part of the partition key.
 
-The important current local boundary is direct behavior versus broader no-DWARF preset parity:
+The October 10 O4s investigation supersedes the broad preset host-boundary
+restriction. Direct and preset DFE now share conservative per-function identity
+protection: each exported or address-materialized function stays outside duplicate
+candidate groups. The address scan covers active/passive element entries,
+table/global initializers and `ref.func` throughout structured and EH bodies.
+Declarative-only entries do not instantiate runtime references. Direct calls and
+`start` remain rewriteable; import slots never merge in DFE.
 
-- direct `duplicate-function-elimination` converges transitive callee/caller duplicates over one fixed candidate partition
-- fast public `optimize` / `shrink` queues contain the early DFE slot; O4z also
-  queues Binaryen's late DFE slot
+This admits private duplicate helpers even beside imports, exports and callbacks.
+It does not require escape analysis: every materialized address is protected,
+even when it cannot actually escape. Protected bodies still contribute rewrite
+and cleanup facts but do not enter candidate normalization or collision buckets.
+The CLI O4z automatic candidate rosters now retain DFE under this same contract;
+the existing DIE import-resolution restriction remains separate.
 
-The scheduled slots remain in the queue, but execution now skips preset-origin
-DFE when the original or current module has any imports or exports. Such a
-boundary can expose a function reference through exports, tables, globals, or
-imported callbacks; merging equal bodies would then collapse distinct host
-identities. Closed modules still run the scheduled DFE slot. Direct
-`--duplicate-function-elimination` now keeps each exported or
-address-materialized defined function outside duplicate groups, even when
-bodies match. The conservative address scan covers `ref.func` in function
-bodies, table initializers, and global initializers, plus active and passive
-element entries. Declarative-only element entries do not instantiate a runtime
-reference. Direct calls and `start` remain rewriteable because they invoke a
-function without materializing its address.
-
-The JavaScript API converts a WebAssembly function address to a cached Exported
-Function object when `Table.get` or an exported global exposes it. Merging two
-functions stored in an exported `funcref` table or globals therefore changes
-observable JavaScript `===` identity even when both bodies return the same
-value. Core WebAssembly `ref.eq` cannot provide the equivalent in-module test:
-its validation rule requires `(ref null eq)` operands, and function references
-are outside that hierarchy. The [Node host regression](../../../../../tests/optimizer/regressions/host-identity.test.ts)
-checks table and global identity plus the alias relationship between them. This
-guard is a correctness improvement over the earlier direct-pass contract and
-can differ from Binaryen's output shape; narrowing the broad preset gate still
-requires sound escape analysis and measured size/performance evidence.
-The CLI's pure O4z size portfolio filters DFE from its automatic candidate
-rosters on the same host-boundary condition, so a shorter candidate cannot
-bypass the preset-origin guard. Mixed explicitly named passes do not use that
-portfolio.
+The [focused O4s tests](../../../../../src/passes/o4s_private_duplicates_test.mbt)
+cover helper compaction, remapped calls, import slots, exported and table/global
+identities, validation, size and input ownership. The
+[candidate test](../../../../../src/passes/dfe_protected_candidates_wbtest.mbt)
+locks bounded protected-bucket admission. See the
+[ongoing artifact investigation](../../../tooling/npm-optimizer-discrepancy.md)
+for original-input evidence and remaining release gates.
 
 White-box tests lock one-time hashing, candidate-only type normalization, complete body hashing, target-insensitive grouping, type/cleanup fact collection, and direct-target rewrite admission.
 

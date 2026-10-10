@@ -4867,8 +4867,9 @@ fn cmd_o4z_host_identity_safe_candidate_passes(
   }
   let safe : Array[String] = []
   for pass in passes {
-    if pass != "duplicate-function-elimination" &&
-      pass != "duplicate-import-elimination" {
+    // DFE has per-function identity protection, including materialization
+    // through callbacks, tables and globals. Keep private merging available.
+    if pass != "duplicate-import-elimination" {
       safe.push(pass)
     }
   }

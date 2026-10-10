@@ -57,15 +57,48 @@ Independent read-only source review supports the narrower admission and
 identified that bucket-cost issue plus the separate CLI O4z portfolio filter.
 This is preliminary review, not runtime or final release signoff.
 
+## First bounded implementation checkpoint
+
+The preset now runs identity-protecting DFE rather than skipping the complete
+module. Protected functions still contribute rewrite/cleanup facts but never
+enter normalization or duplicate pair enumeration. The CLI automatic O4z
+candidate filter retains DFE and keeps its separate DIE restriction.
+
+Fresh native binary SHA-256:
+`ea899c2d07a03af4c634e8634d886dbf0bfe92524be9820b4ac01d7159844a8e`.
+The following single serial samples start from the identical original inputs;
+wall/RSS exclude independent validation and consumer tests, and are local samples.
+
+| Artifact | Previous O4s bytes | DFE-fixed O4s bytes | Further reduction | Time (s) | Peak RSS (KiB) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| WasmGC | 7,287,538 | 7,232,524 | 55,014 | 8.260 | 267,636 |
+| WASI | 6,347,850 | 6,240,505 | 107,345 | 9.058 | 278,852 |
+
+Both outputs independently validate under
+`wasm2,gc,function-references,tail-call,extended-const`.
+GC output SHA-256:
+`cda21fda5f83717853d719433996cb215a41aa3529e41515e557d66ab80608cb`.
+WASI output SHA-256:
+`53987fb549842534484f05fc995d52cd7cc1d9d37ae9b53b6947a3accc484df8`.
+The reduced Node fixture preserves results 84, repeated state increments,
+state 91 before an unreachable trap, export names, distinct exported/table/global
+identities and their callback aliases. These bounded controls do not establish
+universal equivalence.
+
 ## Pending readiness evidence
 
-- Confirm red regressions and commit them before the implementation.
-- Implement bounded private admission; validate runtime results, traps, state,
-  host identities and remapping independently.
+- Completed red checkpoint `d041fd822`: public O4s tests failed 2/2 on helper
+  counts; protected-candidate test failed on 6 versus 2 normalizations.
+- Initial implementation tests passed 2/2 public, 1/1 protected-candidate and
+  1/1 numeric CLI; refresh final assertions, Node identity suite and independent review.
 - Measure omitted cleanup owners on originals and close further supported causes.
-- Repeat exact-input Starshine/Binaryen samples with compatible features and
-  independent validation; record byte reductions, tool/input hashes, wall/RSS.
+  Direct OptimizeInstructions currently aborts on the original GC input; a
+  reduced write-set fact test exposes an absent optional-control child access.
+- Repeat exact-input Binaryen samples with compatible features; preserve exact
+  tool/input hashes and remaining gap.
 - Run focused/full tests and required direct-pass generated comparisons; record
   incomplete broader signoff explicitly.
-- Obtain independent final patch review and coordinate npm rebuild/parity/packed
-  JavaScript and strict TypeScript checks with the prep owner through parent.
+- Run isolated packed JavaScript/strict TypeScript controls on copies of the
+  original package with exact revised artifacts. Coordinate a fresh-source npm
+  build/parity gate with the prep owner through parent; that integration remains
+  separate from candidate-copy testing.

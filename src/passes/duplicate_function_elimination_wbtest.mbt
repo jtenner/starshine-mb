@@ -40,7 +40,7 @@ test "duplicate-function-elimination hashes transitive candidates once" {
   )
   assert_true(result.changed)
   @debug.assert_eq(hash_visits[0], 70)
-  @debug.assert_eq(normalization_visits[0], 6)
+  @debug.assert_eq(normalization_visits[0], 4)
   // The leaf and mid pairs merge transitively. The top pair stays distinct:
   // both functions are exported, so merging them would collapse two
   // host-observable function identities.

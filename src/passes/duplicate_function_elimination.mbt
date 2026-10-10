@@ -4490,6 +4490,13 @@ fn dfe_eliminate_duplicate_functions(
         if needs_debris_cleanup[0] {
           original_cleanup_flags[local_idx] = true
         }
+        // Protected identities can be neither merged nor representatives.
+        // Keep their rewrite/cleanup facts above, but exclude them before
+        // normalization and collision grouping to avoid protected-only pair
+        // enumeration when presets admit modules with host boundaries.
+        if identity_visible[local_idx] {
+          continue
+        }
         match first_by_hash.get(key) {
           Some(first_idx) =>
             match collision_group_by_hash.get(key) {

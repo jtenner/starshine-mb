@@ -27,3 +27,16 @@ test "CLI O4s merges private duplicates while preserving the host export" {
   assert_eq(output.code_sec.unwrap().0.length(), 2)
   assert_true(writes[0].length() < wasm.length())
 }
+
+///|
+test "O4z automatic candidate roster admits private DFE with a host boundary" {
+  let input = @passes.pass_test_module_from_wat(
+    "(module (import \"env\" \"observe\" (func)) (func (export \"run\")))",
+  )
+  assert_eq(
+    cmd_o4z_host_identity_safe_candidate_passes(input, [
+      "duplicate-function-elimination", "duplicate-import-elimination", "vacuum",
+    ]),
+    ["duplicate-function-elimination", "vacuum"],
+  )
+}

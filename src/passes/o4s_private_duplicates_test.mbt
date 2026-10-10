@@ -66,6 +66,17 @@ test "O4s private merging preserves exported and materialized identities" {
     ).unwrap()
     @validate.validate_module(output).unwrap()
     assert_eq(output.code_sec.unwrap().0.length(), 6)
+    let exports = output.export_sec.unwrap().0
+    for item in [(0, 1U), (1, 2U), (5, 5U)] {
+      let (entry_idx, func_idx) = item
+      assert_eq(
+        exports[entry_idx],
+        @lib.Export::new(
+          @lib.Name::from_string(if entry_idx == 0 { "a" } else if entry_idx == 1 { "b" } else { "run" }),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(func_idx)),
+        ),
+      )
+    }
     let @lib.Elem(_, elem_kind) = output.elem_sec.unwrap().0[0]
     assert_eq(
       elem_kind,

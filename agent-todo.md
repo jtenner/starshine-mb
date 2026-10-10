@@ -1421,8 +1421,9 @@ retain the detailed provenance.
   reference/cast lowering and branch-table cleanup. Keep compact-import policy,
   name-metadata size gaps and unsampled tuple/downstream cases visible.
 - **Host-visible identity guards:** measure preset DFE/DIE size and performance
-  costs; narrow broad guards only with escape analysis protecting exports,
-  tables, globals, imported callbacks and host getter/lookup effects. Preserve
+  costs. October 10 DFE admission uses conservative per-materialization protection
+  for exports, tables, globals and callbacks; qualify its measured deltas. Keep
+  DIE host getter/lookup effects protected. Preserve
   `tests/optimizer/regressions/host-identity.test.ts`; require exact runtime
   observations and measured output deltas for any broader merge.
 - **Runtime coverage:** extend concurrent AcqRel, general wait/notify liveness,

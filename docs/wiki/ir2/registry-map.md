@@ -56,15 +56,14 @@ At O4z with all features enabled, both presets retain the full compatibility sch
 
 Registry preset metadata is generated from the same scheduler instead of retaining duplicate hard-coded arrays. Exact O4z order, fast non-O4z rosters, repeated-slot counts, feature-gated O4z runtime execution, and the final extension are locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt) and [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt).
 
-The queue still lists DFE and, at O4z, DIE in their existing slots. At
-execution, preset-origin DFE skips modules with imports or exports; preset-origin
-DIE skips modules with function imports. This preserves identities and import
-lookups visible to a host. Explicitly requested DFE/DIE retain their merge
-behavior. A closed module still runs preset DFE. The policy and runtime evidence
-are in the [host-visible identity audit](architecture-rules.md#host-visible-identity-preset-policy).
-The CLI's pure O4z size portfolio applies the same boundary rule to its
-internally constructed DFE/DIE candidate rosters; mixed explicit requests do
-not enter that portfolio.
+DFE retains its scheduled slot and protects exported/address-materialized
+function identities individually. Private helpers can merge beside a host boundary;
+protected bodies never enter collision buckets. Preset-origin DIE still skips
+modules with function imports. The CLI O4z automatic candidate rosters retain
+DFE and separately filter DIE for the existing import-resolution contract.
+The [identity policy](architecture-rules.md#host-visible-identity-preset-policy)
+and [artifact investigation](../tooling/npm-optimizer-discrepancy.md) record the
+October 10 narrowing and its evidence.
 
 ## Boundary-Only And Removed Behavior
 

@@ -536,28 +536,29 @@ made both embedding observations executable. Two same-name function imports
 resolve a JavaScript getter twice and can receive different functions. Two
 equal-body functions exported separately have distinct JavaScript identities.
 Direct `duplicate-import-elimination` now preserves the two import lookups and
-their returned identities. Direct `duplicate-function-elimination` still
-merges equal exported bodies; its distinct identity contract remains asserted
-separately in the same test file.
+their returned identities. Direct `duplicate-function-elimination` now protects separately exported and
+address-materialized function identities. The earlier claim that it still merges
+exported bodies is superseded by the current implementation and Node regressions.
 
 The explicit `duplicate-import-elimination-assume-stable-bindings` pass keeps
 the earlier merge capability behind a stronger caller contract. Presets and
 `--closed-world` never select it implicitly.
 
-Public presets now retain their scheduled DFE/DIE slots but skip preset-origin
-DFE when the original or current module has imports or exports, and skip
-preset-origin DIE when either module has function imports. A module with no
-host boundary can still run preset DFE. The gate is intentionally broad:
-exports and imports can expose `ref.func` through tables, globals, callbacks,
-and return values, so checking only direct function exports would be unsound.
-The CLI O4z size portfolio also builds automatic candidate rosters containing
-literal DFE/DIE pass names. Those rosters now omit both merges for an original
-module with imports or exports; a closed module keeps them, and a mixed request
-with an explicitly named merge pass does not enter the pure-preset portfolio.
-This is a host-correctness divergence from Binaryen 132's merge behavior,
-not a claim of output-shape parity. Direct DIE now enforces the same
-preservation contract even when explicitly requested. DFE policy remains
-separate because it concerns identities of module-defined functions.
+The October 10 O4s investigation narrows the previous whole-module preset DFE
+guard. Preset and direct DFE share the per-function address-materialization scan,
+which protects all exports, active/passive elements, table/global initializers
+and nested `ref.func`, including EH catches. Every materialized function stays
+outside candidate buckets even when it cannot escape. Direct calls and `start`
+remain rewriteable, and declarative-only segments may remap. No escape-analysis
+assumption is needed. Private duplicate helpers can therefore merge beside a
+host boundary while distinct JavaScript function objects remain distinct.
+
+Preset-origin DIE still skips modules with function imports. The CLI O4z
+portfolio retains DFE and separately filters DIE under its existing import
+resolution policy. The [focused preset regression](../../../src/passes/o4s_private_duplicates_test.mbt)
+and [ongoing exact-input investigation](../tooling/npm-optimizer-discrepancy.md)
+record validation and remaining release gates. This supersedes the earlier
+blanket DFE restriction without weakening address identity preservation.
 
 ## Overview
 
