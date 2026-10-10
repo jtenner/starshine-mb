@@ -319,6 +319,26 @@ integration and package contracts. Exact final committed-head CI remains the
 precondition for a normal nonforce master update; baseline native-debug and
 coverage failures remain separate release gates.
 
+Exact documentation head `c9fc25cd2` reproduces the same tarball in cold package
+CI: 433,519 ms, with 14,587 / 15,442 ms GC/WASI optimization plus validation.
+Its full 14,019 tests, release artifacts, package and fuzz checks pass. Complete
+coverage is 28,244 / 226, still +106 / +30 against the unchanged baseline;
+native-debug reproduces MoonBit #1322. The final required DAE job reached its
+semantic comparison after successful boundary tests, fresh native builds
+(14 min 33 s) and deterministic 10,000-case comparison (10 min 50 s), then hit
+the old 30-minute whole-job deadline. Cancellation is not a semantic pass or a
+reported semantic failure. Its complete logs and step timestamps are retained
+under `dist/npm/source-publication/`.
+
+The required DAE job now has a bounded 45-minute overall budget, retaining its
+counts, profiles, runtime/property checks, validator/oracle requirements and
+failure policy. Comparison reports and retained failure bundles upload on
+success or failure. Red-first workflow contracts reject the old deadline and
+missing evidence retention; actionlint passes. This fixes provisioning time
+without changing optimizer source or package bytes. The exact new head must
+complete all three protected checks before a normal source push; no bypass,
+coverage reset or native-debug gate change is permitted.
+
 ## Candidate version consistency
 
 MoonBit product metadata and npm metadata now prepare `0.1.2-beta.0`. The CLI

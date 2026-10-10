@@ -14,6 +14,12 @@
   hashes and build/parity costs. Protected exact-head CI qualifies source
   publication separately. Broader optimizer, license and
   release gates remain open; npm publication is not authorized.
+- Exact `c9fc25cd2` cold CI reproduces the tarball and passes package, full-test,
+  release-artifact and fuzz checks. DAE's final semantic comparison was canceled
+  by the old whole-job limit after 14m33s of native builds and 10m50s of successful
+  deterministic comparison. The bounded job budget becomes 45 minutes with
+  success/failure evidence retention, preserving all comparison gates. Complete
+  coverage remains failed at 28,244 / 226 (+106 / +30); native-debug #1322 persists.
 
 ### 2026-10-10 — Preserve the npm artifact discrepancy before source publication
 

@@ -434,6 +434,15 @@ separates fresh build evidence from the owner's same-original comparisons and
 records the exact-head CI publication precondition. The separate GC follow-up,
 licensing, coverage and native-debug failures remain open.
 
+Exact `c9fc25cd2` package CI reproduces these bytes and full tests/release/fuzz
+checks pass. Its final required semantic comparison hit the 30-minute overall
+DAE job deadline after successful native builds and a 10,000-case deterministic
+comparison. The job budget is now bounded at 45 minutes with comparison reports
+and retained failures uploaded on success/failure; counts and failure policy are
+unchanged. Red-first workflow contracts and actionlint verify the provisioning
+repair. Exact-head protected checks still precede source publication. Coverage
+remains failed at 28,244 / 226 (+106 / +30), without resetting the baseline.
+
 ## Sources
 
 - WASI runner / Preview boundary: [Node `node:wasi` documentation](https://nodejs.org/api/wasi.html), [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)

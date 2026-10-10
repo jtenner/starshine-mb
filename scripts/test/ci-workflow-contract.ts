@@ -71,6 +71,10 @@ export function runCiWorkflowContractTest(): void {
   const differentialJob = workflow.split("  dae-differential:\n")[1]?.split(/\n  [a-z][a-z-]*:\n/)[0];
   if (differentialJob === undefined) fail("required CI is missing the DAE differential job body");
   for (const [fragment, label] of [
+    ["    timeout-minutes: 45", "bounded cold-build and comparison job budget"],
+    ["      - name: Preserve differential comparison evidence\n        if: always()\n        uses: actions/upload-artifact@v4", "comparison evidence on success or failure"],
+    [".tmp/ci-dae-genvalid/", "DAE comparison reports and retained failures"],
+    [".tmp/ci-semantic-optimizer/", "semantic comparison reports and retained failures"],
     ["uses: actions/setup-node@v5", "explicit semantic Node runtime installation"],
     ['node-version: "26.10.0"', "Node version supporting memory64 and experimental reference proposals"],
     ["moon build --target native --release src/fuzz", "fresh GenValid build"],

@@ -37,6 +37,11 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   packed JS/strict TS consumers on Node 25/26, plus 44 Node and 45 optimizer
   runtime cases. Protected-head CI must qualify the combined publication.
   See the [discrepancy investigation](docs/wiki/tooling/npm-optimizer-discrepancy.md).
+- Exact `c9fc25cd2` package/full-test/release/fuzz checks passed; its required DAE
+  job exceeded the old 30-minute total after successful native builds and
+  deterministic comparisons. A bounded 45-minute job and comparison-evidence
+  retention are under qualification; counts/profiles/failure policy stay intact.
+  Exact complete coverage is now 28,244 / 226 (+106 / +30), still failed.
 - The separate Sol 6.1 High task continues isolated GC follow-up for the
   [same-input artifact discrepancy](docs/wiki/tooling/node-package-surface.md#october-10-2026--same-input-binaryen-comparison).
   Preserve both exact raw inputs and the selected O4s package; do not use chained
