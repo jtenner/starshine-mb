@@ -416,3 +416,14 @@ rewrites and inline `DefType` recursion remain uncached. The bounded regression
 in `dfe_gc_index_sharing_wbtest.mbt` checks sharing, per-module isolation, direct
 targets, reference flags, validation and immutable input bytes. This change
 preserves encoded output; its resource effect requires separate measurements.
+
+
+The same private remap-local cache can also share concrete `HeapType` wrappers
+containing an already rewritten absolute `TypeIdx`. A separate UInt-keyed map
+has at most one heap wrapper per distinct reached target; no second remapping,
+tuple-key allocation or flag packing is involved. Recursive-group indices,
+abstract/shared heap forms and inline `DefType` graphs remain uncached.
+`RefType` wrappers and `ref.null`/cast constructors retain their prior behavior
+and exact/nullable flags. The extended red-first fixture requires heap sharing
+across nested/body/local operands and checks direct targets and bounded tables.
+Independent measurement determines whether this reduces enclosing memory/time.

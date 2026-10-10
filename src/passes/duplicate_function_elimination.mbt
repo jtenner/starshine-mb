@@ -187,21 +187,34 @@ fn dfe_duplicate_simple_type_canonical_map(
   canonical_map
 }
 
+///|
+priv struct DfeTypeRewriteCache {
+  indices : Map[UInt, @lib.TypeIdx]
+  heaps : Map[UInt, @lib.HeapType]
+}
+
+///|
+fn dfe_new_type_rewrite_cache() -> DfeTypeRewriteCache {
+  { indices: Map([]), heaps: Map([]), }
+}
+
 // One CodeSec remap owns this cache. Its keys are direct final targets;
-// only immutable scalar indices are shared, never IR containers or type graphs.
+// only immutable indices and concrete heaps are shared, never IR containers
+// or type graphs.
+
 ///|
 fn dfe_shared_rewritten_type_idx(
   target : UInt,
-  cache : Map[UInt, @lib.TypeIdx]?,
+  cache : DfeTypeRewriteCache?,
 ) -> @lib.TypeIdx {
   match cache {
     None => @lib.TypeIdx::new(target)
     Some(cache) =>
-      match cache.get(target) {
+      match cache.indices.get(target) {
         Some(idx) => idx
         None => {
           let idx = @lib.TypeIdx::new(target)
-          cache[target] = idx
+          cache.indices[target] = idx
           idx
         }
       }
@@ -212,7 +225,7 @@ fn dfe_shared_rewritten_type_idx(
 fn dfe_rewrite_type_idx(
   idx : @lib.TypeIdx,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.TypeIdx {
   match idx {
     @lib.TypeIdx(raw) =>
@@ -225,7 +238,7 @@ fn dfe_rewrite_type_idx(
 fn dfe_try_rewrite_type_idx(
   idx : @lib.TypeIdx,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.TypeIdx? {
   match idx {
     @lib.TypeIdx(raw) =>
@@ -720,16 +733,41 @@ fn dfe_rewrite_type_metadata(
   )
 }
 
+// The index was already mapped once. Cache only concrete absolute wrappers;
+// recursive-group indices and inline/abstract/shared type forms stay separate.
+
+///|
+fn dfe_shared_rewritten_heap_type(
+  idx : @lib.TypeIdx,
+  cache : DfeTypeRewriteCache?,
+) -> @lib.HeapType {
+  match (idx, cache) {
+    (@lib.TypeIdx(target), Some(cache)) =>
+      match cache.heaps.get(target) {
+        Some(heap_type) => heap_type
+        None => {
+          let heap_type = @lib.HeapType::new(idx)
+          cache.heaps[target] = heap_type
+          heap_type
+        }
+      }
+    _ => @lib.HeapType::new(idx)
+  }
+}
+
 ///|
 fn dfe_rewrite_heap_type(
   heap_type : @lib.HeapType,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.HeapType {
   match heap_type {
     @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => heap_type
     @lib.HeapType(type_idx) =>
-      @lib.HeapType::new(dfe_rewrite_type_idx(type_idx, remap, index_cache~))
+      dfe_shared_rewritten_heap_type(
+        dfe_rewrite_type_idx(type_idx, remap, index_cache~),
+        index_cache,
+      )
     @lib.DefTypeHeapType(@lib.DefType(rec_type, idx)) =>
       @lib.HeapType::def_type(
         @lib.DefType::new(dfe_rewrite_rec_type(rec_type, remap), idx),
@@ -741,7 +779,7 @@ fn dfe_rewrite_heap_type(
 fn dfe_rewrite_ref_type(
   ref_type : @lib.RefType,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.RefType {
   match ref_type {
     @lib.HeapTypeRefType(nullable, exact, heap_type) =>
@@ -758,7 +796,7 @@ fn dfe_rewrite_ref_type(
 fn dfe_try_rewrite_heap_type(
   heap_type : @lib.HeapType,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.HeapType? {
   if dfe_heap_type_uses_remap(heap_type, remap) {
     Some(dfe_rewrite_heap_type(heap_type, remap, index_cache~))
@@ -771,7 +809,7 @@ fn dfe_try_rewrite_heap_type(
 fn dfe_try_rewrite_ref_type(
   ref_type : @lib.RefType,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.RefType? {
   if dfe_ref_type_uses_remap(ref_type, remap) {
     Some(dfe_rewrite_ref_type(ref_type, remap, index_cache~))
@@ -784,7 +822,7 @@ fn dfe_try_rewrite_ref_type(
 fn dfe_rewrite_val_type(
   val_type : @lib.ValType,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.ValType {
   match val_type {
     @lib.RefTypeValType(ref_type) =>
@@ -799,7 +837,7 @@ fn dfe_rewrite_val_type(
 fn dfe_try_rewrite_val_type(
   val_type : @lib.ValType,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.ValType? {
   if dfe_val_type_uses_remap(val_type, remap) {
     Some(dfe_rewrite_val_type(val_type, remap, index_cache~))
@@ -812,7 +850,7 @@ fn dfe_try_rewrite_val_type(
 fn dfe_try_rewrite_val_types(
   val_types : Array[@lib.ValType],
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> Array[@lib.ValType]? {
   let rewritten : Array[@lib.ValType] = Array::new(capacity=val_types.length())
   let mut changed = false
@@ -962,7 +1000,7 @@ fn dfe_rewrite_block_type(
 fn dfe_try_rewrite_block_type(
   block_type : @lib.BlockType,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.BlockType? {
   match block_type {
     @lib.ValTypeBlockType(val_type) =>
@@ -1192,7 +1230,7 @@ fn dfe_scan_rewrite_func_type_idxs(
 fn dfe_try_rewrite_instruction_array_type_idxs(
   instrs : Array[@lib.Instruction],
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> Array[@lib.Instruction]? {
   // Most regions mention no remapped type. Allocate output capacity only at
   // the first actual rewrite, preserving the original prefix and input storage.
@@ -1234,7 +1272,7 @@ fn dfe_try_rewrite_instruction_array_type_idxs(
 fn dfe_try_rewrite_expr_type_idxs(
   expr : @lib.Expr,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.Expr? {
   let @lib.Expr(instrs) = expr
   match
@@ -1248,7 +1286,7 @@ fn dfe_try_rewrite_expr_type_idxs(
 fn dfe_try_rewrite_locals_type_idxs(
   locals : @lib.Locals,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.Locals? {
   let runs = locals.runs()
   let rewritten : Array[@lib.LocalRun] = Array::new(capacity=runs.length())
@@ -1283,7 +1321,7 @@ fn dfe_try_rewrite_locals_type_idxs(
 fn dfe_try_rewrite_func_type_idxs(
   func : @lib.Func,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.Func? {
   let @lib.Func(locals, body) = func
   let rewritten_locals = dfe_try_rewrite_locals_type_idxs(
@@ -2306,7 +2344,7 @@ fn dfe_scan_rewrite_instruction_type_idxs(
 fn dfe_try_rewrite_instruction_type_idxs(
   instr : @lib.Instruction,
   remap : Map[UInt, UInt],
-  index_cache? : Map[UInt, @lib.TypeIdx]? = None,
+  index_cache? : DfeTypeRewriteCache? = None,
 ) -> @lib.Instruction? {
   match instr {
     @lib.StructWait(type_idx, field_idx) =>
@@ -3113,10 +3151,12 @@ fn dfe_rewrite_module_type_idxs(
   }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      // Share only immutable scalar TypeIdx boxes within this one remap. Cache
-      // entries are final targets, bounded by distinct reached remap values;
+      // Share immutable TypeIdx and concrete HeapType boxes in this remap.
+      // Both caches are bounded by distinct reached final remap targets;
       // no cache survives in the module or changes surrounding proposal flags.
-      let index_cache : Map[UInt, @lib.TypeIdx]? = Some(Map([]))
+      let index_cache : DfeTypeRewriteCache? = Some(
+        dfe_new_type_rewrite_cache(),
+      )
       let timer = dfe_perf_start_timer_opt(perf, "type-rewrite:code-sec")
       let next : Array[@lib.Func] = []
       match code_rewrite_flags {

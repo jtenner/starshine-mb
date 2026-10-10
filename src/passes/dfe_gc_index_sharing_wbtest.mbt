@@ -108,6 +108,10 @@ test "GC compaction shares immutable convergent type indices within one remap" {
     _ => fail("expected local concrete heap wrapper")
   }
   assert_true(physical_equal(first_heap, local_heap))
+  // Intentionally outside this cache's scope: RefType wrappers retain their
+  // existing constructor ownership rather than being interned here.
+  assert_false(physical_equal(first_ref, second_ref))
+  assert_false(physical_equal(first_ref, local_ref))
   // Each module rewrite owns a fresh cache; no retained/global interning table.
   let again = dfe_canonicalize_duplicate_simple_type_indices(input)
   let @lib.Func(_, @lib.Expr(again_body)) = again.code_sec.unwrap().0[0]
@@ -125,6 +129,15 @@ test "GC compaction shares immutable convergent type indices within one remap" {
   }
   assert_eq(again_idx, nested)
   assert_false(physical_equal(again_idx, nested))
+  let again_heap = match again_body[0] {
+    @lib.Block(
+      _,
+      @lib.Expr([@lib.RefNull(@lib.HeapTypeRefType(_, _, heap_type)), ..])
+    ) => heap_type
+    _ => fail("expected fresh concrete heap wrapper")
+  }
+  assert_eq(again_heap, first_heap)
+  assert_false(physical_equal(again_heap, first_heap))
   assert_eq(
     @binary.encode_module(again).unwrap(),
     @binary.encode_module(after).unwrap(),
@@ -135,10 +148,15 @@ test "GC compaction shares immutable convergent type indices within one remap" {
 ///|
 test "type index sharing keeps final targets flags and bounded cache ownership" {
   let remap : Map[UInt, UInt] = Map([(0U, 0U), (1U, 0U), (2U, 0U), (3U, 2U)])
-  let cache : Map[UInt, @lib.TypeIdx] = Map([])
+  let cache = dfe_new_type_rewrite_cache()
   let index_cache = Some(cache)
   let first = dfe_try_rewrite_type_idx(
     @lib.TypeIdx::new(1U),
+    remap,
+    index_cache~,
+  ).unwrap()
+  let first_heap = dfe_try_rewrite_heap_type(
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
     remap,
     index_cache~,
   ).unwrap()
@@ -150,8 +168,15 @@ test "type index sharing keeps final targets flags and bounded cache ownership" 
         index_cache~,
       ).unwrap()
       assert_true(physical_equal(first, next))
+      let next_heap = dfe_try_rewrite_heap_type(
+        @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+        remap,
+        index_cache~,
+      ).unwrap()
+      assert_true(physical_equal(first_heap, next_heap))
     }
-    assert_eq(cache.length(), 1)
+    assert_eq(cache.indices.length(), 1)
+    assert_eq(cache.heaps.length(), 1)
   }
   // Cache keys are final direct-map targets; never apply the map twice.
   let second = dfe_try_rewrite_type_idx(
@@ -160,7 +185,7 @@ test "type index sharing keeps final targets flags and bounded cache ownership" 
     index_cache~,
   ).unwrap()
   assert_eq(second, @lib.TypeIdx::new(2U))
-  assert_eq(cache.length(), 2)
+  assert_eq(cache.indices.length(), 2)
   for nullable in [false, true] {
     for exact in [false, true] {
       let before_ref = @lib.RefType::new(
@@ -170,10 +195,15 @@ test "type index sharing keeps final targets flags and bounded cache ownership" 
       )
       let next_ref = dfe_try_rewrite_ref_type(before_ref, remap, index_cache~).unwrap()
       match next_ref {
-        @lib.HeapTypeRefType(next_nullable, next_exact, @lib.HeapType(idx)) => {
+        @lib.HeapTypeRefType(
+          next_nullable,
+          next_exact,
+          @lib.HeapType(idx) as heap_type
+        ) => {
           assert_eq(next_nullable, nullable)
           assert_eq(next_exact, exact)
           assert_true(physical_equal(idx, first))
+          assert_true(physical_equal(heap_type, cache.heaps.get(0U).unwrap()))
         }
         _ => fail("expected concrete rewritten ref")
       }
@@ -201,8 +231,23 @@ test "type index sharing keeps final targets flags and bounded cache ownership" 
     )
     is None,
   )
-  assert_eq(cache.length(), 2)
-  let separate_cache : Map[UInt, @lib.TypeIdx] = Map([])
+  assert_eq(cache.indices.length(), 2)
+  assert_eq(cache.heaps.length(), 1)
+  let final_heap = dfe_try_rewrite_heap_type(
+    @lib.HeapType::new(@lib.TypeIdx::new(3U)),
+    remap,
+    index_cache~,
+  ).unwrap()
+  assert_eq(final_heap, @lib.HeapType::new(second))
+  assert_eq(cache.heaps.length(), 2)
+  let group_heap = @lib.HeapType::new(group_local)
+  assert_true(
+    dfe_try_rewrite_heap_type(group_heap, remap, index_cache~) is None,
+  )
+  let full_group_heap = dfe_rewrite_heap_type(group_heap, remap, index_cache~)
+  assert_eq(full_group_heap, group_heap)
+  assert_eq(cache.heaps.length(), 2)
+  let separate_cache = dfe_new_type_rewrite_cache()
   let separate = dfe_try_rewrite_type_idx(
     @lib.TypeIdx::new(1U),
     remap,
@@ -210,8 +255,21 @@ test "type index sharing keeps final targets flags and bounded cache ownership" 
   ).unwrap()
   assert_eq(separate, first)
   assert_false(physical_equal(separate, first))
+  let separate_heap = dfe_try_rewrite_heap_type(
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+    remap,
+    index_cache=Some(separate_cache),
+  ).unwrap()
+  assert_eq(separate_heap, cache.heaps.get(0U).unwrap())
+  assert_false(physical_equal(separate_heap, cache.heaps.get(0U).unwrap()))
   // The default uncached helper contract is retained for other callers.
   let uncached = dfe_try_rewrite_type_idx(@lib.TypeIdx::new(1U), remap).unwrap()
   assert_eq(uncached, first)
   assert_false(physical_equal(uncached, first))
+  let uncached_heap = dfe_try_rewrite_heap_type(
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+    remap,
+  ).unwrap()
+  assert_eq(uncached_heap, first_heap)
+  assert_false(physical_equal(uncached_heap, first_heap))
 }
