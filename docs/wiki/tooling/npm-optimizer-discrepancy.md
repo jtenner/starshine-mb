@@ -294,3 +294,11 @@ A diagnostic structural walk of the original skeleton estimates 4,678 duplicate
 backward-referencing singleton types (2,554 struct / 139 array / 1,985 function),
 while leaving explicit groups and self/forward references untouched. This is a
 lead for reduced canonicalization work, not a transformation or semantic proof.
+
+DFE's GC remapping prerequisite now also covers `struct.wait` and array memory
+load/store type operands, preserving complete memory arguments. Its selective
+rewrite predicate recognizes every aggregate atomic type operand. The reduced
+12-form helper regression passes; independent source audit found no omitted
+represented type-bearing instruction in full/optional/scan/predicate matchers.
+The existing liveness-pruner guard remains restricted to independent function
+types; this prerequisite alone does not admit GC canonicalization.

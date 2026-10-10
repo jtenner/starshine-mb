@@ -589,6 +589,19 @@ fn _dfe_locals_mention_type_idxs(locals : @lib.Locals) -> Bool {
 ///|
 fn dfe_instruction_mentions_type_idxs(instr : @lib.Instruction) -> Bool {
   match instr {
+    @lib.StructWait(_, _)
+    | @lib.ArrayLoad(_, _, _)
+    | @lib.ArrayStore(_, _, _)
+    | @lib.StructAtomicSet(_, _, _)
+    | @lib.StructAtomicRmw(_, _, _, _)
+    | @lib.StructAtomicCmpxchg(_, _, _)
+    | @lib.ArrayAtomicGet(_, _)
+    | @lib.ArrayAtomicGetS(_, _)
+    | @lib.ArrayAtomicGetU(_, _)
+    | @lib.ArrayAtomicSet(_, _)
+    | @lib.ArrayAtomicRmw(_, _, _)
+    | @lib.ArrayAtomicCmpxchg(_, _) => true
+
     @lib.ContNew(_)
     | @lib.ContBind(_, _)
     | @lib.Resume(_, _)
@@ -1258,6 +1271,23 @@ fn dfe_rewrite_instruction_type_idxs(
   remap : Map[UInt, UInt],
 ) -> @lib.Instruction {
   match instr {
+    @lib.StructWait(type_idx, field_idx) =>
+      @lib.Instruction::struct_wait(
+        dfe_rewrite_type_idx(type_idx, remap),
+        field_idx,
+      )
+    @lib.ArrayLoad(op, type_idx, ma) =>
+      @lib.Instruction::array_load(
+        op,
+        dfe_rewrite_type_idx(type_idx, remap),
+        memarg=ma,
+      )
+    @lib.ArrayStore(op, type_idx, ma) =>
+      @lib.Instruction::array_store(
+        op,
+        dfe_rewrite_type_idx(type_idx, remap),
+        memarg=ma,
+      )
     @lib.ContNew(type_idx) =>
       @lib.Instruction::cont_new(dfe_rewrite_type_idx(type_idx, remap))
     @lib.ContBind(source, target) =>
@@ -1560,6 +1590,13 @@ fn dfe_scan_rewrite_instruction_type_idxs(
   remap : Map[UInt, UInt],
 ) -> DfeTypeRewriteScan[@lib.Instruction] {
   match instr {
+    @lib.StructWait(_, _)
+    | @lib.ArrayLoad(_, _, _)
+    | @lib.ArrayStore(_, _, _) => {
+      rewritten: dfe_try_rewrite_instruction_type_idxs(instr, remap),
+      mentions_type_idxs: true,
+    }
+
     @lib.ContNew(_)
     | @lib.ContBind(_, _)
     | @lib.Resume(_, _)
@@ -2229,6 +2266,21 @@ fn dfe_try_rewrite_instruction_type_idxs(
   remap : Map[UInt, UInt],
 ) -> @lib.Instruction? {
   match instr {
+    @lib.StructWait(type_idx, field_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::struct_wait(next, field_idx))
+        None => None
+      }
+    @lib.ArrayLoad(op, type_idx, ma) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::array_load(op, next, memarg=ma))
+        None => None
+      }
+    @lib.ArrayStore(op, type_idx, ma) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::array_store(op, next, memarg=ma))
+        None => None
+      }
     @lib.ContNew(type_idx) =>
       match dfe_try_rewrite_type_idx(type_idx, remap) {
         Some(next) => Some(@lib.Instruction::cont_new(next))
