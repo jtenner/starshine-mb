@@ -169,6 +169,73 @@ fn rl_sort_used_body_locals(
 }
 
 ///|
+// Equal-frequency permutations preserve the weighted local-index ULEB size,
+// including width boundaries. Compress declaration runs only when their actual
+// encoded bytes strictly improve; retain first-use ordering on ties/no gain.
+fn rl_group_equal_frequency_locals(
+  order : Array[Int],
+  counts : Array[Int],
+  body_types : Array[@lib.ValType],
+  first_uses : Array[Int],
+  param_count : Int,
+) -> Array[Int] {
+  if order.length() <= 2 {
+    return order
+  }
+  let type_ranks : Map[@lib.ValType, Int] = {}
+  let ranks = Array::make(body_types.length(), 0)
+  for old_idx in order {
+    let ty = match body_types[old_idx - param_count] {
+      @lib.RefTypeValType(@lib.AbsHeapTypeRefType(abs)) =>
+        @lib.ValType::ref_type(@lib.RefType::new(true, @lib.HeapType::abs(abs)))
+      @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, @lib.DefTypeHeapType(_))) =>
+        return order
+      ty => ty
+    }
+    let rank = match type_ranks.get(ty) {
+      Some(rank) => rank
+      None => {
+        let rank = type_ranks.length()
+        type_ranks[ty] = rank
+        rank
+      }
+    }
+    ranks[old_idx - param_count] = rank
+  }
+  if type_ranks.length() <= 1 {
+    return order
+  }
+  let grouped = order.copy()
+  grouped.sort_by(fn(lhs, rhs) {
+    if counts[lhs] != counts[rhs] {
+      counts[rhs] - counts[lhs]
+    } else if ranks[lhs - param_count] != ranks[rhs - param_count] {
+      ranks[lhs - param_count] - ranks[rhs - param_count]
+    } else {
+      first_uses[lhs] - first_uses[rhs]
+    }
+  })
+  let current_runs : Array[@lib.LocalRun] = []
+  let grouped_runs : Array[@lib.LocalRun] = []
+  for old_idx in order {
+    rl_push_local_run(current_runs, body_types[old_idx - param_count])
+  }
+  for old_idx in grouped {
+    rl_push_local_run(grouped_runs, body_types[old_idx - param_count])
+  }
+  let current_bytes = @buffer.new()
+  let grouped_bytes = @buffer.new()
+  match
+    (
+      @binary.Encode::encode(@lib.Locals::new(current_runs), current_bytes),
+      @binary.Encode::encode(@lib.Locals::new(grouped_runs), grouped_bytes),
+    ) {
+    (Ok(_), Ok(_)) if grouped_bytes.length() < current_bytes.length() => grouped
+    _ => order
+  }
+}
+
+///|
 fn rl_rewrite_local_idx(
   idx : @lib.LocalIdx,
   old_to_new : Array[Int],
@@ -465,10 +532,23 @@ fn rl_rewrite_func(
     return { func, old_to_new: [], changed: false, }
   }
 
-  let used_body_locals = rl_sort_used_body_locals(
+  let frequency_order = rl_sort_used_body_locals(
     scan.used_body_locals,
     scan.counts,
     scan.first_uses,
+  )
+  if body_locals.runs().length() <= 1 &&
+    frequency_order.length() == body_local_count &&
+    rl_used_body_locals_are_original_prefix(frequency_order, params.length()) {
+    return { func, old_to_new: [], changed: false, }
+  }
+  let body_local_types = rl_flatten_locals(body_locals, body_local_count)
+  let used_body_locals = rl_group_equal_frequency_locals(
+    frequency_order,
+    scan.counts,
+    body_local_types,
+    scan.first_uses,
+    params.length(),
   )
   let used_body_locals_are_original_prefix = rl_used_body_locals_are_original_prefix(
     used_body_locals,
@@ -484,7 +564,6 @@ fn rl_rewrite_func(
     old_to_new[idx] = idx
   }
 
-  let body_local_types = rl_flatten_locals(body_locals, body_local_count)
   let reordered_body_runs : Array[@lib.LocalRun] = Array::new(
     capacity=used_body_locals.length(),
   )
