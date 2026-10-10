@@ -24,7 +24,7 @@ related:
 
 # `reorder-locals` Binaryen Parity
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — October 10, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131/v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff. The new declaration-compression section explicitly supersedes the historical unconditional first-use tie rule.
 
 ## Equal-frequency declaration compression
 

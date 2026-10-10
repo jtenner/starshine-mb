@@ -624,3 +624,52 @@ recursive/public/type identities stay unchanged. All protected exact-head
 checks precede normal source publication. License, candidate/provenance and npm
 publication decisions remain separate; broader GC/preset and effectful OI gaps
 remain open.
+
+
+## Reviewed declaration grouping integration
+
+The full reviewed GC chain is published at `0ca3cb6e` and all six master
+workflows pass, including 14,058 default tests and unchanged coverage baseline
+(28,022 uncovered / 225 partial versus 28,138 / 196). Its exact 47-file package
+passes isolated Node25/26 JS and strict TypeScript consumers. This supersedes
+combined-GC qualification-pending statements above; failed earlier checkpoints
+remain recorded.
+
+The five reviewed commits through `36cfe0be` are now locally integrated onto
+0ca, retaining regression-first history. Only ReorderLocals source/tests and
+[its parity evidence](../binaryen/passes/reorder-locals/parity.md) change.
+Equal-frequency grouping is admitted only for a strictly smaller complete
+encoded declaration vector; bounded primitive keys preserve actual type fields
+and exclude inline graph keys. Public FFI, native compatibility, five-pass
+numeric 4/1 preset and build/CI sources remain unchanged. Later unread-tee and
+type-ordering experiments are outside this integration.
+
+On identical ORIGINAL inputs the reviewed outputs save 186,626 GC / 11,308 WASI
+bytes beyond 0ca. Fresh owner self-build inputs differ: optimized outputs improve
+26,442 / 7,910 bytes, while raw GC grows 133,237 bytes and fails the 16 KiB target.
+One largest counter body is independently instruction-identical after type-index
+normalization; type 23 -> 192 widens immediates by 25,856 bytes. Six growing chunks
+were counted, but only the largest has that normalization proof. Withdrawn
+inlining/dispatcher hypotheses are not explanations. Final single-pair GC cost
+is 8.483 -> 9.886 seconds / 304,404 -> 307,324 KiB; WASI is 9.886 -> 9.735 seconds /
+278,836 -> 278,380 KiB. These diagnostic pairs do not close P1. Earlier grouping
+cohorts overlapped local work and are not controlled performance signoff.
+
+Owner tests pass 14,067/14,067. Dedicated verified-v133 10k retains structural
+exit 1: 7,996 canonical matches and 2,004 classified size wins, with zero
+validation/generator/command failures. Twenty retained representatives and
+100 Wasms were reviewed/replayed; the 1,984 suppressed cases use generator
+contracts/counts, not an exhaustive raw-diff audit. Meaningful exported numeric
+and nullable-GC fixtures preserve values, traps, state and distinct public
+function objects. Neither this evidence nor the package closes the retained
+16 Binaryen discrepancies, DFE residuals or public-identity caveat.
+
+Fresh combined-head qualification is required separately. Investigation of the
+prior source-push warning found that workflow-dispatch jobs are excluded from
+required-check evaluation, despite matching names/app/head, while the existing
+master rule exempts admins. The user explicitly authorizes a normal non-force
+fast-forward using that existing exemption for this checkpoint only, followed
+by terminal exact-published-head workflows. Retain any server bypass warning;
+no protection/credential change, PR, npm publication, license selection or
+release action is included. This scoped exception supersedes the blanket
+pre-push check sentence above only for this checkpoint.

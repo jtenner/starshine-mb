@@ -1,3 +1,17 @@
+### 2026-10-10 — Integrate bounded declaration grouping and retain its costs
+
+- [ReorderLocals](binaryen/passes/reorder-locals/parity.md) groups only equal-
+  frequency ties when actual declaration encoding strictly shrinks. Primitive
+  keys preserve type distinctions without recursive graph hashing; both
+  regression-first pairs remain in the reviewed chain through `36cfe0be`.
+- [The integration dossier](tooling/npm-optimizer-discrepancy.md#reviewed-declaration-grouping-integration)
+  distinguishes ORIGINAL savings from fresh self-build changes, retains raw GC
+  growth and an adverse single resource pair, and leaves the memory P1 open.
+  All six prior 0ca workflows pass; fresh combined-head qualification is separate.
+- The source-push event eligibility investigation and scoped user authorization
+  are explicit. No later unread-tee experiment, preset change, protection edit,
+  npm publication or license decision enters this checkpoint.
+
 ### 2026-10-10 — Integrate reviewed GC repairs with an open P1 memory blocker
 
 - [The integration decision](tooling/npm-optimizer-discrepancy.md#integration-decision-and-p1-memory-blocker)

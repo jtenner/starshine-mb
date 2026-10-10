@@ -17,24 +17,33 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   preserve other checkouts, held optimizer refs and historical packages.
   Source publication is authorized; npm publication, tags/releases, deployment
   and credential changes remain unauthorized.
-- Published `a2edeed5ca715fb9e67a4d02a460652dd73dfed7` passes all six master
-  workflows: Required CI (14,033 tests and retained 10k differential gates),
-  Package, Coverage Report (28,104 / 224 against unchanged 28,138 / 196),
-  Examples CLI Native, Fuzz Suites and README API Sync. These results supersede
-  the older `113af3874` coverage/native failures as current checkpoint status;
-  the failed logs and upstream MoonBit #1322 remain historical evidence.
-- The ten first-checkpoint optimizer commits and nineteen reviewed GC/remap/
-  storage/immutable-wrapper commits through `680fd66c` are integrated locally
-  at `dfee891382f9ed188129242fcde4408377d6839f`. Pass/RUME source matches the
-  reviewed owner chain; native compatibility, FFI and CI source stays at a2.
-  The user temporarily accepts the measured overhead and explicitly requires
-  the open P1 blocker below. This supersedes prior acceptance-pending language,
-  without closing memory or broader optimizer disparity.
-- [ ] Qualify the complete combined head: generated FFI/TypeScript drift,
-  Starshine-only five-pass O4s 4/1 self-build, original-input validation/runtime
-  controls, isolated exact-tarball Node25/26 JS/strict-TS consumers, native-debug
-  behavior and unchanged coverage gate. Exact-head protected CI must pass before
-  normal master publication; retain failures, residuals and oracle identities.
+- Published `0ca3cb6e7cb927637f3b9c966e01c998d1b74e5d` passes all six
+  master workflows: Required CI (14,058 tests and retained differential gates),
+  Package, Coverage Report (28,022 / 225 against unchanged 28,138 / 196),
+  Examples CLI Native, Fuzz Suites and README API Sync. Exact 47-file packed
+  Node25/26 JS/strict-TS consumers pass. Older failed logs and MoonBit #1322 stay
+  historical evidence. The complete nineteen-commit reviewed GC chain is now
+  published; temporary overhead acceptance leaves the P1 blocker open.
+- The five reviewed ReorderLocals commits through `36cfe0be` are integrated
+  locally onto that baseline, preserving both RED/GREEN pairs. Only equal-
+  frequency type grouping with a strictly smaller actual declaration encoding
+  is added; primitive keys exclude recursive inline graphs. Public ABI, native
+  repair, preset and packaging/CI sources remain unchanged. Later unread-tee
+  and type-ordering experiments are excluded.
+- Owner qualification records ORIGINAL savings of 186,626 GC / 11,308 WASI
+  bytes; fresh self-build improvements are separately 26,442 / 7,910 bytes.
+  Raw fresh GC grows 133,237 bytes, failing the 16 KiB growth target. The final
+  single GC pair is adverse: 8.483 -> 9.886 seconds and 304,404 -> 307,324 KiB.
+  These observations do not close P1 or establish a general performance result.
+  See [the pass evidence](docs/wiki/binaryen/passes/reorder-locals/parity.md).
+- [ ] Renew combined-head FFI/TypeScript drift, five-pass O4s 4/1 self-build,
+  independent validation/runtime controls, exact packed Node25/26 JS/strict-TS
+  consumers, native behavior, full tests, dedicated 10k and unchanged coverage.
+  Preserve nonzero structural residuals, oracle identities and all failures.
+  The user authorizes one normal fast-forward source push using the existing
+  admin exemption for this reviewed checkpoint, then requires all exact-head
+  master workflows terminal. No force, PR or protection change is authorized;
+  retain any bypass warning. This is not a future publication policy.
 - [ ] Reconcile root MIT / MoonBit Apache-2.0 and approve candidate version,
   provenance route and npm publication. No license is silently selected.
 - Unsupported ABI identities/reasons stay guarded; supported signatures derive

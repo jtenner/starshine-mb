@@ -468,3 +468,26 @@ retain all sample ranges, adverse diagnostics and distinct baseline cohorts.
 The additional original GC benefit is 271,688 bytes; the historical final
 median remains 37,552 KiB above the first equivalent control. Acceptance does
 not close memory, broader optimizer, license or npm release decisions.
+
+
+## Reviewed ReorderLocals preparation checkpoint
+
+Published 0ca completes the nineteen-commit GC integration above: all six
+master workflows pass, exact 47-file package SHA-256
+`23158c22d55ac0f7eee64d42fd10e8fc6412c14372d896ee0eeb4003b2b75d1c`
+passes isolated Node25/26 JS/strict-TS consumers, and coverage remains gated
+against 28,138 / 196 (actual 28,022 / 225). This supersedes its earlier
+qualification-pending language without discarding historical failures.
+
+The five reviewed commits through `36cfe0be` are integrated locally for renewed
+qualification. [The integration dossier](wiki/tooling/npm-optimizer-discrepancy.md#reviewed-declaration-grouping-integration)
+and [pass evidence](wiki/binaryen/passes/reorder-locals/parity.md) preserve both
+RED/GREEN pairs, 186,626 / 11,308 ORIGINAL byte savings, separate fresh-owner
+self-build gains 26,442 / 7,910, raw GC growth 133,237 and the failed 16 KiB target.
+The final single GC pair is adverse; P1 remains open. Public ABI, preset,
+packaging and CI contracts remain unchanged; later optimizer experiments are
+excluded. Fresh combined-source package/consumer/test evidence must be recorded
+against its exact head. A scoped user-approved normal source fast-forward may
+use the existing admin exemption; retain any warning and require terminal
+published-head workflows. npm, license, candidate/provenance, tags/releases,
+deployment and credentials remain separate release decisions.
