@@ -1,3 +1,15 @@
+### 2026-10-10 — Qualify bounded npm optimizer fixes
+
+- [The optimizer checkpoint](tooling/npm-optimizer-discrepancy.md) records private
+  DFE admission, absent-control-arm instruction analysis and bounded flat
+  coalescing, with red-first regressions, independent review and 14,010 tests.
+- Exact-original O4s saves another 55,014 GC / 107,345 WASI bytes; the same-input
+  Binaryen gap and resource costs remain explicit. The five-pass beta queue is
+  retained after the small incremental coalescing payoff.
+- Fresh-source FFI/TypeScript generation, O4s self-build, API/CLI parity and
+  isolated packed consumers pass. Broader optimizer, license and integrated CI
+  release gates remain open; no source push or package publication occurs here.
+
 ### 2026-10-10 — Preserve the npm artifact discrepancy before source publication
 
 - [The same-input checkpoint](tooling/node-package-surface.md#october-10-2026--same-input-binaryen-comparison)

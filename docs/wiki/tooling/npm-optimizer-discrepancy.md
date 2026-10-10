@@ -8,8 +8,15 @@ sources:
   - ../../../src/passes/optimize.mbt
   - ../../../src/passes/duplicate_function_elimination.mbt
   - ../../../src/passes/o4s_private_duplicates_test.mbt
+  - ../../../src/passes/oi_optional_control_wbtest.mbt
+  - ../../../src/passes/pass_manager.mbt
+  - ../../../src/passes/coalesce_artifact_tiny_perf_wbtest.mbt
+  - ../../../src/passes/coalesce_tiny_budget_wbtest.mbt
+  - ../../../tests/optimizer/regressions/oi-grow-select.test.ts
 related:
   - ../binaryen/passes/duplicate-function-elimination/starshine-strategy.md
+  - ../binaryen/passes/optimize-instructions/starshine-strategy.md
+  - ../binaryen/passes/coalesce-locals/starshine-strategy.md
   - ../ir2/registry-map.md
 ---
 
@@ -85,20 +92,118 @@ state 91 before an unreachable trap, export names, distinct exported/table/globa
 identities and their callback aliases. These bounded controls do not establish
 universal equivalence.
 
-## Pending readiness evidence
+## Correctness and bounded cleanup fixes
 
-- Completed red checkpoint `d041fd822`: public O4s tests failed 2/2 on helper
-  counts; protected-candidate test failed on 6 versus 2 normalizations.
-- Initial implementation tests passed 2/2 public, 1/1 protected-candidate and
-  1/1 numeric CLI; refresh final assertions, Node identity suite and independent review.
-- Measure omitted cleanup owners on originals and close further supported causes.
-  Direct OptimizeInstructions currently aborts on the original GC input; a
-  reduced write-set fact test exposes an absent optional-control child access.
-- Repeat exact-input Binaryen samples with compatible features; preserve exact
-  tool/input hashes and remaining gap.
-- Run focused/full tests and required direct-pass generated comparisons; record
-  incomplete broader signoff explicitly.
-- Run isolated packed JavaScript/strict TypeScript controls on copies of the
-  original package with exact revised artifacts. Coordinate a fresh-source npm
-  build/parity gate with the prep owner through parent; that integration remains
-  separate from candidate-copy testing.
+Instruction write-set analysis previously walked HOT's `-1` absent optional
+else/catch sentinel as a live node. A valid no-else HOT fixture reproduced the
+abort seen in direct OI on the original GC artifact. The fix skips exactly that
+sentinel while collecting every present arm's writes. The original direct OI
+now completes and independently validates. OI is not added to the fast preset.
+
+At numeric levels 4/1, bounded coalescing excluded all ordinary bodies once a
+module reached 2,000 defined functions. The additional lane admits at most 64
+body locals, 32 parameters and 128 flat instructions, excluding structured/EH
+containers and control/continuation transfers. Existing nondefaultable, runtime,
+snapshot, identity and per-body validation/rollback guards remain. The touched
+path also restores the full direct pass's stack-carried overwrite guard;
+validation cannot detect changed call arguments. Dense analysis is capped at
+96 slots for each newly admitted body. Admission/application each build a linear
+parameter cache; sparse selection can still scan unrequested tiny bodies.
+
+Appending bounded coalescing to O4s from the same originals saves only another
+2,165 GC / 5,769 WASI bytes. The clean GC sample costs 9.364 seconds versus
+8.248 for the retained preset. The WASI diagnostic overlapped another probe,
+so its time is excluded from performance conclusions. This payoff does not
+justify expanding the wall-time-first beta queue. Both direct fixes remain
+available without changing packaging's five-pass contract.
+
+## Final same-original measurements
+
+Fresh native bootstrap SHA-256:
+`aaf2270a26e51679a6f5f15560aec75c1c41cf82b98464008d9e4fea90ce0a22`.
+Verified Binaryen **133** (`version_133-60-g93d6e9de7`) SHA-256:
+`646443d963e0ea180a57a6dc92a4b31ebbb0693cb85149598f8a7c5ac503bb1a`.
+These are single serial samples; wall/RSS exclude independent validation.
+
+| Original | Optimizer | Bytes | Time (s) | Peak RSS (KiB) |
+| --- | --- | ---: | ---: | ---: |
+| GC | Starshine 4/1 | 7,232,524 | 8.248 | 266,876 |
+| GC | Binaryen O4/s1 | 5,545,109 | 23.611 | 1,074,344 |
+| GC | Binaryen Oz | 5,551,472 | 14.290 | 426,352 |
+| WASI | Starshine 4/1 | 6,240,505 | 9.044 | 278,536 |
+| WASI | Binaryen O4/s1 | 6,148,533 | 30.061 | 1,203,900 |
+| WASI | Binaryen Oz | 4,857,635 | 8.442 | 495,660 |
+
+All outputs independently validate with
+`wasm2,gc,function-references,tail-call,extended-const`, retain export names and
+kinds (2,849 GC / 2 WASI), and preserve absent `target_features` metadata. All
+four Binaryen hashes reproduce the original qualified report. Binaryen uses
+`BINARYEN_CORES=8`, `--mvp-features`, mutable globals, sign extension,
+nontrapping float-to-int, bulk memory, reference types, multivalue, GC, tail
+calls and extended constants; WASI additionally enables SIMD. Optimization is
+`-O4 -s 1` or `-Oz`. Every invocation reads the original input directly.
+All-feature Node-incompatible encodings and chained optimization remain excluded.
+
+The remaining O4/s1 gaps are 1,687,415 GC / 91,972 WASI bytes. GC's code section
+is 6,614,667 versus Binaryen's 5,070,579 bytes; its type section remains 176,778
+versus 74,881. All compared custom sections total 69 bytes. Debug metadata
+therefore does not explain this gap. The fast preset omits broader inlining,
+argument/type refinement and other full-queue transformations. Mixed recursive
+GC type pruning requires canonical dependency/identity proof; a raw function
+signature scan found only one exact duplicate, so widening simple-type cleanup
+alone is not a defensible shortcut. Standalone pass totals can include CLI
+canonical encoding; incremental preset samples are used for admission decisions.
+
+Compared with the historical O4s sample, WASI peak RSS rises from about 235 to
+272 MiB and time from 8.47 to 9.04 seconds for the 107,345-byte saving. GC RSS
+rises from about 256 to 261 MiB with similar wall time. These local observations
+record the resource tradeoff, not a universal performance claim.
+
+## Qualification and limits
+
+- `moon info`, `moon fmt` and all **14,010** default wasm-gc tests pass. The
+  skipped 2,000-function lane passes explicitly and preserves the complete
+  original encoding. An old CLI roster expectation was updated after the full
+  suite exposed it; behavior remains covered by positive private-merge tests.
+- The final native binary passes all **13** existing Node host-identity
+  regressions. Reduced controls compare results, repeated state, memory,
+  imported callback arguments, traps, and exported/table/global identities.
+  The artifact-scale coalescing control retains 2,002 exports and matches
+  values 12/20, callback observations, memory and state after an unreachable trap.
+- The subsequent [Binaryen grow/select lead](https://github.com/WebAssembly/binaryen/pull/9227)
+  does not establish a local bug. Starshine already marks grows as effectful
+  and requires explicit equality facts. All **32** bounded Node qualification
+  cases preserve sequential old sizes, final memory/table sizes and both select
+  outcomes across successful, zero, failed and partially failed growth, including
+  eager operand/condition callback ordering. No implementation change is needed.
+- Three **10,000**-case direct-pass aggregates use freshly built native optimizer
+  and generator, verified Binaryen133, seed `0x5eed`, at most eight subprocesses
+  and independent wasm-tools validation. Normalized/residual counts are DFE
+  5,000/5,000, CL 3,750/6,250 and OI 8,623/1,377. Validation, generator and command
+  failure counts are zero. Runtime/property modes are off; zero counters do not
+  establish checks that were not enabled. Only 20 ordinary residual bundles per
+  lane are retained. Independent source review identifies scoped private-call
+  and nop/wrapper size wins; broader OI tuple/effectful residuals stay open.
+- Exact-original before/after package copies pass bounded API/CLI parity and
+  isolated JavaScript / strict TypeScript consumers on Node26.11.1 / TS5.8.3.
+- A separate fresh-source build regenerates FFI-backed JavaScript and TypeScript,
+  verifies numeric levels 4/1 and the unchanged five-pass queue, self-optimizes
+  without Binaryen, validates both artifacts, and passes API/CLI parity plus
+  isolated packed JS/strict TS consumers. Packaging/CI implementations and
+  generated tracked files remain unchanged. This fresh build is a different
+  input: GC 7,452,231 -> 7,232,663; WASI 6,748,799 -> 6,240,565 bytes. It is not
+  mixed into the original-input comparison.
+- Fresh archive SHA-256:
+  `de4459cfec0e1723b8b4a82e4fbca518ed198b272dde51dba764e2ddb6d73ff2`.
+  Native tool, original/fresh input/output hashes, commands, qualified archive,
+  consumer reports and full logs remain in the delegated task's local evidence
+  directory. Original reports/artifacts are rechecked unchanged.
+
+Independent review found no code blocker in the three fixes and final test
+updates. This is a scoped implementation checkpoint, not closure of every pass
+or universal semantic parity. Broader GC/preset opportunities and effectful OI
+families stay on the backlog. `bun validate full --profile ci --target wasm-gc`,
+coverage/native-example CI gates and exact integrated-head release qualification
+remain with preparation owner/parent; they are not claimed here. Licensing stays
+undecided. Local commits are ready for coordinated source integration; this task
+performs no push, npm publication, release/tag, deployment or credential changes.
