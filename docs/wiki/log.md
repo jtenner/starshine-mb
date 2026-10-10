@@ -20,6 +20,20 @@
   less than 1 MiB median RSS differences; no speed win is claimed. The later GC
   canonicalization/memory work remains isolated pending the owner's decision.
 
+### 2026-10-10 — Qualify bounded GC type canonicalization
+
+- [The follow-up checkpoint](tooling/npm-optimizer-discrepancy.md#qualified-bounded-gc-follow-up)
+  repairs complete type remapping, recursive-group pruning/retained locals and
+  backward singleton type interning with separate failing-first regressions.
+- Original GC numeric 4/1 saves 271,688 further bytes; 4,678 type aliases and 1,619
+  additional private functions disappear. All 105 groups and public identities
+  remain; memory overhead, same-original Binaryen gap and proposal limits stay
+  explicit. Direct RUME admission alone gives no original artifact gain.
+- Independent source/evidence review, 14,032 default tests, owned 10k DFE and 256
+  GC runtime checks complete. Fresh FFI/types, Starshine-only 4/1 self-build and
+  isolated packed JS/strictTS consumers pass. Coordinated integration, licensing
+  and integrated CI remain with the prep owner/parent; no push or publication.
+
 ### 2026-10-10 — Qualify bounded npm optimizer fixes
 
 - [The optimizer checkpoint](tooling/npm-optimizer-discrepancy.md) records private
@@ -583,7 +597,7 @@ broader pass parity or substitute for the focused descriptor/callback tests.
 
 ### 2026-10-04 — Bound shared-DAG exact lift conflicts
 
-- [Regression, lifetime proof and complete consumers](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-memoize-exact-mixed-band-lift-conflicts): complete CL instructions−7.5544%, recursive calls14.419m→684; DAE2+.0175% is adverse. CL n5 paired−2.314%, remaining1.908×, all contended.13,513 tests and1,252 validations/3,680 supported observations preserve exact output; all four1× and release gates remain open.
+- [Regression, lifetime proof and complete consumers](binaryen/passes/coalesce-locals/starshine-strategy.md#october-4-2026-memoize-exact-mixed-band-lift-conflicts): complete CL instructions−7.5544%, recursive calls14.419m→684; DAE2+.0175% is adverse. CL n5 paired−2.314%, remaining1.908×, all contended.13,513 tests and 1,252 validations/3,680 supported observations preserve exact output; all four1× and release gates remain open.
 
 ### 2026-10-04 — Pack structured CL liveness and enumerate live hazards
 
@@ -603,15 +617,15 @@ broader pass parity or substitute for the focused descriptor/callback tests.
 
 ### 2026-10-04 — Record lift provenance only for consumers
 
-- [API contract and measured DAE2/CL savings](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-record-lift-provenance-only-for-consumers): complete work−1.4826%/−.6709%, exact outputs;13,499 tests and1,156 validations/3,392 supported observations. Defaults, verification, write-provenance readers and all four1×/release blockers remain.
+- [API contract and measured DAE2/CL savings](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-record-lift-provenance-only-for-consumers): complete work−1.4826%/−.6709%, exact outputs;13,499 tests and 1,156 validations/3,392 supported observations. Defaults, verification, write-provenance readers and all four1×/release blockers remain.
 
 ### 2026-10-04 — Reuse structured decoder frames
 
-- [Active-body ownership and measured four-pass scopes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-structured-decode-frames):2,120,809 fewer wrappers, complete OI work−2.7565%, unchanged bytes/checks;13,495 tests and1,140 validations/3,344 supported observations. Parsing gains do not close pass-local targets; all four1× and release blockers remain.
+- [Active-body ownership and measured four-pass scopes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-structured-decode-frames):2,120,809 fewer wrappers, complete OI work−2.7565%, unchanged bytes/checks;13,495 tests and 1,140 validations/3,344 supported observations. Parsing gains do not close pass-local targets; all four1× and release blockers remain.
 
 ### 2026-10-04 — Unbox private unsigned decoder results
 
-- [Representation proof and measured four-pass scopes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-unbox-private-unsigned-decoding-results): 4,402,894 fewer requests, complete OI work−1.8665%, exact bytes;13,491 tests and1,124 validations/3,296 supported observations. Parser checks/API remain; all four1× and release blockers stay open.
+- [Representation proof and measured four-pass scopes](binaryen/passes/dae2/starshine-strategy.md#october-4-2026-unbox-private-unsigned-decoding-results): 4,402,894 fewer requests, complete OI work−1.8665%, exact bytes;13,491 tests and 1,124 validations/3,296 supported observations. Parser checks/API remain; all four1× and release blockers stay open.
 
 ### 2026-10-04 — Keep local-write validation success unboxed
 

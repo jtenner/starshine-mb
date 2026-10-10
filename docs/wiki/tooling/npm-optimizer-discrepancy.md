@@ -177,7 +177,7 @@ record the resource tradeoff, not a universal performance claim.
   outcomes across successful, zero, failed and partially failed growth, including
   eager operand/condition callback ordering. No implementation change is needed.
 - Three **10,000**-case direct-pass aggregates use freshly built native optimizer
-  and generator, verified Binaryen133, seed `0x5eed`, at most eight subprocesses
+  and generator, verified Binaryen 133, seed `0x5eed`, at most eight subprocesses
   and independent wasm-tools validation. Normalized/residual counts are DFE
   5,000/5,000, CL 3,750/6,250 and OI 8,623/1,377. Validation, generator and command
   failure counts are zero. Runtime/property modes are off; zero counters do not
@@ -312,7 +312,7 @@ shared, descriptor, continuation, inline `DefType`, `RecIdx`, self and forward
 forms remain distinct. A dense flat map rewrites every surviving definition and
 operand, including protected imported/exported interfaces. Existing plain-type
 interning and dead-type pruning guards remain unchanged. No new preset pass is
-added: numeric4/1 reaches this through its existing DFE slot.
+added: numeric 4/1 reaches this through its existing DFE slot.
 
 Reduced public fixtures verify transitive struct->array->function aliases,
 private-body merging, shifted two-member groups, GC import/global/local operands
@@ -320,3 +320,93 @@ and nonfinal-base/final-child chains. Boundary fixtures cover identity exclusion
 key equality and a no-alias canonical-byte control. Independent source review
 approves this bounded lane; full tests, native artifact impact, runtimes and
 consumer qualification follow separately before integration readiness.
+
+## Qualified bounded GC follow-up
+
+Implementation `5c16ded2e410607b23f9e25399b2ca219fb39f46` has a fresh native
+SHA-256 `2364a2c553c27c949f0406d25808c32a42258547dc9484f9db8c2b796ea06c55`.
+The final default wasm-gc suite passes 14,032/14,032. Independent read-only
+source and evidence reviews approve the scoped checkpoint.
+
+Every measured optimizer below starts directly from the immutable ORIGINAL
+inputs above. Binaryen 133 uses eight workers and the recorded runtime-compatible
+feature flags. No chained or idempotence-based artifact comparison is used.
+These are single local wall/RSS samples, not universal performance claims.
+
+| Original input | Optimizer | Bytes | Wall seconds | Peak RSS KiB |
+| --- | --- | ---: | ---: | ---: |
+| GC 7,452,107 | Starshine numeric 4/1 | 6,960,836 | 7.713 | 321,228 |
+| GC 7,452,107 | Binaryen O4/s1 | 5,545,109 | 23.744 | 1,081,080 |
+| GC 7,452,107 | Binaryen Oz | 5,551,472 | 13.739 | 468,452 |
+| WASI 6,748,730 | Starshine numeric 4/1 | 6,240,505 | 8.962 | 278,720 |
+| WASI 6,748,730 | Binaryen O4/s1 | 6,148,533 | 30.414 | 1,202,608 |
+| WASI 6,748,730 | Binaryen Oz | 4,857,635 | 8.367 | 509,012 |
+
+All outputs validate independently; repeated Binaryen outputs match historical
+hashes. Starshine GC output SHA-256 is
+`a8200e0b6c257a2778786548ab8ad6f40a8a5992a17a3a8d0795212c3e99b55c`;
+WASI remains byte-identical to the previous checkpoint, SHA-256
+`53987fb549842534484f05fc995d52cd7cc1d9d37ae9b53b6947a3accc484df8`.
+Public export names/kinds/order remain 2,849 GC and two WASI entries.
+
+The follow-up saves 271,688 GC bytes beyond the previous 7,232,524 checkpoint
+(491,271 from original). It removes exactly 4,678 aliases: 2,554 struct, 139 array,
+1,985 function; 11,266 types and 21,794 functions remain. All 105 explicit recursive
+groups remain. The type section falls 176,778->129,540 bytes; code falls
+6,614,667->6,393,827 relative to the previous checkpoint. Custom metadata stays
+69 bytes, confirming it is not the disparity's cause. Direct original DFE is
+6,977,189 bytes/1.466 seconds/277,796KiB. The single-pass prefix/dictionary lane
+avoids recursive unfolding and whole-prefix comparisons. Its extra normalized
+keys/remap and transformed bodies increase preset peak RSS from 266,876 to
+321,228KiB in these samples despite lower wall time; retain that tradeoff.
+
+Renewed DFE GenValid uses an explicit fresh native binary, unchanged explicit
+generator SHA-256 `11f3b1920b6cf07c96f61b75c679ec710c9a57fe111a127fbb72ec18f3a6ab65`,
+v133, seed 0x5eed and eight subprocesses. It completes 10,000 cases: 5,000 matches
+plus 5,000 residual comparisons classified by reviewer judgment as scoped
+six-byte wins. Every residual is the existing private constant/caller family;
+all 20 retained outputs byte-match the previous reviewed checkpoint. There are
+zero validation/generator/command failures and no larger canonical outputs.
+Runtime/property modes are off; this profile does not supply GC alias coverage.
+
+Separate bounded GC subtype runtime renewal has 256/256 normalized and primary
+original/Starshine/Binaryen semantic matches, zero blocked/mismatching cases and
+zero validation/generator/command failures. The initial sandboxed run's 256
+runtime blocks are retained; approved subprocess access resolves them, using the
+same byte-identical generator manifest. This existing profile checks GC boundary
+preservation; the new aliases are exercised by reduced fixtures.
+
+Three reduced independently validated fixtures shrink 169->86,334->267 and
+174->122 bytes. Fresh Node instances preserve 48 result observations, mutated
+state, six null RuntimeError classes, host call order and three public function
+identity checks. Trap messages/locations and non-null typed host arguments are
+outside this observation scope. Fixture/observer/tool/output hashes and exact
+commands are retained alongside the observations. Original candidate API/CLI
+parity and isolated packed JavaScript/strict TypeScript consumers also pass.
+
+Remaining O4/s1 gaps are 1,415,727 GC and 91,972 WASI bytes. Recursive type
+canonicalization, broader body transformations/preset composition and general
+proposal runtimes remain open. No fast-queue expansion, dead-GC-type-pruner
+guard widening, packaging-source edit, license choice or source publication is
+part of this checkpoint. Exact integrated-head CI/release gates stay with the
+preparation owner and parent.
+
+Fresh SOURCE qualification is separate from the identical-original comparison.
+Live FFI/TypeScript generation plus the unchanged five-pass numeric 4/1 build
+uses the same native bootstrap hash and no Binaryen. Newly compiled GC shrinks
+7,460,987->6,970,113 bytes (7.831s); WASI 6,760,437->6,250,813 (9.077s).
+Before/after API and CLI observations agree. Local archive
+`jtenner-starshine-0.1.2-beta.0.tgz` is 4,669,877 bytes, SHA-256
+`7ef0c7da61b4b0b7ee6aa50e083443e2b79f40806f0a889aa12d70ed12ee885a`.
+Clean packed JavaScript and strict TypeScript consumers pass all nine package
+entrypoints and CLI with checkout/MoonBit reads denied. Generated packaging
+files leave no tracked diff. Initial sandbox subprocess failures and successful
+approved local reruns are retained separately; no failed run is relabeled green.
+
+A final read-only fetch at 2026-10-10 08:30UTC still pins master to
+`9057a5d8a5a5b85859c702c76d0cbe3e9f18ab55`. The preparation owner retains
+integration/publication of the prior 62ba4012f checkpoint. This follow-up is a
+local branch based exactly there; coordinate the integrated baseline and apply
+its separate regression/fix commits through that owner, without concurrent
+master pushes. Parent messaging currently returns `thread not found`; the
+platform handoff and retained local progress/evidence provide the handoff path.

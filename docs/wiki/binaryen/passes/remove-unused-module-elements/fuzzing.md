@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-10
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../tooling/pass-fuzz-compare.md
@@ -14,6 +14,27 @@ sources:
 # `remove-unused-module-elements` Fuzzing Profile
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## October 10 whole-recursive-group pruning renewal
+
+Reviewed implementation 763c4da42 uses flat roots/remaps and a linear owner table,
+retains each live group whole/in order, closes all sibling dependencies once and
+roots retained reference-only locals. Subsequent GC canonicalization changes do
+not alter standalone RUME source. Fresh native SHA-256
+`10d678429944c8e87967bc79cb6132d46e7d6d8ef94b0f85eb163bee89a8d046`
+passes 10,000/10,000 `rume-all` cases against verified Binaryen 133 using explicit
+unchanged generator, seed 0x5eed, eight subprocesses and
+`--normalize local-cleanup-debris`: 4,106 direct plus 5,894 documented normalized
+matches, zero residual/validation/generator/command failures. Runtime/property
+modes are off. This aggregate is not recursive proposal execution proof.
+
+Reduced public/whitebox fixtures cover last-member roots, unrooted sibling
+dependencies, group-local RecIdx, flat names/remapping, retained local roots and
+bounded dependency visits. A reduced native runtime fixture shrinks 203->175,
+preserving values 17/29, mutated state and four traps. The ORIGINAL npm artifact
+keeps all groups rooted and remains byte-identical under direct RUME; admission
+alone gives no artifact reduction. Exact hashes/commands and supported/remaining
+scope are in [the follow-up](../../../tooling/npm-optimizer-discrepancy.md#follow-up-after-the-reviewed-checkpoint).
 
 ## September 22 memory64 bounds repair signoff
 

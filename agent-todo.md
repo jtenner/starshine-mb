@@ -48,6 +48,7 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   MoonBit toolchain and remaining repository gates. Upstream #1322 remains a
   compiler issue despite the local compatibility workaround. Do not revive
   unrelated DAE2/O campaigns as part of this package task.
+- Active isolated optimizer implementation: [discrepancy investigation](docs/wiki/tooling/npm-optimizer-discrepancy.md), based on verified `9057a5d8a`. Private DFE admission, OI optional-arm analysis and bounded flat coalescing have tested local fixes, independent review, original-input measurements and fresh-source packed qualification. The separately reviewed GC follow-up repairs remappers/whole-group pruning and bounded backward singleton interning; full 14,032 tests, 10k owned DFE, 256 GC runtime and fresh FFI/O4s/packed consumers pass within documented scope. GC saves 271,688 more bytes; O4/s1 gaps remain 1,415,727 GC/91,972 WASI. Prior 62ba checkpoint is assigned to prep owner; coordinate both local branches through parent before publication. Broader recursive GC/preset and effectful OI gaps remain open.
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
@@ -66,7 +67,7 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   audit has reproduced validator, DAE and OI failures. Keep performance patches
   isolated and preserve their evidence; do not treat existing passing tests or
   unchanged output hashes as release signoff. See P00 below before publication.
-- **Speed target:** match or beat verified Binaryen133 (≤1×) on comparable
+- **Speed target:** match or beat verified Binaryen 133 (≤1×) on comparable
   active pass-local timings; track full-command time independently. Neither a
   helper gain nor a guarded/no-op path closes this target.
 - **Earlier committed all-four checkpoint:** native `8eac37f6…`→`1c6d69ab…`,
@@ -104,12 +105,12 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   2030.554±7.049 / B1054.366±22.744ms (1.926×); paired+0.650% is adverse,
   with all rows contended. No command win is established. The large directization
   scan finds no rewrite, but all141,252 discovery visits remain and OI transforms
-  elsewhere.13,503 tests and1,172 validations/3,440 supported observations;
+  elsewhere.13,503 tests and 1,172 validations/3,440 supported observations;
   all four1× and release gates stay open. [Evidence](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-copy-directization-output-only-after-a-rewrite).
 - **OI quality checkpoint:** native`4c20bc54…` retains guarded adjacent constant
   folds. One large function shrinks3 B; the current normalized gap is33,494 B.
   CLI2013.416±17.913 / B1030.112±22.296ms (1.955×), paired+0.698%; no speed
-  win is established.13,507 workspace tests and1,220 validations/3,584 runtime
+  win is established.13,507 workspace tests and 1,220 validations/3,584 runtime
   observations pass supported cases. [Evidence](docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md#october-4-2026-retain-constant-folds-under-the-effect-guard).
 - **DAE correctness checkpoint:** native de85d92e… passes all 16 reduced
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-10
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -9,6 +9,25 @@ sources:
 ---
 
 # `duplicate-function-elimination` Fuzzing Profile
+
+## October 10 bounded GC canonicalization renewal
+
+The [npm discrepancy follow-up](../../../tooling/npm-optimizer-discrepancy.md#qualified-bounded-gc-follow-up)
+records fresh native2364a2c553c27c949f0406d25808c32a42258547dc9484f9db8c2b796ea06c55,
+verified Binaryen 133, explicit unchanged generator, seed 0x5eed and eight workers.
+The 10,000-case owned trigger profile yields 5,000 matches and5,000 source-backed
+six-byte private-caller wins, with zero validation/generator/command failures.
+All 20 retained residual outputs match the prior reviewed checkpoint. This is an
+agent/reviewer classification; runtime/property modes are off and no GC alias
+coverage is implied by that aggregate.
+
+A separate 256-case `campaign-gc-ref-subtypes` lane with `--semantic-oracle node-v2`
+passes 256 normalized and 256 primary original/Starshine/Binaryen runtime cases,
+zero blocked/failing cases. The initial sandboxed runtime blocks are preserved;
+local subprocess approval resolved them with the identical input manifest.
+Reduced positive public/whitebox fixtures supply alias, shifted-group, import,
+global/local and protected identity coverage. Exact commands, hashes, size/RSS
+tradeoffs, remaining gap and observation limits are in the linked checkpoint.
 
 ## September 27 follow-up allocation campaign renewal
 
