@@ -357,6 +357,37 @@ fn pass_lower_compact_captures(
 }
 
 ///|
+fn pass_lower_instr_transfers_control(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_, _)
+    | @lib.BrOnNull(_)
+    | @lib.BrOnNonNull(_)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _)
+    | @lib.BrOnCastDescEq(_, _, _)
+    | @lib.BrOnCastDescEqFail(_, _, _)
+    | @lib.Return
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Unreachable
+    | @lib.Try(_, _, _, _)
+    | @lib.TryTable(_, _, _)
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.Rethrow(_)
+    | @lib.Suspend(_)
+    | @lib.Resume(_, _)
+    | @lib.ResumeThrow(_, _, _)
+    | @lib.ResumeThrowRef(_, _)
+    | @lib.StackSwitch(_, _) => true
+    _ => false
+  }
+}
+
+///|
 fn pass_lower_flatten_branchless_blocks_into(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
@@ -457,33 +488,7 @@ fn pass_lower_flatten_branchless_blocks_into(
     }
     children_branchless = true
     let instr = pass_lower_map_children(instr, visit_body)
-    let transfers_control = match instr {
-      @lib.Br(_)
-      | @lib.BrIf(_)
-      | @lib.BrTable(_, _)
-      | @lib.BrOnNull(_)
-      | @lib.BrOnNonNull(_)
-      | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _)
-      | @lib.BrOnCastDescEq(_, _, _)
-      | @lib.BrOnCastDescEqFail(_, _, _)
-      | @lib.Return
-      | @lib.ReturnCall(_)
-      | @lib.ReturnCallIndirect(_, _)
-      | @lib.ReturnCallRef(_)
-      | @lib.Unreachable
-      | @lib.Try(_, _, _, _)
-      | @lib.TryTable(_, _, _)
-      | @lib.Throw(_)
-      | @lib.ThrowRef
-      | @lib.Rethrow(_)
-      | @lib.Suspend(_)
-      | @lib.Resume(_, _)
-      | @lib.ResumeThrow(_, _, _)
-      | @lib.ResumeThrowRef(_, _)
-      | @lib.StackSwitch(_, _) => true
-      _ => false
-    }
+    let transfers_control = pass_lower_instr_transfers_control(instr)
     branchless = branchless && children_branchless && !transfers_control
     out.push(instr)
   }

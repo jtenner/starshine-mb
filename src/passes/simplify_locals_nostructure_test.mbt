@@ -1048,19 +1048,11 @@ test "simplify-locals-nostructure preserves snapshots across same-global writes 
             _,
             @lib.Expr(
               [
-                @lib.Block(
-                  _,
-                  @lib.Expr(
-                    [
-                      @lib.GlobalGet(first),
-                      @lib.GlobalGet(second),
-                      @lib.I32Const(_),
-                      @lib.I32Add,
-                      @lib.GlobalSet(written),
-                      @lib.Nop,
-                    ]
-                  )
-                ),
+                @lib.GlobalGet(first),
+                @lib.GlobalGet(second),
+                @lib.I32Const(_),
+                @lib.I32Add,
+                @lib.GlobalSet(written),
               ]
             )
           ),
@@ -1819,11 +1811,8 @@ test "simplify-locals-notee-nostructure removes pure zero-read sets" {
 
 ///|
 test "simplify-locals-nostructure removes zero-read stack set after unreachable" {
-  // Binaryen version_130 removes a zero-read local.set after an unreachable
-  // stack producer. This is a focused bottom/unreachable cleanup shape: the set
-  // has no material child value in HOT, but the preceding nonfallthrough root
-  // makes removing the stack-style consumer safe and keeps the optimized module
-  // valid.
+  // The preceding unreachable root prevents the set and following pure const
+  // from executing. Removing both dead instructions leaves a valid module.
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (result i32) (local i32) unreachable local.set 0 i32.const 1))",
@@ -1838,7 +1827,7 @@ test "simplify-locals-nostructure removes zero-read stack set after unreachable"
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("unreachable"), msg=pretty)
-  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("I32(1)"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 0)"), msg=pretty)
 }
 
@@ -1858,7 +1847,7 @@ test "simplify-locals-notee-nostructure removes zero-read stack set after unreac
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("unreachable"), msg=pretty)
-  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("I32(1)"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 0)"), msg=pretty)
 }
 
@@ -1888,11 +1877,9 @@ test "simplify-locals-nostructure flattens no-normal result block before tail un
 }
 
 ///|
-test "simplify-locals-nostructure reorders const nop in nested result loops" {
-  // wasm-smith case-003694 has no local writes, but Binaryen version_130 still
-  // runs enough SLNS cleanup to move a pure const after inert `nop` debris in a
-  // nested result-loop body. Leaving the input unchanged makes the compare
-  // harness canonicalization synthesize a local.set/local.get carrier instead.
+test "simplify-locals-nostructure removes const nop in nested result loops" {
+  // The nested loops have no local writes. Removing inert nops preserves the
+  // f64 result and avoids a canonical local carrier.
   let trace : Array[String] = []
   let optimized = match
     pass_test_run_pipeline(
@@ -1908,10 +1895,8 @@ test "simplify-locals-nostructure reorders const nop in nested result loops" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(
-    pretty.contains("nopnop(f64.const F64(1))"),
-    msg="\{pretty}\ntrace=\{trace}",
-  )
+  assert_false(pretty.contains("nop"), msg="\{pretty}\ntrace=\{trace}")
+  assert_true(pretty.contains("f64.const F64(1)"), msg=pretty)
 }
 
 ///|
@@ -3523,7 +3508,7 @@ test "simplify-locals-notee-nostructure does not create tees for multi-use local
 }
 
 ///|
-test "simplify-locals-notee-nostructure preserves Binaryen const-nop loop shape" {
+test "simplify-locals-notee-nostructure removes inert const-loop nops" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (result f64) loop (result f64) f64.const 1.0 nop end))",
@@ -3541,12 +3526,10 @@ test "simplify-locals-notee-nostructure preserves Binaryen const-nop loop shape"
       )
     ) => {
       @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::f64()]))
-      @debug.assert_eq(body.length(), 3)
-      @debug.assert_eq(body[0], @lib.Instruction::nop())
-      @debug.assert_eq(body[1], @lib.Instruction::nop())
-      match body[2] {
+      @debug.assert_eq(body.length(), 1)
+      match body[0] {
         @lib.F64Const(_) => ()
-        other => fail("expected trailing f64 const after nops, got \{other}")
+        other => fail("expected retained f64 loop result, got \{other}")
       }
     }
     other =>
@@ -3600,9 +3583,9 @@ test "simplify-locals-nostructure does not synthesize if results" {
 }
 
 ///|
-test "simplify-locals-nostructure sinks across fallthrough block without block result" {
-  // Binaryen version_130 sinks this simple fallthrough block carrier but keeps
-  // the block itself void; this is not the disabled structure-synthesis family.
+test "simplify-locals-nostructure flattens a transparent fallthrough block" {
+  // The void block has no branch target. Flattening it leaves the same i32
+  // result and removes the local carrier and block bytes.
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (result i32) (local i32) block i32.const 7 local.set 0 end local.get 0))",
@@ -3616,7 +3599,7 @@ test "simplify-locals-nostructure sinks across fallthrough block without block r
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("block (Void)"), msg=pretty)
+  assert_false(pretty.contains("block"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
   assert_false(pretty.contains("block I32"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 0)"), msg=pretty)
@@ -4284,7 +4267,6 @@ test "simplify-locals-nostructure preserves call-local-tee lifetimes" {
     #|      nop
     #|    end
     #|    local.get 2))
-  let original = pass_test_module_from_wat(input)
   for pass_name in ["simplify-locals-nostructure", "simplify-locals"] {
     let trace : Array[String] = []
     let optimized = match
@@ -4298,7 +4280,36 @@ test "simplify-locals-nostructure preserves call-local-tee lifetimes" {
       Ok(mod_) => mod_
       Err(err) => fail("expected call-local-tee lifetime success, got \{err}")
     }
-    @debug.assert_eq(optimized, original)
+    let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[0]
+    @debug.assert_eq(body.length(), 10)
+    @debug.assert_eq(
+      body[0],
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    )
+    @debug.assert_eq(body[1], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+    @debug.assert_eq(
+      body[2],
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+    )
+    @debug.assert_eq(body[3], @lib.Instruction::call(@lib.FuncIdx::new(1U)))
+    @debug.assert_eq(
+      body[4],
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    )
+    @debug.assert_eq(body[5], @lib.Instruction::call(@lib.FuncIdx::new(2U)))
+    @debug.assert_eq(
+      body[6],
+      @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    )
+    @debug.assert_eq(
+      body[7],
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    )
+    assert_true(body[8] is @lib.If(_, [], None))
+    @debug.assert_eq(
+      body[9],
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    )
     assert_true(
       trace.any(fn(line) { line.contains("reason=call-local-tee-lifetime") }),
       msg=trace.to_string(),

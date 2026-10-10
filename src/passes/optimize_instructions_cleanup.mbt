@@ -4,6 +4,9 @@ fn oi_cleanup_module_encoding(
   mod_ : @lib.Module,
   touched? : Array[Bool]? = None,
 ) -> @lib.Module {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
   let mut changed = false
   let candidate = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -29,12 +32,67 @@ fn oi_cleanup_module_encoding(
     }
     None => mod_
   }
-  let cleaned = dfe_cleanup_simple_type_encoding(
-    pass_cleanup_unused_type_groups(
-      oi_cleanup_declarative_elements(oi_cleanup_control(candidate, touched~)),
-    ),
+  let control_cleaned = oi_cleanup_declarative_elements(
+    oi_cleanup_control(candidate, touched~),
   )
+  let type_cleaned = if pass_encoding_cleanup_may_remap_types(
+      control_cleaned, touched,
+    ) {
+    dfe_cleanup_simple_type_encoding(
+      pass_cleanup_unused_type_groups(control_cleaned),
+    )
+  } else {
+    control_cleaned
+  }
+  let cleaned = oi_cleanup_descriptor_encoding(type_cleaned, touched~)
   oi_group_numeric_locals_if_smaller(cleaned, touched~)
+}
+
+///|
+// Grouping can only change a function with a removable zero run or a repeated
+// numeric declaration type. Distinct nonzero numeric runs are already in the
+// bucket order that the grouping helper would produce.
+fn oi_numeric_group_has_declaration_candidate(
+  mod_ : @lib.Module,
+  touched : Array[Bool]?,
+) -> Bool {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  for index = 0; index < funcs.length(); index = index + 1 {
+    if touched is Some(selected) &&
+      (index >= selected.length() || !selected[index]) {
+      continue
+    }
+    let @lib.Func(locals, _) = funcs[index]
+    if locals.length() <= 1 {
+      continue
+    }
+    let seen : Array[@lib.ValType] = []
+    let mut candidate = false
+    let mut supported = true
+    for run in locals.runs() {
+      if run.count() == 0U {
+        candidate = true
+        continue
+      }
+      let ty = run.val_type()
+      if !run_hot_pipeline_raw_numeric_local_type(ty) {
+        supported = false
+        break
+      }
+      if seen.any(fn(existing) { existing == ty }) {
+        candidate = true
+      } else {
+        seen.push(ty)
+      }
+    }
+    if supported && candidate {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -45,14 +103,29 @@ fn oi_group_numeric_locals_if_smaller(
   mod_ : @lib.Module,
   touched? : Array[Bool]? = None,
   function_comparisons? : Array[Int]? = None,
+  perf? : HotPerfSession? = None,
+  legacy_guard_scans? : Array[Int]? = None,
 ) -> @lib.Module {
+  if !oi_numeric_group_has_declaration_candidate(mod_, touched) {
+    return mod_
+  }
+  match legacy_guard_scans {
+    Some(scans) => scans[0] += 1
+    None => ()
+  }
   if pass_module_has_legacy_try(mod_) ||
     oi_local_group_has_offset_metadata(mod_) {
     return mod_
   }
+  let grouping_start = perf_start_timer_opt(
+    perf, "detail:simplify-locals:encoding-local-group-remap",
+  )
   let grouped = run_hot_pipeline_raw_group_body_locals_by_type_module(
     mod_,
     touched~,
+  )
+  perf_stop_timer_opt(
+    perf, "detail:simplify-locals:encoding-local-group-remap", grouping_start,
   )
   ignore(function_comparisons)
   if physical_equal(grouped, mod_) {
@@ -63,9 +136,16 @@ fn oi_group_numeric_locals_if_smaller(
   } else {
     mod_
   }
-  match @binary.encoded_module_sizes(size_baseline, grouped) {
+  let size_start = perf_start_timer_opt(
+    perf, "detail:simplify-locals:encoding-local-group-size",
+  )
+  let sizes = @binary.encoded_module_sizes(size_baseline, grouped)
+  perf_stop_timer_opt(
+    perf, "detail:simplify-locals:encoding-local-group-size", size_start,
+  )
+  match sizes {
     Ok((old_size, new_size)) if new_size < old_size =>
-      if oi_validate_local_group_changed_bodies(mod_, grouped) {
+      if oi_validate_local_group_changed_bodies(mod_, grouped, perf~) {
         return grouped
       }
     _ => ()
@@ -101,8 +181,12 @@ fn oi_local_group_changed_bodies(
 fn oi_validate_local_group_changed_bodies(
   before : @lib.Module,
   grouped : @lib.Module,
+  perf? : HotPerfSession? = None,
 ) -> Bool {
-  match
+  let start = perf_start_timer_opt(
+    perf, "detail:simplify-locals:encoding-local-group-validate",
+  )
+  let result = match
     @validate.validate_defined_funcs_against_module(
       before,
       oi_local_group_changed_bodies(before, grouped),
@@ -110,6 +194,10 @@ fn oi_validate_local_group_changed_bodies(
     Ok(errors) => errors.is_empty()
     Err(_) => false
   }
+  perf_stop_timer_opt(
+    perf, "detail:simplify-locals:encoding-local-group-validate", start,
+  )
+  result
 }
 
 ///|

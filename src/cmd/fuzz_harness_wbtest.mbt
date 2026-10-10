@@ -1042,7 +1042,11 @@ test "cmd harness idempotence failure preserves original input and reduced passe
   }
   @debug.assert_eq(reports.length(), 1)
   @debug.assert_eq(reports[0].stage, "optimize-idempotence")
-  @debug.assert_eq(reports[0].minimized_passes, ["remove-unused-brs"])
+  // Encoding cleanup changes the minimal order-dependent sequence; both
+  // retained passes are needed to reproduce this known fixed-point failure.
+  @debug.assert_eq(reports[0].minimized_passes, [
+    "merge-blocks", "remove-unused-brs",
+  ])
   match reports[0].wasm {
     Some(bytes) => assert_true(bytes.length() > 0)
     None => fail("expected original idempotence input bytes")

@@ -1,45 +1,72 @@
 ///|
-fn oi_control_cleanup_has_block(body : Array[@lib.Instruction]) -> Bool {
+fn oi_control_cleanup_branchless_candidate(
+  body : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> Int {
+  // Bit 0: the body has no control transfer. Bit 1: a nested block can flatten.
+  let mut branchless = true
+  let mut candidate = false
   for instr in body {
     match instr {
-      @lib.Block(_, _) => return true
-      @lib.Loop(_, @lib.Expr(child)) | @lib.TryTable(_, _, @lib.Expr(child)) =>
-        if oi_control_cleanup_has_block(child) {
-          return true
+      @lib.Block(block_type, @lib.Expr(child)) => {
+        let child_state = oi_control_cleanup_branchless_candidate(child, env)
+        let child_branchless = (child_state & 1) != 0
+        candidate = candidate || (child_state & 2) != 0
+        if child_branchless {
+          match env.expand_blocktype(block_type) {
+            Ok((params, _)) if params.is_empty() => candidate = true
+            _ => ()
+          }
         }
+        branchless = branchless && child_branchless
+      }
+      @lib.Loop(_, @lib.Expr(child)) => {
+        let child_state = oi_control_cleanup_branchless_candidate(child, env)
+        candidate = candidate || (child_state & 2) != 0
+        branchless = branchless && (child_state & 1) != 0
+      }
+      @lib.TryTable(_, _, @lib.Expr(child)) => {
+        let child_state = oi_control_cleanup_branchless_candidate(child, env)
+        candidate = candidate || (child_state & 2) != 0
+        branchless = false
+      }
       @lib.If(_, yes, no) => {
-        if oi_control_cleanup_has_block(yes) {
-          return true
-        }
+        let yes_state = oi_control_cleanup_branchless_candidate(yes, env)
+        candidate = candidate || (yes_state & 2) != 0
+        branchless = branchless && (yes_state & 1) != 0
         match no {
-          Some(child) => if oi_control_cleanup_has_block(child) { return true }
+          Some(child) => {
+            let no_state = oi_control_cleanup_branchless_candidate(child, env)
+            candidate = candidate || (no_state & 2) != 0
+            branchless = branchless && (no_state & 1) != 0
+          }
           None => ()
         }
       }
       @lib.Try(_, @lib.Expr(child), catches, _) => {
-        if oi_control_cleanup_has_block(child) {
-          return true
-        }
+        let child_state = oi_control_cleanup_branchless_candidate(child, env)
+        candidate = candidate || (child_state & 2) != 0
         for catch_ in catches {
           let child = match catch_ {
             @lib.LegacyCatch(_, @lib.Expr(child))
             | @lib.LegacyCatchAll(@lib.Expr(child)) => child
           }
-          if oi_control_cleanup_has_block(child) {
-            return true
-          }
+          let catch_state = oi_control_cleanup_branchless_candidate(child, env)
+          candidate = candidate || (catch_state & 2) != 0
         }
+        branchless = false
       }
-      _ => ()
+      _ => if pass_lower_instr_transfers_control(instr) { branchless = false }
     }
   }
-  false
+  (if branchless { 1 } else { 0 }) | (if candidate { 2 } else { 0 })
 }
 
 ///|
 fn oi_cleanup_control(
   mod_ : @lib.Module,
   touched? : Array[Bool]? = None,
+  flatten_attempts? : Array[Int]? = None,
 ) -> @lib.Module {
   // Undecoded label names cannot be safely renumbered.
   if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
@@ -59,8 +86,15 @@ fn oi_cleanup_control(
       return func
     }
     let @lib.Func(locals, @lib.Expr(body)) = func
-    if !oi_control_cleanup_has_block(body) &&
-      !body.any(fn(instr) { instr is @lib.Unreachable }) {
+    let candidate_state = oi_control_cleanup_branchless_candidate(body, env)
+    let mut has_root_unreachable_tail = false
+    for i = 0; i + 1 < body.length(); i = i + 1 {
+      if body[i] is @lib.Unreachable {
+        has_root_unreachable_tail = true
+        break
+      }
+    }
+    if (candidate_state & 2) == 0 && !has_root_unreachable_tail {
       remaps.push(None)
       return func
     }
@@ -75,6 +109,10 @@ fn oi_cleanup_control(
     let trimmed = end < body.length()
     let prefix = if trimmed { body[0:end].to_array() } else { body }
     let keep : Array[Bool] = []
+    match flatten_attempts {
+      Some(attempts) => attempts[0] += 1
+      None => ()
+    }
     let (next, rewritten, _) = pass_lower_flatten_branchless_blocks(
       prefix,
       env,

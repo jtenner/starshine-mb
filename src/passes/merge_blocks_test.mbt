@@ -1,4 +1,34 @@
 ///|
+fn merge_blocks_test_collect_control_types(
+  body : Array[@lib.Instruction],
+  indices : Array[@lib.TypeIdx],
+) -> Unit {
+  for instr in body {
+    match instr {
+      @lib.Block(bt, @lib.Expr(nested)) | @lib.Loop(bt, @lib.Expr(nested)) => {
+        match bt {
+          @lib.TypeIdxBlockType(index) => indices.push(index)
+          _ => ()
+        }
+        merge_blocks_test_collect_control_types(nested, indices)
+      }
+      @lib.If(bt, then_, else_) => {
+        match bt {
+          @lib.TypeIdxBlockType(index) => indices.push(index)
+          _ => ()
+        }
+        merge_blocks_test_collect_control_types(then_, indices)
+        match else_ {
+          Some(body) => merge_blocks_test_collect_control_types(body, indices)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
 fn merge_blocks_test_count_substring(text : String, needle : String) -> Int {
   if needle.length() == 0 {
     return 0
@@ -271,7 +301,6 @@ test "merge-blocks preserves stack-carried locals overwritten before a later cal
     #|      local.get 1
     #|      call $use
     #|    end))
-  let original = pass_test_module_from_wat(input)
   let trace : Array[String] = []
   let optimized = match
     pass_test_run_pipeline(
@@ -282,7 +311,24 @@ test "merge-blocks preserves stack-carried locals overwritten before a later cal
     Ok(mod_) => mod_
     Err(err) => fail("expected stack-carried local preservation, got \{err}")
   }
-  @debug.assert_eq(optimized, original)
+  // The HOT rewrite stays closed; flat cleanup removes the branch-free block
+  // without changing the carried local value or the later overwrite.
+  @debug.assert_eq(audit_body(optimized, index=1), [
+    @lib.Instruction::i32_const(@lib.I32(17216)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_store(@lib.MemArg::new(2U, None, 0UL)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+  let @lib.Func(locals, _) = optimized.code_sec.unwrap().0[1]
+  @debug.assert_eq(locals.length(), 1)
+  @debug.assert_eq(locals.get(0), @lib.ValType::i32())
   assert_true(
     trace.any(fn(line) {
       line.contains("reason=stack-carried-overwritten-local-merge-blocks-noop")
@@ -414,17 +460,7 @@ test "merge-blocks flattens nested block roots in parent regions" {
     Err(err) => fail("expected merge-blocks success, got \{err}")
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "nop"),
-    4,
-    msg=pretty,
-  )
+  @debug.assert_eq(audit_body(optimized), [])
 }
 
 ///|
@@ -495,19 +531,12 @@ test "merge-blocks flattens inner blocks inside loops without dropping continue 
     Err(err) => fail("expected merge-blocks loop success, got \{err}")
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("(loop"), msg=pretty)
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "(block"),
-    0,
-    msg=pretty,
-  )
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "nop"),
-    1,
-    msg=pretty,
-  )
-  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(audit_body(optimized), [
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+    ),
+  ])
 }
 
 ///|
@@ -1979,7 +2008,15 @@ test "merge-blocks rewrites typed single-param externref multi-result loop if-ar
     2,
     msg=pretty,
   )
-  assert_true(pretty.contains("Type 2"), msg=pretty)
+  @debug.assert_eq(optimized.type_sec.unwrap().0.length(), 2)
+  @debug.assert_eq(optimized.func_sec.unwrap().0, [@lib.TypeIdx::new(0U)])
+  let control_types : Array[@lib.TypeIdx] = []
+  merge_blocks_test_collect_control_types(audit_body(optimized), control_types)
+  @debug.assert_eq(control_types, [
+    @lib.TypeIdx::new(1U),
+    @lib.TypeIdx::new(1U),
+    @lib.TypeIdx::new(1U),
+  ])
   assert_true(pretty.contains("I32(7)"), msg=pretty)
   assert_true(pretty.contains("I32(9)"), msg=pretty)
 }
@@ -2050,7 +2087,15 @@ test "merge-blocks rewrites typed single-param funcref multi-result loop if-arm 
     2,
     msg=pretty,
   )
-  assert_true(pretty.contains("Type 2"), msg=pretty)
+  @debug.assert_eq(optimized.type_sec.unwrap().0.length(), 2)
+  @debug.assert_eq(optimized.func_sec.unwrap().0, [@lib.TypeIdx::new(0U)])
+  let control_types : Array[@lib.TypeIdx] = []
+  merge_blocks_test_collect_control_types(audit_body(optimized), control_types)
+  @debug.assert_eq(control_types, [
+    @lib.TypeIdx::new(1U),
+    @lib.TypeIdx::new(1U),
+    @lib.TypeIdx::new(1U),
+  ])
   assert_true(pretty.contains("I32(7)"), msg=pretty)
   assert_true(pretty.contains("I32(9)"), msg=pretty)
 }
@@ -2112,8 +2157,11 @@ test "merge-blocks rewrites typed single-param externref multi-result loop roots
     1,
     msg=pretty,
   )
-  assert_true(pretty.contains("Type 1"), msg=pretty)
-  assert_false(pretty.contains("Type 0"), msg=pretty)
+  @debug.assert_eq(optimized.type_sec.unwrap().0.length(), 1)
+  @debug.assert_eq(optimized.func_sec.unwrap().0, [@lib.TypeIdx::new(0U)])
+  let control_types : Array[@lib.TypeIdx] = []
+  merge_blocks_test_collect_control_types(audit_body(optimized), control_types)
+  @debug.assert_eq(control_types, [@lib.TypeIdx::new(0U)])
   assert_true(pretty.contains("I32(7)"), msg=pretty)
 }
 
@@ -2174,8 +2222,11 @@ test "merge-blocks rewrites typed single-param funcref multi-result loop roots t
     1,
     msg=pretty,
   )
-  assert_true(pretty.contains("Type 1"), msg=pretty)
-  assert_false(pretty.contains("Type 0"), msg=pretty)
+  @debug.assert_eq(optimized.type_sec.unwrap().0.length(), 1)
+  @debug.assert_eq(optimized.func_sec.unwrap().0, [@lib.TypeIdx::new(0U)])
+  let control_types : Array[@lib.TypeIdx] = []
+  merge_blocks_test_collect_control_types(audit_body(optimized), control_types)
+  @debug.assert_eq(control_types, [@lib.TypeIdx::new(0U)])
   assert_true(pretty.contains("I32(7)"), msg=pretty)
 }
 
@@ -3480,10 +3531,16 @@ test "merge-blocks preserves load-before-division trap order" {
     Err(err) => fail("expected load/division trap-order success, got \{err}")
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("(block"), msg=pretty)
-  assert_true(pretty.contains("i32.load"), msg=pretty)
-  assert_true(pretty.contains("i32.div_s"), msg=pretty)
+  @debug.assert_eq(audit_body(optimized, index=1), [
+    @lib.Instruction::i32_const(@lib.I32(65536)),
+    @lib.Instruction::i32_load(@lib.MemArg::new(2U, None, 0UL)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_div_s(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
 }
 
 ///|
@@ -3509,13 +3566,15 @@ test "merge-blocks preserves the order of two trapping loads" {
     Err(err) => fail("expected two-load trap-order success, got \{err}")
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("(block"), msg=pretty)
-  @debug.assert_eq(
-    merge_blocks_test_count_substring(pretty, "i32.load"),
-    2,
-    msg=pretty,
-  )
+  @debug.assert_eq(audit_body(optimized, index=1), [
+    @lib.Instruction::i32_const(@lib.I32(65536)),
+    @lib.Instruction::i32_load(@lib.MemArg::new(2U, None, 0UL)),
+    @lib.Instruction::i32_const(@lib.I32(65540)),
+    @lib.Instruction::i32_load(@lib.MemArg::new(2U, None, 0UL)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
 }
 
 ///|
@@ -3541,10 +3600,16 @@ test "merge-blocks preserves table-access-before-division trap order" {
     Err(err) => fail("expected table/division trap-order success, got \{err}")
   }
 
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("(block"), msg=pretty)
-  assert_true(pretty.contains("table.get"), msg=pretty)
-  assert_true(pretty.contains("i32.div_s"), msg=pretty)
+  @debug.assert_eq(audit_body(optimized, index=1), [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_div_s(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
 }
 
 ///|
@@ -3618,15 +3683,19 @@ test "merge-blocks preserves atomic-access-before-division trap order" {
       }
     None => fail("expected atomic trap-order code section")
   }
-  assert_true(
-    body.any(fn(instr) {
-      match instr {
-        @lib.Block(_, _) => true
-        _ => false
-      }
-    }),
-    msg=body.to_string(),
-  )
+  @debug.assert_eq(body, [
+    @lib.Instruction::i32_const(@lib.I32(65536)),
+    @lib.Instruction::i32_atomic_load(
+      @lib.MemArg::new(2U, None, 0UL),
+      order=@lib.AtomicOrder::acq_rel(),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_div_s(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
 }
 
 ///|

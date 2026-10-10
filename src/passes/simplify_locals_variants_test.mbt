@@ -136,7 +136,7 @@ test "no-tee variants preserve aggregate multi-read producers after copy cleanup
 }
 
 ///|
-test "structure variants do not retain a scratch local around nested-loop result nops" {
+test "structure variants remove nested-loop result nops without a scratch local" {
   let bytes = Bytes::from_array([
     0, 97, 115, 109, 1, 0, 0, 0, 1, 7, 1, 80, 0, 96, 0, 1, 124, 2, 1, 0, 3, 3, 2,
     0, 0, 4, 8, 1, 99, 0, 1, 98, 152, 207, 57, 5, 6, 1, 1, 141, 21, 156, 41, 9, 4,
@@ -156,10 +156,8 @@ test "structure variants do not retain a scratch local around nested-loop result
     }
     assert_false(pretty.contains("local.set"), msg="\{pass_name}: \{pretty}")
     assert_false(pretty.contains("local.get"), msg="\{pass_name}: \{pretty}")
-    assert_true(
-      pretty.contains("nopnop(f64.const"),
-      msg="\{pass_name}: \{pretty}",
-    )
+    assert_false(pretty.contains("nop"), msg="\{pass_name}: \{pretty}")
+    assert_true(pretty.contains("(f64.const"), msg="\{pass_name}: \{pretty}")
   }
 }
 

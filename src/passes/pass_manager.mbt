@@ -83224,7 +83224,12 @@ fn run_hot_pipeline_apply_hot_pass(
           "guard:\{descriptor.name}-writeback-batch",
           batch_guard_start_us,
         )
-        return Ok(repaired_mod)
+        return Ok(
+          simplify_locals_cleanup_module_encoding(
+            repaired_mod,
+            perf=options.perf,
+          ),
+        )
       }
       None => {
         perf_stop_timer_opt(
@@ -83388,6 +83393,12 @@ fn run_hot_pipeline_apply_hot_pass(
       precompute_cleanup_unused_gc_types(mod_, next_mod)
     } else if descriptor.name == "optimize-instructions" {
       oi_cleanup_module_encoding(next_mod)
+    } else if run_hot_pipeline_descriptor_is_simplify_locals_family(
+        descriptor.name,
+      ) {
+      simplify_locals_cleanup_module_encoding(next_mod)
+    } else if descriptor.name == "merge-blocks" {
+      pass_cleanup_control_and_type_encoding(next_mod)
     } else {
       next_mod
     },
@@ -83659,6 +83670,12 @@ fn run_hot_pipeline_apply_hot_pass_stack(
   Ok(
     if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
       oi_cleanup_module_encoding(output)
+    } else if descriptors.any(fn(d) {
+        run_hot_pipeline_descriptor_is_simplify_locals_family(d.name)
+      }) {
+      simplify_locals_cleanup_module_encoding(output)
+    } else if descriptors.any(fn(d) { d.name == "merge-blocks" }) {
+      pass_cleanup_control_and_type_encoding(output)
     } else {
       output
     },
@@ -83673,6 +83690,15 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
   touched : Array[Bool],
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    pipeline_trace_hook(
+      options.trace,
+      "filtered-hot-stack",
+      "fallback-noop",
+      payload="reason=offset-sensitive-metadata",
+    )
+    return Ok(mod_)
+  }
   if requested_descriptors.length() == 0 {
     return Ok(mod_)
   }
@@ -83952,6 +83978,15 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
     return Ok(
       if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
         oi_cleanup_module_encoding(candidate, touched=Some(touched))
+      } else if descriptors.any(fn(d) {
+          run_hot_pipeline_descriptor_is_simplify_locals_family(d.name)
+        }) {
+        simplify_locals_cleanup_module_encoding(
+          candidate,
+          touched=Some(touched),
+        )
+      } else if descriptors.any(fn(d) { d.name == "merge-blocks" }) {
+        pass_cleanup_control_and_type_encoding(candidate, touched=Some(touched))
       } else {
         candidate
       },
@@ -83965,6 +84000,18 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
       Ok(
         if descriptors.any(fn(d) { d.name == "optimize-instructions" }) {
           oi_cleanup_module_encoding(repaired, touched=Some(touched))
+        } else if descriptors.any(fn(d) {
+            run_hot_pipeline_descriptor_is_simplify_locals_family(d.name)
+          }) {
+          simplify_locals_cleanup_module_encoding(
+            repaired,
+            touched=Some(touched),
+          )
+        } else if descriptors.any(fn(d) { d.name == "merge-blocks" }) {
+          pass_cleanup_control_and_type_encoding(
+            repaired,
+            touched=Some(touched),
+          )
         } else {
           repaired
         },
@@ -84021,6 +84068,15 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
   touched : Array[Bool],
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
+  if pass_module_has_offset_sensitive_metadata(mod_) {
+    pipeline_trace_hook(
+      options.trace,
+      descriptor.name,
+      "fallback-noop",
+      payload="reason=offset-sensitive-metadata",
+    )
+    return Ok(mod_)
+  }
   if descriptor.name == "pick-load-signs" &&
     !run_hot_pipeline_module_has_memory(mod_) {
     pipeline_trace_hook(options.trace, descriptor.name, "skip-no-memory")
@@ -84251,6 +84307,15 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
         heap2local_cleanup_module_types(candidate)
       } else if descriptor.name == "optimize-instructions" {
         oi_cleanup_module_encoding(candidate, touched=Some(touched))
+      } else if run_hot_pipeline_descriptor_is_simplify_locals_family(
+          descriptor.name,
+        ) {
+        simplify_locals_cleanup_module_encoding(
+          candidate,
+          touched=Some(touched),
+        )
+      } else if descriptor.name == "merge-blocks" {
+        pass_cleanup_control_and_type_encoding(candidate, touched=Some(touched))
       } else {
         candidate
       },
@@ -84270,6 +84335,18 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
           heap2local_cleanup_module_types(repaired)
         } else if descriptor.name == "optimize-instructions" {
           oi_cleanup_module_encoding(repaired, touched=Some(touched))
+        } else if run_hot_pipeline_descriptor_is_simplify_locals_family(
+            descriptor.name,
+          ) {
+          simplify_locals_cleanup_module_encoding(
+            repaired,
+            touched=Some(touched),
+          )
+        } else if descriptor.name == "merge-blocks" {
+          pass_cleanup_control_and_type_encoding(
+            repaired,
+            touched=Some(touched),
+          )
         } else {
           repaired
         },

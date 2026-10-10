@@ -3955,7 +3955,11 @@ test "cmd-harness optimizer property failures retain replay evidence" {
   assert_true(report.first_output.length() > 0)
   assert_true(report.second_output.length() > 0)
   assert_true(report.optimize_passes.length() > 0)
-  @debug.assert_eq(report.minimized_passes, ["remove-unused-brs"])
+  // Encoding cleanup changes the minimal order-dependent sequence; both
+  // retained passes are needed to reproduce this known fixed-point failure.
+  @debug.assert_eq(report.minimized_passes, [
+    "remove-unused-brs", "merge-blocks",
+  ])
 }
 
 ///|

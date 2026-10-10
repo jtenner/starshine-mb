@@ -1,3 +1,231 @@
+---
+kind: workflow
+status: working
+last_reviewed: 2026-10-09
+sources:
+  - ../../../raw/tooling/2026-10-09-output-differences-v133.json
+  - ../../../tooling/tracing-playbook.md
+  - ../../../tooling/pass-fuzz-compare.md
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ./parity-matrix.json
+  - ./sweep-report.md
+---
+
+# `optimize-instructions` fuzzing and parity sweep
+
+## October 9, 2026 final native comparison renewal
+
+The final native CLI, SHA-256 `42f386573da7ccab4ae923122b17e29e9069a5686fb91921f89f439fd2de85a3`,
+completed 10,000 new `pass-oi-all` comparisons with seed `0x5eed`,
+eight workers, at most eight subprocesses, and verified Binaryen 133.
+The complete result is `.tmp/output-difference-final-oi-v133-10000-renewed/result.json`;
+the [durable evidence record](../../../raw/tooling/2026-10-09-output-differences-v133.json)
+retains its counts and toolchain identity. There are 8,623 normalized matches,
+0 cleanup-normalized matches and 1,377 residual output differences.
+Raw totals are 712,772/766,824 bytes
+(Starshine/Binaryen); canonical totals are
+732,509/775,236 bytes.
+No output is larger under either size measure. Validation, generator, property
+and command failures are zero. Independent `wasm-tools` validation was required.
+Runtime observation was off in this aggregate; the family evidence below
+provides the scoped semantic judgments. The final bounded wasm-gc suite passes
+14,001/14,001 tests. Earlier measurements retain their original binary scope.
+
+## October 9, 2026: descriptor raw output closure and tuple replay
+
+The final native CLI SHA-256
+`fce72edb42289901fefb4ae40f2febe7482f55f1dc3c425b89cf9b36c80983e1`
+and the verified Binaryen 133 `wasm-opt` SHA-256
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`
+replayed the four distinct [descriptor GenValid inputs](../../../../../src/validate/gen_valid.mbt#L32254)
+with `--optimize-instructions`. Each **raw Wasm output is byte-identical**
+to Binaryen before canonicalization; the Binaryen bytes match the retained
+oracle outputs. Both sides pass `wasm-tools 1.251.0 validate --features all`.
+
+| Fixed descriptor case | Input SHA-256 | Earlier Starshine | Final Starshine = v133 |
+| --- | --- | ---: | ---: |
+| `desc-producer-test-cast` | `fa63b1975f85d853f301c257db08ea368876cd3d9cb15c7ce1553c6f597b483d` | 76 | 58 |
+| `null-desc-cast` | `855e34f33d48f90f78e867d90c84198d0d9b8c69c2aea90dc63231b1e190b312` | 60 | 56 |
+| `effectful-null-desc-cast` | `c9d1b13f7e43ca189c7057d152a464b75488bb831eb26d8a6486fa4a8aef6ed9` | 90 | 81 |
+| `trapping-null-desc-cast` | `99c69ad9a854083af33f7400b801d27b8402e861c57c79014447558deaa50ed1` | 60 | 56 |
+
+The [final OI encoding cleanup](../../../../../src/passes/optimize_instructions_descriptor_encoding_cleanup.mbt)
+keeps the first two-member recursive descriptor type group unchanged. A
+single type-reference scan and dependency queue prune only unused standalone
+function signatures after that pair; the complete type remapper updates the
+retained indices. After HOT writeback, the terminal nullable result can use
+`ref.null none`: bottom null is a subtype of its nullable described reference.
+For a terminal result block whose prefix has no control transfer or label use,
+no block parameters, and a final `unreachable`, removing the wrapper keeps
+the original effects and trap in order. The cleanup changes only selected
+function bodies and accepts each whole-module rewrite only after validation
+and a real encoded-size reduction. [Pass tests](../../../../../src/passes/oi_descriptor_raw_parity_wbtest.mbt)
+check the recursive group, remapped function types, exact bodies and sizes,
+effect order, a shorter trap block, and the unselected-body boundary;
+[command tests](../../../../../src/cmd/oi_descriptor_raw_parity_wbtest.mbt)
+check the dispatcher output.
+
+These four fixed modules have no exports, and no descriptor-capable runtime
+observation was made. The evidence covers their raw outputs, validator
+acceptance, and the guarded source rules; it does not claim broader descriptor
+GC parity. The replay ledger is local at `/tmp/oi-final-replay-summary.json`.
+For a bounded type-scan stress check, raw edits appended 128 or 1,024
+unused empty standalone function types to each of the four inputs without
+changing existing indices. All eight inputs validate. The frozen pre-fix
+CLI `437cc588c349279875b4bd5ad7a16929e2fb8c97c6199da05d00ba087b201bf5`
+and post-fix CLI
+`f8552a2f8ab03346557f7947bbddda5378fa0b51000172c0a187339b4eb69a44`
+produced valid outputs; all eight post-fix outputs are byte-identical to the
+corresponding direct Binaryen 133 descriptor outputs. At 128 extra types,
+the post-fix output saves 390–404 bytes against the pre-fix CLI; at 1,024,
+it saves 3,078–3,092 bytes. Fifteen randomized traced runs per cell gave
+median `pipeline` times, pooled as the median of four case medians, of
+422.5→611.5 µs pre-fix and 514→864 µs post-fix as the extra type count
+rose from 128 to 1,024. Thus eight times as many unused types gave 1.68
+times the post-fix pipeline time in this small synthetic sample. The inner
+OI pass timer excludes final cleanup; its case medians stayed about 55–78
+µs. Whole-command wall medians were 2.68→3.24 ms pre-fix and 2.92→3.24
+ms post-fix. These short local timings show a sub-millisecond pipeline cost
+for pruning 1,024 types; they do not measure allocations or establish broad
+throughput. Inputs, exact case rows, hashes and timing data are local at
+`/tmp/oi-descriptor-synthetic/{manifest,bench-results}.json`.
+
+The `fce72edb` replay CLI also reproduced **all 1,080** retained tuple Starshine raw
+outputs byte-for-byte. The [tuple size, operations, runtime and downstream
+win](#october-9-2026-v133-tuple-output-win-across-the-full-residual-family)
+and the [297-case boolean-select win](#october-9-2026-v133-value-if-drop-shell-size-win)
+keep their measured scopes; the descriptor fix does not turn those intentional
+Starshine wins into Binaryen-shaped output.
+
+An intermediate rebuilt native CLI, frozen at SHA-256
+`9d2f32298a86fe13ded4cd7ed3f97cf33a9f9ae03bd5f8d0c4a3b95e6289523b`,
+again reproduced **1,080/1,080** retained tuple Starshine raw outputs, matched
+Binaryen 133 raw bytes for **4/4** distinct descriptor inputs, and produced
+**8/8** synthetic descriptor outputs byte-identical to the earlier post-fix
+results and the corresponding direct Binaryen 133 outputs. All 12 descriptor
+outputs pass `wasm-tools validate --features all`. This replay checks output
+identity after the selected-type guard change; it does not repeat the timing
+measurements, whose frozen post-fix CLI remains `f8552a2f`. The later replay
+records are `/tmp/oi-descriptor-synthetic/{latest-direct-replay,latest-synthetic-replay}.json`.
+
+The final source-frozen native CLI SHA-256
+`42f386573da7ccab4ae923122b17e29e9069a5686fb91921f89f439fd2de85a3`
+repeated the same checks: **1,080/1,080** tuple raw outputs match prior
+Starshine bytes; **4/4** descriptor raw outputs match Binaryen 133; and
+**8/8** synthetic descriptor outputs match the prior post-fix hashes and
+Binaryen 133 direct bytes. All 12 descriptor outputs validate. The frozen
+binary is `/tmp/starshine-sl-cleanup-analysis/final-group-gate-cmd.exe`;
+stable replay records are
+`/tmp/oi-descriptor-synthetic/{final-42f-direct-replay,final-42f-synthetic-replay}.json`.
+No timing was repeated during the final build gate. The final 10,000-case
+aggregate is a separate pending signoff lane.
+
+## October 9, 2026: v133 tuple output win across the full residual family
+
+The [October 9 aggregate](#october-9-2026-v133-value-if-drop-shell-size-win)
+has 1,080 `pass-oi-tuple` residual records across 22 labels and 338 distinct
+input hashes. We regenerated all 10,000 `pass-oi-all` inputs at seed `0x5eed`;
+every byte hash matches the saved GenValid manifest. The tuple subset was
+replayed with the committed-source native CLI and the verified Binaryen 133
+oracle cited below. A fresh native CLI from the same commit produced identical
+raw Starshine bytes in all 1,080 cases. All replayed raw sizes also match the
+saved compare-pass case ledger.
+
+| Direct tuple outputs | Starshine bytes | Binaryen bytes | Starshine change |
+| --- | ---: | ---: | ---: |
+| Raw Wasm, 1,080 records | 100,246 | 145,780 | −45,534 |
+| Canonical Wasm, 1,080 records | 117,757 | 155,732 | −37,975 |
+
+The direct WAT instruction difference is entirely redundant local traffic:
+893 records have 6 fewer `local.set`, 6 fewer `local.get`, and 1 fewer
+`local.tee`; 93 records have twice those savings; 94 records have four times
+those savings. Across the corpus this removes 8,730 sets, 8,730 gets, and
+1,455 tees. Other printed instruction counts match. The
+[tuple sibling-effect fact](../../../../../src/passes/optimize_instructions.mbt#L24229)
+preserves discarded lanes with effects or traps and records whether a later
+sibling requires a selected-value capture. The
+[selected-lane materialization fact](../../../../../src/passes/optimize_instructions.mbt#L24408)
+forwards a value directly only when that order is safe; multi-result lanes
+retain distinct locals. The
+[multivalue wrapper cleanup](../../../../../src/passes/pass_manager.mbt#L79305)
+flattens eligible branchless blocks. These source rules explain the missing
+copy chain without claiming a general right to reorder tuple operands.
+
+For a common downstream check, temporary copies exported function 0 and
+global 0 when present. Identical verified-v133 `-O --all-features
+--strip-debug` and `-Oz --all-features --strip-debug` steps made **all 1,080
+pairs byte-identical**. Aggregate downstream sizes were 70,507 bytes per side
+under `-O` and 70,425 per side under `-Oz`; there were zero size losses. Node
+ran function 0 in fresh instances for every original/Starshine/Binaryen
+triplet: all 1,080 results, traps, and final global-0 values agreed. This
+includes 834 normal results, 246 matching divide-by-zero traps, and 487
+observed global-0 values, with no instantiation errors. The generated tuple
+subset has no imports, memories, or tables. This runtime check observes the
+fixture's function 0 and global 0, not every possible caller or external
+state.
+
+The **agent classification is a Starshine win for this generated tuple
+family**: it has smaller raw and canonical output, fewer effective local
+instructions, matching observed behavior, and no downstream size regression
+under either measured cleanup mode. This supersedes the current-v133 tuple
+size-risk caution for these 1,080 records. Historical v132 measurements keep
+their original scope; no engine-speed or pass wall-time gain was measured.
+The local replay ledger and tool hashes are in
+`/tmp/oi-tuple-exhaustive-v133/{summary.json,results.jsonl,runtime.jsonl}`;
+the source report and case manifest remain under
+`.tmp/optimizer-ir-fix-optimize-instructions-v133-10000/`.
+
+Durable baseline totals and tool identities are in the
+[October 9 evidence ledger](../../../raw/tooling/2026-10-09-output-differences-v133.json).
+Its classifications are review judgments for the stated generated families.
+
+## October 9, 2026: v133 value-if-drop-shell size win
+
+The fresh `pass-oi-all` lane in
+`.tmp/optimizer-ir-fix-optimize-instructions-v133-10000/` compared 10,000 cases at
+seed `0x5eed`: 8,623 normalized matches and 1,377 residuals, with zero validation,
+property, generator, or command failures. It used native CLI SHA-256
+`ef9d25da69bc5a1832d7c12a4f8f3f2ef33a5759fb58190f8fbd1dee55e07b30`
+and verified Binaryen 133 SHA-256
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+This entry classifies only the 297 `oi-boolean-select:value-if-drop-shell`
+residuals; the 1,080 tuple residuals retain their separate evidence and scope.
+
+| Scope | Starshine raw / canonical bytes | Binaryen raw / canonical bytes |
+| --- | ---: | ---: |
+| Full 10,000-case aggregate | 722,180 / 732,509 | 766,824 / 775,236 |
+| 297 value-if-drop-shell records | 8,910 / 8,910 | 13,662 / 13,662 |
+| One value-if-drop-shell fixture | 30 / 30 | 46 / 46 |
+
+All 297 selected manifest records have `wasm_hash`
+`fnv1a64-9e20e4ed4352f321`. All six retained inputs agree with that generator hash
+and have SHA-256 `25d40e563cb4c0636527ac025c24c43b8b186e51159becd600cc6ee9f2e45fc1`.
+Each retained input/output triple is identical. The
+[value-if generator](../../../../../src/validate/gen_valid.mbt#L32013) is a fixed
+fixture; the count measures repeated execution, not 297 distinct programs.
+
+The exact diff selects constants `55` and `5` from literal conditions `0` and
+`1`, and retains both drops. All removed conditions and unselected arms are pure,
+nontrapping constants. The
+[constant-if rule](../../../../../src/passes/optimize_instructions.mbt#L15666)
+requires a live literal i32 condition and copies only the chosen region; the
+[fixed-point regression](../../../../../src/passes/optimize_instructions_fixed_point_wbtest.mbt#L160)
+checks the exact selected constants, 30-byte output, validity, and repeat-pass
+stability. Static executable instructions fall from 10 to 4, excluding control
+delimiters. This is a **Starshine size win**, with a 16-byte direct saving.
+
+The original aggregate had runtime observation off. Exporting the function for
+three-way Node replay gives normal return for input and both outputs. With the
+export retained, both common verified-v133 `-O` and
+`-Oz --all-features --strip-debug` steps produce byte-identical 31-byte modules;
+the live direct modules are 37 Starshine versus 53 Binaryen bytes. All retained
+and downstream outputs pass `wasm-tools validate --features all`. This proves no
+downstream size loss for this fixed fixture. No engine speed or pass wall-time
+gain was measured. It does not establish a general win for result-if folding or
+for the tuple family. Exact records are local at
+`/tmp/starshine-small-shape-review/{measurements,live-summary,aggregate-hash-summary}.json`.
+Older entries below retain their historical versions and coverage limits.
+
 ## October 7 default-gate repair renewal
 
 The repaired source, native CLI SHA-256 `020f898254de9e240d5029483cac43a50f90be1ef1b0626ae21a97b2d57ae024`, and verified Binaryen 133 SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b` compared 10,000/10,000 `pass-oi-all` GenValid cases at seed `0x5eed` with eight subprocesses. There are 8,623 normalized matches, 1,377 output differences, and no validation, property, generator, or command failures. Runtime observation was off. The report is `.tmp/test-gate-signoff-oi-10000/result.json`.
@@ -760,18 +988,6 @@ The latest OI-G behavior slice added `oi-memory-bulk:shared-atomic-select-or-res
 The latest OI-G classification pass split every residual from `.tmp/oi-g-shared-atomic-select-xor-count600-20260630`. The count600 lane compared 600/600 with 422 normalized matches, 178 mismatches, zero validation/generator/property/command/runtime semantic failures, Binaryen cache hits/misses `216/384`, and runtime checked/unsupported/failed `464/136/0`. Manual `wasm-tools validate --features all` accepted all 712 residual raw/canonical artifacts. Manual classification splits the residuals into exactly two buckets: 141 shared-atomic profile-case candidates across fixed/random xchg/add/cmpxchg/sub/xor/or/and plus local.tee/helper-call address-producer cleanup, and 37 store8 low-byte-mask candidates across `store-mask-boundaries` and `runtime-store8-mask-restore-read`. The atomic bucket preserves i32/i64 atomic loads plus expected RMW/cmpxchg operation counts (`282/282` atomic loads, `282/282` atomic.rmw, `22/22` cmpxchg), is runtime-equal for all 141 residuals, preserves helper calls `76/76`, removes local.tee address producers `48/0`, and aggregates Starshine raw/canonical/WAT deltas `-535/-136/-30`. The store8 bucket preserves i32/i64 store8 counts (`108/108`), removes redundant i64 masks (`37/0` `i64.and`), includes runtime equality for all 17 runtime-store8 residuals, and aggregates `-199/-148/-1406`. The select-produced atomic xor label itself remains 7/7 normalized matches, so no select-produced xor residual bucket remains. This reduces grouped unknowns but remains sampled Starshine-win evidence only, not true shared ordering/concurrency, blocking wait/notify closure, exact memory64/multi-memory runtime closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence.
 
 The previous OI-G behavior slice added `oi-memory-bulk:shared-atomic-select-xor-restore` as the fortieth `pass-oi-memory-bulk` trigger-smoke-plus case at seed `0x5f14`. The generated module exports `run` and `memory`, initializes two active shared-memory aligned byte ranges, uses a mutable global condition to produce each i32 address through a typed `select`, performs i32/i64 atomic loads, restores both values with zero-valued `atomic.rmw.xor`, and returns an i64 xor of observed values. The focused generator test failed red-first because seed `0x5f14` still selected `oi-memory-bulk:runtime-restore-copy-read`, then passed after `src/validate/gen_valid.mbt` added the select-produced xor module and widened the selector to forty cases. Grouped runtime `.tmp/oi-g-shared-atomic-select-xor-count600-20260630` compared 600/600 with 422 normalized matches, 178 mismatches, zero validation/generator/property/command/runtime semantic failures, Binaryen cache hits/misses `216/384`, runtime checked/unsupported/failed `464/136/0`, and the new label matched 7/7. Representative grouped input case 000143 preserves four typed selects, four `global.get` address conditions, both i32/i64 atomic loads, and both xor-zero RMW operations in manually produced Binaryen and Starshine outputs; the input and outputs validate, and the grouped compare classifies the representative as a normalized match. This is select-produced shared-atomic xor-zero evidence only, not broad select-produced atomic closure, true shared ordering/concurrency, blocking wait/notify closure, broader memory64/multi-memory runtime closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence.
---
-kind: workflow
-status: working
-last_reviewed: 2026-09-27
-sources:
-  - ../../../tooling/tracing-playbook.md
-  - ../../../tooling/pass-fuzz-compare.md
-  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
-  - ./parity-matrix.json
-  - ./sweep-report.md
----
-
 The latest OI-G behavior slice added `oi-memory-bulk:shared-atomic-localtee-and-restore` as the forty-seventh `pass-oi-memory-bulk` trigger-smoke-plus case at seed `0x5f1b`. The generated module exports `run` and `memory`, initializes an active shared-memory aligned byte range, produces every atomic address through `local.tee`, performs i32/i64 atomic loads, restores both values with all-ones `atomic.rmw.and`, and returns an i64 xor of observed values. The focused generator test failed red-first because seed `0x5f1b` still selected `Some("oi-memory-bulk:runtime-select-restore-copy-read")`, then passed after `src/validate/gen_valid.mbt` added the local.tee-produced and module and widened the selector to forty-seven cases. Grouped runtime `.tmp/oi-g-shared-atomic-localtee-and-count705-20260630` compared 705/705 with 344 normalized matches, 361 mismatches, zero validation/generator/property/command/runtime semantic failures, Binaryen cache hits/misses 235/470, runtime checked/unsupported/failed 402/303/0, and the new label sampled 11/11 residuals. Manual validation accepted all 44 new-label residual raw/canonical artifacts. The new-label residuals preserve i32/i64 atomic loads and and-all-ones RMW operations (`11/11` per opcode), are runtime-equal for all 7 executable samples with 4 unsupported, preserve local.get/local.set/drop (`22/22`, `22/22`, `47/47`), reduce local.tee address producers `44/40`, and aggregate Starshine raw/canonical/WAT deltas `-19/-8/-100`. This is local.tee-produced shared-atomic and-all-ones evidence only, not broad existing-producer atomic closure, true shared ordering/concurrency, blocking wait/notify closure, exact memory64/multi-memory runtime closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence.
 
 The previous OI-G behavior slice added `oi-memory-bulk:shared-atomic-localtee-or-restore` as the forty-sixth `pass-oi-memory-bulk` trigger-smoke-plus case at seed `0x5f1a`. The generated module exports `run` and `memory`, initializes an active shared-memory aligned byte range, produces every atomic address through `local.tee`, performs i32/i64 atomic loads, restores both values with zero-valued `atomic.rmw.or`, and returns an i64 xor of observed values. The focused generator test failed red-first because seed `0x5f1a` still selected `Some("oi-memory-bulk:memory64-cross-memory-random-address-copy-read")`, then passed after `src/validate/gen_valid.mbt` added the local.tee-produced or module and widened the selector to forty-six cases. Grouped runtime `.tmp/oi-g-shared-atomic-localtee-or-count690-20260630` compared 690/690 with 326 normalized matches, 364 mismatches, zero validation/generator/property/command/runtime semantic failures, Binaryen cache hits/misses 376/314, runtime checked/unsupported/failed 385/305/0, and the new label sampled 13/13 residuals. Manual validation accepted all 52 new-label residual raw/canonical artifacts. The new-label residuals preserve i32/i64 atomic loads and or-zero RMW operations (`16/16` per opcode), are runtime-equal for all 8 executable samples with 5 unsupported, preserve local.get/local.set/drop (`27/27`, `27/27`, `229/229`), reduce local.tee address producers `52/36`, and aggregate Starshine raw/canonical/WAT deltas `-48/-35/-436`. This is local.tee-produced shared-atomic or-zero evidence only, not broad existing-producer atomic closure, true shared ordering/concurrency, blocking wait/notify closure, exact memory64/multi-memory runtime closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence.
@@ -786,7 +1002,6 @@ The same OI-G grouped local.tee-produced xchg refresh split every residual from 
 
 The latest OI-G classification pass split every residual from `.tmp/oi-g-shared-atomic-select-and-count630-20260630`. The count630 lane compared 630/630 with 438 normalized matches, 192 mismatches, zero validation/generator/property/command/runtime semantic failures, Binaryen cache hits/misses `137/493`, and runtime checked/unsupported/failed `489/141/0`. Manual `wasm-tools validate --features all` accepted all 768 residual raw/canonical artifacts. Manual classification splits the residuals into exactly two buckets: 166 shared-atomic profile-case candidates across fixed/random xchg/add/cmpxchg/sub/xor/or/and plus local.tee/helper-call address-producer cleanup, and 26 store8 low-byte-mask candidates across `store-mask-boundaries` and `runtime-store8-mask-restore-read`. The atomic bucket preserves i32/i64 atomic loads plus expected RMW/cmpxchg operation counts (`332/332` atomic loads, `332/332` atomic.rmw, `28/28` cmpxchg), is runtime-equal for all 166 residuals, preserves helper calls `72/72`, removes local.tee address producers `68/0`, and aggregates Starshine raw/canonical/WAT deltas `-622/-158/-422`. The store8 bucket preserves store8 counts (`80/80`), removes redundant i64 masks (`26/0` `i64.and`), includes runtime equality for all 14 runtime-store8 residuals, and aggregates `-146/-104/-988`. The select-produced atomic and label itself remains 22/22 normalized matches, so no select-produced and residual bucket remains. This reduces grouped unknowns but remains sampled Starshine-win evidence only, not true shared ordering/concurrency, blocking wait/notify closure, exact memory64/multi-memory runtime closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence.
 
-# `optimize-instructions` fuzzing and parity sweep
 
 ## September 27 follow-up allocation campaign renewal
 

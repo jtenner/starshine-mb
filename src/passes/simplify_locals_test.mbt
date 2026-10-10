@@ -121,19 +121,11 @@ test "simplify-locals preserves snapshots across same-global writes in result bl
             _,
             @lib.Expr(
               [
-                @lib.Block(
-                  _,
-                  @lib.Expr(
-                    [
-                      @lib.GlobalGet(first),
-                      @lib.GlobalGet(second),
-                      @lib.I32Const(_),
-                      @lib.I32Add,
-                      @lib.GlobalSet(written),
-                      @lib.Nop,
-                    ]
-                  )
-                ),
+                @lib.GlobalGet(first),
+                @lib.GlobalGet(second),
+                @lib.I32Const(_),
+                @lib.I32Add,
+                @lib.GlobalSet(written),
               ]
             )
           ),
@@ -1846,7 +1838,7 @@ test "simplify-locals validator structured skip sinks copied locals across a cle
 }
 
 ///|
-test "simplify-locals validator structured skip keeps nop when sinking condition temps" {
+test "simplify-locals validator structured skip removes nops when sinking condition temps" {
   let input = simplify_locals_test_make_large_validator_structured_condition_temp_repro()
   let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
     Ok(trace) => trace
@@ -1875,10 +1867,7 @@ test "simplify-locals validator structured skip keeps nop when sinking condition
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_false(pretty.contains("local.set (Local 250)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 250)"), msg=pretty)
-  assert_true(
-    simplify_locals_test_count_substring(pretty, "nop") >= 2,
-    msg=pretty,
-  )
+  assert_false(pretty.contains("nop"), msg=pretty)
   assert_true(pretty.contains("if"), msg=pretty)
 }
 
@@ -1915,7 +1904,7 @@ test "simplify-locals validator structured skip sinks loop temps into conditions
   assert_false(pretty.contains("local.set (Local 251)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 251)"), msg=pretty)
   assert_true(pretty.contains("i32.store"), msg=pretty)
-  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_false(pretty.contains("nop"), msg=pretty)
 }
 
 ///|
@@ -1949,10 +1938,7 @@ test "simplify-locals validator structured skip tees multi-use effectful temps" 
   assert_true(pretty.contains("local.tee (Local 250)"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 250)"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 251)"), msg=pretty)
-  assert_true(
-    simplify_locals_test_count_substring(pretty, "nop") >= 2,
-    msg=pretty,
-  )
+  assert_false(pretty.contains("nop"), msg=pretty)
 }
 
 ///|
@@ -1985,10 +1971,7 @@ test "simplify-locals validator structured skip sinks leading condition temps in
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
   assert_false(pretty.contains("local.set (Local 250)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 250)"), msg=pretty)
-  assert_true(
-    simplify_locals_test_count_substring(pretty, "nop") >= 2,
-    msg=pretty,
-  )
+  assert_false(pretty.contains("nop"), msg=pretty)
   assert_true(pretty.contains("call_indirect"), msg=pretty)
 }
 
@@ -2023,10 +2006,7 @@ test "simplify-locals validator structured skip tees block result carriers after
   assert_true(pretty.contains("local.tee (Local 251)"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 251)"), msg=pretty)
   assert_true(pretty.contains("i32.add"), msg=pretty)
-  assert_true(
-    simplify_locals_test_count_substring(pretty, "nop") >= 2,
-    msg=pretty,
-  )
+  assert_false(pretty.contains("nop"), msg=pretty)
 }
 
 ///|
@@ -2061,10 +2041,7 @@ test "simplify-locals validator structured skip tees if-condition carriers with 
   assert_false(pretty.contains("local.set (Local 251)"), msg=pretty)
   assert_true(pretty.contains("if"), msg=pretty)
   assert_true(pretty.contains("i32.load"), msg=pretty)
-  assert_true(
-    simplify_locals_test_count_substring(pretty, "nop") >= 2,
-    msg=pretty,
-  )
+  assert_false(pretty.contains("nop"), msg=pretty)
 }
 
 ///|
@@ -2181,10 +2158,7 @@ test "simplify-locals validator structured skip removes dense pure copy fanout s
   assert_false(pretty.contains("local.get (Local 255)"), msg=pretty)
   assert_true(pretty.contains("call (Func 3)"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 250)"), msg=pretty)
-  assert_true(
-    simplify_locals_test_count_substring(pretty, "nop") >= 4,
-    msg=pretty,
-  )
+  assert_false(pretty.contains("nop"), msg=pretty)
 }
 
 ///|
@@ -2227,10 +2201,7 @@ test "simplify-locals validator structured skip removes returning dense pure cop
   assert_false(pretty.contains("local.get (Local 253)"), msg=pretty)
   assert_true(pretty.contains("if I32"), msg=pretty)
   assert_true(pretty.contains("call (Func 3)"), msg=pretty)
-  assert_true(
-    simplify_locals_test_count_substring(pretty, "nop") >= 4,
-    msg=pretty,
-  )
+  assert_false(pretty.contains("nop"), msg=pretty)
 }
 
 ///|
@@ -2284,11 +2255,9 @@ test "simplify-locals erases block-result local shuttles after exact cleanup" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_false(pretty.contains("local.set"), msg=pretty)
-  assert_true(
-    simplify_locals_test_count_substring(pretty, "nop") >= 2,
-    msg=pretty,
-  )
-  assert_true(pretty.contains("block I32"), msg=pretty)
+  assert_false(pretty.contains("nop"), msg=pretty)
+  assert_false(pretty.contains("block I32"), msg=pretty)
+  assert_true(pretty.contains("if I32"), msg=pretty)
 }
 
 ///|
@@ -3090,7 +3059,8 @@ test "simplify-locals rewrites dead local.set roots" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("local.set"))
-  assert_true(pretty.contains("nop"))
+  assert_false(pretty.contains("nop"))
+  assert_false(pretty.contains("I32(1)"))
   assert_false(pretty.contains("drop"))
   assert_true(pretty.contains("I32(7)"))
 }
@@ -3125,7 +3095,8 @@ test "simplify-locals rewrites dead local.tee roots" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("local.tee"))
-  assert_true(pretty.contains("nop"))
+  assert_false(pretty.contains("nop"))
+  assert_false(pretty.contains("I32(1)"))
   assert_false(pretty.contains("drop"))
   assert_true(pretty.contains("I32(7)"))
 }
@@ -3197,7 +3168,7 @@ test "simplify-locals drops dead lowered call-result temps in conditions" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("call"), msg=pretty)
   assert_true(pretty.contains("i32.gt_s"), msg=pretty)
-  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_false(pretty.contains("nop"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.tee (Local 1)"), msg=pretty)
@@ -3578,23 +3549,20 @@ test "simplify-locals lifts dead one-armed if writes instead of dropping structu
 }
 
 ///|
-test "simplify-locals preserves then-arm nop when lifting one-armed if writes" {
+test "simplify-locals removes then-arm nop when lifting one-armed if writes" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (param i32) (result i32) (local i32) local.get 0 if i32.const 42 local.set 1 end local.get 1 i32.const 1 i32.add local.set 1 local.get 1))",
       ["simplify-locals"],
     ) {
     Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected one-armed nop-preserving simplify-locals success, got \{err}",
-      )
+    Err(err) => fail("expected one-armed simplify-locals success, got \{err}")
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("select"), msg=pretty)
   assert_false(pretty.contains("if I32"), msg=pretty)
-  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_false(pretty.contains("nop"), msg=pretty)
   assert_true(pretty.contains("I32(42)"), msg=pretty)
 }
 
@@ -3849,7 +3817,8 @@ test "simplify-locals sinks a binary-decoded copied parameter into return" {
   assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.set"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 5)"), msg=pretty)
-  @debug.assert_eq(encoded.length(), 68)
+  // Removing one inert nop saves one encoded byte without changing the return.
+  @debug.assert_eq(encoded.length(), 67)
 }
 
 ///|
@@ -3901,7 +3870,8 @@ test "simplify-locals removes a binary-decoded branch-result local carrier" {
     Ok(bytes) => bytes
     Err(err) => fail("expected branch-result output encode success, got \{err}")
   }
-  @debug.assert_eq(encoded.length(), 72)
+  // The decoded branch carrier has one less inert nop after exact cleanup.
+  @debug.assert_eq(encoded.length(), 71)
 }
 
 ///|
@@ -4368,8 +4338,9 @@ test "simplify-locals folds an adjacent lowered allocation capture into a tee" {
     body[4] == @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
     msg="\{trace}\n\{body}",
   )
-  @debug.assert_eq(body[5], @lib.Instruction::nop())
-  @debug.assert_eq(body[6], @lib.Instruction::i32_const(@lib.I32::new(4)))
+  @debug.assert_eq(body[5], @lib.Instruction::i32_const(@lib.I32::new(4)))
+  assert_false(body.any(fn(instr) { instr is @lib.Nop }))
+  assert_true(body.any(fn(instr) { instr is @lib.I32Store(_) }))
 }
 
 ///|

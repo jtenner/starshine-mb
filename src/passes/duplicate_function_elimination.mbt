@@ -4993,7 +4993,11 @@ fn dfe_cleanup_raw_encoding(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
-fn dfe_cleanup_simple_type_encoding(mod_ : @lib.Module) -> @lib.Module {
+fn dfe_cleanup_simple_type_encoding(
+  mod_ : @lib.Module,
+  full_size_checks? : Array[Int]? = None,
+  perf? : HotPerfSession? = None,
+) -> @lib.Module {
   if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
     return mod_
   }
@@ -5018,10 +5022,45 @@ fn dfe_cleanup_simple_type_encoding(mod_ : @lib.Module) -> @lib.Module {
   // Distinct functions can still use equivalent signatures. The elimination
   // fast path skips type canonicalization, so intern live plain signatures here
   // as well as pruning dead definitions, under the same complete type guard.
-  let interned = dfe_canonicalize_duplicate_simple_type_indices(grouped)
+  let intern_start = perf_start_timer_opt(
+    perf, "detail:simplify-locals:encoding-type-intern",
+  )
+  let interned = dfe_canonicalize_duplicate_simple_type_indices(grouped, perf~)
+  perf_stop_timer_opt(
+    perf, "detail:simplify-locals:encoding-type-intern", intern_start,
+  )
+  let prune_start = perf_start_timer_opt(
+    perf, "detail:simplify-locals:encoding-type-prune",
+  )
   let pruned = dfe_prune_unused_simple_types(interned)
+  perf_stop_timer_opt(
+    perf, "detail:simplify-locals:encoding-type-prune", prune_start,
+  )
   if pruned.type_sec.unwrap().0.length() == types.length() {
     return grouped
+  }
+  // Both remappers retain types in order and map duplicate types to earlier
+  // entries. Every rewritten type index is therefore no greater than its old
+  // index, so its LEB width cannot grow in any other section. Type names only
+  // lose entries or use smaller indices. Check the sole section that can make
+  // the decision without encoding and validating the entire code section.
+  let before_types = @lib.Module::new().with_type_sec(@lib.TypeSec::new(types))
+  let after_types = @lib.Module::new().with_type_sec(pruned.type_sec.unwrap())
+  let section_size_start = perf_start_timer_opt(
+    perf, "detail:simplify-locals:encoding-type-size",
+  )
+  let type_sizes = @binary.encoded_module_sizes(before_types, after_types)
+  perf_stop_timer_opt(
+    perf, "detail:simplify-locals:encoding-type-size", section_size_start,
+  )
+  match type_sizes {
+    Ok((before, after)) if after < before => return pruned
+    _ => ()
+  }
+  // Keep the original guarded path if section-only encoding cannot decide.
+  match full_size_checks {
+    Some(checks) => checks[0] += 1
+    None => ()
   }
   match @binary.encoded_module_sizes(grouped, pruned) {
     Ok((before, after)) if after < before =>

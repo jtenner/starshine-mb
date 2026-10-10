@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-09
 sources:
+  - ../../../raw/tooling/2026-10-09-output-differences-v133.json
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -10,10 +11,317 @@ sources:
   - ../../../../../src/validate/gen_valid_ssa.mbt
   - ../../../../../src/validate/gen_valid_simplify_locals.mbt
   - ../../../../../src/validate/gen_valid_wbtest.mbt
+  - ../../../../../src/passes/simplify_locals.mbt
   - ./transform-family-inventory.md
 ---
 
 # SimplifyLocals family fuzzing profiles
+
+## October 9, 2026 final native comparison renewal
+
+The final native CLI, SHA-256 `42f386573da7ccab4ae923122b17e29e9069a5686fb91921f89f439fd2de85a3`,
+completed 10,000 new `simplify-locals-all` comparisons with seed `0x5eed`,
+eight workers, at most eight subprocesses, and verified Binaryen 133.
+The complete result is `.tmp/output-difference-final-sl-v133-10000/result.json`;
+the [durable evidence record](../../../raw/tooling/2026-10-09-output-differences-v133.json)
+retains its counts and toolchain identity. There are 380 normalized matches,
+0 cleanup-normalized matches and 9,620 residual output differences.
+Raw totals are 1,854,432/2,080,551 bytes
+(Starshine/Binaryen); canonical totals are
+1,864,179/2,080,551 bytes.
+No output is larger under either size measure. Validation, generator, property
+and command failures are zero. Independent `wasm-tools` validation was required.
+Runtime observation was off in this aggregate; the family evidence below
+provides the scoped semantic judgments. The final bounded wasm-gc suite passes
+14,001/14,001 tests. Earlier measurements retain their original binary scope.
+
+## October 9 encoding cleanup and complete replay
+
+The encoding cleanup closes the 1,539 raw size losses in the October 9
+baseline. The review classifies the remaining 9,620 differences as scoped
+Starshine size wins; 380 cases have equal output. This judgment uses source
+contracts, field measurements, runtime observations and downstream output.
+It is limited to the generated inputs and arguments below.
+
+The frozen native CLI SHA-256 is
+`fce72edb42289901fefb4ae40f2febe7482f55f1dc3c425b89cf9b36c80983e1`.
+A later native CLI, SHA-256
+`17d4da47c7bc8788b98a6d4995275b41b8f9d65dd83b38e9d3912f12202602ec`,
+produced byte-identical direct SimplifyLocals outputs for all 8,719 distinct
+inputs and the five added fixtures. Thus the complete validation, runtime
+and downstream evidence also applies to that build.
+The Binaryen 133 oracle and regenerated seed `0x5eed` manifest retain the
+identities in the baseline section below. Two workers replayed all 10,000
+`simplify-locals-all` cases, including all 8,719 distinct input SHA-256 hashes.
+Every raw and common-writer canonical output passed independent validation.
+Command failures and raw/canonical size losses were zero.
+
+| Generated family | Cases / distinct inputs | Raw byte delta | Canonical byte delta | Review classification |
+| --- | ---: | ---: | ---: | --- |
+| `dae2-locals` | 561 / 371 | -2 to 0 | -2 to 0 | 181 size wins; 380 equal outputs |
+| `effect-order` | 1,225 / 1,225 | -14 to -5 | -15 to -6 | Size win within the read-only generator contract |
+| `family-coverage` | 2,894 / 2,894 | -53 | -49 | Size and local-access win |
+| `flat-parent` | 1,161 / 617 | -24 to -16 | -24 to -16 | Size win from no-op removal |
+| `local-traffic` | 1,764 / 1,345 | -6 to -4 | -6 to -4 | Size win from no-op removal |
+| `stress` | 604 / 604 | -17 to -5 | -18 to -6 | Size win after declaration/type cleanup |
+| `structure-result` | 1,791 / 1,663 | -16 to -8 | -16 to -8 | Size win after transparent block cleanup |
+
+Deltas are Starshine minus Binaryen bytes. Raw totals are 1,854,432 versus
+2,080,551; canonical totals are 1,864,179 versus 2,080,551. Canonical output
+uses the Binaryen 133 writer with no optimization passes. Type-section
+payload bytes, local-declaration bytes and local-group counts equal the
+oracle for every case, in both representations. The remaining savings are
+in code and instruction payloads. The raw `effect-order` and `stress`
+outputs use one extra import-encoding byte. Their complete raw modules
+remain smaller.
+
+The instruction skeleton counts, with immediates and declarations excluded,
+are 6 for `dae2-locals`, 4 for `effect-order`, 1 for `family-coverage`, 2 for
+`flat-parent`, 2 for `local-traffic`, 5 for `stress` and 3 for
+`structure-result`. Every seed/declaration variant was replayed. The
+`family-coverage` raw output has four fewer `local.get` and four fewer
+`local.set` instructions. The common writer restores one capture pair, so
+its canonical output has three fewer of each. Both forms remove 31 no-ops
+and replace two pure-arm `if` expressions with `select`. The other families
+have equal static counts of local, stack and control operations, apart
+from no-op removal. `select` evaluates both pure operands. These instruction
+counts do not establish engine-speed gains.
+
+For each distinct input, temporary copies exported all functions, memories,
+globals and tables. Binaryen 133 `-O` and `-Oz` produced byte-identical
+Starshine and oracle outputs for every pair. Node `v26.11.1` then compared
+input, Starshine and Binaryen in 235,150 fresh-instance call scenarios
+(250,195 when weighted by duplicate cases). Numeric arguments were 0, 1,
+-1, 255 and 256; reference arguments were null and non-null. Values, traps,
+memory contents, globals and table states matched, with zero blocked cases.
+There were 2,894 trap scenarios. The generated corpus has no imported
+function calls. Five added fixtures compared 25 scenarios with 20 imported
+call events and seven traps: captured call results, a call/global write
+before an out-of-bounds load, null-reference traps, a call before
+`unreachable`, and a taken `try_table` catch with a live local. All matched.
+Compact imports were expanded to ordinary imports for Node runtime copies.
+
+The [shared encoding cleanup](../../../../../src/passes/pass_encoding_cleanup.mbt)
+removes no-ops, uses the existing label-name-aware control cleanup, and
+reuses validated byte-saving type remapping. The
+[SimplifyLocals wrapper](../../../../../src/passes/simplify_locals_encoding_cleanup.mbt)
+groups numeric declarations after repaired writeback. Offset-sensitive
+metadata keeps the module unchanged. Local remapping preserves parameters,
+nested accesses and names; touched paths preserve unselected local indices.
+Partial selections also keep the original module type table, because inlining
+can restore untouched bodies with original type indices. Whole-module runs
+and selections that cover every function still allow type cleanup. The
+[selected restore tests](../../../../../src/passes/encoding_selected_type_restore_wbtest.mbt)
+cover indirect calls and descriptor types after original bodies are restored.
+[Pass tests](../../../../../src/passes/simplify_locals_encoding_wbtest.mbt)
+and [dispatcher tests](../../../../../src/cmd/simplify_locals_encoding_wbtest.mbt)
+cover the previously failing live-local, dead-type, transparent-block,
+fused-stack and touched-path fixtures.
+
+Local evidence: `/tmp/starshine-sl-postfix-all/{identity,complete-summary,runtime-results}.json`,
+`/tmp/starshine-sl-postfix-extra/runtime-results.json`, and
+`.tmp/output-difference-sl-postfix/`. Earlier dated evidence below remains
+historical. This replay proves the stated size and downstream results; it
+does not establish a universal semantic proof or a pass-time gain.
+
+### Final declaration-gate proof at native `42f386`
+
+The final native CLI SHA-256 is
+`42f386573da7ccab4ae923122b17e29e9069a5686fb91921f89f439fd2de85a3`.
+Its declaration preflight skips numeric grouping when no selected function
+has a removable zero declaration run or a repeated numeric declaration
+type. The preflight preserves the helper's numeric/reference, local-count,
+and selected-mask rules. The helper still guards parameter types, opaque
+names, offset metadata, strict byte savings, and replaced-body validation.
+The [gate tests](../../../../../src/passes/oi_numeric_group_admission_wbtest.mbt)
+check skipped unique numeric runs, intentionally unsupported nonzero
+reference runs, and a live local remap with smaller encoded output. The
+[raw helper tests](../../../../../src/passes/numeric_group_wbtest.mbt)
+cover parameter indices, zero runs, and local-index LEB boundaries.
+
+The two-worker replay compared all 8,719 distinct input hashes, all 10,000
+weighted cases, and the five extra runtime fixtures against the complete
+validated corpus proof above. Every direct output was byte-identical.
+Thus those generated-family size, runtime, validation and common `-O`/`-Oz`
+results apply to this final build. The compiler artifact also matched the
+saved `17d4` output SHA-256 `de32f9a7...` and passed independent validation.
+Artifact runtime and native `-O4z` parity remain unverified. No full-preset
+result transfers from direct SimplifyLocals equality alone.
+
+The three small inputs had one warmup and seven alternating measured
+triplets, with native baseline `437cc5...`, final `42f386...`, and the pinned
+Binaryen 133 oracle on an isolated host. Values below are medians.
+
+| Input | Native pipeline baseline / final | Native wall baseline / final | Binaryen wall | Direct final / Binaryen bytes |
+| --- | ---: | ---: | ---: | ---: |
+| 128 functions, fragmented numeric locals | 8.634 / 8.184 ms | 11.486 / 11.421 ms | 5.184 ms | 3,893 / 4,149 |
+| 1,024 functions, fragmented numeric locals | 60.836 / 64.583 ms | 68.821 / 72.408 ms | 8.531 ms | 30,774 / 32,822 |
+| 128 functions, 256 alternating dead locals each | 12.582 / 15.275 ms | 20.873 / 21.674 ms | 7.558 ms | 4,789 / 5,045 |
+
+A separate isolated artifact run used five alternating baseline/final
+pairs. Median pipeline time was 1.273972 / 1.439864 s, an added 165.892 ms
+or 13.0%. Median wall time was 1.931875 / 2.085276 s. This is still a material
+cleanup cost for the 20-byte native-baseline saving. Artifact output remains
+6,058,213 bytes, 368,910 bytes larger than Binaryen 133. The prior `9d2f`
+run measured the pinned oracle at 0.588245 s wall time. That oracle time was
+not remeasured in the final five-pair artifact run. The artifact size and
+performance gap stays open.
+
+The small inputs retain their measured size wins with remaining pipeline
+overhead on the 1,024-function and wide-local shapes. These measurements do
+not show engine-speed gains or universal pass-time parity. Earlier `9d2f`,
+`17d4`, and `f855` records below keep their original identities and costs.
+
+Final local evidence is in
+`.tmp/output-difference-sl-postfix/{final-byte-equality-42f386,timing-final-group-gate-small-42f386,timing-final-group-gate-artifact-42f386}.json`.
+The full-preset synthetic evidence below remains scoped to `17d4`.
+
+### Control-gate checkpoint at native `9d2f`
+
+The candidate gates use the same structured-child and control-transfer
+rules as the default branchless-block flattener. Typed blocks qualify only
+when they have no parameters. Candidate propagation includes loops, both
+`if` arms, `try_table` bodies, and legacy try/catch bodies. A root
+`unreachable` with a following instruction still admits tail cleanup. The
+label-name remap includes labels removed from that dead root tail. The
+[nop/block gate tests](../../../../../src/passes/pass_encoding_cleanup_admission_wbtest.mbt)
+cover skipped branchful bodies and retained nested cleanup.
+
+The control-gate checkpoint native CLI SHA-256
+`9d2f32298a86fe13ded4cd7ed3f97cf33a9f9ae03bd5f8d0c4a3b95e6289523b`
+produced byte-identical direct SimplifyLocals output for all 8,719 distinct
+inputs, all 10,000 weighted cases, and the five extra runtime fixtures.
+The complete corpus validation, size, runtime and common `-O`/`-Oz`
+evidence above therefore applies to this build. The 6,211,596-byte artifact
+also matched the `17d4` direct output, SHA-256
+`de32f9a7274f8c915995f1f6d879e8b11697edd5a524cea4ba5c797f324bce5d`,
+and passed independent validation. This artifact equality transfers no
+runtime or native `-O4z` claim, because those results were not established
+for the artifact.
+
+A new isolated timing run used the same inputs, pinned Binaryen 133,
+one warmup per tool, and seven alternating measured triplets for small
+inputs or three for the artifact. Values below are medians.
+
+| Input | Native pipeline baseline / `9d2f` | Native wall baseline / `9d2f` | Binaryen wall | Direct `9d2f` / Binaryen bytes |
+| --- | ---: | ---: | ---: | ---: |
+| 128 functions, fragmented numeric locals | 7.924 / 8.653 ms | 11.01 / 11.54 ms | 5.78 ms | 3,893 / 4,149 |
+| 1,024 functions, fragmented numeric locals | 62.851 / 64.575 ms | 71.88 / 72.44 ms | 8.86 ms | 30,774 / 32,822 |
+| 128 functions, 256 alternating dead locals each | 13.494 / 15.834 ms | 21.82 / 21.86 ms | 7.90 ms | 4,789 / 5,045 |
+| 6,211,596-byte compiler artifact | 1.266633 / 1.517453 s | 1.978215 / 2.206910 s | 0.588245 s | 6,058,213 / 5,689,303 |
+
+The artifact still has a material added cleanup cost: 250.820 ms of native
+pipeline time, or 19.8%, for the same 20-byte saving against the native
+baseline. Native SimplifyLocals function work was 71.570 / 70.032 ms;
+function-stage totals were 1.068032 / 1.064838 s. Thus the added cost remains
+outside the function stage. The gate change does not close the artifact
+performance gap or its 368,910-byte raw size gap against Binaryen. The
+small generated shapes retain their measured size wins with some pipeline
+overhead; this does not show an engine-speed win. Earlier adverse timings
+below remain separate checkpoints, with their original binary identities.
+
+Local evidence is in
+`.tmp/output-difference-sl-postfix/{final-byte-equality-9d2f,timing-final-9d2f}.json`.
+The direct replay used two workers. Its recorded duration is a replay cost,
+not an isolated pass benchmark. Native `-O4z` results at `17d4` below remain
+scoped to that checkpoint; direct SimplifyLocals equality does not establish
+full-preset equality for the final gate change.
+
+### Pass cost and artifact limits at native `17d4`
+
+An isolated before/after comparison used the October 9 baseline native CLI
+`437cc5...`, native `17d4...`, and the pinned Binaryen 133 oracle. Each small
+fixture had one warmup and seven alternating measured triplets; the large
+fixture had one warmup and three. Native timings used pass tracing to
+separate decode, pipeline and encode work. Binaryen ran `--simplify-locals`
+with all features and stripped debug sections. Values below are medians.
+
+| Input | Native pipeline baseline / `17d4` | Native wall baseline / `17d4` | Binaryen wall | Direct `17d4` / Binaryen bytes |
+| --- | ---: | ---: | ---: | ---: |
+| 128 functions, fragmented numeric locals | 7.727 / 8.508 ms | 10.97 / 11.05 ms | 5.53 ms | 3,893 / 4,149 |
+| 1,024 functions, fragmented numeric locals | 58.530 / 61.561 ms | 66.01 / 68.71 ms | 8.36 ms | 30,774 / 32,822 |
+| 128 functions, 256 alternating dead locals each | 11.888 / 13.978 ms | 19.65 / 19.65 ms | 7.06 ms | 4,789 / 5,045 |
+| 6,211,596-byte compiler artifact | 1.172937 / 1.468769 s | 1.791899 / 2.084641 s | 0.544726 s | 6,058,213 / 5,689,303 |
+
+The three synthetic shapes retain a measured size win with some cleanup
+pipeline overhead. The artifact still has a material cost gap: about 296 ms
+extra pipeline time for a 20-byte saving against the native baseline. Its
+raw output is also 368,910 bytes larger than the oracle. This artifact is
+outside the generated-family size-win classification above; its broader
+size/performance parity remains open. The actual native SimplifyLocals
+function work was 66.698 / 71.459 ms. The remaining cost is outside that
+function-pass timer.
+
+The earlier `f8552a...` attempt had about 702 ms extra artifact pipeline
+cost. It encoded and validated the complete module for a plain-type size
+decision. The new guarded type-section proof reduces that cost, because
+independent function type remaps have nonincreasing indices and LEB widths.
+The adverse attempt is archived with its original identity. It is not a
+performance win.
+
+A separate native `-O4z` check exported every synthetic function. Baseline
+and `17d4` outputs were byte-identical raw and canonical: 2,920 bytes for
+128 functions and 24,449 bytes for 1,024. Common v133 `-O` and `-Oz` outputs
+were also byte-identical at 1,758 and 14,327 bytes. Input/baseline-native/
+`17d4`-native runtime replay compared 5,760 fresh-instance calls and imported
+events, with no differences or blocked cases. This gives scoped evidence
+that the early grouping does not worsen those preset outputs. Both native
+versions exceeded the 60-second `-O4z` bound on the compiler artifact, so
+its preset downstream result is unverified. These size checks ran outside
+the isolated timing window.
+
+Local cost/preset evidence is in
+`.tmp/output-difference-sl-postfix/{timing-post-cp-f855,timing-final-17d4,downstream-live-17d4,final-byte-equality-17d4}.json`.
+The synthetic preset runtime report is
+`/tmp/starshine-sl-o4z-runtime-17d4/runtime-results.json`.
+
+## October 9 baseline output differences
+
+At commit `a61c3e418`, the fresh native CLI SHA-256 was
+`437cc588c349279875b4bd5ad7a16929e2fb8c97c6199da05d00ba087b201bf5`.
+The verified Binaryen 133 oracle SHA-256 was
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+The regenerated 10,000-case `simplify-locals-all` batch at seed `0x5eed`
+matched the prior manifest SHA-256
+`730983159a3e12d97f85109f6c8e0a497768f8908e4bed31e8f1b2862019dd8d`.
+All 4,119 cases in the two families below replayed without command failures.
+
+| Generated family | Cases and source structures | Canonical Starshine / Binaryen bytes | Classification |
+| --- | ---: | ---: | --- |
+| `effect-order` | 1,225; four module instruction counts (44, 66, 88, 110) | 334,517 / 347,618; saves 13,101 | Scoped size win |
+| `family-coverage` | 2,894; one 140-instruction structure with seed-varying literals | 884,979 / 1,026,785; saves 141,806, or 49 per case | Scoped size and local-operation win |
+
+The [effect-order generator](../../../../../src/validate/gen_valid_ssa.mbt)
+has no calls or writes between the moved `global.get`/`drop` and the final
+read-only load. The global value is discarded; the fixed loads use offsets
+0, 4, 8 and 12 in a memory with at least one page. Starshine removes no-op
+instructions and moves that discarded read after the final load without
+changing values, effects or traps. The [family-coverage generator](../../../../../src/validate/gen_valid_simplify_locals.mbt)
+has a fixed module layout. Its output removes 31 no-ops and six local accesses,
+replaces two pure-arm `if` expressions with `select`, and keeps observable
+call, memory, global, table and null-trap behavior. The
+[pass effect-order guard](../../../../../src/passes/simplify_locals.mbt)
+still blocks conflicting effects.
+
+For **every** selected case, temporary copies exported all functions from the
+input and both pass outputs.
+Binaryen 133 `-O` and `-Oz` then produced byte-identical Starshine and Binaryen
+outputs. A three-way Node replay of input, Starshine and Binaryen made 48,027
+call comparisons with zero value, trap, import-event, global, memory or table
+differences.
+The replay covered zero/one numeric arguments and null/non-null references;
+it did not activate the `try_table` throwing catch path. A separate forced
+out-of-bounds load in an effect-order representative preserved the trap and
+state. These results establish the two scoped output wins, not pass-time or
+engine-speed gains. Other residual families and raw encoding gaps remain open.
+
+Local evidence: `.tmp/output-difference-sl-inputs/manifest.json`,
+`.tmp/output-difference-sl-effect-family/{records,downstream,all-export}.jsonl`,
+and `/tmp/sl_runtime_all_result.log`.
+
+Durable baseline totals and tool identities are in the
+[October 9 evidence ledger](../../../raw/tooling/2026-10-09-output-differences-v133.json).
+Its classifications are review judgments for the stated generated families.
 
 ## September 27 follow-up allocation campaign renewal
 
