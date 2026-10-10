@@ -164,3 +164,29 @@ test "unread tee proof intentionally falls back above its compressed local budge
     None,
   )
 }
+
+///|
+test "O4s unread tee cleanup retains an exported parameter signature" {
+  let (input, output) = vacuum_unread_tee_test_run(
+    "(module (func (export \"run\") (param i32) (result i32) i32.const 7 local.tee 0))",
+  )
+  @debug.assert_eq(output.func_sec, input.func_sec)
+  @debug.assert_eq(output.type_sec, input.type_sec)
+  let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  @debug.assert_eq(locals.length(), 0)
+  @debug.assert_eq(body, [@lib.Instruction::i32_const(7)])
+}
+
+///|
+test "O4s unread tee cleanup traverses TryTable without changing its catch target" {
+  let (_, output) = vacuum_unread_tee_test_run(
+    "(module (import \"env\" \"produce\" (func (result i32))) (global $seen (mut i32) (i32.const 0)) (func (export \"run\") (local i32) block try_table (catch_all 0) call 0 local.tee 0 global.set $seen end end))",
+  )
+  let @lib.Func(locals, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  @debug.assert_eq(locals.length(), 0)
+  let expected = pass_test_module_from_wat(
+    "(module (import \"env\" \"produce\" (func (result i32))) (global $seen (mut i32) (i32.const 0)) (func (export \"run\") block try_table (catch_all 0) call 0 global.set $seen end end))",
+  )
+  let @lib.Func(_, @lib.Expr(expected_body)) = expected.code_sec.unwrap().0[0]
+  @debug.assert_eq(body, expected_body)
+}
