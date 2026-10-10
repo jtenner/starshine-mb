@@ -17,6 +17,33 @@ related:
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
+## October 10, 2026 record-copy profile
+
+`merge-similar-functions-record-copy` is a separate targeted profile. Every
+input contains 8–12 real immutable record-copy sites with 12–32 fields,
+seed-varied initial/replacement values, ordered host calls and an exported
+mutable event counter. Numeric `run` and nullable `trap` exports execute the
+copies in the generic stateful runtime observer. Typed `make`, `update`,
+`same` and every field getter expose old aliases, fresh identity and nullable
+trap boundaries to independent expected-value observers.
+
+The existing eight-leaf `merge-similar-functions-all` aggregate is unchanged.
+It has no record-copy family and its historical counts do not establish
+coverage of the new owner. Run both the actual triggering profile and the
+ordinary aggregate with fresh native executables and retain structural
+Binaryen discrepancies and normal failing exit codes separately from
+executed values/effects/state/traps. The new local qualification uses verified
+Binaryen 133; the older 131/132 commands and results below remain historical
+and do not establish this slice's signoff. No external-generator audit or
+exhaustive GC/MSF closeout is claimed.
+
+Focused source tests cover unsupported definitions and expressions, exact
+references, whole-module compressed local excess, flattened recursive type
+and import append indices, bounded excluded bodies/initializers, unchanged
+source bytes, undersampling and full-validation rollback. The 65,536/65,537
+zero-count compressed-run boundary is skipped in ordinary runs and must be
+explicitly executed with `--include-skipped`.
+
 ## Dedicated aggregate
 
 Use:

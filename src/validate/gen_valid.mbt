@@ -1001,6 +1001,7 @@ pub enum GenValidProfile {
   MergeSimilarFunctionsNestedProfile
   MergeSimilarFunctionsCallTargetsProfile
   MergeSimilarFunctionsTailCallsProfile
+  MergeSimilarFunctionsRecordCopyProfile
   MergeSimilarFunctionsAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
@@ -1562,6 +1563,8 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
       "merge-similar-functions-call-targets"
     MergeSimilarFunctionsTailCallsProfile =>
       "merge-similar-functions-tail-calls"
+    MergeSimilarFunctionsRecordCopyProfile =>
+      "merge-similar-functions-record-copy"
     MergeSimilarFunctionsAllProfile => "merge-similar-functions-all"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
@@ -2920,6 +2923,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     MergeSimilarFunctionsNestedProfile,
     MergeSimilarFunctionsCallTargetsProfile,
     MergeSimilarFunctionsTailCallsProfile,
+    MergeSimilarFunctionsRecordCopyProfile,
     MergeSimilarFunctionsAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
@@ -6385,7 +6389,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | MergeSimilarFunctionsLocalsProfile
     | MergeSimilarFunctionsNestedProfile
     | MergeSimilarFunctionsCallTargetsProfile
-    | MergeSimilarFunctionsTailCallsProfile =>
+    | MergeSimilarFunctionsTailCallsProfile
+    | MergeSimilarFunctionsRecordCopyProfile =>
       gen_valid_msf_profile_config(profile)
     MergeSimilarFunctionsAllProfile =>
       gen_valid_msf_profile_config(MergeSimilarFunctionsLiteralsProfile)
