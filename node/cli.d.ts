@@ -14,10 +14,12 @@ export function cliConfigSchemaJson(): string;
 export function expandGlobs(arg0: Array<string>, arg1: Array<string>): Array<string>;
 export function expandGlobsWithAdapter(...args: never[]): never;
 export function globMatch(arg0: string, arg1: string): boolean;
-export function inferInputFormat(arg0: string): CliInputFormat | null;
+export function inferInputFormat(arg0: string): (CliInputFormat) | null;
 export function normalizeCliPath(arg0: string): string;
-export function parseCliArgs(arg0: Array<string>, starshineInput?: string | null): StarshineResult<CliParseResult, CliParseError>;
-export function parseStarshineInputEnv(arg0: string | null): Array<string>;
+export function parseCliArgs(arg0: Array<string>, starshineInput?: (string) | null): StarshineResult<CliParseResult, CliParseError>;
+export function parseStarshineInputEnv(arg0: (string) | null): Array<string>;
+export function resolveClosedWorld(arg0: CliParseResult, defaultArg?: boolean): boolean;
+export function resolveIgnoreImplicitTraps(arg0: CliParseResult): boolean;
 export function resolvePassFlags(arg0: CliParseResult): Array<string>;
 export function resolveTrapsNeverHappen(arg0: CliParseResult, defaultArg?: boolean): boolean;
 
@@ -31,6 +33,7 @@ export const CliInputFormat: {
 export const CliOptimizationFlag: {
   olevel(arg0: number, arg1: boolean): CliOptimizationFlag;
   optimize(): CliOptimizationFlag;
+  osize(): CliOptimizationFlag;
   shrink(): CliOptimizationFlag;
   show(value: CliOptimizationFlag): string;
 };
@@ -43,6 +46,8 @@ export const CliOutputTarget: {
 };
 
 export const CliParseError: {
+  invalidDumpPath(arg0: string): CliParseError;
+  invalidFunctionIndexList(arg0: string): CliParseError;
   invalidInputFormat(arg0: string): CliParseError;
   invalidLongFlag(arg0: string): CliParseError;
   invalidOptimizationFlag(arg0: string): CliParseError;
@@ -51,12 +56,12 @@ export const CliParseError: {
   missingFlagValue(arg0: string): CliParseError;
   stdinNeedsFormat(): CliParseError;
   unexpectedFlagValue(arg0: string): CliParseError;
-  unknownShortFlag(arg0: number): CliParseError;
+  unknownShortFlag(arg0: number | string): CliParseError;
   show(value: CliParseError): string;
 };
 
 export const CliParseResult: {
-  new(configPath?: string | null, inputGlobs?: Array<string>, globEnabled?: boolean, helpRequested?: boolean, versionRequested?: boolean, debugSerialPasses?: boolean, readStdin?: boolean, inputFormat?: CliInputFormat | null, outputTargets?: Array<CliOutputTarget>, passFlags?: Array<string>, optimizeFlags?: Array<CliOptimizationFlag>, trapMode?: TrapMode | null, monomorphizeMinBenefit?: number | null, lowMemoryUnused?: boolean | null, lowMemoryBound?: bigint | null, tracing?: CliTracingLevel | null): CliParseResult;
+  "new"(configPath?: (string) | null, inputGlobs?: Array<string>, globEnabled?: boolean, helpRequested?: boolean, versionRequested?: boolean, debugSerialPasses?: boolean, readStdin?: boolean, inputFormat?: (CliInputFormat) | null, outputTargets?: Array<CliOutputTarget>, passFlags?: Array<string>, optimizeFlags?: Array<CliOptimizationFlag>, trapMode?: (TrapMode) | null, monomorphizeMinBenefit?: (number) | null, lowMemoryUnused?: (boolean) | null, lowMemoryBound?: (bigint) | null, tracing?: (CliTracingLevel) | null, ignoreImplicitTraps?: boolean, inliningAlwaysInlineMaxSize?: (number) | null, inliningOneCallerInlineMaxSize?: (number) | null, inliningFlexibleInlineMaxSize?: (number) | null, inliningMaxCombinedBinarySize?: (number) | null, inliningAllowFunctionsWithLoops?: (boolean) | null, inliningPartialInliningIfs?: (number) | null, closedWorld?: (boolean) | null, compilerFactsPolicy?: (string) | null): CliParseResult;
   show(value: CliParseResult): string;
 };
 

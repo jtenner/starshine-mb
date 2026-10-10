@@ -1,8 +1,3 @@
-// Generated from the FFI schema and explicit JavaScript facade projections. DO NOT EDIT.
-import type { OpaqueHandle, StarshineResult } from './internal/shared.js';
-import type { Module as lib_Module } from './lib.js';
-import type { EncodeError as binary_EncodeError } from './binary.js';
-import type { CliInputFormat as cli_CliInputFormat } from './cli.js';
 // JavaScript callback/record representations. Function signatures are generated from FFI.
 /** Structured encode failure surfaced through the Node cmd bridge. */
 export interface CmdEncodeError {
@@ -135,59 +130,3 @@ export interface CmdFuzzStats {
   readonly roundtripped: number;
   readonly differentialChecked: number;
 }
-
-
-export function cmdHelpText(): string;
-export function cmdVersionText(): string;
-export function differentialValidateWasm(arg0: Uint8Array, adapters?: DifferentialAdapters): StarshineResult<DifferentialValidationReport, string>;
-export function minimizeFuzzPasses(arg0: Array<string>, arg1: (arg0: Array<string>) => boolean): Array<string>;
-export function nativeDifferentialToolsAvailable(): [boolean, boolean];
-export function persistFuzzFailureReport(arg0: FuzzFailureReport, arg1: FuzzFailurePersistIO, corpusDir?: string): StarshineResult<[string, (string) | null], string>;
-export function runCmd(arg0: Array<string>): StarshineResult<CmdRunSummary, CmdError>;
-export function runCmdExitCode(arg0: Array<string>): number;
-export function runCmdExitCodeWithAdapter(arg0: Array<string>, arg1: CmdIO, configJson?: (string) | null): number;
-export function runCmdWithAdapter(arg0: Array<string>, arg1: CmdIO, configJson?: (string) | null): StarshineResult<CmdRunSummary, CmdError>;
-export function runCmdFuzzHarness(arg0: number, seed?: bigint, optimizePasses?: Array<string>, differentialAdapters?: (DifferentialAdapters) | null, differentialEvery?: number, onFailure?: ((arg0: FuzzFailureReport) => StarshineResult<void, string>) | null): StarshineResult<CmdFuzzStats, string>;
-export function runCmdFuzzHarnessProfile(arg0: string, arg1: bigint): StarshineResult<CmdFuzzStats, string>;
-export function verifyReadmeApiSignatures(arg0: string, arg1: Array<[string, string]>): StarshineResult<void, string>;
-export function verifyReadmeApiSignaturesWithRequiredBlocks(arg0: string, arg1: Array<[string, string]>, arg2: Array<string>): StarshineResult<void, string>;
-export const CmdEncodeError: {
-  adapter(arg0: string): CmdEncodeError;
-  encode(arg0: binary_EncodeError): CmdEncodeError;
-  show(value: CmdEncodeError): string;
-};
-export const CmdError: {
-  ambiguousOutputFile(arg0: string): CmdError;
-  unknownPassFlag(arg0: string): CmdError;
-  show(value: CmdError): string;
-};
-export const CmdIO: {
-  "new"(getEnv?: (arg0: string) => (string) | null, fileExists?: (arg0: string) => boolean, readFile?: (arg0: string) => StarshineResult<Uint8Array, string>, encodeModule?: (arg0: lib_Module) => StarshineResult<Uint8Array, CmdEncodeError>, printTextModule?: (arg0: lib_Module) => StarshineResult<Uint8Array, string>, writeFile?: (arg0: string, arg1: Uint8Array) => StarshineResult<void, string>, writeStdout?: (arg0: Uint8Array) => StarshineResult<void, string>, writeStderr?: (arg0: Uint8Array) => StarshineResult<void, string>, listCandidates?: () => Array<string>, lowerTextModule?: (arg0: string, arg1: cli_CliInputFormat, arg2: Uint8Array) => StarshineResult<Uint8Array, string>): CmdIO;
-};
-export const CmdRunSummary: {
-  "new"(inputFiles?: Array<string>, outputFiles?: Array<string>, resolvedPasses?: Array<string>, optimizeLevel?: number, shrinkLevel?: number, trapsNeverHappen?: boolean, monomorphizeMinBenefit?: number, closedWorld?: boolean, lowMemoryUnused?: boolean, lowMemoryBound?: bigint): CmdRunSummary;
-  show(value: CmdRunSummary): string;
-};
-export const DifferentialAdapters: {
-  "new"(wasmToolsValidate?: (arg0: Uint8Array) => StarshineResult<boolean, string>, binaryenValidate?: (arg0: Uint8Array) => StarshineResult<boolean, string>): DifferentialAdapters;
-};
-export const DifferentialValidationReport: {
-  show(value: DifferentialValidationReport): string;
-};
-export const FuzzFailurePersistIO: {
-  "new"(ensureDir?: (arg0: string) => StarshineResult<void, string>, writeFile?: (arg0: string, arg1: Uint8Array) => StarshineResult<void, string>): FuzzFailurePersistIO;
-};
-export const FuzzFailureReport: {
-  "new"(arg0: bigint, arg1: number, arg2: number, arg3: string, arg4: string, optimizePasses?: Array<string>, minimizedPasses?: Array<string>, wasm?: (Uint8Array) | null): FuzzFailureReport;
-  show(value: FuzzFailureReport): string;
-};
-export const ReadmeApiVerifyBlock: {
-  show(value: ReadmeApiVerifyBlock): string;
-};
-export const CmdFuzzStats: {
-  "new"(attempts?: number, generatedValid?: number, generatedInvalid?: number, pipelineValidated?: number, optimized?: number, roundtripped?: number, differentialChecked?: number): CmdFuzzStats;
-  show(value: CmdFuzzStats): string;
-};
-export const WasmSmithFuzzStats: typeof CmdFuzzStats;
-export const runWasmSmithFuzzHarness: typeof runCmdFuzzHarness;
-export const runWasmSmithFuzzHarnessProfile: typeof runCmdFuzzHarnessProfile;

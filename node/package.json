@@ -1,6 +1,6 @@
 {
   "name": "@jtenner/starshine",
-  "version": "0.1.1",
+  "version": "0.1.2-beta.0",
   "description": "Node.js package for the Starshine WebAssembly toolkit",
   "type": "module",
   "main": "./index.js",
@@ -37,28 +37,68 @@
     "./wat": {
       "types": "./wat.d.ts",
       "import": "./wat.js"
+    },
+    "./passes": {
+      "types": "./passes.d.ts",
+      "import": "./passes.js"
     }
   },
   "bin": {
     "starshine": "./bin/starshine.js"
   },
   "files": [
-    "*.js",
-    "*.d.ts",
+    "index.js",
+    "index.d.ts",
+    "binary.js",
+    "binary.d.ts",
+    "cli.js",
+    "cli.d.ts",
+    "cmd.js",
+    "cmd.d.ts",
+    "lib.js",
+    "lib.d.ts",
+    "validate.js",
+    "validate.d.ts",
+    "wast.js",
+    "wast.d.ts",
+    "wat.js",
+    "wat.d.ts",
+    "passes.js",
+    "passes.d.ts",
     "bin",
-    "examples",
-    "internal",
-    "README.md",
-    "package.json"
+    "examples/*.mjs",
+    "internal/runtime.js",
+    "internal/shared.js",
+    "internal/shared.d.ts",
+    "internal/wasi-runner.js",
+    "internal/generated/cmd.generated.js",
+    "internal/starshine.wasm-gc.wasm",
+    "internal/starshine.wasm-wasi.wasm",
+    "README.md"
   ],
   "engines": {
     "node": ">=25"
   },
   "scripts": {
-    "generate": "bun ../scripts/make.ts generate-node-package",
+    "generate": "bun ../scripts/ffi.ts generate && bun ../scripts/make.ts generate-node-package",
     "build": "bun ../scripts/make.ts node-package",
     "test": "npm run build && node --test test/*.test.mjs",
-    "clean": "rm -f internal/starshine.wasm-wasi.wasm",
-    "prepack": "npm run build"
+    "clean": "node --input-type=module -e \"import fs from 'node:fs'; for (const name of ['starshine.wasm-gc.wasm', 'starshine.wasm-wasi.wasm']) fs.rmSync('internal/'+name,{force:true})\"",
+    "prepack": "npm run build",
+    "check-generated": "bun ../scripts/ffi.ts check && bun ../scripts/lib/generate-node-package.mjs --check",
+    "test-packed": "bun ../scripts/test/npm-packed-consumers.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jtenner/starshine-mb.git",
+    "directory": "node"
+  },
+  "bugs": {
+    "url": "https://github.com/jtenner/starshine-mb/issues"
+  },
+  "homepage": "https://github.com/jtenner/starshine-mb/tree/master/node",
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
   }
 }

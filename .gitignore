@@ -18,6 +18,7 @@ result.json
 .artifacts/
 dist/component/
 dist/ffi/
+dist/npm/
 agent-lost-and-found.md
 .tmp/
 build/

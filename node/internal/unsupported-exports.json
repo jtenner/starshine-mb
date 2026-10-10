@@ -1,0 +1,94 @@
+[
+  {
+    "symbol": "cli.expand_globs_with_adapter",
+    "reason": "Higher-order MoonBit callbacks require an explicit JavaScript adapter."
+  },
+  {
+    "symbol": "cmd.minimize_fuzz_passes",
+    "reason": "Higher-order MoonBit callbacks require an explicit JavaScript adapter."
+  },
+  {
+    "symbol": "cmd.reduce_fuzz_bytes_by_slice_deletion",
+    "reason": "Higher-order MoonBit callbacks require an explicit JavaScript adapter."
+  },
+  {
+    "symbol": "cmd.reduce_fuzz_module_fields_by_deletion",
+    "reason": "Higher-order MoonBit callbacks require an explicit JavaScript adapter."
+  },
+  {
+    "symbol": "cmd.reduce_fuzz_sequence_by_deletion",
+    "reason": "The FFI excludes this generic or inaccessible signature."
+  },
+  {
+    "symbol": "cmd.reduce_fuzz_text_tokens_by_deletion",
+    "reason": "Higher-order MoonBit callbacks require an explicit JavaScript adapter."
+  },
+  {
+    "symbol": "cmd.run_cmd_fuzz_harness",
+    "reason": "Higher-order MoonBit callbacks require an explicit JavaScript adapter."
+  },
+  {
+    "symbol": "cmd.BinaryDifferentialSmokeAdapter::new",
+    "reason": "Higher-order MoonBit callbacks require an explicit JavaScript adapter."
+  },
+  {
+    "symbol": "cmd.CmdIO::new",
+    "reason": "Higher-order MoonBit callbacks require an explicit JavaScript adapter."
+  },
+  {
+    "symbol": "cmd.DifferentialAdapters::new",
+    "reason": "Higher-order MoonBit callbacks require an explicit JavaScript adapter."
+  },
+  {
+    "symbol": "cmd.FuzzFailurePersistIO::new",
+    "reason": "Higher-order MoonBit callbacks require an explicit JavaScript adapter."
+  },
+  {
+    "symbol": "lib.array_of_arbitrary",
+    "reason": "The FFI excludes this generic or inaccessible signature."
+  },
+  {
+    "symbol": "lib.equals",
+    "reason": "The FFI excludes this generic or inaccessible signature."
+  },
+  {
+    "symbol": "lib.inspect_debug",
+    "reason": "The FFI excludes this generic or inaccessible signature."
+  },
+  {
+    "symbol": "lib.inspect_pretty_print",
+    "reason": "The FFI excludes this generic or inaccessible signature."
+  },
+  {
+    "symbol": "lib.Name::new",
+    "reason": "The FFI excludes this generic or inaccessible signature."
+  },
+  {
+    "symbol": "validate.gen_valid_numtype",
+    "reason": "The FFI excludes this generic or inaccessible signature."
+  },
+  {
+    "symbol": "validate.gen_valid_tfunc",
+    "reason": "The FFI excludes this generic or inaccessible signature."
+  },
+  {
+    "symbol": "validate.gen_valid_valtype",
+    "reason": "The FFI excludes this generic or inaccessible signature."
+  },
+  {
+    "symbol": "validate.gen_valid_valtype_with_extra_refs",
+    "reason": "The FFI excludes this generic or inaccessible signature."
+  },
+  {
+    "symbol": "validate.validate_module_with_trace",
+    "reason": "Higher-order MoonBit callbacks require an explicit JavaScript adapter."
+  },
+  {
+    "symbol": "wast.WastParser::parse_module",
+    "reason": "MoonBit raise effects require an explicit JavaScript error adapter."
+  },
+  {
+    "symbol": "wast.WastParser::parse_script",
+    "reason": "MoonBit raise effects require an explicit JavaScript error adapter."
+  }
+]

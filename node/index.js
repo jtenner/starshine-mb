@@ -5,3 +5,4 @@ export * as lib from './lib.js';
 export * as validate from './validate.js';
 export * as wast from './wast.js';
 export * as wat from './wat.js';
+export * as passes from './passes.js';

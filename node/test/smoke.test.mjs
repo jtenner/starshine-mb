@@ -165,7 +165,7 @@ test('cmd bridge runs --help through a JS CmdIO adapter', () => {
   assert.match(stdout.join(''), /Starshine Wasm Binary Toolkit/);
 });
 
-test('cmd bridge accepts optimization flags as no-ops through JS IO hooks', () => {
+test('cmd bridge runs optimization flags through JS IO hooks', () => {
   const files = new Map();
   files.set('sample.wat', new TextEncoder().encode('(module (func (export "run")))'));
   const writes = new Map();

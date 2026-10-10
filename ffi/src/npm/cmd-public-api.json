@@ -1,0 +1,75 @@
+{
+  "functions": [
+    "cmdHelpText",
+    "cmdVersionText",
+    "differentialValidateWasm",
+    "minimizeFuzzPasses",
+    "nativeDifferentialToolsAvailable",
+    "persistFuzzFailureReport",
+    "runCmd",
+    "runCmdExitCode",
+    "runCmdExitCodeWithAdapter",
+    "runCmdWithAdapter",
+    "runCmdFuzzHarness",
+    "runCmdFuzzHarnessProfile",
+    "verifyReadmeApiSignatures",
+    "verifyReadmeApiSignaturesWithRequiredBlocks"
+  ],
+  "factories": [
+    "CmdEncodeError",
+    "CmdError",
+    "CmdIO",
+    "CmdRunSummary",
+    "DifferentialAdapters",
+    "DifferentialValidationReport",
+    "FuzzFailurePersistIO",
+    "FuzzFailureReport",
+    "ReadmeApiVerifyBlock",
+    "CmdFuzzStats"
+  ],
+  "parameterProjections": {
+    "run_cmd_fuzz_harness": [
+      "arg0",
+      "seed",
+      "optimize_passes",
+      "differential_adapters",
+      "differential_every",
+      "on_failure"
+    ],
+    "CmdRunSummary::new": [
+      "input_files",
+      "output_files",
+      "resolved_passes",
+      "optimize_level",
+      "shrink_level",
+      "traps_never_happen",
+      "monomorphize_min_benefit",
+      "closed_world",
+      "low_memory_unused",
+      "low_memory_bound"
+    ],
+    "CmdFuzzStats::new": [
+      "attempts",
+      "generated_valid",
+      "generated_invalid",
+      "pipeline_validated",
+      "optimized",
+      "roundtripped",
+      "differential_checked"
+    ],
+    "DifferentialAdapters::new": [
+      "wasm_tools_validate",
+      "binaryen_validate"
+    ],
+    "FuzzFailureReport::new": [
+      "arg0",
+      "arg1",
+      "arg2",
+      "arg3",
+      "arg4",
+      "optimize_passes",
+      "minimized_passes",
+      "wasm"
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-name: "Node API Surface Tests"
+name: "Node Package and Packed Consumers"
 
 on:
   workflow_dispatch:
@@ -6,6 +6,8 @@ on:
     paths:
       - "node/**"
       - "tests/node/**"
+      - "src/ffi_bridge/**"
+      - "ffi/**"
       - "src/cmd/**"
       - "src/cli/**"
       - "src/ir/**"
@@ -17,6 +19,8 @@ on:
       - "src/validate/**"
       - "scripts/**"
       - "package.json"
+      - "moon.mod"
+      - "moon.pkg"
       - "moon.mod.json"
       - "moon.pkg.json"
       - ".github/workflows/node-wasm-tests.yml"
@@ -26,6 +30,8 @@ on:
     paths:
       - "node/**"
       - "tests/node/**"
+      - "src/ffi_bridge/**"
+      - "ffi/**"
       - "src/cmd/**"
       - "src/cli/**"
       - "src/ir/**"
@@ -37,6 +43,8 @@ on:
       - "src/validate/**"
       - "scripts/**"
       - "package.json"
+      - "moon.mod"
+      - "moon.pkg"
       - "moon.mod.json"
       - "moon.pkg.json"
       - ".github/workflows/node-wasm-tests.yml"
@@ -56,11 +64,41 @@ jobs:
           node-version: 25
 
       - name: Set up Bun
-        run: |
-          curl -fsSL https://bun.sh/install | bash
-          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
 
-      - name: Verify clean-checkout Node package contract
+      - name: Set up MoonBit
         run: |
+          # The exact locally tested snapshot is documented in toolchain.json.
+          # Qualify the available compiler with generated drift and consumer gates.
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o /tmp/install-moon.sh
+          bash /tmp/install-moon.sh
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Set up independent Wasm validator and TypeScript
+        run: |
+          cargo install wasm-tools --version 1.251.0 --locked
+          npm install --prefix /tmp/starshine-typescript --no-audit --no-fund typescript@5.8.3
+          echo "TSC_BIN=/tmp/starshine-typescript/node_modules/.bin/tsc" >> "$GITHUB_ENV"
+
+      - name: Build, self-optimize and test the exact npm tarball
+        run: |
+          moon version --all
+          moon update
+          bun test scripts/lib/ffi-generation.test.ts scripts/lib/node-generation.test.ts
           bun scripts/test/node-package-static-contract.ts
-          find node -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          bun scripts/test/npm-packed-consumers.mjs
+          node --test node/test/*.test.mjs
+          npm run check-generated --prefix node
+          git diff --exit-code -- ffi node src/ffi_bridge/pkg.generated.mbti
+
+      - name: Preserve package validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-package-evidence
+          path: |
+            dist/npm/build-report.json
+            dist/npm/consumer-report.json
+            dist/npm/*.tgz

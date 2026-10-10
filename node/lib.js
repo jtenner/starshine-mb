@@ -3,23 +3,23 @@ import { countProvidedArgs, getWasmGcExports, liftValue, lowerValue, unsupported
 const wasm = await getWasmGcExports();
 
 export function applyPrettyContext(arg0, arg1) {
-  return liftValue({ kind: "string" }, wasm["lib__apply_pretty_context"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, arg1, wasm)), wasm);
+  return liftValue({ kind: "string", moonType: "String" }, wasm["lib__apply_pretty_context"](lowerValue({ kind: "string", moonType: "String" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: null }, arg1, wasm)), wasm);
 }
 
 export function arrayCompType(arg0) {
   return liftValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, wasm["lib__array_comp_type"](lowerValue({ kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" }, arg0, wasm)), wasm);
 }
 
-export const arrayOfArbitrary = unsupportedExport("lib.arrayOfArbitrary", "Generic exports are not available through the wasm-gc adapter.");
+export const arrayOfArbitrary = unsupportedExport("lib.arrayOfArbitrary", "The FFI excludes this generic or inaccessible signature.");
 
-export function compTypeSubType(arg0) {
-  return liftValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, wasm["lib__comp_type_sub_type"](lowerValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, arg0, wasm)), wasm);
+export function compTypeSubType(arg0, metadata) {
+  return liftValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, wasm["lib__comp_type_sub_type"](lowerValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.TypeMetadata", showExport: null } }, metadata, wasm)), wasm);
 }
 
-export const equals = unsupportedExport("lib.equals", "Generic exports are not available through the wasm-gc adapter.");
+export const equals = unsupportedExport("lib.equals", "The FFI excludes this generic or inaccessible signature.");
 
 export function funcCompType(arg0, arg1) {
-  return liftValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, wasm["lib__func_comp_type"](lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg1, wasm)), wasm);
+  return liftValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, wasm["lib__func_comp_type"](lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg1, wasm)), wasm);
 }
 
 export function funcExternIdx(arg0) {
@@ -31,11 +31,11 @@ export function funcExternType(arg0) {
 }
 
 export function funcIdx(arg0) {
-  return liftValue({ kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" }, wasm["lib__func_idx"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" }, wasm["lib__func_idx"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
 }
 
 export function getStructField(arg0, arg1) {
-  return liftValue({ kind: "result", helper: {"isOk":"__js_result_13_is_ok","unwrapOk":"__js_result_13_unwrap_ok","unwrapErr":"__js_result_13_unwrap_err"}, ok: { kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" }, err: { kind: "string" } }, wasm["lib__get_struct_field"](lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" } }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg1, wasm)), wasm);
+  return liftValue({ kind: "result", helper: {"isOk":"__js_result_19_is_ok","unwrapOk":"__js_result_19_unwrap_ok","unwrapErr":"__js_result_19_unwrap_err"}, ok: { kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" }, err: { kind: "string", moonType: "String" } }, wasm["lib__get_struct_field"](lowerValue({ kind: "array", helper: {"new":"__js_array_17_new","push":"__js_array_17_push","length":"__js_array_17_length","get":"__js_array_17_get"}, item: { kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" } }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg1, wasm)), wasm);
 }
 
 export function globalExternIdx(arg0) {
@@ -47,24 +47,24 @@ export function globalExternType(arg0) {
 }
 
 export function globalIdx(arg0) {
-  return liftValue({ kind: "named", brand: "lib.GlobalIdx", showExport: "__js_show_lib_GlobalIdx" }, wasm["lib__global_idx"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "named", brand: "lib.GlobalIdx", showExport: "__js_show_lib_GlobalIdx" }, wasm["lib__global_idx"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
 }
 
 export function globalType(arg0, arg1) {
-  return liftValue({ kind: "named", brand: "lib.GlobalType", showExport: "__js_show_lib_GlobalType" }, wasm["lib__global_type"](lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg0, wasm), lowerValue({ kind: "bool" }, arg1, wasm)), wasm);
+  return liftValue({ kind: "named", brand: "lib.GlobalType", showExport: "__js_show_lib_GlobalType" }, wasm["lib__global_type"](lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg0, wasm), lowerValue({ kind: "bool", moonType: "Bool" }, arg1, wasm)), wasm);
 }
 
 export function groupRecType(arg0) {
-  return liftValue({ kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" }, wasm["lib__group_rec_type"](lowerValue({ kind: "array", helper: {"new":"__js_array_10_new","push":"__js_array_10_push","length":"__js_array_10_length","get":"__js_array_10_get"}, item: { kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" } }, arg0, wasm)), wasm);
+  return liftValue({ kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" }, wasm["lib__group_rec_type"](lowerValue({ kind: "array", helper: {"new":"__js_array_18_new","push":"__js_array_18_push","length":"__js_array_18_length","get":"__js_array_18_get"}, item: { kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" } }, arg0, wasm)), wasm);
 }
 
 export function hasDefault(arg0) {
-  return liftValue({ kind: "bool" }, wasm["lib__has_default"](lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__has_default"](lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg0, wasm)), wasm);
 }
 
-export const inspectDebug = unsupportedExport("lib.inspectDebug", "Exports with `raise` effects are not available through the wasm-gc adapter.");
+export const inspectDebug = unsupportedExport("lib.inspectDebug", "The FFI excludes this generic or inaccessible signature.");
 
-export const inspectPrettyPrint = unsupportedExport("lib.inspectPrettyPrint", "Generic exports are not available through the wasm-gc adapter.");
+export const inspectPrettyPrint = unsupportedExport("lib.inspectPrettyPrint", "The FFI excludes this generic or inaccessible signature.");
 
 export function memExternIdx(arg0) {
   return liftValue({ kind: "named", brand: "lib.ExternIdx", showExport: "__js_show_lib_ExternIdx" }, wasm["lib__mem_extern_idx"](lowerValue({ kind: "named", brand: "lib.MemIdx", showExport: "__js_show_lib_MemIdx" }, arg0, wasm)), wasm);
@@ -74,8 +74,8 @@ export function memExternType(arg0) {
   return liftValue({ kind: "named", brand: "lib.ExternType", showExport: "__js_show_lib_ExternType" }, wasm["lib__mem_extern_type"](lowerValue({ kind: "named", brand: "lib.MemType", showExport: "__js_show_lib_MemType" }, arg0, wasm)), wasm);
 }
 
-export function memType(arg0) {
-  return liftValue({ kind: "named", brand: "lib.MemType", showExport: "__js_show_lib_MemType" }, wasm["lib__mem_type"](lowerValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, arg0, wasm)), wasm);
+export function memType(arg0, shared) {
+  return liftValue({ kind: "named", brand: "lib.MemType", showExport: "__js_show_lib_MemType" }, wasm["lib__mem_type"](lowerValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_3_none","some":"__js_option_3_some","isSome":"__js_option_3_is_some","unwrap":"__js_option_3_unwrap"}, item: { kind: "bool", moonType: "Bool" } }, shared, wasm)), wasm);
 }
 
 export function minAddr(arg0, arg1) {
@@ -86,12 +86,16 @@ export function minAddrValtype(arg0, arg1) {
   return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__min_addr_valtype"](lowerValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, arg1, wasm)), wasm);
 }
 
+export function moduleUsesCustomDescriptors(arg0) {
+  return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__module_uses_custom_descriptors"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm)), wasm);
+}
+
 export function recIdx(arg0) {
-  return liftValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, wasm["lib__rec_idx"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, wasm["lib__rec_idx"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
 }
 
 export function resultType(arg0) {
-  return liftValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, wasm["lib__result_type"](lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm)), wasm);
+  return liftValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, wasm["lib__result_type"](lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm)), wasm);
 }
 
 export function singleRecType(arg0) {
@@ -99,11 +103,11 @@ export function singleRecType(arg0) {
 }
 
 export function structCompType(arg0) {
-  return liftValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, wasm["lib__struct_comp_type"](lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" } }, arg0, wasm)), wasm);
+  return liftValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, wasm["lib__struct_comp_type"](lowerValue({ kind: "array", helper: {"new":"__js_array_17_new","push":"__js_array_17_push","length":"__js_array_17_length","get":"__js_array_17_get"}, item: { kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" } }, arg0, wasm)), wasm);
 }
 
-export function subType(arg0, arg1, arg2) {
-  return liftValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, wasm["lib__sub_type"](lowerValue({ kind: "bool" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_11_new","push":"__js_array_11_push","length":"__js_array_11_length","get":"__js_array_11_get"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, arg2, wasm)), wasm);
+export function subType(arg0, arg1, arg2, metadata) {
+  return liftValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, wasm["lib__sub_type"](lowerValue({ kind: "bool", moonType: "Bool" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_19_new","push":"__js_array_19_push","length":"__js_array_19_length","get":"__js_array_19_get"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, arg2, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.TypeMetadata", showExport: null } }, metadata, wasm)), wasm);
 }
 
 export function tableExternIdx(arg0) {
@@ -115,7 +119,7 @@ export function tableExternType(arg0) {
 }
 
 export function tableIdx(arg0) {
-  return liftValue({ kind: "named", brand: "lib.TableIdx", showExport: "__js_show_lib_TableIdx" }, wasm["lib__table_idx"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "named", brand: "lib.TableIdx", showExport: "__js_show_lib_TableIdx" }, wasm["lib__table_idx"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
 }
 
 export function tagExternIdx(arg0) {
@@ -131,23 +135,23 @@ export function tagType(arg0) {
 }
 
 export function traceDeltaUsToMs(arg0) {
-  return liftValue({ kind: "bigint" }, wasm["lib__trace_delta_us_to_ms"](lowerValue({ kind: "bigint" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "bigint", moonType: "UInt64" }, wasm["lib__trace_delta_us_to_ms"](lowerValue({ kind: "bigint", moonType: "UInt64" }, arg0, wasm)), wasm);
 }
 
 export function traceElapsedMs(arg0) {
-  return liftValue({ kind: "bigint" }, wasm["lib__trace_elapsed_ms"](lowerValue({ kind: "bigint" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "bigint", moonType: "UInt64" }, wasm["lib__trace_elapsed_ms"](lowerValue({ kind: "bigint", moonType: "UInt64" }, arg0, wasm)), wasm);
 }
 
 export function traceElapsedUsSince(arg0) {
-  return liftValue({ kind: "bigint" }, wasm["lib__trace_elapsed_us_since"](lowerValue({ kind: "bigint" }, arg0, wasm)), wasm);
+  return liftValue({ kind: "bigint", moonType: "UInt64" }, wasm["lib__trace_elapsed_us_since"](lowerValue({ kind: "bigint", moonType: "UInt64" }, arg0, wasm)), wasm);
 }
 
 export function traceNowMs() {
-  return liftValue({ kind: "bigint" }, wasm["lib__trace_now_ms"](), wasm);
+  return liftValue({ kind: "bigint", moonType: "UInt64" }, wasm["lib__trace_now_ms"](), wasm);
 }
 
 export function traceNowUs() {
-  return liftValue({ kind: "bigint" }, wasm["lib__trace_now_us"](), wasm);
+  return liftValue({ kind: "bigint", moonType: "UInt64" }, wasm["lib__trace_now_us"](), wasm);
 }
 
 export const AbsHeapType = Object.freeze({
@@ -156,6 +160,9 @@ export const AbsHeapType = Object.freeze({
   },
   array() {
     return liftValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, wasm["lib__AbsHeapType__array"](), wasm);
+  },
+  cont() {
+    return liftValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, wasm["lib__AbsHeapType__cont"](), wasm);
   },
   eq() {
     return liftValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, wasm["lib__AbsHeapType__eq"](), wasm);
@@ -172,6 +179,9 @@ export const AbsHeapType = Object.freeze({
   i31() {
     return liftValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, wasm["lib__AbsHeapType__i31"](), wasm);
   },
+  noCont() {
+    return liftValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, wasm["lib__AbsHeapType__no_cont"](), wasm);
+  },
   noExn() {
     return liftValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, wasm["lib__AbsHeapType__no_exn"](), wasm);
   },
@@ -181,14 +191,47 @@ export const AbsHeapType = Object.freeze({
   noFunc() {
     return liftValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, wasm["lib__AbsHeapType__no_func"](), wasm);
   },
+  noWaitqueue() {
+    return liftValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, wasm["lib__AbsHeapType__no_waitqueue"](), wasm);
+  },
   none() {
     return liftValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, wasm["lib__AbsHeapType__none"](), wasm);
+  },
+  string() {
+    return liftValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, wasm["lib__AbsHeapType__string_"](), wasm);
   },
   struct() {
     return liftValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, wasm["lib__AbsHeapType__struct_"](), wasm);
   },
+  waitqueue() {
+    return liftValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, wasm["lib__AbsHeapType__waitqueue"](), wasm);
+  },
   show(value) {
-    return wasm["__js_show_lib_AbsHeapType"](value);
+    return wasm["__js_show_lib_AbsHeapType"](lowerValue({ kind: "named", brand: "lib.AbsHeapType" }, value, wasm));
+  },
+});
+
+export const AggregateAtomicRmwOp = Object.freeze({
+  add() {
+    return liftValue({ kind: "named", brand: "lib.AggregateAtomicRmwOp", showExport: "__js_show_lib_AggregateAtomicRmwOp" }, wasm["lib__AggregateAtomicRmwOp__add"](), wasm);
+  },
+  and() {
+    return liftValue({ kind: "named", brand: "lib.AggregateAtomicRmwOp", showExport: "__js_show_lib_AggregateAtomicRmwOp" }, wasm["lib__AggregateAtomicRmwOp__and_"](), wasm);
+  },
+  or() {
+    return liftValue({ kind: "named", brand: "lib.AggregateAtomicRmwOp", showExport: "__js_show_lib_AggregateAtomicRmwOp" }, wasm["lib__AggregateAtomicRmwOp__or_"](), wasm);
+  },
+  sub() {
+    return liftValue({ kind: "named", brand: "lib.AggregateAtomicRmwOp", showExport: "__js_show_lib_AggregateAtomicRmwOp" }, wasm["lib__AggregateAtomicRmwOp__sub"](), wasm);
+  },
+  xchg() {
+    return liftValue({ kind: "named", brand: "lib.AggregateAtomicRmwOp", showExport: "__js_show_lib_AggregateAtomicRmwOp" }, wasm["lib__AggregateAtomicRmwOp__xchg"](), wasm);
+  },
+  xor() {
+    return liftValue({ kind: "named", brand: "lib.AggregateAtomicRmwOp", showExport: "__js_show_lib_AggregateAtomicRmwOp" }, wasm["lib__AggregateAtomicRmwOp__xor"](), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_lib_AggregateAtomicRmwOp"](lowerValue({ kind: "named", brand: "lib.AggregateAtomicRmwOp" }, value, wasm));
   },
 });
 
@@ -215,7 +258,22 @@ export const AtomicCmpxchgOp = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.AtomicCmpxchgOp", showExport: "__js_show_lib_AtomicCmpxchgOp" }, wasm["lib__AtomicCmpxchgOp__i64_8_u"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_AtomicCmpxchgOp"](value);
+    return wasm["__js_show_lib_AtomicCmpxchgOp"](lowerValue({ kind: "named", brand: "lib.AtomicCmpxchgOp" }, value, wasm));
+  },
+});
+
+export const AtomicOrder = Object.freeze({
+  acqRel() {
+    return liftValue({ kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" }, wasm["lib__AtomicOrder__acq_rel"](), wasm);
+  },
+  relaxed() {
+    return liftValue({ kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" }, wasm["lib__AtomicOrder__relaxed"](), wasm);
+  },
+  seqCst() {
+    return liftValue({ kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" }, wasm["lib__AtomicOrder__seq_cst"](), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_lib_AtomicOrder"](lowerValue({ kind: "named", brand: "lib.AtomicOrder" }, value, wasm));
   },
 });
 
@@ -347,7 +405,7 @@ export const AtomicRmwOp = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.AtomicRmwOp", showExport: "__js_show_lib_AtomicRmwOp" }, wasm["lib__AtomicRmwOp__i64_xor"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_AtomicRmwOp"](value);
+    return wasm["__js_show_lib_AtomicRmwOp"](lowerValue({ kind: "named", brand: "lib.AtomicRmwOp" }, value, wasm));
   },
 });
 
@@ -956,7 +1014,7 @@ export const BinaryOp = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.BinaryOp", showExport: "__js_show_lib_BinaryOp" }, wasm["lib__BinaryOp__v128_xor"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_BinaryOp"](value);
+    return wasm["__js_show_lib_BinaryOp"](lowerValue({ kind: "named", brand: "lib.BinaryOp" }, value, wasm));
   },
 });
 
@@ -971,22 +1029,28 @@ export const BlockType = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.BlockType", showExport: "__js_show_lib_BlockType" }, wasm["lib__BlockType__void_"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_BlockType"](value);
+    return wasm["__js_show_lib_BlockType"](lowerValue({ kind: "named", brand: "lib.BlockType" }, value, wasm));
   },
 });
 
 export const CastOp = Object.freeze({
-  new(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.CastOp", showExport: "__js_show_lib_CastOp" }, wasm["lib__CastOp__new"](lowerValue({ kind: "bool" }, arg0, wasm), lowerValue({ kind: "bool" }, arg1, wasm)), wasm);
+  new(arg0, arg1, sourceExact, targetExact) {
+    return liftValue({ kind: "named", brand: "lib.CastOp", showExport: "__js_show_lib_CastOp" }, wasm["lib__CastOp__new"](lowerValue({ kind: "bool", moonType: "Bool" }, arg0, wasm), lowerValue({ kind: "bool", moonType: "Bool" }, arg1, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_3_none","some":"__js_option_3_some","isSome":"__js_option_3_is_some","unwrap":"__js_option_3_unwrap"}, item: { kind: "bool", moonType: "Bool" } }, sourceExact, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_3_none","some":"__js_option_3_some","isSome":"__js_option_3_is_some","unwrap":"__js_option_3_unwrap"}, item: { kind: "bool", moonType: "Bool" } }, targetExact, wasm)), wasm);
+  },
+  sourceExact(arg0) {
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__CastOp__source_exact"](lowerValue({ kind: "named", brand: "lib.CastOp", showExport: "__js_show_lib_CastOp" }, arg0, wasm)), wasm);
   },
   sourceNullable(arg0) {
-    return liftValue({ kind: "bool" }, wasm["lib__CastOp__source_nullable"](lowerValue({ kind: "named", brand: "lib.CastOp", showExport: "__js_show_lib_CastOp" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__CastOp__source_nullable"](lowerValue({ kind: "named", brand: "lib.CastOp", showExport: "__js_show_lib_CastOp" }, arg0, wasm)), wasm);
+  },
+  targetExact(arg0) {
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__CastOp__target_exact"](lowerValue({ kind: "named", brand: "lib.CastOp", showExport: "__js_show_lib_CastOp" }, arg0, wasm)), wasm);
   },
   targetNullable(arg0) {
-    return liftValue({ kind: "bool" }, wasm["lib__CastOp__target_nullable"](lowerValue({ kind: "named", brand: "lib.CastOp", showExport: "__js_show_lib_CastOp" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__CastOp__target_nullable"](lowerValue({ kind: "named", brand: "lib.CastOp", showExport: "__js_show_lib_CastOp" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_CastOp"](value);
+    return wasm["__js_show_lib_CastOp"](lowerValue({ kind: "named", brand: "lib.CastOp" }, value, wasm));
   },
 });
 
@@ -1004,19 +1068,16 @@ export const Catch = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.Catch", showExport: "__js_show_lib_Catch" }, wasm["lib__Catch__ref_"](lowerValue({ kind: "named", brand: "lib.TagIdx", showExport: "__js_show_lib_TagIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Catch"](value);
+    return wasm["__js_show_lib_Catch"](lowerValue({ kind: "named", brand: "lib.Catch" }, value, wasm));
   },
 });
 
 export const CodeSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_12_new","push":"__js_array_12_push","length":"__js_array_12_length","get":"__js_array_12_get"}, item: { kind: "named", brand: "lib.Func", showExport: "__js_show_lib_Func" } }, wasm["lib__CodeSec__inner"](lowerValue({ kind: "named", brand: "lib.CodeSec", showExport: "__js_show_lib_CodeSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.CodeSec", showExport: "__js_show_lib_CodeSec" }, wasm["lib__CodeSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_12_new","push":"__js_array_12_push","length":"__js_array_12_length","get":"__js_array_12_get"}, item: { kind: "named", brand: "lib.Func", showExport: "__js_show_lib_Func" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.CodeSec", showExport: "__js_show_lib_CodeSec" }, wasm["lib__CodeSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_20_new","push":"__js_array_20_push","length":"__js_array_20_length","get":"__js_array_20_get"}, item: { kind: "named", brand: "lib.Func", showExport: "__js_show_lib_Func" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_CodeSec"](value);
+    return wasm["__js_show_lib_CodeSec"](lowerValue({ kind: "named", brand: "lib.CodeSec" }, value, wasm));
   },
 });
 
@@ -1024,56 +1085,53 @@ export const CompType = Object.freeze({
   array(arg0) {
     return liftValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, wasm["lib__CompType__array"](lowerValue({ kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" }, arg0, wasm)), wasm);
   },
+  cont(arg0) {
+    return liftValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, wasm["lib__CompType__cont"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm)), wasm);
+  },
   func(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, wasm["lib__CompType__func"](lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, wasm["lib__CompType__func"](lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg1, wasm)), wasm);
   },
   struct(arg0) {
-    return liftValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, wasm["lib__CompType__struct_"](lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, wasm["lib__CompType__struct_"](lowerValue({ kind: "array", helper: {"new":"__js_array_17_new","push":"__js_array_17_push","length":"__js_array_17_length","get":"__js_array_17_get"}, item: { kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_CompType"](value);
+    return wasm["__js_show_lib_CompType"](lowerValue({ kind: "named", brand: "lib.CompType" }, value, wasm));
   },
 });
 
 export const CustomSec = Object.freeze({
   new(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" }, wasm["lib__CustomSec__new"](lowerValue({ kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" }, arg0, wasm), lowerValue({ kind: "bytes", helper: {"fromArray":"__js_bytes_from_array","length":"__js_bytes_length","get":"__js_bytes_get","byteArray":{"new":"__js_array_37_new","push":"__js_array_37_push","length":"__js_array_37_length","get":"__js_array_37_get"}} }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" }, wasm["lib__CustomSec__new"](lowerValue({ kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" }, arg0, wasm), lowerValue({ kind: "bytes", helper: {"fromArray":"__js_bytes_from_array","length":"__js_bytes_length","get":"__js_bytes_get","byteArray":{"new":"__js_array_67_new","push":"__js_array_67_push","length":"__js_array_67_length","get":"__js_array_67_get"}} }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_CustomSec"](value);
+    return wasm["__js_show_lib_CustomSec"](lowerValue({ kind: "named", brand: "lib.CustomSec" }, value, wasm));
   },
 });
 
 export const Data = Object.freeze({
   new(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Data", showExport: "__js_show_lib_Data" }, wasm["lib__Data__new"](lowerValue({ kind: "named", brand: "lib.DataMode", showExport: "__js_show_lib_DataMode" }, arg0, wasm), lowerValue({ kind: "bytes", helper: {"fromArray":"__js_bytes_from_array","length":"__js_bytes_length","get":"__js_bytes_get","byteArray":{"new":"__js_array_37_new","push":"__js_array_37_push","length":"__js_array_37_length","get":"__js_array_37_get"}} }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Data", showExport: "__js_show_lib_Data" }, wasm["lib__Data__new"](lowerValue({ kind: "named", brand: "lib.DataMode", showExport: "__js_show_lib_DataMode" }, arg0, wasm), lowerValue({ kind: "bytes", helper: {"fromArray":"__js_bytes_from_array","length":"__js_bytes_length","get":"__js_bytes_get","byteArray":{"new":"__js_array_67_new","push":"__js_array_67_push","length":"__js_array_67_length","get":"__js_array_67_get"}} }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Data"](value);
+    return wasm["__js_show_lib_Data"](lowerValue({ kind: "named", brand: "lib.Data" }, value, wasm));
   },
 });
 
 export const DataCntSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, wasm["lib__DataCntSec__inner"](lowerValue({ kind: "named", brand: "lib.DataCntSec", showExport: "__js_show_lib_DataCntSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
     return liftValue({ kind: "named", brand: "lib.DataCntSec", showExport: "__js_show_lib_DataCntSec" }, wasm["lib__DataCntSec__new"](lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_DataCntSec"](value);
+    return wasm["__js_show_lib_DataCntSec"](lowerValue({ kind: "named", brand: "lib.DataCntSec" }, value, wasm));
   },
 });
 
 export const DataIdx = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__DataIdx__inner"](lowerValue({ kind: "named", brand: "lib.DataIdx", showExport: "__js_show_lib_DataIdx" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.DataIdx", showExport: "__js_show_lib_DataIdx" }, wasm["lib__DataIdx__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.DataIdx", showExport: "__js_show_lib_DataIdx" }, wasm["lib__DataIdx__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_DataIdx"](value);
+    return wasm["__js_show_lib_DataIdx"](lowerValue({ kind: "named", brand: "lib.DataIdx" }, value, wasm));
   },
 });
 
@@ -1085,31 +1143,28 @@ export const DataMode = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.DataMode", showExport: "__js_show_lib_DataMode" }, wasm["lib__DataMode__passive"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_DataMode"](value);
+    return wasm["__js_show_lib_DataMode"](lowerValue({ kind: "named", brand: "lib.DataMode" }, value, wasm));
   },
 });
 
 export const DataSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_13_new","push":"__js_array_13_push","length":"__js_array_13_length","get":"__js_array_13_get"}, item: { kind: "named", brand: "lib.Data", showExport: "__js_show_lib_Data" } }, wasm["lib__DataSec__inner"](lowerValue({ kind: "named", brand: "lib.DataSec", showExport: "__js_show_lib_DataSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.DataSec", showExport: "__js_show_lib_DataSec" }, wasm["lib__DataSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_13_new","push":"__js_array_13_push","length":"__js_array_13_length","get":"__js_array_13_get"}, item: { kind: "named", brand: "lib.Data", showExport: "__js_show_lib_Data" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.DataSec", showExport: "__js_show_lib_DataSec" }, wasm["lib__DataSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_21_new","push":"__js_array_21_push","length":"__js_array_21_length","get":"__js_array_21_get"}, item: { kind: "named", brand: "lib.Data", showExport: "__js_show_lib_Data" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_DataSec"](value);
+    return wasm["__js_show_lib_DataSec"](lowerValue({ kind: "named", brand: "lib.DataSec" }, value, wasm));
   },
 });
 
 export const DefType = Object.freeze({
   new(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.DefType", showExport: "__js_show_lib_DefType" }, wasm["lib__DefType__new"](lowerValue({ kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.DefType", showExport: "__js_show_lib_DefType" }, wasm["lib__DefType__new"](lowerValue({ kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" }, arg0, wasm), lowerValue({ kind: "number", moonType: "UInt" }, arg1, wasm)), wasm);
   },
   project(arg0) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_17_none","some":"__js_option_17_some","isSome":"__js_option_17_is_some","unwrap":"__js_option_17_unwrap"}, item: { kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" } }, wasm["lib__DefType__project"](lowerValue({ kind: "named", brand: "lib.DefType", showExport: "__js_show_lib_DefType" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_29_none","some":"__js_option_29_some","isSome":"__js_option_29_is_some","unwrap":"__js_option_29_unwrap"}, item: { kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" } }, wasm["lib__DefType__project"](lowerValue({ kind: "named", brand: "lib.DefType", showExport: "__js_show_lib_DefType" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_DefType"](value);
+    return wasm["__js_show_lib_DefType"](lowerValue({ kind: "named", brand: "lib.DefType" }, value, wasm));
   },
 });
 
@@ -1121,34 +1176,31 @@ export const Elem = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, wasm["lib__Elem__reftype"](lowerValue({ kind: "named", brand: "lib.Elem", showExport: "__js_show_lib_Elem" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Elem"](value);
+    return wasm["__js_show_lib_Elem"](lowerValue({ kind: "named", brand: "lib.Elem" }, value, wasm));
   },
 });
 
 export const ElemIdx = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__ElemIdx__inner"](lowerValue({ kind: "named", brand: "lib.ElemIdx", showExport: "__js_show_lib_ElemIdx" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.ElemIdx", showExport: "__js_show_lib_ElemIdx" }, wasm["lib__ElemIdx__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.ElemIdx", showExport: "__js_show_lib_ElemIdx" }, wasm["lib__ElemIdx__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_ElemIdx"](value);
+    return wasm["__js_show_lib_ElemIdx"](lowerValue({ kind: "named", brand: "lib.ElemIdx" }, value, wasm));
   },
 });
 
 export const ElemKind = Object.freeze({
   funcExprs(arg0) {
-    return liftValue({ kind: "named", brand: "lib.ElemKind", showExport: "__js_show_lib_ElemKind" }, wasm["lib__ElemKind__func_exprs"](lowerValue({ kind: "array", helper: {"new":"__js_array_14_new","push":"__js_array_14_push","length":"__js_array_14_length","get":"__js_array_14_get"}, item: { kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.ElemKind", showExport: "__js_show_lib_ElemKind" }, wasm["lib__ElemKind__func_exprs"](lowerValue({ kind: "array", helper: {"new":"__js_array_22_new","push":"__js_array_22_push","length":"__js_array_22_length","get":"__js_array_22_get"}, item: { kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" } }, arg0, wasm)), wasm);
   },
   funcs(arg0) {
-    return liftValue({ kind: "named", brand: "lib.ElemKind", showExport: "__js_show_lib_ElemKind" }, wasm["lib__ElemKind__funcs"](lowerValue({ kind: "array", helper: {"new":"__js_array_15_new","push":"__js_array_15_push","length":"__js_array_15_length","get":"__js_array_15_get"}, item: { kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.ElemKind", showExport: "__js_show_lib_ElemKind" }, wasm["lib__ElemKind__funcs"](lowerValue({ kind: "array", helper: {"new":"__js_array_23_new","push":"__js_array_23_push","length":"__js_array_23_length","get":"__js_array_23_get"}, item: { kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" } }, arg0, wasm)), wasm);
   },
   typedExprs(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.ElemKind", showExport: "__js_show_lib_ElemKind" }, wasm["lib__ElemKind__typed_exprs"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_14_new","push":"__js_array_14_push","length":"__js_array_14_length","get":"__js_array_14_get"}, item: { kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" } }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.ElemKind", showExport: "__js_show_lib_ElemKind" }, wasm["lib__ElemKind__typed_exprs"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_22_new","push":"__js_array_22_push","length":"__js_array_22_length","get":"__js_array_22_get"}, item: { kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" } }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_ElemKind"](value);
+    return wasm["__js_show_lib_ElemKind"](lowerValue({ kind: "named", brand: "lib.ElemKind" }, value, wasm));
   },
 });
 
@@ -1163,19 +1215,16 @@ export const ElemMode = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.ElemMode", showExport: "__js_show_lib_ElemMode" }, wasm["lib__ElemMode__passive"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_ElemMode"](value);
+    return wasm["__js_show_lib_ElemMode"](lowerValue({ kind: "named", brand: "lib.ElemMode" }, value, wasm));
   },
 });
 
 export const ElemSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_16_new","push":"__js_array_16_push","length":"__js_array_16_length","get":"__js_array_16_get"}, item: { kind: "named", brand: "lib.Elem", showExport: "__js_show_lib_Elem" } }, wasm["lib__ElemSec__inner"](lowerValue({ kind: "named", brand: "lib.ElemSec", showExport: "__js_show_lib_ElemSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.ElemSec", showExport: "__js_show_lib_ElemSec" }, wasm["lib__ElemSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_16_new","push":"__js_array_16_push","length":"__js_array_16_length","get":"__js_array_16_get"}, item: { kind: "named", brand: "lib.Elem", showExport: "__js_show_lib_Elem" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.ElemSec", showExport: "__js_show_lib_ElemSec" }, wasm["lib__ElemSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_24_new","push":"__js_array_24_push","length":"__js_array_24_length","get":"__js_array_24_get"}, item: { kind: "named", brand: "lib.Elem", showExport: "__js_show_lib_Elem" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_ElemSec"](value);
+    return wasm["__js_show_lib_ElemSec"](lowerValue({ kind: "named", brand: "lib.ElemSec" }, value, wasm));
   },
 });
 
@@ -1184,31 +1233,25 @@ export const Export = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.Export", showExport: "__js_show_lib_Export" }, wasm["lib__Export__new"](lowerValue({ kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.ExternIdx", showExport: "__js_show_lib_ExternIdx" }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Export"](value);
+    return wasm["__js_show_lib_Export"](lowerValue({ kind: "named", brand: "lib.Export" }, value, wasm));
   },
 });
 
 export const ExportSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_17_new","push":"__js_array_17_push","length":"__js_array_17_length","get":"__js_array_17_get"}, item: { kind: "named", brand: "lib.Export", showExport: "__js_show_lib_Export" } }, wasm["lib__ExportSec__inner"](lowerValue({ kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" }, wasm["lib__ExportSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_17_new","push":"__js_array_17_push","length":"__js_array_17_length","get":"__js_array_17_get"}, item: { kind: "named", brand: "lib.Export", showExport: "__js_show_lib_Export" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" }, wasm["lib__ExportSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_25_new","push":"__js_array_25_push","length":"__js_array_25_length","get":"__js_array_25_get"}, item: { kind: "named", brand: "lib.Export", showExport: "__js_show_lib_Export" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_ExportSec"](value);
+    return wasm["__js_show_lib_ExportSec"](lowerValue({ kind: "named", brand: "lib.ExportSec" }, value, wasm));
   },
 });
 
 export const Expr = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_18_new","push":"__js_array_18_push","length":"__js_array_18_length","get":"__js_array_18_get"}, item: { kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" } }, wasm["lib__Expr__inner"](lowerValue({ kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" }, wasm["lib__Expr__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_18_new","push":"__js_array_18_push","length":"__js_array_18_length","get":"__js_array_18_get"}, item: { kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" }, wasm["lib__Expr__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Expr"](value);
+    return wasm["__js_show_lib_Expr"](lowerValue({ kind: "named", brand: "lib.Expr" }, value, wasm));
   },
 });
 
@@ -1229,7 +1272,7 @@ export const ExternIdx = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.ExternIdx", showExport: "__js_show_lib_ExternIdx" }, wasm["lib__ExternIdx__tag"](lowerValue({ kind: "named", brand: "lib.TagIdx", showExport: "__js_show_lib_TagIdx" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_ExternIdx"](value);
+    return wasm["__js_show_lib_ExternIdx"](lowerValue({ kind: "named", brand: "lib.ExternIdx" }, value, wasm));
   },
 });
 
@@ -1250,7 +1293,7 @@ export const ExternType = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.ExternType", showExport: "__js_show_lib_ExternType" }, wasm["lib__ExternType__tag"](lowerValue({ kind: "named", brand: "lib.TagType", showExport: "__js_show_lib_TagType" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_ExternType"](value);
+    return wasm["__js_show_lib_ExternType"](lowerValue({ kind: "named", brand: "lib.ExternType" }, value, wasm));
   },
 });
 
@@ -1280,31 +1323,25 @@ export const ExtractLaneOp = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.ExtractLaneOp", showExport: "__js_show_lib_ExtractLaneOp" }, wasm["lib__ExtractLaneOp__i8x16_extract_lane_u"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_ExtractLaneOp"](value);
+    return wasm["__js_show_lib_ExtractLaneOp"](lowerValue({ kind: "named", brand: "lib.ExtractLaneOp" }, value, wasm));
   },
 });
 
 export const F32 = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__F32__inner"](lowerValue({ kind: "named", brand: "lib.F32", showExport: "__js_show_lib_F32" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.F32", showExport: "__js_show_lib_F32" }, wasm["lib__F32__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.F32", showExport: "__js_show_lib_F32" }, wasm["lib__F32__new"](lowerValue({ kind: "number", moonType: "Float" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_F32"](value);
+    return wasm["__js_show_lib_F32"](lowerValue({ kind: "named", brand: "lib.F32" }, value, wasm));
   },
 });
 
 export const F64 = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__F64__inner"](lowerValue({ kind: "named", brand: "lib.F64", showExport: "__js_show_lib_F64" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.F64", showExport: "__js_show_lib_F64" }, wasm["lib__F64__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.F64", showExport: "__js_show_lib_F64" }, wasm["lib__F64__new"](lowerValue({ kind: "number", moonType: "Double" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_F64"](value);
+    return wasm["__js_show_lib_F64"](lowerValue({ kind: "named", brand: "lib.F64" }, value, wasm));
   },
 });
 
@@ -1313,7 +1350,7 @@ export const FieldType = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.StorageType", showExport: "__js_show_lib_StorageType" }, wasm["lib__FieldType__get_storage_type"](lowerValue({ kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" }, arg0, wasm)), wasm);
   },
   isMutable(arg0) {
-    return liftValue({ kind: "bool" }, wasm["lib__FieldType__is_mutable"](lowerValue({ kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__FieldType__is_mutable"](lowerValue({ kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" }, arg0, wasm)), wasm);
   },
   new(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" }, wasm["lib__FieldType__new"](lowerValue({ kind: "named", brand: "lib.StorageType", showExport: "__js_show_lib_StorageType" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Mut", showExport: "__js_show_lib_Mut" }, arg1, wasm)), wasm);
@@ -1322,7 +1359,7 @@ export const FieldType = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__FieldType__unpack"](lowerValue({ kind: "named", brand: "lib.FieldType", showExport: "__js_show_lib_FieldType" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_FieldType"](value);
+    return wasm["__js_show_lib_FieldType"](lowerValue({ kind: "named", brand: "lib.FieldType" }, value, wasm));
   },
 });
 
@@ -1331,78 +1368,61 @@ export const Func = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.Func", showExport: "__js_show_lib_Func" }, wasm["lib__Func__new"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Func"](value);
+    return wasm["__js_show_lib_Func"](lowerValue({ kind: "named", brand: "lib.Func" }, value, wasm));
   },
 });
 
 export const FuncAnnotation = Object.freeze({
-  new(arg0, arg1) {
-    const provided = countProvidedArgs(arguments);
-    switch (provided) {
-      case 1:
-        return liftValue({ kind: "named", brand: "lib.FuncAnnotation", showExport: "__js_show_lib_FuncAnnotation" }, wasm["lib__FuncAnnotation__new__arity_1"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
-      case 2:
-        return liftValue({ kind: "named", brand: "lib.FuncAnnotation", showExport: "__js_show_lib_FuncAnnotation" }, wasm["lib__FuncAnnotation__new"](lowerValue({ kind: "string" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_1_new","push":"__js_array_1_push","length":"__js_array_1_length","get":"__js_array_1_get"}, item: { kind: "string" } }, arg1, wasm)), wasm);
-      default:
-        throw new TypeError("Invalid argument count for lib.FuncAnnotation.new.");
-    }
+  new(arg0, args) {
+    return liftValue({ kind: "named", brand: "lib.FuncAnnotation", showExport: "__js_show_lib_FuncAnnotation" }, wasm["lib__FuncAnnotation__new"](lowerValue({ kind: "string", moonType: "String" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_7_none","some":"__js_option_7_some","isSome":"__js_option_7_is_some","unwrap":"__js_option_7_unwrap"}, item: { kind: "array", helper: {"new":"__js_array_6_new","push":"__js_array_6_push","length":"__js_array_6_length","get":"__js_array_6_get"}, item: { kind: "string", moonType: "String" } } }, args, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_FuncAnnotation"](value);
+    return wasm["__js_show_lib_FuncAnnotation"](lowerValue({ kind: "named", brand: "lib.FuncAnnotation" }, value, wasm));
   },
 });
 
 export const FuncAnnotationAssoc = Object.freeze({
   new(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.FuncAnnotationAssoc", showExport: "__js_show_lib_FuncAnnotationAssoc" }, wasm["lib__FuncAnnotationAssoc__new"](lowerValue({ kind: "number" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_38_new","push":"__js_array_38_push","length":"__js_array_38_length","get":"__js_array_38_get"}, item: { kind: "named", brand: "lib.FuncAnnotation", showExport: "__js_show_lib_FuncAnnotation" } }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.FuncAnnotationAssoc", showExport: "__js_show_lib_FuncAnnotationAssoc" }, wasm["lib__FuncAnnotationAssoc__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_27_new","push":"__js_array_27_push","length":"__js_array_27_length","get":"__js_array_27_get"}, item: { kind: "named", brand: "lib.FuncAnnotation", showExport: "__js_show_lib_FuncAnnotation" } }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_FuncAnnotationAssoc"](value);
+    return wasm["__js_show_lib_FuncAnnotationAssoc"](lowerValue({ kind: "named", brand: "lib.FuncAnnotationAssoc" }, value, wasm));
   },
 });
 
 export const FuncAnnotationSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_39_new","push":"__js_array_39_push","length":"__js_array_39_length","get":"__js_array_39_get"}, item: { kind: "named", brand: "lib.FuncAnnotationAssoc", showExport: "__js_show_lib_FuncAnnotationAssoc" } }, wasm["lib__FuncAnnotationSec__inner"](lowerValue({ kind: "named", brand: "lib.FuncAnnotationSec", showExport: "__js_show_lib_FuncAnnotationSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.FuncAnnotationSec", showExport: "__js_show_lib_FuncAnnotationSec" }, wasm["lib__FuncAnnotationSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_39_new","push":"__js_array_39_push","length":"__js_array_39_length","get":"__js_array_39_get"}, item: { kind: "named", brand: "lib.FuncAnnotationAssoc", showExport: "__js_show_lib_FuncAnnotationAssoc" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.FuncAnnotationSec", showExport: "__js_show_lib_FuncAnnotationSec" }, wasm["lib__FuncAnnotationSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_28_new","push":"__js_array_28_push","length":"__js_array_28_length","get":"__js_array_28_get"}, item: { kind: "named", brand: "lib.FuncAnnotationAssoc", showExport: "__js_show_lib_FuncAnnotationAssoc" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_FuncAnnotationSec"](value);
+    return wasm["__js_show_lib_FuncAnnotationSec"](lowerValue({ kind: "named", brand: "lib.FuncAnnotationSec" }, value, wasm));
   },
 });
 
 export const FuncIdx = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__FuncIdx__inner"](lowerValue({ kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" }, wasm["lib__FuncIdx__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" }, wasm["lib__FuncIdx__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_FuncIdx"](value);
+    return wasm["__js_show_lib_FuncIdx"](lowerValue({ kind: "named", brand: "lib.FuncIdx" }, value, wasm));
   },
 });
 
 export const FuncSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_11_new","push":"__js_array_11_push","length":"__js_array_11_length","get":"__js_array_11_get"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } }, wasm["lib__FuncSec__inner"](lowerValue({ kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" }, wasm["lib__FuncSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_11_new","push":"__js_array_11_push","length":"__js_array_11_length","get":"__js_array_11_get"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" }, wasm["lib__FuncSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_19_new","push":"__js_array_19_push","length":"__js_array_19_length","get":"__js_array_19_get"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_FuncSec"](value);
+    return wasm["__js_show_lib_FuncSec"](lowerValue({ kind: "named", brand: "lib.FuncSec" }, value, wasm));
   },
 });
 
 export const FuncType = Object.freeze({
   new(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.FuncType", showExport: "__js_show_lib_FuncType" }, wasm["lib__FuncType__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.FuncType", showExport: "__js_show_lib_FuncType" }, wasm["lib__FuncType__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_FuncType"](value);
+    return wasm["__js_show_lib_FuncType"](lowerValue({ kind: "named", brand: "lib.FuncType" }, value, wasm));
   },
 });
 
@@ -1414,25 +1434,25 @@ export const FunctionLocals = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, wasm["lib__FunctionLocals__body_locals"](lowerValue({ kind: "named", brand: "lib.FunctionLocals", showExport: null }, arg0, wasm)), wasm);
   },
   fromLocalDecls(arg0, arg1) {
-    return liftValue({ kind: "result", helper: {"isOk":"__js_result_14_is_ok","unwrapOk":"__js_result_14_unwrap_ok","unwrapErr":"__js_result_14_unwrap_err"}, ok: { kind: "named", brand: "lib.FunctionLocals", showExport: null }, err: { kind: "string" } }, wasm["lib__FunctionLocals__from_local_decls"](lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "result", helper: {"isOk":"__js_result_20_is_ok","unwrapOk":"__js_result_20_unwrap_ok","unwrapErr":"__js_result_20_unwrap_err"}, ok: { kind: "named", brand: "lib.FunctionLocals", showExport: null }, err: { kind: "string", moonType: "String" } }, wasm["lib__FunctionLocals__from_local_decls"](lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg1, wasm)), wasm);
   },
   fromTypedFunc(arg0, arg1, arg2) {
-    return liftValue({ kind: "result", helper: {"isOk":"__js_result_14_is_ok","unwrapOk":"__js_result_14_unwrap_ok","unwrapErr":"__js_result_14_unwrap_err"}, ok: { kind: "named", brand: "lib.FunctionLocals", showExport: null }, err: { kind: "string" } }, wasm["lib__FunctionLocals__from_typed_func"](lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg2, wasm)), wasm);
+    return liftValue({ kind: "result", helper: {"isOk":"__js_result_20_is_ok","unwrapOk":"__js_result_20_unwrap_ok","unwrapErr":"__js_result_20_unwrap_err"}, ok: { kind: "named", brand: "lib.FunctionLocals", showExport: null }, err: { kind: "string", moonType: "String" } }, wasm["lib__FunctionLocals__from_typed_func"](lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg2, wasm)), wasm);
   },
   fromTypedFuncForPass(arg0, arg1, arg2) {
-    return liftValue({ kind: "result", helper: {"isOk":"__js_result_14_is_ok","unwrapOk":"__js_result_14_unwrap_ok","unwrapErr":"__js_result_14_unwrap_err"}, ok: { kind: "named", brand: "lib.FunctionLocals", showExport: null }, err: { kind: "string" } }, wasm["lib__FunctionLocals__from_typed_func_for_pass"](lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg2, wasm)), wasm);
+    return liftValue({ kind: "result", helper: {"isOk":"__js_result_20_is_ok","unwrapOk":"__js_result_20_unwrap_ok","unwrapErr":"__js_result_20_unwrap_err"}, ok: { kind: "named", brand: "lib.FunctionLocals", showExport: null }, err: { kind: "string", moonType: "String" } }, wasm["lib__FunctionLocals__from_typed_func_for_pass"](lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg2, wasm)), wasm);
   },
   localType(arg0, arg1) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_15_none","some":"__js_option_15_some","isSome":"__js_option_15_is_some","unwrap":"__js_option_15_unwrap"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, wasm["lib__FunctionLocals__local_type"](lowerValue({ kind: "named", brand: "lib.FunctionLocals", showExport: null }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.LocalIdx", showExport: "__js_show_lib_LocalIdx" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_30_none","some":"__js_option_30_some","isSome":"__js_option_30_is_some","unwrap":"__js_option_30_unwrap"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, wasm["lib__FunctionLocals__local_type"](lowerValue({ kind: "named", brand: "lib.FunctionLocals", showExport: null }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.LocalIdx", showExport: "__js_show_lib_LocalIdx" }, arg1, wasm)), wasm);
   },
   new(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.FunctionLocals", showExport: null }, wasm["lib__FunctionLocals__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.FunctionLocals", showExport: null }, wasm["lib__FunctionLocals__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg1, wasm)), wasm);
   },
   paramCount(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__FunctionLocals__param_count"](lowerValue({ kind: "named", brand: "lib.FunctionLocals", showExport: null }, arg0, wasm)), wasm);
+    return liftValue({ kind: "number", moonType: "Int" }, wasm["lib__FunctionLocals__param_count"](lowerValue({ kind: "named", brand: "lib.FunctionLocals", showExport: null }, arg0, wasm)), wasm);
   },
   params(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, wasm["lib__FunctionLocals__params"](lowerValue({ kind: "named", brand: "lib.FunctionLocals", showExport: null }, arg0, wasm)), wasm);
+    return liftValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, wasm["lib__FunctionLocals__params"](lowerValue({ kind: "named", brand: "lib.FunctionLocals", showExport: null }, arg0, wasm)), wasm);
   },
 });
 
@@ -1441,44 +1461,35 @@ export const Global = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.Global", showExport: "__js_show_lib_Global" }, wasm["lib__Global__new"](lowerValue({ kind: "named", brand: "lib.GlobalType", showExport: "__js_show_lib_GlobalType" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Global"](value);
+    return wasm["__js_show_lib_Global"](lowerValue({ kind: "named", brand: "lib.Global" }, value, wasm));
   },
 });
 
 export const GlobalIdx = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__GlobalIdx__inner"](lowerValue({ kind: "named", brand: "lib.GlobalIdx", showExport: "__js_show_lib_GlobalIdx" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.GlobalIdx", showExport: "__js_show_lib_GlobalIdx" }, wasm["lib__GlobalIdx__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.GlobalIdx", showExport: "__js_show_lib_GlobalIdx" }, wasm["lib__GlobalIdx__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_GlobalIdx"](value);
+    return wasm["__js_show_lib_GlobalIdx"](lowerValue({ kind: "named", brand: "lib.GlobalIdx" }, value, wasm));
   },
 });
 
 export const GlobalSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_19_new","push":"__js_array_19_push","length":"__js_array_19_length","get":"__js_array_19_get"}, item: { kind: "named", brand: "lib.Global", showExport: "__js_show_lib_Global" } }, wasm["lib__GlobalSec__inner"](lowerValue({ kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" }, wasm["lib__GlobalSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_19_new","push":"__js_array_19_push","length":"__js_array_19_length","get":"__js_array_19_get"}, item: { kind: "named", brand: "lib.Global", showExport: "__js_show_lib_Global" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" }, wasm["lib__GlobalSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "lib.Global", showExport: "__js_show_lib_Global" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_GlobalSec"](value);
+    return wasm["__js_show_lib_GlobalSec"](lowerValue({ kind: "named", brand: "lib.GlobalSec" }, value, wasm));
   },
 });
 
 export const GlobalType = Object.freeze({
   new(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.GlobalType", showExport: "__js_show_lib_GlobalType" }, wasm["lib__GlobalType__new"](lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg0, wasm), lowerValue({ kind: "bool" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.GlobalType", showExport: "__js_show_lib_GlobalType" }, wasm["lib__GlobalType__new"](lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg0, wasm), lowerValue({ kind: "bool", moonType: "Bool" }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_GlobalType"](value);
+    return wasm["__js_show_lib_GlobalType"](lowerValue({ kind: "named", brand: "lib.GlobalType" }, value, wasm));
   },
-});
-
-export const HashResult = Object.freeze({
 });
 
 export const HeapType = Object.freeze({
@@ -1492,43 +1503,43 @@ export const HeapType = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, wasm["lib__HeapType__def_type"](lowerValue({ kind: "named", brand: "lib.DefType", showExport: "__js_show_lib_DefType" }, arg0, wasm)), wasm);
   },
   isArray(arg0) {
-    return liftValue({ kind: "bool" }, wasm["lib__HeapType__is_array"](lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__HeapType__is_array"](lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg0, wasm)), wasm);
   },
   isGcAggregate(arg0) {
-    return liftValue({ kind: "bool" }, wasm["lib__HeapType__is_gc_aggregate"](lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__HeapType__is_gc_aggregate"](lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg0, wasm)), wasm);
+  },
+  isShared(arg0) {
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__HeapType__is_shared"](lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg0, wasm)), wasm);
   },
   isStruct(arg0) {
-    return liftValue({ kind: "bool" }, wasm["lib__HeapType__is_struct"](lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__HeapType__is_struct"](lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg0, wasm)), wasm);
   },
   new(arg0) {
     return liftValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, wasm["lib__HeapType__new"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm)), wasm);
   },
+  sharedAbs(arg0) {
+    return liftValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, wasm["lib__HeapType__shared_abs"](lowerValue({ kind: "named", brand: "lib.AbsHeapType", showExport: "__js_show_lib_AbsHeapType" }, arg0, wasm)), wasm);
+  },
   show(value) {
-    return wasm["__js_show_lib_HeapType"](value);
+    return wasm["__js_show_lib_HeapType"](lowerValue({ kind: "named", brand: "lib.HeapType" }, value, wasm));
   },
 });
 
 export const I32 = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__I32__inner"](lowerValue({ kind: "named", brand: "lib.I32", showExport: "__js_show_lib_I32" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.I32", showExport: "__js_show_lib_I32" }, wasm["lib__I32__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.I32", showExport: "__js_show_lib_I32" }, wasm["lib__I32__new"](lowerValue({ kind: "number", moonType: "Int" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_I32"](value);
+    return wasm["__js_show_lib_I32"](lowerValue({ kind: "named", brand: "lib.I32" }, value, wasm));
   },
 });
 
 export const I64 = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "bigint" }, wasm["lib__I64__inner"](lowerValue({ kind: "named", brand: "lib.I64", showExport: "__js_show_lib_I64" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.I64", showExport: "__js_show_lib_I64" }, wasm["lib__I64__new"](lowerValue({ kind: "bigint" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.I64", showExport: "__js_show_lib_I64" }, wasm["lib__I64__new"](lowerValue({ kind: "bigint", moonType: "Int64" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_I64"](value);
+    return wasm["__js_show_lib_I64"](lowerValue({ kind: "named", brand: "lib.I64" }, value, wasm));
   },
 });
 
@@ -1537,25 +1548,58 @@ export const Import = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.Import", showExport: "__js_show_lib_Import" }, wasm["lib__Import__new"](lowerValue({ kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.ExternType", showExport: "__js_show_lib_ExternType" }, arg2, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Import"](value);
+    return wasm["__js_show_lib_Import"](lowerValue({ kind: "named", brand: "lib.Import" }, value, wasm));
   },
 });
 
 export const ImportSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_20_new","push":"__js_array_20_push","length":"__js_array_20_length","get":"__js_array_20_get"}, item: { kind: "named", brand: "lib.Import", showExport: "__js_show_lib_Import" } }, wasm["lib__ImportSec__inner"](lowerValue({ kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" }, wasm["lib__ImportSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_20_new","push":"__js_array_20_push","length":"__js_array_20_length","get":"__js_array_20_get"}, item: { kind: "named", brand: "lib.Import", showExport: "__js_show_lib_Import" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" }, wasm["lib__ImportSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_30_new","push":"__js_array_30_push","length":"__js_array_30_length","get":"__js_array_30_get"}, item: { kind: "named", brand: "lib.Import", showExport: "__js_show_lib_Import" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_ImportSec"](value);
+    return wasm["__js_show_lib_ImportSec"](lowerValue({ kind: "named", brand: "lib.ImportSec" }, value, wasm));
+  },
+});
+
+export const IndirectNameAssoc = Object.freeze({
+  new(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.IndirectNameAssoc", showExport: "__js_show_lib_IndirectNameAssoc" }, wasm["lib__IndirectNameAssoc__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.NameMap", showExport: "__js_show_lib_NameMap" }, arg1, wasm)), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_lib_IndirectNameAssoc"](lowerValue({ kind: "named", brand: "lib.IndirectNameAssoc" }, value, wasm));
+  },
+});
+
+export const IndirectNameMap = Object.freeze({
+  new(arg0) {
+    return liftValue({ kind: "named", brand: "lib.IndirectNameMap", showExport: "__js_show_lib_IndirectNameMap" }, wasm["lib__IndirectNameMap__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_31_new","push":"__js_array_31_push","length":"__js_array_31_length","get":"__js_array_31_get"}, item: { kind: "named", brand: "lib.IndirectNameAssoc", showExport: "__js_show_lib_IndirectNameAssoc" } }, arg0, wasm)), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_lib_IndirectNameMap"](lowerValue({ kind: "named", brand: "lib.IndirectNameMap" }, value, wasm));
   },
 });
 
 export const Instruction = Object.freeze({
   anyConvertExtern() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__any_convert_extern"](), wasm);
+  },
+  arrayAtomicCmpxchg(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__array_atomic_cmpxchg"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
+  },
+  arrayAtomicGet(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__array_atomic_get"](lowerValue({ kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm)), wasm);
+  },
+  arrayAtomicGetS(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__array_atomic_get_s"](lowerValue({ kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm)), wasm);
+  },
+  arrayAtomicGetU(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__array_atomic_get_u"](lowerValue({ kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm)), wasm);
+  },
+  arrayAtomicRmw(arg0, arg1, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__array_atomic_rmw"](lowerValue({ kind: "named", brand: "lib.AggregateAtomicRmwOp", showExport: "__js_show_lib_AggregateAtomicRmwOp" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
+  },
+  arrayAtomicSet(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__array_atomic_set"](lowerValue({ kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm)), wasm);
   },
   arrayCopy(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__array_copy"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm)), wasm);
@@ -1581,6 +1625,9 @@ export const Instruction = Object.freeze({
   arrayLen() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__array_len"](), wasm);
   },
+  arrayLoad(arg0, arg1, memarg) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__array_load"](lowerValue({ kind: "named", brand: "lib.LoadOp", showExport: "__js_show_lib_LoadOp" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_32_none","some":"__js_option_32_some","isSome":"__js_option_32_is_some","unwrap":"__js_option_32_unwrap"}, item: { kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" } }, memarg, wasm)), wasm);
+  },
   arrayNew(arg0) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__array_new"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm)), wasm);
   },
@@ -1599,14 +1646,17 @@ export const Instruction = Object.freeze({
   arraySet(arg0) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__array_set"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm)), wasm);
   },
-  atomicCmpxchg(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__atomic_cmpxchg"](lowerValue({ kind: "named", brand: "lib.AtomicCmpxchgOp", showExport: "__js_show_lib_AtomicCmpxchgOp" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg1, wasm)), wasm);
+  arrayStore(arg0, arg1, memarg) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__array_store"](lowerValue({ kind: "named", brand: "lib.StoreOp", showExport: "__js_show_lib_StoreOp" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_32_none","some":"__js_option_32_some","isSome":"__js_option_32_is_some","unwrap":"__js_option_32_unwrap"}, item: { kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" } }, memarg, wasm)), wasm);
   },
-  atomicFence() {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__atomic_fence"](), wasm);
+  atomicCmpxchg(arg0, arg1, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__atomic_cmpxchg"](lowerValue({ kind: "named", brand: "lib.AtomicCmpxchgOp", showExport: "__js_show_lib_AtomicCmpxchgOp" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg1, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  atomicRmw(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__atomic_rmw"](lowerValue({ kind: "named", brand: "lib.AtomicRmwOp", showExport: "__js_show_lib_AtomicRmwOp" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg1, wasm)), wasm);
+  atomicFence(order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__atomic_fence"](lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
+  },
+  atomicRmw(arg0, arg1, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__atomic_rmw"](lowerValue({ kind: "named", brand: "lib.AtomicRmwOp", showExport: "__js_show_lib_AtomicRmwOp" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg1, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
   block(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__block"](lowerValue({ kind: "named", brand: "lib.BlockType", showExport: "__js_show_lib_BlockType" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" }, arg1, wasm)), wasm);
@@ -1617,11 +1667,17 @@ export const Instruction = Object.freeze({
   brIf(arg0) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__br_if"](lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg0, wasm)), wasm);
   },
-  brOnCast(arg0, arg1, arg2, arg3, arg4) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__br_on_cast"](lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg0, wasm), lowerValue({ kind: "bool" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg2, wasm), lowerValue({ kind: "bool" }, arg3, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg4, wasm)), wasm);
+  brOnCast(arg0, arg1, arg2, arg3, arg4, sourceExact, targetExact) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__br_on_cast"](lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg0, wasm), lowerValue({ kind: "bool", moonType: "Bool" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg2, wasm), lowerValue({ kind: "bool", moonType: "Bool" }, arg3, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg4, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_3_none","some":"__js_option_3_some","isSome":"__js_option_3_is_some","unwrap":"__js_option_3_unwrap"}, item: { kind: "bool", moonType: "Bool" } }, sourceExact, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_3_none","some":"__js_option_3_some","isSome":"__js_option_3_is_some","unwrap":"__js_option_3_unwrap"}, item: { kind: "bool", moonType: "Bool" } }, targetExact, wasm)), wasm);
   },
-  brOnCastFail(arg0, arg1, arg2, arg3, arg4) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__br_on_cast_fail"](lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg0, wasm), lowerValue({ kind: "bool" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg2, wasm), lowerValue({ kind: "bool" }, arg3, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg4, wasm)), wasm);
+  brOnCastDescEq(arg0, arg1, arg2) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__br_on_cast_desc_eq"](lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg2, wasm)), wasm);
+  },
+  brOnCastDescEqFail(arg0, arg1, arg2) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__br_on_cast_desc_eq_fail"](lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg2, wasm)), wasm);
+  },
+  brOnCastFail(arg0, arg1, arg2, arg3, arg4, sourceExact, targetExact) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__br_on_cast_fail"](lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg0, wasm), lowerValue({ kind: "bool", moonType: "Bool" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg2, wasm), lowerValue({ kind: "bool", moonType: "Bool" }, arg3, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg4, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_3_none","some":"__js_option_3_some","isSome":"__js_option_3_is_some","unwrap":"__js_option_3_unwrap"}, item: { kind: "bool", moonType: "Bool" } }, sourceExact, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_3_none","some":"__js_option_3_some","isSome":"__js_option_3_is_some","unwrap":"__js_option_3_unwrap"}, item: { kind: "bool", moonType: "Bool" } }, targetExact, wasm)), wasm);
   },
   brOnNonNull(arg0) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__br_on_non_null"](lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg0, wasm)), wasm);
@@ -1630,7 +1686,7 @@ export const Instruction = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__br_on_null"](lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg0, wasm)), wasm);
   },
   brTable(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__br_table"](lowerValue({ kind: "array", helper: {"new":"__js_array_21_new","push":"__js_array_21_push","length":"__js_array_21_length","get":"__js_array_21_get"}, item: { kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" } }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__br_table"](lowerValue({ kind: "array", helper: {"new":"__js_array_32_new","push":"__js_array_32_push","length":"__js_array_32_length","get":"__js_array_32_get"}, item: { kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" } }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg1, wasm)), wasm);
   },
   call(arg0) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__call"](lowerValue({ kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" }, arg0, wasm)), wasm);
@@ -1640,6 +1696,12 @@ export const Instruction = Object.freeze({
   },
   callRef(arg0) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__call_ref"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm)), wasm);
+  },
+  contBind(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__cont_bind"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm)), wasm);
+  },
+  contNew(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__cont_new"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm)), wasm);
   },
   dataDrop(arg0) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__data_drop"](lowerValue({ kind: "named", brand: "lib.DataIdx", showExport: "__js_show_lib_DataIdx" }, arg0, wasm)), wasm);
@@ -2178,23 +2240,23 @@ export const Instruction = Object.freeze({
   i32And() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_and"](), wasm);
   },
-  i32AtomicLoad(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_atomic_load"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i32AtomicLoad(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_atomic_load"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  i32AtomicLoad16U(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_atomic_load16_u"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i32AtomicLoad16U(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_atomic_load16_u"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  i32AtomicLoad8U(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_atomic_load8_u"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i32AtomicLoad8U(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_atomic_load8_u"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  i32AtomicStore(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_atomic_store"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i32AtomicStore(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_atomic_store"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  i32AtomicStore16(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_atomic_store16"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i32AtomicStore16(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_atomic_store16"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  i32AtomicStore8(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_atomic_store8"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i32AtomicStore8(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_atomic_store8"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
   i32Clz() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i32_clz"](), wasm);
@@ -2490,29 +2552,29 @@ export const Instruction = Object.freeze({
   i64And() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_and"](), wasm);
   },
-  i64AtomicLoad(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_load"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i64AtomicLoad(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_load"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  i64AtomicLoad16U(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_load16_u"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i64AtomicLoad16U(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_load16_u"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  i64AtomicLoad32U(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_load32_u"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i64AtomicLoad32U(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_load32_u"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  i64AtomicLoad8U(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_load8_u"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i64AtomicLoad8U(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_load8_u"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  i64AtomicStore(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_store"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i64AtomicStore(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_store"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  i64AtomicStore16(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_store16"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i64AtomicStore16(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_store16"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  i64AtomicStore32(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_store32"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i64AtomicStore32(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_store32"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
-  i64AtomicStore8(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_store8"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
+  i64AtomicStore8(arg0, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_atomic_store8"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
   },
   i64Clz() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i64_clz"](), wasm);
@@ -2875,7 +2937,7 @@ export const Instruction = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__i8x16_swizzle"](), wasm);
   },
   if(arg0, arg1, arg2) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__if_"](lowerValue({ kind: "named", brand: "lib.BlockType", showExport: "__js_show_lib_BlockType" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_18_new","push":"__js_array_18_push","length":"__js_array_18_length","get":"__js_array_18_get"}, item: { kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" } }, arg1, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_18_none","some":"__js_option_18_some","isSome":"__js_option_18_is_some","unwrap":"__js_option_18_unwrap"}, item: { kind: "array", helper: {"new":"__js_array_18_new","push":"__js_array_18_push","length":"__js_array_18_length","get":"__js_array_18_get"}, item: { kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" } } }, arg2, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__if_"](lowerValue({ kind: "named", brand: "lib.BlockType", showExport: "__js_show_lib_BlockType" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" } }, arg1, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_33_none","some":"__js_option_33_some","isSome":"__js_option_33_is_some","unwrap":"__js_option_33_unwrap"}, item: { kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" } } }, arg2, wasm)), wasm);
   },
   localGet(arg0) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__local_get"](lowerValue({ kind: "named", brand: "lib.LocalIdx", showExport: "__js_show_lib_LocalIdx" }, arg0, wasm)), wasm);
@@ -2916,14 +2978,26 @@ export const Instruction = Object.freeze({
   nop() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__nop"](), wasm);
   },
+  publish() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__publish"](), wasm);
+  },
   refAsNonNull() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_as_non_null"](), wasm);
   },
   refCast(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_cast"](lowerValue({ kind: "bool" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_cast"](lowerValue({ kind: "bool", moonType: "Bool" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg1, wasm)), wasm);
   },
   refCastDescEq(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_cast_desc_eq"](lowerValue({ kind: "bool" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_cast_desc_eq"](lowerValue({ kind: "bool", moonType: "Bool" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg1, wasm)), wasm);
+  },
+  refCastDescEqType(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_cast_desc_eq_type"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
+  },
+  refCastExact(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_cast_exact"](lowerValue({ kind: "bool", moonType: "Bool" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg1, wasm)), wasm);
+  },
+  refCastType(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_cast_type"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
   },
   refEq() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_eq"](), wasm);
@@ -2931,11 +3005,14 @@ export const Instruction = Object.freeze({
   refFunc(arg0) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_func"](lowerValue({ kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" }, arg0, wasm)), wasm);
   },
-  refGetDesc() {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_get_desc"](), wasm);
+  refGetDesc(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_get_desc"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm)), wasm);
   },
   refI31() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_i31"](), wasm);
+  },
+  refI31Shared() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_i31_shared"](), wasm);
   },
   refIsNull() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_is_null"](), wasm);
@@ -2943,11 +3020,32 @@ export const Instruction = Object.freeze({
   refNull(arg0) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_null"](lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg0, wasm)), wasm);
   },
+  refNullType(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_null_type"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
+  },
   refTest(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_test"](lowerValue({ kind: "bool" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_test"](lowerValue({ kind: "bool", moonType: "Bool" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg1, wasm)), wasm);
   },
   refTestDesc(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_test_desc"](lowerValue({ kind: "bool" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_test_desc"](lowerValue({ kind: "bool", moonType: "Bool" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg1, wasm)), wasm);
+  },
+  refTestExact(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_test_exact"](lowerValue({ kind: "bool", moonType: "Bool" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg1, wasm)), wasm);
+  },
+  refTestType(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__ref_test_type"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
+  },
+  resume(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__resume_"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_33_new","push":"__js_array_33_push","length":"__js_array_33_length","get":"__js_array_33_get"}, item: { kind: "named", brand: "lib.ResumeHandler", showExport: "__js_show_lib_ResumeHandler" } }, arg1, wasm)), wasm);
+  },
+  resumeThrow(arg0, arg1, arg2) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__resume_throw"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TagIdx", showExport: "__js_show_lib_TagIdx" }, arg1, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_33_new","push":"__js_array_33_push","length":"__js_array_33_length","get":"__js_array_33_get"}, item: { kind: "named", brand: "lib.ResumeHandler", showExport: "__js_show_lib_ResumeHandler" } }, arg2, wasm)), wasm);
+  },
+  resumeThrowRef(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__resume_throw_ref"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_33_new","push":"__js_array_33_push","length":"__js_array_33_length","get":"__js_array_33_get"}, item: { kind: "named", brand: "lib.ResumeHandler", showExport: "__js_show_lib_ResumeHandler" } }, arg1, wasm)), wasm);
+  },
+  rethrow(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__rethrow"](lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg0, wasm)), wasm);
   },
   return() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__return_"](), wasm);
@@ -2962,15 +3060,73 @@ export const Instruction = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__return_call_ref"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm)), wasm);
   },
   select(types) {
-    const provided = countProvidedArgs(arguments);
-    switch (provided) {
-      case 0:
-        return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__select__arity_0"](), wasm);
-      case 1:
-        return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__select"](lowerValue({ kind: "option", helper: {"none":"__js_option_19_none","some":"__js_option_19_some","isSome":"__js_option_19_is_some","unwrap":"__js_option_19_unwrap"}, item: { kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } } }, types, wasm)), wasm);
-      default:
-        throw new TypeError("Invalid argument count for lib.Instruction.select.");
-    }
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__select"](lowerValue({ kind: "optional", helper: {"none":"__js_option_34_none","some":"__js_option_34_some","isSome":"__js_option_34_is_some","unwrap":"__js_option_34_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_35_none","some":"__js_option_35_some","isSome":"__js_option_35_is_some","unwrap":"__js_option_35_unwrap"}, item: { kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } } } }, types, wasm)), wasm);
+  },
+  stackSwitch(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__stack_switch"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TagIdx", showExport: "__js_show_lib_TagIdx" }, arg1, wasm)), wasm);
+  },
+  stringAsWtf16() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_as_wtf16"](), wasm);
+  },
+  stringConcat() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_concat"](), wasm);
+  },
+  stringConst(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_const"](lowerValue({ kind: "bytes", helper: {"fromArray":"__js_bytes_from_array","length":"__js_bytes_length","get":"__js_bytes_get","byteArray":{"new":"__js_array_67_new","push":"__js_array_67_push","length":"__js_array_67_length","get":"__js_array_67_get"}} }, arg0, wasm)), wasm);
+  },
+  stringEncodeLossyUtf8Array() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_encode_lossy_utf8_array"](), wasm);
+  },
+  stringEncodeUtf8Array() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_encode_utf8_array"](), wasm);
+  },
+  stringEncodeWtf16Array() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_encode_wtf16_array"](), wasm);
+  },
+  stringEncodeWtf8Array() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_encode_wtf8_array"](), wasm);
+  },
+  stringEq() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_eq"](), wasm);
+  },
+  stringMeasureWtf16() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_measure_wtf16"](), wasm);
+  },
+  stringNewLossyUtf8Array() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_new_lossy_utf8_array"](), wasm);
+  },
+  stringNewUtf8Array() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_new_utf8_array"](), wasm);
+  },
+  stringNewWtf16Array() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_new_wtf16_array"](), wasm);
+  },
+  stringNewWtf8Array() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__string_new_wtf8_array"](), wasm);
+  },
+  stringviewWtf16GetCodeunit() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__stringview_wtf16_get_codeunit"](), wasm);
+  },
+  stringviewWtf16Slice() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__stringview_wtf16_slice"](), wasm);
+  },
+  structAtomicCmpxchg(arg0, arg1, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__struct_atomic_cmpxchg"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg1, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
+  },
+  structAtomicGet(arg0, arg1, arg2) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__struct_atomic_get"](lowerValue({ kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg2, wasm)), wasm);
+  },
+  structAtomicGetS(arg0, arg1, arg2) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__struct_atomic_get_s"](lowerValue({ kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg2, wasm)), wasm);
+  },
+  structAtomicGetU(arg0, arg1, arg2) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__struct_atomic_get_u"](lowerValue({ kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg2, wasm)), wasm);
+  },
+  structAtomicRmw(arg0, arg1, arg2, order) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__struct_atomic_rmw"](lowerValue({ kind: "named", brand: "lib.AggregateAtomicRmwOp", showExport: "__js_show_lib_AggregateAtomicRmwOp" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg2, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" } }, order, wasm)), wasm);
+  },
+  structAtomicSet(arg0, arg1, arg2) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__struct_atomic_set"](lowerValue({ kind: "named", brand: "lib.AtomicOrder", showExport: "__js_show_lib_AtomicOrder" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg2, wasm)), wasm);
   },
   structGet(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__struct_get"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg1, wasm)), wasm);
@@ -2987,8 +3143,20 @@ export const Instruction = Object.freeze({
   structNewDefault(arg0) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__struct_new_default"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm)), wasm);
   },
+  structNewDefaultDesc(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__struct_new_default_desc"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm)), wasm);
+  },
+  structNewDesc(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__struct_new_desc"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm)), wasm);
+  },
   structSet(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__struct_set"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg1, wasm)), wasm);
+  },
+  structWait(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__struct_wait"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg1, wasm)), wasm);
+  },
+  suspend(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__suspend"](lowerValue({ kind: "named", brand: "lib.TagIdx", showExport: "__js_show_lib_TagIdx" }, arg0, wasm)), wasm);
   },
   tableCopy(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__table_copy"](lowerValue({ kind: "named", brand: "lib.TableIdx", showExport: "__js_show_lib_TableIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TableIdx", showExport: "__js_show_lib_TableIdx" }, arg1, wasm)), wasm);
@@ -3017,8 +3185,11 @@ export const Instruction = Object.freeze({
   throwRef() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__throw_ref"](), wasm);
   },
+  try(arg0, arg1, arg2, delegate) {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__try_"](lowerValue({ kind: "named", brand: "lib.BlockType", showExport: "__js_show_lib_BlockType" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" }, arg1, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_34_new","push":"__js_array_34_push","length":"__js_array_34_length","get":"__js_array_34_get"}, item: { kind: "named", brand: "lib.LegacyCatch", showExport: "__js_show_lib_LegacyCatch" } }, arg2, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_36_none","some":"__js_option_36_some","isSome":"__js_option_36_is_some","unwrap":"__js_option_36_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_37_none","some":"__js_option_37_some","isSome":"__js_option_37_is_some","unwrap":"__js_option_37_unwrap"}, item: { kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" } } }, delegate, wasm)), wasm);
+  },
   tryTable(arg0, arg1, arg2) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__try_table"](lowerValue({ kind: "named", brand: "lib.BlockType", showExport: "__js_show_lib_BlockType" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_22_new","push":"__js_array_22_push","length":"__js_array_22_length","get":"__js_array_22_get"}, item: { kind: "named", brand: "lib.Catch", showExport: "__js_show_lib_Catch" } }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" }, arg2, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__try_table"](lowerValue({ kind: "named", brand: "lib.BlockType", showExport: "__js_show_lib_BlockType" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_35_new","push":"__js_array_35_push","length":"__js_array_35_length","get":"__js_array_35_get"}, item: { kind: "named", brand: "lib.Catch", showExport: "__js_show_lib_Catch" } }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" }, arg2, wasm)), wasm);
   },
   unreachable() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__unreachable_"](), wasm);
@@ -3036,7 +3207,7 @@ export const Instruction = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__v128_bitselect"](), wasm);
   },
   v128Const(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15) {
-    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__v128_const"](lowerValue({ kind: "byte" }, arg0, wasm), lowerValue({ kind: "byte" }, arg1, wasm), lowerValue({ kind: "byte" }, arg2, wasm), lowerValue({ kind: "byte" }, arg3, wasm), lowerValue({ kind: "byte" }, arg4, wasm), lowerValue({ kind: "byte" }, arg5, wasm), lowerValue({ kind: "byte" }, arg6, wasm), lowerValue({ kind: "byte" }, arg7, wasm), lowerValue({ kind: "byte" }, arg8, wasm), lowerValue({ kind: "byte" }, arg9, wasm), lowerValue({ kind: "byte" }, arg10, wasm), lowerValue({ kind: "byte" }, arg11, wasm), lowerValue({ kind: "byte" }, arg12, wasm), lowerValue({ kind: "byte" }, arg13, wasm), lowerValue({ kind: "byte" }, arg14, wasm), lowerValue({ kind: "byte" }, arg15, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__v128_const"](lowerValue({ kind: "byte", moonType: "Byte" }, arg0, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg1, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg2, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg3, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg4, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg5, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg6, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg7, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg8, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg9, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg10, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg11, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg12, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg13, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg14, wasm), lowerValue({ kind: "byte", moonType: "Byte" }, arg15, wasm)), wasm);
   },
   v128Load(arg0) {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__v128_load"](lowerValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, arg0, wasm)), wasm);
@@ -3113,32 +3284,44 @@ export const Instruction = Object.freeze({
   v128Xor() {
     return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__v128_xor"](), wasm);
   },
+  waitqueueNew() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__waitqueue_new"](), wasm);
+  },
+  waitqueueNotify() {
+    return liftValue({ kind: "named", brand: "lib.Instruction", showExport: "__js_show_lib_Instruction" }, wasm["lib__Instruction__waitqueue_notify"](), wasm);
+  },
   show(value) {
-    return wasm["__js_show_lib_Instruction"](value);
+    return wasm["__js_show_lib_Instruction"](lowerValue({ kind: "named", brand: "lib.Instruction" }, value, wasm));
   },
 });
 
 export const LabelIdx = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__LabelIdx__inner"](lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, wasm["lib__LabelIdx__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, wasm["lib__LabelIdx__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_LabelIdx"](value);
+    return wasm["__js_show_lib_LabelIdx"](lowerValue({ kind: "named", brand: "lib.LabelIdx" }, value, wasm));
   },
 });
 
 export const LaneIdx = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "byte" }, wasm["lib__LaneIdx__inner"](lowerValue({ kind: "named", brand: "lib.LaneIdx", showExport: "__js_show_lib_LaneIdx" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.LaneIdx", showExport: "__js_show_lib_LaneIdx" }, wasm["lib__LaneIdx__new"](lowerValue({ kind: "byte" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.LaneIdx", showExport: "__js_show_lib_LaneIdx" }, wasm["lib__LaneIdx__new"](lowerValue({ kind: "byte", moonType: "Byte" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_LaneIdx"](value);
+    return wasm["__js_show_lib_LaneIdx"](lowerValue({ kind: "named", brand: "lib.LaneIdx" }, value, wasm));
+  },
+});
+
+export const LegacyCatch = Object.freeze({
+  all(arg0) {
+    return liftValue({ kind: "named", brand: "lib.LegacyCatch", showExport: "__js_show_lib_LegacyCatch" }, wasm["lib__LegacyCatch__all"](lowerValue({ kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" }, arg0, wasm)), wasm);
+  },
+  tagged(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.LegacyCatch", showExport: "__js_show_lib_LegacyCatch" }, wasm["lib__LegacyCatch__tagged"](lowerValue({ kind: "named", brand: "lib.TagIdx", showExport: "__js_show_lib_TagIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" }, arg1, wasm)), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_lib_LegacyCatch"](lowerValue({ kind: "named", brand: "lib.LegacyCatch" }, value, wasm));
   },
 });
 
@@ -3147,16 +3330,16 @@ export const Limits = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__Limits__addr_valtype"](lowerValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, arg0, wasm)), wasm);
   },
   i32(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, wasm["lib__Limits__i32"](lowerValue({ kind: "number" }, arg0, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_4_none","some":"__js_option_4_some","isSome":"__js_option_4_is_some","unwrap":"__js_option_4_unwrap"}, item: { kind: "number" } }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, wasm["lib__Limits__i32"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_14_none","some":"__js_option_14_some","isSome":"__js_option_14_is_some","unwrap":"__js_option_14_unwrap"}, item: { kind: "number", moonType: "UInt" } }, arg1, wasm)), wasm);
   },
   i64(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, wasm["lib__Limits__i64"](lowerValue({ kind: "bigint" }, arg0, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_6_none","some":"__js_option_6_some","isSome":"__js_option_6_is_some","unwrap":"__js_option_6_unwrap"}, item: { kind: "bigint" } }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, wasm["lib__Limits__i64"](lowerValue({ kind: "bigint", moonType: "UInt64" }, arg0, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_17_none","some":"__js_option_17_some","isSome":"__js_option_17_is_some","unwrap":"__js_option_17_unwrap"}, item: { kind: "bigint", moonType: "UInt64" } }, arg1, wasm)), wasm);
   },
   memAddrBits(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__Limits__mem_addr_bits"](lowerValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "number", moonType: "Int" }, wasm["lib__Limits__mem_addr_bits"](lowerValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Limits"](value);
+    return wasm["__js_show_lib_Limits"](lowerValue({ kind: "named", brand: "lib.Limits" }, value, wasm));
   },
 });
 
@@ -3264,46 +3447,43 @@ export const LoadOp = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.LoadOp", showExport: "__js_show_lib_LoadOp" }, wasm["lib__LoadOp__v128_load8x8u"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_LoadOp"](value);
+    return wasm["__js_show_lib_LoadOp"](lowerValue({ kind: "named", brand: "lib.LoadOp" }, value, wasm));
   },
 });
 
 export const LocalIdx = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__LocalIdx__inner"](lowerValue({ kind: "named", brand: "lib.LocalIdx", showExport: "__js_show_lib_LocalIdx" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.LocalIdx", showExport: "__js_show_lib_LocalIdx" }, wasm["lib__LocalIdx__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.LocalIdx", showExport: "__js_show_lib_LocalIdx" }, wasm["lib__LocalIdx__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_LocalIdx"](value);
+    return wasm["__js_show_lib_LocalIdx"](lowerValue({ kind: "named", brand: "lib.LocalIdx" }, value, wasm));
   },
 });
 
 export const LocalRun = Object.freeze({
   count(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__LocalRun__count"](lowerValue({ kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "number", moonType: "UInt" }, wasm["lib__LocalRun__count"](lowerValue({ kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" }, arg0, wasm)), wasm);
   },
   new(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" }, wasm["lib__LocalRun__new"](lowerValue({ kind: "number" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" }, wasm["lib__LocalRun__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg1, wasm)), wasm);
   },
   valType(arg0) {
     return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__LocalRun__val_type"](lowerValue({ kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_LocalRun"](value);
+    return wasm["__js_show_lib_LocalRun"](lowerValue({ kind: "named", brand: "lib.LocalRun" }, value, wasm));
   },
 });
 
 export const Locals = Object.freeze({
   append(arg0, arg1) {
-    return liftValue({ kind: "unit" }, wasm["lib__Locals__append"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "unit", moonType: "Unit" }, wasm["lib__Locals__append"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg1, wasm)), wasm);
   },
   appendTypes(arg0, arg1) {
-    return liftValue({ kind: "unit" }, wasm["lib__Locals__append_types"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg1, wasm)), wasm);
+    return liftValue({ kind: "unit", moonType: "Unit" }, wasm["lib__Locals__append_types"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg1, wasm)), wasm);
   },
   at(arg0, arg1) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_15_none","some":"__js_option_15_some","isSome":"__js_option_15_is_some","unwrap":"__js_option_15_unwrap"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, wasm["lib__Locals__at"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_30_none","some":"__js_option_30_some","isSome":"__js_option_30_is_some","unwrap":"__js_option_30_unwrap"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, wasm["lib__Locals__at"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number", moonType: "Int" }, arg1, wasm)), wasm);
   },
   copy(arg0) {
     return liftValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, wasm["lib__Locals__copy"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
@@ -3312,209 +3492,127 @@ export const Locals = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, wasm["lib__Locals__empty"](), wasm);
   },
   ensureIndex(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_23_new","push":"__js_array_23_push","length":"__js_array_23_length","get":"__js_array_23_get"}, item: { kind: "number" } }, wasm["lib__Locals__ensure_index"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "array", helper: {"new":"__js_array_2_new","push":"__js_array_2_push","length":"__js_array_2_length","get":"__js_array_2_get"}, item: { kind: "number", moonType: "Int" } }, wasm["lib__Locals__ensure_index"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
+  },
+  fromDeclRunsPreservingGroups(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, wasm["lib__Locals__from_decl_runs_preserving_groups"](lowerValue({ kind: "array", helper: {"new":"__js_array_36_new","push":"__js_array_36_push","length":"__js_array_36_length","get":"__js_array_36_get"}, item: { kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" } }, arg0, wasm)), wasm);
   },
   fromTypes(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, wasm["lib__Locals__from_types"](lowerValue({ kind: "array", helper: {"new":"__js_array_8_new","push":"__js_array_8_push","length":"__js_array_8_length","get":"__js_array_8_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, wasm["lib__Locals__from_types"](lowerValue({ kind: "array", helper: {"new":"__js_array_9_new","push":"__js_array_9_push","length":"__js_array_9_length","get":"__js_array_9_get"}, item: { kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" } }, arg0, wasm)), wasm);
   },
   get(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__Locals__get"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__Locals__get"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number", moonType: "Int" }, arg1, wasm)), wasm);
   },
   insertRun(arg0, arg1, arg2) {
-    return liftValue({ kind: "unit" }, wasm["lib__Locals__insert_run"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" }, arg2, wasm)), wasm);
+    return liftValue({ kind: "unit", moonType: "Unit" }, wasm["lib__Locals__insert_run"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number", moonType: "Int" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" }, arg2, wasm)), wasm);
   },
   invalidateIndices(arg0) {
-    return liftValue({ kind: "unit" }, wasm["lib__Locals__invalidate_indices"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "unit", moonType: "Unit" }, wasm["lib__Locals__invalidate_indices"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
   },
   isEmpty(arg0) {
-    return liftValue({ kind: "bool" }, wasm["lib__Locals__is_empty"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__Locals__is_empty"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
   },
   iter(arg0) {
-    return liftValue({ kind: "opaque", brand: "Iter[ValType]" }, wasm["lib__Locals__iter"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "opaque", brand: "Iter[@lib.ValType]" }, wasm["lib__Locals__iter"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
   },
   length(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__Locals__length"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "number", moonType: "Int" }, wasm["lib__Locals__length"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
   },
   mergeAdjacentRuns(arg0) {
-    return liftValue({ kind: "unit" }, wasm["lib__Locals__merge_adjacent_runs"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "unit", moonType: "Unit" }, wasm["lib__Locals__merge_adjacent_runs"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
   },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, wasm["lib__Locals__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_24_new","push":"__js_array_24_push","length":"__js_array_24_length","get":"__js_array_24_get"}, item: { kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, wasm["lib__Locals__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_36_new","push":"__js_array_36_push","length":"__js_array_36_length","get":"__js_array_36_get"}, item: { kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" } }, arg0, wasm)), wasm);
   },
   push(arg0, arg1) {
-    return liftValue({ kind: "unit" }, wasm["lib__Locals__push"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "unit", moonType: "Unit" }, wasm["lib__Locals__push"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg1, wasm)), wasm);
   },
   pushRun(arg0, arg1) {
-    return liftValue({ kind: "unit" }, wasm["lib__Locals__push_run"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "unit", moonType: "Unit" }, wasm["lib__Locals__push_run"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" }, arg1, wasm)), wasm);
   },
   removeRun(arg0, arg1) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_20_none","some":"__js_option_20_some","isSome":"__js_option_20_is_some","unwrap":"__js_option_20_unwrap"}, item: { kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" } }, wasm["lib__Locals__remove_run"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_38_none","some":"__js_option_38_some","isSome":"__js_option_38_is_some","unwrap":"__js_option_38_unwrap"}, item: { kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" } }, wasm["lib__Locals__remove_run"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number", moonType: "Int" }, arg1, wasm)), wasm);
   },
   runCount(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__Locals__run_count"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "number", moonType: "Int" }, wasm["lib__Locals__run_count"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
   },
   runs(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_24_new","push":"__js_array_24_push","length":"__js_array_24_length","get":"__js_array_24_get"}, item: { kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" } }, wasm["lib__Locals__runs"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "array", helper: {"new":"__js_array_36_new","push":"__js_array_36_push","length":"__js_array_36_length","get":"__js_array_36_get"}, item: { kind: "named", brand: "lib.LocalRun", showExport: "__js_show_lib_LocalRun" } }, wasm["lib__Locals__runs"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm)), wasm);
   },
   set(arg0, arg1, arg2) {
-    return liftValue({ kind: "bool" }, wasm["lib__Locals__set"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg2, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__Locals__set"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number", moonType: "Int" }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg2, wasm)), wasm);
   },
   setRunCount(arg0, arg1, arg2) {
-    return liftValue({ kind: "bool" }, wasm["lib__Locals__set_run_count"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm), lowerValue({ kind: "number" }, arg2, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__Locals__set_run_count"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number", moonType: "Int" }, arg1, wasm), lowerValue({ kind: "number", moonType: "UInt" }, arg2, wasm)), wasm);
   },
   single(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, wasm["lib__Locals__single"](lowerValue({ kind: "number" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, wasm["lib__Locals__single"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg1, wasm)), wasm);
   },
   unsafeGet(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__Locals__unsafe_get"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__Locals__unsafe_get"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number", moonType: "Int" }, arg1, wasm)), wasm);
   },
   withoutPrefix(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, wasm["lib__Locals__without_prefix"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, wasm["lib__Locals__without_prefix"](lowerValue({ kind: "named", brand: "lib.Locals", showExport: "__js_show_lib_Locals" }, arg0, wasm), lowerValue({ kind: "number", moonType: "Int" }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Locals"](value);
+    return wasm["__js_show_lib_Locals"](lowerValue({ kind: "named", brand: "lib.Locals" }, value, wasm));
   },
 });
 
 export const MemArg = Object.freeze({
   new(arg0, arg1, arg2) {
-    return liftValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, wasm["lib__MemArg__new"](lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg0, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_21_none","some":"__js_option_21_some","isSome":"__js_option_21_is_some","unwrap":"__js_option_21_unwrap"}, item: { kind: "named", brand: "lib.MemIdx", showExport: "__js_show_lib_MemIdx" } }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.U64", showExport: "__js_show_lib_U64" }, arg2, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.MemArg", showExport: "__js_show_lib_MemArg" }, wasm["lib__MemArg__new"](lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg0, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_39_none","some":"__js_option_39_some","isSome":"__js_option_39_is_some","unwrap":"__js_option_39_unwrap"}, item: { kind: "named", brand: "lib.MemIdx", showExport: "__js_show_lib_MemIdx" } }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.U64", showExport: "__js_show_lib_U64" }, arg2, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_MemArg"](value);
+    return wasm["__js_show_lib_MemArg"](lowerValue({ kind: "named", brand: "lib.MemArg" }, value, wasm));
   },
 });
 
 export const MemIdx = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__MemIdx__inner"](lowerValue({ kind: "named", brand: "lib.MemIdx", showExport: "__js_show_lib_MemIdx" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.MemIdx", showExport: "__js_show_lib_MemIdx" }, wasm["lib__MemIdx__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.MemIdx", showExport: "__js_show_lib_MemIdx" }, wasm["lib__MemIdx__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_MemIdx"](value);
+    return wasm["__js_show_lib_MemIdx"](lowerValue({ kind: "named", brand: "lib.MemIdx" }, value, wasm));
   },
 });
 
 export const MemSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_25_new","push":"__js_array_25_push","length":"__js_array_25_length","get":"__js_array_25_get"}, item: { kind: "named", brand: "lib.MemType", showExport: "__js_show_lib_MemType" } }, wasm["lib__MemSec__inner"](lowerValue({ kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" }, wasm["lib__MemSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_25_new","push":"__js_array_25_push","length":"__js_array_25_length","get":"__js_array_25_get"}, item: { kind: "named", brand: "lib.MemType", showExport: "__js_show_lib_MemType" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" }, wasm["lib__MemSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_37_new","push":"__js_array_37_push","length":"__js_array_37_length","get":"__js_array_37_get"}, item: { kind: "named", brand: "lib.MemType", showExport: "__js_show_lib_MemType" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_MemSec"](value);
+    return wasm["__js_show_lib_MemSec"](lowerValue({ kind: "named", brand: "lib.MemSec" }, value, wasm));
   },
 });
 
 export const MemType = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, wasm["lib__MemType__inner"](lowerValue({ kind: "named", brand: "lib.MemType", showExport: "__js_show_lib_MemType" }, arg0, wasm)), wasm);
-  },
-  new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.MemType", showExport: "__js_show_lib_MemType" }, wasm["lib__MemType__new"](lowerValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, arg0, wasm)), wasm);
+  new(arg0, shared) {
+    return liftValue({ kind: "named", brand: "lib.MemType", showExport: "__js_show_lib_MemType" }, wasm["lib__MemType__new"](lowerValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_3_none","some":"__js_option_3_some","isSome":"__js_option_3_is_some","unwrap":"__js_option_3_unwrap"}, item: { kind: "bool", moonType: "Bool" } }, shared, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_MemType"](value);
+    return wasm["__js_show_lib_MemType"](lowerValue({ kind: "named", brand: "lib.MemType" }, value, wasm));
   },
 });
 
-function canLowerFuncAnnotationSec(value) {
-  if (value == null) {
-    return true;
-  }
-  try {
-    wasm["__js_show_lib_FuncAnnotationSec"](value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export const Module = Object.freeze({
-  new(customSecs, typeSec, importSec, funcAnnotationSecOrFuncSec, funcSecOrTableSec, tableSecOrMemSec, memSecOrTagSec, tagSecOrGlobalSec, globalSecOrExportSec, exportSecOrStartSec, startSecOrElemSec, elemSecOrDataCntSec, dataCntSecOrCodeSec, codeSecOrDataSec, dataSec) {
-    const provided = countProvidedArgs(arguments);
-    if (provided >= 4) {
-      const funcAnnotationSec = funcAnnotationSecOrFuncSec;
-      if (canLowerFuncAnnotationSec(funcAnnotationSec)) {
-        const mod = Module.new(
-          customSecs,
-          typeSec,
-          importSec,
-          funcSecOrTableSec,
-          tableSecOrMemSec,
-          memSecOrTagSec,
-          tagSecOrGlobalSec,
-          globalSecOrExportSec,
-          exportSecOrStartSec,
-          startSecOrElemSec,
-          elemSecOrDataCntSec,
-          dataCntSecOrCodeSec,
-          codeSecOrDataSec,
-          dataSec,
-        );
-        return funcAnnotationSec == null ? mod : Module.withFuncAnnotationSec(mod, funcAnnotationSec);
-      }
-    }
-    const funcSec = funcAnnotationSecOrFuncSec;
-    const tableSec = funcSecOrTableSec;
-    const memSec = tableSecOrMemSec;
-    const tagSec = memSecOrTagSec;
-    const globalSec = tagSecOrGlobalSec;
-    const exportSec = globalSecOrExportSec;
-    const startSec = exportSecOrStartSec;
-    const elemSec = startSecOrElemSec;
-    const dataCntSec = elemSecOrDataCntSec;
-    const codeSec = dataCntSecOrCodeSec;
-    const dataSecLegacy = codeSecOrDataSec;
-    switch (provided) {
-      case 0:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_0"](), wasm);
-      case 1:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_1"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm)), wasm);
-      case 2:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_2"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm)), wasm);
-      case 3:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_3"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm)), wasm);
-      case 4:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_4"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm)), wasm);
-      case 5:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_5"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm)), wasm);
-      case 6:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_6"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_26_none","some":"__js_option_26_some","isSome":"__js_option_26_is_some","unwrap":"__js_option_26_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } }, memSec, wasm)), wasm);
-      case 7:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_7"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_26_none","some":"__js_option_26_some","isSome":"__js_option_26_is_some","unwrap":"__js_option_26_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } }, memSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_27_none","some":"__js_option_27_some","isSome":"__js_option_27_is_some","unwrap":"__js_option_27_unwrap"}, item: { kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" } }, tagSec, wasm)), wasm);
-      case 8:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_8"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_26_none","some":"__js_option_26_some","isSome":"__js_option_26_is_some","unwrap":"__js_option_26_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } }, memSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_27_none","some":"__js_option_27_some","isSome":"__js_option_27_is_some","unwrap":"__js_option_27_unwrap"}, item: { kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" } }, tagSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" } }, globalSec, wasm)), wasm);
-      case 9:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_9"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_26_none","some":"__js_option_26_some","isSome":"__js_option_26_is_some","unwrap":"__js_option_26_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } }, memSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_27_none","some":"__js_option_27_some","isSome":"__js_option_27_is_some","unwrap":"__js_option_27_unwrap"}, item: { kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" } }, tagSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" } }, globalSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_29_none","some":"__js_option_29_some","isSome":"__js_option_29_is_some","unwrap":"__js_option_29_unwrap"}, item: { kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" } }, exportSec, wasm)), wasm);
-      case 10:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_10"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_26_none","some":"__js_option_26_some","isSome":"__js_option_26_is_some","unwrap":"__js_option_26_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } }, memSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_27_none","some":"__js_option_27_some","isSome":"__js_option_27_is_some","unwrap":"__js_option_27_unwrap"}, item: { kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" } }, tagSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" } }, globalSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_29_none","some":"__js_option_29_some","isSome":"__js_option_29_is_some","unwrap":"__js_option_29_unwrap"}, item: { kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" } }, exportSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_30_none","some":"__js_option_30_some","isSome":"__js_option_30_is_some","unwrap":"__js_option_30_unwrap"}, item: { kind: "named", brand: "lib.StartSec", showExport: "__js_show_lib_StartSec" } }, startSec, wasm)), wasm);
-      case 11:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_11"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_26_none","some":"__js_option_26_some","isSome":"__js_option_26_is_some","unwrap":"__js_option_26_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } }, memSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_27_none","some":"__js_option_27_some","isSome":"__js_option_27_is_some","unwrap":"__js_option_27_unwrap"}, item: { kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" } }, tagSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" } }, globalSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_29_none","some":"__js_option_29_some","isSome":"__js_option_29_is_some","unwrap":"__js_option_29_unwrap"}, item: { kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" } }, exportSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_30_none","some":"__js_option_30_some","isSome":"__js_option_30_is_some","unwrap":"__js_option_30_unwrap"}, item: { kind: "named", brand: "lib.StartSec", showExport: "__js_show_lib_StartSec" } }, startSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.ElemSec", showExport: "__js_show_lib_ElemSec" } }, elemSec, wasm)), wasm);
-      case 12:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_12"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_26_none","some":"__js_option_26_some","isSome":"__js_option_26_is_some","unwrap":"__js_option_26_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } }, memSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_27_none","some":"__js_option_27_some","isSome":"__js_option_27_is_some","unwrap":"__js_option_27_unwrap"}, item: { kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" } }, tagSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" } }, globalSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_29_none","some":"__js_option_29_some","isSome":"__js_option_29_is_some","unwrap":"__js_option_29_unwrap"}, item: { kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" } }, exportSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_30_none","some":"__js_option_30_some","isSome":"__js_option_30_is_some","unwrap":"__js_option_30_unwrap"}, item: { kind: "named", brand: "lib.StartSec", showExport: "__js_show_lib_StartSec" } }, startSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.ElemSec", showExport: "__js_show_lib_ElemSec" } }, elemSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_32_none","some":"__js_option_32_some","isSome":"__js_option_32_is_some","unwrap":"__js_option_32_unwrap"}, item: { kind: "named", brand: "lib.DataCntSec", showExport: "__js_show_lib_DataCntSec" } }, dataCntSec, wasm)), wasm);
-      case 13:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new__arity_13"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_26_none","some":"__js_option_26_some","isSome":"__js_option_26_is_some","unwrap":"__js_option_26_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } }, memSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_27_none","some":"__js_option_27_some","isSome":"__js_option_27_is_some","unwrap":"__js_option_27_unwrap"}, item: { kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" } }, tagSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" } }, globalSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_29_none","some":"__js_option_29_some","isSome":"__js_option_29_is_some","unwrap":"__js_option_29_unwrap"}, item: { kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" } }, exportSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_30_none","some":"__js_option_30_some","isSome":"__js_option_30_is_some","unwrap":"__js_option_30_unwrap"}, item: { kind: "named", brand: "lib.StartSec", showExport: "__js_show_lib_StartSec" } }, startSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.ElemSec", showExport: "__js_show_lib_ElemSec" } }, elemSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_32_none","some":"__js_option_32_some","isSome":"__js_option_32_is_some","unwrap":"__js_option_32_unwrap"}, item: { kind: "named", brand: "lib.DataCntSec", showExport: "__js_show_lib_DataCntSec" } }, dataCntSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_33_none","some":"__js_option_33_some","isSome":"__js_option_33_is_some","unwrap":"__js_option_33_unwrap"}, item: { kind: "named", brand: "lib.CodeSec", showExport: "__js_show_lib_CodeSec" } }, codeSec, wasm)), wasm);
-      case 14:
-        return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, customSecs, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } }, typeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } }, importSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_24_none","some":"__js_option_24_some","isSome":"__js_option_24_is_some","unwrap":"__js_option_24_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } }, funcSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_25_none","some":"__js_option_25_some","isSome":"__js_option_25_is_some","unwrap":"__js_option_25_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } }, tableSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_26_none","some":"__js_option_26_some","isSome":"__js_option_26_is_some","unwrap":"__js_option_26_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } }, memSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_27_none","some":"__js_option_27_some","isSome":"__js_option_27_is_some","unwrap":"__js_option_27_unwrap"}, item: { kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" } }, tagSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" } }, globalSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_29_none","some":"__js_option_29_some","isSome":"__js_option_29_is_some","unwrap":"__js_option_29_unwrap"}, item: { kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" } }, exportSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_30_none","some":"__js_option_30_some","isSome":"__js_option_30_is_some","unwrap":"__js_option_30_unwrap"}, item: { kind: "named", brand: "lib.StartSec", showExport: "__js_show_lib_StartSec" } }, startSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_31_none","some":"__js_option_31_some","isSome":"__js_option_31_is_some","unwrap":"__js_option_31_unwrap"}, item: { kind: "named", brand: "lib.ElemSec", showExport: "__js_show_lib_ElemSec" } }, elemSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_32_none","some":"__js_option_32_some","isSome":"__js_option_32_is_some","unwrap":"__js_option_32_unwrap"}, item: { kind: "named", brand: "lib.DataCntSec", showExport: "__js_show_lib_DataCntSec" } }, dataCntSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_33_none","some":"__js_option_33_some","isSome":"__js_option_33_is_some","unwrap":"__js_option_33_unwrap"}, item: { kind: "named", brand: "lib.CodeSec", showExport: "__js_show_lib_CodeSec" } }, codeSec, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_34_none","some":"__js_option_34_some","isSome":"__js_option_34_is_some","unwrap":"__js_option_34_unwrap"}, item: { kind: "named", brand: "lib.DataSec", showExport: "__js_show_lib_DataSec" } }, dataSecLegacy, wasm)), wasm);
-      default:
-        throw new TypeError("Invalid argument count for lib.Module.new.");
-    }
+  new(customSecs, typeSec, importSec, funcAnnotationSec, funcSec, tableSec, memSec, tagSec, globalSec, exportSec, startSec, elemSec, dataCntSec, codeSec, dataSec, stringrefsSec, nameSec, rawNameSecPayload, compilerFactCustomSection) {
+    return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__new"](lowerValue({ kind: "optional", helper: {"none":"__js_option_40_none","some":"__js_option_40_some","isSome":"__js_option_40_is_some","unwrap":"__js_option_40_unwrap"}, item: { kind: "array", helper: {"new":"__js_array_38_new","push":"__js_array_38_push","length":"__js_array_38_length","get":"__js_array_38_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } } }, customSecs, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_41_none","some":"__js_option_41_some","isSome":"__js_option_41_is_some","unwrap":"__js_option_41_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_42_none","some":"__js_option_42_some","isSome":"__js_option_42_is_some","unwrap":"__js_option_42_unwrap"}, item: { kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" } } }, typeSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_43_none","some":"__js_option_43_some","isSome":"__js_option_43_is_some","unwrap":"__js_option_43_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_44_none","some":"__js_option_44_some","isSome":"__js_option_44_is_some","unwrap":"__js_option_44_unwrap"}, item: { kind: "named", brand: "lib.ImportSec", showExport: "__js_show_lib_ImportSec" } } }, importSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_45_none","some":"__js_option_45_some","isSome":"__js_option_45_is_some","unwrap":"__js_option_45_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_46_none","some":"__js_option_46_some","isSome":"__js_option_46_is_some","unwrap":"__js_option_46_unwrap"}, item: { kind: "named", brand: "lib.FuncAnnotationSec", showExport: "__js_show_lib_FuncAnnotationSec" } } }, funcAnnotationSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_47_none","some":"__js_option_47_some","isSome":"__js_option_47_is_some","unwrap":"__js_option_47_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_48_none","some":"__js_option_48_some","isSome":"__js_option_48_is_some","unwrap":"__js_option_48_unwrap"}, item: { kind: "named", brand: "lib.FuncSec", showExport: "__js_show_lib_FuncSec" } } }, funcSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_49_none","some":"__js_option_49_some","isSome":"__js_option_49_is_some","unwrap":"__js_option_49_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_50_none","some":"__js_option_50_some","isSome":"__js_option_50_is_some","unwrap":"__js_option_50_unwrap"}, item: { kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" } } }, tableSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_51_none","some":"__js_option_51_some","isSome":"__js_option_51_is_some","unwrap":"__js_option_51_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_52_none","some":"__js_option_52_some","isSome":"__js_option_52_is_some","unwrap":"__js_option_52_unwrap"}, item: { kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" } } }, memSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_53_none","some":"__js_option_53_some","isSome":"__js_option_53_is_some","unwrap":"__js_option_53_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_54_none","some":"__js_option_54_some","isSome":"__js_option_54_is_some","unwrap":"__js_option_54_unwrap"}, item: { kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" } } }, tagSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_55_none","some":"__js_option_55_some","isSome":"__js_option_55_is_some","unwrap":"__js_option_55_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_56_none","some":"__js_option_56_some","isSome":"__js_option_56_is_some","unwrap":"__js_option_56_unwrap"}, item: { kind: "named", brand: "lib.GlobalSec", showExport: "__js_show_lib_GlobalSec" } } }, globalSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_57_none","some":"__js_option_57_some","isSome":"__js_option_57_is_some","unwrap":"__js_option_57_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_58_none","some":"__js_option_58_some","isSome":"__js_option_58_is_some","unwrap":"__js_option_58_unwrap"}, item: { kind: "named", brand: "lib.ExportSec", showExport: "__js_show_lib_ExportSec" } } }, exportSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_59_none","some":"__js_option_59_some","isSome":"__js_option_59_is_some","unwrap":"__js_option_59_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_60_none","some":"__js_option_60_some","isSome":"__js_option_60_is_some","unwrap":"__js_option_60_unwrap"}, item: { kind: "named", brand: "lib.StartSec", showExport: "__js_show_lib_StartSec" } } }, startSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_61_none","some":"__js_option_61_some","isSome":"__js_option_61_is_some","unwrap":"__js_option_61_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_62_none","some":"__js_option_62_some","isSome":"__js_option_62_is_some","unwrap":"__js_option_62_unwrap"}, item: { kind: "named", brand: "lib.ElemSec", showExport: "__js_show_lib_ElemSec" } } }, elemSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_63_none","some":"__js_option_63_some","isSome":"__js_option_63_is_some","unwrap":"__js_option_63_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_64_none","some":"__js_option_64_some","isSome":"__js_option_64_is_some","unwrap":"__js_option_64_unwrap"}, item: { kind: "named", brand: "lib.DataCntSec", showExport: "__js_show_lib_DataCntSec" } } }, dataCntSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_65_none","some":"__js_option_65_some","isSome":"__js_option_65_is_some","unwrap":"__js_option_65_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_66_none","some":"__js_option_66_some","isSome":"__js_option_66_is_some","unwrap":"__js_option_66_unwrap"}, item: { kind: "named", brand: "lib.CodeSec", showExport: "__js_show_lib_CodeSec" } } }, codeSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_67_none","some":"__js_option_67_some","isSome":"__js_option_67_is_some","unwrap":"__js_option_67_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_68_none","some":"__js_option_68_some","isSome":"__js_option_68_is_some","unwrap":"__js_option_68_unwrap"}, item: { kind: "named", brand: "lib.DataSec", showExport: "__js_show_lib_DataSec" } } }, dataSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_69_none","some":"__js_option_69_some","isSome":"__js_option_69_is_some","unwrap":"__js_option_69_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_70_none","some":"__js_option_70_some","isSome":"__js_option_70_is_some","unwrap":"__js_option_70_unwrap"}, item: { kind: "named", brand: "lib.StringRefsSec", showExport: "__js_show_lib_StringRefsSec" } } }, stringrefsSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_71_none","some":"__js_option_71_some","isSome":"__js_option_71_is_some","unwrap":"__js_option_71_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_72_none","some":"__js_option_72_some","isSome":"__js_option_72_is_some","unwrap":"__js_option_72_unwrap"}, item: { kind: "named", brand: "lib.NameSec", showExport: "__js_show_lib_NameSec" } } }, nameSec, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_22_none","some":"__js_option_22_some","isSome":"__js_option_22_is_some","unwrap":"__js_option_22_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_23_none","some":"__js_option_23_some","isSome":"__js_option_23_is_some","unwrap":"__js_option_23_unwrap"}, item: { kind: "bytes", helper: {"fromArray":"__js_bytes_from_array","length":"__js_bytes_length","get":"__js_bytes_get","byteArray":{"new":"__js_array_67_new","push":"__js_array_67_push","length":"__js_array_67_length","get":"__js_array_67_get"}} } } }, rawNameSecPayload, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_73_none","some":"__js_option_73_some","isSome":"__js_option_73_is_some","unwrap":"__js_option_73_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_74_none","some":"__js_option_74_some","isSome":"__js_option_74_is_some","unwrap":"__js_option_74_unwrap"}, item: { kind: "opaque", brand: "@representation.CompilerFactCustomSection" } } }, compilerFactCustomSection, wasm)), wasm);
   },
   prettyPrintDefinedFunc(arg0, arg1) {
-    return liftValue({ kind: "string" }, wasm["lib__Module__pretty_print_defined_func"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "string", moonType: "String" }, wasm["lib__Module__pretty_print_defined_func"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "number", moonType: "UInt" }, arg1, wasm)), wasm);
   },
   prettyPrintFunc(arg0, arg1) {
-    return liftValue({ kind: "string" }, wasm["lib__Module__pretty_print_func"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "string", moonType: "String" }, wasm["lib__Module__pretty_print_func"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" }, arg1, wasm)), wasm);
   },
   withCodeSec(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_code_sec"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.CodeSec", showExport: "__js_show_lib_CodeSec" }, arg1, wasm)), wasm);
   },
+  withCompilerFactCustomSection(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_compiler_fact_custom_section"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "opaque", brand: "@representation.CompilerFactCustomSection" }, arg1, wasm)), wasm);
+  },
   withCustomSecs(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_custom_secs"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_26_new","push":"__js_array_26_push","length":"__js_array_26_length","get":"__js_array_26_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_custom_secs"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_38_new","push":"__js_array_38_push","length":"__js_array_38_length","get":"__js_array_38_get"}, item: { kind: "named", brand: "lib.CustomSec", showExport: "__js_show_lib_CustomSec" } }, arg1, wasm)), wasm);
   },
   withDataCntSec(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_data_cnt_sec"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.DataCntSec", showExport: "__js_show_lib_DataCntSec" }, arg1, wasm)), wasm);
@@ -3543,8 +3641,17 @@ export const Module = Object.freeze({
   withMemSec(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_mem_sec"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.MemSec", showExport: "__js_show_lib_MemSec" }, arg1, wasm)), wasm);
   },
+  withNameSec(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_name_sec"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.NameSec", showExport: "__js_show_lib_NameSec" }, arg1, wasm)), wasm);
+  },
+  withRawNameSecPayload(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_raw_name_sec_payload"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "bytes", helper: {"fromArray":"__js_bytes_from_array","length":"__js_bytes_length","get":"__js_bytes_get","byteArray":{"new":"__js_array_67_new","push":"__js_array_67_push","length":"__js_array_67_length","get":"__js_array_67_get"}} }, arg1, wasm)), wasm);
+  },
   withStartSec(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_start_sec"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.StartSec", showExport: "__js_show_lib_StartSec" }, arg1, wasm)), wasm);
+  },
+  withStringrefsSec(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_stringrefs_sec"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.StringRefsSec", showExport: "__js_show_lib_StringRefsSec" }, arg1, wasm)), wasm);
   },
   withTableSec(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_table_sec"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" }, arg1, wasm)), wasm);
@@ -3555,8 +3662,14 @@ export const Module = Object.freeze({
   withTypeSec(arg0, arg1) {
     return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__with_type_sec"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" }, arg1, wasm)), wasm);
   },
+  withoutCompilerFactCustomSection(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__without_compiler_fact_custom_section"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm)), wasm);
+  },
+  withoutNameSec(arg0) {
+    return liftValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, wasm["lib__Module__without_name_sec"](lowerValue({ kind: "named", brand: "lib.Module", showExport: "__js_show_lib_Module" }, arg0, wasm)), wasm);
+  },
   show(value) {
-    return wasm["__js_show_lib_Module"](value);
+    return wasm["__js_show_lib_Module"](lowerValue({ kind: "named", brand: "lib.Module" }, value, wasm));
   },
 });
 
@@ -3568,22 +3681,44 @@ export const Mut = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.Mut", showExport: "__js_show_lib_Mut" }, wasm["lib__Mut__var_"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Mut"](value);
+    return wasm["__js_show_lib_Mut"](lowerValue({ kind: "named", brand: "lib.Mut" }, value, wasm));
   },
 });
 
 export const Name = Object.freeze({
   fromString(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" }, wasm["lib__Name__from_string"](lowerValue({ kind: "string" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" }, wasm["lib__Name__from_string"](lowerValue({ kind: "string", moonType: "String" }, arg0, wasm)), wasm);
   },
-  inner(arg0) {
-    return liftValue({ kind: "opaque", brand: "StringView" }, wasm["lib__Name__inner"](lowerValue({ kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" }, arg0, wasm)), wasm);
+  new: unsupportedExport("lib.Name.new", "The FFI excludes this generic or inaccessible signature."),
+  show(value) {
+    return wasm["__js_show_lib_Name"](lowerValue({ kind: "named", brand: "lib.Name" }, value, wasm));
   },
-  new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" }, wasm["lib__Name__new"](lowerValue({ kind: "opaque", brand: "StringView" }, arg0, wasm)), wasm);
+});
+
+export const NameAssoc = Object.freeze({
+  new(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.NameAssoc", showExport: "__js_show_lib_NameAssoc" }, wasm["lib__NameAssoc__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Name"](value);
+    return wasm["__js_show_lib_NameAssoc"](lowerValue({ kind: "named", brand: "lib.NameAssoc" }, value, wasm));
+  },
+});
+
+export const NameMap = Object.freeze({
+  new(arg0) {
+    return liftValue({ kind: "named", brand: "lib.NameMap", showExport: "__js_show_lib_NameMap" }, wasm["lib__NameMap__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_39_new","push":"__js_array_39_push","length":"__js_array_39_length","get":"__js_array_39_get"}, item: { kind: "named", brand: "lib.NameAssoc", showExport: "__js_show_lib_NameAssoc" } }, arg0, wasm)), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_lib_NameMap"](lowerValue({ kind: "named", brand: "lib.NameMap" }, value, wasm));
+  },
+});
+
+export const NameSec = Object.freeze({
+  new(moduleName, funcNames, localNames, labelNames, typeNames, tableNames, memoryNames, globalNames, elemNames, dataNames, fieldNames, tagNames) {
+    return liftValue({ kind: "named", brand: "lib.NameSec", showExport: "__js_show_lib_NameSec" }, wasm["lib__NameSec__new"](lowerValue({ kind: "optional", helper: {"none":"__js_option_75_none","some":"__js_option_75_some","isSome":"__js_option_75_is_some","unwrap":"__js_option_75_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_76_none","some":"__js_option_76_some","isSome":"__js_option_76_is_some","unwrap":"__js_option_76_unwrap"}, item: { kind: "named", brand: "lib.Name", showExport: "__js_show_lib_Name" } } }, moduleName, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_77_none","some":"__js_option_77_some","isSome":"__js_option_77_is_some","unwrap":"__js_option_77_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_78_none","some":"__js_option_78_some","isSome":"__js_option_78_is_some","unwrap":"__js_option_78_unwrap"}, item: { kind: "named", brand: "lib.NameMap", showExport: "__js_show_lib_NameMap" } } }, funcNames, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_79_none","some":"__js_option_79_some","isSome":"__js_option_79_is_some","unwrap":"__js_option_79_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_80_none","some":"__js_option_80_some","isSome":"__js_option_80_is_some","unwrap":"__js_option_80_unwrap"}, item: { kind: "named", brand: "lib.IndirectNameMap", showExport: "__js_show_lib_IndirectNameMap" } } }, localNames, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_79_none","some":"__js_option_79_some","isSome":"__js_option_79_is_some","unwrap":"__js_option_79_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_80_none","some":"__js_option_80_some","isSome":"__js_option_80_is_some","unwrap":"__js_option_80_unwrap"}, item: { kind: "named", brand: "lib.IndirectNameMap", showExport: "__js_show_lib_IndirectNameMap" } } }, labelNames, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_77_none","some":"__js_option_77_some","isSome":"__js_option_77_is_some","unwrap":"__js_option_77_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_78_none","some":"__js_option_78_some","isSome":"__js_option_78_is_some","unwrap":"__js_option_78_unwrap"}, item: { kind: "named", brand: "lib.NameMap", showExport: "__js_show_lib_NameMap" } } }, typeNames, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_77_none","some":"__js_option_77_some","isSome":"__js_option_77_is_some","unwrap":"__js_option_77_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_78_none","some":"__js_option_78_some","isSome":"__js_option_78_is_some","unwrap":"__js_option_78_unwrap"}, item: { kind: "named", brand: "lib.NameMap", showExport: "__js_show_lib_NameMap" } } }, tableNames, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_77_none","some":"__js_option_77_some","isSome":"__js_option_77_is_some","unwrap":"__js_option_77_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_78_none","some":"__js_option_78_some","isSome":"__js_option_78_is_some","unwrap":"__js_option_78_unwrap"}, item: { kind: "named", brand: "lib.NameMap", showExport: "__js_show_lib_NameMap" } } }, memoryNames, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_77_none","some":"__js_option_77_some","isSome":"__js_option_77_is_some","unwrap":"__js_option_77_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_78_none","some":"__js_option_78_some","isSome":"__js_option_78_is_some","unwrap":"__js_option_78_unwrap"}, item: { kind: "named", brand: "lib.NameMap", showExport: "__js_show_lib_NameMap" } } }, globalNames, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_77_none","some":"__js_option_77_some","isSome":"__js_option_77_is_some","unwrap":"__js_option_77_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_78_none","some":"__js_option_78_some","isSome":"__js_option_78_is_some","unwrap":"__js_option_78_unwrap"}, item: { kind: "named", brand: "lib.NameMap", showExport: "__js_show_lib_NameMap" } } }, elemNames, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_77_none","some":"__js_option_77_some","isSome":"__js_option_77_is_some","unwrap":"__js_option_77_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_78_none","some":"__js_option_78_some","isSome":"__js_option_78_is_some","unwrap":"__js_option_78_unwrap"}, item: { kind: "named", brand: "lib.NameMap", showExport: "__js_show_lib_NameMap" } } }, dataNames, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_79_none","some":"__js_option_79_some","isSome":"__js_option_79_is_some","unwrap":"__js_option_79_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_80_none","some":"__js_option_80_some","isSome":"__js_option_80_is_some","unwrap":"__js_option_80_unwrap"}, item: { kind: "named", brand: "lib.IndirectNameMap", showExport: "__js_show_lib_IndirectNameMap" } } }, fieldNames, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_77_none","some":"__js_option_77_some","isSome":"__js_option_77_is_some","unwrap":"__js_option_77_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_78_none","some":"__js_option_78_some","isSome":"__js_option_78_is_some","unwrap":"__js_option_78_unwrap"}, item: { kind: "named", brand: "lib.NameMap", showExport: "__js_show_lib_NameMap" } } }, tagNames, wasm)), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_lib_NameSec"](lowerValue({ kind: "named", brand: "lib.NameSec" }, value, wasm));
   },
 });
 
@@ -3601,7 +3736,7 @@ export const NumType = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.NumType", showExport: "__js_show_lib_NumType" }, wasm["lib__NumType__i64"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_NumType"](value);
+    return wasm["__js_show_lib_NumType"](lowerValue({ kind: "named", brand: "lib.NumType" }, value, wasm));
   },
 });
 
@@ -3613,53 +3748,34 @@ export const PackType = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.PackType", showExport: "__js_show_lib_PackType" }, wasm["lib__PackType__i8"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_PackType"](value);
+    return wasm["__js_show_lib_PackType"](lowerValue({ kind: "named", brand: "lib.PackType" }, value, wasm));
   },
 });
 
 export const PrettyPrintContext = Object.freeze({
   indent(arg0, arg1) {
-    return liftValue({ kind: "string" }, wasm["lib__PrettyPrintContext__indent"](lowerValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "string", moonType: "String" }, wasm["lib__PrettyPrintContext__indent"](lowerValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: null }, arg0, wasm), lowerValue({ kind: "number", moonType: "UInt" }, arg1, wasm)), wasm);
   },
   indentUnit(arg0) {
-    return liftValue({ kind: "string" }, wasm["lib__PrettyPrintContext__indent_unit"](lowerValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "string", moonType: "String" }, wasm["lib__PrettyPrintContext__indent_unit"](lowerValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: null }, arg0, wasm)), wasm);
   },
   new(maxLineWidth, tabsOrSpaces, tabWidth, continuationIndent, sourceIndentWidth) {
-    const provided = countProvidedArgs(arguments);
-    switch (provided) {
-      case 0:
-        return liftValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, wasm["lib__PrettyPrintContext__new__arity_0"](), wasm);
-      case 1:
-        return liftValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, wasm["lib__PrettyPrintContext__new__arity_1"](lowerValue({ kind: "number" }, maxLineWidth, wasm)), wasm);
-      case 2:
-        return liftValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, wasm["lib__PrettyPrintContext__new__arity_2"](lowerValue({ kind: "number" }, maxLineWidth, wasm), lowerValue({ kind: "named", brand: "lib.TabsOrSpaces", showExport: "__js_show_lib_TabsOrSpaces" }, tabsOrSpaces, wasm)), wasm);
-      case 3:
-        return liftValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, wasm["lib__PrettyPrintContext__new__arity_3"](lowerValue({ kind: "number" }, maxLineWidth, wasm), lowerValue({ kind: "named", brand: "lib.TabsOrSpaces", showExport: "__js_show_lib_TabsOrSpaces" }, tabsOrSpaces, wasm), lowerValue({ kind: "number" }, tabWidth, wasm)), wasm);
-      case 4:
-        return liftValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, wasm["lib__PrettyPrintContext__new__arity_4"](lowerValue({ kind: "number" }, maxLineWidth, wasm), lowerValue({ kind: "named", brand: "lib.TabsOrSpaces", showExport: "__js_show_lib_TabsOrSpaces" }, tabsOrSpaces, wasm), lowerValue({ kind: "number" }, tabWidth, wasm), lowerValue({ kind: "number" }, continuationIndent, wasm)), wasm);
-      case 5:
-        return liftValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: "__js_show_lib_PrettyPrintContext" }, wasm["lib__PrettyPrintContext__new"](lowerValue({ kind: "number" }, maxLineWidth, wasm), lowerValue({ kind: "named", brand: "lib.TabsOrSpaces", showExport: "__js_show_lib_TabsOrSpaces" }, tabsOrSpaces, wasm), lowerValue({ kind: "number" }, tabWidth, wasm), lowerValue({ kind: "number" }, continuationIndent, wasm), lowerValue({ kind: "number" }, sourceIndentWidth, wasm)), wasm);
-      default:
-        throw new TypeError("Invalid argument count for lib.PrettyPrintContext.new.");
-    }
-  },
-  show(value) {
-    return wasm["__js_show_lib_PrettyPrintContext"](value);
+    return liftValue({ kind: "named", brand: "lib.PrettyPrintContext", showExport: null }, wasm["lib__PrettyPrintContext__new"](lowerValue({ kind: "optional", helper: {"none":"__js_option_14_none","some":"__js_option_14_some","isSome":"__js_option_14_is_some","unwrap":"__js_option_14_unwrap"}, item: { kind: "number", moonType: "UInt" } }, maxLineWidth, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_81_none","some":"__js_option_81_some","isSome":"__js_option_81_is_some","unwrap":"__js_option_81_unwrap"}, item: { kind: "named", brand: "lib.TabsOrSpaces", showExport: null } }, tabsOrSpaces, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_14_none","some":"__js_option_14_some","isSome":"__js_option_14_is_some","unwrap":"__js_option_14_unwrap"}, item: { kind: "number", moonType: "UInt" } }, tabWidth, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_14_none","some":"__js_option_14_some","isSome":"__js_option_14_is_some","unwrap":"__js_option_14_unwrap"}, item: { kind: "number", moonType: "UInt" } }, continuationIndent, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_14_none","some":"__js_option_14_some","isSome":"__js_option_14_is_some","unwrap":"__js_option_14_unwrap"}, item: { kind: "number", moonType: "UInt" } }, sourceIndentWidth, wasm)), wasm);
   },
 });
 
 export const RecType = Object.freeze({
   getSubtype(arg0, arg1) {
-    return liftValue({ kind: "option", helper: {"none":"__js_option_17_none","some":"__js_option_17_some","isSome":"__js_option_17_is_some","unwrap":"__js_option_17_unwrap"}, item: { kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" } }, wasm["lib__RecType__get_subtype"](lowerValue({ kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" }, arg0, wasm), lowerValue({ kind: "number" }, arg1, wasm)), wasm);
+    return liftValue({ kind: "option", helper: {"none":"__js_option_29_none","some":"__js_option_29_some","isSome":"__js_option_29_is_some","unwrap":"__js_option_29_unwrap"}, item: { kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" } }, wasm["lib__RecType__get_subtype"](lowerValue({ kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" }, arg0, wasm), lowerValue({ kind: "number", moonType: "UInt" }, arg1, wasm)), wasm);
   },
   group(arg0) {
-    return liftValue({ kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" }, wasm["lib__RecType__group"](lowerValue({ kind: "array", helper: {"new":"__js_array_10_new","push":"__js_array_10_push","length":"__js_array_10_length","get":"__js_array_10_get"}, item: { kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" }, wasm["lib__RecType__group"](lowerValue({ kind: "array", helper: {"new":"__js_array_18_new","push":"__js_array_18_push","length":"__js_array_18_length","get":"__js_array_18_get"}, item: { kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" } }, arg0, wasm)), wasm);
   },
   new(arg0) {
     return liftValue({ kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" }, wasm["lib__RecType__new"](lowerValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_RecType"](value);
+    return wasm["__js_show_lib_RecType"](lowerValue({ kind: "named", brand: "lib.RecType" }, value, wasm));
   },
 });
 
@@ -3671,22 +3787,25 @@ export const RefType = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, wasm["lib__RefType__get_heap_type"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
   },
   isDefaultable(arg0) {
-    return liftValue({ kind: "bool" }, wasm["lib__RefType__is_defaultable"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__RefType__is_defaultable"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
+  },
+  isExact(arg0) {
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__RefType__is_exact"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
   },
   isNonNullable(arg0) {
-    return liftValue({ kind: "bool" }, wasm["lib__RefType__is_non_nullable"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__RefType__is_non_nullable"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
   },
   isNullable(arg0) {
-    return liftValue({ kind: "bool" }, wasm["lib__RefType__is_nullable"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__RefType__is_nullable"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
   },
   makeNullable(arg0) {
     return liftValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, wasm["lib__RefType__make_nullable"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
   },
-  new(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, wasm["lib__RefType__new"](lowerValue({ kind: "bool" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg1, wasm)), wasm);
+  new(arg0, arg1, exact) {
+    return liftValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, wasm["lib__RefType__new"](lowerValue({ kind: "bool", moonType: "Bool" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.HeapType", showExport: "__js_show_lib_HeapType" }, arg1, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_3_none","some":"__js_option_3_some","isSome":"__js_option_3_is_some","unwrap":"__js_option_3_unwrap"}, item: { kind: "bool", moonType: "Bool" } }, exact, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_RefType"](value);
+    return wasm["__js_show_lib_RefType"](lowerValue({ kind: "named", brand: "lib.RefType" }, value, wasm));
   },
 });
 
@@ -3710,40 +3829,46 @@ export const ReplaceLaneOp = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.ReplaceLaneOp", showExport: "__js_show_lib_ReplaceLaneOp" }, wasm["lib__ReplaceLaneOp__i8x16_replace_lane"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_ReplaceLaneOp"](value);
+    return wasm["__js_show_lib_ReplaceLaneOp"](lowerValue({ kind: "named", brand: "lib.ReplaceLaneOp" }, value, wasm));
   },
 });
 
 export const ResultType = Object.freeze({
 });
 
-export const S33 = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__S33__inner"](lowerValue({ kind: "named", brand: "lib.S33", showExport: "__js_show_lib_S33" }, arg0, wasm)), wasm);
+export const ResumeHandler = Object.freeze({
+  onLabel(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.ResumeHandler", showExport: "__js_show_lib_ResumeHandler" }, wasm["lib__ResumeHandler__on_label"](lowerValue({ kind: "named", brand: "lib.TagIdx", showExport: "__js_show_lib_TagIdx" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.LabelIdx", showExport: "__js_show_lib_LabelIdx" }, arg1, wasm)), wasm);
   },
-  new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.S33", showExport: "__js_show_lib_S33" }, wasm["lib__S33__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+  onSwitch(arg0) {
+    return liftValue({ kind: "named", brand: "lib.ResumeHandler", showExport: "__js_show_lib_ResumeHandler" }, wasm["lib__ResumeHandler__on_switch"](lowerValue({ kind: "named", brand: "lib.TagIdx", showExport: "__js_show_lib_TagIdx" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_S33"](value);
+    return wasm["__js_show_lib_ResumeHandler"](lowerValue({ kind: "named", brand: "lib.ResumeHandler" }, value, wasm));
+  },
+});
+
+export const S33 = Object.freeze({
+  new(arg0) {
+    return liftValue({ kind: "named", brand: "lib.S33", showExport: "__js_show_lib_S33" }, wasm["lib__S33__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_lib_S33"](lowerValue({ kind: "named", brand: "lib.S33" }, value, wasm));
   },
 });
 
 export const StartSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" }, wasm["lib__StartSec__inner"](lowerValue({ kind: "named", brand: "lib.StartSec", showExport: "__js_show_lib_StartSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
     return liftValue({ kind: "named", brand: "lib.StartSec", showExport: "__js_show_lib_StartSec" }, wasm["lib__StartSec__new"](lowerValue({ kind: "named", brand: "lib.FuncIdx", showExport: "__js_show_lib_FuncIdx" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_StartSec"](value);
+    return wasm["__js_show_lib_StartSec"](lowerValue({ kind: "named", brand: "lib.StartSec" }, value, wasm));
   },
 });
 
 export const StorageType = Object.freeze({
   isPacked(arg0) {
-    return liftValue({ kind: "bool" }, wasm["lib__StorageType__is_packed"](lowerValue({ kind: "named", brand: "lib.StorageType", showExport: "__js_show_lib_StorageType" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__StorageType__is_packed"](lowerValue({ kind: "named", brand: "lib.StorageType", showExport: "__js_show_lib_StorageType" }, arg0, wasm)), wasm);
   },
   packType(arg0) {
     return liftValue({ kind: "named", brand: "lib.StorageType", showExport: "__js_show_lib_StorageType" }, wasm["lib__StorageType__pack_type"](lowerValue({ kind: "named", brand: "lib.PackType", showExport: "__js_show_lib_PackType" }, arg0, wasm)), wasm);
@@ -3755,7 +3880,7 @@ export const StorageType = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.StorageType", showExport: "__js_show_lib_StorageType" }, wasm["lib__StorageType__val_type"](lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_StorageType"](value);
+    return wasm["__js_show_lib_StorageType"](lowerValue({ kind: "named", brand: "lib.StorageType" }, value, wasm));
   },
 });
 
@@ -3812,58 +3937,70 @@ export const StoreOp = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.StoreOp", showExport: "__js_show_lib_StoreOp" }, wasm["lib__StoreOp__v128_store"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_StoreOp"](value);
+    return wasm["__js_show_lib_StoreOp"](lowerValue({ kind: "named", brand: "lib.StoreOp" }, value, wasm));
+  },
+});
+
+export const StringRefsSec = Object.freeze({
+  new(arg0) {
+    return liftValue({ kind: "named", brand: "lib.StringRefsSec", showExport: "__js_show_lib_StringRefsSec" }, wasm["lib__StringRefsSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_5_new","push":"__js_array_5_push","length":"__js_array_5_length","get":"__js_array_5_get"}, item: { kind: "bytes", helper: {"fromArray":"__js_bytes_from_array","length":"__js_bytes_length","get":"__js_bytes_get","byteArray":{"new":"__js_array_67_new","push":"__js_array_67_push","length":"__js_array_67_length","get":"__js_array_67_get"}} } }, arg0, wasm)), wasm);
+  },
+  show(value) {
+    return wasm["__js_show_lib_StringRefsSec"](lowerValue({ kind: "named", brand: "lib.StringRefsSec" }, value, wasm));
   },
 });
 
 export const SubType = Object.freeze({
-  compType(arg0) {
-    return liftValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, wasm["lib__SubType__comp_type"](lowerValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, arg0, wasm)), wasm);
+  compType(arg0, metadata) {
+    return liftValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, wasm["lib__SubType__comp_type"](lowerValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, arg0, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.TypeMetadata", showExport: null } }, metadata, wasm)), wasm);
+  },
+  describesType(arg0) {
+    return liftValue({ kind: "option", helper: {"none":"__js_option_82_none","some":"__js_option_82_some","isSome":"__js_option_82_is_some","unwrap":"__js_option_82_unwrap"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } }, wasm["lib__SubType__describes_type"](lowerValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, arg0, wasm)), wasm);
+  },
+  descriptorType(arg0) {
+    return liftValue({ kind: "option", helper: {"none":"__js_option_82_none","some":"__js_option_82_some","isSome":"__js_option_82_is_some","unwrap":"__js_option_82_unwrap"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } }, wasm["lib__SubType__descriptor_type"](lowerValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, arg0, wasm)), wasm);
   },
   getComptype(arg0) {
     return liftValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, wasm["lib__SubType__get_comptype"](lowerValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, arg0, wasm)), wasm);
   },
-  new(arg0, arg1, arg2) {
-    return liftValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, wasm["lib__SubType__new"](lowerValue({ kind: "bool" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_11_new","push":"__js_array_11_push","length":"__js_array_11_length","get":"__js_array_11_get"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, arg2, wasm)), wasm);
+  metadata(arg0) {
+    return liftValue({ kind: "named", brand: "lib.TypeMetadata", showExport: null }, wasm["lib__SubType__metadata"](lowerValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, arg0, wasm)), wasm);
+  },
+  new(arg0, arg1, arg2, metadata) {
+    return liftValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, wasm["lib__SubType__new"](lowerValue({ kind: "bool", moonType: "Bool" }, arg0, wasm), lowerValue({ kind: "array", helper: {"new":"__js_array_19_new","push":"__js_array_19_push","length":"__js_array_19_length","get":"__js_array_19_get"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } }, arg1, wasm), lowerValue({ kind: "named", brand: "lib.CompType", showExport: "__js_show_lib_CompType" }, arg2, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_28_none","some":"__js_option_28_some","isSome":"__js_option_28_is_some","unwrap":"__js_option_28_unwrap"}, item: { kind: "named", brand: "lib.TypeMetadata", showExport: null } }, metadata, wasm)), wasm);
   },
   superTypes(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_11_new","push":"__js_array_11_push","length":"__js_array_11_length","get":"__js_array_11_get"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } }, wasm["lib__SubType__super_types"](lowerValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "array", helper: {"new":"__js_array_19_new","push":"__js_array_19_push","length":"__js_array_19_length","get":"__js_array_19_get"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } }, wasm["lib__SubType__super_types"](lowerValue({ kind: "named", brand: "lib.SubType", showExport: "__js_show_lib_SubType" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_SubType"](value);
+    return wasm["__js_show_lib_SubType"](lowerValue({ kind: "named", brand: "lib.SubType" }, value, wasm));
   },
 });
 
 export const Table = Object.freeze({
   new(arg0, arg1) {
-    return liftValue({ kind: "named", brand: "lib.Table", showExport: "__js_show_lib_Table" }, wasm["lib__Table__new"](lowerValue({ kind: "named", brand: "lib.TableType", showExport: "__js_show_lib_TableType" }, arg0, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_35_none","some":"__js_option_35_some","isSome":"__js_option_35_is_some","unwrap":"__js_option_35_unwrap"}, item: { kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" } }, arg1, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.Table", showExport: "__js_show_lib_Table" }, wasm["lib__Table__new"](lowerValue({ kind: "named", brand: "lib.TableType", showExport: "__js_show_lib_TableType" }, arg0, wasm), lowerValue({ kind: "option", helper: {"none":"__js_option_83_none","some":"__js_option_83_some","isSome":"__js_option_83_is_some","unwrap":"__js_option_83_unwrap"}, item: { kind: "named", brand: "lib.Expr", showExport: "__js_show_lib_Expr" } }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_Table"](value);
+    return wasm["__js_show_lib_Table"](lowerValue({ kind: "named", brand: "lib.Table" }, value, wasm));
   },
 });
 
 export const TableIdx = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__TableIdx__inner"](lowerValue({ kind: "named", brand: "lib.TableIdx", showExport: "__js_show_lib_TableIdx" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.TableIdx", showExport: "__js_show_lib_TableIdx" }, wasm["lib__TableIdx__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.TableIdx", showExport: "__js_show_lib_TableIdx" }, wasm["lib__TableIdx__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_TableIdx"](value);
+    return wasm["__js_show_lib_TableIdx"](lowerValue({ kind: "named", brand: "lib.TableIdx" }, value, wasm));
   },
 });
 
 export const TableSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_27_new","push":"__js_array_27_push","length":"__js_array_27_length","get":"__js_array_27_get"}, item: { kind: "named", brand: "lib.Table", showExport: "__js_show_lib_Table" } }, wasm["lib__TableSec__inner"](lowerValue({ kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" }, wasm["lib__TableSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_27_new","push":"__js_array_27_push","length":"__js_array_27_length","get":"__js_array_27_get"}, item: { kind: "named", brand: "lib.Table", showExport: "__js_show_lib_Table" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.TableSec", showExport: "__js_show_lib_TableSec" }, wasm["lib__TableSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_40_new","push":"__js_array_40_push","length":"__js_array_40_length","get":"__js_array_40_get"}, item: { kind: "named", brand: "lib.Table", showExport: "__js_show_lib_Table" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_TableSec"](value);
+    return wasm["__js_show_lib_TableSec"](lowerValue({ kind: "named", brand: "lib.TableSec" }, value, wasm));
   },
 });
 
@@ -3872,103 +4009,94 @@ export const TableType = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.TableType", showExport: "__js_show_lib_TableType" }, wasm["lib__TableType__new"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm), lowerValue({ kind: "named", brand: "lib.Limits", showExport: "__js_show_lib_Limits" }, arg1, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_TableType"](value);
+    return wasm["__js_show_lib_TableType"](lowerValue({ kind: "named", brand: "lib.TableType" }, value, wasm));
   },
 });
 
 export const TabsOrSpaces = Object.freeze({
   spaces() {
-    return liftValue({ kind: "named", brand: "lib.TabsOrSpaces", showExport: "__js_show_lib_TabsOrSpaces" }, wasm["lib__TabsOrSpaces__spaces"](), wasm);
+    return liftValue({ kind: "named", brand: "lib.TabsOrSpaces", showExport: null }, wasm["lib__TabsOrSpaces__spaces"](), wasm);
   },
   tabs() {
-    return liftValue({ kind: "named", brand: "lib.TabsOrSpaces", showExport: "__js_show_lib_TabsOrSpaces" }, wasm["lib__TabsOrSpaces__tabs"](), wasm);
-  },
-  show(value) {
-    return wasm["__js_show_lib_TabsOrSpaces"](value);
+    return liftValue({ kind: "named", brand: "lib.TabsOrSpaces", showExport: null }, wasm["lib__TabsOrSpaces__tabs"](), wasm);
   },
 });
 
 export const TagIdx = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__TagIdx__inner"](lowerValue({ kind: "named", brand: "lib.TagIdx", showExport: "__js_show_lib_TagIdx" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.TagIdx", showExport: "__js_show_lib_TagIdx" }, wasm["lib__TagIdx__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.TagIdx", showExport: "__js_show_lib_TagIdx" }, wasm["lib__TagIdx__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_TagIdx"](value);
+    return wasm["__js_show_lib_TagIdx"](lowerValue({ kind: "named", brand: "lib.TagIdx" }, value, wasm));
   },
 });
 
 export const TagSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_28_new","push":"__js_array_28_push","length":"__js_array_28_length","get":"__js_array_28_get"}, item: { kind: "named", brand: "lib.TagType", showExport: "__js_show_lib_TagType" } }, wasm["lib__TagSec__inner"](lowerValue({ kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" }, wasm["lib__TagSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_28_new","push":"__js_array_28_push","length":"__js_array_28_length","get":"__js_array_28_get"}, item: { kind: "named", brand: "lib.TagType", showExport: "__js_show_lib_TagType" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.TagSec", showExport: "__js_show_lib_TagSec" }, wasm["lib__TagSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_41_new","push":"__js_array_41_push","length":"__js_array_41_length","get":"__js_array_41_get"}, item: { kind: "named", brand: "lib.TagType", showExport: "__js_show_lib_TagType" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_TagSec"](value);
+    return wasm["__js_show_lib_TagSec"](lowerValue({ kind: "named", brand: "lib.TagSec" }, value, wasm));
   },
 });
 
 export const TagType = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, wasm["lib__TagType__inner"](lowerValue({ kind: "named", brand: "lib.TagType", showExport: "__js_show_lib_TagType" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
     return liftValue({ kind: "named", brand: "lib.TagType", showExport: "__js_show_lib_TagType" }, wasm["lib__TagType__new"](lowerValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_TagType"](value);
+    return wasm["__js_show_lib_TagType"](lowerValue({ kind: "named", brand: "lib.TagType" }, value, wasm));
   },
 });
 
 export const TypeIdx = Object.freeze({
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, wasm["lib__TypeIdx__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, wasm["lib__TypeIdx__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
   },
   rec(arg0) {
-    return liftValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, wasm["lib__TypeIdx__rec"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" }, wasm["lib__TypeIdx__rec"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_TypeIdx"](value);
+    return wasm["__js_show_lib_TypeIdx"](lowerValue({ kind: "named", brand: "lib.TypeIdx" }, value, wasm));
+  },
+});
+
+export const TypeMetadata = Object.freeze({
+  isShared(arg0) {
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__TypeMetadata__is_shared"](lowerValue({ kind: "named", brand: "lib.TypeMetadata", showExport: null }, arg0, wasm)), wasm);
+  },
+  new(describes, descriptor, shared) {
+    return liftValue({ kind: "named", brand: "lib.TypeMetadata", showExport: null }, wasm["lib__TypeMetadata__new"](lowerValue({ kind: "optional", helper: {"none":"__js_option_84_none","some":"__js_option_84_some","isSome":"__js_option_84_is_some","unwrap":"__js_option_84_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_82_none","some":"__js_option_82_some","isSome":"__js_option_82_is_some","unwrap":"__js_option_82_unwrap"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } } }, describes, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_84_none","some":"__js_option_84_some","isSome":"__js_option_84_is_some","unwrap":"__js_option_84_unwrap"}, item: { kind: "option", helper: {"none":"__js_option_82_none","some":"__js_option_82_some","isSome":"__js_option_82_is_some","unwrap":"__js_option_82_unwrap"}, item: { kind: "named", brand: "lib.TypeIdx", showExport: "__js_show_lib_TypeIdx" } } }, descriptor, wasm), lowerValue({ kind: "optional", helper: {"none":"__js_option_3_none","some":"__js_option_3_some","isSome":"__js_option_3_is_some","unwrap":"__js_option_3_unwrap"}, item: { kind: "bool", moonType: "Bool" } }, shared, wasm)), wasm);
+  },
+  withShared(arg0, arg1) {
+    return liftValue({ kind: "named", brand: "lib.TypeMetadata", showExport: null }, wasm["lib__TypeMetadata__with_shared"](lowerValue({ kind: "named", brand: "lib.TypeMetadata", showExport: null }, arg0, wasm), lowerValue({ kind: "bool", moonType: "Bool" }, arg1, wasm)), wasm);
   },
 });
 
 export const TypeSec = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" } }, wasm["lib__TypeSec__inner"](lowerValue({ kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" }, wasm["lib__TypeSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_29_new","push":"__js_array_29_push","length":"__js_array_29_length","get":"__js_array_29_get"}, item: { kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" } }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.TypeSec", showExport: "__js_show_lib_TypeSec" }, wasm["lib__TypeSec__new"](lowerValue({ kind: "array", helper: {"new":"__js_array_42_new","push":"__js_array_42_push","length":"__js_array_42_length","get":"__js_array_42_get"}, item: { kind: "named", brand: "lib.RecType", showExport: "__js_show_lib_RecType" } }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_TypeSec"](value);
+    return wasm["__js_show_lib_TypeSec"](lowerValue({ kind: "named", brand: "lib.TypeSec" }, value, wasm));
   },
 });
 
 export const U32 = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "number" }, wasm["lib__U32__inner"](lowerValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, wasm["lib__U32__new"](lowerValue({ kind: "number" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.U32", showExport: "__js_show_lib_U32" }, wasm["lib__U32__new"](lowerValue({ kind: "number", moonType: "UInt" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_U32"](value);
+    return wasm["__js_show_lib_U32"](lowerValue({ kind: "named", brand: "lib.U32" }, value, wasm));
   },
 });
 
 export const U64 = Object.freeze({
-  inner(arg0) {
-    return liftValue({ kind: "bigint" }, wasm["lib__U64__inner"](lowerValue({ kind: "named", brand: "lib.U64", showExport: "__js_show_lib_U64" }, arg0, wasm)), wasm);
-  },
   new(arg0) {
-    return liftValue({ kind: "named", brand: "lib.U64", showExport: "__js_show_lib_U64" }, wasm["lib__U64__new"](lowerValue({ kind: "bigint" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "named", brand: "lib.U64", showExport: "__js_show_lib_U64" }, wasm["lib__U64__new"](lowerValue({ kind: "bigint", moonType: "UInt64" }, arg0, wasm)), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_U64"](value);
+    return wasm["__js_show_lib_U64"](lowerValue({ kind: "named", brand: "lib.U64" }, value, wasm));
   },
 });
 
@@ -4343,7 +4471,7 @@ export const UnaryOp = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.UnaryOp", showExport: "__js_show_lib_UnaryOp" }, wasm["lib__UnaryOp__v128_not"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_UnaryOp"](value);
+    return wasm["__js_show_lib_UnaryOp"](lowerValue({ kind: "named", brand: "lib.UnaryOp" }, value, wasm));
   },
 });
 
@@ -4361,7 +4489,7 @@ export const V128LoadLaneOp = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.V128LoadLaneOp", showExport: "__js_show_lib_V128LoadLaneOp" }, wasm["lib__V128LoadLaneOp__v128_load8_lane"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_V128LoadLaneOp"](value);
+    return wasm["__js_show_lib_V128LoadLaneOp"](lowerValue({ kind: "named", brand: "lib.V128LoadLaneOp" }, value, wasm));
   },
 });
 
@@ -4403,7 +4531,7 @@ export const V128ShiftOp = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.V128ShiftOp", showExport: "__js_show_lib_V128ShiftOp" }, wasm["lib__V128ShiftOp__i8x16_shr_u"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_V128ShiftOp"](value);
+    return wasm["__js_show_lib_V128ShiftOp"](lowerValue({ kind: "named", brand: "lib.V128ShiftOp" }, value, wasm));
   },
 });
 
@@ -4421,7 +4549,7 @@ export const V128StoreLaneOp = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.V128StoreLaneOp", showExport: "__js_show_lib_V128StoreLaneOp" }, wasm["lib__V128StoreLaneOp__v128_store8_lane"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_V128StoreLaneOp"](value);
+    return wasm["__js_show_lib_V128StoreLaneOp"](lowerValue({ kind: "named", brand: "lib.V128StoreLaneOp" }, value, wasm));
   },
 });
 
@@ -4457,7 +4585,7 @@ export const V128TernaryOp = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.V128TernaryOp", showExport: "__js_show_lib_V128TernaryOp" }, wasm["lib__V128TernaryOp__v128_bitselect"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_V128TernaryOp"](value);
+    return wasm["__js_show_lib_V128TernaryOp"](lowerValue({ kind: "named", brand: "lib.V128TernaryOp" }, value, wasm));
   },
 });
 
@@ -4496,7 +4624,7 @@ export const ValType = Object.freeze({
     return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__ValType__i64"](), wasm);
   },
   isRefType(arg0) {
-    return liftValue({ kind: "bool" }, wasm["lib__ValType__is_ref_type"](lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg0, wasm)), wasm);
+    return liftValue({ kind: "bool", moonType: "Bool" }, wasm["lib__ValType__is_ref_type"](lowerValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, arg0, wasm)), wasm);
   },
   numType(arg0) {
     return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__ValType__num_type"](lowerValue({ kind: "named", brand: "lib.NumType", showExport: "__js_show_lib_NumType" }, arg0, wasm)), wasm);
@@ -4516,13 +4644,19 @@ export const ValType = Object.freeze({
   refNullExn() {
     return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__ValType__ref_null_exn"](), wasm);
   },
+  refNullType(arg0) {
+    return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__ValType__ref_null_type"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
+  },
   refType(arg0) {
     return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__ValType__ref_type"](lowerValue({ kind: "named", brand: "lib.RefType", showExport: "__js_show_lib_RefType" }, arg0, wasm)), wasm);
+  },
+  stringref() {
+    return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__ValType__stringref"](), wasm);
   },
   v128() {
     return liftValue({ kind: "named", brand: "lib.ValType", showExport: "__js_show_lib_ValType" }, wasm["lib__ValType__v128"](), wasm);
   },
   show(value) {
-    return wasm["__js_show_lib_ValType"](value);
+    return wasm["__js_show_lib_ValType"](lowerValue({ kind: "named", brand: "lib.ValType" }, value, wasm));
   },
 });
