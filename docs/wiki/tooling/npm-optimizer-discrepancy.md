@@ -587,3 +587,40 @@ No npm action occurred here: prior ae package/type/packed-consumer evidence is
 historical, and fresh integrated-head FFI/types/self-build/packed JS/strict-TS/CI
 qualification stays with the prep owner. Memory acceptance, licensing and broader
 recursive GC/preset/effectful OI gaps remain open; no push or release action.
+
+
+## Integration decision and P1 memory blocker
+
+The published native/coverage repair `a2edeed5ca715fb9e67a4d02a460652dd73dfed7`
+passes all six master workflows, including 14,033 default tests, actual native
+examples and installed-validator checks, and 28,104 uncovered lines against the
+unchanged 28,138 baseline. Its exact package CI reproduces the 47-file archive
+recorded in [the handoff](../../npm-beta-handoff.md). Earlier failed checkpoints
+and historical owner measurements above remain separate evidence.
+
+The complete nineteen-commit reviewed GC chain after `62ba4012f` through
+`680fd66c14899375fddc26b7a2979db2abe183d4` is now locally integrated atop a2 at
+`dfee891382f9ed188129242fcde4408377d6839f`. Pass/RUME source is identical to the
+reviewed owner checkpoint; native compatibility, public FFI/package contracts
+and CI retain a2 source. Red-first regressions and original commit provenance
+are retained. The separate no-benefit baseline allocation route is excluded.
+
+The user's October 10 decision temporarily accepts the overhead for integration
+and requires it to remain a **P1 blocker**. This supersedes the historical
+acceptance-pending statements above. It does not establish a peak bound, a leak
+or speed guarantee, or close [NPM-GC-MEMORY-P1](../../../agent-todo.md#p1-blocker--reduce-gc-canonicalization-and-wrapper-peak-memory-npm-gc-memory-p1).
+Historical three-sample median RSS remains 37,552 KiB above the first equivalent
+control despite saving 21,612 KiB against the memory-repair control. The 271,688
+additional GC-byte benefit and unchanged original output hashes are preserved.
+The active blocker requires controlled matched cohorts, explicit noise budget,
+phase/lifetime attribution and repeated supported-Node reclamation checks;
+partial reductions and temporary acceptance cannot close it.
+
+Fresh qualification must use the combined source, newly compiled native CLI,
+FFI-generated declarations, self-optimized artifacts and exact packed consumers.
+Historical owner and a2 package results do not qualify that new head. The five-
+pass O4s numeric 4/1 preset, bounded admission, immutable ownership and complete
+recursive/public/type identities stay unchanged. All protected exact-head
+checks precede normal source publication. License, candidate/provenance and npm
+publication decisions remain separate; broader GC/preset and effectful OI gaps
+remain open.

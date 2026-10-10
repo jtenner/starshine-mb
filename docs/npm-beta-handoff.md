@@ -449,3 +449,22 @@ the archive. Both Wasm files extracted from this exact archive independently
 validate. Artifacts/reports remain in ignored `dist/npm/qualified-native-coverage/`
 and `dist/npm/source-publication/native-debug-investigation/`. Clean exact-head
 CI and protected source-push preflight remain the final source qualification.
+
+
+## Reviewed GC integration and memory release decision
+
+The native/coverage checkpoint a2 is published and all six master workflows
+pass. Its exact 47-file tarball and Node25/26 consumers above remain historical
+package qualification. The complete nineteen-commit owner chain through
+`680fd66c` is now locally integrated at `dfee891382f9ed188129242fcde4408377d6839f`;
+this supersedes the earlier statement that it remains isolated. Source-native
+bootstrap, FFI/types, self-optimized artifact parity, exact packed consumers and
+protected CI must be renewed on the combined source before master publication.
+
+The user temporarily accepts the measured GC memory overhead and requires an
+open [P1 memory blocker](../agent-todo.md#p1-blocker--reduce-gc-canonicalization-and-wrapper-peak-memory-npm-gc-memory-p1).
+The [decision and preserved evidence](wiki/tooling/npm-optimizer-discrepancy.md#integration-decision-and-p1-memory-blocker)
+retain all sample ranges, adverse diagnostics and distinct baseline cohorts.
+The additional original GC benefit is 271,688 bytes; the historical final
+median remains 37,552 KiB above the first equivalent control. Acceptance does
+not close memory, broader optimizer, license or npm release decisions.

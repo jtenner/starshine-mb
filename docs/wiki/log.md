@@ -1,3 +1,20 @@
+### 2026-10-10 — Integrate reviewed GC repairs with an open P1 memory blocker
+
+- [The integration decision](tooling/npm-optimizer-discrepancy.md#integration-decision-and-p1-memory-blocker)
+  combines the full reviewed nineteen-commit GC/remap/storage/wrapper chain with
+  the a2 native/coverage repair. All six published a2 master workflows pass;
+  its older failure checkpoints remain historical evidence.
+- The user temporarily accepts the measured remaining 36.7 MiB median increase
+  versus the first equivalent control and requires an open P1 blocker in the
+  [active backlog](../../agent-todo.md#p1-blocker--reduce-gc-canonicalization-and-wrapper-peak-memory-npm-gc-memory-p1).
+  This supersedes acceptance-pending wording below, not the measurement limits.
+  Preserve the additional 271,688-byte original GC benefit and exclude the
+  separate no-benefit baseline allocation route.
+- Fresh combined-head generated ABI/types, source-native self-build, exact
+  packed consumers, native-debug, unchanged coverage and protected CI remain
+  required before normal master publication. No npm/tag/release/license action
+  is authorized, and broader optimizer gaps stay open.
+
 ### 2026-10-10 — Repair native compatibility and strengthen codec contracts
 
 - [The native qualification](tooling/npm-optimizer-discrepancy.md#october-10-2026--native-debug-compatibility-and-resource-qualification)

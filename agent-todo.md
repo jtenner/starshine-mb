@@ -12,59 +12,80 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 
 ## npm WasmGC beta preparation [NPM-WASMGC-BETA]
 
-- The tested build/pack/install route, generated types and preserved artifacts
-  are recorded in [the handoff](docs/npm-beta-handoff.md). Keep the isolated
-  beta branch and historical O1/O4s evidence.
-- Source publication to `origin/master` is authorized. Exact `113af3874` was
-  published by a normal fast-forward after all three protected contexts passed;
-  master package CI reproduces the qualified 47-file archive. npm publication,
-  tags, releases, deployment and credential changes remain unauthorized.
-- The ten reviewed optimizer commits through `62ba4012f` are integrated. Private
-  DFE admission, optional-arm analysis and bounded flat coalescing retain their
-  red-first regressions and the five-pass O4s numeric 4/1 queue. The unchanged
-  original-input comparison and residual limits are recorded in the
-  [discrepancy dossier](docs/wiki/tooling/npm-optimizer-discrepancy.md).
-- The bounded 45-minute required differential job passes on exact published
-  `113af3874`; its original case counts, profiles, oracle and failure policy
-  remain intact. Complete published-head coverage still fails at 28,244 / 226
-  against the unchanged 28,138 / 196 baseline. Native-debug examples fail at
-  compiler issue #1322. Preserve both failures until exact repair CI qualifies.
-- The repair candidate adds independent bridge/compiler-facts behavior tests
-  and private initialized native lower-stack storage. Actual native debug
-  examples and installed-validator tests pass locally. Fresh compatible traces
-  report 28,104 uncovered lines, 34 below the unchanged baseline. The fresh
-  47-file/4,802,894-byte archive
-  passes isolated Node25/26 JS and strict TS consumers. Exact-head CI must
-  independently qualify the combined candidate before source publication.
-  Do not reset coverage, replace debug with release, or disable assertions.
-- The later GC canonicalization/memory checkpoints remain isolated pending the
-  owner's memory acceptance. Preserve the exact raw input and selected package;
-  do not combine unlike RSS baselines or use chained/idempotent output as the
-  comparison measure. Broader GC/preset and effectful OI gaps remain open.
-- New unsupported ABI mappings fail against the reviewed identity/reason policy;
-  supported signatures continue to derive solely from FFI exports.
-- Release decisions remain: reconcile root MIT / MoonBit Apache-2.0, approve
-  candidate version and publication/provenance route, and qualify the documented
-  MoonBit toolchain and remaining repository gates. Upstream #1322 remains a
-  compiler issue despite the local compatibility workaround. Do not revive
-  unrelated DAE2/O campaigns as part of this package task.
-- Optimizer follow-up: [the discrepancy investigation](docs/wiki/tooling/npm-optimizer-discrepancy.md#qualified-immutable-type-wrapper-sharing)
-  preserves exact original inputs and tested fixes. Published master `113af3874`
-  contains the first reviewed optimizer/prep checkpoint. GC and allocation
-  follow-ups remain isolated pending user acceptance of the remaining local
-  native median cost, about 36.7MiB above the first equivalent baseline.
-  `0d68c3f1b` retains the 271,688-byte GC reduction and exact output hashes;
-  bounded regressions, independent review, strict 10k and separate GC runtime
-  renewal are scoped evidence, not general peak or full-pass closure.
-  Coordinate held branches through parent; fresh integrated FFI/types/self-build,
-  packed JS/strict-TS and CI qualification remain with the prep owner. Broader
-  recursive GC/preset and effectful OI gaps remain open.
+- The tested build/pack/install route and generated ABI/types are recorded in
+  [the handoff](docs/npm-beta-handoff.md). Work from verified `origin/master`;
+  preserve other checkouts, held optimizer refs and historical packages.
+  Source publication is authorized; npm publication, tags/releases, deployment
+  and credential changes remain unauthorized.
+- Published `a2edeed5ca715fb9e67a4d02a460652dd73dfed7` passes all six master
+  workflows: Required CI (14,033 tests and retained 10k differential gates),
+  Package, Coverage Report (28,104 / 224 against unchanged 28,138 / 196),
+  Examples CLI Native, Fuzz Suites and README API Sync. These results supersede
+  the older `113af3874` coverage/native failures as current checkpoint status;
+  the failed logs and upstream MoonBit #1322 remain historical evidence.
+- The ten first-checkpoint optimizer commits and nineteen reviewed GC/remap/
+  storage/immutable-wrapper commits through `680fd66c` are integrated locally
+  at `dfee891382f9ed188129242fcde4408377d6839f`. Pass/RUME source matches the
+  reviewed owner chain; native compatibility, FFI and CI source stays at a2.
+  The user temporarily accepts the measured overhead and explicitly requires
+  the open P1 blocker below. This supersedes prior acceptance-pending language,
+  without closing memory or broader optimizer disparity.
+- [ ] Qualify the complete combined head: generated FFI/TypeScript drift,
+  Starshine-only five-pass O4s 4/1 self-build, original-input validation/runtime
+  controls, isolated exact-tarball Node25/26 JS/strict-TS consumers, native-debug
+  behavior and unchanged coverage gate. Exact-head protected CI must pass before
+  normal master publication; retain failures, residuals and oracle identities.
+- [ ] Reconcile root MIT / MoonBit Apache-2.0 and approve candidate version,
+  provenance route and npm publication. No license is silently selected.
+- Unsupported ABI identities/reasons stay guarded; supported signatures derive
+  solely from FFI exports. Preserve nominal ownership and runtime requirements.
+  Keep the separate no-benefit baseline allocation route out. Coordinate held
+  follow-ups through the parent; do not revive unrelated DAE2/O campaigns.
+
+### P1 BLOCKER — reduce GC canonicalization and wrapper peak memory [NPM-GC-MEMORY-P1]
+
+- **Goal / why:** recover the incremental native peak memory from bounded GC
+  canonicalization and immutable TypeIdx/concrete-HeapType wrapper sharing while
+  preserving its artifact benefit and correctness. The user temporarily accepts
+  the overhead for integration; this acceptance does not close the P1 blocker.
+- **Same-input evidence:** on preserved ORIGINAL GC SHA-256
+  `059555428f569dcd57275757be8453a4f4881eb80592f9f80e402b4987072de3`
+  (7,452,107 bytes), three serial fixed-order samples gave first-checkpoint
+  equivalent median 265,612 KiB (range 261,400–265,952), memory-repair control
+  324,776 KiB (324,236–326,352), and final `680fd66c` 303,164 KiB
+  (302,828–303,492). Final saves 21,612 KiB versus repair, but retains 37,552 KiB
+  (~36.7 MiB) above first. Output 7,232,524 -> 6,960,836 bytes retains 271,688
+  bytes of additional benefit. These are historical same-original cohorts, not
+  measurements of fresh unlike-input npm builds or current a2 source.
+- **Limits / invariants:** native peak RSS and occupied rounded heap blocks are
+  different measurements; allocator-retained RSS remains after logical data
+  releases. No upper-peak, general leak, repeated-JavaScript retention or speed
+  guarantee. Keep immutable source ownership, complete type/exact/nullable
+  operands, retained recursive-group/public identities, bounded per-CodeSec
+  cache lifetime and unchanged preset admission. Exclude the no-benefit baseline
+  route and unqualified RefType/global/mutable graph caches.
+- [ ] **Tasks / deliverables:** attribute phase maxima and input/output live overlap,
+  map/wrapper capacities and allocator retention; retain normal uninstrumented
+  RSS cohorts and separately label diagnostic occupied-block snapshots. Exercise
+  unchanged/changed typed widths and cache lifetime, then repeated initialize /
+  parse / optimize / encode and reclamation in supported Node runtimes. Publish
+  a reduced allocation/lifetime regression and explicit source/tool/input hashes.
+- **Exit criteria:** agree a baseline-noise budget before measuring; run matched
+  fresh actual-baseline/candidate cohorts directly from identical original bytes
+  with controlled concurrency/order and retained samples (at least five pairs,
+  median/MAD/ranges/maxima). Recover incremental RSS within that budget without
+  losing the reviewed GC benefit, independent validation, runtime observations,
+  nominal ownership or tarball behavior. Re-run focused regressions, full suite,
+  generated ABI/type drift and isolated packed consumers. A cache microbenchmark,
+  single favorable sample or temporary integration approval cannot close this
+  blocker; partial reductions remain documented progress.
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
 - **Goal / why:** make Starshine competitive before release by closing pass,
   pipeline, command and output-quality gaps without removing transformations.
-- **Current execution checkout:** work on `main` in the primary local repository.
+- **Current execution checkout:** follow the user-requested verified `master`
+  baseline and coordinate existing independent checkouts without resetting them.
   The October 5 correctness campaign is integrated from local `master`.
   Preserve historical branch measurements under their frozen source versions;
   follow the latest user-requested checkout for subsequent work.
