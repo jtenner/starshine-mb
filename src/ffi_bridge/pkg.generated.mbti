@@ -59,6 +59,8 @@ pub fn module_with_start_function(@lib.Module, Int) -> @lib.Module
 
 pub fn nominal_ref_type(Int, Bool) -> @lib.ValType
 
+pub fn optimize_module(@lib.Module, Array[String], optimize_level? : Int, shrink_level? : Int) -> Result[@lib.Module, String]
+
 pub fn rec_types_new() -> Array[@lib.RecType]
 
 pub fn rec_types_push(Array[@lib.RecType], @lib.RecType) -> Unit

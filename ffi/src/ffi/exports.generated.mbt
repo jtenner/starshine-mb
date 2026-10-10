@@ -540,6 +540,1169 @@ pub fn ffi_cli_TrapMode_never() -> @cli.TrapMode {
 
 ///|
 #doc(hidden)
+#export_name("ffi_cmd_binary_differential_classification_label")
+pub fn ffi_cmd_binary_differential_classification_label(
+  value0 : @cmd.BinaryDifferentialClassification,
+) -> String {
+  @cmd.binary_differential_classification_label(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_binary_differential_failed_validation_result")
+pub fn ffi_cmd_binary_differential_failed_validation_result(
+  value0 : String,
+  value1 : Bytes,
+  value2 : String,
+) -> @cmd.BinaryDifferentialAdapterResult {
+  @cmd.binary_differential_failed_validation_result(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_choose_simple_export_invocation_args")
+pub fn ffi_cmd_choose_simple_export_invocation_args(
+  value0 : Array[@lib.ValType],
+) -> Result[Array[String], String] {
+  @cmd.choose_simple_export_invocation_args(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_classify_binary_canonicality_differential")
+pub fn ffi_cmd_classify_binary_canonicality_differential(
+  value0 : @cmd.BinaryCanonicalityInputClass,
+  value1 : Bool,
+  value2 : Bool?,
+  value3 : Bool?,
+) -> @cmd.BinaryCanonicalityClassification {
+  @cmd.classify_binary_canonicality_differential(value0, value1, value2, value3)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_classify_binary_differential_results")
+pub fn ffi_cmd_classify_binary_differential_results(
+  value0 : Array[@cmd.BinaryDifferentialAdapterResult],
+) -> @cmd.BinaryDifferentialClassification {
+  @cmd.classify_binary_differential_results(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_classify_export_invocation_matrix")
+pub fn ffi_cmd_classify_export_invocation_matrix(
+  value0 : @cmd.ExportInvocationMatrixSummary,
+) -> @cmd.ExportInvocationMatrixOutcome {
+  @cmd.classify_export_invocation_matrix(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_classify_export_invocation_results")
+pub fn ffi_cmd_classify_export_invocation_results(
+  value0 : @cmd.ExportInvocationResult,
+  value1 : @cmd.ExportInvocationResult,
+) -> @cmd.ExportInvocationClassification {
+  @cmd.classify_export_invocation_results(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_classify_n_way_text_aggregate")
+pub fn ffi_cmd_classify_n_way_text_aggregate(
+  value0 : Array[@cmd.TextAggregateAdapterResult],
+) -> @cmd.TextAggregateClassification {
+  @cmd.classify_n_way_text_aggregate(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_cmd_fuzz_harness_profile_config")
+pub fn ffi_cmd_cmd_fuzz_harness_profile_config(
+  value0 : String,
+) -> Result[@cmd.CmdFuzzHarnessProfileConfig, String] {
+  @cmd.cmd_fuzz_harness_profile_config(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_cmd_fuzz_harness_profile_config_with_seed")
+pub fn ffi_cmd_cmd_fuzz_harness_profile_config_with_seed(
+  value0 : String,
+  value1 : UInt64,
+) -> Result[@cmd.CmdFuzzHarnessProfileConfig, String] {
+  @cmd.cmd_fuzz_harness_profile_config_with_seed(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_cmd_fuzz_random_pass_sequence")
+pub fn ffi_cmd_cmd_fuzz_random_pass_sequence(
+  value0 : String,
+  value1 : UInt64,
+) -> Array[String] {
+  @cmd.cmd_fuzz_random_pass_sequence(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_cmd_help_text")
+pub fn ffi_cmd_cmd_help_text() -> String {
+  @cmd.cmd_help_text()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_cmd_version_text")
+pub fn ffi_cmd_cmd_version_text() -> String {
+  @cmd.cmd_version_text()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_compare_export_invocation_results")
+pub fn ffi_cmd_compare_export_invocation_results(
+  value0 : String,
+  value1 : Array[String],
+  value2 : @cmd.ExportInvocationResult,
+  value3 : @cmd.ExportInvocationResult,
+) -> @cmd.ExportInvocationComparisonReport {
+  @cmd.compare_export_invocation_results(value0, value1, value2, value3)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_differential_validate_wasm")
+pub fn ffi_cmd_differential_validate_wasm(
+  value0 : Bytes,
+  adapters : @cmd.DifferentialAdapters?,
+) -> Result[@cmd.DifferentialValidationReport, String] {
+  @cmd.differential_validate_wasm(value0, adapters?)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_export_invocation_matrix_should_fail")
+pub fn ffi_cmd_export_invocation_matrix_should_fail(
+  value0 : @cmd.ExportInvocationMatrixSummary,
+  value1 : @cmd.ExportInvocationFailurePolicy,
+) -> Bool {
+  @cmd.export_invocation_matrix_should_fail(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_export_invocation_semantic_mismatch_reports")
+pub fn ffi_cmd_export_invocation_semantic_mismatch_reports(
+  value0 : Array[@cmd.ExportInvocationComparisonReport],
+) -> Array[@cmd.ExportInvocationComparisonReport] {
+  @cmd.export_invocation_semantic_mismatch_reports(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_export_invocation_summary_has_semantic_mismatch")
+pub fn ffi_cmd_export_invocation_summary_has_semantic_mismatch(
+  value0 : @cmd.ExportInvocationMatrixSummary,
+) -> Bool {
+  @cmd.export_invocation_summary_has_semantic_mismatch(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_format_binary_differential_smoke_report_json")
+pub fn ffi_cmd_format_binary_differential_smoke_report_json(
+  value0 : @cmd.BinaryDifferentialSmokeReport,
+) -> String {
+  @cmd.format_binary_differential_smoke_report_json(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_minimize_fuzz_passes")
+pub fn ffi_cmd_minimize_fuzz_passes(
+  value0 : Array[String],
+  value1 : (Array[String]) -> Bool,
+) -> Array[String] {
+  @cmd.minimize_fuzz_passes(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_native_differential_tools_available")
+pub fn ffi_cmd_native_differential_tools_available() -> (Bool, Bool) {
+  @cmd.native_differential_tools_available()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_persist_fuzz_failure_report")
+pub fn ffi_cmd_persist_fuzz_failure_report(
+  value0 : @cmd.FuzzFailureReport,
+  value1 : @cmd.FuzzFailurePersistIO,
+  corpus_dir : String?,
+) -> Result[(String, String?), String] {
+  @cmd.persist_fuzz_failure_report(value0, value1, corpus_dir?)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_persist_text_differential_artifacts")
+pub fn ffi_cmd_persist_text_differential_artifacts(
+  value0 : String,
+  value1 : @cmd.TextParsePrintLowerReport,
+  value2 : Array[@cmd.TextAggregateAdapterResult],
+  value3 : @cmd.TextAggregateClassification,
+  value4 : @cmd.FuzzFailurePersistIO,
+  repro_dir : String?,
+  seed : UInt64?,
+  attempt : Int?,
+) -> Result[@cmd.TextDifferentialArtifactPaths, String] {
+  @cmd.persist_text_differential_artifacts(
+    value0,
+    value1,
+    value2,
+    value3,
+    value4,
+    repro_dir?,
+    seed?,
+    attempt?,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_reduce_fuzz_bytes_by_slice_deletion")
+pub fn ffi_cmd_reduce_fuzz_bytes_by_slice_deletion(
+  value0 : Bytes,
+  value1 : (Bytes) -> Bool,
+) -> @cmd.FuzzReductionReport[Bytes] {
+  @cmd.reduce_fuzz_bytes_by_slice_deletion(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_reduce_fuzz_module_fields_by_deletion")
+pub fn ffi_cmd_reduce_fuzz_module_fields_by_deletion(
+  value0 : Array[@wast.ModuleField],
+  value1 : (Array[@wast.ModuleField]) -> Bool,
+) -> @cmd.FuzzReductionReport[Array[@wast.ModuleField]] {
+  @cmd.reduce_fuzz_module_fields_by_deletion(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_reduce_fuzz_text_tokens_by_deletion")
+pub fn ffi_cmd_reduce_fuzz_text_tokens_by_deletion(
+  value0 : String,
+  value1 : (String) -> Bool,
+) -> @cmd.FuzzReductionReport[String] {
+  @cmd.reduce_fuzz_text_tokens_by_deletion(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_run_binary_differential_smoke")
+pub fn ffi_cmd_run_binary_differential_smoke(
+  value0 : Array[Bytes],
+  external_adapters : Array[@cmd.BinaryDifferentialSmokeAdapter]?,
+) -> @cmd.BinaryDifferentialSmokeReport {
+  @cmd.run_binary_differential_smoke(value0, external_adapters?)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_run_binaryen_binary_validation_adapter")
+pub fn ffi_cmd_run_binaryen_binary_validation_adapter(
+  value0 : Bytes,
+) -> @cmd.BinaryDifferentialAdapterResult {
+  @cmd.run_binaryen_binary_validation_adapter(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_run_cmd")
+pub fn ffi_cmd_run_cmd(
+  value0 : Array[String],
+) -> Result[@cmd.CmdRunSummary, @cmd.CmdError] {
+  @cmd.run_cmd(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_run_cmd_exit_code")
+pub fn ffi_cmd_run_cmd_exit_code(value0 : Array[String]) -> Int {
+  @cmd.run_cmd_exit_code(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_run_cmd_exit_code_with_adapter")
+pub fn ffi_cmd_run_cmd_exit_code_with_adapter(
+  value0 : Array[String],
+  value1 : @cmd.CmdIO,
+  config_json : String??,
+) -> Int {
+  @cmd.run_cmd_exit_code_with_adapter(value0, value1, config_json?)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_run_cmd_fuzz_harness")
+pub fn ffi_cmd_run_cmd_fuzz_harness(
+  value0 : Int,
+  seed : UInt64?,
+  optimize_passes : Array[String]?,
+  generator_profile : String?,
+  generator_config : @validate.GenValidConfig??,
+  pass_profile : String?,
+  check_optimize_idempotence : Bool?,
+  check_encode_decode_idempotence : Bool?,
+  check_optimizer_determinism : Bool?,
+  differential_adapters : @cmd.DifferentialAdapters??,
+  differential_every : Int?,
+  on_failure : ((@cmd.FuzzFailureReport) -> Result[Unit, String])??,
+) -> Result[@cmd.CmdFuzzStats, String] {
+  @cmd.run_cmd_fuzz_harness(
+    value0,
+    seed?,
+    optimize_passes?,
+    generator_profile?,
+    generator_config?,
+    pass_profile?,
+    check_optimize_idempotence?,
+    check_encode_decode_idempotence?,
+    check_optimizer_determinism?,
+    differential_adapters?,
+    differential_every?,
+    on_failure?,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_run_cmd_fuzz_harness_profile")
+pub fn ffi_cmd_run_cmd_fuzz_harness_profile(
+  value0 : String,
+  value1 : UInt64,
+) -> Result[@cmd.CmdFuzzStats, String] {
+  @cmd.run_cmd_fuzz_harness_profile(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_run_cmd_with_adapter")
+pub fn ffi_cmd_run_cmd_with_adapter(
+  value0 : Array[String],
+  value1 : @cmd.CmdIO,
+  config_json : String??,
+) -> Result[@cmd.CmdRunSummary, @cmd.CmdError] {
+  @cmd.run_cmd_with_adapter(value0, value1, config_json?)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_run_local_text_parse_print_lower_matrix")
+pub fn ffi_cmd_run_local_text_parse_print_lower_matrix(
+  value0 : String,
+  filename : String?,
+) -> @cmd.TextParsePrintLowerReport {
+  @cmd.run_local_text_parse_print_lower_matrix(value0, filename?)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_run_wabt_binary_validation_adapter")
+pub fn ffi_cmd_run_wabt_binary_validation_adapter(
+  value0 : Bytes,
+) -> @cmd.BinaryDifferentialAdapterResult {
+  @cmd.run_wabt_binary_validation_adapter(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_run_wasm_tools_binary_validation_adapter")
+pub fn ffi_cmd_run_wasm_tools_binary_validation_adapter(
+  value0 : Bytes,
+) -> @cmd.BinaryDifferentialAdapterResult {
+  @cmd.run_wasm_tools_binary_validation_adapter(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_summarize_binary_canonicality_classifications")
+pub fn ffi_cmd_summarize_binary_canonicality_classifications(
+  value0 : Array[@cmd.BinaryCanonicalityClassification],
+) -> @cmd.BinaryCanonicalitySummary {
+  @cmd.summarize_binary_canonicality_classifications(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_summarize_export_invocation_matrix")
+pub fn ffi_cmd_summarize_export_invocation_matrix(
+  value0 : Array[@cmd.ExportInvocationComparisonReport],
+) -> @cmd.ExportInvocationMatrixSummary {
+  @cmd.summarize_export_invocation_matrix(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_text_aggregate_classification_label")
+pub fn ffi_cmd_text_aggregate_classification_label(
+  value0 : @cmd.TextAggregateClassification,
+) -> String {
+  @cmd.text_aggregate_classification_label(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_text_aggregate_local_result")
+pub fn ffi_cmd_text_aggregate_local_result(
+  value0 : @cmd.TextParsePrintLowerReport,
+  validates_ok : Bool??,
+) -> @cmd.TextAggregateAdapterResult {
+  @cmd.text_aggregate_local_result(value0, validates_ok?)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_verify_readme_api_signatures")
+pub fn ffi_cmd_verify_readme_api_signatures(
+  value0 : String,
+  value1 : Array[(String, String)],
+) -> Result[Unit, String] {
+  @cmd.verify_readme_api_signatures(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_verify_readme_api_signatures_with_required_blocks")
+pub fn ffi_cmd_verify_readme_api_signatures_with_required_blocks(
+  value0 : String,
+  value1 : Array[(String, String)],
+  value2 : Array[String],
+) -> Result[Unit, String] {
+  @cmd.verify_readme_api_signatures_with_required_blocks(value0, value1, value2)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_CmdEncodeError_adapter")
+pub fn ffi_cmd_CmdEncodeError_adapter(value0 : String) -> @cmd.CmdEncodeError {
+  @cmd.CmdEncodeError::adapter(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_CmdEncodeError_encode")
+pub fn ffi_cmd_CmdEncodeError_encode(
+  value0 : @binary.EncodeError,
+) -> @cmd.CmdEncodeError {
+  @cmd.CmdEncodeError::encode(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryCanonicalityClassification_accepted_noncanonical")
+pub fn ffi_cmd_BinaryCanonicalityClassification_accepted_noncanonical() -> @cmd.BinaryCanonicalityClassification {
+  @cmd.BinaryCanonicalityClassification::accepted_noncanonical()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryCanonicalityClassification_canonical_accepted")
+pub fn ffi_cmd_BinaryCanonicalityClassification_canonical_accepted() -> @cmd.BinaryCanonicalityClassification {
+  @cmd.BinaryCanonicalityClassification::canonical_accepted()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryCanonicalityClassification_decoder_bug_disagreement")
+pub fn ffi_cmd_BinaryCanonicalityClassification_decoder_bug_disagreement() -> @cmd.BinaryCanonicalityClassification {
+  @cmd.BinaryCanonicalityClassification::decoder_bug_disagreement()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryCanonicalityClassification_external_policy_disagreement")
+pub fn ffi_cmd_BinaryCanonicalityClassification_external_policy_disagreement() -> @cmd.BinaryCanonicalityClassification {
+  @cmd.BinaryCanonicalityClassification::external_policy_disagreement()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryCanonicalityClassification_malformed_rejected")
+pub fn ffi_cmd_BinaryCanonicalityClassification_malformed_rejected() -> @cmd.BinaryCanonicalityClassification {
+  @cmd.BinaryCanonicalityClassification::malformed_rejected()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryCanonicalityInputClass_accepted_noncanonical")
+pub fn ffi_cmd_BinaryCanonicalityInputClass_accepted_noncanonical() -> @cmd.BinaryCanonicalityInputClass {
+  @cmd.BinaryCanonicalityInputClass::accepted_noncanonical()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryCanonicalityInputClass_canonical")
+pub fn ffi_cmd_BinaryCanonicalityInputClass_canonical() -> @cmd.BinaryCanonicalityInputClass {
+  @cmd.BinaryCanonicalityInputClass::canonical()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryCanonicalityInputClass_malformed")
+pub fn ffi_cmd_BinaryCanonicalityInputClass_malformed() -> @cmd.BinaryCanonicalityInputClass {
+  @cmd.BinaryCanonicalityInputClass::malformed()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialAdapterResult_adapter_unavailable")
+pub fn ffi_cmd_BinaryDifferentialAdapterResult_adapter_unavailable(
+  value0 : String,
+  value1 : String,
+) -> @cmd.BinaryDifferentialAdapterResult {
+  @cmd.BinaryDifferentialAdapterResult::adapter_unavailable(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialAdapterResult_invalid_decode")
+pub fn ffi_cmd_BinaryDifferentialAdapterResult_invalid_decode(
+  value0 : String,
+  value1 : String,
+) -> @cmd.BinaryDifferentialAdapterResult {
+  @cmd.BinaryDifferentialAdapterResult::invalid_decode(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialAdapterResult_invalid_validate")
+pub fn ffi_cmd_BinaryDifferentialAdapterResult_invalid_validate(
+  value0 : String,
+  value1 : String,
+) -> @cmd.BinaryDifferentialAdapterResult {
+  @cmd.BinaryDifferentialAdapterResult::invalid_validate(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialAdapterResult_tool_failure")
+pub fn ffi_cmd_BinaryDifferentialAdapterResult_tool_failure(
+  value0 : String,
+  value1 : String,
+) -> @cmd.BinaryDifferentialAdapterResult {
+  @cmd.BinaryDifferentialAdapterResult::tool_failure(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialAdapterResult_unsupported_feature")
+pub fn ffi_cmd_BinaryDifferentialAdapterResult_unsupported_feature(
+  value0 : String,
+  value1 : String,
+) -> @cmd.BinaryDifferentialAdapterResult {
+  @cmd.BinaryDifferentialAdapterResult::unsupported_feature(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialAdapterResult_valid")
+pub fn ffi_cmd_BinaryDifferentialAdapterResult_valid(
+  value0 : String,
+) -> @cmd.BinaryDifferentialAdapterResult {
+  @cmd.BinaryDifferentialAdapterResult::valid(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialClassification_adapter_unavailable")
+pub fn ffi_cmd_BinaryDifferentialClassification_adapter_unavailable() -> @cmd.BinaryDifferentialClassification {
+  @cmd.BinaryDifferentialClassification::adapter_unavailable()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialClassification_agree_invalid")
+pub fn ffi_cmd_BinaryDifferentialClassification_agree_invalid() -> @cmd.BinaryDifferentialClassification {
+  @cmd.BinaryDifferentialClassification::agree_invalid()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialClassification_agree_valid")
+pub fn ffi_cmd_BinaryDifferentialClassification_agree_valid() -> @cmd.BinaryDifferentialClassification {
+  @cmd.BinaryDifferentialClassification::agree_valid()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialClassification_decoder_stage_disagreement")
+pub fn ffi_cmd_BinaryDifferentialClassification_decoder_stage_disagreement() -> @cmd.BinaryDifferentialClassification {
+  @cmd.BinaryDifferentialClassification::decoder_stage_disagreement()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialClassification_proposal_gap")
+pub fn ffi_cmd_BinaryDifferentialClassification_proposal_gap() -> @cmd.BinaryDifferentialClassification {
+  @cmd.BinaryDifferentialClassification::proposal_gap()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialClassification_tool_failure")
+pub fn ffi_cmd_BinaryDifferentialClassification_tool_failure() -> @cmd.BinaryDifferentialClassification {
+  @cmd.BinaryDifferentialClassification::tool_failure()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialClassification_unsupported_feature")
+pub fn ffi_cmd_BinaryDifferentialClassification_unsupported_feature() -> @cmd.BinaryDifferentialClassification {
+  @cmd.BinaryDifferentialClassification::unsupported_feature()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialClassification_validator_stage_disagreement")
+pub fn ffi_cmd_BinaryDifferentialClassification_validator_stage_disagreement() -> @cmd.BinaryDifferentialClassification {
+  @cmd.BinaryDifferentialClassification::validator_stage_disagreement()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_BinaryDifferentialSmokeAdapter_new")
+pub fn ffi_cmd_BinaryDifferentialSmokeAdapter_new(
+  value0 : String,
+  value1 : (Bytes) -> @cmd.BinaryDifferentialAdapterResult,
+) -> @cmd.BinaryDifferentialSmokeAdapter {
+  @cmd.BinaryDifferentialSmokeAdapter::new(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_CmdError_ambiguous_output_file")
+pub fn ffi_cmd_CmdError_ambiguous_output_file(value0 : String) -> @cmd.CmdError {
+  @cmd.CmdError::ambiguous_output_file(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_CmdError_unknown_pass_flag")
+pub fn ffi_cmd_CmdError_unknown_pass_flag(value0 : String) -> @cmd.CmdError {
+  @cmd.CmdError::unknown_pass_flag(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_CmdFuzzStats_new")
+pub fn ffi_cmd_CmdFuzzStats_new(
+  attempts : Int?,
+  generated_valid : Int?,
+  generated_invalid : Int?,
+  pipeline_validated : Int?,
+  optimized : Int?,
+  roundtripped : Int?,
+  differential_checked : Int?,
+  optimize_idempotence_checked : Int?,
+  encode_decode_idempotence_checked : Int?,
+  optimizer_determinism_checked : Int?,
+  generator_profile : String?,
+  pass_profile : String?,
+) -> @cmd.CmdFuzzStats {
+  @cmd.CmdFuzzStats::new(
+    attempts?,
+    generated_valid?,
+    generated_invalid?,
+    pipeline_validated?,
+    optimized?,
+    roundtripped?,
+    differential_checked?,
+    optimize_idempotence_checked?,
+    encode_decode_idempotence_checked?,
+    optimizer_determinism_checked?,
+    generator_profile?,
+    pass_profile?,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_CmdIO_new")
+pub fn ffi_cmd_CmdIO_new(
+  get_env : ((String) -> String?)?,
+  file_exists : ((String) -> Bool)?,
+  read_file : ((String) -> Result[Bytes, String])?,
+  encode_module : ((@lib.Module) -> Result[Bytes, @cmd.CmdEncodeError])?,
+  print_text_module : ((@lib.Module) -> Result[Bytes, String])?,
+  write_file : ((String, Bytes) -> Result[Unit, String])?,
+  write_stdout : ((Bytes) -> Result[Unit, String])?,
+  write_stderr : ((Bytes) -> Result[Unit, String])?,
+  list_candidates : (() -> Array[String])?,
+  lower_text_module : ((String, @cli.CliInputFormat, Bytes) -> Result[
+    Bytes,
+    String,
+  ])?,
+) -> @cmd.CmdIO {
+  @cmd.CmdIO::new(
+    get_env?,
+    file_exists?,
+    read_file?,
+    encode_module?,
+    print_text_module?,
+    write_file?,
+    write_stdout?,
+    write_stderr?,
+    list_candidates?,
+    lower_text_module?,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_CmdRunSummary_new")
+pub fn ffi_cmd_CmdRunSummary_new(
+  input_files : Array[String]?,
+  output_files : Array[String]?,
+  resolved_passes : Array[String]?,
+  optimize_level : Int?,
+  shrink_level : Int?,
+  traps_never_happen : Bool?,
+  ignore_implicit_traps : Bool?,
+  monomorphize_min_benefit : Int?,
+  closed_world : Bool?,
+  low_memory_unused : Bool?,
+  low_memory_bound : UInt64?,
+) -> @cmd.CmdRunSummary {
+  @cmd.CmdRunSummary::new(
+    input_files?,
+    output_files?,
+    resolved_passes?,
+    optimize_level?,
+    shrink_level?,
+    traps_never_happen?,
+    ignore_implicit_traps?,
+    monomorphize_min_benefit?,
+    closed_world?,
+    low_memory_unused?,
+    low_memory_bound?,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_DifferentialAdapters_new")
+pub fn ffi_cmd_DifferentialAdapters_new(
+  wasm_tools_validate : ((Bytes) -> Result[Bool, String])?,
+  binaryen_validate : ((Bytes) -> Result[Bool, String])?,
+  per_case_timeout_ms : Int??,
+) -> @cmd.DifferentialAdapters {
+  @cmd.DifferentialAdapters::new(
+    wasm_tools_validate?,
+    binaryen_validate?,
+    per_case_timeout_ms?,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationClassification_equal_result")
+pub fn ffi_cmd_ExportInvocationClassification_equal_result() -> @cmd.ExportInvocationClassification {
+  @cmd.ExportInvocationClassification::equal_result()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationClassification_equal_trap")
+pub fn ffi_cmd_ExportInvocationClassification_equal_trap() -> @cmd.ExportInvocationClassification {
+  @cmd.ExportInvocationClassification::equal_trap()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationClassification_nondeterministic_import")
+pub fn ffi_cmd_ExportInvocationClassification_nondeterministic_import() -> @cmd.ExportInvocationClassification {
+  @cmd.ExportInvocationClassification::nondeterministic_import()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationClassification_semantic_mismatch")
+pub fn ffi_cmd_ExportInvocationClassification_semantic_mismatch(
+  value0 : String,
+) -> @cmd.ExportInvocationClassification {
+  @cmd.ExportInvocationClassification::semantic_mismatch(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationClassification_unsupported_runtime")
+pub fn ffi_cmd_ExportInvocationClassification_unsupported_runtime() -> @cmd.ExportInvocationClassification {
+  @cmd.ExportInvocationClassification::unsupported_runtime()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationFailurePolicy_fail_on_semantic_mismatch")
+pub fn ffi_cmd_ExportInvocationFailurePolicy_fail_on_semantic_mismatch() -> @cmd.ExportInvocationFailurePolicy {
+  @cmd.ExportInvocationFailurePolicy::fail_on_semantic_mismatch()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationFailurePolicy_informational")
+pub fn ffi_cmd_ExportInvocationFailurePolicy_informational() -> @cmd.ExportInvocationFailurePolicy {
+  @cmd.ExportInvocationFailurePolicy::informational()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationMatrixOutcome_all_equal")
+pub fn ffi_cmd_ExportInvocationMatrixOutcome_all_equal() -> @cmd.ExportInvocationMatrixOutcome {
+  @cmd.ExportInvocationMatrixOutcome::all_equal()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationMatrixOutcome_blocked")
+pub fn ffi_cmd_ExportInvocationMatrixOutcome_blocked() -> @cmd.ExportInvocationMatrixOutcome {
+  @cmd.ExportInvocationMatrixOutcome::blocked()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationMatrixOutcome_empty")
+pub fn ffi_cmd_ExportInvocationMatrixOutcome_empty() -> @cmd.ExportInvocationMatrixOutcome {
+  @cmd.ExportInvocationMatrixOutcome::empty()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationMatrixOutcome_semantic_mismatch")
+pub fn ffi_cmd_ExportInvocationMatrixOutcome_semantic_mismatch() -> @cmd.ExportInvocationMatrixOutcome {
+  @cmd.ExportInvocationMatrixOutcome::semantic_mismatch()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationResult_nondeterministic_import")
+pub fn ffi_cmd_ExportInvocationResult_nondeterministic_import(
+  value0 : String,
+) -> @cmd.ExportInvocationResult {
+  @cmd.ExportInvocationResult::nondeterministic_import(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationResult_trap")
+pub fn ffi_cmd_ExportInvocationResult_trap(
+  value0 : String,
+) -> @cmd.ExportInvocationResult {
+  @cmd.ExportInvocationResult::trap(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationResult_unsupported_runtime")
+pub fn ffi_cmd_ExportInvocationResult_unsupported_runtime(
+  value0 : String,
+) -> @cmd.ExportInvocationResult {
+  @cmd.ExportInvocationResult::unsupported_runtime(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_ExportInvocationResult_value")
+pub fn ffi_cmd_ExportInvocationResult_value(
+  value0 : String,
+) -> @cmd.ExportInvocationResult {
+  @cmd.ExportInvocationResult::value(value0)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_FuzzCorpusDedupIndex_new")
+pub fn ffi_cmd_FuzzCorpusDedupIndex_new() -> @cmd.FuzzCorpusDedupIndex {
+  @cmd.FuzzCorpusDedupIndex::new()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_FuzzCorpusDedupIndex_record")
+pub fn ffi_cmd_FuzzCorpusDedupIndex_record(
+  receiver : @cmd.FuzzCorpusDedupIndex,
+  value1 : Bytes,
+  value2 : @cmd.FuzzCorpusSource,
+) -> @cmd.FuzzCorpusDedupDecision {
+  @cmd.FuzzCorpusDedupIndex::record(receiver, value1, value2)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_FuzzCorpusDedupIndex_to_text")
+pub fn ffi_cmd_FuzzCorpusDedupIndex_to_text(
+  receiver : @cmd.FuzzCorpusDedupIndex,
+) -> String {
+  @cmd.FuzzCorpusDedupIndex::to_text(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_FuzzCorpusSource_new")
+pub fn ffi_cmd_FuzzCorpusSource_new(
+  value0 : UInt64,
+  value1 : Int,
+  value2 : String,
+  value3 : String,
+  value4 : String,
+) -> @cmd.FuzzCorpusSource {
+  @cmd.FuzzCorpusSource::new(value0, value1, value2, value3, value4)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_FuzzFailurePersistIO_new")
+pub fn ffi_cmd_FuzzFailurePersistIO_new(
+  ensure_dir : ((String) -> Result[Unit, String])?,
+  write_file : ((String, Bytes) -> Result[Unit, String])?,
+) -> @cmd.FuzzFailurePersistIO {
+  @cmd.FuzzFailurePersistIO::new(ensure_dir?, write_file?)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_FuzzFailureReport_new")
+pub fn ffi_cmd_FuzzFailureReport_new(
+  value0 : UInt64,
+  value1 : Int,
+  value2 : Int,
+  value3 : String,
+  value4 : String,
+  optimize_passes : Array[String]?,
+  minimized_passes : Array[String]?,
+  generator_profile : String?,
+  pass_profile : String?,
+  generator_config_label : String?,
+  generated_attempts : Int?,
+  feature_facts : String?,
+  wasm : Bytes??,
+  reduced_wasm : Bytes??,
+  reduction_original_size : Int??,
+  reduction_final_size : Int??,
+  reduction_predicate_evaluations : Int??,
+  reduction_steps : Array[@cmd.FuzzReductionStep]?,
+) -> @cmd.FuzzFailureReport {
+  @cmd.FuzzFailureReport::new(
+    value0,
+    value1,
+    value2,
+    value3,
+    value4,
+    optimize_passes?,
+    minimized_passes?,
+    generator_profile?,
+    pass_profile?,
+    generator_config_label?,
+    generated_attempts?,
+    feature_facts?,
+    wasm?,
+    reduced_wasm?,
+    reduction_original_size?,
+    reduction_final_size?,
+    reduction_predicate_evaluations?,
+    reduction_steps?,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_InliningOptions_new")
+pub fn ffi_cmd_InliningOptions_new(
+  always_inline_max_size : Int?,
+  one_caller_inline_max_size : Int?,
+  flexible_inline_max_size : Int?,
+  max_combined_binary_size : Int?,
+  allow_functions_with_loops : Bool?,
+  partial_inlining_ifs : Int?,
+) -> @cmd.InliningOptions {
+  @cmd.InliningOptions::new(
+    always_inline_max_size?,
+    one_caller_inline_max_size?,
+    flexible_inline_max_size?,
+    max_combined_binary_size?,
+    allow_functions_with_loops?,
+    partial_inlining_ifs?,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_OptimizeOptions_new")
+pub fn ffi_cmd_OptimizeOptions_new(
+  optimize_level : Int?,
+  shrink_level : Int?,
+  inlining : @cmd.InliningOptions?,
+  monomorphize_min_benefit : Int?,
+  closed_world : Bool?,
+  zero_filled_memory : Bool?,
+  fast_math : Bool?,
+  low_memory_unused : Bool?,
+  low_memory_bound : UInt64?,
+  traps_never_happen : Bool?,
+  ignore_implicit_traps : Bool?,
+  compiler_fact_policy : @passes.CompilerFactUsePolicy?,
+  validation_policy : @cmd.OptimizeValidationPolicy?,
+  stack_function_passes : Bool?,
+) -> @cmd.OptimizeOptions {
+  @cmd.OptimizeOptions::new(
+    optimize_level?,
+    shrink_level?,
+    inlining?,
+    monomorphize_min_benefit?,
+    closed_world?,
+    zero_filled_memory?,
+    fast_math?,
+    low_memory_unused?,
+    low_memory_bound?,
+    traps_never_happen?,
+    ignore_implicit_traps?,
+    compiler_fact_policy?,
+    validation_policy?,
+    stack_function_passes?,
+  )
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_OptimizeTracingLevel_helper")
+pub fn ffi_cmd_OptimizeTracingLevel_helper() -> @cmd.OptimizeTracingLevel {
+  @cmd.OptimizeTracingLevel::helper()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_OptimizeTracingLevel_pass")
+pub fn ffi_cmd_OptimizeTracingLevel_pass() -> @cmd.OptimizeTracingLevel {
+  @cmd.OptimizeTracingLevel::pass()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_OptimizeTracingLevel_phase")
+pub fn ffi_cmd_OptimizeTracingLevel_phase() -> @cmd.OptimizeTracingLevel {
+  @cmd.OptimizeTracingLevel::phase()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_OptimizeValidationPolicy_after_segment")
+pub fn ffi_cmd_OptimizeValidationPolicy_after_segment() -> @cmd.OptimizeValidationPolicy {
+  @cmd.OptimizeValidationPolicy::after_segment()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_OptimizeValidationPolicy_final_module_only")
+pub fn ffi_cmd_OptimizeValidationPolicy_final_module_only() -> @cmd.OptimizeValidationPolicy {
+  @cmd.OptimizeValidationPolicy::final_module_only()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_TextAggregateAdapterResult_external_accepted")
+pub fn ffi_cmd_TextAggregateAdapterResult_external_accepted(
+  value0 : String,
+  validates_ok : Bool??,
+) -> @cmd.TextAggregateAdapterResult {
+  @cmd.TextAggregateAdapterResult::external_accepted(value0, validates_ok?)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_TextAggregateAdapterResult_external_parse_error")
+pub fn ffi_cmd_TextAggregateAdapterResult_external_parse_error(
+  value0 : String,
+  value1 : String,
+) -> @cmd.TextAggregateAdapterResult {
+  @cmd.TextAggregateAdapterResult::external_parse_error(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_TextAggregateAdapterResult_external_unavailable")
+pub fn ffi_cmd_TextAggregateAdapterResult_external_unavailable(
+  value0 : String,
+  value1 : String,
+) -> @cmd.TextAggregateAdapterResult {
+  @cmd.TextAggregateAdapterResult::external_unavailable(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_TextAggregateAdapterResult_external_unsupported_syntax")
+pub fn ffi_cmd_TextAggregateAdapterResult_external_unsupported_syntax(
+  value0 : String,
+  value1 : String,
+) -> @cmd.TextAggregateAdapterResult {
+  @cmd.TextAggregateAdapterResult::external_unsupported_syntax(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_TextAggregateClassification_accepted")
+pub fn ffi_cmd_TextAggregateClassification_accepted() -> @cmd.TextAggregateClassification {
+  @cmd.TextAggregateClassification::accepted()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_TextAggregateClassification_adapter_unavailable")
+pub fn ffi_cmd_TextAggregateClassification_adapter_unavailable() -> @cmd.TextAggregateClassification {
+  @cmd.TextAggregateClassification::adapter_unavailable()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_TextAggregateClassification_lower_disagreement")
+pub fn ffi_cmd_TextAggregateClassification_lower_disagreement() -> @cmd.TextAggregateClassification {
+  @cmd.TextAggregateClassification::lower_disagreement()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_TextAggregateClassification_parse_disagreement")
+pub fn ffi_cmd_TextAggregateClassification_parse_disagreement() -> @cmd.TextAggregateClassification {
+  @cmd.TextAggregateClassification::parse_disagreement()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_TextAggregateClassification_print_disagreement")
+pub fn ffi_cmd_TextAggregateClassification_print_disagreement() -> @cmd.TextAggregateClassification {
+  @cmd.TextAggregateClassification::print_disagreement()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_TextAggregateClassification_semantic_validation_disagreement")
+pub fn ffi_cmd_TextAggregateClassification_semantic_validation_disagreement() -> @cmd.TextAggregateClassification {
+  @cmd.TextAggregateClassification::semantic_validation_disagreement()
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_cmd_TextAggregateClassification_unsupported_syntax")
+pub fn ffi_cmd_TextAggregateClassification_unsupported_syntax() -> @cmd.TextAggregateClassification {
+  @cmd.TextAggregateClassification::unsupported_syntax()
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_diff_myers_diff")
 pub fn ffi_diff_myers_diff(
   value0 : String,
@@ -841,6 +2004,18 @@ pub fn ffi_ffi_bridge_nominal_ref_type(
   value1 : Bool,
 ) -> @lib.ValType {
   @ffi_bridge.nominal_ref_type(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_ffi_bridge_optimize_module")
+pub fn ffi_ffi_bridge_optimize_module(
+  value0 : @lib.Module,
+  value1 : Array[String],
+  optimize_level : Int?,
+  shrink_level : Int?,
+) -> Result[@lib.Module, String] {
+  @ffi_bridge.optimize_module(value0, value1, optimize_level?, shrink_level?)
 }
 
 ///|
@@ -27032,6 +28207,196 @@ pub fn ffi_builtin_Show_cli_TrapMode_to_string(
 
 ///|
 #doc(hidden)
+#export_name("ffi_builtin_Show_cmd_CmdEncodeError_output")
+pub fn ffi_builtin_Show_cmd_CmdEncodeError_output(
+  receiver : @cmd.CmdEncodeError,
+  value1 : &@builtin.Logger,
+) -> Unit {
+  @builtin.Show::output(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_CmdEncodeError_to_string")
+pub fn ffi_builtin_Show_cmd_CmdEncodeError_to_string(
+  receiver : @cmd.CmdEncodeError,
+) -> String {
+  @builtin.Show::to_string(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_CmdError_output")
+pub fn ffi_builtin_Show_cmd_CmdError_output(
+  receiver : @cmd.CmdError,
+  value1 : &@builtin.Logger,
+) -> Unit {
+  @builtin.Show::output(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_CmdError_to_string")
+pub fn ffi_builtin_Show_cmd_CmdError_to_string(
+  receiver : @cmd.CmdError,
+) -> String {
+  @builtin.Show::to_string(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_CmdFuzzStats_output")
+pub fn ffi_builtin_Show_cmd_CmdFuzzStats_output(
+  receiver : @cmd.CmdFuzzStats,
+  value1 : &@builtin.Logger,
+) -> Unit {
+  @builtin.Show::output(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_CmdFuzzStats_to_string")
+pub fn ffi_builtin_Show_cmd_CmdFuzzStats_to_string(
+  receiver : @cmd.CmdFuzzStats,
+) -> String {
+  @builtin.Show::to_string(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_CmdRunSummary_output")
+pub fn ffi_builtin_Show_cmd_CmdRunSummary_output(
+  receiver : @cmd.CmdRunSummary,
+  value1 : &@builtin.Logger,
+) -> Unit {
+  @builtin.Show::output(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_CmdRunSummary_to_string")
+pub fn ffi_builtin_Show_cmd_CmdRunSummary_to_string(
+  receiver : @cmd.CmdRunSummary,
+) -> String {
+  @builtin.Show::to_string(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_DifferentialValidationReport_output")
+pub fn ffi_builtin_Show_cmd_DifferentialValidationReport_output(
+  receiver : @cmd.DifferentialValidationReport,
+  value1 : &@builtin.Logger,
+) -> Unit {
+  @builtin.Show::output(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_DifferentialValidationReport_to_string")
+pub fn ffi_builtin_Show_cmd_DifferentialValidationReport_to_string(
+  receiver : @cmd.DifferentialValidationReport,
+) -> String {
+  @builtin.Show::to_string(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_FuzzFailureReport_output")
+pub fn ffi_builtin_Show_cmd_FuzzFailureReport_output(
+  receiver : @cmd.FuzzFailureReport,
+  value1 : &@builtin.Logger,
+) -> Unit {
+  @builtin.Show::output(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_FuzzFailureReport_to_string")
+pub fn ffi_builtin_Show_cmd_FuzzFailureReport_to_string(
+  receiver : @cmd.FuzzFailureReport,
+) -> String {
+  @builtin.Show::to_string(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_InliningOptions_output")
+pub fn ffi_builtin_Show_cmd_InliningOptions_output(
+  receiver : @cmd.InliningOptions,
+  value1 : &@builtin.Logger,
+) -> Unit {
+  @builtin.Show::output(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_InliningOptions_to_string")
+pub fn ffi_builtin_Show_cmd_InliningOptions_to_string(
+  receiver : @cmd.InliningOptions,
+) -> String {
+  @builtin.Show::to_string(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_OptimizeOptions_output")
+pub fn ffi_builtin_Show_cmd_OptimizeOptions_output(
+  receiver : @cmd.OptimizeOptions,
+  value1 : &@builtin.Logger,
+) -> Unit {
+  @builtin.Show::output(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_OptimizeOptions_to_string")
+pub fn ffi_builtin_Show_cmd_OptimizeOptions_to_string(
+  receiver : @cmd.OptimizeOptions,
+) -> String {
+  @builtin.Show::to_string(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_OptimizeTracingLevel_output")
+pub fn ffi_builtin_Show_cmd_OptimizeTracingLevel_output(
+  receiver : @cmd.OptimizeTracingLevel,
+  value1 : &@builtin.Logger,
+) -> Unit {
+  @builtin.Show::output(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_OptimizeTracingLevel_to_string")
+pub fn ffi_builtin_Show_cmd_OptimizeTracingLevel_to_string(
+  receiver : @cmd.OptimizeTracingLevel,
+) -> String {
+  @builtin.Show::to_string(receiver)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_OptimizeValidationPolicy_output")
+pub fn ffi_builtin_Show_cmd_OptimizeValidationPolicy_output(
+  receiver : @cmd.OptimizeValidationPolicy,
+  value1 : &@builtin.Logger,
+) -> Unit {
+  @builtin.Show::output(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_builtin_Show_cmd_OptimizeValidationPolicy_to_string")
+pub fn ffi_builtin_Show_cmd_OptimizeValidationPolicy_to_string(
+  receiver : @cmd.OptimizeValidationPolicy,
+) -> String {
+  @builtin.Show::to_string(receiver)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_builtin_Show_ir_CfgBlockBoundaryReason_output")
 pub fn ffi_builtin_Show_ir_CfgBlockBoundaryReason_output(
   receiver : @ir.CfgBlockBoundaryReason,
@@ -34683,6 +36048,16 @@ pub fn ffi_binary_Decode_Bool_option_decode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Decode_Bytes_option_decode")
+pub fn ffi_binary_Decode_Bytes_option_decode(
+  value0 : Bytes,
+  value1 : Int,
+) -> Result[(Bytes?, Int), @binary.BinaryDecodeError] {
+  @binary.Decode::decode(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Decode_lib_ValType_option_decode")
 pub fn ffi_binary_Decode_lib_ValType_option_decode(
   value0 : Bytes,
@@ -34968,16 +36343,6 @@ pub fn ffi_binary_Decode_lib_NameSec_option_decode(
   value0 : Bytes,
   value1 : Int,
 ) -> Result[(@lib.NameSec?, Int), @binary.BinaryDecodeError] {
-  @binary.Decode::decode(value0, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Decode_Bytes_option_decode")
-pub fn ffi_binary_Decode_Bytes_option_decode(
-  value0 : Bytes,
-  value1 : Int,
-) -> Result[(Bytes?, Int), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -35554,6 +36919,26 @@ pub fn ffi_binary_Decode_lib_CompType_option_decode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Decode_Array_ValType_decode")
+pub fn ffi_binary_Decode_Array_ValType_decode(
+  value0 : Bytes,
+  value1 : Int,
+) -> Result[(Array[@lib.ValType], Int), @binary.BinaryDecodeError] {
+  @binary.Decode::decode(value0, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_binary_Decode_Array_Bytes_decode")
+pub fn ffi_binary_Decode_Array_Bytes_decode(
+  value0 : Bytes,
+  value1 : Int,
+) -> Result[(Array[Bytes], Int), @binary.BinaryDecodeError] {
+  @binary.Decode::decode(value0, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Decode_Array_FieldType_decode")
 pub fn ffi_binary_Decode_Array_FieldType_decode(
   value0 : Bytes,
@@ -35609,16 +36994,6 @@ pub fn ffi_binary_Decode_Array_TypeIdx_decode(
   value0 : Bytes,
   value1 : Int,
 ) -> Result[(Array[@lib.TypeIdx], Int), @binary.BinaryDecodeError] {
-  @binary.Decode::decode(value0, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Decode_Array_ValType_decode")
-pub fn ffi_binary_Decode_Array_ValType_decode(
-  value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[@lib.ValType], Int), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -35769,16 +37144,6 @@ pub fn ffi_binary_Decode_Array_NameAssoc_decode(
   value0 : Bytes,
   value1 : Int,
 ) -> Result[(Array[@lib.NameAssoc], Int), @binary.BinaryDecodeError] {
-  @binary.Decode::decode(value0, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Decode_Array_Bytes_decode")
-pub fn ffi_binary_Decode_Array_Bytes_decode(
-  value0 : Bytes,
-  value1 : Int,
-) -> Result[(Array[Bytes], Int), @binary.BinaryDecodeError] {
   @binary.Decode::decode(value0, value1)
 }
 
@@ -36161,6 +37526,16 @@ pub fn ffi_binary_Encode_Bool_option_encode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Encode_Bytes_option_encode")
+pub fn ffi_binary_Encode_Bytes_option_encode(
+  receiver : Bytes?,
+  value1 : @buffer.Buffer,
+) -> Result[Unit, @binary.BinaryEncodeError] {
+  @binary.Encode::encode(receiver, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Encode_lib_ValType_option_encode")
 pub fn ffi_binary_Encode_lib_ValType_option_encode(
   receiver : @lib.ValType?,
@@ -36444,16 +37819,6 @@ pub fn ffi_binary_Encode_lib_DataSec_option_encode(
 #export_name("ffi_binary_Encode_lib_NameSec_option_encode")
 pub fn ffi_binary_Encode_lib_NameSec_option_encode(
   receiver : @lib.NameSec?,
-  value1 : @buffer.Buffer,
-) -> Result[Unit, @binary.BinaryEncodeError] {
-  @binary.Encode::encode(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Encode_Bytes_option_encode")
-pub fn ffi_binary_Encode_Bytes_option_encode(
-  receiver : Bytes?,
   value1 : @buffer.Buffer,
 ) -> Result[Unit, @binary.BinaryEncodeError] {
   @binary.Encode::encode(receiver, value1)
@@ -37011,6 +38376,26 @@ pub fn ffi_binary_Encode_lib_CompType_option_encode(
 
 ///|
 #doc(hidden)
+#export_name("ffi_binary_Encode_Array_ValType_encode")
+pub fn ffi_binary_Encode_Array_ValType_encode(
+  receiver : Array[@lib.ValType],
+  value1 : @buffer.Buffer,
+) -> Result[Unit, @binary.BinaryEncodeError] {
+  @binary.Encode::encode(receiver, value1)
+}
+
+///|
+#doc(hidden)
+#export_name("ffi_binary_Encode_Array_Bytes_encode")
+pub fn ffi_binary_Encode_Array_Bytes_encode(
+  receiver : Array[Bytes],
+  value1 : @buffer.Buffer,
+) -> Result[Unit, @binary.BinaryEncodeError] {
+  @binary.Encode::encode(receiver, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_binary_Encode_Array_FieldType_encode")
 pub fn ffi_binary_Encode_Array_FieldType_encode(
   receiver : Array[@lib.FieldType],
@@ -37064,16 +38449,6 @@ pub fn ffi_binary_Encode_Array_RecType_encode(
 #export_name("ffi_binary_Encode_Array_TypeIdx_encode")
 pub fn ffi_binary_Encode_Array_TypeIdx_encode(
   receiver : Array[@lib.TypeIdx],
-  value1 : @buffer.Buffer,
-) -> Result[Unit, @binary.BinaryEncodeError] {
-  @binary.Encode::encode(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Encode_Array_ValType_encode")
-pub fn ffi_binary_Encode_Array_ValType_encode(
-  receiver : Array[@lib.ValType],
   value1 : @buffer.Buffer,
 ) -> Result[Unit, @binary.BinaryEncodeError] {
   @binary.Encode::encode(receiver, value1)
@@ -37224,16 +38599,6 @@ pub fn ffi_binary_Encode_Array_CustomSec_encode(
 #export_name("ffi_binary_Encode_Array_NameAssoc_encode")
 pub fn ffi_binary_Encode_Array_NameAssoc_encode(
   receiver : Array[@lib.NameAssoc],
-  value1 : @buffer.Buffer,
-) -> Result[Unit, @binary.BinaryEncodeError] {
-  @binary.Encode::encode(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_binary_Encode_Array_Bytes_encode")
-pub fn ffi_binary_Encode_Array_Bytes_encode(
-  receiver : Array[Bytes],
   value1 : @buffer.Buffer,
 ) -> Result[Unit, @binary.BinaryEncodeError] {
   @binary.Encode::encode(receiver, value1)
@@ -37551,10 +38916,10 @@ pub fn ffi_binary_Encode_Array_TableType_encode(
 
 ///|
 #doc(hidden)
-#export_name("ffi_validate_Match_Array_FieldType_matches")
-pub fn ffi_validate_Match_Array_FieldType_matches(
-  receiver : Array[@lib.FieldType],
-  value1 : Array[@lib.FieldType],
+#export_name("ffi_validate_Match_Array_ValType_matches")
+pub fn ffi_validate_Match_Array_ValType_matches(
+  receiver : Array[@lib.ValType],
+  value1 : Array[@lib.ValType],
   value2 : @validate.Env,
 ) -> Bool {
   @validate.Match::matches(receiver, value1, value2)
@@ -37562,10 +38927,10 @@ pub fn ffi_validate_Match_Array_FieldType_matches(
 
 ///|
 #doc(hidden)
-#export_name("ffi_validate_Match_Array_ValType_matches")
-pub fn ffi_validate_Match_Array_ValType_matches(
-  receiver : Array[@lib.ValType],
-  value1 : Array[@lib.ValType],
+#export_name("ffi_validate_Match_Array_FieldType_matches")
+pub fn ffi_validate_Match_Array_FieldType_matches(
+  receiver : Array[@lib.FieldType],
+  value1 : Array[@lib.FieldType],
   value2 : @validate.Env,
 ) -> Bool {
   @validate.Match::matches(receiver, value1, value2)
@@ -37628,6 +38993,16 @@ pub fn ffi_validate_Match_Array_TableType_matches(
 
 ///|
 #doc(hidden)
+#export_name("ffi_validate_Validate_Array_ValType_validate")
+pub fn ffi_validate_Validate_Array_ValType_validate(
+  receiver : Array[@lib.ValType],
+  value1 : @validate.Env,
+) -> Result[Unit, String] {
+  @validate.Validate::validate(receiver, value1)
+}
+
+///|
+#doc(hidden)
 #export_name("ffi_validate_Validate_Array_FieldType_validate")
 pub fn ffi_validate_Validate_Array_FieldType_validate(
   receiver : Array[@lib.FieldType],
@@ -37661,16 +39036,6 @@ pub fn ffi_validate_Validate_Array_RecType_validate(
 #export_name("ffi_validate_Validate_Array_TypeIdx_validate")
 pub fn ffi_validate_Validate_Array_TypeIdx_validate(
   receiver : Array[@lib.TypeIdx],
-  value1 : @validate.Env,
-) -> Result[Unit, String] {
-  @validate.Validate::validate(receiver, value1)
-}
-
-///|
-#doc(hidden)
-#export_name("ffi_validate_Validate_Array_ValType_validate")
-pub fn ffi_validate_Validate_Array_ValType_validate(
-  receiver : Array[@lib.ValType],
   value1 : @validate.Env,
 ) -> Result[Unit, String] {
   @validate.Validate::validate(receiver, value1)
