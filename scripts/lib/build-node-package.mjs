@@ -46,7 +46,9 @@ export function buildNodePackage({ repoRoot: root = repoRoot, moonBin = resolveM
     { name: 'starshine.wasm-gc.wasm', source: 'ffi/_build/wasm-gc/release/build/jtenner/starshine-ffi/npm/npm.wasm' },
     { name: 'starshine.wasm-wasi.wasm', source: '_build/wasm/release/build/cmd/cmd.wasm' },
   ];
-  const report = { toolchains, bootstrapSha256: sha256(fs.readFileSync(optimizer)), preset: ['--optimize', '--optimize-level', '1'], artifacts: [], parity: null };
+  // The CLI regression suite calls (optimize=4, shrink=1) O4s.
+  // Literal -O4s is deliberately not accepted by the current CLI parser.
+  const report = { toolchains, bootstrapSha256: sha256(fs.readFileSync(optimizer)), presetName: 'O4s', optimizeLevel: 4, shrinkLevel: 1, preset: ['--optimize', '--optimize-level', '4', '--shrink-level', '1'], artifacts: [], parity: null };
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'starshine-npm-parity-'));
   try {
     const fixture = path.join(scratch, 'bootstrap.wat');
@@ -54,6 +56,11 @@ export function buildNodePackage({ repoRoot: root = repoRoot, moonBin = resolveM
     const fixtureAfter = path.join(scratch, 'bootstrap-after.wasm');
     fs.writeFileSync(fixture, '(module (func $a (result i32) i32.const 42) (func $b (result i32) i32.const 42) (func (export "answer") (result i32) call $a call $b i32.add))');
     run(process.env.WASM_TOOLS_BIN ?? 'wasm-tools', ['parse', fixture, '-o', fixtureBefore], root);
+    const queue = JSON.parse(run(optimizer, ['--emit-expanded-pass-queue-json', ...report.preset, fixtureBefore], root));
+    assert.equal(queue.optimizeLevel, report.optimizeLevel);
+    assert.equal(queue.shrinkLevel, report.shrinkLevel);
+    report.expandedPasses = queue.passes.map(pass => pass.name);
+    assert.deepEqual(report.expandedPasses, ['duplicate-function-elimination', 'constraint-analysis', 'vacuum', 'reorder-locals', 'strip-debug'], 'O4s pass selection changed; qualify the new scheduler explicitly');
     run(optimizer, [...report.preset, fixtureBefore, '--out', fixtureAfter], root);
     run(process.env.WASM_TOOLS_BIN ?? 'wasm-tools', ['validate', '--features', 'all', fixtureAfter], root);
     assert.notDeepEqual(fs.readFileSync(fixtureBefore), fs.readFileSync(fixtureAfter), 'bootstrap preset failed to transform its duplicate-function fixture');

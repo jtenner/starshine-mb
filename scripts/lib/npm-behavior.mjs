@@ -37,7 +37,14 @@ export async function observePackage(packageRoot) {
       values.push(instance.exports.answer());
     }
     assert.equal(values[0], values[1]);
-    observations.push({ values, before: [...before.value], after: [...after.value] });
+    const o4s = passes.optimizeModule(parsed.value, ['optimize'], 4, 1);
+    assert.equal(o4s.ok, true);
+    assert.equal(validate.validateModule(o4s.value).ok, true);
+    const o4sBytes = binary.encodeModule(o4s.value);
+    assert.equal(o4sBytes.ok, true);
+    const o4sInstance = await WebAssembly.instantiate(o4sBytes.value);
+    assert.equal(o4sInstance.instance.exports.answer(), values[0]);
+    observations.push({ values, before: [...before.value], after: [...after.value], o4s: [...o4sBytes.value] });
   }
   assert.equal(binary.sizeUnsigned(255n, 32).ok, true);
   assert.equal(cli.resolvePassFlags(cli.parseCliArgs(['--help']).value).length, 0);

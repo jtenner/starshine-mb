@@ -24,6 +24,11 @@ try {
     const output = run(npmBin, ['pack', '--json', '--pack-destination', dist], path.join(root, 'node'));
     pack = JSON.parse(output.slice(output.lastIndexOf('\n[') + 1))[0];
     tarball = path.join(dist, pack.filename);
+    const buildReport = JSON.parse(fs.readFileSync(path.join(dist, 'build-report.json'), 'utf8'));
+    assert.equal(buildReport.presetName, 'O4s', 'npm builds must use the requested O4s preset');
+    assert.equal(buildReport.optimizeLevel, 4);
+    assert.equal(buildReport.shrinkLevel, 1);
+    assert.deepEqual(buildReport.expandedPasses, ['duplicate-function-elimination', 'constraint-analysis', 'vacuum', 'reorder-locals', 'strip-debug']);
   }
   tarball = path.resolve(tarball);
   const files = run('tar', ['-tzf', tarball], scratch).trim().split('\n');
@@ -59,6 +64,12 @@ try {
     assert.equal(WebAssembly.validate(bytes), true);
     const { instance } = await WebAssembly.instantiate(bytes);
     assert.equal(instance.exports.answer(), 42);
+    fs.writeFileSync(path.join(cwd, 'ambient-stack.wat'), '(module (func (export "answer") (param i32 i64) (result i32) local.get 0 local.get 1 i32.const 42 return))');
+    run(nodeBin, [...cliArgs, bin, '--optimize', '--optimize-level', '4', '--shrink-level', '1', 'ambient-stack.wat', '--out', 'ambient-stack.wasm'], cwd, consumerEnv);
+    const ambientBytes = fs.readFileSync(path.join(cwd, 'ambient-stack.wasm'));
+    assert.equal(WebAssembly.validate(ambientBytes), true);
+    const ambient = await WebAssembly.instantiate(ambientBytes);
+    assert.equal(ambient.instance.exports.answer(7, 9n), 42);
     const failure = spawnSync(nodeBin, [...cliArgs, bin, '--not-a-real-pass'], { cwd, env: consumerEnv, encoding: 'utf8' });
     if (failure.error) throw failure.error;
     assert.equal(Number.isInteger(failure.status), true, 'CLI did not exit normally');
