@@ -1,11 +1,13 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-10-10
 sources:
   - ../../../../../src/validate/gen_valid_merge_similar_functions.mbt
   - ../../../../../src/validate/gen_valid_merge_similar_functions_wbtest.mbt
   - ../../../../../src/passes/merge_similar_functions_test.mbt
+  - ../../../../../src/passes/gc_record_copy_outlining.mbt
+  - ../../../../../src/passes/gc_record_copy_outlining_wbtest.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 related:
   - ../../../tooling/pass-fuzz-compare.md
@@ -15,7 +17,7 @@ related:
 
 # `merge-similar-functions` fuzzing
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Historical comparison baseline — September 10, 2026:** comparisons then used [Binaryen 132](../../release-horizon-and-oracles.md). The October 10 qualification below uses verified Binaryen 133. Recorded v131/v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 ## October 10, 2026 record-copy profile
 
@@ -43,6 +45,80 @@ and import append indices, bounded excluded bodies/initializers, unchanged
 source bytes, undersampling and full-validation rollback. The 65,536/65,537
 zero-count compressed-run boundary is skipped in ordinary runs and must be
 explicitly executed with `--include-skipped`.
+
+### Compiled direct-pass comparison and runtime evidence
+
+The October 10 qualification used clean source `d5097be3e`, a freshly built
+native CLI (SHA `420c4de9177cae6b6f56f56d4518f7bfb530e2eb3f710e53a309ab834e1b462e`)
+and generator (SHA `5fe1a94c5540a95b43678f7c39d497a0d4f2bca333c0d547b913c481f6bbbf4c`).
+Both lanes used seed `0x5eed`, direct `merge-similar-functions`, verified
+Binaryen 133, independent wasm-tools validation and actual default Node 26
+stateful original/Starshine/Binaryen observation. Fresh-process workers used
+explicit prebuilt paths; no external-generator lane was run.
+
+The triggering record-copy lane completed 10,000/10,000 comparisons. It
+retained normal exit 1 for 10,000 structural mismatches, with zero validation,
+property, generator or command failures. All 10,000 journal runtime outcomes
+were `all-equal`; Starshine raw/canonical bytes totaled 14,094,624 versus
+Binaryen's 23,128,050, and each case was smaller. The manifest contained
+10,000 distinct seeds and generator-recorded `fnv1a64` identifiers, covering
+all 105 width/arm combinations (12–32 fields, 8–12 copies). This is sampled
+coverage, not exhaustive coverage or a cryptographic uniqueness proof.
+
+The retained 20 mismatch bundles include complete actual observations.
+Across those 20 reports, each original/Starshine/Binaryen mode totals 954
+exported calls and 420 import events, with no blocked or zero-call report. The other 9,980 cases retain their
+journal classification but not full step reports because the mismatch artifact
+cap was 20. An independent 52-input custom observer executes every selected
+arm, all fields, old/fresh aliases, fallback identity, ordered host state,
+selected-null traps, callback throws and reentry across original, direct MSF,
+selective preset and Binaryen. Default Node 25 and 26 each completed 208
+variants, 153,704 export calls, 624 traps and 140,216 field checks. A separate
+linear WAT census counted 531 actual copies, 8–12 in every input. The generic
+harness's stub imports do not substitute for this expected-event contract.
+
+The retained discrepancy is an agent judgment of a measured Starshine size
+win: the reviewed private-helper contract, inspected copy-bearing differences
+and actual independent observations support the decision. Tiny 12-field
+callback-free execution slowed in the reduced benchmark, while the 403-field,
+64-arm batch improved; those tradeoffs and concurrent timing limits are
+recorded in [the strategy page](./starshine-strategy.md). No universal speed,
+runtime-memory or whole-GC/MSF audit claim follows from byte savings.
+
+Exact replay must use the authoritative generator manifest and case index,
+or retained input bytes. Existing failure-metadata JSON reserialization
+rounded UInt64 `case_seed` in 19/20 retained bundles: case 2's manifest seed
+is `11698534113733384926`, while its metadata says `11698534113733384000`.
+The original rounded metadata is preserved, and independently recomputed
+retained-input generator `fnv1a64` hashes agree with the exact manifest. Deriving a fixture
+shape from the rounded metadata alone is incorrect. The independent 52-input
+Python observer preserves exact integer seeds as strings.
+
+Legacy `try` and `try_table` fixture variants separately execute on default
+Node 25/26. Their outputs retain all 26 constructors, demonstrating new-owner
+fallback while preserving fields, public identities, host exceptions/reentry
+and nullable traps. Other existing cleanup still changes encoded bytes, so
+these are compatibility controls, not outlining wins. Initial fixture syntax,
+feature-flag and mistaken constructor-count authoring failures remain retained;
+they do not count as semantic runs.
+
+Local evidence lives in task9 `gc-cleanup-evidence`: `record-targeted10000/`,
+its command/exit/execution-audit files, `record-profile-runtime52/`,
+`record-profile-all-arms-node25.json` / `node26`,
+`record-profile-runtime52-input-shape-audit.json` and
+`record-exception-fallback-qualification.json` / runtime-exit reports.
+The default/source/package gates and ordinary aggregate remain distinct.
+
+The ordinary eight-leaf aggregate separately completed 10,000/10,000 exact
+normalized matches and equal runtime journal observations, normal exit 0,
+with zero failures. Canonical byte totals were 1,747,794 for both tools. Raw
+Starshine bytes totaled 1,776,123: 5,558 cases were larger before comparison
+canonicalization, a retained 28,329-byte raw serialization gap rather than a
+raw size win. Successful detailed reports were cleaned by the existing harness;
+the manifest and all 10,000 journal classifications remain. This aggregate
+provides ordinary MSF compatibility, not record-copy transform coverage.
+Evidence: `msf-ordinary10000.log`, command/exit/execution-audit files and
+`msf-ordinary10000/cases.jsonl` under the same local evidence directory.
 
 ## Dedicated aggregate
 
@@ -86,8 +162,8 @@ The dedicated aggregate needs neither normalizer and is exact.
 ## Historical v131 final commands
 
 The commands and results in this section are the recorded v131 closeout. New
-comparison runs must use the current verified Binaryen 132 oracle described in
-the shared [compare-pass guide](../../../tooling/pass-fuzz-compare.md).
+comparison runs use verified Binaryen 133 as documented in the October 10
+section above and the shared [compare-pass guide](../../../tooling/pass-fuzz-compare.md).
 
 Build once:
 
