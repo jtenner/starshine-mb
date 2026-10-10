@@ -6,8 +6,8 @@ test "MSF record-copy GenValid registers an observable triggering profile" {
     "merge-similar-functions-record-copy",
   )
   for seed in 0..<24 {
-    let generated = gen_valid_module_result(
-      @splitmix.new(seed=seed.to_uint64()),
+    let generated = gen_valid_module_result_from_seed(
+      seed.to_uint64(),
       GenValidConfig::for_profile(profile),
     ).unwrap()
     validate_module(generated.wasm_module).unwrap()
@@ -23,7 +23,7 @@ test "MSF record-copy GenValid registers an observable triggering profile" {
         }
       _ => abort("missing singleton record")
     }
-    assert_true(fields.length() >= 12 && fields.length() <= 32)
+    assert_eq(fields.length(), 12 + seed % 21)
     let @lib.Func(_, @lib.Expr(body)) = generated.wasm_module.code_sec.unwrap().0[1]
     let mut cursor = body
     let mut copies = 0
@@ -38,7 +38,11 @@ test "MSF record-copy GenValid registers an observable triggering profile" {
         _ => break
       }
     }
-    assert_true(copies >= 8, msg="every input needs actual matching copy sites")
+    assert_eq(copies, 8 + seed % 5)
+    assert_eq(
+      gen_valid_msf_profile_case_label(profile, seed.to_uint64()),
+      Some("msf:record-copy:fields-\{fields.length()}:arms-\{copies}"),
+    )
     assert_eq(generated.wasm_module.import_sec.unwrap().0.length(), 1)
     assert_true(generated.wasm_module.export_sec.unwrap().0.length() >= 5)
   }
