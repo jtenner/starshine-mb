@@ -561,45 +561,7 @@ fn typecheck_expr_with_context(
   st0 : TcState,
   include_context : Bool,
 ) -> TcResult {
-  let Expr(instrs) = expr
-  let mut st = st0
-  let mut initialization_owner : TcInitializationOwner? = None
-  for index, ins in instrs {
-    let checked = match ins {
-      LocalGet(idx) =>
-        match typecheck_local_get_error(st, idx) {
-          // A read only appends to the owned stack; the state and its
-          // initialization/control metadata retain their identity.
-          None => continue
-          Some(error) => Err(error)
-        }
-      LocalSet(idx) | LocalTee(idx) => {
-        let LocalIdx(raw) = idx
-        let local_id = raw.reinterpret_as_int()
-        if initialization_owner is None &&
-          local_id >= 0 &&
-          local_id < st.initialized_locals.length() &&
-          !st.initialized_locals[local_id] {
-          initialization_owner = Some(TcInitializationOwner::new())
-        }
-        match ins {
-          LocalSet(_) => typecheck_local_set(st, idx, initialization_owner~)
-          _ => typecheck_local_tee(st, idx, initialization_owner~)
-        }
-      }
-      _ => Typecheck::typecheck(ins, st)
-    }
-    match checked {
-      Ok(stp) => st = stp
-      Err(err) => {
-        if include_context {
-          return Err("instruction[\{index}] \{ins}: \{err}; stack=\{st.stack}")
-        }
-        return Err(err)
-      }
-    }
-  }
-  Ok(st)
+  tc_iterative_expr(expr, st0, include_context)
 }
 
 ///|

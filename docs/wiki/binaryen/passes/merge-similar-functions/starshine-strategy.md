@@ -146,3 +146,20 @@ The dedicated aggregate is `merge-similar-functions-all`. It includes:
 - tail-call targets
 
 See [`./fuzzing.md`](./fuzzing.md) for commands and results.
+
+### Deep control validation dependency
+
+The fixed GC artifact contains unrelated Block/Loop/If bodies up to 567 control
+levels. Full candidate validation previously overflowed the shipping WasmGC
+expression checker on an equivalent valid body; release mode reproduced this
+failure. Expression validation now suspends these three control kinds in private
+boxed continuation frames and invokes the existing entry and finish rules.
+Exception controls retain their existing dispatch. Each expression retains its
+own initialization owner, and if validation checks both instruction sequences
+before either arm's end-stack normalization, preserving error precedence.
+
+Ordinary diagnostics retain their existing text. On errors, a control subtree
+exceeding 32 levels or 256 instructions uses an explicit bounded control
+rendering marker while retaining the instruction index, block type, underlying
+reason and stack. This avoids recursively formatting a deep invalid body. This
+change validates the body fully; it only bounds diagnostic rendering.
