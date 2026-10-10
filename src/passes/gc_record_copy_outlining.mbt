@@ -15,6 +15,66 @@ priv struct GcRecordCopySite {
 }
 
 ///|
+fn gc_record_copy_charge(budget : Array[Int], count : Int) -> Bool {
+  if count < 0 || count > budget[0] {
+    return false
+  }
+  budget[0] -= count
+  true
+}
+
+///|
+fn gc_record_copy_subtype_bounded(
+  subtype : @lib.SubType,
+  budget : Array[Int],
+) -> Bool {
+  if !gc_record_copy_charge(budget, 1) ||
+    !gc_record_copy_charge(budget, subtype.super_types().length()) {
+    return false
+  }
+  match subtype.get_comptype() {
+    @lib.FuncCompType(params, results) =>
+      gc_record_copy_charge(budget, params.length()) &&
+      gc_record_copy_charge(budget, results.length())
+    @lib.StructCompType(fields) =>
+      gc_record_copy_charge(budget, fields.length())
+    @lib.ArrayCompType(_) | @lib.ContCompType(_) =>
+      gc_record_copy_charge(budget, 1)
+  }
+}
+
+///|
+// Charge O(1) vector lengths before traversing groups or constructing the
+// signature cache. Unused types still participate in full candidate validation.
+fn gc_record_copy_types_bounded(
+  types : Array[@lib.RecType],
+  budget : Array[Int],
+) -> Bool {
+  if !gc_record_copy_charge(budget, types.length()) {
+    return false
+  }
+  for rec in types {
+    match rec {
+      @lib.SingleRecType(subtype) =>
+        if !gc_record_copy_subtype_bounded(subtype, budget) {
+          return false
+        }
+      @lib.GroupRecType(group) => {
+        if !gc_record_copy_charge(budget, group.length()) {
+          return false
+        }
+        for subtype in group {
+          if !gc_record_copy_subtype_bounded(subtype, budget) {
+            return false
+          }
+        }
+      }
+    }
+  }
+  true
+}
+
+///|
 fn gc_record_copy_type_fields(subtype : @lib.SubType) -> Int? {
   let metadata = subtype.metadata()
   if metadata.shared ||
@@ -446,7 +506,8 @@ fn gc_record_copy_initializers_bounded(
             }
           }
           @lib.FuncsElemKind(funcs) =>
-            if funcs.length() > 65536 {
+            if funcs.length() > 65536 ||
+              !gc_record_copy_charge(budget, funcs.length()) {
               return false
             }
         }
@@ -472,7 +533,10 @@ fn gc_record_copy_initializers_bounded(
 }
 
 ///|
-fn gc_record_copy_outline_module(mod_ : @lib.Module) -> @lib.Module {
+fn gc_record_copy_outline_module(
+  mod_ : @lib.Module,
+  analysis_budget? : Int = 8000000,
+) -> @lib.Module {
   if mod_.func_annotation_sec is Some(_) ||
     pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
@@ -496,6 +560,10 @@ fn gc_record_copy_outline_module(mod_ : @lib.Module) -> @lib.Module {
   }
   let imported = run_hot_pipeline_imported_func_count(mod_)
   if imported > 65536 - funcs.length() {
+    return mod_
+  }
+  let budget = [analysis_budget, 0]
+  if !gc_record_copy_types_bounded(types, budget) {
     return mod_
   }
   let fields_by_type : @hashmap.HashMap[UInt, Int] = @hashmap.new()
@@ -525,7 +593,6 @@ fn gc_record_copy_outline_module(mod_ : @lib.Module) -> @lib.Module {
   let signatures = msf_build_type_signature_cache(mod_)
   let supported : Array[Bool] = []
   let counts : @hashmap.HashMap[UInt, Int] = @hashmap.new()
-  let budget = [8000000, 0]
   for idx in 0..<funcs.length() {
     let @lib.Func(locals, @lib.Expr(body)) = funcs[idx]
     let signature = msf_cached_signature(signatures, function_types[idx])

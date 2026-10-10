@@ -450,3 +450,118 @@ test "GC record-copy outlining rolls back invalid deep untouched bodies" {
     assert_true(physical_equal(gc_record_copy_outline_module(invalid), invalid))
   }
 }
+
+///|
+test "GC record-copy outlining charges unused type shapes before candidate work" {
+  let input = gc_copy_test_module(12, 12)
+  let types = input.type_sec.unwrap().0.copy()
+  let field = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::const_(),
+  )
+  types.push(
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::struct_(Array::make(1500, field))),
+    ),
+  )
+  let original = input.with_type_sec(@lib.TypeSec::new(types))
+  @validate.validate_module(original).unwrap()
+  assert_true(
+    physical_equal(
+      gc_record_copy_outline_module(original, analysis_budget=2000),
+      original,
+    ),
+  )
+  // The ordinary production budget still accepts this small valid record.
+  assert_false(
+    physical_equal(gc_record_copy_outline_module(original), original),
+  )
+}
+
+///|
+test "GC record-copy type shape budget counts function struct array group and supers" {
+  let field = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::const_(),
+  )
+  let function = @lib.SubType::comp_type(
+    @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+      @lib.ValType::i64(),
+      @lib.ValType::i64(),
+      @lib.ValType::i64(),
+    ]),
+  )
+  let record = @lib.SubType::comp_type(
+    @lib.CompType::struct_(Array::make(4, field)),
+  )
+  let array = @lib.SubType::comp_type(@lib.CompType::array(field))
+  let inherited = @lib.SubType::new(
+    false,
+    [@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)],
+    @lib.CompType::struct_(Array::make(4, field)),
+  )
+  for
+    (types, expected) in [
+      ([@lib.RecType::new(function)], 7),
+      ([@lib.RecType::new(record)], 6),
+      ([@lib.RecType::new(array)], 3),
+      (
+        [
+          @lib.RecType::new(
+            @lib.SubType::comp_type(@lib.CompType::cont(@lib.TypeIdx::new(0U))),
+          ),
+        ],
+        3,
+      ),
+      ([@lib.RecType::new(inherited)], 8),
+      ([@lib.RecType::group([record, array])], 10),
+    ] {
+    let exact = [expected, 0]
+    assert_true(gc_record_copy_types_bounded(types, exact))
+    assert_eq(exact[0], 0)
+    assert_false(gc_record_copy_types_bounded(types, [expected - 1, 0]))
+    assert_false(gc_record_copy_types_bounded(types, [-1, 0]))
+  }
+  assert_true(gc_record_copy_types_bounded([], [0, 0]))
+  let fields : @hashmap.HashMap[UInt, Int] = @hashmap.new()
+  let counts : @hashmap.HashMap[UInt, Int] = @hashmap.new()
+  let module_ = gc_copy_test_module(12, 12).with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::passive(),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(1U), @lib.FuncIdx::new(1U)]),
+      ),
+    ]),
+  )
+  assert_false(
+    gc_record_copy_initializers_bounded(module_, fields, counts, [1, 0]),
+  )
+  assert_true(
+    gc_record_copy_initializers_bounded(module_, fields, counts, [2, 0]),
+  )
+}
+
+///|
+#skip("dedicated eight-million type structural-unit boundary")
+test "GC record-copy type shapes admit eight million units and reject one beyond" {
+  let common = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(Array::make(120, @lib.ValType::i32()), []),
+    ),
+  )
+  let types = Array::make(65536, common)
+  types[65535] = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(Array::make(4728, @lib.ValType::i32()), []),
+    ),
+  )
+  let budget = [8000000, 0]
+  assert_true(gc_record_copy_types_bounded(types, budget))
+  assert_eq(budget[0], 0)
+  types[65535] = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(Array::make(4729, @lib.ValType::i32()), []),
+    ),
+  )
+  assert_false(gc_record_copy_types_bounded(types, [8000000, 0]))
+}

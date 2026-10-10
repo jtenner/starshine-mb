@@ -46,8 +46,13 @@ their signatures are appended.
 
 Admission bounds imports, flattened types and function totals to 65,536,
 helpers to 32, sites to 4,096 and recursive rewrite depth to 128. An iterative whole-module preflight permits bounded validation depth up to 1,024; deeper functions remain physically shared and are never matched or rewritten. Inputs exceeding the validation ceiling fail closed. One eight-million-unit
-budget covers all function bodies, declarations and initializer expressions,
-including functions excluded from rewriting and active segment offsets.
+budget covers type groups and subtype/supertype vectors, function parameters
+and results, struct/array/continuation fields, function bodies, declarations,
+local initialization and initializer expressions, including functions excluded
+from rewriting and active segment offsets. Raw element function-index vectors
+also participate. Vector lengths are charged before traversal or cache setup.
+This is a structural admission budget; custom sections and data payload bytes
+retain their existing handling and are not bounded by this count.
 Compressed local runs are bounded before snapshot conversion and unsigned
 parameter/local totals before dense allocation. Unsupported or excessive
 resources return the original module.
