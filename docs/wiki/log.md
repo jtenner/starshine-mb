@@ -8,6 +8,11 @@
 - The qualified Starshine O4s package and all raw inputs remain preserved.
   Bulky comparison artifacts and local measurement helpers stay under ignored
   `dist/npm/`; durable hashes, commands and limits are committed here.
+- The [cold-build follow-up](tooling/node-package-surface.md#october-10-2026--cold-npm-bootstrap-deadline)
+  records published-head package CI's native release compilation timeout and a
+  328,583 ms successful baseline build. Separate bounded compiler/harness
+  deadlines retain optimizer limits, full logs and regression-tested process
+  tree cleanup. Exact follow-up CI still qualifies the available compiler.
 - Source publication to `origin/master` is authorized; a fresh pre-push fetch
   found no newer work beyond `f91f5ec3`. Existing baseline Coverage Report and
   Examples CLI Native failures remain visible. License selection and npm

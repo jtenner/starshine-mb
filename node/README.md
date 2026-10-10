@@ -34,7 +34,7 @@ Unsupported callback, raising or generic signatures remain explicit throwing pla
 
 ## Tested build, pack and install
 
-Build tools: Moon `0.1.20260920 (914d7da 2026-09-20)`, compiler `v0.10.14+7d59c7ec9`, Bun 1.4.2, Node 25+, a native C toolchain, wasm-tools 1.251.0, and TypeScript 5.8.3 for consumer checks. Exact tested versions are recorded in `ffi/src/npm/toolchain.json`. The MoonBit installer currently serves `latest`; the tested snapshot's archive URL returned HTTP 403 during preparation. Preserve or provision the tested snapshot, or qualify a newer compiler using the drift and consumer gates. CI installs the available compiler and requires deterministic generated-file checks; remote CI has not been run for this local branch.
+Build tools: Moon `0.1.20260920 (914d7da 2026-09-20)`, compiler `v0.10.14+7d59c7ec9`, Bun 1.4.2, Node 25+, a native C toolchain, wasm-tools 1.251.0, and TypeScript 5.8.3 for consumer checks. Exact tested versions are recorded in `ffi/src/npm/toolchain.json`. The MoonBit installer currently serves `latest`; the tested snapshot's archive URL returned HTTP 403 during preparation. Preserve or provision the tested snapshot, or qualify a newer compiler using the drift and consumer gates. CI installs the available compiler and requires deterministic generated-file and packed-consumer checks.
 
 From the repository root with those tools installed:
 
@@ -42,13 +42,15 @@ From the repository root with those tools installed:
 moon update
 npm run build --prefix node
 npm run check-generated --prefix node
-bun test scripts/lib/ffi-generation.test.ts scripts/lib/node-generation.test.ts
+bun test scripts/lib/ffi-generation.test.ts scripts/lib/node-generation.test.ts scripts/lib/npm-process.test.ts
 node --test node/test/*.test.mjs
 # TSC_BIN can be an absolute path if tsc is not available on PATH.
 bun scripts/test/npm-packed-consumers.mjs
 ```
 
 The last command executes the real `npm pack` prepack build, inspects the tarball and installs it into empty JS and strict NodeNext TypeScript projects outside the checkout. It exercises every export, runtime initialization, roundtrips, optimization, errors, a short fuzz case and the CLI with MoonBit absent from runtime PATH. Reports and tarballs are in ignored `dist/npm/`.
+
+Cold source compilation has a 15-minute deadline per compiler command; the packed-consumer harness bounds its entire `npm pack`/prepack command to 30 minutes. Direct `npm run build` or `npm pack` uses the per-command limits without a separate aggregate deadline. Individual optimizer commands keep a three-minute deadline, and consumer commands have four minutes. Override these with `NPM_COMPILER_TIMEOUT_MS`, `NPM_PACK_TIMEOUT_MS`, `NPM_SELF_OPT_TIMEOUT_MS`, and `NPM_CONSUMER_TIMEOUT_MS`, respectively; values must be positive integers up to 2147483647. On the tested Linux build host, timeout cleanup inventories descendant process groups with `ps` and terminates them, including nested prepack/compiler groups. Failure preserves full compiler/pack logs and a build error report under `dist/npm/`, then stops packaging. CI also has an overall 45-minute job limit. These budgets accommodate cold native C compilation without claiming an optimization speed improvement.
 
 A standalone consumer needs only Node and the tarball:
 

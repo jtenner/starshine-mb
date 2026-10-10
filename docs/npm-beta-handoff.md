@@ -59,8 +59,12 @@ fast preset; the full O4z scheduler requires levels 4/4.
 A duplicate-function fixture must transform and preserve execution result 84
 before/after; its measured size changes from 70 to 54 bytes. Both actual package
 artifacts shrink in this qualification. Size or runtime gains are not promised.
-Each optimizer command has a default 180-second budget; packed harness commands
-have a 240-second budget. A timeout fails the build.
+Each optimizer command has a default 180-second budget; consumer commands have
+a 240-second budget. Cold compiler commands have separate 900-second deadlines,
+and the packed-consumer harness gives its whole npm pack/prepack command a
+1,800-second deadline. Direct builds retain per-command limits. CI has an overall
+45-minute job cap. Positive bounded overrides, process-tree termination and complete diagnostic logs are
+documented in the package README. A timeout fails the build.
 
 Input/output bytes pass independent wasm-tools validation. Required exports must
 survive. Separate standalone package copies compare semantic executions, errors,
@@ -70,7 +74,8 @@ Stale promoted artifacts are removed at the beginning of every build.
 
 ## Local evidence
 
-Final O4s tarball: `dist/npm/jtenner-starshine-0.1.2-beta.0.tgz`, 4,821,600 bytes, 47 files.
+Initial O4s tarball at `9057a5d8`, now preserved under
+`dist/npm/qualified-o4s-9057a5d8/`: 4,821,600 bytes, 47 files.
 SHA-256: `0d4cc321fef5554fce32cf95ee30a1d7be30a84380df048e75f07302775d9ab2`.
 The reproducible commands and toolchain are in [the package README](../node/README.md)
 and `ffi/src/npm/toolchain.json`. Exact local reports and tarballs live in ignored
@@ -169,6 +174,53 @@ with no new concrete defect. Licensing remains undecided.
 
 npm publication remains pending user approval. Source publication authorization
 does not authorize an npm publish, tag/release, deployment or credential change.
+
+## Published-head CI and cold-build follow-up
+
+Source head `9057a5d8a5a5b85859c702c76d0cbe3e9f18ab55` was verified on
+`origin/master`. The normal non-force push used existing account permissions;
+GitHub unexpectedly reported bypassed violations for three missing required
+checks. No branch protection or account setting was changed. This was a failed
+protection preflight, not approval to bypass checks on subsequent updates.
+
+Its [packed-package job](https://github.com/jtenner/starshine-mb/actions/runs/38028151417/job/114143304259)
+failed with `spawnSync moon ETIMEDOUT` during the fresh native release bootstrap
+build at the old 180-second deadline. It produced no tarball. The previous
+successful baseline [release job](https://github.com/jtenner/starshine-mb/actions/runs/38014936990/job/114103005410)
+spent 328,583 ms on native release compilation (01:55:25.246 to 02:00:53.829 UTC).
+This supports a separate bounded cold-compiler budget rather than extending the
+optimizer deadline or reusing a stale bootstrap. The follow-up retains full
+compiler and pack logs, writes an error report even for bootstrap failures, and
+tests completion, independent optimizer timeout, diagnostics, invalid budgets
+and termination of descendants that ignore SIGTERM. Internal review reproduced
+an orphan with the first synchronous timeout helper; the final asynchronous
+runner terminates descendant groups on timeout, including reparented inherited-output holders, and awaits a bounded termination grace before permitting a retry.
+Local success is not remote qualification; exact follow-up head CI remains a gate.
+
+The [native examples job](https://github.com/jtenner/starshine-mb/actions/runs/38028151316/job/114143303815)
+failed with the same `Machine_of_clam_lower.lower_array_make` unsupported
+uninitialized non-null GC ref array error and memory64 example command as the
+baseline job. That is distinct from the release-bootstrap timeout; issue #1322
+is not declared cleared or established as this compiler error's cause.
+Coverage and other exact-head results must be reported separately.
+
+The cold-build follow-up's current local tarball is
+`dist/npm/jtenner-starshine-0.1.2-beta.0.tgz`, 4,822,175 bytes, 47 files,
+SHA-256 `2c20fd47b4fd4b9bbe0ab179329bbbb0b3aa919f630d411cb2522e47ec64deb0`.
+Its 575-byte archive increase comes from the updated build documentation;
+both raw and optimized Wasm hashes remain exactly those above. The rebuilt
+package passed before/after observations and both JS/strict TypeScript consumers
+on Node 25.8.1 and 26.11.1 with TypeScript 5.8.3. Build time was 26,165 ms on the
+warm local checkout; this is not a cold CI or optimization speed measurement.
+The 44 Node tests, generated drift, README sync and actionlint pass. Timeout
+regressions include both a live-parent detached child and a departed parent
+whose detached child holds the inherited output pipe. Linux cleanup recovers
+those pipe holders and deadline settlement does not depend on `close`.
+
+The selected O4s checkpoint and raw inputs are additionally preserved in
+`dist/npm/qualified-o4s-9057a5d8/` with `snapshot.json` hashes. CI logs and JSON
+are retained under `dist/npm/source-publication/`. No gate or coverage baseline
+was disabled or reset. Licensing remains undecided.
 
 ## Discrepancy investigation handoff
 

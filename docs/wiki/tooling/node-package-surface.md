@@ -94,6 +94,33 @@ installs the exact tarball into empty JavaScript and strict TypeScript consumers
 outside the source tree and exercises every public export and the CLI.
 
 
+## October 10, 2026 — Cold npm bootstrap deadline
+
+The first published npm prep head `9057a5d8` failed its
+[packed-package CI job](https://github.com/jtenner/starshine-mb/actions/runs/38028151417/job/114143304259)
+while compiling the fresh native release bootstrap: `spawnSync moon ETIMEDOUT`
+at 180 seconds. The successful baseline
+[release job](https://github.com/jtenner/starshine-mb/actions/runs/38014936990/job/114103005410)
+took 328,583 ms for native compilation, so the old compiler budget was below
+an observed successful cold build. No npm tarball was produced by the failed job.
+
+[`npm-process.mjs`](../../../scripts/lib/npm-process.mjs) gives compiler commands
+15 minutes and the packed-consumer harness's whole pack/prepack command 30
+minutes. Optimizer commands retain three minutes; consumer commands retain four.
+CI is bounded to 45 minutes. Overrides reject unbounded/invalid values. Full
+compiler/pack logs and early bootstrap error reports survive failed builds.
+On the tested Linux host, timeout cleanup freezes the command's root group,
+inventories descendants with `ps`, and kills nested groups as well. A red-first
+[regression](../../../scripts/lib/npm-process.test.ts) reproduced the old orphan
+and now protects completion, independent optimizer limits and process cleanup.
+
+The [handoff](../../npm-beta-handoff.md#published-head-ci-and-cold-build-follow-up)
+preserves exact CI links, raw artifacts and the initial push's unexpected
+implicit protection bypass. Follow-up source publication must first satisfy the
+required checks without altering protections. Matching native-debug examples
+failures and coverage evidence remain separate; this fix does not clear issue
+#1322 or release licensing. Fresh exact-head CI is required for qualification.
+
 ## October 10, 2026 — Same-input Binaryen comparison
 
 This frozen checkpoint qualifies source head

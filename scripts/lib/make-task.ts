@@ -115,7 +115,7 @@ export async function main(argv: string[]): Promise<void> {
       generateNodePackage();
       return;
     case "node-package":
-      buildNodePackage({ repoRoot, moonBin: resolveMoonBin() });
+      await buildNodePackage({ repoRoot, moonBin: resolveMoonBin() });
       return;
     case "benchmark-optimize":
       await benchmarkOptimizeMain(rest);

@@ -21,6 +21,12 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   documented MoonBit toolchain, and assess outstanding repository release gates.
 - Source publication to `origin/master` is authorized. npm publication, tags,
   releases, deployment and credential changes remain unauthorized.
+- Exact `9057a5d8` package CI hit the old 180-second native release compiler
+  timeout; baseline native compilation took 328,583 ms. Separate bounded cold
+  compile/prepack budgets retain the optimizer deadline and full failure logs.
+  Qualify the follow-up exact source head in CI before marking this gate passed.
+  Subsequent source publication must preflight the three required checks;
+  the initial normal push implicitly bypassed missing checks via existing rights.
 - After verified source publication, start a separate Sol 6.1 High task for the
   [same-input artifact discrepancy](docs/wiki/tooling/node-package-surface.md#october-10-2026--same-input-binaryen-comparison).
   Preserve both exact raw inputs and the selected O4s package; do not use chained

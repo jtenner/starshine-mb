@@ -52,6 +52,7 @@ on:
 jobs:
   node-api-surface-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
@@ -86,7 +87,7 @@ jobs:
         run: |
           moon version --all
           moon update
-          bun test scripts/lib/ffi-generation.test.ts scripts/lib/node-generation.test.ts
+          bun test scripts/lib/ffi-generation.test.ts scripts/lib/node-generation.test.ts scripts/lib/npm-process.test.ts
           bun scripts/test/node-package-static-contract.ts
           bun scripts/test/npm-packed-consumers.mjs
           node --test node/test/*.test.mjs
@@ -102,3 +103,4 @@ jobs:
             dist/npm/build-report.json
             dist/npm/consumer-report.json
             dist/npm/*.tgz
+            dist/npm/*.log
