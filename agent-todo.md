@@ -272,9 +272,22 @@ quality gates. Keep traced inner and normal command measurements separate.
 - [x] Run verified Binaryen 133 aggregate 10,000-case comparisons for each
   affected pass with the freshly built native CLI. All four runs completed
   without validation, generator, property, or command failures.
-- [ ] Reduce and classify the existing `simplify-locals-all` effect and cleanup
-  families and the `pass-oi-all` tuple family with semantic and downstream
-  evidence. Smaller canonical output alone does not close these parity gaps.
+- [x] Classify the current generated SL effect/cleanup and OI tuple families
+  with source contracts, complete replay, observed traps/state, and identical
+  common downstream output. Repair the MergeBlocks, descriptor and branch-value
+  spill encoding losses. The [output checkpoint](docs/wiki/tooling/validation-gates.md#october-9-2026--classify-and-repair-generated-output-differences)
+  records the exact finite profiles; it does not close general pass parity.
+- [ ] Close the separate 6 MB compiler-artifact SL gap: current output is
+  368,910 bytes larger than v133. Native full-preset runs exceed the 60-second
+  probe limit on both baseline and an earlier post-fix build; downstream
+  artifact parity remains unverified. Five quiet pairs still show 165.892 ms (13.0%) added
+  pipeline cost for 20 bytes saved after the measured cost repairs. Keep this
+  performance gap open and retain samples under their exact executable hashes.
+- [ ] Keep the known multi-pass optimizer fixed-point gap visible. The bounded
+  failure-retention tests still detect changed bytes and retain the reduced
+  pass sequence; encoding cleanup now needs both MergeBlocks and
+  RemoveUnusedBrs to reproduce it. Single-pass aggregate size and behavior
+  evidence does not close combined-pass idempotence.
 - [x] Replay the three direct-pass SIMD modules in independent Node instances
   after the native build; all match the input behavior and validate with
   `wasm-tools`. The available stringref runtimes and the CLI WAT frontend do

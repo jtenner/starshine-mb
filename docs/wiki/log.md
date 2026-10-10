@@ -1,3 +1,26 @@
+### 2026-10-09 — Classify the exposed generated output families
+
+- [The output comparison checkpoint](tooling/validation-gates.md#october-9-2026--classify-and-repair-generated-output-differences)
+  separates measured Starshine size wins from repaired parity gaps. Four pinned
+  Binaryen 133 aggregate lanes compare 10,000 regenerated inputs each. Every
+  raw and canonical output is equal in size or smaller than the oracle.
+  The final frozen native CLI repeats all four lanes with the same counts;
+  interrupted partial runs are excluded. The bounded wasm-gc suite passes
+  14,001/14,001 tests. Info, formatting and the native release build pass.
+- Complete tuple and SimplifyLocals family replays retain traps, state and common
+  downstream output. Fixed MergeBlocks, CodePushing and descriptor fixtures
+  establish their narrower contracts. Descriptor execution remains unavailable.
+- Five independent read-only Claude reviews ran. Verified findings include the
+  partial selected-function type-index fault and missing offset metadata guards.
+  New red tests cover both repairs. Cleanup timing also exposed a
+  large-module cost. Type sizing and candidate gates reduce that cost, but the
+  compiler artifact still loses size versus the oracle and adds time versus
+  the baseline. The checkpoint keeps those gaps open and records the unavailable
+  sixth Claude attempt.
+- The [evidence record](raw/tooling/2026-10-09-output-differences-v133.json) retains
+  source versions and adverse measurements. These observations do not close
+  independent stringref execution, general IR scaling or optimizer speed goals.
+
 ### 2026-10-09 — Repair direct-pass effects and IR invariants
 
 - [The October 9 repair checkpoint](tooling/validation-gates.md#october-9-2026--optimizer-and-ir-repairs)

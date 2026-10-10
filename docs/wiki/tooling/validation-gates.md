@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-10-09
 sources:
+  - ../raw/tooling/2026-10-09-output-differences-v133.json
   - ../raw/tooling/2026-10-04-starshine-v133-review.json
   - ../raw/tooling/2026-10-05-starshine-p00-checkpoint.json
   - ../../../claude_review_10_3_6.md
@@ -1173,6 +1174,138 @@ regressions, which they do not target.
 The performance findings from the audit remain leads until pass-local time and
 allocated bytes are measured on comparable fixtures. The [active backlog](../../../agent-todo.md#p00b--october-9-optimizer-and-ir-follow-up-ir2-effect-correctness)
 tracks that evidence and the remaining aggregate comparisons.
+
+## October 9, 2026 — Classify and repair generated output differences
+
+This checkpoint supersedes the open output-family judgments in the earlier
+October 9 repair table, for the four named generated profiles only. Classification
+is an agent judgment based on the transform contract, inspected family, replay,
+encoded size and common downstream cleanup. The harness does not supply a
+semantic proof. Binaryen 133 remains the pinned oracle.
+
+The table below records the final native CLI, SHA-256
+`42f386573da7ccab4ae923122b17e29e9069a5686fb91921f89f439fd2de85a3`.
+All four final lanes completed 10,000 cases. After the app restart, the valid
+SimplifyLocals result was retained; the other three lanes were regenerated in
+new `-renewed` report directories. Interrupted partial files remain separate
+and are excluded from these totals. The final bounded suite passes
+**14,001/14,001** tests (`moon test --target wasm-gc --no-render`).
+`moon info`, `moon fmt` and the native release build pass. No public `.mbti`
+change or new test skip was introduced. Earlier results and adverse timings
+remain under their original executable identities in the evidence record.
+
+| Pass | Compared | Normalized | Cleanup normalized | Residuals | Raw bytes saved | Canonical bytes saved |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| MergeBlocks | 10,000 | 7,007 | 0 | 2,993 | 5,986 | 5,986 |
+| SimplifyLocals | 10,000 | 380 | 0 | 9,620 | 226,119 | 216,372 |
+| CodePushing | 10,000 | 5,006 | 4,994 | 0 | 26,487 | 12,016 |
+| OptimizeInstructions | 10,000 | 8,623 | 0 | 1,377 | 54,052 | 42,727 |
+
+Each aggregate has zero raw or canonical size losses, and zero validation,
+generator, property or command failures. All 40,000 inputs were regenerated
+with seed `0x5eed`, eight workers, a prebuilt native CLI, the verified v133
+oracle and independent `wasm-tools` validation. Runtime observation was off in
+these aggregate commands; separate execution checks below provide that evidence.
+The [machine-readable record](../raw/tooling/2026-10-09-output-differences-v133.json)
+retains the baseline and replacement counts, executable identities and exact
+scopes. The four pass dossiers retain the invocation arguments.
+Historical `/tmp` paths in the dossiers and record identify provenance. Those
+temporary files were lost at the app/host restart. Complete final replay data
+was copied into the durable record before the restart; final aggregate results
+and toolchain records are also embedded there. The fresh full-suite log and
+comparison reports remain under the worktree `.tmp` directories.
+
+- **MergeBlocks: Starshine-win, expression family.** All 2,993 residuals use
+  one fixed input. Removing two effect-free `nop`s saves two bytes. A live
+  exported wrapper preserves the payload and memory result; common v133 `-O`
+  and `-Oz` cleanup produces identical bytes. The old effect and EH families
+  had raw size losses from redundant controls and types. Their repaired output
+  now matches v133 byte-for-byte. See [MergeBlocks](../binaryen/passes/merge-blocks/fuzzing.md).
+- **SimplifyLocals: Starshine-win, seven finite generated families.** All
+  10,000 outputs were replayed; there are 8,719 unique inputs. Common downstream
+  `-O` and `-Oz` output is identical for every case. Node checks all unique
+  inputs with separate original, Starshine and Binaryen instances: 235,150
+  call scenarios, including 2,894 traps, agree on results and observed state.
+  Five extra fixtures cover calls, ordered traps and a live exception handler.
+  Source inspection covers pure debris, branchless controls, local traffic,
+  and the discarded global read moved across a load with no intervening write
+  or call. Raw declaration grouping closes the old raw-size losses; canonical
+  savings remain. See [SimplifyLocals](../binaryen/passes/simplify-locals/fuzzing.md).
+- **OptimizeInstructions: Starshine-win, tuple and boolean families.** All
+  1,080 tuple rows were replayed from regenerated matching inputs; 338 inputs
+  are unique. They remove 18,915 local operations, save 37,975 canonical bytes,
+  and have identical common `-O`/`-Oz` output. Node results, division traps and
+  globals agree. The 297 boolean rows share one input; literal condition folding
+  saves 16 bytes per case with the same downstream output and execution result.
+  Four descriptor inputs formerly lost raw bytes. Terminal bottom null, ordered
+  terminal-trap cleanup and unused signature pruning now match v133 bytes.
+  Descriptor runtime remains unavailable; this narrower result uses inspected
+  source, independent validation and exact oracle output. See
+  [OptimizeInstructions](../binaryen/passes/optimize-instructions/fuzzing.md).
+- **CodePushing: Starshine-win, ten differing fixed families.** Each of the 20
+  generated profiles has one input hash. Nine differences are effect-free
+  `nop`s; the prefix family removes seven scratch locals and nested wrappers,
+  saving 35 raw and six canonical bytes. Common downstream output and branch,
+  trap and state observations agree. The old 513-case branch-value spill gap
+  was a parity gap. Moving the fallthrough payload drop before the sunk sets
+  closes it: both outputs are 51 bytes; a single-set fixture is 44 bytes.
+  Wasmtime returns 9 and 42 on the two branch paths. See
+  [CodePushing](../binaryen/passes/code-pushing/fuzzing.md).
+
+Five read-only Claude Code Opus reviews ran with high effort and the authorized
+safe mode. Findings were verified before edits. A late review exposed a real
+correctness fault: module-wide type remapping could invalidate untouched bodies
+that inlining restores later. Five new partial-selection tests failed before the
+fix; the full-selection control passed. Partial selection now keeps the original
+type index space. All 28 focused encoding tests pass after that repair.
+The full-selection cleanup remains active.
+
+The fourth review also found that direct OI cleanup and selected dispatch lacked
+the opaque offset-metadata guard used by whole-module dispatch. Three tests
+failed on changed output before the repair. The helper and both selected entry
+points now preserve those intentionally unsupported metadata modules. All three
+tests pass; each has a positive unguarded cleanup control. The fifth review and
+a separate GPT review found no new correctness fault in the nop/control
+admission gates or the shared control-transfer predicate.
+
+A separate bounded cost regression checks type index 128 moving to zero in
+both the function section and a typed block, whole-module byte reduction and
+validation. Its extra full-size check failed before the change and passed after
+it. For independent unshared plain signatures, interning and stable live
+compaction only lower type indices. Index widths cannot grow; a strict type
+section reduction therefore proves a whole-module reduction. This guarded path
+sizes only the type section. The old full size and validation branch remains for encoder failure. With
+valid admitted signatures, any removal strictly shrinks the section, so the
+normal accepted path uses the remap proof and performs no module validation.
+Independent output validation is required for signoff; optional pipeline
+validation must not be described as an unconditional guard. See the
+[cost regression](../../../src/passes/simple_type_cleanup_fast_path_wbtest.mbt).
+
+Precise nop, branchless-control and local-declaration admission gates now avoid
+body rewrites and legacy-EH scans when no supported candidate exists. The local
+gate retains zero-run cleanup and repeated numeric-type remapping; a live
+local-index and strict byte-saving control passes. The candidate-free guard
+count failed before the fix. All three current grouping tests pass. A separate
+GPT review found no new correctness fault. A sixth Claude attempt reached the
+provider session limit; no review occurred in that attempt.
+
+These results establish scoped semantic and size parity for the inspected
+families. They do not establish engine speed, allocation savings, universal pass
+parity, or a general optimizer performance win. On the separate 6 MB compiler
+artifact, five quiet alternating pairs measure baseline/final pipeline medians
+of 1.273972/1.439864 seconds: **165.892 ms added cost (13.0%)** for 20 bytes saved.
+The earlier 702 ms and 296 ms adverse checkpoints remain under their original
+binary hashes. The final declaration gate cuts the traced local-group stage
+from 38.9 to 5.4 ms without changing output. The artifact output remains
+**368,910 bytes larger than v133** (6,058,213 vs 5,689,303): an open size and
+performance parity gap, not a Starshine-win. Native full-preset probes timed out
+at 60 seconds on both baseline and the earlier checkpoint; artifact downstream
+parity remains unverified. Seven paired small-input samples are in the SL
+dossier; their timings do not support a general speed claim.
+
+Independent stringref and descriptor execution, the known combined-pass
+fixed-point gap, and the separate IR scaling leads remain in the
+[active backlog](../../../agent-todo.md#p00b--october-9-optimizer-and-ir-follow-up-ir2-effect-correctness).
 
 ## October 5 2026 integrated validator renewal
 
