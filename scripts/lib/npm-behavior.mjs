@@ -13,6 +13,7 @@ export async function observePackage(packageRoot) {
     exports[name] = Object.keys(module).sort();
   }
   const { binary, cli, cmd, lib, passes, validate, wast, wat } = api;
+  assert.equal(cmd.cmdVersionText(), `v${manifest.version}`, 'CLI/API version differs from packed metadata');
   const observations = [];
   for (const source of [
     '(module (func (export "answer") (result i32) i32.const 40 i32.const 2 i32.add))',

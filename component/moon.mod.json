@@ -2,6 +2,6 @@
   "name": "jtenner/starshine-component",
   "preferred-target": "wasm",
   "deps": {
-    "jtenner/starshine": "0.1.1"
+    "jtenner/starshine": "0.1.2-beta.0"
   }
 }

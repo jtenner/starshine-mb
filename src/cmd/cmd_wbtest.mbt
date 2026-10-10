@@ -8720,7 +8720,7 @@ test "run_cmd_with_adapter prints help text and exits successfully for --help" {
   @debug.assert_eq(stdout_writes.length(), 1)
   let help = bytes_to_ascii_string(stdout_writes[0])
   assert_true(help.contains("Starshine Wasm Binary Toolkit"))
-  assert_true(help.contains("v0.1.0"))
+  assert_true(help.contains("v0.1.2-beta.0"))
   assert_true(help.contains("Usage:"))
   assert_true(help.contains("--help"))
   assert_true(help.contains("--version"))
@@ -8862,7 +8862,7 @@ test "run_cmd_with_adapter prints version and exits successfully for --version" 
   @debug.assert_eq(summary.input_files, [])
   @debug.assert_eq(summary.output_files, [])
   @debug.assert_eq(stdout_writes.length(), 1)
-  @debug.assert_eq(bytes_to_ascii_string(stdout_writes[0]), "v0.1.0\n")
+  @debug.assert_eq(bytes_to_ascii_string(stdout_writes[0]), "v0.1.2-beta.0\n")
 }
 
 ///|
@@ -8901,7 +8901,7 @@ test "run_cmd_with_adapter prints version and exits successfully for -V" {
   @debug.assert_eq(summary.input_files, [])
   @debug.assert_eq(summary.output_files, [])
   @debug.assert_eq(stdout_writes.length(), 1)
-  @debug.assert_eq(bytes_to_ascii_string(stdout_writes[0]), "v0.1.0\n")
+  @debug.assert_eq(bytes_to_ascii_string(stdout_writes[0]), "v0.1.2-beta.0\n")
 }
 
 ///|

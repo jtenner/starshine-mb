@@ -40,7 +40,7 @@ try {
     const cwd = path.join(scratch, kind);
     fs.mkdirSync(cwd);
     fs.writeFileSync(path.join(cwd, 'package.json'), '{"private":true,"type":"module"}\n');
-    await run(npmBin, ['install', '--ignore-scripts', '--no-audit', '--no-fund', tarball], cwd, consumerEnv);
+    await run(npmBin, ['install', '--no-audit', '--no-fund', tarball], cwd, consumerEnv);
     const pkg = path.join(cwd, 'node_modules/@jtenner/starshine');
     const runtimeArgs = ['--permission', `--allow-fs-read=${cwd}`, `--allow-fs-write=${cwd}`];
     fs.writeFileSync(path.join(cwd, 'isolation.mjs'), `import assert from 'node:assert/strict'; import fs from 'node:fs'; for (const file of process.argv.slice(2)) assert.throws(() => fs.readFileSync(file), { code: 'ERR_ACCESS_DENIED' });`);
@@ -56,6 +56,7 @@ try {
     const bin = path.join(cwd, 'node_modules/.bin/starshine');
     const cliArgs = [...runtimeArgs, '--allow-wasi'];
     assert.match(await run(nodeBin, [...cliArgs, bin, '--help'], cwd, consumerEnv), /Starshine Wasm Binary Toolkit/);
+    assert.equal((await run(nodeBin, [...cliArgs, bin, '--version'], cwd, consumerEnv)).trim(), `v${manifest.version}`, 'installed CLI version differs from packed metadata');
     fs.writeFileSync(path.join(cwd, 'answer.wat'), '(module (func (export "answer") (result i32) i32.const 40 i32.const 2 i32.add))');
     await run(nodeBin, [...cliArgs, bin, '--precompute', '--vacuum', 'answer.wat', '--out', 'answer.wasm'], cwd, consumerEnv);
     const bytes = fs.readFileSync(path.join(cwd, 'answer.wasm'));
@@ -91,7 +92,7 @@ binary.encodeModule(cli.TrapMode.never());
       fs.writeFileSync(path.join(cwd, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, target: 'ES2022', module: 'NodeNext', moduleResolution: 'NodeNext', noEmit: true, skipLibCheck: false }, files: ['consumer.ts'] }));
       await run(process.env.TSC_BIN ?? 'tsc', ['--project', 'tsconfig.json'], cwd, consumerEnv);
     }
-    report.consumers.push({ kind, exports: Object.keys(observation.exports), behavior: true, cli: true, runtimeIsolation: 'consumer-only filesystem permissions; checkout and MoonBit reads denied', strictTypes: kind === 'typescript' });
+    report.consumers.push({ kind, exports: Object.keys(observation.exports), behavior: true, cli: true, cliVersion: `v${manifest.version}`, runtimeIsolation: 'consumer-only filesystem permissions; checkout and MoonBit reads denied', strictTypes: kind === 'typescript' });
   }
   fs.writeFileSync(path.join(dist, 'consumer-report.json'), `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify(report, null, 2));

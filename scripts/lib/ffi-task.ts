@@ -1,3 +1,4 @@
+import { generateProductVersion } from "./generate-product-version.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -78,6 +79,7 @@ export function runFfi(command: FfiCommand, repoRoot = resolveWorkspaceRoot()): 
   if (command !== "generate" && command !== "check" && command !== "build") {
     fail("usage: bun ffi <generate|check|build>");
   }
+  generateProductVersion({ root: repoRoot, check: command === "check" });
   const ffiRoot = path.join(repoRoot, "ffi");
   const outputRoot = path.join(ffiRoot, "src", "ffi");
   if (command === "generate" || command === "build") {

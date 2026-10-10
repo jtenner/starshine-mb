@@ -12,13 +12,20 @@
   records published-head package CI's native release compilation timeout and a
   328,583 ms successful baseline build. Separate bounded compiler/harness
   deadlines retain optimizer limits, full logs and regression-tested process
-  tree cleanup. Exact follow-up CI still qualifies the available compiler.
+  tree cleanup. Exact follow-up CI qualifies the documented compiler snapshot
+  and the packed artifact.
 - Source publication to `origin/master` is authorized; a fresh pre-push fetch
   found no newer work beyond `f91f5ec3`. Existing baseline Coverage Report and
-  Examples CLI Native failures remain visible. License selection and npm
-  publication remain undecided. A separate Sol 6.1 High task will investigate
-  the discrepancy after the verified push; no optimization investigation starts
-  in this preparation task.
+  Examples CLI Native failures remain visible. The cold route subsequently
+  passed exact-head package and required CI on `564c11e`; generation now
+  guards new unsupported signatures against the explicit compatibility policy.
+  Six bridge behavior tests reduce completed local coverage to 28,251 / 226
+  without changing the retained baseline. Candidate metadata and generated CLI
+  version text now agree; package observations assert this at runtime. Current
+  MoonBit metadata path filters are covered by the workflow contract.
+  License selection and npm publication remain undecided. A separate Sol 6.1
+  High investigation is active from the published baseline; optimizer internals
+  remain outside this preparation task.
 
 ### 2026-10-10 — Qualify O4s for npm self-optimization
 

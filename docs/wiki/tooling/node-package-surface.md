@@ -396,7 +396,18 @@ is now exported; wider internals still require a separate API decision.
 5. Reconcile the older `runValidateInvalidFuzz` naming with the current MoonBit `run_validate_invalid_ast_fuzz(...)` surface through either a compatibility alias or a documented semver plan.
 6. Only then decide whether to add new package subpaths such as `diff`, `validate_trace`, or `fuzz`; exposing `ir` and `passes` should be treated as a larger API-design decision, not a parity cleanup.
 
-## October 10, 2026 — npm bridge coverage
+## October 10, 2026 — candidate metadata and bridge coverage
+
+The candidate metadata prepares `0.1.2-beta.0` in root `moon.mod` and npm.
+[`generate-product-version.mjs`](../../../scripts/lib/generate-product-version.mjs)
+derives `src/cmd/version.generated.mbt` and the FFI root dependency; it rejects missing or multiple version
+assignments, noncanonical/malformed npm semver and npm/MoonBit disagreement.
+Required CI and FFI drift checks compare the generated source. Packed API
+observations and the installed CLI require `v0.1.2-beta.0`, replacing the stale
+`v0.1.0` CLI value. The stable portable WIT/metadata interface remains `0.1.1`,
+with its root dependency generated from product metadata; changing the npm
+candidate does not rename component exports. The final npm version is a release
+decision.
 
 Six tests in [`npm_test.mbt`](../../../src/ffi_bridge/npm_test.mbt) exercise
 explicit precompute/vacuum transformations, independent optional optimization
@@ -406,6 +417,11 @@ real bridge behavior. All fourteen bridge tests pass on WasmGC. Complete local
 coverage improves to 28,251 uncovered lines in 226 files against the retained
 28,138 / 196 baseline. The remaining +113 / +30 is an open gate; local analysis
 completion is not a passing baseline check or exact-head CI result.
+
+Current-format `moon.mod` and nested `moon.pkg` changes now trigger package,
+fuzz, coverage and native-example workflows. The workflow contract fails if
+either push or pull-request filters omit them; legacy JSON triggers remain.
+These triggers preserve the separate native-debug and coverage failures.
 
 ## Sources
 

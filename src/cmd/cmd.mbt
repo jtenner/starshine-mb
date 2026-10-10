@@ -357,9 +357,6 @@ pub fn OptimizeOptions::new(
 }
 
 ///|
-const CMD_VERSION : String = "v0.1.0"
-
-///|
 fn ascii_lower_u16(c : UInt16) -> UInt16 {
   if c >= 'A'.to_int().to_uint16() && c <= 'Z'.to_int().to_uint16() {
     (c.to_int() + 32).to_uint16()

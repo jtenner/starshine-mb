@@ -1,6 +1,6 @@
 name = "jtenner/starshine"
 
-version = "0.1.1"
+version = "0.1.2-beta.0"
 
 import {
   "moonbitlang/x@0.5.1",

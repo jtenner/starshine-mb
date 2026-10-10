@@ -43,18 +43,23 @@ describe("component task", () => {
     });
   });
 
-  test("requires the Moon module, WIT package, and metadata API versions to match", () => {
+  test("keeps the stable component interface version independent of the npm candidate", () => {
     expect(validateComponentVersionSources(
-      'name = "jtenner/starshine"\nversion = "0.1.1"\n',
+      'name = "jtenner/starshine"\nversion = "0.1.2-beta.0"\n',
       "package jtenner:starshine-component@0.1.1;",
       'pub fn version() -> String { "0.1.1" }',
     )).toBe("0.1.1");
 
     expect(() => validateComponentVersionSources(
-      'version = "0.1.2"',
+      'version = "0.1.2-beta.0"',
+      "package jtenner:starshine-component@0.1.1;",
+      'pub fn version() -> String { "0.1.2" }',
+    )).toThrow("component version mismatch");
+    expect(() => validateComponentVersionSources(
+      'version = "01.1.2"',
       "package jtenner:starshine-component@0.1.1;",
       'pub fn version() -> String { "0.1.1" }',
-    )).toThrow("component version mismatch");
+    )).toThrow("semver");
   });
 
   test("normalizes generated text for clean checked-in diffs", () => {
@@ -79,13 +84,13 @@ describe("component task", () => {
     const patched = patchGeneratedMoonModule({
       name: "jtenner/starshine-component",
       preferredTarget: "wasm",
-    });
+    }, "0.1.2-beta.0");
 
     expect(patched).toEqual({
       name: "jtenner/starshine-component",
       preferredTarget: "wasm",
       deps: {
-        "jtenner/starshine": "0.1.1",
+        "jtenner/starshine": "0.1.2-beta.0",
       },
     });
   });

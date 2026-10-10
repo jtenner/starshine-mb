@@ -20,7 +20,7 @@ on:
       - "scripts/**"
       - "package.json"
       - "moon.mod"
-      - "moon.pkg"
+      - "**/moon.pkg"
       - "moon.mod.json"
       - "moon.pkg.json"
       - ".github/workflows/node-wasm-tests.yml"
@@ -44,7 +44,7 @@ on:
       - "scripts/**"
       - "package.json"
       - "moon.mod"
-      - "moon.pkg"
+      - "**/moon.pkg"
       - "moon.mod.json"
       - "moon.pkg.json"
       - ".github/workflows/node-wasm-tests.yml"
@@ -87,7 +87,7 @@ jobs:
         run: |
           moon version --all
           moon update
-          bun test scripts/lib/ffi-generation.test.ts scripts/lib/node-generation.test.ts scripts/lib/npm-process.test.ts
+          bun test scripts/lib/ffi-generation.test.ts scripts/lib/node-generation.test.ts scripts/lib/npm-process.test.ts scripts/lib/product-version.test.ts scripts/lib/component-task.test.ts
           bun scripts/test/node-package-static-contract.ts
           bun scripts/test/npm-packed-consumers.mjs
           node --test node/test/*.test.mjs

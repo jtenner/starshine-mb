@@ -62,7 +62,7 @@ node --input-type=module -e 'const s = await import("@jtenner/starshine"); conso
 npx --no-install starshine --help
 ```
 
-`npm run generate --prefix node` refreshes the FFI metadata and JS/TS bindings. `check-generated` compares generated FFI/npm outputs without rewriting them; its `moon info` step can refresh source `.mbti` interfaces. The build compiles the actual `ffi/src/npm` adapter, a fresh native bootstrap optimizer and the WASI CLI from this checkout. No prebuilt package artifact is required. Ordinary consumers have no optimizer or MoonBit dependency.
+`npm run generate --prefix node` refreshes the FFI metadata and JS/TS bindings. The MoonBit and npm candidate versions must agree; generation derives the CLI/API version from `moon.mod` and drift checks reject stale version text. `check-generated` compares generated FFI/npm outputs without rewriting them; its `moon info` step can refresh source `.mbti` interfaces. The build compiles the actual `ffi/src/npm` adapter, a fresh native bootstrap optimizer and the WASI CLI from this checkout. No prebuilt package artifact is required. Ordinary consumers have no optimizer or MoonBit dependency.
 
 ## Self-optimization and package contents
 

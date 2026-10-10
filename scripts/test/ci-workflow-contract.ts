@@ -30,6 +30,7 @@ export function runCiWorkflowContractTest(): void {
     ["    timeout-minutes: 30", "bounded format/test timeout"],
     ["moon info", "MoonBit interface refresh"],
     ["moon fmt", "MoonBit formatting"],
+    ["bun scripts/lib/generate-product-version.mjs --check", "synchronized product version drift check"],
     ["bun ffi check", "generated FFI freshness check"],
     ["git diff --exit-code", "format/interface cleanliness enforcement"],
     ["moon test", "full MoonBit test suite"],
@@ -142,6 +143,14 @@ export function runCiWorkflowContractTest(): void {
   }
   if (staleNodePrefixes.length > 0) {
     fail(`workflows reference the removed tests/node package: ${staleNodePrefixes.join(", ")}`);
+  }
+  for (const file of ["node-wasm-tests.yml", "coverage-report.yml", "examples-cli-native.yml", "fuzz.yml"]) {
+    const contents = fs.readFileSync(path.join(workflowDir, file), "utf8");
+    for (const currentMetadataPath of ['      - "moon.mod"', '      - "**/moon.pkg"']) {
+      if (contents.split(currentMetadataPath).length - 1 !== 2) {
+        fail(`${file} must watch current MoonBit metadata in both push and pull-request path filters: ${currentMetadataPath.trim()}`);
+      }
+    }
   }
 }
 

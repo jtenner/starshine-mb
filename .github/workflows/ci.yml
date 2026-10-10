@@ -47,6 +47,7 @@ jobs:
 
       - name: Refresh interfaces and enforce formatting
         run: |
+          bun scripts/lib/generate-product-version.mjs --check
           moon info
           moon fmt
           bun ffi check

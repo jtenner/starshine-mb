@@ -27,7 +27,12 @@ and traits. There is no separate hand-maintained function signature list.
 
 `ffi/src/npm/generated.mbt` is the actual compiled WasmGC adapter. The required
 ABI manifest currently has 2,848 names. The direct ABI unsupported manifest has
-23 callback/raising/generic entries; selected command callbacks are implemented
+23 callback/raising/generic entries, explicitly reviewed in
+[`unsupported-abi-policy.json`](../ffi/src/npm/unsupported-abi-policy.json).
+Generation fails before writing files when a newly unsupported symbol appears,
+an exception's reason changes, or a policy entry becomes stale. Unknown and
+ambiguous type mappings also fail. This policy contains identities/reasons;
+FFI signatures remain the sole type authority. Selected command callbacks are implemented
 by the retained JavaScript facade. Unknown or ambiguous supported
 mappings stop generation. Public JS and TypeScript files are deterministic;
 `npm run check-generated --prefix node` checks FFI/npm outputs, and CI also checks
@@ -156,7 +161,9 @@ with no new concrete defect. Licensing remains undecided.
 - Tested Moon snapshot archive requests returned HTTP 403, while `latest` is
   available. Provision the documented snapshot or qualify a newer compiler with
   drift and consumer gates. Bun, wasm-tools and TypeScript are pinned/documented;
-  CI installs the available Moon compiler and checks generated drift.
+  CI installs the available Moon compiler and checks generated drift. The
+  successful October 10 cold build received the same documented Moon/moonc
+  snapshot through `latest`; no newer compiler was required for that result.
 - Initial package qualification was local. On pre-push `origin/master` at
   `f91f5ec3`, [Required CI](https://github.com/jtenner/starshine-mb/actions/runs/38014936990),
   [Fuzz Suites](https://github.com/jtenner/starshine-mb/actions/runs/38014937050)
@@ -167,7 +174,8 @@ with no new concrete defect. Licensing remains undecided.
   reported separately; these prior results do not sign the new source head.
   Repository coverage and broader release/performance gates are independent of
   package consumer success.
-  Native-debug MoonBit issue #1322 was not exercised or cleared by this work.
+  Native-debug MoonBit issue #1322 remains open; the exact-head examples
+  job exercised the reported unsupported lowering path and did not clear it.
 - The JavaScript callback facade does not invoke `CmdIO.printTextModule`; the
   live bundled CLI is the complete command route. Generic/raising/callback
   unsupported placeholders remain documented API limits.
@@ -195,16 +203,45 @@ tests completion, independent optimizer timeout, diagnostics, invalid budgets
 and termination of descendants that ignore SIGTERM. Internal review reproduced
 an orphan with the first synchronous timeout helper; the final asynchronous
 runner terminates descendant groups on timeout, including reparented inherited-output holders, and awaits a bounded termination grace before permitting a retry.
-Local success is not remote qualification; exact follow-up head CI remains a gate.
+The exact follow-up head `564c11e559d6785b19406a5d976b375a485d9c72`
+passed the [cold package CI run](https://github.com/jtenner/starshine-mb/actions/runs/38029914397).
+Its build took 360,624 ms; GC/WASI optimization plus validation took 9,949 /
+11,017 ms. Node 25.9.0 and TypeScript 5.8.3 consumers exercised all nine exports
+under consumer-only filesystem permissions. The CI tarball has exactly the same
+4,822,175-byte SHA-256 as the local cold-budget package below, and the raw and
+optimized Wasm hashes match. Downloaded reports, compiler logs and the archive
+are preserved under `dist/npm/source-publication/cold-budget-ci-evidence/`.
+This qualifies the package route on that head; other required/release gates
+remain separately tracked. All three protected required checks and Fuzz Suites
+also passed on `564c11e`; Coverage Report failed at the unchanged 28,279 / 227
+count, and Examples CLI Native retained the compiler ICE. Later local policy
+and bridge-test hardening require their own checks. No source update to master
+followed this result.
 
 The [native examples job](https://github.com/jtenner/starshine-mb/actions/runs/38028151316/job/114143303815)
 failed with the same `Machine_of_clam_lower.lower_array_make` unsupported
 uninitialized non-null GC ref array error and memory64 example command as the
-baseline job. That is distinct from the release-bootstrap timeout; issue #1322
-is not declared cleared or established as this compiler error's cause.
-Coverage and other exact-head results must be reported separately.
+baseline job. The follow-up examples job failed identically. The upstream
+[issue #1322](https://github.com/moonbitlang/moonbit-docs/issues/1322), still open
+on October 10, documents the same compiler version, native-debug `#valtype`
+record/enum array allocation path and lowering diagnostic. This is evidence of
+the reported compiler limitation, distinct from the fixed release-bootstrap
+timeout; it does not clear the native-debug gate.
 
-The cold-build follow-up's current local tarball is
+The completed published-head coverage run reported 28,279 uncovered lines in
+227 files against the retained 28,138 / 196 baseline. The completed pre-push
+`f91f5ec3` run already reported 28,277 / 226, so npm preparation adds two
+uncovered lines and one file to an existing +139-line / +30-file regression.
+The old interrupted local coverage report was partial and is not substituted
+for either completed result. Six new bridge behavior tests cover explicit optimization, both optional
+preset levels, diagnostics reset, encoding failure recovery and GC/import/memory
+constructors with direct IR/byte assertions. Fourteen bridge tests pass on
+WasmGC. Complete local coverage improves to 28,251 uncovered lines in 226 files
+(+113 / +30 against the retained baseline), eliminating the npm bridge
+regression and covering another 26 existing lines. The baseline gate still
+fails; no baseline is reset. This local result awaits exact-head CI.
+
+The cold-build follow-up's historical local tarball is
 `dist/npm/jtenner-starshine-0.1.2-beta.0.tgz`, 4,822,175 bytes, 47 files,
 SHA-256 `2c20fd47b4fd4b9bbe0ab179329bbbb0b3aa919f630d411cb2522e47ec64deb0`.
 Its 575-byte archive increase comes from the updated build documentation;
@@ -232,3 +269,41 @@ All original unoptimized inputs and the qualified tarball remain under ignored
 `dist/npm/`, including preserved O1 and Binaryen comparison reports. The user
 requested a new Sol 6.1 High task to investigate the discrepancy after source
 publication. That optimization investigation is not part of this preparation.
+
+## Candidate version consistency
+
+MoonBit product metadata and npm metadata now prepare `0.1.2-beta.0`. The CLI
+previously returned `v0.1.0`; its private version constant is generated from
+`moon.mod` by `scripts/lib/generate-product-version.mjs`. Generation rejects
+missing, ambiguous, malformed or inconsistent metadata before FFI work.
+Required CI and `bun ffi check` reject stale generated version text. API
+observations and installed CLI checks require the packed metadata version.
+The candidate version remains subject to release review; this does not publish
+the package or create a tag.
+
+Path-filtered package, fuzz, coverage and native-example workflows now watch
+`moon.mod` and nested `moon.pkg` files as well as legacy JSON metadata. This
+closes a metadata-only trigger gap; it does not clear coverage or the compiler
+ICE. The workflow contract rejects missing current-format triggers.
+
+Before optimizer integration, the version-consistent candidate packed 47 files
+into 4,822,247 bytes, SHA-256
+`208ee14e3057fc04c22c023ca24661db8dcdc21f1f4927163e85007142f48b8b`.
+Its raw/optimized GC artifacts are 7,452,114 / 7,287,545 bytes; WASI artifacts
+are 6,748,746 / 6,347,866 bytes. The local rebuild took 235,654 ms with
+8,386 / 9,059 ms GC/WASI optimization plus independent validation. This
+recompiled changed native CLI source and is not an optimizer speed comparison.
+Normal offline install, all nine exports, API behavior and installed CLI
+`v0.1.2-beta.0` pass on Node 25.8.1 and 26.11.1; strict NodeNext TypeScript
+5.8.3 passes. The 44 actual Node cases and 28 Bun helper cases pass. Evidence
+is preserved under `dist/npm/qualified-version-preintegration/`.
+
+The portable component deliberately retains WIT interface and metadata API
+version `0.1.1`, preserving its export qualifiers. Product/npm metadata is
+independent. Component generation derives its root dependency from the product
+version; FFI version generation derives the same root dependency while keeping
+the private adapter module version independent. The pinned 0.60.0 wit-bindgen
+release was provisioned inside ignored `.tmp/component-tools/` after checking
+the official release digest. Component generation/build/independent validation
+passes, with no generated signature or ABI changes. The npm commands do not
+publish npm, tags or releases.
