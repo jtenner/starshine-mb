@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-10
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -10,6 +10,52 @@ sources:
 # `vacuum` Fuzzing Profile
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## October 10 targeted globally unread tee coverage
+
+The distinct `vacuum-unread-tee` profile supplies actual `local.tee` inputs for
+numeric optimization/shrink level **4/1**. The existing eight-member `vacuum`
+aggregate remains unchanged. Its fixed generator builders contain no tee or
+legacy Try constructor, so the earlier 10,000-case aggregate run establishes
+compatibility rather than generated coverage of this transform. This conclusion
+uses the generator source contract, not only historical feature counters.
+
+The new profile selects `seed % 13` families: scalar/live-parameter stack order,
+multivalue stack order, externref forwarding, nullable/nonnullable GC allocation,
+nullable GC null, finite block/loop, opposite-arm local read, TryTable catch
+operand, opaque legacy protected tee, legacy-handler-only read, division trap,
+both conditional arms, and trapping memory load. Every original has one tee,
+except the both-arm family which has two. Every module exports `run` and mutable
+`seen`, and invokes an imported `env.produce` whose arguments and results are
+observable. Seeds vary constants and the GC allocation local's nullability.
+The read and legacy families are preservation controls; they do not widen the
+optimizer's intentionally opaque legacy Try rewrite boundary.
+
+[`gen_valid_vacuum_unread_tee.mbt`](../../../../../src/validate/gen_valid_vacuum_unread_tee.mbt)
+implements the profile.
+[`gen_valid_vacuum_unread_tee_wbtest.mbt`](../../../../../src/validate/gen_valid_vacuum_unread_tee_wbtest.mbt)
+checks name/config discovery, 48 bounded seeds spanning all families, direct IR
+shapes, exact tee counts before and after binary roundtrip, and module validity.
+These tests exposed and repaired a feature scanner omission: legacy Try bodies
+and tagged/all handler bodies now merge their facts recursively. This changes
+manifest reporting; optimizer legacy opacity is unchanged.
+
+Dedicated comparison uses a freshly prebuilt native CLI and generator, verified
+Binaryen **133**, independent wasm-tools validation, this explicit singleton
+profile, and `--debug-serial-passes`. The CLI adapter injects `--optimize-level 4
+--shrink-level 1`; record its contents/hash with the native binary and generator
+hashes. The standalone `vacuum` pass is compared with Binaryen's standalone
+Vacuum, without broadening either preset. Run 10,000 cases at seed `0x5eed`,
+`--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20`, and retain normal
+exit codes and mismatch evidence. The optional fused path has separate controls
+because it does not invoke the new ordinary wrapper.
+
+Runtime qualification requires actual export calls and comparisons of values,
+ordered host events, state and traps on the identical original/optimized inputs.
+Validation or successful instantiation alone does not establish equivalence.
+Report runtime-blocked cases explicitly and supplement unsupported reference/EH
+surfaces with retained reduced host-effect fixtures. Dedicated generated/runtime
+qualification is pending; this profile does not close the full Vacuum audit.
 
 ## September 23 saved seven-pass dead GC type cleanup
 
