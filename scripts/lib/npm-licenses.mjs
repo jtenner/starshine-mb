@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { runNpmCommand } from './npm-process.mjs';
 
 export const npmLicenseFiles = ['LICENSE', 'NOTICE', 'licenses/Apache-2.0.txt', 'licenses/Binaryen-LICENSE.txt', 'licenses/moonbit-core-NOTICE.txt'];
 
@@ -45,4 +46,12 @@ export function assertNpmDependencyLicenses(root, coreRoot) {
     hashes[name] = createHash('sha256').update(actual).digest('hex');
   }
   return { core: '0.10.14+7d59c7ec9', x: '0.5.1', hashes };
+}
+
+// The dry-run resolves a clean workspace's registry tree without compiling.
+// `moon update` does not materialize this FFI tree in the tested toolchain.
+// Check those actual resolved inputs before executing any artifact build.
+export async function prepareNpmDependencyLicenses(root, coreRoot, { moonBin = 'moon', run = runNpmCommand, logFile } = {}) {
+  await run(moonBin, ['-C', 'ffi', 'build', '--target', 'wasm-gc', '--release', 'src/npm', '--dry-run'], { cwd: root, stage: 'compiler', logFile });
+  return assertNpmDependencyLicenses(root, coreRoot);
 }

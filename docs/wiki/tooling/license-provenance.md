@@ -135,6 +135,15 @@ from MoonBit #1322 and from license/ownership conclusions.
 Builders using an alternative Moon installation must
 point `MOON_BIN`/`MOON_HOME` at that same reviewed installation.
 
+The npm build resolves the FFI workspace with a release WasmGC build dry-run
+before checking its registry input licenses. `moon update` does not materialize
+this FFI dependency tree in the tested toolchain. A clean CI checkout otherwise has no
+`ffi/.mooncakes/moonbitlang/x` metadata until the first FFI build. Resolution
+errors and changed notices still stop the build before artifact compilation;
+the dependency-resolution log is retained with build evidence. The first
+published licensing-head Node package run exposed this ordering gap and is
+preserved as a failed attempt, followed by the regression-tested correction.
+
 Packed-consumer checks require all five assets in the actual tarball and verify
 exact bytes after offline installation, alongside JS/API/CLI and strict TS
 checks. These legal corrections are separate from published checkpoint

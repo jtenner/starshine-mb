@@ -61,6 +61,38 @@ test('an updated compiler dependency cannot build with stale reviewed notices', 
   }
 });
 
+test('a clean FFI dependency tree is resolved before its license guard', async () => {
+  const { prepareNpmDependencyLicenses } = await import('./npm-licenses.mjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-clean-dependency-license-'));
+  try {
+    const core = path.join(root, 'core');
+    fs.mkdirSync(core);
+    fs.copyFileSync('licenses/Apache-2.0.txt', path.join(core, 'LICENSE'));
+    fs.copyFileSync('licenses/moonbit-core-NOTICE.txt', path.join(core, 'NOTICE'));
+    fs.writeFileSync(path.join(core, 'moon.mod'), 'version = "0.10.14+7d59c7ec9"\nlicense = "Apache-2.0"\n');
+    fs.cpSync('licenses', path.join(root, 'licenses'), { recursive: true });
+    const manifest = 'version = "0.5.1"\nlicense = "Apache-2.0"\n';
+    const rootX = path.join(root, '.mooncakes/moonbitlang/x');
+    const ffiX = path.join(root, 'ffi/.mooncakes/moonbitlang/x');
+    fs.mkdirSync(rootX, { recursive: true });
+    fs.writeFileSync(path.join(rootX, 'moon.mod'), manifest);
+    expect(fs.existsSync(ffiX)).toBe(false);
+    const options = { moonBin: 'reviewed-moon', run: async (command, args, runOptions) => {
+      expect(command).toBe('reviewed-moon');
+      expect(args).toEqual(['-C', 'ffi', 'build', '--target', 'wasm-gc', '--release', 'src/npm', '--dry-run']);
+      expect(runOptions.cwd).toBe(root);
+      fs.mkdirSync(ffiX, { recursive: true });
+      fs.writeFileSync(path.join(ffiX, 'moon.mod'), manifest);
+    } };
+    expect(await prepareNpmDependencyLicenses(root, core, options)).toMatchObject({ x: '0.5.1' });
+    fs.writeFileSync(path.join(ffiX, 'NOTICE'), 'new upstream attribution');
+    await expect(prepareNpmDependencyLicenses(root, core, options)).rejects.toThrow('NOTICE appeared');
+    await expect(prepareNpmDependencyLicenses(root, core, { run: async () => { throw new Error('resolution failed'); } })).rejects.toThrow('resolution failed');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('FFI schema retains authoritative signatures and optional forwarding semantics', () => {
   const generated = generateFfiPackage([{ alias: 'sample', packagePath: 'test/sample', interfaceText: `
 pub type Module

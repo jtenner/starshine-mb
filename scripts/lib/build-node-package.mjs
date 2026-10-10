@@ -11,7 +11,7 @@ import { runFfi } from './ffi-task.ts';
 import { generateNodePackage } from './generate-node-package.mjs';
 import { stripWasmCustomSection, listWasmExportNames } from './wasm-export-renaming.ts';
 import { runNpmCommand } from './npm-process.mjs';
-import { assertNpmDependencyLicenses } from './npm-licenses.mjs';
+import { prepareNpmDependencyLicenses } from './npm-licenses.mjs';
 
 const repoRoot = repoRootFromScript(import.meta.url);
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -40,7 +40,7 @@ export async function buildNodePackage({ repoRoot: root = repoRoot, moonBin = re
     generateNodePackage();
     const moonPath = moonBin.includes(path.sep) ? path.resolve(root, moonBin) : (await run('which', [moonBin], root)).trim();
     const moonHome = process.env.MOON_HOME ?? path.dirname(path.dirname(fs.realpathSync(path.resolve(root, moonPath))));
-    report.dependencyLicenses = assertNpmDependencyLicenses(root, path.join(moonHome, 'lib/core'));
+    report.dependencyLicenses = await prepareNpmDependencyLicenses(root, path.join(moonHome, 'lib/core'), { moonBin, logFile: path.join(dist, 'resolve-ffi-dependencies.log') });
     await run(moonBin, ['-C', 'ffi', 'build', '--target', 'wasm-gc', '--release', 'src/npm'], root, 'compiler', path.join(dist, 'compile-gc.log'));
     // Native bootstrap comes from this checkout; it never uses the npm package.
     console.log('Building native bootstrap and WASI CLI...');
