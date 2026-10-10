@@ -7,6 +7,29 @@ were changed. The later scoped licensing audit offers Josh-owned originals under
 
 ## Checkout and authority
 
+The sections describing initial O1/O4s packaging below are historical. The
+latest fully qualified published packaging/licensing checkpoint is
+`1cbf1ae55c62ab1e96553e5fb359a9a6eda845f3`, with all six exact-head workflows
+successful and a 52-file archive SHA-256
+`78d2d8c39ea9bc16a22ce37ecf4bbb5829636d9ab2d0a6d5f66f7af75580fb0c`.
+It passed isolated JavaScript and strict TypeScript 5.8.3 consumers on Node
+25.8.1/26.11.1; CI's exact archive is byte-identical. Five canonical legal
+assets are bundled. The author confirmed, “Source was used; retain upstream
+terms.” MIT is scoped to Josh-owned rights; upstream terms and notices remain,
+and npm metadata is `SEE LICENSE IN LICENSE`. This settles the conservative
+distribution treatment while exact file provenance remains limited.
+
+The current local branch is `codex/npm-license-provenance`. The reviewed
+record-copy source/profile units are integrated locally; the numeric4/1 MSF
+preset and fresh package qualification are pending. Actual ordinary-MSF output
+from worker source `08dff80bd45fe383e5fae12232eea91c493acdc2`, native CLI
+SHA-256 `a9a7b2c3ad5123d86340268184877170dbc1c6ed201433464431f8f7ad19a0b5`,
+on the fixed GC input is 6,463,197 bytes, 918,088 bytes above Binaryen 133
+O4/s1's 5,545,109 bytes. This is a separate local measured checkpoint: it is
+neither the published master output nor a record-copy outlining result.
+The outlining admission and WasmGC deep-control validator repairs are separate
+reviewable work. No projected gain signs the package.
+
 - Branch: `codex/npm-wasmgc-beta`.
 - Isolated checkout: `/home/jtenner/Documents/Codex/2026-10-09/task-9/starshine-mb`.
 - Baseline: verified local and remote `master`,
@@ -151,12 +174,15 @@ optional argument holes, `osize` config and the previously broken positive fuzz
 entry point. No external CLI reviewer received code. Final review found no
 remaining concrete package-code blocker. A subsequent O4s review independently
 checked preset expansion, artifact/tar hashes and direct observation results,
-with no new concrete defect. Licensing remains undecided.
+with no new concrete defect. The later conservative licensing correction is
+recorded above and in the provenance dossier.
 
 ## Remaining release decisions
 
-- Root `LICENSE` declares MIT; `moon.mod` declares Apache-2.0. No npm license was
-  silently chosen and no license text is bundled. Reconcile this before publishing.
+- The initial MIT/Apache conflict was resolved by retaining the module's
+  Apache declaration, scoping the root MIT grant to Josh-owned rights and
+  bundling upstream terms and notices. Unknown per-file derivation remains a
+  limit before any future MIT-only relabeling.
 - Approve candidate version `0.1.2-beta.0`, the prepared public/beta metadata defaults and a publishing/
   provenance route. Current CI only validates; it never publishes.
 - Tested Moon snapshot archive requests returned HTTP 403, while `latest` is
@@ -258,7 +284,8 @@ those pipe holders and deadline settlement does not depend on `close`.
 The selected O4s checkpoint and raw inputs are additionally preserved in
 `dist/npm/qualified-o4s-9057a5d8/` with `snapshot.json` hashes. CI logs and JSON
 are retained under `dist/npm/source-publication/`. No gate or coverage baseline
-was disabled or reset. Licensing remains undecided.
+was disabled or reset. Licensing was undecided at this historical checkpoint; the conservative
+treatment recorded above is now settled.
 
 ## Discrepancy investigation handoff
 
@@ -407,8 +434,9 @@ It retains the additional 271,688-byte GC saving but its reported median peak
 remains 36.7 MiB above the first checkpoint. Its 21,612 KiB improvement compares
 a different paired memory-repair baseline; these results are not subtracted as
 one baseline. No later GC canonicalization/memory code is part of this repair.
-Licensing, candidate/provenance approval and npm publication remain human release
-decisions. No npm publication, tag/release, deployment or credential change occurs.
+Licensing was unresolved at this historical checkpoint; the later conservative
+treatment is settled. Candidate/provenance approval and npm publication remain
+human release decisions. No npm publication, tag/release, deployment or credential change occurs.
 
 
 The repaired source builds and packs a fresh 47-file / **4,802,894-byte** archive,
@@ -467,7 +495,8 @@ The [decision and preserved evidence](wiki/tooling/npm-optimizer-discrepancy.md#
 retain all sample ranges, adverse diagnostics and distinct baseline cohorts.
 The additional original GC benefit is 271,688 bytes; the historical final
 median remains 37,552 KiB above the first equivalent control. Acceptance does
-not close memory, broader optimizer, license or npm release decisions.
+not close memory, broader optimizer or npm release decisions. The later
+conservative license treatment is settled.
 
 
 ## Reviewed ReorderLocals preparation checkpoint
@@ -538,5 +567,6 @@ native generator's preexisting-directory SIGABRT remain recorded; the tested
 route uses fresh output directories. No compiler-issue attribution is inferred
 from the directory failure. No later source publication is implied by local
 integration; the completed grouping exemption is not a future bypass policy.
-License, candidate/provenance review, npm publication, tags/releases, deployment
-and P1 developer-build resource work remain separate decisions.
+The later conservative license treatment is settled. Candidate/provenance
+review, npm publication, tags/releases, deployment and P1 developer-build
+resource work remain separate decisions.

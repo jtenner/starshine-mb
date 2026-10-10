@@ -24,6 +24,29 @@ related:
 
 # npm O4s optimizer discrepancy
 
+## Current qualified and local checkpoints
+
+Published master `1cbf1ae55` retains the five-pass numeric4/1 queue. On the
+fixed ORIGINAL inputs below, its qualified GC output is 6,539,241 bytes and
+WASI is 5,993,028 bytes. These measurements differ from fresh-source npm build
+sizes; preserve each input hash and source checkpoint when comparing.
+
+A compiled local direct MSF suffix produces GC 6,463,197 bytes, SHA-256
+`50e4c4f0f6b39a59239dbac28779f18f774b61c3c4dd792f774910f3738c5384`.
+It saves 76,044 bytes through ordinary MSF and remains 918,088 bytes above
+Binaryen 133 O4/s1's 5,545,109-byte result. The new immutable-record-copy owner
+does not trigger on this full input yet: 41 unrelated functions exceed its
+depth-128 admission, with maximum depth 567. Actual reduced copy-bearing
+fixtures do shrink and preserve fields, fresh identity, null traps and effects
+on Node 25/26. Full-input outlining and a six-pass preset remain unqualified.
+
+Both debug and release WasmGC validation overflow on the original depth-567
+control fixture before the transform; native validation succeeds. A separate
+regression-first validator repair and bounded admission change are in progress.
+Manual outlining/type-order projections remain causal evidence, and their
+savings must not be added together or reported as production output. Existing
+memory P1, broader MSF audit and Binaryen discrepancy families stay open.
+
 ## Initial investigation inputs and scope (historical)
 
 The starting branch and licensing uncertainty below describe the initial

@@ -66,15 +66,23 @@ constructor-order and callback-facade projections preserve intentional compatibi
 compiles that adapter, a fresh native bootstrap and the WASI CLI. It preserves
 raw baselines, applies Starshine O4s (`--optimize --optimize-level 4 --shrink-level 1`), validates input/output
 with wasm-tools and compares copied-package API and CLI behavior before promotion.
-Failure prevents packing. The build verifies the effective levels and exact five-pass
-queue; literal `-O4s` is unsupported and levels 4/1 use the current fast preset,
-not the full O4z scheduler at 4/4. Current O4s qualification reduces WasmGC by
-164,569 bytes and WASI by 400,880 bytes, with before/after API and CLI parity.
-This supersedes O1's zero-size-change qualification at `279aaf642`; its tarball,
-artifacts and reports remain in `dist/npm/qualified-o1-279aaf642/`.
-The [handoff](../../npm-beta-handoff.md) records exact hashes and the higher local
-optimization time. No size or runtime improvement is promised for future builds.
-The separate bootstrap fixture transforms 70 to 54 bytes with identical result 84.
+Failure prevents packing. The published `1cbf1ae55` checkpoint verifies the exact
+five-pass queue: DFE, constraint analysis, vacuum, reorder locals and strip debug.
+Literal `-O4s` is unsupported; numeric levels 4/1 select this fast preset and
+levels 4/4 select the separate O4z scheduler. That checkpoint's fresh-source
+WasmGC build is 7,475,602 → 6,560,165 bytes and WASI is 6,774,798 → 6,013,480
+bytes, with before/after API and CLI parity. Its 52-file tarball SHA-256 is
+`78d2d8c39ea9bc16a22ce37ecf4bbb5829636d9ab2d0a6d5f66f7af75580fb0c`.
+All six exact-head workflows succeeded. The separate bootstrap fixture is
+70 → 48 bytes with result 84. Earlier O1/O4s artifacts and failed build attempts
+remain historical evidence in [the handoff](../../npm-beta-handoff.md).
+
+The local six-pass preparation adds MSF after reorder locals and requires an
+installed-package immutable-record-copy proof before promotion. It is pending
+the admission/validator/preset integration, full-module validation, runtime and
+exact-tarball qualification. The direct owner/profile source is integrated
+locally; the published checkpoint does not qualify these changes. No size or runtime
+improvement is promised for future builds.
 
 The adapter requires Node 25+ with WasmGC and JS string builtins. All ESM imports
 await shared initialization. Named values are instance-owned GC handles with no
@@ -143,7 +151,9 @@ This frozen checkpoint qualifies source head
 `754562d4f5e822d5f1ae630be79cbb19c6e669bd`. The selected npm build uses
 **neither Binaryen transformation nor Binaryen validation**: native Starshine
 transforms and wasm-tools validates. Source publication was subsequently
-authorized; npm publication and licensing remain release decisions. The user
+authorized. Licensing was unresolved at that historical checkpoint; the
+conservative treatment at `1cbf1ae55` is now settled. npm publication remains
+pending approval. The user
 requested a separate Sol 6.1 High task to fix the observed discrepancy.
 
 Both optimizers read copies of the identical original name-stripped compiler
