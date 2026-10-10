@@ -82,6 +82,32 @@ test "GC compaction shares immutable convergent type indices within one remap" {
   assert_eq(local_idx, nested)
   assert_true(physical_equal(nested, body))
   assert_true(physical_equal(nested, local_idx))
+  let first_ref = match first_body[0] {
+    @lib.Block(_, @lib.Expr([@lib.RefNull(ref_type), ..])) => ref_type
+    _ => fail("expected first ref wrapper")
+  }
+  let second_ref = match second_body[0] {
+    @lib.RefNull(ref_type) => ref_type
+    _ => fail("expected second ref wrapper")
+  }
+  let local_ref = match second_locals.runs()[0].val_type() {
+    @lib.RefTypeValType(ref_type) => ref_type
+    _ => fail("expected local ref wrapper")
+  }
+  let first_heap = match first_ref {
+    @lib.HeapTypeRefType(_, _, heap_type) => heap_type
+    _ => fail("expected first concrete heap wrapper")
+  }
+  let second_heap = match second_ref {
+    @lib.HeapTypeRefType(_, _, heap_type) => heap_type
+    _ => fail("expected second concrete heap wrapper")
+  }
+  assert_true(physical_equal(first_heap, second_heap))
+  let local_heap = match local_ref {
+    @lib.HeapTypeRefType(_, _, heap_type) => heap_type
+    _ => fail("expected local concrete heap wrapper")
+  }
+  assert_true(physical_equal(first_heap, local_heap))
   // Each module rewrite owns a fresh cache; no retained/global interning table.
   let again = dfe_canonicalize_duplicate_simple_type_indices(input)
   let @lib.Func(_, @lib.Expr(again_body)) = again.code_sec.unwrap().0[0]
