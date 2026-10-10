@@ -591,11 +591,97 @@ fn dfe_try_rewrite_func_type_idxs(
 }
 
 ///|
+// Preserve tag indices and delegate depths: this rewrite changes types only.
+fn dfe_try_rewrite_legacy_try_type_idxs(
+  block_type : @lib.BlockType,
+  body : @lib.Expr,
+  catches : Array[@lib.LegacyCatch],
+  delegate : @lib.LabelIdx?,
+  remap : Map[UInt, UInt],
+) -> @lib.Instruction? {
+  let next_block = dfe_try_rewrite_block_type(block_type, remap)
+  let next_body = dfe_try_rewrite_expr_type_idxs(body, remap)
+  let mut next_catches : Array[@lib.LegacyCatch]? = None
+  for idx, catch_ in catches {
+    let old_body = match catch_ {
+      @lib.LegacyCatch(_, expr) | @lib.LegacyCatchAll(expr) => expr
+    }
+    match dfe_try_rewrite_expr_type_idxs(old_body, remap) {
+      Some(expr) => {
+        let rewritten = match next_catches {
+          Some(rewritten) => rewritten
+          None => {
+            let rewritten = catches.copy()
+            next_catches = Some(rewritten)
+            rewritten
+          }
+        }
+        rewritten[idx] = match catch_ {
+          @lib.LegacyCatch(tag, _) => @lib.LegacyCatch::tagged(tag, expr)
+          @lib.LegacyCatchAll(_) => @lib.LegacyCatch::all(expr)
+        }
+      }
+      None => ()
+    }
+  }
+  if next_block is None && next_body is None && next_catches is None {
+    None
+  } else {
+    Some(
+      @lib.Instruction::try_(
+        next_block.unwrap_or(block_type),
+        next_body.unwrap_or(body),
+        next_catches.unwrap_or(catches),
+        delegate~,
+      ),
+    )
+  }
+}
+
+///|
 fn dfe_rewrite_instruction_type_idxs(
   instr : @lib.Instruction,
   remap : Map[UInt, UInt],
 ) -> @lib.Instruction {
   match instr {
+    @lib.Try(block_type, body, catches, delegate) =>
+      dfe_try_rewrite_legacy_try_type_idxs(
+        block_type, body, catches, delegate, remap,
+      ).unwrap_or(instr)
+    @lib.ContNew(type_idx) =>
+      @lib.Instruction::cont_new(dfe_rewrite_type_idx(type_idx, remap))
+    @lib.ContBind(source, target) =>
+      @lib.Instruction::cont_bind(
+        dfe_rewrite_type_idx(source, remap),
+        dfe_rewrite_type_idx(target, remap),
+      )
+    @lib.Resume(type_idx, handlers) =>
+      @lib.Instruction::resume_(dfe_rewrite_type_idx(type_idx, remap), handlers)
+    @lib.ResumeThrow(type_idx, tag, handlers) =>
+      @lib.Instruction::resume_throw(
+        dfe_rewrite_type_idx(type_idx, remap),
+        tag,
+        handlers,
+      )
+    @lib.ResumeThrowRef(type_idx, handlers) =>
+      @lib.Instruction::resume_throw_ref(
+        dfe_rewrite_type_idx(type_idx, remap),
+        handlers,
+      )
+    @lib.StackSwitch(type_idx, tag) =>
+      @lib.Instruction::stack_switch(dfe_rewrite_type_idx(type_idx, remap), tag)
+    @lib.BrOnCastDescEq(label, source, target) =>
+      @lib.Instruction::br_on_cast_desc_eq(
+        label,
+        dfe_rewrite_ref_type(source, remap),
+        dfe_rewrite_ref_type(target, remap),
+      )
+    @lib.BrOnCastDescEqFail(label, source, target) =>
+      @lib.Instruction::br_on_cast_desc_eq_fail(
+        label,
+        dfe_rewrite_ref_type(source, remap),
+        dfe_rewrite_ref_type(target, remap),
+      )
     @lib.Block(block_type, expr) =>
       @lib.Instruction::block(
         dfe_rewrite_block_type(block_type, remap),
@@ -854,6 +940,8 @@ fn dfe_rewrite_instruction_type_idxs(
         dfe_rewrite_heap_type(source, remap),
         cast_op.target_nullable(),
         dfe_rewrite_heap_type(target, remap),
+        source_exact=cast_op.source_exact(),
+        target_exact=cast_op.target_exact(),
       )
     @lib.BrOnCastFail(label_idx, cast_op, source, target) =>
       @lib.Instruction::br_on_cast_fail(
@@ -862,6 +950,8 @@ fn dfe_rewrite_instruction_type_idxs(
         dfe_rewrite_heap_type(source, remap),
         cast_op.target_nullable(),
         dfe_rewrite_heap_type(target, remap),
+        source_exact=cast_op.source_exact(),
+        target_exact=cast_op.target_exact(),
       )
     _ => instr
   }
@@ -873,6 +963,79 @@ fn dfe_try_rewrite_instruction_type_idxs(
   remap : Map[UInt, UInt],
 ) -> @lib.Instruction? {
   match instr {
+    @lib.Try(block_type, body, catches, delegate) =>
+      dfe_try_rewrite_legacy_try_type_idxs(
+        block_type, body, catches, delegate, remap,
+      )
+    @lib.ContNew(type_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::cont_new(next))
+        None => None
+      }
+    @lib.Resume(type_idx, handlers) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::resume_(next, handlers))
+        None => None
+      }
+    @lib.ResumeThrow(type_idx, tag, handlers) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::resume_throw(next, tag, handlers))
+        None => None
+      }
+    @lib.ResumeThrowRef(type_idx, handlers) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::resume_throw_ref(next, handlers))
+        None => None
+      }
+    @lib.StackSwitch(type_idx, tag) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) => Some(@lib.Instruction::stack_switch(next, tag))
+        None => None
+      }
+    @lib.ContBind(source, target) => {
+      let next_source = dfe_try_rewrite_type_idx(source, remap)
+      let next_target = dfe_try_rewrite_type_idx(target, remap)
+      if next_source is None && next_target is None {
+        None
+      } else {
+        Some(
+          @lib.Instruction::cont_bind(
+            next_source.unwrap_or(source),
+            next_target.unwrap_or(target),
+          ),
+        )
+      }
+    }
+    @lib.BrOnCastDescEq(label, source, target) => {
+      let next_source = dfe_try_rewrite_ref_type(source, remap)
+      let next_target = dfe_try_rewrite_ref_type(target, remap)
+      if next_source is None && next_target is None {
+        None
+      } else {
+        Some(
+          @lib.Instruction::br_on_cast_desc_eq(
+            label,
+            next_source.unwrap_or(source),
+            next_target.unwrap_or(target),
+          ),
+        )
+      }
+    }
+    @lib.BrOnCastDescEqFail(label, source, target) => {
+      let next_source = dfe_try_rewrite_ref_type(source, remap)
+      let next_target = dfe_try_rewrite_ref_type(target, remap)
+      if next_source is None && next_target is None {
+        None
+      } else {
+        Some(
+          @lib.Instruction::br_on_cast_desc_eq_fail(
+            label,
+            next_source.unwrap_or(source),
+            next_target.unwrap_or(target),
+          ),
+        )
+      }
+    }
     @lib.Block(block_type, expr) => {
       let rewritten_block_type = dfe_try_rewrite_block_type(block_type, remap)
       let rewritten_expr = dfe_try_rewrite_expr_type_idxs(expr, remap)
@@ -1237,6 +1400,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
               next_source,
               cast_op.target_nullable(),
               next_target,
+              source_exact=cast_op.source_exact(),
+              target_exact=cast_op.target_exact(),
             ),
           )
         (Some(next_source), None) =>
@@ -1247,6 +1412,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
               next_source,
               cast_op.target_nullable(),
               target,
+              source_exact=cast_op.source_exact(),
+              target_exact=cast_op.target_exact(),
             ),
           )
         (None, Some(next_target)) =>
@@ -1257,6 +1424,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
               source,
               cast_op.target_nullable(),
               next_target,
+              source_exact=cast_op.source_exact(),
+              target_exact=cast_op.target_exact(),
             ),
           )
         (None, None) => None
@@ -1275,6 +1444,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
               next_source,
               cast_op.target_nullable(),
               next_target,
+              source_exact=cast_op.source_exact(),
+              target_exact=cast_op.target_exact(),
             ),
           )
         (Some(next_source), None) =>
@@ -1285,6 +1456,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
               next_source,
               cast_op.target_nullable(),
               target,
+              source_exact=cast_op.source_exact(),
+              target_exact=cast_op.target_exact(),
             ),
           )
         (None, Some(next_target)) =>
@@ -1295,6 +1468,8 @@ fn dfe_try_rewrite_instruction_type_idxs(
               source,
               cast_op.target_nullable(),
               next_target,
+              source_exact=cast_op.source_exact(),
+              target_exact=cast_op.target_exact(),
             ),
           )
         (None, None) => None

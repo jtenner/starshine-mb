@@ -270,3 +270,12 @@ branch casts; both shared remapper copies lose exactness flags when rebuilding
 ordinary branch casts. Focused regressions reproduce these omissions. They must
 be repaired before recursive-group admission. No fast preset or packaging
 contract has changed in this follow-up.
+
+The remapper prerequisites are now repaired independently of group admission:
+all cast reconstruction paths preserve nullable/exact flags, continuation and
+descriptor operands preserve non-type indices, and standalone legacy exception
+rewriting walks body/catches with lazy changed-catch storage and unchanged
+delegate depths. The shared DFE scan tracks the newly represented type operands.
+Focused positive type/field assertions replace a mistaken negative assumption
+about identity-map entries with an unrelated-index map; the existing optional
+reference helper may reconstruct an unchanged identity-mapped reference.
