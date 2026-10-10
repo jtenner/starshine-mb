@@ -394,7 +394,10 @@ preparation owner and parent.
 Fresh SOURCE qualification is separate from the identical-original comparison.
 Live FFI/TypeScript generation plus the unchanged five-pass numeric 4/1 build
 uses the same native bootstrap hash and no Binaryen. Newly compiled GC shrinks
-7,460,987->6,970,113 bytes (7.831s); WASI 6,760,437->6,250,813 (9.077s).
+7,460,987->6,970,113 bytes (8.870s); WASI 6,760,437->6,250,813 (9.632s).
+These fresh-source build-report intervals include optimizer invocation, output
+validation, reading and export checks; they are distinct from the original-input
+CLI wall samples. Local npm prepack renews this build before packing.
 Before/after API and CLI observations agree. Local archive
 `jtenner-starshine-0.1.2-beta.0.tgz` is 4,669,877 bytes, SHA-256
 `7ef0c7da61b4b0b7ee6aa50e083443e2b79f40806f0a889aa12d70ed12ee885a`.
