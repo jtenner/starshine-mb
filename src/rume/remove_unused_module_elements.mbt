@@ -3112,6 +3112,25 @@ fn rume_finish_used_type_flags(
     }
     slot += 1
   }
+  // Reference-only functions keep their local declarations even after their
+  // bodies are replaced with unreachable. Called functions already contribute
+  // local roots during body traversal; include only the remaining kept locals.
+  let func_imports = rume_imported_func_count(mod_)
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for idx, @lib.Func(locals, _) in funcs {
+        let abs_idx = func_imports + idx
+        if abs_idx < referenced_funcs.length() &&
+          referenced_funcs[abs_idx] &&
+          abs_idx < used_funcs.length() &&
+          !used_funcs[abs_idx] {
+          for local_run in locals.runs() {
+            rume_mark_val_type(used_types, local_run.val_type())
+          }
+        }
+      }
+    None => ()
+  }
   slot = 0
   while slot < used_tables.length() {
     if used_tables[slot] {
@@ -4950,20 +4969,27 @@ fn rume_mark_instruction_types(
 }
 
 ///|
+fn rume_rec_type_member_count(rec_type : @lib.RecType) -> Int {
+  match rec_type {
+    @lib.SingleRecType(_) => 1
+    @lib.GroupRecType(subtypes) => subtypes.length()
+  }
+}
+
+///|
+fn rume_flat_type_count(rec_types : Array[@lib.RecType]) -> Int {
+  let mut count = 0
+  for rec_type in rec_types {
+    count += rume_rec_type_member_count(rec_type)
+  }
+  count
+}
+
+///|
 fn rume_new_used_type_flags(mod_ : @lib.Module) -> @bitset.BitSet? {
   match mod_.type_sec {
-    Some(@lib.TypeSec(rec_types)) => {
-      for rec_type in rec_types {
-        match rec_type {
-          @lib.GroupRecType(subtypes) =>
-            if subtypes.length() != 1 {
-              return None
-            }
-          _ => ()
-        }
-      }
-      Some(@bitset.BitSet::new(rec_types.length()))
-    }
+    Some(@lib.TypeSec(rec_types)) =>
+      Some(@bitset.BitSet::new(rume_flat_type_count(rec_types)))
     None => None
   }
 }
@@ -5175,6 +5201,21 @@ fn rume_close_type_dependencies(
   rec_types : Array[@lib.RecType],
   dependency_type_visits? : Array[Int]? = None,
 ) -> Unit {
+  // TypeIdx is flattened across recursive-group members. Resolve each queued
+  // index to its owner in linear space; visit a live group only once, retaining
+  // every member and closing dependencies from otherwise unrooted siblings.
+  let owners : Array[Int] = []
+  let starts : Array[Int] = []
+  for group_idx, rec_type in rec_types {
+    starts.push(owners.length())
+    for member = 0
+        member < rume_rec_type_member_count(rec_type)
+        member = member + 1 {
+      owners.push(group_idx)
+    }
+  }
+  starts.push(owners.length())
+  let visited_groups = @bitset.BitSet::new(rec_types.length())
   let queued_types = @bitset.BitSet::new(used_types.length())
   let queue : Array[Int] = []
   let mut type_idx = 0
@@ -5188,16 +5229,27 @@ fn rume_close_type_dependencies(
   let mut cursor = 0
   while cursor < queue.length() {
     let live_type_idx = queue[cursor]
-    match dependency_type_visits {
-      Some(visits) => visits[0] += 1
-      None => ()
+    let group_idx = owners[live_type_idx]
+    if !visited_groups[group_idx] {
+      visited_groups[group_idx] = true
+      let mut member = starts[group_idx]
+      while member < starts[group_idx + 1] {
+        used_types[member] = true
+        queued_types[member] = true
+        member += 1
+      }
+      match dependency_type_visits {
+        Some(visits) =>
+          visits[0] += rume_rec_type_member_count(rec_types[group_idx])
+        None => ()
+      }
+      rume_queue_rec_type_dependencies(
+        used_types,
+        queued_types,
+        queue,
+        rec_types[group_idx],
+      )
     }
-    rume_queue_rec_type_dependencies(
-      used_types,
-      queued_types,
-      queue,
-      rec_types[live_type_idx],
-    )
     cursor += 1
   }
 }
@@ -5206,16 +5258,7 @@ fn rume_close_type_dependencies(
 fn rume_collect_used_type_flags(mod_ : @lib.Module) -> @bitset.BitSet? {
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) => {
-      for rec_type in rec_types {
-        match rec_type {
-          @lib.GroupRecType(subtypes) =>
-            if subtypes.length() != 1 {
-              return None
-            }
-          _ => ()
-        }
-      }
-      let used_types = @bitset.BitSet::new(rec_types.length())
+      let used_types = @bitset.BitSet::new(rume_flat_type_count(rec_types))
       match mod_.import_sec {
         Some(@lib.ImportSec(imports)) =>
           for import_ in imports {
@@ -5345,12 +5388,13 @@ fn rume_rebuild_type_sec(
 ) -> @lib.TypeSec? {
   let @lib.TypeSec(rec_types) = type_sec
   let next : Array[@lib.RecType] = []
-  let mut idx = 0
-  while idx < rec_types.length() {
-    if used_types[idx] {
-      next.push(rec_types[idx])
+  let mut type_idx = 0
+  for rec_type in rec_types {
+    let member_count = rume_rec_type_member_count(rec_type)
+    if member_count > 0 && used_types[type_idx] {
+      next.push(rec_type)
     }
-    idx += 1
+    type_idx += member_count
   }
   if next.is_empty() {
     None
@@ -5467,7 +5511,7 @@ fn rume_direct_func_roots_cover_all_types(mod_ : @lib.Module) -> Bool {
     Some(@lib.TypeSec(rec_types)) => rec_types
     None => return true
   }
-  let type_count = rec_types.length()
+  let type_count = rume_flat_type_count(rec_types)
   if type_count == 0 {
     return true
   }

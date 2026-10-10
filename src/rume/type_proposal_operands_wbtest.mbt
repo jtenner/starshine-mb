@@ -65,13 +65,48 @@ test "type index rewrite handles unilateral continuation and descriptor remaps" 
   for remap in [{ 3U: 1U }, { 4U: 2U }] {
     let expected_source = dfe_rewrite_ref_type(source, remap)
     let expected_target = dfe_rewrite_ref_type(target, remap)
-    for (input, expected) in [
-      (@lib.Instruction::cont_bind(a, b), @lib.Instruction::cont_bind(dfe_rewrite_type_idx(a, remap), dfe_rewrite_type_idx(b, remap))),
-      (@lib.Instruction::br_on_cast_desc_eq(@lib.LabelIdx::new(7U), source, target), @lib.Instruction::br_on_cast_desc_eq(@lib.LabelIdx::new(7U), expected_source, expected_target)),
-      (@lib.Instruction::br_on_cast_desc_eq_fail(@lib.LabelIdx::new(7U), source, target), @lib.Instruction::br_on_cast_desc_eq_fail(@lib.LabelIdx::new(7U), expected_source, expected_target)),
-    ] {
-      @debug.assert_eq(dfe_rewrite_instruction_type_idxs(input, remap), expected)
-      @debug.assert_eq(dfe_try_rewrite_instruction_type_idxs(input, remap), Some(expected))
+    for
+      (input, expected) in [
+        (
+          @lib.Instruction::cont_bind(a, b),
+          @lib.Instruction::cont_bind(
+            dfe_rewrite_type_idx(a, remap),
+            dfe_rewrite_type_idx(b, remap),
+          ),
+        ),
+        (
+          @lib.Instruction::br_on_cast_desc_eq(
+            @lib.LabelIdx::new(7U),
+            source,
+            target,
+          ),
+          @lib.Instruction::br_on_cast_desc_eq(
+            @lib.LabelIdx::new(7U),
+            expected_source,
+            expected_target,
+          ),
+        ),
+        (
+          @lib.Instruction::br_on_cast_desc_eq_fail(
+            @lib.LabelIdx::new(7U),
+            source,
+            target,
+          ),
+          @lib.Instruction::br_on_cast_desc_eq_fail(
+            @lib.LabelIdx::new(7U),
+            expected_source,
+            expected_target,
+          ),
+        ),
+      ] {
+      @debug.assert_eq(
+        dfe_rewrite_instruction_type_idxs(input, remap),
+        expected,
+      )
+      @debug.assert_eq(
+        dfe_try_rewrite_instruction_type_idxs(input, remap),
+        Some(expected),
+      )
     }
   }
 }

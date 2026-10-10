@@ -279,3 +279,18 @@ delegate depths. The shared DFE scan tracks the newly represented type operands.
 Focused positive type/field assertions replace a mistaken negative assumption
 about identity-map entries with an unrelated-index map; the existing optional
 reference helper may reconstruct an unchanged identity-mapped reference.
+
+Whole-group pruning now replaces the blanket multi-member-group skip. Roots
+and maps use flattened type indices; one linear owner table resolves indices
+to groups. Each live group retains all members in order and visits every
+member's dependencies once. Type and field names use the same flat remap.
+Independent review additionally found reference-only functions whose bodies
+become `unreachable` but whose locals remain; a separate red regression exposed
+missing local type roots, now retained before dependency closure. Focused RUME
+checks pass 26/26, including sibling dependencies, last-member roots, named
+members, group-local IR `RecIdx` preservation and bounded visit counts.
+
+A diagnostic structural walk of the original skeleton estimates 4,678 duplicate
+backward-referencing singleton types (2,554 struct / 139 array / 1,985 function),
+while leaving explicit groups and self/forward references untouched. This is a
+lead for reduced canonicalization work, not a transformation or semantic proof.
