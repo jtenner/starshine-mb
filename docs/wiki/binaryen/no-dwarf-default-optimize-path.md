@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-10-10
 sources:
   - ./release-horizon-and-oracles.md
   - ./passes/ssa-nomerge/index.md
@@ -17,7 +17,7 @@ related:
 
 # Binaryen No-DWARF Default Optimize Path
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — October 10, 2026:** new comparisons use [Binaryen 133](release-horizon-and-oracles.md). The historical scheduler investigations below keep their recorded v131/v132 versions and do not establish v133 owner signoff.
 
 ## Durable Conclusions
 
@@ -29,7 +29,7 @@ related:
 - The MoonBit debug artifact at `tests/node/dist/starshine-debug-wasi.wasm` has a `name` section but no `.debug_*` sections, so Binaryen takes the unrestricted no-DWARF path.
 - Feature gates matter. The observed artifact enables the GC-, multivalue-, and string-gated passes that appear in the real pathway.
 - A `2026-04-09` source review found the open-world no-DWARF `-O` / `-Os` path for this artifact unchanged between the archived `version_125` note and upstream `version_129`.
-- The public Binaryen release horizon is now `version_132`. The v130-to-v131 `pass.cpp` diff changes only pass registration (`constraint-analysis` and hidden `remove-start`), so the default no-DWARF optimization order and the 56-slot O4z roster are unchanged.
+- The archived September release review used `version_132`. The v130-to-v131 `pass.cpp` diff changes only pass registration (`constraint-analysis` and hidden `remove-start`), so the default no-DWARF optimization order and the 56-slot O4z roster are unchanged.
 
 ## Canonical Full Top-Level Shape
 
@@ -41,9 +41,22 @@ Binaryen's scheduler, and Starshine's O4z compatibility lane, remain conditional
 
 At O4z with all features enabled, Starshine's first 56 slots exactly match Binaryen v131. Direct passes and nested optimizing owners retain the full level/feature-aware scheduler.
 
+## 2026-10-10 Starshine fast-spine reconciliation
+
+The live [registry map](../ir2/registry-map.md#active-presets) and
+[`optimize.mbt`](../../../src/passes/optimize.mbt) are authoritative. O1/O2 at
+shrink level zero retain DFE and debug stripping; the higher fast tier includes
+constraint analysis before Vacuum and ReorderLocals. Exact numeric 4/1 additionally runs
+MergeSimilarFunctions after ReorderLocals and before debug stripping; neighboring
+fast levels keep the five-pass queue. Literal `-Os` / `-Oz`
+resolve to numeric 2/1 and 2/2, respectively. Historical August queues below
+retain their original measurements. The separate numeric 4/4 O4z compatibility
+scheduler and its historical sequence remain distinct from Binaryen 133's
+current comparison pipelines.
+
 ## 2026-08-03 Starshine wall-time-first public presets
 
-By explicit user direction, non-O4z public presets no longer execute the full Binaryen-shaped roster. O1/O2 run only `duplicate-function-elimination -> strip-debug`; O3/O4/Os/Oz run `duplicate-function-elimination -> vacuum -> reorder-locals -> strip-debug`. The removed preset work remains available as direct passes and through the full O4z compatibility lane.
+At this August checkpoint, explicit user direction removed the full Binaryen-shaped roster from non-O4z public presets. O1/O2 run only `duplicate-function-elimination -> strip-debug`; O3/O4/Os/Oz run `duplicate-function-elimination -> vacuum -> reorder-locals -> strip-debug`. The removed preset work remains available as direct passes and through the full O4z compatibility lane.
 
 On the 13,118,096-byte / 11,999-function debug-WASI artifact, the new presets complete in 1.944-5.729 seconds, validate externally, and pass Node/WASI runtime. O1/O2 emit 4,889,183 bytes; O3/O4/Os/Oz emit 4,753,316 bytes. O4z remains the exact 57-slot compatibility lane; the SimplifyLocals owner-priority, scan-cache, full-module breadth, and parameter-lifetime recovery improves its original August 3 result from 142.144 seconds / 5,997,701 bytes to 115.435 seconds / 5,912,452 bytes. The August 4 reconstructed source emits byte-identical output with external validation and runtime green.
 

@@ -17,13 +17,15 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   preserve other checkouts, held optimizer refs and historical packages.
   Source publication is authorized; npm publication, tags/releases, deployment
   and credential changes remain unauthorized.
-- Published grouping head `4de34fa29a4c561e477aaa00360204cb5a078df0`
-  passes all six exact-head workflows and all three required Actions contexts.
-  CI/local 47-file archive is byte-identical; isolated Node25/26 JS/strict-TS
-  consumers pass. Coverage is 28,022 / 225 against unchanged 28,138 / 196.
-  The ordinary scoped fast-forward reported missing-check bypass warnings;
-  retain that audit even after successful CI. No protection/credential change.
-- The reviewed unread-tee chain through `311e1d58` is now locally integrated
+- Published licensing/dependency checkpoint
+  `1cbf1ae55c62ab1e96553e5fb359a9a6eda845f3` passes all six exact-head workflows
+  and all three required Actions contexts. CI/local 52-file archive is byte-
+  identical; isolated Node25/26 JS/strict-TS consumers pass. Coverage is
+  28,020 / 225 against unchanged 28,138 / 196. The preceding npm dependency
+  failure and Required cancellation remain recorded. Normal fast-forwards
+  reported missing-check administrative bypass warnings; retain that audit
+  even after successful CI. No protection/credential change.
+- The reviewed unread-tee chain through `311e1d58` is published in that checkpoint
   with both RED/GREEN histories. Whole-function read proof and bounded compressed
   declarations preserve producer/stack values, opaque legacy Try and live reads;
   lazy COW preserves unchanged source regions. The distinct targeted profile
@@ -38,13 +40,28 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   cases / seven variants. Most full-run execution payloads are cleaned; complete
   outcomes remain in the journal and 20 raw reports were independently audited.
   See [Vacuum evidence](docs/wiki/binaryen/passes/vacuum/fuzzing.md).
-- Integrated release qualification must regenerate authoritative FFI/TS, rebuild
-  and self-optimize both artifacts, check exact packed consumers, renew native
-  controls/full tests and unchanged-baseline coverage. Keep every failed attempt
-  and structural/oracle limit; the child signoff does not substitute for this.
-- [ ] Complete the guarded source-publication route for this later checkpoint.
-  The completed grouping exception is scoped; no blanket future bypass policy,
-  force push, protection change or npm publication follows from it.
+- The frozen five-pass licensing archive is qualified separately from ongoing
+  GC record-copy outlining and integrated selective numeric 4/1 scheduling.
+  Subsequent source must regenerate authoritative FFI/TS, rebuild and self-
+  optimize both artifacts, check exact packed consumers, renew native runtime/
+  full tests and unchanged-baseline coverage. Keep every failed attempt and
+  structural/oracle limit; child signoff does not substitute for integration.
+- Actual six-pass source self-build and exact 52-file Node 25/26 JS/strict TypeScript 5.8.3
+  and 5.9.3 consumers pass; source API 45/45 each. Gzip grows 7,294 bytes despite
+  unpacked reduction 1,361,818 bytes. Integrated full GC 14,104/14,104 with all fourteen CI fuzz suites, plain default
+  14,107/14,107 and release controls 16/16 pass; no broader MSF/P1 closeout follows.
+- Ordinary MSF 10k passes normalized and semantic comparison; total canonical
+  bytes match, while raw Starshine bytes remain 28,329 larger. The triggering
+  record-copy 10k has 10,000 semantic matches and smaller outputs; retain its
+  structural comparison exit 1 and exact-manifest replay requirement.
+- [ ] Finish unchanged-baseline coverage and exact-head remote CI for the reviewed
+  record-copy source and selective preset, then complete the guarded source route. The new owner must retain nullable
+  traps, fresh allocations, old aliases/fields, host effects, original public
+  identities, bounded preflight and complete-size/full-validation rollback.
+  Run its actual-triggering 10k profile separately from the unchanged ordinary
+  MSF aggregate; retain the corrected streamed-seed diversity proof.
+  Keep the broader MSF audit open. Normal source publication is authorized;
+  no force push, protection change or npm publication follows.
 - P1 remains open under the user's developer-build memory tradeoff. Grouping's
   failed 16 KiB raw-growth target and adverse resource sample remain historical
   evidence. Later raw-size changes involve changing compiler type order and

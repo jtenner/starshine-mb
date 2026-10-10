@@ -26,23 +26,38 @@ related:
 
 ## Current qualified and local checkpoints
 
-Published master `1cbf1ae55` retains the five-pass numeric4/1 queue. On the
+Published master `1cbf1ae55` retains the five-pass numeric 4/1 queue. On the
 fixed ORIGINAL inputs below, its qualified GC output is 6,539,241 bytes and
 WASI is 5,993,028 bytes. These measurements differ from fresh-source npm build
 sizes; preserve each input hash and source checkpoint when comparing.
 
-A compiled local direct MSF suffix produces GC 6,463,197 bytes, SHA-256
+The earlier compiled depth-128 direct MSF suffix produces GC 6,463,197 bytes, SHA-256
 `50e4c4f0f6b39a59239dbac28779f18f774b61c3c4dd792f774910f3738c5384`.
 It saves 76,044 bytes through ordinary MSF and remains 918,088 bytes above
 Binaryen 133 O4/s1's 5,545,109-byte result. The new immutable-record-copy owner
-does not trigger on this full input yet: 41 unrelated functions exceed its
-depth-128 admission, with maximum depth 567. Actual reduced copy-bearing
-fixtures do shrink and preserve fields, fresh identity, null traps and effects
-on Node 25/26. Full-input outlining and a six-pass preset remain unqualified.
+did not trigger at that checkpoint: 41 unrelated functions exceeded its
+depth-128 admission, with maximum depth 567.
+
+At the earlier suffix checkpoint, separately reviewed validator/admission source `64c67096a` permits
+validation through depth 1,024 while rewriting only whole bodies at depth 128
+or less. Its actual native MSF suffix produces **5,361,362 bytes**, SHA-256
+`25731db65a7f1aefd6460c10b3e0dcbad06b3429be862e2208ea4209484d0fa5`,
+from the same 6,539,241-byte fast-pipeline input. Internal and independent
+validation pass. This saves 1,177,879 bytes and is 183,747 bytes below the
+same-ORIGINAL Binaryen 133 O4/s1 reference. The additional 1,101,835 bytes versus
+the earlier ordinary-MSF checkpoint include any interaction between outlining
+and ordinary MSF; subtraction alone does not establish a pure owner delta.
+This is a provisional suffix result, not a combined six-pass or npm package
+qualification. Compiled reduced fixtures preserve fields, fresh identity,
+null traps, ordered effects and public aliases on Node 25/26.
 
 Both debug and release WasmGC validation overflow on the original depth-567
-control fixture before the transform; native validation succeeds. A separate
-regression-first validator repair and bounded admission change are in progress.
+control fixture before the transform at the old source checkpoint. The separate
+regression-first continuation repair passes all 1,978 existing WasmGC validator
+tests and the 14,101-test full WasmGC suite before admission integration. The
+admission's 13 focused controls include full-module depth-1,024 validation,
+depth-1,025 fallback and deep-invalid rollback. Native/release parity, final
+resource accounting and combined-preset/package gates were pending at that earlier checkpoint; the later combined confirmation below records renewed controls.
 Manual outlining/type-order projections remain causal evidence, and their
 savings must not be added together or reported as production output. Existing
 memory P1, broader MSF audit and Binaryen discrepancy families stay open.
@@ -732,3 +747,74 @@ not itself a causal proof of tee-related self-size or memory gains. P1 remains
 open under the user's developer-machine tradeoff; no consumer-runtime memory
 claim or broader pass-audit closure follows. The prior publication exception
 was scoped, and license/npm/version/provenance decisions remain separate.
+
+
+### Combined six-pass native confirmation
+
+Clean source `d5097be3ea301348825ee2d0f0277de80d0f47a0`, native CLI SHA-256
+`420c4de9177cae6b6f56f56d4518f7bfb530e2eb3f710e53a309ab834e1b462e`,
+produces the same 5,361,362-byte GC result directly from the immutable
+7,452,107-byte original using the complete numeric 4/1 preset. This is an
+actual combined pipeline result. WASI produces 5,775,198 bytes. All twelve
+alternating optimization and independent validation commands pass, with hashes
+stable in all three runs per artifact. Concurrent diagnostic medians:
+
+| Artifact | Five-pass time / peak RSS | Six-pass time / peak RSS |
+|---|---:|---:|
+| GC | 13.131 s / 304,004 KiB | 11.390 s / 302,008 KiB |
+| WASI | 15.509 s / 278,776 KiB | 12.787 s / 278,600 KiB |
+
+Host load, overlapping ranges and the changed pipeline prevent universal speed
+or RSS claims. Historical memory P1 remains open.
+
+Final reduced fixtures execute on Node 25/26 with values, old/new fields,
+fresh aliases, null traps, state, ordered effects/reentry and original f/g,
+table/global identities intact. Large 403-field/64-arm, 20k callback-free samples
+improve; tiny 12-field batches slow: Node 25 original .286 ms, direct .314 ms,
+preset .454 ms; Node 26 .180/.230/.298 ms. The whole 403-chain function exceeds
+rewrite depth 128 and remains unchanged; its runtime is compatibility evidence.
+
+The fresh source npm build passes complete validation and before/after API/CLI
+parity: GC 7,494,321→5,398,191 bytes; WASI 6,795,450→5,812,099 bytes. The exact
+52-file tarball has SHA-256
+`075f466115558f43b21ca7d7d298fcb77eea60ef696d9d81db71c22a215d6389`.
+External consumer runtime permissions deny source and MoonBit reads. JavaScript
+and strict TypeScript 5.8.3/5.9.3 consumers pass on Node 25.8.1/26.11.1, covering
+all nine exports, CLI, parse/validate/optimize/encode, errors and copy ownership.
+Source API tests pass 45/45 on both runtimes.
+
+Versus frozen 1cb, optimized GC saves 1,161,974 bytes and WASI 201,381 bytes;
+raw compiler GC grows 18,719 bytes and raw WASI 20,652 bytes. Unpacked size
+12,095,344 saves 1,361,818 bytes, but gzip size 4,297,012 grows 7,294 bytes.
+Keep this compression regression visible. JS, declarations, examples, manifest
+and five legal assets are byte-identical; README and Wasm bytes change. The
+initial TypeScript 5.9.3 version mismatch is preserved and separately renewed
+with actual pinned 5.8.3. No report was relabeled.
+
+The triggering profile completes 10,000 comparisons across 105 field/site
+families, with 10,000 journaled stateful three-way semantic matches, independent
+validation and zero generator, command or property failures. All Star outputs
+are smaller: 14,094,624 versus Binaryen 23,128,050 total canonical bytes. Normal
+comparison exit 1 is retained for 10,000 structural differences. This is a
+bounded measured Starshine win; structural parity does not pass. Twenty retained
+diffs show repeated copy constructors replaced by one fresh private helper,
+with unchanged public targets. Detailed three-way execution has 954 actual
+calls and 420 imports per retained input, with no blocked execution. The
+independent 52-fixture every-arm witness supplements the retention cap; no
+exhaustive inspection of all 10,000 raw diffs is claimed.
+
+Existing generic failure-metadata JSON rounds UInt64 seeds in 19/20 retained
+bundles. Immutable native-generator manifest seeds and retained inputs/hashes
+remain exact. Replay must use the canonical manifest case index/exact seed or
+saved input, not rounded metadata alone. Original metadata is preserved. The
+reported FNV digest uses project-specific offset 1469598103934665603, rather
+than the standard FNV offset; it is not a cryptographic identity. The Python
+52-fixture expected-value oracle preserves integers and string seeds exactly.
+
+The integrated full WasmGC gate passes 14,104/14,104 tests and all fourteen
+CI fuzz suites (100,784 attempts, seed 117419138004019635). Plain default Wasm
+passes 14,107/14,107. The ordinary MSF 10k has 10,000 normalized and semantic
+matches, exit 0, with equal total canonical size 1,747,794 bytes; its raw output
+remains 28,329 bytes larger. Coverage and exact-head remote CI remain pending. Shipping release controls pass 16/16. Broader MSF audit, memory P1,
+sixteen historical differential discrepancies and held type projections remain
+open. Npm publication remains a separate user-approved release action.

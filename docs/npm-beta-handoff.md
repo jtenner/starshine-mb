@@ -19,18 +19,46 @@ terms.” MIT is scoped to Josh-owned rights; upstream terms and notices remain,
 and npm metadata is `SEE LICENSE IN LICENSE`. This settles the conservative
 distribution treatment while exact file provenance remains limited.
 
-The current local branch is `codex/npm-license-provenance`. The reviewed
-record-copy source/profile units are integrated locally; the numeric4/1 MSF
-preset and fresh package qualification are pending. Actual ordinary-MSF output
-from worker source `08dff80bd45fe383e5fae12232eea91c493acdc2`, native CLI
-SHA-256 `a9a7b2c3ad5123d86340268184877170dbc1c6ed201433464431f8f7ad19a0b5`,
-on the fixed GC input is 6,463,197 bytes, 918,088 bytes above Binaryen 133
-O4/s1's 5,545,109 bytes. This is a separate local measured checkpoint: it is
-neither the published master output nor a record-copy outlining result.
-The outlining admission and WasmGC deep-control validator repairs are separate
-reviewable work. No projected gain signs the package.
+The current local branch is `codex/npm-license-provenance`. Reviewed record-copy
+source/profile, separate iterative-control validation and bounded admission,
+and the exact numeric 4/1 sixth-pass scheduler are integrated locally. Combined
+native optimization of the immutable original GC produces 5,361,362 bytes
+(SHA-256 `25731db65a7f1aefd6460c10b3e0dcbad06b3429be862e2208ea4209484d0fa5`),
+183,747 bytes below the recorded Binaryen 133 O4/s1 result. WASI produces
+5,775,198 bytes. Both independently validate; twelve alternating commands
+produce stable outputs. Earlier ordinary-MSF-only 6,463,197-byte output is a
+separate historical local checkpoint, not a record-copy result.
 
-- Branch: `codex/npm-wasmgc-beta`.
+The fresh six-pass npm self-build passes validation and API/CLI parity:
+GC 7,494,321→5,398,191 bytes, WASI 6,795,450→5,812,099 bytes. The real WasmGC
+API copy fixture transforms 1,415→844/direct or 825/preset while preserving
+fields, fresh/old identities, public f/g identities, null traps and host effects.
+The exact 52-file archive SHA-256
+`075f466115558f43b21ca7d7d298fcb77eea60ef696d9d81db71c22a215d6389`
+passes external JavaScript and strict NodeNext TypeScript 5.8.3 and 5.9.3 consumers
+on Node 25.8.1/26.11.1, all nine exports/CLI/errors/roundtrips and runtime source/
+MoonBit filesystem denial. Source API 45/45 passes on both. Its packed size is
+4,297,012 bytes, 7,294 bytes larger than 1cb despite a 1,361,818-byte unpacked
+reduction. All JS/types/examples/manifest/legal bytes are identical; only README
+and two Wasms change. The integrated full WasmGC gate passes 14,104/14,104 tests and all fourteen
+CI fuzz suites (100,784 attempts, seed 117419138004019635). Plain default Wasm
+passes 14,107/14,107. The ordinary MSF 10k has 10,000 normalized and semantic
+matches, exit 0, with equal total canonical size 1,747,794 bytes; its raw output
+remains 28,329 bytes larger. Coverage and exact-head remote CI remain pending.
+No projected gain signs the package; rough concurrent performance measurements
+and small-fixture slowdowns remain diagnostic. Broad MSF audit, memory P1 and
+sixteen historical differential discrepancies remain open.
+
+For the next source checkpoint, five manual workflow runs can qualify the
+existing preparation branch. Fuzz is excluded from manual dispatch because that
+event enables the external generator without a separate request. Manual success
+is qualification evidence, not an eligible protected-branch status. Master still
+requires an eligible-check route or a new scoped publication decision; earlier
+administrative bypass exceptions do not authorize another bypass. No force push,
+protection change or npm release follows from the source authorization.
+
+- Initial preparation branch: `codex/npm-wasmgc-beta`; current local branch:
+  `codex/npm-license-provenance`.
 - Isolated checkout: `/home/jtenner/Documents/Codex/2026-10-09/task-9/starshine-mb`.
 - Baseline: verified local and remote `master`,
   `f91f5ec300ec72027342a5942b4a86c96bd53c5e`, rather than stale `main`.
@@ -69,7 +97,10 @@ integer returns, primitive GC enum values and instance-owned opaque handles are
 covered. Handles are GC-managed without explicit disposal. The README documents
 async ESM initialization, mapping/errors and the retained callback facade limits.
 
-## Bootstrap and self-optimization
+## Current bootstrap and self-optimization
+
+This describes the current six-pass build. The following historical local
+evidence section retains the initial 47-file package and its older preset.
 
 The build regenerates FFI/bindings, compiles the WasmGC adapter, compiles a fresh
 native release CLI directly from source, and compiles the WASI release CLI. The
@@ -82,8 +113,9 @@ The fresh bootstrap applies the requested **O4s** preset using
 `-O4s` is rejected by the current CLI parser; the existing ambient-stack return
 regression names numeric levels 4/1 O4s. The build queries the fresh bootstrap
 and requires those levels and the expanded queue: duplicate-function elimination,
-constraint analysis, vacuum, reorder locals and strip debug. This is the current
-fast preset; the full O4z scheduler requires levels 4/4.
+constraint analysis, vacuum, reorder locals, merge similar functions and strip
+debug. MSF is added only at exact numeric 4/1; neighboring fast presets retain
+the five-pass queue. The full O4z scheduler requires levels 4/4.
 A duplicate-function fixture must transform and preserve execution result 84
 before/after; the integrated checkpoint changes it from 70 to 48 bytes
 (the earlier checkpoint produced 54 bytes). Both actual package
@@ -101,7 +133,7 @@ roundtrips, O4s-optimized bytes and executed values, export names, a one-case fu
 bytes are promoted. A failure stops packaging without an unoptimized fallback.
 Stale promoted artifacts are removed at the beginning of every build.
 
-## Local evidence
+## Historical initial local evidence
 
 Initial O4s tarball at `9057a5d8`, now preserved under
 `dist/npm/qualified-o4s-9057a5d8/`: 4,821,600 bytes, 47 files.

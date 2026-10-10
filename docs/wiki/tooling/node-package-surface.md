@@ -73,16 +73,33 @@ levels 4/4 select the separate O4z scheduler. That checkpoint's fresh-source
 WasmGC build is 7,475,602 → 6,560,165 bytes and WASI is 6,774,798 → 6,013,480
 bytes, with before/after API and CLI parity. Its 52-file tarball SHA-256 is
 `78d2d8c39ea9bc16a22ce37ecf4bbb5829636d9ab2d0a6d5f66f7af75580fb0c`.
-All six exact-head workflows succeeded. The separate bootstrap fixture is
+
+The local successor integrates MSF as the sixth pass only at numeric 4/1,
+with a separately reviewed continuation validator and bounded copy admission.
+Its actual self-build validates GC 7,494,321→5,398,191 and WASI
+6,795,450→5,812,099 bytes with raw/optimized API and CLI parity, including
+copy fields, old/fresh identity, host effects and null traps. The exact 52-file tarball passes external JS and strict TypeScript 5.8.3/5.9.3
+consumers on Node 25.8.1/26.11.1; source API 45/45 on both. Its SHA-256 is
+`075f466115558f43b21ca7d7d298fcb77eea60ef696d9d81db71c22a215d6389`.
+The integrated full WasmGC gate passes 14,104 tests and all fourteen CI fuzz
+suites; plain default passes 14,107 tests. The ordinary MSF 10k passes normalized
+and semantic comparison, preserving its raw encoding loss. Coverage and remote
+CI remain pending. The external consumer
+scratch guard rejects checkout-local directories and symlink aliases;
+`NPM_CONSUMER_TMPDIR` is independent of compiler `TMPDIR`.
+The frozen 1cb checkpoint passed all six exact-head workflows. The separate bootstrap fixture is
 70 → 48 bytes with result 84. Earlier O1/O4s artifacts and failed build attempts
 remain historical evidence in [the handoff](../../npm-beta-handoff.md).
 
-The local six-pass preparation adds MSF after reorder locals and requires an
-installed-package immutable-record-copy proof before promotion. It is pending
-the admission/validator/preset integration, full-module validation, runtime and
-exact-tarball qualification. The direct owner/profile source is integrated
-locally; the published checkpoint does not qualify these changes. No size or runtime
-improvement is promised for future builds.
+The current six-pass build requires an installed-package immutable-record-copy
+proof before promotion. Source build and exact-tarball consumers pass; final
+coverage and remote CI qualification remain pending. The published 1cb checkpoint does not qualify
+these changes. No size or runtime improvement is promised for future builds.
+
+The archive is 4,297,012 packed / 12,095,344 unpacked bytes. Relative to frozen
+1cb, unpacked bytes fall 1,361,818 but gzip grows 7,294 bytes. JS/declarations,
+examples, manifest and legal assets are byte-identical; README and two Wasms
+change. This is a compression regression, not a promised download-size gain.
 
 The adapter requires Node 25+ with WasmGC and JS string builtins. All ESM imports
 await shared initialization. Named values are instance-owned GC handles with no

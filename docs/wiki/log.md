@@ -1,3 +1,25 @@
+### 2026-10-10 — Bound immutable record-copy outlining and isolate npm consumers
+
+- [MergeSimilarFunctions](binaryen/passes/merge-similar-functions/index.md)
+  can outline repeated immutable i32 copies with fresh allocation, old alias,
+  null trap and public identity preservation; full validation and complete-size
+  rollback guard admission. Unrelated deep bodies retain physical sharing.
+- Separate iterative Block/Loop/If validation and type/declaration resource
+  accounting support the bounded owner. EH retains existing dispatch; diagnostic
+  subtrees over 32 levels/256 nodes use an explicit bounded marker.
+- Only numeric optimize 4/shrink 1 adds MSF after ReorderLocals. The immutable
+  ORIGINAL GC result 5,361,362 is 183,747 bytes below the recorded Binaryen 133 O4/s1;
+  [the discrepancy record](tooling/npm-optimizer-discrepancy.md) separates
+  combined native output, fresh-source package bytes and historical projections.
+- The real source npm build and exact 52-file Node 25/26 JavaScript/strict TypeScript consumers pass,
+  including runtime filesystem isolation. Separate external consumer scratch
+  avoids inheriting the compiler's checkout-local disk TMPDIR. Gzip grows 7,294 bytes
+  despite unpacked reduction; tiny copy calls slow, memory P1 stays open.
+- Integrated full WasmGC passes 14,104 tests and all fourteen CI fuzz suites.
+  Plain default passes 14,107 tests and ordinary MSF 10k matches normalized
+  output and semantics, retaining its raw-size gap. Coverage and remote CI remain pending;
+  npm publication, tags/releases and protection changes are excluded.
+
 ### 2026-10-10 — Retain scoped MIT and conservative Binaryen redistribution notices
 
 - [The provenance matrix](tooling/license-provenance.md) records the owner's

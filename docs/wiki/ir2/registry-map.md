@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-10-10
 sources:
   - ../binaryen/passes/reorder-locals/index.md
   - ../../../src/passes/optimize.mbt
@@ -15,7 +15,7 @@ related:
 
 # IR2 Registry Map
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — October 10, 2026:** new comparisons use [Binaryen 133](../binaryen/release-horizon-and-oracles.md). Recorded v131/v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 ## Durable Conclusions
 
@@ -50,7 +50,7 @@ parsing before module dispatch.
 
 ### Active presets
 
-`optimize` and `shrink` are wall-time-first scheduler entry points outside O4z. O1/O2 expand to `duplicate-function-elimination -> strip-debug`; O3/O4/Os/Oz expand to `duplicate-function-elimination -> vacuum -> reorder-locals -> strip-debug`. `--optimize` resolves to O2, while `--shrink` and literal `-Oz` resolve to `(2, 2)`; literal `-Os` resolves to `(2, 1)`. Direct passes remain runnable independently.
+`optimize` and `shrink` are wall-time-first scheduler entry points outside O4z. O1/O2 expand to `duplicate-function-elimination -> strip-debug`; O3/O4/Os/Oz expand to `duplicate-function-elimination -> constraint-analysis -> vacuum -> reorder-locals -> strip-debug`. `--optimize` resolves to O2, while `--shrink` and literal `-Oz` resolve to `(2, 2)`; literal `-Os` resolves to `(2, 1)`. At exact numeric optimize/shrink levels 4/1, `merge-similar-functions` runs after ReorderLocals and before debug stripping. Neighboring fast presets retain the five-pass queue; numeric 4/4 still selects the full compatibility scheduler. Direct passes remain runnable independently.
 
 At O4z with all features enabled, both presets retain the full compatibility scheduler and expose Binaryen v131's exact 56-slot sequence. The prelude is `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> global-struct-inference`; the function phase includes the aggressive `ssa-nomerge -> flatten -> simplify-locals-notee-nostructure -> local-cse` prelude, both `precompute-propagate` slots, all three `remove-unused-brs` slots, and the late cleanup cluster; the post phase ends `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`. Starshine then appends its intentional `strip-debug` extension as slot 57. Generic `merge-similar-functions` runs through the existing validated `optimized-similar-functions` final portfolio candidate, preserving the locked top-level queue while recovering the shrink-level size opportunity.
 
