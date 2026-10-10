@@ -20,6 +20,18 @@
   less than 1 MiB median RSS differences; no speed win is claimed. The later GC
   canonicalization/memory work remains isolated pending the owner's decision.
 
+### 2026-10-10 — Qualify immutable index and heap sharing
+
+- [The bounded allocation follow-up](tooling/npm-optimizer-discrepancy.md#qualified-immutable-type-wrapper-sharing)
+  shares immutable absolute indices and concrete heaps within one CodeSec remap,
+  with separate failing-first regressions, independent review and 14,035 tests.
+- Exact original outputs remain unchanged. Local paired median RSS falls
+  21,612KiB; about 36.7MiB remains above the published-first equivalent. Timings,
+  adverse diagnostic RSS and allocator/semantic limits remain explicit.
+- Strict 10k and separate 256 GC runtime renewal preserve previous inputs and
+  scoped judgments. Memory approval, fresh integrated package/CI and licensing
+  remain open; no npm, push or release action.
+
 ### 2026-10-10 — Qualify GC compaction storage and memory cost
 
 - [Resource qualification](tooling/npm-optimizer-discrepancy.md#qualified-gc-compaction-memory-follow-up)

@@ -48,7 +48,17 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   MoonBit toolchain and remaining repository gates. Upstream #1322 remains a
   compiler issue despite the local compatibility workaround. Do not revive
   unrelated DAE2/O campaigns as part of this package task.
-- Active isolated optimizer implementation: [discrepancy investigation](docs/wiki/tooling/npm-optimizer-discrepancy.md), based on verified `9057a5d8a`. Private DFE admission, OI optional-arm analysis and bounded flat coalescing have tested local fixes, independent review, original-input measurements and fresh-source packed qualification. The separately reviewed GC follow-up repairs remappers/whole-group pruning and bounded backward singleton interning; full 14,032 tests, 10k owned DFE, 256 GC runtime and fresh FFI/O4s/packed consumers pass within documented scope. GC saves 271,688 more bytes; O4/s1 gaps remain 1,415,727 GC/91,972 WASI. Separately reviewed storage repair `121084db4` removes avoidable reconstruction, passes 14,033 tests and retains exact output bytes; normal peaks overlap and about 49.8MiB median RSS increase versus pre-GC remains a qualified native-CLI tradeoff. Integrated-head package/CI checks remain with prep owner. Prior 62ba checkpoint is assigned to prep owner; coordinate both local branches through parent before publication. Broader recursive GC/preset and effectful OI gaps remain open.
+- Optimizer follow-up: [the discrepancy investigation](docs/wiki/tooling/npm-optimizer-discrepancy.md#qualified-immutable-type-wrapper-sharing)
+  preserves exact original inputs and tested fixes. Published master `113af3874`
+  contains the first reviewed optimizer/prep checkpoint. GC and allocation
+  follow-ups remain isolated pending user acceptance of the remaining local
+  native median cost, about 36.7MiB above the first equivalent baseline.
+  `0d68c3f1b` retains the 271,688-byte GC reduction and exact output hashes;
+  bounded regressions, independent review, strict 10k and separate GC runtime
+  renewal are scoped evidence, not general peak or full-pass closure.
+  Coordinate held branches through parent; fresh integrated FFI/types/self-build,
+  packed JS/strict-TS and CI qualification remain with the prep owner. Broader
+  recursive GC/preset and effectful OI gaps remain open.
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 

@@ -9,6 +9,7 @@ sources:
   - ../../../src/passes/duplicate_function_elimination.mbt
   - ../../../src/passes/o4s_private_duplicates_test.mbt
   - ../../../src/passes/dfe_gc_retention_wbtest.mbt
+  - ../../../src/passes/dfe_gc_index_sharing_wbtest.mbt
   - ../../../src/passes/oi_optional_control_wbtest.mbt
   - ../../../src/passes/pass_manager.mbt
   - ../../../src/passes/coalesce_artifact_tiny_perf_wbtest.mbt
@@ -506,3 +507,83 @@ qualification of `ae6900cb0`, not a new package build of this repair. Per parent
 coordination, this follow-up performs no npm action; integrated-head package/CI
 qualification stays with the preparation owner. Broader recursive-type/body/
 preset work and the scoped effectful OI gap remain open.
+
+
+## Qualified immutable type-wrapper sharing
+
+Published master was fetched and verified again as
+`113af38748a139a08d8c130dccdc3eee868f9516`. Its optimizer/binary/FFI source matches
+first reviewed `62ba4012f`. CLI changes move its version constant into a
+generated file and update help/version expectations; module version also changes. The preserved first binary is therefore
+a code-equivalent optimization baseline, not a build of that published commit.
+The held GC/memory checkpoints stay isolated; no memory acceptance is inferred.
+
+Red `c5964160c` and fix `1aed6450c` share immutable rewritten `TypeIdx` values.
+Separate red `a78d54874` and fix
+`0d68c3f1bc745d2fd288b29e2c6d28f2387a283f` additionally share concrete `HeapType`
+wrappers. One private CodeSec-remap cache owns two UInt-keyed maps. Each has at
+most one entry per distinct reached final target; keys are never mapped twice.
+No graph, expression array or mutable container is shared by these tables.
+Default callers, legacy Try scans, recursive-group indices, abstract/shared-
+abstract heaps and inline DefType graphs keep their previous paths. RefType
+flags/constructor ownership remain unchanged; `ref_null_type` reconstructs its
+nullable wrapper, so a RefType cache alone would not share stored RefNull values.
+
+The [bounded regression](../../../src/passes/dfe_gc_index_sharing_wbtest.mbt)
+checks nested/body/local convergence, fresh-module isolation, direct targets,
+exact/nullable flags, default behavior, excluded forms, immutable inputs and
+widths 1/8/32. All 14,035 default wasm-gc tests pass, then final reviewer controls
+pass 2/2 with unchanged production source. Source review finds no scoped blocker.
+Fresh native SHA-256 is
+`3f0aaf851d9a6c1acb93e43d68a5dbd664dd91635daebb42c412182e9af0a395`.
+
+Each short sample runs numeric 4/1 directly on the immutable ORIGINAL GC input,
+in a fresh probe process. Three fixed-order serial cohorts run with no concurrent
+heavy build/benchmark; they are not randomized or universal performance claims.
+
+| Native CLI | Peak RSS KiB samples | Median KiB | Wall seconds samples | Median seconds |
+| --- | --- | ---: | --- | ---: |
+| Published-first equivalent | 261,400 / 265,612 / 265,952 | 265,612 | 8.716 / 8.617 / 8.766 | 8.716 |
+| Memory repair control | 324,776 / 326,352 / 324,236 | 324,776 | 8.268 / 8.247 / 8.587 | 8.268 |
+| Scalar index cache | 305,332 / 305,420 / 305,468 | 305,420 | 8.162 / 8.410 / 8.122 | 8.162 |
+| Index plus concrete heap cache | 302,828 / 303,492 / 303,164 | 303,164 | 8.266 / 8.422 / 7.808 | 8.266 |
+
+Final median RSS falls 21,612KiB versus the paired memory control; heap sharing
+adds 2,256KiB beyond indices. The remaining increase versus first is 37,552KiB
+(about 36.7MiB). This replaces the earlier roughly 50MiB estimate only for this
+new local cohort, not an upper-peak guarantee. No speed improvement is established
+against memory/index controls. One WASI pair is 279,392KiB/9.228s versus final
+279,220KiB/9.124s; earlier adverse index-only WASI observations stay preserved.
+
+The same local occupied-block probe records 231,292,816 / 222,991,344 /
+221,249,952 bytes after DFE for repair/index/final, reducing occupied storage by
+10,042,864 bytes overall. These are rounded live default-heap slots including
+headers/capacity, not cumulative bytes or normal phase maxima. Extra logical
+storage is released before writing (final 7,178,192 bytes) and shutdown entry
+(98,400). Instrumented final after-write RSS 292,124KiB is higher than the earlier
+index probe's 250,656KiB despite identical occupied slots; adverse diagnostics
+are retained. No whole-process leak or repeated npm-API heap guarantee follows.
+
+All original outputs remain byte-identical to the reviewed GC checkpoint and
+validate independently: GC 6,960,836 / WASI 6,240,505 bytes. Reduced alias/shifted-
+group/subtype fixtures preserve 48 values, six RuntimeError classes, three public
+function identities, state and host observations. Trap messages/locations and
+non-null typed host arguments remain outside scope.
+
+Strict fresh v133/eight-worker renewal completes 10,000 independently validated
+owned cases under 15s subprocess limits. Its complete manifest and all 100 Wasms
+in 20 retained bundles byte-match prior qualification: 5,000 normalized matches
+plus the same independently reviewed six-byte private-caller wins, zero validation/
+generator/command failures. Runtime/property modes are off; that lane does not
+cover GC aliases. A separate fresh 256-case `campaign-gc-ref-subtypes` Node-v2
+oracle matches original/Starshine/Binaryen runtime observations in all cases,
+with zero blocked/failing cases and the identical prior manifest. This remains
+scoped implementation qualification, not a final whole-pass audit.
+
+The unchanged original output bytes retain verified-v133 gaps of 1,415,727 GC /
+91,972 WASI bytes; no new artifact-sized Binaryen run is needed for allocation-
+only changes. Numeric 4/1 and the Starshine-only release-build contract remain.
+No npm action occurred here: prior ae package/type/packed-consumer evidence is
+historical, and fresh integrated-head FFI/types/self-build/packed JS/strict-TS/CI
+qualification stays with the prep owner. Memory acceptance, licensing and broader
+recursive GC/preset/effectful OI gaps remain open; no push or release action.

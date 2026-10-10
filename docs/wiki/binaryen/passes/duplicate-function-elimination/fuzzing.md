@@ -10,6 +10,21 @@ sources:
 
 # `duplicate-function-elimination` Fuzzing Profile
 
+## October 10 immutable-wrapper sharing renewal
+
+The [wrapper-sharing qualification](../../../tooling/npm-optimizer-discrepancy.md#qualified-immutable-type-wrapper-sharing)
+records native `3f0aaf851d9a6c1acb93e43d68a5dbd664dd91635daebb42c412182e9af0a395`,
+verified v133, unchanged generator, seed 0x5eed and eight workers. Strict 10,000
+cases preserve the previous complete manifest and all 100 retained Wasms:
+5,000 normalized matches plus the same reviewed private-caller six-byte wins,
+zero validation/generator/command failures. Runtime/property modes are off;
+that aggregate does not cover GC aliases. Separate Node-v2 GC subtype renewal
+matches all 256 original/Starshine/Binaryen observations with no blocked cases
+and the identical prior manifest. All 14,035 default tests and bounded public
+identity/state/trap observers pass. These facts do not establish general leak,
+peak, full semantic coverage or final whole-pass audit closure. Memory acceptance
+and integrated package/CI gates remain pending.
+
 ## October 10 GC storage repair renewal
 
 The [memory follow-up](../../../tooling/npm-optimizer-discrepancy.md#qualified-gc-compaction-memory-follow-up)
