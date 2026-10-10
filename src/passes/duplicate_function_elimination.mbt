@@ -1,6 +1,6 @@
 ///|
 pub fn dfe_summary() -> String {
-  "Merge duplicate defined functions, rewrite surviving function references, and compact duplicate simple function type indices."
+  "Merge duplicate defined functions, rewrite surviving function references, and compact duplicate function and bounded GC singleton type indices."
 }
 
 ///|
@@ -150,7 +150,7 @@ fn dfe_duplicate_simple_type_canonical_map(
 ) -> Map[UInt, UInt] {
   let canonical_map : Map[UInt, UInt] = Map([])
   if !dfe_supports_simple_type_dedup(rec_types) {
-    return canonical_map
+    return dfe_duplicate_backward_singleton_type_map(rec_types)
   }
   let buckets : @hashmap.HashMap[Int, Array[Int]] = @hashmap.new(
     capacity=rec_types.length(),
@@ -601,7 +601,6 @@ fn dfe_instruction_mentions_type_idxs(instr : @lib.Instruction) -> Bool {
     | @lib.ArrayAtomicSet(_, _)
     | @lib.ArrayAtomicRmw(_, _, _)
     | @lib.ArrayAtomicCmpxchg(_, _) => true
-
     @lib.ContNew(_)
     | @lib.ContBind(_, _)
     | @lib.Resume(_, _)
@@ -1592,11 +1591,11 @@ fn dfe_scan_rewrite_instruction_type_idxs(
   match instr {
     @lib.StructWait(_, _)
     | @lib.ArrayLoad(_, _, _)
-    | @lib.ArrayStore(_, _, _) => {
-      rewritten: dfe_try_rewrite_instruction_type_idxs(instr, remap),
-      mentions_type_idxs: true,
-    }
-
+    | @lib.ArrayStore(_, _, _) =>
+      {
+        rewritten: dfe_try_rewrite_instruction_type_idxs(instr, remap),
+        mentions_type_idxs: true,
+      }
     @lib.ContNew(_)
     | @lib.ContBind(_, _)
     | @lib.Resume(_, _)
@@ -4454,19 +4453,21 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
       let kept_types : Array[@lib.RecType] = []
       let old_to_new : Map[UInt, UInt] = Map([])
       let mut old_idx = 0
-      while old_idx < rec_types.length() {
+      let mut next_idx = 0
+      for rec_type in rec_types {
+        let member_count = dfe_rec_type_member_count(rec_type)
         let raw_old_idx = old_idx.reinterpret_as_uint()
-        let canonical_old_idx = canonical_old_idxs
-          .get(raw_old_idx)
-          .unwrap_or(raw_old_idx)
-        if canonical_old_idx == old_idx.reinterpret_as_uint() {
-          old_to_new[canonical_old_idx] = kept_types
-            .length()
-            .reinterpret_as_uint()
-          kept_types.push(rec_types[old_idx])
+        if canonical_old_idxs.get(raw_old_idx) is None {
+          for member = 0; member < member_count; member = member + 1 {
+            old_to_new[(old_idx + member).reinterpret_as_uint()] = (next_idx +
+            member).reinterpret_as_uint()
+          }
+          kept_types.push(rec_type)
+          next_idx += member_count
         }
-        old_idx += 1
+        old_idx += member_count
       }
+      let flat_type_count = old_idx
       dfe_perf_stop_timer_opt(perf, "type-canon:kept-types", keep_timer)
       if kept_types.length() == rec_types.length() {
         return mod_
@@ -4474,7 +4475,7 @@ fn dfe_canonicalize_duplicate_simple_type_indices(
       let remap_timer = dfe_perf_start_timer_opt(perf, "type-canon:remap")
       let type_remap : Map[UInt, UInt] = Map([])
       old_idx = 0
-      while old_idx < rec_types.length() {
+      while old_idx < flat_type_count {
         let raw_old_idx = old_idx.reinterpret_as_uint()
         let canonical_old_idx = canonical_old_idxs
           .get(raw_old_idx)
@@ -5123,6 +5124,14 @@ fn dfe_run_module_pass_with_perf(
 ) -> @lib.Module {
   if pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
+  }
+  // Mixed GC modules require type canonicalization before private body
+  // hashing: otherwise equivalent aggregate/signature indices prevent merging.
+  // Keep the existing independent-function path and liveness-pruner guard.
+  let mod_ = match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) if !dfe_supports_simple_type_dedup(rec_types) =>
+      dfe_canonicalize_duplicate_simple_type_indices(mod_, perf~)
+    _ => mod_
   }
   let iteration_timer = dfe_perf_start_timer_opt(perf, "iterations")
   let elimination = dfe_eliminate_duplicate_functions(mod_, perf~)

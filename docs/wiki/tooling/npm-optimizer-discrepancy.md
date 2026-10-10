@@ -302,3 +302,21 @@ rewrite predicate recognizes every aggregate atomic type operand. The reduced
 represented type-bearing instruction in full/optional/scan/predicate matchers.
 The existing liveness-pruner guard remains restricted to independent function
 types; this prerequisite alone does not admit GC canonicalization.
+
+Bounded mixed-GC canonicalization now walks singleton types once before DFE body
+hashing. It interns complete subtypes only when every explicit dependency points
+strictly backward, preserving finality/supers, storage/mutability and nullable/
+exact references. Equal abbreviated/expanded abstract references use one key
+representation. Explicit group members never enter the singleton dictionary;
+shared, descriptor, continuation, inline `DefType`, `RecIdx`, self and forward
+forms remain distinct. A dense flat map rewrites every surviving definition and
+operand, including protected imported/exported interfaces. Existing plain-type
+interning and dead-type pruning guards remain unchanged. No new preset pass is
+added: numeric4/1 reaches this through its existing DFE slot.
+
+Reduced public fixtures verify transitive struct->array->function aliases,
+private-body merging, shifted two-member groups, GC import/global/local operands
+and nonfinal-base/final-child chains. Boundary fixtures cover identity exclusions,
+key equality and a no-alias canonical-byte control. Independent source review
+approves this bounded lane; full tests, native artifact impact, runtimes and
+consumer qualification follow separately before integration readiness.

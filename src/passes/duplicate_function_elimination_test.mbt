@@ -2019,7 +2019,7 @@ test "duplicate-function-elimination rewrites concrete local and global ref type
 }
 
 ///|
-test "duplicate-function-elimination conservatively skips type compaction with descriptor metadata" {
+test "duplicate-function-elimination interns independent signatures and remaps retained descriptor groups" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
   )
@@ -2052,13 +2052,33 @@ test "duplicate-function-elimination conservatively skips type compaction with d
   let optimized = try! dfe_test_run(input)
   @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 1)
   match optimized.type_sec {
-    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
-    None => fail("expected un-compacted descriptor-bearing type section")
+    Some(@lib.TypeSec(types)) => {
+      @debug.assert_eq(types.length(), 2)
+      @debug.assert_eq(types[0], func_type)
+      @debug.assert_eq(
+        types[1],
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(
+              descriptor=Some(@lib.TypeIdx::new(2U)),
+            ),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(
+              describes=Some(@lib.TypeIdx::new(1U)),
+            ),
+          ),
+        ]),
+      )
+    }
+    None => fail("expected retained remapped descriptor group")
   }
 }
 
 ///|
-test "duplicate-function-elimination conservatively skips type compaction with supertypes" {
+test "duplicate-function-elimination interns equivalent backward subtype signatures" {
   let base = @lib.RecType::new(
     @lib.SubType::new(false, [], @lib.CompType::func([], [])),
   )
@@ -2088,15 +2108,15 @@ test "duplicate-function-elimination conservatively skips type compaction with s
       ]),
     )
   let optimized = try! dfe_test_run(input)
-  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 2)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 1)
   match optimized.type_sec {
-    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
-    None => fail("expected un-compacted subtype section")
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types, [base, sub_a])
+    None => fail("expected retained base and canonical subtype")
   }
 }
 
 ///|
-test "duplicate-function-elimination conservatively skips local type compaction when non-function rec types are present" {
+test "duplicate-function-elimination interns independent signatures while retaining distinct GC types" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
   )
@@ -2122,7 +2142,8 @@ test "duplicate-function-elimination conservatively skips local type compaction 
   let optimized = try! dfe_test_run(input)
   @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 1)
   match optimized.type_sec {
-    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
-    None => fail("expected non-function rec type to block local compaction")
+    Some(@lib.TypeSec(types)) =>
+      @debug.assert_eq(types, [func_type, struct_type])
+    None => fail("expected canonical function signature and retained struct")
   }
 }
