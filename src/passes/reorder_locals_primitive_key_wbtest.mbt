@@ -74,3 +74,16 @@ test "reorder-locals primitive type keys cover every abstract heap proposal" {
   }
   @debug.assert_eq(seen.length(), 17)
 }
+
+///|
+test "reorder-locals primitive keys deliberately reject unencodable inline graphs and bottom" {
+  let graph = @lib.DefType::new(
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    0U,
+  )
+  let reference = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::def_type(graph)),
+  )
+  @debug.assert_eq(rl_grouping_type_key(reference), None)
+  @debug.assert_eq(rl_grouping_type_key(@lib.ValType::bottom()), None)
+}

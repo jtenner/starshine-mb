@@ -169,8 +169,55 @@ fn rl_sort_used_body_locals(
 }
 
 ///|
-fn rl_grouping_type_key(_ty : @lib.ValType) -> UInt64? {
-  None
+fn rl_grouping_abs_key(abs : @lib.AbsHeapType) -> UInt64 {
+  match abs {
+    @lib.ExnAbsHeapType => 0UL
+    @lib.StringAbsHeapType => 1UL
+    @lib.ArrayAbsHeapType => 2UL
+    @lib.StructAbsHeapType => 3UL
+    @lib.I31AbsHeapType => 4UL
+    @lib.EqAbsHeapType => 5UL
+    @lib.AnyAbsHeapType => 6UL
+    @lib.ExternAbsHeapType => 7UL
+    @lib.FuncAbsHeapType => 8UL
+    @lib.ContAbsHeapType => 9UL
+    @lib.NoneAbsHeapType => 10UL
+    @lib.NoExternAbsHeapType => 11UL
+    @lib.NoFuncAbsHeapType => 12UL
+    @lib.NoExnAbsHeapType => 13UL
+    @lib.NoContAbsHeapType => 14UL
+    @lib.WaitqueueAbsHeapType => 15UL
+    @lib.NoWaitqueueAbsHeapType => 16UL
+  }
+}
+
+///|
+// Scalar/heap-kind/reference flags occupy disjoint high bits; the payload keeps
+// the full UInt32 index. No derived ValType graph hash or equality is needed.
+fn rl_grouping_type_key(ty : @lib.ValType) -> UInt64? {
+  match ty {
+    @lib.NumTypeValType(@lib.I32NumType) => Some(0UL)
+    @lib.NumTypeValType(@lib.I64NumType) => Some(1UL)
+    @lib.NumTypeValType(@lib.F32NumType) => Some(2UL)
+    @lib.NumTypeValType(@lib.F64NumType) => Some(3UL)
+    @lib.VecTypeValType => Some(4UL)
+    @lib.BotValType => None
+    @lib.RefTypeValType(@lib.AbsHeapTypeRefType(abs)) =>
+      Some(0x1100000000000000UL | rl_grouping_abs_key(abs))
+    @lib.RefTypeValType(@lib.HeapTypeRefType(nullable, exact, heap)) => {
+      let payload = match heap {
+        @lib.AbsHeapTypeHeapType(abs) => rl_grouping_abs_key(abs)
+        @lib.SharedAbsHeapTypeHeapType(abs) =>
+          0x100000000UL | rl_grouping_abs_key(abs)
+        @lib.HeapType(@lib.TypeIdx(idx)) => 0x200000000UL | idx.to_uint64()
+        @lib.HeapType(@lib.RecIdx(idx)) => 0x300000000UL | idx.to_uint64()
+        @lib.DefTypeHeapType(_) => return None
+      }
+      let nullable_flag = if nullable { 0x0100000000000000UL } else { 0UL }
+      let exact_flag = if exact { 0x0200000000000000UL } else { 0UL }
+      Some(0x1000000000000000UL | nullable_flag | exact_flag | payload)
+    }
+  }
 }
 
 ///|
@@ -187,21 +234,18 @@ fn rl_group_equal_frequency_locals(
   if order.length() <= 2 {
     return order
   }
-  let type_ranks : Map[@lib.ValType, Int] = {}
+  let type_ranks : Map[UInt64, Int] = Map([])
   let ranks = Array::make(body_types.length(), 0)
   for old_idx in order {
-    let ty = match body_types[old_idx - param_count] {
-      @lib.RefTypeValType(@lib.AbsHeapTypeRefType(abs)) =>
-        @lib.ValType::ref_type(@lib.RefType::new(true, @lib.HeapType::abs(abs)))
-      @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, @lib.DefTypeHeapType(_))) =>
-        return order
-      ty => ty
+    let key = match rl_grouping_type_key(body_types[old_idx - param_count]) {
+      Some(key) => key
+      None => return order
     }
-    let rank = match type_ranks.get(ty) {
+    let rank = match type_ranks.get(key) {
       Some(rank) => rank
       None => {
         let rank = type_ranks.length()
-        type_ranks[ty] = rank
+        type_ranks[key] = rank
         rank
       }
     }
