@@ -1284,5 +1284,6 @@ function generateCmdFacadeDeclarations(pkg) {
   body.push('export const runWasmSmithFuzzHarnessProfile: typeof runCmdFuzzHarnessProfile;');
   const header = ['// Generated from the FFI schema and explicit JavaScript facade projections. DO NOT EDIT.', `import type { OpaqueHandle, StarshineResult } from './internal/shared.js';`];
   for (const [moduleId, names] of imports.byModule) header.push(`import type { ${[...names].sort().map(name => `${name} as ${moduleId}_${name}`).join(', ')} } from './${moduleId}.js';`);
-  writeText('node/cmd.d.ts', [...header, readText('ffi/src/npm/cmd-model.d.ts'), ...body].join('\n'));
+  const model = `${readText('ffi/src/npm/cmd-model.d.ts').trimEnd()}\n\n`;
+  writeText('node/cmd.d.ts', [...header, model, ...body].join('\n'));
 }
