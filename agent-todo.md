@@ -14,6 +14,8 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 
 - Local implementation and exact packed-consumer evidence are recorded in
   [the handoff](docs/npm-beta-handoff.md). Preserve the isolated beta branch.
+- O4s numeric levels 4/1 now qualify both package artifacts; retain the prior
+  O1 snapshot and its historical gates. Licensing remains undecided.
 - Release decisions remain: reconcile root MIT / MoonBit Apache-2.0, approve the
   candidate version and publication/provenance route, provision or qualify the
   documented MoonBit toolchain, and assess outstanding repository release gates.

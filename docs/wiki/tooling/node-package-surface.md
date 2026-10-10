@@ -64,9 +64,16 @@ and generates the concrete `ffi/src/npm` adapter and JS/TS files. Reviewed
 constructor-order and callback-facade projections preserve intentional compatibility.
 [`scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs)
 compiles that adapter, a fresh native bootstrap and the WASI CLI. It preserves
-raw baselines, applies the bounded Starshine O1 preset, validates input/output
+raw baselines, applies Starshine O4s (`--optimize --optimize-level 4 --shrink-level 1`), validates input/output
 with wasm-tools and compares copied-package API and CLI behavior before promotion.
-Failure prevents packing; both package artifacts currently show zero size change.
+Failure prevents packing. The build verifies the effective levels and exact five-pass
+queue; literal `-O4s` is unsupported and levels 4/1 use the current fast preset,
+not the full O4z scheduler at 4/4. Current O4s qualification reduces WasmGC by
+164,569 bytes and WASI by 400,880 bytes, with before/after API and CLI parity.
+This supersedes O1's zero-size-change qualification at `279aaf642`; its tarball,
+artifacts and reports remain in `dist/npm/qualified-o1-279aaf642/`.
+The [handoff](../../npm-beta-handoff.md) records exact hashes and the higher local
+optimization time. No size or runtime improvement is promised for future builds.
 The separate bootstrap fixture transforms 70 to 54 bytes with identical result 84.
 
 The adapter requires Node 25+ with WasmGC and JS string builtins. All ESM imports

@@ -1,4 +1,19 @@
-### 2026-10-10 — Prepare the WasmGC npm beta route
+### 2026-10-10 — Qualify O4s for npm self-optimization
+
+- [The package build](../../scripts/lib/build-node-package.mjs) uses the requested
+  O4s numeric levels 4/1 and verifies its exact five-pass expansion. Literal
+  `-O4s` is unsupported; full O4z uses 4/4. This supersedes the initial O1
+  qualification below; its complete artifact/report snapshot remains preserved.
+- WasmGC shrinks by 164,569 bytes and WASI by 400,880 bytes. Independent
+  validation, required ABI exports, raw/optimized API observations and CLI help
+  pass before promotion. Packed JS and strict TS consumers pass on Node 25/26,
+  including executed O4s fixtures and the ambient-stack return regression.
+- [The handoff](../npm-beta-handoff.md) records exact hashes, bounded time/RSS
+  samples, slower optimization versus O1 and independent internal review.
+  No runtime-performance win is claimed. License selection remains undecided;
+  publication, push, merge, tags/releases and credential changes remain pending.
+
+### 2026-10-10 — Prepare the WasmGC npm beta route (initial O1 checkpoint)
 
 - [The npm package surface](tooling/node-package-surface.md) replaces the disabled
   generator/prebuilt adapter dependency with authoritative FFI-derived signatures,
@@ -6,7 +21,7 @@
   argument positions and callback record projections preserve compatibility.
 - The fresh native bootstrap self-optimizes both package Wasm artifacts with the
   bounded O1 preset. Independent Wasm validation, ABI checks and copied-package
-  before/after observations gate promotion. Package bytes currently do not shrink;
+  before/after observations gate promotion. Package bytes at this checkpoint do not shrink;
   a separate 70-to-54-byte fixture proves transformation and identical execution.
 - The exact tarball is installed into empty JS and strict TypeScript projects,
   exercising every promised export, meaningful optimization/roundtrips, errors,

@@ -45,22 +45,29 @@ native binary does not depend on the final npm package. Compiler debug name
 sections are removed because their subsection ordering is noncanonical.
 
 The name-stripped unoptimized artifacts are preserved under ignored `dist/npm/`.
-The fresh bootstrap applies `--optimize --optimize-level 1` to both artifacts.
-This bounded active preset runs duplicate-function elimination and debug stripping.
+The fresh bootstrap applies the requested **O4s** preset using
+`--optimize --optimize-level 4 --shrink-level 1` to both artifacts. Literal
+`-O4s` is rejected by the current CLI parser; the existing ambient-stack return
+regression names numeric levels 4/1 O4s. The build queries the fresh bootstrap
+and requires those levels and the expanded queue: duplicate-function elimination,
+constraint analysis, vacuum, reorder locals and strip debug. This is the current
+fast preset; the full O4z scheduler requires levels 4/4.
 A duplicate-function fixture must transform and preserve execution result 84
-before/after; its measured size changes from 70 to 54 bytes. The actual package artifacts currently have equal before/after hashes
-and zero size gain. No claim of size or runtime improvement is made.
+before/after; its measured size changes from 70 to 54 bytes. Both actual package
+artifacts shrink in this qualification. Size or runtime gains are not promised.
+Each optimizer command has a default 180-second budget; packed harness commands
+have a 240-second budget. A timeout fails the build.
 
 Input/output bytes pass independent wasm-tools validation. Required exports must
 survive. Separate standalone package copies compare semantic executions, errors,
-roundtrips, export names, a one-case fuzz result and CLI help before optimized
+roundtrips, O4s-optimized bytes and executed values, export names, a one-case fuzz result and CLI help before optimized
 bytes are promoted. A failure stops packaging without an unoptimized fallback.
 Stale promoted artifacts are removed at the beginning of every build.
 
 ## Local evidence
 
-Final tarball: `dist/npm/jtenner-starshine-0.1.2-beta.0.tgz`, 4,898,006 bytes, 47 files.
-SHA-256: `2105e691b479f7ae081deb4bb094f969815617a9d46764c122eac186345b25ad`.
+Final O4s tarball: `dist/npm/jtenner-starshine-0.1.2-beta.0.tgz`, 4,821,600 bytes, 47 files.
+SHA-256: `0d4cc321fef5554fce32cf95ee30a1d7be30a84380df048e75f07302775d9ab2`.
 The reproducible commands and toolchain are in [the package README](../node/README.md)
 and `ffi/src/npm/toolchain.json`. Exact local reports and tarballs live in ignored
 `dist/npm/`; they are handoff evidence, not repository source or package contents.
@@ -69,22 +76,41 @@ and `ffi/src/npm/toolchain.json`. Exact local reports and tarballs live in ignor
 - Static package contract: passed.
 - Documented dependency setup: `moon update` passed after allowing registry-cache writes; initial sandboxed registry update was read-only and cached dependencies were used for the first build.
 - README/API synchronization: passed.
-- MoonBit bounded WasmGC suite: 14,001 passed, zero failed.
-- Full repository gate including CI-profile fuzz: passed. All 14 suites pass with seed `0x1a1241680765d7f`; no passing test was disabled.
+- Prior package implementation at `279aaf642`: MoonBit bounded WasmGC suite 14,001 passed, zero failed; full repository gate including all 14 CI-profile fuzz suites passed with seed `0x1a1241680765d7f`. This preset-only revision changes no MoonBit implementation; those historical gates are retained rather than claimed as fresh O4s runs. No passing test was disabled.
 - Final exact packed JS/TS consumers: passed on Node 25.8.1 and 26.11.1, TypeScript 5.8.3, all nine public export entries. Both runtime reports identify the same tarball hash.
+- O4s qualification: the packed gate first rejected the preserved O1 report, then passed with levels 4/1 and the exact queue. Three API fixtures preserve results 42 / 7 / 9; the packed CLI also executes the ambient-stack return regression with O4s and result 42.
+- Focused existing MoonBit O4s ambient-stack return regression: one passed on WasmGC.
 - Node suite: 44 passed, zero failed or skipped.
 - Generated FFI/npm drift: passed. CI workflow passes actionlint; remote CI is unrun.
 - Coverage: `bun validate coverage --top 5 --baseline .github/coverage-baseline.txt` exceeded a ten-minute execution budget. After stopping its instrumented Wasm test and parent Moon process, it emitted a partial report: 59,436 uncovered lines / 243 files versus the unchanged baseline 28,138 / 196 (delta +31,298 / +47). The report command exited zero, but the collection was interrupted; no completed coverage or regression pass is claimed. These partial counts do not attribute a regression to this package change or repair previously reported coverage failures.
 
-Final build measurement: 11560 ms locally, including bootstrap,
-generation, validation and parity. WasmGC: 7,452,107 bytes before/after,
-SHA-256 `059555428f569dcd57275757be8453a4f4881eb80592f9f80e402b4987072de3`.
-WASI: 6,748,730 bytes before/after,
-SHA-256 `b7dd0896d7b41989e1aa29bd297d3fd63097b7e3b7f76883e9897f25010add52`.
-Last build optimizer/validation times: 708 ms / 476 ms.
-A separate single local sample measured native self-optimization at 636 ms and
-172,840 KiB peak RSS; Node API observation at 248 ms and 168,720 KiB peak RSS.
-These are short absolute samples, not comparative performance claims.
+O4s build measurement: 29,637 ms locally, including bootstrap, generation,
+validation and parity. The complete build/pack/Node 26 consumer run took 34,276 ms,
+with 926,512 KiB peak RSS across reaped descendants (not an additive concurrent
+process total). `o4s-build-measurement.json` records this scope.
+
+| Artifact | Unoptimized bytes | O4s bytes | Delta | Optimized SHA-256 |
+| --- | ---: | ---: | ---: | --- |
+| WasmGC | 7,452,107 | 7,287,538 | -164,569 | `6ace60a63b33dda84c15067ca2ab60b702a6e74e3edb7bfca7d158761984bbea` |
+| WASI | 6,748,730 | 6,347,850 | -400,880 | `40e8be933bb3105aa74a1d54f9f4f350e4695d74ac64a9eceff05aa15bd52570` |
+
+Raw hashes remain `059555428f569dcd57275757be8453a4f4881eb80592f9f80e402b4987072de3`
+(WasmGC) and `b7dd0896d7b41989e1aa29bd297d3fd63097b7e3b7f76883e9897f25010add52`
+(WASI). Build optimizer-plus-validation times were 9,454 / 9,726 ms. A separate
+single serial native optimization sample measured 9,139 ms / 262,956 KiB peak RSS
+for WasmGC and 9,373 ms / 223,436 KiB for WASI, excluding independent validation.
+Both samples reproduced the promoted hashes and independently validated. The
+sample command/measurement helper is retained with `validation-o4s/` evidence.
+These are short local samples, not throughput or runtime-performance claims.
+
+This O4s checkpoint supersedes the O1 package qualification at `279aaf642`.
+All 20 previous evidence files, raw/optimized artifacts and the 4,898,006-byte
+O1 tarball are preserved in `dist/npm/qualified-o1-279aaf642/`, with a verified
+`snapshot.json` checksum manifest. O1 tar SHA-256:
+`2105e691b479f7ae081deb4bb094f969815617a9d46764c122eac186345b25ad`.
+O1 had zero artifact size change, an 11,560 ms build and 708 / 476 ms
+optimizer-plus-validation times. O4s is slower in these local build samples;
+the smaller package is not presented as a speed win.
 
 The tarball includes public JS/declarations, shared runtime/declarations, the
 required private command JS, README/examples, executable and both optimized Wasm
@@ -100,13 +126,16 @@ files; the CLI preopens only the consumer directory. It imports root plus every 
 strict NodeNext declarations without `skipLibCheck`, and exercises arithmetic,
 locals and GC struct semantics, actual precompute/vacuum optimization, errors,
 optional holes, nominal handles, command callbacks, positive bounded fuzz and
-CLI WAT-to-Wasm output. The packed file list is included in `consumer-report.json`.
+CLI WAT-to-Wasm output and O4s ambient-stack return semantics. The packed file
+list is included in `consumer-report.json` and the Node 25 / 26 copies.
 
 Internal Sol 6.1 High read-only review found and verified repairs for enum
 representations, handle type/instance ownership, constructor compatibility,
 optional argument holes, `osize` config and the previously broken positive fuzz
 entry point. No external CLI reviewer received code. Final review found no
-remaining concrete package-code blocker; handoff evidence is checked separately.
+remaining concrete package-code blocker. A subsequent O4s review independently
+checked preset expansion, artifact/tar hashes and direct observation results,
+with no new concrete defect. Licensing remains undecided.
 
 ## Remaining release decisions
 
