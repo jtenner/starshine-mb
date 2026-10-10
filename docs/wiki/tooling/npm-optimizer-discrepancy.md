@@ -24,7 +24,12 @@ related:
 
 # npm O4s optimizer discrepancy
 
-## Inputs and scope
+## Initial investigation inputs and scope (historical)
+
+The starting branch and licensing uncertainty below describe the initial
+investigation. Subsequent integration and conservative licensing decisions
+are recorded later in this page and in [the provenance dossier](license-provenance.md).
+Source publication was separately authorized; npm publication remains pending.
 
 Fresh fetch verified `origin/master` at
 `9057a5d8a5a5b85859c702c76d0cbe3e9f18ab55`. Optimizer work is isolated on

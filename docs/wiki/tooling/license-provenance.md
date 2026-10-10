@@ -32,7 +32,8 @@ declaration is retained. On October 10 the owner authorized conservative
 Binaryen license and notice inclusion: “Let's be safe and assume we need to
 provide binaryen's license anyway.” This settles the distribution treatment
 without settling unknown factual provenance. No MIT-only pass claim follows.
-No npm publication, source push, release/tag or credential change follows.
+This choice does not authorize npm publication, a release/tag or credential
+changes. Normal source publication was separately authorized.
 
 ## Author account and conservative choice
 
@@ -148,9 +149,12 @@ Packed-consumer checks require all five assets in the actual tarball and verify
 exact bytes after offline installation, alongside JS/API/CLI and strict TS
 checks. These legal corrections are separate from published checkpoint
 `b0b3cdc104b1a41cb2e249f9a696c96c5bfb0dcc`; its historical 47-file archive is
-preserved, not retroactively called compliant. The source patch changes licenses,
-comment headers, metadata, documentation and build checks; executable pass
-bodies are unchanged. Rebuilt Wasm hashes differ; bounded old/current API/CLI
+preserved, not retroactively called compliant. At the frozen licensing
+checkpoint `1cbf1ae55c62ab1e96553e5fb359a9a6eda845f3`,
+the source patch changes licenses, comment headers, metadata, documentation
+and build checks; executable pass bodies are unchanged. Later optimizer
+changes require separate artifact and consumer qualification. Rebuilt Wasm
+hashes differ; bounded old/current API/CLI
 observations match, without an exhaustive equivalence or layout-remap proof.
 
 The full Binaryen license is byte-identical in the pinned v130/v132/v133
@@ -169,6 +173,9 @@ not a definitive legal opinion or authorization to publish npm.
 
 ## Qualified conservative licensing package
 
+This section records the frozen `1cbf1ae55` checkpoint and its exact archive.
+It does not qualify subsequent optimizer or preset changes.
+
 The exact 52-file archive is 4,289,718 packed / 13,457,162 unpacked bytes,
 SHA256 `78d2d8c39ea9bc16a22ce37ecf4bbb5829636d9ab2d0a6d5f66f7af75580fb0c`.
 It adds five canonical legal assets to the historical 47-file candidate with
@@ -181,8 +188,8 @@ files entered the tarball. Both installed consumer reports name this exact hash.
 | WasmGC API | 7,475,602 / 6,560,165 | `12680cce03e76800fbd3df8e95d1ae94813d4d018cde09ed3ee7021b16cb414e` |
 | WASI CLI | 6,774,798 / 6,013,480 | `4cee1a9677b02321ed343d4c7b1072f1d5dbb6562a6cc98a333bfdd6c5077959` |
 
-All 114 production pass bodies match published b0 after excluding the leading
-notice comments. Raw and optimized sizes match that checkpoint, while hashes
+At this frozen checkpoint, all 114 production pass bodies match published b0
+after excluding the leading notice comments. Raw and optimized sizes match that checkpoint, while hashes
 and several standard section payloads differ. The exact compiler layout/change
 mechanism has not been proved. Independent host Node 26 old/current observers
 produce equal complete scoped API JSON (SHA256 `49034fc667f46d450d3147c525c10c9bb54f7663c85711df7cb9a1089ec0593c`)
@@ -200,12 +207,18 @@ controlled performance claim. The installed Core/x notices passed their guards.
 Empty external JS and strict TypeScript 5.8.3 consumers pass on Node 25.8.1 and
 26.11.1 with all nine exports, initialization, errors, roundtrips, optimization,
 CLI and exact legal bytes; runtime reads of the checkout/MoonBit are denied.
-Current Node API tests pass 44/44; build helpers pass 31/31 (122 assertions).
+Checkpoint Node API tests pass 44/44; build helpers pass 32/32 (132 assertions).
 Generated/declaration/legal drift and the static package contract pass. Failed
 tmpfs and restricted-observer attempts remain recorded separately; neither is
 substituted for the successful host qualification.
 
-Published master b0 retains all six successful exact-head workflows. This local
-licensing follow-up needs its own CI before source publication. Candidate
-version, publishing/provenance configuration and npm approval remain separate;
+All six master workflows pass at exact head `1cbf1ae55`, including 14,086
+default and 14,083 WasmGC tests. CI packs the byte-identical archive above.
+Coverage reports 28,020 uncovered lines across 225 files against the unchanged
+28,138 / 196 baseline. The retained DAE CI lane uses Binaryen 132; it does not
+establish Binaryen 133 signoff. The preceding licensing-head npm failure and
+Required cancellation remain recorded, followed by the clean-dependency fix.
+Normal master pushes reported administrative required-check bypass warnings;
+no protection or credential changed. Candidate version, publishing/provenance
+configuration and npm approval remain separate;
 existing memory P1 and optimizer/raw-serialization gaps stay open.
