@@ -673,3 +673,34 @@ by terminal exact-published-head workflows. Retain any server bypass warning;
 no protection/credential change, PR, npm publication, license selection or
 release action is included. This scoped exception supersedes the blanket
 pre-push check sentence above only for this checkpoint.
+
+
+## Targeted unread-tee integration boundary
+
+The grouping checkpoint is now published at `4de34fa`: all six exact-head
+workflows and three required Actions contexts pass, and CI/local package bytes
+match. The original missing-check bypass warning remains in its scoped audit.
+This supersedes grouping's qualification-pending wording above.
+
+The later reviewed chain through `311e1d58` is integrated locally after an
+isolated rescue preserved the unavailable owner's checkout and uncommitted
+patch. [Vacuum's source and generator evidence](../binaryen/passes/vacuum/fuzzing.md)
+records complete globally unread tee proof, bounded declaration snapshots and
+lazy source-preserving COW. The old aggregate has zero tee inputs and establishes
+compatibility only. The new 13-family lane journals 10,000 executable three-way
+matches with no reported blocks or validity/generator/command failures. Normal
+exit 1 preserves 7,747 structural differences; canonical savings 31,206 bytes
+coexist with raw growth 25,882 bytes. Raw serialization losses remain open.
+Default Node25/26 each execute 5,096 independently asserted calls across 104
+inputs and seven variants. Retained raw reports cover 20 full-run cases; full
+outcomes and uniqueness are journal/manifest evidence, not an exhaustive
+retained-payload inspection.
+
+The source interface's one profile variant requires authoritative FFI/schema/TS
+regeneration and final integrated package/runtime/full/unchanged-coverage gates.
+Saved 315 artifact benefits and package reports remain historical until exact
+combined-source qualification renews them. Changing compiler type ordering is
+not itself a causal proof of tee-related self-size or memory gains. P1 remains
+open under the user's developer-machine tradeoff; no consumer-runtime memory
+claim or broader pass-audit closure follows. The prior publication exception
+was scoped, and license/npm/version/provenance decisions remain separate.

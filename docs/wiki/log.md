@@ -1,3 +1,18 @@
+### 2026-10-10 — Rescue targeted unread-tee coverage and preserve raw-size gaps
+
+- [Vacuum's qualification](binaryen/passes/vacuum/fuzzing.md) distinguishes the
+  prior zero-tee aggregate from 10,000 unique targeted tee cases and 104-input
+  independent execution. All journaled three-way observations match; normal
+  exit 1 preserves structural differences and raw serialization size losses.
+- The isolated rescue preserves the unavailable owner's source/patch, confirms
+  actual RED tests, bounds compressed declaration snapshots and shares unchanged
+  regions through lazy COW. FFI/npm generation and exact integrated release
+  gates remain distinct from the child source/runtime signoff.
+- [The integration boundary](tooling/npm-optimizer-discrepancy.md#targeted-unread-tee-integration-boundary)
+  records completed grouping publication, its successful exact-head workflows
+  and retained bypass warning. P1, raw-size gaps, license/npm decisions and the
+  later publication route remain open; no protection or credential changed.
+
 ### 2026-10-10 — Integrate bounded declaration grouping and retain its costs
 
 - [ReorderLocals](binaryen/passes/reorder-locals/parity.md) groups only equal-

@@ -17,33 +17,39 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   preserve other checkouts, held optimizer refs and historical packages.
   Source publication is authorized; npm publication, tags/releases, deployment
   and credential changes remain unauthorized.
-- Published `0ca3cb6e7cb927637f3b9c966e01c998d1b74e5d` passes all six
-  master workflows: Required CI (14,058 tests and retained differential gates),
-  Package, Coverage Report (28,022 / 225 against unchanged 28,138 / 196),
-  Examples CLI Native, Fuzz Suites and README API Sync. Exact 47-file packed
-  Node25/26 JS/strict-TS consumers pass. Older failed logs and MoonBit #1322 stay
-  historical evidence. The complete nineteen-commit reviewed GC chain is now
-  published; temporary overhead acceptance leaves the P1 blocker open.
-- The five reviewed ReorderLocals commits through `36cfe0be` are integrated
-  locally onto that baseline, preserving both RED/GREEN pairs. Only equal-
-  frequency type grouping with a strictly smaller actual declaration encoding
-  is added; primitive keys exclude recursive inline graphs. Public ABI, native
-  repair, preset and packaging/CI sources remain unchanged. Later unread-tee
-  and type-ordering experiments are excluded.
-- Owner qualification records ORIGINAL savings of 186,626 GC / 11,308 WASI
-  bytes; fresh self-build improvements are separately 26,442 / 7,910 bytes.
-  Raw fresh GC grows 133,237 bytes, failing the 16 KiB growth target. The final
-  single GC pair is adverse: 8.483 -> 9.886 seconds and 304,404 -> 307,324 KiB.
-  These observations do not close P1 or establish a general performance result.
-  See [the pass evidence](docs/wiki/binaryen/passes/reorder-locals/parity.md).
-- [ ] Renew combined-head FFI/TypeScript drift, five-pass O4s 4/1 self-build,
-  independent validation/runtime controls, exact packed Node25/26 JS/strict-TS
-  consumers, native behavior, full tests, dedicated 10k and unchanged coverage.
-  Preserve nonzero structural residuals, oracle identities and all failures.
-  The user authorizes one normal fast-forward source push using the existing
-  admin exemption for this reviewed checkpoint, then requires all exact-head
-  master workflows terminal. No force, PR or protection change is authorized;
-  retain any bypass warning. This is not a future publication policy.
+- Published grouping head `4de34fa29a4c561e477aaa00360204cb5a078df0`
+  passes all six exact-head workflows and all three required Actions contexts.
+  CI/local 47-file archive is byte-identical; isolated Node25/26 JS/strict-TS
+  consumers pass. Coverage is 28,022 / 225 against unchanged 28,138 / 196.
+  The ordinary scoped fast-forward reported missing-check bypass warnings;
+  retain that audit even after successful CI. No protection/credential change.
+- The reviewed unread-tee chain through `311e1d58` is now locally integrated
+  with both RED/GREEN histories. Whole-function read proof and bounded compressed
+  declarations preserve producer/stack values, opaque legacy Try and live reads;
+  lazy COW preserves unchanged source regions. The distinct targeted profile
+  addresses the saved aggregate's zero-tee coverage limit.
+- Targeted native/v133 signoff journals 10,000 unique actual-tee cases across
+  13 families, all three-way runtime matches and no semantic, validity,
+  generator or command failures/runtime blocks.
+  Normal exit 1 retains 2,253 canonical matches / 7,747 structural differences.
+  Canonical total improves 31,206 bytes, raw total grows 25,882 bytes; only the
+  786 multivalue cases win both. Raw serialization losses remain parity gaps.
+  Default Node25/26 each execute 5,096 independently asserted calls over 104
+  cases / seven variants. Most full-run execution payloads are cleaned; complete
+  outcomes remain in the journal and 20 raw reports were independently audited.
+  See [Vacuum evidence](docs/wiki/binaryen/passes/vacuum/fuzzing.md).
+- Integrated release qualification must regenerate authoritative FFI/TS, rebuild
+  and self-optimize both artifacts, check exact packed consumers, renew native
+  controls/full tests and unchanged-baseline coverage. Keep every failed attempt
+  and structural/oracle limit; the child signoff does not substitute for this.
+- [ ] Complete the guarded source-publication route for this later checkpoint.
+  The completed grouping exception is scoped; no blanket future bypass policy,
+  force push, protection change or npm publication follows from it.
+- P1 remains open under the user's developer-build memory tradeoff. Grouping's
+  failed 16 KiB raw-growth target and adverse resource sample remain historical
+  evidence. Later raw-size changes involve changing compiler type order and
+  do not establish causal memory or speed improvements. Preserve the original
+  immutable inputs separately from freshly compiled package artifacts.
 - [ ] Reconcile root MIT / MoonBit Apache-2.0 and approve candidate version,
   provenance route and npm publication. No license is silently selected.
 - Unsupported ABI identities/reasons stay guarded; supported signatures derive

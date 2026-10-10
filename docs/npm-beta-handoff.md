@@ -491,3 +491,52 @@ against its exact head. A scoped user-approved normal source fast-forward may
 use the existing admin exemption; retain any warning and require terminal
 published-head workflows. npm, license, candidate/provenance, tags/releases,
 deployment and credentials remain separate release decisions.
+
+
+## Reviewed unread-tee integration and exact qualification boundary
+
+Grouping source is published at `4de34fa29a4c561e477aaa00360204cb5a078df0`.
+All six exact-head workflows succeeded; Required CI passed 14,070 tests and
+Fuzz passed 14,067 GC tests. Coverage remains 28,022 / 225 against the unchanged
+28,138 / 196 baseline. Its local and downloaded CI tarballs are byte-identical:
+47 files / 4,663,076 bytes, SHA-256
+`0bf6b61dbe432fbb50365d0f673594f18c651c0ebd4cccd52a1e58bc20cf46a8`.
+The scoped ordinary push emitted the expected missing-check bypass warning;
+later CI success does not erase it. No protection or credential changed.
+
+The later source chain through `311e1d58` is integrated locally with provenance.
+Its original owner checkout and uncommitted patch are preserved; an isolated
+rescue completed the allocation repair and actual-tee generated coverage.
+[Vacuum's evidence](wiki/binaryen/passes/vacuum/fuzzing.md) separates the old
+zero-tee aggregate compatibility run from 10,000 targeted actual-tee cases:
+all journaled three-way executable observations match, zero reported runtime
+blocks or validity/generator/command failures, and normal structural exit 1.
+There are 2,253 canonical matches and 7,747 structural differences. Canonical
+output saves 31,206 bytes while raw output grows 25,882 bytes; 786 multivalue
+cases win both. Remaining raw serialization losses are open parity gaps.
+Most execution payloads were cleaned; the full journal and manifest retain
+outcomes/uniqueness, while 20 complete reports were independently audited.
+Default Node25/26 each execute 5,096 calls on 104 generated inputs spanning all
+13 families and seven variants, with independent values, effects, state and
+trap assertions. The four Binaryen-only default-runtime blocks in older
+fixtures and the separate flagged supplement remain distinct.
+
+The public source interface adds only the named generator-profile variant.
+FFI, schema and npm outputs must be regenerated from that authoritative source
+as a separate unit, then drift-checked. There are no hand-added signatures.
+The existing noncircular native bootstrap, numeric 4/1 five-pass build and
+ordinary-consumer runtime requirements remain the package route.
+
+Planned final integrated qualification will record its frozen source head, raw/optimized
+artifacts, exact tarball, isolated consumers, runtime controls, full gate and
+unchanged-baseline coverage under ignored `dist/npm/unread-tee-integration/`.
+It rebuilds the native generator and independently replays all 104 inputs,
+requiring all 728 variants to match reviewed child hashes before Node25/26
+execution. Child tests and the earlier 315 package cannot be represented as
+fresh final-head package or coverage evidence. Interrupted EPERM runs and the
+native generator's preexisting-directory SIGABRT remain recorded; the tested
+route uses fresh output directories. No compiler-issue attribution is inferred
+from the directory failure. No later source publication is implied by local
+integration; the completed grouping exemption is not a future bypass policy.
+License, candidate/provenance review, npm publication, tags/releases, deployment
+and P1 developer-build resource work remain separate decisions.
