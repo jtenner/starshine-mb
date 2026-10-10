@@ -414,3 +414,40 @@ test "remove-unused-module-elements detects overlap at saturated UInt64 end" {
   assert_false(rume_sorted_spans_overlap([(max - 1UL, 1UL), (max, 1UL)], None))
   assert_false(rume_sorted_spans_overlap([(max, 0UL), (max, 1UL)], None))
 }
+
+///|
+test "RUME retains recursive types in reference-only function locals" {
+  let original = rume_named_reference_only_func_fixture()
+  let @lib.CodeSec(funcs) = original.code_sec.unwrap()
+  let @lib.Func(_, callee_body) = funcs[0]
+  let local_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(2U))),
+  )
+  let module_ = original.with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      @lib.RecType::group([
+        @lib.SubType::comp_type(@lib.CompType::struct_([])),
+        @lib.SubType::comp_type(@lib.CompType::struct_([])),
+      ]),
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::array(
+        @lib.FieldType::new(@lib.StorageType::val_type(@lib.ValType::i64()), @lib.Mut::const_()),
+      ))),
+    ]),
+  ).with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::from_types([local_type]), callee_body),
+      funcs[1],
+    ]),
+  )
+  assert_true(@validate.validate_module(module_) is Ok(_))
+  let optimized = rume_run_module_pass(module_, closed_world=true)
+  let @lib.CodeSec(kept_funcs) = optimized.code_sec.unwrap()
+  let @lib.Func(locals, body) = kept_funcs[0]
+  @debug.assert_eq(body, @lib.Expr::new([@lib.Instruction::unreachable_()]))
+  @debug.assert_eq(locals, @lib.Locals::from_types([local_type]))
+  // The callee is reference-only: its body contributes no roots, but its
+  // retained local declaration roots the group's last member and all siblings.
+  assert_true(@validate.validate_module(optimized) is Ok(_))
+  @debug.assert_eq(optimized.type_sec.unwrap().0.length(), 2)
+}
