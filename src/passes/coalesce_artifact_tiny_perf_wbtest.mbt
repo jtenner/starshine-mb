@@ -11,6 +11,7 @@ test "O4s direct coalescing rewrites flat tiny bodies in a 2000-function module"
     .with_func_sec(@lib.FuncSec::new(Array::make(2000, @lib.TypeIdx::new(0U))))
     .with_code_sec(@lib.CodeSec::new(Array::make(2000, first)))
   @validate.validate_module(input).unwrap()
+  let before = @binary.encode_module(input).unwrap()
   let output = run_hot_pipeline(
     input,
     HotPipelineOptions::new(optimize_level=4, shrink_level=1),
@@ -25,8 +26,6 @@ test "O4s direct coalescing rewrites flat tiny bodies in a 2000-function module"
     Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 2000)
     None => fail("expected retained function bodies")
   }
-  assert_true(
-    @binary.encode_module(output).unwrap().length() <
-    @binary.encode_module(input).unwrap().length(),
-  )
+  assert_true(@binary.encode_module(output).unwrap().length() < before.length())
+  assert_eq(@binary.encode_module(input).unwrap(), before)
 }

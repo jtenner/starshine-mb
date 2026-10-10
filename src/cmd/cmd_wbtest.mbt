@@ -1923,11 +1923,11 @@ test "O4z automatic candidates preserve host identities without filtering closed
   let closed = @passes.pass_test_module_from_wat("(module (func))")
   @debug.assert_eq(
     cmd_o4z_host_identity_safe_candidate_passes(exported, roster),
-    ["vacuum"],
+    ["duplicate-function-elimination", "vacuum"],
   )
   @debug.assert_eq(
     cmd_o4z_host_identity_safe_candidate_passes(imported, roster),
-    ["vacuum"],
+    ["duplicate-function-elimination", "vacuum"],
   )
   @debug.assert_eq(
     cmd_o4z_host_identity_safe_candidate_passes(closed, roster),

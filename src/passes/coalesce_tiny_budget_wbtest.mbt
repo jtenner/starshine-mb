@@ -77,6 +77,14 @@ test "artifact-scale flat coalescing intentionally excludes control and continua
     @lib.Instruction::br(@lib.LabelIdx::new(0U)),
     @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
     @lib.Instruction::suspend(@lib.TagIdx::new(0U)),
+    @lib.Instruction::resume_(@lib.TypeIdx::new(0U), []),
+    @lib.Instruction::resume_throw(
+      @lib.TypeIdx::new(0U),
+      @lib.TagIdx::new(0U),
+      [],
+    ),
+    @lib.Instruction::resume_throw_ref(@lib.TypeIdx::new(0U), []),
+    @lib.Instruction::stack_switch(@lib.TypeIdx::new(0U), @lib.TagIdx::new(0U)),
   ]
   for instr in excluded {
     let func = @lib.Func::new(
