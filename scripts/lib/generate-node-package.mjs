@@ -1201,6 +1201,37 @@ function generatePackageDts(pkg, options = {}) {
 }
 
 
+// These are reviewed compatibility exceptions, not an automatic fallback for
+// newly unsupported signatures. A resolved exception also requires policy cleanup.
+export function assertUnsupportedAbiPolicy(actual, policy) {
+  function entriesBySymbol(entries, label) {
+    if (!Array.isArray(entries)) throw new Error(`invalid ${label}: expected an array`);
+    const result = new Map();
+    for (const entry of entries) {
+      if (!entry || typeof entry.symbol !== 'string' || !entry.symbol.trim() ||
+          typeof entry.reason !== 'string' || !entry.reason.trim()) {
+        throw new Error(`invalid ${label} entry: symbol and reason are required`);
+      }
+      if (result.has(entry.symbol)) throw new Error(`duplicate ${label} symbol: ${entry.symbol}`);
+      result.set(entry.symbol, entry.reason);
+    }
+    return result;
+  }
+  const generated = entriesBySymbol(actual, 'unsupported ABI');
+  const approved = entriesBySymbol(policy, 'unsupported ABI policy');
+  for (const [symbol, reason] of generated) {
+    if (!approved.has(symbol)) {
+      throw new Error(`Unsupported ABI mapping for ${symbol}: ${reason}. Implement an adapter or explicitly review the compatibility policy.`);
+    }
+    if (approved.get(symbol) !== reason) {
+      throw new Error(`Unsupported ABI reason changed for ${symbol}: ${reason}`);
+    }
+  }
+  for (const symbol of approved.keys()) {
+    if (!generated.has(symbol)) throw new Error(`stale unsupported ABI policy entry: ${symbol}`);
+  }
+}
+
 export function generateNodePackage({ check = false } = {}) {
   checking = check;
   const generated = generateFfiPackage([...collectFfiInterfaces(repoRoot), ...standardTraitInterfaces()]);
@@ -1214,6 +1245,11 @@ export function generateNodePackage({ check = false } = {}) {
   bridge.values = bridge.values.filter(entry => entry.exportName === 'optimize_module');
   bridge.types = new Map(); bridge.methodsByType = new Map(); bridge.constants = [];
   packageMetas.push(bridge);
+  const unsupported = packageMetas.flatMap(pkg =>
+    [...pkg.values, ...[...pkg.methodsByType.values()].flat()]
+      .filter(entry => entryUnsupportedReason(entry))
+      .map(entry => ({ symbol: `${pkg.id}.${entry.fullName}`, reason: entryUnsupportedReason(entry) })));
+  assertUnsupportedAbiPolicy(unsupported, JSON.parse(readText('ffi/src/npm/unsupported-abi-policy.json')));
   const summaryType = packageMetas.find(pkg => pkg.id === 'wast').types.get('WastSpecRunSummary');
   summaryType.show = true; summaryType.debugShow = true;
   const catalog = buildInteropCatalog(packageMetas);
@@ -1247,7 +1283,7 @@ export function generateNodePackage({ check = false } = {}) {
   }
   generateCmdFacadeDeclarations(packageMetas.find(pkg => pkg.id === 'cmd'));
   writeText('node/internal/required-exports.json', JSON.stringify(allExports, null, 2));
-  writeText('node/internal/unsupported-exports.json', JSON.stringify(packageMetas.flatMap(pkg => [...pkg.values, ...[...pkg.methodsByType.values()].flat()].filter(entry => entryUnsupportedReason(entry)).map(entry => ({ symbol: `${pkg.id}.${entry.fullName}`, reason: entryUnsupportedReason(entry) }))), null, 2));
+  writeText('node/internal/unsupported-exports.json', JSON.stringify(unsupported, null, 2));
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) generateNodePackage({ check: process.argv.includes('--check') });
 

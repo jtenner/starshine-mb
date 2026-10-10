@@ -114,6 +114,22 @@ inventories descendants with `ps`, and kills nested groups as well. A red-first
 [regression](../../../scripts/lib/npm-process.test.ts) reproduced the old orphan
 and now protects completion, independent optimizer limits and process cleanup.
 
+The exact follow-up head `564c11e` passed the
+[cold package CI run](https://github.com/jtenner/starshine-mb/actions/runs/38029914397)
+in 360,624 ms of build time. The Node 25.9.0 / TypeScript 5.8.3 consumers checked
+all nine exports; the resulting archive is byte-identical to the local package
+(4,822,175 bytes, SHA-256 `2c20fd47b4fd4b9bbe0ab179329bbbb0b3aa919f630d411cb2522e47ec64deb0`).
+`latest` supplied the documented Moon 0.1.20260920 / moonc 0.10.14 snapshot.
+This closes the package compilation timeout on that head, while native-debug
+issue #1322 and the retained coverage gate remain separate open work. The three
+required checks and Fuzz Suites passed on this exact head.
+
+The source-owned [`unsupported ABI policy`](../../../ffi/src/npm/unsupported-abi-policy.json)
+records the 23 existing compatibility exceptions without duplicating signatures.
+Generation rejects new unsupported mappings, changed reasons and stale policy
+entries before formatting or writing generated artifacts. Pure tests and real
+generator fault injection verify rejection and unchanged output hashes.
+
 The [handoff](../../npm-beta-handoff.md#published-head-ci-and-cold-build-follow-up)
 preserves exact CI links, raw artifacts and the initial push's unexpected
 implicit protection bypass. Follow-up source publication must first satisfy the
