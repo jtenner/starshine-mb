@@ -399,3 +399,20 @@ validation, size reduction and original encoded bytes. Widths 1/8/32 remain
 bounded. Existing public alias/shifted-group/proposal fixtures cover moved indices.
 Resource qualification and limitations belong in the
 [npm discrepancy investigation](../../../tooling/npm-optimizer-discrepancy.md).
+
+
+### Bounded sharing of rewritten scalar type indices
+
+The CodeSec remapper now owns one optional cache keyed by the final absolute
+type-index target. Repeated changed operands across bodies and locals share the
+immutable `TypeIdx` scalar, while expression arrays and exact/nullable reference
+wrappers retain their existing ownership. Cache cardinality cannot exceed the
+number of distinct targets in the remap, and the table does not escape the
+rewrite. Mapping is direct; a cached target is never remapped a second time.
+
+Private helper callers default to no cache. Identity operands, recursive-group
+indices and abstract heap types keep their prior behavior. Legacy `Try` scan
+rewrites and inline `DefType` recursion remain uncached. The bounded regression
+in `dfe_gc_index_sharing_wbtest.mbt` checks sharing, per-module isolation, direct
+targets, reference flags, validation and immutable input bytes. This change
+preserves encoded output; its resource effect requires separate measurements.
