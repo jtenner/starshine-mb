@@ -88,6 +88,23 @@ fn ge_body_has_rewritable_resume(body : @lib.Expr) -> Bool {
           None => ()
         }
       }
+      @lib.Try(_, body, catches, _) => {
+        if ge_body_has_rewritable_resume(body) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          if ge_body_has_rewritable_resume(catch_body) {
+            return true
+          }
+        }
+      }
+      @lib.TryTable(_, _, body) =>
+        if ge_body_has_rewritable_resume(body) {
+          return true
+        }
       _ => ()
     }
   }
@@ -170,6 +187,43 @@ fn ge_rewrite_fresh_resumes(
         }
         out.push(@lib.Instruction::if_(block_type, next_then, next_else))
       }
+      @lib.Try(block_type, body, catches, delegate) =>
+        out.push(
+          @lib.Instruction::try_(
+            block_type,
+            ge_rewrite_fresh_resumes(
+              body, funcs, summaries, imported_funcs, changed,
+            ),
+            catches.map(fn(catch_) {
+              match catch_ {
+                @lib.LegacyCatch(tag, catch_body) =>
+                  @lib.LegacyCatch::tagged(
+                    tag,
+                    ge_rewrite_fresh_resumes(
+                      catch_body, funcs, summaries, imported_funcs, changed,
+                    ),
+                  )
+                @lib.LegacyCatchAll(catch_body) =>
+                  @lib.LegacyCatch::all(
+                    ge_rewrite_fresh_resumes(
+                      catch_body, funcs, summaries, imported_funcs, changed,
+                    ),
+                  )
+              }
+            }),
+            delegate~,
+          ),
+        )
+      @lib.TryTable(block_type, catches, body) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            ge_rewrite_fresh_resumes(
+              body, funcs, summaries, imported_funcs, changed,
+            ),
+          ),
+        )
       _ => out.push(instr)
     }
   }
