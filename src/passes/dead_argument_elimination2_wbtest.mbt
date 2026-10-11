@@ -25,6 +25,30 @@ fn dae2_test_run(source : String, pass : String) -> @lib.Module raise {
 }
 
 ///|
+test "dae2 rewrites a dead parameterized if without corrupting its entry layout" {
+  let source =
+    #|(module
+    #| (func $helper (param i32 i32) (result i32)
+    #|  local.get 0 local.get 1
+    #|  if (param i32) (result i32)
+    #|   i32.const 1 i32.add
+    #|  else
+    #|   i32.const 2 i32.add
+    #|  end)
+    #| (func (export "run")
+    #|  i32.const 7 i32.const 1 call $helper drop))
+  for pass in ["dae2", "dae2-optimizing"] {
+    let output = dae2_test_run(source, pass)
+    @debug.assert_eq(
+      dae2_test_signature(output, 0),
+      @lib.FuncType::new([@lib.ValType::i32()], []),
+    )
+    let @lib.Func(_, @lib.Expr(caller)) = output.code_sec.unwrap().0[1]
+    assert_true(caller.any(fn(instr) { instr is @lib.Call(@lib.FuncIdx(0U)) }))
+  }
+}
+
+///|
 test "dae2 declaration-only references allow private signature pruning" {
   for
     declaration in [

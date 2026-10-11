@@ -591,8 +591,11 @@ quality gates. Keep traced inner and normal command measurements separate.
 - [ ] Reduce remaining root-write list, source traversal and enclosing costs.
   V79 closes duplicated live-node census; V80 closes zero/singleton local-index
   entry-row allocation. All 13,255 tests and 1,376 observations pass with exact
-  bytes; singleton native queries improve 12–86%. Root-write list ownership,
-  multiple-admission interval rows and complete fallback still allocate.
+  bytes; singleton native queries improve 12–86%. The October 11 repair removes
+  the temporary root-write list and changes repeated unknown-local fallback
+  dependencies from an R×W edge product to shared linear graph edges.
+  Multiple-admission interval rows, source traversal and complete fallback
+  still allocate.
   Preserve exact ordered sources, shared/repeated root rejection, complete CFG
   and exceptional fallback. Measure tiny, wide unused-local, zero/many admission
   and complete analysis controls. No new public API is required. V80 enclosing

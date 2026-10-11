@@ -92,7 +92,7 @@ test "dae2 mutable branch reads retain reaching writes with raw joins or HOT flo
 }
 
 ///|
-test "dae2 intentionally unrepresented reads retain entry and write dependencies" {
+test "dae2 intentionally unrepresented reads retain entry and write liveness" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
   )
@@ -120,17 +120,46 @@ test "dae2 intentionally unrepresented reads retain entry and write dependencies
     fallback_write_builds=Some(writes),
   )
   for read in [get, other] {
-    assert_true(
-      dae2_test_dependencies(graph, dae2_node_location(info, read)).contains(
-        param,
-      ),
-    )
-    assert_true(
-      dae2_test_dependencies(graph, dae2_node_location(info, read)).contains(
-        dae2_node_location(info, write),
-      ),
-    )
+    graph.observe(dae2_node_location(info, read))
   }
+  graph.solve()
+  assert_true(graph.used[param])
+  assert_true(graph.used[dae2_node_location(info, write)])
   assert_eq(graphs[0], 1)
   assert_eq(writes[0], 1)
+}
+
+///|
+test "dae2 shares unknown-local fallback edges across many reads" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  let writes : Array[Int] = []
+  let reads : Array[Int] = []
+  for value in 0..<32 {
+    writes.push(
+      @ir.hot_build_local_set(
+        func,
+        0,
+        @ir.hot_build_const_i32(func, @lib.I32(value)),
+      ),
+    )
+    reads.push(@ir.hot_build_local_get(func, 0))
+  }
+  let graph = Dae2Graph::new()
+  let info = Dae2Function::new(graph, [@lib.ValType::i32()], [])
+  info.assign_node_locations(graph, @ir.hot_node_count(func))
+  dae2_analyze_function(graph, [info], 0, [], func)
+  assert_true(
+    graph.edges.length() <= writes.length() * 2 + reads.length() + 1,
+    msg="unknown reads built \{graph.edges.length()} fallback edges",
+  )
+  for read in reads {
+    graph.observe(dae2_node_location(info, read))
+  }
+  graph.solve()
+  assert_true(graph.used[info.param_locations[0]])
+  for write in writes {
+    assert_true(graph.used[dae2_node_location(info, write)])
+  }
 }

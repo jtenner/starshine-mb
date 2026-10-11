@@ -1,8 +1,11 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-11
 sources:
+  - ../../../../../src/passes/dead_argument_elimination2.mbt
+  - ../../../../../src/passes/dead_argument_elimination2_wbtest.mbt
+  - ../../../../../src/passes/dae2_lazy_flow_wbtest.mbt
   - ../../../../../src/passes/dae2_effect_order_wbtest.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/ir/hot_verify.mbt
@@ -9132,6 +9135,31 @@ and their adverse controls are recorded in the
 Sources: [combined verifier](../../../../../src/ir/hot_verify.mbt),
 [rewrite call](../../../../../src/passes/dead_argument_elimination2.mbt),
 [pass checkpoint](../../../../../src/passes/pass_manager.mbt).
+
+## October 11, 2026 — Preserve typed-if entries and bound unknown flow
+
+DAE2 now treats `if` parameters as typed control entries when it removes a
+dead result. It derives the entry count from the resolved block type, updates
+the replacement type with the retained entries and removes dead entry children
+from the control span. Removed entries keep their evaluation order and effects;
+surviving entries use scratch locals when effectful removals require sequencing.
+The public pipeline regression previously failed verification with an invalid
+four-child `if`; both DAE2 modes now produce a valid one-parameter, no-result
+helper.
+
+Unknown-local fallback dependencies now share one graph hub when several reads
+need the same conservative write set. This changes the previous reads-by-writes
+edge product to linear edges while retaining transitive liveness for the
+parameter and all possible writes. A single unknown read keeps direct edges.
+Root-write admission also scans the root span directly after a cheap existence
+check instead of allocating a temporary root-write list.
+
+Sources: [rewrite and dependency graph](../../../../../src/passes/dead_argument_elimination2.mbt),
+[public pipeline regression](../../../../../src/passes/dead_argument_elimination2_wbtest.mbt),
+[bounded fallback regression](../../../../../src/passes/dae2_lazy_flow_wbtest.mbt).
+Focused tests cover validation, both pass modes and transitive fallback
+liveness. Broad fuzz, aggregate parity and enclosing performance measurements
+remain open because this repair used the busy-host lane.
 
 
 The final `ee57fe32…` singleton is 59 canonical bytes in both modes, compared

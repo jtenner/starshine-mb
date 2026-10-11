@@ -272,13 +272,14 @@ fn dae2_entry_read_sources(
   if opaque {
     return None
   }
-  let root_writes : Array[Int] = []
+  let mut has_root_write = false
   for root in @ir.hot_root_span(func) {
     if root >= 0 && @ir.hot_node_op(func, root) is @ir.LocalSet {
-      root_writes.push(root)
+      has_root_write = true
+      break
     }
   }
-  if root_writes.is_empty() {
+  if !has_root_write {
     return None
   }
   let writes = match known_writes {
@@ -300,7 +301,10 @@ fn dae2_entry_read_sources(
   let mut single_local = -1
   let mut single_write = -1
   let mut admitted = 0
-  for root in root_writes {
+  for root in @ir.hot_root_span(func) {
+    if root < 0 || !(@ir.hot_node_op(func, root) is @ir.LocalSet) {
+      continue
+    }
     let local = @ir.hot_node_get(func, root).imm0
     if writes[local] != root {
       continue
@@ -547,6 +551,8 @@ fn dae2_analyze_function(
   let info = infos[index]
   let mut local_flow : @ir.HotLocalReadSources? = None
   let mut fallback_writes : Array[Array[Int]]? = None
+  let mut fallback_read_counts : Array[Int]? = None
+  let mut fallback_sources : Array[Int]? = None
   let mut written_locals : Array[Int]? = None
   let mut writes_scanned = false
   let mut opaque_writes = false
@@ -650,11 +656,63 @@ fn dae2_analyze_function(
               writes
             }
           }
-          if data.imm0 < info.params.length() {
-            graph.edge(value, info.param_locations[data.imm0])
+          let read_counts = match fallback_read_counts {
+            Some(counts) => counts
+            None => {
+              let counts = Array::make(@ir.hot_local_count(func), 0)
+              for candidate = 0
+                  candidate < info.node_count
+                  candidate = candidate + 1 {
+                if !@ir.hot_node_is_live(func, candidate) {
+                  continue
+                }
+                let candidate_data = @ir.hot_node_get(func, candidate)
+                if !(candidate_data.op is @ir.LocalGet) ||
+                  written.unwrap()[candidate_data.imm0] == -1 {
+                  continue
+                }
+                match entry_read_sources {
+                  Some(sources) if sources[candidate] >= -1 => continue
+                  _ => ()
+                }
+                if @ir.local_read_source_count_for_get(locals, candidate) == 0 {
+                  counts[candidate_data.imm0] += 1
+                }
+              }
+              fallback_read_counts = Some(counts)
+              counts
+            }
           }
-          for write in writes[data.imm0] {
-            graph.edge(value, dae2_node_location(info, write))
+          if read_counts[data.imm0] > 1 {
+            let sources = match fallback_sources {
+              Some(sources) => sources
+              None => {
+                let sources = Array::make(@ir.hot_local_count(func), -1)
+                fallback_sources = Some(sources)
+                sources
+              }
+            }
+            let source = if sources[data.imm0] >= 0 {
+              sources[data.imm0]
+            } else {
+              let source = graph.location()
+              sources[data.imm0] = source
+              if data.imm0 < info.params.length() {
+                graph.edge(source, info.param_locations[data.imm0])
+              }
+              for write in writes[data.imm0] {
+                graph.edge(source, dae2_node_location(info, write))
+              }
+              source
+            }
+            graph.edge(value, source)
+          } else {
+            if data.imm0 < info.params.length() {
+              graph.edge(value, info.param_locations[data.imm0])
+            }
+            for write in writes[data.imm0] {
+              graph.edge(value, dae2_node_location(info, write))
+            }
           }
         }
         for source_index in 0..<source_count {
@@ -1105,23 +1163,34 @@ fn dae2_rewrite_node(
         dae2_void_sequence(func, parts)
       }
     @ir.Block | @ir.Loop | @ir.If => {
+      let entry_offset = if data.op is @ir.If { 3 } else { 0 }
       let entry_count = if data.op is @ir.Block && data.imm1 > 0 {
         data.imm1
+      } else if data.op is @ir.If {
+        match @ir.hot_type_get(func, data.ty) {
+          @ir.BlockResultResolved(_, params, _) => params.length()
+          _ => 0
+        }
       } else {
         0
+      }
+      let entry_params = if entry_count == 0 {
+        []
+      } else {
+        match @ir.hot_type_get(func, data.ty) {
+          @ir.BlockResultResolved(_, params, _) => params
+          _ => abort("dae2 typed entry prefix requires resolved parameters")
+        }
       }
       if !used {
         let next_type = if entry_count == 0 {
           @ir.hot_type_void(func)
         } else {
-          let params = match @ir.hot_type_get(func, data.ty) {
-            @ir.BlockResultResolved(_, params, _) => params
-            _ => abort("dae2 typed entry prefix requires resolved parameters")
-          }
           let kept : Array[@lib.ValType] = []
           for slot in 0..<entry_count {
-            if @ir.hot_node_result_arity(func, children[slot]) > 0 {
-              kept.push(params[slot])
+            if @ir.hot_node_result_arity(func, children[entry_offset + slot]) >
+              0 {
+              kept.push(entry_params[slot])
             }
           }
           let block_type = if kept.is_empty() {
@@ -1144,7 +1213,71 @@ fn dae2_rewrite_node(
         }
         @ir.hot_control_result_type_set(func, node, next_type)
       }
-      let next = if data.op is @ir.If || used {
+      let entry_prefix : Array[Int] = []
+      let next = if data.op is @ir.If && !used && entry_count > 0 {
+        let next : Array[Int] = [children[0], children[1], children[2]]
+        let mut has_removed_effect = false
+        for slot in 0..<entry_count {
+          let entry = children[entry_offset + slot]
+          if @ir.hot_node_result_arity(func, entry) == 0 &&
+            !(@ir.hot_node_op(func, entry) is @ir.Nop) {
+            has_removed_effect = true
+          }
+        }
+        if has_removed_effect {
+          // Typed-if entries execute before the condition. If one dead entry
+          // still traps or has effects, evaluate every surviving entry into a
+          // scratch local in the original order before running the if header.
+          // Consecutive references to one tuple producer consume its lanes in
+          // reverse stack order, matching call-argument localization above.
+          let mut slot = 0
+          while slot < entry_count {
+            let original = @ir.hot_child_get(func, node, entry_offset + slot)
+            let mut end = slot + 1
+            while end < entry_count &&
+                  @ir.hot_child_get(func, node, entry_offset + end) == original {
+              end += 1
+            }
+            let first = children[entry_offset + slot]
+            if @ir.hot_node_result_arity(func, first) > 0 {
+              let locals = Array::make(end - slot, -1)
+              for lane = end - 1; lane >= slot; lane = lane - 1 {
+                let scratch = @ir.hot_append_body_local(
+                  func,
+                  entry_params[lane],
+                )
+                locals[lane - slot] = scratch
+                entry_prefix.push(
+                  @ir.hot_build_local_set(
+                    func,
+                    scratch,
+                    children[entry_offset + lane],
+                  ),
+                )
+              }
+              for lane = slot; lane < end; lane = lane + 1 {
+                next.push(@ir.hot_build_local_get(func, locals[lane - slot]))
+              }
+            } else {
+              for lane = slot; lane < end; lane = lane + 1 {
+                let entry = children[entry_offset + lane]
+                if !(@ir.hot_node_op(func, entry) is @ir.Nop) {
+                  entry_prefix.push(entry)
+                }
+              }
+            }
+            slot = end
+          }
+        } else {
+          for slot in 0..<entry_count {
+            let entry = children[entry_offset + slot]
+            if @ir.hot_node_result_arity(func, entry) > 0 {
+              next.push(entry)
+            }
+          }
+        }
+        next
+      } else if data.op is @ir.If || used {
         children
       } else {
         children.mapi(fn(slot, child) {
@@ -1158,7 +1291,14 @@ fn dae2_rewrite_node(
         })
       }
       ignore(dae2_replace_children_if_changed(func, node, next))
-      node
+      if entry_prefix.is_empty() {
+        node
+      } else {
+        entry_prefix.push(node)
+        let replacement = dae2_void_sequence(func, entry_prefix)
+        @ir.hot_preserve_replacement_position(func, replacement, node)
+        replacement
+      }
     }
     @ir.Drop =>
       dae2_void_sequence(
