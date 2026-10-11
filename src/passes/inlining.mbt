@@ -7786,6 +7786,16 @@ fn inl_mark_local_uses_instrs(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
         inl_mark_local_uses_instrs(body, used)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        inl_mark_local_uses_instrs(body, used)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              inl_mark_local_uses_instrs(catch_body, used)
+          }
+        }
+      }
       @lib.If(_, then_body, Some(else_body)) => {
         inl_mark_local_uses_instrs(then_body, used)
         inl_mark_local_uses_instrs(else_body, used)
@@ -7846,6 +7856,25 @@ fn inl_rewrite_local_idxs_instr(
         catches,
         @lib.Expr::new(inl_rewrite_local_idxs_instrs(body, remap)),
       )
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) =>
+      @lib.Instruction::try_(
+        block_type,
+        @lib.Expr::new(inl_rewrite_local_idxs_instrs(body, remap)),
+        catches.map(fn(catch_) {
+          match catch_ {
+            @lib.LegacyCatch(tag, @lib.Expr(catch_body)) =>
+              @lib.LegacyCatch::tagged(
+                tag,
+                @lib.Expr::new(inl_rewrite_local_idxs_instrs(catch_body, remap)),
+              )
+            @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              @lib.LegacyCatch::all(
+                @lib.Expr::new(inl_rewrite_local_idxs_instrs(catch_body, remap)),
+              )
+          }
+        }),
+        delegate~,
+      )
     _ => instr
   }
 }
@@ -7875,6 +7904,19 @@ fn inl_instrs_have_tail_call(instrs : Array[@lib.Instruction]) -> Bool {
         if inl_instrs_have_tail_call(body) {
           return true
         }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if inl_instrs_have_tail_call(body) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          if inl_instrs_have_tail_call(catch_body) {
+            return true
+          }
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         if inl_instrs_have_tail_call(then_body) {
           return true
@@ -9238,7 +9280,7 @@ fn inl_run_nested_cleanup(
     return mod_
   }
   if inl_has_two_func_exact_root_hot_unsafe_helper(mod_) {
-    return inl_compact_unused_locals(
+    let candidate = inl_compact_unused_locals(
       inl_collapse_unreachable_roots(
         mod_,
         touched,
@@ -9246,9 +9288,11 @@ fn inl_run_nested_cleanup(
       ),
       touched,
     )
+    return inl_validate_or_original(candidate, mod_)
   }
   if inl_has_same_sig_root_cycle_dead_suffix(mod_) {
-    return inl_compact_unused_locals(mod_, touched)
+    let candidate = inl_compact_unused_locals(mod_, touched)
+    return inl_validate_or_original(candidate, mod_)
   }
   let (raw_accumulator_cleaned, raw_accumulator_changed) = inl_run_i32_add_accumulator_raw_cleanup(
     mod_, touched,
@@ -9261,10 +9305,11 @@ fn inl_run_nested_cleanup(
         )
       None => ()
     }
-    return inl_compact_unused_locals(
+    let candidate = inl_compact_unused_locals(
       inl_collapse_unreachable_roots(raw_accumulator_cleaned, touched),
       touched,
     )
+    return inl_validate_or_original(candidate, mod_)
   }
   let prepared = inl_collapse_unreachable_roots(mod_, touched)
   let defined_count = inl_defined_func_count(prepared)
