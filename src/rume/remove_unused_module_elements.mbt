@@ -2350,6 +2350,9 @@ fn rume_scan_instruction(
     | @lib.V128Store64Lane(memarg, _)
     | @lib.V128Load32Zero(memarg)
     | @lib.V128Load64Zero(memarg) => rume_mark_memarg(queue, used_mems, memarg)
+    // ArrayLoad and ArrayStore use the backing-array proposal's memory-argument
+    // encoding. Their MemArg must not contain a linear-memory index, and None
+    // refers to the backing array rather than to linear memory zero.
     _ => ()
   }
 }
