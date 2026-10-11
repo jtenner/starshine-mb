@@ -672,6 +672,26 @@ test "heap2local lowers repeated same-owner fresh array allocations" {
 }
 
 ///|
+test "heap2local keeps unsafe repeated arrays local while scalarizing unrelated structs" {
+  let pretty = heap2local_pretty_text(
+    (
+      #|(module
+      #|  (type $s (struct (field i32)))
+      #|  (type $a (array (mut i32)))
+      #|  (func (result i32) (local $array (ref null $a)) (local $struct (ref null $s))
+      #|    i32.const 1 array.new_default $a local.set $array
+      #|    i32.const 2 array.new_default $a local.set $array
+      #|    i32.const 7 struct.new $s local.set $struct
+      #|    local.get $struct struct.get $s 0))
+      #|
+    ),
+  )
+  assert_true(pretty.contains("array.new_default"), msg=pretty)
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+}
+
+///|
 test "heap2local folds a direct fresh default struct field read" {
   let pair = @lib.TypeIdx::new(0U)
   let optimized = heap2local_run_module(
