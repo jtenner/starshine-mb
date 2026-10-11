@@ -11,6 +11,10 @@
 - The first 0.2.0 Required CI release-artifact check exposed a stale generated
   component dependency. Regeneration updates only its module dependency; the
   stable WIT/API version remains 0.1.1. The failed checkpoint stays recorded.
+- The next full source suite passed 14,104/14,107; three adapter assertions still
+  expected the beta version. They now compare formatted output with the generated
+  product identity, whose metadata/packed-runtime drift checks remain independent.
+  Focused adapter tests pass 4/4; no runtime code or API changes.
 
 ### 2026-10-10 — Bound immutable record-copy outlining and isolate npm consumers
 
