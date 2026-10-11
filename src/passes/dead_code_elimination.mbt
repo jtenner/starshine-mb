@@ -814,6 +814,9 @@ fn dead_code_elimination_region_has_terminal_last_live_root(
         @ir.HotOp::Br
         | @ir.HotOp::BrTable
         | @ir.HotOp::Return
+        | @ir.HotOp::ReturnCall
+        | @ir.HotOp::ReturnCallIndirect
+        | @ir.HotOp::ReturnCallRef
         | @ir.HotOp::Throw
         | @ir.HotOp::ThrowRef
         | @ir.HotOp::Rethrow
@@ -2925,7 +2928,7 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
       continue
     }
     match @ir.hot_node_get(func, branch_id).op {
-      @ir.HotOp::Br => ()
+      @ir.HotOp::Br | @ir.HotOp::BrIf => ()
       _ => return false
     }
     let payload_count = dead_code_elimination_branch_payload_count(

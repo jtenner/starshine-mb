@@ -2352,3 +2352,33 @@ test "dead-code-elimination preserves final multivalue loop region results" {
     _ => fail("expected DCE to preserve the final multivalue loop root")
   }
 }
+
+///|
+test "dead-code-elimination voidifies dead result blocks ending in tail calls" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $callee (func (result i32)))
+        #|  (func $callee (type $callee) (result i32) i32.const 7)
+        #|  (func (result i32)
+        #|    (drop
+        #|      (block $exit (result i32)
+        #|        (br_if $exit (i32.const 42) (i32.const 0))
+        #|        (return_call $callee)))
+        #|    i32.const 0))
+        #|
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected terminal tail-call block success, got \{err}")
+  }
+  let pretty = @printer.print_module(optimized)
+  assert_false(pretty.contains("(block $exit (result i32)"), msg=pretty)
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid terminal tail-call block, got \{err}")
+  }
+}
