@@ -123,6 +123,12 @@ fn dfe_type_refs_instrs(
       | @lib.ReturnCallIndirect(type_idx, _)
       | @lib.CallRef(type_idx)
       | @lib.ReturnCallRef(type_idx)
+      | @lib.StructWait(type_idx, _)
+      | @lib.ContNew(type_idx)
+      | @lib.Resume(type_idx, _)
+      | @lib.ResumeThrow(type_idx, _, _)
+      | @lib.ResumeThrowRef(type_idx, _)
+      | @lib.StackSwitch(type_idx, _)
       | @lib.StructNew(type_idx)
       | @lib.StructNewDefault(type_idx)
       | @lib.StructNewDesc(type_idx)
@@ -155,9 +161,12 @@ fn dfe_type_refs_instrs(
       | @lib.ArrayAtomicGetS(_, type_idx)
       | @lib.ArrayAtomicGetU(_, type_idx)
       | @lib.ArrayAtomicRmw(_, _, type_idx)
-      | @lib.ArrayAtomicCmpxchg(_, type_idx) =>
+      | @lib.ArrayAtomicCmpxchg(_, type_idx)
+      | @lib.ArrayLoad(_, type_idx, _)
+      | @lib.ArrayStore(_, type_idx, _) =>
         dfe_type_refs_mark_type_idx(type_idx, used)
-      @lib.ArrayCopy(source_type, target_type) => {
+      @lib.ContBind(source_type, target_type)
+      | @lib.ArrayCopy(source_type, target_type) => {
         dfe_type_refs_mark_type_idx(source_type, used)
         dfe_type_refs_mark_type_idx(target_type, used)
       }
@@ -174,6 +183,11 @@ fn dfe_type_refs_instrs(
       | @lib.BrOnCastFail(_, _, source_ht, target_ht) => {
         dfe_type_refs_mark_heap_type(source_ht, used)
         dfe_type_refs_mark_heap_type(target_ht, used)
+      }
+      @lib.BrOnCastDescEq(_, source_type, target_type)
+      | @lib.BrOnCastDescEqFail(_, source_type, target_type) => {
+        dfe_type_refs_mark_ref_type(source_type, used)
+        dfe_type_refs_mark_ref_type(target_type, used)
       }
       _ => ()
     }

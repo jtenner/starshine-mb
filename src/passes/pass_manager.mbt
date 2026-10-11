@@ -68828,12 +68828,16 @@ fn o4z_size_outline_byte_comparator_siblings(mod_ : @lib.Module) -> @lib.Module 
         @lib.Expr::new(wrapper_body),
       )
     }
-    return dfe_prune_unused_simple_types(
+    let candidate = dfe_prune_unused_simple_types(
       mod_
       .with_type_sec(@lib.TypeSec::new(next_rec_types))
       .with_func_sec(@lib.FuncSec::new(next_type_idxs))
       .with_code_sec(@lib.CodeSec::new(next_funcs)),
     )
+    return match @validate.validate_module(candidate) {
+      Ok(_) => candidate
+      Err(_) => mod_
+    }
   }
   mod_
 }
