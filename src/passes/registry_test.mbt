@@ -203,6 +203,14 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::module_pass()),
   )
   @debug.assert_eq(
+    pass_registry_category("i64-trunc-sat-float-lowering"),
+    Some(HotPassRegistryCategory::module_pass()),
+  )
+  @debug.assert_eq(
+    pass_registry_category("i64-to-i32-lowering"),
+    Some(HotPassRegistryCategory::boundary_only()),
+  )
+  @debug.assert_eq(
     pass_registry_category("de-nan"),
     Some(HotPassRegistryCategory::removed()),
   )

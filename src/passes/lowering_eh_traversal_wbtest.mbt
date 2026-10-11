@@ -34,7 +34,7 @@ fn lowering_eh_count_opcode(expr : @lib.Expr, opcode : @lib.Instruction) -> Int 
 }
 
 ///|
-test "I64ToI32Lowering traverses legacy try catches and try_table bodies" {
+test "i64-trunc-sat-float-lowering traverses legacy try catches and try_table bodies" {
   let candidate = @lib.Instruction::i64_trunc_sat_f32s()
   let body = @lib.Expr::new([
     @lib.Instruction::try_(

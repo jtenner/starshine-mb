@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-11
+last_reviewed: 2026-10-11
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -19,6 +19,8 @@ related:
 ## Current status: planned, not runnable
 
 `i64-to-i32-lowering` is a local `BoundaryOnly` name, not an active Starshine transform. An explicit request is rejected before module-pass dispatch, and [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) does not include `--i64-to-i32-lowering` in `SUPPORTED_PASS_FLAGS`.
+
+The separately named `i64-trunc-sat-float-lowering` module pass covers only the four saturating float-to-i64 conversions. Its focused tests and runtime probe are evidence for that subset only; they are not a canonical compare-pass lane.
 
 The former generic 10,000-case command was therefore misleading: it cannot compare one transformed module today. Parser rejection, a boundary-only error, or zero compared cases is not Binaryen-parity evidence.
 

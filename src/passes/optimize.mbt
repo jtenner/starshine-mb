@@ -141,7 +141,7 @@ fn pass_registry_boundary_only_names() -> Array[String] {
     "type-un-finalizing", "unsubtyping", "minimize-rec-groups", "type-merging", "monomorphize",
     "monomorphize-always", "gufa", "gufa-optimizing", "gufa-cast-all", "reorder-types",
     "reorder-globals-always", "reorder-functions", "reorder-functions-by-name", "remove-unused-types",
-    "remove-unused",
+    "remove-unused", "i64-to-i32-lowering",
   ]
 }
 
@@ -329,7 +329,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "global-type-optimization", "Preserve JS descriptor prototype layout while optimizing fields.",
     ),
     pass_registry_entry_module(
-      "i64-to-i32-lowering", "Lower saturating float-to-i64 conversions through guarded operations.",
+      "i64-trunc-sat-float-lowering", "Lower saturating float-to-i64 conversions through guarded operations.",
     ),
     pass_registry_entry_module(
       "remove-unused-nonfunction-module-elements",

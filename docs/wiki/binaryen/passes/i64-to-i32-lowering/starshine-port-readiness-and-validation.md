@@ -1,7 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+starshine_status: boundary-only
+last_reviewed: 2026-10-11
 sources:
   - ./index.md
   - ./binaryen-strategy.md
@@ -41,10 +42,9 @@ Keep the pass boundary-only until there is a real module rewrite.
 
 Exact local status:
 
-- [`src/passes/optimize.mbt:135-138`](../../../../../src/passes/optimize.mbt) lists `i64-to-i32-lowering` in `pass_registry_boundary_only_names()`.
-- [`src/passes/optimize.mbt:470-473`](../../../../../src/passes/optimize.mbt) rejects boundary-only requests before dispatch.
-- [`src/passes/pass_manager.mbt:8671-8683`](../../../../../src/passes/pass_manager.mbt) is the active module-pass dispatch match; it has no `i64-to-i32-lowering` case.
-- There is no `src/passes/i64_to_i32_lowering.mbt` owner file.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lists `i64-to-i32-lowering` in `pass_registry_boundary_only_names()` and rejects boundary-only requests before dispatch.
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) contains the active module-pass dispatch match; it has no `i64-to-i32-lowering` case.
+- [`src/passes/i64_to_i32_lowering.mbt`](../../../../../src/passes/i64_to_i32_lowering.mbt) owns only the separately registered `i64-trunc-sat-float-lowering` subset. It is not an implementation of the canonical pass.
 - No current preset should schedule this pass.
 
 The first implementation PR should therefore start with tests that preserve this truth, then add a guarded module-pass skeleton only when the next sentence becomes true:
@@ -72,7 +72,8 @@ Goal: prevent accidental enablement.
 
 Required checks:
 
-- `--pass i64-to-i32-lowering` still reports boundary-only while no owner exists.
+- `--pass i64-to-i32-lowering` reports boundary-only until the full ABI and ordinary-op contract exists.
+- `--pass i64-trunc-sat-float-lowering` remains the explicit name for the four-op subset.
 - Presets do not expand to this pass.
 - `pass_manager.mbt` has no fallback path that can silently accept the name.
 

@@ -280,6 +280,13 @@ quality gates. Keep traced inner and normal command measurements separate.
   343 passes, zero failures and one existing opt-in Chromium skip. Source
   repairs and corrected invalid fixtures preserve optimizer features and
   strict parser/type/IR checks. No default passing test was disabled.
+- [ ] **Complete Binaryen `i64-to-i32-lowering` (IR2-I64-ABI):** the canonical
+  name is boundary-only. The active `i64-trunc-sat-float-lowering` pass covers
+  only four saturating float-to-i64 opcodes and must not be used as evidence for
+  i64 ABI, locals, globals, calls, returns, memory, arithmetic, comparison,
+  shift, helper, or atomic lowering. Implement the staged module rewrite in the
+  pass dossier, preserve explicit unsupported families, and require verified
+  Binaryen 133 reduced-oracle evidence before activating the canonical name.
 - [ ] **Occurrence and lifetime admission (P00/P11/P12):** extend beyond the
   repaired repeated linear tuple flow to complex control/call occurrences,
   occurrence-specific SSA rewrites and typed-loop backedge values. Preserve

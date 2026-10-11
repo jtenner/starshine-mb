@@ -203,56 +203,78 @@ fn i64_lower_sat_rewrite_expr(
 }
 
 ///|
-fn i64_lower_sat_expr_has_candidate(expr : @lib.Expr) -> Bool {
+fn i64_lower_sat_expr_candidate_types(expr : @lib.Expr) -> (Bool, Bool) {
   let @lib.Expr(instrs) = expr
+  let mut has_f32 = false
+  let mut has_f64 = false
   for instr in instrs {
     match instr {
-      @lib.I64TruncSatF32S
-      | @lib.I64TruncSatF32U
-      | @lib.I64TruncSatF64S
-      | @lib.I64TruncSatF64U => return true
-      @lib.Block(_, nested) | @lib.Loop(_, nested) =>
-        if i64_lower_sat_expr_has_candidate(nested) {
-          return true
-        }
+      @lib.I64TruncSatF32S | @lib.I64TruncSatF32U => has_f32 = true
+      @lib.I64TruncSatF64S | @lib.I64TruncSatF64U => has_f64 = true
+      @lib.Block(_, nested) | @lib.Loop(_, nested) => {
+        let (nested_f32, nested_f64) = i64_lower_sat_expr_candidate_types(
+          nested,
+        )
+        has_f32 = has_f32 || nested_f32
+        has_f64 = has_f64 || nested_f64
+      }
       @lib.If(_, then_body, else_body) => {
-        if i64_lower_sat_expr_has_candidate(@lib.Expr::new(then_body)) {
-          return true
-        }
+        let (then_f32, then_f64) = i64_lower_sat_expr_candidate_types(
+          @lib.Expr::new(then_body),
+        )
+        has_f32 = has_f32 || then_f32
+        has_f64 = has_f64 || then_f64
         match else_body {
-          Some(body) =>
-            if i64_lower_sat_expr_has_candidate(@lib.Expr::new(body)) {
-              return true
-            }
+          Some(body) => {
+            let (else_f32, else_f64) = i64_lower_sat_expr_candidate_types(
+              @lib.Expr::new(body),
+            )
+            has_f32 = has_f32 || else_f32
+            has_f64 = has_f64 || else_f64
+          }
           None => ()
         }
       }
-      @lib.TryTable(_, _, body) =>
-        if i64_lower_sat_expr_has_candidate(body) {
-          return true
-        }
+      @lib.TryTable(_, _, body) => {
+        let (body_f32, body_f64) = i64_lower_sat_expr_candidate_types(body)
+        has_f32 = has_f32 || body_f32
+        has_f64 = has_f64 || body_f64
+      }
       @lib.Try(_, body, catches, _) => {
-        if i64_lower_sat_expr_has_candidate(body) {
-          return true
-        }
+        let (body_f32, body_f64) = i64_lower_sat_expr_candidate_types(body)
+        has_f32 = has_f32 || body_f32
+        has_f64 = has_f64 || body_f64
         for catch_ in catches {
           let catch_body = match catch_ {
             @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
               catch_body
           }
-          if i64_lower_sat_expr_has_candidate(catch_body) {
-            return true
-          }
+          let (catch_f32, catch_f64) = i64_lower_sat_expr_candidate_types(
+            catch_body,
+          )
+          has_f32 = has_f32 || catch_f32
+          has_f64 = has_f64 || catch_f64
         }
       }
       _ => ()
     }
+    if has_f32 && has_f64 {
+      return (true, true)
+    }
   }
-  false
+  (has_f32, has_f64)
 }
 
 ///|
-fn i64_to_i32_lowering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+fn i64_lower_sat_expr_has_candidate(expr : @lib.Expr) -> Bool {
+  let types = i64_lower_sat_expr_candidate_types(expr)
+  types.0 || types.1
+}
+
+///|
+fn i64_trunc_sat_float_lowering_run_module_pass(
+  mod_ : @lib.Module,
+) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_
@@ -264,10 +286,15 @@ fn i64_to_i32_lowering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   if type_indices.length() != funcs.length() {
     return mod_
   }
-  if !funcs.any(fn(func) {
-      let @lib.Func(_, body) = func
-      i64_lower_sat_expr_has_candidate(body)
-    }) {
+  let candidate_types : Array[(Bool, Bool)] = []
+  let mut has_any_candidate = false
+  for func in funcs {
+    let @lib.Func(_, body) = func
+    let types = i64_lower_sat_expr_candidate_types(body)
+    candidate_types.push(types)
+    has_any_candidate = has_any_candidate || types.0 || types.1
+  }
+  if !has_any_candidate {
     return mod_
   }
   let signatures = msf_build_type_signature_cache(mod_)
@@ -275,12 +302,18 @@ fn i64_to_i32_lowering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let rewritten : Array[@lib.Func] = []
   for index, func in funcs {
     let @lib.Func(locals, body) = func
+    let (has_f32, has_f64) = candidate_types[index]
+    if !has_f32 && !has_f64 {
+      rewritten.push(func)
+      continue
+    }
     let params = match msf_cached_signature(signatures, type_indices[index]) {
       Some(@lib.FuncType(params, _)) => params
       None => return mod_
     }
-    let f32_index = params.length() + locals.length()
-    let f64_index = f32_index + 1
+    let first_temp_index = params.length() + locals.length()
+    let f32_index = first_temp_index
+    let f64_index = first_temp_index + (if has_f32 { 1 } else { 0 })
     let f32_temp = @lib.LocalIdx::new(f32_index.to_uint())
     let f64_temp = @lib.LocalIdx::new(f64_index.to_uint())
     let func_changed = [false]
@@ -290,8 +323,12 @@ fn i64_to_i32_lowering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     if func_changed[0] {
       changed[0] = true
       let next_locals = locals.copy()
-      next_locals.push(@lib.ValType::f32())
-      next_locals.push(@lib.ValType::f64())
+      if has_f32 {
+        next_locals.push(@lib.ValType::f32())
+      }
+      if has_f64 {
+        next_locals.push(@lib.ValType::f64())
+      }
       rewritten.push(@lib.Func::new(next_locals, next_body))
     } else {
       rewritten.push(func)

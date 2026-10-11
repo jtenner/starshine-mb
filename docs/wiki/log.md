@@ -1,3 +1,16 @@
+### 2026-10-11 — Restore honest `i64-to-i32-lowering` boundaries
+
+- Verified with Binaryen 133 reduced fixtures that the canonical pass rewrites
+  i64 function parameters and ordinary `i64.add` into i32-pair forms, while the
+  Starshine implementation only handled four saturating float conversions.
+- Returned `i64-to-i32-lowering` to boundary-only request rejection and exposed
+  the existing safe subset as `i64-trunc-sat-float-lowering`. Focused tests keep
+  both boundaries explicit. The narrow pass now adds only the f32 or f64
+  temporary needed by each changed function.
+- Updated the pass dossier, shared catalogs, fuzzing status and active backlog.
+  Full type, ABI, local, global, call, return, memory, ordinary numeric, helper
+  and atomic lowering remains open and cannot use narrow-pass evidence.
+
 ### 2026-10-11 — Prepare the MoonBit tutorial revision 0.2.2
 
 - Mooncakes 0.2.1 is published, byte-qualified and rendered on its module overview;
@@ -301,7 +314,6 @@
 - The [evidence record](raw/tooling/2026-10-09-output-differences-v133.json) retains
   source versions and adverse measurements. These observations do not close
   independent stringref execution, general IR scaling or optimizer speed goals.
-
 ### 2026-10-09 — Repair direct-pass effects and IR invariants
 
 - [The October 9 repair checkpoint](tooling/validation-gates.md#october-9-2026--optimizer-and-ir-repairs)
