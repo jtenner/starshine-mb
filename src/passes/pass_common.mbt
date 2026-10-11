@@ -968,24 +968,13 @@ pub fn pass_verify_before_after(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> Result[Unit, String] {
-  match
-    pipeline_verify_checkpoint_with_perf(
-      ctx.perf,
-      ctx.verify_policy,
-      "verify before \{ctx.descriptor.name}",
-      HotPipelineVerifyTarget::HotFuncWithCacheTarget(func, ctx.cache),
-      "verify:before:\{ctx.descriptor.name}",
-    ) {
-    Ok(_) =>
-      pipeline_verify_checkpoint_with_perf(
-        ctx.perf,
-        ctx.verify_policy,
-        "verify after \{ctx.descriptor.name}",
-        HotPipelineVerifyTarget::HotFuncWithCacheTarget(func, ctx.cache),
-        "verify:after:\{ctx.descriptor.name}",
-      )
-    Err(err) => Err(err)
-  }
+  pipeline_verify_checkpoint_with_perf(
+    ctx.perf,
+    ctx.verify_policy,
+    "verify after \{ctx.descriptor.name}",
+    HotPipelineVerifyTarget::HotFuncWithCacheTarget(func, ctx.cache),
+    "verify:after:\{ctx.descriptor.name}",
+  )
 }
 
 ///|

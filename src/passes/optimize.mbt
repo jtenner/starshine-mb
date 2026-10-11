@@ -1339,23 +1339,6 @@ pub fn run_hot_pipeline(
     Ok(entries) => entries
     Err(err) => return Err(err)
   }
-  if options.optimize_level >= 4 &&
-    options.shrink_level >= 4 &&
-    run_hot_pipeline_module_has_caught_try_table(mod_) &&
-    requested_passes.any(fn(name) { name == "optimize" || name == "shrink" }) {
-    let explicit_passes : Array[String] = []
-    for name in requested_passes {
-      if name != "optimize" && name != "shrink" {
-        explicit_passes.push(name)
-      }
-    }
-    if !explicit_passes.is_empty() {
-      (options.trace)(
-        "pipeline:o4z-transaction:rollback preset-only reason=caught-try-table",
-      )
-      return run_hot_pipeline(mod_, options, explicit_passes)
-    }
-  }
   (options.trace)("pipeline:start requested=\{requested_passes.length()}")
   let pipeline_start_us = perf_start_timer_opt(options.perf, "pipeline")
   let prepared = match
@@ -1370,8 +1353,8 @@ pub fn run_hot_pipeline(
     )
   }
   // Compiler facts are a user-selected preparation contract, not part of the
-  // speculative O4z preset transaction. A caught-try rollback must retain
-  // trusted materialization and the consumed fact-section removal.
+  // O4z preset queue. A caught-try preset skip must retain trusted
+  // materialization and the consumed fact-section removal.
   let prepared_module = prepared.module_
   let mut current = prepared_module
   let original_has_caught_try_table = run_hot_pipeline_module_has_caught_try_table(
@@ -1380,6 +1363,9 @@ pub fn run_hot_pipeline(
   let artifact_scale_o4z_preset = options.optimize_level >= 4 &&
     options.shrink_level >= 4 &&
     requested_passes.any(fn(name) { name == "optimize" || name == "shrink" })
+  let skip_caught_o4z_preset = artifact_scale_o4z_preset &&
+    original_has_caught_try_table
+  let mut caught_o4z_skip_traced = false
   let mut ssa_wave = 0
   let mut skip_o4z_late_convergence_entries = 0
   let pending_hot_passes : Array[HotPassRegistryEntry] = []
@@ -1412,6 +1398,17 @@ pub fn run_hot_pipeline(
   }
   for entry_idx, item in entries {
     let (entry, from_preset) = item
+    if skip_caught_o4z_preset && from_preset {
+      match flush_hot_passes() {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
+      if !caught_o4z_skip_traced {
+        (options.trace)("pipeline:o4z-preset:skip reason=caught-try-table")
+        caught_o4z_skip_traced = true
+      }
+      continue
+    }
     if skip_o4z_late_convergence_entries > 0 {
       (options.trace)(
         "pass[\{entry.name}]:skip reason=artifact-scale-late-convergence",
@@ -1541,10 +1538,6 @@ pub fn run_hot_pipeline(
   match flush_hot_passes() {
     Ok(_) => ()
     Err(err) => return Err(err)
-  }
-  if artifact_scale_o4z_preset && original_has_caught_try_table {
-    (options.trace)("pipeline:o4z-transaction:rollback reason=caught-try-table")
-    current = prepared_module
   }
   if options.validate_final_module {
     let validate_start_us = perf_start_timer_opt(

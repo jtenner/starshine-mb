@@ -15751,17 +15751,39 @@ test "hot pipeline debug dump targets stay disabled without trace" {
 }
 
 ///|
-test "hot pipeline debug dump targets require traced vacuum or tuple targets" {
+test "type section mutation invalidates type-dependent module caches" {
+  let before = pass_test_module_from_wat(
+    "(module (type (func)) (func (type 0)))",
+  )
+  let after = pass_test_module_from_wat(
+    "(module (type (func)) (type (func (result i32))) (func (type 0)))",
+  )
+  let state = HotPipelineModuleState::new()
+  let options = HotPipelineOptions::new()
+  let before_ctx = run_hot_pipeline_require_module_ctx(before, state, options)
+  ignore(run_hot_pipeline_require_validation_module_env(before, state, options))
+  assert_eq(before_ctx.subtypes.length(), 1)
+
+  run_hot_pipeline_invalidate_type_dependent_caches(state)
+
+  assert_true(state.module_ctx is None)
+  assert_true(state.validation_module_env is None)
+  let after_ctx = run_hot_pipeline_require_module_ctx(after, state, options)
+  assert_eq(after_ctx.subtypes.length(), 2)
+}
+
+///|
+test "normal pipeline tracing never enables artifact-specific debug dumps" {
   let options = HotPipelineOptions::new(trace=Some(fn(_) { () }))
 
-  assert_true(
+  assert_false(
     run_hot_pipeline_debug_dump_enabled(
       options,
       @lib.FuncIdx::new(2944U),
       "vacuum",
     ),
   )
-  assert_true(
+  assert_false(
     run_hot_pipeline_debug_dump_enabled(
       options,
       @lib.FuncIdx::new(3660U),

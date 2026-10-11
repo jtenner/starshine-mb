@@ -393,14 +393,12 @@ pub fn run_hot_pipeline_debug_dump_enabled(
   func_idx : @lib.FuncIdx,
   descriptor_name : String,
 ) -> Bool {
-  if !options.trace_enabled {
-    return false
-  }
-  (descriptor_name == "vacuum" && func_idx == @lib.FuncIdx::new(2944U)) ||
-  (
-    descriptor_name == "tuple-optimization" &&
-    func_idx == @lib.FuncIdx::new(3660U)
-  )
+  // Artifact-index probes stay disabled in ordinary pipelines. Trace output
+  // must not trigger unrelated analyses or function dumps.
+  ignore(options)
+  ignore(func_idx)
+  ignore(descriptor_name)
+  false
 }
 
 ///|
@@ -16465,6 +16463,14 @@ fn HotPipelineModuleState::new() -> HotPipelineModuleState {
     dce_unchanged_lowering_known: @bitset.BitSet::new(0),
     dce_unchanged_lowering_required: @bitset.BitSet::new(0),
   }
+}
+
+///|
+fn run_hot_pipeline_invalidate_type_dependent_caches(
+  module_state : HotPipelineModuleState,
+) -> Unit {
+  module_state.module_ctx = None
+  module_state.validation_module_env = None
 }
 
 ///|
@@ -83008,7 +83014,7 @@ fn run_hot_pipeline_apply_hot_pass(
           current_mod = validation_mod
           // Later functions must see tuple/block types introduced by this
           // function's lowering rather than the earlier cached module snapshot.
-          module_state.validation_module_env = None
+          run_hot_pipeline_invalidate_type_dependent_caches(module_state)
         }
         if descriptor.name == "ssa-nomerge" &&
           result.reason.contains("-mutated") &&
@@ -83771,8 +83777,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
             lower_state.next_type_sec.unwrap(),
           )
           // Both caches belong to the previous type snapshot.
-          module_state.module_ctx = None
-          module_state.validation_module_env = None
+          run_hot_pipeline_invalidate_type_dependent_caches(module_state)
         }
         match lowered {
           Some(defs_copy) => defs_copy[code_idx] = lowered_func
@@ -84083,8 +84088,7 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
             lower_state.next_type_sec.unwrap(),
           )
           // Both caches belong to the previous type snapshot.
-          module_state.module_ctx = None
-          module_state.validation_module_env = None
+          run_hot_pipeline_invalidate_type_dependent_caches(module_state)
         }
         match lowered {
           Some(defs_copy) => defs_copy[code_idx] = lowered_func
@@ -84325,7 +84329,7 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
         }
         if lower_state.type_sec_changed {
           current_mod = validation_mod
-          module_state.validation_module_env = None
+          run_hot_pipeline_invalidate_type_dependent_caches(module_state)
         }
         if descriptor.name == "vacuum" && !result.trace_skip_raw {
           vacuum_hot_func_count += 1
