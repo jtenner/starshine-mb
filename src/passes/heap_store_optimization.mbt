@@ -5423,18 +5423,20 @@ fn heap_store_optimization_run(
   let effects = pass_require_effects(ctx, func)
   let predicate_cache = hso_new_predicate_cache()
   let type_cache = hso_new_type_cache()
-  if hso_process_region(
-      predicate_cache,
-      type_cache,
-      func,
-      ctx.module_ctx,
-      effects.node_masks,
-      @ir.HotRegionRef::root(),
-      0,
-      None,
-      hso_new_external_roots(),
-      hso_new_local_order_workspace(@ir.hot_local_count(func)),
-    ) {
+  let revision = @ir.hot_revision_current(func)
+  let changed = hso_process_region(
+    predicate_cache,
+    type_cache,
+    func,
+    ctx.module_ctx,
+    effects.node_masks,
+    @ir.HotRegionRef::root(),
+    0,
+    None,
+    hso_new_external_roots(),
+    hso_new_local_order_workspace(@ir.hot_local_count(func)),
+  )
+  if changed || @ir.hot_revision_current(func) != revision {
     pass_mark_mutated(ctx, func)
     HotPassResult::changed()
   } else {
