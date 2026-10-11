@@ -1,13 +1,15 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-25
+last_reviewed: 2026-10-11
 sources:
   - ../../release-horizon-and-oracles.md
   - binaryen-strategy.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
+  - ../../../../../src/passes/optimize_instructions_fixed_point_wbtest.mbt
+  - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../src/passes/optimize_instructions_try_state_perf_wbtest.mbt
   - ../../../../../src/passes/oi_local_group_parity_wbtest.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -36,6 +38,16 @@ related:
 ---
 
 # `optimize-instructions`
+
+## October 11, 2026 receiverless aggregate-atomic isolation
+
+Partially lifted HOT can retain a receiverless struct aggregate RMW or
+compare-exchange node. OptimizeInstructions cannot safely rewrite that malformed
+subtree, but the earlier whole-function preflight also suppressed unrelated safe
+rewrites. The pass now relies on the aggregate rewrite's exact child-count guard:
+it preserves the unsupported node and continues visiting independent roots.
+White-box coverage proves that an independent integer identity fold commits,
+advances the HOT revision, and leaves the receiverless atomic payload unchanged.
 
 ## September 25, 2026 self-opt module-context reuse
 

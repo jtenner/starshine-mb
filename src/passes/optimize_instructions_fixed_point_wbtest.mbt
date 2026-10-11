@@ -99,6 +99,53 @@ test "optimize-instructions direct HOT constant comparison folds in one visit" {
 }
 
 ///|
+test "optimize-instructions receiverless aggregate atomic does not block independent roots" {
+  // A malformed receiverless aggregate atomic can occur in partially lifted HOT.
+  // It is not safe to rewrite, but it must not disable safe rewrites in other
+  // roots of the same function.
+  let func = pass_test_lift_first_func(
+    "(module (func i32.const 7 i32.const 0 i32.add drop))",
+  )
+  let unsupported = @ir.hot_build_atomic(
+    func,
+    [@lib.ValType::i32()],
+    @lib.Instruction::struct_atomic_rmw(
+      @lib.AggregateAtomicRmwOp::add(),
+      @lib.TypeIdx::new(0U),
+      @lib.U32(0U),
+      order=@lib.AtomicOrder::seq_cst(),
+    ),
+    [],
+  )
+  @ir.hot_append_root(func, unsupported)
+  let before_revision = @ir.hot_revision_current(func)
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    fn(_) { () },
+  )
+
+  let result = optimize_instructions_run(ctx, func)
+
+  assert_true(result.changed)
+  assert_true(@ir.hot_revision_current(func) > before_revision)
+  let drop_root = @ir.hot_root_get(func, 0)
+  let folded = @ir.hot_child_get(func, drop_root, 0)
+  assert_true(@ir.hot_node_get(func, folded).op is @ir.HotOp::Const)
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, folded).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(7)),
+  )
+  @debug.assert_eq(@ir.hot_child_count(func, unsupported), 0)
+  assert_true(
+    @ir.hot_node_exact_instr(func, unsupported)
+    is Some(@lib.Instruction::StructAtomicRmw(_, _, _, _)),
+  )
+}
+
+///|
 test "optimize-instructions finishes sunk local writes for zero and nonzero conditions" {
   for condition in [0, 1, -1] {
     let input = pass_test_module_from_wat(

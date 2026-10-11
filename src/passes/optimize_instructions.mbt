@@ -23737,6 +23737,9 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
       true
     }
     @lib.Instruction::StructAtomicRmw(order, op, type_idx, field_idx) => {
+      if @ir.hot_child_count(func, node_id) != 2 {
+        return false
+      }
       let field_fact = match
         OiStructAtomicFieldFact::from_index(ctx, type_idx, field_idx) {
         Some(fact) => fact
@@ -23747,6 +23750,9 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
       )
     }
     @lib.Instruction::StructAtomicCmpxchg(order, type_idx, field_idx) => {
+      if @ir.hot_child_count(func, node_id) != 3 {
+        return false
+      }
       let field_fact = match
         OiStructAtomicFieldFact::from_index(ctx, type_idx, field_idx) {
         Some(fact) => fact
@@ -42142,41 +42148,6 @@ fn OiNoRewriteI32LiteralRevisionFact::proves_no_rewrite_candidate(
 }
 
 ///|
-priv struct OiUnsupportedAggregateAtomicReceiverFact {
-  found_unsupported_receiver : Bool
-}
-
-///|
-fn OiUnsupportedAggregateAtomicReceiverFact::from_func(
-  func : @ir.HotFunc,
-) -> OiUnsupportedAggregateAtomicReceiverFact {
-  // Current HOT can contain aggregate atomic receiver-less shapes that OI cannot
-  // safely rewrite. Keep the fail-closed preflight as a named representation
-  // fact until the aggregate-atomic receiver representation is repaired.
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    match @ir.hot_node_exact_instr(func, node_id) {
-      Some(@lib.Instruction::StructAtomicRmw(_, _, _, _))
-      | Some(@lib.Instruction::StructAtomicCmpxchg(_, _, _)) =>
-        if @ir.hot_child_count(func, node_id) == 0 {
-          return { found_unsupported_receiver: true, }
-        }
-      _ => ()
-    }
-  }
-  { found_unsupported_receiver: false, }
-}
-
-///|
-fn OiUnsupportedAggregateAtomicReceiverFact::requires_fail_closed_skip(
-  self : OiUnsupportedAggregateAtomicReceiverFact,
-) -> Bool {
-  self.found_unsupported_receiver
-}
-
-///|
 fn optimize_instructions_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -42185,21 +42156,6 @@ fn optimize_instructions_run(
     Some(fact) if fact.proves_no_rewrite_candidate(func) =>
       return HotPassResult::unchanged()
     _ => ()
-  }
-  let unsupported_preflight_start_us = perf_start_timer_opt(
-    ctx.perf,
-    "detail:optimize-instructions:unsupported-preflight",
-  )
-  let requires_fail_closed_skip = OiUnsupportedAggregateAtomicReceiverFact::from_func(
-    func,
-  ).requires_fail_closed_skip()
-  perf_stop_timer_opt(
-    ctx.perf,
-    "detail:optimize-instructions:unsupported-preflight",
-    unsupported_preflight_start_us,
-  )
-  if requires_fail_closed_skip {
-    return HotPassResult::unchanged()
   }
   let mut changed = false
   let node_count = @ir.hot_node_count(func)
