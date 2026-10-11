@@ -2374,9 +2374,22 @@ test "dead-code-elimination voidifies dead result blocks ending in tail calls" {
     Ok(mod_) => mod_
     Err(err) => fail("expected terminal tail-call block success, got \{err}")
   }
-  let pretty = @printer.print_module(optimized)
-  assert_false(pretty.contains("(block $exit (result i32)"), msg=pretty)
-  assert_true(pretty.contains("return_call"), msg=pretty)
+  let @lib.Func(_, @lib.Expr(body)) = optimized.code_sec.unwrap().0[1]
+  assert_false(
+    dead_code_elimination_test_instrs_any(body, fn(instr) {
+      match instr {
+        @lib.Block(block_type, _) => block_type != @lib.BlockType::void_()
+        _ => false
+      }
+    }),
+    msg="DCE retained a typed result block",
+  )
+  assert_true(
+    dead_code_elimination_test_instrs_any(body, fn(instr) {
+      instr is @lib.ReturnCall(_)
+    }),
+    msg="DCE removed the terminal tail call",
+  )
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) => fail("expected valid terminal tail-call block, got \{err}")
