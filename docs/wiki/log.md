@@ -8,6 +8,9 @@
 - The npm consumer harness derives package paths/imports from the packed manifest
   and executes the shipped README JS/TS, CLI and npm workflow examples.
   Existing six-pass runtime/resource caveats remain unchanged.
+- The first 0.2.0 Required CI release-artifact check exposed a stale generated
+  component dependency. Regeneration updates only its module dependency; the
+  stable WIT/API version remains 0.1.1. The failed checkpoint stays recorded.
 
 ### 2026-10-10 — Bound immutable record-copy outlining and isolate npm consumers
 

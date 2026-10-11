@@ -75,8 +75,9 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   do not establish causal memory or speed improvements. Preserve the original
   immutable inputs separately from freshly compiled package artifacts.
 - [ ] Complete authorized registry publication and verify clean installs of 0.2.0.
-  Current npm session jtenner has no writable starshine permission (old owner
-  fpsjosh01); exact-name publication requires the owner account or a qualified-tarball handoff. Moon archive/external
+  Current npm session fpsjosh01 has verified read-write access to starshine;
+  both fpsjosh01 and jtenner are listed owners. Exact-head CI and registry
+  serving verification remain required before closing publication. Moon archive/external
   consumer qualification passed; registry serving has not yet been verified.
   The owner-authorized [conservative licensing treatment](docs/wiki/tooling/license-provenance.md)
   retains full Binaryen terms and conditional source/change notices without
