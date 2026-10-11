@@ -21,15 +21,15 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 - Mooncakes `0.2.1` is published and its registry archive matches the qualified
   bytes. Registry-only tutorial/API consumers pass. The root module overview
   renders the archived MoonBit tutorial, including at the unversioned latest URL.
-  GitHub default master still has the `0.2.0` guide until protected advancement.
-- [ ] Complete the owner-authorized Mooncakes `0.2.2` MoonBit tutorial revision.
-  Use the bundled `moonrun` for WasmGC, document `moon update`, and give a visible
-  header success check. Run actual archived MoonBit examples with Node absent
-  from the MoonGC process PATH, native file I/O and checked errors; independently
-  execute the encoded answer. Obtain candidate review before publication, then
-  verify literal registry installation and the rendered default/latest overview.
-  Synchronized npm `0.2.2` metadata is only a private build candidate; published
-  npm remains `0.2.0`. No npm publication is authorized by this correction.
+  Its runtime/dependency guidance is superseded by the published `0.2.2` tutorial.
+- Mooncakes `0.2.2` is published and its default/latest overview renders the
+  complete reviewed MoonBit tutorial. The registry ZIP exactly matches the
+  qualified archive; literal registry tutorial/API consumers pass on WasmGC and
+  native targets, including Node-free MoonGC, file/error checks and answer 42.
+  All three eligible exact-head protected checks and package CI pass. Normal
+  master advancement to `0f9460d32` completed without bypass or force; ordinary
+  master workflow repeats are separate from preparation qualification.
+  npm remains `0.2.0`; synchronized npm `0.2.2` is an unpublished candidate.
 - The automatic FFI-backed declarations, six-pass self-build and packed runtime
   boundary remain qualified as described in [the handoff](docs/npm-beta-handoff.md).
   Unsupported ABI mappings fail generation; root/subpaths share async ESM
