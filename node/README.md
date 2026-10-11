@@ -1,6 +1,8 @@
 # Starshine Node Package
 
-`starshine` is an ESM package with a real WasmGC API and a bundled WASI CLI. The product version is `0.2.0`. This Wasm toolkit replaces the unrelated `starshine@0.1.0` CommonJS object/factory API; old consumers can pin that historical version.
+`starshine` is an ESM package with a real WasmGC API and a bundled WASI CLI. The published npm version is `0.2.0`. This Wasm toolkit replaces the unrelated `starshine@0.1.0` CommonJS object/factory API; old consumers can pin that historical version.
+
+The source metadata uses `0.2.1` for the Mooncakes README correction and the synchronized npm build candidate. npm `0.2.1` is unpublished. The install procedure below uses the published npm release.
 
 ## Start here
 

@@ -44,8 +44,8 @@ Use this page when preparing a Starshine release, reviewing a release-prep branc
 
 A Starshine release is not just “run tests and publish npm.” The current repo has several distinct surfaces:
 
-1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at release version `0.2.0`.
-2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), currently `starshine` at release version `0.2.0`.
+1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at corrective version `0.2.1`.
+2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), synchronized at candidate version `0.2.1`; published npm remains `0.2.0`.
 3. **Checked-in public API snapshots** through `src/*/pkg.generated.mbti`, especially for packages exposed through the Node boundary.
 4. **The runnable CLI and Node package artifacts**, including `node/internal/starshine.wasm-wasi.wasm`, the required wasm-gc adapter package artifact, JS/TS wrappers, and `node/package.json#exports`.
 5. **Durable release evidence** in wiki pages, [`docs/wiki/log.md`](../log.md), raw/research notes, release notes, validation artifacts, and git history.
@@ -65,7 +65,11 @@ including replacement of the historical npm default install. The old npm
 the new ESM Wasm toolkit is an incompatible product/API replacement. Publication
 uses `latest` only after authenticated access to the exact name is verified.
 No credentials, registry permissions, or historical versions are modified by
-release preparation. No registry publication is claimed by this source change.
+release preparation. Both registries served the qualified `0.2.0` bytes on
+October 11. The npm default install, all nine exports, strict TypeScript and CLI
+consumers passed. All six master workflows at `27a6ec81e` passed; protected source
+advancement used eligible exact-head checks. Earlier failures and bypass warnings
+remain historical evidence.
 
 Release notes: this release provides a real WasmGC-backed Node API with
 deterministic TypeScript declarations from the FFI schema, asynchronous ESM
@@ -84,7 +88,9 @@ claim universal speed, memory, download-size or Binaryen parity wins.
 
 Mooncakes uses `.moonignore` to include the source tree, native spec fixtures and
 all source/legal notices. It excludes the separate npm/FFI/components, build outputs,
-repository tooling and reports. `README.mooncakes.md` uses repository-absolute links.
+repository tooling and reports. The original `0.2.0` archive included only the
+custom `README.mooncakes.md`. Mooncakes did not render it. Its renderer uses root
+`README.md`; module metadata alone does not select that custom file.
 Run `python3 scripts/test/moon-package-contract.test.py`, then
 `python3 scripts/test/moon-packed-consumer.py` after `moon update`. The latter
 builds the archive, compares every member to current source, checks legal completeness,
@@ -93,6 +99,34 @@ parse/validate/optimize/encode/decode/error fixture is independently executed by
 Node to confirm the optimized export returns 42. After publishing, the same
 script's `--registry` mode installs the exact version from Mooncakes without a
 local dependency override. CI runs the source archive gate alongside npm consumers.
+
+### Mooncakes README correction 0.2.1
+
+The owner authorized a beginner tutorial and a patch release if immutable `0.2.0`
+cannot be corrected. The normal documented publisher route requires a new
+version; no supported publisher-side README override was found. Preserve `0.2.0`.
+Include root `README.md` in `.moonignore` and name it in `moon.mod`.
+See the official [README convention](https://docs.moonbitlang.com/en/latest/toolchain/moon/package-manage-tour.html#readme-metadata).
+
+The tutorial defines terms, uses short active sentences and gives one action per
+procedure step. It follows ASD-STE100 controlled-language principles; formal
+standard compliance is not independently certified. It supplies a complete
+parse/validate/optimize/encode program, alias imports, WasmGC and native commands,
+native file input/output and checked errors. Failed file writes can leave partial
+output. The API reference remains in `README.mbt.md`.
+
+Run `python3 scripts/test/moon-readme-consumer.py` after the source archive check.
+It extracts the actual archived tutorial, rejects unqualified code/command drift,
+runs text examples on both targets, executes the encoded answer independently,
+and checks file errors and the published npm `0.2.0` CLI. Its prepublication
+workspace uses only the extracted archive. After publication, `--registry` runs
+the literal `moon new` / `moon add` procedure without a local override. Verify
+the registry ZIP hash and the rendered public README before declaring completion.
+
+Product-version checks still require synchronized Moon/npm candidate metadata.
+This patch prepares an npm `0.2.1` candidate but authorizes only the Mooncakes
+publication. Do not publish npm `0.2.1`; the working npm default remains `0.2.0`.
+The portable component interface retains its independent `0.1.1` version.
 
 Use `npm pack` through the documented Node build/consumer route, publish the
 qualified tarball path with the explicitly authorized tag, then verify registry
@@ -145,7 +179,7 @@ Update:
 - [`moon.mod`](../../../moon.mod) `version`;
 - [`node/package.json`](../../../node/package.json) `version`.
 
-Then run `bun scripts/lib/generate-product-version.mjs` to derive `src/cmd/version.generated.mbt` from the synchronized metadata. `bun scripts/lib/generate-product-version.mjs --check`, `bun ffi check` and required CI fail on mismatch or generated version drift. The candidate CLI/API must report `v0.2.0`, matching the packed npm version. Source adapter tests compare help/version formatting with the generated identity; independent metadata drift and packed-runtime checks verify the release number. FFI generation synchronizes its root dependency while preserving the private adapter module's own version. Run `bun component generate` after the product bump to synchronize the checked-in component module dependency; Required CI rejects regeneration drift. The stable portable component interface remains `0.1.1`: its WIT and metadata API versions agree independently of npm product metadata, and component generation derives the root dependency version. An npm version bump alone must not rename WIT exports. Run `moon info` so generated interfaces are current. Review any `src/*/pkg.generated.mbti` diffs as public API evidence, not formatting noise. Use [`moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md) for the package topology and `.mbti` review rules.
+Then run `bun scripts/lib/generate-product-version.mjs` to derive `src/cmd/version.generated.mbt` from the synchronized metadata. `bun scripts/lib/generate-product-version.mjs --check`, `bun ffi check` and required CI fail on mismatch or generated version drift. The candidate CLI/API must report the generated product version, matching the packed npm candidate. Source adapter tests compare help/version formatting with the generated identity; independent metadata drift and packed-runtime checks verify the release number. FFI generation synchronizes its root dependency while preserving the private adapter module's own version. Run `bun component generate` after the product bump to synchronize the checked-in component module dependency; Required CI rejects regeneration drift. The stable portable component interface remains `0.1.1`: its WIT and metadata API versions agree independently of npm product metadata, and component generation derives the root dependency version. An npm version bump alone must not rename WIT exports. Run `moon info` so generated interfaces are current. Review any `src/*/pkg.generated.mbti` diffs as public API evidence, not formatting noise. Use [`moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md) for the package topology and `.mbti` review rules.
 
 If the release includes a prebuilt self-optimized CLI artifact, add `bun validate self-opt-smoke [--wasm <artifact>]` before the rest of the release signoff and require `bun validate self-opt-full [--wasm <artifact>]` before publication. Those gates validate an already-built artifact; they are intentionally separate from the ordinary repo validation ladder.
 

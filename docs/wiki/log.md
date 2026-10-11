@@ -1,3 +1,18 @@
+### 2026-10-11 — Correct Mooncakes landing README in 0.2.1
+
+- The published 0.2.0 registries serve qualified bytes; all six master workflows
+  passed. The owner explicitly confirmed source use and retention of upstream terms.
+- Mooncakes rendered no README because the source archive excluded root README.md.
+  The custom metadata filename did not select a landing page. The regression
+  rejects the preserved 0.2.0 archive before the `.moonignore`/metadata correction.
+- The owner authorized a beginner tutorial and the 0.2.1 Mooncakes fallback.
+  [Release process](tooling/release-process.md) records the correction, controlled-
+  language principles, archived-example execution and registry/rendered-page checks.
+  npm metadata is synchronized as an unpublished candidate; npm remains 0.2.0.
+- The guide covers dependency setup, aliases, checked parse/validate/optimize/encode,
+  WasmGC/native execution, native file I/O, error limits and the public npm CLI.
+  The full API reference remains in README.mbt.md. No optimizer API change.
+
 ### 2026-10-11 — Prepare synchronized registry release 0.2.0
 
 - The owner authorized 0.2.0 for npm and Mooncakes, replacing the historical

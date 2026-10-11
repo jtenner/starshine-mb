@@ -1,12 +1,12 @@
 name = "jtenner/starshine"
 
-version = "0.2.0"
+version = "0.2.1"
 
 import {
   "moonbitlang/x@0.5.1",
 }
 
-readme = "README.mooncakes.md"
+readme = "README.md"
 
 repository = "https://github.com/jtenner/starshine-mb"
 

@@ -55,10 +55,13 @@ with tempfile.TemporaryDirectory(prefix="starshine-moon-consumer-", dir=ROOT.par
             for file in files:
                 p = pathlib.PurePosixPath(file)
                 assert not p.is_absolute() and ".." not in p.parts, file
-                assert file in ["moon.mod", "README.mooncakes.md", "LICENSE", "NOTICE"] or file.startswith(("src/", "licenses/", "tests/spec/")), f"unexpected archive member: {file}"
+                assert file in ["moon.mod", "README.md", "README.mooncakes.md", "LICENSE", "NOTICE"] or file.startswith(("src/", "licenses/", "tests/spec/")), f"unexpected archive member: {file}"
                 assert z.read(file) == (ROOT / file).read_bytes(), f"packed source drift: {file}"
             for required in ["moon.mod", "README.mooncakes.md", *LEGAL]:
                 assert required in files, f"missing distribution/legal file: {required}"
+            # Mooncakes renders root README.md, even when metadata names another
+            # README. A valid library archive must also have its landing guide.
+            assert "README.md" in files, "missing Mooncakes README: README.md"
             for tree in ["src", "tests/spec"]:
                 for source in (ROOT / tree).rglob("*"):
                     if source.is_file() and not any(p.startswith(".") for p in source.relative_to(ROOT).parts):
@@ -68,6 +71,7 @@ with tempfile.TemporaryDirectory(prefix="starshine-moon-consumer-", dir=ROOT.par
             assert f'version = "{VERSION}"' in metadata
             assert 'repository = "https://github.com/jtenner/starshine-mb"' in metadata
             assert 'license = "Apache-2.0"' in metadata
+            assert 'readme = "README.md"' in metadata, "Mooncakes README metadata must name README.md"
             dependency = base / "distribution"
             z.extractall(dependency)
         (base / "moon.work").write_text('members = ["consumer", "distribution"]\n')

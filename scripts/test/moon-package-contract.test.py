@@ -32,6 +32,14 @@ class ArchiveContract(unittest.TestCase):
     def test_modified_notice_is_rejected(self):
         self.reject([("NOTICE", b"truncated")], "packed source drift: NOTICE")
 
+    def test_archive_without_mooncakes_landing_readme_is_rejected(self):
+        files = ["moon.mod", "README.mooncakes.md", "LICENSE", "NOTICE",
+                 "licenses/Apache-2.0.txt", "licenses/Binaryen-LICENSE.txt",
+                 "licenses/moonbit-core-NOTICE.txt", "src/passes/LICENSE",
+                 "src/passes/NOTICE", "tests/spec/LICENSE"]
+        self.reject([(name, (ROOT / name).read_bytes()) for name in files],
+                    "missing Mooncakes README: README.md")
+
     def test_path_traversal_is_rejected(self):
         self.reject([("../LICENSE", b"bad")], "../LICENSE")
 

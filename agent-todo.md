@@ -10,85 +10,40 @@ oracle versions and checkpoints do not sign current source.
 Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
-## npm WasmGC beta preparation [NPM-WASMGC-BETA]
+## Package follow-ups [NPM-WASMGC-BETA]
 
-- The tested build/pack/install route and generated ABI/types are recorded in
-  [the handoff](docs/npm-beta-handoff.md). Work from verified `origin/master`;
-  preserve other checkouts, held optimizer refs and historical packages.
-  Source and registry publication are authorized for 0.2.0 on Mooncakes and
-  exact npm starshine, including latest/default replacement. npm access to the
-  exact name must be verified; tags/releases, deployment and credential changes
-  remain outside scope.
-- Published licensing/dependency checkpoint
-  `1cbf1ae55c62ab1e96553e5fb359a9a6eda845f3` passes all six exact-head workflows
-  and all three required Actions contexts. CI/local 52-file archive is byte-
-  identical; isolated Node25/26 JS/strict-TS consumers pass. Coverage is
-  28,020 / 225 against unchanged 28,138 / 196. The preceding npm dependency
-  failure and Required cancellation remain recorded. Normal fast-forwards
-  reported missing-check administrative bypass warnings; retain that audit
-  even after successful CI. No protection/credential change.
-- The reviewed unread-tee chain through `311e1d58` is published in that checkpoint
-  with both RED/GREEN histories. Whole-function read proof and bounded compressed
-  declarations preserve producer/stack values, opaque legacy Try and live reads;
-  lazy COW preserves unchanged source regions. The distinct targeted profile
-  addresses the saved aggregate's zero-tee coverage limit.
-- Targeted native/v133 signoff journals 10,000 unique actual-tee cases across
-  13 families, all three-way runtime matches and no semantic, validity,
-  generator or command failures/runtime blocks.
-  Normal exit 1 retains 2,253 canonical matches / 7,747 structural differences.
-  Canonical total improves 31,206 bytes, raw total grows 25,882 bytes; only the
-  786 multivalue cases win both. Raw serialization losses remain parity gaps.
-  Default Node25/26 each execute 5,096 independently asserted calls over 104
-  cases / seven variants. Most full-run execution payloads are cleaned; complete
-  outcomes remain in the journal and 20 raw reports were independently audited.
-  See [Vacuum evidence](docs/wiki/binaryen/passes/vacuum/fuzzing.md).
-- The frozen five-pass licensing archive is qualified separately from ongoing
-  GC record-copy outlining and integrated selective numeric 4/1 scheduling.
-  Subsequent source must regenerate authoritative FFI/TS, rebuild and self-
-  optimize both artifacts, check exact packed consumers, renew native runtime/
-  full tests and unchanged-baseline coverage. Keep every failed attempt and
-  structural/oracle limit; child signoff does not substitute for integration.
-- Actual six-pass source self-build and exact 52-file Node 25/26 JS/strict TypeScript 5.8.3
-  and 5.9.3 consumers pass; source API 45/45 each. Gzip grows 7,294 bytes despite
-  unpacked reduction 1,361,818 bytes. Integrated full GC 14,104/14,104 with all fourteen CI fuzz suites, plain default
-  14,107/14,107 and release controls 16/16 pass; no broader MSF/P1 closeout follows.
-- Ordinary MSF 10k passes normalized and semantic comparison; total canonical
-  bytes match, while raw Starshine bytes remain 28,329 larger. The triggering
-  record-copy 10k has 10,000 semantic matches and smaller outputs; retain its
-  structural comparison exit 1 and exact-manifest replay requirement.
-- Coverage passes normally: 28,075 uncovered lines / 227 files against unchanged
-  28,138 / 196 (−63 lines / +31 files); no baseline or exclusions were changed.
-- [ ] Finish exact-head remote CI for the reviewed record-copy source and selective
-  preset, then complete the guarded normal source fast-forward. Required CI now
-  runs on preparation-branch pushes to provide eligible protected checks. The new
-  owner must retain nullable
-  traps, fresh allocations, old aliases/fields, host effects, original public
-  identities, bounded preflight and complete-size/full-validation rollback.
-  Run its actual-triggering 10k profile separately from the unchanged ordinary
-  MSF aggregate; retain the corrected streamed-seed diversity proof.
-  Keep the broader MSF audit open. Normal source publication is authorized;
-  no force push or protection change follows. The later registry authorization
-  supersedes the earlier npm preparation-only boundary.
-- P1 remains open under the user's developer-build memory tradeoff. Grouping's
-  failed 16 KiB raw-growth target and adverse resource sample remain historical
-  evidence. Later raw-size changes involve changing compiler type order and
-  do not establish causal memory or speed improvements. Preserve the original
-  immutable inputs separately from freshly compiled package artifacts.
-- [ ] Complete authorized registry publication and verify clean installs of 0.2.0.
-  Current npm session fpsjosh01 has verified read-write access to starshine;
-  both fpsjosh01 and jtenner are listed owners. Exact-head CI and registry
-  serving verification remain required before closing publication. Moon archive/external
-  consumer qualification passed; registry serving has not yet been verified.
-  The owner-authorized [conservative licensing treatment](docs/wiki/tooling/license-provenance.md)
-  retains full Binaryen terms and conditional source/change notices without
-  pretending unknown provenance is resolved. Josh-owned originals are scoped
-  MIT; embedded Core/x and upstream portions retain their terms. Five legal
-  assets are packaged; the module stays declared Apache-2.0. Further authorship
-  evidence is needed before changing that treatment or claiming MIT-only passes.
-- Unsupported ABI identities/reasons stay guarded; supported signatures derive
-  solely from FFI exports. Preserve nominal ownership and runtime requirements.
-  Keep the separate no-benefit baseline allocation route out. Coordinate held
-  follow-ups through the parent; do not revive unrelated DAE2/O campaigns.
+- npm `starshine@0.2.0` and Mooncakes `jtenner/starshine@0.2.0` are published.
+  Registry archives match the qualified bytes. The default npm install, nine
+  exports, Node25/26 strict TypeScript/API/CLI consumers and Mooncakes source
+  consumers passed. All six master workflows at `27a6ec81e` passed. Coverage
+  is 28,075 / 227 against unchanged 28,138 / 196. Earlier failures and bypass
+  warnings stay in [release evidence](docs/wiki/tooling/release-process.md).
+- [ ] Complete the owner-authorized Mooncakes `0.2.1` README correction.
+  The immutable `0.2.0` archive omitted root README.md; Mooncakes does not render
+  the custom metadata filename. Include a beginner MoonBit tutorial using
+  controlled-language principles, test every archived example and error path,
+  publish the exact qualified patch, then check registry install and rendered
+  public README. Synchronized npm `0.2.1` metadata is only a private build
+  candidate; npm publication is not authorized by this correction.
+- The automatic FFI-backed declarations, six-pass self-build and packed runtime
+  boundary remain qualified as described in [the handoff](docs/npm-beta-handoff.md).
+  Unsupported ABI mappings fail generation; root/subpaths share async ESM
+  initialization and GC-managed ownership. Ordinary consumers need no build tools.
+- Preserve [upstream terms](docs/wiki/tooling/license-provenance.md). The author
+  confirmed source use. Josh-owned original portions are scoped MIT; upstream
+  Binaryen/Core/x rights and change notices remain. Exact per-file derivation is
+  incomplete; do not claim clean-room or MIT-only compiled bundles.
+- P1 memory, broader MSF audit and raw serialization/parity gaps stay open.
+  Ordinary MSF 10k normalized/semantic comparison passes but raw bytes grow
+  28,329. Record-copy 10k has smaller outputs and semantic matches but retained
+  structural comparison exit 1; tiny-copy runtime costs are accepted locally.
+  Current six-pass gzip grows 7,294 bytes despite unpacked reduction.
+- Targeted unread-tee 10k has all runtime matches and no invalid outputs, but
+  7,747 structural differences and raw total growth 25,882 remain open parity
+  gaps. Preserve saved aggregate's zero-tee coverage limit and targeted profile
+  evidence in [Vacuum signoff](docs/wiki/binaryen/passes/vacuum/fuzzing.md).
+- No tags/releases, deployment, credential or protection changes are authorized.
+  Preserve other worktrees and held optimizer refs. Do not revive DAE2/O work.
 
 ### P1 BLOCKER — reduce GC canonicalization and wrapper peak memory [NPM-GC-MEMORY-P1]
 
