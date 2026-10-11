@@ -132,6 +132,34 @@ test "rse replaces same-value local.set shell with drop" {
 }
 
 ///|
+test "rse HOT state models numeric local defaults" {
+  let func = rse_test_run_hot(
+    (
+      #|(module
+      #|  (func (local i32 i64 f32 f64)
+      #|    i32.const 0 local.set 0
+      #|    i64.const 0 local.set 1
+      #|    f32.const 0 local.set 2
+      #|    f64.const 0 local.set 3))
+      #|
+    ),
+  )
+  @debug.assert_eq(@ir.hot_root_count(func), 4)
+  for root = 0; root < 4; root = root + 1 {
+    rse_expect_op(func, @ir.hot_root_get(func, root), "drop")
+  }
+}
+
+///|
+test "rse HOT state models nullable reference local defaults" {
+  let func = rse_test_run_hot(
+    "(module (func (local externref) ref.null extern local.set 0))",
+  )
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  rse_expect_op(func, @ir.hot_root_get(func, 0), "drop")
+}
+
+///|
 test "rse replaces same-value local.tee shell with its value" {
   let func = rse_test_run_hot(
     "(module (func (local i32) i32.const 1 local.set 0 i32.const 1 local.tee 0 drop))",

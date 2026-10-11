@@ -83,7 +83,18 @@ fn RseState::new(func : @ir.HotFunc) -> RseState {
   for local_id = 0
       local_id < state.local_values.length()
       local_id = local_id + 1 {
-    state.local_values[local_id] = rse_intern_value(state, "local:\{local_id}")
+    state.local_values[local_id] = if local_id < @ir.hot_param_count(func) {
+      rse_intern_value(state, "local:\{local_id}")
+    } else {
+      match @ir.hot_local_type(func, local_id) {
+        Some(local_type) =>
+          match rse_hot_default_key_for_type(func, local_type) {
+            Some(key) => rse_intern_value(state, key)
+            None => rse_intern_value(state, "local:\{local_id}")
+          }
+        None => rse_intern_value(state, "local:\{local_id}")
+      }
+    }
   }
   state
 }
@@ -261,14 +272,64 @@ fn rse_f64_key(value : @lib.F64) -> String {
 }
 
 ///|
-fn rse_node_const_key(func : @ir.HotFunc, node : @ir.HotNode) -> String {
-  let payload = @ir.hot_const_get(func, node.imm0)
-  let key = match payload {
+fn rse_const_payload_key(payload : @ir.HotConstPayload) -> String {
+  match payload {
     @ir.HotConstPayload::F32Const(value) => rse_f32_key(value)
     @ir.HotConstPayload::F64Const(value) => rse_f64_key(value)
     _ => @debug.to_string(payload)
   }
+}
+
+///|
+fn rse_node_const_key(func : @ir.HotFunc, node : @ir.HotNode) -> String {
+  let key = rse_const_payload_key(@ir.hot_const_get(func, node.imm0))
   "const:\{node.ty}:\{key}"
+}
+
+///|
+fn rse_default_ref_null_type(ref_type : @lib.RefType) -> @lib.RefType {
+  match ref_type.get_heap_type() {
+    @lib.AbsHeapTypeHeapType(@lib.ExternAbsHeapType) =>
+      rse_raw_ref_null_result_type(
+        @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+      )
+    @lib.AbsHeapTypeHeapType(@lib.FuncAbsHeapType) =>
+      rse_raw_ref_null_result_type(@lib.HeapType::abs(@lib.AbsHeapType::func()))
+    _ => ref_type.make_nullable()
+  }
+}
+
+///|
+fn rse_hot_default_key_for_type(
+  func : @ir.HotFunc,
+  ty : @lib.ValType,
+) -> String? {
+  let type_id = @ir.hot_type_intern_value(func, ty)
+  match ty {
+    @lib.NumTypeValType(@lib.I32NumType) =>
+      Some(
+        "const:\{type_id}:\{rse_const_payload_key(@ir.HotConstPayload::i32_const(@lib.I32::new(0)))}",
+      )
+    @lib.NumTypeValType(@lib.I64NumType) =>
+      Some(
+        "const:\{type_id}:\{rse_const_payload_key(@ir.HotConstPayload::i64_const(@lib.I64::new(0L)))}",
+      )
+    @lib.NumTypeValType(@lib.F32NumType) =>
+      Some(
+        "const:\{type_id}:\{rse_const_payload_key(@ir.HotConstPayload::f32_const(@lib.F32::new(0.0)))}",
+      )
+    @lib.NumTypeValType(@lib.F64NumType) =>
+      Some(
+        "const:\{type_id}:\{rse_const_payload_key(@ir.HotConstPayload::f64_const(@lib.F64::new(0.0)))}",
+      )
+    @lib.RefTypeValType(ref_type) if ref_type.is_nullable() => {
+      let default_ref = rse_default_ref_null_type(ref_type)
+      Some(
+        "ref.null:\{type_id}:\{@debug.to_string(@ir.HotConstPayload::ref_null_const(default_ref))}",
+      )
+    }
+    _ => None
+  }
 }
 
 ///|
@@ -294,7 +355,8 @@ fn rse_structural_value(
   let node = @ir.hot_node_get(func, node_id)
   let key = match node.op {
     @ir.HotOp::Const => rse_node_const_key(func, node)
-    @ir.HotOp::RefNull => "ref.null:\{node.ty}:\{node.imm0}"
+    @ir.HotOp::RefNull =>
+      "ref.null:\{node.ty}:\{@debug.to_string(@ir.hot_const_get(func, node.imm0))}"
     @ir.HotOp::RefFunc => "ref.func:\{node.ty}:\{node.imm0}"
     _ => return None
   }
@@ -894,15 +956,7 @@ fn rse_raw_ref_null_result_type(heap_type : @lib.HeapType) -> @lib.RefType {
 
 ///|
 fn rse_raw_default_ref_null_type(ref_type : @lib.RefType) -> @lib.RefType {
-  match ref_type.get_heap_type() {
-    @lib.AbsHeapTypeHeapType(@lib.ExternAbsHeapType) =>
-      rse_raw_ref_null_result_type(
-        @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
-      )
-    @lib.AbsHeapTypeHeapType(@lib.FuncAbsHeapType) =>
-      rse_raw_ref_null_result_type(@lib.HeapType::abs(@lib.AbsHeapType::func()))
-    _ => ref_type.make_nullable()
-  }
+  rse_default_ref_null_type(ref_type)
 }
 
 ///|
