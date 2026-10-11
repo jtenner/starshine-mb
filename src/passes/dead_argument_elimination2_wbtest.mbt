@@ -25,6 +25,104 @@ fn dae2_test_run(source : String, pass : String) -> @lib.Module raise {
 }
 
 ///|
+fn dae2_test_execute_typed_if_order(mod_ : @lib.Module) -> Int raise {
+  let functions = mod_.code_sec.unwrap().0
+  let globals = [0, 0]
+  fn execute_function(index : Int, args : Array[Int]) -> Array[Int] raise {
+    let @lib.FuncType(params, results) = dae2_test_signature(mod_, index)
+    assert_eq(args.length(), params.length())
+    let @lib.Func(body_locals, @lib.Expr(body)) = functions[index]
+    let locals = args.copy()
+    for _ in body_locals {
+      locals.push(0)
+    }
+    let stack : Array[Int] = []
+    fn execute(instructions : Array[@lib.Instruction]) -> Unit raise {
+      for instruction in instructions {
+        match instruction {
+          @lib.Nop => ()
+          @lib.I32Const(@lib.I32(value)) => stack.push(value)
+          @lib.LocalGet(@lib.LocalIdx(local_index)) =>
+            stack.push(locals[local_index.to_int()])
+          @lib.LocalSet(@lib.LocalIdx(local_index)) =>
+            locals[local_index.to_int()] = stack.pop().unwrap()
+          @lib.GlobalGet(@lib.GlobalIdx(global)) =>
+            stack.push(globals[global.to_int()])
+          @lib.GlobalSet(@lib.GlobalIdx(global)) =>
+            globals[global.to_int()] = stack.pop().unwrap()
+          @lib.I32Add => {
+            let rhs = stack.pop().unwrap()
+            let lhs = stack.pop().unwrap()
+            stack.push(lhs + rhs)
+          }
+          @lib.I32Mul => {
+            let rhs = stack.pop().unwrap()
+            let lhs = stack.pop().unwrap()
+            stack.push(lhs * rhs)
+          }
+          @lib.Drop => ignore(stack.pop().unwrap())
+          @lib.Call(@lib.FuncIdx(callee)) => {
+            let callee_index = callee.to_int()
+            let @lib.FuncType(callee_params, _) = dae2_test_signature(
+              mod_, callee_index,
+            )
+            let call_args = Array::make(callee_params.length(), 0)
+            for arg = call_args.length() - 1; arg >= 0; arg = arg - 1 {
+              call_args[arg] = stack.pop().unwrap()
+            }
+            stack.append(execute_function(callee_index, call_args))
+          }
+          @lib.If(_, then_body, else_body) => {
+            let condition = stack.pop().unwrap()
+            execute(if condition != 0 { then_body } else { else_body.or([]) })
+          }
+          @lib.Block(_, @lib.Expr(nested)) => execute(nested)
+          _ => fail("unexpected typed-if order instruction: \{instruction}")
+        }
+      }
+    }
+    execute(body)
+    let values = Array::make(results.length(), 0)
+    for result = values.length() - 1; result >= 0; result = result - 1 {
+      values[result] = stack.pop().unwrap()
+    }
+    assert_true(stack.is_empty())
+    values
+  }
+  execute_function(2, [])[0]
+}
+
+///|
+test "dae2 preserves mixed typed-if entry effects through scratch locals" {
+  let source =
+    #|(module
+    #| (global $order (mut i32) (i32.const 0))
+    #| (global $selected (mut i32) (i32.const 0))
+    #| (func $mark (param i32) (result i32)
+    #|  global.get $order i32.const 10 i32.mul local.get 0 i32.add
+    #|  global.set $order local.get 0)
+    #| (func $helper (result i32)
+    #|  i32.const 1 call $mark
+    #|  i32.const 2 call $mark
+    #|  i32.const 3 call $mark
+    #|  if (param i32 i32) (result i32)
+    #|   drop global.set $selected i32.const 9
+    #|  else
+    #|   drop global.set $selected i32.const 8
+    #|  end)
+    #| (func (export "run") (result i32)
+    #|  call $helper drop
+    #|  global.get $order i32.const 10 i32.mul global.get $selected i32.add))
+  let input = pass_test_module_from_wat(source)
+  @debug.assert_eq(dae2_test_execute_typed_if_order(input), 1231)
+  for pass in ["dae2", "dae2-optimizing"] {
+    let output = dae2_test_run(source, pass)
+    @debug.assert_eq(dae2_test_signature(output, 1), @lib.FuncType::new([], []))
+    @debug.assert_eq(dae2_test_execute_typed_if_order(output), 1231)
+  }
+}
+
+///|
 test "dae2 rewrites a dead parameterized if without corrupting its entry layout" {
   let source =
     #|(module
