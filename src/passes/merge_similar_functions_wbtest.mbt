@@ -9,6 +9,50 @@ test "merge-similar-functions rejects a 256-parameter helper" {
 }
 
 ///|
+test "merge-similar-functions rejects encoded growth at the function-index boundary" {
+  let mut source = "(module\n"
+  for idx = 0; idx < 126; idx = idx + 1 {
+    source += "  (func)\n"
+  }
+  source += (
+    #|  (func (result i32)
+    #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+    #|    i32.const 42)
+    #|  (func (result i32)
+    #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+    #|    i32.const 43))
+    #|
+  )
+  let input = pass_test_module_from_wat(source)
+  let output = merge_similar_functions_run_module_pass(input)
+  let input_bytes = @binary.encode_module(input).unwrap()
+  let output_bytes = @binary.encode_module(output).unwrap()
+  assert_eq(output_bytes, input_bytes)
+}
+
+///|
+test "merge-similar-functions rejects encoded growth at the type-index boundary" {
+  let mut source = "(module\n"
+  for idx = 0; idx < 128; idx = idx + 1 {
+    source += "  (type (func (result i32)))\n"
+  }
+  source += (
+    #|  (func (type 0) (result i32)
+    #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+    #|    i32.const 42)
+    #|  (func (type 0) (result i32)
+    #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+    #|    i32.const 43))
+    #|
+  )
+  let input = pass_test_module_from_wat(source)
+  let output = merge_similar_functions_run_module_pass(input)
+  let input_bytes = @binary.encode_module(input).unwrap()
+  let output_bytes = @binary.encode_module(output).unwrap()
+  assert_eq(output_bytes, input_bytes)
+}
+
+///|
 test "merge-similar-functions fused summaries cache body and call facts" {
   let mod_ = pass_test_module_from_wat(
     (

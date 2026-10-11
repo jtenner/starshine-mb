@@ -1393,7 +1393,28 @@ fn msf_run_similarity_module_pass_with_perf(
   )
   let result = match
     msf_validate_append_only_candidate_detail(mod_, candidate) {
-    Ok(_) => candidate
+    Ok(_) =>
+      match @binary.encoded_module_sizes(mod_, candidate) {
+        Ok((before_size, after_size)) if after_size <= before_size => candidate
+        Ok((before_size, after_size)) => {
+          match perf {
+            Some(session) =>
+              (session.trace)(
+                "msf:size-reject before=\{before_size} after=\{after_size}",
+              )
+            None => ()
+          }
+          mod_
+        }
+        Err(err) => {
+          match perf {
+            Some(session) =>
+              (session.trace)("msf:size-reject encode-error=\{err}")
+            None => ()
+          }
+          mod_
+        }
+      }
     Err(reason) => {
       match perf {
         Some(session) =>
