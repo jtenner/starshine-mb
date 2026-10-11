@@ -1,0 +1,14 @@
+# Source distribution only. These rules replace the root .gitignore.
+/*
+!/moon.mod
+!/README.mooncakes.md
+!/LICENSE
+!/NOTICE
+!/licenses/
+!/licenses/**
+!/src/
+!/src/**
+!/tests/
+/tests/*
+!/tests/spec/
+!/tests/spec/**

@@ -24,3 +24,6 @@ agent-lost-and-found.md
 build/
 examples/modules/*.wasm
 vgcore.*
+
+# Python archive/consumer checks
+__pycache__/

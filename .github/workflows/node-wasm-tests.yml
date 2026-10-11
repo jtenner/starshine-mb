@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - "src/**"
+      - "tests/spec/**"
       - "node/**"
       - "tests/node/**"
       - "src/ffi_bridge/**"
@@ -23,6 +25,8 @@ on:
       - "NOTICE"
       - "licenses/**"
       - "moon.mod"
+      - ".moonignore"
+      - "README.mooncakes.md"
       - "**/moon.pkg"
       - "moon.mod.json"
       - "moon.pkg.json"
@@ -31,6 +35,8 @@ on:
     branches:
       - master
     paths:
+      - "src/**"
+      - "tests/spec/**"
       - "node/**"
       - "tests/node/**"
       - "src/ffi_bridge/**"
@@ -50,6 +56,8 @@ on:
       - "NOTICE"
       - "licenses/**"
       - "moon.mod"
+      - ".moonignore"
+      - "README.mooncakes.md"
       - "**/moon.pkg"
       - "moon.mod.json"
       - "moon.pkg.json"
@@ -100,6 +108,12 @@ jobs:
           npm run check-generated --prefix node
           git diff --exit-code -- ffi node src/ffi_bridge/pkg.generated.mbti
 
+      - name: Check the exact Mooncakes source archive and external consumer
+        run: |
+          mkdir -p dist/mooncakes
+          python3 scripts/test/moon-package-contract.test.py
+          python3 scripts/test/moon-packed-consumer.py > dist/mooncakes/consumer-report.json
+
       - name: Preserve package validation evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -110,3 +124,5 @@ jobs:
             dist/npm/consumer-report.json
             dist/npm/*.tgz
             dist/npm/*.log
+            dist/mooncakes/consumer-report.json
+            _build/publish/*.zip
