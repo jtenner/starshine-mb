@@ -18,13 +18,18 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   consumers passed. All six master workflows at `27a6ec81e` passed. Coverage
   is 28,075 / 227 against unchanged 28,138 / 196. Earlier failures and bypass
   warnings stay in [release evidence](docs/wiki/tooling/release-process.md).
-- [ ] Complete the owner-authorized Mooncakes `0.2.1` README correction.
-  The immutable `0.2.0` archive omitted root README.md; Mooncakes does not render
-  the custom metadata filename. Include a beginner MoonBit tutorial using
-  controlled-language principles, test every archived example and error path,
-  publish the exact qualified patch, then check registry install and rendered
-  public README. Synchronized npm `0.2.1` metadata is only a private build
-  candidate; npm publication is not authorized by this correction.
+- Mooncakes `0.2.1` is published and its registry archive matches the qualified
+  bytes. Registry-only tutorial/API consumers pass. The root module overview
+  renders the archived MoonBit tutorial, including at the unversioned latest URL.
+  GitHub default master still has the `0.2.0` guide until protected advancement.
+- [ ] Complete the owner-authorized Mooncakes `0.2.2` MoonBit tutorial revision.
+  Use the bundled `moonrun` for WasmGC, document `moon update`, and give a visible
+  header success check. Run actual archived MoonBit examples with Node absent
+  from the MoonGC process PATH, native file I/O and checked errors; independently
+  execute the encoded answer. Obtain candidate review before publication, then
+  verify literal registry installation and the rendered default/latest overview.
+  Synchronized npm `0.2.2` metadata is only a private build candidate; published
+  npm remains `0.2.0`. No npm publication is authorized by this correction.
 - The automatic FFI-backed declarations, six-pass self-build and packed runtime
   boundary remain qualified as described in [the handoff](docs/npm-beta-handoff.md).
   Unsupported ABI mappings fail generation; root/subpaths share async ESM

@@ -1,12 +1,12 @@
-# Starshine for MoonBit
+# Starshine MoonBit library tutorial
 
 Starshine is a library for WebAssembly modules.
 A library supplies functions that your program can call.
 A module contains WebAssembly functions, data, and exports.
 An export is a function or value that a host program can use.
 
-Use this guide with `jtenner/starshine@0.2.1`.
-This release adds the Mooncakes README. The library API is unchanged from `0.2.0`.
+Use this guide with `jtenner/starshine@0.2.2`.
+This release supplies a MoonBit library tutorial. The library API is unchanged from `0.2.0`.
 
 ## Terms
 
@@ -27,24 +27,17 @@ Optimization does not always make a module smaller or faster.
 2. Run this command to check the installation:
 
    ```sh
-   moon version
+   moon version --all
    ```
 
-3. Install Node.js 25 or newer for the WasmGC procedure.
-4. Run this command to check Node.js:
-
-   ```sh
-   node --version
-   ```
-
-5. Install a C compiler for the native procedure.
-6. Run this command to check the C compiler:
+3. Install a C compiler for the native procedure.
+4. Run this command to check the C compiler:
 
    ```sh
    cc --version
    ```
 
-7. On Linux, set the stack limit for native debug compilation in this terminal:
+5. On Linux, set the stack limit for native debug compilation in this terminal:
 
    ```sh
    ulimit -s 65536
@@ -54,7 +47,9 @@ This limit applies to the current terminal and its child processes.
 It does not change the system configuration.
 
 The tested Moon version is `0.1.20260920`, with compiler `0.10.14+7d59c7ec9`.
-The examples use Node.js 25.8.1 and the native target on Linux.
+The tested `moonrun` version is `0.1.20260920`.
+The WasmGC procedure uses `moonrun`, which is included in the MoonBit toolchain.
+It does not require Node.js. The native procedure was tested on Linux.
 
 ## Create a program
 
@@ -73,7 +68,7 @@ The examples use Node.js 25.8.1 and the native target on Linux.
 3. Add the library dependency:
 
    ```sh
-   moon add jtenner/starshine@0.2.1
+   moon add jtenner/starshine@0.2.2
    ```
 
 4. Replace `cmd/main/moon.pkg` with this configuration:
@@ -146,29 +141,49 @@ fn main {
     Ok(value) => value
     Err(error) => abort(error)
   }
-  println(bytes.to_array().map(byte => byte.to_int()))
+  let numbers = bytes.to_array().map(byte => byte.to_int())
+  let header = [0, 97, 115, 109, 1, 0, 0, 0]
+  if numbers.length() < header.length() {
+    abort("Wasm output has no header.")
+  }
+  for index = 0; index < header.length(); index = index + 1 {
+    if numbers[index] != header[index] {
+      abort("Wasm output has an invalid header.")
+    }
+  }
+  println(numbers)
+  println("Wasm header is valid.")
 }
 ```
 
-2. Run the WasmGC target:
+2. Resolve the project dependencies:
+
+   ```sh
+   moon update
+   ```
+
+3. Run the WasmGC target:
 
    ```sh
    moon run cmd/main --target wasm-gc
    ```
 
-3. Check that the program prints an array of bytes.
+4. Check that the first eight numbers are `[0, 97, 115, 109, 1, 0, 0, 0]`.
+5. Check that the last line is `Wasm header is valid.`.
+
+These eight numbers are the Wasm file marker and version.
 
 The encoded module exports `answer`. That function returns `42` when a WebAssembly host calls it.
 The MoonBit program prints the bytes. It does not call the exported WebAssembly function.
 
-4. Run the native target:
+6. Run the native target:
 
    ```sh
    moon run cmd/main --target native
    ```
 
 Both targets run the same library calls.
-A WasmGC target uses WebAssembly garbage collection and Node.js.
+The WasmGC target uses WebAssembly garbage collection and `moonrun`.
 A native target compiles machine code for your computer.
 These are the tested targets for this procedure.
 
@@ -217,7 +232,7 @@ The output file contains the encoded module. It is not a text file.
 Your program can also read binary input with `@fs.read_file_bytes`.
 Use `@binary.decode_module` to convert those bytes to a module value.
 Check its result before you validate or optimize the module.
-The [binary API](https://mooncakes.io/docs/jtenner/starshine@0.2.1/binary) lists these functions.
+The [binary API](https://mooncakes.io/docs/jtenner/starshine@0.2.2/binary) lists these functions.
 
 ## Handle errors
 
@@ -237,64 +252,9 @@ A failed write can leave a partial output file. Check the error before you use t
 A valid module can still trap when a host runs its functions.
 Validation checks types and structure. It does not guarantee successful execution for every input.
 
-## Use the command tool
-
-The npm package supplies a command-line interface, or **CLI**.
-A CLI accepts commands in a terminal.
-This procedure uses the existing npm release `starshine@0.2.0`.
-It needs Node.js 25 or newer. It does not need MoonBit or a C compiler.
-
-1. Create a separate directory:
-
-   ```sh
-   mkdir starshine-cli-demo
-   ```
-
-2. Open that directory:
-
-   ```sh
-   cd starshine-cli-demo
-   ```
-
-3. Create an npm project:
-
-   ```sh
-   npm init -y
-   ```
-
-4. Install the command tool:
-
-   ```sh
-   npm install starshine@0.2.0
-   ```
-
-5. Create `input.wat` with the WAT text from the file procedure.
-6. Show the command help:
-
-   ```sh
-   npx --no-install starshine --help
-   ```
-
-7. Check the command version:
-
-   ```sh
-   npx --no-install starshine --version
-   ```
-
-8. Write the optimized module:
-
-   ```sh
-   npx --no-install starshine --precompute --vacuum --validate input.wat --out answer.wasm
-   ```
-
-The version command prints `v0.2.0`.
-The validation flag checks the module at that point in the command sequence.
-The tool returns a nonzero exit status if a command fails.
-Node.js can print an experimental WASI warning. This warning is not a failed command.
-
 ## More information
 
-Use the [package API](https://mooncakes.io/docs/jtenner/starshine@0.2.1) for function signatures.
+Use the [package API](https://mooncakes.io/docs/jtenner/starshine@0.2.2) for function signatures.
 Use the [source API reference](https://github.com/jtenner/starshine-mb/blob/master/README.mbt.md) for the full package map.
 Use the [JavaScript guide](https://www.npmjs.com/package/starshine) for npm library calls.
 Use the [component guide](https://github.com/jtenner/starshine-mb/blob/master/component/README.md) for the separate Component Model interface.

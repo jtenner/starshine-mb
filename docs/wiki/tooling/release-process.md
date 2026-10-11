@@ -44,8 +44,8 @@ Use this page when preparing a Starshine release, reviewing a release-prep branc
 
 A Starshine release is not just “run tests and publish npm.” The current repo has several distinct surfaces:
 
-1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at corrective version `0.2.1`.
-2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), synchronized at candidate version `0.2.1`; published npm remains `0.2.0`.
+1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at tutorial candidate version `0.2.2`.
+2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), synchronized at candidate version `0.2.2`; published npm remains `0.2.0`.
 3. **Checked-in public API snapshots** through `src/*/pkg.generated.mbti`, especially for packages exposed through the Node boundary.
 4. **The runnable CLI and Node package artifacts**, including `node/internal/starshine.wasm-wasi.wasm`, the required wasm-gc adapter package artifact, JS/TS wrappers, and `node/package.json#exports`.
 5. **Durable release evidence** in wiki pages, [`docs/wiki/log.md`](../log.md), raw/research notes, release notes, validation artifacts, and git history.
@@ -115,17 +115,37 @@ parse/validate/optimize/encode program, alias imports, WasmGC and native command
 native file input/output and checked errors. Failed file writes can leave partial
 output. The API reference remains in `README.mbt.md`.
 
-Run `python3 scripts/test/moon-readme-consumer.py` after the source archive check.
-It extracts the actual archived tutorial, rejects unqualified code/command drift,
-runs text examples on both targets, executes the encoded answer independently,
-and checks file errors and the published npm `0.2.0` CLI. Its prepublication
-workspace uses only the extracted archive. After publication, `--registry` runs
-the literal `moon new` / `moon add` procedure without a local override. Verify
-the registry ZIP hash and the rendered public README before declaring completion.
+Mooncakes `0.2.1` is published. Its registry ZIP matches the frozen qualified
+archive, and registry-only tutorial/API consumers pass. The root module overview
+renders the guide at both the exact-version and unversioned latest URLs. The
+historical harness also checked the npm CLI. The source prep branch contains the
+README; GitHub default master still has the `0.2.0` guide pending protected checks.
 
-Product-version checks still require synchronized Moon/npm candidate metadata.
-This patch prepares an npm `0.2.1` candidate but authorizes only the Mooncakes
-publication. Do not publish npm `0.2.1`; the working npm default remains `0.2.0`.
+### MoonBit tutorial revision 0.2.2
+
+The owner explicitly authorized Mooncakes `0.2.2` with MoonBit examples. The root
+README contains complete configuration, helper and main programs, dependency
+setup, selected passes, validation, encoding, native file I/O and checked errors.
+It corrects the runtime prerequisite: `moon run --target wasm-gc` uses bundled
+`moonrun`; Node is not required. It documents `moon update` and the expected
+`Wasm header is valid.` output. Optional npm CLI procedures are removed from
+this MoonBit tutorial. The separate npm guide remains available.
+
+Run `python3 scripts/test/moon-readme-consumer.py ARCHIVE.zip` against the exact
+source archive. It extracts the actual Markdown examples, rejects code/command
+drift, runs the WasmGC program with Node absent from that process PATH, and runs
+native text/file procedures and error cases. An auxiliary independent Node host
+executes the encoded export and asserts 42; that host is a test tool, not a MoonGC
+runtime prerequisite. The prepublication workspace uses only the extracted archive.
+After publication, `--registry` runs the literal `moon new`, `moon add` and
+`moon update` procedure without a local override. Review the exact candidate
+README and archive evidence before publication. Verify registry ZIP integrity and
+the rendered public default/latest module overview before declaring completion.
+No formal ASD-STE100 certification is claimed.
+
+Product-version checks require synchronized Moon/npm candidate metadata.
+This patch prepares an npm `0.2.2` candidate but authorizes only the Mooncakes
+publication. Do not publish npm `0.2.2`; npm latest remains `0.2.0`.
 The portable component interface retains its independent `0.1.1` version.
 
 Use `npm pack` through the documented Node build/consumer route, publish the

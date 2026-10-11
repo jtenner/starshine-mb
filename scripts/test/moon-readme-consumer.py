@@ -12,6 +12,7 @@ import pathlib
 import re
 import resource
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -25,18 +26,18 @@ REGISTRY = sys.argv[1:] == ["--registry"]
 REPORT = {"version": VERSION, "registry": REGISTRY, "commands": []}
 
 
-def run(command, cwd, expect_error=None):
+def run(command, cwd, expect_error=None, env_override=None):
     args = shlex.split(command) if isinstance(command, str) else command
     child = subprocess.Popen(args, cwd=cwd, text=True, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE, start_new_session=True,
-                             env={**os.environ, "RUST_LOG": "error"})
+                             env={**os.environ, "RUST_LOG": "error", **(env_override or {})})
     try:
         out, err = child.communicate(timeout=900)
     except subprocess.TimeoutExpired:
         os.killpg(child.pid, signal.SIGKILL)
         child.communicate(timeout=5)
         raise RuntimeError(f"{args}: 900-second deadline; process group terminated")
-    REPORT["commands"].append({"args": args, "exit": child.returncode})
+    REPORT["commands"].append({"args": args, "exit": child.returncode, **({"envOverride": env_override} if env_override else {})})
     if expect_error is None:
         assert child.returncode == 0, f"{args}: {out[-2000:]}\n{err[-6000:]}"
     else:
@@ -85,22 +86,20 @@ with tempfile.TemporaryDirectory(prefix="starshine-readme-consumer-", dir=ROOT.p
     assert len(re.findall(r'```(?:moon|mbt|wat)\n', readme)) == len(marked), "unqualified code example"
     commands = [block.strip() for block in re.findall(r'```sh\n(.*?)\n\s*```', readme, re.S)]
     # This ordered inventory fails if a new command is added without execution.
-    expected = ["moon version", "node --version", "cc --version", "ulimit -s 65536", "moon new answer-tool", "cd answer-tool",
-                f"moon add jtenner/starshine@{VERSION}", "moon run cmd/main --target wasm-gc",
-                "moon run cmd/main --target native", "moon run cmd/main --target native",
-                "mkdir starshine-cli-demo", "cd starshine-cli-demo", "npm init -y", "npm install starshine@0.2.0",
-                "npx --no-install starshine --help", "npx --no-install starshine --version",
-                "npx --no-install starshine --precompute --vacuum --validate input.wat --out answer.wasm"]
+    expected = ["moon version --all", "cc --version", "ulimit -s 65536", "moon new answer-tool", "cd answer-tool",
+                f"moon add jtenner/starshine@{VERSION}", "moon update", "moon run cmd/main --target wasm-gc",
+                "moon run cmd/main --target native", "moon run cmd/main --target native"]
     assert commands == expected, f"tutorial command inventory changed: {commands}"
-    REPORT["toolchains"] = {command: run(command, base).splitlines()[0] for command in commands[:3]}
+    REPORT["toolchains"] = {command: run(command, base).strip() for command in commands[:2]}
+    REPORT["independentWasmHost"] = run("node --version", base).strip()
     assert resource.getrlimit(resource.RLIMIT_STACK)[0] >= 64 * 1024 * 1024
     REPORT["nativeStackBytes"] = resource.getrlimit(resource.RLIMIT_STACK)[0]
-    commands.pop(3)  # ulimit is a shell builtin; its documented effect is applied above.
-    run(commands[3], base)
+    commands.pop(2)  # ulimit is a shell builtin; its documented effect is applied above.
+    run(commands[2], base)
     consumer = base / "answer-tool"
     assert consumer.is_dir()  # documented cd target
     if REGISTRY:
-        run(commands[5], consumer)
+        run(commands[4], consumer)
     else:
         with (consumer / "moon.mod").open("a") as f:
             f.write(f'\nimport {{ "jtenner/starshine@{VERSION}", }}\n')
@@ -110,9 +109,17 @@ with tempfile.TemporaryDirectory(prefix="starshine-readme-consumer-", dir=ROOT.p
     (main / "moon.pkg").write_text(blocks["package"])
     (main / "optimizer.mbt").write_text(blocks["optimizer"])
     (main / "main.mbt").write_text(blocks["text"])
-    run("moon update", consumer)
+    run(commands[5], consumer)
     for command in commands[6:8]:
-        out = run(command, consumer)
+        if "wasm-gc" in command:
+            # MoonBit's WasmGC runtime must work without Node in PATH.
+            moon_only_path = str(pathlib.Path(shutil.which("moon")).parent)
+            assert shutil.which("node", path=moon_only_path) is None
+            out = run(command, consumer, env_override={"PATH": moon_only_path})
+            REPORT["wasmGcRuntime"] = "bundled moonrun; Node absent from process PATH"
+        else:
+            out = run(command, consumer)
+        assert "Wasm header is valid." in out, "missing beginner success check in actual MoonBit example"
         encoded = bytes(json.loads(out.strip().splitlines()[0]))
         artifact = consumer / "printed.wasm"
         artifact.write_bytes(encoded)
@@ -142,19 +149,5 @@ with tempfile.TemporaryDirectory(prefix="starshine-readme-consumer-", dir=ROOT.p
     REPORT["library"] = {"targets": ["wasm-gc", "native"], "textAndFileAnswer": 42,
                           "errors": ["parse", "validation", "missing-input", "output-is-directory"],
                           "prewriteFailurePreservesExistingOutput": True}
-    run(commands[9], base)
-    cli = base / "starshine-cli-demo"
-    assert cli.is_dir()  # documented cd target
-    run(commands[11], cli)
-    run(commands[12], cli)
-    (cli / "input.wat").write_text(blocks["input"])
-    assert "starshine" in run(commands[13], cli).lower()
-    assert run(commands[14], cli).strip() == "v0.2.0"
-    run(commands[15], cli)
-    assert execute_wasm(cli / "answer.wasm", cli) == "answer=42"
-    good_cli = (cli / "answer.wasm").read_bytes()
-    (cli / "input.wat").write_text("(module (func i32.this_is_invalid))")
-    run(commands[15], cli, "error:")
-    assert (cli / "answer.wasm").read_bytes() == good_cli
-    REPORT["cli"] = {"npmVersion": "0.2.0", "answer": 42, "invalidInputRejected": True}
+    REPORT["tutorial"] = "actual archived MoonBit library examples; no JavaScript or npm CLI example substitution"
     print(json.dumps(REPORT, indent=2))

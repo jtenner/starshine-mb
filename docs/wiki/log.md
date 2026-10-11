@@ -1,3 +1,21 @@
+### 2026-10-11 — Prepare the MoonBit tutorial revision 0.2.2
+
+- Mooncakes 0.2.1 is published, byte-qualified and rendered on its module overview;
+  the owner requested a further MoonBit-focused patch. npm latest remains 0.2.0.
+- [Release process](tooling/release-process.md#moonbit-tutorial-revision-022)
+  records bundled moonrun requirements, explicit moon update, complete copyable
+  MoonBit examples and a visible Wasm header success check. No API changes.
+- A regression against the preserved 0.2.1 archive runs MoonGC with Node absent
+  from its PATH, then fails because the new success output is absent. The revised
+  harness reads actual archive Markdown and retains native file/error checks plus
+  independent execution of the encoded answer. It removes the additional npm CLI
+  section/tests and focuses solely on MoonBit library examples. Publication
+  requires candidate review. The exact 2,157-file archive passes both tutorial
+  targets, native file/error cases and API roundtrips; independent execution
+  returns 42. Generated FFI/product drift, packaging guards and README API sync
+  pass. Registry installation and public 0.2.2 rendering remain post-publication
+  checks.
+
 ### 2026-10-11 — Correct Mooncakes landing README in 0.2.1
 
 - The published 0.2.0 registries serve qualified bytes; all six master workflows
