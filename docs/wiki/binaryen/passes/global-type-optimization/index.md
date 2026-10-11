@@ -64,7 +64,7 @@ The v132 removal fixture confirms the key distinction: reads keep fields, writes
 ## Why this pass matters
 
 - The main no-DWARF / saved-`-O4z` parity queue is now fully dossier-covered, so this campaign needs another eligible pass from the tracker's upstream-only registry table.
-- `global-type-optimization` is already named in the local boundary-only registry, so this is a real Starshine-facing pass name.
+- `global-type-optimization` is an active module-pass name in the local registry. Its current closed-world implementation is partial and remains outside the default open-world presets.
 - The current `global-refining`, `remove-unused-types`, and `global-struct-inference` dossiers already record it as a real closed-world scheduler neighbor.
 - `agent-todo.md` still has **no dedicated `global-type-optimization` slice**, so a stable wiki home matters even more here.
 - The official implementation hides several teaching traps that deserve an explicit dossier:
@@ -133,16 +133,16 @@ What it actually is in `version_132`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly WAT-shape catalog covering immutability positives, unread-field removals, subtype reordering, JS-descriptor keepalive cases, and the main bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  - Current Starshine status and future-port map: boundary-only local registry entry, no `gto` alias, no owner file, active request rejection, preset omission, reusable GC/type/parser/validator/binary surfaces, and the module/type-graph infrastructure a faithful port would need.
+  - Current Starshine status and remaining-port map: active `global-type-optimization` module pass, no `gto` alias, preset omission, implemented descriptor/private-struct slices, reusable GC/type/parser/validator/binary surfaces, and the broader module/type-graph work still needed.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - Future-port bridge for the exact local code map, validation ladder, and Binaryen oracle lanes a real module/type-graph implementation would need.
 - [`./fuzzing.md`](./fuzzing.md)
-  - Planned-only parity-fuzzing status: the boundary-only local spelling and absent harness flag make a 10,000-case command invalid today; the page records the required closed-world private-struct fixture families for future admission.
+  - Active-partial fuzzing status: recorded generated comparisons do not cover descriptor GC and do not close the broader parity gap; focused closed-world private-struct fixtures remain required.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `global-type-optimization` research in this repo.
-- Keep this dossier clearly labeled as an **upstream-only boundary-only** pass for Starshine today.
+- Keep this dossier clearly labeled **active-partial** for Starshine. Do not promote the focused v133 repairs or generated no-failure runs into a full parity claim.
 - Keep the page honest about scheduler scope:
   - it belongs to Binaryen's closed-world GC/type cluster
   - it does **not** belong to the repo's current open-world no-DWARF optimize path

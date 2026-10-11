@@ -18,7 +18,7 @@ related:
 
 # Binaryen strategy for `global-effects` / `generate-global-effects`
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — September 25, 2026:** new comparisons use verified [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## What the pass really is
 
@@ -142,7 +142,7 @@ V131 materially sharpens the SCC/call-graph contract:
 - unaddressed functions no longer pollute indirect-call effect summaries;
 - referenced inexact imported functions contribute conservative effects to every applicable function subtype, because a downcasted reference may target the import.
 
-These are now stable-release requirements, not current-main-only observations. Starshine remains boundary-only, so this is a dossier correction rather than a newly reopened local pass.
+These are now stable-release requirements, not current-main-only observations. Starshine's active resume rewrite does not produce this metadata, so these requirements remain open for the upstream-compatible producer contract.
 
 ## Earlier current-`main` drift
 

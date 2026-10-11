@@ -46,21 +46,22 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 
 ## The honest current status
 
-`global-type-optimization` is still **unimplemented** in Starshine.
-There is no `src/passes/global_type_optimization.mbt`, `src/passes/global-type-optimization.mbt`, or similarly named owner file today.
+`global-type-optimization` is an **active-partial** Starshine module pass in [`global_type_optimization.mbt`](../../../../../src/passes/global_type_optimization.mbt). The registry and dispatcher accept direct requests. The implementation covers focused closed-world private-struct and descriptor-placeholder cases, with validation and metadata guards; it does not establish full Binaryen parity.
 
 The current Starshine strategy is deliberately limited:
 
-- preserve the local pass spelling `global-type-optimization` in the registry as a known boundary-only name
-- reject active requests honestly instead of silently no-oping
+- preserve the local pass spelling `global-type-optimization` as an active module-pass name
+- keep unsupported or unsafe module shapes unchanged through explicit guards
 - keep the upstream `gto` alias and closed-world GC/type-cluster contract visible in the wiki
 - keep the pass absent from the canonical open-world no-DWARF path
-- keep the missing dedicated backlog slice explicit
-- document why a future port is module/type-graph and instruction-repair work, not a HOT peephole
+- keep the remaining parity gap explicit
+- document why continued work is module/type-graph and instruction-repair work, not a HOT peephole
 
-This is a **status-and-port-planning** page, not an implementation page.
+This is a status and remaining-port-planning page. The pass index and focused tests are the implementation evidence.
 
-## Exact local code map today
+## Historical pre-port code map
+
+The map below is retained as historical planning context. Its boundary-only paths and line numbers are superseded by the active owner, registry entry, dispatcher arm, and tests linked above.
 
 The fastest read-along path through the current Starshine status is:
 
@@ -117,7 +118,7 @@ The fastest read-along path through the current Starshine status is:
   - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
     - there is currently no dedicated `global-type-optimization` slice
 
-That map is the durable local status today: the pass is known, intentionally unavailable, boundary-only, not in the open-world path, not assigned to an active implementation slice, and not backed by an owner file.
+That map records the pre-port state only. Current durable status is active-partial, direct-only, and absent from the open-world preset path.
 
 ## Why this is not a HOT peephole
 
@@ -302,9 +303,9 @@ Two local representation gaps also need planning before parity work:
 - WAT `struct.set` parsing/lowering was not found in this run, even though the library, binary, and validator layers have `StructSet`.
 - Binaryen's `gto-removals-rmw.wast` contract uses struct atomic RMW/cmpxchg field operations, while the currently visible Starshine instruction enum exposes ordinary memory atomics but no dedicated struct atomic field operations.
 
-Until a backlog slice decides those architecture questions, keep `global-type-optimization` documented as boundary-only and unimplemented.
+Until the remaining architecture questions are closed, keep `global-type-optimization` documented as active-partial and do not claim full Binaryen parity.
 
 ## Bottom line
 
-Current Starshine has a safe boundary-only `global-type-optimization` registry entry and reusable GC/type/parser/validator/binary infrastructure, but no pass implementation.
+Current Starshine has an active guarded `global-type-optimization` module pass and reusable GC/type/parser/validator/binary infrastructure, but broader upstream behavior remains open.
 A future port must be a closed-world module/type-graph transform with private struct field liveness, mutability and layout rewriting, subtype-layout repair, JS descriptor keepalive, trap-preserving instruction rewrite, module-wide type-use remapping, and final validation.

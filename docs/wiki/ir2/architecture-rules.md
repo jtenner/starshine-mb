@@ -1749,10 +1749,12 @@ Both once analysis and rewriting push an if-label scope and retain local branch 
 
 Once-reduction deep-copies block, loop, if, legacy try, and try-table bodies
 before its in-place dataflow rewrite. Direct pass calls therefore leave their
-input module's nested instruction arrays unchanged, and an O4z caught-try-table
-rollback can safely return the original module. `once_reduction_test.mbt`
-checks encoded input bytes around a nested rewrite; `optimize_test.mbt` checks
-the same invariant through the active transactional dispatcher.
+input module's nested instruction arrays unchanged. O4z no longer runs the
+preset queue for a module that already contains a caught `try_table`; it applies
+the compiler-fact preparation policy and skips preset-origin entries before
+execution. `once_reduction_test.mbt` checks encoded input bytes around a nested
+rewrite, while `optimize_test.mbt` checks the preset-skip boundary and explicit
+pass ordering.
 
 ### Once wrapper eligibility
 

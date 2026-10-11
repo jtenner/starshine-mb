@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-11
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -31,34 +31,33 @@ related:
 
 # Starshine port-readiness and validation for `global-type-optimization`
 
+> **Current status — October 11, 2026:** Starshine now has an active-partial module pass in `src/passes/global_type_optimization.mbt`, with direct registry and dispatcher support plus focused v133 regressions. Boundary-only statements below describe the historical pre-port hold point. Use the pass index and fuzzing page for current evidence; no full-parity claim is made.
+
 Use this page together with [`./starshine-strategy.md`](./starshine-strategy.md), the Binaryen contract pages in [`./binaryen-strategy.md`](./binaryen-strategy.md), [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), [`./field-removal-subtyping-js-interop-and-traps.md`](./field-removal-subtyping-js-interop-and-traps.md), and [`./wat-shapes.md`](./wat-shapes.md), plus the freshness bridge in [research note 0694](./index.md).
 
-This is a **future-port** page, not an implementation page.
-Starshine still does not implement `global-type-optimization`.
+This is a retained remaining-port plan, not the implementation record.
 
 ## Current local status
 
-- registry category: boundary-only
-- active owner file: none
-- active module dispatcher branch: none
+- registry category: active module pass
+- active owner file: `src/passes/global_type_optimization.mbt`
+- active module dispatcher branch: `global_type_optimization_run_module_pass(...)`
 - active `agent-todo.md` slice: none
 - active preset role: none
 
-The current local behavior is honest rejection, not silent no-oping.
+The current local behavior is guarded partial transformation, not full Binaryen parity. Unsupported shapes remain unchanged.
 
 ## Exact local code map
 
 The fastest read-along path is:
 
-- `src/passes/optimize.mbt:127-132`
-  - `pass_registry_boundary_only_names()` includes `"global-type-optimization"`
+- `src/passes/optimize.mbt`
+  - the registry classifies `"global-type-optimization"` as a module pass
   - it does **not** include upstream shorthand `"gto"`
-- `src/passes/optimize.mbt:307-312`
-  - boundary-only names are converted into boundary-only registry entries
-- `src/passes/optimize.mbt:517-523`
-  - `run_hot_pipeline_expand_passes(...)` rejects boundary-only requests with the boundary-only diagnostic
 - `src/passes/pass_manager.mbt`
-  - there is no `global-type-optimization` dispatcher branch today
+  - the module dispatcher calls `global_type_optimization_run_module_pass(...)`
+- `src/passes/global_type_optimization.mbt`
+  - the active owner implements the focused private-struct and descriptor-placeholder slices
 - `src/lib/types.mbt:31-159`
   - `AbsHeapType`, `HeapType`, `RefType`, `ValType`, `FieldType`, `Mut`, `TypeIdx`, `TypeMetadata`, `SubType`, `RecType`, and `DefType` encode the heap-type graph a future port must rewrite
 - `src/lib/types.mbt:736-743`
@@ -84,10 +83,10 @@ The fastest read-along path is:
 - `../../../../../agent-todo.md`
   - there is currently no dedicated `global-type-optimization` slice
 
-## Why the future port is module-level, not HOT-level
+## Why the remaining port is module-level, not HOT-level
 
 Binaryen `global-type-optimization` rewrites private struct field declarations, repairs affected instructions while old layouts still exist, and then performs a module-wide heap-type remap.
-That means the future Starshine shape must own:
+That means the remaining Starshine work must own:
 
 - the module's full heap-type inventory
 - public versus private visibility classification
@@ -103,7 +102,9 @@ That means the future Starshine shape must own:
 Those requirements cross package boundaries that current HOT expression passes do not own.
 The right future landing shape is a module pass plus shared closed-world type-graph / struct-field rewrite infrastructure, not a small `HotFunc` rewrite.
 
-## What Starshine currently does for the pass name
+## Historical pre-port registry behavior
+
+The four subsections below record the boundary-only state that preceded the active owner. They are retained to explain the original admission gates and are not current registry behavior.
 
 ### 1. The local descriptive name is tracked, not forgotten
 

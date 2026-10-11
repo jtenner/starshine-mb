@@ -31,15 +31,14 @@ related:
 
 ## Current local hold point
 
-`global-effects` is still a **boundary-only** Starshine compatibility name. The local code accepts the spelling but refuses to run a transform, and the 2026-05-06 current-main recheck did not change that hold point:
+`global-effects` is an **active-partial** Starshine module pass. It rewrites a narrow fresh-resume shape, but does not implement Binaryen's metadata producer. The remaining readiness plan is for that metadata contract:
 
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 127-137 include `global-effects` in `pass_registry_boundary_only_names()`.
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 481-487 reject boundary-only pass requests during expansion.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) registers direct requests as a module pass.
 - [`src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt) lines 207-210 prove `--global-effects` parses to the pass flag.
-- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) lines 8661-8687 show the active module-pass dispatcher; there is no `global-effects` arm.
-- No `src/passes/global_effects.mbt` owner file exists today.
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches `global_effects_run_module_pass(...)`.
+- [`src/passes/global_effects.mbt`](../../../../../src/passes/global_effects.mbt) owns the guarded fresh-resume rewrite and its conservative non-suspension scan.
 
-That status is correct. Binaryen's `generate-global-effects` is a module-level metadata producer, so a HOT peephole under this name would be misleading.
+The contract split is important. Binaryen's `generate-global-effects` is a module-level metadata producer; the existing Starshine rewrite does not satisfy that producer contract.
 
 ## First implementation slice: no-rewrite analyzer
 
@@ -93,7 +92,7 @@ The recommended local first slice is SCC-shaped because it is easier to test for
 
 ## Registry and dispatcher sequencing
 
-Do not move `global-effects` out of boundary-only status until the no-rewrite analyzer and validation hooks exist.
+Do not describe the active resume rewrite as Binaryen metadata parity until the no-rewrite analyzer, stored summaries, propagation, consumers, and invalidation hooks exist.
 
 When the first real slice lands, the minimum code changes should include:
 
@@ -127,7 +126,7 @@ Do not fold consumer rewrites into the producer pass. The visible before/after b
 
 ### Registry tests
 
-- before implementation: `--global-effects` still parses but expansion rejects boundary-only execution
+- current slice: `--global-effects` runs the guarded fresh-resume rewrite
 - after implementation: `pass_registry_category("global-effects")` becomes module-pass and dispatcher support exists
 - no accidental preset scheduling until consumer payoff is intentionally enabled
 
@@ -161,7 +160,7 @@ A first local implementation is worth calling `global-effects` only when it has:
 - at least one paired downstream validation lane against Binaryen
 - explicit invalidation or discard story for later mutating passes
 
-Until then, keep the local boundary-only status described in [`./starshine-strategy.md`](./starshine-strategy.md).
+Until then, keep the active-partial status and the contract split described in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Sources
 

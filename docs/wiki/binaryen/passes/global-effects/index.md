@@ -106,7 +106,7 @@ So the pass is best taught as:
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing which call/global patterns gain precision, which stay conservative, and why the WAT often stays textually unchanged.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future-port map: boundary-only registry entry, CLI parse coverage, local HOT effect-mask ingredients, missing module-level summary storage, and the reason a faithful port must be a module/call-graph metadata pass rather than a HOT peephole.
+  Current Starshine status and future-port map: active module-pass resume rewrite, its conservative non-suspension scan, its current `try` / `try_table` traversal gap, local HOT effect-mask ingredients, missing module-level summary storage, and the reason a faithful metadata-producer port remains module/call-graph work.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Concrete future implementation ladder: no-rewrite analyzer, summary model, solver choice, registry/dispatcher sequencing, consumer sequencing, Binaryen oracle lanes, and first-port definition of done.
 - [`./fuzzing.md`](./fuzzing.md)
