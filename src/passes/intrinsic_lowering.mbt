@@ -184,8 +184,15 @@ fn intrinsic_lowering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       Some(@lib.FuncType(params, _)) => params
       None => []
     }
+    let local_types = params.copy()
+    for local_type in locals.iter() {
+      local_types.push(local_type)
+    }
     rewritten.push(
-      @lib.Func::new(locals, il_rewrite_expr(body, targets, params, changed)),
+      @lib.Func::new(
+        locals,
+        il_rewrite_expr(body, targets, local_types, changed),
+      ),
     )
   }
   if !changed[0] {
