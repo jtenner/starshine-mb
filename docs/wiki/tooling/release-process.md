@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-11
 sources:
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
   - https://docs.npmjs.com/cli/v11/configuring-npm/package-json
@@ -44,17 +44,60 @@ Use this page when preparing a Starshine release, reviewing a release-prep branc
 
 A Starshine release is not just “run tests and publish npm.” The current repo has several distinct surfaces:
 
-1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at candidate version `0.1.2-beta.0`.
-2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), currently `@jtenner/starshine` at candidate version `0.1.2-beta.0`.
+1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at release version `0.2.0`.
+2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), currently `starshine` at release version `0.2.0`.
 3. **Checked-in public API snapshots** through `src/*/pkg.generated.mbti`, especially for packages exposed through the Node boundary.
 4. **The runnable CLI and Node package artifacts**, including `node/internal/starshine.wasm-wasi.wasm`, the required wasm-gc adapter package artifact, JS/TS wrappers, and `node/package.json#exports`.
 5. **Durable release evidence** in wiki pages, [`docs/wiki/log.md`](../log.md), raw/research notes, release notes, validation artifacts, and git history.
 
 The release package surface is grounded directly in the live [`moon.mod`](../../../moon.mod), [`node/package.json`](../../../node/package.json), root [`package.json`](../../../package.json), Node build scripts, and current package/test workflows, alongside the official npm and MoonBit documentation listed below. [`moon.mod`](../../../moon.mod) and official [MoonBit module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) establish the current module-file format.
 
-Starshine now has repository metadata, an explicit beta dist-tag and a tested source-to-tarball build. It has no checked-in publication workflow or `id-token: write` publication job. Registry-side trusted-publisher configuration remains unverified and requires a release decision. The checked-in package, fuzz and README workflows validate source with `contents: read` permissions and perform no publication. The root MIT / MoonBit Apache-2.0 license conflict must also be reconciled before registry publication; the npm candidate has no silently selected license.
+Starshine now has repository metadata, an explicit publication dist-tag and a tested source-to-tarball build. It has no checked-in publication workflow or `id-token: write` publication job. Registry-side trusted-publisher configuration remains unverified and requires a release decision. The checked-in package, fuzz and README workflows validate source with `contents: read` permissions and perform no publication. The owner confirmed source adaptation and retention of upstream terms. Root LICENSE scopes the original-code MIT grant; NOTICE and licenses/ retain upstream rights. npm uses SEE LICENSE IN LICENSE, while MoonBit retains Apache-2.0. This is not a blanket MIT-only or dual-license grant.
 
 For releases that include an already-built self-optimized CLI artifact, treat that artifact as a separate release surface. Use the dedicated `bun validate self-opt-smoke` / `bun validate self-opt-full` gate from [`validation-gates.md`](validation-gates.md) so artifact safety stays explicit instead of being inferred from the ordinary repo validation ladder.
+
+
+## Registry release 0.2.0
+
+The owner authorized `0.2.0` for Mooncakes `jtenner/starshine` and npm `starshine`,
+including replacement of the historical npm default install. The old npm
+`starshine@0.1.0` CommonJS object/factory library remains available by exact version;
+the new ESM Wasm toolkit is an incompatible product/API replacement. Publication
+uses `latest` only after authenticated access to the exact name is verified.
+No credentials, registry permissions, or historical versions are modified by
+release preparation. No registry publication is claimed by this source change.
+
+Release notes: this release provides a real WasmGC-backed Node API with
+deterministic TypeScript declarations from the FFI schema, asynchronous ESM
+initialization and nine public entry points. The package contains the optimized
+GC API and WASI CLI artifacts; a fresh native bootstrap performs self-optimization
+and checks raw/optimized behavior before packing. Node.js 25+ with WasmGC and
+JS String Builtins is required. Existing unsupported ABI placeholders remain
+documented and guarded; no browser/CommonJS or JSPI support is claimed.
+Mooncakes distributes the source API and required notices independently.
+
+The numeric optimize-4/shrink-1 pipeline includes bounded immutable-record copy
+outlining. Correctness qualification includes effects, traps and identity. Tiny
+copy workloads show an accepted runtime cost; packed gzip need not improve,
+memory P1 and broader MSF/parity work remain open. The source release does not
+claim universal speed, memory, download-size or Binaryen parity wins.
+
+Mooncakes uses `.moonignore` to include the source tree, native spec fixtures and
+all source/legal notices. It excludes the separate npm/FFI/components, build outputs,
+repository tooling and reports. `README.mooncakes.md` uses repository-absolute links.
+Run `python3 scripts/test/moon-package-contract.test.py`, then
+`python3 scripts/test/moon-packed-consumer.py` after `moon update`. The latter
+builds the archive, compares every member to current source, checks legal completeness,
+and compiles/runs an extracted source dependency in an external project. Its
+parse/validate/optimize/encode/decode/error fixture is independently executed by
+Node to confirm the optimized export returns 42. After publishing, the same
+script's `--registry` mode installs the exact version from Mooncakes without a
+local dependency override. CI runs the source archive gate alongside npm consumers.
+
+Use `npm pack` through the documented Node build/consumer route, publish the
+qualified tarball path with the explicitly authorized tag, then verify registry
+integrity, every public import and CLI version in a fresh install. Plain
+`npm install starshine` must resolve `0.2.0`; do not unpublish immutable history.
 
 ## Release Surface Matrix
 
@@ -79,7 +122,7 @@ For beginners: npm publication does not upload the whole repository. It uploads 
 - **Build and generation fail on drift.** `prepack` rebuilds both Wasm artifacts and deterministic JS/TS bindings. FFI signatures remain authoritative; reviewed unsupported ABI exceptions are explicit and any new or changed exception fails generation. [`generate-product-version.mjs`](../../../scripts/lib/generate-product-version.mjs) rejects inconsistent MoonBit/npm metadata and derives the CLI version. `check-generated` compares generated FFI/npm/version source without rewriting it; its `moon info` step can refresh `.mbti` interfaces.
 - **Release notes replace per-commit changelog edits.** The current policy says durable change records live in wiki pages, [`docs/wiki/log.md`](../log.md), release notes, and git history. Do not revive a committed `CHANGELOG.md` workflow without updating [`AGENTS.md`](../../../AGENTS.md), [`docs/README.md`](../../README.md), and this page together.
 - **Publishing is human-controlled.** npm tokens, package-registry writes, remote pushes, and public tags are credentials-sensitive operations. Agents may prepare and commit release documentation, but actual publish/push/tag actions need explicit human instruction.
-- **Publishing and licensing remain release decisions.** Package repository metadata is present; registry credentials, trusted-publisher configuration and provenance must be reviewed before publication. This preparation does not configure accounts or publish. Resolve the MIT / Apache-2.0 conflict before choosing npm license metadata.
+- **Publishing and licensing remain release decisions.** Package repository metadata is present; registry credentials, trusted-publisher configuration and provenance must be reviewed before publication. This preparation does not configure accounts or publish. Preserve the settled licensing scope and every required upstream notice in both distribution archives.
 
 ## Version And Package Surface Checklist
 
@@ -102,7 +145,7 @@ Update:
 - [`moon.mod`](../../../moon.mod) `version`;
 - [`node/package.json`](../../../node/package.json) `version`.
 
-Then run `bun scripts/lib/generate-product-version.mjs` to derive `src/cmd/version.generated.mbt` from the synchronized metadata. `bun scripts/lib/generate-product-version.mjs --check`, `bun ffi check` and required CI fail on mismatch or generated version drift. The candidate CLI/API must report `v0.1.2-beta.0`, matching the packed npm version. FFI generation synchronizes its root dependency while preserving the private adapter module's own version. The stable portable component interface remains `0.1.1`: its WIT and metadata API versions agree independently of npm product metadata, and component generation derives the root dependency version. An npm version bump alone must not rename WIT exports. Run `moon info` so generated interfaces are current. Review any `src/*/pkg.generated.mbti` diffs as public API evidence, not formatting noise. Use [`moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md) for the package topology and `.mbti` review rules.
+Then run `bun scripts/lib/generate-product-version.mjs` to derive `src/cmd/version.generated.mbt` from the synchronized metadata. `bun scripts/lib/generate-product-version.mjs --check`, `bun ffi check` and required CI fail on mismatch or generated version drift. The candidate CLI/API must report `v0.2.0`, matching the packed npm version. FFI generation synchronizes its root dependency while preserving the private adapter module's own version. The stable portable component interface remains `0.1.1`: its WIT and metadata API versions agree independently of npm product metadata, and component generation derives the root dependency version. An npm version bump alone must not rename WIT exports. Run `moon info` so generated interfaces are current. Review any `src/*/pkg.generated.mbti` diffs as public API evidence, not formatting noise. Use [`moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md) for the package topology and `.mbti` review rules.
 
 If the release includes a prebuilt self-optimized CLI artifact, add `bun validate self-opt-smoke [--wasm <artifact>]` before the rest of the release signoff and require `bun validate self-opt-full [--wasm <artifact>]` before publication. Those gates validate an already-built artifact; they are intentionally separate from the ordinary repo validation ladder.
 

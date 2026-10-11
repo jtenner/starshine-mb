@@ -49,7 +49,7 @@ related:
 
 ## Overview
 
-The `node/` package is an ESM boundary for `@jtenner/starshine`, with generated
+The `node/` package is an ESM boundary for `starshine`, with generated
 WasmGC bindings and declarations plus a retained JavaScript callback command
 facade. The October 10 beta build replaces the former frozen-artifact route.
 Function signatures come from the generated FFI export schema; unsupported
@@ -273,7 +273,7 @@ feature lowering or experimental Node custom-descriptor flag.
 
 [`node/package.json`](../../../node/package.json) currently exports these public subpaths. Each listed subpath has both a `types` target and an `import` target, so the package contract is two-sided: consumers need the declaration shape and the runtime export shape to agree.
 
-The package currently uses one extensionless public specifier style (`@jtenner/starshine/validate`, not a second `@jtenner/starshine/validate.js` alias), has no wildcard export patterns, and has no `require` condition because the package is ESM-first. Adding a new public helper normally belongs inside one of the existing subpaths; adding a new subpath or an extensioned alias broadens the package API and should be reviewed like a semver-relevant public surface.
+The package currently uses one extensionless public specifier style (`starshine/validate`, not a second `starshine/validate.js` alias), has no wildcard export patterns, and has no `require` condition because the package is ESM-first. Adding a new public helper normally belongs inside one of the existing subpaths; adding a new subpath or an extensioned alias broadens the package API and should be reviewed like a semver-relevant public surface.
 
 | Subpath | Purpose | Current status |
 | --- | --- | --- |
@@ -375,7 +375,7 @@ The current MoonBit `wast` package also exposes `wast_arbitrary_feature_stats(..
 
 The Node package is also the npm publication boundary. Current package metadata and workflows, read with npm's [trusted-publisher](https://docs.npmjs.com/trusted-publishers) / [provenance](https://docs.npmjs.com/generating-provenance-statements) documentation and GitHub Actions [OIDC guidance](https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect), show that Starshine is **not** configured for npm trusted publishing yet:
 
-- [`node/package.json`](../../../node/package.json) records the GitHub repository and local beta publication defaults (`access: public`, `tag: beta`); these do not configure an npm trusted publisher.
+- [`node/package.json`](../../../node/package.json) records the GitHub repository and publication defaults (`access: public`, `tag: latest`); these do not configure an npm trusted publisher.
 - Existing GitHub workflows are validation/test workflows with read-only contents permissions; no workflow grants `id-token: write` for an npm OIDC publish.
 - No checked-in workflow runs a package publish step from the `node/` package directory.
 

@@ -1,3 +1,14 @@
+### 2026-10-11 — Prepare synchronized registry release 0.2.0
+
+- The owner authorized 0.2.0 for npm and Mooncakes, replacing the historical
+  npm default product while preserving old versions. Registry writes remain
+  subject to exact package access and artifact qualification.
+- [Release process](tooling/release-process.md) records source-only Mooncakes
+  packaging, upstream legal retention and independent packed consumer checks.
+- The npm consumer harness derives package paths/imports from the packed manifest
+  and executes the shipped README JS/TS, CLI and npm workflow examples.
+  Existing six-pass runtime/resource caveats remain unchanged.
+
 ### 2026-10-10 — Bound immutable record-copy outlining and isolate npm consumers
 
 - [MergeSimilarFunctions](binaryen/passes/merge-similar-functions/index.md)

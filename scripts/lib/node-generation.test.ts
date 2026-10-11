@@ -5,6 +5,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+test('registry release uses the authorized unscoped package name and default tag', () => {
+  const manifest = JSON.parse(fs.readFileSync('node/package.json', 'utf8'));
+  expect(manifest.name).toBe('starshine');
+  expect(manifest.publishConfig.tag).toBe('latest');
+  expect(manifest.private).not.toBe(true);
+});
+
 test('npm distributions carry scoped ownership and complete dependency license texts', () => {
   const manifest = JSON.parse(fs.readFileSync('node/package.json', 'utf8'));
   expect(manifest.license).toBe('SEE LICENSE IN LICENSE');

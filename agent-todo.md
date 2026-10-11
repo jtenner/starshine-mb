@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed October 10, 2026. Follow
+Active unreleased work only, reviewed October 11, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -15,8 +15,10 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 - The tested build/pack/install route and generated ABI/types are recorded in
   [the handoff](docs/npm-beta-handoff.md). Work from verified `origin/master`;
   preserve other checkouts, held optimizer refs and historical packages.
-  Source publication is authorized; npm publication, tags/releases, deployment
-  and credential changes remain unauthorized.
+  Source and registry publication are authorized for 0.2.0 on Mooncakes and
+  exact npm starshine, including latest/default replacement. npm access to the
+  exact name must be verified; tags/releases, deployment and credential changes
+  remain outside scope.
 - Published licensing/dependency checkpoint
   `1cbf1ae55c62ab1e96553e5fb359a9a6eda845f3` passes all six exact-head workflows
   and all three required Actions contexts. CI/local 52-file archive is byte-
@@ -65,13 +67,17 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   Run its actual-triggering 10k profile separately from the unchanged ordinary
   MSF aggregate; retain the corrected streamed-seed diversity proof.
   Keep the broader MSF audit open. Normal source publication is authorized;
-  no force push, protection change or npm publication follows.
+  no force push or protection change follows. The later registry authorization
+  supersedes the earlier npm preparation-only boundary.
 - P1 remains open under the user's developer-build memory tradeoff. Grouping's
   failed 16 KiB raw-growth target and adverse resource sample remain historical
   evidence. Later raw-size changes involve changing compiler type order and
   do not establish causal memory or speed improvements. Preserve the original
   immutable inputs separately from freshly compiled package artifacts.
-- [ ] Approve candidate version, publishing/provenance route and npm publication.
+- [ ] Complete authorized registry publication and verify clean installs of 0.2.0.
+  Current npm session jtenner has no writable starshine permission (old owner
+  fpsjosh01); exact-name publication requires the owner account or a qualified-tarball handoff. Moon archive/external
+  consumer qualification passed; registry serving has not yet been verified.
   The owner-authorized [conservative licensing treatment](docs/wiki/tooling/license-provenance.md)
   retains full Binaryen terms and conditional source/change notices without
   pretending unknown provenance is resolved. Josh-owned originals are scoped

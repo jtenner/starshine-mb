@@ -40,7 +40,7 @@ Durable status rule:
 
 - **Standards status:** ESM Integration remains an active Phase-3 proposal as of the 2026-07-11 recheck, not finished/Core WebAssembly 3.0.
 - **Runtime status:** Node v26.4.0 documents source-phase imports as release-candidate (1.2) and instance imports as active development (1.1). Those are Node support labels, not WebAssembly proposal-stage or Starshine-support claims.
-- **Starshine package status:** the `@jtenner/starshine` package is ESM-first JavaScript, but it does not expose WebAssembly ESM Integration for user modules or for its internal artifacts.
+- **Starshine package status:** the `starshine` package is ESM-first JavaScript, but it does not expose WebAssembly ESM Integration for user modules or for its internal artifacts.
 - **Implementation layer:** future support would be Node/package/loader API work before WAST, binary, validator, generator, or optimizer work.
 
 ## What ESM Integration Means
@@ -110,7 +110,7 @@ This is distinct from current Starshine code: [`node/internal/runtime.js`](../..
 
 Prefer:
 
-- “`@jtenner/starshine` is an ESM-first JavaScript package, but current wasm artifacts are loaded with direct JS API calls, not source-phase or instance-phase Wasm ESM imports.”
+- “`starshine` is an ESM-first JavaScript package, but current wasm artifacts are loaded with direct JS API calls, not source-phase or instance-phase Wasm ESM imports.”
 - “ESM Integration is active Phase 3 proposal evidence; a Starshine support claim needs Node/package loader code and tests, not only Core module decode/validation support.”
 - “Node's Wasm ESM loader may auto-enable JS String Builtins, but Starshine's current runtime opts into `builtins: ["js-string"]` explicitly during direct compile/instantiate.”
 - “A `.wasm` file accepted by Starshine's binary decoder can still be outside the Starshine Node package's ESM import surface.”

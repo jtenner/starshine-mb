@@ -1,15 +1,35 @@
 # Starshine Node Package
 
-`@jtenner/starshine` is an ESM package with a real WasmGC API and a bundled WASI CLI. This checkout prepares `0.1.2-beta.0`; publication and the final version remain release decisions.
+`starshine` is an ESM package with a real WasmGC API and a bundled WASI CLI. The product version is `0.2.0`. This Wasm toolkit replaces the unrelated `starshine@0.1.0` CommonJS object/factory API; old consumers can pin that historical version.
+
+## Start here
+
+Use Starshine to turn WebAssembly text (`.wat`) into binary (`.wasm`), inspect
+and validate modules, or add an optimization step to a build. WAT is the
+human-readable form; Wasm is the binary that runtimes execute.
+
+With Node.js 25 or newer, start an ESM project:
+
+```sh
+npm init -y
+npm pkg set type=module
+npm install starshine@0.2.0
+```
+
+Installing the package needs no MoonBit, C compiler or optimizer build tools.
+The examples below use the installed package and create a Wasm function returning 42.
 
 ## Runtime and API
 
 Node.js 25+ must support WebAssembly GC and JS string builtins. Tested with Node 25.8.1 and 26.11.1. ESM imports await shared Wasm initialization; exported operations are synchronous after import. Initialization rejects if the artifact or required host features are unavailable. CommonJS and browser hosting are not promised.
 
-The root exports `binary`, `cli`, `cmd`, `lib`, `passes`, `validate`, `wast` and `wat`. Each also has an extensionless subpath, for example `@jtenner/starshine/passes`. `passes.optimizeModule` runs the active hot pipeline; it does not expose every compiler pass implementation. The `starshine` executable runs the bundled WASI Preview 1 CLI.
+The root exports `binary`, `cli`, `cmd`, `lib`, `passes`, `validate`, `wast` and `wat`. Each also has an extensionless subpath, for example `starshine/passes`. `passes.optimizeModule` runs the active hot pipeline; it does not expose every compiler pass implementation. The `starshine` executable runs the bundled WASI Preview 1 CLI.
+
+Save this as `quickstart.mjs`, then run `node quickstart.mjs`:
 
 ```js
-import { binary, passes, validate, wast } from '@jtenner/starshine';
+import { writeFile } from 'node:fs/promises';
+import { binary, passes, validate, wast } from 'starshine';
 
 const parsed = wast.wastToBinaryModule(
   '(module (func (export "answer") (result i32) i32.const 40 i32.const 2 i32.add))'
@@ -22,7 +42,103 @@ const encoded = binary.encodeModule(optimized.value);
 if (!encoded.ok) throw new Error(encoded.display ?? 'encode failed');
 const { instance } = await WebAssembly.instantiate(encoded.value);
 console.log(instance.exports.answer()); // 42
+await writeFile('answer.wasm', encoded.value);
 ```
+
+## TypeScript and library workflows
+
+Declarations ship with the package. Save `quickstart.ts`:
+
+```ts
+import { binary, passes, validate, wast } from 'starshine';
+
+export function optimizeWat(text: string): Uint8Array {
+  const parsed = wast.wastToBinaryModule(text);
+  if (!parsed.ok) throw new Error(parsed.error);
+  const optimized = passes.optimizeModule(parsed.value, ['precompute', 'vacuum']);
+  if (!optimized.ok) throw new Error(optimized.error);
+  const checked = validate.validateModule(optimized.value);
+  if (!checked.ok) throw new Error(checked.display ?? 'validation failed');
+  const encoded = binary.encodeModule(optimized.value);
+  if (!encoded.ok) throw new Error(encoded.display ?? 'encoding failed');
+  return encoded.value;
+}
+
+const bytes = optimizeWat('(module (func (export "answer") (result i32) i32.const 42))');
+const { instance } = await WebAssembly.instantiate(new Uint8Array(bytes));
+const answer = instance.exports.answer;
+if (typeof answer !== 'function') throw new Error('answer export missing');
+console.log(answer()); // 42
+```
+
+Check it with the tested TypeScript 5.8.3 or 5.9.3 (`npm install --save-dev typescript`)
+and a `tsconfig.json` containing:
+
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "skipLibCheck": false
+  },
+  "files": ["quickstart.ts"]
+}
+```
+
+Run `npx tsc --project tsconfig.json` to check types; Node 25+ can run this
+example directly with `node quickstart.ts`. Import `optimizeWat` from a build
+script, read WAT with `readFile(path, 'utf8')`, and write its returned `Uint8Array`
+with `writeFile(outputPath, bytes)`. For binary input, use
+`binary.decodeModule(new Uint8Array(buffer))` instead of the text parser; check
+its result before passing the module to validation or optimization.
+
+## CLI and build integration
+
+For terminal use, `npx --no-install starshine` runs the local installed binary.
+Create `input.wat` containing:
+
+```wat
+(module (func (export "answer") (result i32) i32.const 40 i32.const 2 i32.add))
+```
+
+```sh
+npx --no-install starshine --help
+npx --no-install starshine --version
+npx --no-install starshine --precompute --vacuum --validate input.wat --out answer.wasm
+mkdir -p dist
+npx --no-install starshine --optimize --optimize-level 4 --shrink-level 1 input.wat --out dist/module.wasm
+```
+
+`--validate` validates the module at that position in the pass queue. WAT and
+binary inputs are supported; `--out` writes the resulting binary. The numeric
+4/1 preset selects the package's documented O4s route; a literal `-O4s` flag is
+unsupported. WASI Preview 1 may emit Node's experimental WASI warning.
+
+Add a script to your project's `package.json`:
+
+```json
+{
+  "scripts": {
+    "build:wasm": "starshine --optimize --optimize-level 4 --shrink-level 1 input.wat --out dist/module.wasm"
+  }
+}
+```
+
+Create `dist` and run `npm run build:wasm`. npm makes the local `starshine`
+executable available to scripts. This runs the packaged Wasm optimizer; it
+needs no compiler checkout or build-time optimizer dependency.
+
+## MoonBit source users
+
+In a MoonBit project, run `moon add jtenner/starshine@0.2.0`, then import the
+`wast`, `binary`, `validate` and `passes` packages under `jtenner/starshine` in
+`moon.pkg`. The [Mooncakes README](https://github.com/jtenner/starshine-mb/blob/master/README.mooncakes.md)
+and [source package map](https://github.com/jtenner/starshine-mb/blob/master/README.mbt.md)
+cover source API use. MoonBit is needed for source consumers; it is not needed
+for the npm API or CLI.
 
 ## Values, errors and compatibility
 
@@ -66,8 +182,8 @@ A standalone consumer needs only Node and the tarball:
 ```sh
 mkdir consumer && cd consumer
 npm init -y
-npm install /absolute/path/jtenner-starshine-0.1.2-beta.0.tgz
-node --input-type=module -e 'const s = await import("@jtenner/starshine"); console.log(Object.keys(s))'
+npm install /absolute/path/starshine-0.2.0.tgz
+node --input-type=module -e 'const s = await import("starshine"); console.log(Object.keys(s))'
 npx --no-install starshine --help
 ```
 
@@ -81,10 +197,10 @@ The build independently validates input and output with wasm-tools, checks ABI e
 
 The tarball allowlist includes public JS/declarations, shared runtime, required generated command JS, examples, README, executable and the two optimized Wasm files. Source, tests, schema, reports, raw baselines and debug maps remain outside the package. No runtime dependencies are declared.
 
-## Release decisions
+## Licensing and release limits
 
 Joshua Tenner’s original portions are offered under MIT; the compiled bundle also contains third-party material under Apache-2.0 and the terms retained in MoonBit Core’s NOTICE. Package metadata uses `SEE LICENSE IN LICENSE`, with scoped `LICENSE`, `NOTICE`, `licenses/Apache-2.0.txt`, the full `licenses/Binaryen-LICENSE.txt`, and the complete `licenses/moonbit-core-NOTICE.txt` included. Binaryen notice retention follows the owner’s conservative choice; unknown pass provenance remains unknown and the existing MoonBit module Apache-2.0 declaration remains; this is not an MIT-only bundle or a dual-license choice. See [the source provenance audit](https://github.com/jtenner/starshine-mb/blob/master/docs/wiki/tooling/license-provenance.md).
 
 Build generation checks notice drift; the build verifies reviewed installed Core 0.10.14+7d59c7ec9 license/NOTICE bytes and x 0.5.1 metadata before compilation. A dependency upgrade requires a notice/provenance review.
 
-Confirm the beta version and publishing/provenance configuration, and resolve or explicitly assess repository release gates. Repository native-debug builds use initialized lower-stack storage to avoid MoonBit issue #1322 without changing the WasmGC API. Large native debug test linking uses a per-process 64 MiB stack (`ulimit -s 65536`). The upstream compiler issue and complete coverage qualification remain separately tracked in the repository handoff. No npm publication, release, tag, push or merge is performed by these commands.
+The release uses version 0.2.0 with the explicitly authorized latest/default npm tag. Optimizer parity and resource limits remain recorded in the repository. Repository native-debug builds use initialized lower-stack storage to avoid MoonBit issue #1322 without changing the WasmGC API. Large native debug test linking uses a per-process 64 MiB stack (`ulimit -s 65536`). The upstream compiler issue and complete coverage qualification remain separately tracked in the repository handoff. No npm publication, release, tag, push or merge is performed by these commands.

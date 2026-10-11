@@ -1,20 +1,20 @@
 name = "jtenner/starshine"
 
-version = "0.1.2-beta.0"
+version = "0.2.0"
 
 import {
   "moonbitlang/x@0.5.1",
 }
 
-readme = "README.mbt.md"
+readme = "README.mooncakes.md"
 
-repository = ""
+repository = "https://github.com/jtenner/starshine-mb"
 
 license = "Apache-2.0"
 
-keywords = [ ]
+keywords = [ "webassembly", "wasm", "optimizer", "wat" ]
 
-description = ""
+description = "WebAssembly parsing, validation, encoding, and optimization toolkit"
 
 warnings = "-deprecated"
 

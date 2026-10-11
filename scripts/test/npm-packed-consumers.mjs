@@ -32,6 +32,7 @@ try {
     assertNpmSelfOptimizationQueue(buildReport);
   }
   tarball = path.resolve(tarball);
+  const packedManifest = JSON.parse(await run('tar', ['-xOzf', tarball, 'package/package.json'], scratch));
   const files = (await run('tar', ['-tzf', tarball], scratch)).trim().split('\n');
   assert.equal(files.some(file => /(?:\.mbt|\.mbti|\.map|\.log|\.unoptimized|build-report\.json|\/test\/|credentials|unsupported-exports|export-schema)/.test(file)), false, 'private/build-only files entered npm tarball');
   assert(files.includes('package/internal/starshine.wasm-gc.wasm'));
@@ -45,11 +46,17 @@ try {
     fs.mkdirSync(cwd);
     fs.writeFileSync(path.join(cwd, 'package.json'), '{"private":true,"type":"module"}\n');
     await run(npmBin, ['install', '--no-audit', '--no-fund', tarball], cwd, consumerEnv);
-    const pkg = path.join(cwd, 'node_modules/@jtenner/starshine');
+    const pkg = path.join(cwd, 'node_modules', packedManifest.name);
     const runtimeArgs = ['--permission', `--allow-fs-read=${cwd}`, `--allow-fs-write=${cwd}`];
     fs.writeFileSync(path.join(cwd, 'isolation.mjs'), `import assert from 'node:assert/strict'; import fs from 'node:fs'; for (const file of process.argv.slice(2)) assert.throws(() => fs.readFileSync(file), { code: 'ERR_ACCESS_DENIED' });`);
     await run(nodeBin, [...runtimeArgs, 'isolation.mjs', path.join(root, 'moon.mod'), path.join(os.homedir(), '.moon/bin/moon')], cwd, consumerEnv);
     const manifest = JSON.parse(fs.readFileSync(path.join(pkg, 'package.json'), 'utf8'));
+    const readme = fs.readFileSync(path.join(pkg, 'README.md'), 'utf8');
+    const readmeBlock = language => {
+      const match = readme.match(new RegExp('```' + language + '\\n([\\s\\S]*?)\\n```'));
+      assert(match, `missing runnable README ${language} example`);
+      return match[1];
+    };
     assert.equal(manifest.license, 'SEE LICENSE IN LICENSE');
     for (const file of npmLicenseFiles) assert(fs.readFileSync(path.join(pkg, file)).equals(fs.readFileSync(path.join(root, file))), `installed license/notice drift: ${file}`);
     for (const entry of Object.values(manifest.exports)) for (const field of ['types', 'import']) assert(fs.existsSync(path.join(pkg, entry[field])));
@@ -59,6 +66,11 @@ try {
     const observation = JSON.parse(await run(nodeBin, [...runtimeArgs, 'observe.mjs', pkg], cwd, consumerEnv));
     fs.writeFileSync(path.join(cwd, 'imports.mjs'), Object.keys(manifest.exports).map(name => `await import(${JSON.stringify(manifest.name + (name === '.' ? '' : name.slice(1)))});`).join('\n'));
     await run(nodeBin, [...runtimeArgs, 'imports.mjs'], cwd, consumerEnv);
+    fs.writeFileSync(path.join(cwd, 'quickstart.mjs'), readmeBlock('js'));
+    assert.equal((await run(nodeBin, [...runtimeArgs, 'quickstart.mjs'], cwd, consumerEnv)).trim(), '42');
+    assert.equal(WebAssembly.validate(fs.readFileSync(path.join(cwd, 'answer.wasm'))), true);
+    fs.writeFileSync(path.join(cwd, 'quickstart.ts'), readmeBlock('ts'));
+    assert.equal((await run(nodeBin, [...runtimeArgs, 'quickstart.ts'], cwd, consumerEnv)).trim(), '42');
     const bin = path.join(cwd, 'node_modules/.bin/starshine');
     const cliArgs = [...runtimeArgs, '--allow-wasi'];
     assert.match(await run(nodeBin, [...cliArgs, bin, '--help'], cwd, consumerEnv), /Starshine Wasm Binary Toolkit/);
@@ -69,6 +81,20 @@ try {
     assert.equal(WebAssembly.validate(bytes), true);
     const { instance } = await WebAssembly.instantiate(bytes);
     assert.equal(instance.exports.answer(), 42);
+    fs.writeFileSync(path.join(cwd, 'input.wat'), readmeBlock('wat'));
+    assert.match(await run('npx', ['--no-install', 'starshine', '--help'], cwd, consumerEnv), /Starshine Wasm Binary Toolkit/);
+    assert.equal((await run('npx', ['--no-install', 'starshine', '--version'], cwd, consumerEnv)).trim(), `v${manifest.version}`);
+    await run('npx', ['--no-install', 'starshine', '--precompute', '--vacuum', '--validate', 'input.wat', '--out', 'answer.wasm'], cwd, consumerEnv);
+    fs.mkdirSync(path.join(cwd, 'dist'));
+    await run('npx', ['--no-install', 'starshine', '--optimize', '--optimize-level', '4', '--shrink-level', '1', 'input.wat', '--out', 'dist/module.wasm'], cwd, consumerEnv);
+    const project = JSON.parse(fs.readFileSync(path.join(cwd, 'package.json'), 'utf8'));
+    const jsonBlocks = [...readme.matchAll(/```json\n([\s\S]*?)\n```/g)].map(match => JSON.parse(match[1]));
+    const workflow = jsonBlocks.find(value => value.scripts?.['build:wasm']);
+    assert(workflow, 'missing README npm build workflow');
+    fs.writeFileSync(path.join(cwd, 'package.json'), JSON.stringify({ ...project, scripts: workflow.scripts }));
+    await run(npmBin, ['run', 'build:wasm'], cwd, consumerEnv);
+    const workflowModule = await WebAssembly.instantiate(fs.readFileSync(path.join(cwd, 'dist/module.wasm')));
+    assert.equal(workflowModule.instance.exports.answer(), 42);
     fs.writeFileSync(path.join(cwd, 'ambient-stack.wat'), '(module (func (export "answer") (param i32 i64) (result i32) local.get 0 local.get 1 i32.const 42 return))');
     await run(nodeBin, [...cliArgs, bin, '--optimize', '--optimize-level', '4', '--shrink-level', '1', 'ambient-stack.wat', '--out', 'ambient-stack.wasm'], cwd, consumerEnv);
     const ambientBytes = fs.readFileSync(path.join(cwd, 'ambient-stack.wasm'));
@@ -79,7 +105,7 @@ try {
     if (kind === 'typescript') {
       const imports = Object.keys(manifest.exports).map((name, index) => `import * as surface${index} from ${JSON.stringify(manifest.name + (name === '.' ? '' : name.slice(1)))}; void surface${index};`).join('\n');
       fs.writeFileSync(path.join(cwd, 'consumer.ts'), imports + `
-import { binary, cli, cmd, passes, validate, wast } from '@jtenner/starshine';
+import { binary, cli, cmd, passes, validate, wast } from ${JSON.stringify(manifest.name)};
 const parsed = wast.wastToBinaryModule('(module)');
 if (parsed.ok) {
   const optimized = passes.optimizeModule(parsed.value, ['vacuum'], undefined, 1);
@@ -97,10 +123,12 @@ binary.sizeUnsigned(255, 32);
 // @ts-expect-error nominal handle type mismatch
 binary.encodeModule(cli.TrapMode.never());
 `);
-      fs.writeFileSync(path.join(cwd, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, target: 'ES2022', module: 'NodeNext', moduleResolution: 'NodeNext', noEmit: true, skipLibCheck: false }, files: ['consumer.ts'] }));
+      const readmeTsconfig = jsonBlocks.find(value => value.compilerOptions);
+      assert(readmeTsconfig, 'missing README TypeScript configuration');
+      fs.writeFileSync(path.join(cwd, 'tsconfig.json'), JSON.stringify({ ...readmeTsconfig, files: ['consumer.ts', 'quickstart.ts'] }));
       await run(process.env.TSC_BIN ?? 'tsc', ['--project', 'tsconfig.json'], cwd, consumerEnv);
     }
-    report.consumers.push({ kind, exports: Object.keys(observation.exports), behavior: true, recordCopy: observation.recordCopy, recordCopyProfile: observation.recordCopyProfile, cli: true, cliVersion: `v${manifest.version}`, runtimeIsolation: 'consumer-only filesystem permissions; checkout and MoonBit reads denied', strictTypes: kind === 'typescript' });
+    report.consumers.push({ kind, exports: Object.keys(observation.exports), behavior: true, recordCopy: observation.recordCopy, recordCopyProfile: observation.recordCopyProfile, cli: true, cliVersion: `v${manifest.version}`, readme: 'JS/TS quickstarts, CLI and npm build workflow executed', runtimeIsolation: 'consumer-only filesystem permissions for direct Node runs; checkout and MoonBit reads denied', strictTypes: kind === 'typescript' });
   }
   fs.writeFileSync(path.join(dist, 'consumer-report.json'), `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify(report, null, 2));

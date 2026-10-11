@@ -1,6 +1,6 @@
 {
-  "name": "@jtenner/starshine",
-  "version": "0.1.2-beta.0",
+  "name": "starshine",
+  "version": "0.2.0",
   "description": "Node.js package for the Starshine WebAssembly toolkit",
   "type": "module",
   "main": "./index.js",
@@ -104,7 +104,7 @@
   "homepage": "https://github.com/jtenner/starshine-mb/tree/master/node",
   "publishConfig": {
     "access": "public",
-    "tag": "beta"
+    "tag": "latest"
   },
   "license": "SEE LICENSE IN LICENSE"
 }
