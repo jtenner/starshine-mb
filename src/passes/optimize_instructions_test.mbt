@@ -82482,10 +82482,10 @@ test "optimize-instructions visits shared dags once" {
   }
 
   let counters = perf_counters(perf)
-  // The descriptor truthfully requires UseDef and Effects, so the shared perf
-  // session sees one node traversal for each required analysis plus the pass
-  // walk. This still guards that the pass itself visits the shared DAG once.
-  @debug.assert_eq(counters.traversal_visits, node_count * 3)
+  // The descriptor requires UseDef and Effects. The shared perf session also
+  // sees one fused local-fact setup traversal and one rewrite traversal. This
+  // guards against restoring separate sign-extension and unsigned-max walks.
+  @debug.assert_eq(counters.traversal_visits, node_count * 4)
 }
 
 ///|

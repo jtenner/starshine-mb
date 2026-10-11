@@ -146,6 +146,33 @@ test "optimize-instructions receiverless aggregate atomic does not block indepen
 }
 
 ///|
+test "optimize-instructions collects local facts in one setup traversal" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) local.get 0 i32.const 0 i32.add drop))",
+  )
+  let initial_node_count = @ir.hot_node_count(func)
+  let perf = HotPerfSession::new(
+    trace_timings=false,
+    trace_checkpoints=false,
+    trace_counters=false,
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    fn(_) { () },
+    perf=Some(perf),
+  )
+
+  ignore(optimize_instructions_run(ctx, func))
+
+  // One setup walk collects both local summaries. The second walk is the main
+  // post-order rewrite traversal.
+  @debug.assert_eq(perf_counters(perf).traversal_visits, initial_node_count * 2)
+}
+
+///|
 test "optimize-instructions finishes sunk local writes for zero and nonzero conditions" {
   for condition in [0, 1, -1] {
     let input = pass_test_module_from_wat(

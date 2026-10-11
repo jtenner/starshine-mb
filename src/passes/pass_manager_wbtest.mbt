@@ -168,7 +168,7 @@ test "optimize-instructions reuses one module validation environment" {
 }
 
 ///|
-test "optimize-instructions reports raw admission and HOT setup phase timings" {
+test "optimize-instructions reports fused HOT setup phase timings" {
   let trace : Array[String] = []
   let perf = HotPerfSession::new(
     trace=fn(line) { trace.push(line) },
@@ -198,7 +198,7 @@ test "optimize-instructions reports raw admission and HOT setup phase timings" {
     ),
     msg=text,
   )
-  assert_true(
+  assert_false(
     text.contains(
       "perf:timer name=detail:optimize-instructions:unsupported-preflight",
     ),
@@ -210,6 +210,24 @@ test "optimize-instructions reports raw admission and HOT setup phase timings" {
   )
   assert_true(
     text.contains("perf:timer name=detail:optimize-instructions:free-node-init"),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:optimize-instructions:collect-local-facts",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:optimize-instructions:collect-sign-ext-facts",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:optimize-instructions:collect-unsigned-max-facts",
+    ),
     msg=text,
   )
 }

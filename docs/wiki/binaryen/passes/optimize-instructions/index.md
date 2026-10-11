@@ -49,6 +49,15 @@ it preserves the unsupported node and continues visiting independent roots.
 White-box coverage proves that an independent integer identity fold commits,
 advances the HOT revision, and leaves the receiverless atomic payload unchanged.
 
+The same repair removes the extra unsupported-node arena scan. The sign-extension
+and unsigned-maximum local assignment summaries now share one post-order setup
+walk and one visited bitset instead of traversing the same graph twice. The fact
+finalization and pre-mutation collection point are unchanged. A focused traversal
+counter test requires one combined setup walk plus the normal rewrite walk, and
+the performance trace exposes one `collect-local-facts` phase rather than the two
+retired collectors. This is a structural setup reduction; busy-host focused
+testing does not establish a full-pass timing or the open 1× performance target.
+
 ## September 25, 2026 self-opt module-context reuse
 
 On the 12,904-function self-opt input, the direct OptimizeInstructions command spent most of its time lowering functions. Lowered-function canonicalization rebuilt a whole-module HOT context for every admitted function, and multivalue wrapper cleanup could rebuild another. The direct path now passes the existing module-scoped context into both checks when lowering has not added a type. A fresh context remains the fallback when the type section changes or no context was supplied.
