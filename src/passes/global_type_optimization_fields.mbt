@@ -98,7 +98,14 @@ fn gto_scan_fields(
         let t = t.to_int()
         let f = f.to_int()
         if t < reads.length() && f < reads[t].length() {
-          reads[t][f] = reads[t][f] || read
+          let ordered_atomic_store = match instr {
+            @lib.StructAtomicSet(order, _, _) => !(order is @lib.Relaxed)
+            _ => false
+          }
+          // A non-relaxed atomic store is an ordering event, not only a value
+          // write. Keep its location even when no value read is visible in the
+          // module so field pruning cannot erase that synchronization event.
+          reads[t][f] = reads[t][f] || read || ordered_atomic_store
           writes[t][f] = writes[t][f] || write
         }
       }

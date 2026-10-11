@@ -325,6 +325,29 @@ test "Binaryen 133 GTO removed writes preserve receiver null traps and value eff
 }
 
 ///|
+test "GTO preserves non-relaxed atomic store ordering events" {
+  for order in ["seqcst", "acqrel"] {
+    let output = binaryen133_run_gto(
+      "(module (type $s (struct (field (mut i32)))) (func (param (ref null $s)) (struct.atomic.set \{order} $s 0 (local.get 0) (i32.const 7))))",
+    )
+    let types = cl_module_subtypes(output)
+    match types[0].get_comptype() {
+      @lib.StructCompType(fields) => assert_eq(fields.length(), 1)
+      _ => fail("expected struct")
+    }
+    let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+    assert_true(
+      body.any(fn(instr) { instr is @lib.StructAtomicSet(_, _, _) }),
+      msg=body.to_string(),
+    )
+    match @validate.validate_module(output) {
+      Ok(_) => ()
+      Err(err) => fail("expected valid ordered atomic store output, got \{err}")
+    }
+  }
+}
+
+///|
 test "Binaryen 133 GTO preserves mutable ancestor fields read by a subtype" {
   let output = binaryen133_run_gto_write(
     "(module (type $base (sub (struct (field (mut i32))))) (type $leaf (sub final $base (struct (field (mut i32))))) (func (export \"run\") (result i32) (local $r (ref null $leaf)) (local.set $r (struct.new $leaf (i32.const 1))) local.get $r i32.const 9 drop drop (struct.get $leaf 0 (local.get $r))))",
