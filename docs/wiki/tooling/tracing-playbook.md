@@ -5470,3 +5470,32 @@ Local receipts: `.tmp/bulk-check/measurements/`, `wago-full.json`,
 `wago-full.stderr`, `full-tests-final.log`, npm build/pack/install receipts, plus
 `.tmp/wago-investigation-20261011/` and `.tmp/wago-callsite-bench.log` in the
 original workspace. Earlier interrupted checks remain historical failures.
+
+## October 12, 2026: defer the O4z input fallback validation
+
+The O4z portfolio decoded the original input again and validated it before
+candidate selection, even when a smaller, valid optimized result won. It now
+adds the input as an unvalidated fallback. The size-ordered selector validates
+it only if every smaller candidate fails. The existing encoded-candidate check
+still validates the selected result. The fallback test covers both the early
+optimized selection and the case where validation rejects that result.
+
+Six alternating fresh-process runs used the frozen 13,324,080-byte debug input,
+the same Wago PR 948 host and 64 MiB nursery, and identical O4z phase tracing.
+Both optimizer builds used the same Starshine bulk CLI source; only the deferred
+validation change differed. All six outputs were the same valid 5,478,001-byte
+wasm, SHA-256 `f9424eb5f4b7618aeef5f8ab4ec1143c2510ce782f7e7a9f19e9f3dc4988549e`.
+Collection stayed enabled. Phase medians are separate measurements.
+
+| Optimizer | Wall median, s | Final validation, s | Size portfolio, s | Candidate selection, s | Go allocation, MB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Before | 54.078 | 7.942 | 18.401 | 13.685 | 5,637.869 |
+| Deferred input validation | 45.278 | 8.099 | 10.740 | 12.928 | 5,232.315 |
+
+Wall time fell 16.3%, and size-portfolio time fell 41.6%. The paired wall
+samples were 54.078/45.278, 57.215/42.980, and 51.445/48.118 seconds for
+before/after runs. Machine load varied, so the result supports the direction
+and size of this gain rather than a release timing guarantee. Wago PR 948's
+earlier three-run median was 48.616 seconds under a different load. The second
+decode of the original input and the selected encoded result's validation remain
+in Starshine; those are distinct from Wago's compile-time validation.

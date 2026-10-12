@@ -1272,17 +1272,27 @@ quality gates. Keep traced inner and normal command measurements separate.
   verification and unchanged public result contracts; do not infer exclusive
   allocation totals from shared Callgrind counters.
 
+- **October 12 O4z fallback checkpoint:** input-candidate validation is now
+  deferred until smaller candidates fail. Three paired Wago runs lowered wall
+  median 54.078→45.278 s and size-portfolio median 18.401→10.740 s with exact,
+  valid output and collection enabled. The original input is still decoded a
+  second time for portfolio candidate generation; reusing the first module
+  needs proof that pipeline passes cannot mutate its shared arrays. The selected
+  encoded result still requires validation.
+
 - **Owner / why:** [cmd.mbt](src/cmd/cmd.mbt) and [encoder](src/binary/encode.mbt);
   end-to-end costs must include work outside optimizer timers.
 - **Deliverables / tasks:** use renewed empty/unchanged/active phase controls to
   target remaining decode/final-validation/encode materialization. Reuse input
   facts only under invocation-local unchanged-result contracts; preserve option,
-  proposal, metadata, portfolio and output-selection semantics.
+  proposal, metadata, portfolio and output-selection semantics. Prove module
+  ownership before removing the O4z portfolio's second input decode.
 - **Validation reuse constraint:** DAE2 prunes/cleans types after its internal
   validation; normal CLI final-module validation sees that later result. Extra
   post-encode decode/validation is debug-serial-only, not part of normal-command
   work. Retain checks in their enabled modes; timer labels alone do not prove
-  a branch executed. No redundant-check removal is justified by current evidence.
+  a branch executed. Input fallback validation now runs only if selection reaches
+  it; no selected-candidate or final-module validation is removed.
 - **Invariant / dependencies:** direct sequence-leaf encoding, scoped string
   indexes and unchanged-NaN input-byte reuse with conservative encoding-cleanup
   admission remain required.
