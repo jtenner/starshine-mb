@@ -1993,6 +1993,16 @@ test "O4z input candidate validation waits until selection needs it" {
 }
 
 ///|
+test "O4z original copy is decoded only for original-dependent cleanup" {
+  assert_false(
+    cmd_o4z_original_copy_needed(true, false, 13324080, 5478001, 2000),
+  )
+  assert_true(cmd_o4z_original_copy_needed(true, true, 13324080, 5478001, 2000))
+  assert_true(cmd_o4z_original_copy_needed(true, false, 10000, 5000, 1999))
+  assert_false(cmd_o4z_original_copy_needed(false, true, 10000, 5000, 1999))
+}
+
+///|
 test "normal O4z skips selected candidate re-decode outside debug serial validation" {
   assert_false(should_validate_encoded_module_after_encode(false))
   assert_true(should_validate_encoded_module_after_encode(true))

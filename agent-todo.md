@@ -1286,7 +1286,9 @@ quality gates. Keep traced inner and normal command measurements separate.
   target remaining decode/final-validation/encode materialization. Reuse input
   facts only under invocation-local unchanged-result contracts; preserve option,
   proposal, metadata, portfolio and output-selection semantics. Prove module
-  ownership before removing the O4z portfolio's second input decode.
+  ownership before reusing an original module in cleanup paths that currently
+  require a separate decode. Large modules without those paths now skip that
+  decode; selected-candidate validation remains a measured bottleneck.
 - **Validation reuse constraint:** DAE2 prunes/cleans types after its internal
   validation; normal CLI final-module validation sees that later result. Extra
   post-encode decode/validation is debug-serial-only, not part of normal-command

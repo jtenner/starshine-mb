@@ -1,4 +1,4 @@
-### 2026-10-12 — Defer O4z fallback validation after Wago runtime fixes
+### 2026-10-12 — Remove unused O4z input validation and duplicate decode
 
 - Wago [PR 948](https://github.com/wago-org/wago/pull/948) now runs the frozen
   GC optimizer in a 48.616 s three-run median, down from 164.554 s on the pinned
@@ -8,6 +8,10 @@
   at the median of three runs each; size-portfolio time fell from 18.401 to
   10.740 s. All outputs remained byte-identical and valid. The [tracing record](tooling/tracing-playbook.md#october-12-2026-defer-the-o4z-input-fallback-validation)
   keeps the samples and remaining costs.
+- Original hazard facts are now captured before optimization. Large modules
+  without original-dependent cleanup skip a second full input decode. Three
+  further Wago runs measured a 39.032 s median, with 3.561 s in the size
+  portfolio. Selected-candidate validation remains the largest measured phase.
 
 ### 2026-10-11 — Fix Wago boundaries and complete the package comparison
 

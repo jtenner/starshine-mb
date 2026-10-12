@@ -5499,3 +5499,17 @@ and size of this gain rather than a release timing guarantee. Wago PR 948's
 earlier three-run median was 48.616 seconds under a different load. The second
 decode of the original input and the selected encoded result's validation remain
 in Starshine; those are distinct from Wago's compile-time validation.
+
+The next change captures original-module hazard facts before the optimizer can
+mutate shared arrays. It decodes a separate original copy only for cleanup that
+uses that copy. The 13.3 MB artifact has more than 1,999 optimized functions and
+does not enter that cleanup. Three fresh Wago runs took 39.478, 39.032, and
+37.862 seconds (median 39.032). Their size-portfolio times were 3.595, 3.561,
+and 3.444 seconds (median 3.561); selected-candidate checks still took 14.154,
+14.042, and 13.880 seconds (median 14.042). All outputs retained the same
+5,478,001-byte hash and passed independent `wasm-tools` validation. The earlier
+45.278-second median was measured under a different load, so the 6.246-second
+difference is directional evidence. The reported size-portfolio phase fell
+from 10.740 to 3.561 seconds; original-fact scans now run before that timer,
+so the phase difference is not wholly saved work. Original-dependent cleanup
+still decodes its own copy.
