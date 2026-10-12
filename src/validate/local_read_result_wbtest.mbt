@@ -23,6 +23,32 @@ fn local_read_expr_reference(
 }
 
 ///|
+test "pinned local premise rejects a deliberately weakened initialization context" {
+  // Core 3.0 algorithm get_local at spec revision
+  // 7e9fb78c63d65018cc111422f657947b3df80d7b requires initialization.
+  // This test-only context intentionally omits that premise; no production
+  // validator switch or guest execution is introduced.
+  let ty = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::extern_())),
+  )
+  let env = empty_env().with_locals(Locals::single(1U, ty))
+  let strong = make_state(env, [])
+  strong.initialized_locals.fill(false)
+  assert_eq(
+    typecheck_local_get(strong, LocalIdx::new(0U)).unwrap_err(),
+    "uninitialized local: 0",
+  )
+  let deliberately_weakened = make_state(env, [])
+  deliberately_weakened.initialized_locals.fill(true)
+  let falsely_accepted = typecheck_local_get(
+    deliberately_weakened,
+    LocalIdx::new(0U),
+  ).unwrap()
+  assert_eq(falsely_accepted.stack, [ty])
+  assert_false(strong.initialized_locals[0])
+}
+
+///|
 test "local read expression retains owned state and sibling initialization masks" {
   for ty in [ValType::i32(), ValType::i64(), ValType::i31ref()] {
     let env = empty_env().with_locals(Locals::single(1U, ty))
