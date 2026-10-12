@@ -1272,17 +1272,30 @@ quality gates. Keep traced inner and normal command measurements separate.
   verification and unchanged public result contracts; do not infer exclusive
   allocation totals from shared Callgrind counters.
 
+- **October 12 O4z fallback checkpoint:** input-candidate validation is now
+  deferred until smaller candidates fail. Three paired Wago runs lowered wall
+  median 54.078→45.278 s and size-portfolio median 18.401→10.740 s with exact,
+  valid output and collection enabled. The original input is still decoded a
+  second time for portfolio candidate generation; reusing the first module
+  needs proof that pipeline passes cannot mutate its shared arrays. The selected
+  encoded result still requires validation.
+
 - **Owner / why:** [cmd.mbt](src/cmd/cmd.mbt) and [encoder](src/binary/encode.mbt);
   end-to-end costs must include work outside optimizer timers.
 - **Deliverables / tasks:** use renewed empty/unchanged/active phase controls to
   target remaining decode/final-validation/encode materialization. Reuse input
   facts only under invocation-local unchanged-result contracts; preserve option,
-  proposal, metadata, portfolio and output-selection semantics.
+  proposal, metadata, portfolio and output-selection semantics. Prove module
+  ownership before reusing an original module in cleanup paths that currently
+  require a separate decode. Large modules without those paths now skip that
+  decode; selected encoded-candidate validation remains a measured bottleneck
+  after redundant eager validation was removed from normal O4z.
 - **Validation reuse constraint:** DAE2 prunes/cleans types after its internal
   validation; normal CLI final-module validation sees that later result. Extra
   post-encode decode/validation is debug-serial-only, not part of normal-command
   work. Retain checks in their enabled modes; timer labels alone do not prove
-  a branch executed. No redundant-check removal is justified by current evidence.
+  a branch executed. Input fallback validation now runs only if selection reaches
+  it; no selected-candidate or final-module validation is removed.
 - **Invariant / dependencies:** direct sequence-leaf encoding, scoped string
   indexes and unchanged-NaN input-byte reuse with conservative encoding-cleanup
   admission remain required.
@@ -1634,6 +1647,28 @@ keep those results separate from verified release-v133 signoff.
   [index/validator contracts](docs/wiki/validate/type-section-and-subtyping.md).
 
 ## v0.1.1 — Pipeline, artifacts and tooling [IR2-SIGNOFF]
+
+
+### Wago GC helper performance [IR2-WAGO-RUNTIME]
+
+- **Goal / why:** reduce the remaining Wago validation and portfolio cost. The
+  corrected bulk host completes O4z in one 176.354 s traced run, while native's
+  three-process median is 2.341 s on the same input. Both produce identical bytes.
+- **Deliverables / tasks:** profile the bulk path; isolate reference-heavy GC
+  field/helper and native-transition cost; measure changes against the exact
+  artifact with repeated fresh processes and phase timers.
+- **Required APIs / invariants:** preserve GC reference behavior, barriers,
+  callback lifetimes and exact roots. Keep validation and the collection guard.
+  Do not repeat the fixed cache-start, scalar scratch, import ABI, dead-loop
+  mask, callsite lookup or per-byte I/O work.
+- **Dependencies:** [Wago PR 948](https://github.com/wago-org/wago/pull/948),
+  generic GC helper/backend proof and source-qualified native/JS controls.
+- **Exit criteria / suggested tests:** lower whole-command and relevant phase
+  time; stress collection/re-entry; validate and byte-compare outputs; retain
+  the semantic and allocation checks. Package comparisons are complete for
+  published `starshine` 0.2.0 and locally packed 0.2.2 under Node and Bun.
+  [Completed record](docs/wiki/tooling/tracing-playbook.md#october-11-2026-bulk-host-and-wago-fixes).
+
 
 - **[SEMANTIC-OPT]001 — campaign acceptance:** rerun the full original-primary
   semantic campaign with explicit verified v133; the old accidental-PATH-v116

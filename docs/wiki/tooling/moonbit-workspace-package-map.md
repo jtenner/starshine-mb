@@ -91,6 +91,7 @@ Package imports are not optional documentation. If a source file starts using a 
 | --- | --- | --- |
 | [`src/cli`](../../../src/cli/) | CLI parser/config/glob logic. | Library package; command dispatch is separate. |
 | [`src/cmd`](../../../src/cmd/) | Main `starshine` command dispatcher. | `options("is-main": true)` plus wasm memory-export link metadata; command behavior is documented in [`cli-command-and-dispatcher.md`](cli-command-and-dispatcher.md). |
+| [`src/cmd_gc`](../../../src/cmd_gc/) | Wasm GC command with scalar bulk host I/O. | `supported_targets = "wasm-gc"`; exports linear memory; Node/Bun/Wago runners supply the protocol. |
 | [`src/fuzz`](../../../src/fuzz/) | Main fuzzing runner and invalid-repro helpers. | `options("is-main": true)`; imports binary, passes, fs, validate, WAST, and WAT surfaces. |
 | [`src/validate`](../../../src/validate/) | Module validation, typechecking, valid/invalid generators, diagnostics. | `options("proof-enabled": true)` and imports `validate_proof`; direct validator proving is policy-sensitive. |
 | [`src/validate_proof`](../../../src/validate_proof/) | Small proof helper package. | `options("proof-enabled": true)`; required proof lane is documented in [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md). |

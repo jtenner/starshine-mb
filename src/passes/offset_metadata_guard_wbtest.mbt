@@ -173,10 +173,10 @@ test "merge-similar-functions leaves offset-sensitive custom metadata unchanged"
     (
       #| (module
       #|   (func (result i32)
-      #|     nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|     nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|     i32.const 42)
       #|   (func (result i32)
-      #|     nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|     nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|     i32.const 43))
       #|
     ),

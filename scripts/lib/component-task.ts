@@ -182,6 +182,18 @@ export function patchGeneratedMoonModule(module: GeneratedMoonModule, productVer
   };
 }
 
+export function renderGeneratedMoonModule(module: ReturnType<typeof patchGeneratedMoonModule>): string {
+  return [
+    `name = ${JSON.stringify(module.name)}`,
+    `preferred_target = ${JSON.stringify(module.preferredTarget)}`,
+    "",
+    "import {",
+    ...Object.entries(module.deps).map(([name, version]) => `  ${JSON.stringify(`${name}@${version}`)},`),
+    "}",
+    "",
+  ].join("\n");
+}
+
 export function buildComponentCommandPlan(options: ComponentPlanOptions): ComponentCommandStep[] {
   const componentRoot = path.join(options.repoRoot, "component");
   const stagingRoot = path.join(options.repoRoot, ".tmp", "component-generation");
@@ -217,6 +229,11 @@ export function buildComponentCommandPlan(options: ComponentPlanOptions): Compon
         "--derive-debug",
         "--derive-eq",
       ],
+      cwd: options.repoRoot,
+    },
+    {
+      command: options.moonBin,
+      args: ["-C", stagingRoot, "fmt"],
       cwd: options.repoRoot,
     },
     {
@@ -389,11 +406,11 @@ function syncGeneratedBindings(repoRoot: string): void {
 
   copyDirectory(path.join(stagingRoot, "gen"), path.join(componentRoot, "gen"));
   copyDirectory(path.join(stagingRoot, "world"), path.join(componentRoot, "world"));
-  fs.writeFileSync(path.join(componentRoot, "moon.mod.json"), `${JSON.stringify({
-    name: patched.name,
-    "preferred-target": patched.preferredTarget,
-    deps: patched.deps,
-  }, null, 2)}\n`);
+  const moduleManifest = renderGeneratedMoonModule(patched);
+  fs.writeFileSync(path.join(componentRoot, "moon.mod"), moduleManifest);
+  fs.rmSync(path.join(componentRoot, "moon.mod.json"), { force: true });
+  fs.writeFileSync(path.join(stagingRoot, "moon.mod"), moduleManifest);
+  fs.rmSync(path.join(stagingRoot, "moon.mod.json"), { force: true });
 
   const implementationRoot = path.join(componentRoot, "implementation");
   const interfaceRoot = path.join(componentRoot, "gen", "interface", "jtenner", "starshine-component");
@@ -437,8 +454,30 @@ function syncGeneratedBindings(repoRoot: string): void {
     { path: "jtenner/starshine/wast", alias: "wast" },
   ];
   fs.writeFileSync(coreIrPackagePath, `${JSON.stringify(coreIrPackage, null, 2)}\n`);
+  for (const packagePath of [modulesPackagePath, coreIrPackagePath]) {
+    fs.copyFileSync(packagePath, path.join(stagingRoot, path.relative(componentRoot, packagePath)));
+  }
   normalizeGeneratedTextTree(path.join(componentRoot, "gen"));
   normalizeGeneratedTextTree(path.join(componentRoot, "world"));
+}
+
+function syncConvertedPackageManifests(repoRoot: string): void {
+  const componentRoot = path.join(repoRoot, "component");
+  const stagingRoot = path.join(repoRoot, ".tmp", "component-generation");
+  const copyManifests = (dir: string): void => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const source = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        copyManifests(source);
+      } else if (entry.name === "moon.pkg") {
+        const destination = path.join(componentRoot, path.relative(stagingRoot, source));
+        fs.copyFileSync(source, destination);
+        fs.rmSync(path.join(path.dirname(destination), "moon.pkg.json"), { force: true });
+      }
+    }
+  };
+  copyManifests(path.join(stagingRoot, "gen"));
+  copyManifests(path.join(stagingRoot, "world"));
 }
 
 function ensureWitBindgen(repoRoot: string, explicitPath: string | null): string {
@@ -492,13 +531,15 @@ export function runComponent(argv: string[]): void {
   fs.mkdirSync(outDir, { recursive: true });
   runGenerationStep(plan[0]);
   syncGeneratedBindings(repoRoot);
+  runGenerationStep(plan[1]);
+  syncConvertedPackageManifests(repoRoot);
 
   if (parsed.command === "generate") {
     process.stdout.write("Generated MoonBit component bindings in component/gen.\n");
     return;
   }
 
-  for (const step of plan.slice(1)) {
+  for (const step of plan.slice(2)) {
     const result = runOrThrow(step.command, step.args, {
       cwd: step.cwd,
       stdio: step.capturePath ? "pipe" : "inherit",

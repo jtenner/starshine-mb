@@ -12,10 +12,10 @@ fn msf_test_tail_call_disabled_module() -> @lib.Module {
     (
       #|(module
       #|  (func (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 42)
       #|  (func (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 43))
       #|
     ),
@@ -89,10 +89,10 @@ test "merge-similar-functions shares large literal-only siblings" {
     (
       #|(module
       #|  (func (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 42)
       #|  (func (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 43))
     ),
   )
@@ -115,9 +115,9 @@ test "merge-similar-functions shares large literal-only siblings" {
         @lib.Instruction::return_call(helper_idx),
       ])
       @debug.assert_eq(helper_locals, @lib.Locals::empty())
-      @debug.assert_eq(helper.length(), 15)
+      @debug.assert_eq(helper.length(), 33)
       @debug.assert_eq(
-        helper[14],
+        helper[32],
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       )
     }
@@ -395,10 +395,10 @@ test "merge-similar-functions rewrites nested literal sites" {
     (
       #|(module
       #|  (func (param i32) (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    block (result i32) i32.const 42 end)
       #|  (func (param i32) (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    block (result i32) i32.const 43 end))
     ),
   )

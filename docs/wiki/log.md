@@ -1,3 +1,64 @@
+### 2026-10-12 — Remove unused O4z input validation and duplicate decode
+
+- Wago [PR 948](https://github.com/wago-org/wago/pull/948) now runs the frozen
+  GC optimizer in a 48.616 s three-run median, down from 164.554 s on the pinned
+  baseline. Collection stays enabled and output bytes are unchanged.
+- O4z now validates the original input only if smaller encoded candidates fail.
+  An alternating Wago comparison measured 54.078 s before and 45.278 s after
+  at the median of three runs each; size-portfolio time fell from 18.401 to
+  10.740 s. All outputs remained byte-identical and valid. The [tracing record](tooling/tracing-playbook.md#october-12-2026-defer-the-o4z-input-fallback-validation)
+  keeps the samples and remaining costs.
+- Original hazard facts are now captured before optimization. Large modules
+  without original-dependent cleanup skip a second full input decode. Three
+  further Wago runs measured a 39.032 s median, with 3.561 s in the size
+  portfolio. Selected-candidate validation remains the largest measured phase.
+- Normal O4z now validates the chosen encoded candidate instead of validating
+  the optimized module before encoding and the candidate afterward. Three
+  later Wago runs measured a 27.675 s median with unchanged valid output;
+  caught try-table and debug paths retain eager validation.
+
+### 2026-10-11 — Fix Wago boundaries and complete the package comparison
+
+- [Wago PR 948](https://github.com/wago-org/wago/pull/948) preserves cached starts,
+  corrects synchronous host-root admission, removes dead-loop map sites, bounds
+  callsite lookup and avoids scalar-result scratch. Collection remains guarded.
+- The [bulk GC command](tooling/cli-command-and-dispatcher.md#wasm-gc-file-adapter)
+  uses four input/output calls. Full Wago O4z now completes with exact roots and
+  bytes equal to native/Node/Bun. It still takes one traced 176.354 s run; validation
+  and portfolio cost remain active in the backlog.
+- [Measurements](tooling/tracing-playbook.md#october-11-2026-bulk-host-and-wago-fixes)
+  include published unscoped `starshine` 0.2.0 and locally packed 0.2.2 under Node
+  and Bun. They supersede the old scoped-name/frozen-adapter blockers.
+- Four stale pass-test expectations are corrected without changing pass code.
+  All 14,134 Wasm GC tests pass; Node/Bun bulk fixtures and Wago's full Go,
+  regalloc and bench-regalloc checks pass. No package is published.
+
+### 2026-10-11 — Diagnose Wago GC, host-call and cache costs
+
+- [The Wago investigation](tooling/tracing-playbook.md#october-11-2026-wago-wall-time-and-collection-investigation)
+  confirms the root-map ABI rejection behind disabled Wasm collection.
+  It records 13.324 million byte calls, 7.22 GiB host scratch allocation,
+  a 34.72% inclusive GC struct-helper CPU owner and nine copy controls.
+- Fresh 2/3 GiB startup succeeds while cached repeats trap. The codec omits
+  start metadata; a reduced module returns 42 fresh and 0 cached. Its behavior
+  regression fails. This supersedes the earlier heap-size hypothesis.
+  Wago source remains unchanged; no speed improvement or completed Wago O4z
+  execution is claimed.
+
+### 2026-10-11 — Compare Starshine runtime hosts on the debug GC artifact
+
+- [The runtime comparison](tooling/tracing-playbook.md#october-11-2026-gc-native-and-javascript-host-comparison)
+  records the source-built Wago canary, three Starshine artifacts, final
+  three-sample wall/phase measurements, exact output identity and the
+  metadata-driven pass timing limits. Native/Node/Bun wall medians are
+  2.118/3.822/4.724 seconds. Wago fails on a collection-disabled 2 GiB heap;
+  the 3 GiB retry traps at startup. Bun needs the verified larger stack.
+- The GC default file adapter and compact pass-timer forwarding follow
+  failing tests. All 683 GC command tests and the shared Wasm file test pass.
+  The full default suite was interrupted before timing and is not signed off.
+  [Npm package blockers](tooling/node-package-surface.md#october-11-2026-local-package-blockers)
+  remain explicit; the JavaScript timings use a separate current-source runner.
+
 ### 2026-10-11 — Restore honest `i64-to-i32-lowering` boundaries
 
 - Verified with Binaryen 133 reduced fixtures that the canonical pass rewrites
