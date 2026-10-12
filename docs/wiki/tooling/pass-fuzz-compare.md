@@ -222,7 +222,7 @@ For each case, [`runPassFuzzCompare(...)`](../../../scripts/lib/pass-fuzz-compar
 12. **Secondary Binaryen runtime execution:** `--runtime-execution node` retains the older Starshine-vs-Binaryen export matrix as separate smoke evidence. Runtime-v1 builds the required function-export set from both modules, records a row when either side is missing, and treats that definite interface difference as a semantic mismatch. Scalar parameter vectors are signature-aware (`i64` receives `bigint`, while `i32`/`f32`/`f64` receive numbers); unsupported parameter crossings and exports beyond the invocation cap are recorded as blocked rows. Persisted matrix summaries report `observed` and `blocked` rows separately, and a matrix with no observations is blocked rather than counted as checked. Since October 8, 2026, this matrix runs in an isolated child with the configured `--runtime-timeout-ms` deadline, including module start and exported calls. Timeout terminates the process group on POSIX and records blocked execution. Child output is capped at 1 MiB; binary report serialization preserves BigInt, signed zero and NaN.
 
 The October 8 harness repair uses semantic contract
-`node-v2-header-signatures-and-matrix-deadlines-v11`. The fallback text extractor
+`node-v2-loaded-artifacts-and-bounded-events-v12`. The fallback text extractor
 reads function headers before the first body instruction, so nested block type
 fields cannot change the function signature. SMT integer shifts mask the count
 to the represented width. The `drop-consts` normalizer retains computed integer
@@ -400,6 +400,24 @@ its partial semantic observations are not signoff evidence.
 
 Semantic resume identity includes the Node process adapter and installed Node
 version. Host-worker observations cannot be reused as Node process results.
+The execution adapter snapshots each expected artifact's SHA-256 before spawning
+its worker. The worker independently hashes the exact bytes passed to Wasm
+compilation and rejects a different artifact before execution. Static table
+metadata is read from that same byte snapshot. Reports retain expected/loaded
+hashes and the caller's diagnostic mode. Import traces share a default 4,096-event
+cap across scalar/vector adapters and all start/export replays; reaching the cap
+halts recording and produces incomplete resource-limit evidence, even when guest
+exception handling catches the limit exception or traps afterward, never a match
+or a guest trap. Component callers may set `eventCap` and
+`expectedArtifactHashes` explicitly. This qualifies bounded observed inputs,
+not arbitrary rewrites or callback behavior beyond the admitted host model.
+Native metadata uses a trusted decoder on an owned original-byte snapshot; its
+parent-added `sourceArtifactHash` identifies bytes supplied, not an independent
+attestation that native code consumed them. Native `moduleHash` describes the
+re-encoded decoded module and may differ from raw input identity. Diagnostic
+memory samples are omitted when disabled and excluded from semantic comparison.
+Only imported/exported tables need static table-origin metadata; private-table
+execution stays with the engine and does not require a metadata-print subprocess.
 Regression tests check the actual Node version, three nonterminating starts,
 a successful observation afterward, state and import events, SIMD adapters,
 and three-way mismatch classification. The executor and compare task tests
