@@ -4661,6 +4661,15 @@ fn cmd_choose_smallest_encoded_candidate(
 }
 
 ///|
+fn cmd_o4z_append_unvalidated_input_candidate(
+  candidates : Array[(String, Bytes)],
+  bytes : Bytes,
+) -> Unit {
+  // The selector validates this candidate only if smaller candidates fail.
+  candidates.push(("input", bytes))
+}
+
+///|
 fn cmd_o4z_prevalidate_encoded_candidate(bytes : Bytes) -> Bytes? {
   match decode_module(bytes) {
     Ok(mod_) =>
@@ -6213,10 +6222,9 @@ pub fn run_cmd_with_adapter(
     if size_portfolio_enabled {
       match original_for_portfolio {
         Some(original) => {
-          match validate_module(original) {
-            Ok(_) => portfolio_candidates.push(("input", wasm_bytes))
-            Err(_) => ()
-          }
+          cmd_o4z_append_unvalidated_input_candidate(
+            portfolio_candidates, wasm_bytes,
+          )
           if stack_carried_simd_trunc_global_write {
             match
               optimize_module_with_pass_flags(

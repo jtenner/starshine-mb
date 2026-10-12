@@ -1961,6 +1961,38 @@ test "O4z size portfolio validates shortest candidates first and stops" {
 }
 
 ///|
+test "O4z input candidate validation waits until selection needs it" {
+  let visited : Array[String] = []
+  let optimized = bytes_from_ints([1])
+  let input = bytes_from_ints([2, 2])
+  let candidates = [("optimized", optimized)]
+  cmd_o4z_append_unvalidated_input_candidate(candidates, input)
+  let (label, selected) = cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels_by(
+    candidates,
+    [],
+    fn(label, _) {
+      visited.push(label)
+      label == "optimized"
+    },
+  )
+  @debug.assert_eq(visited, ["optimized"])
+  @debug.assert_eq(label, "optimized")
+  @debug.assert_eq(selected, optimized)
+  visited.clear()
+  let (fallback_label, fallback_bytes) = cmd_choose_smallest_valid_encoded_candidate_with_prevalidated_labels_by(
+    candidates,
+    [],
+    fn(label, _) {
+      visited.push(label)
+      label == "input"
+    },
+  )
+  @debug.assert_eq(visited, ["optimized", "input"])
+  @debug.assert_eq(fallback_label, "input")
+  @debug.assert_eq(fallback_bytes, input)
+}
+
+///|
 test "normal O4z skips selected candidate re-decode outside debug serial validation" {
   assert_false(should_validate_encoded_module_after_encode(false))
   assert_true(should_validate_encoded_module_after_encode(true))
