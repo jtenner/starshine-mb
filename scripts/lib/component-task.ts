@@ -182,6 +182,18 @@ export function patchGeneratedMoonModule(module: GeneratedMoonModule, productVer
   };
 }
 
+export function renderGeneratedMoonModule(module: ReturnType<typeof patchGeneratedMoonModule>): string {
+  return [
+    `name = ${JSON.stringify(module.name)}`,
+    `preferred_target = ${JSON.stringify(module.preferredTarget)}`,
+    "",
+    "import {",
+    ...Object.entries(module.deps).map(([name, version]) => `  ${JSON.stringify(`${name}@${version}`)},`),
+    "}",
+    "",
+  ].join("\n");
+}
+
 export function buildComponentCommandPlan(options: ComponentPlanOptions): ComponentCommandStep[] {
   const componentRoot = path.join(options.repoRoot, "component");
   const stagingRoot = path.join(options.repoRoot, ".tmp", "component-generation");
@@ -217,6 +229,11 @@ export function buildComponentCommandPlan(options: ComponentPlanOptions): Compon
         "--derive-debug",
         "--derive-eq",
       ],
+      cwd: options.repoRoot,
+    },
+    {
+      command: options.moonBin,
+      args: ["-C", componentRoot, "fmt"],
       cwd: options.repoRoot,
     },
     {
@@ -389,11 +406,8 @@ function syncGeneratedBindings(repoRoot: string): void {
 
   copyDirectory(path.join(stagingRoot, "gen"), path.join(componentRoot, "gen"));
   copyDirectory(path.join(stagingRoot, "world"), path.join(componentRoot, "world"));
-  fs.writeFileSync(path.join(componentRoot, "moon.mod.json"), `${JSON.stringify({
-    name: patched.name,
-    "preferred-target": patched.preferredTarget,
-    deps: patched.deps,
-  }, null, 2)}\n`);
+  fs.writeFileSync(path.join(componentRoot, "moon.mod"), renderGeneratedMoonModule(patched));
+  fs.rmSync(path.join(componentRoot, "moon.mod.json"), { force: true });
 
   const implementationRoot = path.join(componentRoot, "implementation");
   const interfaceRoot = path.join(componentRoot, "gen", "interface", "jtenner", "starshine-component");
@@ -492,13 +506,14 @@ export function runComponent(argv: string[]): void {
   fs.mkdirSync(outDir, { recursive: true });
   runGenerationStep(plan[0]);
   syncGeneratedBindings(repoRoot);
+  runGenerationStep(plan[1]);
 
   if (parsed.command === "generate") {
     process.stdout.write("Generated MoonBit component bindings in component/gen.\n");
     return;
   }
 
-  for (const step of plan.slice(1)) {
+  for (const step of plan.slice(2)) {
     const result = runOrThrow(step.command, step.args, {
       cwd: step.cwd,
       stdio: step.capturePath ? "pipe" : "inherit",
