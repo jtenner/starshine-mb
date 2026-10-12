@@ -1644,6 +1644,22 @@ test "redundant-set-elimination distinguishes floating-point bit patterns" {
       body.filter(fn(instr) { instr is @lib.LocalSet(_) }).length(),
       expected_sets,
     )
+    let constants = body.filter(fn(instr) {
+      instr is @lib.F32Const(_) || instr is @lib.F64Const(_)
+    })
+    match (constants.last(), second) {
+      (Some(@lib.F32Const(@lib.F32(actual))), @lib.F32Const(@lib.F32(expected))) =>
+        @debug.assert_eq(
+          actual.reinterpret_as_uint(),
+          expected.reinterpret_as_uint(),
+        )
+      (Some(@lib.F64Const(@lib.F64(actual))), @lib.F64Const(@lib.F64(expected))) =>
+        @debug.assert_eq(
+          actual.reinterpret_as_uint64(),
+          expected.reinterpret_as_uint64(),
+        )
+      _ => fail("expected the second floating-point constant to survive")
+    }
     let hot = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
     let ctx = HotPassContext::new(
       rse_descriptor(),
@@ -1659,6 +1675,6 @@ test "redundant-set-elimination distinguishes floating-point bit patterns" {
         sets += 1
       }
     }
-    @debug.assert_eq(sets, 2)
+    @debug.assert_eq(sets, expected_sets)
   }
 }

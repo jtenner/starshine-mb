@@ -231,3 +231,12 @@ If any one of those is missing, the port is not really implementing the Binaryen
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-similar-functions_all-features.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-similar-functions_types.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-similar-functions-param-limit.wast>
+
+## October 11 fixture correction
+
+The positive literal/nested and disabled-tail-call fixtures now use 32 Nops per
+sibling. Their old 14/16-Nop bodies could lose encoded bytes after helper/type
+overhead and correctly fail the final size guard. The tests still require actual
+helper creation, correct local indices and metadata protection. No pass logic
+changed. The offset-metadata fixture also proves a real unguarded transform before
+requiring the guarded module to stay unchanged.

@@ -9135,10 +9135,10 @@ test "deep audit command merge-similar-functions honors disabled tail-call metad
     (
       #|(module
       #|  (func (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 42)
       #|  (func (result i32)
-      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop nop
       #|    i32.const 43))
       #|
     ),
