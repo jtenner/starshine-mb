@@ -5513,3 +5513,16 @@ difference is directional evidence. The reported size-portfolio phase fell
 from 10.740 to 3.561 seconds; original-fact scans now run before that timer,
 so the phase difference is not wholly saved work. Original-dependent cleanup
 still decodes its own copy.
+
+Normal O4z then moved final validity checking to the size-ordered encoded
+candidate selector. That selector still decodes and validates the bytes it
+returns; an invalid smaller encoded candidate falls back to a valid input.
+Caught try-table forced-input runs and debug serial mode retain eager final
+module validation. Three further Wago runs measured 27.675, 26.308, and
+29.320 seconds (median 27.675), with 12.392 seconds in candidate selection
+at the median and no separate final-module validation. All three outputs had
+the unchanged 5,478,001-byte hash and passed independent `wasm-tools`
+validation. This group was run later than the 39.032-second group, so its
+11.357-second median difference is directional evidence rather than a paired
+speedup estimate. The selected-candidate decode and validation remain the
+largest phase.

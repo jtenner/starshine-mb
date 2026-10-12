@@ -1288,7 +1288,8 @@ quality gates. Keep traced inner and normal command measurements separate.
   proposal, metadata, portfolio and output-selection semantics. Prove module
   ownership before reusing an original module in cleanup paths that currently
   require a separate decode. Large modules without those paths now skip that
-  decode; selected-candidate validation remains a measured bottleneck.
+  decode; selected encoded-candidate validation remains a measured bottleneck
+  after redundant eager validation was removed from normal O4z.
 - **Validation reuse constraint:** DAE2 prunes/cleans types after its internal
   validation; normal CLI final-module validation sees that later result. Extra
   post-encode decode/validation is debug-serial-only, not part of normal-command

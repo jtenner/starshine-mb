@@ -6145,25 +6145,36 @@ pub fn run_cmd_with_adapter(
     cmd_trace_timer_stop(
       io, trace_optimize, "main-pipeline", main_pipeline_start_us,
     )
-    cmd_trace_emit(
-      io,
-      trace_optimize,
-      "input \{input_path}:final-validate:start",
-    )
-    let final_validate_start_us = cmd_trace_timer_start(trace_optimize)
-    match
-      validate_module_for_pipeline_step(optimized, "final module validate") {
-      Ok(_) => ()
-      Err(err) => return Err(err)
+    if size_portfolio_enabled &&
+      !caught_try_table_boundary &&
+      !merged.debug_serial_passes {
+      // The size-ordered selector validates the encoded candidate it returns.
+      cmd_trace_emit(
+        io,
+        trace_optimize,
+        "input \{input_path}:final-validate:deferred-to-candidate-selection",
+      )
+    } else {
+      cmd_trace_emit(
+        io,
+        trace_optimize,
+        "input \{input_path}:final-validate:start",
+      )
+      let final_validate_start_us = cmd_trace_timer_start(trace_optimize)
+      match
+        validate_module_for_pipeline_step(optimized, "final module validate") {
+        Ok(_) => ()
+        Err(err) => return Err(err)
+      }
+      cmd_trace_timer_stop(
+        io, trace_optimize, "validate:final-module", final_validate_start_us,
+      )
+      cmd_trace_emit(
+        io,
+        trace_optimize,
+        "input \{input_path}:final-validate:done",
+      )
     }
-    cmd_trace_timer_stop(
-      io, trace_optimize, "validate:final-module", final_validate_start_us,
-    )
-    cmd_trace_emit(
-      io,
-      trace_optimize,
-      "input \{input_path}:final-validate:done",
-    )
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:optimize done")
 
     let reuse_check_start_us = cmd_trace_timer_start(trace_optimize)

@@ -12,6 +12,10 @@
   without original-dependent cleanup skip a second full input decode. Three
   further Wago runs measured a 39.032 s median, with 3.561 s in the size
   portfolio. Selected-candidate validation remains the largest measured phase.
+- Normal O4z now validates the chosen encoded candidate instead of validating
+  the optimized module before encoding and the candidate afterward. Three
+  later Wago runs measured a 27.675 s median with unchanged valid output;
+  caught try-table and debug paths retain eager validation.
 
 ### 2026-10-11 — Fix Wago boundaries and complete the package comparison
 
