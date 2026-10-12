@@ -11317,8 +11317,8 @@ test "run_cmd_with_adapter print-func sees simplify-locals remove debug artifact
 }
 
 ///|
-#cfg(target="wasm")
-test "run_cmd uses wasm default io to read and write wasm files" {
+#cfg(any(target="wasm", target="wasm-gc"))
+test "run_cmd uses wasm and wasm-gc default io to read and write wasm files" {
   let dir = "tmp-starshine-cmd-wasm-default-io-\{@env.now()}"
   let input_path = "\{dir}/in.wasm"
   let output_path = "\{dir}/out.wasm"
@@ -11329,18 +11329,24 @@ test "run_cmd uses wasm default io to read and write wasm files" {
     Ok(_) => ()
     Err(e) => fail("expected wasm default io test dir creation, got \{e}")
   }
-  let wasm = encode_module_bytes(fixture_i32_const_module(77))
+  let wasm = @wast.wast_to_binary_module(
+    "(module (func (export \"run\") (result i32) i32.const 40 i32.const 2 i32.add))",
+  ).unwrap()
+  let wasm = encode_module_bytes(wasm)
   match @sfs.write_file_bytes(input_path, wasm) {
     Ok(_) => ()
     Err(e) => fail("expected wasm default io input write, got \{e}")
   }
 
-  let code = run_cmd_exit_code(["--out", output_path, input_path])
+  let code = run_cmd_exit_code([
+    "--optimize-instructions", "--out", output_path, input_path,
+  ])
   @debug.assert_eq(code, 0)
   match @sfs.read_file_bytes(output_path) {
     Ok(bytes) => {
-      let _decoded = decode_module_bytes(bytes)
-      assert_true(bytes.length() > 0)
+      let decoded = decode_module_bytes(bytes)
+      let @lib.Func(_, @lib.Expr(body)) = decoded.code_sec.unwrap().0[0]
+      @debug.assert_eq(body, [@lib.Instruction::i32_const(42)])
     }
     Err(e) => fail("expected wasm default io output read, got \{e}")
   }
@@ -11383,8 +11389,8 @@ test "phase tracing emits compact pass transitions" {
   )
   trace("pipeline:done changed=true")
   @debug.assert_eq(lines, [
-    "pipeline:start requested=1", "phase pass=merge-blocks", "phase pass=coalesce-locals-cfg",
-    "pipeline:done changed=true",
+    "pipeline:start requested=1", "phase pass=merge-blocks", "perf:timer name=pass:merge-blocks elapsed_us=10 total_us=10",
+    "phase pass=coalesce-locals-cfg", "pipeline:done changed=true",
   ])
 }
 

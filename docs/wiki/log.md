@@ -1,3 +1,45 @@
+### 2026-10-11 — Fix Wago boundaries and complete the package comparison
+
+- [Wago PR 948](https://github.com/wago-org/wago/pull/948) preserves cached starts,
+  corrects synchronous host-root admission, removes dead-loop map sites, bounds
+  callsite lookup and avoids scalar-result scratch. Collection remains guarded.
+- The [bulk GC command](tooling/cli-command-and-dispatcher.md#wasm-gc-file-adapter)
+  uses four input/output calls. Full Wago O4z now completes with exact roots and
+  bytes equal to native/Node/Bun. It still takes one traced 176.354 s run; validation
+  and portfolio cost remain active in the backlog.
+- [Measurements](tooling/tracing-playbook.md#october-11-2026-bulk-host-and-wago-fixes)
+  include published unscoped `starshine` 0.2.0 and locally packed 0.2.2 under Node
+  and Bun. They supersede the old scoped-name/frozen-adapter blockers.
+- Four stale pass-test expectations are corrected without changing pass code.
+  All 14,134 Wasm GC tests pass; Node/Bun bulk fixtures and Wago's full Go,
+  regalloc and bench-regalloc checks pass. No package is published.
+
+### 2026-10-11 — Diagnose Wago GC, host-call and cache costs
+
+- [The Wago investigation](tooling/tracing-playbook.md#october-11-2026-wago-wall-time-and-collection-investigation)
+  confirms the root-map ABI rejection behind disabled Wasm collection.
+  It records 13.324 million byte calls, 7.22 GiB host scratch allocation,
+  a 34.72% inclusive GC struct-helper CPU owner and nine copy controls.
+- Fresh 2/3 GiB startup succeeds while cached repeats trap. The codec omits
+  start metadata; a reduced module returns 42 fresh and 0 cached. Its behavior
+  regression fails. This supersedes the earlier heap-size hypothesis.
+  Wago source remains unchanged; no speed improvement or completed Wago O4z
+  execution is claimed.
+
+### 2026-10-11 — Compare Starshine runtime hosts on the debug GC artifact
+
+- [The runtime comparison](tooling/tracing-playbook.md#october-11-2026-gc-native-and-javascript-host-comparison)
+  records the source-built Wago canary, three Starshine artifacts, final
+  three-sample wall/phase measurements, exact output identity and the
+  metadata-driven pass timing limits. Native/Node/Bun wall medians are
+  2.118/3.822/4.724 seconds. Wago fails on a collection-disabled 2 GiB heap;
+  the 3 GiB retry traps at startup. Bun needs the verified larger stack.
+- The GC default file adapter and compact pass-timer forwarding follow
+  failing tests. All 683 GC command tests and the shared Wasm file test pass.
+  The full default suite was interrupted before timing and is not signed off.
+  [Npm package blockers](tooling/node-package-surface.md#october-11-2026-local-package-blockers)
+  remain explicit; the JavaScript timings use a separate current-source runner.
+
 ### 2026-10-11 — Restore honest `i64-to-i32-lowering` boundaries
 
 - Verified with Binaryen 133 reduced fixtures that the canonical pass rewrites

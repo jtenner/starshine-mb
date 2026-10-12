@@ -1,0 +1,14 @@
+import {
+  "jtenner/starshine/cmd",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/json",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "wasm-gc"
+
+options(
+  link: { "wasm-gc": { "export-memory-name": "memory" } },
+)

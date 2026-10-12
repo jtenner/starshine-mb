@@ -208,7 +208,7 @@ fn cmd_phase_trace_pass_name(line : String) -> String? {
 fn cmd_phase_trace_callback(trace : (String) -> Unit) -> (String) -> Unit {
   let mut active_pass = ""
   fn(line) {
-    if line.has_prefix("pipeline:") {
+    if line.has_prefix("pipeline:") || line.has_prefix("perf:timer name=pass:") {
       trace(line)
       return
     }
@@ -7912,14 +7912,6 @@ fn default_cmd_io() -> CmdIO {
 }
 
 ///|
-#cfg(target="wasm-gc")
-fn default_cmd_io() -> CmdIO {
-  let _ = @sfs.remove_file
-  let _ = cmd_default_list_candidates
-  CmdIO::new()
-}
-
-///|
 pub fn run_cmd(args : Array[String]) -> Result[CmdRunSummary, CmdError] {
   run_cmd_with_adapter(args, default_cmd_io())
 }
@@ -7975,7 +7967,9 @@ fn main {
 ///|
 #cfg(target="wasm-gc")
 fn main {
-  ignore(run_cmd_exit_code(@env.args()))
+  if run_cmd_exit_code(@env.args()) != 0 {
+    abort("Starshine command failed")
+  }
 }
 
 ///|
@@ -8069,14 +8063,13 @@ fn cmd_wasm_string_from_extern(extern_str : CmdExternString) -> String {
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn cmd_wasm_list_candidates() -> Array[String] {
-  let _ = cmd_wasm_string_from_extern
   cmd_default_list_candidates()
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn cmd_wasm_file_exists(path : String) -> Bool {
   match @sfs.list_files_recursive(path) {
     Ok(files) => files.length() > 0
@@ -8085,19 +8078,19 @@ fn cmd_wasm_file_exists(path : String) -> Bool {
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn cmd_wasm_read_file(path : String) -> Result[Bytes, String] {
   @sfs.read_file_bytes(path)
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn cmd_wasm_write_file(path : String, bytes : Bytes) -> Result[Unit, String] {
   @sfs.write_file_bytes(path, bytes)
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn cmd_wasm_write_stdout(bytes : Bytes) -> Result[Unit, String] {
   if bytes.length() == 0 {
     return Ok(())
@@ -8106,7 +8099,7 @@ fn cmd_wasm_write_stdout(bytes : Bytes) -> Result[Unit, String] {
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn cmd_wasm_write_stderr(bytes : Bytes) -> Result[Unit, String] {
   if bytes.length() == 0 {
     return Ok(())
@@ -8115,7 +8108,7 @@ fn cmd_wasm_write_stderr(bytes : Bytes) -> Result[Unit, String] {
 }
 
 ///|
-#cfg(target="wasm")
+#cfg(any(target="wasm", target="wasm-gc"))
 fn default_cmd_io() -> CmdIO {
   let _ = @sfs.remove_file
   CmdIO::new(

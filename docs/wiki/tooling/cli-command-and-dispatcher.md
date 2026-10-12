@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-29
+last_reviewed: 2026-10-11
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/README.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp
@@ -9,6 +9,8 @@ sources:
   - ../../../src/cli/cli_test.mbt
   - ../../../src/cli/glob.mbt
   - ../../../src/cmd/cmd.mbt
+  - ../../../src/cmd_gc/main.mbt
+  - ../../../node/internal/bulk-cli-host.js
   - ../../../src/cmd/cmd_wbtest.mbt
   - ../../../src/cmd/cmd_native_wbtest.mbt
   - ../../../src/passes/optimize.mbt
@@ -43,6 +45,40 @@ Starshine's CLI is a local command layer inspired by Binaryen's `wasm-opt` shape
 - [`src/passes/optimize.mbt`](../../../src/passes/optimize.mbt) owns the pass registry categories, preset expansion, hot/module pass routing, and final optimizer validation.
 
 Do not infer behavior from Binaryen's full `wasm-opt --help` surface. Starshine intentionally implements a smaller but explicit command contract with its own diagnostics and debug steps. The 2026-06-04 source audit in research note 0707 rechecked the current Binaryen CLI orientation sources and local dispatcher code; it also records the current local `--stdin` gap described below.
+
+## Wasm GC file adapter
+
+On October 11, 2026, the Wasm GC command began using the same filesystem
+callbacks as the linear-memory Wasm command. Before this change, its default
+`CmdIO` had no file reader or writer, so a file optimization returned an error.
+The compatibility GC main now traps after a command error so Moonrun returns a
+nonzero process status. Its prior main silently ignored that error.
+The shared test first failed on Wasm GC, then passed with an exact
+`i32.const 40; i32.const 2; i32.add -> i32.const 42` output assertion.
+
+The compatibility entry point in `src/cmd` still uses
+`__moonbit_fs_unstable` and `__moonbit_time_unstable.now`, as required by Moonrun.
+For bulk transfers, build [`src/cmd_gc`](../../../src/cmd_gc/main.mbt). Its host
+uses exported linear memory and three scalar functions under `__starshine_cli_v1`:
+`request`, `response`, and `exit`, plus the clock. Read/write data crosses the host
+boundary in four calls total, rather than one call for each byte.
+
+[`tools/run-gc-cli.mjs`](../../../tools/run-gc-cli.mjs) runs it on Node or Bun.
+[`tools/wago-host`](../../../tools/wago-host/README.md) supplies the same protocol
+through Wago. Arguments exclude the program name. Requests/responses are
+synchronous and instance-local; no guest re-entry or borrowed-memory retention is
+allowed. Responses start with a status byte: 0 success, 1 UTF-8 error, 2 missing
+environment value. Binary data follows the status. A write packet starts with a
+four-byte little-endian UTF-8 path length, then path bytes and file bytes.
+
+The runtime tests cover binary/Unicode data, truncated packets, missing input,
+response capacity and nonzero command exits. The old filesystem imports retained
+by unused default closures are bound to explicit traps in these runners; a full
+O4z run uses only the bulk protocol. See the
+[completed measurements](tracing-playbook.md#october-11-2026-bulk-host-and-wago-fixes).
+Sources: [compatibility adapter](../../../src/cmd/cmd.mbt),
+[bulk host](../../../node/internal/bulk-cli-host.js),
+[host and command tests](../../../node/test/bulk-cli-host.test.mjs).
 
 ## Command Shape
 

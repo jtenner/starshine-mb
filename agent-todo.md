@@ -1635,6 +1635,28 @@ keep those results separate from verified release-v133 signoff.
 
 ## v0.1.1 — Pipeline, artifacts and tooling [IR2-SIGNOFF]
 
+
+### Wago GC helper performance [IR2-WAGO-RUNTIME]
+
+- **Goal / why:** reduce the remaining Wago validation and portfolio cost. The
+  corrected bulk host completes O4z in one 176.354 s traced run, while native's
+  three-process median is 2.341 s on the same input. Both produce identical bytes.
+- **Deliverables / tasks:** profile the bulk path; isolate reference-heavy GC
+  field/helper and native-transition cost; measure changes against the exact
+  artifact with repeated fresh processes and phase timers.
+- **Required APIs / invariants:** preserve GC reference behavior, barriers,
+  callback lifetimes and exact roots. Keep validation and the collection guard.
+  Do not repeat the fixed cache-start, scalar scratch, import ABI, dead-loop
+  mask, callsite lookup or per-byte I/O work.
+- **Dependencies:** [Wago PR 948](https://github.com/wago-org/wago/pull/948),
+  generic GC helper/backend proof and source-qualified native/JS controls.
+- **Exit criteria / suggested tests:** lower whole-command and relevant phase
+  time; stress collection/re-entry; validate and byte-compare outputs; retain
+  the semantic and allocation checks. Package comparisons are complete for
+  published `starshine` 0.2.0 and locally packed 0.2.2 under Node and Bun.
+  [Completed record](docs/wiki/tooling/tracing-playbook.md#october-11-2026-bulk-host-and-wago-fixes).
+
+
 - **[SEMANTIC-OPT]001 — campaign acceptance:** rerun the full original-primary
   semantic campaign with explicit verified v133; the old accidental-PATH-v116
   aggregate is not acceptance evidence. Renew the historical random-all Vacuum
