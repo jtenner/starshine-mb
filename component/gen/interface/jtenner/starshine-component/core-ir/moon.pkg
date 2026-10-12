@@ -1,0 +1,8 @@
+warnings = "-1-44"
+
+import {
+  "jtenner/starshine/binary",
+  "jtenner/starshine/lib",
+  "jtenner/starshine/validate",
+  "jtenner/starshine/wast",
+}

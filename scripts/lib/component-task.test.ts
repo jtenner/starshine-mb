@@ -152,7 +152,7 @@ describe("component task", () => {
           "--derive-eq",
         ],
       ],
-      ["moon", ["-C", "/repo/component", "fmt"]],
+      ["moon", ["-C", "/repo/.tmp/component-generation", "fmt"]],
       ["moon", ["-C", "/repo/component", "update"]],
       [
         "moon",

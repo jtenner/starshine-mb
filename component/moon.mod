@@ -1,5 +1,4 @@
 name = "jtenner/starshine-component"
-
 preferred_target = "wasm"
 
 import {
