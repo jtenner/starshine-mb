@@ -40,8 +40,8 @@ fn reserve(length : Int) -> Result[Int, String] {
   let pages = if pages == 0 { 1 } else { pages }
   let current = memory_size()
   // memory.grow cannot move a reserved area. Only the area at the end can grow.
-  let extend = capacity > 0 && base + capacity == current * 65536
-  let extra = if extend { pages - capacity / 65536 } else { pages }
+  let can_extend = capacity > 0 && base + capacity == current * 65536
+  let extra = if can_extend { pages - capacity / 65536 } else { pages }
   if current < 0 || current > 32767 - extra {
     return Err("bulk CLI staging allocation is too large")
   }
@@ -49,7 +49,7 @@ fn reserve(length : Int) -> Result[Int, String] {
   if previous < 0 || previous > 32767 - extra {
     return Err("bulk CLI staging allocation failed")
   }
-  let next_base = if extend { base } else { previous * 65536 }
+  let next_base = if can_extend { base } else { previous * 65536 }
   staging.val = (next_base, pages * 65536)
   Ok(next_base)
 }
