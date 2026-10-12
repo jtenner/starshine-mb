@@ -86,6 +86,10 @@ export async function localizeFirstSemanticDivergence<Module>(
       sawDivergence = true;
       continue;
     }
+    if (report.classification === "decode-encode-baseline-divergence") {
+      if (semantic === "equal" && prefixLength > 0) report.laterRecoveries.push(prefixLength);
+      continue;
+    }
     if (!valid && report.firstDivergentBoundary === null) {
       report.classification = "candidate-invalid-before-boundary";
       return report;

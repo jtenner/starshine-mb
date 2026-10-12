@@ -4,6 +4,7 @@ import { localizeFirstSemanticDivergence } from "./optimizer-localization";
 
 function runner(options: {
   invalidPrefixes?: Set<number>;
+  blockedPrefixes?: Set<number>;
   divergentPrefixes?: Set<number>;
   standalone?: "equal" | "different" | "blocked";
   baseline?: "equal" | "different" | "blocked";
@@ -15,6 +16,7 @@ function runner(options: {
     semanticCompare: async (_original: string, module: string) => {
       const length = Number(module.split("-")[1]);
       if (length === 0 && options.baseline) return options.baseline;
+      if (options.blockedPrefixes?.has(length)) return "blocked" as const;
       return options.divergentPrefixes?.has(length) ? "different" as const : "equal" as const;
     },
     hash: async (module: string) => `hash:${module}`,
@@ -56,6 +58,32 @@ describe("first-divergent pass-prefix localization", () => {
     const report = await localizeFirstSemanticDivergence("input", ["p1"], runner({ baseline: "different" }));
     expect(report.classification).toBe("decode-encode-baseline-divergence");
     expect(report.firstDivergentBoundary).toBeNull();
+  });
+
+  test("does not blame a later pass when the baseline and later prefix both differ", async () => {
+    const report = await localizeFirstSemanticDivergence("input", ["innocent-pass"], runner({
+      baseline: "different",
+      divergentPrefixes: new Set([1]),
+    }));
+    expect(report.classification).toBe("decode-encode-baseline-divergence");
+    expect(report.firstDivergentBoundary).toBeNull();
+    expect(report.standaloneReproduction).toBe("not-run");
+  });
+
+  test("preserves baseline divergence when later prefixes are blocked or invalid", async () => {
+    const blocked = await localizeFirstSemanticDivergence("input", ["blocked-pass"], runner({
+      baseline: "different",
+      blockedPrefixes: new Set([1]),
+    }));
+    expect(blocked.classification).toBe("decode-encode-baseline-divergence");
+    expect(blocked.firstDivergentBoundary).toBeNull();
+
+    const invalid = await localizeFirstSemanticDivergence("input", ["invalid-pass"], runner({
+      baseline: "different",
+      invalidPrefixes: new Set([1]),
+    }));
+    expect(invalid.classification).toBe("decode-encode-baseline-divergence");
+    expect(invalid.firstDivergentBoundary).toBeNull();
   });
 
   test("records standalone context dependence", async () => {
