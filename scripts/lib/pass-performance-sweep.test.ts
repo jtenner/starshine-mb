@@ -228,6 +228,8 @@ describe("pass performance sweep", () => {
     expect(summary.passes[0].binaryenIncrementMadMs).toBe(0);
     expect(summary.passes[0].incrementRatio).toBeCloseTo(104 / 29);
     expect(summary.passes[0].passLocalRatio).toBe(3.4);
+    expect(summary.passes[0].comparisonWasmEqualInAllSamples).toBe(true);
+    expect(summary.passes[0].canonicalComparisonQualifiedInAllSamples).toBe(false);
     expect(summary.passes[0].starshinePassMadMs).toBe(5);
     expect(summary.passes[0].stableStarshineRawOutput).toBe(true);
     expect(summary.passes[0].stableBinaryenRawOutput).toBe(true);

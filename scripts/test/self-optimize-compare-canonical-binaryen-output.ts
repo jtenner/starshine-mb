@@ -51,6 +51,7 @@ fs.writeFileSync(args[outIndex + 1], "starshine-raw");
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { console.log("wasm-opt version 133 (test fixture)"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_BINARYEN_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
@@ -107,8 +108,10 @@ if (args.includes("-S")) {
   );
   assert(fs.readFileSync(path.join(outDir, "binaryen.raw.wasm"), "utf8") === "binaryen-raw", "expected raw Binaryen output preserved");
   assert(fs.readFileSync(path.join(outDir, "binaryen.wasm"), "utf8") === "canonical-wasm", "expected canonical Binaryen compare output");
-  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as { canonicalizeBinaryenOutput: boolean };
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as { canonicalizeBinaryenOutput: boolean; costProvenance: { qualification: { status: string; canonicalDeltaBytes: number | null } } };
   assert(summary.canonicalizeBinaryenOutput === true, "expected summary to record canonical Binaryen output mode");
+  assert(summary.costProvenance.qualification.status === "qualified", "expected matching normalization policies to qualify canonical metrics");
+  assert(summary.costProvenance.qualification.canonicalDeltaBytes === 0, "expected the measured canonical pair to have zero delta");
   assert(result.stdout.includes("Canonicalize Binaryen output: yes"), `expected mode in stdout:\n${result.stdout}`);
 }
 

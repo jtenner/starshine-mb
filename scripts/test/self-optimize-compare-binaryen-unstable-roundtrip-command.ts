@@ -73,6 +73,7 @@ fs.writeFileSync(args[outIndex + 1], "starshine-wasm");
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) { console.log("wasm-opt version 133 (test fixture)"); process.exit(0); }
 fs.appendFileSync(process.env.FAKE_BINARYEN_LOG, JSON.stringify(args) + "\\n");
 const outIndex = args.indexOf("-o");
 if (outIndex === -1 || outIndex + 1 >= args.length) {

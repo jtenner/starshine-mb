@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import readline from "node:readline";
+import { spawnSync } from "node:child_process";
+import { measureCostArtifact, qualifyCostComparison, type CostComparison, type CostNormalization, type CostTool } from "./optimizer-cost-provenance";
 
 import { fail, resolveMoonBin, resolveRepoPath, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
 
@@ -44,6 +46,7 @@ type ComparisonSummary = {
   binaryenRawSize: number;
   starshineSize: number;
   binaryenSize: number;
+  costProvenance: { artifacts: CostComparison; qualification: ReturnType<typeof qualifyCostComparison>; ledgerMeasurementElapsedMs: number };
   wasmEqual: boolean;
   starshineElapsedMs: number;
   binaryenElapsedMs: number;
@@ -1954,15 +1957,58 @@ function canonicalizeWasm(
   inputPath: string,
   outputPath: string,
   repoRoot: string,
-): void {
+  tool: CostTool,
+): CostNormalization {
   // Canonicalize both outputs through the same strip-debug writer so raw
   // compare noise from names or non-canonical section ordering does not mask
   // actual pass correctness parity.
+  const input = measureCostArtifact(inputPath, "raw");
+  const args = [inputPath, "--all-features", "--strip-debug", "-o", outputPath];
+  fs.rmSync(outputPath, { force: true });
+  const start = process.hrtime.bigint();
   runOrThrow(
     wasmOptBin,
-    [inputPath, "--all-features", "--strip-debug", "-o", outputPath],
+    args,
     { cwd: repoRoot, stdio: "pipe" },
   );
+  const elapsedMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+  const output = measureCostArtifact(outputPath, "canonical");
+  return { applied: true, policy: "binaryen-strip-debug-v1", inputHash: input.sha256, outputHash: output.sha256, args, tool, elapsedMs };
+}
+
+function costToolIdentity(command: string, repoRoot: string): CostTool {
+  const version = spawnSync(command, ["--version"], { cwd: repoRoot, encoding: "utf8", timeout: 2000, killSignal: "SIGKILL", maxBuffer: 65536 });
+  const executable = command.includes(path.sep) ? path.resolve(repoRoot, command) : (process.env.PATH ?? "").split(path.delimiter).map((dir) => path.join(dir, command)).find((filename) => fs.existsSync(filename));
+  let sha256: string | null = null;
+  try { if (executable) sha256 = measureCostArtifact(executable, "raw").sha256; } catch { /* Missing identity remains unqualified. */ }
+  return { command, version: version.error || version.status !== 0 ? null : version.stdout.trim(), sha256 };
+}
+
+export function assertComparisonInputPreserved(inputPath: string, outDir: string): void {
+  function physicalPath(filename: string): string {
+    let existing = path.resolve(filename);
+    const suffix: string[] = [];
+    while (!fs.existsSync(existing)) {
+      const parent = path.dirname(existing);
+      if (existing === parent) throw new Error("unresolvable comparison path");
+      suffix.unshift(path.basename(existing)); existing = parent;
+    }
+    return path.join(fs.realpathSync(existing), ...suffix);
+  }
+  const physicalInput = physicalPath(inputPath), physicalOut = physicalPath(outDir);
+  const relative = path.relative(physicalOut, physicalInput);
+  if (relative === "" || (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`))) throw new Error("input overlaps the comparison output directory; select a different output directory");
+  if (fs.existsSync(outDir) && fs.existsSync(inputPath)) {
+    const input = fs.statSync(inputPath);
+    // Every persistent writer in this runner targets a direct child of outDir.
+    // Include symlinks and hardlinks to inputs outside the directory as well.
+    for (const name of fs.readdirSync(outDir)) {
+      const filename = path.join(outDir, name);
+      if (!fs.existsSync(filename)) continue;
+      const target = fs.statSync(filename);
+      if (target.dev === input.dev && target.ino === input.ino) throw new Error("input overlaps a comparison output identity; select a different output directory");
+    }
+  }
 }
 
 function runTimedOrThrow(
@@ -2526,6 +2572,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   const binaryenWatPath = path.join(outDir, "binaryen.print.wat");
   const summaryPath = path.join(outDir, "result.json");
   const commandsPath = path.join(outDir, "commands.txt");
+  assertComparisonInputPreserved(inputPath, outDir);
 
   compileStarshineBeforeCompare(repoRoot, options.moonBin, options.starshineBin);
 
@@ -2534,6 +2581,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   }
 
   fs.mkdirSync(outDir, { recursive: true });
+  const originalInputCost = measureCostArtifact(inputPath, "input");
   validateInputBaseline(
     options.wasmToolsBin,
     options.wasmOptBin,
@@ -2557,6 +2605,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
         repoRoot,
       );
   const { effectiveInputPath, commands: binaryenNopCommands } = binaryenNopPrep;
+  const effectiveInputCost = measureCostArtifact(effectiveInputPath, "input");
   validateInputBaseline(
     options.wasmToolsBin,
     options.wasmOptBin,
@@ -2593,6 +2642,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     binaryenRawOutputPath,
   ];
 
+  fs.rmSync(starshineRawOutputPath, { force: true });
   const starshineRun = runTimedOrThrow(starshineInvocation.command, starshineArgs, {
     cwd: repoRoot,
     env: {
@@ -2619,6 +2669,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   if (options.wallAttribution) {
     const noTraceEnv = { ...process.env };
     delete noTraceEnv.STARSHINE_TRACING;
+    fs.rmSync(starshineNoTraceOutputPath, { force: true });
     starshineNoTraceRun = runTimedOrThrow(
       starshineInvocation.command,
       starshineNoTraceArgs,
@@ -2642,6 +2693,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
       starshineNoTraceRun.stderr,
     );
   }
+  fs.rmSync(binaryenRawOutputPath, { force: true });
   const binaryenRun = runTimedOrThrow(options.wasmOptBin, binaryenArgs, {
     cwd: repoRoot,
     stdio: "pipe",
@@ -2680,14 +2732,18 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     ? null
     : starshineNoTraceRun.elapsedMs <= binaryenRun.elapsedMs;
 
-  canonicalizeWasm(options.wasmOptBin, starshineRawOutputPath, starshineOutputPath, repoRoot);
+  const normalizer = costToolIdentity(options.wasmOptBin, repoRoot);
+  const starshineNormalization = canonicalizeWasm(options.wasmOptBin, starshineRawOutputPath, starshineOutputPath, repoRoot, normalizer);
+  let binaryenNormalization: CostNormalization;
   if (options.canonicalizeBinaryenOutput) {
-    canonicalizeWasm(options.wasmOptBin, binaryenRawOutputPath, binaryenOutputPath, repoRoot);
+    binaryenNormalization = canonicalizeWasm(options.wasmOptBin, binaryenRawOutputPath, binaryenOutputPath, repoRoot, normalizer);
   } else {
     // Binaryen's direct output is the reference artifact we want to match; keep
     // it verbatim so the published compare pair answers "did Starshine reach the
     // Binaryen bytes?" instead of "did both survive another rewrite step?".
     fs.copyFileSync(binaryenRawOutputPath, binaryenOutputPath);
+    const raw = measureCostArtifact(binaryenRawOutputPath, "raw");
+    binaryenNormalization = { applied: false, policy: "identity", inputHash: raw.sha256, outputHash: raw.sha256, elapsedMs: 0, tool: null, args: [] };
   }
 
   const wasmEqual =
@@ -2744,6 +2800,14 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     }
   }
 
+  const costStart = process.hrtime.bigint();
+  const costArtifacts: CostComparison = {
+    schema: "starshine.encoded-cost-provenance.v1", input: originalInputCost, effectiveInput: effectiveInputCost,
+    starshineRaw: measureCostArtifact(starshineRawOutputPath, "raw"), binaryenRaw: measureCostArtifact(binaryenRawOutputPath, "raw"),
+    starshineMetric: measureCostArtifact(starshineOutputPath, "canonical"), binaryenMetric: measureCostArtifact(binaryenOutputPath, options.canonicalizeBinaryenOutput ? "canonical" : "raw"),
+    starshineNormalization, binaryenNormalization,
+  };
+  const costQualification = qualifyCostComparison(costArtifacts);
   const summary: ComparisonSummary = {
     inputPath,
     effectiveInputPath,
@@ -2761,6 +2825,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     binaryenRawSize: fs.statSync(binaryenRawOutputPath).size,
     starshineSize: fs.statSync(starshineOutputPath).size,
     binaryenSize: fs.statSync(binaryenOutputPath).size,
+    costProvenance: { artifacts: costArtifacts, qualification: costQualification, ledgerMeasurementElapsedMs: Number(process.hrtime.bigint() - costStart) / 1_000_000 },
     wasmEqual,
     starshineElapsedMs: starshineRun.elapsedMs,
     binaryenElapsedMs: binaryenRun.elapsedMs,
@@ -2856,11 +2921,13 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     process.stdout.write(`Starshine normalized WAT: ${starshineWatPath}\n`);
     process.stdout.write(`Binaryen normalized WAT: ${binaryenWatPath}\n`);
   }
-  process.stdout.write(`Canonical wasm equal: ${summary.wasmEqual ? "yes" : "no"}\n`);
+  process.stdout.write(`Comparison artifact wasm equal: ${summary.wasmEqual ? "yes" : "no"}\n`);
+  process.stdout.write(`Encoded-cost provenance: ${costQualification.status}\n`);
+  if (costQualification.reasons.length) process.stdout.write(`Blocked cost provenance: ${costQualification.reasons.join("; ")}\n`);
   process.stdout.write(`Starshine raw wasm size: ${summary.starshineRawSize}\n`);
   process.stdout.write(`Binaryen raw wasm size: ${summary.binaryenRawSize}\n`);
   process.stdout.write(`Starshine canonical wasm size: ${summary.starshineSize}\n`);
-  process.stdout.write(`Binaryen canonical wasm size: ${summary.binaryenSize}\n`);
+  process.stdout.write(`Binaryen ${options.canonicalizeBinaryenOutput ? "canonical" : "raw reference"} wasm size: ${summary.binaryenSize}\n`);
   process.stdout.write(`Starshine runtime (ms): ${summary.starshineElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Binaryen runtime (ms): ${summary.binaryenElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine at least as fast: ${summary.starshineAtLeastAsFast ? "yes" : "no"}\n`);
