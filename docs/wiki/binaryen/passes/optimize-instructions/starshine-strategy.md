@@ -34,6 +34,12 @@ related:
 
 The power-of-two helpers include the unsigned sign-bit constants `0x80000000` and `0x8000000000000000`. The existing HOT rules and the [raw constant-folder bridge](../../../../../src/passes/optimize_instructions_sign_bit.mbt) therefore select `shl 31/63`, `shr_u 31/63` and the low-bit mask. The operand still evaluates once; its calls, traps and ordered effects remain. Other negative bit patterns and zero do not become powers of two. [Focused tests](../../../../../src/passes/optimize_instructions_sign_bit_power_test.mbt) and [command dispatch tests](../../../../../src/cmd/oi_sign_bit_power_wbtest.mbt) cover the boundary.
 
+## Immediate integer tee reuse
+
+The [bounded raw preclean](../../../../../src/passes/optimize_instructions_tee_reuse.mbt) removes the immediate `local.get n; integer and/or` suffix after `local.tee n`. It preserves the complete producer and the tee. HOT lifting otherwise captures the pending tee before the local read; commutative canonicalization can then add a scratch local and hide the identity. The preclean runs through the existing function preparation hook and raw OI fallback, while the ordinary HOT pass still runs on admitted functions. Offset-sensitive metadata prevents the preclean. Scans stop at 200,000 instructions or nesting depth 128 and retain the original function on budget exhaustion.
+
+This rule uses no CFG or new local value analysis. It excludes intervening instructions, different locals and floating-point equality. Observed local writes, trapping producers and invalidating RHS blocks are protected by [pass tests](../../../../../src/passes/optimize_instructions_tee_identity_test.mbt) and [dispatcher tests](../../../../../src/cmd/oi_tee_identity_wbtest.mbt). The existing `pass-oi-default-scalar` leaf, also sampled by `pass-oi-all`, now emits sign-bit arithmetic and immediate i32 tee reuse; its [generator test](../../../../../src/validate/gen_valid_oi_sign_bit_wbtest.mbt) validates the module and required opcodes.
+
 ## Optional control-arm state analysis
 
 The write-set walk skips the HOT `-1` sentinel for an absent optional else or

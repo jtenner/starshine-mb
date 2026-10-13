@@ -80935,8 +80935,15 @@ fn run_hot_pipeline_func_before_unread_tees(
       oi_index~,
     ) {
     Some(result) => {
+      let (precleaned, tee_changed) = if pass_module_has_offset_sensitive_metadata(
+          mod_,
+        ) {
+        (result.func, false)
+      } else {
+        oi_tee_reuse_preclean(result.func)
+      }
       let (cleaned, changed) = run_hot_pipeline_optimize_instructions_cleanup_tuple_wrappers(
-        result.func,
+        precleaned,
         Some(run_hot_pipeline_original_func(mod_, func_idx)),
         mod_,
         module_ctx=Some(
@@ -80951,7 +80958,9 @@ fn run_hot_pipeline_func_before_unread_tees(
       return Ok({
         reason: result.reason,
         func: cleaned,
-        unchanged_original: result.unchanged_original && !changed,
+        unchanged_original: result.unchanged_original &&
+        !changed &&
+        !tee_changed,
         trace_skip_raw: result.trace_skip_raw,
       })
     }
@@ -81120,8 +81129,7 @@ fn run_hot_pipeline_func_before_unread_tees(
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
-  let (lift_mod, merge_blocks_preclean_changed) = if descriptor.name ==
-    "merge-blocks" {
+  let (lift_mod, raw_preclean_changed) = if descriptor.name == "merge-blocks" {
     let (branch_precleaned, branch_changed) = run_hot_pipeline_merge_blocks_preclean_func(
       run_hot_pipeline_original_func(mod_, func_idx),
     )
@@ -81136,6 +81144,19 @@ fn run_hot_pipeline_func_before_unread_tees(
         "raw-preclean",
         payload="func_idx=\{func_idx} reason=dropped-self-branch-value",
       )
+      (
+        run_hot_pipeline_module_with_rewritten_func(mod_, func_idx, precleaned),
+        true,
+      )
+    } else {
+      (mod_, false)
+    }
+  } else if descriptor.name == "optimize-instructions" &&
+    !pass_module_has_offset_sensitive_metadata(mod_) {
+    let (precleaned, changed) = oi_tee_reuse_preclean(
+      run_hot_pipeline_original_func(mod_, func_idx),
+    )
+    if changed {
       (
         run_hot_pipeline_module_with_rewritten_func(mod_, func_idx, precleaned),
         true,
@@ -81392,7 +81413,7 @@ fn run_hot_pipeline_func_before_unread_tees(
     hot_pass_run_with_aggregate_perf_timer(ctx, func, aggregate_pass_timer) {
     Ok(result) =>
       if !result.changed &&
-        !merge_blocks_preclean_changed &&
+        !raw_preclean_changed &&
         (
           @ir.hot_revision_current(func) == lifted_revision ||
           descriptor.name == "remove-unused-brs" ||
