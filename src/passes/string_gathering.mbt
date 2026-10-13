@@ -901,6 +901,15 @@ pub fn string_gathering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   }
   let imported_globals = sg_imported_global_count(mod_)
   let plan = sg_make_rewrite_plan(mod_, set, imported_globals)
+  let mut global_indices_unchanged = true
+  for old_idx = 0
+      old_idx < plan.old_defined_to_abs.length()
+      old_idx = old_idx + 1 {
+    if plan.old_defined_to_abs[old_idx] != imported_globals + old_idx {
+      global_indices_unchanged = false
+      break
+    }
+  }
   @lib.Module::new(
     custom_secs=mod_.custom_secs,
     type_sec=mod_.type_sec,
@@ -920,7 +929,15 @@ pub fn string_gathering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     data_cnt_sec=mod_.data_cnt_sec,
     code_sec=sg_rewrite_code_sec(mod_.code_sec, plan, imported_globals),
     data_sec=sg_rewrite_data_sec(mod_.data_sec, plan, imported_globals),
-    name_sec=sg_rewrite_name_sec(mod_.name_sec, imported_globals, plan),
-    raw_name_sec_payload=None,
+    name_sec=if global_indices_unchanged {
+      mod_.name_sec
+    } else {
+      sg_rewrite_name_sec(mod_.name_sec, imported_globals, plan)
+    },
+    raw_name_sec_payload=if global_indices_unchanged {
+      mod_.raw_name_sec_payload
+    } else {
+      None
+    },
   )
 }

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-13
 sources:
   - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/string_gathering.mbt
@@ -79,6 +79,7 @@ That is much closer to the real pass than either:
 
 ## Current durable takeaways
 
+- The 2026-10-13 raw-name repair keeps parsed names and cached name-section bytes together when every old defined global retains its absolute index. It rewrites parsed names and clears the raw cache when the plan moves any old global, so names cannot point at stale indices.
 - `string-gathering` is a **module-wide structural rewrite**, not a function-local peephole.
 - The 2026-05-04 current-main recheck refreshed the exact local line anchors and still found no teaching-relevant upstream drift.
 - In `version_129`, the implementation lives inside `src/passes/StringLowering.cpp` as a standalone `StringGathering` pass struct.

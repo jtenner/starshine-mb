@@ -26,9 +26,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   dispatcher and public CLI test for every module-pass change. Use the common
   metadata guard when code offsets or indices change. Run Moon commands in
   series. The review baseline is `a61c3e418` in the dedicated audit worktree.
-- [ ] **[AUDIT-20261013]004 — gathered raw names:** preserve raw name payload
-  when string gathering reuses globals with an identity index map. Red test:
-  existing string global plus same literal in code. Exit: payload survives.
 - [ ] **[AUDIT-20261013]005 — i64 lowering scope:** resolve the active pass's
   four-opcode subset versus Binaryen's whole-module ABI contract; cover ordinary
   i64 signatures and arithmetic or give the subset a distinct honest route.
