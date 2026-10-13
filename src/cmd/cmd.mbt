@@ -10973,3 +10973,24 @@ test "command shrink preserves public GC function indices while removing canonic
   let (before, after) = @binary.encoded_module_sizes(input, output).unwrap()
   assert_true(after < before)
 }
+
+///|
+test "command package consumer preserves exact host-root function indices" {
+  let input = @passes.pass_test_module_from_wat(
+    (
+      #| (module
+      #|   (func (result i32) i32.const 9)
+      #|   (func (export "run") (result i32) i32.const 42)
+      #|   (func (export "debug") (result i32) i32.const 99))
+    ),
+  )
+  let output = @passes.rume_run_host_roots_module_pass(input, ["run"]).unwrap()
+  @debug.assert_eq(output.code_sec.unwrap().0.length(), 2)
+  @debug.assert_eq(output.export_sec.unwrap().0, [
+    @lib.Export::new(
+      @lib.Name::from_string("run"),
+      @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+    ),
+  ])
+  @debug.assert_eq(@validate.validate_module(output), Ok(()))
+}

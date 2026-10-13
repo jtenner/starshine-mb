@@ -14,6 +14,8 @@ pub fn rume_nonfunction_summary() -> String
 
 pub fn rume_rewrite_instruction(@lib.Instruction, Array[Int], Array[Int], Array[Int], Array[Int], Array[Int], Array[Int], Array[Int]) -> @lib.Instruction
 
+pub fn rume_run_host_roots_module_pass(@lib.Module, Array[String]) -> Result[@lib.Module, String]
+
 pub fn rume_run_module_pass(@lib.Module, traps_never_happen? : Bool, closed_world? : Bool) -> @lib.Module
 
 pub fn rume_run_nonfunction_module_pass(@lib.Module, traps_never_happen? : Bool, closed_world? : Bool) -> @lib.Module

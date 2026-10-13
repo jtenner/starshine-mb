@@ -26955,3 +26955,18 @@ arrays/typecheck wrappers from the completed return packaging change.
   Binaryen on the new GC family, and explicit execution limits. Its GC opcode
   scanner mislabels subopcode bytes as unreachable; this remains active under
   `[IR2-FUZZ-GC-SCANNER]` rather than counting as trap coverage.
+
+## 2026-10-13 — Explicit application export roots
+
+- The [RUME root dossier](binaryen/passes/remove-unused-module-elements/roots-reference-only-and-nullification.md#explicit-application-export-roots)
+  records the public library contract, exact names and aliases, bounded complete
+  reference scan, metadata refusal, and reuse of maintained liveness/removal.
+  The helper is a final mutator and preserves exposed function indices relative
+  to its input; ordinary optimizer name policy remains an active separate gap.
+- Source-backed LZ4 compression, QOI encoding and BLAKE3 unkeyed application
+  contracts remove real trailing algorithm bodies: 1,006 / 855 / 521 raw bytes
+  and 483 / 405 / 196 gzip9 bytes. Independent declared byte checks and host
+  name/reference/effect/trap fixtures agree. Whole-API validation adds cost;
+  concurrent Moon activity limits small timing claims. Full-export yyjson and
+  KissFFT controls remain byte-identical. Final validation and renewed ordinary
+  RUME aggregate results are recorded in the pass dossier when complete.

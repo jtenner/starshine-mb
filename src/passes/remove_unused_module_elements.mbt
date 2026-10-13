@@ -69,3 +69,13 @@ pub fn rume_run_nonfunction_module_pass(
     closed_world~,
   )
 }
+
+///|
+/// Apply the application's exact export roots as the final mutating transform.
+/// Preserve exposed function names/identity relative to this input module.
+pub fn rume_run_host_roots_module_pass(
+  mod_ : @lib.Module,
+  roots : Array[String],
+) -> Result[@lib.Module, String] {
+  @rume.rume_run_host_roots_module_pass(mod_, roots)
+}

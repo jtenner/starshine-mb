@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-13
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../tooling/pass-fuzz-compare.md
@@ -13,7 +13,29 @@ sources:
 
 # `remove-unused-module-elements` Fuzzing Profile
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — October 13, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Historical v131/v132 sources, commands, artifacts and results retain their original versions and do not establish v133 signoff.
+
+## October 13 host-root API integration renewal
+
+The fresh native CLI and exact ordinary-path result are recorded in the
+[application-root dossier](roots-reference-only-and-nullification.md#explicit-application-export-roots).
+The existing seven-family `rume-all` aggregate compared 10,000 cases against
+verified Binaryen 133 with `local-cleanup-debris`: 4,106 ordinary matches and
+5,894 cleanup-normalized matches, zero residuals, size-losing canonical cases,
+or validation/generator/command/property failures. Node-v2 observes 8,868
+all-equal cases, zero mismatches and 1,132 original-runtime-blocked
+continuation/descriptor cases. Blocked cases are not runtime signoff.
+
+The prefix-aware internal refactor defaults to zero for ordinary callers.
+This run covers that path; it does not fuzz 10,000 application root subsets.
+The new public API's exact names, exposed index/identity preservation,
+initialization/trap semantics and real code pruning have separate focused
+fixtures and independent execution evidence. Neither the new API's benefits
+nor broader runtime coverage follow from the existing aggregate totals.
+
+```sh
+bun fuzz compare-pass --count 10000 --min-compared 10000 --seed 0x5eed --pass remove-unused-module-elements --gen-valid-profile rume-all --normalize local-cleanup-debris --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --max-failures 10001 --no-reduce-mismatches --report-only --semantic-oracle node-v2 --require-independent-validator --wasm-opt-bin <verified-v133-wasm-opt> --require-binaryen-version 133 --starshine-bin _build/native/release/build/cmd/cmd.exe --gen-valid-bin <fresh-native-fuzz> --out-dir <evidence-directory>
+```
 
 ## October 10 whole-recursive-group pruning renewal
 

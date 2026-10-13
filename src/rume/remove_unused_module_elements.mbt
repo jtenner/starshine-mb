@@ -3249,6 +3249,7 @@ fn rume_collect_liveness_with_import_parent_policy(
   mod_ : @lib.Module,
   keep_import_parent_segments : Bool,
   keep_all_funcs? : Bool = false,
+  keep_function_prefix? : Int = 0,
   keep_all_imports? : Bool = false,
   traps_never_happen? : Bool = false,
   closed_world? : Bool = false,
@@ -3342,6 +3343,11 @@ fn rume_collect_liveness_with_import_parent_policy(
 
   if keep_all_funcs {
     rume_mark_defined_funcs(queue, used_funcs, func_imports)
+  }
+  // Every predecessor of a host-exposed function remains strongly live, so
+  // dense remapping preserves its original numeric JavaScript function name.
+  for idx = func_imports; idx < keep_function_prefix; idx = idx + 1 {
+    rume_mark_func(queue, used_funcs, @lib.FuncIdx::new(idx.to_uint()))
   }
   if !drop_noop_start_sec {
     match mod_.start_sec {
@@ -3519,6 +3525,7 @@ fn rume_collect_liveness(
   mod_ : @lib.Module,
   traps_never_happen? : Bool = false,
   closed_world? : Bool = false,
+  keep_function_prefix? : Int = 0,
 ) -> (
   @bitset.BitSet,
   @bitset.BitSet,
@@ -3535,6 +3542,7 @@ fn rume_collect_liveness(
     mod_,
     true,
     keep_all_imports=true,
+    keep_function_prefix~,
     traps_never_happen~,
     closed_world~,
   )
@@ -6629,6 +6637,16 @@ pub fn rume_run_module_pass(
   traps_never_happen? : Bool = false,
   closed_world? : Bool = false,
 ) -> @lib.Module {
+  rume_run_module_pass_with_prefix(mod_, 0, traps_never_happen~, closed_world~)
+}
+
+///|
+fn rume_run_module_pass_with_prefix(
+  mod_ : @lib.Module,
+  keep_function_prefix : Int,
+  traps_never_happen? : Bool = false,
+  closed_world? : Bool = false,
+) -> @lib.Module {
   if rume_has_unrewritable_metadata(mod_) ||
     rume_module_has_offset_sensitive_metadata(mod_) {
     return mod_
@@ -6644,7 +6662,12 @@ pub fn rume_run_module_pass(
     used_datas,
     decl_only_elems,
     partial_used_types,
-  ) = rume_collect_liveness(mod_, traps_never_happen~, closed_world~)
+  ) = rume_collect_liveness(
+    mod_,
+    traps_never_happen~,
+    closed_world~,
+    keep_function_prefix~,
+  )
   rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems, used_funcs)
   let used_types = rume_finish_used_type_flags(
     mod_, partial_used_types, used_funcs, referenced_funcs, used_globals, used_tables,

@@ -1,8 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-27
+last_reviewed: 2026-10-13
 sources:
+  - ../../../../../src/rume/host_roots.mbt
+  - ../../../../../src/rume/host_roots_wbtest.mbt
+  - ../../../../../src/passes/host_roots_test.mbt
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_133/src/tools/wasm-metadce.cpp
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast
@@ -22,7 +26,93 @@ related:
 
 # Roots, reference-only reachability, and nullification in Binaryen RUME
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — October 13, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Historical v131/v132 sources, commands, artifacts and results retain their original versions and do not establish v133 signoff.
+
+## Explicit application export roots
+
+`rume_run_host_roots_module_pass(module, roots: Array[String])` is available
+in `rume` and through the `passes` forwarding API. The application supplies an
+exact export allowlist; omitted exports are outside that application's interface.
+It must come from the embedding application's contract, not sampled execution.
+No manifest means ordinary optimization retains all exports.
+
+For example, an LZ4 compression application can retain `memory`,
+`lz4_input_ptr`, `lz4_output_ptr`, and `lz4_compress_run`. The independent
+decoder export is outside this contract. This does not declare the general
+library's decoder dead for all consumers. External JSON validation belongs to
+the caller; missing or malformed data must not become an implicit empty list.
+
+Every requested name must exist. Duplicate names have set semantics. The helper
+preserves source export order, names, kinds and selected aliases. Explicit `[]`
+removes exports while normal import/initialization/trap policies still apply.
+An absent export section stays absent, so an already empty module remains eight
+encoded bytes. Unknown names, invalid modules, unsupported metadata and scan limits return
+`Err`; no partially pruned module is returned.
+
+The helper preserves exposed function identity and numeric JavaScript
+`Function.name` relative to its supplied input. It scans every source
+`ref.func` and direct element target, including dead bodies/segments, then
+strongly roots all function slots through the highest exposed index using the
+existing RUME queue. Keeping predecessors makes dense remapping leave that
+prefix unchanged. This may retain otherwise unused earlier bodies. Start,
+callbacks, tables, imported memory effects and retained resource exports use
+maintained RUME reachability. No extraction policy or function merge is used.
+
+Use this helper as the final mutating transform. Later ordinary removal or
+merging can invalidate the index guarantee. Ordinary RUME and aggressive
+presets already compact retained indices: an unnamed exported function at
+index 1 can become index 0 when an earlier function disappears, changing its
+JavaScript name while still returning 42. This pre-existing host observation
+gap is not repaired for ordinary callers by the new application API.
+
+The single source-reference scan uses depth-bounded recursion, a scalar maximum
+and one shared work counter. Limits are 100,000 total functions, 100,000 roots
+and exports, 8,000,000 name characters, 8,000,000 function/root/local-run/
+instruction/element entries, and nesting depth 256. The scan uses `run_count()`
+without copying local declarations. These limits bound the added name and
+reference analysis, not every cost in the existing validator or RUME. Both
+input and output validate. Offset-sensitive or unsupported raw name metadata
+refuses the operation. No new optimizer pass or production flag is required.
+
+The source-backed compression/encoding/hash application checks demonstrate
+actual code removal: LZ4 2,918 → 1,912 raw bytes (gzip9 1,639 → 1,156),
+QOI 2,933 → 2,078 (1,660 → 1,255), and BLAKE3 13,174 → 12,653
+(5,204 → 5,008). The full-export ordinary RUME control is used for these
+comparisons. Exact output bytes and retained names match the declared host
+checks, including 35 BLAKE3 length vectors. Stored gzip streams use Python
+3.15.0 / zlib 1.3.2, level 9, mtime 0.
+
+One warmup and 11 AB/BA measured pairs include the helper's input/output
+validation and complete native invocation. Concurrent unrelated Moon activity
+limits small timing estimates; no speed gain is claimed. The all-root yyjson
+control has identical output but a paired median 6.386 ms added API cost and
+2,096 KiB more median peak RSS. KissFFT is also byte-identical with an estimated
+0.723 ms added cost. Positive modules show smaller, noisy time increases and
+small peak-memory deltas. These are full explicit-API costs, not isolated
+reference-scan timings or generated-code speed results. Ordinary callers do
+not execute the new host analysis.
+
+Focused tests assert actual trailing-body removal, unknown-name rejection,
+retained indices/aliases, callbacks and start/data effects, Unicode names,
+metadata refusal, all current reference carriers, and bounded scan refusal.
+The implementation reuses module-element removal rather than building another
+reachability graph.
+
+The renewed ordinary RUME `rume-all` aggregate uses fresh native CLI
+`0ada995d6b6f7af45485685b4682513305dfbc3082503992b9a2e8dd1858bac8`,
+frozen native generator `86fa651a62128028bbaa047083e2fd78fa99aa07fe68c0d60995fc99a2be27eb`,
+verified Binaryen 133, eight workers/subprocesses, independent wasm-tools
+validation and `local-cleanup-debris` normalization. All 10,000 compare:
+4,106 ordinary matches, 5,894 cleanup-normalized matches, zero residuals or
+validation/generator/command/property failures. Node-v2 observes 8,868 all-equal
+cases; all 1,132 continuation/descriptor cases are original-runtime-blocked
+and remain unverified by that engine. There are no observed semantic mismatches.
+
+This renews the unchanged ordinary RUME path after its internal prefix-aware
+refactor. It is **not** 10,000 host-root subsets or a general host-contract proof.
+The explicit application API has the separate targeted, real-module and host
+observation evidence above. GC effect-scanner counters still have the recorded
+`0xfb` decoding defect; they do not establish complete trap coverage.
 
 ## Why this page exists
 

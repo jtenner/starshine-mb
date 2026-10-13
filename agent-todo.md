@@ -127,6 +127,24 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 - **Suggested tests:** struct.new, struct.get, array instructions, zero indices,
   multi-byte indices, truncated input, actual unreachable and nullable traps.
 
+## v0.1.1 — Ordinary RUME host function names [IR2-RUME-HOST-NAMES]
+
+- **Goal / why:** resolve the pre-existing numeric JavaScript `Function.name`
+  change when ordinary RUME removes an earlier function slot. A 42-byte module
+  with an unused function 0 and retained `run` function 1 returns 42 before and
+  after pruning, but its exported name changes from `"1"` to `"0"`.
+- **Deliverables / tasks:** define ordinary optimizer host-observation policy,
+  test exposed references/aliases and retained names, then measure an index
+  preservation strategy across standard presets.
+- **Required APIs / invariants:** existing RUME remap and reference liveness;
+  do not treat core return equality as proof of all host observations.
+- **Dependencies / exit criteria:** independent JavaScript name/identity checks,
+  reviewed semantics and measured encoded size/time/memory tradeoffs.
+- **Suggested tests:** earlier dead functions, late returned refs, exported
+  tables/globals, imported callbacks and preset cleanup. The explicit
+  [application root API](docs/wiki/binaryen/passes/remove-unused-module-elements/roots-reference-only-and-nullification.md#explicit-application-export-roots)
+  preserves names relative to its input; it does not close ordinary RUME policy.
+
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
 - **Goal / why:** make Starshine competitive before release by closing pass,
