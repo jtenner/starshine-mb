@@ -5323,7 +5323,9 @@ fn dfe_run_module_pass_with_perf(
 
 ///|
 pub fn dfe_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
-  dfe_run_module_pass_with_perf(mod_, None)
+  dfe_cleanup_canonical_primitive_types(
+    dfe_run_module_pass_with_perf(mod_, None),
+  )
 }
 
 ///|
@@ -5359,6 +5361,8 @@ fn dfe_cleanup_raw_encoding(mod_ : @lib.Module) -> @lib.Module {
   if pass_module_has_offset_sensitive_metadata(mod_) {
     return mod_
   }
+  // This helper is also used by global-refining and preset DFE. Keep the
+  // expensive primitive GC encoding work at explicit DFE or final size cleanup.
   dfe_cleanup_simple_type_encoding(dfe_group_numeric_locals_if_smaller(mod_))
 }
 
@@ -5440,4 +5444,324 @@ fn dfe_cleanup_simple_type_encoding(
     _ => ()
   }
   grouped
+}
+
+///|
+// A primitive singleton root has no recursive references. Equal complete
+// declarations already denote the same canonical runtime type, even at a
+// public typed boundary. Never infer this equivalence for a group member.
+fn dfe_primitive_struct_key(subtype : @lib.SubType) -> Bool {
+  match subtype {
+    @lib.CompTypeSubType(meta, @lib.StructCompType(fields)) => {
+      if meta.is_shared() ||
+        meta.describes is Some(_) ||
+        meta.descriptor is Some(_) ||
+        fields.length() > 32 {
+        return false
+      }
+      for field in fields {
+        if field.is_mutable() {
+          return false
+        }
+        match field.get_storage_type() {
+          @lib.PackTypeStorageType(_) => ()
+          @lib.ValTypeStorageType(@lib.NumTypeValType(_))
+          | @lib.ValTypeStorageType(@lib.VecTypeValType) => ()
+          _ => return false
+        }
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn dfe_primitive_type_rewrite_supported(
+  mod_ : @lib.Module,
+  work_limit? : Int = 8000000,
+) -> Bool {
+  let mut remaining = work_limit
+  let consume = fn(count : Int) -> Bool {
+    if count > remaining {
+      return false
+    }
+    remaining -= count
+    true
+  }
+  let consume_type = fn(subtype : @lib.SubType) -> Bool {
+    match subtype.get_comptype() {
+      @lib.StructCompType(fields) => consume(fields.length())
+      @lib.FuncCompType(params, results) =>
+        consume(params.length()) && consume(results.length())
+      @lib.ArrayCompType(_) | @lib.ContCompType(_) => consume(1)
+    }
+  }
+  match mod_.type_sec {
+    Some(@lib.TypeSec(types)) =>
+      for rec_type in types {
+        match rec_type {
+          @lib.SingleRecType(subtype) =>
+            if !consume_type(subtype) {
+              return false
+            }
+          @lib.GroupRecType(subtypes) =>
+            for subtype in subtypes {
+              if !consume_type(subtype) {
+                return false
+              }
+            }
+        }
+      }
+    None => ()
+  }
+
+  let pending : Array[(@lib.Expr, Int)] = []
+  let push = fn(expr : @lib.Expr, depth : Int) -> Bool {
+    if pending.length() >= 100000 {
+      return false
+    }
+    pending.push((expr, depth))
+    true
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      if funcs.length() > 100000 {
+        return false
+      }
+      for @lib.Func(locals, expr) in funcs {
+        if !consume(locals.runs().length()) || !push(expr, 0) {
+          return false
+        }
+      }
+    }
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for @lib.Global(_, expr) in globals {
+        if !push(expr, 0) {
+          return false
+        }
+      }
+    None => ()
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for @lib.Table(_, init) in tables {
+        match init {
+          Some(expr) => if !push(expr, 0) { return false }
+          None => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      for @lib.Elem(mode, kind) in elems {
+        match mode {
+          @lib.Active(_, expr) => if !push(expr, 0) { return false }
+          _ => ()
+        }
+        match kind {
+          @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+            for expr in exprs {
+              if !push(expr, 0) {
+                return false
+              }
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.data_sec {
+    Some(@lib.DataSec(data)) =>
+      for @lib.Data(mode, _) in data {
+        match mode {
+          @lib.Active(_, expr) => if !push(expr, 0) { return false }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  if pending.length() > 100000 {
+    return false
+  }
+  while !pending.is_empty() {
+    let (expr, depth) = pending.pop().unwrap()
+    let @lib.Expr(body) = expr
+    if depth > 1024 || body.length() > remaining {
+      return false
+    }
+    remaining -= body.length()
+    for instruction in body {
+      match instruction {
+        // Existing DFE remappers do not preserve every continuation carrier
+        // or exact branch-cast flag. Leave these intentionally unsupported.
+        @lib.BrOnCast(_, _, _, _)
+        | @lib.BrOnCastFail(_, _, _, _)
+        | @lib.ArrayLoad(_, _, _)
+        | @lib.ArrayStore(_, _, _)
+        | @lib.StructWait(_, _)
+        | @lib.ContNew(_)
+        | @lib.ContBind(_, _)
+        | @lib.Resume(_, _)
+        | @lib.ResumeThrow(_, _, _)
+        | @lib.ResumeThrowRef(_, _)
+        | @lib.StackSwitch(_, _) => return false
+        @lib.Block(_, nested)
+        | @lib.Loop(_, nested)
+        | @lib.TryTable(_, _, nested) =>
+          if !push(nested, depth + 1) {
+            return false
+          }
+        @lib.If(_, yes, no) => {
+          if !push(@lib.Expr::new(yes), depth + 1) {
+            return false
+          }
+          match no {
+            Some(nested) =>
+              if !push(@lib.Expr::new(nested), depth + 1) {
+                return false
+              }
+            None => ()
+          }
+        }
+        @lib.Try(_, nested, catches, _) => {
+          if !push(nested, depth + 1) {
+            return false
+          }
+          for catch_ in catches {
+            match catch_ {
+              @lib.LegacyCatch(_, nested) | @lib.LegacyCatchAll(nested) =>
+                if !push(nested, depth + 1) {
+                  return false
+                }
+            }
+          }
+        }
+        _ => ()
+      }
+    }
+    if pending.length() > 100000 {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn dfe_cleanup_canonical_primitive_types(
+  mod_ : @lib.Module,
+  validate_result? : Bool = true,
+) -> @lib.Module {
+  if mod_.name_sec is Some(_) ||
+    mod_.raw_name_sec_payload is Some(_) ||
+    mod_.compiler_fact_custom_section is Some(_) ||
+    mod_.func_annotation_sec is Some(_) ||
+    pass_module_has_offset_sensitive_metadata(mod_) {
+    return mod_
+  }
+  let types = match mod_.type_sec {
+    Some(@lib.TypeSec(types)) => types
+    None => return mod_
+  }
+  if types.length() > 20000 {
+    return mod_
+  }
+  let kept : Array[@lib.RecType] = []
+  let remap : Map[UInt, UInt] = Map([])
+  let buckets : @hashmap.HashMap[Int, Array[(@lib.SubType, UInt)]] = @hashmap.new()
+  let mut old_index = 0U
+  let mut duplicates = 0
+  let placeholder = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let metadata_supported = fn(subtype : @lib.SubType) -> Bool {
+    let meta = subtype.metadata()
+    !meta.is_shared() &&
+    meta.describes is None &&
+    meta.descriptor is None &&
+    !(subtype.get_comptype() is @lib.ContCompType(_))
+  }
+  for rec_type in types {
+    let member_count = match rec_type {
+      @lib.SingleRecType(subtype) => {
+        if !metadata_supported(subtype) {
+          return mod_
+        }
+        1
+      }
+      @lib.GroupRecType(subtypes) => {
+        if subtypes.length() > 20000 {
+          return mod_
+        }
+        for subtype in subtypes {
+          if !metadata_supported(subtype) {
+            return mod_
+          }
+        }
+        subtypes.length()
+      }
+    }
+    if old_index + member_count.to_uint() > 20000U {
+      return mod_
+    }
+    let mut duplicate : UInt? = None
+    match rec_type {
+      @lib.SingleRecType(subtype) if dfe_primitive_struct_key(subtype) => {
+        let hash = subtype.hash()
+        let bucket = match buckets.get(hash) {
+          Some(bucket) => bucket
+          None => {
+            let bucket = []
+            buckets.set(hash, bucket)
+            bucket
+          }
+        }
+        for (existing, index) in bucket {
+          if existing == subtype {
+            duplicate = Some(index)
+            break
+          }
+        }
+        if duplicate is None {
+          if bucket.length() >= 64 {
+            return mod_
+          }
+          bucket.push((subtype, old_index))
+        }
+      }
+      _ => ()
+    }
+    match duplicate {
+      Some(index) => {
+        remap[old_index] = index
+        duplicates += 1
+        kept.push(placeholder)
+      }
+      None => kept.push(rec_type)
+    }
+    old_index += member_count.to_uint()
+  }
+  if duplicates == 0 || !dfe_primitive_type_rewrite_supported(mod_) {
+    return mod_
+  }
+  // Redirect only already canonical-equal primitive root references. Replace
+  // their obsolete slots by an empty function signature, which cannot trigger
+  // this primitive-root cleanup again. This avoids shifting every later type
+  // and copying all affected bodies. Each recursive group stays ordered.
+  let candidate = dfe_rewrite_module_type_idxs(
+    mod_.with_type_sec(@lib.TypeSec::new(kept)),
+    remap,
+  )
+  match @binary.encoded_module_sizes(mod_, candidate) {
+    Ok((before, after)) if after < before =>
+      if !validate_result || @validate.validate_module(candidate) is Ok(_) {
+        return candidate
+      }
+    _ => ()
+  }
+  mod_
 }

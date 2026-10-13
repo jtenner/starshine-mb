@@ -250,11 +250,11 @@ test "duplicate-function-elimination reaches fixed point when callee dedup unloc
 }
 
 ///|
-test "duplicate-function-elimination GenValid profile triggers direct and fixed-point merges" {
+test "duplicate-function-elimination GenValid profile triggers function and GC encoding cleanup" {
   let profile = @validate.gen_valid_profile_by_name(
     "duplicate-function-elimination",
   ).unwrap()
-  for seed in [0x5eedUL, 0x5eeeUL] {
+  for seed in [0x5eedUL, 0x5eeeUL, 0x5eefUL] {
     let generated = @validate.gen_valid_module_result_from_seed(
       seed,
       @validate.GenValidConfig::for_profile(profile),
@@ -265,8 +265,18 @@ test "duplicate-function-elimination GenValid profile triggers direct and fixed-
     }
     let optimized = try! dfe_test_run(generated.wasm_module)
     let after = try! dfe_test_defined_func_count(optimized)
-    assert_true(after < before, msg="DFE profile did not merge seed {seed}")
-    @debug.assert_eq(after, 2)
+    if @validate.gen_valid_undersampled_pass_profile_case_label(profile, seed)
+      is Some("duplicate-function-elimination:canonical-primitive-roots") {
+      @debug.assert_eq(after, before)
+      @debug.assert_eq(optimized.func_sec, generated.wasm_module.func_sec)
+      @debug.assert_eq(
+        optimized.type_sec.unwrap().0[1],
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      )
+    } else {
+      assert_true(after < before, msg="DFE profile did not merge seed {seed}")
+      @debug.assert_eq(after, 2)
+    }
   }
 }
 

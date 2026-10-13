@@ -111,6 +111,22 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   traps and unreachable arms. The independent execution fixture and current
   direct-pass evidence are in [paired size diagnostics](docs/wiki/fuzzing/semantic-optimizer-campaigns.md#paired-optimization-size-diagnostics).
 
+## v0.1.1 — GC effect scanner immediates [IR2-FUZZ-GC-SCANNER]
+
+- **Goal / why:** parse GC prefix `0xfb` and its complete immediates so type
+  and field index bytes do not become false standalone instruction hazards.
+- **Deliverables / tasks:** failing-first scanner fixture for struct allocation
+  and field access, bounded prefix decoding, and correct unsupported/truncated
+  handling. Audit related reference/array opcodes before expanding coverage.
+- **Required APIs / invariants:** existing effect-trap scanner and hazard
+  provenance; no claimed unreachable coverage from GC subopcode or index bytes.
+- **Dependencies / exit criteria:** independent decoded instruction evidence,
+  focused scanner tests and renewed affected interaction evidence. The
+  [DFE aggregate](docs/wiki/binaryen/passes/duplicate-function-elimination/fuzzing.md)
+  reproduces two false hazards in a 78-byte executable GC module.
+- **Suggested tests:** struct.new, struct.get, array instructions, zero indices,
+  multi-byte indices, truncated input, actual unreachable and nullable traps.
+
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
 - **Goal / why:** make Starshine competitive before release by closing pass,

@@ -10,7 +10,11 @@ fn gen_valid_undersampled_pass_profile_config(
   }
   GenValidConfig::{
     ..base,
-    max_type_defs: 2,
+    max_type_defs: if family_id == 2 {
+      5
+    } else {
+      2
+    },
     max_defined_funcs: 4,
     max_params: 2,
     max_results: 1,
@@ -58,10 +62,10 @@ pub fn gen_valid_undersampled_pass_profile_case_label(
         _ => Some("local-cse:repeated-xor")
       }
     DuplicateFunctionEliminationTriggerProfile =>
-      if seed % 2UL == 0UL {
-        Some("duplicate-function-elimination:exact-pair")
-      } else {
-        Some("duplicate-function-elimination:fixed-point-callers")
+      match (seed % 3UL).to_int() {
+        0 => Some("duplicate-function-elimination:exact-pair")
+        1 => Some("duplicate-function-elimination:fixed-point-callers")
+        _ => Some("duplicate-function-elimination:canonical-primitive-roots")
       }
     _ => None
   }
@@ -98,6 +102,9 @@ fn gen_valid_undersampled_lcse_module(seed : UInt64) -> Module {
 
 ///|
 fn gen_valid_undersampled_dfe_module(seed : UInt64) -> Module {
+  if seed % 3UL == 2UL {
+    return gen_valid_undersampled_dfe_gc_module(seed)
+  }
   let type_idx = TypeIdx::new(0U)
   let value = 1 + ((seed >> 1) % 1000003UL).to_int()
   let funcs : Array[Func] = [
@@ -105,7 +112,7 @@ fn gen_valid_undersampled_dfe_module(seed : UInt64) -> Module {
     Func::new(Locals::empty(), Expr::new([Instruction::i32_const(I32(value))])),
   ]
   let type_idxs : Array[TypeIdx] = [type_idx, type_idx]
-  if seed % 2UL == 0UL {
+  if seed % 3UL == 0UL {
     funcs.push(
       Func::new(
         Locals::empty(),
@@ -146,4 +153,76 @@ fn gen_valid_undersampled_pass_profile_module(ctx : GenValidContext) -> Module {
       gen_valid_undersampled_dfe_module(ctx.root_seed)
     _ => gen_valid_undersampled_lcse_module(ctx.root_seed)
   }
+}
+
+///|
+// Distinct function bodies and a scalar entry ensure the type-only trigger is
+// exercised independently of whole-function merging and GC host arguments.
+fn gen_valid_undersampled_dfe_gc_module(seed : UInt64) -> Module {
+  let first = TypeIdx::new(0U)
+  let alias = TypeIdx::new(1U)
+  let root = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Mut::const_()),
+      ]),
+    ),
+  )
+  let value = 1 + (seed / 3UL % 1000003UL).to_int()
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      root,
+      root,
+      RecType::new(
+        SubType::comp_type(
+          CompType::func([], [
+            ValType::ref_type(RefType::new(false, HeapType::new(alias))),
+          ]),
+        ),
+      ),
+      RecType::new(
+        SubType::comp_type(
+          CompType::func(
+            [ValType::ref_type(RefType::new(false, HeapType::new(first)))],
+            [ValType::i32()],
+          ),
+        ),
+      ),
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+    ]),
+  )
+  .with_func_sec(
+    FuncSec::new([TypeIdx::new(2U), TypeIdx::new(3U), TypeIdx::new(4U)]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(2U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(value)),
+          Instruction::struct_new(alias),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::struct_get(first, U32(0U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(0U)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
 }

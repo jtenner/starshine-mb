@@ -94623,6 +94623,7 @@ fn run_hot_pipeline_apply_module_pass(
   mod_ : @lib.Module,
   entry : HotPassRegistryEntry,
   options : HotPipelineOptions,
+  from_preset? : Bool = false,
 ) -> Result[@lib.Module, String] {
   pipeline_trace_hook(options.trace, entry.name, "start")
   let metadata_safe = entry.name == "strip-debug" ||
@@ -94648,8 +94649,14 @@ fn run_hot_pipeline_apply_module_pass(
     "avoid-reinterprets" => avoid_reinterprets_run_module_pass(mod_)
     "untee" => untee_run_module_pass(mod_)
     "make-shared-objects" => make_shared_objects_run_module_pass(mod_)
-    "duplicate-function-elimination" =>
-      dfe_run_module_pass_with_perf(mod_, options.perf)
+    "duplicate-function-elimination" => {
+      let cleaned = dfe_run_module_pass_with_perf(mod_, options.perf)
+      if from_preset {
+        cleaned
+      } else {
+        dfe_cleanup_canonical_primitive_types(cleaned)
+      }
+    }
     "merge-similar-functions" =>
       msf_run_module_pass_with_perf(mod_, options.perf)
     "remove-unused-module-elements" =>
