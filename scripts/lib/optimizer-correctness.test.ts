@@ -271,12 +271,14 @@ describe("optional structural reduction", () => {
       inputPath,
       outputPath,
       predicateCommand: ["bun", "fuzz", "replay-optimizer", "failure", "--input", "candidate.wasm"],
+      predicateTimeoutSeconds: 10,
     });
 
     expect(result.status).not.toBe("reduced");
     const args = JSON.parse(fs.readFileSync(logPath, "utf8")) as string[];
     expect(args).toContain("--test");
     expect(args).toContain("--working");
+    expect(args.slice(args.indexOf("--timeout"), args.indexOf("--timeout") + 2)).toEqual(["--timeout", "10"]);
     expect(fs.existsSync(outputPath)).toBe(false);
     fs.rmSync(dir, {recursive:true,force:true});
   });
