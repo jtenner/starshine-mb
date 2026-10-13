@@ -14,6 +14,79 @@ test "effect summaries distinguish pure arithmetic from memory access" {
 }
 
 ///|
+test "effect node workspace invalidates cached masks after a HOT edit" {
+  let func = HotFunc::new()
+  let pure = hot_build_const_i32(func, @lib.I32(1))
+  let addr = hot_build_const_i32(func, @lib.I32(0))
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0))
+  let load = hot_build_load(func, @lib.ValType::i32(), memarg, addr)
+  let root = hot_build_drop(func, pure)
+  hot_root_append(func, root)
+  let workspace = EffectNodeWorkspace::new()
+  let buffer_builds = [0]
+  assert_true(
+    effects_is_pure(
+      effects_for_node_with_workspace(
+        func,
+        root,
+        workspace,
+        buffer_builds=Some(buffer_builds),
+      ),
+    ),
+  )
+  ignore(hot_replace_child_span(func, root, [load]))
+  assert_true(
+    effects_reads_memory(
+      effects_for_node_with_workspace(
+        func,
+        root,
+        workspace,
+        buffer_builds=Some(buffer_builds),
+      ),
+    ),
+  )
+  assert_eq(buffer_builds[0], 1)
+}
+
+///|
+test "effect node workspace does not share masks between functions" {
+  let pure_func = HotFunc::new()
+  let pure_value = hot_build_const_i32(pure_func, @lib.I32(1))
+  ignore(hot_build_const_i32(pure_func, @lib.I32(2)))
+  ignore(hot_build_const_i32(pure_func, @lib.I32(3)))
+  let pure_root = hot_build_drop(pure_func, pure_value)
+  hot_root_append(pure_func, pure_root)
+
+  let load_func = HotFunc::new()
+  let addr = hot_build_const_i32(load_func, @lib.I32(0))
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0))
+  let load = hot_build_load(load_func, @lib.ValType::i32(), memarg, addr)
+  ignore(hot_build_const_i32(load_func, @lib.I32(3)))
+  let load_root = hot_build_drop(load_func, load)
+  hot_root_append(load_func, load_root)
+
+  while hot_revision_current(pure_func) < hot_revision_current(load_func) {
+    hot_revision_bump(pure_func)
+  }
+  while hot_revision_current(load_func) < hot_revision_current(pure_func) {
+    hot_revision_bump(load_func)
+  }
+  assert_eq(pure_root, load_root)
+  assert_eq(hot_revision_current(pure_func), hot_revision_current(load_func))
+  let workspace = EffectNodeWorkspace::new()
+  assert_true(
+    effects_is_pure(
+      effects_for_node_with_workspace(pure_func, pure_root, workspace),
+    ),
+  )
+  assert_true(
+    effects_reads_memory(
+      effects_for_node_with_workspace(load_func, load_root, workspace),
+    ),
+  )
+}
+
+///|
 test "SIMD memory nodes retain read write and trap effects" {
   let load_fixture = ir_test_build_hot_from_wat(
     "(module (memory 1) (func (local v128) i32.const 0 v128.load local.set 0))",

@@ -651,6 +651,7 @@ fn merge_blocks_lift_expression_block_children(
   label_used : @bitset.BitSet,
   module_ctx : @ir.HotModuleContext?,
   branch_workspace? : MergeBlocksBranchScanWorkspace? = None,
+  effect_buffer_builds? : Array[Int]? = None,
 ) -> Int {
   let root_id = @ir.hot_region_get(func, region_ref, idx)
   if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
@@ -702,7 +703,13 @@ fn merge_blocks_lift_expression_block_children(
           prefix_idx = prefix_idx + 1 {
         let prefix_id = @ir.hot_region_get(func, body_ref, prefix_idx)
         prefix.push(prefix_id)
-        prefix_effects = prefix_effects | @ir.effects_for_node(func, prefix_id)
+        prefix_effects = prefix_effects |
+          @ir.effects_for_node_with_workspace(
+            func,
+            prefix_id,
+            workspace.effect_workspace,
+            buffer_builds=effect_buffer_builds,
+          )
         if merge_blocks_node_has_branch_memoized(func, prefix_id, workspace) {
           prefix_has_branch = true
         }
@@ -716,13 +723,24 @@ fn merge_blocks_lift_expression_block_children(
         next_children.push(tail_id)
         @ir.hot_region_replace_body(func, body_ref, [])
         previous_effects = previous_effects |
-          @ir.effects_for_node(func, tail_id)
+          @ir.effects_for_node_with_workspace(
+            func,
+            tail_id,
+            workspace.effect_workspace,
+            buffer_builds=effect_buffer_builds,
+          )
         changed = true
         continue
       }
     }
     next_children.push(child_id)
-    previous_effects = previous_effects | @ir.effects_for_node(func, child_id)
+    previous_effects = previous_effects |
+      @ir.effects_for_node_with_workspace(
+        func,
+        child_id,
+        workspace.effect_workspace,
+        buffer_builds=effect_buffer_builds,
+      )
   }
   if !changed || lifted_prefixes.length() == 0 {
     return 0
@@ -798,6 +816,7 @@ priv struct MergeBlocksBranchScanWorkspace {
   loop_states : Array[Int]
   loop_revisions : Array[Int]
   mut loop_revision : Int
+  effect_workspace : @ir.EffectNodeWorkspace
 }
 
 ///|
@@ -810,6 +829,7 @@ fn MergeBlocksBranchScanWorkspace::new() -> MergeBlocksBranchScanWorkspace {
     loop_states: [],
     loop_revisions: [],
     loop_revision: -1,
+    effect_workspace: @ir.EffectNodeWorkspace::new(),
   }
 }
 

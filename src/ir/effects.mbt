@@ -444,13 +444,95 @@ fn effects_build_node_masks(
 }
 
 ///|
-pub fn effects_for_node(func : HotFunc, node_id : NodeId) -> EffectMask {
+pub fn effects_for_node(
+  func : HotFunc,
+  node_id : NodeId,
+  buffer_builds? : Array[Int]? = None,
+) -> EffectMask {
+  match buffer_builds {
+    Some(count) => count[0] += 1
+    None => ()
+  }
   effects_accumulate_node_cached(
     func,
     node_id,
     Array::make(hot_node_count(func), 0U),
     @bitset.BitSet::new(hot_node_count(func)),
   )
+}
+
+///|
+pub struct EffectNodeWorkspace {
+  masks : Array[EffectMask]
+  ready_epochs : Array[Int]
+  mut owner : HotFunc?
+  mut revision : Int
+  mut epoch : Int
+}
+
+///|
+pub fn EffectNodeWorkspace::new() -> EffectNodeWorkspace {
+  { masks: [], ready_epochs: [], owner: None, revision: -1, epoch: 0, }
+}
+
+///|
+pub fn EffectNodeWorkspace::allocated_cells(self : EffectNodeWorkspace) -> Int {
+  self.masks.length()
+}
+
+///|
+fn effects_accumulate_node_workspace(
+  func : HotFunc,
+  node_id : NodeId,
+  workspace : EffectNodeWorkspace,
+) -> EffectMask {
+  if workspace.ready_epochs[node_id] == workspace.epoch {
+    return workspace.masks[node_id]
+  }
+  let mut mask = effects_mask_for_flags(hot_node_flags(func, node_id)) |
+    effects_mask_for_node_exact(func, node_id)
+  for slot = 0; slot < hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = hot_child_get(func, node_id, slot)
+    if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
+      continue
+    }
+    mask = mask | effects_accumulate_node_workspace(func, child_id, workspace)
+  }
+  workspace.masks[node_id] = mask
+  workspace.ready_epochs[node_id] = workspace.epoch
+  mask
+}
+
+///|
+pub fn effects_for_node_with_workspace(
+  func : HotFunc,
+  node_id : NodeId,
+  workspace : EffectNodeWorkspace,
+  buffer_builds? : Array[Int]? = None,
+) -> EffectMask {
+  match workspace.owner {
+    Some(owner) if physical_equal(owner, func) => ()
+    _ => {
+      workspace.owner = Some(func)
+      workspace.revision = -1
+    }
+  }
+  let revision = hot_revision_current(func)
+  if workspace.revision != revision {
+    workspace.revision = revision
+    workspace.epoch += 1
+  }
+  if workspace.masks.length() < hot_node_count(func) {
+    match buffer_builds {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+  }
+  while workspace.masks.length() < hot_node_count(func) {
+    workspace.masks.push(0U)
+    workspace.ready_epochs.push(0)
+  }
+  effects_accumulate_node_workspace(func, node_id, workspace)
 }
 
 ///|

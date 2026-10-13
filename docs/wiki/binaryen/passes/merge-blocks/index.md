@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-08-28
+last_reviewed: 2026-10-13
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeBlocks.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/merge-blocks.wast
@@ -29,6 +29,16 @@ supersedes:
 ---
 
 # `merge-blocks`
+
+## 2026-10-13 effect workspace
+
+Expression-child block lifting now reuses effect masks across the prefixes of
+one HOT function. The workspace checks the function identity and revision before
+it uses a saved mask, so a HOT edit forces a fresh effect calculation. A
+64-prefix test needed 65 node-sized scratch buffers before this change and one
+after it. The test measures logical buffer builds, not native elapsed time or
+allocator calls. The existing merge-blocks output tests and the full pass suite
+check the transformed output.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

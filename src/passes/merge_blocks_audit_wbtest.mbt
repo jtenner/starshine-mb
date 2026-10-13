@@ -40,6 +40,36 @@ test "merge-blocks branch memo scratch is lazy across ordinary expression roots"
 }
 
 ///|
+test "merge-blocks reuses effect storage across a wide block prefix" {
+  let source = StringBuilder::new()
+  source.write_string("(module (func (drop (block (result i32)")
+  for value in 0..<64 {
+    source.write_string(" (drop (i32.const ")
+    source.write_string(value.to_string())
+    source.write_string("))")
+  }
+  source.write_string(" (i32.const 1)))))")
+  let func = pass_test_lift_first_func(source.to_string())
+  let buffer_builds = [0]
+  let workspace = MergeBlocksBranchScanWorkspace::new()
+  let lifted = merge_blocks_lift_expression_block_children(
+    func,
+    @ir.HotRegionRef::root(),
+    0,
+    @bitset.BitSet::new(0),
+    None,
+    branch_workspace=Some(workspace),
+    effect_buffer_builds=Some(buffer_builds),
+  )
+  assert_eq(lifted, 64)
+  assert_eq(buffer_builds[0], 1)
+  assert_true(workspace.effect_workspace.allocated_cells() > 0)
+  assert_true(
+    workspace.effect_workspace.allocated_cells() <= @ir.hot_node_count(func),
+  )
+}
+
+///|
 test "merge-blocks branch memo scans legacy try catches" {
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
