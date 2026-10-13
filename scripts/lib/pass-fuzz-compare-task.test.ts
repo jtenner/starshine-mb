@@ -1,3 +1,4 @@
+import { createSemanticFailureFingerprint, type SemanticFailureFingerprint } from "./optimizer-failure-fingerprint";
 import { SEMANTIC_EXECUTION_CONTRACT } from "./optimizer-runtime-executor";
 import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
@@ -7,6 +8,7 @@ import { spawnSync } from "node:child_process";
 
 import {
   canonicalizeWasm,
+  passFuzzFinalizeSemanticReductionForTest,
   classifyRuntimeExportInvocationMatrix,
   classifyRuntimeInvocationPair,
   deterministicExportArgumentVector,
@@ -2141,5 +2143,46 @@ describe("bounded comparison projection", () => {
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+
+describe("semantic reduction final publication", () => {
+  // The production evaluator owns validation/execution. These tests exercise
+  // its actual publication boundary with explicit observed fingerprints.
+  const candidate = Uint8Array.from([0,97,115,109,1,0,0,0]);
+  const original = Uint8Array.from([...candidate,0,6,4,110,111,116,101,0]);
+  const fingerprint = createSemanticFailureFingerprint({propertyKind:"semantic-self",primaryFailureClass:"semantic-mismatch",semanticPolicy:"strict",observationCompleteness:"complete",passSequence:["vacuum"],firstDifferenceCategory:"memory",memoryOrTableOffset:8});
+  const moved = {...fingerprint,memoryOrTableOffset:9};
+  async function run(evaluate: (bytes:Uint8Array) => Promise<SemanticFailureFingerprint|null>, matchLevel:"exact"|"family"="exact", bytes=candidate) {
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),"starshine-final-reduction-"));
+    fs.writeFileSync(path.join(dir,"input.wasm"),original);
+    try {
+      const report=await passFuzzFinalizeSemanticReductionForTest({originalBytes:original,candidateBytes:bytes,expectedFingerprint:fingerprint,evaluateOnce:evaluate,matchLevel,workDir:dir,predicateEvaluations:3,steps:[],relaxation:null});
+      expect(fs.readFileSync(path.join(dir,"input.wasm"))).toEqual(Buffer.from(original));
+      return {report,artifact:fs.existsSync(path.join(dir,"semantic-reduced-input.wasm"))?fs.readFileSync(path.join(dir,"semantic-reduced-input.wasm")):null};
+    } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+  }
+  test("does not fabricate missing final observations from the expected witness",async()=>{
+    const r=await run(async()=>null);expect(r.report.changed).toBeFalse();expect(r.report.finalFingerprint).toBeNull();expect(r.artifact).toBeNull();
+  });
+  test("rejects an observed exact-fingerprint mismatch",async()=>{
+    const r=await run(async()=>moved);expect(r.report.changed).toBeFalse();expect(r.artifact).toBeNull();
+  });
+  test("rejects drift on the second final observation",async()=>{
+    let calls=0;const r=await run(async()=>++calls===1?fingerprint:moved);expect(calls).toBe(2);expect(r.report.changed).toBeFalse();expect(r.artifact).toBeNull();
+  });
+  test("publishes smaller bytes after two stable exact observations",async()=>{
+    let calls=0;const r=await run(async()=>{calls++;return fingerprint});expect(calls).toBe(2);expect(r.report.changed).toBeTrue();expect(r.artifact).toEqual(Buffer.from(candidate));
+  });
+  test("family relaxation still requires stable identical final observations",async()=>{
+    let calls=0;const r=await run(async()=>{calls++;return moved},"family");expect(calls).toBe(2);expect(r.report.changed).toBeTrue();expect(r.artifact).toEqual(Buffer.from(candidate));
+    let n=0;const drift=await run(async()=>++n===1?moved:{...moved,memoryOrTableOffset:10},"family");expect(drift.report.changed).toBeFalse();expect(drift.artifact).toBeNull();
+  });
+  test("no progress skips final execution and publication",async()=>{
+    let calls=0;const r=await run(async()=>{calls++;return fingerprint},"exact",original);expect(calls).toBe(0);expect(r.report.changed).toBeFalse();expect(r.artifact).toBeNull();
+  });
+  test("evaluation errors cannot publish a reduced artifact",async()=>{
+    const r=await run(async()=>{throw new Error("validation unavailable")});expect(r.report.changed).toBeFalse();expect(r.artifact).toBeNull();
   });
 });

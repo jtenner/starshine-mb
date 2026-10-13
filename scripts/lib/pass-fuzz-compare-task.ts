@@ -3821,6 +3821,39 @@ function reduceGenValidMismatchInput(
   };
 }
 
+type SemanticReductionFinalization = {
+  originalBytes: Uint8Array;
+  candidateBytes: Uint8Array;
+  expectedFingerprint: SemanticFailureFingerprint;
+  evaluateOnce: (candidate: Uint8Array) => Promise<SemanticFailureFingerprint | null>;
+  matchLevel: "exact" | "family";
+  workDir: string;
+  predicateEvaluations: number;
+  steps: Array<ReductionStep & { matchLevel: string }>;
+  relaxation: { from: "exact"; to: "family"; reason: string } | null;
+};
+
+async function finalizeSemanticReduction(options: SemanticReductionFinalization) {
+  const finalFingerprint = await options.evaluateOnce(options.candidateBytes) ?? options.expectedFingerprint;
+  const report = {
+    schema: "starshine.optimizer-fingerprint-reduction.v1",
+    matchLevel: options.matchLevel,
+    originalFingerprint: options.expectedFingerprint,
+    finalFingerprint,
+    originalSize: options.originalBytes.length,
+    finalSize: options.candidateBytes.length,
+    predicateEvaluations: options.predicateEvaluations,
+    steps: options.steps,
+    changed: options.candidateBytes.length < options.originalBytes.length,
+    relaxation: options.relaxation,
+  };
+  fs.writeFileSync(path.join(options.workDir, "semantic-fingerprint-reduction.json"), JSON.stringify(report, null, 2) + "\n");
+  if (report.changed) fs.writeFileSync(path.join(options.workDir, "semantic-reduced-input.wasm"), options.candidateBytes);
+  return report;
+}
+
+export const passFuzzFinalizeSemanticReductionForTest = finalizeSemanticReduction;
+
 async function reduceSemanticV2FailureInput(
   inputPath: string,
   expectedFingerprint: SemanticFailureFingerprint,
@@ -3901,27 +3934,14 @@ async function reduceSemanticV2FailureInput(
       reduction = await runLevel(originalBytes, "family");
       matchLevel = "family";
     }
-    const finalFingerprint = await evaluateOnce(reduction.result) ?? expectedFingerprint;
-    const report = {
-      schema: "starshine.optimizer-fingerprint-reduction.v1",
-      matchLevel,
-      originalFingerprint: expectedFingerprint,
-      finalFingerprint,
-      originalSize: reduction.originalSize,
-      finalSize: reduction.finalSize,
-      predicateEvaluations: exactReduction.predicateEvaluations +
-        (matchLevel === "family" ? reduction.predicateEvaluations : 0),
+    await finalizeSemanticReduction({
+      originalBytes, candidateBytes: reduction.result, expectedFingerprint, evaluateOnce,
+      matchLevel, workDir, relaxation,
+      predicateEvaluations: exactReduction.predicateEvaluations + (matchLevel === "family" ? reduction.predicateEvaluations : 0),
       steps: matchLevel === "family"
-        ? [
-            ...exactReduction.steps.map((step) => ({ ...step, matchLevel: "exact" })),
-            ...reduction.steps.map((step) => ({ ...step, matchLevel: "family" })),
-          ]
+        ? [...exactReduction.steps.map((step) => ({ ...step, matchLevel: "exact" })), ...reduction.steps.map((step) => ({ ...step, matchLevel: "family" }))]
         : reduction.steps.map((step) => ({ ...step, matchLevel: "exact" })),
-      changed: reduction.finalSize < reduction.originalSize,
-      relaxation,
-    };
-    fs.writeFileSync(path.join(workDir, "semantic-fingerprint-reduction.json"), JSON.stringify(report, null, 2) + "\n");
-    if (report.changed) fs.writeFileSync(path.join(workDir, "semantic-reduced-input.wasm"), reduction.result);
+    });
   } finally {
     fs.rmSync(reductionDir, { recursive: true, force: true });
   }
