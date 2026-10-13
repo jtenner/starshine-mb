@@ -7,12 +7,28 @@ sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_rule_recipes.mbt
   - ../../../../../src/validate/gen_valid_wbtest.mbt
   - ../../../../../src/validate/pkg.generated.mbti
+  - ../../../../../src/passes/dead_argument_elimination2.mbt
+  - https://insuyun.github.io/pubs/2025/park:rgfuzz.pdf
 
 ---
 
 # `dead-argument-elimination` Fuzzing Profile
+
+## Rewrite-precondition recipe
+
+`rule-recipe-dae2-unused-typed-if-argument-positive` and its near-miss sibling
+generate matched, closed-world modules for DAE2. The positive callee does not
+read its private parameter; the near miss reads it once. Both call sites use a
+typed `if (result i32)` argument with pure arms. A legal positive rewrite must
+remove the parameter and the produced argument value while preserving the
+argument's control evaluation as a void `if`; the near miss must retain the
+parameter and result-producing `if`. The low five seed bits select 32 structural
+contexts, recorded as `structure_id`, and relation IDs pair positive and
+near-miss cases from one seed. This bounded design follows RGFuzz's
+premise-driven generation approach.
 
 ## September 27 follow-up allocation campaign renewal
 

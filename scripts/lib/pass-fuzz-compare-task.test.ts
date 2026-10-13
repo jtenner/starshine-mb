@@ -26,7 +26,70 @@ import {
   passFuzzSizeCountersForTest,
   parseBinaryenVersionOutputForTest,
   passFuzzShouldReduceMismatchForTest,
+  validateGenValidRuleRecipeManifestForTest,
 } from "./pass-fuzz-compare-task";
+
+describe("rule-recipe manifest contract", () => {
+  const recipe = (
+    variant: "positive" | "near-miss",
+    relationId = "rule-recipe:oi.i32-add-zero:1",
+    passName = "optimize-instructions",
+    structureId = "oi.i32-add-zero.shape-0",
+  ) => ({
+    rule_recipe: {
+      recipe_id: "oi.i32-add-zero",
+      pass_name: passName,
+      variant,
+      relation_id: relationId,
+      structure_id: structureId,
+    },
+  });
+
+  test("accepts exactly one pass-matched positive and near-miss pair", () => {
+    expect(() => validateGenValidRuleRecipeManifestForTest(
+      "rule-recipes",
+      ["--optimize-instructions"],
+      new Map([
+        ["gen-valid-000001.wasm", recipe("positive")],
+        ["gen-valid-000002.wasm", recipe("near-miss")],
+      ]),
+      ["gen-valid-000001.wasm", "gen-valid-000002.wasm"],
+    )).not.toThrow();
+  });
+
+  test("rejects missing malformed mismatched-pass and unpaired metadata", () => {
+    expect(() => validateGenValidRuleRecipeManifestForTest(
+      "rule-recipes", ["--optimize-instructions"], new Map(), ["missing.wasm"],
+    )).toThrow("missing rule-recipe manifest record");
+    expect(() => validateGenValidRuleRecipeManifestForTest(
+      "rule-recipe-oi-i32-add-zero-positive",
+      ["--optimize-instructions"],
+      new Map([["bad.wasm", { rule_recipe: { recipe_id: 7 } }]]),
+      ["bad.wasm"],
+    )).toThrow("missing or malformed rule_recipe metadata");
+    expect(() => validateGenValidRuleRecipeManifestForTest(
+      "rule-recipe-oi-i32-add-zero-positive",
+      ["--dae2"],
+      new Map([["wrong-pass.wasm", recipe("positive")]]),
+      ["wrong-pass.wasm"],
+    )).toThrow("is not selected by --pass");
+    expect(() => validateGenValidRuleRecipeManifestForTest(
+      "rule-recipes",
+      ["--optimize-instructions"],
+      new Map([["lonely.wasm", recipe("positive")]]),
+      ["lonely.wasm"],
+    )).toThrow("must contain one matched positive/near-miss pair");
+    expect(() => validateGenValidRuleRecipeManifestForTest(
+      "rule-recipes",
+      ["--optimize-instructions"],
+      new Map([
+        ["positive.wasm", recipe("positive")],
+        ["near.wasm", recipe("near-miss", undefined, undefined, "oi.i32-add-zero.shape-1")],
+      ]),
+      ["positive.wasm", "near.wasm"],
+    )).toThrow("must contain one matched positive/near-miss pair");
+  });
+});
 
 describe("pass-fuzz command options", () => {
   test("accepts an explicit compiler facts policy independently from Binaryen pass flags", () => {
@@ -1635,6 +1698,14 @@ describe("pass fuzz summary coverage report", () => {
       genValidTransformCounts: { identity: 2 },
       genValidSelectedProfileCounts: { "ssa-nomerge-smoke": 2 },
       genValidProfileCaseCounts: { "oi-default-scalar:direct": 2 },
+      genValidRuleRecipeCounts: {
+        "oi.i32-add-zero:positive": 1,
+        "oi.i32-add-zero:near-miss": 1,
+      },
+      genValidRuleRecipeStructureCounts: {
+        "oi.i32-add-zero:positive:oi.i32-add-zero.shape-0": 1,
+        "oi.i32-add-zero:near-miss:oi.i32-add-zero.shape-0": 1,
+      },
       externalValidators: ["wasm-tools"],
       runtimeExecution: "node",
       propertyMode: "idempotence",
@@ -1699,6 +1770,10 @@ describe("pass fuzz summary coverage report", () => {
       optional_gen_valid_transform_identity: 2,
       "optional_gen_valid_selected_profile_ssa-nomerge-smoke": 2,
       "optional_gen_valid_profile_case_oi-default-scalar_direct": 2,
+      "optional_gen_valid_rule_recipe_oi.i32-add-zero_positive": 1,
+      "optional_gen_valid_rule_recipe_oi.i32-add-zero_near-miss": 1,
+      "optional_gen_valid_rule_recipe_structure_oi.i32-add-zero_positive_oi.i32-add-zero.shape-0": 1,
+      "optional_gen_valid_rule_recipe_structure_oi.i32-add-zero_near-miss_oi.i32-add-zero.shape-0": 1,
       optional_property_idempotence_checked: 5,
       optional_property_idempotence_matched: 4,
     });

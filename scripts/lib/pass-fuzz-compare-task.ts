@@ -229,6 +229,16 @@ type EffectTrapCounts = Record<keyof EffectTrapFacts, number>;
 type GenValidTransformCounts = Record<string, number>;
 type GenValidSelectedProfileCounts = Record<string, number>;
 type GenValidProfileCaseCounts = Record<string, number>;
+type GenValidRuleRecipeCounts = Record<string, number>;
+type GenValidRuleRecipeStructureCounts = Record<string, number>;
+
+type GenValidRuleRecipe = {
+  recipeId: string;
+  passName: string;
+  variant: "positive" | "near-miss";
+  relationId: string;
+  structureId: string;
+};
 
 type SemanticSelfOutcome = SelfSemanticOracleReport["classification"];
 type DeterminismOutcome = "byte-stable" | "canonical-stable-only" | "failure";
@@ -267,6 +277,7 @@ type CaseRecord = {
   transformId?: string;
   genValidSelectedProfile?: string;
   genValidProfileCaseLabel?: string;
+  genValidRuleRecipe?: GenValidRuleRecipe;
   inputEffectTrapFacts?: CaseEffectTrapFacts;
   compilerFactsContext?: CompilerFactsCaseContext;
   semanticSelfOutcome?: SemanticSelfOutcome;
@@ -348,6 +359,8 @@ export type PassFuzzCompareSummary = {
   genValidTransformCounts: GenValidTransformCounts;
   genValidSelectedProfileCounts: GenValidSelectedProfileCounts;
   genValidProfileCaseCounts?: GenValidProfileCaseCounts;
+  genValidRuleRecipeCounts?: GenValidRuleRecipeCounts;
+  genValidRuleRecipeStructureCounts?: GenValidRuleRecipeStructureCounts;
   externalValidators: ExternalValidatorKind[];
   primaryValidator: "wasm-tools" | "binaryen";
   requireIndependentValidator: boolean;
@@ -3214,6 +3227,68 @@ function genValidManifestProfileCaseLabel(genValidManifestEntry: unknown | null)
   return null;
 }
 
+function genValidManifestRuleRecipe(genValidManifestEntry: unknown | null): GenValidRuleRecipe | null {
+  if (genValidManifestEntry === null || typeof genValidManifestEntry !== "object" || !("rule_recipe" in genValidManifestEntry)) {
+    return null;
+  }
+  const raw = (genValidManifestEntry as { rule_recipe?: unknown }).rule_recipe;
+  if (raw === null || typeof raw !== "object") return null;
+  const recipe = raw as Record<string, unknown>;
+  const recipeId = recipe.recipe_id;
+  const passName = recipe.pass_name;
+  const variant = recipe.variant;
+  const relationId = recipe.relation_id;
+  const structureId = recipe.structure_id;
+  if (
+    typeof recipeId !== "string" || recipeId.length === 0 ||
+    typeof passName !== "string" || passName.length === 0 ||
+    (variant !== "positive" && variant !== "near-miss") ||
+    typeof relationId !== "string" || relationId.length === 0 ||
+    typeof structureId !== "string" || structureId.length === 0
+  ) {
+    return null;
+  }
+  return { recipeId, passName, variant, relationId, structureId };
+}
+
+function isGenValidRuleRecipeProfile(profile: string | null): boolean {
+  return profile === "rule-recipes" || profile?.startsWith("rule-recipe-") === true;
+}
+
+export function validateGenValidRuleRecipeManifestForTest(
+  profile: string | null,
+  passFlags: string[],
+  records: Map<string, unknown>,
+  expectedFileNames: string[],
+): void {
+  if (!isGenValidRuleRecipeProfile(profile)) return;
+  const pairs = new Map<string, GenValidRuleRecipe[]>();
+  for (const fileName of expectedFileNames) {
+    const entry = records.get(fileName) ?? fail(`missing rule-recipe manifest record for ${fileName}`);
+    const recipe = genValidManifestRuleRecipe(entry) ?? fail(`missing or malformed rule_recipe metadata for ${fileName}`);
+    const passFlag = normalizePassNameToFlag(recipe.passName);
+    if (!passFlags.includes(passFlag)) {
+      fail(`rule_recipe pass_name ${recipe.passName} for ${fileName} is not selected by --pass`);
+    }
+    const group = pairs.get(recipe.relationId) ?? [];
+    group.push(recipe);
+    pairs.set(recipe.relationId, group);
+  }
+  if (profile !== "rule-recipes") return;
+  for (const [relationId, group] of pairs) {
+    if (
+      group.length !== 2 ||
+      group[0]?.recipeId !== group[1]?.recipeId ||
+      group[0]?.passName !== group[1]?.passName ||
+      group[0]?.structureId !== group[1]?.structureId ||
+      group.filter((recipe) => recipe.variant === "positive").length !== 1 ||
+      group.filter((recipe) => recipe.variant === "near-miss").length !== 1
+    ) {
+      fail(`rule_recipe relation ${relationId} must contain one matched positive/near-miss pair`);
+    }
+  }
+}
+
 function noteGenValidTransformCount(summary: PassFuzzCompareSummary, transformId: string | null): void {
   if (transformId === null) {
     return;
@@ -3234,6 +3309,17 @@ function noteGenValidProfileCaseCount(summary: PassFuzzCompareSummary, profileCa
   }
   const counts = summary.genValidProfileCaseCounts ?? (summary.genValidProfileCaseCounts = {});
   counts[profileCaseLabel] = (counts[profileCaseLabel] ?? 0) + 1;
+}
+
+function noteGenValidRuleRecipeCount(summary: PassFuzzCompareSummary, recipe: GenValidRuleRecipe | null): void {
+  if (recipe === null) return;
+  const counts = summary.genValidRuleRecipeCounts ?? (summary.genValidRuleRecipeCounts = {});
+  const key = `${recipe.recipeId}:${recipe.variant}`;
+  counts[key] = (counts[key] ?? 0) + 1;
+  const structureCounts = summary.genValidRuleRecipeStructureCounts ??
+    (summary.genValidRuleRecipeStructureCounts = {});
+  const structureKey = `${recipe.recipeId}:${recipe.variant}:${recipe.structureId}`;
+  structureCounts[structureKey] = (structureCounts[structureKey] ?? 0) + 1;
 }
 
 function noteSemanticV2Report(
@@ -3409,6 +3495,12 @@ export function passFuzzSummaryCoverageReport(summary: PassFuzzCompareSummary): 
   }
   for (const [profileCaseLabel, count] of Object.entries(summary.genValidProfileCaseCounts ?? {})) {
     addCounter(strategies, `optional_gen_valid_profile_case_${sanitizeCounterKey(profileCaseLabel)}`, count);
+  }
+  for (const [recipeVariant, count] of Object.entries(summary.genValidRuleRecipeCounts ?? {})) {
+    addCounter(strategies, `optional_gen_valid_rule_recipe_${sanitizeCounterKey(recipeVariant)}`, count);
+  }
+  for (const [recipeStructure, count] of Object.entries(summary.genValidRuleRecipeStructureCounts ?? {})) {
+    addCounter(strategies, `optional_gen_valid_rule_recipe_structure_${sanitizeCounterKey(recipeStructure)}`, count);
   }
   addCounter(strategies, "optional_semantic_v2_checked", summary.semanticV2CheckedCount ?? 0);
   addCounter(strategies, "optional_semantic_v2_matched", summary.semanticV2MatchCount ?? 0);
@@ -4054,6 +4146,9 @@ function applyResumedCaseRecord(
   }
   if (record.genValidProfileCaseLabel !== undefined) {
     noteGenValidProfileCaseCount(summary, record.genValidProfileCaseLabel);
+  }
+  if (record.genValidRuleRecipe !== undefined) {
+    noteGenValidRuleRecipeCount(summary, record.genValidRuleRecipe);
   }
   if (record.inputEffectTrapFacts !== undefined) {
     noteInputEffectTrapFacts(summary, record.inputEffectTrapFacts);
@@ -5189,6 +5284,12 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       fail(`failed to read gen-valid manifest ${genValidManifestPath}: ${commandFailureDetail(error)}`);
     }
   }
+  validateGenValidRuleRecipeManifestForTest(
+    options.genValidProfile,
+    options.passFlags,
+    genValidManifestRecords,
+    genValidInputs.map((input) => path.basename(input)),
+  );
 
   const generatedInputsByCase = new Map<number, string[]>();
   const generatedInputUses = new Map<string, number>();
@@ -5266,6 +5367,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     genValidTransformCounts: {},
     genValidSelectedProfileCounts: {},
     genValidProfileCaseCounts: {},
+    genValidRuleRecipeCounts: {},
+    genValidRuleRecipeStructureCounts: {},
     externalValidators: options.externalValidators,
     primaryValidator: options.primaryValidator,
     requireIndependentValidator: options.requireIndependentValidator,
@@ -5371,6 +5474,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const caseTransformIds = new Map<number, string>();
   const caseGenValidSelectedProfiles = new Map<number, string>();
   const caseGenValidProfileCaseLabels = new Map<number, string>();
+  const caseGenValidRuleRecipes = new Map<number, GenValidRuleRecipe>();
   const caseCompilerFactsContexts = new Map<number, CompilerFactsCaseContext>();
   const caseCorrectnessOutcomes = new Map<
     number,
@@ -5405,6 +5509,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const transformId = caseTransformIds.get(record.caseIndex);
     const genValidSelectedProfile = caseGenValidSelectedProfiles.get(record.caseIndex);
     const genValidProfileCaseLabel = caseGenValidProfileCaseLabels.get(record.caseIndex);
+    const genValidRuleRecipe = caseGenValidRuleRecipes.get(record.caseIndex);
     const compilerFactsContext = caseCompilerFactsContexts.get(record.caseIndex);
     const correctnessOutcomes = caseCorrectnessOutcomes.get(record.caseIndex);
     const optimizerEvidence = caseOptimizerEvidence.get(record.caseIndex);
@@ -5422,6 +5527,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         : {}),
       ...(record.genValidProfileCaseLabel === undefined && genValidProfileCaseLabel !== undefined
         ? { genValidProfileCaseLabel }
+        : {}),
+      ...(record.genValidRuleRecipe === undefined && genValidRuleRecipe !== undefined
+        ? { genValidRuleRecipe }
         : {}),
       ...(record.compilerFactsContext === undefined && compilerFactsContext !== undefined
         ? { compilerFactsContext }
@@ -5729,6 +5837,11 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         if (profileCaseLabel !== null) {
           caseGenValidProfileCaseLabels.set(caseNumber, profileCaseLabel);
           noteGenValidProfileCaseCount(summary, profileCaseLabel);
+        }
+        const ruleRecipe = genValidManifestRuleRecipe(genValidManifestEntry);
+        if (ruleRecipe !== null) {
+          caseGenValidRuleRecipes.set(caseNumber, ruleRecipe);
+          noteGenValidRuleRecipeCount(summary, ruleRecipe);
         }
         fs.copyFileSync(source, inputPath);
       } else {

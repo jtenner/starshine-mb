@@ -7,11 +7,26 @@ sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../../../src/validate/gen_valid_rule_recipes.mbt
+  - ../../../../../src/passes/optimize_instructions.mbt
   - ./parity-matrix.json
   - ./sweep-report.md
+  - https://insuyun.github.io/pubs/2025/park:rgfuzz.pdf
 ---
 
 # `optimize-instructions` fuzzing and parity sweep
+
+## Rewrite-precondition recipe
+
+`rule-recipe-oi-i32-add-zero-positive` and its near-miss sibling generate
+matched, core-only modules for the `i32.add(x, 0) -> x` rule. Each relation ID
+contains one positive and one `i32.add(x, 1)` boundary case from the same seed.
+The low five seed bits select 32 structural contexts by varying the pure
+producer and surrounding consumed expressions; manifests expose the normalized
+`structure_id` separately from the byte hash. The compare harness rejects
+missing, malformed, unpaired, or pass-mismatched recipe metadata. This bounded
+design follows RGFuzz's premise-driven generation approach while keeping the
+rule oracle explicit and independently testable.
 
 ## October 9, 2026 final native comparison renewal
 

@@ -596,6 +596,7 @@ pub struct GenValidBatchManifestEntry {
   config_label : String
   selected_profile : String
   profile_case_label : String?
+  rule_recipe : @validate.GenValidRuleRecipeMetadata?
   attempts : Int
   validated : Bool
   validation_error_message : String?

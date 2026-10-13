@@ -161,6 +161,8 @@ pub fn gen_valid_random_stream_labels() -> Array[GenValidRandomStreamLabel]
 
 pub fn gen_valid_reorder_globals_profile_case_label(GenValidProfile, UInt64) -> String?
 
+pub fn gen_valid_rule_recipe_metadata(GenValidProfile, UInt64) -> GenValidRuleRecipeMetadata?
+
 pub fn gen_valid_rume_profile_case_label(GenValidProfile, UInt64) -> String?
 
 pub fn gen_valid_scan_func_ssa_facts(Int, @lib.Locals, @lib.Expr) -> GenValidSsaFuncFacts
@@ -1278,6 +1280,11 @@ pub enum GenValidProfile {
   Binaryen132CompactImportsProfile
   Binaryen132AtomicOrdersProfile
   Binaryen132DescriptorBranchesProfile
+  RuleRecipesAllProfile
+  RuleRecipeOiI32AddZeroPositiveProfile
+  RuleRecipeOiI32AddZeroNearMissProfile
+  RuleRecipeDae2UnusedTypedIfArgumentPositiveProfile
+  RuleRecipeDae2UnusedTypedIfArgumentNearMissProfile
   Dae2AllProfile
   Dae2ForwardedResultsProfile
   Dae2CyclesProfile
@@ -1752,6 +1759,20 @@ pub enum GenValidRandomStreamLabel {
   InvalidMutationChoiceStream
   TextMutationChoiceStream
   HarnessShufflingStream
+} derive(Eq, @debug.Debug)
+
+pub struct GenValidRuleRecipeMetadata {
+  recipe_id : String
+  pass_name : String
+  variant : String
+  relation_id : String
+  structure_id : String
+  result_types : Array[String]
+  operand_relations : Array[String]
+  required_facts : Array[String]
+  legal_contexts : Array[String]
+  prohibited_effects : Array[String]
+  feature_requirements : Array[String]
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidSectionBias {

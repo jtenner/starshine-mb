@@ -2386,6 +2386,88 @@ test "emit gen-valid undersampled pass profiles record owned trigger labels" {
 }
 
 ///|
+test "gen-valid rule recipes serialize balanced structured premise pairs" {
+  let args = EmitGenValidBatchArgs::new(
+    4,
+    0x600dUL,
+    "tmp/gen-valid-rule-recipes",
+    profile="rule-recipes",
+    max_attempts=4,
+  )
+  let selection = match emit_gen_valid_batch_selection(args) {
+    Ok(value) => value
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(selection.selected, 4)
+  let selected_profiles : Array[String] = []
+  for item in selection.manifest {
+    assert_true(item.rule_recipe is Some(_))
+    selected_profiles.push(item.selected_profile)
+  }
+  for
+    profile in [
+      "rule-recipe-oi-i32-add-zero-positive", "rule-recipe-oi-i32-add-zero-near-miss",
+      "rule-recipe-dae2-unused-typed-if-argument-positive", "rule-recipe-dae2-unused-typed-if-argument-near-miss",
+    ] {
+    assert_true(selected_profiles.contains(profile), msg="missing {profile}")
+  }
+  let manifest = format_gen_valid_batch_manifest_json(args, selection)
+  for
+    fragment in [
+      "\"rule_recipe\":{", "\"recipe_id\":\"oi.i32-add-zero\"", "\"recipe_id\":\"dae2.unused-typed-if-argument\"",
+      "\"result_types\":[\"i32\"]", "\"feature_requirements\":[\"core\"]", "\"variant\":\"positive\"",
+      "\"variant\":\"near-miss\"", "\"structure_id\":\"",
+    ] {
+    assert_true(manifest.contains(fragment), msg="missing {fragment}")
+  }
+  for pair = 0; pair < 2; pair = pair + 1 {
+    let positive = selection.manifest[pair * 2].rule_recipe.unwrap()
+    let near_miss = selection.manifest[pair * 2 + 1].rule_recipe.unwrap()
+    @debug.assert_eq(positive.variant, "positive")
+    @debug.assert_eq(near_miss.variant, "near-miss")
+    @debug.assert_eq(positive.recipe_id, near_miss.recipe_id)
+    @debug.assert_eq(positive.relation_id, near_miss.relation_id)
+    @debug.assert_eq(positive.structure_id, near_miss.structure_id)
+    @debug.assert_eq(
+      selection.manifest[pair * 2].case_seed,
+      selection.manifest[pair * 2 + 1].case_seed,
+    )
+  }
+}
+
+///|
+test "gen-valid rule recipe aggregate covers 32 structures per variant" {
+  let args = EmitGenValidBatchArgs::new(
+    128,
+    0x600dUL,
+    "tmp/gen-valid-rule-recipe-structures",
+    profile="rule-recipes",
+    max_attempts=128,
+  )
+  let selection = match emit_gen_valid_batch_selection(args) {
+    Ok(value) => value
+    Err(msg) => fail(msg)
+  }
+  let structures : Map[String, Array[String]] = Map([])
+  for item in selection.manifest {
+    let recipe = item.rule_recipe.unwrap()
+    let key = "\{recipe.recipe_id}:\{recipe.variant}"
+    let seen = structures.get(key).unwrap_or([])
+    if !seen.contains(recipe.structure_id) {
+      seen.push(recipe.structure_id)
+      structures[key] = seen
+    }
+  }
+  for
+    key in [
+      "oi.i32-add-zero:positive", "oi.i32-add-zero:near-miss", "dae2.unused-typed-if-argument:positive",
+      "dae2.unused-typed-if-argument:near-miss",
+    ] {
+    @debug.assert_eq(structures.get(key).unwrap().length(), 32)
+  }
+}
+
+///|
 test "emit gen-valid dae-optimizing aggregate records every cleanup family" {
   let args = EmitGenValidBatchArgs::new(
     256,
