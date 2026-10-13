@@ -1350,7 +1350,7 @@ pub fn run_hot_pipeline(
     }
     if !explicit_passes.is_empty() {
       (options.trace)(
-        "pipeline:o4z-transaction:rollback preset-only reason=caught-try-table",
+        "pipeline:o4z-transaction:skip preset-only reason=caught-try-table",
       )
       return run_hot_pipeline(mod_, options, explicit_passes)
     }
@@ -1379,6 +1379,9 @@ pub fn run_hot_pipeline(
   let artifact_scale_o4z_preset = options.optimize_level >= 4 &&
     options.shrink_level >= 4 &&
     requested_passes.any(fn(name) { name == "optimize" || name == "shrink" })
+  if artifact_scale_o4z_preset && original_has_caught_try_table {
+    (options.trace)("pipeline:o4z-transaction:skip reason=caught-try-table")
+  }
   let mut ssa_wave = 0
   let mut skip_o4z_late_convergence_entries = 0
   let pending_hot_passes : Array[HotPassRegistryEntry] = []
@@ -1411,6 +1414,9 @@ pub fn run_hot_pipeline(
   }
   for entry_idx, item in entries {
     let (entry, from_preset) = item
+    if artifact_scale_o4z_preset && original_has_caught_try_table && from_preset {
+      continue
+    }
     if skip_o4z_late_convergence_entries > 0 {
       (options.trace)(
         "pass[\{entry.name}]:skip reason=artifact-scale-late-convergence",
@@ -1556,10 +1562,6 @@ pub fn run_hot_pipeline(
   match flush_hot_passes() {
     Ok(_) => ()
     Err(err) => return Err(err)
-  }
-  if artifact_scale_o4z_preset && original_has_caught_try_table {
-    (options.trace)("pipeline:o4z-transaction:rollback reason=caught-try-table")
-    current = prepared_module
   }
   if options.validate_final_module {
     let validate_start_us = perf_start_timer_opt(

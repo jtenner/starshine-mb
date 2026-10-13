@@ -2079,14 +2079,36 @@ test "O4z skips late convergence for catch-observed local writes" {
   assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
   assert_true(
     trace.any(fn(line) {
-      line.contains("pipeline:o4z-transaction:rollback reason=caught-try-table")
+      line.contains("pipeline:o4z-transaction:skip reason=caught-try-table")
     }),
     msg=trace.join("\n"),
   )
 }
 
 ///|
-test "O4z rolls back caught try-table throw modules" {
+test "O4z caught try-table preset does not run discarded passes" {
+  let input = pass_test_module_from_wat(
+    "(module (tag $e) (func (block $handler (try_table (catch_all $handler) (throw $e)))))",
+  )
+  let trace : Array[String] = []
+  let output = run_hot_pipeline(
+    input,
+    HotPipelineOptions::new(
+      optimize_level=4,
+      shrink_level=4,
+      trace=Some(fn(line) { trace.push(line) }),
+    ),
+    ["optimize"],
+  ).unwrap()
+  @debug.assert_eq(output.code_sec, input.code_sec)
+  assert_false(
+    trace.any(fn(line) { line.starts_with("pass[") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "O4z skips preset for caught try-table throw modules" {
   let fixture = "tests/repros/optimize-instructions-spectest-throw.wasm"
   let bytes = match @sfs.read_file_bytes(fixture) {
     Ok(bytes) => bytes
@@ -2117,14 +2139,14 @@ test "O4z rolls back caught try-table throw modules" {
   )
   assert_true(
     trace.any(fn(line) {
-      line.contains("pipeline:o4z-transaction:rollback reason=caught-try-table")
+      line.contains("pipeline:o4z-transaction:skip reason=caught-try-table")
     }),
     msg=trace.join("\n"),
   )
 }
 
 ///|
-test "O4z caught try rollback retains trusted compiler fact materialization" {
+test "O4z caught try skip retains trusted compiler fact materialization" {
   let base = pass_test_module_from_wat(
     (
       #| (module
@@ -2164,7 +2186,7 @@ test "O4z caught try rollback retains trusted compiler fact materialization" {
 }
 
 ///|
-test "O4z rolls back caught try-table nested in legacy try" {
+test "O4z skips preset for caught try-table nested in legacy try" {
   let input = pass_test_module_from_wat(
     "(module (tag $e) (func (block $exit (try (do (try_table (catch_all $exit) (throw $e))) (catch_all)))))",
   )
@@ -2189,14 +2211,14 @@ test "O4z rolls back caught try-table nested in legacy try" {
   @debug.assert_eq(optimized.code_sec, input.code_sec)
   assert_true(
     trace.any(fn(line) {
-      line.contains("pipeline:o4z-transaction:rollback reason=caught-try-table")
+      line.contains("pipeline:o4z-transaction:skip reason=caught-try-table")
     }),
     msg=trace.join("\n"),
   )
 }
 
 ///|
-test "O4z rollback leaves once-reduction input ownership unchanged" {
+test "O4z skip leaves once-reduction input ownership unchanged" {
   let wat =
     #| (module
     #|   (tag $e)
@@ -2237,7 +2259,7 @@ test "O4z rollback leaves once-reduction input ownership unchanged" {
   }
   assert_true(
     trace.any(fn(line) {
-      line.contains("pipeline:o4z-transaction:rollback reason=caught-try-table")
+      line.contains("pipeline:o4z-transaction:skip reason=caught-try-table")
     }),
     msg=trace.join("\n"),
   )
@@ -2246,7 +2268,7 @@ test "O4z rollback leaves once-reduction input ownership unchanged" {
 }
 
 ///|
-test "O4z caught try-table rollback preserves explicit passes around preset" {
+test "O4z caught try-table skip preserves explicit passes around preset" {
   let input = pass_test_module_from_wat(
     "(module (tag $e) (func (block $handler (try_table (catch_all $handler) (throw $e)))))",
   ).with_name_sec(

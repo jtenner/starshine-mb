@@ -26,10 +26,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   dispatcher and public CLI test for every module-pass change. Use the common
   metadata guard when code offsets or indices change. Run Moon commands in
   series. The review baseline is `a61c3e418` in the dedicated audit worktree.
-- [ ] **[AUDIT-20261013]006 — O4z caught-try rollback:** avoid running preset
-  passes whose output will be discarded; retain compiler-fact preparation and
-  final validation. Red test: caught try_table preset-only trace. Exit: no
-  discarded pass work or spurious pass error.
 - [ ] **[AUDIT-20261013]007 — nested GTO constructors:** avoid rewriting
   changed struct.new operands twice at every nesting level. Red scaling test:
   increasing nested constructor depth. Exit: bounded growth and exact output.
