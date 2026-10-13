@@ -26,9 +26,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   dispatcher and public CLI test for every module-pass change. Use the common
   metadata guard when code offsets or indices change. Run Moon commands in
   series. The review baseline is `a61c3e418` in the dedicated audit worktree.
-- [ ] **[AUDIT-20261013]007 — nested GTO constructors:** avoid rewriting
-  changed struct.new operands twice at every nesting level. Red scaling test:
-  increasing nested constructor depth. Exit: bounded growth and exact output.
 - [ ] **[AUDIT-20261013]008 — shared-object handle storage:** bound table growth
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
