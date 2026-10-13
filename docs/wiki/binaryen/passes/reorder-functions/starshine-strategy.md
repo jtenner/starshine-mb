@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-13
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReorderFunctions.cpp
+  - https://webassembly.github.io/spec/js-api/#exported-functions
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -44,6 +45,46 @@ The exact local status is:
 - [`agent-todo.md`](../../../../../agent-todo.md) has no dedicated active implementation slice for `reorder-functions`.
 
 So the current local strategy is honest non-implementation: keep the name recognizable, reject active requests clearly, and document the future module-pass shape before adding code.
+
+## Measured private-call experiment
+
+A 2026-10-13 prototype against baseline `a61c3e418` was withdrawn. It kept
+imports and addressable functions fixed, assigned short private direct-call
+indices by frequency, retained original order within each encoded-width group,
+and required a strict exact encoded-size decrease. It did not reorder types.
+
+Seven alternating control/candidate samples after one warmup pair measured
+the following changes after the existing size preset:
+
+| Module | Raw bytes saved | gzip level 9 bytes saved | Paired median wall increase | Median peak RSS increase |
+|---|---:|---:|---:|---:|
+| Release WasmGC compiler | 32,345 | 595 | 355 ms | 11,020 KiB |
+| Held-out WASI compiler | 28,563 | 1,244 | 342 ms | 31,660 KiB |
+
+Both are compiler artifacts from the same project. Small C workloads had no
+index-width opportunity. gzip used explicit level 9 and `mtime=0`. Linux
+`wait4` measured native-child peak RSS, not aggregate concurrent memory.
+Unrelated Moon tests ran during measurements; exact cost percentages remain
+uncertain. A separate trace measured 206 ms in the GC ordering pass. Thus the
+results support repeatable byte savings, but do not meet the requirement for
+no meaningful compile-time regression. No runtime speed gain was established.
+
+Independent `wasm-tools` validation and Node execution checks passed. A bounded
+100-case GenValid probe had no validation or observed runtime failures. Its
+output differences were not complete parity signoff; the required 10,000-case
+lane was not run because the candidate failed the cost gate. No implementation,
+generator profile, pass flag, or preset change was retained. Experimental native
+build SHA256: `440bd45a1068cf7e7ebe54b9b28c8541fe1f4de5b0c40e9cfc6ddad3e4e83c83`.
+
+A future port must preserve import lookup order. Binaryen 133
+(`version_133-60-g93d6e9de7`) changed import-getter order in a reduced execution
+case. It must also preserve exported and addressable function indices: the
+[WebAssembly JavaScript API](https://webassembly.github.io/spec/js-api/#exported-functions)
+sets an exported function's `name` from its index. Unknown raw name subsections
+cannot be discarded, and a bijective metadata remap must preserve annotation
+associations and duplicates. Reopen only with cheaper exact-cost and remap work
+plus repeated runtime measurements; the older port map below is subject to
+these constraints.
 
 ## Why a Starshine port would be a module/boundary pass, not a hot pass
 

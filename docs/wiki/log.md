@@ -1,3 +1,11 @@
+### 2026-10-13 — Evaluate final function index ordering
+
+- [The private-call experiment](binaryen/passes/reorder-functions/starshine-strategy.md#measured-private-call-experiment)
+  records repeatable raw and gzip savings on two compiler modules, measured
+  optimizer time and RSS costs, and the resulting rejection. Import lookup order,
+  host-visible function names and exact metadata preservation constrain a future
+  port. The pass remains boundary-only; no experimental flag or preset survives.
+
 ### 2026-10-13 — Resolve six test-fixture conflicts
 
 - Kept the strict [MSF encoded-size guard](binaryen/passes/merge-similar-functions/starshine-strategy.md#october-13-2026-encoded-size-guard-and-positive-fixtures). Old positive padding required a 61-to-62-byte helper. Positive fixtures now use real shared global updates and retain helper/call/nested/metadata checks; new assertions require smaller bytes and exact ordered work. A new regression rejects ordinary one-byte helper growth; both index-boundary tests are unchanged.

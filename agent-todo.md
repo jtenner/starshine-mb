@@ -1770,6 +1770,14 @@ pass dossiers; historical green checkpoints do not replace current signoff.
   add body-only and initializer-only reference usage/order fixtures and reduced
   Binaryen comparisons when the pass is implemented. Keep this deferred behind
   the four v0.1.1 main follow-ups and current DAE2/O performance work.
+- **Measured reopening condition:** the 2026-10-13 private-call frequency
+  prototype reduced two large modules by 28–32 KiB, but added approximately
+  0.2–0.35 seconds and 11–35 MiB peak RSS. It was withdrawn. A new slice must
+  reduce the exact-size/remap cost before preset admission. Preserve import
+  lookup order and the indices of exports and every addressable function;
+  JavaScript exposes those indices through `Function.name`. Preserve unknown
+  name records and annotation multiplicity. See the
+  [experiment assessment](docs/wiki/binaryen/passes/reorder-functions/starshine-strategy.md#measured-private-call-experiment).
 
 ## Backlog hygiene
 
