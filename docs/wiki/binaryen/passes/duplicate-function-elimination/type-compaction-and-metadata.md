@@ -103,8 +103,9 @@ passes or a new type-flow analysis.
 
 The owner limits flattened types to 20,000, collision buckets to 64, pending
 expressions/functions to 100,000, control depth to 1,024 and aggregate retained
-field/signature/local-run/instruction entries to 8,000,000. It reuses the DFE
-reference walker and leaves unsupported inputs unchanged.
+field/signature/local-run/instruction entries to 8,000,000. Local-run admission uses
+`Locals.run_count()` to avoid copying declarations before the budget check.
+It reuses the DFE reference walker and leaves unsupported inputs unchanged.
 
 On the pinned 5,208,192-byte compiler GC artifact, standard shrink changes
 5,068,613 to 5,050,422 bytes; gzip level 9 changes 1,811,567 to 1,802,936 bytes.

@@ -5530,7 +5530,7 @@ fn dfe_primitive_type_rewrite_supported(
         return false
       }
       for @lib.Func(locals, expr) in funcs {
-        if !consume(locals.runs().length()) || !push(expr, 0) {
+        if !consume(locals.run_count()) || !push(expr, 0) {
           return false
         }
       }
