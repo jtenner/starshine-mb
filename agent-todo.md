@@ -26,9 +26,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   dispatcher and public CLI test for every module-pass change. Use the common
   metadata guard when code offsets or indices change. Run Moon commands in
   series. The review baseline is `a61c3e418` in the dedicated audit worktree.
-- [ ] **[AUDIT-20261013]003 — coalescing names:** preserve local names for
-  untouched functions and remap or clear only changed function entries. Red
-  test: two named functions with coalescing in one. Exit: untouched names stay.
 - [ ] **[AUDIT-20261013]004 — gathered raw names:** preserve raw name payload
   when string gathering reuses globals with an identity index map. Red test:
   existing string global plus same literal in code. Exit: payload survives.
@@ -93,6 +90,10 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   on shared memory, and count-based whole-function skipping in
   remove-unused-brs. Exit: fix confirmed gaps; document rejected triggers in
   the owning dossiers and remove them from this active list.
+- [ ] **[AUDIT-20261013]022 — local-CSE names:** preserve existing local names
+  when local-CSE appends temporary locals. It currently clears every local-name
+  entry after any rewrite. Red test: named unchanged function beside a function
+  that materializes a repeated expression. Exit: old local names stay valid.
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
