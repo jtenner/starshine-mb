@@ -165,6 +165,11 @@ indices. Its function, local, and label name maps must shift by the same amount;
 the opaque raw name payload must be cleared because it cannot be remapped.
 The [named conversion regression](../../../src/passes/binaryen133_shared_parity_wbtest.mbt)
 checks the direct pass and public pipeline with an existing named function.
+If the pass swaps its first function and struct types, it must also swap the
+parsed type and field name owners and clear the opaque raw name cache. The
+[named type regression](../../../src/passes/binaryen133_shared_parity_wbtest.mbt)
+checks that the transformed module validates and keeps both names on the
+intended type.
 
 Several released edits constrain existing passes rather than adding a new
 positive rewrite: open-world `merge-similar-functions` must not promote an
