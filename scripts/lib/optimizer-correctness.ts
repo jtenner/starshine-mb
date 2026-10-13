@@ -856,12 +856,17 @@ export function runOptionalWasmReduce(options: {
   predicateCommand: string[];
   wasmToolsBin?: string;
   timeoutMs?: number;
+  predicateTimeoutSeconds?: number;
   cwd?: string;
 }): OptionalWasmReduceResult {
   const cwd = options.cwd ?? process.cwd();
   const timeout = options.timeoutMs ?? 30_000;
   if (!Number.isInteger(timeout) || timeout <= 0 || timeout > 2_147_483_647) {
     return { status: "failed", detail: "reduction timeout must be a positive bounded integer", log: "" };
+  }
+  const predicateTimeout = options.predicateTimeoutSeconds;
+  if (predicateTimeout !== undefined && (!Number.isInteger(predicateTimeout) || predicateTimeout <= 0 || predicateTimeout > 3600)) {
+    return { status: "failed", detail: "predicate timeout must be between 1 and 3600 seconds", log: "" };
   }
   const spawnOptions = { cwd, encoding: "utf8" as const, timeout, killSignal: "SIGKILL" as const, maxBuffer: 8 * 1024 * 1024 };
   const probe = spawnSync(options.wasmReduceBin, ["--help"], spawnOptions);
@@ -915,7 +920,9 @@ export function runOptionalWasmReduce(options: {
       return { status: "failed", detail: "Windows reduction predicate requires shell-safe arguments", log };
     }
     const predicate = process.platform === "win32" ? options.predicateCommand.join(" ") : options.predicateCommand.map(quote).join(" ");
-    const result = spawnSync(options.wasmReduceBin, [inputPath, "--command", predicate, "--test", testPath, "--working", workingPath, "--all-features"], spawnOptions);
+    const reducerArgs = [inputPath, "--command", predicate, "--test", testPath, "--working", workingPath, "--all-features"];
+    if (predicateTimeout !== undefined) reducerArgs.push("--timeout", String(predicateTimeout));
+    const result = spawnSync(options.wasmReduceBin, reducerArgs, spawnOptions);
     log = `${result.stdout ?? ""}${result.stderr ?? ""}`;
     if (result.error || result.status !== 0 || !fs.existsSync(workingPath)) {
       return { status: "failed", detail: result.error?.message ?? `wasm-reduce exited with ${String(result.status)}`, log };
