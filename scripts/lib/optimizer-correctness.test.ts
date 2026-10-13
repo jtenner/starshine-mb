@@ -253,13 +253,13 @@ describe("optional structural reduction", () => {
     expect(result.status).toBe("unavailable");
   });
 
-  test("uses Binaryen test and working files for the structural reducer", () => {
+  test("zero-exit structural reducer must make real progress", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-fake-wasm-reduce-"));
     const inputPath = path.join(dir, "input.wasm");
     const outputPath = path.join(dir, "reduced.wasm");
     const logPath = path.join(dir, "args.json");
     const fake = path.join(dir, "wasm-reduce.ts");
-    fs.writeFileSync(inputPath, Uint8Array.from([0, 97, 115, 109]));
+    fs.writeFileSync(inputPath, Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0]));
     fs.writeFileSync(
       fake,
       `#!/usr/bin/env bun\nimport fs from "node:fs";\nconst args=process.argv.slice(2);\nif(args.includes("--help")){process.exit(0)}\nfs.writeFileSync(${JSON.stringify(logPath)}, JSON.stringify(args));\nconst test=args[args.indexOf("--test")+1];\nconst working=args[args.indexOf("--working")+1];\nfs.copyFileSync(test, working);\n`,
@@ -273,10 +273,80 @@ describe("optional structural reduction", () => {
       predicateCommand: ["bun", "fuzz", "replay-optimizer", "failure", "--input", "candidate.wasm"],
     });
 
-    expect(result.status).toBe("reduced");
+    expect(result.status).not.toBe("reduced");
     const args = JSON.parse(fs.readFileSync(logPath, "utf8")) as string[];
     expect(args).toContain("--test");
     expect(args).toContain("--working");
-    expect(fs.existsSync(outputPath)).toBe(true);
+    expect(fs.existsSync(outputPath)).toBe(false);
+    fs.rmSync(dir, {recursive:true,force:true});
   });
+});
+
+
+describe("structural reducer final execution witness", () => {
+  const compile = (wat: string): Buffer => {
+    const r = spawnSync("wasm-tools", ["parse"], { input: wat });
+    if (r.status !== 0) throw new Error(String(r.stderr));
+    return Buffer.from(r.stdout);
+  };
+  function fixture(candidate: Buffer, drift = false, invokeShell = false) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine reduce space "));
+    const inputPath = path.join(dir, "original.wasm"), outputPath = path.join(dir, "reduced.wasm");
+    const original = compile('(module (func (export "run") (param i32) (result i32) local.get 0 i32.const 1 i32.add) (func i32.const 99 drop))');
+    fs.writeFileSync(inputPath, original);
+    const countPath = path.join(dir, "count.json"), predicate = path.join(dir, "witness.mjs");
+    fs.writeFileSync(predicate, `import fs from "node:fs";const countPath=${JSON.stringify(countPath)};const count=(fs.existsSync(countPath)?Number(fs.readFileSync(countPath,"utf8")):0)+1;fs.writeFileSync(countPath,String(count));try{const f=new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(process.argv[2]))).exports.run;process.exit(f(31)!==31&&(!${drift}||count===1)?0:1)}catch{process.exit(1)}`);
+    const fake = path.join(dir, "reducer.mjs");
+    fs.writeFileSync(fake, `#!/usr/bin/env node
+import fs from "node:fs";import {spawnSync} from "node:child_process";const a=process.argv.slice(2);if(a.includes("--help"))process.exit(0);const bytes=Buffer.from(${JSON.stringify(candidate.toString("base64"))},"base64");fs.writeFileSync(a[a.indexOf("--working")+1],bytes);if(${invokeShell}){fs.writeFileSync(a[a.indexOf("--test")+1],bytes);const r=spawnSync(a[a.indexOf("--command")+1],{shell:true});process.exit(r.status??1)}
+`);
+    fs.chmodSync(fake, 0o755);
+    return { dir, original, inputPath, outputPath, countPath, run: () => runOptionalWasmReduce({ wasmReduceBin: fake, inputPath, outputPath, predicateCommand: ["node", predicate, `${outputPath}.test.wasm`] }) };
+  }
+  const matching = () => compile('(module (func (export "run") (param i32) (result i32) local.get 0 i32.const 1 i32.add))');
+  for (const [label, bytes] of [
+    ["larger valid result", () => compile('(module (func (export "run") (param i32) (result i32) local.get 0 i32.const 1 i32.add) (func (local i32 i32 i32 i32) i32.const 999 drop i32.const 999 drop))')],
+    ["smaller invalid result", () => Buffer.from([0,97,115,109])],
+    ["smaller valid missing witness", () => compile('(module (func (export "run") (param i32) (result i32) local.get 0))')],
+  ] as const) {
+    test(`rejects ${label} despite reducer exit zero`, () => {
+      const f = fixture(bytes());
+      try { expect(f.run().status).not.toBe("reduced"); expect(fs.readFileSync(f.inputPath)).toEqual(f.original); expect(fs.existsSync(f.outputPath)).toBeFalse(); }
+      finally { fs.rmSync(f.dir, {recursive:true,force:true}); }
+    });
+  }
+  test("publishes smaller valid input only after two fresh matching executions", () => {
+    const f = fixture(matching());
+    try { expect(f.run().status).toBe("reduced"); expect(fs.readFileSync(f.outputPath)).toEqual(matching()); expect(fs.readFileSync(f.countPath,"utf8")).toBe("2"); expect(fs.existsSync(`${f.outputPath}.test.wasm`)).toBeFalse(); expect(fs.readFileSync(f.inputPath)).toEqual(f.original); }
+    finally { fs.rmSync(f.dir,{recursive:true,force:true}); }
+  });
+  test("rejects a witness that disappears on the second final execution", () => {
+    const f = fixture(matching(),true);
+    try { expect(f.run().status).not.toBe("reduced"); expect(fs.existsSync(f.outputPath)).toBeFalse(); }
+    finally { fs.rmSync(f.dir,{recursive:true,force:true}); }
+  });
+  test("preserves command arguments with spaces through the actual reducer shell", () => {
+    const f = fixture(matching(),false,true);
+    try { expect(f.run().status).toBe("reduced"); expect(fs.readFileSync(f.countPath,"utf8")).toBe("3"); }
+    finally { fs.rmSync(f.dir,{recursive:true,force:true}); }
+  });
+  for (const suffix of [".test.wasm", ".working.wasm"]) {
+    test(`preserves an input that aliases the ${suffix} scratch path`, () => {
+      const f = fixture(matching());
+      const input = `${f.outputPath}${suffix}`;
+      fs.renameSync(f.inputPath, input);
+      try {
+        const result = runOptionalWasmReduce({wasmReduceBin:path.join(f.dir,"reducer.mjs"),inputPath:input,outputPath:f.outputPath,predicateCommand:["node",path.join(f.dir,"witness.mjs"),`${f.outputPath}.test.wasm`]});
+        expect(result.status).not.toBe("reduced");
+        expect(fs.readFileSync(input)).toEqual(f.original);
+      } finally { fs.rmSync(f.dir,{recursive:true,force:true}); }
+    });
+  }
+  test("preserves an input reached through an output symlink", () => {
+    const f = fixture(matching());
+    fs.symlinkSync(f.inputPath,f.outputPath);
+    try { expect(f.run().status).not.toBe("reduced"); expect(fs.readFileSync(f.inputPath)).toEqual(f.original); }
+    finally { fs.rmSync(f.dir,{recursive:true,force:true}); }
+  });
+
 });
