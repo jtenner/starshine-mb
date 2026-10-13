@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -347,6 +347,24 @@ import fs from "node:fs";import {spawnSync} from "node:child_process";const a=pr
     fs.symlinkSync(f.inputPath,f.outputPath);
     try { expect(f.run().status).not.toBe("reduced"); expect(fs.readFileSync(f.inputPath)).toEqual(f.original); }
     finally { fs.rmSync(f.dir,{recursive:true,force:true}); }
+  });
+
+  test("cleans a scratch file when creation succeeds but its write fails", () => {
+    const f = fixture(matching());
+    const write = fs.writeFileSync;
+    const mock = spyOn(fs, "writeFileSync").mockImplementation((file, data, options) => {
+      if (file === `${f.outputPath}.test.wasm` || typeof file === "number") {
+        write(file, Buffer.from([0]), options);
+        throw Object.assign(new Error("simulated full disk"), {code:"ENOSPC"});
+      }
+      return write(file, data, options);
+    });
+    try {
+      expect(() => f.run()).toThrow("simulated full disk");
+      expect(fs.existsSync(`${f.outputPath}.test.wasm`)).toBeFalse();
+      expect(fs.existsSync(`${f.outputPath}.working.wasm`)).toBeFalse();
+      expect(fs.readFileSync(f.inputPath)).toEqual(f.original);
+    } finally { mock.mockRestore(); fs.rmSync(f.dir,{recursive:true,force:true}); }
   });
 
 });

@@ -854,36 +854,91 @@ export function runOptionalWasmReduce(options: {
   inputPath: string;
   outputPath: string;
   predicateCommand: string[];
+  wasmToolsBin?: string;
+  timeoutMs?: number;
   cwd?: string;
 }): OptionalWasmReduceResult {
-  const probe = spawnSync(options.wasmReduceBin, ["--help"], { cwd: options.cwd, encoding: "utf8" });
+  const cwd = options.cwd ?? process.cwd();
+  const timeout = options.timeoutMs ?? 30_000;
+  if (!Number.isInteger(timeout) || timeout <= 0 || timeout > 2_147_483_647) {
+    return { status: "failed", detail: "reduction timeout must be a positive bounded integer", log: "" };
+  }
+  const spawnOptions = { cwd, encoding: "utf8" as const, timeout, killSignal: "SIGKILL" as const, maxBuffer: 8 * 1024 * 1024 };
+  const probe = spawnSync(options.wasmReduceBin, ["--help"], spawnOptions);
   if (probe.error && (probe.error as NodeJS.ErrnoException).code === "ENOENT") {
     return { status: "unavailable", detail: `${options.wasmReduceBin} not available` };
   }
-  if (probe.error) return { status: "failed", detail: probe.error.message, log: "" };
-  const cwd = options.cwd ?? process.cwd();
+  if (probe.error || probe.status !== 0) {
+    return { status: "failed", detail: probe.error?.message ?? "wasm-reduce help failed", log: `${probe.stdout ?? ""}${probe.stderr ?? ""}` };
+  }
   const inputPath = path.resolve(cwd, options.inputPath);
   const outputPath = path.resolve(cwd, options.outputPath);
-  const testPath = `${outputPath}.test.wasm`;
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.copyFileSync(inputPath, testPath);
-  fs.copyFileSync(inputPath, outputPath);
-  const predicate = options.predicateCommand.join(" ");
-  const args = [
-    inputPath,
-    "--command",
-    predicate,
-    "--test",
-    testPath,
-    "--working",
-    outputPath,
-    "--all-features",
-  ];
-  const result = spawnSync(options.wasmReduceBin, args, { cwd, encoding: "utf8", maxBuffer: 128 * 1024 * 1024 });
-  const log = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-  fs.rmSync(testPath, { force: true });
-  if (result.status !== 0 || !fs.existsSync(outputPath)) {
-    return { status: "failed", detail: `wasm-reduce exited with ${String(result.status)}`, log };
+  if (inputPath === outputPath || options.predicateCommand.length === 0) {
+    return { status: "failed", detail: "reduction requires a distinct output and an execution predicate", log: "" };
   }
-  return { status: "reduced", outputPath: options.outputPath, log };
+  const original = fs.readFileSync(inputPath);
+  const testPath = `${outputPath}.test.wasm`;
+  const workingPath = `${outputPath}.working.wasm`;
+  const inputStat = fs.statSync(inputPath);
+  const exists = (file: string) => {
+    try { fs.lstatSync(file); return true; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return false; throw error; }
+  };
+  if (exists(outputPath)) {
+    const stat = fs.statSync(outputPath);
+    if (stat.dev === inputStat.dev && stat.ino === inputStat.ino) {
+      return { status: "failed", detail: "reduction output aliases the input", log: "" };
+    }
+  }
+  if (exists(testPath) || exists(workingPath)) {
+    return { status: "failed", detail: "reduction scratch path already exists", log: "" };
+  }
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  let log = "";
+  let ownsTest = false;
+  let ownsWorking = false;
+  try {
+    const createScratch = (file: string) => {
+      const fd = fs.openSync(file, "wx");
+      if (file === testPath) ownsTest = true;
+      else ownsWorking = true;
+      try { fs.writeFileSync(fd, original); }
+      finally { fs.closeSync(fd); }
+    };
+    createScratch(testPath);
+    createScratch(workingPath);
+    // Binaryen takes a shell command; fresh final checks use structured argv.
+    const quote = (arg: string) => `'${arg.replaceAll("'", "'\"'\"'")}'`;
+    // Keep plain Windows argv supported; shell metacharacters require a verified
+    // platform-specific quoting contract instead of POSIX quotes in cmd.exe.
+    if (process.platform === "win32" && options.predicateCommand.some((arg) => !/^[A-Za-z0-9_./\\:\-]+$/.test(arg))) {
+      return { status: "failed", detail: "Windows reduction predicate requires shell-safe arguments", log };
+    }
+    const predicate = process.platform === "win32" ? options.predicateCommand.join(" ") : options.predicateCommand.map(quote).join(" ");
+    const result = spawnSync(options.wasmReduceBin, [inputPath, "--command", predicate, "--test", testPath, "--working", workingPath, "--all-features"], spawnOptions);
+    log = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+    if (result.error || result.status !== 0 || !fs.existsSync(workingPath)) {
+      return { status: "failed", detail: result.error?.message ?? `wasm-reduce exited with ${String(result.status)}`, log };
+    }
+    const candidate = fs.readFileSync(workingPath);
+    if (candidate.length >= original.length) return { status: "failed", detail: "wasm-reduce made no size progress", log };
+    fs.writeFileSync(testPath, candidate);
+    const validation = spawnSync(options.wasmToolsBin ?? "wasm-tools", ["validate", "--features", "all", testPath], spawnOptions);
+    if (validation.error || validation.status !== 0) {
+      return { status: "failed", detail: "reduced input failed independent validation", log: log + String(validation.stderr ?? "") };
+    }
+    for (let check = 0; check < 2; check += 1) {
+      fs.writeFileSync(testPath, candidate);
+      const replay = spawnSync(options.predicateCommand[0], options.predicateCommand.slice(1), spawnOptions);
+      if (replay.error || replay.status !== 0) return { status: "failed", detail: "final reduced input did not stably reproduce the failure", log: log + String(replay.stderr ?? "") };
+    }
+    // Publish the bytes we validated and replayed, rather than mutable tool files.
+    fs.writeFileSync(workingPath, candidate);
+    fs.renameSync(workingPath, outputPath);
+    ownsWorking = false;
+    return { status: "reduced", outputPath: options.outputPath, log };
+  } finally {
+    if (ownsTest) fs.rmSync(testPath, { force: true });
+    if (ownsWorking) fs.rmSync(workingPath, { force: true });
+  }
 }

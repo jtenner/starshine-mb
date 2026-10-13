@@ -958,6 +958,7 @@ async function runOptimizerReductionTask(options: OptimizerReductionTaskOptions)
     inputPath: optimizerReductionInputPath(options.source),
     outputPath,
     predicateCommand,
+    wasmToolsBin: options.wasmToolsBin,
   });
   fs.writeFileSync(`${outputPath}.reduction.log`, result.status === "unavailable" ? `${result.detail}\n` : result.log);
   process.stdout.write(`${JSON.stringify(result)}\n`);
