@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-13
 sources:
+  - ../../../raw/tooling/2026-10-13-missed-optimization-evidence.json
   - ../../../raw/tooling/2026-10-09-output-differences-v133.json
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -12,6 +13,18 @@ sources:
 ---
 
 # `optimize-instructions` fuzzing and parity sweep
+
+## October 13, 2026 sign-bit and immediate tee renewal
+
+Native candidate SHA-256 `988fbf75f3d6c64b5a2a031c23c734edbc0dedca4b973be62ddf5fddc70b80df` is compared with exact Binaryen `133 (version_133)`, SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`. Both lanes use seed `0x5eed`, prebuilt native binaries, `--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20` and Node runtime observation. [Raw evidence](../../../raw/tooling/2026-10-13-missed-optimization-evidence.json) retains hashes, counts, samples, fixture sources and measurement harnesses.
+
+The refreshed `pass-oi-all` aggregate compared 10,000 inputs: 7,558 normalized matches and 2,442 structural differences. Validation, generator, property and command failures are zero. Raw totals are 742,235/799,482 bytes and canonical totals 761,972/807,894 (Starshine/Binaryen), with zero larger outputs. Runtime smoke checked 3,193 cases; 6,807 were unsupported. The observation matrix reports 3,107 equal results, 256 equal traps and zero observed semantic mismatches; 1,218 observations were blocked. Unsupported or blocked cases are not runtime proofs.
+
+Agent judgment classifies 1,065 refreshed scalar differences as Starshine wins: the sign-bit arithmetic now matches the oracle and the exact integer tee/get identity removes operations. The first renewal exposed 1,065 size losses in the raw constant-folder shortcut; the [raw bridge](../../../../../src/passes/optimize_instructions_sign_bit.mbt) repairs that gap rather than changing the profile to avoid it. The other 1,377 differences belong to the existing tuple (1,080) and value-if-drop (297) families. Their source contracts, prior dossiers, retained examples and runtime observations support the scoped judgments; size alone is not their semantic evidence. Twenty structural bundles are retained, so this does not claim inspection of every generated input.
+
+Across 22 deterministic fixtures, raw bytes fall from 1,174 to 1,038: 17 improve, five are unchanged and none grow. All 112 original/baseline/candidate observations agree, including call effects, traps, memory state and nested exits. A real MicroPython module after pinned v133 LocalCSE falls from 371,053 to 371,050 bytes. Four other measured corpus modules are unchanged. Runtime median rises 0.75%; reverse-compilation and same-binary controls rise 0.69% and 0.34%, with overlapping dispersion. No runtime speedup is established. Full-command optimizer medians change by +0.62% on MicroPython and +0.79% on SQLite; the small branch-call fixture rises 4.07% and 716 KiB median RSS. These startup-inclusive measurements are not pass-local performance claims.
+
+The final wasm-gc suite has 14,142 passes and six failures out of 14,148. All six fail on the isolated baseline commit as well; they concern MSF/metadata and RSE floating bits. This ordinary aggregate renewal does not close the full 100,000-case general, random-all or external-generator audit. Historical evidence below keeps its original scope.
 
 ## October 9, 2026 final native comparison renewal
 

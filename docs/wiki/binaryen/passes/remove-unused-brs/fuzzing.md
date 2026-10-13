@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-13
 sources:
+  - ../../../raw/tooling/2026-10-13-missed-optimization-evidence.json
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
@@ -14,7 +15,19 @@ sources:
 
 # `remove-unused-brs` Fuzzing Profile
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — October 13, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
+
+## October 13, 2026 effectful constant-branch renewal
+
+Native candidate SHA-256 `988fbf75f3d6c64b5a2a031c23c734edbc0dedca4b973be62ddf5fddc70b80df` is compared with exact Binaryen `133 (version_133)`, SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`. Both lanes use seed `0x5eed`, prebuilt native binaries, `--jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20` and Node runtime observation. [Raw evidence](../../../raw/tooling/2026-10-13-missed-optimization-evidence.json) retains hashes, counts, samples, fixture sources and measurement harnesses.
+
+The `remove-unused-brs-all` aggregate compared 10,000 inputs: 6,082 normalized matches and 3,918 structural differences. Validation, generator, property and command failures are zero. Runtime smoke checked 1,377 cases with 1,377 equal results and zero observed semantic mismatches; 8,623 cases were unsupported and the matrix blocked 213 observations. This is scoped runtime evidence.
+
+Canonical totals are 1,944,713/2,000,972 bytes (Starshine/Binaryen), with 3,918 smaller and zero larger outputs. The retained canonical cleanup families use the existing source contracts and focused tests. All 20 retained Starshine outputs are byte-identical to the baseline compiler's replay; these are not gains caused by this change. Raw totals are 2,204,668/2,045,337 bytes: 8,110 outputs are larger, for an aggregate +159,331-byte gap. That raw encoding parity gap remains open; validation and canonical size do not close it.
+
+The new equal-constant branch rule is instead qualified by [call/load/nested-exit tests](../../../../../src/passes/remove_unused_brs_constant_effects_test.mbt), [dispatch tests](../../../../../src/cmd/rub_constant_effects_wbtest.mbt) and the original/baseline/candidate fixture observations in the evidence record. It retains each effect and trap once, keeps the target label and removes only the redundant branch. No preset or scheduler change was made.
+
+The final wasm-gc suite has six baseline-reproduced MSF/metadata and RSE failures; all touched behavior tests pass. This ordinary aggregate renewal does not close the full general/random-all/external-generator audit. Earlier records retain their historical versions.
 
 ## 2026-09-23 saved seven-pass EH campaign reduction
 

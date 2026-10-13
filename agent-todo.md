@@ -1,6 +1,6 @@
 # Agent Tasks
 
-Active unreleased work only, reviewed October 11, 2026. Follow
+Active unreleased work only, reviewed October 13, 2026. Follow
 [the docs schema](docs/README.md). Completed mechanisms, measurements and
 rejected experiments belong in the linked wiki dossiers and git history.
 New comparisons require verified
@@ -9,6 +9,16 @@ oracle versions and checkpoints do not sign current source.
 
 Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
+
+## Missed-optimization follow-ups [IR2-MO-STATIC]
+
+- [ ] **Goal / why:** extend the bounded static marker lane only where replay proves a missed optimization; opaque markers can change pass decisions.
+- **Deliverables / tasks:** preserve candidate marker identities during automatic reduction; add supported exception/control instrumentation; qualify the separate post-pass dynamic detector in issue #19 using the existing runtime/reducer tools.
+- **APIs / invariants:** canonical parser/encoder and native pass flags; actual call-site survival, unchanged original module, exact ordered effects/traps, bounded work, explicit unsupported features.
+- **Dependencies / exit criteria:** candidate-preserving reducer predicate, validated instrumented/output modules, uninstrumented replay and paired size/runtime/cost measurements; keep presets unchanged until held-out schedule evidence supports a change.
+- **Tests:** lost parent marker, remapped import identity, nested typed/multivalue branches, ordered load/store and trap controls. See [fuzz runner](docs/wiki/tooling/fuzz-runner.md).
+- **Open raw RUB parity:** the October 13 aggregate compares 10,000 cases with no canonical size loss, but raw Starshine output is larger in 8,110 cases (+159,331 total bytes versus v133). Twenty retained cases reproduce byte-identical baseline outputs. Keep this encoding gap open; see [evidence](docs/wiki/raw/tooling/2026-10-13-missed-optimization-evidence.json).
+- **Known baseline failures:** `3e6c77476` reproduces six wasm-gc failures in 192 focused tests: three `merge_similar_functions_test.mbt` helper expectations, the corresponding `cmd.mbt` disabled-tail-call expectation, `offset_metadata_guard_wbtest.mbt` MSF metadata expectation, and `rse_test.mbt` floating-point bit-pattern expectation. These remain open; the missed-optimization changes do not alter those owners. No tests are skipped or disabled.
 
 ## Package follow-ups [NPM-WASMGC-BETA]
 

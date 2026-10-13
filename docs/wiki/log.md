@@ -1,3 +1,10 @@
+### 2026-10-13 — Qualify bounded missed-optimization fixes
+
+- [OI strategy](binaryen/passes/optimize-instructions/starshine-strategy.md) records unsigned sign-bit arithmetic and immediate integer tee reuse. [RUB strategy](binaryen/passes/remove-unused-brs/starshine-strategy.md) records equal-constant branches with retained effectful conditions. Small source rules replace broader analysis or scheduling changes.
+- [Static markers](tooling/fuzz-runner.md) add pre-pass diagnostic calls, current import identity resolution and parent grouping. A controlled omitted-pass case reports one primary candidate. A baseline/candidate identity comparison reports no difference; marker effects can hide opportunities. Automatic reduction and issue #19's dynamic detector remain open.
+- [Raw evidence](raw/tooling/2026-10-13-missed-optimization-evidence.json) records 22 fixtures (136 bytes saved, no size losses), 112 matching execution observations, a three-byte real MicroPython gain, all timing/RSS rows and noise controls. No runtime gain is claimed. Two 10,000-case v133 aggregate renewals have no observed semantic mismatch or validation failure; unsupported runtime cases and residual structural differences remain explicit in the pass dossiers.
+- Six full-suite failures reproduce on the exact baseline. RUB's existing raw encoding gap remains open. The active backlog retains these limits and the next diagnostic work; this is not a full pass-audit closure.
+
 ### 2026-10-11 — Restore honest `i64-to-i32-lowering` boundaries
 
 - Verified with Binaryen 133 reduced fixtures that the canonical pass rewrites
