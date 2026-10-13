@@ -5578,6 +5578,24 @@ fn remove_unused_brs_nodes_are_known_equal_for_redundant_br_if_value(
 }
 
 ///|
+fn remove_unused_brs_condition_preserves_redundant_payload(
+  func : @ir.HotFunc,
+  payload : Int,
+  condition : Int,
+) -> Bool {
+  // The matching constant payload and fallthrough have no state dependency.
+  // The condition remains evaluated once in place, including traps and exits.
+  if @ir.hot_node_get(func, payload).op is @ir.HotOp::Const {
+    return true
+  }
+  let payload_reads = @bitset.BitSet::new(0)
+  remove_unused_brs_mark_local_reads_in_value_expr(func, payload, payload_reads)
+  remove_unused_brs_condition_is_select_safe_over_value_arms(
+    func, condition, payload_reads,
+  )
+}
+
+///|
 fn remove_unused_brs_try_drop_redundant_self_br_if_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -5699,10 +5717,8 @@ fn remove_unused_brs_try_drop_redundant_self_br_if_value(
     ) {
     return false
   }
-  let payload_reads = @bitset.BitSet::new(0)
-  remove_unused_brs_mark_local_reads_in_value_expr(func, payload, payload_reads)
-  if !remove_unused_brs_condition_is_select_safe_over_value_arms(
-      func, condition, payload_reads,
+  if !remove_unused_brs_condition_preserves_redundant_payload(
+      func, payload, condition,
     ) {
     return false
   }
@@ -5771,15 +5787,11 @@ fn remove_unused_brs_try_drop_redundant_self_br_if_value_block(
         Some(@ir.hot_control_node_label(func, block_id)) {
         let payload = @ir.hot_child_get(func, branch_id, 0)
         let condition = @ir.hot_child_get(func, branch_id, 1)
-        let payload_reads = @bitset.BitSet::new(0)
-        remove_unused_brs_mark_local_reads_in_value_expr(
-          func, payload, payload_reads,
-        )
         if remove_unused_brs_nodes_are_known_equal_for_redundant_br_if_value(
             func, payload, last,
           ) &&
-          remove_unused_brs_condition_is_select_safe_over_value_arms(
-            func, condition, payload_reads,
+          remove_unused_brs_condition_preserves_redundant_payload(
+            func, payload, condition,
           ) {
           let dropped_condition = @ir.hot_build_drop(func, condition)
           let removed = pass_splice_region(ctx, func, body_ref, branch_idx, 2, [
