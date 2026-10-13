@@ -28207,6 +28207,23 @@ fn gen_valid_oi_default_scalar_profile_body(case : Int) -> Array[Instruction] {
     Instruction::i32_const(I32(2)),
     Instruction::i32_shl(),
     Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(-2147483648)),
+    Instruction::i32_div_u(),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(-2147483648)),
+    Instruction::i32_mul(),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(-2147483648)),
+    Instruction::i32_rem_u(),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::local_tee(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_or(),
+    Instruction::drop(),
   ]
   match case {
     1 => {
@@ -32809,6 +32826,8 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   } else if memory_bulk && (case == 13 || case == 15 || case == 17) {
     Locals::from_types([ValType::i32(), ValType::i32()])
   } else if memory_bulk && (case == 5 || case == 11) {
+    Locals::from_types([ValType::i32()])
+  } else if config == GenValidConfig::for_profile(PassOiDefaultScalarProfile) {
     Locals::from_types([ValType::i32()])
   } else if !ref_gc && !memory_bulk && (case == 1 || case == 2) {
     Locals::from_types([ValType::i32()])
