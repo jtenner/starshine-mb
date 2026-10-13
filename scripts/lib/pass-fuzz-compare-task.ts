@@ -3834,21 +3834,62 @@ type SemanticReductionFinalization = {
 };
 
 async function finalizeSemanticReduction(options: SemanticReductionFinalization) {
-  const finalFingerprint = await options.evaluateOnce(options.candidateBytes) ?? options.expectedFingerprint;
+  let finalFingerprint: SemanticFailureFingerprint | null = null;
+  let secondFingerprint: SemanticFailureFingerprint | null = null;
+  let finalVerificationEvaluations = 0;
+  let finalVerification: "no-progress" | "failed" | "verified" = "no-progress";
+  let finalVerificationFailure: string | null = null;
+  if (options.candidateBytes.length < options.originalBytes.length) {
+    finalVerification = "failed";
+    try {
+      finalVerificationEvaluations += 1;
+      finalFingerprint = await options.evaluateOnce(options.candidateBytes);
+      if (finalFingerprint === null || !fingerprintMatches(options.expectedFingerprint, finalFingerprint, options.matchLevel)) {
+        finalVerificationFailure = "first final observation does not match the recorded failure";
+      } else {
+        finalVerificationEvaluations += 1;
+        secondFingerprint = await options.evaluateOnce(options.candidateBytes);
+        if (secondFingerprint !== null
+          && fingerprintMatches(options.expectedFingerprint, secondFingerprint, options.matchLevel)
+          && fingerprintMatches(finalFingerprint, secondFingerprint, "exact")) {
+          finalVerification = "verified";
+        } else {
+          finalVerificationFailure = "second final observation is missing, mismatching or unstable";
+        }
+      }
+    } catch (error) {
+      finalVerificationFailure = String(error).slice(0, 2048);
+    }
+  }
   const report = {
     schema: "starshine.optimizer-fingerprint-reduction.v1",
     matchLevel: options.matchLevel,
     originalFingerprint: options.expectedFingerprint,
     finalFingerprint,
+    secondFingerprint,
+    finalVerification,
+    finalVerificationFailure,
+    finalVerificationEvaluations,
     originalSize: options.originalBytes.length,
-    finalSize: options.candidateBytes.length,
+    finalSize: finalVerification === "verified" ? options.candidateBytes.length : options.originalBytes.length,
+    attemptedFinalSize: options.candidateBytes.length,
     predicateEvaluations: options.predicateEvaluations,
     steps: options.steps,
-    changed: options.candidateBytes.length < options.originalBytes.length,
+    changed: finalVerification === "verified",
     relaxation: options.relaxation,
   };
-  fs.writeFileSync(path.join(options.workDir, "semantic-fingerprint-reduction.json"), JSON.stringify(report, null, 2) + "\n");
-  if (report.changed) fs.writeFileSync(path.join(options.workDir, "semantic-reduced-input.wasm"), options.candidateBytes);
+  const writeAtomic = (name: string, data: Uint8Array | string) => {
+    const dir = fs.mkdtempSync(path.join(options.workDir, ".semantic-publish-"));
+    try {
+      const file = path.join(dir, name);
+      fs.writeFileSync(file, data);
+      fs.renameSync(file, path.join(options.workDir, name));
+    } finally {
+      fs.rmSync(dir, {recursive:true,force:true});
+    }
+  };
+  if (report.changed) writeAtomic("semantic-reduced-input.wasm", options.candidateBytes);
+  writeAtomic("semantic-fingerprint-reduction.json", JSON.stringify(report, null, 2) + "\n");
   return report;
 }
 
