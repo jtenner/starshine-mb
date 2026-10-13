@@ -45561,6 +45561,16 @@ fn run_hot_pipeline_raw_optimize_instructions_const_fold_body(
       }
     }
     if i + 1 < instrs.length() {
+      match oi_sign_bit_raw_pair(instrs[i], instrs[i + 1]) {
+        Some((constant, operator)) => {
+          out.push(constant)
+          out.push(operator)
+          changed = true
+          i += 2
+          continue
+        }
+        None => ()
+      }
       match (instrs[i], instrs[i + 1]) {
         (@lib.I32Const(@lib.I32(raw)), @lib.I32Eqz) => {
           out.push(

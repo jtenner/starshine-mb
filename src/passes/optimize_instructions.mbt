@@ -16237,6 +16237,11 @@ fn optimize_instructions_prefer_negative_leb_i64(raw : Int64) -> Bool {
 
 ///|
 fn optimize_instructions_i32_power_of_two_shift(raw : Int) -> Int? {
+  // The sign bit is the largest unsigned power of two, despite its signed
+  // representation. Other negative bit patterns remain excluded.
+  if raw == -2147483648 {
+    return Some(31)
+  }
   if raw <= 0 || (raw & (raw - 1)) != 0 {
     return None
   }
@@ -16251,6 +16256,9 @@ fn optimize_instructions_i32_power_of_two_shift(raw : Int) -> Int? {
 
 ///|
 fn optimize_instructions_i64_power_of_two_shift(raw : Int64) -> Int64? {
+  if raw == -9223372036854775808L {
+    return Some(63L)
+  }
   if raw <= 0L || (raw & (raw - 1L)) != 0L {
     return None
   }

@@ -30,6 +30,10 @@ related:
 
 # Current Starshine `optimize-instructions` strategy
 
+## Unsigned sign-bit constants
+
+The power-of-two helpers include the unsigned sign-bit constants `0x80000000` and `0x8000000000000000`. The existing HOT rules and the [raw constant-folder bridge](../../../../../src/passes/optimize_instructions_sign_bit.mbt) therefore select `shl 31/63`, `shr_u 31/63` and the low-bit mask. The operand still evaluates once; its calls, traps and ordered effects remain. Other negative bit patterns and zero do not become powers of two. [Focused tests](../../../../../src/passes/optimize_instructions_sign_bit_power_test.mbt) and [command dispatch tests](../../../../../src/cmd/oi_sign_bit_power_wbtest.mbt) cover the boundary.
+
 ## Optional control-arm state analysis
 
 The write-set walk skips the HOT `-1` sentinel for an absent optional else or
