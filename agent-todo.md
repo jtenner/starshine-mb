@@ -10,11 +10,103 @@ oracle versions and checkpoints do not sign current source.
 Completed October 7 default-gate and ten-item audit repairs are recorded in
 [the wiki log](docs/wiki/log.md). They are removed from this active backlog.
 
+## v0.1.1 — October 13 pass audit repairs [IR2-AUDIT-20261013]
+
+- **Goal / why:** repair the reviewed metadata defects, pass gaps, size losses,
+  and avoidable work without changing wasm behavior or weakening validation.
+- **Execution:** take the numbered items in order. For each item, add a focused
+  failing behavior, metadata, size, or scaling test; record the red result; make
+  the smallest fix; record green results; update the owning wiki page; then
+  commit the coherent fix. Treat source-only complexity claims as hypotheses
+  until a scaling test shows a useful gain. Preserve current Binaryen 133
+  evidence and do not call a pass complete without its required signoff lanes.
+- **Shared invariants / dependencies:** keep complete module validity, runtime
+  behavior, input ownership, raw and parsed metadata alignment, exact affected
+  function/type indices, source order, and pass coverage. Check the active
+  dispatcher and public CLI test for every module-pass change. Use the common
+  metadata guard when code offsets or indices change. Run Moon commands in
+  series. The review baseline is `a61c3e418` in the dedicated audit worktree.
+- [ ] **[AUDIT-20261013]001 — shared-object function names:** remap parsed
+  function/local/label names when conversion imports shift function indices;
+  clear or rebuild stale opaque raw names. Red test: named defined function with
+  a conversion that adds an import. Exit: names identify the same function.
+- [ ] **[AUDIT-20261013]002 — shared-object type names:** remap parsed type and
+  field names when the first function/struct types swap. Red test: named types
+  and fields before and after the swap. Exit: names keep their type identity.
+- [ ] **[AUDIT-20261013]003 — coalescing names:** preserve local names for
+  untouched functions and remap or clear only changed function entries. Red
+  test: two named functions with coalescing in one. Exit: untouched names stay.
+- [ ] **[AUDIT-20261013]004 — gathered raw names:** preserve raw name payload
+  when string gathering reuses globals with an identity index map. Red test:
+  existing string global plus same literal in code. Exit: payload survives.
+- [ ] **[AUDIT-20261013]005 — i64 lowering scope:** resolve the active pass's
+  four-opcode subset versus Binaryen's whole-module ABI contract; cover ordinary
+  i64 signatures and arithmetic or give the subset a distinct honest route.
+  Red tests: i64 parameter/result/add plus CLI/registry behavior. Exit: public
+  behavior and the i64 dossier agree with the pass name and implementation.
+- [ ] **[AUDIT-20261013]006 — O4z caught-try rollback:** avoid running preset
+  passes whose output will be discarded; retain compiler-fact preparation and
+  final validation. Red test: caught try_table preset-only trace. Exit: no
+  discarded pass work or spurious pass error.
+- [ ] **[AUDIT-20261013]007 — nested GTO constructors:** avoid rewriting
+  changed struct.new operands twice at every nesting level. Red scaling test:
+  increasing nested constructor depth. Exit: bounded growth and exact output.
+- [ ] **[AUDIT-20261013]008 — shared-object handle storage:** bound table growth
+  and retained externrefs for repeated conversions without changing identity or
+  host behavior. Red test: repeated boundary traffic and table size. Exit:
+  measured storage improvement and unchanged runtime observations.
+- [ ] **[AUDIT-20261013]009 — inlining cleanup scan:** skip or index dead-suffix
+  preservation queries when no matching targets exist. Red scaling test: many
+  ordinary functions. Exit: less complete pass work and same output.
+- [ ] **[AUDIT-20261013]010 — merge-blocks effect workspace:** reuse effect
+  masks across prefix checks with correct mutation invalidation. Red scaling
+  test: wide block prefixes. Exit: lower allocations and exact output.
+- [ ] **[AUDIT-20261013]011 — remove-unused-brs root lookup:** replace repeated
+  region-start scans with a revision-safe index or cursor. Red scaling test:
+  wide unchanged region. Exit: better growth and exact branch results.
+- [ ] **[AUDIT-20261013]012 — DCE detached references:** batch deletion or
+  reuse a valid reference index instead of scanning all nodes for each small
+  detached set. Red scaling test: many dead roots. Exit: less work, same IR.
+- [ ] **[AUDIT-20261013]013 — merge-locals no-change path:** avoid full graph
+  and lowering work when no copy rewrite survives. Red test: copy-shaped writes
+  with no eligible reads. Exit: unchanged HOT revision/output and lower cost.
+- [ ] **[AUDIT-20261013]014 — sparse lowering candidates:** skip unrelated
+  bodies in i64 and intrinsic lowering. Red tests: one candidate among many
+  functions and unused intrinsic import. Exit: less allocation, same output.
+- [ ] **[AUDIT-20261013]015 — i64 temporary locals:** add only the f32 or f64
+  temporary that a changed function uses. Red tests: f32-only and f64-only
+  conversions. Exit: valid output with no unused temporary declaration.
+- [ ] **[AUDIT-20261013]016 — reorder-locals size:** compare the access-order
+  and type-stable layouts before accepting a rewrite. Red test: alternating
+  uses of grouped i32/i64 locals. Exit: no encoded-size loss without a measured
+  countervailing benefit; record any intentional Binaryen shape difference.
+- [ ] **[AUDIT-20261013]017 — descriptor field-zero scope:** track GTO reads
+  by descriptor type rather than one module-wide flag. Red test: unrelated
+  field-zero read plus descriptor types. Exit: no unnecessary field expansion.
+- [ ] **[AUDIT-20261013]018 — large coalescing scope:** assess a sparse or
+  bounded path for functions over 4,096 locals. Red test: disjoint same-type
+  ranges outside the existing fast path. Exit: measured quality gain without
+  dense-table time or memory regression.
+- [ ] **[AUDIT-20261013]019 — DAE2 historical gaps:** renew current-source
+  pass-local time and canonical-size comparisons before selecting a fix. The
+  older 2.782x/2.327x timings and 99,251-byte deficit are not current proof.
+  Red benchmark/profile: pinned native build and verified v133. Exit: measured
+  gain without semantic, raw-size, or allocation regression.
+- [ ] **[AUDIT-20261013]020 — invalid-module dumps:** give each final-invalid
+  artifact a distinct path and surface write failures. Red test: two failures
+  in one directory and a failed write. Exit: no lost diagnostic evidence.
+- [ ] **[AUDIT-20261013]021 — unverified review risks:** use focused red
+  fixtures to confirm or reject DCE branch-cache staleness, direct HOT local-CSE
+  on shared memory, and count-based whole-function skipping in
+  remove-unused-brs. Exit: fix confirmed gaps; document rejected triggers in
+  the owning dossiers and remove them from this active list.
+
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
 - **Goal / why:** make Starshine competitive before release by closing pass,
   pipeline, command and output-quality gaps without removing transformations.
-- **Current execution checkout:** work on `main` in the primary local repository.
+- **Current execution checkout:** work in the dedicated
+  `codex/pass-audit-red-green-fixes` worktree based on `a61c3e418`.
   The October 5 correctness campaign is integrated from local `master`.
   Preserve historical branch measurements under their frozen source versions;
   follow the latest user-requested checkout for subsequent work.
