@@ -1,3 +1,9 @@
+### 2026-10-13 — Resolve six test-fixture conflicts
+
+- Kept the strict [MSF encoded-size guard](binaryen/passes/merge-similar-functions/starshine-strategy.md#october-13-2026-encoded-size-guard-and-positive-fixtures). Old positive padding required a 61-to-62-byte helper. Positive fixtures now use real shared global updates and retain helper/call/nested/metadata checks; new assertions require smaller bytes and exact ordered work. A new regression rejects ordinary one-byte helper growth; both index-boundary tests are unchanged.
+- Isolated [RSE signed-zero defaults from parameter identity](binaryen/passes/rse/starshine-strategy.md#october-13-2026-floating-bit-fixture-isolation). The initial body-local +0 write is correctly redundant. Original expected counts remain; additional raw/HOT/default/parameter checks require exact signed-zero and NaN bits. This corrects the earlier NaN diagnosis without changing production RSE.
+- [Qualification evidence](raw/tooling/2026-10-13-six-failure-fixtures.json) records the size conflict, exact v133 effectful output and execution state. Full wasm-gc passes 14,149/14,149; interfaces, formatting and README API sync pass. No production pass or public API changed. This supersedes the six-failure blocker below; the broader RUB raw encoding gap remains open.
+
 ### 2026-10-13 — Qualify bounded missed-optimization fixes
 
 - [OI strategy](binaryen/passes/optimize-instructions/starshine-strategy.md) records unsigned sign-bit arithmetic and immediate integer tee reuse. [RUB strategy](binaryen/passes/remove-unused-brs/starshine-strategy.md) records equal-constant branches with retained effectful conditions. Small source rules replace broader analysis or scheduling changes.
