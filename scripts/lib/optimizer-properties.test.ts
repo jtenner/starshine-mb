@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import crypto from "node:crypto";
 
 import {
   runCommutatorProperty,
@@ -206,5 +207,96 @@ describe("metamorphic equivalence", () => {
       semanticClass: () => "equal",
     }), { relationId: "r", compareRelation: async (left, right) => left.includes("optimized") && right.includes("optimized") ? "different" : "equal" });
     expect(pairFailure.classification).toBe("optimized-twins-diverge");
+  });
+});
+
+
+describe("paired optimization size diagnostics", () => {
+  test("records size skew only after semantic checks pass", async () => {
+    const result = await runMetamorphicEquivalenceProperty("AAAA", "BBBBBB", ["p"], harness({
+      apply: (module) => module === "AAAA" ? "A" : "BBB",
+      semanticClass: () => "equal",
+    }), { relationId: "local-transfer", compareRelation: async () => "equal" });
+    expect(result.status).toBe("pass");
+    expect(result.classification).toBe("metamorphic-equivalence");
+    expect(result.structuralDiagnostics).toEqual({
+      kind: "paired-encoded-size",
+      inputBytes: { base: 4, twin: 6 },
+      optimizedBytes: { base: 1, twin: 3 },
+      optimizedDeltaBytes: 2,
+      classification: "size-skew-candidate",
+      smallerVariant: "base",
+      optimizedHashes: { base: "A", twin: "BBB" },
+      evidence: "observed-semantic-equality",
+    });
+  });
+
+  test("does not report canonical-equal encoding skew as an optimization candidate", async () => {
+    const result = await runMetamorphicEquivalenceProperty("A", "A|metadata", ["p"], harness({
+      apply: (module) => module,
+      semanticClass: () => "equal",
+      structural: () => "same-canonical-module",
+    }), { relationId: "custom-section", compareRelation: async () => "equal" });
+    expect(result.structuralDiagnostics).toMatchObject({
+      classification: "canonical-equal-encoding-difference", smallerVariant: null,
+    });
+  });
+
+  test("does not compute size evidence for a blocked semantic relation", async () => {
+    const h = harness({ apply: (module) => module, semanticClass: () => "blocked" });
+    h.encodedSize = async () => { throw new Error("must not measure blocked pair"); };
+    const result = await runMetamorphicEquivalenceProperty("A", "B", ["p"], h,
+      { relationId: "blocked", compareRelation: async () => "blocked" });
+    expect(result.status).toBe("blocked");
+    expect(result.structuralDiagnostics).toBeNull();
+  });
+
+  for (const invalidVariant of ["A", "B"]) {
+    test(`rejects invalid optimized ${invalidVariant} before runtime comparison`, async () => {
+      const h = harness({ apply: (module) => `${module}|out`, invalid: new Set([`${invalidVariant}|out`]) });
+      h.semanticCompare = async () => { throw new Error("invalid output must not reach runtime comparison"); };
+      const result = await runMetamorphicEquivalenceProperty("A", "B", ["p"], h,
+        { relationId: "valid-inputs", compareRelation: async () => "equal" });
+      expect(result.status).toBe("fail");
+      expect(result.classification).toBe(invalidVariant === "A" ? "base-output-validation-failure" : "twin-output-validation-failure");
+      expect(result.firstFailure?.stage).toBe("validation");
+      expect(result.structuralDiagnostics).toBeNull();
+    });
+  }
+
+  test("detects the baseline typed-if propagation gap with independent Wasm execution", async () => {
+    // Exact baseline a61c3e4 --precompute-propagate output. The local-transfer
+    // form folds the add; the typed-if form retains it. This preserves the
+    // opportunity as a fixture; size skew alone does not prove a missed rule.
+    // Both arms write the exported global before returning 8.
+    const base = Uint8Array.from(Buffer.from("0061736d0100000001060160017f017f030201000606017f0141000b070b02016703000372756e00000a21011f01017f2000044041012400410721010541022400410721010b200141016a0b", "hex"));
+    const twin = Uint8Array.from(Buffer.from("0061736d0100000001060160017f017f030201000606017f0141000b070b02016703000372756e00000a1f011d01017f2000047f410124004107054102240041070b2101200141016a0b", "hex"));
+    const optimizedBase = Uint8Array.from(Buffer.from("0061736d0100000001060160017f017f030201000606017f0141000b070b02016703000372756e00000a1e011c01017f2000044041012400410721010541022400410721010b41080b", "hex"));
+    const optimizedTwin = Uint8Array.from(Buffer.from("0061736d0100000001060160017f017f030201000606017f0141000b070b02016703000372756e00000a1f011d01017f2000047f410124004107054102240041070b2101200141016a0b", "hex"));
+    const observe = (bytes: Uint8Array) => {
+      const instance = new WebAssembly.Instance(new WebAssembly.Module(bytes));
+      const run = instance.exports.run as (arg: number) => number;
+      const g = instance.exports.g as WebAssembly.Global;
+      return [-2147483648, -1, 0, 1, 2, 2147483647].map((arg) => [run(arg), g.value]);
+    };
+    const compare = async (left: Uint8Array, right: Uint8Array) =>
+      JSON.stringify(observe(left)) === JSON.stringify(observe(right)) ? "equal" as const : "different" as const;
+    const h: PropertyHarness<Uint8Array> = {
+      apply: async (module) => module === base ? optimizedBase : optimizedTwin,
+      validate: async (module) => WebAssembly.validate(module),
+      semanticCompare: compare,
+      structuralHash: async (module) => crypto.createHash("sha256").update(module).digest("hex"),
+      rawHash: async (module) => crypto.createHash("sha256").update(module).digest("hex"),
+      encodedSize: async (module) => module.byteLength,
+      persist: async (_name, module) => Buffer.from(module).toString("hex"),
+    };
+    expect(observe(base)).toEqual([[8, 1], [8, 1], [8, 2], [8, 1], [8, 1], [8, 1]]);
+    const result = await runMetamorphicEquivalenceProperty(base, twin, ["precompute-propagate"], h,
+      { relationId: "equal-arm-local-versus-typed-if", compareRelation: compare });
+    expect(result.status).toBe("pass");
+    expect(result.structuralDiagnostics).toMatchObject({
+      inputBytes: { base: 76, twin: 74 }, optimizedBytes: { base: 73, twin: 74 },
+      optimizedDeltaBytes: 1, classification: "size-skew-candidate", smallerVariant: "base",
+    });
   });
 });
