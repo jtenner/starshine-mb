@@ -240,7 +240,9 @@ fn i64_lower_sat_expr_has_candidate(expr : @lib.Expr) -> Bool {
 }
 
 ///|
-fn i64_to_i32_lowering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+fn lower_saturating_i64_truncations_run_module_pass(
+  mod_ : @lib.Module,
+) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_

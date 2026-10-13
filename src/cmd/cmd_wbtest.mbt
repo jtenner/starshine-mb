@@ -4576,6 +4576,36 @@ test "run_cmd_with_adapter rejects unknown pass flags once the hot pass registry
 }
 
 ///|
+test "CLI rejects whole i64 lowering instead of silently leaving i64 arithmetic" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (param i64) (result i64) local.get 0 i64.const 1 i64.add))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["i64.wasm"] },
+    file_exists=fn(path) { path == "i64.wasm" },
+    read_file=fn(_) { Ok(wasm) },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      ["--i64-to-i32-lowering", "--out", "out.wasm", "i64.wasm"],
+      io,
+    ) {
+    Err(CmdError::OptimizeFailed(message)) =>
+      assert_true(message.contains("boundary-only"))
+    Err(other) => fail("expected boundary-only error, got {other}")
+    Ok(_) => fail("whole i64 lowering must not silently leave i64 arithmetic")
+  }
+  @debug.assert_eq(writes.length(), 0)
+}
+
+///|
 test "CLI rejects bare no-inline policy names before pass dispatch" {
   for name in ["no-inline", "no-full-inline", "no-partial-inline"] {
     match cmd_resolve_pipeline_steps([name]) {

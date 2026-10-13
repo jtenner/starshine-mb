@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-13
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
@@ -24,15 +24,15 @@ related:
 ## Role
 
 - `i64-to-i32-lowering` is a real public Binaryen pass.
-- It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **boundary-only** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- It has no owner file or dispatcher case today; [`./starshine-strategy.md`](./starshine-strategy.md) maps the exact local code surfaces a future module pass would need.
+- The whole-module ABI pass is **unimplemented** in Starshine and has a **boundary-only** registry entry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt). Requests return an error instead of silently leaving ordinary `i64` operations unchanged.
+- Starshine has a separate active `lower-saturating-i64-truncations` pass for four float-to-i64 conversions. It does not change function signatures or ordinary i64 arithmetic. [`./starshine-strategy.md`](./starshine-strategy.md) maps the remaining work for the full pass.
 - It is also still listed in the local whole-module transform roster in [research note 0063](../../../ir2/registry-map.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 
 ## Why this pass matters
 
 - The original parity queue and the first tracker-expansion wave are already dossier-covered, so this folder is an explicit source-backed expansion for another real local boundary-only registry entry.
-- `agent-todo.md` currently has **no dedicated `i64-to-i32-lowering` slice**.
+- The separate conversion pass and the full ABI pass have different scopes and public names.
 - The pass name sounds like a small arithmetic lowering, but the real contract is much larger.
 - It sits near already-documented neighbors like `flatten`, `inlining`, and JS-interface legalization, so a future port will benefit from a dedicated canonical explanation instead of scattering the facts across those folders.
 
@@ -64,7 +64,7 @@ So this pass is best taught as:
 - Some families still require helper imports or prior cleanup: reinterpret uses wasm2js scratch-memory helpers, some atomic families use wasm2js runtime helpers, and ops like `mul` / `div` / `rem` / `rot` / `popcnt` are expected to be gone already.
 - The refreshed dossier now also has a dedicated ABI/opcode coverage ledger so future readers can see, in one place, which families are directly pair-lowered, helper-backed, fallback-only, or still explicitly unsupported.
 - The folder is anchored by direct `version_129` sources plus the retained 2026-04-26 port-readiness source recheck; the recheck did not correct the upstream algorithm, but it makes first-slice sequencing and local code surfaces explicit.
-- The dedicated Starshine strategy page records the exact current local truth: boundary-only registry name, request rejection, no module-pass dispatcher case, no owner file, no active preset role, and no active backlog slice.
+- The dedicated Starshine strategy page records the current split: the full ABI pass name is boundary-only and rejected; the four-conversion subset has a distinct active module-pass route. No default preset schedules the full ABI pass.
 - The 2026-04-26 port-readiness bridge adds the missing implementation sequence: registry honesty first, then analyzer-only classification, then a deliberately narrow scalar type/param/local split before calls, globals, returns, memory, helper imports, or atomics.
 
 ## Page map
@@ -87,7 +87,7 @@ So this pass is best taught as:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `i64-to-i32-lowering` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real active pass for it.
+- Keep the whole-module ABI pass marked as **unimplemented** until Starshine grows a real active implementation for it. Describe the saturating-conversion pass under its distinct active name.
 - Cite [`./binaryen-strategy.md`](./binaryen-strategy.md) and its direct tagged URLs when restating upstream source-backed claims, cite [`./starshine-strategy.md`](./starshine-strategy.md) when restating local implementation status, and cite [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) when discussing implementation order or validation lanes.
 - Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it is outside the current no-DWARF default optimize path.
 - Keep the structural fact explicit too: the reviewed upstream pass expects flattened input and does not by itself cover every remaining `i64` opcode family.

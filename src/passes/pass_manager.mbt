@@ -94365,7 +94365,8 @@ fn run_hot_pipeline_apply_module_pass(
     "global-effects" => global_effects_run_module_pass(mod_)
     "global-type-optimization" =>
       global_type_optimization_run_module_pass(mod_, options.closed_world)
-    "i64-to-i32-lowering" => i64_to_i32_lowering_run_module_pass(mod_)
+    "lower-saturating-i64-truncations" =>
+      lower_saturating_i64_truncations_run_module_pass(mod_)
     "remove-unused-nonfunction-module-elements" =>
       rume_run_nonfunction_module_pass(
         mod_,

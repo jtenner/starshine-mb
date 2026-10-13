@@ -26,11 +26,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   dispatcher and public CLI test for every module-pass change. Use the common
   metadata guard when code offsets or indices change. Run Moon commands in
   series. The review baseline is `a61c3e418` in the dedicated audit worktree.
-- [ ] **[AUDIT-20261013]005 — i64 lowering scope:** resolve the active pass's
-  four-opcode subset versus Binaryen's whole-module ABI contract; cover ordinary
-  i64 signatures and arithmetic or give the subset a distinct honest route.
-  Red tests: i64 parameter/result/add plus CLI/registry behavior. Exit: public
-  behavior and the i64 dossier agree with the pass name and implementation.
 - [ ] **[AUDIT-20261013]006 — O4z caught-try rollback:** avoid running preset
   passes whose output will be discarded; retain compiler-fact preparation and
   final validation. Red test: caught try_table preset-only trace. Exit: no

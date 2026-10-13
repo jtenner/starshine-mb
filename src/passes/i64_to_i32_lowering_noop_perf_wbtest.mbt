@@ -1,10 +1,12 @@
 ///|
 fn i64_lower_noop_perf_bench(it : @bench.T, function_count : Int) -> Unit {
   let fixture = il_no_target_perf_module(function_count)
-  if i64_to_i32_lowering_run_module_pass(fixture) != fixture {
+  if lower_saturating_i64_truncations_run_module_pass(fixture) != fixture {
     abort("i64 lowering no-op fixture unexpectedly changed")
   }
-  it.bench(fn() { it.keep(i64_to_i32_lowering_run_module_pass(fixture)) })
+  it.bench(fn() {
+    it.keep(lower_saturating_i64_truncations_run_module_pass(fixture))
+  })
 }
 
 ///|
@@ -21,7 +23,9 @@ test "bench I64ToI32Lowering no saturation funcs=256" (it : @bench.T) {
 test "I64ToI32Lowering preflight still lowers saturating conversion" {
   let source = "(module (func (param f32) (drop (i64.trunc_sat_f32_s (local.get 0)))))"
   let output = match
-    pass_test_run_pipeline(source, ["flatten", "i64-to-i32-lowering"]) {
+    pass_test_run_pipeline(source, [
+      "flatten", "lower-saturating-i64-truncations",
+    ]) {
     Ok(output) => output
     Err(err) => fail("saturating conversion lowering failed: \{err}")
   }
