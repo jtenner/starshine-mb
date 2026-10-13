@@ -303,6 +303,18 @@ export async function runMetamorphicEquivalenceProperty<Module>(
   await persist(result, harness, "twin", twin);
   await persist(result, harness, "optimized-base", optimizedBase);
   await persist(result, harness, "optimized-twin", optimizedTwin);
+  const optimizedBaseValid = await harness.validate(optimizedBase);
+  const optimizedTwinValid = await harness.validate(optimizedTwin);
+  result.validationResults.push(
+    { artifact: "optimized-base", valid: optimizedBaseValid },
+    { artifact: "optimized-twin", valid: optimizedTwinValid },
+  );
+  if (!optimizedBaseValid || !optimizedTwinValid) {
+    result.status = "fail";
+    result.classification = !optimizedBaseValid ? "base-output-validation-failure" : "twin-output-validation-failure";
+    result.firstFailure = { stage: "validation", detail: result.classification };
+    return result;
+  }
   const baseRelation = await harness.semanticCompare(base, optimizedBase);
   const twinRelation = await harness.semanticCompare(twin, optimizedTwin);
   result.semanticComparisons.push(
@@ -327,5 +339,31 @@ export async function runMetamorphicEquivalenceProperty<Module>(
     return result;
   }
   result.classification = "metamorphic-equivalence";
+  const [baseBytes, twinBytes, optimizedBaseBytes, optimizedTwinBytes] = await Promise.all([
+    harness.encodedSize(base), harness.encodedSize(twin),
+    harness.encodedSize(optimizedBase), harness.encodedSize(optimizedTwin),
+  ]);
+  const delta = optimizedTwinBytes - optimizedBaseBytes;
+  const hashes = delta === 0 ? null : {
+    base: await harness.structuralHash(optimizedBase),
+    twin: await harness.structuralHash(optimizedTwin),
+  };
+  // A successful observation plan supports a candidate, not a general
+  // equivalence or profitability proof. Canonical-equal metadata skew is not
+  // an optimization candidate. Keep this separate from semantic failures.
+  const classification = delta === 0 ? "equal-encoded-size"
+    : hashes!.base.startsWith("raw-sha256:") || hashes!.twin.startsWith("raw-sha256:") ? "structural-comparison-unavailable"
+    : hashes!.base === hashes!.twin ? "canonical-equal-encoding-difference"
+    : "size-skew-candidate";
+  result.structuralDiagnostics = {
+    kind: "paired-encoded-size",
+    inputBytes: { base: baseBytes, twin: twinBytes },
+    optimizedBytes: { base: optimizedBaseBytes, twin: optimizedTwinBytes },
+    optimizedDeltaBytes: delta,
+    classification,
+    smallerVariant: classification === "size-skew-candidate" ? (delta > 0 ? "base" : "twin") : null,
+    optimizedHashes: hashes,
+    evidence: "observed-semantic-equality",
+  };
   return result;
 }

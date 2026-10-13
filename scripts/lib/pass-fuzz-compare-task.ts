@@ -277,6 +277,7 @@ type CaseRecord = {
     kind: "semantic-idempotence" | "convergence" | "commutator" | "metamorphic-equivalence";
     status: string;
     classification: string;
+    structuralDiagnostics?: unknown;
   }>;
   localizationOutcome?: {
     classification: string;
@@ -6248,7 +6249,11 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         updateCaseOptimizerEvidence({
           semanticPropertyOutcomes: [
             ...priorPropertyOutcomes,
-            { kind, status: result.status, classification: result.classification },
+            {
+              kind, status: result.status, classification: result.classification,
+              ...(kind === "metamorphic-equivalence" && result.structuralDiagnostics !== null
+                ? { structuralDiagnostics: result.structuralDiagnostics } : {}),
+            },
           ],
         });
         const propertyResultsDir = path.join(outDir, "property-results");

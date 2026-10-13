@@ -96,6 +96,20 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   generated ABI/type drift and isolated packed consumers. A cache microbenchmark,
   single favorable sample or temporary integration approval cannot close this
   blocker; partial reductions remain documented progress.
+## Typed-if constant propagation [IR2-OPT-EXP01]
+
+- **Goal / why:** remove the remaining equal-arm typed-if propagation gap;
+  the equivalent branch-local form folds its final add.
+- **Deliverables / tasks:** prove the typed-if local-flow eligibility before
+  changing the existing unsafe-local guard; preserve condition/arm effects and
+  traps; measure complete encoded output and downstream cleanup.
+- **Required APIs / invariants:** current LocalGraph reaching-write facts and
+  HOT result-region APIs; no fact may bypass alias/write or branch semantics.
+- **Dependencies / exit criteria:** focused semantic proof and red optimizer
+  regression, independently valid output, positive measured size/runtime cost.
+- **Suggested tests:** equal/different arm values, arm writes, condition writes,
+  traps and unreachable arms. The independent execution fixture and current
+  direct-pass evidence are in [paired size diagnostics](docs/wiki/fuzzing/semantic-optimizer-campaigns.md#paired-optimization-size-diagnostics).
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 

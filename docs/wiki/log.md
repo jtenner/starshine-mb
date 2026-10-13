@@ -26914,3 +26914,15 @@ arrays/typecheck wrappers from the completed return packaging change.
   semantic execution without a cache directory. Historical cache evidence stays
   under its original run/version; current repo rules, pass workflow and backlog
   now require uncached runs.
+
+
+## 2026-10-13 — Paired optimization size diagnostics
+
+- Extended the existing [semantic optimizer campaign](fuzzing/semantic-optimizer-campaigns.md#paired-optimization-size-diagnostics)
+  to validate optimized twins before execution and keep bounded encoded-size
+  diagnostics in the case journal after successful artifact cleanup.
+- A baseline `a61c3e4` equal-arm local/typed-if fixture shows a verified v133
+  direct-pass propagation opportunity. Independent Wasm execution observes
+  equal return values and exported global effects. The typed-if optimizer gap
+  remains open under `[IR2-OPT-EXP01]`; size skew is a candidate, not a proof of
+  equivalence, profitability, or real-workload speedup.

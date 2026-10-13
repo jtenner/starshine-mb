@@ -242,6 +242,15 @@ describe("paired optimization size diagnostics", () => {
     });
   });
 
+  test("keeps raw fallback hashes inconclusive when canonicalization failed", async () => {
+    const result = await runMetamorphicEquivalenceProperty("A", "BBB", ["p"], harness({
+      apply: (module) => module, semanticClass: () => "equal",
+      structural: (module) => `raw-sha256:${module}`,
+    }), { relationId: "unsupported-canonicalization", compareRelation: async () => "equal" });
+    expect(result.status).toBe("pass");
+    expect(result.structuralDiagnostics).toMatchObject({ classification: "structural-comparison-unavailable", smallerVariant: null });
+  });
+
   test("does not compute size evidence for a blocked semantic relation", async () => {
     const h = harness({ apply: (module) => module, semanticClass: () => "blocked" });
     h.encodedSize = async () => { throw new Error("must not measure blocked pair"); };
