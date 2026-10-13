@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-10-13
 sources:
   - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_132/src/passes/Inlining.cpp
@@ -75,6 +75,10 @@ There is no open v131 pass-owned transform-family gap. Remaining limitations are
 7. Remove only private helpers whose direct and reference uses are gone and which are not globally rooted. The removal result remaps touched callers through the same old-index-to-new-index compaction map.
 8. Run final adjacent `local.set; local.get` folding only for the sparse pass-local touched-function indices. This state is never written into `FuncAnnotationSec`, so user/tool annotations—including one named `starshine.inlining-finalize-fold`—survive structurally unchanged.
 9. Repeat within Binaryen's bounded-work policy.
+
+## October 13, 2026 dead-suffix cleanup gate
+
+The root-cycle preservation check now returns before building module-wide facts when no function has a dead-suffix call. When such calls exist, it queries only functions that own one. Counted 256-function regressions reduce preservation queries from 256 to zero for ordinary functions and from 256 to one when a single function has a dead-suffix target. These counts show avoided work; they are not native runtime measurements.
 
 ## Recursive type groups
 

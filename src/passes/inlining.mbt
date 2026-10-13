@@ -8606,18 +8606,37 @@ fn inl_collapse_unreachable_private_except_used_suffix_roots(
 }
 
 ///|
-fn inl_has_same_sig_root_cycle_dead_suffix(mod_ : @lib.Module) -> Bool {
+fn inl_has_same_sig_root_cycle_dead_suffix(
+  mod_ : @lib.Module,
+  preserve_queries? : Array[Int]? = None,
+) -> Bool {
   let imports = inl_imported_func_count(mod_)
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
+      let mut has_dead_suffix_call = false
+      for func in funcs {
+        if inl_func_has_dead_suffix_call(func) {
+          has_dead_suffix_call = true
+          break
+        }
+      }
+      if !has_dead_suffix_call {
+        return false
+      }
       let facts = inl_build_dead_suffix_preserve_facts(mod_, funcs, imports)
       let mut def_idx = 0
       while def_idx < funcs.length() {
-        if inl_dead_suffix_preserve_facts_should_preserve(
-            facts,
-            imports + def_idx,
-          ) {
-          return true
+        if facts.dead_suffix_targets[def_idx].has_any {
+          match preserve_queries {
+            Some(count) => count[0] += 1
+            None => ()
+          }
+          if inl_dead_suffix_preserve_facts_should_preserve(
+              facts,
+              imports + def_idx,
+            ) {
+            return true
+          }
         }
         def_idx += 1
       }

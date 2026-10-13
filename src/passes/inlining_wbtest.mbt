@@ -63,6 +63,44 @@ test "inlining skips trivial classification for settled tiny functions" {
 }
 
 ///|
+test "inlining skips dead-suffix preservation queries without targets" {
+  let source = StringBuilder::new()
+  source.write_string("(module")
+  for _ in 0..<256 {
+    source.write_string(" (func)")
+  }
+  source.write_string(")")
+  let input = pass_test_module_from_wat(source.to_string())
+  let preserve_queries = [0]
+  assert_false(
+    inl_has_same_sig_root_cycle_dead_suffix(
+      input,
+      preserve_queries=Some(preserve_queries),
+    ),
+  )
+  assert_eq(preserve_queries[0], 0)
+}
+
+///|
+test "inlining queries only the function with a dead-suffix target" {
+  let source = StringBuilder::new()
+  source.write_string("(module")
+  for _ in 0..<255 {
+    source.write_string(" (func)")
+  }
+  source.write_string(" (func unreachable call 0))")
+  let input = pass_test_module_from_wat(source.to_string())
+  let preserve_queries = [0]
+  assert_false(
+    inl_has_same_sig_root_cycle_dead_suffix(
+      input,
+      preserve_queries=Some(preserve_queries),
+    ),
+  )
+  assert_eq(preserve_queries[0], 1)
+}
+
+///|
 test "inlining caches unchanged trivial modes across planning rounds" {
   let source =
     #|(module

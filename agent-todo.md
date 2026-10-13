@@ -30,9 +30,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
   measured storage improvement and unchanged runtime observations.
-- [ ] **[AUDIT-20261013]009 — inlining cleanup scan:** skip or index dead-suffix
-  preservation queries when no matching targets exist. Red scaling test: many
-  ordinary functions. Exit: less complete pass work and same output.
 - [ ] **[AUDIT-20261013]010 — merge-blocks effect workspace:** reuse effect
   masks across prefix checks with correct mutation invalidation. Red scaling
   test: wide block prefixes. Exit: lower allocations and exact output.
