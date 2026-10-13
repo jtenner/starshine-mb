@@ -26,10 +26,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   dispatcher and public CLI test for every module-pass change. Use the common
   metadata guard when code offsets or indices change. Run Moon commands in
   series. The review baseline is `a61c3e418` in the dedicated audit worktree.
-- [ ] **[AUDIT-20261013]001 — shared-object function names:** remap parsed
-  function/local/label names when conversion imports shift function indices;
-  clear or rebuild stale opaque raw names. Red test: named defined function with
-  a conversion that adds an import. Exit: names identify the same function.
 - [ ] **[AUDIT-20261013]002 — shared-object type names:** remap parsed type and
   field names when the first function/struct types swap. Red test: named types
   and fields before and after the swap. Exit: names keep their type identity.

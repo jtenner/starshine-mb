@@ -160,6 +160,12 @@ reduced a 1,000-export fixture from 44,809 to 38,931 raw bytes; Binaryen v133
 emitted 37,916 bytes. Pass-local median time was 3.826 ms after signature
 reuse, against 1.450 ms for Binaryen. This speed gap remains open.
 
+When host conversion imports are added, the pass shifts existing function
+indices. Its function, local, and label name maps must shift by the same amount;
+the opaque raw name payload must be cleared because it cannot be remapped.
+The [named conversion regression](../../../src/passes/binaryen133_shared_parity_wbtest.mbt)
+checks the direct pass and public pipeline with an existing named function.
+
 Several released edits constrain existing passes rather than adding a new
 positive rewrite: open-world `merge-similar-functions` must not promote an
 invalid exact private signature to a public type;
