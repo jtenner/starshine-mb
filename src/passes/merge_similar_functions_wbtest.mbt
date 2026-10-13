@@ -9,6 +9,42 @@ test "merge-similar-functions rejects a 256-parameter helper" {
 }
 
 ///|
+test "merge-similar-functions rejects ordinary helper overhead despite weighted benefit" {
+  // This exact helper would grow the module by one byte. An instruction-count
+  // estimate is not sufficient to admit an encoded-size regression.
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (result i32)
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    i32.const 42)
+      #|  (func (result i32)
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    i32.const 43))
+    ),
+  )
+  let candidate = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (result i32) i32.const 42 return_call 2)
+      #|  (func (result i32) i32.const 43 return_call 2)
+      #|  (func (param i32) (result i32)
+      #|    nop nop nop nop nop nop nop nop nop nop nop nop nop nop
+      #|    local.get 0))
+    ),
+  )
+  @validate.validate_module(candidate).unwrap()
+  let before = @binary.encode_module(input).unwrap()
+  let after = @binary.encode_module(candidate).unwrap()
+  @debug.assert_eq(after.length(), before.length() + 1)
+  assert_true(msf_has_merge_benefit_for_count(15, 0, 2, 1))
+  @debug.assert_eq(
+    @binary.encode_module(merge_similar_functions_run_module_pass(input)).unwrap(),
+    before,
+  )
+}
+
+///|
 test "merge-similar-functions rejects encoded growth at the function-index boundary" {
   let mut source = "(module\n"
   for idx = 0; idx < 126; idx = idx + 1 {

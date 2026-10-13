@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-13
 sources:
   - ./index.md
   - ../../../../../src/passes/merge_similar_functions.mbt
@@ -25,6 +25,14 @@ related:
 # Starshine strategy for `merge-similar-functions`
 
 > **Historical comparison baseline — September 10, 2026:** comparisons then used [Binaryen 132](../../release-horizon-and-oracles.md). The October 10 qualification below uses verified Binaryen 133. Recorded v131/v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
+
+## October 13, 2026 encoded-size guard and positive fixtures
+
+The October 11 final encoded-size guard remains strict: the ordinary MSF candidate must not grow the complete encoded module. The weighted instruction-count estimate only admits a candidate for construction; it does not override measured helper/type/index costs. A fourteen-`nop` pair is 61 bytes before outlining and 62 after, even in verified Binaryen 133. The [ordinary-overhead regression](../../../../../src/passes/merge_similar_functions_wbtest.mbt) now proves that estimate passes but the actual candidate is rejected. Existing function/type index-boundary rejection tests remain unchanged.
+
+Five older positive tests used this unprofitable padding, so their expected helper was blocked by the correct guard. Their fixtures now contain four shared global updates instead of padding. Helper/thunk, nested literal, ordinary-call metadata and offset-sensitive metadata assertions remain. The main [positive test](../../../../../src/passes/merge_similar_functions_test.mbt) additionally requires smaller bytes and the exact ordered update instructions, with no `nop`. An exported execution variant shrinks 116 to 103 bytes, is byte-identical to v133, and returns 42/43/42 while the global advances 0/4/8/12. This repairs test setup; no shipping MSF behavior or profitability rule changes.
+
+The full wasm-gc suite passes 14,149/14,149 after these fixture repairs. Interfaces, formatting and README API sync pass. [Qualification evidence](../../../raw/tooling/2026-10-13-six-failure-fixtures.json) retains the size and execution observations.
 
 ## October 10, 2026 immutable record-copy cleanup
 
