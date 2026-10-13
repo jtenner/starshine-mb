@@ -95,9 +95,10 @@ bun fuzz replay-optimizer <failure-dir|manifest.json> [--starshine-bin <path>]
 bun fuzz promote-optimizer <failure-dir> [--corpus-root tests/optimizer/regressions]
 bun fuzz reduce-optimizer <failure-dir|manifest.json> --out <reduced.wasm>
 bun fuzz optimizer-seeds --pass <name> [--self-semantic] [--debug-serial-passes]
+bun fuzz optimizer-seeds --corpus-root tests/optimizer/external-replays --pass optimize-instructions --observation-mode stateful
 ```
 
-Replay reconstructs the recorded property, pass list, semantic policy, runtime plan, and normal/serial mode. Promotion verifies the exact failure class, prefers a valid reduced artifact, writes deterministic `starshine.optimizer-case.v1` entries, and deduplicates by artifact plus predicate identity. Structural reduction calls optional Binaryen `wasm-reduce` through the stable replay predicate; missing tools are reported as unavailable without discarding the original failure. The curated seed command replays the small checked-in `tests/optimizer/seeds/` corpus directly.
+Replay reconstructs the recorded property, pass list, semantic policy, runtime plan, and normal/serial mode. Promotion verifies the exact failure class, prefers a valid reduced artifact, writes deterministic `starshine.optimizer-case.v1` entries, and deduplicates by artifact plus predicate identity. Structural reduction calls optional Binaryen `wasm-reduce` through the stable replay predicate; missing tools are reported as unavailable without discarding the original failure. The curated seed command replays the small checked-in `tests/optimizer/seeds/` corpus directly. Passing `tests/optimizer/external-replays/` uses the same runner with the stricter v2 contract: exact artifact provenance and licensing, a single recorded entrypoint, automatic semantic observation, resource caps, expected output, observable activity, and required transform checks.
 
 ## Seed, Output, And Run Result Contract
 
