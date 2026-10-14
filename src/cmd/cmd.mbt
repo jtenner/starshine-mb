@@ -10974,36 +10974,6 @@ test "dae2 variants preserve recursive type prefixes while removing dead argumen
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
-
-///|
-test "command shrink preserves public GC function indices while removing canonical root references" {
-  let input = @binary.decode_module(
-      b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x18\x05\x5f\x01\x7f\x00\x5f\x01\x7f\x00\x60\x00\x01\x64\x01\x60\x01\x64\x00\x01\x7f\x60\x00\x01\x7f\x03\x04\x03\x02\x03\x04\x07\x16\x03\x04\x6d\x61\x6b\x65\x00\x00\x04\x72\x65\x61\x64\x00\x01\x04\x74\x65\x73\x74\x00\x02\x0a\x1d\x03\x07\x00\x41\x07\xfb\x00\x01\x0b\x08\x00\x20\x00\xfb\x02\x00\x00\x0b\x0a\x00\x41\x07\xfb\x00\x01\xfb\x14\x00\x0b\x00\x0e\x04\x6e\x61\x6d\x65\x04\x07\x02\x00\x01\x41\x01\x01\x42",
-    )
-    .unwrap()
-    .without_name_sec()
-  let fast = optimize_module_with_pass_flags(
-    input,
-    ["optimize"],
-    OptimizeOptions::new(),
-  ).unwrap()
-  @debug.assert_eq(fast.type_sec, input.type_sec)
-  let output = optimize_module_with_pass_flags(
-    input,
-    ["shrink"],
-    OptimizeOptions::new(shrink_level=1),
-  ).unwrap()
-  @debug.assert_eq(output.func_sec, input.func_sec)
-  @debug.assert_eq(output.export_sec, input.export_sec)
-  @debug.assert_eq(
-    output.type_sec.unwrap().0[1],
-    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
-  )
-  @debug.assert_eq(@validate.validate_module(output), Ok(()))
-  let (before, after) = @binary.encoded_module_sizes(input, output).unwrap()
-  assert_true(after < before)
-}
-
 ///|
 test "command package consumer preserves exact host-root function indices" {
   let input = @passes.pass_test_module_from_wat(

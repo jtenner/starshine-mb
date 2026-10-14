@@ -1,15 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-13
+last_reviewed: 2026-09-24
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateFunctionElimination.cpp
   - ./index.md
   - ../../../../../src/passes/duplicate_function_elimination.mbt
   - ../../../../../src/passes/duplicate_function_elimination_test.mbt
-  - ../../../../../src/passes/duplicate_function_elimination_wbtest.mbt
-  - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/duplicate_function_type_prune_perf_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DuplicateFunctionElimination.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/function-utils.h
@@ -77,59 +74,6 @@ It is not running a separate metadata-normalization pass.
 ## Current Starshine-local extras
 
 The local MoonBit implementation in `src/passes/duplicate_function_elimination.mbt` currently goes beyond upstream DFE in several ways.
-
-## Canonical primitive GC root encoding
-
-Explicit DFE and the final cleanup of shrinking profiles now share a bounded
-encoding cleanup for identical, unshared, implicit-final singleton struct roots.
-It compares complete ordered layouts of at most 32 immutable primitive fields.
-These declarations already have the same canonical WasmGC identity; this does
-not merge distinct nominal types or members of recursive groups.
-
-The cleanup redirects aliases to the first original root index and replaces
-obsolete slots with an unused empty function signature. All other type indices,
-recursive group positions and function indices stay fixed. The placeholder is
-ineligible for this cleanup, so a repeated run does not create another trigger.
-The complete encoded module must become smaller. Standalone DFE validates its
-candidate; final pipeline cleanup uses the existing final validation policy.
-Names, opaque name payloads, facts, annotations, offset metadata, shared or
-descriptor types, and unsupported proposal carriers prevent this rewrite.
-
-Preset DFE and global-refining keep their existing shared raw cleanup. They do
-not run this new GC work. Fast optimize at shrink level zero also skips it.
-The named type-refining, type-merging and minimize-rec-groups stages remain
-boundary-only. This is an encoding improvement, not a complete port of those
-passes or a new type-flow analysis.
-
-The owner limits flattened types to 20,000, collision buckets to 64, pending
-expressions/functions to 100,000, control depth to 1,024 and aggregate retained
-field/signature/local-run/instruction entries to 8,000,000. Local-run admission uses
-`Locals.run_count()` to avoid copying declarations before the budget check.
-It reuses the DFE reference walker and leaves unsupported inputs unchanged.
-
-On the pinned 5,208,192-byte compiler GC artifact, standard shrink changes
-5,068,613 to 5,050,422 bytes; gzip level 9 changes 1,811,567 to 1,802,936 bytes.
-Seven alternating pairs after warmup show a median paired optimizer wall cost
-of +163 ms and median peak RSS of 200,836 versus 213,428 KiB. Background load
-limits wall-time precision. Fast optimize emits identical bytes and has no
-systematic cost increase in these samples. A separate WASI compiler artifact
-is unchanged. These are optimizer costs and output sizes; no generated-code
-runtime speed gain is claimed.
-
-Full index compaction saved more bytes but incurred substantially more copying,
-encoding and memory cost in the measured Starshine variant. Stable slots retain
-a three-byte raw placeholder cost versus Binaryen's canonical interner in the
-small GC trigger family. Canonical projections agree. The measured benefit
-against Starshine's prior encoding and lower cost than its compaction variant
-justify this restricted size-profile choice; validation alone is not its
-justification. Broader nominal refinement and merging remain open work.
-
-Focused evidence is in `duplicate_function_elimination_wbtest.mbt`, the active
-command shrink test, and the three-family GenValid profile. It covers actual
-encoded savings, public typed compatibility, unchanged function/export slots,
-packed/i64/f32/SIMD fields, casts, locals, blocks, tables, globals, elements and
-recursive group identity. Independent Node and Wasmtime checks preserve ordered
-effects, null traps, NaN payloads and reference identity.
 
 ## 1. Duplicate simple-type compaction
 

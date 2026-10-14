@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-10
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -9,52 +9,6 @@ sources:
 ---
 
 # `duplicate-function-elimination` Fuzzing Profile
-
-## October 13 canonical primitive GC encoding campaign
-
-Fresh native CLI `9e3ada7f7d714ebef2bf5d34c137877bfb42c170cf2f4c250cb6a04d95a8271e`
-and generator `86fa651a62128028bbaa047083e2fd78fa99aa07fe68c0d60995fc99a2be27eb`
-were compared against verified Binaryen 133, seed `0x5eed`, eight workers and
-subprocesses, with independent wasm-tools validation and the Node-v2 oracle.
-The dedicated aggregate produced 10,000 comparisons: 3,370 exact pairs,
-3,283 fixed-point callers and 3,347 canonical primitive GC root cases.
-
-There were 6,717 canonical matches and 3,283 residuals. Validation, generator,
-command, property and observed semantic failures were zero; Node reported
-10,000 all-equal cases and zero blocked cases. No canonical output was larger.
-Twenty structural residual bundles were retained; 3,263 additional structural
-bundles were suppressed by the explicit cap. No semantic differences occurred.
-
-Agent classification: all retained residuals are the existing private
-fixed-point caller family. They reproduce byte-identically with the original
-compiler baseline, save six canonical bytes and converge under common v133
-`-Oz`. These families still have no exports, so the runtime counter does not
-prove body execution. Their private constant/call contract supplies the
-semantic rationale; convergence alone does not.
-
-The new GC family exports a scalar `run` which calls a private struct factory
-and field reader. Its two primitive roots are already canonical-equal. It
-contains an actual type-encoding opportunity, distinct function bodies and
-stable public function indices. Starshine retains a three-byte raw placeholder
-cost versus Binaryen's interner, while canonical projections match. See
-[type compaction and metadata](type-compaction-and-metadata.md) for the measured
-real-module benefit and compaction-cost tradeoff. The first regenerated GC
-case has seed 40,673 and returns 13,558 in original, Starshine and Binaryen
-under Node; both GC operations execute.
-
-The static effect scanner currently misreads unhandled GC `0xfb` immediates as
-`unreachable`. Its reported 3,347 unreachable inputs in this run are not trap
-coverage. The generator's opcode assertions and independent execution provide
-the coverage evidence. This scanner gap remains separate tooling work.
-
-Exact command (prebuild the native CLI and generator first):
-
-```sh
-bun fuzz compare-pass --count 10000 --min-compared 10000 --seed 0x5eed --pass duplicate-function-elimination --gen-valid-profile duplicate-function-elimination --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --max-failures 10001 --no-reduce-mismatches --report-only --semantic-oracle node-v2 --require-independent-validator --wasm-opt-bin <verified-v133-wasm-opt> --require-binaryen-version 133 --starshine-bin _build/native/release/build/cmd/cmd.exe --gen-valid-bin <fresh-native-fuzz> --out-dir <evidence-directory>
-```
-
-This supersedes the two-family coverage description for new runs. Earlier
-results retain their original versions, labels and limits.
 
 ## October 10 immutable-wrapper sharing renewal
 

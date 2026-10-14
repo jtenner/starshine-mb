@@ -1526,12 +1526,7 @@ pub fn run_hot_pipeline(
           Err(err) => return Err(err)
         }
         current = match
-          run_hot_pipeline_apply_module_pass(
-            current,
-            entry,
-            options,
-            from_preset~,
-          ) {
+          run_hot_pipeline_apply_module_pass(current, entry, options) {
           Ok(next) => next
           Err(err) => return Err(err)
         }
@@ -1566,30 +1561,6 @@ pub fn run_hot_pipeline(
   match flush_hot_passes() {
     Ok(_) => ()
     Err(err) => return Err(err)
-  }
-  if !skip_caught_o4z_preset &&
-    (
-      requested_passes.any(fn(name) { name == "shrink" }) ||
-      (
-        options.shrink_level > 0 &&
-        requested_passes.any(fn(name) { name == "optimize" })
-      )
-    ) {
-    let type_encoding_timer = perf_start_timer_opt(
-      options.perf,
-      "type-encoding:canonical-primitive-roots",
-    )
-    // The pipeline's configured final check (or the CLI's outer check) owns
-    // validation; do not validate the complete module twice at this boundary.
-    current = dfe_cleanup_canonical_primitive_types(
-      current,
-      validate_result=false,
-    )
-    perf_stop_timer_opt(
-      options.perf,
-      "type-encoding:canonical-primitive-roots",
-      type_encoding_timer,
-    )
   }
   if options.validate_final_module {
     let validate_start_us = perf_start_timer_opt(

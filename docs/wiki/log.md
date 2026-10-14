@@ -26934,28 +26934,6 @@ arrays/typecheck wrappers from the completed return packaging change.
   equal return values and exported global effects. The typed-if optimizer gap
   remains open under `[IR2-OPT-EXP01]`; size skew is a candidate, not a proof of
   equivalence, profitability, or real-workload speedup.
-
-## 2026-10-13 — Bound late canonical GC encoding cleanup
-
-- The [DFE type cleanup dossier](binaryen/passes/duplicate-function-elimination/type-compaction-and-metadata.md)
-  now records the restricted canonical primitive-root transformation and its
-  final shrinking-profile placement. Equal implicit-final singleton roots with
-  immutable primitive fields share a type reference; empty function slots keep
-  unrelated type and function indices stable. Metadata and unsupported proposal
-  carriers retain their existing boundaries. This does not implement the three
-  boundary-only type refinement/merging/recursive-group passes.
-- The release GC artifact saves 18,191 raw bytes and 8,631 gzip-level-9 bytes.
-  Seven measured pairs show an estimated 163 ms extra optimizer time and a
-  stable 12.30 MiB higher peak RSS. Default optimize bytes are unchanged; noisy
-  timings do not prove a speed gain. Independent fixtures and real program
-  execution support the admitted semantic contract.
-- The [renewed three-family GenValid aggregate](binaryen/passes/duplicate-function-elimination/fuzzing.md)
-  records 10,000 comparisons with verified Binaryen 133, zero observed semantic
-  or validation failures, a measured three-byte raw padding tradeoff against
-  Binaryen on the new GC family, and explicit execution limits. Its GC opcode
-  scanner mislabels subopcode bytes as unreachable; this remains active under
-  `[IR2-FUZZ-GC-SCANNER]` rather than counting as trap coverage.
-
 ## 2026-10-13 — Explicit application export roots
 
 - The [RUME root dossier](binaryen/passes/remove-unused-module-elements/roots-reference-only-and-nullification.md#explicit-application-export-roots)
