@@ -234,16 +234,18 @@ describe("optimizer replay and promotion task arguments", () => {
       fs.writeFileSync(manifest, JSON.stringify({ input: { path: "input.wasm" } }));
       fs.writeFileSync(reducer, `#!/usr/bin/env bun\nimport fs from "node:fs";\nif (process.argv.includes("--help")) process.exit(0);\nfs.writeFileSync(${JSON.stringify(started)}, "1");\nawait Bun.sleep(2000);\n`);
       fs.chmodSync(reducer, 0o755);
-      const start = performance.now();
       const result = spawnSync(process.execPath, [
         "scripts/fuzz.ts", "reduce-optimizer", manifest, "--out", output,
         "--wasm-reduce-bin", reducer, "--subprocess-timeout-seconds", "1",
       ], { cwd: process.cwd(), encoding: "utf8", timeout: 5000 });
-      const elapsed = performance.now() - start;
       expect(fs.existsSync(started)).toBe(true);
       expect(result.status).toBe(1);
-      expect(elapsed).toBeLessThan(1800);
+      const report = JSON.parse(result.stdout) as { status: string; detail: string };
+      expect(report.status).toBe("failed");
+      expect(report.detail).toContain("ETIMEDOUT");
       expect(fs.existsSync(output)).toBe(false);
+      expect(fs.existsSync(`${output}.test.wasm`)).toBe(false);
+      expect(fs.existsSync(`${output}.working.wasm`)).toBe(false);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

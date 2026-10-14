@@ -26980,3 +26980,11 @@ arrays/typecheck wrappers from the completed return packaging change.
   9,200 and 688 tests, and Node returns the same value for the original and
   both optimized reductions. Paired real-module measurements show unchanged
   output bytes and a small direct-pass timing cost; full signoff remains pending.
+
+### 2026-10-14 — Pass structural reduction timeout through the CLI
+
+- `bun fuzz reduce-optimizer` now accepts bounded predicate and subprocess
+  timeout values. These pass through the existing API to Binaryen's
+  per-candidate timer and the adapter's child-process timer. Command-level
+  regressions check both routes. The defaults remain unchanged; see
+  [reduction backends](fuzzing/reduction-backends.md).
