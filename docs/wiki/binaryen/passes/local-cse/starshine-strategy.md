@@ -1,18 +1,20 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-14
 sources:
   - ./index.md
   - https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/local_cse.mbt
   - ../../../../../src/passes/local_cse_test.mbt
+  - ../../../../../src/passes/local_cse_names_wbtest.mbt
   - ../../../../../src/passes/local_cse_stack_switch_test.mbt
   - ../../../../../src/passes/local_cse_waitqueue_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/cmd/local_cse_names_wbtest.mbt
   - ../../../../../src/cmd/local_cse_stack_switch_wbtest.mbt
   - ../../../../../src/cmd/local_cse_waitqueue_wbtest.mbt
   - ../../../../../agent-todo.md
@@ -447,3 +449,16 @@ Its large output is exact against packed `3c348752…`. Matched command time is
 147,344 KiB, so the expanded pass still costs +18.911% time / +8.027% RSS for
 849 fewer canonical bytes. This cohort does not prove a storage clock or peak
 memory gain. Retained-expression arena cost stays on the active backlog.
+
+## October 14, 2026 — Local names after a rewrite
+
+The raw module pass appends temporary locals for repeated expressions. It does
+not renumber existing parameters or locals. Its module rebuild nevertheless
+cleared every local-name entry, including names in functions it did not
+rewrite. A two-function test failed after the rewritten function gained a
+temporary local: both functions' original names were absent.
+
+The rebuild now keeps the original name section. The test verifies the new
+temporary local, all old names, module validity, and the names after binary
+encode and decode. A command-level test covers the active dispatcher. All
+9,213 pass tests and the command-level regression pass.

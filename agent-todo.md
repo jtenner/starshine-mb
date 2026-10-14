@@ -30,10 +30,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
   measured storage improvement and unchanged runtime observations.
-- [ ] **[AUDIT-20261013]022 — local-CSE names:** preserve existing local names
-  when local-CSE appends temporary locals. It currently clears every local-name
-  entry after any rewrite. Red test: named unchanged function beside a function
-  that materializes a repeated expression. Exit: old local names stay valid.
 - [ ] **[AUDIT-20261013]023 — DCE nested dead suffix:** Starshine DCE leaves
   `br 1` after `unreachable` in the then arm of `(drop (block (result i32)
   local.get 0 if unreachable i32.const 2 br 1 end i32.const 3))`; Binaryen 133
