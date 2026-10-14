@@ -165,6 +165,15 @@ that decoding was complete can mistake zero-valued branch-label bytes for the
 `unreachable` opcode. Rescan the saved input before using those historical
 booleans as semantic-triage evidence.
 
+Core GC prefix subopcodes 0–30 now skip their complete immediate shapes. An
+unknown or malformed GC form stops scanning the rest of its function body and
+records `gcDecodeStatus`, the first offset, and a bounded reason in the case
+journal; the summary counts these as `optional_input_gc_decode_incomplete`.
+Older records without that status count as incomplete when resumed. This status
+covers GC prefix decoding only. Other proposal opcode families may still need
+their own completeness checks, and scanner facts are coverage metadata rather
+than proof of semantic equivalence.
+
 Proposal-targeted GenValid batches may use `--require-feature descriptors`, `continuations`, `waitqueues`, `atomics`, or `array_memory` (and the same labels with `--exclude-feature`). The generated manifest preserves the enum-style `key` in `required_features` for compatibility and adds the exact lowercase `label`, while per-input booleans live in `feature_facts` and aggregate counts live in `feature_stats`. `atomics` includes linear and aggregate struct/array atomics, while `shared_memory_atomics` remains the narrower shared-linear-memory floor.
 
 The `gen-valid` path is why compare-pass depends on [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) and [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt) even though compare-pass is not itself a MoonBit fuzz suite. Runs that generate Starshine inputs now keep `inputs/gen-valid/manifest.json` beside the saved `.wasm` files; this file records the requested profile, filters, aggregate feature stats, per-input feature facts, and, for composite profiles, the per-input `selected_profile` for replay triage.

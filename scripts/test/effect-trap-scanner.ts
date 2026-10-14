@@ -405,6 +405,50 @@ export function runEffectTrapScannerTest(): void {
   const gcWithUnreachableFacts = scanEffectTrapFactsFromWasmBytes(gcWithUnreachable);
   assert(gcWithUnreachableFacts.hasUnreachable, "real unreachable after GC instructions should be found");
   assert(gcWithUnreachableFacts.hazards.filter((hazard) => hazard.kind === "explicit-unreachable").map((hazard) => hazard.offset).join(",") === "77", "only the real unreachable should be reported");
+
+  // Intentionally unsupported boundary: unknown GC subopcode 127 has no safe
+  // immediate shape. Keep the earlier call, but do not decode later bytes.
+  const unsupportedGc = scanEffectTrapFactsFromWasmBytes(moduleWithCodeBytes([
+    0x10, 0x00, 0xfb, 0x7f, 0x00, 0x10, 0x00,
+  ]));
+  assert(unsupportedGc.gcDecodeStatus === "incomplete", "unknown GC encoding should mark the scan incomplete");
+  assert(unsupportedGc.gcDecodeIncompleteOffset === 15, "incomplete offset should name the GC prefix");
+  assert(unsupportedGc.hazards.filter((hazard) => hazard.kind === "import-or-local-call").map((hazard) => hazard.offset).join(",") === "13", "facts before an unsupported opcode should remain, with no guessed later call");
+  assert(!unsupportedGc.hasUnreachable, "unsupported GC immediate bytes should not become unreachable");
+
+  // Byte-alignment fixtures intentionally omit the stack setup for each GC
+  // operation; they test scanning, while the saved case above tests valid wasm.
+  for (let subopcode = 0; subopcode <= 30; subopcode += 1) {
+    const immediates = subopcode <= 1 || (subopcode >= 6 && subopcode <= 7)
+      || (subopcode >= 11 && subopcode <= 14) || subopcode === 16 ? [0x00]
+      : (subopcode >= 2 && subopcode <= 5) || (subopcode >= 8 && subopcode <= 10)
+        || (subopcode >= 17 && subopcode <= 19) ? [0x00, 0x00]
+        : subopcode >= 20 && subopcode <= 23 ? [0x6b]
+        : subopcode === 24 || subopcode === 25 ? [0x03, 0x00, 0x6b, 0x6d]
+        : [];
+    const facts = scanEffectTrapFactsFromWasmBytes(moduleWithCodeBytes([
+      0xfb, subopcode, ...immediates, 0x10, 0x00,
+    ]));
+    assert(facts.gcDecodeStatus === "complete", `core GC subopcode ${subopcode} should have a known shape`);
+    assert(!facts.hasUnreachable, `core GC subopcode ${subopcode} must not create unreachable`);
+    assert(facts.hazards.filter((hazard) => hazard.kind === "import-or-local-call").map((hazard) => hazard.offset).join(",") === String(15 + immediates.length), `core GC subopcode ${subopcode} should preserve the following call`);
+  }
+  const multiByteGc = scanEffectTrapFactsFromWasmBytes(moduleWithCodeBytes([
+    0xfb, 0x02, 0x80, 0x01, 0x00, // struct.get type 128, field 0
+    0xfb, 0x17, 0xc0, 0x00, // ref.cast nullable to indexed heap type 64
+    0xfb, 0x18, 0x03, 0x80, 0x01, 0x62, 0x6b, 0x65, 0x6d, // branch cast
+    0x10, 0x00,
+  ]));
+  assert(multiByteGc.gcDecodeStatus === "complete", "multi-byte GC indices and heap types should stay aligned");
+  assert(!multiByteGc.hasUnreachable, "multi-byte GC operands should not become unreachable");
+  assert(multiByteGc.hazards.filter((hazard) => hazard.kind === "import-or-local-call").length === 1, "call after multi-byte GC operands should remain visible");
+  const truncatedGc = scanEffectTrapFactsFromWasmBytes(moduleWithCodeBytes([0xfb, 0x00]));
+  assert(truncatedGc.gcDecodeStatus === "incomplete", "GC type immediate cannot consume the function end byte");
+  assert(truncatedGc.gcDecodeIncompleteReason === "malformed-gc-immediate", "truncated GC immediate should state its reason");
+  const negativeIndexedHeap = scanEffectTrapFactsFromWasmBytes(moduleWithCodeBytes([
+    0xfb, 0x14, 0xff, 0x7f, // overlong signed encoding of -1, not a type index
+  ]));
+  assert(negativeIndexedHeap.gcDecodeStatus === "incomplete", "negative indexed GC heap type should be rejected");
 }
 
 if (import.meta.main) {

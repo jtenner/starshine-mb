@@ -342,6 +342,9 @@ describe("pass-fuzz command options", () => {
       hasAtomics: false,
       hasUnreachable: true,
       mayTrap: true,
+      gcDecodeStatus: "incomplete",
+      gcDecodeIncompleteOffset: 15,
+      gcDecodeIncompleteReason: "unsupported-gc-subopcode",
       hazards: Array.from({ length: 1000 }, (_, offset) => ({ offset, opcode: 0, kind: "possible-trap" as const })),
       possibleTrapCategories: ["explicit-unreachable"],
     })).toEqual({
@@ -353,7 +356,22 @@ describe("pass-fuzz command options", () => {
       hasAtomics: false,
       hasUnreachable: true,
       mayTrap: true,
+      gcDecodeStatus: "incomplete",
+      gcDecodeIncompleteOffset: 15,
+      gcDecodeIncompleteReason: "unsupported-gc-subopcode",
     });
+    const legacy = boundedEffectTrapFactsForCase({
+      hasCall: false,
+      mutatesMemory: false,
+      mutatesTable: false,
+      mutatesGlobal: false,
+      hasException: false,
+      hasAtomics: false,
+      hasUnreachable: false,
+      mayTrap: false,
+    } as unknown as Parameters<typeof boundedEffectTrapFactsForCase>[0]);
+    expect(legacy.gcDecodeStatus).toBe("incomplete");
+    expect(legacy.gcDecodeIncompleteReason).toBe("legacy-scan-status-unavailable");
   });
 
   test("does not reduce structural mismatches that cannot be persisted", () => {

@@ -225,7 +225,11 @@ type ResumeIdentityRecord = {
   sources: Record<string, unknown>;
 };
 
-type EffectTrapCounts = Record<keyof EffectTrapFacts, number>;
+type EffectTrapCounts = Record<
+  "hasCall" | "mutatesMemory" | "mutatesTable" | "mutatesGlobal" | "hasException" |
+  "hasAtomics" | "hasUnreachable" | "mayTrap" | "gcDecodeIncomplete",
+  number
+>;
 type GenValidTransformCounts = Record<string, number>;
 type GenValidSelectedProfileCounts = Record<string, number>;
 type GenValidProfileCaseCounts = Record<string, number>;
@@ -244,6 +248,9 @@ type CaseEffectTrapFacts = Pick<
   | "hasAtomics"
   | "hasUnreachable"
   | "mayTrap"
+  | "gcDecodeStatus"
+  | "gcDecodeIncompleteOffset"
+  | "gcDecodeIncompleteReason"
 >;
 
 type CompilerFactsCaseContext = {
@@ -3141,12 +3148,15 @@ function emptyEffectTrapCounts(): EffectTrapCounts {
     hasAtomics: 0,
     hasUnreachable: 0,
     mayTrap: 0,
+    gcDecodeIncomplete: 0,
   };
 }
 
 export function boundedEffectTrapFactsForCase(
   facts: CaseEffectTrapFacts | EffectTrapFacts,
 ): CaseEffectTrapFacts {
+  const reason = facts.gcDecodeIncompleteReason
+    ?? (facts.gcDecodeStatus === undefined ? "legacy-scan-status-unavailable" : null);
   return {
     hasCall: facts.hasCall,
     mutatesMemory: facts.mutatesMemory,
@@ -3156,6 +3166,9 @@ export function boundedEffectTrapFactsForCase(
     hasAtomics: facts.hasAtomics,
     hasUnreachable: facts.hasUnreachable,
     mayTrap: facts.mayTrap,
+    gcDecodeStatus: facts.gcDecodeStatus ?? "incomplete",
+    gcDecodeIncompleteOffset: facts.gcDecodeIncompleteOffset ?? null,
+    gcDecodeIncompleteReason: reason === null ? null : reason.slice(0, 80),
   };
 }
 
@@ -3168,6 +3181,7 @@ function noteInputEffectTrapFacts(summary: PassFuzzCompareSummary, facts: CaseEf
   if (facts.hasAtomics) summary.inputEffectTrapCounts.hasAtomics += 1;
   if (facts.hasUnreachable) summary.inputEffectTrapCounts.hasUnreachable += 1;
   if (facts.mayTrap) summary.inputEffectTrapCounts.mayTrap += 1;
+  if (facts.gcDecodeStatus !== "complete") summary.inputEffectTrapCounts.gcDecodeIncomplete += 1;
 }
 
 function genValidManifestTransformId(genValidManifestEntry: unknown | null): string | null {
@@ -3389,6 +3403,7 @@ export function passFuzzSummaryCoverageReport(summary: PassFuzzCompareSummary): 
   addCounter(features, "optional_input_has_atomics", summary.inputEffectTrapCounts.hasAtomics);
   addCounter(features, "optional_input_has_unreachable", summary.inputEffectTrapCounts.hasUnreachable);
   addCounter(features, "optional_input_may_trap", summary.inputEffectTrapCounts.mayTrap);
+  addCounter(features, "optional_input_gc_decode_incomplete", summary.inputEffectTrapCounts.gcDecodeIncomplete);
   addCounter(features, "optional_runtime_checked", summary.runtimeExecutionCounts.checked);
   addCounter(features, "optional_runtime_unsupported", summary.runtimeExecutionCounts.unsupported);
   addCounter(features, "optional_runtime_failed", summary.runtimeExecutionCounts.failed);
