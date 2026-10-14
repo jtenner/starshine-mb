@@ -638,6 +638,35 @@ test "make-shared-objects scans and rewrites conversions in EH bodies" {
 }
 
 ///|
+test "make-shared-objects avoids a handle for adjacent conversion roundtrips" {
+  let rewritten = mso_rewrite_conversions(
+    @lib.Expr::new([
+      @lib.Instruction::extern_convert_any(),
+      @lib.Instruction::any_convert_extern(),
+      @lib.Instruction::nop(),
+      @lib.Instruction::extern_convert_any(),
+      @lib.Instruction::nop(),
+      @lib.Instruction::any_convert_extern(),
+    ]),
+    Some(@lib.FuncIdx::new(0U)),
+    Some(@lib.FuncIdx::new(1U)),
+    @lib.FuncIdx::new(2U),
+    @lib.FuncIdx::new(3U),
+  )
+  let @lib.Expr(body) = rewritten
+  assert_eq(body, [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+  ])
+}
+
+///|
 fn binaryen133_shared_opcode_count(
   mod_ : @lib.Module,
   opcode : @lib.Instruction,

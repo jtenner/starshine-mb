@@ -29,7 +29,12 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
 - [ ] **[AUDIT-20261013]008 — shared-object handle storage:** bound table growth
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
-  measured storage improvement and unchanged runtime observations.
+  measured storage improvement and unchanged runtime observations. The
+  adjacent conversion case is repaired: no handle escapes, so its generated
+  table write/read is removed. The general boundary case remains open. Each
+  live handle needs its table entry; no release signal or externref equality
+  contract exists. Choose a host lifetime/release policy before changing
+  storage for handles that can escape.
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 

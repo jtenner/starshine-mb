@@ -1,3 +1,24 @@
+### 2026-10-14 — Avoid private handles for adjacent shared-object conversions
+
+- The red rewrite test showed that adjacent `extern.convert_any` and
+  `any.convert_extern` emitted a table write and read between the two host
+  conversion calls. The pass now removes that private handle roundtrip. The
+  host calls keep their order, and separated conversions retain both table
+  calls. The dispatcher test checks the complete module and final validation.
+- A native replay of five adjacent roundtrips returned `7` each time and kept
+  the private table at length zero. Replaying the red test's old helper-call
+  sequence in the same binary grew the table from zero to five. Both runs made
+  the same ten host calls in the same order. The new module is 187 bytes;
+  the replayed old sequence is 191 bytes. This is a controlled sequence
+  replay, not an independently built old revision. Repeated exported externref
+  traffic still grows the table by one per non-null conversion. Its handles
+  can escape; the pass has no release signal or equality contract that permits
+  safe reuse.
+  [Issue 008](../../agent-todo.md#v011--october-13-pass-audit-repairs-ir2-audit-20261013)
+  remains open for a host lifetime decision.
+- `moon info`, `moon fmt`, native release build, all 9,218 pass tests, and all
+  688 command tests pass.
+
 ### 2026-10-13 — Scan sparse module-pass candidates
 
 - `lower-saturating-i64-truncations` now rewrites only functions that contain
