@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import {
   parseFuzzRunArgs,
@@ -199,5 +203,39 @@ describe("optimizer replay and promotion task arguments", () => {
       moonBin: "moon",
       wasmToolsBin: "wasm-tools",
     });
+  });
+
+  test("parses a bounded per-candidate structural reduction timeout", () => {
+    const args = [".tmp/failure", "--out", ".tmp/reduced.wasm"];
+    expect(parseOptimizerReductionArgs([...args, "--predicate-timeout-seconds", "10"]).predicateTimeoutSeconds).toBe(10);
+    expect(parseOptimizerReductionArgs(args).predicateTimeoutSeconds).toBeUndefined();
+    for (const value of ["0", "3601", "1.5", "NaN"]) {
+      expect(() => parseOptimizerReductionArgs([...args, "--predicate-timeout-seconds", value])).toThrow();
+    }
+  });
+
+  test("forwards the CLI predicate timeout to wasm-reduce", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-reduce-cli-"));
+    try {
+      const input = path.join(dir, "input.wasm");
+      const manifest = path.join(dir, "manifest.json");
+      const output = path.join(dir, "reduced.wasm");
+      const reducer = path.join(dir, "fake-reducer.ts");
+      const argsPath = path.join(dir, "args.json");
+      fs.writeFileSync(input, Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0]));
+      fs.writeFileSync(manifest, JSON.stringify({ input: { path: "input.wasm" } }));
+      fs.writeFileSync(reducer, `#!/usr/bin/env bun\nimport fs from "node:fs";\nconst args = process.argv.slice(2);\nif (args.includes("--help")) process.exit(0);\nfs.writeFileSync(${JSON.stringify(argsPath)}, JSON.stringify(args));\nfs.copyFileSync(args[args.indexOf("--test") + 1], args[args.indexOf("--working") + 1]);\n`);
+      fs.chmodSync(reducer, 0o755);
+      const result = spawnSync(process.execPath, [
+        "scripts/fuzz.ts", "reduce-optimizer", manifest, "--out", output,
+        "--wasm-reduce-bin", reducer, "--predicate-timeout-seconds", "10",
+      ], { cwd: process.cwd(), encoding: "utf8", timeout: 10_000 });
+      expect(result.status).toBe(1); // The fake reducer returns unchanged bytes.
+      const reducerArgs = JSON.parse(fs.readFileSync(argsPath, "utf8")) as string[];
+      expect(reducerArgs.slice(reducerArgs.indexOf("--timeout"), reducerArgs.indexOf("--timeout") + 2)).toEqual(["--timeout", "10"]);
+      expect(fs.existsSync(output)).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
