@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-13
 sources:
   - ../../release-horizon-and-oracles.md
   - ../late-pipeline-dispatch.md
@@ -43,6 +43,15 @@ related:
 ---
 
 # `remove-unused-brs`
+
+## 2026-10-13 root lookup
+
+The region visitors now check a snapshot root's expected index before a full
+search. The check compares the node ID in the live region. If an edit moves the
+root, the visitor searches for its current position. A 256-root unchanged
+region needed 32,896 root reads before this change and 256 after it. This is a
+lookup count, not a native runtime measurement. A region-edit test checks the
+fallback path, and the pass tests check branch results.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

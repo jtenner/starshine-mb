@@ -32,6 +32,52 @@ fn remove_unused_brs_wbtest_dump(func : @ir.HotFunc) -> String {
 }
 
 ///|
+test "remove-unused-brs finds unchanged wide region roots with linear probes" {
+  let func = @ir.HotFunc::new()
+  let roots : Array[Int] = []
+  for _ in 0..<256 {
+    let root = @ir.hot_build_nop(func)
+    @ir.hot_root_append(func, root)
+    roots.push(root)
+  }
+  let probes = [0]
+  for idx in 0..<roots.length() {
+    assert_eq(
+      remove_unused_brs_find_region_root_index(
+        func,
+        @ir.HotRegionRef::root(),
+        roots[idx],
+        expected_idx=idx,
+        probes=Some(probes),
+      ),
+      idx,
+    )
+  }
+  assert_true(probes[0] <= roots.length(), msg="probes=\{probes[0]}")
+}
+
+///|
+test "remove-unused-brs root hint falls back after a region edit" {
+  let func = @ir.HotFunc::new()
+  let roots : Array[Int] = []
+  for _ in 0..<4 {
+    let root = @ir.hot_build_nop(func)
+    @ir.hot_root_append(func, root)
+    roots.push(root)
+  }
+  ignore(@ir.hot_region_splice(func, @ir.HotRegionRef::root(), 0, 1, []))
+  assert_eq(
+    remove_unused_brs_find_region_root_index(
+      func,
+      @ir.HotRegionRef::root(),
+      roots[2],
+      expected_idx=2,
+    ),
+    1,
+  )
+}
+
+///|
 test "remove-unused-brs admits literal multivalue blocks consumed only by drops for lowering" {
   let source =
     #|(module
