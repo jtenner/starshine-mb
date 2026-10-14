@@ -30,9 +30,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
   measured storage improvement and unchanged runtime observations.
-- [ ] **[AUDIT-20261013]020 — invalid-module dumps:** give each final-invalid
-  artifact a distinct path and surface write failures. Red test: two failures
-  in one directory and a failed write. Exit: no lost diagnostic evidence.
 - [ ] **[AUDIT-20261013]021 — unverified review risks:** use focused red
   fixtures to confirm or reject DCE branch-cache staleness, direct HOT local-CSE
   on shared memory, and count-based whole-function skipping in

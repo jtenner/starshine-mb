@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-04
+last_reviewed: 2026-10-14
 sources:
   - ../wast/static-assertion-harness.md
   - https://webassembly.github.io/spec/core/valid/index.html
@@ -17,6 +17,8 @@ sources:
   - ../../../src/fuzz/main.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/tests_wbtest.mbt
+  - ../../../src/passes/optimize.mbt
+  - ../../../src/passes/invalid_dump_wbtest.mbt
 related:
   - ./module-validation-phases.md
   - ./resource-sections-and-limits.md
@@ -179,6 +181,21 @@ moon run src/fuzz -- --emit-invalid-repro \
 The `valid-multi-module-linking` selector currently accepts `--strategy unlinkable-multi-module` for the FUZ1055B4 valid-before-link/property repro metadata path. Despite the suite name, this is pre-link/static-harness metadata today: it preserves registered-provider/import facts for a future linker but does not currently prove host import matching.
 
 As of this review, `bun fuzz run` forwards ordinary fuzz runs and `--emit-gen-valid-batch`, but not `--emit-invalid-repro`.
+
+## Final Optimizer Validation Dumps
+
+When final module validation fails after a hot pipeline, the pipeline reports the
+validation diagnostic and writes the encoded module under
+`.tmp/final-invalid-<timestamp>-<random>/module.wasm`. Each failure gets its own
+path, so a later failure does not replace an earlier repro. The diagnostic
+includes that path. If encoding, directory creation, or writing fails, the
+diagnostic includes the dump error instead. The focused regression in
+[`invalid_dump_wbtest.mbt`](../../../src/passes/invalid_dump_wbtest.mbt) checks
+two dumps in one directory and a failed write. The red tests first showed one
+overwritten file and a silently successful write; both now pass. The full
+wasm-gc pass suite passed 9,208/9,208 tests, and the native release command
+build passed. The native test build is blocked by the existing compiler error
+for uninitialized non-null GC reference arrays in `ir`.
 
 ## Maintenance Checklist
 
