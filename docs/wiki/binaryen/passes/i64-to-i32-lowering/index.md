@@ -29,6 +29,12 @@ one conversion and 64 unrelated functions reduced logical body rewrites from
 65 to one. This is a call count, not a native allocation or runtime measure.
 The full `i64-to-i32-lowering` ABI pass remains a separate unimplemented pass.
 
+The candidate scan now also records whether each function uses an f32 or f64
+conversion. Lowering adds only the matching temporary local. Red tests found
+two added locals in both f32-only and f64-only functions; green tests add one
+correctly typed local and validate the module. A mixed-function test keeps
+both locals and validates their indices.
+
 ## Role
 
 - `i64-to-i32-lowering` is a real public Binaryen pass.

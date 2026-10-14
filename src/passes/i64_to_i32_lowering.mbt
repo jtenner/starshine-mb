@@ -191,52 +191,49 @@ fn i64_lower_sat_rewrite_expr(
 }
 
 ///|
-fn i64_lower_sat_expr_has_candidate(expr : @lib.Expr) -> Bool {
+fn i64_lower_sat_expr_candidate_mask(expr : @lib.Expr) -> Int {
   let @lib.Expr(instrs) = expr
+  let mut mask = 0
   for instr in instrs {
     match instr {
-      @lib.I64TruncSatF32S
-      | @lib.I64TruncSatF32U
-      | @lib.I64TruncSatF64S
-      | @lib.I64TruncSatF64U => return true
+      @lib.I64TruncSatF32S | @lib.I64TruncSatF32U => mask = mask | 1
+      @lib.I64TruncSatF64S | @lib.I64TruncSatF64U => mask = mask | 2
       @lib.Block(_, nested) | @lib.Loop(_, nested) =>
-        if i64_lower_sat_expr_has_candidate(nested) {
-          return true
-        }
+        mask = mask | i64_lower_sat_expr_candidate_mask(nested)
       @lib.If(_, then_body, else_body) => {
-        if i64_lower_sat_expr_has_candidate(@lib.Expr::new(then_body)) {
-          return true
-        }
+        mask = mask |
+          i64_lower_sat_expr_candidate_mask(@lib.Expr::new(then_body))
         match else_body {
           Some(body) =>
-            if i64_lower_sat_expr_has_candidate(@lib.Expr::new(body)) {
-              return true
-            }
+            mask = mask |
+              i64_lower_sat_expr_candidate_mask(@lib.Expr::new(body))
           None => ()
         }
       }
       @lib.TryTable(_, _, body) =>
-        if i64_lower_sat_expr_has_candidate(body) {
-          return true
-        }
+        mask = mask | i64_lower_sat_expr_candidate_mask(body)
       @lib.Try(_, body, catches, _) => {
-        if i64_lower_sat_expr_has_candidate(body) {
-          return true
-        }
+        mask = mask | i64_lower_sat_expr_candidate_mask(body)
         for catch_ in catches {
           let catch_body = match catch_ {
             @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
               catch_body
           }
-          if i64_lower_sat_expr_has_candidate(catch_body) {
-            return true
-          }
+          mask = mask | i64_lower_sat_expr_candidate_mask(catch_body)
         }
       }
       _ => ()
     }
+    if mask == 3 {
+      return 3
+    }
   }
-  false
+  mask
+}
+
+///|
+fn i64_lower_sat_expr_has_candidate(expr : @lib.Expr) -> Bool {
+  i64_lower_sat_expr_candidate_mask(expr) != 0
 }
 
 ///|
@@ -255,13 +252,13 @@ fn lower_saturating_i64_truncations_run_module_pass(
   if type_indices.length() != funcs.length() {
     return mod_
   }
-  let candidates : Array[Bool] = []
+  let candidates : Array[Int] = []
   let mut has_candidate = false
   for func in funcs {
     let @lib.Func(_, body) = func
-    let candidate = i64_lower_sat_expr_has_candidate(body)
+    let candidate = i64_lower_sat_expr_candidate_mask(body)
     candidates.push(candidate)
-    has_candidate = has_candidate || candidate
+    has_candidate = has_candidate || candidate != 0
   }
   if !has_candidate {
     return mod_
@@ -270,7 +267,7 @@ fn lower_saturating_i64_truncations_run_module_pass(
   let changed = [false]
   let rewritten : Array[@lib.Func] = []
   for index, func in funcs {
-    if !candidates[index] {
+    if candidates[index] == 0 {
       rewritten.push(func)
       continue
     }
@@ -280,7 +277,9 @@ fn lower_saturating_i64_truncations_run_module_pass(
       None => return mod_
     }
     let f32_index = params.length() + locals.length()
-    let f64_index = f32_index + 1
+    let needs_f32 = (candidates[index] & 1) != 0
+    let needs_f64 = (candidates[index] & 2) != 0
+    let f64_index = f32_index + (if needs_f32 { 1 } else { 0 })
     let f32_temp = @lib.LocalIdx::new(f32_index.to_uint())
     let f64_temp = @lib.LocalIdx::new(f64_index.to_uint())
     let func_changed = [false]
@@ -294,8 +293,12 @@ fn lower_saturating_i64_truncations_run_module_pass(
     if func_changed[0] {
       changed[0] = true
       let next_locals = locals.copy()
-      next_locals.push(@lib.ValType::f32())
-      next_locals.push(@lib.ValType::f64())
+      if needs_f32 {
+        next_locals.push(@lib.ValType::f32())
+      }
+      if needs_f64 {
+        next_locals.push(@lib.ValType::f64())
+      }
       rewritten.push(@lib.Func::new(next_locals, next_body))
     } else {
       rewritten.push(func)

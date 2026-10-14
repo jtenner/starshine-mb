@@ -55,3 +55,52 @@ test "i64 saturation lowering rewrites only its candidate function" {
   assert_true(output != input)
   assert_eq(rewrite_calls[0], 1)
 }
+
+///|
+test "i64 f32 saturation lowering adds only an f32 temporary" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param f32) (local i32) (drop (i64.trunc_sat_f32_s (local.get 0)))))",
+  )
+  let output = lower_saturating_i64_truncations_run_module_pass(input)
+  match output.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, _)])) => {
+      assert_eq(locals.length(), 2)
+      assert_eq(locals[1], @lib.ValType::f32())
+    }
+    _ => fail("expected one lowered function")
+  }
+  assert_true(@validate.validate_module(output).is_ok())
+}
+
+///|
+test "i64 f64 saturation lowering adds only an f64 temporary" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param f64) (local i32) (drop (i64.trunc_sat_f64_s (local.get 0)))))",
+  )
+  let output = lower_saturating_i64_truncations_run_module_pass(input)
+  match output.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, _)])) => {
+      assert_eq(locals.length(), 2)
+      assert_eq(locals[1], @lib.ValType::f64())
+    }
+    _ => fail("expected one lowered function")
+  }
+  assert_true(@validate.validate_module(output).is_ok())
+}
+
+///|
+test "i64 mixed saturation lowering keeps both typed temporaries" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param f32 f64) (local i32) (drop (i64.trunc_sat_f32_s (local.get 0))) (drop (i64.trunc_sat_f64_s (local.get 1)))))",
+  )
+  let output = lower_saturating_i64_truncations_run_module_pass(input)
+  match output.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, _)])) => {
+      assert_eq(locals.length(), 3)
+      assert_eq(locals[1], @lib.ValType::f32())
+      assert_eq(locals[2], @lib.ValType::f64())
+    }
+    _ => fail("expected one lowered function")
+  }
+  assert_true(@validate.validate_module(output).is_ok())
+}
