@@ -3623,6 +3623,37 @@ test "Binaryen 132 dae2 dispatch removes a result forwarded to an unused paramet
 }
 
 ///|
+test "command precompute-propagate keeps a folded if self-branch target live" {
+  let source =
+    #|(module
+    #|  (func (export "main") (result i32)
+    #|    block
+    #|      i32.const 1
+    #|      if
+    #|        br 0
+    #|      end
+    #|    end
+    #|    i32.const 0))
+  let input = match @wast.wast_to_binary_module(source) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected valid command branch fixture: \{err}")
+  }
+  let optimized = match
+    optimize_module_with_pass_flags(
+      input,
+      ["precompute-propagate"],
+      OptimizeOptions::new(),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected branch-safe command precompute: \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid command branch target: \{err}")
+  }
+}
+
+///|
 test "Binaryen 132 explicit precompute variants fold relaxed immutable struct reads through cmd" {
   let source =
     #|(module

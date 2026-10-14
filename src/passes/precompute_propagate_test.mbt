@@ -1365,6 +1365,33 @@ test "precompute-propagate preserves stack-carried overwritten locals" {
 }
 
 ///|
+test "precompute-propagate keeps a folded if self-branch target live" {
+  let source =
+    #|(module
+    #|  (func (export "main") (result i32)
+    #|    block
+    #|      i32.const 1
+    #|      if
+    #|        br 0
+    #|      end
+    #|    end
+    #|    i32.const 0))
+  let input = match @wast.wast_to_binary_module(source) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected valid branch fixture: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute-propagate"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected branch-safe precompute: \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid branch target after folding: \{err}")
+  }
+}
+
+///|
 test "precompute-propagate accepts terminal branches to the function label" {
   let void_type = @lib.TypeIdx::new(0U)
   let value_type = @lib.TypeIdx::new(1U)
