@@ -34,6 +34,10 @@ related:
 - `global-type-optimization` is an upstream Binaryen **module pass**.
 - Starshine now has a **partial closed-world implementation** in [`global_type_optimization.mbt`](../../../../../src/passes/global_type_optimization.mbt). It covers the Binaryen 133 descriptor placeholder cases and an isolated unread private struct. The older boundary-only descriptions in this dossier predate the v133 corpus; [current fuzzing status](./fuzzing.md) records the open parity gap.
 - The 2026-10-13 nested-constructor repair caches completed constructor spans during operand lookup and inserts descriptor placeholders in one final materialization. A 64-level regression bounds operand-scan visits, checks the added instruction count, and validates the rewritten module. This is an operation-count check; it is not a native runtime measurement.
+- The 2026-10-13 field-zero repair records reads by struct type and carries them
+  through subtype links. An unrelated struct read no longer makes every
+  descriptor gain a placeholder field. Parent and child descriptors still use
+  the same layout when either type reads field zero.
 - Descriptor placeholder insertion now shifts every retained field access, including writes and atomic forms, and traverses `try`/`try_table` bodies and legacy catches. The [focused regressions](../../../../../src/passes/binaryen133_gto_red_wbtest.mbt) reproduce the former wrong-field write and nested read; this repairs a correctness bug in the partial implementation, not the broader parity gap.
 - The [v133 audit](../../../log.md#2026-10-04--eight-agent-optimizer-correctness-audit) compares 10,000 portable GenValid cases with no validation failures and only inert `nop` cleanup differences after normalization. That generated corpus has no descriptor GC coverage; the focused regressions are the evidence for this repair.
 - GTO now leaves modules with opaque code-position metadata or a raw name-section payload unchanged. Field and type rewrites cannot maintain their embedded offsets or indices. Both [boundary regressions](../../../../../src/passes/binaryen133_gto_red_wbtest.mbt) failed before the guard and pass afterward.

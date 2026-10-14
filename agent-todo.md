@@ -30,9 +30,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
   measured storage improvement and unchanged runtime observations.
-- [ ] **[AUDIT-20261013]017 — descriptor field-zero scope:** track GTO reads
-  by descriptor type rather than one module-wide flag. Red test: unrelated
-  field-zero read plus descriptor types. Exit: no unnecessary field expansion.
 - [ ] **[AUDIT-20261013]018 — large coalescing scope:** assess a sparse or
   bounded path for functions over 4,096 locals. Red test: disjoint same-type
   ranges outside the existing fast path. Exit: measured quality gain without
