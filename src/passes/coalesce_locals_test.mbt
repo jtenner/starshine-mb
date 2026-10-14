@@ -1714,6 +1714,48 @@ test "coalesce-locals compacts all-unused locals above dense-coloring guard" {
 }
 
 ///|
+fn cl_test_large_sparse_module(body : String) -> @lib.Module {
+  let source = StringBuilder::new()
+  source.write_string("(module (func (local")
+  for _idx = 0; _idx < 4097; _idx = _idx + 1 {
+    source.write_string(" i32")
+  }
+  source.write_string(") ")
+  source.write_string(body)
+  source.write_string("))")
+  pass_test_module_from_wat(source.to_string())
+}
+
+///|
+test "coalesce-locals reuses disjoint live locals above dense-coloring guard" {
+  let input = cl_test_large_sparse_module(
+    "i32.const 11 local.set 0 local.get 0 drop i32.const 22 local.set 4096 local.get 4096 drop",
+  )
+  let optimized = coalesce_locals_run_module_pass(input)
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  assert_eq(locals.length(), 1)
+  assert_true(@validate.validate_module(optimized).is_ok())
+  let before = @binary.encode_module(input).unwrap().length()
+  let after = @binary.encode_module(optimized).unwrap().length()
+  assert_true(after < before, msg="expected a smaller large sparse function")
+}
+
+///|
+test "coalesce-locals large sparse path keeps default reads and overlapping values" {
+  let bodies = [
+    "i32.const 11 local.set 0 local.get 0 drop local.get 4096 drop i32.const 22 local.set 4096 local.get 4096 drop",
+    "i32.const 11 local.set 0 i32.const 22 local.set 4096 local.get 0 drop local.get 4096 drop",
+  ]
+  for body in bodies {
+    let input = cl_test_large_sparse_module(body)
+    let optimized = coalesce_locals_run_module_pass(input)
+    let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+    assert_eq(locals.length(), 2)
+    assert_true(@validate.validate_module(optimized).is_ok())
+  }
+}
+
+///|
 test "coalesce-locals drops structured ineffective copy sets" {
   let input =
     #| (module

@@ -30,10 +30,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
   measured storage improvement and unchanged runtime observations.
-- [ ] **[AUDIT-20261013]018 — large coalescing scope:** assess a sparse or
-  bounded path for functions over 4,096 locals. Red test: disjoint same-type
-  ranges outside the existing fast path. Exit: measured quality gain without
-  dense-table time or memory regression.
 - [ ] **[AUDIT-20261013]019 — DAE2 historical gaps:** renew current-source
   pass-local time and canonical-size comparisons before selecting a fix. The
   older 2.782x/2.327x timings and 99,251-byte deficit are not current proof.
