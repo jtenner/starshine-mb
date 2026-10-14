@@ -29,3 +29,19 @@ test "audit remove unused brs preserves imported tag alias priority" {
     1,
   )
 }
+
+///|
+test "audit remove unused brs does not skip a removable branch in constructor ladder" {
+  let wat = perf_test_make_nested_constructor_hot_skip_module().replace(
+    old="           br 0\n         end\n         unreachable",
+    new="           block br 0 end\n         end\n         unreachable",
+  )
+  let input = pass_test_module_from_wat(wat)
+  let before = audit_count(audit_body(input, index=6), fn(i) { i is @lib.Br(_) })
+  assert_true(before > 0)
+  let output = run_hot_pipeline(input, HotPipelineOptions::new(), [
+    "remove-unused-brs",
+  ]).unwrap()
+  let after = audit_count(audit_body(output, index=6), fn(i) { i is @lib.Br(_) })
+  assert_true(after < before, msg="before=\{before} after=\{after}")
+}

@@ -80,6 +80,24 @@ test "audit HOT local cse retains independent shared memory loads" {
 }
 
 ///|
+test "audit HOT local cse retains independent shared memory sizes" {
+  let input = pass_test_module_from_wat(
+    "(module (memory 1 2 shared) (func (result i32) memory.size drop memory.size))",
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    local_cse_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  ignore(local_cse_run(ctx, func))
+  let @lib.Func(_, @lib.Expr(body)) = @ir.hot_lower_func(func)
+  @debug.assert_eq(audit_count(body, fn(i) { i is @lib.MemorySize(_) }), 2)
+}
+
+///|
 test "audit HOT local cse uses the required effects summary" {
   let input = pass_test_module_from_wat(
     "(module (func (param i32) (result i32) local.get 0 i32.const 1 i32.add))",

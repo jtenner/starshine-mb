@@ -70,6 +70,7 @@ priv struct RemoveUnusedBrsHotVoidReturnLadderShape {
   mut br_table_count : Int
   mut drop_count : Int
   mut result_block_non_block_prefix_count : Int
+  mut has_trivial_tail_branch : Bool
 }
 
 ///|
@@ -98,6 +99,19 @@ fn remove_unused_brs_scan_hot_void_return_ladder_shape(
       @ir.HotOp::BrIf => shape.br_if_count = shape.br_if_count + 1
       @ir.HotOp::Block => {
         shape.block_count = shape.block_count + 1
+        let body_ref = @ir.hot_region_body_ref(func, node_id)
+        let root_count = @ir.hot_region_root_count(func, body_ref)
+        if root_count == 1 {
+          let tail = @ir.hot_region_get(func, body_ref, 0)
+          if tail >= 0 && @ir.hot_node_is_live(func, tail) {
+            let branch = @ir.hot_node_get(func, tail)
+            if branch.op is @ir.HotOp::Br &&
+              branch.child_count == 0 &&
+              branch.imm0 == @ir.hot_control_node_label(func, node_id) {
+              shape.has_trivial_tail_branch = true
+            }
+          }
+        }
         let result_arity = @ir.hot_node_result_arity(func, node_id)
         if result_arity > 1 {
           shape.multivalue_block_count = shape.multivalue_block_count + 1
@@ -176,6 +190,7 @@ fn remove_unused_brs_new_hot_void_return_ladder_shape() -> RemoveUnusedBrsHotVoi
     br_table_count: 0,
     drop_count: 0,
     result_block_non_block_prefix_count: 0,
+    has_trivial_tail_branch: false,
   }
 }
 
@@ -11609,7 +11624,8 @@ fn remove_unused_brs_run(
     )
     return HotPassResult::unchanged()
   }
-  if remove_unused_brs_can_skip_large_tagged_result_prefix_ladder(skip_summary) {
+  if !skip_summary.shape.has_trivial_tail_branch &&
+    remove_unused_brs_can_skip_large_tagged_result_prefix_ladder(skip_summary) {
     pipeline_trace_hook(
       ctx.trace,
       ctx.descriptor.name,
@@ -11618,7 +11634,8 @@ fn remove_unused_brs_run(
     )
     return HotPassResult::unchanged()
   }
-  if remove_unused_brs_can_skip_medium_branchy_block_ladder(skip_summary) {
+  if !skip_summary.shape.has_trivial_tail_branch &&
+    remove_unused_brs_can_skip_medium_branchy_block_ladder(skip_summary) {
     pipeline_trace_hook(
       ctx.trace,
       ctx.descriptor.name,
@@ -11627,7 +11644,8 @@ fn remove_unused_brs_run(
     )
     return HotPassResult::unchanged()
   }
-  if remove_unused_brs_can_skip_call_heavy_mixed_if_mesh(skip_summary) {
+  if !skip_summary.shape.has_trivial_tail_branch &&
+    remove_unused_brs_can_skip_call_heavy_mixed_if_mesh(skip_summary) {
     pipeline_trace_hook(
       ctx.trace,
       ctx.descriptor.name,
@@ -11636,7 +11654,8 @@ fn remove_unused_brs_run(
     )
     return HotPassResult::unchanged()
   }
-  if remove_unused_brs_can_skip_localset_heavy_value_if_mesh(skip_summary) {
+  if !skip_summary.shape.has_trivial_tail_branch &&
+    remove_unused_brs_can_skip_localset_heavy_value_if_mesh(skip_summary) {
     pipeline_trace_hook(
       ctx.trace,
       ctx.descriptor.name,
@@ -11645,7 +11664,8 @@ fn remove_unused_brs_run(
     )
     return HotPassResult::unchanged()
   }
-  if remove_unused_brs_can_skip_large_void_return_ladder(skip_summary) {
+  if !skip_summary.shape.has_trivial_tail_branch &&
+    remove_unused_brs_can_skip_large_void_return_ladder(skip_summary) {
     let reason = if @ir.hot_local_count(func) >= 20 &&
       @ir.hot_local_count(func) <= 40 {
       "nested-constructor-return-ladder-noop"

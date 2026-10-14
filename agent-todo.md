@@ -30,15 +30,21 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
   measured storage improvement and unchanged runtime observations.
-- [ ] **[AUDIT-20261013]021 — unverified review risks:** use focused red
-  fixtures to confirm or reject DCE branch-cache staleness, direct HOT local-CSE
-  on shared memory, and count-based whole-function skipping in
-  remove-unused-brs. Exit: fix confirmed gaps; document rejected triggers in
-  the owning dossiers and remove them from this active list.
+- [ ] **[AUDIT-20261013]021 — DCE detached branch cache:** a focused helper
+  test reproduced a stale incoming-label bit after removing a branch root while
+  deletion is deferred. The removed node remains live until final flush.
+  Repair the cache without making large-function DCE scans expensive; confirm
+  a full-pass trigger and retain the red/green evidence.
 - [ ] **[AUDIT-20261013]022 — local-CSE names:** preserve existing local names
   when local-CSE appends temporary locals. It currently clears every local-name
   entry after any rewrite. Red test: named unchanged function beside a function
   that materializes a repeated expression. Exit: old local names stay valid.
+- [ ] **[AUDIT-20261013]023 — DCE nested dead suffix:** Starshine DCE leaves
+  `br 1` after `unreachable` in the then arm of `(drop (block (result i32)
+  local.get 0 if unreachable i32.const 2 br 1 end i32.const 3))`; Binaryen 133
+  `--dce` removes the dead branch. A focused Starshine test failed with one
+  branch remaining. Add the red fixture in a dedicated repair and fix nested
+  value-subtree traversal without changing live branch behavior.
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 

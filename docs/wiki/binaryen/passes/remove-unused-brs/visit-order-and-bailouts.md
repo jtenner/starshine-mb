@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-09-16
+last_reviewed: 2026-10-14
 sources:
   - ./index.md
   - ../../../../../src/ir/hot_core.mbt
@@ -157,6 +157,14 @@ After lift, the pass still has hot-only bailouts:
   preserves tables with at least `128` explicit targets after the current artifact exposed repeated same-size target-vector churn across direct applications
 
 Those skips exist because some giant lifted families were repeatedly proven to be semantically unchanged while still costing a lot to traverse, or because the current HOT/lowering boundary is intentionally fail-closed for a proved validity/convergence hazard.
+
+The October 14 audit found a counterexample to using only shape counts for the
+lifted no-op skips. Replacing one branch in the small constructor ladder with
+`block br 0 end` kept the no-op signature but added a removable branch. The
+red test retained both branches. The HOT shape scan now marks this exact tail
+branch form, and the count-based no-op skips yield to the normal visitor when
+it is present. The green test removes one branch; the original no-op perf lock
+continues to skip its unchanged constructor ladder.
 
 The hot skip is shape-based, not name-based.
 

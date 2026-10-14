@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-14
 sources:
   - ./index.md
   - https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md
@@ -383,11 +383,10 @@ See [implementation](../../../../../src/passes/local_cse.mbt),
 ## Direct HOT entry point and shared memory
 
 The public `local_cse_run` entry point was checked separately from the raw
-module pass. A valid shared-memory function with two matching `i32.load`
-instructions, the first dropped and the second returned, retained both loads
-when lifted and passed directly to HOT Local CSE without module context. The
-test asserts the HOT nodes are loads with single-value results and that the
-first has a memory-read effect. This fixture was green before a production
-change, so the proposed direct-HOT corruption was not reproduced. The focused
-regression in `src/passes/local_cse_audit_test.mbt` protects this boundary if
-HOT expression matching changes later.
+module pass. Valid shared-memory functions retain both matching `i32.load`
+operations and both `memory.size` reads when lifted and passed directly to HOT
+Local CSE without module context. The load fixture checks the HOT memory-read
+effect. Both focused tests were green before a production change, so the
+proposed direct-HOT corruption was not reproduced. The regressions in
+`src/passes/local_cse_audit_test.mbt` protect this boundary if HOT expression
+matching changes later.
