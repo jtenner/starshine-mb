@@ -445,6 +445,69 @@ fn rl_rewrite_func_type_stable(
 }
 
 ///|
+fn rl_uleb_size(raw : Int) -> Int {
+  let mut value = raw
+  let mut size = 1
+  while value >= 128 {
+    value = value / 128
+    size += 1
+  }
+  size
+}
+
+///|
+fn rl_encoded_layout_cost(rewrite : RLFuncRewrite, scan : RLScanState) -> Int? {
+  let @lib.Func(locals, _) = rewrite.func
+  let buf = @buffer.new()
+  if @binary.Encode::encode(locals, buf) is Err(_) {
+    return None
+  }
+  let mut cost = buf.to_bytes().length()
+  for old_idx = 0; old_idx < scan.counts.length(); old_idx = old_idx + 1 {
+    if scan.counts[old_idx] > 0 {
+      let new_idx = if rewrite.changed {
+        rewrite.old_to_new[old_idx]
+      } else {
+        old_idx
+      }
+      if new_idx < 0 {
+        return None
+      }
+      cost += scan.counts[old_idx] * rl_uleb_size(new_idx)
+    }
+  }
+  Some(cost)
+}
+
+///|
+fn rl_choose_smaller_mixed_type_rewrite(
+  original : @lib.Func,
+  params : Array[@lib.ValType],
+  access_order : RLFuncRewrite,
+  scan : RLScanState,
+) -> RLFuncRewrite {
+  let @lib.Func(original_locals, _) = original
+  if original_locals.runs().length() <= 1 {
+    return access_order
+  }
+  let type_stable = rl_rewrite_func_type_stable(original, params)
+  let @lib.Func(access_locals, _) = access_order.func
+  let @lib.Func(stable_locals, _) = type_stable.func
+  if access_locals == stable_locals {
+    return access_order
+  }
+  match
+    (
+      rl_encoded_layout_cost(access_order, scan),
+      rl_encoded_layout_cost(type_stable, scan),
+    ) {
+    (Some(access_size), Some(stable_size)) if stable_size < access_size =>
+      type_stable
+    _ => access_order
+  }
+}
+
+///|
 fn rl_rewrite_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -507,7 +570,12 @@ fn rl_rewrite_func(
 
   let rewritten_body = rl_rewrite_expr(body, old_to_new)
   let rewritten_func = @lib.Func::new(rewritten_locals, rewritten_body)
-  { func: rewritten_func, old_to_new, changed: true, }
+  rl_choose_smaller_mixed_type_rewrite(
+    func,
+    params,
+    { func: rewritten_func, old_to_new, changed: true, },
+    scan,
+  )
 }
 
 ///|

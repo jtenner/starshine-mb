@@ -95,6 +95,10 @@ So this is **not** coalescing, **not** liveness-based dead-store cleanup, and **
 - Nonzero-count ties break by first observed access.
 - Zero-count ties preserve original order, but the final zero-count body-local suffix is then dropped.
 - The pass rewrites local-user indices and function-local name maps.
+- Starshine compares the encoded local declarations and local-index bytes for
+  mixed-type access order with a type-stable order. It keeps the smaller body
+  layout and uses access order on a tie. This can differ from Binaryen when
+  alternating accesses would split grouped local declarations into more runs.
 - Upstream explicitly declares that it does **not** need non-nullable-local fixups.
 - The dedicated print-roundtrip tests show that declaration order after reordering must survive binary writing and reading, not just in-memory AST mutation.
 - A 2026-07-27 audit found `ReorderLocals.cpp` and the dedicated lit files byte-identical between `version_130` and `version_131`; recorded v131 evidence used official `wasm-opt version 131 (version_131)`.

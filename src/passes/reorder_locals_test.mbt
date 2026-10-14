@@ -493,6 +493,38 @@ test "reorder-locals direct pass reorders adjacent same-type locals by access co
 }
 
 ///|
+test "reorder-locals keeps grouped types when access order grows the binary" {
+  let input = pass_test_module_from_wat(
+    (
+      #| (module
+      #|   (func (local i32 i32 i64 i64)
+      #|     local.get 0
+      #|     drop
+      #|     local.get 2
+      #|     drop
+      #|     local.get 1
+      #|     drop
+      #|     local.get 3
+      #|     drop))
+      #|
+    ),
+  )
+  let optimized = reorder_locals_run_module_pass(input)
+  let before = match @binary.encode_module(input) {
+    Ok(bytes) => bytes.length()
+    Err(err) => fail("baseline failed to encode: \{err}")
+  }
+  let after = match @binary.encode_module(optimized) {
+    Ok(bytes) => bytes.length()
+    Err(err) => fail("rewrite failed to encode: \{err}")
+  }
+  assert_true(
+    after <= before,
+    msg="reorder-locals grew binary: \{before} to \{after}",
+  )
+}
+
+///|
 test "reorder-locals keeps write-only locals and drops only zero-access body locals" {
   let input =
     #| (module
