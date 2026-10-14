@@ -385,6 +385,26 @@ export function runEffectTrapScannerTest(): void {
     assert(!referenceCallFacts.hasUnreachable, `${name} type index should not report unreachable`);
     assert(referenceCallFacts.hazards.some((hazard) => hazard.kind === "import-or-local-call"), `${name} call hazard should be recorded`);
   }
+
+  // A saved valid GC fuzz case has struct.new at 58 and struct.get at 66.
+  // Their zero subopcode/field bytes must not become unreachable instructions.
+  const gcBytes = Uint8Array.from(Buffer.from(
+    "0061736d010000000118055f017f005f017f00600001640160016400017f6000017f0304030203040707010372756e00020a1b03090041f6e900fb00010b08002000fb0200000b0600100010010b",
+    "hex",
+  ));
+  assert(WebAssembly.validate(gcBytes), "saved GC scanner case should validate");
+  const gcFacts = scanEffectTrapFactsFromWasmBytes(gcBytes);
+  assert(!gcFacts.hasUnreachable, "GC subopcode and field immediates are not unreachable instructions");
+  assert(gcFacts.hazards.filter((hazard) => hazard.kind === "explicit-unreachable").length === 0, "GC immediates should not create unreachable hazards");
+  assert(gcFacts.hazards.filter((hazard) => hazard.kind === "import-or-local-call").map((hazard) => hazard.offset).join(",") === "73,75", "calls after GC instructions should remain visible");
+
+  const gcWithUnreachable = Uint8Array.from([...gcBytes.slice(0, 77), 0x00, ...gcBytes.slice(77)]);
+  gcWithUnreachable[50] = 28; // code section grew by one byte
+  gcWithUnreachable[71] = 7; // final function body grew by one byte
+  assert(WebAssembly.validate(gcWithUnreachable), "GC case with a real unreachable should validate");
+  const gcWithUnreachableFacts = scanEffectTrapFactsFromWasmBytes(gcWithUnreachable);
+  assert(gcWithUnreachableFacts.hasUnreachable, "real unreachable after GC instructions should be found");
+  assert(gcWithUnreachableFacts.hazards.filter((hazard) => hazard.kind === "explicit-unreachable").map((hazard) => hazard.offset).join(",") === "77", "only the real unreachable should be reported");
 }
 
 if (import.meta.main) {
