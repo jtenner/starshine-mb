@@ -152,7 +152,57 @@ fn il_rewrite_expr(
 }
 
 ///|
-fn intrinsic_lowering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+fn il_expr_has_target_call(expr : @lib.Expr, targets : Array[Bool]) -> Bool {
+  let @lib.Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      @lib.Call(target) | @lib.ReturnCall(target) => {
+        let @lib.FuncIdx(raw) = target
+        let index = raw.to_int()
+        if index >= 0 && index < targets.length() && targets[index] {
+          return true
+        }
+      }
+      @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
+        if il_expr_has_target_call(body, targets) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if il_expr_has_target_call(@lib.Expr::new(then_body), targets) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if il_expr_has_target_call(@lib.Expr::new(body), targets) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, body, catches, _) => {
+        if il_expr_has_target_call(body, targets) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          if il_expr_has_target_call(catch_body, targets) {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn intrinsic_lowering_run_module_pass(
+  mod_ : @lib.Module,
+  rewrite_calls? : Array[Int]? = None,
+) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_
@@ -168,18 +218,42 @@ fn intrinsic_lowering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   if !targets.any(fn(target) { target }) {
     return mod_
   }
+  let candidates : Array[Bool] = []
+  let mut has_candidate = false
+  for func in funcs {
+    let @lib.Func(_, body) = func
+    let candidate = il_expr_has_target_call(body, targets)
+    candidates.push(candidate)
+    has_candidate = has_candidate || candidate
+  }
+  if !has_candidate {
+    return mod_
+  }
   let signatures = msf_build_type_signature_cache(mod_)
   let changed = [false]
   let rewritten : Array[@lib.Func] = []
   for index, func in funcs {
+    if !candidates[index] {
+      rewritten.push(func)
+      continue
+    }
     let @lib.Func(locals, body) = func
     let params = match msf_cached_signature(signatures, type_indices[index]) {
       Some(@lib.FuncType(params, _)) => params
       None => []
     }
-    rewritten.push(
-      @lib.Func::new(locals, il_rewrite_expr(body, targets, params, changed)),
-    )
+    match rewrite_calls {
+      Some(count) => count[0] += 1
+      None => ()
+    }
+    let func_changed = [false]
+    let next_body = il_rewrite_expr(body, targets, params, func_changed)
+    if func_changed[0] {
+      changed[0] = true
+      rewritten.push(@lib.Func::new(locals, next_body))
+    } else {
+      rewritten.push(func)
+    }
   }
   if !changed[0] {
     return mod_

@@ -57,3 +57,50 @@ test "IntrinsicLowering still rewrites matching intrinsic imports" {
     _ => fail("expected rewritten run function")
   }
 }
+
+///|
+test "intrinsic lowering skips functions that do not call its import" {
+  let source = StringBuilder::new()
+  source.write_string(
+    "(module (import \"binaryen-intrinsics\" \"call.without.effects\" (func $cwe (param funcref) (result i32)))",
+  )
+  for _ in 0..<64 {
+    source.write_string(" (func)")
+  }
+  source.write_string(")")
+  let input = pass_test_module_from_wat(source.to_string())
+  let rewrite_calls = [0]
+  let output = intrinsic_lowering_run_module_pass(
+    input,
+    rewrite_calls=Some(rewrite_calls),
+  )
+  assert_eq(output, input)
+  assert_eq(rewrite_calls[0], 0)
+}
+
+///|
+test "intrinsic lowering rewrites only its matching function" {
+  let source = StringBuilder::new()
+  source.write_string(
+    "(module (import \"binaryen-intrinsics\" \"call.without.effects\" (func $cwe (param funcref) (result i32)))",
+  )
+  source.write_string(
+    " (func $target (result i32) (i32.const 7)) (elem declare func $target)",
+  )
+  source.write_string(
+    " (func (export \"run\") (result i32) (call $cwe (ref.func $target)))",
+  )
+  for _ in 0..<64 {
+    source.write_string(" (func)")
+  }
+  source.write_string(")")
+  let input = pass_test_module_from_wat(source.to_string())
+  let rewrite_calls = [0]
+  let output = intrinsic_lowering_run_module_pass(
+    input,
+    rewrite_calls=Some(rewrite_calls),
+  )
+  assert_true(output != input)
+  assert_true(@validate.validate_module(output).is_ok())
+  assert_eq(rewrite_calls[0], 1)
+}

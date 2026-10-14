@@ -21,6 +21,14 @@ related:
 
 # `i64-to-i32-lowering`
 
+## 2026-10-13 sparse conversion scan
+
+The separate `lower-saturating-i64-truncations` pass now records candidate
+functions during its read-only scan. It rewrites only those bodies. A test with
+one conversion and 64 unrelated functions reduced logical body rewrites from
+65 to one. This is a call count, not a native allocation or runtime measure.
+The full `i64-to-i32-lowering` ABI pass remains a separate unimplemented pass.
+
 ## Role
 
 - `i64-to-i32-lowering` is a real public Binaryen pass.

@@ -35,3 +35,23 @@ test "I64ToI32Lowering preflight still lowers saturating conversion" {
   )
   assert_true(@validate.validate_module(output).is_ok())
 }
+
+///|
+test "i64 saturation lowering rewrites only its candidate function" {
+  let source = StringBuilder::new()
+  source.write_string(
+    "(module (func (param f32) (drop (i64.trunc_sat_f32_s (local.get 0))))",
+  )
+  for _ in 0..<64 {
+    source.write_string(" (func)")
+  }
+  source.write_string(")")
+  let input = pass_test_module_from_wat(source.to_string())
+  let rewrite_calls = [0]
+  let output = lower_saturating_i64_truncations_run_module_pass(
+    input,
+    rewrite_calls=Some(rewrite_calls),
+  )
+  assert_true(output != input)
+  assert_eq(rewrite_calls[0], 1)
+}

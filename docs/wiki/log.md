@@ -1,3 +1,13 @@
+### 2026-10-13 — Scan sparse module-pass candidates
+
+- `lower-saturating-i64-truncations` now rewrites only functions that contain
+  one of its four conversions. `intrinsic-lowering` now skips modules with an
+  unused intrinsic import and preserves unrelated function bodies when one
+  function calls that import. Focused red tests counted 65 versus one i64 body
+  rewrite and 64 versus zero intrinsic body rewrites. The green tests also
+  check the matching intrinsic call and module validity. These are logical
+  rewrite counts, not native time measurements.
+
 ### 2026-10-09 — Repair direct-pass effects and IR invariants
 
 - [The October 9 repair checkpoint](tooling/validation-gates.md#october-9-2026--optimizer-and-ir-repairs)

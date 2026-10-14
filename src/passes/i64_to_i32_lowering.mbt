@@ -242,6 +242,7 @@ fn i64_lower_sat_expr_has_candidate(expr : @lib.Expr) -> Bool {
 ///|
 fn lower_saturating_i64_truncations_run_module_pass(
   mod_ : @lib.Module,
+  rewrite_calls? : Array[Int]? = None,
 ) -> @lib.Module {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -254,16 +255,25 @@ fn lower_saturating_i64_truncations_run_module_pass(
   if type_indices.length() != funcs.length() {
     return mod_
   }
-  if !funcs.any(fn(func) {
-      let @lib.Func(_, body) = func
-      i64_lower_sat_expr_has_candidate(body)
-    }) {
+  let candidates : Array[Bool] = []
+  let mut has_candidate = false
+  for func in funcs {
+    let @lib.Func(_, body) = func
+    let candidate = i64_lower_sat_expr_has_candidate(body)
+    candidates.push(candidate)
+    has_candidate = has_candidate || candidate
+  }
+  if !has_candidate {
     return mod_
   }
   let signatures = msf_build_type_signature_cache(mod_)
   let changed = [false]
   let rewritten : Array[@lib.Func] = []
   for index, func in funcs {
+    if !candidates[index] {
+      rewritten.push(func)
+      continue
+    }
     let @lib.Func(locals, body) = func
     let params = match msf_cached_signature(signatures, type_indices[index]) {
       Some(@lib.FuncType(params, _)) => params
@@ -274,6 +284,10 @@ fn lower_saturating_i64_truncations_run_module_pass(
     let f32_temp = @lib.LocalIdx::new(f32_index.to_uint())
     let f64_temp = @lib.LocalIdx::new(f64_index.to_uint())
     let func_changed = [false]
+    match rewrite_calls {
+      Some(count) => count[0] += 1
+      None => ()
+    }
     let next_body = i64_lower_sat_rewrite_expr(
       body, f32_temp, f64_temp, func_changed,
     )
