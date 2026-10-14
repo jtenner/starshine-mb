@@ -2352,3 +2352,46 @@ test "dead-code-elimination preserves final multivalue loop region results" {
     _ => fail("expected DCE to preserve the final multivalue loop root")
   }
 }
+
+///|
+test "dead-code-elimination removes a dead branch in a nested value block" {
+  let input =
+    #|(module (func (param i32)
+    #|  (drop (block (result i32)
+    #|    local.get 0
+    #|    if unreachable i32.const 2 br 1 end
+    #|    i32.const 3))))
+  let output = match pass_test_run_pipeline(input, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested DCE success, got \{err}")
+  }
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_false(
+    dead_code_elimination_test_instrs_any(body, fn(instr) {
+      instr is @lib.Br(_)
+    }),
+    msg="DCE retained the branch after unreachable",
+  )
+}
+
+///|
+test "dead-code-elimination finds a nested dead branch in a large function" {
+  let padding = StringBuilder::new()
+  for _ in 0..<300 {
+    padding.write_string(" nop")
+  }
+  let input = "(module (func (param i32)\{padding.to_string()} (drop (block (result i32) local.get 0 if unreachable i32.const 2 br 1 end i32.const 3))))"
+  let output = match pass_test_run_pipeline(input, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected large nested DCE success, got \{err}")
+  }
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_false(
+    dead_code_elimination_test_instrs_any(body, fn(instr) {
+      instr is @lib.Br(_)
+    }),
+    msg="DCE retained the nested dead branch in a large function",
+  )
+}

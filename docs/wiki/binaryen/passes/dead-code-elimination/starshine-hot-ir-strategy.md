@@ -374,6 +374,31 @@ That makes the current subset easy to teach honestly:
 - **what it does today:** a broader HOT cleanup family around dead dropped values, dead-result control, payload-forwarder repair, and explicit tail repair
 - **what it does not equal:** upstream Binaryen's smaller `TypeUpdater`-centered `dce`
 
+## October 14, 2026: dead suffixes in value subtrees
+
+DCE visited control regions only when their node was a region root. A block
+used as the child of `drop` was therefore skipped. In the focused fixture, an
+`if` arm inside that value block contained `unreachable` followed by `br 1`.
+The pass left the dead branch. Binaryen 133 `--dce` removed it.
+
+DCE now scans HOT value edges once per function, visits control regions found
+inside value operands, and then runs its ordinary root walk. A second scan
+covers value control created during the rewrite. The red fixture now passes
+and produces the same text as Binaryen 133 for that case. The large-function
+regression and the existing live loop-backedge test also pass.
+The full pass suite passes 9,215 tests.
+
+This broader cleanup has a measured cost. On the fixed 6.2 MB module, five
+alternating native release runs on one CPU gave median summed DCE time for 308
+calls of 22.564 ms before and 86.801 ms after. Median whole-command time rose
+from 872.672 to 957.668 ms. Output shrank by 3,267 bytes, and Binaryen 133
+validated the result with all features enabled. The gain is in dead-code
+removal; this repair does not establish a performance improvement.
+
+A typed `if` with a shared entry-value block still fails HOT writeback with an
+extra stack value and falls back to the original function. That failure also
+occurs before this repair. It is tracked as `[AUDIT-20261013]024`.
+
 ## October 14, 2026: branch cache after deferred deletion
 
 DCE defers deletion of removed HOT nodes. A removed branch can therefore remain

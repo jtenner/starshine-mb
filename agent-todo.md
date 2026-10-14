@@ -30,12 +30,16 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
   measured storage improvement and unchanged runtime observations.
-- [ ] **[AUDIT-20261013]023 — DCE nested dead suffix:** Starshine DCE leaves
-  `br 1` after `unreachable` in the then arm of `(drop (block (result i32)
-  local.get 0 if unreachable i32.const 2 br 1 end i32.const 3))`; Binaryen 133
-  `--dce` removes the dead branch. A focused Starshine test failed with one
-  branch remaining. Add the red fixture in a dedicated repair and fix nested
-  value-subtree traversal without changing live branch behavior.
+- [ ] **[AUDIT-20261013]024 — DCE shared `if` entry value:** a typed `if`
+  shares a value block between its entry operand and both arms. DCE's HOT
+  rewrite lowers with an extra i32 on the function stack; the writeback guard
+  rejects it and keeps the original branch. This occurs before and after the
+  nested-value repair. Add a focused red test for the guard fallback, then
+  repair the rewrite without duplicating entry-value effects. The fixture is
+  `(module (func (param i32) (drop (if (param i32) (result i32)
+  (block (result i32) local.get 0 if unreachable i32.const 2 br 1 end
+  i32.const 3) (local.get 0) (then drop i32.const 2)
+  (else drop i32.const 3)))))`.
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
