@@ -26970,3 +26970,13 @@ arrays/typecheck wrappers from the completed return packaging change.
   concurrent Moon activity limits small timing claims. Full-export yyjson and
   KissFFT controls remain byte-identical. Final validation and renewed ordinary
   RUME aggregate results are recorded in the pass dossier when complete.
+
+### 2026-10-13 — Preserve constant-if branch targets in precompute
+
+- A bounded pass-interaction run reduced a HOT-lowering abort to a valid
+  49-byte module. Both `precompute` variants removed a constant `if` that owned
+  a live branch target. The pass now retains that owner and has direct and
+  command-dispatch regressions. The affected pass and command suites pass
+  9,200 and 688 tests, and Node returns the same value for the original and
+  both optimized reductions. Paired real-module measurements show unchanged
+  output bytes and a small direct-pass timing cost; full signoff remains pending.

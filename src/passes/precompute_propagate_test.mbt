@@ -1376,18 +1376,20 @@ test "precompute-propagate keeps a folded if self-branch target live" {
     #|      end
     #|    end
     #|    i32.const 0))
-  let input = match @wast.wast_to_binary_module(source) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected valid branch fixture: \{err}")
-  }
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute-propagate"]) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected branch-safe precompute: \{err}")
-  }
-  match @validate.validate_module(optimized) {
-    Ok(_) => ()
-    Err(err) => fail("expected valid branch target after folding: \{err}")
+  for pass in ["precompute", "precompute-propagate"] {
+    let input = match @wast.wast_to_binary_module(source) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected valid branch fixture: \{err}")
+    }
+    let optimized = match
+      run_hot_pipeline(input, HotPipelineOptions::new(), [pass]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected branch-safe \{pass}: \{err}")
+    }
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) => fail("expected valid branch target after \{pass}: \{err}")
+    }
   }
 }
 
