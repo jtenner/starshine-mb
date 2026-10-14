@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-28
+last_reviewed: 2026-10-13
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp
   - ../../../../../src/passes/optimize.mbt
@@ -23,6 +23,17 @@ supersedes:
 ---
 
 # `merge-locals`
+
+## 2026-10-13 no-change preflight
+
+The HOT path now checks copy sources and targets for relevant local gets
+before it adds temporary tees or builds a CFG and LocalGraph. A single copy
+and two independent copies with no later reads return unchanged. The red test
+showed a HOT revision change from 4 to 8 for the single-copy case; the green
+test keeps the revision and node count fixed. The check also detects a shared
+copy operand or a copy chain, so it leaves such a function on the existing
+proof path. This test proves less work on the no-change fixtures; it does not
+measure native runtime.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
