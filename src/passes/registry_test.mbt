@@ -630,3 +630,25 @@ test "run_hot_pipeline accepts tuple-optimization as an active hot pass" {
       )
   }
 }
+
+///|
+test "interaction random profile is bounded and keeps legacy seed mapping" {
+  let profile = "random-interaction-short"
+  let seed = 0x5eedUL
+  let passes = pass_registry_random_executable_sequence(profile, seed)
+  assert_true(passes.length() >= 2 && passes.length() <= 5)
+  @debug.assert_eq(
+    passes,
+    pass_registry_random_executable_sequence(profile, seed),
+  )
+  for name in passes {
+    @debug.assert_eq(
+      pass_registry_category(name),
+      Some(HotPassRegistryCategory::hot_pass()),
+    )
+  }
+  @debug.assert_eq(
+    pass_registry_random_executable_sequence("random-short", seed),
+    ["remove-unused-brs", "merge-blocks", "remove-unused-brs"],
+  )
+}
