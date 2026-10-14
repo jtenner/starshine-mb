@@ -214,6 +214,41 @@ describe("optimizer replay and promotion task arguments", () => {
     }
   });
 
+  test("parses a bounded structural reducer subprocess timeout", () => {
+    const args = [".tmp/failure", "--out", ".tmp/reduced.wasm"];
+    expect(parseOptimizerReductionArgs([...args, "--subprocess-timeout-seconds", "90"]).timeoutMs).toBe(90_000);
+    expect(parseOptimizerReductionArgs(args).timeoutMs).toBeUndefined();
+    for (const value of ["0", "3601", "1.5", "NaN"]) {
+      expect(() => parseOptimizerReductionArgs([...args, "--subprocess-timeout-seconds", value])).toThrow();
+    }
+  });
+
+  test("enforces the CLI structural reducer subprocess timeout", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-reduce-cli-timeout-"));
+    try {
+      const manifest = path.join(dir, "manifest.json");
+      const output = path.join(dir, "reduced.wasm");
+      const reducer = path.join(dir, "slow-reducer.ts");
+      const started = path.join(dir, "started");
+      fs.writeFileSync(path.join(dir, "input.wasm"), Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0]));
+      fs.writeFileSync(manifest, JSON.stringify({ input: { path: "input.wasm" } }));
+      fs.writeFileSync(reducer, `#!/usr/bin/env bun\nimport fs from "node:fs";\nif (process.argv.includes("--help")) process.exit(0);\nfs.writeFileSync(${JSON.stringify(started)}, "1");\nawait Bun.sleep(2000);\n`);
+      fs.chmodSync(reducer, 0o755);
+      const start = performance.now();
+      const result = spawnSync(process.execPath, [
+        "scripts/fuzz.ts", "reduce-optimizer", manifest, "--out", output,
+        "--wasm-reduce-bin", reducer, "--subprocess-timeout-seconds", "1",
+      ], { cwd: process.cwd(), encoding: "utf8", timeout: 5000 });
+      const elapsed = performance.now() - start;
+      expect(fs.existsSync(started)).toBe(true);
+      expect(result.status).toBe(1);
+      expect(elapsed).toBeLessThan(1800);
+      expect(fs.existsSync(output)).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("forwards the CLI predicate timeout to wasm-reduce", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-reduce-cli-"));
     try {
