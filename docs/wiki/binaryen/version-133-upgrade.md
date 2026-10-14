@@ -171,6 +171,18 @@ parsed type and field name owners and clear the opaque raw name cache. The
 checks that the transformed module validates and keeps both names on the
 intended type.
 
+The shared-object handle table retains external references while internal
+shared i31 handles may still refer to them. A host-only release call cannot
+infer when a slot is dead. In a native replay, a module stores an `externref`
+in a mutable global and later returns it through separate `store` and `load`
+exports. The transformed module exports only those two functions; the host
+does not receive the internal handle. `load()` returns the original object
+until the private table slot is cleared, then returns `null`. Clearing the
+slot when `store` returns would therefore change program behavior. A safe
+reclamation mode needs a module-level ownership contract with explicit
+release points; adding a host function named `release(handle)` alone does not
+provide one. The pass currently keeps escaping handles for module lifetime.
+
 Several released edits constrain existing passes rather than adding a new
 positive rewrite: open-world `merge-similar-functions` must not promote an
 invalid exact private signature to a public type;

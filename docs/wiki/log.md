@@ -1,3 +1,17 @@
+### 2026-10-14 — Confirm shared-object handle ownership limit
+
+- Rechecked issue 008 before adding a release API. A transformed module with
+  `store(externref)` and `load() -> externref` keeps the input through a mutable
+  global. Native execution returned the same JS object after `store`. A
+  diagnostic copy with its private table exported returned `null` from `load`
+  after that slot was cleared. The production module exports only `store` and
+  `load`; the host never receives the internal handle.
+- Corrected the active task and [v133 pass contract](binaryen/version-133-upgrade.md):
+  host-only release cannot identify or safely free arbitrary internal handles.
+  Reclamation needs explicit module-level ownership and release points. The
+  earlier proposal to add only `release(handle)` is withdrawn. No pass behavior
+  changed in this review.
+
 ### 2026-10-14 — Avoid private handles for adjacent shared-object conversions
 
 - A follow-up red test found that pair-only modules still carried an unused

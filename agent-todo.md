@@ -32,10 +32,13 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   measured storage improvement and unchanged runtime observations. The
   adjacent conversion case is repaired: no handle escapes, so its generated
   table write/read is removed. Pair-only modules also omit the unused table
-  and handle helpers. The general boundary case remains open. Each
-  live handle needs its table entry; no release signal or externref equality
-  contract exists. Choose a host lifetime/release policy before changing
-  storage for handles that can escape.
+  and handle helpers. The general boundary case remains open. Each live
+  handle needs its table entry. A host-only `release(handle)` is insufficient:
+  ordinary exports return `externref`, not the internal handle, and the module
+  can keep that handle after the call. A native `store(x); load()` repro returns
+  `x`, but clearing its table slot after `store` makes `load()` return null.
+  Require an explicit module-level ownership and release contract before
+  reclaiming handles that can escape. No such contract exists in this repo.
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
