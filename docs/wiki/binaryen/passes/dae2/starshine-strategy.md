@@ -9149,3 +9149,39 @@ Canonical output shrinks 16,452→16,448 bytes, and the exported run observation
 match the input in all lanes. Coarse earlier timing and uniform launcher RSS
 floors remain in historical evidence. This fixed scalar result closes the
 witness gap, not general type-family cost, broad parity or any 1× target.
+
+## October 14, 2026: renew the DAE2 time and size audit
+
+The audit starts at clean `cceefec8726c…` with native release binary SHA-256
+`7e661a518954c81273ef40b22db4ec13a694d1906eb1f67bda7f28f31e09efc1`.
+The fixed 6,211,596-byte input has SHA-256
+`98189860f95b4eb8464794eb9fab5f9fd8d16942c63a6e31ed9175e7e791cbbd`.
+The oracle is exact `wasm-opt version 133 (version_133)`, binary SHA-256
+`8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b`.
+The checked-in pass sweep ran on CPU 6 with one warmup and three alternating
+measured rounds. These are pass-local medians, separate from command time:
+
+| Pass | Starshine | Binaryen 133 | Ratio | Raw bytes Starshine/Binaryen |
+| --- | ---: | ---: | ---: | ---: |
+| DAE2 | 2,628.249 ms | 425.384 ms | 6.179× | 6,115,165 / 6,232,586 |
+| DAE2 optimizing | 5,078.584 ms | 1,624.020 ms | 3.127× | 5,563,451 / 5,573,450 |
+
+Applying that same verified v133 `-Oz --strip-debug --all-features` writer to
+the optimizing raw outputs gives 4,586,378 Starshine bytes and 4,589,833
+Binaryen bytes. Starshine is 3,455 bytes smaller on this fixture. The earlier
+99,251-byte canonical deficit is a historical result, not a current-source
+claim. Different canonical function shapes still require separate attribution.
+
+The largest plain DAE2 timer is dependency analysis: 782.832 ms in one traced
+sample, within 1,279.316 ms of total analysis. A red native timing run led to
+a small preflight change: common local, constant, global-read and call
+instructions now use one direct match instead of three classifier calls. The
+five-round alternating before/after pass medians are 2,696.213 → 2,667.228 ms
+for DAE2 (−1.08%) and 5,078.004 → 5,034.590 ms for optimizing DAE2 (−0.85%).
+Four of five paired rounds improve in each mode; the ranges include adverse
+samples, so these are small, noisy gains. Both modes retain byte-identical raw
+output hashes across builds. The change adds no allocator call site or retained
+storage; it does not establish a peak-memory result. A second trial that
+skipped full qualification on flat bodies was rejected: its DAE2 median rose
+2,649.112 → 2,706.591 ms and its optimizing median was flat. The full pass
+suite passes 9,206 tests. The 1× performance target remains open in P03.

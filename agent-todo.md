@@ -30,11 +30,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
   measured storage improvement and unchanged runtime observations.
-- [ ] **[AUDIT-20261013]019 — DAE2 historical gaps:** renew current-source
-  pass-local time and canonical-size comparisons before selecting a fix. The
-  older 2.782x/2.327x timings and 99,251-byte deficit are not current proof.
-  Red benchmark/profile: pinned native build and verified v133. Exit: measured
-  gain without semantic, raw-size, or allocation regression.
 - [ ] **[AUDIT-20261013]020 — invalid-module dumps:** give each final-invalid
   artifact a distinct path and surface write failures. Red test: two failures
   in one directory and a failed write. Exit: no lost diagnostic evidence.
@@ -119,11 +114,12 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   The preceding c98 profile attributes dependencies9.355b, analysis lift6.366b,
   rewrite lift2.372b, lower4.647b and final validation2.495b; these remain
   larger owners, with source versions explicit and inclusive costs not additive. [Full source breakdown](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
-- **Preserved quality and completed work:** V83 saves 79,962 canonical bytes
-  across 4,968 shrinking functions. DAE2-O remains **99,251 canonical bytes
-  larger** than v133 despite **9,949 fewer raw bytes**; CL/SL/OI canonical
-  deficits remain 78,800 / 373,507 / 33,494 bytes. Keep the normalization
-  protocol explicit and do not classify smaller raw DAE2 output as a proven win.
+- **Preserved quality and completed work:** V83 saved 79,962 canonical bytes
+  across 4,968 shrinking functions. Its 99,251-byte DAE2-O canonical deficit
+  is historical: the October 14 current-source replay is **3,455 canonical
+  bytes smaller** than verified v133 on the fixed large fixture, with 9,999
+  fewer raw bytes. The CL/SL/OI figures below remain historical cohorts. Keep
+  the normalization protocol and source identity explicit.
   Completed storage, discovery, replay, source-query and cleanup mechanisms,
   rejected trials and all historical timing cohorts are retained in the
   [DAE2 dossier](docs/wiki/binaryen/passes/dae2/starshine-strategy.md),
@@ -652,8 +648,10 @@ quality gates. Keep traced inner and normal command measurements separate.
   No measured Starshine raw-shape benefit; keep the writer lead open.
   [Inspected sections and normalization](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#continuation-probe-follow-up).
 
-- [ ] Reduce and attribute the remaining **99,251-byte canonical optimizing gap**
-  by function/diff family. V32 removes 32,070 balanced capture pairs and saves
+- [ ] Attribute remaining DAE2 optimizing shape differences by function/diff
+  family. The historical **99,251-byte canonical gap** reversed to a 3,455-byte
+  Starshine win in the October 14 fixed large-fixture replay; this does not
+  establish parity on other inputs. V32 removes 32,070 balanced capture pairs and saves
   147,876 raw / 53,470 canonical bytes without per-function pair regressions.
   V38 removes immutable parameter aliases without per-function raw size losses,
   saving another 12,417 raw / 12,850 canonical bytes. V47 removes dominated
@@ -702,8 +700,9 @@ quality gates. Keep traced inner and normal command measurements separate.
   cost while preserving its 79,962 canonical / 75,580 raw compiler-byte saving.
   Both final remappers now retire unread body writes with complete handler/alias
   demand, preserving producer effects, traps and stack values. 4,968 compiler
-  functions shrink without growth; raw output wins 9,949 bytes against v133,
-  while the canonical deficit remains 99,251. Native cold/handler controls are
+  functions shrink without growth; that historical raw output won 9,949 bytes
+  against v133 while the canonical output lost 99,251. The October 14 replay
+  reverses that canonical result. Native cold/handler controls are
   approximately flat; active 64-tee/set controls add .931/.745 µs for new work.
   Matched large O improves 1.18%; tee O initially costs 1.75% and
   its bounded repeat costs .39%. See [unread-write evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-1-2026-retire-unread-optimizing-body-writes).

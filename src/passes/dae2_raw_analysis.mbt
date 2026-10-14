@@ -333,20 +333,21 @@ fn dae2_raw_qualified_instructions(
   // Reject unsupported control before allocating symbolic stack/edge data.
   for position in 0..<instructions.length() {
     let instr = instructions[position]
-    if dae2_raw_pure_arity(instr) >= 0 ||
-      dae2_raw_observer_arity(instr) >= 0 ||
-      dae2_raw_observed_producer_arity(instr, module_context) >= 0 {
-      continue
-    }
     match instr {
       @lib.Nop
       | @lib.Drop
+      | @lib.LocalGet(_)
       | @lib.LocalSet(_)
       | @lib.LocalTee(_)
+      | @lib.I32Const(_)
+      | @lib.I64Const(_)
+      | @lib.F32Const(_)
+      | @lib.F64Const(_)
+      | @lib.GlobalGet(_)
       | @lib.Call(_)
       | @lib.CallIndirect(_, _)
-      | @lib.CallRef(_) => ()
-      @lib.Return if position == instructions.length() - 1 => ()
+      | @lib.CallRef(_) => continue
+      @lib.Return if position == instructions.length() - 1 => continue
       @lib.Block(_, _) => {
         let flattened = match
           dae2_raw_branchless_instructions(instructions, first_block=position) {
@@ -355,7 +356,14 @@ fn dae2_raw_qualified_instructions(
         }
         return dae2_raw_qualified_instructions(flattened, module_context)
       }
-      _ => return None
+      _ =>
+        if dae2_raw_pure_arity(instr) >= 0 ||
+          dae2_raw_observer_arity(instr) >= 0 ||
+          dae2_raw_observed_producer_arity(instr, module_context) >= 0 {
+          continue
+        } else {
+          return None
+        }
     }
   }
   Some(instructions)
