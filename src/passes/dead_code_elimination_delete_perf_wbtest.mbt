@@ -64,6 +64,45 @@ fn dce_delete_perf_bench(
 }
 
 ///|
+test "DCE batches many small detached deletion scans" {
+  let (func, detached) = dce_delete_perf_fixture(512, 64)
+  let ctx = dce_delete_perf_ctx()
+  let scan_visits = [0]
+  let cache = DeadCodeEliminationNodeUseCache::new(
+    func,
+    defer_deletion=true,
+    reference_scan_visits=Some(scan_visits),
+  )
+  for node_id in detached {
+    dead_code_elimination_delete_unused_nodes(ctx, func, cache, [node_id])
+  }
+  dead_code_elimination_flush_unused_nodes(ctx, func, cache)
+  for node_id in detached {
+    assert_false(@ir.hot_node_is_live(func, node_id))
+  }
+  assert_true(
+    scan_visits[0] <= @ir.hot_node_count(func) * 2,
+    msg="scan visits=\{scan_visits[0]}",
+  )
+}
+
+///|
+test "DCE batch keeps nodes reattached or held by another detached node" {
+  let (func, detached) = dce_delete_perf_fixture(8, 3)
+  let ctx = dce_delete_perf_ctx()
+  let cache = DeadCodeEliminationNodeUseCache::new(func, defer_deletion=true)
+  ignore(@ir.hot_build_drop(func, detached[1]))
+  for node_id in detached {
+    dead_code_elimination_delete_unused_nodes(ctx, func, cache, [node_id])
+  }
+  @ir.hot_append_root(func, detached[0])
+  dead_code_elimination_flush_unused_nodes(ctx, func, cache)
+  assert_true(@ir.hot_node_is_live(func, detached[0]))
+  assert_true(@ir.hot_node_is_live(func, detached[1]))
+  assert_false(@ir.hot_node_is_live(func, detached[2]))
+}
+
+///|
 test "DCE small deletion keeps live references" {
   let (func, detached) = dce_delete_perf_fixture(8, 2)
   @ir.hot_append_root(func, detached[1])

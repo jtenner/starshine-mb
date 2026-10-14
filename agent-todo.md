@@ -30,9 +30,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
   measured storage improvement and unchanged runtime observations.
-- [ ] **[AUDIT-20261013]012 — DCE detached references:** batch deletion or
-  reuse a valid reference index instead of scanning all nodes for each small
-  detached set. Red scaling test: many dead roots. Exit: less work, same IR.
 - [ ] **[AUDIT-20261013]013 — merge-locals no-change path:** avoid full graph
   and lowering work when no copy rewrite survives. Red test: copy-shaped writes
   with no eligible reads. Exit: unchanged HOT revision/output and lower cost.

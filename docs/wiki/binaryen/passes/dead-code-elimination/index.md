@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-10-13
 sources:
   - ../../../../../src/passes/dead_code_elimination.mbt
   - ../../../../../src/passes/dead_code_elimination_test.mbt
@@ -37,6 +37,16 @@ related:
 ---
 
 # `dead-code-elimination`
+
+## 2026-10-13 detached-node deletion
+
+The HOT pass now collects small detached sets and checks their references once
+after its region walk. Direct deletion calls stay eager. The final check keeps
+nodes that became roots or remain referenced by other detached nodes. A
+576-node test that queued 64 sets measured 36,864 full-node reference visits
+before this change and 576 after it. These are scan counts, not native runtime
+measurements. Existing DCE tests still check the lowered output and label
+ownership rules.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
