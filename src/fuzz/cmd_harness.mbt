@@ -576,11 +576,11 @@ fn fuzz_cmd_harness_pass_profile(
 }
 
 ///|
-fn run_fuzz_cmd_harness_profile(
+fn run_fuzz_cmd_harness_profile_with_sequence(
   profile : String,
   seed : UInt64,
   on_failure? : ((FuzzCmdHarnessFailureReport) -> Result[Unit, String])? = None,
-) -> Result[Int, String] {
+) -> Result[(Int, String, Array[String]), String] {
   let parts : Array[String] = []
   for part in profile.trim().to_owned().split("+") {
     parts.push(part.to_owned())
@@ -653,16 +653,20 @@ fn run_fuzz_cmd_harness_profile(
       Err(msg) => return Err(msg)
     }
   }
-  run_fuzz_cmd_harness(
-    valid_target,
-    seed,
-    optimize_passes~,
-    generator_config~,
-    check_optimize_idempotence~,
-    check_encode_decode_idempotence~,
-    check_optimizer_determinism~,
-    generator_profile~,
-    pass_profile~,
-    on_failure~,
-  )
+  match
+    run_fuzz_cmd_harness(
+      valid_target,
+      seed,
+      optimize_passes~,
+      generator_config~,
+      check_optimize_idempotence~,
+      check_encode_decode_idempotence~,
+      check_optimizer_determinism~,
+      generator_profile~,
+      pass_profile~,
+      on_failure~,
+    ) {
+    Ok(attempts) => Ok((attempts, pass_profile, optimize_passes))
+    Err(message) => Err(message)
+  }
 }

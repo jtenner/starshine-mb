@@ -641,12 +641,33 @@ test "interaction random profile is bounded and keeps legacy seed mapping" {
     passes,
     pass_registry_random_executable_sequence(profile, seed),
   )
+  for i in 0..<passes.length() {
+    for j in 0..<passes.length() {
+      if j > i {
+        assert_true(passes[i] != passes[j])
+      }
+    }
+  }
   for name in passes {
     @debug.assert_eq(
       pass_registry_category(name),
       Some(HotPassRegistryCategory::hot_pass()),
     )
   }
+  @debug.assert_eq(passes, ["merge-blocks", "precompute-propagate"])
+  @debug.assert_eq(pass_registry_random_executable_sequence(profile, 0UL), [
+    "merge-blocks", "optimize-instructions", "simplify-locals", "pick-load-signs",
+    "heap2local",
+  ])
+  @debug.assert_eq(pass_registry_random_executable_sequence(profile, 1UL), [
+    "remove-unused-brs", "precompute-propagate", "pick-load-signs",
+  ])
+  @debug.assert_eq(pass_registry_random_executable_sequence(profile, 5UL), [
+    "heap2local", "optimize-casts", "precompute-propagate", "heap-store-optimization",
+  ])
+  @debug.assert_eq(pass_registry_random_executable_sequence(profile, 11UL), [
+    "vacuum", "dead-code-elimination", "heap-store-optimization",
+  ])
   @debug.assert_eq(
     pass_registry_random_executable_sequence("random-short", seed),
     ["remove-unused-brs", "merge-blocks", "remove-unused-brs"],

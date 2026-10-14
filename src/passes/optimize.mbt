@@ -535,9 +535,15 @@ pub fn pass_registry_random_executable_sequence(
   profile : String,
   seed : UInt64,
 ) -> Array[String] {
-  let compatible_names = [
-    "remove-unused-names", "remove-unused-brs", "vacuum", "merge-blocks",
-  ]
+  let compatible_names = if profile == "random-interaction-short" {
+    [
+      "precompute-propagate", "optimize-instructions", "dead-code-elimination", "simplify-locals",
+      "heap2local", "optimize-casts", "heap-store-optimization", "pick-load-signs",
+      "remove-unused-brs", "vacuum", "merge-blocks",
+    ]
+  } else {
+    ["remove-unused-names", "remove-unused-brs", "vacuum", "merge-blocks"]
+  }
   let eligible : Array[String] = []
   for name in compatible_names {
     match pass_registry_lookup(name) {
@@ -549,6 +555,9 @@ pub fn pass_registry_random_executable_sequence(
   if eligible.length() == 0 {
     return []
   }
+  if profile == "random-interaction-short" && eligible.length() < 2 {
+    return []
+  }
   let mut ordinal = 0UL
   let next = fn() {
     let value = pass_registry_splitmix_word(seed, ordinal)
@@ -556,6 +565,7 @@ pub fn pass_registry_random_executable_sequence(
     value
   }
   let length = match profile {
+    "random-interaction-short" => 2 + (next() % 4UL).to_int()
     "random-short" => 1 + (next() % 5UL).to_int()
     "random-medium" => 2 + (next() % 11UL).to_int()
     "random-long" => 12 + (next() % 21UL).to_int()
@@ -572,8 +582,21 @@ pub fn pass_registry_random_executable_sequence(
     _ => 0
   }
   let passes : Array[String] = []
-  for _ in 0..<length {
-    let idx = (next() % eligible.length().to_uint64()).to_int()
+  let selection_length = if profile == "random-interaction-short" &&
+    length > eligible.length() {
+    eligible.length()
+  } else {
+    length
+  }
+  for _ in 0..<selection_length {
+    let mut idx = (next() % eligible.length().to_uint64()).to_int()
+    if profile == "random-interaction-short" {
+      let mut probes = 0
+      while passes.contains(eligible[idx]) && probes < eligible.length() {
+        idx = (idx + 1) % eligible.length()
+        probes += 1
+      }
+    }
     passes.push(eligible[idx])
   }
   passes
