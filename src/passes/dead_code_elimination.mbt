@@ -766,6 +766,9 @@ fn dead_code_elimination_can_voidify_control(
   if @ir.hot_node_result_arity(func, node_id) == 0 {
     return false
   }
+  if dead_code_elimination_control_has_entry_params(func, node_id) {
+    return false
+  }
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block =>
       dead_code_elimination_label_has_incoming_branch(
@@ -794,6 +797,17 @@ fn dead_code_elimination_can_voidify_control(
         ),
         node_id,
       )
+    _ => false
+  }
+}
+
+///|
+fn dead_code_elimination_control_has_entry_params(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_type_get(func, @ir.hot_node_type(func, node_id)) {
+    @ir.HotTypeInfo::BlockResultResolved(_, params, _) => params.length() > 0
     _ => false
   }
 }
@@ -1476,6 +1490,10 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
       return false
     }
   }
+  if dead_code_elimination_control_has_entry_params(func, payload_if) ||
+    dead_code_elimination_control_has_entry_params(func, forwarder) {
+    return false
+  }
   let then_region = @ir.hot_region_then_ref(func, payload_if)
   let else_region = match @ir.hot_region_else_ref(func, payload_if) {
     Some(else_region) => else_region
@@ -2040,7 +2058,11 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
                       _ => false
                     }
                   }
-                  if arm_is_bare_br(then_region) && arm_is_bare_br(else_region) {
+                  if arm_is_bare_br(then_region) &&
+                    arm_is_bare_br(else_region) &&
+                    !dead_code_elimination_control_has_entry_params(
+                      func, direct_if,
+                    ) {
                     @ir.hot_control_result_type_set(
                       func,
                       direct_if,
@@ -2223,12 +2245,11 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
         @ir.HotOp::Unreachable => true
         _ => false
       }
-      if tail_is_void_if && last_is_unreachable {
-        @ir.hot_control_result_type_set(
-          func,
-          payload_forwarder_tail,
-          @ir.hot_type_void(func),
-        )
+      if tail_is_void_if &&
+        last_is_unreachable &&
+        !dead_code_elimination_control_has_entry_params(
+          func, payload_forwarder_tail,
+        ) {
         let then_region = @ir.hot_region_then_ref(func, payload_forwarder_tail)
         let else_region = match
           @ir.hot_region_else_ref(func, payload_forwarder_tail) {
@@ -2348,7 +2369,11 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
                   _ => false
                 }
               }
-              if arm_is_bare_br(then_region) && arm_is_bare_br(else_region) {
+              if arm_is_bare_br(then_region) &&
+                arm_is_bare_br(else_region) &&
+                !dead_code_elimination_control_has_entry_params(
+                  func, payload_if,
+                ) {
                 @ir.hot_control_result_type_set(
                   func,
                   payload_if,
@@ -2417,6 +2442,9 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
       trace_split("inner-br-not-br")
       return false
     }
+  }
+  if dead_code_elimination_control_has_entry_params(func, match_.payload_if) {
+    return false
   }
 
   let node_roots : Array[Int] = []
@@ -3080,6 +3108,9 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
     _ => return false
   }
   if @ir.hot_node_result_arity(func, node_id) == 0 {
+    return false
+  }
+  if dead_code_elimination_control_has_entry_params(func, node_id) {
     return false
   }
   let label_id = @ir.hot_control_node_label(func, node_id)

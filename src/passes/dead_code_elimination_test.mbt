@@ -2395,3 +2395,74 @@ test "dead-code-elimination finds a nested dead branch in a large function" {
     msg="DCE retained the nested dead branch in a large function",
   )
 }
+
+///|
+test "dead-code-elimination preserves a shared typed if entry value" {
+  let input =
+    #|(module (func (param i32)
+    #|  (drop (if (param i32) (result i32)
+    #|    (block (result i32)
+    #|      local.get 0
+    #|      if unreachable i32.const 2 br 1 end
+    #|      i32.const 3)
+    #|    (local.get 0)
+    #|    (then drop i32.const 2)
+    #|    (else drop i32.const 3)))))
+  let trace : Array[String] = []
+  let output = match
+    pass_test_run_pipeline(
+      input,
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed if DCE success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("writeback-batch-invalid") }),
+    msg=trace.to_string(),
+  )
+  @validate.validate_module(output).unwrap()
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
+  assert_false(
+    dead_code_elimination_test_instrs_any(body, fn(instr) {
+      instr is @lib.Br(_)
+    }),
+    msg="DCE retained the dead branch in a typed if entry",
+  )
+}
+
+///|
+test "dead-code-elimination does not repeat a typed if entry call" {
+  let input =
+    #|(module
+    #|  (import "env" "tick" (func $tick (result i32)))
+    #|  (func (param i32)
+    #|    (drop (if (param i32) (result i32)
+    #|      (block (result i32)
+    #|        call $tick
+    #|        drop
+    #|        local.get 0
+    #|        if unreachable i32.const 2 br 1 end
+    #|        i32.const 3)
+    #|      (local.get 0)
+    #|      (then drop i32.const 2)
+    #|      (else drop i32.const 3)))))
+  let trace : Array[String] = []
+  let output = match
+    pass_test_run_pipeline(
+      input,
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed if call DCE success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("writeback-batch-invalid") }),
+    msg=trace.to_string(),
+  )
+  @validate.validate_module(output).unwrap()
+  let pretty = output.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_eq(dead_code_elimination_test_count_occurrences(pretty, "(call "), 1)
+}

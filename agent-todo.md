@@ -30,16 +30,13 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
   measured storage improvement and unchanged runtime observations.
-- [ ] **[AUDIT-20261013]024 — DCE shared `if` entry value:** a typed `if`
-  shares a value block between its entry operand and both arms. DCE's HOT
-  rewrite lowers with an extra i32 on the function stack; the writeback guard
-  rejects it and keeps the original branch. This occurs before and after the
-  nested-value repair. Add a focused red test for the guard fallback, then
-  repair the rewrite without duplicating entry-value effects. The fixture is
-  `(module (func (param i32) (drop (if (param i32) (result i32)
-  (block (result i32) local.get 0 if unreachable i32.const 2 br 1 end
-  i32.const 3) (local.get 0) (then drop i32.const 2)
-  (else drop i32.const 3)))))`.
+- [ ] **[AUDIT-20261013]025 — nested DCE scan cost:** the issue 023 repair
+  raised summed DCE time across 308 calls on a fixed 6.2 MB module from
+  22.564 to 86.801 ms and median whole-command time from 872.672 to
+  957.668 ms. Keep the nested dead-branch fixture green while reducing scan
+  work; use alternating native release samples and track output validity,
+  code size, DCE time, and whole-command time. Exit: a measured reduction
+  without losing the nested cleanup or changing live branch behavior.
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 

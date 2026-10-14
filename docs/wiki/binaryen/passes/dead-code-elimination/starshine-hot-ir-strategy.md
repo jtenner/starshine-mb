@@ -393,11 +393,21 @@ alternating native release runs on one CPU gave median summed DCE time for 308
 calls of 22.564 ms before and 86.801 ms after. Median whole-command time rose
 from 872.672 to 957.668 ms. Output shrank by 3,267 bytes, and Binaryen 133
 validated the result with all features enabled. The gain is in dead-code
-removal; this repair does not establish a performance improvement.
+removal; this repair does not establish a performance improvement. The scan
+cost is tracked as `[AUDIT-20261013]025`.
 
-A typed `if` with a shared entry-value block still fails HOT writeback with an
-extra stack value and falls back to the original function. That failure also
-occurs before this repair. It is tracked as `[AUDIT-20261013]024`.
+## October 14, 2026: typed control entry values
+
+A typed `if` with a shared entry-value block failed HOT writeback with an
+extra i32 on the function stack. The writeback guard kept the original
+function, including a dead branch. The focused test first failed with
+`writeback-batch-invalid`. DCE had changed the `if` type to void and lost its
+entry parameter, while lowering still emitted the entry value.
+
+DCE now preserves a control's type when it has entry parameters. The guard
+covers ordinary voidification and specialized branch forwarders. A separate
+effectful-entry test confirms that the lowered function contains one call.
+The focused DCE tests pass 97 tests; the full pass suite passes 9,217 tests.
 
 ## October 14, 2026: branch cache after deferred deletion
 
