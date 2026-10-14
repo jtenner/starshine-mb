@@ -1,14 +1,24 @@
 ### 2026-10-14 — Avoid private handles for adjacent shared-object conversions
 
+- A follow-up red test found that pair-only modules still carried an unused
+  externref table and two handle helper functions. The conversion scan now
+  requests them only for an unpaired conversion or an externref import/export
+  boundary. The complete module and dispatcher tests validate the result.
+  Native output for the same pair-only input falls from 187 to 107 bytes;
+  five runtime calls still return `7`, with the same ten host calls in order.
+  `moon info`, `moon fmt`, the native release build, all 9,219 pass tests, and
+  all 688 command tests pass. A separate exported externref replay still grows
+  the table by one per call while preserving object identity.
 - The red rewrite test showed that adjacent `extern.convert_any` and
   `any.convert_extern` emitted a table write and read between the two host
   conversion calls. The pass now removes that private handle roundtrip. The
   host calls keep their order, and separated conversions retain both table
   calls. The dispatcher test checks the complete module and final validation.
-- A native replay of five adjacent roundtrips returned `7` each time and kept
-  the private table at length zero. Replaying the red test's old helper-call
-  sequence in the same binary grew the table from zero to five. Both runs made
-  the same ten host calls in the same order. The new module is 187 bytes;
+- In the prior checkpoint, a native replay of five adjacent roundtrips
+  returned `7` each time and kept the private table at length zero. Replaying
+  the red test's old helper-call sequence in the same binary grew the table
+  from zero to five. Both runs made the same ten host calls in the same order.
+  The new module is 187 bytes;
   the replayed old sequence is 191 bytes. This is a controlled sequence
   replay, not an independently built old revision. Repeated exported externref
   traffic still grows the table by one per non-null conversion. Its handles

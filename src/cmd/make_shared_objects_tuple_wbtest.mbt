@@ -33,6 +33,8 @@ test "dispatcher make-shared-objects avoids an adjacent conversion handle" {
     OptimizeOptions::new(),
   ).unwrap()
   @validate.validate_module(output).unwrap()
+  @debug.assert_eq(output.table_sec, None)
+  @debug.assert_eq(output.code_sec.unwrap().0.length(), 1)
   let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[0]
   @debug.assert_eq(body, [
     @lib.Instruction::i32_const(@lib.I32(7)),
