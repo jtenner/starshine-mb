@@ -30,11 +30,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
   measured storage improvement and unchanged runtime observations.
-- [ ] **[AUDIT-20261013]021 — DCE detached branch cache:** a focused helper
-  test reproduced a stale incoming-label bit after removing a branch root while
-  deletion is deferred. The removed node remains live until final flush.
-  Repair the cache without making large-function DCE scans expensive; confirm
-  a full-pass trigger and retain the red/green evidence.
 - [ ] **[AUDIT-20261013]022 — local-CSE names:** preserve existing local names
   when local-CSE appends temporary locals. It currently clears every local-name
   entry after any rewrite. Red test: named unchanged function beside a function

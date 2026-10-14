@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-09-24
+last_reviewed: 2026-10-14
 sources:
   - ./index.md
   - ../../../../../src/passes/dead_code_elimination.mbt
@@ -9,6 +9,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_code_elimination_test.mbt
   - ../../../../../src/passes/dead_code_elimination_wbtest.mbt
+  - ../../../../../src/passes/dead_code_elimination_cache_wbtest.mbt
   - ../../../../../src/passes/dead_code_elimination_delete_perf_wbtest.mbt
   - ../../../../../src/passes/dead_code_elimination_label_targets_wbtest.mbt
   - ../../../../../src/passes/dead_code_elimination_live_repro_test.mbt
@@ -372,6 +373,26 @@ That makes the current subset easy to teach honestly:
 
 - **what it does today:** a broader HOT cleanup family around dead dropped values, dead-result control, payload-forwarder repair, and explicit tail repair
 - **what it does not equal:** upstream Binaryen's smaller `TypeUpdater`-centered `dce`
+
+## October 14, 2026: branch cache after deferred deletion
+
+DCE defers deletion of removed HOT nodes. A removed branch can therefore remain
+live in the arena after its root is spliced away. The branch-user cache used to
+count that detached branch as an incoming label user. A focused helper test
+first populated all three branch cache views, removed the branch root, and
+failed because the incoming-label bit stayed set. A second test showed that a
+cached branch-free result stayed false after adding a new HOT branch.
+
+Root removal and replacement now invalidate the cache. A change in HOT node
+count also invalidates it. After either event, cache rebuilds traverse from
+function roots and ignore detached nodes. The ordinary first scan retains the
+arena scan. Both focused tests pass. A native release replay on a fixed 6.2 MB
+module produced identical output hashes. Across five alternating measured
+runs on one CPU, median summed DCE time for 308 pass calls changed from
+21.022 to 22.605 ms; median whole-command time changed from 866.811 to
+873.973 ms. The pass-time increase is measurable; the command-time ranges
+overlap. All 9,212 pass tests pass. A full-pass case that changes final output
+because of this stale cache has not been isolated.
 
 ## September 25, 2026: label-owned detached deletion candidates
 

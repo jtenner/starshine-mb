@@ -36,6 +36,9 @@ priv struct DeadCodeEliminationFallthroughCache {
 
 ///|
 priv struct DeadCodeEliminationBranchUserCache {
+  mut attached : @bitset.BitSet?
+  mut node_count : Int
+  mut needs_attached_scan : Bool
   mut has_any_branch : Bool?
   mut has_incoming_by_label : @bitset.BitSet?
   mut by_label : Array[Array[Int]]?
@@ -121,13 +124,22 @@ fn dead_code_elimination_ensure_first_unreachable_cache_capacity(
 
 ///|
 fn DeadCodeEliminationBranchUserCache::new() -> DeadCodeEliminationBranchUserCache {
-  { has_any_branch: None, has_incoming_by_label: None, by_label: None, }
+  {
+    attached: None,
+    node_count: -1,
+    needs_attached_scan: false,
+    has_any_branch: None,
+    has_incoming_by_label: None,
+    by_label: None,
+  }
 }
 
 ///|
 fn dead_code_elimination_invalidate_branch_user_cache(
   cache : DeadCodeEliminationBranchUserCache,
 ) -> Unit {
+  cache.attached = None
+  cache.needs_attached_scan = true
   cache.has_any_branch = None
   cache.has_incoming_by_label = None
   cache.by_label = None
@@ -509,6 +521,7 @@ fn dead_code_elimination_record_incoming_branch_target(
 ///|
 fn dead_code_elimination_build_branch_users_by_label(
   func : @ir.HotFunc,
+  attached : @bitset.BitSet?,
 ) -> Array[Array[Int]] {
   let branch_users_by_label : Array[Array[Int]] = []
   let last_seen_branch : Array[Int] = []
@@ -519,7 +532,11 @@ fn dead_code_elimination_build_branch_users_by_label(
   for branch_id = 0
       branch_id < @ir.hot_node_count(func)
       branch_id = branch_id + 1 {
-    if !@ir.hot_node_is_live(func, branch_id) {
+    let detached = match attached {
+      Some(nodes) => !nodes[branch_id]
+      None => false
+    }
+    if !@ir.hot_node_is_live(func, branch_id) || detached {
       continue
     }
     match @ir.hot_branch_target(func, branch_id) {
@@ -541,12 +558,17 @@ fn dead_code_elimination_build_branch_users_by_label(
 ///|
 fn dead_code_elimination_build_has_incoming_branches_by_label(
   func : @ir.HotFunc,
+  attached : @bitset.BitSet?,
 ) -> @bitset.BitSet {
   let has_incoming_by_label = @bitset.BitSet::new(func.labels.length())
   for branch_id = 0
       branch_id < @ir.hot_node_count(func)
       branch_id = branch_id + 1 {
-    if !@ir.hot_node_is_live(func, branch_id) {
+    let detached = match attached {
+      Some(nodes) => !nodes[branch_id]
+      None => false
+    }
+    if !@ir.hot_node_is_live(func, branch_id) || detached {
       continue
     }
     match @ir.hot_branch_target(func, branch_id) {
@@ -608,16 +630,71 @@ fn dead_code_elimination_build_empty_incoming_branches_by_label(
 }
 
 ///|
+fn dead_code_elimination_refresh_branch_cache_capacity(
+  cache : DeadCodeEliminationBranchUserCache,
+  func : @ir.HotFunc,
+) -> Unit {
+  let count = @ir.hot_node_count(func)
+  if cache.node_count < 0 {
+    cache.node_count = count
+  } else if cache.node_count != count {
+    dead_code_elimination_invalidate_branch_user_cache(cache)
+    cache.node_count = count
+  }
+}
+
+///|
+fn dead_code_elimination_require_attached_nodes(
+  cache : DeadCodeEliminationBranchUserCache,
+  func : @ir.HotFunc,
+) -> @bitset.BitSet? {
+  dead_code_elimination_refresh_branch_cache_capacity(cache, func)
+  if !cache.needs_attached_scan {
+    return None
+  }
+  match cache.attached {
+    Some(attached) => Some(attached)
+    None => {
+      let attached = @bitset.BitSet::new(@ir.hot_node_count(func))
+      let stack : Array[Int] = []
+      for idx in 0..<@ir.hot_root_count(func) {
+        stack.push(@ir.hot_root_get(func, idx))
+      }
+      while !stack.is_empty() {
+        let node_id = stack.pop().unwrap()
+        if node_id < 0 ||
+          !@ir.hot_node_is_live(func, node_id) ||
+          attached[node_id] {
+          continue
+        }
+        attached[node_id] = true
+        for slot in 0..<@ir.hot_child_count(func, node_id) {
+          stack.push(@ir.hot_child_get(func, node_id, slot))
+        }
+      }
+      cache.attached = Some(attached)
+      Some(attached)
+    }
+  }
+}
+
+///|
 fn dead_code_elimination_require_has_any_branch(
   cache : DeadCodeEliminationBranchUserCache,
   func : @ir.HotFunc,
 ) -> Bool {
+  dead_code_elimination_refresh_branch_cache_capacity(cache, func)
   match cache.has_any_branch {
     Some(existing) => existing
     None => {
+      let attached = dead_code_elimination_require_attached_nodes(cache, func)
       let mut has_any_branch = false
       for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-        if !@ir.hot_node_is_live(func, node_id) {
+        let detached = match attached {
+          Some(nodes) => !nodes[node_id]
+          None => false
+        }
+        if !@ir.hot_node_is_live(func, node_id) || detached {
           continue
         }
         if @ir.hot_node_has_flag(func, node_id, @ir.HOT_FLAG_BRANCH) ||
@@ -638,11 +715,15 @@ fn dead_code_elimination_require_has_incoming_branches_by_label(
   cache : DeadCodeEliminationBranchUserCache,
   func : @ir.HotFunc,
 ) -> @bitset.BitSet {
+  dead_code_elimination_refresh_branch_cache_capacity(cache, func)
   match cache.has_incoming_by_label {
     Some(existing) => existing
     None => {
       let built = if dead_code_elimination_require_has_any_branch(cache, func) {
-        dead_code_elimination_build_has_incoming_branches_by_label(func)
+        dead_code_elimination_build_has_incoming_branches_by_label(
+          func,
+          dead_code_elimination_require_attached_nodes(cache, func),
+        )
       } else {
         dead_code_elimination_build_empty_incoming_branches_by_label(func)
       }
@@ -657,11 +738,15 @@ fn dead_code_elimination_require_branch_users_by_label(
   cache : DeadCodeEliminationBranchUserCache,
   func : @ir.HotFunc,
 ) -> Array[Array[Int]] {
+  dead_code_elimination_refresh_branch_cache_capacity(cache, func)
   match cache.by_label {
     Some(existing) => existing
     None => {
       let built = if dead_code_elimination_require_has_any_branch(cache, func) {
-        dead_code_elimination_build_branch_users_by_label(func)
+        dead_code_elimination_build_branch_users_by_label(
+          func,
+          dead_code_elimination_require_attached_nodes(cache, func),
+        )
       } else {
         dead_code_elimination_build_empty_branch_users_by_label(func)
       }
@@ -1496,7 +1581,8 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
   } else {
     ignore(
       dead_code_elimination_replace_root_with_child(
-        ctx, func, node_use_cache, forwarder_body, inner_br_idx, payload_if,
+        ctx, func, branch_user_cache, node_use_cache, forwarder_body, inner_br_idx,
+        payload_if,
       ),
     )
     ignore(
@@ -1962,8 +2048,8 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
                     )
                     ignore(
                       dead_code_elimination_replace_root_with_child(
-                        ctx, func, node_use_cache, payload_forwarder_body, direct_br_idx,
-                        direct_if,
+                        ctx, func, branch_user_cache, node_use_cache, payload_forwarder_body,
+                        direct_br_idx, direct_if,
                       ),
                     )
                     ignore(
@@ -2567,6 +2653,7 @@ fn dead_code_elimination_collect_first_unreachable_child_cleanup(
 fn dead_code_elimination_try_preserve_prefix_before_unreachable_child(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
   region_ref : @ir.HotRegionRef,
   idx : Int,
@@ -2593,6 +2680,7 @@ fn dead_code_elimination_try_preserve_prefix_before_unreachable_child(
     )
   }
   let removed = pass_splice_region(ctx, func, region_ref, idx, 1, replacement)
+  dead_code_elimination_invalidate_branch_user_cache(branch_user_cache)
   dead_code_elimination_delete_unused_nodes(ctx, func, node_use_cache, removed)
   true
 }
@@ -2601,6 +2689,7 @@ fn dead_code_elimination_try_preserve_prefix_before_unreachable_child(
 fn dead_code_elimination_try_replace_literal_unreachable_loop_root(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
   region_ref : @ir.HotRegionRef,
   idx : Int,
@@ -2627,7 +2716,7 @@ fn dead_code_elimination_try_replace_literal_unreachable_loop_root(
   }
   ignore(
     dead_code_elimination_replace_root_with_child(
-      ctx, func, node_use_cache, region_ref, idx, body_root,
+      ctx, func, branch_user_cache, node_use_cache, region_ref, idx, body_root,
     ),
   )
   true
@@ -2672,6 +2761,7 @@ fn dead_code_elimination_try_voidify_split_drop_control(
     dead_code_elimination_remove_roots(
       ctx,
       func,
+      branch_user_cache,
       node_use_cache,
       region_ref,
       idx + 1,
@@ -3020,6 +3110,7 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
 fn dead_code_elimination_remove_roots(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
   region_ref : @ir.HotRegionRef,
   idx : Int,
@@ -3036,6 +3127,7 @@ fn dead_code_elimination_remove_roots(
     remove_count,
     [],
   )
+  dead_code_elimination_invalidate_branch_user_cache(branch_user_cache)
   let detached : Array[Int] = []
   for node_id in removed_roots {
     dead_code_elimination_collect_detached_nodes(func, node_id, detached, 32)
@@ -3051,12 +3143,14 @@ fn dead_code_elimination_remove_roots(
 fn dead_code_elimination_replace_root_with_child(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
   region_ref : @ir.HotRegionRef,
   idx : Int,
   child_id : Int,
 ) -> Bool {
   let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [child_id])
+  dead_code_elimination_invalidate_branch_user_cache(branch_user_cache)
   dead_code_elimination_delete_unused_nodes(ctx, func, node_use_cache, removed)
   true
 }
@@ -3179,13 +3273,13 @@ fn dead_code_elimination_visit_region(
       continue
     }
     if dead_code_elimination_try_replace_literal_unreachable_loop_root(
-        ctx, func, node_use_cache, region_ref, idx, node_id,
+        ctx, func, branch_user_cache, node_use_cache, region_ref, idx, node_id,
       ) {
       changed = true
       continue
     }
     if dead_code_elimination_try_preserve_prefix_before_unreachable_child(
-        ctx, func, node_use_cache, region_ref, idx, node_id,
+        ctx, func, branch_user_cache, node_use_cache, region_ref, idx, node_id,
       ) {
       changed = true
       continue
@@ -3261,7 +3355,7 @@ fn dead_code_elimination_visit_region(
             ) {
             ignore(
               dead_code_elimination_replace_root_with_child(
-                ctx, func, node_use_cache, region_ref, idx, child_id,
+                ctx, func, branch_user_cache, node_use_cache, region_ref, idx, child_id,
               ),
             )
             ignore(
@@ -3290,7 +3384,7 @@ fn dead_code_elimination_visit_region(
         dead_code_elimination_node_is_pure(purity_cache, func, node_id) {
         ignore(
           dead_code_elimination_remove_roots(
-            ctx, func, node_use_cache, region_ref, idx, 1,
+            ctx, func, branch_user_cache, node_use_cache, region_ref, idx, 1,
           ),
         )
         changed = true
@@ -3371,6 +3465,7 @@ fn dead_code_elimination_visit_region(
           dead_code_elimination_remove_roots(
             ctx,
             func,
+            branch_user_cache,
             node_use_cache,
             region_ref,
             idx + 1,
