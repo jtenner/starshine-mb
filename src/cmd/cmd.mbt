@@ -10974,6 +10974,7 @@ test "dae2 variants preserve recursive type prefixes while removing dead argumen
     assert_eq(@binary.encode_module(input).unwrap(), saved)
   }
 }
+
 ///|
 test "command package consumer preserves exact host-root function indices" {
   let input = @passes.pass_test_module_from_wat(
