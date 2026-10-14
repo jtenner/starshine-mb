@@ -393,8 +393,8 @@ alternating native release runs on one CPU gave median summed DCE time for 308
 calls of 22.564 ms before and 86.801 ms after. Median whole-command time rose
 from 872.672 to 957.668 ms. Output shrank by 3,267 bytes, and Binaryen 133
 validated the result with all features enabled. The gain is in dead-code
-removal; this repair does not establish a performance improvement. The scan
-cost is tracked as `[AUDIT-20261013]025`.
+removal; this repair does not establish a performance improvement. The added
+cost was followed up under `[AUDIT-20261013]025` below.
 
 ## October 14, 2026: typed control entry values
 
@@ -408,6 +408,23 @@ DCE now preserves a control's type when it has entry parameters. The guard
 covers ordinary voidification and specialized branch forwarders. A separate
 effectful-entry test confirms that the lowered function contains one call.
 The focused DCE tests pass 97 tests; the full pass suite passes 9,217 tests.
+
+## October 14, 2026: count-only analysis for nested DCE
+
+The broader traversal requests node-use counts after graph revisions. DCE
+previously rebuilt a full use-def map with per-use sites and local-use lists,
+although it only queried counts. A before/after profile showed more use-def
+work after nested cleanup was enabled. The count cache now uses the existing
+reachable-root and child-reference count analysis.
+
+The native release red baseline is commit `737ec92ca`. On the fixed 6.2 MB
+input, five alternating measured runs pinned to CPU 6 reduced median summed
+DCE time for 308 calls from 93.769 to 47.003 ms. Median whole-command time
+fell from 1059.649 to 982.350 ms. The output remained 6,205,808 bytes with
+the same SHA-256 hash, `7ca509a75a42ccdc301edc74197ddd7fed5f37b51efca135939f2e1f71dd98bf`.
+The candidate still costs more DCE time than the pre-nested baseline; this
+measurement shows a useful reduction, not full recovery. The focused DCE
+tests pass 97 tests and the full pass suite passes 9,217 tests.
 
 ## October 14, 2026: branch cache after deferred deletion
 

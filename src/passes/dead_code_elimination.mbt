@@ -19,7 +19,7 @@ pub fn dead_code_elimination_summary() -> String {
 ///|
 priv struct DeadCodeEliminationNodeUseCache {
   mut revision : Int
-  mut use_def : @ir.HotUseDef?
+  mut use_counts : @ir.HotNodeUseCounts?
   first_unreachable_revision : Array[Int]
   first_unreachable_absent : @bitset.BitSet
   first_unreachable_visits : Array[Int]?
@@ -81,7 +81,7 @@ fn DeadCodeEliminationNodeUseCache::new(
   let node_count = @ir.hot_node_count(func)
   {
     revision: -1,
-    use_def: None,
+    use_counts: None,
     first_unreachable_revision: Array::make(node_count, -1),
     first_unreachable_absent: @bitset.BitSet::new(node_count),
     first_unreachable_visits,
@@ -236,14 +236,14 @@ fn dead_code_elimination_node_is_intrinsically_impure(
 fn dead_code_elimination_require_node_uses(
   cache : DeadCodeEliminationNodeUseCache,
   func : @ir.HotFunc,
-) -> @ir.HotUseDef {
+) -> @ir.HotNodeUseCounts {
   let revision = @ir.hot_revision_current(func)
-  match cache.use_def {
+  match cache.use_counts {
     Some(existing) if cache.revision == revision => existing
     _ => {
-      let rebuilt = @ir.use_def_build_node_uses(func)
+      let rebuilt = @ir.hot_node_use_counts_build(func)
       cache.revision = revision
-      cache.use_def = Some(rebuilt)
+      cache.use_counts = Some(rebuilt)
       rebuilt
     }
   }
@@ -255,8 +255,8 @@ fn dead_code_elimination_node_use_count(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Int {
-  let use_def = dead_code_elimination_require_node_uses(cache, func)
-  @ir.node_use_count(use_def, node_id)
+  let use_counts = dead_code_elimination_require_node_uses(cache, func)
+  @ir.hot_node_use_count(use_counts, node_id)
 }
 
 ///|

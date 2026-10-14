@@ -30,13 +30,6 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   and retained externrefs for repeated conversions without changing identity or
   host behavior. Red test: repeated boundary traffic and table size. Exit:
   measured storage improvement and unchanged runtime observations.
-- [ ] **[AUDIT-20261013]025 — nested DCE scan cost:** the issue 023 repair
-  raised summed DCE time across 308 calls on a fixed 6.2 MB module from
-  22.564 to 86.801 ms and median whole-command time from 872.672 to
-  957.668 ms. Keep the nested dead-branch fixture green while reducing scan
-  work; use alternating native release samples and track output validity,
-  code size, DCE time, and whole-command time. Exit: a measured reduction
-  without losing the nested cleanup or changing live branch behavior.
 
 ## v0.1.1 — Performance validation and remaining gaps [IR2-PERF-FOLLOWUP]
 
