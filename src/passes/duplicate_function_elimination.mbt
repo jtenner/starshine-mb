@@ -5392,6 +5392,7 @@ fn dfe_cleanup_simple_type_encoding_candidate(
   mod_ : @lib.Module,
   full_size_comparisons~ : Array[Int32]? = None,
   full_size_checks~ : Array[Int32]? = None,
+  body_size_proofs~ : Array[Int32]? = None,
   perf~ : HotPerfSession? = None,
 ) -> @lib.Module? {
   if mod_.name_sec is None && mod_.raw_name_sec_payload is Some(_) {
@@ -5435,14 +5436,6 @@ fn dfe_cleanup_simple_type_encoding_candidate(
   if pruned.type_sec.unwrap().0.length() == types.length() {
     return None
   }
-  // This guarded producer only compacts existing type references. The binary
-  // proof retains exact encoding errors and bounds; false is inconclusive.
-  if @binary.encoded_type_compaction_is_strictly_smaller(grouped, pruned) {
-    return Some(pruned)
-  }
-  if full_size_comparisons is Some(count) {
-    count[0] += 1
-  }
   // Both remappers retain types in order and map duplicate types to earlier
   // entries. Every rewritten type index is therefore no greater than its old
   // index, so its LEB width cannot grow in any other section. Type names only
@@ -5461,6 +5454,20 @@ fn dfe_cleanup_simple_type_encoding_candidate(
     Ok((before, after)) if after < before => return Some(pruned)
     _ => ()
   }
+  // The type-only acceptance above already selected this same candidate
+  // after an inconclusive body proof. Try it first to avoid walking every
+  // instruction when the strictly smaller type section decides the result.
+  // Keep the original body proof and full encoding for inconclusive cases.
+  match body_size_proofs {
+    Some(proofs) => proofs[0] += 1
+    None => ()
+  }
+  if @binary.encoded_type_compaction_is_strictly_smaller(grouped, pruned) {
+    return Some(pruned)
+  }
+  if full_size_comparisons is Some(count) {
+    count[0] += 1
+  }
   // Keep the original guarded path if section-only encoding cannot decide.
   match full_size_checks {
     Some(checks) => checks[0] += 1
@@ -5471,4 +5478,47 @@ fn dfe_cleanup_simple_type_encoding_candidate(
     _ => ()
   }
   None
+}
+
+///|
+test "type encoding cleanup preserves live signatures and bytes without a whole body size proof" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #| (type $first (func (param i32) (result i32)))
+      #| (type $duplicate (func (param i32) (result i32)))
+      #| (func $first (type $first) (param i32) (result i32) local.get 0)
+      #| (func (export "run") (type $duplicate) (param i32) (result i32)
+      #|   local.get 0 call $first))
+    ),
+  )
+  @validate.validate_module(input).unwrap()
+  let saved = @binary.encode_module(input).unwrap()
+  let expected = dfe_prune_unused_simple_types(
+    dfe_canonicalize_duplicate_simple_type_indices(input),
+  )
+  let proofs = [0]
+  let output = dfe_cleanup_simple_type_encoding_candidate(
+    input,
+    body_size_proofs=Some(proofs),
+  ).unwrap()
+  @validate.validate_module(output).unwrap()
+  assert_eq(output.type_sec.unwrap().0.length(), 1)
+  assert_eq(output.func_sec.unwrap().0, [
+    @lib.TypeIdx::new(0U),
+    @lib.TypeIdx::new(0U),
+  ])
+  assert_eq(output.export_sec, input.export_sec)
+  assert_eq(
+    @binary.encode_module(output).unwrap(),
+    @binary.encode_module(expected).unwrap(),
+  )
+  assert_true(@binary.encode_module(output).unwrap().length() < saved.length())
+  let @lib.Func(_, @lib.Expr(body)) = output.code_sec.unwrap().0[1]
+  assert_eq(body, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
+  assert_eq(proofs[0], 0)
 }

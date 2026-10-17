@@ -61,7 +61,7 @@ test "DFE type compaction avoids full body comparison for scalar and uncertain S
 }
 
 ///|
-test "DFE type compaction preserves exact full encoder fallback for body string pools" {
+test "DFE type compaction uses type-only proof for body string pools with exact output" {
   let input = dfe_compaction_proof_fixture(strings=true)
   let saved = @binary.encode_module(input).unwrap()
   let expected = input
@@ -70,9 +70,13 @@ test "DFE type compaction preserves exact full encoder fallback for body string 
       @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
     )
   let full = [0]
+  let body_proofs = [0]
+  let full_encodes = [0]
   let actual = dfe_cleanup_simple_type_encoding_candidate(
     input,
     full_size_comparisons=Some(full),
+    body_size_proofs=Some(body_proofs),
+    full_size_checks=Some(full_encodes),
   ).unwrap()
   @validate.validate_module(actual).unwrap()
   assert_eq(
@@ -81,5 +85,7 @@ test "DFE type compaction preserves exact full encoder fallback for body string 
   )
   assert_true(@binary.encode_module(actual).unwrap().length() < saved.length())
   assert_eq(@binary.encode_module(input).unwrap(), saved)
-  assert_eq(full[0], 1)
+  assert_eq(full[0], 0)
+  assert_eq(body_proofs[0], 0)
+  assert_eq(full_encodes[0], 0)
 }
