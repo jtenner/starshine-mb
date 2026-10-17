@@ -243,6 +243,7 @@ fn pass_lower_compact_captures_with_map(
   reorder_body_locals~ : Bool = false,
   local_name_sec~ : @lib.NameSec? = None,
   function_abs~ : Int32 = -1,
+  local_counts~ : (Array[Int32], Array[Int32])? = None,
 ) -> (@lib.Func, Array[Int32]) {
   let @lib.Func(original_locals, _) = original
   let @lib.Func(locals, @lib.Expr(body)) = func
@@ -251,9 +252,17 @@ fn pass_lower_compact_captures_with_map(
   }
   let count = params.length() + locals.length()
   let start = params.length() + original_locals.length()
-  let gets = Array::make(count, 0)
-  let writes = Array::make(count, 0)
-  pass_lower_count_locals(body, gets, writes)
+  // The optional census belongs to this exact body/local snapshot. This
+  // compaction consumes it: capture removal and alias propagation update it.
+  let (gets, writes) = match local_counts {
+    Some(counts) => counts
+    None => {
+      let gets = Array::make(count, 0)
+      let writes = Array::make(count, 0)
+      pass_lower_count_locals(body, gets, writes)
+      (gets, writes)
+    }
+  }
   let mut has_capture = !propagate_parameter_aliases
   let mut has_unused = false
   let mut has_single_write = false
@@ -655,4 +664,32 @@ test "lower cleanup flattens opted in mixed typed blocks and preserves branch la
   @validate.validate_module(
     branched.with_code_sec(@lib.CodeSec::new([retained])),
   ).unwrap()
+}
+
+///|
+test "DAE2 cleanup census includes parameter aliases and nested accesses" {
+  for
+    body in [
+      "local.get 0 local.set 1 local.get 1 drop local.get 1 drop", "block local.get 0 local.set 1 local.get 1 drop local.get 1 drop end",
+      "try_table local.get 0 local.set 1 local.get 1 drop local.get 1 drop end",
+    ] {
+    let input = pass_test_module_from_wat(
+      "(module (func (param i32) (local i32) \{body}))",
+    )
+    let func = input.code_sec.unwrap().0[0]
+    let admission = dae2_cleanup_admit_func(
+      func,
+      [@lib.ValType::i32()],
+      @ir.hot_module_context_from_module(input),
+    )
+    assert_true(admission.may_change())
+    assert_false(admission.has_forwarding())
+    let (gets, writes) = admission.local_counts().unwrap()
+    assert_eq(gets, [1, 2])
+    assert_eq(writes, [0, 1])
+    let output = dae2_cleanup_captures(input)
+    @validate.validate_module(output).unwrap()
+    let @lib.Func(locals, _) = output.code_sec.unwrap().0[0]
+    assert_eq(locals.length(), 0)
+  }
 }

@@ -992,24 +992,53 @@ fn dae2_cleanup_has_forwarding_candidate(
 }
 
 ///|
-fn dae2_cleanup_func_may_change(
+// Count-free admissions use constant enum cases, without per-function records.
+priv enum Dae2CleanupAdmission {
+  NoChange
+  Forwarding
+  Normalize
+  Counts(Array[Int32], Array[Int32])
+}
+
+///|
+fn Dae2CleanupAdmission::may_change(self : Dae2CleanupAdmission) -> Bool {
+  !(self is NoChange)
+}
+
+///|
+fn Dae2CleanupAdmission::has_forwarding(self : Dae2CleanupAdmission) -> Bool {
+  self is Forwarding
+}
+
+///|
+fn Dae2CleanupAdmission::local_counts(
+  self : Dae2CleanupAdmission,
+) -> (Array[Int32], Array[Int32])? {
+  match self {
+    Counts(gets, writes) => Some((gets, writes))
+    _ => None
+  }
+}
+
+///|
+fn dae2_cleanup_admit_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
   module_ctx : @ir.HotModuleContext,
-) -> Bool {
+) -> Dae2CleanupAdmission {
   let @lib.Func(locals, @lib.Expr(body)) = func
   if dae2_cleanup_has_forwarding_candidate(body, module_ctx) {
-    return true
+    return Dae2CleanupAdmission::Forwarding
   }
   let runs = locals.runs
   for index in 0..<runs.length() {
     if runs[index].count == 0U ||
       (index > 0 && runs[index - 1].vt == runs[index].vt) {
-      return true
+      return Dae2CleanupAdmission::Normalize
     }
   }
   if locals.length() == 0 {
-    return false
+    return Dae2CleanupAdmission::NoChange
   }
   let count = params.length() + locals.length()
   let start = params.length()
@@ -1018,15 +1047,36 @@ fn dae2_cleanup_func_may_change(
   pass_lower_count_locals(body, gets, writes)
   let mut has_single_write = false
   for local_id in start..<count {
-    if gets[local_id] == 1 && writes[local_id] == 1 {
-      return true
-    }
-    if gets[local_id] == 0 {
-      return true
+    if (gets[local_id] == 1 && writes[local_id] == 1) || gets[local_id] == 0 {
+      return Dae2CleanupAdmission::Counts(gets, writes)
     }
     has_single_write = has_single_write || writes[local_id] == 1
   }
-  has_single_write && dae2_has_parameter_alias(body, start, writes)
+  if has_single_write && dae2_has_parameter_alias(body, start, writes) {
+    Dae2CleanupAdmission::Counts(gets, writes)
+  } else {
+    Dae2CleanupAdmission::NoChange
+  }
+}
+
+///|
+fn dae2_cleanup_func_may_change(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  dae2_cleanup_admit_func(func, params, module_ctx).may_change()
+}
+
+///|
+// Match the forwarding walk's body-container ownership when compaction has
+// no body edits. Leaf payload arrays keep the existing early-return contract.
+fn dae2_cleanup_copy_body_containers(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  body.map(fn(instr) {
+    pass_lower_map_children(instr, dae2_cleanup_copy_body_containers)
+  })
 }
 
 ///|
@@ -1074,37 +1124,44 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
   }
   let params = rl_defined_func_param_cache(mod_)
   let module_ctx = @ir.hot_module_context_from_module(mod_)
-  let candidates = Array::make(funcs.length(), false)
-  let mut may_change = false
-  for index = 0; index < funcs.length(); index = index + 1 {
-    if dae2_cleanup_func_may_change(funcs[index], params[index], module_ctx) {
-      candidates[index] = true
-      may_change = true
-    }
-  }
-  if !may_change {
-    return mod_
-  }
   let mut module_env : @validate.Env? = None
   let stack_effects = Some(fn(instr) {
     dae2_capture_stack_effect(instr, mod_, module_ctx)
   })
-  let remaps : Array[Array[Int32]?] = []
-  let changed_labels : Array[Bool] = []
-  let bodies : Array[@lib.Func] = []
+  let mut output : (Array[@lib.Func], Array[Array[Int32]?], Array[Bool])? = None
   let imported = rl_imported_func_count(mod_)
   for index = 0; index < funcs.length(); index = index + 1 {
-    if !candidates[index] {
-      bodies.push(funcs[index])
-      remaps.push(None)
-      changed_labels.push(false)
+    // Classify and consume one body at a time. The local census must not be
+    // retained across functions or across a body/signature change.
+    let admission = dae2_cleanup_admit_func(
+      funcs[index],
+      params[index],
+      module_ctx,
+    )
+    if !admission.may_change() {
       continue
     }
+    let (bodies, remaps, changed_labels) = match output {
+      Some(output) => output
+      None => {
+        let next = (
+          funcs.copy(),
+          Array::make(funcs.length(), None),
+          Array::make(funcs.length(), false),
+        )
+        output = Some(next)
+        next
+      }
+    }
     let @lib.Func(locals, @lib.Expr(instrs)) = funcs[index]
-    let (instrs, forwarding_changed, scalar) = dae2_cleanup_forwarding(
-      instrs, module_ctx,
-    )
-    let input = @lib.Func::new(locals, @lib.Expr::new(instrs))
+    let (input, forwarding_changed, scalar) = if admission.has_forwarding() {
+      let (instrs, changed, scalar) = dae2_cleanup_forwarding(
+        instrs, module_ctx,
+      )
+      (@lib.Func::new(locals, @lib.Expr::new(instrs)), changed, scalar)
+    } else {
+      (funcs[index], false, false)
+    }
     let (input, labels_changed) = if scalar {
       let env = match module_env {
         Some(env) => env
@@ -1123,7 +1180,10 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
     } else {
       (input, forwarding_changed)
     }
-    changed_labels.push(labels_changed)
+    changed_labels[index] = labels_changed
+    // Forwarding wrappers preserve every local access. The broader scalar
+    // cleanup can change accesses, so it must invalidate any earlier census.
+    let local_counts = if scalar { None } else { admission.local_counts() }
     let (body, mapping) = pass_lower_compact_captures_with_map(
       input,
       @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
@@ -1133,9 +1193,25 @@ fn dae2_cleanup_captures(mod_ : @lib.Module) -> @lib.Module {
       reorder_body_locals=true,
       local_name_sec=mod_.name_sec,
       function_abs=imported + index,
+      local_counts~,
     )
-    bodies.push(body)
-    remaps.push(Some(mapping))
+    let @lib.Func(body_locals, @lib.Expr(compacted)) = body
+    let body = if physical_equal(compacted, instrs) {
+      // Normalization can return the borrowed source body. Clone only then;
+      // capture and alias remapping already produce independent containers.
+      @lib.Func::new(
+        body_locals,
+        @lib.Expr::new(dae2_cleanup_copy_body_containers(compacted)),
+      )
+    } else {
+      body
+    }
+    bodies[index] = body
+    remaps[index] = Some(mapping)
+  }
+  let (bodies, remaps, changed_labels) = match output {
+    Some(output) => output
+    None => return mod_
   }
   let next = mod_.with_code_sec(@lib.CodeSec::new(bodies))
   match rl_rewrite_name_sec(mod_.name_sec, imported, remaps) {
@@ -1336,4 +1412,36 @@ fn dae2_collect_control_type_infos(
     }
   }
   has_calls
+}
+
+///|
+test "DAE2 cleanup normalizes declarations without dropping accessed locals" {
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) (local i32 i32) local.get 0 local.get 0 i32.add local.get 1 i32.add local.get 1 i32.add))",
+  )
+  let @lib.Func(_, expr) = input.code_sec.unwrap().0[0]
+  let locals = @lib.Locals::from_decl_runs_preserving_groups([
+    @lib.LocalRun::new(0U, @lib.ValType::i64()),
+    @lib.LocalRun::new(1U, @lib.ValType::i32()),
+    @lib.LocalRun::new(1U, @lib.ValType::i32()),
+  ])
+  let func = @lib.Func::new(locals, expr)
+  let input = input.with_code_sec(@lib.CodeSec::new([func]))
+  let admission = dae2_cleanup_admit_func(
+    func,
+    [],
+    @ir.hot_module_context_from_module(input),
+  )
+  assert_true(admission.may_change())
+  assert_false(admission.has_forwarding())
+  assert_true(admission.local_counts() is None)
+  let saved = @binary.encode_module(input).unwrap()
+  let output = dae2_cleanup_captures(input)
+  let @lib.Func(locals, next_expr) = output.code_sec.unwrap().0[0]
+  assert_eq(locals.runs, [@lib.LocalRun::new(2U, @lib.ValType::i32())])
+  assert_eq(next_expr, expr)
+  @validate.validate_module(output).unwrap()
+  let @lib.Expr(body) = next_expr
+  body.push(@lib.Instruction::nop())
+  assert_eq(@binary.encode_module(input).unwrap(), saved)
 }
