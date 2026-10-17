@@ -1,8 +1,14 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-17
 sources:
+  - ../../../../../src/passes/dead_argument_elimination.mbt
+  - ../../../../../src/passes/dead_argument_elimination2_types.mbt
+  - ../../../../../src/passes/dae2_cleanup_census_wbtest.mbt
+  - ../../../../../src/passes/dae_liveness_handoff_wbtest.mbt
+  - ../../../../../src/passes/dae2_signature_reuse_wbtest.mbt
+  - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/dead_argument_elimination2.mbt
   - ../../../../../src/passes/dead_argument_elimination2_wbtest.mbt
   - ../../../../../src/passes/dae2_lazy_flow_wbtest.mbt
@@ -11481,3 +11487,550 @@ caught-preset fallback are repaired without changing their test expectations.
 After adapting the new HOT helpers and fixtures to master's native stack
 representation, `moon check --target native` and all 740 wasm-gc IR tests pass.
 These checks do not close native timing or aggregate GenValid signoff.
+
+### October 17 reuse of existing DAE analysis facts
+
+The next changes use integrated baseline `f1393ac8911748db050fb979afb171a6d63a9475`.
+They preserve the existing transforms and validation paths:
+
+- Lightweight result refresh passes an empty function-info array and no stable
+  path to the existing scanner. Its discarded records are no longer built.
+- Capture cleanup consumes the admission census within the same function and
+  skips forwarding reconstruction when admission proves there is no wrapper.
+  Nullary admission cases allocate no per-function record. Scalar block cleanup
+  invalidates counts; a borrowed normalization result receives body-container
+  copies to preserve the previous ownership contract.
+- Ordinary DAE supplies syntactic use before replacing its read mask, and
+  selected rewriting passes its existing entry-liveness mask to scalar and
+  fallback planning. Facts remain local to one unchanged function snapshot.
+- DAE2 freezes signature flags after type-identity closure and allocates
+  parameter plans and type-section replacements only where needed. Unchanged
+  groups and subtypes retain identity. Shared family demand masks project each
+  declared subtype's own parameter types, including contravariant reference
+  parameters. Newly materialized changed signatures own borrowed parameters;
+  existing canonical type reuse retains its previous sharing contract.
+
+Unchanged type sections, groups and subtypes are now shared by design, as the
+lazy-retention change requires. This pass treats them as read-only. The ownership
+checks cover newly materialized signature parameters and changed body
+containers; they do not promise separate mutable arrays for unchanged
+declarations. The earlier review packet's blanket "unchanged source ownership"
+wording was too broad for this intended sharing contract.
+
+The linked tests first expose discarded records, duplicate work, and unnecessary
+type reconstruction. Independent GPT and read-only Claude reviews also expose
+a subtype-variance defect and changed-record ownership regressions in the first
+candidate. Regression tests fail before their fixes; the corrected selection
+passes all 15,102 default tests with identical source hashes across the gate.
+After moving five pass tests into their implementing files and three command
+tests into the active dispatcher, the final gate passes 3,311 pass whitebox,
+6,702 blackbox, 41 internal and 5,048 other-package cases. The moved command
+tests also assert the exact retained parameter and result types.
+`moon info` and formatting pass; public `.mbti` files do not change. The compact
+default-selection runner avoids the previously recorded command-length limit.
+
+The final read-only Claude review reports no confirmed defect in the changed
+hunks and six new test files; it lists its unread scope. The native
+contravariant-subtype fixture also validates with wasm-tools 1.262 and verified
+Binaryen 133. An isolated counterfactual removes only the new-signature
+parameter-ownership calls: its regression fails, then passes when restored.
+These checks establish behavior and ownership, not native speed.
+
+Generated-C inspection finds no `Some` allocation on the supplied syntax path:
+callers use the nullable-pointer inner helper. It does add a reference-count
+pair and optional-argument branches. The zero-parameter empty-array allocation
+is unchanged; the eight census cases have no zero-parameter helper requests.
+No timing result is attributed to these source observations.
+
+A fresh diagnostic native build of the exact baseline validates all eight
+small/large public pass cases and preserves input bytes. The raw summary retains
+an earlier "no native proof yet" limit; its eight zero-exit native command
+receipts and `activation-census-r2/REPORT.md` supersede that stale status. These
+are work counts, not pass time or allocator-byte measurements:
+
+| Baseline route | Current observed work |
+| --- | --- |
+| Large DAE and DAE-O lightweight refresh, each | 3 entries; 38,790 discarded function records and 6,945 callsite records |
+| DAE2-O count-admitted cleanup, small / large | 33 / 11,744 second censuses and forwarding calls; large second census covers 2,300,902 source instructions |
+| Small DAE / DAE-O liveness supplement | 73 / 144 syntactic scans across all callers; only the changed call sites can claim reuse |
+| Large DAE2 / DAE2-O post-solve signatures, each | 226,687 queries; 359,914 parameter visits; 218 unchanged type reconstructions |
+
+The same census limits the next larger experiments. Large raw restoration has
+15,372 repeated rows among 1,096,983 rows present at restore entry (1.40%).
+Small DAE refresh visits 126,421 unchanged instructions among 143,377 visits;
+DAE-O has 184,940 confirmed unchanged visits among 211,429, with full-fallback
+visits left unclassified. Large ordinary DAE uses neither refresh route.
+Complete refresh reuse needs retractable per-caller `ref.func` targets and a
+validity marker for typed and lightweight graph writers; existing call records
+alone cannot safely replace the scan.
+
+Large DAE2-O has 272 functions with separate simplify-locals and vacuum lifts,
+but these contain only 8,170 original source instructions. This is not evidence
+that broad cleanup fusion will remove substantial cost. Of 950 HOT rewrite
+functions, 948 cover 537,534 source instructions without an observed shared-type
+operation; the remaining two make three result-interner requests. This count
+does not establish independent worker eligibility.
+
+The worker experiment stops before implementation: the current controller
+returns graph frames, not owned function bodies and local maps. Rewriting also
+needs a private replay owner, a whole-module retry outcome, refusal before all
+shared type reads, a string/internal-type-aware wire contract, bounded new
+frames, and process-group CPU/memory capture. Existing child exit/EOF handling
+could support whole-pool refusal, but does not prove those contracts. No worker
+prototype or speedup is claimed. Graph contraction and closed-world control-only
+remapping remain conditional on their separate activation and cost gates.
+
+Source-bound evidence is under `.tmp/dae-review-20261017/`: focused red/green
+logs, `default-gate-r1/` and `default-gate-r2-test-placement/`, the immutable baseline census in
+`activation-census-r2/`, and `rewrite-workers/FEASIBILITY.md`. Earlier archived
+timings retain their original build identities and do not measure these fixes.
+
+#### Native check of fact reuse
+
+A new normal-mode outer-pass run compares the frozen baseline and candidate
+against verified Binaryen 133. It retains 201 measured small and 101 measured
+large rounds per tool after three warmups. Tool order rotates through all six
+permutations; every output validates, matches its expected bytes and preserves
+the source input. All 3,624 measured values and 72 warmups remain. There are no
+trace or perf callbacks, timer subtraction, worker overrides, affinity changes
+or pauses of other projects. The final whole-module check is outside the pass
+bracket; required internal checks remain.
+
+| Case | Baseline ms | New ms | New/base wall, block-10 95% interval | New/base CPU | New/B133 wall |
+| --- | ---: | ---: | --- | ---: | ---: |
+| small-dae | 13.715 | 13.811 | 1.00703 [1.00254, 1.01071] | 1.00693 | 7.121 |
+| small-dae-optimizing | 46.563 | 45.997 | 0.98786 [0.98656, 0.98893] | 0.98776 | 10.440 |
+| small-dae2 | 1.851 | 1.837 | 0.99259 [0.98764, 0.99919] | 0.99352 | 0.937 |
+| small-dae2-optimizing | 5.586 | 5.479 | 0.98085 [0.97846, 0.98259] | 0.98013 | 1.766 |
+| large-dae | 418.048 | 411.671 | 0.98474 [0.98071, 0.98905] | 0.98471 | 1.980 |
+| large-dae-optimizing | 784.371 | 776.521 | 0.98999 [0.98769, 0.99259] | 0.99001 | 1.351 |
+| large-dae2 | 2233.240 | 2220.825 | 0.99444 [0.99304, 0.99581] | 0.99447 | 21.468 |
+| large-dae2-optimizing | 3982.903 | 3877.169 | 0.97345 [0.97146, 0.97564] | 0.97380 | 13.833 |
+
+Intervals use 4,000 circular-block resamples. Block lengths five and ten, all
+order strata and chronological halves remain in `clocks-full-analysis/`. These
+describe one shared-host run with one resident Starshine process per role and
+case; they do not remove bias or establish independent process trials. CPU is
+process user plus system time across threads, not a single-thread equivalent.
+The loop retains the previous result while timing the next pass, and setup
+already runs one public pipeline before the three timed warmups. These are
+repeated-pass measurements; they do not measure a single fresh CLI invocation.
+Only small DAE2 meets the Binaryen wall target in this run. The large DAE2 gap
+remains about 21.47 times Binaryen; these bounded changes do not close it.
+
+The adverse small DAE row is retained. Two further 201-round controls keep the
+same pass brackets: the baseline image in both roles, and a new process pair
+with the actual candidate launched in the baseline role. Cohorts stay separate:
+- Same-image role ratio: wall 0.99951 [0.99690, 1.00353], CPU 0.99920.
+- Reverse-launch actual new/base: wall 1.00037 [0.99749, 1.00372], CPU 1.00043.
+
+The small DAE loss does not repeat at its first-run magnitude. This does not
+establish a small DAE gain or justify subtracting the control from the result.
+
+| Case | Native post-exec HWM KiB, baseline / new |
+| --- | ---: |
+| small-dae | 18088 / 18584 |
+| small-dae-optimizing | 22192 / 22240 |
+| small-dae2 | 17936 / 17912 |
+| small-dae2-optimizing | 19420 / 19636 |
+| large-dae | 267104 / 262864 |
+| large-dae-optimizing | 270320 / 269448 |
+| large-dae2 | 273456 / 269172 |
+| large-dae2-optimizing | 343392 / 344940 |
+
+These Linux `VmHWM` readings include input/setup, previous checks and retained
+output through the last pass pause; final-resume-only work is outside scope.
+They are process peaks, not pass heap or allocated bytes. Small increases and
+the large DAE2-O increase remain visible. The earlier pilot's `wait4` RSS has
+an inherited Python-launcher floor and cannot support a small-memory claim.
+The successor keeps that raw field but uses post-exec status for Starshine and
+a `/usr/bin/time` child resource record for Binaryen. Its command-wall field
+includes that wrapper and is not used for pass-time claims.
+
+The frozen harness GNU `size` text field grows by 11,136 bytes (0.0955%); ELF file size grows
+by 10,672 bytes (0.0751%), data by 32 bytes, and BSS is unchanged. Single build
+times are 194.290 / 193.753 seconds; one build pair cannot establish a compiler
+time gain. Operation removal is shown by source/tests/census, with no allocator
+byte claim. Baseline/candidate harness SHA-256 values are
+`7a30d92555c473881e0d4b3a613b6a6caeb9d4b866599c771a52cbe976f47f82` /
+`6d4c785603e00cbc1e728c9cfb10fc92da981abbfb2f80fd97a522c58249d6fb`.
+The normal-mode builds, compiler records, source hashes, calibration, raw full
+and control samples are under `.tmp/dae-review-20261017/`. The initial baseline
+probe compiler observation was missing; a later explicit same-source compiler
+replay reproduces both the original object and linked archive member exactly.
+The original failed calibration and the successful successor remain separate.
+Preparation JSON files retain their earlier pre-build status; the completed
+compiler, ELF, calibration and clock receipts supersede those stage labels.
+
+
+#### Generated comparisons and remaining gaps
+
+Six fresh dedicated aggregate GenValid lanes each compare 10,000 inputs with
+verified Binaryen 133 and explicit prebuilt native Starshine and generator
+binaries. They use eight subprocesses, independent wasm-tools validation,
+Node semantic-v2 observations, determinism and codec checks. The DAE cleanup
+normalizers are enabled; no external generator or persistent cache is used.
+Each lane reaches its requested count with zero validation, generator, command,
+property, primary semantic, determinism or codec failures. The wrapper checks
+these fields despite the harness's report-only exit policy.
+
+| Lane | Canonical matches | Cleanup matches | Residual shapes | Raw / canonical Starshine-larger cases | Primary runtime matches / blocked |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dae, open | 3750 | 0 | 6250 | 1250 / 0 | 10000 / 0 |
+| dae-optimizing, open | 5153 | 1212 | 3635 | 0 / 0 | 10000 / 0 |
+| dae2, open | 2879 | 667 | 6454 | 567 / 0 | 9312 / 688 |
+| dae2-optimizing, open | 2233 | 1313 | 6454 | 624 / 0 | 9312 / 688 |
+| dae2, closed | 0 | 100 | 9900 | 1273 / 706 | 9312 / 688 |
+| dae2-optimizing, closed | 100 | 0 | 9900 | 2757 / 2133 | 9312 / 688 |
+
+Residual shapes remain parity gaps; larger outputs remain size-losing cases.
+These are agent classifications, not harness semantic verdicts. Successful
+validation, smaller output or a primary runtime match does not close a shape
+gap. The 688 continuation-feature cases in each DAE2 lane remain runtime
+unverified. The open DAE lane has 1,250 Binaryen-only default-Node compile
+blocks for exact/custom-descriptor types, not reproduced semantic differences.
+All their reports are retained. Independent inspection identifies two
+byte-identical output families; one representative from each executes with
+Node's custom-descriptor flag and returns zero for original, Starshine and
+Binaryen. This limited replay does not change the original lane observations.
+
+All 60,000 case records are audited. The saved pre-edit CLI reproduces the
+exact raw Starshine bytes for every one of the 1,366 retained bundles, including
+all 1,250 Binaryen-only reports beyond the structural artifact cap. No retained
+bundle is unread. This supports output preservation for these patches, while
+the existing parity and size deficits stay open. Evidence remains in
+`genvalid/`, `genvalid-audit/`, `genvalid-first-lane-review/`,
+`exact-families-runtime-enabled.json` and `genvalid-baseline-replay/` beneath
+the local evidence root.
+
+A separate block-six/twelve sensitivity analysis retains all original timing
+values and agrees with the directions of the block-five/ten intervals. For
+small DAE, its block-twelve interval is [1.00234, 1.01064]; the separate
+reverse-launch interval still crosses one. No independent-process or portable
+speed claim follows. Full timings and controls are never pooled or subtracted.
+
+The completed GPT data audit reads all 1,640 full/control CSV rows, raw bindings
+and native build verifiers. Its author also implemented the liveness handoff,
+so it is not an independent-author source review of that unit. The read-only
+Claude assessment reads all rows and all four implementation units, spot-checks
+raw JSON, lists unread evidence and reports no confirmed code defect. Its
+claim that the full and reverse-launch small-DAE intervals do not overlap is
+incorrect: their intersection is [1.00254, 1.00372]. The raw reports remain
+unchanged; the independent verification records this correction and the valid
+resident-process, rare-path and ownership limits.
+
+
+A final read-only test-placement audit verifies that all five existing
+implementation/dispatcher files remain exact prefixes of their saved copies,
+all 158 test identities across the touched files remain, and all four dedicated
+performance skips remain. The final formatted default gate passes without
+source drift. Its source hashes supersede the initial placement receipt's
+pre-format hashes; the original receipt is retained. The tests add no runtime
+production declarations. Test placement and native identity evidence are in
+`test-placement/` beneath the local evidence root.
+
+
+The fresh post-placement native CLI has SHA-256
+`f6e25374a5d5d1abb1b533b1a774598d6c2b40be813f91793d172f80dd5c1010`,
+which differs from the six-lane CLI
+`51e31bed81019468ed4de14b048efadbaee1044b7855b3296295be2ced66ab72`.
+All old production text remains unchanged, but the new `.text` is 64 bytes
+smaller and the runtime layout table differs. Recreating the exact old source
+in an isolated project regenerates closure layouts and local identifiers across
+packages; that C-only replay is not proven to reproduce the old ELF. Thus no
+complete emitted-C or machine-code equivalence is claimed. The final CLI
+replays all 1,366 retained generated inputs with exactly the frozen outputs.
+All eight fixed small/large CLI cases also match the frozen CLI bytes and pass
+independent wasm-tools validation, with stable input hashes. These replays are
+behavior checks and supply no timing claim.
+The 60,000 generated comparisons and native timings retain their frozen build
+identities; the timing table is not a new measurement of this final CLI layout.
+The final source/gate, identity, replay and review receipts remain under
+`test-placement/`. The completion receipt binds completed checks without
+rewriting earlier stage records.
+
+
+## October 17, 2026 — Further scan and lowering reductions
+
+This round starts from the preceding fact-reuse result, including its four
+uncommitted fixes. It does not use clean `f1393ac` as its before source.
+The exact starting source is in local `.tmp/dae-push-20261017/starting-source.json`;
+the saved before CLI is `f6e25374…1010`. The retained source is the exact
+15,119-test snapshot in `default-gate-r2/source-after.json`. Public `.mbti`
+files have no changes.
+
+### Retained changes and correctness checks
+
+- [Ordinary DAE](../../../../../src/passes/dead_argument_elimination.mbt)
+  collects body `ref.func` exposure during its required call-fact walk. It
+  keeps non-body exposure setup and the final unseen-call reconciliation.
+  The separate body-reference walk is removed from this caller. The standalone
+  exposure helper still walks bodies by default. Tests compare all exposure
+  flags, full call facts and source bytes. Ten separate modules give the only
+  body reference to each structured path, including inactive code. Command
+  coverage runs all four DAE flags.
+- [HOT lowering](../../../../../src/ir/hot_lower.mbt) copies private middle
+  arrays only after a change in nested stackification, struct-set prefixes,
+  split-payload wrappers and dead-tee pruning. The final public canonicalization
+  remains. Four resource tests failed at runtime before the change. Frozen
+  prior workers and [integration tests](../../../../../src/ir/hot_lower_private_middle_wbtest.mbt)
+  check unchanged bytes, active rewrites, scratch locals, branch depths, options
+  and repeated public lowering with owned mutable payloads.
+- [Local throw folding](../../../../../src/passes/dead_argument_elimination2_legacy.mbt)
+  returns before context construction when there are no defined local tags.
+  Imported tags cannot use this fold. The runtime RED showed one unwanted
+  setup. Positive local-tag folding, imported-only tags and the intentionally
+  invalid unresolved-throw boundary remain covered.
+- [Type encoding cleanup](../../../../../src/passes/duplicate_function_elimination.mbt)
+  tries its existing strictly smaller type-section proof before its full body
+  proof. Both decisions return the same guarded, interned and pruned module;
+  inconclusive cases retain the body and full-encoding fallbacks. The runtime
+  RED showed one unwanted body proof after exact output and ownership checks.
+  The existing string-pool test now names its actual type-only proof. Its old
+  counter was after the body gate but before the type gate; it did not prove
+  full-module encoding. All output, validation and ownership checks remain.
+
+`moon info`, `moon fmt` and all 15,119 bounded default tests pass. The ordinary
+Moon driver still needs the existing compact-selection runner for its argument
+length limit. The later map experiment passed 15,122 tests but was rejected;
+restoration checked every source hash against the passing 15,119-test snapshot.
+The fresh release CLI is `2154798c…cbb7`. It reproduces all 1,366 prior retained
+raw outputs. These byte checks preserve the before behavior; they do not close
+its Binaryen parity or runtime-coverage gaps.
+
+The independent GPT review reads the retained changes and tests, native build
+chains, all 1,232 full timing rounds, both small controls, block analyses,
+allocation brackets and all 40 fresh CLI pairs. It finds no confirmed source
+or measurement defect. It keeps small-case order effects, shared-host bias,
+static growth and incomplete heap coverage explicit. Claude's read-only
+attempt in this round stops at its weekly usage limit and returns no review;
+the preceding round's assessment does not cover these new changes. The saved
+reports and exact read limits remain under the round evidence root.
+
+### Normal native timing
+
+The complete normal cohort retains 201 measured rounds per small case and 101
+per large case, after three warmups each. The controller rotates all six tool
+orders and keeps every sample. Only this task's benchmark children are paused;
+other projects stay running. No build, test, profile or fuzz work from this task
+runs during these clocks. Normal source, archive and ELF checks pass. All eight
+before/after outputs have identical bytes. Verified Binaryen 133 retains its
+fixed comparator mapping, including `dae2 + simplify-locals + vacuum`.
+
+| Input/pass | Before wall ms | New wall ms | New/before wall | New/before CPU | New/Binaryen wall | New/Binaryen CPU |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Small DAE | 13.985 | 14.009 | 1.001719 | 1.001788 | 7.1991 | 1.7296 |
+| Small DAE optimizing | 46.825 | 46.495 | 0.992942 | 0.993207 | 10.4344 | 3.0640 |
+| Small DAE2 | 1.860 | 1.827 | 0.982573 | 0.981730 | 0.9251 | 0.2024 |
+| Small DAE2 optimizing | 5.484 | 5.449 | 0.993639 | 0.993437 | 1.7520 | 0.4485 |
+| Large DAE | 412.597 | 395.372 | 0.958253 | 0.958420 | 1.8914 | 0.4205 |
+| Large DAE optimizing | 777.908 | 759.713 | 0.976610 | 0.976618 | 1.3197 | 0.2259 |
+| Large DAE2 | 2242.912 | 2075.066 | 0.925166 | 0.924833 | 19.9431 | 2.0472 |
+| Large DAE2 optimizing | 3908.765 | 3740.533 | 0.956960 | 0.956982 | 13.1434 | 1.0440 |
+
+Ratios use medians, not paired-ratio medians. CPU is process user plus system
+time across threads; it excludes child processes. No worker implementation is
+added. The images retain a process through each Starshine case; Binaryen starts
+fresh each round. Setup, fixture checks, final encoding and report writes are
+outside the pass bracket. Internal work of the pass stays inside. Callbacks and
+tracing are absent. This is a combined-change result; no per-change percentage
+is established. The seven-sample pilot remains separate.
+Lowering and encoding cleanup also serve other passes. Their bounded default
+tests run in the full gate; this round makes no new native speed or generated
+comparison claim for those other owners.
+
+The small DAE point is adverse by 0.17%. Order and process history affect the
+small cases. Shared-host activity and serial correlation limit all intervals;
+no timer overhead, order effect or control value is subtracted. Only small
+DAE2 has a median below Binaryen in this cohort. The family speed targets stay
+open, especially the 19.94× large DAE2 gap. Normal build identities, calibration,
+raw reports, all sample rows and output hashes remain in local
+`normal-baseline/`, `normal-candidate/` and `clocks-full/` under the round root.
+
+Circular block-ten 95% wall intervals for new/before are [0.99928, 1.00510],
+[0.99183, 0.99411], [0.97468, 0.99031], [0.99094, 0.99570] for the small
+cases and [0.95612, 0.96221], [0.97373, 0.98003], [0.92383, 0.92607],
+[0.95526, 0.95966] for the large cases, in table order. Block lengths five,
+six and twelve retain the same directions. These describe this retained run;
+they do not establish independent-process or portable speedups.
+
+Separate 201-round small DAE controls use two copies of the before image and
+a reversed before/new launch assignment. The same-image role ratio is 1.00185,
+with block-ten interval [0.99841, 1.00502]. The reversed assignment's role
+ratio is 1.00110, or actual new/before 0.99890; its role interval is
+[0.99880, 1.00401]. All control intervals include one. Full small DAE has
+new-first versus before-first descriptive ratios of 0.98790 and 1.01514.
+These controls support keeping the small result near parity. They do not
+correct the full result. Control and block-analysis files remain separate.
+
+The fresh final CLI also completes five new process pairs per fixed case,
+alternating order. All 80 outputs agree exactly within each case. One such
+output per case passes independent wasm-tools validation. Whole-command peak
+RSS medians and median absolute
+deviations are:
+
+| Input/pass | Before KiB, median ± MAD | New KiB, median ± MAD |
+| --- | ---: | ---: |
+| Small DAE | 18,580 ± 16 | 18,584 ± 92 |
+| Small DAE optimizing | 20,848 ± 24 | 20,936 ± 44 |
+| Small DAE2 | 18,392 ± 116 | 18,284 ± 20 |
+| Small DAE2 optimizing | 17,964 ± 120 | 17,904 ± 128 |
+| Large DAE | 229,096 ± 164 | 229,216 ± 100 |
+| Large DAE optimizing | 229,300 ± 144 | 229,400 ± 120 |
+| Large DAE2 | 202,332 ± 464 | 201,784 ± 16 |
+| Large DAE2 optimizing | 244,928 ± 1,896 | 245,544 ± 628 |
+
+Five pairs cannot establish a small memory effect. All ranges and samples
+remain in `fixed-cli/`; these peaks include decode, optimization and output.
+The resident benchmark's VmHWM values also move in both directions and include
+prior setup and retained output history. Neither metric isolates pass heap.
+The fresh process checks are separate from the pass timing cohort, and no
+whole-command timing value is substituted for a pass interval.
+
+### Allocation evidence
+
+A separate native diagnostic relinks the exact archived generated C and native
+objects with counters at external mimalloc calls. A libc preload would miss
+this runtime's allocator. Built call-target checks and fixed allocation tests
+pass for both images. The counter uses the saved CPU probe to identify each
+pass bracket; unrelated allocator `getrusage` calls do not create brackets.
+An independent review found an unbounded-wait defect in its controller; the
+self-test and final child exit now have deadlines.
+
+All eight cases complete, with three warmups and seven retained diagnostic
+samples each. The normal output and source checks pass. Median request ratios
+are:
+
+| Input/pass | `mi_malloc` calls new/before | Requested bytes new/before | Peak live usable bytes new/before |
+| --- | ---: | ---: | ---: |
+| Small DAE | 1.001520 | 1.000573 | 1.000000 |
+| Small DAE optimizing | 0.999529 | 0.999379 | 1.000000 |
+| Small DAE2 | 0.982652 | 0.974864 | 1.000000 |
+| Small DAE2 optimizing | 0.992187 | 0.989778 | 1.000000 |
+| Large DAE | 1.000000 | 1.000000 | 1.000000 |
+| Large DAE optimizing | 1.000000 | 1.000000 | 1.000000 |
+| Large DAE2 | 0.965619 | 0.967468 | 1.000000 |
+| Large DAE2 optimizing | 0.978803 | 0.978841 | 1.000000 |
+
+These are external allocation requests and usable bytes of returned live
+blocks. They exclude allocator caches, pages, reservation, metadata, libc
+allocations and internal realloc overlap. Requested bytes are cumulative
+traffic, not requested live bytes. Instrumented CPU, wall and RSS values are
+not normal performance evidence. The release CLI build overlapped part of
+this count-only diagnostic. Normal timing waits for both to finish. Raw logs,
+objects, plans, wrap checks, review and limits are in local
+`allocation-diagnostic/` under the round directory.
+
+The fresh CLI's GNU `size` text column grows by 4,208 bytes, or 0.0331%.
+Data and BSS are unchanged. This column includes code and read-only sections;
+it is not an isolated `.text` measure. The recorded Moon benchmark builds take
+195.88 seconds before and 195.26 seconds after. The fresh CLI build takes
+216.69 seconds and overlaps the count-only diagnostic. The fresh generator
+build takes 282.72 seconds. Enclosing controllers also do receipt and archive
+work. These one-off Moon command times are recorded costs, not a controlled
+compiler-time comparison.
+
+### Fresh generated comparisons
+
+Six new 10,000-case dedicated aggregate lanes complete with the fresh release
+CLI `2154798c…cbb7`, fresh generator `e5b0e6df…0202` and verified Binaryen 133.
+Each lane uses the explicit native tools, parallel workers with a cap of eight
+subprocesses, both cleanup normalizers, independent validation, Node V2 observations,
+byte determinism and codec stability. No external generator is used. Validation,
+generator, command, property, primary semantic mismatch and determinism failures
+are zero. Determinism and codec stability each cover all 60,000 comparisons.
+
+| Lane | Normalized matches | Cleanup normalized | Structural residuals | Raw larger | Canonical larger |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| DAE open | 3,750 | 0 | 6,250 | 1,250 | 0 |
+| DAE optimizing open | 5,153 | 1,212 | 3,635 | 0 | 0 |
+| DAE2 open | 2,879 | 667 | 6,454 | 567 | 0 |
+| DAE2 optimizing open | 2,233 | 1,313 | 6,454 | 624 | 0 |
+| DAE2 closed | 0 | 100 | 9,900 | 1,273 | 706 |
+| DAE2 optimizing closed | 100 | 0 | 9,900 | 2,757 | 2,133 |
+
+The classifications are agent judgments: structural residuals stay parity
+gaps, and larger output stays a size-losing gap. Size columns overlap the
+status columns. Smaller bytes or validation alone do not establish an
+intentional Starshine shape win. The before CLI reproduces every one of the
+1,366 newly retained raw outputs exactly, with no unread bundle. Suppressed
+ordinary structural bundles are not included in that byte replay. The earlier
+1,366 retained outputs also pass the separate fresh-CLI replay.
+
+There are 57,248 reported original/Starshine runtime matches. The other 2,752
+cases are original-runtime blocks: 688 in each DAE2 lane, all in the
+continuation profile. Two retained closed-world reports expose Node's disabled
+stack-switching error; the other 2,750 full blocked reports are unavailable.
+The first DAE lane also has 1,250 Binaryen-only discrepancies. Every such report
+is retained and checked: Node cannot compile Binaryen's exact heap types, so
+Binaryen is not invoked. These are runtime limits, not proven Binaryen semantic
+defects. The successful runner exit is not full three-way runtime parity.
+Observations cover their invocation plans, not all possible module contexts.
+
+Comparison count also differs from input diversity. The ordinary DAE manifest
+has ten distinct native module hashes, DAE optimizing has 2,625, and each DAE2
+lane has 9,791. The four DAE2 manifests are identical across modes/worlds.
+The reported hash union is 12,426. These are non-cryptographic manifest hashes.
+The campaign does not claim
+60,000 distinct input modules.
+
+The review also finds a separate harness defect:
+[manifest parsing and bundle writing](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
+round UInt64 case seeds through JavaScript Number. Of the 1,366 retained bundle
+entries, 1,360 lose integer precision. The original native manifests retain
+the exact decimal tokens. Lossless decimal-string sidecars bind every retained
+entry to its original manifest, input hash and unchanged raw metadata hash.
+Exact input-byte replay uses no seeds and is unaffected. The parser fix and
+bounded above-2^53/UInt64-maximum round-trip tests remain in the active backlog.
+
+Raw evidence is in local `genvalid/`, `genvalid-audit/`,
+`genvalid-exact-seeds/`, `genvalid-baseline-replay/` and
+`previous-residual-replay/`. Existing parity, size and runtime-coverage limits
+remain open; this is performance evidence with preserved behavior, not a new
+release or full parity signoff.
+
+The supplemental independent GPT review checks all 60,000 rows, all 1,366
+retained report/input/byte bindings, every baseline replay command and output,
+and every lossless seed-sidecar entry. It finds no new production defect and
+confirms the separate parser defect. Its exact read scope and missing consumed
+reports are explicit in local `genvalid-independent-review.md`. Ordinary
+retained WAT triplets beyond its named examples are not all manually reread.
+
+### Rejected map experiment and remaining work
+
+An old-map census on the actual large input found 178,983 raw arm maps.
+51.10% had at most four keys, but 84.82% of gets used larger maps. A four-slot
+trial preserved the independent HashMap oracle, all Int32 values and aliases,
+raw/HOT boundary and writer masks, work budgets, exact output and ownership.
+Its native pilot improved large DAE2 by 1.48% and DAE2 optimizing by 0.18%.
+
+The dedicated controls reject this trade: dense lookups cost 8–15% more and
+256-key construction costs 5.7% more. Generated C has extra reference
+increments/decrements at the mutable spill field. An `#inline` annotation
+experiment retains the dense cost. Each control cohort retains 1,414 measured pairs and 42 warmup pairs. The trial was removed; its full source and evidence
+remain in local `arm-map-tdd/`, `arm-map-controls/` and
+`arm-map-controls-inline/`. No map, rollback or budget change is retained.
+
+Full rollback coalescing also has weak activation. The saved native profile
+has only 47 duplicate conditional restore rows among 228,245 popped rows.
+Forward rollback still needs its own current pop census. Checkpoint identity,
+last-touch order, epochs, held entries and physical work charges make a broad
+rewrite costly. Raw source-write tuples are a separate allocation lead;
+334,372 source writes occur in the saved profile. Neither lead is implemented.
+Larger graph, cached-summary, cleanup-context and owned-worker changes retain
+their earlier activation, correctness, native time and memory gates.
+
+A further source search finds that an initially non-raw HOT body can be lifted
+again for rewriting. A bounded, invocation-owned cache could transfer that
+first arena after its last analysis use, but current overlap and retained side
+storage have not been measured. The older S11 profile has 390 potentially
+overlapping bodies; its 6.92% rewrite-lift subtree includes many ineligible
+bodies and is not a predicted saving. First measure current overlap, saved lift
+cost and every retained side arena. Require exact masks, names, locals, labels,
+output, retry behavior and ownership with zero-budget and eviction controls.
+Keep the raw-origin replay and verification paths. Choose a budget only after
+counter-free full-pass time and peak-memory evidence. No arena cache is retained
+in this round. The same search confirms that post-build graph contraction is a
+lower-priority target until construction and representation costs justify it;
+the old graph insertion and solver instruction counts are small and do not
+establish a current native saving.

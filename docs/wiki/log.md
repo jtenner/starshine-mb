@@ -1,3 +1,49 @@
+### 2026-10-17 — Reduce further DAE scans and lowering copies
+
+- [The further reductions](binaryen/passes/dae2/starshine-strategy.md#october-17-2026--further-scan-and-lowering-reductions)
+  combine body-reference collection with the required DAE walk, copy private HOT
+  lowering arrays only after a change, skip local-throw setup without local tags,
+  and run the existing type-only size proof before body encoding. All 15,119
+  default tests pass; source restoration after a rejected trial matches this
+  passing snapshot. Public API files stay unchanged.
+- The full normal native cohort keeps 201 small and 101 large measured rounds
+  per tool, with three warmups and rotating tool order. Large wall new/before
+  ratios are 0.95825 / 0.97661 / 0.92517 / 0.95696. Small DAE stays near parity;
+  all samples and its separate same-image and reverse-launch controls remain.
+  Only small DAE2 has a median below Binaryen. The family targets remain open.
+- Separate external allocator counters show 3.25%/2.12% less requested traffic
+  for large DAE2/DAE2 optimizing. Tracked usable peaks stay unchanged; this is
+  not a total-heap or RSS win. CLI GNU-size text grows 0.0331%. The four-slot
+  map trial is removed after adverse dense controls, with its evidence retained.
+- Six fresh 10,000-case aggregate comparisons complete with no validation or
+  observed primary semantic mismatch. There are 57,248 primary runtime matches
+  and 2,752 continuation blocks; 1,250 Binaryen exact-type compile blocks also
+  remain. Structural and size gaps stay open. All 1,366 retained raw outputs
+  match the before CLI. The first profile repeats ten module hashes; comparison
+  count is not distinct-input count. Exact native manifests and lossless seed
+  sidecars preserve replay data for 1,360 rounded bundle entries. The harness
+  UInt64 parser defect remains active in the backlog.
+
+### 2026-10-17 — Reuse DAE analysis facts
+
+- [The reuse follow-up](binaryen/passes/dae2/starshine-strategy.md#october-17-reuse-of-existing-dae-analysis-facts)
+  removes discarded result-refresh metadata, reuses capture counts and liveness,
+  and makes final signature/type replacement work lazy. Red-first controls and
+  independent reviews preserve subtype variance and changed-record ownership.
+  All 15,102 default tests pass with no source drift or public API change.
+- A current native baseline census records actual activation and limits larger
+  rollback, refresh, cleanup and worker proposals. The worker source gate stops
+  on missing task, refusal, wire and resource contracts; it has no prototype or
+  timing claim. Historical timings retain their original build scope.
+- Fresh normal native timing retains all samples: large new/base wall ratios
+  are 0.98474 / 0.98999 / 0.99444 / 0.97345. The small DAE adverse row stays
+  visible; its repeat with a new process pair crosses parity. Process memory,
+  code size and measurement limits are recorded; all four speed goals stay open.
+- Six fresh 10,000-case dedicated aggregate comparisons complete with no detected
+  Starshine validation or primary runtime failure. Continuation-feature runtime
+  blocks and structural/size deficits remain open. All 1,366 retained raw outputs
+  match the saved pre-edit CLI; all Binaryen-only feature-limit reports remain.
+
 ### 2026-10-16 — Measure and improve the DAE family
 
 - [The active DAE campaign](binaryen/passes/dae2/starshine-strategy.md#october-16-2026-dae-family-speed-campaign)

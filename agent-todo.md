@@ -366,6 +366,43 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   Native checking and all 740 IR tests pass after stack representation fixes.
   The direct default runner hits its argument-length limit; the compact
   default-selection runner supplies the bounded behavior result.
+- **October 17 fact-reuse follow-up [P08/P03]:** the current request resumes
+  work from `f1393ac`. Four bounded changes remove discarded result metadata,
+  reuse capture counts and liveness, and defer unchanged signature/type arrays.
+  All 15,102 default tests pass; subtype variance and changed-record ownership
+  have red-first controls. Normal native timing and process-memory checks now
+  complete: large wall new/base is 0.98474 / 0.98999 / 0.99444 / 0.97345.
+  The adverse small DAE row remains; its new-process repeat crosses parity.
+  Six dedicated 10,000-case GenValid lanes complete with no detected Starshine
+  validation or runtime mismatch; continuation-runtime blocks, structural
+  parity gaps and raw/canonical size losses stay open. All 1,366 retained raw
+  outputs match the saved pre-edit CLI. The current census
+  and [worker source gate](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-17-reuse-of-existing-dae-analysis-facts)
+  keep larger task/refusal/wire/resource contracts and all four speed targets
+  active. No parallel rewrite implementation is claimed.
+- **October 17 further reductions [P08/P03]:** reuse DAE's required scan for
+  body references, copy private HOT lowering arrays only after changes, skip
+  local-throw setup without local tags, and try the existing type-only size
+  proof before body encoding. All 15,119 default tests pass. Retained source
+  hashes match the tested snapshot and all 1,366 prior residual outputs stay
+  exact. Full normal large wall new/before ratios are
+  0.95825 / 0.97661 / 0.92517 / 0.95696. Small DAE stays near parity in the
+  full and control cohorts. External requested allocation bytes fall 3.25%
+  for large DAE2 and 2.12% for large DAE2 optimizing; tracked usable peaks
+  stay unchanged. This does not prove a total heap or RSS reduction.
+  The four-slot arm-map trial is removed after dense controls regress.
+  Current conditional rollback has only 47 duplicate restore rows in 228,245;
+  count forward restores before a new coalescing trial. Source-write tuple
+  storage, a bounded cache for repeated initial-HOT/rewrite lifts, summary reuse,
+  cleanup context and owned workers still need their
+  activation and resource gates. See the
+  [current evidence](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-17-2026--further-scan-and-lowering-reductions).
+  Six fresh 10,000-case lanes complete: no validation or observed primary
+  semantic mismatch; 2,752 original-runtime continuation blocks and 1,250
+  Binaryen-only exact-type compile blocks remain. All 1,366 new retained raw
+  outputs match the before CLI. Lossless seed sidecars preserve exact replay
+  metadata; fix the separate UInt64 manifest parser under P14.
+  All family speed targets and existing Binaryen parity/size gaps remain open.
 - **Correctness takes release priority:** the independent October 3 baseline
   audit has reproduced validator, DAE and OI failures. Keep performance patches
   isolated and preserve their evidence; do not treat existing passing tests or
@@ -1753,6 +1790,14 @@ quality gates. Keep traced inner and normal command measurements separate.
 - **Exit / tests:** each claim names input, owner, active transformation and
   enclosing cost; extend [active controls](src/passes/registry_active_perf_wbtest.mbt)
   and [CA environment controls](src/passes/constraint_lower_module_env_perf_wbtest.mbt).
+- **GenValid replay metadata:** preserve native UInt64 seed tokens through
+  [manifest parsing and bundle writing](scripts/lib/pass-fuzz-compare-task.ts).
+  Ordinary `JSON.parse` rounds seeds above 2^53; the October 17 first DAE lane
+  has 1,262 rounded retained entries. Exact native manifests and byte-based
+  replay remain valid. Require bounded round-trip cases above 2^53 and at
+  UInt64 maximum before the fix; retain original manifests as the authority.
+  Report distinct module hashes separately from comparison count and primary
+  runtime blocks separately from Binaryen-only blocks.
 
 ### Validation for further candidates
 
