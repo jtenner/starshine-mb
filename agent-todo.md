@@ -18,11 +18,214 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   The October 5 correctness campaign is integrated from local `master`.
   Preserve historical branch measurements under their frozen source versions;
   follow the latest user-requested checkout for subsequent work.
-- **Execution priority:** reach ≤1× for DAE2, DAE2-O, CoalesceLocals and
-  OptimizeInstructions; finish P03 DAE2/DAE2-O first, especially remaining HOT
-  field reads, temporary-buffer churn, reaching-definition/source-order work and
-  optimizing cleanup setup. P12/P05/P11/P13 are shared owners of those costs.
-  P08 DAE/DAEO and the other performance owners remain in scope afterward.
+- **Current execution priority (October 16 user request):** reach ≤1× for all
+  four DAE passes: P08 `dae` / `dae-optimizing` and P03 `dae2` /
+  `dae2-optimizing`. Preserve transformations, validation and output quality.
+  CoalesceLocals, OptimizeInstructions and the other owners remain queued.
+  Other project builds and benchmarks must remain running. Use larger
+  alternating cohorts (101 large / 201 small samples per tool), retain all
+  samples and CPU logs, and report timing spread and paired uncertainty.
+  Do not stop that work or remove slow samples to obtain a parity claim.
+  P12/P05/P11/P13 retain their shared dependency, lowering and cleanup work.
+- **DAE campaign evidence:** [October 16 frozen trials](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-16-2026-dae-family-speed-campaign)
+  records source/build identities, exact clocks, profiles, output and adverse
+  controls. Trial 10 completes normal paired pass clocks: large S/B ratios
+  2.200×/1.363×/22.896×/14.525× and small
+  9.837×/11.808×/0.954×/1.846×, in DAE/DAE-O/DAE2/DAE2-O order.
+  Only small DAE2 meets the timing target in this cohort. There are 51 large
+  and 101 small measured pairs per pass, with every sample retained.
+  Command/RSS and both raw component orders are complete. The component
+  campaign retains 18,768 measured samples; final external review, current
+  10,000-case aggregate lanes and full parity remain open.
+  The frozen trial-11 default selection passes 14,779 tests; its
+  source hashes are stable across the gate. Trial 10 retains its own 14,702
+  baseline. Private native
+  success-carrier allocation checks are bounded GREEN; this does not establish
+  whole-pass allocation or memory gains. Full gate and unit details belong in
+  the linked strategy instead of this active backlog.
+  Remaining work targets the costly initial HOT cohort and scratch provenance,
+  generic result-removal validation, repeated dependency-edge work and measured
+  sparse/dense adverse cases. Prototypes have actual bounded RED/GREEN
+  evidence; native speed/allocation checks and the full artifact demand census
+  remain required. The writer-cut replay gate now releases its lift-journal owner before
+  lowering, and keeps the old no-CFG verification path; 14 related controls pass.
+  The full artifact census passes every node/writer/boundary bit in both worlds;
+  native lifetime/peak and elapsed-cost evidence remain open.
+  Sparse merging now uses bounded small-delta deduplication instead of all-local
+  stamps. Sixteen controls and the two-body startup preservation test pass; the
+  full 12,904-function artifact census preserves every old raw admission and
+  admits two former HOT functions. Native timing/heap proof remains open.
+  Writer cold-gate controls retain 3,264 raw samples: zero-write paths are near
+  parity, but one-source-write/no-CFG paths still cost 5.5–15.9% more. Remove or
+  justify that cost. The updated artifact census checks 599,480 HOT bits and
+  76,336 source-writer slots across both worlds, with all twelve outputs valid.
+  Syntax refinement retains 6,120 samples, with some estimator costs still open.
+  Fresh whole-pass/native memory checks remain required. Claude's writer native
+  review reached its session limit without an assessment; do not mark it done.
+  Large DAE2-O still grows 284 bytes versus trial 5;
+  eleven bodies grow versus trial 0 and seventeen versus trial 5. Keep these
+  output gaps open. Correct flat Tee/held-effect handling, all source-write
+  precision, callback barriers and the 8× raw-work bound must be preserved.
+  Trial 11 now completes all normal clocks: large ratios
+  2.109×/1.386×/21.830×/13.803×; small
+  9.105×/10.964×/1.018×/1.927×. No current median meets ≤1×. All 1,216
+  measured tool samples remain, and output checks pass. Command clocks finish.
+  First-input early-return fusion passes all eight focused controls after four
+  actual final-work failures; related sparse/manual tests and 14,787 default
+  tests pass. Its fresh native controls now finish (see below). It is later than
+  trial-11 native source. Its fresh full-artifact byte gate fails: all boundary
+  and lexical-writer demand bits match, but 108 new raw admissions change five
+  bodies (162 bytes smaller in total). Later frozen both-world checks prove
+  complete masks, exact unaffected bodies and the capture/stack contract;
+  3,844 reduced execution pairs match. Canonical downstream checks retain a
+  28-byte gain with no growing body. Whole-pass speed and isolated heap remain open.
+  All pass and command lanes now retain 2,432 measured
+  tool samples plus 96 warmups, with both projects running and no sample removal.
+  A later five-unit component run retains 10,914 measured batches and 642
+  warmups, with both test orders and 214 whole-process RSS/CPU records. The
+  boundary snapshot cache improves all nine control medians in both orders;
+  this is not a large-pass gain because the large input uses the typed-loop
+  batch route. First-input fusion has small/order-sensitive gains and a
+  4.5–4.9% loop-control cost. Sparse startup costs 4.5–6.1% more on cold/one-change
+  controls; Coalesce costs 6.3–6.7% more on multiple writes and 39.5–39.6% more
+  on the read-before-write control. Numeric selected validation costs 3.4–4.1%
+  more on its two-callee control. Keep these measured costs open. The formatted
+  cache/fusion checkpoint passes 14,792 default tests with no public MBTI change.
+  A later eager fallback-lookup fix passes four bounded tests after two actual
+  resource failures. Its full-current gate passes 14,796 default tests with no
+  source drift or public MBTI change; GCC O2 confirms removal of the unused
+  Some-path lookup. A later component run retains 12,648 measured batches,
+  744 warmups and 248 whole-process resource records. The first-child path
+  cache and collector stamps improve large real component controls in both
+  orders; the full large DAE route bypasses those snapshot collectors. Combined
+  Coalesce removes its earlier multiple-write and read-before-write regressions,
+  but its sparse control still costs about 3% more. The eager cold control costs
+  4.7–5.6% more; the typed dead-carrier trial has no established net native gain
+  and remains unintegrated. The integrated checkpoint passes 14,810 default
+  tests with no source drift or public MBTI change. Fresh whole-pass timings
+  and all four parity targets remain open. Fresh trial-12 normal clocks now
+  retain 2,416 measured tool timings plus 48 warmups: 201 small/101 large pairs
+  per pass. Small ratios are 8.159×/11.145×/0.992×/1.892×; large ratios are
+  2.074×/1.352×/21.451×/13.934×. Small DAE2's interval crosses one; no all-family
+  parity claim is supported. Both whole-command/RSS phases also complete:
+  1,216 measured tool timings plus 48 warmups, for 3,632 measured timings and
+  96 warmups across all three phases. Fixed-block uncertainty analysis is
+  complete. The independent audit checks all timings, 2,504 resource records
+  and source/build bindings. Fresh independent validation passes all 25 distinct
+  saved wasm artifacts (34 path aliases); this is structural validation, not
+  semantic parity. Both projects stay running and every slow sample is retained.
+  The next component audit retains 5,916 measured batches and 348 warmups.
+  Locals and packed-node controls include adverse cases; neither is live.
+  The packed node has a verified 12-byte payload, but its clock run has no
+  process RSS record. Coalesce's one-row change is now live with three focused
+  tests passing. The effect-family guard is also live; 10 focused tests and
+  all 14,815 default behavior tests pass. Ordinary compiled-work evidence has
+  177 collected instructions on direct Instruction-array Eq edges before and
+  zero after. Its old call counts mix collected and uncollected work; do not
+  use them as scoped calls. This is not a whole-pass timing gain. A fresh
+  DAE/DAEO pass run retains 1,208 measured tool timings and 24 warmups; small
+  ratios are 7.949×/10.654× and large ratios are 2.022×/1.323×. All 3,167
+  independent audit checks pass. Small DAE has a material tool-order effect
+  (7.486× versus 8.479×); external compilation overlaps the large cases.
+  These shared-host results do not isolate the helper gains. Ordered numeric core batching
+  passes its private behavior/resource tests after a four-versus-one physical
+  commit/refresh failure. HOT writer replay passes five private tests after
+  four final resource failures. Native gains and full-artifact gates remain
+  open. Numeric guard-cost tests expose four full-definition row allocations
+  on rejected trials and repeated shared-caller scans; their private fixes
+  pass the focused gate. Actual artifact activation and native costs remain
+  open. The graph-only worker trial fails three new resource tests. The later
+  private owned-array accessor fixes the bounded worker controller failure;
+  all 26 native controls pass. Broad mixed/large admission and worker speed
+  or memory gains remain open. A separate
+  final-remapper fix is now live after six payload-ownership failures and
+  14 focused pass/command tests passing. It copies typed Select, BrTable and
+  TryTable vectors only in newly rebuilt bodies. Interface generation and
+  formatting pass; the corrected full gate passes 14,829 default behavior
+  tests. Native costs remain open. The numeric artifact census confirms no
+  accepted batch on either input: small DAE/DAEO rejects 4/12 offers and large
+  DAE/DAEO bypasses that core. Its baseline refresh hook was absent; those
+  counts and deltas are unavailable, not zero. Do not promote that candidate
+  or run its synthetic timing campaign as evidence for the active corpus.
+- **Latest DAE limits:** the separate-process effect proof confirms three
+  equality calls / 177 collected instructions before and zero after. The
+  corrected frozen-reference payload suite passes 22 pass and four command
+  tests on formatted live source; its full gate passes all 14,841
+  default behavior tests with stable source hashes. A later typed table
+  initializer repair passes four focused tests and all 14,845 default tests.
+  The direct baseline has two failures; active DAE fails while DAE-O already
+  passes. Type pruning now remaps retained initializer instructions. The new frozen native
+  CPU/wall cohort completes 2,416 measured tool values and 48 warmups, with
+  neither project paused. Wall S/B ratios are small
+  7.741×/10.891×/1.013×/1.872× and large
+  2.074×/1.272×/21.451×/13.700×. The small DAE2 interval crosses one;
+  all four wall-parity targets remain open. Large CPU S/B ratios are
+  0.470×/0.233×/2.261×/1.098×. These CPU ratios do not establish useful
+  parallel speedup or replace the wall target. The independent audit checks
+  every raw pair, tool order, output and archived build identity; source/review
+  activity and shared-host bias remain limits. A general worker candidate is
+  source-reviewed and built; its mixed-96 and all 27 native controls pass; its 96-function baseline completes behavior
+  then fails the required zero-parent-producer resource count. Broad large
+  admission, refusal tests, native lifecycle, frame retention and speed/memory
+  checks remain open. HOT symbolic transfer
+  has 220 positive large functions per world with exact artifact facts/output;
+  native preflight and the ordinary compiled positive-route proof pass;
+  the complete native acquisition retains 2,448 raw values and 144 warmups.
+  Actual small controls cost 3.2–8.0% more; large ratios are 0.999×/1.033×
+  in opposite command orders. No artifact gain is established, so the
+  candidate stays private. The worker Claude review hit its session limit
+  without an assessment; independent source review is complete.
+  Tail-only raw fallthrough carry passes the measured sibling undo-capacity
+  bound and all original controls; native cost and artifact coverage remain
+  open, so it stays private. See the campaign page for exact receipts and limits.
+- **October 17 DAE follow-up:** bit-aware plan comparison repairs seven actual
+  NaN/signed-zero baseline failures; nine focused and four existing command
+  controls pass, with a renewed full gate pending. The private pruning campaign
+  retains 3,060 raw values and improves actual pruning snapshots, but its
+  original-large no-prune cost is 7.1–7.5% worse, so it stays private. All four
+  large worker routes pass complete functional checks; retained frames, refusal,
+  native speed and memory remain open. Smaller compiled-work checks do not close
+  full-pass parity. See the campaign page for source-bound receipts and limits.
+  The pruning follow-up now passes 26 bounded controls and both ordinary work
+  checks. Its actual first-mark census is complete; the new 4,080-value
+  native cohort and independent audit pass. Original-large component ratios
+  are 0.983/0.978 and actual snapshots 0.525–0.560, but adverse controls still
+  cost up to 16% on tiny adverse cases. Independent source review finds no
+  correctness defect. The targeted unit is now integrated with those costs
+  recorded; all 26 focused and 14,873 bounded default tests pass, source stable.
+  Fresh integrated native timing and aggregate GenValid remain open.
+  Vacuum's full actual census has zero removed calls on all four input/pass
+  lanes, so its synthetic clocks are deferred and it stays private. The opaque
+  guard's 2,448-sample run has small component gains and adverse cold costs;
+  it does not qualify the broader private algorithm for integration.
+  The formatted NaN repair now passes both new command controls, 17 focused
+  tests and all 14,856 default tests with stable source. The private worker
+  consumption unit passes all 31 native controls, but generated C adds a
+  per-frame success allocation; large, allocation and memory gates remain open.
+  The nullable-error successor now passes all 41 native controls and eight
+  ordinary allocation checks: zero success boxes after 96 complete commits,
+  with pinned FuncTypes and the exact dynamic error retained. Ordinary
+  counter-free routing, native speed and process-group memory stay open.
+  The writer's twelve saved outputs pass structural/canonical checks and an
+  independent nineteen-body semantic review. Its strict-byte gate still fails;
+  its 2,856-value native campaign and independent audit pass, but actual small
+  timing is flat and large timing changes direction between orders. It stays
+  private. Unresolved-read preflight passes six bounded tests and ten controls;
+  malformed-input checkpoint tests have a compiler setup failure. Actual
+  artifact eligibility and ordinary compiled work remain open.
+- **DAE exit criteria:** remove the remaining replay and repeated-validation
+  costs without losing effects, source-write precision, metadata or scalar
+  cleanup. Check small, large and active component controls, output size and
+  memory (including the adverse single-sample small DAE/DAE2 RSS controls);
+  finish bounded/default tests and fresh 10,000-case dedicated-profile
+  comparisons with the verified v133 oracle. Command ratios alone do not close
+  the active pass-local target.
+- **October 17 checkpoint:** campaign stopped at the user's request after
+  preparing the repository for a remote checkpoint. All four speed targets,
+  final integrated native timings and renewed aggregate GenValid lanes remain
+  open. Private malformed-arena setup passes, but its native build was stopped.
+  The ordinary worker diagnostic baseline needs `<stddef.h>` before compilation;
+  its resource checks and counter-free implementation remain unrun.
 - **Correctness takes release priority:** the independent October 3 baseline
   audit has reproduced validator, DAE and OI failures. Keep performance patches
   isolated and preserve their evidence; do not treat existing passing tests or
@@ -76,7 +279,7 @@ Completed October 7 default-gate and ten-item audit repairs are recorded in
   DAE/O runtime rows and retains six large hashes. Its n3 CLI medians are
   DAE 1420.340/B1063.695 and DAE-O 1656.129/B2425.725 ms.
   [Spreads and limits](docs/wiki/binaryen/passes/dead-argument-elimination/starshine-strategy.md#october-3-2026-parameter-reads-in-control-operands).
-- **Latest complete DAE2 profile:** native ea4e5887… pass 28.757b instructions.
+- **Earlier complete DAE2 profile:** native ea4e5887… pass 28.757b instructions.
   The preceding c98 profile attributes dependencies9.355b, analysis lift6.366b,
   rewrite lift2.372b, lower4.647b and final validation2.495b; these remain
   larger owners, with source versions explicit and inclusive costs not additive. [Full source breakdown](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-own-the-incremental-type-validation-prefix).
@@ -139,6 +342,105 @@ CFG/lower and validation-envelope costs, preserving the 1× target and canonical
 quality gates. Keep traced inner and normal command measurements separate.
 
 ### P00 — Remaining correctness and verification blockers [IR2-RELEASE-CORRECTNESS]
+
+- [ ] **Later-delta Claude review:** the restricted October 15 Opus review
+  completed after the usage reset and inspected every scoped path. It reported
+  four confirmed evidence or coverage gaps and six unverified risks, with no
+  high-severity defect. The deep-child, memory64-boundary, Precompute-result,
+  byte-reuse, and documentation findings now have direct fixes or renewed
+  evidence. Refresh the packet and obtain one final read-only delta review
+  after the remaining aggregate campaigns. Raw stdout, stderr, exit status,
+  request, scope, and manifests are under local
+  `review/claude-later-current-20261015/` in the report evidence root.
+
+- [x] **Precompute generated execution renewal:** all 11 fixed
+  `precompute-all` leaves previously lacked exports and a start function, so
+  node-v2 observed compilation and instantiation without executing pass target
+  bodies. Current source exports bounded scalar, control, effect, and GC
+  targets; records all seven local-facts values in an exported wrapping
+  checksum; and calls the GC atomic target through a no-argument Wasm wrapper.
+  Five observability tests and the existing profile tests pass. NaN
+  integer-bit probes and negative or about 171 MiB GC allocations remain
+  compile-only. Fresh native generator `4c85b7ec` and optimizer `8438fdd8`
+  complete all 22 explicit leaf/pass smokes. Twenty observations match under
+  the default Node feature set; the two GC atomic leaves also match when the
+  required shared-GC flag is explicit. All outputs validate and pass
+  determinism and codec checks. Twelve are exact, ten retain reviewed output
+  shape differences, and aggregate canonical output is 23 bytes smaller than
+  Binaryen 133 despite two larger cases. `moon info` and all 14,328 default
+  tests passed before this generator-only renewal.
+  The WasmGC CI-profile full gate passes 14,324 target tests and all 100,750
+  configured fuzz attempts.
+  The first plain aggregate exposed a checksum-nested constant-select gap
+  (80 versus Binaryen 75 bytes). Its red-first admission fix now replays exact
+  at 75 bytes. Current optimizer `cecc7ac9` and generator `0845db24` then
+  complete both 10,000-case Binaryen 133 aggregates. Plain Precompute has
+  7,369 exact, 1,751 cleanup-normalized, and 880 stronger constant-control
+  folds; PrecomputePropagate has 5,543 exact, 3,577 cleanup-normalized, and
+  the same 880 folds. All 20,000 Node-v2 observations, determinism checks, and
+  codec checks match without blocks or failures. Starshine has zero larger
+  output and saves 13,191 and 16,371 canonical bytes respectively.
+
+- [x] **HSO generated execution renewal:** current optimizer `8438fdd8…` and
+  generator `4c85b7ec…` complete the 10,000-case dedicated Binaryen 133 lane
+  with strict custom-descriptor and shared-GC flags. All 10,000 Node-v2
+  observations are checked and three-way equal; determinism and codec are
+  10,000/10,000. The lane has 2,155 exact and 7,845 documented
+  `local-cleanup-debris` matches, zero residuals or failures, and canonical
+  output 15,762 bytes smaller in aggregate.
+
+- [ ] **Shared tuple lowering carried-read signoff:** a new source-order
+  regression retains an old scalar read above an already evaluated tuple.
+  The inherited fallback replays all32 producer imports; a fresh read also
+  exposes wrong published64 instead2. The narrow zero-result/one-input
+  LocalSet repair moves one physical typed row; generic/multi-input guards
+  stay intact. Early/middle/late overwrite controls pass focused checks.
+  The red-first middle capture allocates32 temporary locals; bounded typed
+  pair reuse reduces this to2. Three two-capture layouts preserve old reads,
+  new stored values and one ordered import sequence. Typed rows, refs,
+  multi-cover moves and cache ownership pass 13 focused checks. Current native
+  `5d8ea74e` passes all 14,300 full tests, 58,840 runtime comparisons and GC
+  CLI arguments. Earlier B4→B6 wide512 pairs improve 31.868→26.044 ms
+  and mixed wide512 38.023→32.313 ms, with identical bytes and all pairs
+  faster. Fresh changed-consumer aggregates are running. The new
+  store-run shortcut separately has red-first496-root-visit and590-stack-scan
+  controls; its negative admission now checks run length before stack rows.
+
+
+- [ ] **October 15 Tuple current-source signoff:** bulk publication and
+  ascending-copy native `193e58a7` passed 14,267 WasmGC tests and 13,440 Tuple
+  runtime comparisons. Current native `5d8ea74e` includes the later lowering
+  repairs and passes 14,300 full tests and 17,080 Tuple runtime comparisons.
+  The fresh callable Tuple aggregate now completes 10,000 matching runtime
+  cases with all second-pass, determinism and codec checks passing. Its
+  retained four drift families have source/expected-value/operation evidence;
+  other changed-consumer aggregates remain open. The older `972c897d`
+  exportless observations stay historical.
+  Seven paired loop1024 samples preserve bytes and improve command medians
+  60.307→25.767ms and child peak RSS81,732→24,400KiB. Check latest wide/control
+  costs and all changed shared consumers before general claims. The private
+  fused-stack stale-branch hypothesis remains unverified. Weighted pass/command
+  and native separate-lane fixtures cover both store orders and overlap.
+  [Contracts and measured scope](docs/wiki/binaryen/passes/tuple-optimization/index.md).
+- [ ] **October 14 correctness repairs awaiting final signoff:** the
+  [Heap2Local owner publication repair](docs/wiki/binaryen/passes/heap2local/index.md#october-14-2026-owner-publication-repair-under-validation)
+  stages all constructor operands before publishing new fields. Red-first
+  tests also exposed removed result labels, wrapper ownership, and lost array
+  tee constructor effects. Array old-owner reads now use the prior allocation
+  epoch; constant bounds traps retain constructor and stored-value effects.
+  A combined non-null reference failure required a
+  [SimplifyLocals pending-write repair](docs/wiki/binaryen/passes/simplify-locals/structure-result-lifting-and-carrier-cleanup.md).
+  [Tuple captured aliases and nested overlapping copies](docs/wiki/binaryen/passes/tuple-optimization/index.md)
+  and CoalesceLocals shared-body ownership also have confirmed red-first repairs.
+  Final default tests, fresh native runtime, generated v133 comparisons, and
+  footprint measurements remain required. New element-effect and segment-fallback
+  controls found no original valid-input defect; memory packing separately has
+  an exact-cost guard against byte growth. Export-only review of retained
+  MemoryPacking families proves Starshine preserves memory64 full-range
+  trap-before-write behavior in nine cases where Binaryen 133 partially writes;
+  a profitable-split regression locks the destination preflight order. The
+  1,284 blocked active-start observations remain unverified. Preserve all
+  earlier release blockers.
 
 - **Goal / why:** finish release correctness checks without losing optimizer
   coverage, source order or valid output. The immutable October 3 audit remains
@@ -554,13 +856,28 @@ quality gates. Keep traced inner and normal command measurements separate.
   is needed. [Measured contract](docs/wiki/binaryen/passes/dae2/starshine-strategy.md#october-4-2026-reuse-original-subtree-reads-during-adjacent-pair-cleanup).
 - [ ] Attribute remaining distinct-local union costs and nested-loop prewalks;
   retain the small flat unchanged cost and +1,453 allocation-request tradeoff.
-  Resolve the depth128 benchmark stack-overflow boundary before claiming deep
-  scaling; separate setup/reference from the actual worker.
+  The depth128 WasmGC stack-overflow boundary is resolved: HOT lifts consecutive
+  void blocks with explicit storage, lowered canonicalization carries explicit
+  change bits, adjacent cleanup and command byte reuse use identity change
+  signals, and the SIMD sink uses its documented identity contract. The
+  iterative unwind no longer allocates an unused label-stack-head row. Depth
+  31/32/33/128, block/middle/function labels, invalid labels, live prefixes,
+  label-owner, sibling-label, conditional-exit, observable-value,
+  root-terminator, segmented-change and CLI roundtrip regressions pass. Four
+  external depth128 SL/SLNS replays validate under wasm-tools. Fresh generated
+  renewal for this later source remains required before a general deep-scaling
+  claim; separate setup/reference from the actual worker.
 - [ ] Profile remaining recurrence/adjacent/effectful rewrites, raw Vacuum
   preclean, preparation, mutation safety, child-use queries and writeback on
   one frozen source. Completed absent-if census, initial control rejection,
   tag size bounds, flat recurrence storage, initialized read indexes, unchanged
   suffix storage and bounded initial dupable-copy discovery must not be repeated.
+- [ ] **October15 statement-seed renewal:** the four-store128-local resource
+  regression fails at2,560 initialized slots; shared immutable statement seeds
+  reduce this to128. Positive, invalid/escape and terminal-no-query controls
+  pass. All 14,300 full tests and native `5d8ea74e` runtime checks pass.
+  Cost, memory and generated renewal remains open; remaining statement scans
+  and the separate terminal-value setup are still open.
 - [ ] Reduce remaining pure-copy tail scans/typechecking: blocked width64→256
   still costs.882→14.21ms (≈16× for4× width). Measure actual query reuse and
   materialization cost on compiler bodies before another cache. The per-flat
@@ -716,6 +1033,14 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 #### P03g — Control costs and cumulative evidence [IR2-PERF-DAE2-EVIDENCE]
 
+- **October 15 current-source aggregate renewal:** native optimizer `fbfc16a5`
+  and generator `3dfffa7e` complete four 10,000-case `dae2` lanes with both
+  required normalizers. Each has 9,312 matching node-v2 observations, 688
+  blocked continuation cases, and zero observed semantic, validation, property,
+  generator, command, determinism, or codec failures. Open plain/optimizing
+  have no canonical size loss. Closed plain retains 706 larger cases and closed
+  optimizing retains 2,133; these and the blocked runtime cases stay open.
+  [Exact counts and artifacts](docs/wiki/binaryen/passes/dae2/fuzzing.md#october-15-current-source-normalized-renewal).
 - [ ] Resolve or justify remaining tiny-row, small-compiler, tee, joined-reader,
   pure-tail, conditional-writer and GC/entry control costs; review buffer lifetime
   and peak RSS alongside work reduction. Preserve rejected trials and dispersion.
@@ -738,6 +1063,18 @@ quality gates. Keep traced inner and normal command measurements separate.
 - **Owner / why:** [Coalesce](src/passes/coalesce_locals.mbt), expanded CFG,
   liveness, interference and raw branch-depth/lowering queries; the large pass
   still costs several seconds.
+- **October 16 prefix-copy result:** destination write counts now reject dead
+  candidates before suffix work, and whole-body source counts omit the suffix
+  scan for immutable sources. Frozen-to-counted helper means improve 250.81 µs
+  to 841.07 ns at 128 copies and 16.04 ms to 6.50 µs at 1,024 copies. The
+  written-source 128-copy control remains 264.53 versus 257.14 µs with
+  overlapping ranges. Four resource/reference tests, 189 Coalesce tests, one
+  command test, and 12 native benchmarks pass. This is helper evidence; full-
+  pass time, allocation bytes, RSS, and written-source quadratic scans remain
+  open. Fresh native `2f393f99` also completes the 10,000-case verified-v133
+  aggregate with its prior 3,750 exact / 6,250 smaller distribution, zero larger
+  output, and zero validation or observed semantic failure. The 1,250 original
+  start traps remain blocked in the harness and retain their independent replay.
 - **Historical copy-barrier checkpoint:** main7a5676ba9/natived08c→dbbaefbe CL normal
   4416.546±70.418ms/B1963.489±27.857 (2.249×), n5 alternating/one warmup;
   paired−.699%, foreign activity every row. Complete CL work40.823b (−2.930209%).
@@ -805,6 +1142,29 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 ### P05 — Mutation-scoped SimplifyLocals cleanup [IR2-PERF-SL]
 
+- [ ] **October 15 declaration grouping signoff:** all seven writeback paths
+  have guarded numeric grouping; `193e58a7` includes the named-unused-local
+  repair and checked plain-type cleanup. It passes14,267 full tests and12,288
+  typed numeric runtime comparisons. The older972c10,000-case aggregate has
+  9,342 raw-smaller/504equal/154raw-larger (306B total losses). All20 retained
+  bundles have fresh451calls per variant across91functions. Replay the four
+  exact type-overhead loss/control cases and renew10,000 generated comparisons
+  before closing losses. Native193e exact replays close cases496/4475/5132
+  individually (148/351/243B versus Binaryen152/366/253B); control3 stays88B. Data counting reduces 2MiB/one-function command
+  8.120→7.317ms and child peak RSS30,584→26,900KiB. Mixed128 regresses
+  7.179→7.558ms in all seven pairs; repeat/inspect this cost. Full O4z1000
+  remains about1.75s versus Binaryen's different preset policy at61ms.
+  Claude's later restricted review completed after the usage reset. It found no
+  high-severity defect. New native helper measurements bound unchanged and
+  active final-size cleanup plus cached SIMD admission. Final native
+  `fbfc16a5` renews plain and no-structure 10,000-case aggregates with no larger
+  output or observed semantic failure. A 4,096-root carrier benchmark exposed
+  and removed quadratic prefix rescanning, improving 24.86/28.21 ms controls to
+  298.83/289.92 µs without changing aggregate bytes. Allocation, RSS,
+  artifact-scale cost, the other SimplifyLocals modes, and final delta review
+  remain open.
+  [Evidence and limits](docs/wiki/binaryen/passes/simplify-locals/structure-result-lifting-and-carrier-cleanup.md).
+
 - **Owner / why:** [raw cleanup](src/passes/pass_manager.mbt) and lift/lower
   around [SimplifyLocals](src/passes/simplify_locals.mbt); inner transform timers
   omit substantial pipeline setup and existing shape gaps.
@@ -815,8 +1175,8 @@ quality gates. Keep traced inner and normal command measurements separate.
   splits, all five variants, source positions, one-arm exit labels, typed-loop/
   call aliases and capture lifetimes. Keep tiny/sparse fallbacks; eager
   continuation indexes remain rejected. P03/P08/P09/P10 depend on this owner.
-  V25 bounded repair evidence is complete; final current-source shared-consumer
-  aggregate renewal remains deferred, not the old bounded repair replay.
+  V25 bounded repair evidence is complete; plain and no-structure current-source
+  aggregate renewal is complete. Other shared consumers remain separate.
 - **Exit / tests:** improve enclosing time and shape/size without regressing
   candidate-free, nested/multivalue/effectful or dirty-round controls. Extend
   [suffix controls](src/passes/value_suffix_reuse_perf_wbtest.mbt) and all-variant
@@ -905,6 +1265,18 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 ### P08 — Remaining DAE snapshots, uniform actuals and transactions [IR2-PERF-DAE]
 
+- [ ] **October 15 discovery/setup signoff:** source-invariant sink scans reuse
+  one context; empty adjacent roots and result worklists skip unused snapshots
+  and graphs. Preserve source/current import and definition bounds, prior
+  touched/changed state, effects and trace. Independent review's missing-code
+  unwrap regression has a red-first repair. All14,279 full tests and8 focused
+  checks pass. Native baseline adds1,960 expected-value/effect/trap comparisons;
+  fresh native, paired enclosing cost and open/closed generated133 renewal are
+  in progress. Do not remove portfolio slots or claim the1.75–1.79s full-preset
+  gap closed from source work counts.
+  [Contract and evidence](docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md#october-15-immutable-sink-discovery-and-empty-worklists).
+
+
 - **Owner / why:** [DAE](src/passes/dead_argument_elimination.mbt); the October 1
   isolated pilot removes recursive contiguous-root slicing (small untraced
   DAE/O paired −4.93%/−14.73%, exact fixed artifact bytes). Current small traced
@@ -967,6 +1339,11 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 - **Owner / why:** [Inlining](src/passes/inlining.mbt); active large plain and
   small optimizing paths still need lower cost or oracle parity.
+- **Compiler-fact boundary:** version-1 function `Never` and `Always` policies
+  now use the existing `binaryen.inline` path under `HintsOnly` or
+  `TrustAssertions`. `Default`, `Prefer`, and `Ignore` remain inert. A measured profile input, stale-profile
+  identity contract, preference tier, and profile-aware partial inlining remain
+  open; this bridge does not close that work.
 - **Deliverables / tasks:** profile called-body fallback classification,
   profitability/reachability, copying and repeated rounds. Key touched caller/
   callee facts to body/signature revisions; rebuild ambiguous partial-split or
@@ -999,6 +1376,13 @@ quality gates. Keep traced inner and normal command measurements separate.
 
 ### P11 — Write-heavy validator ownership [IR2-PERF-VALIDATE]
 
+- **October 15 bounded result:** try-table mask borrowing retains expression
+  copy-on-write ownership. Two order-balanced native rounds improve first-write
+  medians 459.74 to 435.22 ns (256 entries) and 516.61 to 468.95 ns (4,096).
+  Unchanged and idempotent controls also improve. The earlier sequential cohort
+  had a clock shift and does not establish a regression. This helper result
+  does not close complete validation or memory work; see the
+  [measurement limits](docs/wiki/tooling/tracing-playbook.md#october-15-report-experiments).
 - **Owner / why:** [typecheck.mbt](src/validate/typecheck.mbt), writing control
   forks and unavoidable final validation; allocation remains prominent.
 - **Deliverables / tasks:** separate writing masks from environment/body checking;
@@ -1366,10 +1750,10 @@ retain the detailed provenance.
   overhead. Preserve recursive-group and handler semantics.
 - **Other saved shape gaps:** replay code-pushing's 513 `br-if-value` cases
   (+2,052 canonical bytes) and trap-relaxed OI's 30 `direct-tiny-bulk` cases
-  (+300), both historical v132 figures. The current verified-v133 10,000-case
-  no-structure SimplifyLocals aggregate confirms 1,662 tee-control outputs are
-  8 or 12 canonical bytes larger (+16,636 total); reduce this size-losing parity
-  gap. Ten SSA fixture families still differ in typed-loop proxies,
+  (+300), both historical v132 figures. The no-structure SimplifyLocals
+  tee-control loss is closed: final optimizer `fbfc16a5` is smaller than
+  Binaryen 133 in all 10,000 aggregate cases, including the former 1,662
+  size-losing rows. Ten SSA fixture families still differ in typed-loop proxies,
   reference/cast lowering and branch-table cleanup. Keep compact-import policy,
   name-metadata size gaps and unsampled tuple/downstream cases visible.
 - **Host-visible identity guards:** measure preset DFE/DIE size and performance
@@ -1398,6 +1782,17 @@ failure; no unproven output-shape exception.
 The order below is the follow-up priority; current P03 DAE2/DAE2-O performance
 work stays first. Pin and identify a current-main oracle for the upstream probes;
 keep those results separate from verified release-v133 signoff.
+
+- [ ] **October15 direct-GC graph reuse signoff:** red-first no-commit graph
+  bounds3/5/9→1 and inactive1→0, plus productive/rejected-attempt controls,
+  preserve exact signatures, effects and original ownership. The7273e2ab
+  trace attributes391ms to this batch on1,000 public numeric functions. Run
+  generated comparisons before signoff. All 14,300 full tests and 58,840
+  native runtime comparisons pass on `5d8ea74e`. Seven paired mixed DAE
+  medians improve 437.241→30.071 ms; full O4z data1000 improves
+  1814.577→635.642 ms. Bytes agree and all seven pairs improve. Controls
+  remain mixed and no peak-RSS gain is established. Expanded GC coverage uses
+  Node26 for Binaryen's nullable exact output and preserves Node24 failures.
 
 #### DAE never-returning reference results [IR2-DAE-BOTTOM-9169]
 
@@ -1519,6 +1914,52 @@ keep those results separate from verified release-v133 signoff.
 
 ## v0.1.1 — Pipeline, artifacts and tooling [IR2-SIGNOFF]
 
+
+### Wago debug-artifact execution [IR2-WAGO-RUNTIME]
+
+- **Goal / why:** complete Wago execution of the release GC CLI on the full
+  debug O4z input before reporting a Wago speed ratio.
+- **Evidence:** canary cea8f83f forces collection off after exact root admission
+  rejects the MoonBit externref ABI. The 2 GiB run exhausts its heap. Diagnostic
+  owners include 13.324 million byte calls, 7.22 GiB host scratch allocation
+  and a 34.72% inclusive GC struct-helper CPU path.
+- **Correctness blocker:** artifact serialization omits start metadata. Fresh
+  2/3 GiB runs start; cached repeats trap. A reduced module returns 42 fresh
+  and 0 cached; its behavior regression fails. The earlier heap-size hypothesis
+  is superseded.
+- **Deliverables / tasks:** preserve start metadata with codec compatibility
+  and imported/trapping-start tests; make reference-result scratch lazy;
+  add proven exact native roots for the MoonBit ABI; measure remaining GC
+  helper and bulk-transfer costs.
+- **Required APIs / invariants:** retain host ABI, callback lifetime and exact
+  GC reference behavior. Do not enable collection with incomplete native
+  root maps. Host ABI admission may expose further caller gaps.
+- **Dependencies:** upstream Wago codec, host dispatch, root admission and
+  GC helper implementation. No upstream source patch has been applied.
+- **Exit criteria / suggested tests:** fresh/cached start parity; allocation
+  and retained-callback controls; complete O4z, externally validate and compare
+  bytes with native; repeat wall and phase measurements.
+  [Investigation](docs/wiki/tooling/tracing-playbook.md#october-11-2026-wago-wall-time-and-collection-investigation).
+
+### Npm runtime comparison blocker [IR2-NODE-RUNTIME]
+
+- **Goal / why:** make the installed npm CLI execute the current optimizer so
+  Node and Bun package timings measure the requested work.
+- **Evidence:** October 11 registry E404; local tarball installation succeeds,
+  but both hosts fail on the missing GC adapter. The command wrapper currently
+  returns the decoded module after pass expansion.
+- **Deliverables / tasks:** restore an active adapter build and package its
+  artifact; connect command optimization to the current pass pipeline; verify
+  registry access or publication separately.
+- **Required APIs / invariants:** preserve the public JS command API; O4z must
+  run the requested passes and write valid output.
+- **Dependencies:** current command adapter, package generation and release
+  packaging. See [the package record](docs/wiki/tooling/node-package-surface.md).
+- **Exit criteria / suggested tests:** install a fresh tarball in a temporary
+  project; run an exact constant-fold fixture and the debug artifact under both
+  Node and Bun; validate outputs and compare bytes with native Starshine.
+
+
 - **[SEMANTIC-OPT]001 — campaign acceptance:** rerun the full original-primary
   semantic campaign with explicit verified v133; the old accidental-PATH-v116
   aggregate is not acceptance evidence. Renew the historical random-all Vacuum
@@ -1572,6 +2013,27 @@ bootstrap and fixed-point checks. See
 pass dossiers; historical green checkpoints do not replace current signoff.
 
 ## v0.2.0 or later — Oracle and proposal follow-ups [IR2-V133]
+
+### Report-derived optimization extensions [IR2-REPORT-OPT]
+
+- **Goal / why:** evaluate the supplied report without duplicating implemented
+  facilities or displacing current v0.1.1 correctness/performance owners.
+- **Deliverables / tasks:** the local, untracked 56-task assessment records the
+  intake; durable contracts remain in the linked pass dossiers.
+  Existing P00–P14 retain time/memory work. Future slices cover exact local
+  packing, function/type remapping, callsite/profile costs, feature contracts,
+  memory proofs, SIMD/GC/tuple extensions and measured segment/layout work.
+  October 16 test-only segment probes find byte wins for equal no-drop passive
+  payloads and fixed internal-table images. Production remains open: independent
+  `data.drop` states, GC data users, initialization traps, declaration sources,
+  runtime segment indices, names and metadata need complete proofs and remaps.
+- **APIs / dependencies:** reuse EffectMask, revision-bound analysis, exact
+  encoder sizing, current range domains and module-index remappers. Function
+  packing retains the existing `IR2-REORDER-REF-FUNC-9160` owner below.
+- **Invariants / exit / suggested tests:** reduced red-first trigger, exact
+  bytes, effects/traps/state and feature preservation; measured enclosing time,
+  allocation/RSS and downstream cost; current verified v133 aggregate signoff.
+  Report impact ratings and source opportunities are hypotheses, not wins.
 
 - **v133 residuals:** classify the historical GTO, 2,216 shared-object, 2,632 CA
   and 1,080 OI differences with semantic and size evidence. The remote GTO

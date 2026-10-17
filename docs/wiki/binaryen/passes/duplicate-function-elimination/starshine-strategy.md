@@ -137,11 +137,11 @@ The important current local boundary is direct behavior versus broader no-DWARF 
 - fast public `optimize` / `shrink` queues contain the early DFE slot; O4z also
   queues Binaryen's late DFE slot
 
-The scheduled slots remain in the queue, but execution now skips preset-origin
-DFE when the original or current module has any imports or exports. Such a
-boundary can expose a function reference through exports, tables, globals, or
-imported callbacks; merging equal bodies would then collapse distinct host
-identities. Closed modules still run the scheduled DFE slot. Direct
+The scheduled slots remain in the queue. Short presets skip preset-origin DFE
+when the original or current module has any imports or exports. Full O4z
+(`optimize_level >= 4`, `shrink_level >= 4`) uses the direct pass's identity guard
+and can merge private equal helpers across that boundary. Closed modules still
+run the scheduled DFE slot. Direct
 `--duplicate-function-elimination` now keeps each exported or
 address-materialized defined function outside duplicate groups, even when
 bodies match. The conservative address scan covers `ref.func` in function
@@ -159,12 +159,16 @@ its validation rule requires `(ref null eq)` operands, and function references
 are outside that hierarchy. The [Node host regression](../../../../../tests/optimizer/regressions/host-identity.test.ts)
 checks table and global identity plus the alias relationship between them. This
 guard is a correctness improvement over the earlier direct-pass contract and
-can differ from Binaryen's output shape; narrowing the broad preset gate still
-requires sound escape analysis and measured size/performance evidence.
-The CLI's pure O4z size portfolio filters DFE from its automatic candidate
-rosters on the same host-boundary condition, so a shorter candidate cannot
-bypass the preset-origin guard. Mixed explicitly named passes do not use that
-portfolio.
+can differ from Binaryen's output shape. The October 14, 2026 full-O4z policy
+supersedes the blanket boundary exclusion with this conservative materialized-
+address guard; no function escape analysis is assumed. The CLI's pure O4z
+size portfolio also admits guarded DFE while retaining the existing DIE
+filter. Mixed explicitly named passes do not use that portfolio. The
+[private-helper host regression](../../../../../tests/optimizer/regressions/preset-private-dfe.test.ts)
+locks private duplicate removal, smaller encoded bytes, all pairwise identities
+for eight exposed functions, and ordered imported-call effects in both presets.
+The [library regression](../../../../../src/passes/preset_private_dfe_regression_test.mbt)
+also locks exported, table, global and body-reference definitions.
 
 White-box tests lock one-time hashing, candidate-only type normalization, complete body hashing, target-insensitive grouping, type/cleanup fact collection, and direct-target rewrite admission.
 

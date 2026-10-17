@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-03
+last_reviewed: 2026-10-15
 sources:
   - ../fuzzing/text-differential-adapters.md
   - ../wast/static-assertion-harness.md
@@ -128,6 +128,32 @@ Important invariants:
 Preserve this result contract when adding suites so CI logs, repro reports, and long-running compare tasks can remain machine-readable.
 
 ## Artifact Commands
+
+### Full unsigned seed range (October 15, 2026)
+
+The three artifact commands accept decimal and hexadecimal roots throughout
+`0..18446744073709551615`. Their checked unsigned parser retains plus signs,
+underscores and zero spellings; it rejects nonzero negative roots, overflow and
+missing digits. Ordinary suite/recipe runs keep their separate signed Int64
+seed contract.
+
+The former artifact parser called the signed parser and rejected roots above
+`Int64.MAX`, despite the documented UInt64 contract. Three new command tests
+fail before the repair. The exact failed root `0xed5d9aa4110c3cf5` now produces
+one validated owner case with the original case seed and FNV hash; no companion
+input is needed. [Regression tests](../../../src/fuzz/unsigned_seed_cli_regression_wbtest.mbt)
+cover every unsigned command, flag forms, both numeric bases, overflow,
+malformed input, accepted low roots and unchanged signed limits. Native generator `821975b0` validates 15 bounded outputs: old/new low-root
+manifests and bytes agree, hex/decimal high roots reproduce the exact historical
+input, and `UInt64.MAX` succeeds. Overflow and nonzero negative roots fail
+before output creation. The full 14,308-test gate passes. The native generator
+grows 4,632 bytes (21,700,848 to 21,705,480); this is a cold CLI correction,
+with no measured optimizer runtime or memory gain. Raw commands, hashes,
+validation and build identity are under local
+`.tmp/report-optimization-20261014/{native-unsigned-seed-cli,review/unsigned-seed-cli-native-replay}/`.
+The generator and RNG algorithms are unchanged. Existing frozen comparison runs retain their
+original generator identity and low root; this parser repair does not replace
+or rename that evidence.
 
 ### Coverage-forced valid batches
 

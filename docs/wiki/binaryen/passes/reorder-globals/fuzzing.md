@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: strong
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-16
 sources:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -20,6 +20,32 @@ sources:
 # `reorder-globals` fuzzing profile
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+
+## October 16 name-cost candidate signoff
+
+Fresh native optimizer `2f393f99` and generator `34a136ac` complete the
+10,000-case `reorder-globals-all` aggregate against verified Binaryen 133
+`8f25e9fd`. The run uses wasm-tools 1.260.0 as the independent validator,
+eight subprocesses, node-v2 observations, determinism checks, codec
+idempotence, and no mismatch reduction. Validation, generator, command,
+property, determinism, codec, and observed semantic failures are zero. All
+10,000 three-way observations match.
+
+There are 7,010 normalized matches and 2,990 structural differences. The
+differences remain exactly the stable-import contract: 1,161 imported-global
+cases and 1,829 module-code cases. Starshine preserves host-observable import
+resolution order while Binaryen reorders imported global 128. The imported
+family costs one canonical byte per case. Module-code canonical sizes are equal;
+452 data-offset raw outputs are three bytes smaller and the other 1,377 raw
+outputs are equal. Total canonical size is 7,550,622 Starshine bytes versus
+7,549,461 Binaryen bytes: 1,161 larger and 8,839 equal cases. No retained
+artifact contains a second diff family.
+
+The aggregate does not generate the new multiple-name boundary opportunity.
+Focused pass and command tests own that 756→754-byte production change. This
+campaign signs off its surrounding pass behavior; it does not establish pass
+time, allocation, or memory gains. Evidence:
+`.tmp/report-optimization-20261016/final-signoff/reorder-globals-final-source/`.
 
 ## Current closeout profile
 
@@ -146,3 +172,28 @@ preserved. These cases have no exports/invocations and observe construction,
 instantiation and 129 imported globals. Raw compact-import size policy and name
 metadata remain distinct from this observation closure.
 [Provenance and limits](../../../ir2/architecture-rules.md#reorder-globals-compatible-encoding-runtime-renewal).
+
+## October 15 Binaryen 133 shared-work renewal
+
+The frozen native optimizer `5d8ea74e` and generator `76b922fb` completed the
+`reorder-globals-all` aggregate against verified Binaryen 133. All 10,000
+outputs validate. All 10,000 node-v2 observations, determinism checks, and codec
+checks match, with no blocked observation or validation, generator, command, or
+property failure.
+
+The result has 7,010 exact normalized matches and 2,990 structural differences.
+Every difference is the documented stable-import contract:
+
+- all 1,161 `reorder-globals-imported` cases differ by one canonical byte;
+- all 1,829 `reorder-globals-module-code` cases differ by one canonical byte;
+- every other leaf is an exact normalized match.
+
+Binaryen moves hot imported global 128 to index 0. Starshine keeps imported
+globals in declaration order because host import resolution can observe getter
+order. The retained artifacts show no second diff family. Starshine canonical
+output is 2,990 bytes larger in aggregate. This is an intentional correctness
+tradeoff with a measured size cost, not a size win or an unclassified parity
+gap. The raw totals also include independent metadata and codec representation
+differences and do not change this classification.
+
+Evidence: `.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/reorder-globals/`.

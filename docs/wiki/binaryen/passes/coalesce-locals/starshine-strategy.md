@@ -1984,3 +1984,63 @@ records retain exact builds, sources, commands, native worker and all samples.
 Include exceptional edges in expanded loop liveness. Pre-entry writes, protected writes, and call-argument tees stay live until their catch continuation. Lowering preserves earlier carried tee effects before an escaping branch.
 
 Evidence: [coalesce_locals.mbt](../../../../../src/passes/coalesce_locals.mbt). See the [current checkpoint](../../../tooling/validation-gates.md#october-7-2026--p00-control-exception-and-ownership-repairs) for exact validation, timing and open limits.
+
+
+## October 16, 2026: omit proved-unnecessary loop-prefix suffix queries
+
+The loop-prefix alias scan now checks the destination's existing whole-body
+set/tee counts before scanning a suffix. For an admitted destination, a source
+with zero sets and zero tees cannot be overwritten anywhere in that unchanged
+body. That proof bypasses the suffix query. Sources with any write keep the
+original recursive suffix scan, including writes in loops, branches and legacy
+or `try_table` handlers. Prefix barriers, seen-destination checks, local types,
+source order and the final rewrite are unchanged. There is no new cache, row,
+or retained capacity; the existing `seen` row remains. The optional query
+counter is used only by tests.
+
+The red tests report 24 and 16 unwanted suffix queries for immutable-source and
+rejected-destination prefixes. Both now report zero with the same aliases and
+unchanged inputs. Four focused tests pass, including 19 valid source-write,
+tee, handler, type, control and ownership fixtures checked against the frozen
+admission code. The existing Coalesce filter passes all 189 tests. The command
+control also permits existing cleanup to retire a source overwrite whose new
+value is never read; that cleanup can remove the need for snapshot locals.
+
+Native release helper means ± standard deviation, one fixed reference/changed
+order per fixture, 10 groups per case:
+
+| Prefix | Frozen reference | Count gate |
+| --- | ---: | ---: |
+| Immutable source, 1 copy | 55.90 ± 1.12 ns | 37.70 ± 0.17 ns |
+| Immutable source, 8 copies | 1.15 µs ± 11.07 ns | 99.32 ± 0.29 ns |
+| Immutable source, 128 copies | 250.81 ± 2.62 µs | 841.07 ± 19.92 ns |
+| Immutable source, 1,024 copies | 16.04 ms ± 223.32 µs | 6.50 µs ± 124.68 ns |
+| Mutable source, 128 copies | 264.53 ± 4.92 µs | 257.14 ± 4.31 µs |
+| Rejected destinations, 128 copies | 755.49 ± 11.81 µs | 758.88 ± 14.81 ns |
+
+The mutable-source ranges overlap (259.96–271.86 versus 251.47–263.09 µs).
+All 12 benchmarks pass. Fixtures and count rows are built outside the timer;
+both implementations allocate their alias-result and `seen` rows inside it.
+The same native executable contains both paths: SHA256
+`2b4c6c3b981b170c051ef93c7ef4df1a466ae8ad650cf6b839507d7a910efcd2`,
+MoonBit `v0.10.15+943464bfa`, GCC native C release backend, Linux x86-64.
+The complete command holds `/tmp/starshine-perf-sweep-heavy.lock` and the Moon
+lock. Runner summaries and ranges are retained; individual group samples were
+not exported. These helper results do not prove an enclosing pass-time,
+allocation-byte or peak-RSS gain. Written-source prefixes can still incur
+quadratic suffix work. The all-pass 1× target, canonical gap, exception-edge
+work and full parity signoff remain open.
+
+Native debug validation was blocked by an existing compiler backend error:
+`Machine_of_clam_lower.lower_array_make` cannot lower uninitialized non-null
+GC-reference arrays for `HotLowerStackValue`. Default-target validation and the
+native C release benchmark succeed; the compiler error was not treated as a
+red behavior test.
+
+Sources: [prefix admission](../../../../../src/passes/coalesce_locals.mbt),
+[resource and reference controls](../../../../../src/passes/coalesce_prefix_copy_scan_regression_wbtest.mbt),
+[native benchmarks](../../../../../src/passes/coalesce_prefix_copy_scan_perf_wbtest.mbt),
+and [command control](../../../../../src/cmd/coalesce_prefix_copy_scan_regression_wbtest.mbt).
+Local evidence is `.tmp/report-optimization-20261016/dae2-coalesce-remaining/`:
+`red-default.log`, `green.log`, `coalesce-tests.log`, `native-bench.log`,
+`source-identity.json`, and the isolated source diff.

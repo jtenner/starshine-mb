@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-11
+last_reviewed: 2026-10-15
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -12,6 +12,21 @@ sources:
 ---
 
 # `optimize-casts` Fuzzing Profile
+
+## October 15 Binaryen 133 shared-work renewal
+
+Frozen native optimizer `5d8ea74e` and generator `76b922fb` completed 10,000
+`optimize-casts-all` cases against verified Binaryen 133. All 10,000 outputs
+are exact normalized matches. Raw and canonical sizes are equal in every case.
+All node-v2 observations, determinism checks, codec checks, and independent
+validations pass, with no blocked observation or validation, generator,
+command, or property failure. All seven aggregate leaves execute.
+
+This closes behavior and output-shape parity for the frozen source identity. It
+does not establish compiler-time or memory improvement, and it does not cover
+source changes after the frozen build.
+
+Evidence: `.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/optimize-casts/`.
 
 Regular direct lane:
 

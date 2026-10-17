@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-14
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -216,6 +216,14 @@ Starshine has an active source-reviewed HOT `optimize-casts` implementation. The
   - active dispatcher case routes to `optimize_casts_run(...)`
 - `agent-todo.md`
   - the standalone `OC` preset-readiness gate is closed; remaining broader GC/local follow-up now lives under neighboring slices
+
+### Bounded facts across a flat `if` (2026-10-14)
+
+[`optimize_casts.mbt`](../../../../../src/passes/optimize_casts.mbt) now keeps incoming cast facts across a function-root `if` when its condition, typed entry operands, and both arms pass a shared 256-node proof budget. The proof excludes calls, continuations, nested control, exits, and exception handlers. The full existing write walk invalidates every source local written in the condition or either arm. The pass does not publish arm-only facts or change the predicate and arm effects.
+
+The added equal-cast elimination applies only to the immediately following dropped cast of the same unchanged local. Its target reference type must equal the prior proven type, including nullability and exactness. The pass replaces that discarded root occurrence with `nop`; it does not add a capture local or mutate a shared cast node. Existing repeated-cast carrier rules and nonlinear-control rejection remain in force.
+
+[`optimize_casts_fallthrough_fact_regression_wbtest.mbt`](../../../../../src/passes/optimize_casts_fallthrough_fact_regression_wbtest.mbt) covers the positive cast count, retained dynamic control and global writes, source writes in each arm and the predicate, arm-only casts, nested exits/EH, and shared proof roots. The initial positive test failed with two casts where one is required. Full tests, independent review, verified-v133 comparison, and native cost/size measurements for this slice are pending; earlier signoff results do not cover it.
 
 The reusable local primitives and active pass surfaces are:
 

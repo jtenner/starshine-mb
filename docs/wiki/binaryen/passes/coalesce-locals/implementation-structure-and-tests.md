@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-08-14
+last_reviewed: 2026-10-15
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/coalesce_locals.mbt
+  - ../../../../../src/passes/coalesce_shared_cleanup_ownership_regression_wbtest.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/reorder_locals.mbt
   - ../../../../../src/passes/simplify_locals.mbt
@@ -22,9 +24,17 @@ related:
 
 This page maps the source and test files that define upstream Binaryen's `coalesce-locals` contract, then maps that contract to the exact current Starshine status. It is a read-along companion to the strategy page, not a second strategy page.
 
+## Legacy-try tee reads (2026-10-15)
+
+The structured-control guard in [`coalesce_locals.mbt`](../../../../../src/passes/coalesce_locals.mbt) now includes legacy `Try`. Before this repair, linear dead-tee cleanup could remove a preceding `local.tee` whose value was read only in the protected body or a catch. The output still validated but returned the old parameter value. The minimal repair blocks the linear cleanup; it retains the existing deep-copy ownership fixes and full-tree local-read counts.
+
+[`coalesce_shared_cleanup_ownership_regression_wbtest.mbt`](../../../../../src/passes/coalesce_shared_cleanup_ownership_regression_wbtest.mbt) adds direct cleanup, public-pass, and dispatcher checks for protected-body/catch reads with tagged and catch-all handlers. All three tests failed before the repair with `Drop` where the required `LocalTee(0)` had been. Each fixture validates both input and candidate and checks donor bytes. Full validation and runtime renewal after the repair remain pending.
+
+The adjacent loop predicate still does not descend legacy `Try`. No separate correctness defect was confirmed: legacy rewrite admission precedes the general loop/structured path, the CFG loop worker rejects legacy EH, and the dense structured-tee path also rejects it. Earlier single-local and linear-copy fast paths reject `Try`; the all-unused path counts protected and catch accesses. The new structured guard blocks the unsafe linear tee cleanup independently of loop detection. The loop predicate is unchanged.
+
 ## Source rule
 
-Treat Binaryen `version_129` as the tagged historical source oracle; new comparisons use the verified `version_132` baseline. The retained 2026-05-05 research recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces; the direct current-main URLs in the dossier remain the durable freshness evidence.
+Treat Binaryen `version_129` as the tagged historical source oracle; new comparisons require a verified `version_133` oracle. Earlier v132 results remain historical evidence. The retained 2026-05-05 research recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces; the direct current-main URLs in the dossier remain the durable freshness evidence.
 
 Primary upstream sources:
 

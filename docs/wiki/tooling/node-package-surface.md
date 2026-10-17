@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-11
 sources:
   - https://webassembly.github.io/esm-integration/js-api/index.html
   - https://nodejs.org/api/wasi.html
@@ -46,6 +46,24 @@ related:
 ---
 
 # Node Package Surface
+
+
+## October 11, 2026 local package blockers
+
+The registry returned E404 for `@jtenner/starshine`. This establishes that the
+package was unavailable to this session; it does not establish whether a
+private version exists. A local `npm pack --ignore-scripts` / install of
+[the repository package](../../../node/package.json) succeeded, but both Node
+and Bun failed before optimization because
+`internal/starshine.wasm-gc.wasm` was absent. The package generator is disabled,
+and the existing build only refreshes the WASI CLI artifact.
+
+The checked-in [command wrapper](../../../node/cmd.js) also expands pass names
+but currently assigns `optimized = ok(decoded.value)` without running those
+passes. A successful wrapper launch alone would not prove O4z optimization.
+The runtime comparison therefore reports these failures and separately measures
+a current-source Wasm GC runner under Node and Bun. Those rows are not npm
+package timings. See [the tracing record](tracing-playbook.md).
 
 ## Overview
 

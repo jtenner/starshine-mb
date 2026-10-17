@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-15
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -14,6 +14,56 @@ sources:
 ---
 
 # `simplify-locals-nostructure` Fuzzing Profile
+
+## October 15 tee-control size repair
+
+The current release binaries are native optimizer SHA-256
+`fbfc16a56d71e191eb9a08d6509c681c3b70664128c8905a4b460cdee919c030`
+and GenValid SHA-256
+`3dfffa7e563132bec9e379172f1c3a2f411acb488aa3301f24a2d755cef9b646`.
+Against verified Binaryen 133, the required `simplify-locals-nostructure-all`
+aggregate completes 10,000/10,000 comparisons at seed `0x5eed` with eight
+subprocesses. All 10,000 node-v2 observations are `all-equal`; determinism is
+10,000/10,000 byte-stable and codec idempotence is 10,000/10,000 stable.
+Validation, property, generator, and command failures are zero.
+
+Every Starshine output is smaller than its Binaryen output. Raw totals are
+2,148,567 versus 2,318,603 bytes. Canonical totals are 2,163,592 versus
+2,316,920 bytes. The direction counts are 10,000 smaller, zero equal, and zero
+larger for both measures. The residuals are classified as Starshine wins: the
+runtime oracle agrees, and each result has a measured canonical size benefit.
+The report is
+`.tmp/report-optimization-20261014/simplify-locals-nostructure-linear-final-v133-10000/`.
+
+The preceding diagnostic run on the old native optimizer reproduced the known
+profile exactly: 8,338 smaller and 1,662 larger outputs. All larger outputs came
+from `simplify-locals-nostructure-tee-control`. The repair lets the protected
+8-to-64-local structured-tee family use conservative exact cleanup when it has
+no call or bulk-memory stack hazard. Exact cleanup removes a dropped tee and
+its sole later dropped read across inert separators, preserves the producer and
+its first drop, and canonicalizes an all-inert void block to one `nop`. Call and
+bulk-memory shapes keep the existing protection. Red-first pass tests cover the
+exact generated local-index shape, an effectful producer, and a value needed
+across an effectful later read. The active CLI dispatcher has the same generated
+shape regression. Incremental inert-prefix tracking removes a separate
+quadratic scan from root structured-carrier finalization without changing these
+10,000 outputs.
+
+## October 15 shared-work renewal and review
+
+The frozen native campaign completes 10,000 semantic comparisons against
+verified Binaryen 133. All runtime observations, determinism checks, codec
+checks, validation, and tool checks pass. Starshine has 9,487 smaller and 513
+equal raw and canonical outputs, with no larger output. The exact frozen build,
+commands, and artifacts are under
+`.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/simplify-locals-nostructure/`.
+
+An independent review inspects all 20 retained bundles and finds no confirmed
+semantic or validation defect. Four retained exportless modules also pass
+bounded replay. This review does not close the 9,511 suppressed generated
+shapes, 44 equal-size structural differences, or the extra memory-capture
+operation. Those remain coverage and output-shape gaps. The review record is
+`.tmp/report-optimization-20261014/review/simplify-locals-nostructure-shared-work-current-gpt.txt`.
 
 ## October 7 default-gate repair renewal
 

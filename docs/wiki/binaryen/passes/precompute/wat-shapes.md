@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-15
 sources:
   - ./index.md
 related:
@@ -15,6 +15,21 @@ related:
 
 This page is the beginner-friendly shape catalog for Binaryen's `precompute` pass family.
 The 2026-05-05 current-main recheck did not surface a new shape family that changes the teaching contract here.
+
+## October 15 touched and stacked writeback
+
+Final size-aware vector materialization also runs after touched single-pass,
+whole-stack and touched-stack writeback, including repaired and unchanged
+paths. The touched mask excludes unselected functions and preserves their
+function objects. A reduced zero-vector test first produced an 18-byte literal
+where the short scalar/splat form was required. Three red-first dispatcher
+controls now assert the final instructions, complete bytes and untouched
+function identity. See [caller regressions](../../../../../src/passes/report_caller_cost_regression_wbtest.mbt)
+and [writeback paths](../../../../../src/passes/pass_manager.mbt).
+
+A candidate batch uses one complete encoded-size comparison. Large data/name
+sections and repeated nested callers can still add compiler cost; the focused
+semantic tests do not measure that cost.
 
 ## Read this page with one mental model
 
@@ -42,6 +57,36 @@ This pass is full of shapes that look constant but are deliberately preserved be
 - **fallthrough value**: the value that escapes through wrappers like tees or similar shells
 - **identity**: whether two refs are the same allocation, not just equal-looking contents
 - **partial precompute**: pushing parent computation into `select` arms separately
+
+## Starshine vector materialization under a size policy
+
+With `shrink_level > 0`, Starshine first folds vector expressions and their
+consumers. After writeback repair, it compares repeated vector bytes with the
+available scalar-constant/splat forms. The final representation uses a splat
+only when it reduces the complete encoded module. With `shrink_level == 0`,
+precompute keeps its vector-literal representation.
+
+For example, `i32.const 0; i32x4.splat` produces a 29-byte reduced module. A
+`v128.const` result produces 43 bytes. The size policy can choose the shorter
+splat after folding; it does not prevent a following lane extract or reduction
+from folding to a scalar constant. Raw folders support all six scalar splats,
+so a later precompute call can fold each materialized form again. Byte copies
+and bit reinterpretation retain NaN payloads and signed zero. Nonuniform
+vectors retain their literals. Offset-sensitive metadata prevents this final
+rewrite.
+
+Each literal has at most four lane-width candidates. Signed-LEB lengths are
+computed directly. Explicit control recursion retains unchanged bodies,
+block types, catches, and delegates. Scalar leaves need no mutable capture or
+callback; unchanged control nodes need no replacement wrapper. One final module
+size check includes names and body/section framing. This is a bounded search
+over splats, not a claim to the shortest arbitrary SIMD expression.
+
+Source and regression evidence:
+[`precompute.mbt`](../../../../../src/passes/precompute.mbt),
+[`pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt), and
+[`encoded_profitability_assessment_wbtest.mbt`](../../../../../src/passes/encoded_profitability_assessment_wbtest.mbt).
+These reduced regressions do not establish new Binaryen-v133 fuzz signoff.
 
 ## Shape family 1: exact scalar arithmetic
 

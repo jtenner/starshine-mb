@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-15
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -17,6 +17,68 @@ related:
 ---
 
 # `precompute-propagate` fuzzing
+
+## October 15 observable fixed-profile boundary
+
+Source review confirms that the 11 fixed `precompute-all` leaves previously had
+no export or start function. Their node-v2 observations covered compilation and
+instantiation, but did not execute the propagation targets. The current
+generator exports each bounded trigger. The local-facts sink now updates an
+exported wrapping checksum for all seven propagated values, and a no-argument
+Wasm wrapper executes the GC atomic target without a host-created non-null
+reference. Safe scalar and bounded GC functions are callable; effect-boundary
+memory and global state are observable.
+
+NaN-bit probes and negative or about 171 MiB GC allocations remain compile-only
+under an explicit resource and portability boundary. Four red-first generator
+tests cover the export policy, stable bytes, exclusions, wrapper, and checksum.
+A fresh 10,000-case campaign with a new generator identity is required.
+Historical counts below retain their recorded scope; only the old fixed-profile
+leaves described here were limited to compilation and instantiation.
+
+Current native generator `4c85b7ec7fe681858c6b70e34578477c68b79fe3cd6e0d76490b3f0f2afc5a91`
+and optimizer `8438fdd849f8dc06da40d8faaebc5d7fc012a09cc3f6f0c1d37a3091a3a7e056`
+complete one explicit case for each of the 11 leaves against verified Binaryen
+133. All 11 node-v2 observations match; the GC atomic case uses Node 26.11.1
+with the required explicit shared-GC flag. Determinism and codec checks are
+11/11. Validation, property, generator, command, and observed semantic failures
+are zero. Five outputs are exact. Six retain output-shape differences: five are
+smaller and one is larger, with aggregate canonical output 1,480 bytes versus
+Binaryen's 1,493. This leaf smoke proves that the safe export surface is live.
+It does not replace the required 10,000-case aggregate. Local evidence:
+`.tmp/report-optimization-20261014/precompute-observable-leaf-smoke-current-v2/precompute-propagate/`
+and the shared-GC rerun under
+`.tmp/report-optimization-20261014/precompute-observable-leaf-smoke-current-v2-featured/`.
+
+## October 15 current observable aggregate renewal
+
+Native optimizer
+`cecc7ac9896c630e0f46d924e4e57320e772a92d2ec8a9901ea4184784070020`
+and generator
+`0845db245e24d0459b523d740d21913561aa91caf44500133cc7efc75c05475e`
+complete the required 10,000-case `precompute-all` comparison against verified
+Binaryen 133. The command uses eight subprocesses, independent validation,
+node-v2, determinism, codec idempotence, and the `drop-consts`,
+`unreachable-control-debris`, and `local-cleanup-debris` normalizers.
+
+The result has 5,543 direct normalized matches, 3,577 cleanup-normalized
+matches, and 880 residual structural differences. All 10,000 node-v2
+observations are checked and three-way equal. Determinism and codec checks are
+10,000/10,000. Validation, property, generator, command, runtime-block, and
+semantic failures are zero.
+
+All 880 residuals are the `precompute-control` leaf. Starshine removes one
+literal-true `if` around the observable checksum update while Binaryen keeps
+both arms. Each Starshine result is 13 canonical bytes smaller. Inspection of
+all retained WAT pairs shows the same transform, and every residual executes
+with an all-equal result. The source transform, execution result, and 13-byte
+reduction classify this family as a stronger constant-control fold. Across the
+complete lane, Starshine is smaller in 4,457 cases, equal in 5,543, and larger
+in zero. Raw and canonical totals are 1,561,125 Starshine bytes versus
+1,577,496 Binaryen bytes, a 16,371-byte reduction.
+
+Local evidence:
+`.tmp/report-optimization-20261014/precompute-propagate-current-v133-10000-v3/`.
 
 ## September 27 follow-up allocation campaign renewal
 

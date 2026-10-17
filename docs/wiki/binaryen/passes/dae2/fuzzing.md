@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-10-04
+last_reviewed: 2026-10-16
 sources:
   - ./starshine-strategy.md
   - ../../../../../src/ir/hot_lift_typed_block_entry_wbtest.mbt
@@ -9,6 +9,8 @@ sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../../../src/validate/gen_valid_dae2.mbt
   - ../../../../../src/validate/gen_valid_dae2_wbtest.mbt
+  - ../../../../../src/validate/gen_valid_dae2_loop_effect_wbtest.mbt
+  - ../../../../../src/passes/dae2_generated_loop_effect_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination2_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination2_intake_wbtest.mbt
   - ../../../tooling/pass-fuzz-compare.md
@@ -16,6 +18,95 @@ sources:
 ---
 
 # DAE2 GenValid coverage
+
+## October 16 loop-effect coverage
+
+The `dae2-control-flow` member now uses one quarter of its seeds for an
+effectful call stored by a void loop and read after the loop. The callee has
+two unused arguments, including a trapping load. Variants hold an earlier
+load across the loop, at either address zero or the initial one-page memory's
+out-of-bounds address 65536. The caller, memory, and effect counter are exported
+for the existing node-v2 oracle. The other control-flow seeds keep the previous
+conditional-return family.
+
+The [bounded generator controls](../../../../../src/validate/gen_valid_dae2_loop_effect_wbtest.mbt)
+require plain, held-live, and held-trap forms at seeds `0, 8, 16, 24`.
+A skipped dedicated aggregate control checks their selection within the first
+256 cases at campaign seed `0x5eed`. The
+[pass control](../../../../../src/passes/dae2_generated_loop_effect_wbtest.mbt)
+runs these cases through `dae2-optimizing`, requires parameter elimination,
+and checks call count, trapping loads, validation, and source ownership.
+Both default controls failed on the previous generator before this extension.
+Earlier campaign results below cover their original inputs and do not establish
+coverage or signoff for this added family. Fresh native generator and optimizer
+builds are required for renewal; the normalizers and semantic oracle are unchanged.
+
+## October 15 current-source normalized renewal
+
+Native optimizer
+`fbfc16a56d71e191eb9a08d6509c681c3b70664128c8905a4b460cdee919c030`
+and generator
+`3dfffa7e563132bec9e379172f1c3a2f411acb488aa3301f24a2d755cef9b646`
+complete four 10,000-case `dae2` aggregate lanes against verified Binaryen
+133. Each lane uses seed `0x5eed`, eight subprocesses, independent validation,
+node-v2, determinism, codec idempotence, and both required `drop-consts` and
+`unreachable-control-debris` normalizers.
+
+| Pass and world | Exact | Cleanup-normalized | Residual | Canonically larger | Node-v2 match / blocked |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `dae2`, open | 2,879 | 667 | 6,454 | 0 | 9,312 / 688 |
+| `dae2`, closed | 0 | 100 | 9,900 | 706 | 9,312 / 688 |
+| `dae2-optimizing`, open | 2,233 | 1,313 | 6,454 | 0 | 9,312 / 688 |
+| `dae2-optimizing`, closed | 100 | 0 | 9,900 | 2,133 | 9,312 / 688 |
+
+Validation, property, generator, command, determinism, codec, and observed
+semantic failures are zero. The 688 continuation cases in every lane remain
+runtime-unverified. Case-record inspection confirms that all 688 belong to the
+`dae2-continuations` profile and report `original-runtime-blocked`; this is a
+runtime support boundary, rather than an observed pass mismatch. Open `dae2`
+totals 851,824 canonical Starshine bytes versus
+963,171 Binaryen bytes; open optimizing totals 809,421 versus 876,146. Closed
+`dae2` totals 851,824 versus 984,732, and closed optimizing totals 809,421
+versus 883,160. Aggregate totals do not close the 706 and 2,133 individual
+closed-world size losses. Those remain output-quality parity gaps, as do the
+unclassified residual shapes; validation and smaller aggregate output are not
+semantic or transform-parity evidence. The retained sample includes an
+indirect-signature family where Binaryen rewrites fixed table targets and their
+`call_indirect` type together, while Starshine keeps the original parameter and
+result family. That family is still open because a fixed-table proof and all
+table mutation, export, import, host reentry, and reference escapes must be
+handled together. The retained 20 artifacts do not classify all larger cases.
+
+Evidence is under
+`.tmp/report-optimization-20261014/dae2-current-v133-normalized-10000-{open,closed}/`
+and
+`.tmp/report-optimization-20261014/dae2-optimizing-current-v133-normalized-10000-{open,closed}/`.
+
+## October 15 frozen raw renewal
+
+Frozen optimizer `5d8ea74e` and generator `76b922fb` complete 10,000 open- and
+10,000 closed-world `dae2` comparisons against verified Binaryen 133. The
+campaign runner omitted the profile's required `drop-consts` and
+`unreachable-control-debris` normalizers. The open lane therefore has 2,879
+exact matches and 7,121 raw residuals. Every open residual is canonically
+smaller; totals are 851,824 Starshine bytes and 963,171 Binaryen bytes. The
+closed lane has 10,000 raw residuals: 9,294 smaller and 706 larger, with totals
+of 851,824 and 984,732 bytes. The 706 larger outputs remain size-losing gaps.
+The open optimizing lane has 2,233 exact matches and 7,767 raw residuals, all
+smaller, with totals of 809,421 and 876,146 bytes. Raw aggregate size direction
+The closed optimizing lane has 100 exact matches and 9,900 raw residuals:
+7,767 smaller and 2,133 larger, with totals of 809,421 and 883,160 bytes. The
+2,133 larger outputs remain size-losing gaps. Raw aggregate size direction does
+not close any lane's transform parity gaps.
+
+Each lane reports 9,312 three-way Node-v2 matches and 688 original-runtime-
+blocked continuation cases, with zero observed semantic mismatches. Validation,
+determinism, codec, generator, property, and command failures are zero. These
+counts repeat the established runtime split. Fresh current-source signoff must
+use both documented normalizers and a rebuilt native optimizer and generator.
+Evidence: `.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/dae2/`
+with `dae2-closed/`, `dae2-optimizing/`, and `dae2-optimizing-closed/` under the
+same root.
 
 ## October 4 typed-block bounded renewal
 

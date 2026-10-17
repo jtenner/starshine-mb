@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-26
+last_reviewed: 2026-10-15
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -28,6 +28,103 @@ related:
 ---
 
 # Starshine strategy for `dae-optimizing`
+
+## October 15 stable direct-GC batch facts
+
+The direct-GC transaction formerly built a full boundary graph to obtain the
+definition count, then built another before each active definition. In the
+1,000-export numeric fixture every candidate rejects ownership, yet the owner
+builds1,001 full snapshots. Native7273e2ab's helper trace places391,083µs of
+396,491µs DAE core time in this batch. This is one inclusive traced run, not
+a quiet comparison or proof of its entire resource cost.
+
+The owner now gets the same definition count directly and builds its graph
+lazily. Unchanged rejected candidates share those immutable facts. Every
+changed-candidate transaction attempt clears the cache before work-item
+processing, including a deferred/rejected attempt. The next active definition
+rebuilds facts and epochs. All candidate checks, commits, original exposure,
+touched/changed merging and invalidation effects remain in place. No numeric
+or GC family is skipped.
+
+[Bounded regression tests](../../../../../src/passes/dae_direct_gc_graph_reuse_regression_wbtest.mbt)
+fail first at3/5/9 graphs instead of1 for unchanged two/four/eight-definition
+modules, and1 instead of0 with no active definition. Two real refinements
+with an unchanged definition between them fail first at5 instead of3 graphs.
+Exact signatures, caller instructions, effect fields, input ownership,
+validation and encoded round trips accompany the bounds. Another control
+retains original escaped ownership through a rejected attempt before a later
+private refinement commits. The focused GC checks and all 14,300 WasmGC tests pass. Native `5d8ea74e`
+renews 58,840 runtime comparisons plus GC CLI arguments. Seven alternating
+1,000-function mixed DAE command pairs improve 437.241 to 30.071 ms, with
+identical bytes and no slower pair. The same-type control improves 443.640
+to 29.339 ms. Full O4z mixed-data medians improve 1814.577 to 635.642 ms;
+this includes all current changes. Peak RSS has no material gain.
+[Raw evidence and adverse controls](../../../tooling/tracing-playbook.md#october-15-shared-batch-and-statement-work)
+retain ranges, MADs, code growth and policy limits. Generated signoff is open.
+
+The [native runtime lane](../../../../../scripts/test/dae-call-sink-context-runtime.ts)
+adds GC fields, refined call chains, nullable traps and exact host-call order.
+It passes 2,464 comparisons on both baseline `7273e2ab` and current
+`5d8ea74e`. Binaryen133 introduces nullable
+exact types which Node24 rejects even with descriptor support; the same output
+executes on Node26. All variants in this expanded lane therefore use Node26
+with custom descriptors enabled. The failed Node24 artifacts remain recorded;
+other runtime lanes retain their existing engine versions.
+
+## October 15 immutable sink discovery and empty worklists
+
+Two private sink-discovery loops now build one candidate-source context per
+nonempty scan. The predicates borrow its function/type rows; current import
+and signature rows stay separate. Both loops retain the minimum source/current
+definition bound. The rewrite worklist runs only after discovery, so it cannot
+invalidate this snapshot. Previously each rejected definition copied the entire
+type-index row again: two 1,000-function scans copied about two million indices.
+The existing broad candidate collector already uses the same shared-context
+pattern. Missing code remains an intentionally unsupported/incomplete IR case:
+return no candidates, without unwrapping a missing context.
+
+Empty adjacent-root discovery now returns before call facts, snapshots and
+graphs, while retaining the exact zero-candidate trace and empty effects.
+Empty dropped-result worklists retain module/touched identity, incoming changed
+state and the complete empty effect product before skipping unused setup.
+Nonempty transform and roster logic is unchanged. The
+[implementing controls](../../../../../src/passes/dae_call_sink_context_regression_wbtest.mbt)
+cover accepted/rejected sink shapes, source/current imports and definition
+bounds, public signatures, literal movement and exact host-call placement,
+positive result removal, and prior changed/touched state. The
+[command control](../../../../../src/cmd/dae_call_sink_context_regression_wbtest.mbt)
+covers plain and optimizing dispatch. Initial coverage passes before these
+performance repairs, as requested for previously uncovered behavior. Independent
+review then finds a missing-code unwrap regression; its new test fails6/7
+before the explicit None branch. All8 focused tests then pass. A native
+baseline lane adds1,960 exact independent comparisons for i32/i64 public and
+private forwarders, result drops, every host trap boundary and repeated plain/
+optimizing passes. [Runtime lane](../../../../../scripts/test/dae-call-sink-context-runtime.ts)
+and [fixture](../../../../../tests/fixtures/dead-argument-elimination/call-sink-context.wat)
+retain expected values/events. Binaryen compact imports are disabled only for
+Node24 execution. The complete14,279-test WasmGC gate and interface check pass after the missing
+context fix. Native59c02734 renews54,696 independent runtime comparisons plus
+GC CLI arguments; all six prepared fixture sets preserve every output byte.
+Against58491a9e, the executable shrinks64B and GC command output1,838B.
+Seven alternating full-O4z data1000 pairs reduce quiet median1,760.135→
+1,731.859ms (one slower pair; MAD10.448/18.976ms). The same-type control has
+medians1,741.795/1,783.100ms, but paired median−13.939ms with three slower
+pairs and candidate MAD55.245ms. This mixed evidence does not close the large
+preset gap or prove a general gain. Peak RSS62,532/62,604KiB gives no memory
+win. Raw commands, hashes, controls, host activity and separate traces are under
+local `sl-large-group-preset-perf/{functional-dae-context,timed-dae-context}`.
+Generated133 renewal is held until the later shared-lowering repair is signed.
+
+The source cost exists unchanged in frozen `d74c3902`, `193e58a7` and
+`58491a9e` baselines. It is not attributed to the newer Tuple/local grouping
+changes. The measured full O4z 1,000-export fixture remains about1.75–1.79s
+versus Binaryen133's different `-O4 --shrink-level=2` policy near61ms. Main and
+size-portfolio traces are inclusive and nonadditive. A new frozen native build
+and paired measurements are required before assigning any gain to this repair;
+no roster slot or candidate family is disabled. Local source-review evidence:
+`review/dae-portfolio-scaling-gpt.txt`, `dae-call-sink-context-independent.txt`
+and `dae-context-patch-gpt.txt` under the report evidence directory.
+
 
 ## September 26, 2026 shared query-cost fixes
 

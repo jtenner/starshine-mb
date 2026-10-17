@@ -2,7 +2,7 @@
 kind: entity
 status: working
 starshine_status: active-partial
-last_reviewed: 2026-09-16
+last_reviewed: 2026-10-16
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
@@ -28,7 +28,10 @@ related:
 
 # DAE2
 
-`dae2` is a runnable Starshine module pass targeting Binaryen **132**. It solves
+`dae2` is a runnable Starshine module pass. Current comparisons use verified
+[Binaryen 133](../../release-horizon-and-oracles.md); the September port account
+below retains its original v132 sources. The [October 16 speed campaign](starshine-strategy.md#october-16-2026-dae-family-speed-campaign)
+keeps the four DAE speed targets open. The pass solves
 unused parameters and entire function-result tuples in one dependency graph.
 It is separate from ordinary `dae` and is opt-in. The [shape catalog](wat-shapes.md)
 maps the released result, control-flow, cycle, indirect, open-world, intrinsic,

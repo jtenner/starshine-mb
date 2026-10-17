@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-16
 sources:
   - ./ref-func-declarations.md
   - ../wast/exception-tag-authoring.md
@@ -12,6 +12,9 @@ sources:
   - https://webassembly.github.io/spec/core/text/modules.html
   - import-export-and-external-type-matching.md
   - ../../../src/validate/validate.mbt
+  - ../../../src/validate/module_name_section_wbtest.mbt
+  - ../../../src/passes/dae2_final_validation.mbt
+  - ../../../src/passes/dae2_final_validation_wbtest.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/env.mbt
   - ../../../src/validate/match.mbt
@@ -132,6 +135,8 @@ Two practical consequences follow:
 | `namesec` | Validates parsed structured name maps and rejects raw `name` custom sections stored outside `Module.name_sec`. | Reports `NameSection`. | `validate_name_sec`; [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md). |
 
 This is semantic validation order, not wire order. For example, the binary data-count section is encoded before code and data, but Starshine validates data segments before the data-count equality check because the check needs the local `DataSec` length.
+
+The public [`validate_module_name_section`](../../../src/validate/validate.mbt) check reuses the name-section validator with module index spaces and signature counts. It does not typecheck bodies or validate other sections, so success does not prove module validity. Its [bounded tests](../../../src/validate/module_name_section_wbtest.mbt) cover each name-map family and imported versus defined local and label indices. [DAE2 finalization](../../../src/passes/dae2_final_validation.mbt) uses this narrow check and the original type-section check before validating its exact cleaned output. If original names fail, it runs full validation on the original module to retain body-before-name error priority. Raw name payloads and compiler facts retain the previous validation path; [regression tests](../../../src/passes/dae2_final_validation_wbtest.mbt) compare results, errors, names, bytes, and source ownership with the previous finalization order.
 
 ## Stack Typechecking Model
 

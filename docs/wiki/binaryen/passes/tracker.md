@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-14
 sources:
   - ../release-horizon-and-oracles.md
   - ../version-133-upgrade.md
@@ -114,7 +114,7 @@ related:
 
 # Binaryen Pass Wiki / Implementation Tracker
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — September 25, 2026:** new comparisons use [Binaryen 133](../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 This page is the durable answer to two recurring questions:
 
@@ -147,7 +147,7 @@ Use these files in this order:
 - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
   - source of truth for which passes matter for the canonical no-DWARF `-O` / `-Os` Binaryen parity path
 - `docs/wiki/binaryen/release-horizon-and-oracles.md`
-  - source of truth for the public Binaryen release horizon (`version_133`), Starshine's comparison baseline (`version_132`), historical corrections, and the live drift watch
+  - source of truth for the public Binaryen release horizon (`version_133`), Starshine's comparison baseline (`version_133`), historical corrections, and the live drift watch
 - `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`
   - source of truth for late-pipeline roster context, current package-surface caveats, and unimplemented passes observed as skipped in the saved generated-artifact `-O4z` replay
 - `docs/wiki/binaryen/passes/`
@@ -155,7 +155,7 @@ Use these files in this order:
 - `agent-todo.md`
   - source of truth for current backlog slice ids and implementation intent
 
-The newest public Binaryen release is `version_133`; Starshine's comparison baseline remains verified `version_132`. Keep pass-contract pages anchored to their actually reviewed tags. The historical [v130-to-v131 review](../release-horizon-and-oracles.md) records that interval's scheduler and reopening decisions; the [v132 review](../version-132-upgrade.md) owns the current comparison upgrade, and the [v133 intake](../version-133-upgrade.md) maps the new `tail-call`, `remove-empty-function-exports`, and `make-shared-objects` passes plus changed existing-pass shapes to red tests and open follow-up.
+The comparison target is Binaryen `version_133`; new evidence requires a verified v133 oracle. Keep pass-contract pages anchored to their actually reviewed tags. The historical [v130-to-v131 review](../release-horizon-and-oracles.md) records that interval's scheduler and reopening decisions; the [v132 review](../version-132-upgrade.md) retains the prior upgrade evidence, and the [v133 intake](../version-133-upgrade.md) records the new `tail-call`, `remove-empty-function-exports`, and `make-shared-objects` passes plus changed existing-pass shapes and follow-up.
 
 If these ever disagree, update this tracker in the same change. The 2026-05-06 audit note above records one such known temporary disagreement.
 
@@ -181,7 +181,7 @@ If these ever disagree, update this tracker in the same change. The 2026-05-06 a
 - Live registry categories: `28` hot entries, `31` module entries, and `2` presets. Counts include public aliases because those aliases are real request names.
 - Every owner in the historical eight-pass generated-artifact O4z blocker set is now runnable: `code-folding`, `dae-optimizing`, `flatten`, `inlining-optimizing`, `local-cse`, `merge-locals`, `optimize-casts`, and `simplify-globals-optimizing`.
 - Those historical rows are no longer an implementation queue. The scheduler and large-production artifact matrix are signed off; remaining work is deferred inlining breadth or pass-specific parity evidence explicitly retained by the owning dossier.
-- Public non-O4z presets are wall-time-first: O1/O2 run DFE plus debug stripping, while O3/O4/Os/Oz add Vacuum and ReorderLocals. O4z retains Binaryen v131's 56 slots plus Starshine `strip-debug` at slot 57. A fresh exact 1,000-input ordered O4z corpus is `837` raw byte matches plus `163` larger Starshine outputs (`+3,491` bytes total), with all `1,000` pairs validating and becoming byte-identical after symmetric verified-v131 `-Oz --strip-debug` canonicalization.
+- Public non-O4z presets are wall-time-first: O1/O2 run DFE plus debug stripping, while O3/O4/Os/Oz add ConstraintAnalysis, Vacuum, and ReorderLocals. O4z retains Binaryen v131's 56 slots plus Starshine `strip-debug` at slot 57. A fresh exact 1,000-input ordered O4z corpus is `837` raw byte matches plus `163` larger Starshine outputs (`+3,491` bytes total), with all `1,000` pairs validating and becoming byte-identical after symmetric verified-v131 `-Oz --strip-debug` canonicalization.
 
 ## Binaryen v131 release impact
 
@@ -220,7 +220,7 @@ If these ever disagree, update this tracker in the same change. The 2026-05-06 a
 | `heap-store-optimization` | implemented hot | deep | [`heap-store-optimization/index.md`](heap-store-optimization/index.md) | Full dossier with Binaryen strategy, source-confirmed implementation/test-map page, swap/control-flow safety, WAT-shape, compact validation bridge, current Starshine HOT-strategy, and raw primary-source manifests; the 2026-05-05 refresh records no teaching-relevant current-main drift and points readers to exact MoonBit registry, preset, dispatcher, raw fast-skip, helper-cluster, focused-test, perf-test, and CLI-replay line ranges instead of only high-level HOT framing. |
 | `heap2local` | implemented hot; representable v131 surface closed | deep | [`heap2local/index.md`](heap2local/index.md) | Sequential branch-target candidates, unreachable flow, GC-supertype drop-only owners, direct packed/unpacked reads, four-lane evidence, and the exact v131 O4z slot are closed. Shared reference-valued ordered cmpxchg remains a validator/atomic-semantics blocker. |
 | `pick-load-signs` | implemented hot | deep | [`pick-load-signs/index.md`](pick-load-signs/index.md) | Full dossier with Binaryen strategy, source-confirmed implementation/test map, WAT-shape, current Starshine HOT-strategy, parity pages, and a raw primary-source manifest; the refreshed folder now also makes explicit that Binaryen `version_129` is concentrated in `PickLoadSigns.cpp` with `properties.h` owning the real sign/zero-extension matcher surface, while the tiny dedicated lit file and neighboring `optimize-instructions-sign_ext.wast` split keep the broader i64 sign-extension story from being misattributed to this pass and the local page now keeps the coded-i64-vs-dedicated-i64-proof gap explicit. |
-| `tuple-optimization` | implemented hot | deep | [`tuple-optimization/index.md`](tuple-optimization/index.md) | Refreshed dossier now includes a 2026-05-04 current-main bridge plus the immutable raw primary-source manifest, the dedicated upstream implementation/test-map page, the new Starshine strategy page, and the existing Starshine implementation-map / HOT-detail pages; it keeps Binaryen framed as a conservative tuple-local splitter rather than a generic multivalue optimizer, and still records that the tagged core pass plus dedicated lit file match current `main` while the exact preset slot remains blocked by missing neighbors. |
+| `tuple-optimization` | implemented hot | deep | [`tuple-optimization/index.md`](tuple-optimization/index.md) | Refreshed dossier now includes a 2026-05-04 current-main bridge plus the immutable raw primary-source manifest, the dedicated upstream implementation/test-map page, the new Starshine strategy page, and the existing Starshine implementation-map / HOT-detail pages; it keeps Binaryen framed as a conservative tuple-local splitter rather than a generic multivalue optimizer, and retains the historical tagged-core and lit-file source comparison. The current full O4z preset schedules `tuple-optimization` after `code-pushing` and before `simplify-locals-nostructure`; the former missing-neighbor slot blocker is superseded by the active scheduler and its tests. |
 | `precompute` | implemented hot; v131 family parity closed | deep | [`precompute/index.md`](precompute/index.md) | The 2026-07-26 renewal resolves type-indexed block/loop label arities, terminal multivalue payload preservation, unsafe parameterized-block flattening, shared no-local raw cleanup, nested cleanup fixpoints, and dropped exact pure-reference cleanup. Plain and propagating regular `100000` plus dedicated `10000` lanes have zero residuals; random-all residuals are smaller dead-read/control cleanup or intentional reachable-fence preservation; wasm-smith retains only the fence boundary and one propagating seven-byte scratch-local win. Fresh runtime/idempotence is green for both names. |
 | `code-pushing` | implemented hot; represented v131 surface closed | deep | [`code-pushing/index.md`](code-pushing/index.md) | The 2026-07-26 renewal confirms byte-identical v130/v131/current-main owner code, removes the O4z bypass, adds a narrow fully-caught legacy-EH raw bridge, preserves final-if and mixed-arm ordering, and completes dedicated, ordinary portable, broad stress, and wasm-smith evidence with zero pass-owned mismatches. Ordered atomic memargs remain a pre-pass codec boundary; broader source-level `Pusher` coverage remains optional analyzer-first widening. |
 | `simplify-locals` | implemented hot | deep | [`simplify-locals/index.md`](simplify-locals/index.md) | Family closeout completed 2026-07-17 against Binaryen `version_130`: all five policy variants share one engine, the full four-lane matrix is complete, runtime/idempotence/timing evidence is green, and every retained output difference is source-classified with no size regression. |

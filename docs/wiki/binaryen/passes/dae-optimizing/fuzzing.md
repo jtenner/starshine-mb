@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-15
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../ir2/architecture-rules.md
@@ -11,6 +11,29 @@ sources:
 ---
 
 # `dae-optimizing` Fuzzing Profile
+
+## October 15 Binaryen 133 shared-work renewal
+
+Frozen native optimizer `5d8ea74e` and generator `76b922fb` completed both the
+open- and closed-world 10,000-case optimizing DAE lanes against verified
+Binaryen 133. The two results are identical. All 20,000 node-v2 observations,
+determinism checks, and codec checks match. Every output validates, with no
+blocked observation or validation, generator, command, or property failure.
+
+Each lane has 5,153 exact normalized matches, 1,212 cleanup-normalized matches,
+and 3,635 retained structural differences. Starshine is canonically smaller in
+all 4,847 non-exact cases and never larger: `928,838` bytes versus Binaryen's
+`970,970`, a 42,132-byte reduction per lane. The cleanup-normalized families are
+many-touched, 602 cases, and result-control, 610 cases. The residuals are the
+existing source-backed cleanup families: computed effects 886, forwarded
+suffix 634, immutable field 931, table effects 589, and touched caller 595.
+Effects and possible traps execute in source order while dead boundary and local
+transport are removed. The stable generated distribution and fixed family byte
+deltas classify the full result; retained artifacts remain subject to the
+20-artifact cap.
+
+Evidence: `.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/dae-optimizing/`
+and `dae-optimizing-closed/`.
 
 ## September 27 follow-up allocation campaign renewal
 

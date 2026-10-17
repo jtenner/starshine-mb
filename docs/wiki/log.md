@@ -1,3 +1,713 @@
+### 2026-10-16 — Measure and improve the DAE family
+
+- [The active DAE campaign](binaryen/passes/dae2/starshine-strategy.md#october-16-2026-dae-family-speed-campaign)
+  records frozen builds against verified Binaryen 133. Trial 10 passes all
+  14,702 selected default tests and completes paired normal pass clocks with
+  51 large/101 small samples per tool after three warmups. Large ratios are
+  2.200×/1.363×/22.896×/14.525×; small ratios are
+  9.837×/11.808×/0.954×/1.846×, in DAE/DAE-O/DAE2/DAE2-O order.
+  Only small DAE2 meets the timing target in this cohort. Concurrent project
+  work stays running; every sample and CPU interval is retained, with no
+  outlier removal. Command/RSS and both raw component orders are complete;
+  18,768 measured component samples are retained. Shared-host bias and serial
+  correlation still limit timing conclusions.
+- The current prototype passes 14,767 default tests with stable source hashes.
+  A new scalar-header regression was caught by the full gate and fixed: nested
+  returns do not make an enclosing Void control polymorphic. Direct and command
+  tests require valid output while removing dead parameters. New writer-cut and
+  admission prototypes still need native and artifact-scale signoff. A later
+  red-first fix releases lift journals before lowering, avoids capture-off
+  journal allocation and preserves the old no-CFG verification boundary; all
+  14 related controls pass. Numeric validation has 19 focused controls; sparse
+  incoming merging has 13 dedicated controls at the unchanged 8× cap. Native
+  memory/cost checks remain open. A later artifact census matches every node,
+  writer and boundary bit in 564 raw-origin replay functions per world; its
+  scoped old/new CFG counts are 498/0. All twelve saved outputs validate.
+  The first 2,448-sample native writer trial shows active gains and a 5–15%
+  cold-path cost. A later sparse-merge test confirms all-local stamps can lose
+  old budget admission. Both issues remain under repair; neither trial has
+  full-pass performance or memory signoff.
+- A later current gate passes 14,779 default tests with no source drift. The
+  updated writer census matches 599,480 HOT bits and 76,336 source-writer slots
+  across both worlds; all twelve outputs validate. Small-delta merging replaces
+  the stamp array, and a startup fix preserves every old raw admission in a
+  complete 12,904-function comparison, admitting two former HOT functions.
+  Native writer cold-gate controls retain 3,264 samples: zero-write cold costs
+  are near parity; one-source-write/no-CFG still costs 5.5–15.9% more. Syntax
+  refinement retains 6,120 samples with residual estimator costs. Fresh full-pass
+  clocks and heap evidence remain open. Claude's writer native review ended at
+  its session limit without an assessment; that review is incomplete.
+- Trial 11 completes another 1,216 measured normal-pass tool samples. Large
+  ratios are 2.109×/1.386×/21.830×/13.803×; small are
+  9.105×/10.964×/1.018×/1.927× in the same pass order. All output checks pass,
+  but no current median meets 1×. Six hashes stay exact; large DAE2/DAE2-O
+  pass outputs shrink 543/144 bytes. Command clocks continue. A later test-first
+  first-input scan baseline has four final resource failures after all behavior
+  gates, plus four passing controls; its candidate is staged outside live source.
+- Trial 11 command runs also finish, bringing the retained total to 2,432
+  measured tool samples and 96 warmups. All eight CLI outputs validate. Small
+  DAE2/O command ratios remain below 1×; their normal-pass gaps stay open. The
+  added fixed-block uncertainty checks retain all rounds and do not correct
+  shared-host bias. Later first-input early-return fusion passes all eight
+  focused controls after four real resource failures, related sparse/manual
+  controls and 14,787 default tests. Its fresh artifact byte gate then fails:
+  complete boundary/writer demand matches, but 108 new raw admissions change
+  five bodies, 162 bytes smaller in total. Later frozen both-world checks prove
+  the exact capture/stack contract; 3,844 reduced execution pairs match. The
+  canonical cleanup result saves 28 bytes without per-body growth. The original
+  strict byte failure is retained; native speed and memory remain pending.
+  Frozen trial-11 clocks and profiles do not include it.
+- Later five-unit component clocks retain 10,914 measured batches and 642
+  warmups across both test orders; all 214 native control processes complete.
+  Both user projects stay running and all slow samples remain. Boundary-cache
+  snapshot medians improve in all nine controls, but the large pass uses a
+  separate typed-loop batch route. Measured cold/startup, loop, numeric and
+  Coalesce regressions stay open in the strategy. The formatted cache/fusion
+  checkpoint passes 14,792 default tests with no public MBTI changes. A limited independent
+  Claude fusion/cache review reports no confirmed correctness defect; corrected
+  threshold selection and exact binary-local type checks add evidence. These
+  component results do not close any of the eight trial-11 pass timing gaps.
+- A later lookup-only match avoids eager fallback work on an existing incoming
+  value. Four bounded behavior tests pass after two actual resource failures;
+  charges and admission stay unchanged. The full-current gate passes 14,796
+  default tests with no source drift or public MBTI change. GCC O2 confirms
+  the old unused Some-path hash lookup survives compilation and the match
+  removes it. Native wall-time and final per-pass parity remain open.
+- The next component campaign retains 12,648 measured batches, 744 warmups and
+  248 complete native resource records with both projects running. First-child
+  path caching and collector stamps improve the large real component controls;
+  the large DAE pass uses a separate collector route. Path nodes grow from
+  12 to 16 bytes, and Int32 stamps use four bytes versus the old Boolean byte.
+  Combined Coalesce fixes its earlier multiple-write/read-before-write costs,
+  while its sparse control still costs about 3% more. Eager cold costs and the
+  unintegrated typed-carrier trial remain adverse. The integrated checkpoint
+  passes all 14,810 default tests without public MBTI changes. The next paired
+  pass run uses 201 small/101 large samples per tool; all whole-pass targets
+  remain open. Exact versions and memory limits are in the linked strategy.
+  The independent GPT source review finds no confirmed production defect.
+  Claude's first review has incomplete evidence coverage; its baseline-packet
+  error is corrected separately. Four completion calls reach the session limit
+  without an assessment, so Claude review completion remains open.
+- Trial 12 completes 3,632 measured tool timings and 96 warmups across the
+  normal-pass and both command/RSS phases. Pass samples use 201 small and
+  101 large rounds per tool; command samples use 101 small and 51 large.
+  Small pass ratios are 8.159×/11.145×/0.992×/1.892× and large ratios are
+  2.074×/1.352×/21.451×/13.934× in the same pass order. Small DAE2's interval
+  crosses one. Both projects stay running, every slow sample remains and
+  fixed-block uncertainty analysis makes no shared-host correction. Source
+  hashes remain stable. The independent audit checks all timings and 2,504
+  resource records; fresh wasm-tools validation passes all 25 distinct saved
+  artifacts (34 aliases). Structural validation does not prove semantic parity.
+  All-family 1× parity remains open.
+- The next component audit checks all 5,916 measured batches and 348 warmups
+  across 116 native processes. Both projects stay running. Locals improves
+  cold one-run queries, but corrupt-cache reverse order costs 2.072×. Packed
+  nodes have a verified 12-byte payload versus 16 bytes; retained-512 and
+  mixed-32 clocks cost about 3–4% more, and runtime RSS records are absent.
+  The effect-family guard improves both long controls; small controls are
+  mixed. These are private component results, not pass-local parity.
+  Coalesce's one-row change and the effect-family guard are now live. The
+  guard passes 10 focused tests; all 14,815 default behavior tests pass.
+  Ordinary compiled-work evidence has 177 collected instructions on direct
+  Instruction-array Eq edges before and zero after. Claude finds that the old
+  call counts mix collected and uncollected work; that scoped call-count claim
+  is withdrawn. The review finds no source correctness defect, but leaves
+  evidence coverage incomplete. A fresh DAE/DAEO run retains 1,208 measured
+  tool timings and 24 warmups: small ratios 7.949×/10.654× and large ratios
+  2.022×/1.323×. Both projects stay running. All 3,167 independent audit checks
+  pass; small DAE differs by tool order (7.486× versus 8.479×), and external
+  compilation overlaps the large cases. No sample or host cost is subtracted.
+  Private numeric core batching and HOT writer
+  replay now pass their focused behavior/resource gates. Their native and
+  complete artifact checks remain open. See the linked DAE2 strategy.
+- A separate final-remapper ownership fix copies Select types, BrTable labels
+  and TryTable catches. Six independent current-root tests fail first; all ten
+  pass tests and four command tests then pass privately and after integration.
+  Interface generation passes; formatting touches only the three new test
+  files. The corrected full gate passes all 14,829 default behavior tests;
+  separate benchmark tests are inventoried with the actual driver semantics.
+  Native costs remain open. Unchanged
+  function bodies can still be shared. The earlier many-sample clock image
+  predates this fix; no speed gain is claimed for these required copies.
+- The numeric batch artifact census accepts no members: small DAE/DAEO
+  rejects 4/12 offers; large DAE/DAEO uses the typed-loop route and bypasses
+  that core. Both sources retain the same 13/21 small core commits. The
+  baseline refresh hook is missing, so refresh counts and deltas are
+  unavailable. Preserve the old report and use `core-numeric-artifact-audit-r2`
+  for the corrected binding. Synthetic timings cannot establish corpus gains.
+- Private success-carrier allocations are bounded GREEN on four exact native
+  fixtures, with outer Results retained. Source-write precision, flat Tee and
+  held-effect correctness controls remain intact. These checks do not prove
+  whole-pass allocation, memory or speed parity. Large DAE2-O still grows
+  284 bytes versus trial 5, with eleven growing bodies versus trial 0 and
+  seventeen versus trial 5. The strategy preserves earlier trials and limits.
+- Four earlier native 1,000-case scouts have no observed Starshine semantic
+  or validation failure. Binaryen-only feature blocks retain exact replay
+  bundles; a red-first harness fix preserves all semantic discrepancies beyond
+  the structural artifact cap. Residual shape gaps, fresh final 10,000-case
+  lanes and external final review remain open. The bounded fixture replays
+  and historical focused Claude reviews do not close those gates.
+
+
+### 2026-10-16 — Connect compiler-fact inline policy
+
+- Added a bounded profitability bridge from version-1 function facts to the
+  existing inliner policy channel. Under `HintsOnly` or explicit
+  `TrustAssertions`, `Never` and `Always` become effective `binaryen.inline`
+  annotations before the pass queue. `Default`, `Prefer`, and `Ignore` stay inert, and
+  `no-full-inline` keeps its stronger suppression role.
+- Red-first pass tests cover forced and blocked inlining. Additional pass and
+  command tests cover the trust boundary, inert policies, older-annotation
+  precedence, valid output, and CLI dispatch. A final review found that append-
+  only materialization could grow under repeated `HintsOnly` use and could lose
+  precedence after inliner annotation remapping. Materialization now replaces
+  older recognized policies, preserves opaque annotations, and is idempotent.
+  Eight focused policy tests and one command test pass. This does not implement
+  the active WebAssembly Compilation Hints proposal or a measured profile input.
+
+### 2026-10-16 — Complete the remaining report experiments
+
+- Extended ReorderGlobals with one bounded name-weighted candidate after the
+  existing probes. The red 130-global fixture improves from 755 to 754 bytes;
+  input size is 756. Imports, dependencies, names, validation, idempotence, and
+  command dispatch have direct controls. Fixed function and private singleton-
+  type permutations save 8 bytes and 2/4 bytes, but remain experiments because
+  their complete remap and public-identity contracts are not implemented.
+- Removed unnecessary CoalesceLocals suffix scans when existing whole-body
+  counts prove immutable sources, and rejected multiply written destinations
+  before source queries. The 1,024-copy helper improves 16.04 ms to 6.50 µs.
+  Written sources keep the original scan. Focused, existing, command, and native
+  benchmark lanes pass; no full-pass or memory gain is claimed. The retained
+  helper samples identify the pre-final source snapshot. Current-source
+  semantics have exact campaign coverage, but exact-current helper timing is
+  not claimed.
+- Completed fixed-source V8 and Wasmtime measurements plus bounded outlining,
+  scalar-to-SIMD, layout, and bulk-memory probes. Only the fixed in-bounds bulk
+  candidate improves warm time in both engines; it shrinks 154 to 101 bytes but
+  grows Wasmtime function-symbol bytes. Outlining, SIMD, and layout do not earn
+  implementation from these fixtures. Raw samples, hashes, controls, support
+  failures, and size/runtime limits are in the tracing playbook.
+- Bounded test-only segment experiments find profitable restricted domains but
+  do not add production transforms. Equal passive payload sharing saves 2 to
+  131 bytes with 96 matching no-drop observations; blind sharing across
+  independent `data.drop` states changes four of eight observations. Internal
+  constant table-image merging saves 5 or 6 bytes, or 2 bytes when a
+  declarative segment must preserve `ref.func`. Segment-index users and an
+  earlier out-of-bounds initializer show the required validation and trap
+  boundaries. Production integration stays deferred.
+- Fresh verified-v133 aggregates complete 10,000 ReorderGlobals and 10,000
+  CoalesceLocals cases. All available node-v2 observations, determinism checks,
+  codec checks, and validations pass. ReorderGlobals retains 7,010 exact cases
+  and 2,990 stable-import differences; 1,161 cost one canonical byte and 1,829
+  are canonical-size equal. CoalesceLocals retains 3,750 exact and 6,250 smaller
+  outputs; its 1,250 original start traps remain runtime-blocked with the prior
+  independent four-shape replay.
+
+### 2026-10-15 — Renew current-source DAE2 with required normalizers
+
+- Final optimizer `fbfc16a5` and generator `3dfffa7e` complete four 10,000-case
+  `dae2` aggregate lanes against verified Binaryen 133 with both documented
+  cleanup normalizers. Open plain is 2,879 exact / 667 cleanup-normalized /
+  6,454 residual. Closed plain is 0 / 100 / 9,900. Open optimizing is 2,233 /
+  1,313 / 6,454. Closed optimizing is 100 / 0 / 9,900.
+- Every lane has 9,312 matching node-v2 observations and 688 blocked
+  continuation cases. Validation, property, generator, command, observed
+  semantic, determinism, and codec failures are zero.
+- Open lanes have no canonically larger Starshine output. Closed plain retains
+  706 canonically larger cases; closed optimizing retains 2,133. They remain
+  size-losing parity gaps despite smaller aggregate Starshine totals. The
+  blocked continuation cases remain runtime-unverified.
+
+### 2026-10-15 — Close SimplifyLocals tee-control size loss and prefix cost
+
+- A red generated-shape regression reproduces all 1,662 no-structure
+  `tee-control` losses. Conservative exact cleanup now removes a dropped tee
+  and its only later dropped read across inert control, keeps producer effects
+  and traps, and retains the carrier when an effectful later read needs it. The
+  active command dispatcher covers the same generated local-index shape.
+- Final native optimizer `fbfc16a5` and generator `3dfffa7e` complete the plain
+  and no-structure 10,000-case Binaryen 133 aggregates. Plain has 380 exact and
+  9,620 smaller outputs. No-structure is smaller in all 10,000 cases. All
+  20,000 node-v2 checks, determinism checks, codec checks, and validations pass;
+  property, generator, and command failures are zero.
+- A 4,096-root benchmark exposed quadratic inert-prefix rescanning in root
+  carrier finalization. Incremental tracking reduces observable-read cleanup
+  from 24.86 ms to 298.83 µs and dead-carrier cleanup from 28.21 ms to
+  289.92 µs, 83.2x and 97.3x improvements. The 133 no-structure regressions and
+  both final aggregate output distributions remain unchanged.
+
+### 2026-10-15 — Renew observable Precompute execution
+
+- Current optimizer `cecc7ac9` and generator `0845db24` complete 10,000
+  `precompute-all` cases for each public pass against verified Binaryen 133.
+  Plain Precompute has 7,369 direct matches, 1,751 cleanup-normalized matches,
+  and 880 residuals. PrecomputePropagate has 5,543 direct matches, 3,577
+  cleanup-normalized matches, and 880 residuals.
+- All 20,000 Node-v2 observations are three-way equal. Determinism and codec
+  checks are 20,000/20,000. Validation, property, generator, command,
+  runtime-block, and semantic failures are zero.
+- Every residual selects `precompute-control` and removes the same literal-true
+  checksum `if` that Binaryen retains. Each saves 13 canonical bytes and has an
+  all-equal execution result. Starshine has no larger output and saves 13,191
+  plain bytes and 16,371 propagation bytes in aggregate.
+
+### 2026-10-15 — Repair HSO generated runtime observability
+
+- The frozen 10,000-case HSO lane is structurally clean at 2,155 exact plus
+  7,845 cleanup-normalized matches, but all runtime observations are blocked.
+  Red-first tests show that the aggregate leaked descriptors and invalid active
+  segments into ordinary leaves. The generator now confines descriptors to its
+  descriptor leaf and omits those unrelated segments.
+- The rebuilt nine-leaf matrix executes all seven ordinary leaves with
+  original / Starshine / Binaryen agreement. Explicit custom-descriptor and
+  shared-GC Node flags execute the two feature leaves with the same agreement.
+  The new shared-GC setting is strict and forms part of runtime cache identity.
+- Current optimizer `8438fdd8` and generator `4c85b7ec` complete the repaired
+  10,000-case Binaryen 133 aggregate with both flags. All 10,000 Node-v2
+  observations are three-way equal; determinism and codec are 10,000/10,000.
+  The result is 2,155 exact plus 7,845 documented cleanup-normalized matches,
+  with zero residuals or failures. Canonical Starshine output is 15,762 bytes
+  smaller in aggregate.
+
+### 2026-10-15 — Measure guarded final-size and feature costs
+
+- Seven native release benchmarks pass. On 128 functions, Precompute vector
+  sizing measures 9.51 ns for the shrink-level bypass, 684.51 ns with no
+  candidate, and 70.28 µs for 128 admitted candidates including full encoded
+  comparison. SimplifyLocals final cleanup measures 10.09 ns for unchanged
+  identity and 624.10 µs for 128 changed numeric-local candidates. A 128-query
+  SIMD admission batch measures 803.29 ns with one cold metadata parse and
+  699.25 ns from a populated cache. These isolate guarded helper cost; they do
+  not measure allocations, RSS, or whole-pipeline gains.
+
+### 2026-10-15 — Admit observable constant selects to Precompute
+
+- Executing the new checksum surface exposed a plain-Precompute size/parity
+  gap: Starshine retained `select(2, 3, 1)` inside an exported checksum and
+  emitted 80 bytes, while Binaryen 133 folded it to 75 bytes. A red regression
+  reproduces the retained select. The raw preflight now admits literal-condition
+  selects in its existing recursive constant-control scan. The saved input is
+  byte-shape equal at 75 bytes after the fix and both outputs validate.
+
+### 2026-10-15 — DAE2 Binaryen 133 raw frozen renewal
+
+- Frozen optimizer `5d8ea74e` and generator `76b922fb` compare 10,000 DAE2
+  cases in each world. The shared runner omitted this profile's two cleanup
+  normalizers. Open stays raw at 2,879 exact and 7,121 smaller residuals;
+  Starshine totals 851,824 bytes against 963,171. Closed has 10,000 raw
+  residuals, including the established 706 canonically larger size losses;
+  totals are 851,824 against 984,732. Open optimizing has 2,233 exact and
+  7,767 smaller raw residuals, totaling 809,421 against 876,146 bytes. Closed
+  optimizing has 100 exact and 9,900 residuals, including 2,133 canonically
+  larger size losses; totals are 809,421 against 883,160.
+- Each completed lane has 9,312 Node-v2 matches and 688 blocked continuation inputs.
+  Validation, determinism, codec, generator, property, command, and observed
+  semantic failures are zero. Current-source signoff still needs the documented
+  normalizers and rebuilt tools.
+
+### 2026-10-15 — Repeat CoalesceLocals on the shared-work build
+
+- Frozen optimizer `5d8ea74e` and generator `76b922fb` repeat all 10,000
+  `coalesce-locals-all` cases with the same result as the earlier October 15
+  review: 3,750 exact, 6,250 reviewed smaller differences, 8,750 matching
+  runtime observations, and the same 1,250 independently replayed start-trap
+  blocks. Validation, determinism, codec, generator, command, and observed
+  semantic failures are zero.
+
+### 2026-10-15 — OptimizeInstructions Binaryen 133 shared-work renewal
+
+- Frozen optimizer `5d8ea74e` and generator `76b922fb` complete 10,000
+  `pass-oi-all` comparisons. There are 8,623 exact matches and 1,377 reviewed
+  residuals: 1,080 established selected-lane tuple cases and 297 pure constant
+  result-`if` folds. Every residual is canonically smaller. Starshine totals
+  732,509 bytes against Binaryen's 775,236, with no larger output.
+- Node v2 matches 8,910 cases. All 1,090 blocked cases are the four descriptor
+  leaves. Validation, determinism, codec, generator, command, and observed
+  semantic failures are zero. The descriptor rows remain unverified by this
+  aggregate despite the separate 12,294-call flag-enabled replay.
+
+### 2026-10-15 — Direct and optimizing DAE Binaryen 133 renewal
+
+- Frozen optimizer `5d8ea74e` and generator `76b922fb` complete four 10,000-case
+  DAE lanes. Open and closed results are identical for each pass. All 40,000
+  runtime observations, determinism checks, codec checks, and validations pass
+  without blocks or tool failures.
+- Each direct lane has 3,750 exact and 6,250 canonically smaller outputs, with a
+  20,000-byte total reduction. Argument and return refinement account for 1,250
+  Binaryen-only runtime discrepancies; Starshine matches the original. The
+  other cases are established stronger-cleanup families.
+- Each optimizing lane has 5,153 exact, 1,212 cleanup-normalized, and 3,635
+  retained established cleanup differences. All 4,847 non-exact outputs are
+  smaller, by 42,132 canonical bytes in aggregate.
+
+### 2026-10-15 — OptimizeCasts Binaryen 133 exact renewal
+
+- Frozen optimizer `5d8ea74e` and generator `76b922fb` complete 10,000
+  `optimize-casts-all` cases as exact normalized Binaryen 133 matches. Raw and
+  canonical sizes are equal in every case. All runtime observations,
+  determinism checks, codec checks, and validations pass without blocks or
+  tool failures. This is behavior and output parity for that source identity,
+  without a compiler-time or memory claim.
+
+### 2026-10-15 — Directize Binaryen 133 shared-work renewal
+
+- Completed 10,000 `directize-all` cases on frozen optimizer `5d8ea74e` and
+  generator `76b922fb`. All runtime observations, determinism checks, codec
+  checks, and validations pass without blocks or tool failures.
+- The 559 exact cases and 9,441 canonically smaller cases total 559,353 bytes
+  for Starshine versus 570,049 for Binaryen 133. Every retained WAT diff only
+  removes one or two `nop` instructions from empty helper bodies, so the
+  difference is a pass-independent canonical encoding win rather than a
+  Directize transform-shape claim.
+
+### 2026-10-15 — ReorderGlobals Binaryen 133 shared-work renewal
+
+- Completed 10,000 `reorder-globals-all` comparisons with frozen optimizer
+  `5d8ea74e` and generator `76b922fb` against verified Binaryen 133. All outputs
+  validate; all node-v2 observations, determinism checks, and codec checks
+  match without blocks or tool failures.
+- Classified all cases from `cases.jsonl`: 7,010 are exact normalized matches.
+  The 1,161 imported-global cases and 1,829 module-code cases are the existing
+  stable-import contract, each at a one-byte canonical cost. Binaryen moves hot
+  import 128 to index 0; Starshine preserves declaration order because host
+  getter resolution is observable. All other leaves are exact, and the 20
+  retained artifacts contain no additional family.
+
+### 2026-10-15 — Preserve memory64 trap-before-write during passive splitting
+
+- Export-only review copies execute all retained MemoryPacking and Precompute
+  families without changing non-export sections. Original and Starshine match
+  source-based expected values and state in 492 calls. Nine memory64 cases show
+  Binaryen 133 writing a leading byte before a later bounds trap; original and
+  Starshine preserve `memory.init` full-range trap-before-write semantics.
+- A focused profitable-split regression now proves the full destination guard
+  traps before the first `memory.init` or `memory.fill`. Six reviewed Starshine
+  outputs are larger, so the result is a correctness/size tradeoff. Blocked
+  engine cases and suppressed campaign bodies remain outside the replay.
+  [Contract and limits](binaryen/passes/memory-packing/starshine-hot-ir-strategy.md#october-15-memory64-trap-before-write-review).
+
+### 2026-10-15 — Execute bounded Precompute generator targets
+
+- A source and artifact review confirms that all 11 fixed `precompute-all`
+  leaves had no export or start function. Earlier node-v2 campaign observations
+  covered compilation and instantiation, but did not execute those target
+  bodies. This is a generator coverage defect, without a confirmed pass defect.
+- Every leaf now exports a bounded target. Local-facts calls update an exported
+  wrapping checksum, effect-boundary state is visible, and a no-argument Wasm
+  wrapper calls the GC atomic body without a host-created non-null reference.
+  The scalar, control, global, and drop-cleanup leaves also publish every
+  computed result through exported checksum state. Five tests cover all leaves,
+  deterministic bytes, exact exclusions, wrapper shape, and checksum writes.
+- NaN-bit probes and negative or about 171 MiB GC allocation probes remain
+  compile-only. Fresh 10,000-case campaigns with the new generator identity are
+  required. [Precompute scope](binaryen/passes/precompute/fuzzing.md#october-15-observable-fixed-profile-boundary) and [PrecomputePropagate scope](binaryen/passes/precompute-propagate/fuzzing.md#october-15-observable-fixed-profile-boundary).
+- Current native leaf smoke uses optimizer `8438fdd8` and generator `4c85b7ec`.
+  All 22 node-v2 observations match verified Binaryen 133; the two GC atomic
+  leaves use the required explicit Node shared-GC flag. All outputs validate and
+  pass determinism and codec checks. Twelve outputs are exact. Ten retain output
+  shape differences; eight are smaller and two are larger, with aggregate
+  canonical output 23 bytes smaller than Binaryen. `moon info` reports 0 errors
+  and all 14,328 default tests passed before this generator-only renewal. The
+  full WasmGC CI-profile gate also passes 14,324 target
+  tests and 100,750 bounded fuzz attempts across its 14 suites, including 5,000
+  valid modules, 4,224 invalid inputs, 86,820 binary roundtrips, and 4,096
+  command-harness cases. The full aggregate renewals remain open.
+
+### 2026-10-15 — Survey no-op command byte reuse
+
+- The same valid 41-byte NaN-bearing wasm input runs through every 28 pass
+  spellings in current command help. Twenty-seven no-op results preserve exact
+  input bytes and validate. `flatten` is the sole active result; it emits a
+  valid 47-byte module and does not reuse the input bytes. This checks both the
+  no-op identity path and the accumulated changed-segment gate. Active cleanup
+  fixtures remain the stronger evidence for changed pipelines.
+
+### 2026-10-15 — Renew plain and optimizing inlining parity
+
+- Frozen native `5d8ea74e` completes 10,000 cases for each inlining mode
+  against Binaryen 133. All 20,000 outputs are normalized, raw-size, and
+  canonical-size equal. Every node-v2 observation, determinism check, and codec
+  check matches. There are no blocked cases or validation, property, generator,
+  command, or semantic failures. [Scope and identity](binaryen/passes/inlining/fuzzing.md#october-15-shared-work-renewal).
+
+### 2026-10-15 — Renew ReorderLocals with raw-size limits
+
+- Frozen native `5d8ea74e` completes 10,000 generated cases with matching
+  runtime observations, determinism, codecs, and validation. Starshine is
+  canonically smaller in 2,004 cases and equal in 7,996, with no larger case.
+  All 20 retained differences remove either a `nop` or a branch-free loop.
+- Raw output preserves names at an aggregate 84,070-byte cost. Legacy EH keeps
+  one equivalent function type per case, adding 2,835 raw bytes across 945
+  cases; this remains an open representation parity gap. [Evidence and classification](binaryen/passes/reorder-locals/fuzzing.md#october-15-shared-work-renewal).
+
+### 2026-10-15 — Review frozen SimplifyLocalsNoStructure evidence
+
+- The frozen 10,000-case campaign has matching runtime observations,
+  determinism, codecs, validation, and tool results. Starshine produces 9,487
+  smaller and 513 equal raw and canonical outputs, with no larger output.
+- Independent review inspects all 20 retained bundles and bounded replay covers
+  four exportless modules without finding a confirmed defect. The 9,511
+  suppressed shapes, 44 equal-size structural differences, and one extra
+  memory-capture operation remain open coverage and output-shape gaps.
+  [Evidence and limits](binaryen/passes/simplify-locals-nostructure/fuzzing.md#october-15-shared-work-renewal-and-review).
+
+### 2026-10-15 — Make deep SimplifyLocals input stack-safe
+
+- Depth-128 void blocks fail first with WasmGC `RangeError` in HOT lift and then
+  in adjacent-pair structural equality. Iterative void-block lift preserves
+  label ownership and unwinds regions in reverse without an unused per-depth
+  label-head row. Explicit rewrite bits and identity change signals remove deep
+  derived equality from lowered cleanup, the SIMD sink, adjacent cleanup and
+  command byte reuse. Depth31/32/33/128, block/middle/function labels, invalid
+  labels, live prefixes, sibling-label, conditional-exit, observable-value,
+  root-terminator, segmented-change and CLI roundtrip regressions pass.
+- A release WasmGC command replays active and unchanged depth128 inputs through
+  both SimplifyLocals variants. All four outputs validate with wasm-tools;
+  current command SHA256 `85f3c135` emits active outputs of 29 bytes and
+  unchanged outputs of 32 bytes. The native test
+  backend cannot lower existing uninitialized non-null GC-reference arrays, so
+  it is not runtime evidence for this path. Fresh generated renewal remains
+  open. [Contract and evidence](binaryen/passes/simplify-locals/structure-result-lifting-and-carrier-cleanup.md#october-15-2026-depth-128-wasmgc-stack-safety).
+
+### 2026-10-15 — Renew callable TupleOptimization evidence
+
+- Native `5d8ea74e` completes 10,000 matching runtime comparisons against
+  Binaryen 133; all second-pass, determinism and codec checks pass. Validation,
+  tool and property failures are zero. Ordinary generated bodies now export
+  both result lanes, so their code executes. There are 2,225 normalized matches
+  and 7,775 structural differences, with no canonical size loss. All 20 retained
+  bundles have expected-value replay and source/operation evidence; suppressed
+  outputs remain outside that direct review. [Evidence and limits](binaryen/passes/tuple-optimization/fuzzing.md#october-15-callable-aggregate-renewal).
+
+### 2026-10-15 — Preserve full unsigned replay seeds
+
+- A one-case replay exposes an artifact CLI defect: help promises UInt64 roots,
+  but its signed parser rejects `0xed5d9aa4110c3cf5`. Three new command tests
+  fail before a checked unsigned parser replaces that path. Ordinary signed
+  suite roots keep their existing limits. Eight new tests cover all unsigned
+  commands, valid/invalid boundaries and an exact one-slot owner input/hash.
+  All 25 focused seed tests and 14,308 full WasmGC tests pass. Native
+  `821975b0` validates 15 bounded outputs; low-root manifests/bytes agree,
+  high-root replay is exact, and invalid roots fail before output creation.
+  The generator grows 4,632 bytes; no optimizer timing/memory gain is claimed. [Contract](tooling/fuzz-runner.md#full-unsigned-seed-range-october-15-2026).
+- The optimizer and frozen low-root generated campaigns keep native `5d8ea74e`
+  and generator `76b922fb`. This parser correction changes the generator CLI
+  only. The first restricted Claude attempt stopped at its session limit. The
+  later retry completed after the usage reset; its scope and follow-up status
+  are recorded in the report intake entry below.
+
+### 2026-10-15 — Reuse stable batch and statement facts
+
+- Direct-GC batch graph bounds fail first at3/5/9 instead of1 on unchanged
+  public boundaries,1 instead of0 on inactive definitions, and5 instead of3
+  across real refinements. The owner now reuses facts only until a changed
+  transaction attempt. Original escaped ownership, exact signatures, effects
+  and caller instructions remain covered. [Contract](binaryen/passes/dae-optimizing/starshine-strategy.md#october-15-stable-direct-gc-batch-facts).
+- Statement queries share the existing wide-environment seed; the bounded
+  regression reduces2,560 initialized slots to128 without changing code.
+  Provisional command selectors now retain existing worker byte proofs, and
+  terminal-return normalization copies rows only after an actual candidate.
+  Invalid shorter candidates and invalid fallthrough still reject. All 14,300
+  WasmGC tests pass. Native `5d8ea74e` renews 58,840 runtime comparisons and
+  GC CLI arguments. Seven paired DAE 1,000-function command medians improve
+  437.241→30.071 ms and full O4z mixed-data medians 1814.577→635.642 ms,
+  with identical bytes and no slower pair. Controls are mixed; executable
+  size grows 4,664 bytes and peak RSS has no material gain.
+  [Measurements](tooling/tracing-playbook.md#october-15-shared-batch-and-statement-work).
+  Fresh Heap2Local renewal completes 10,000/10,000 matching runtime
+  observations, with no blocked executions or validation/property/tool failures.
+  All outputs are smaller; typed-local pressure remains a stated tradeoff.
+  [Scoped generated and replay evidence](binaryen/passes/heap2local/fuzzing.md#october-15-shared-work-build-renewal).
+
+### 2026-10-15 — Preserve carried reads during tuple lowering
+
+- A new shared-lowering test finds repeated tuple imports and a wrong fresh
+  local read when an old read covers the next tuple lane. The narrow sole-input
+  LocalSet repair moves that existing typed row. A red-first32-temporary case
+  now reuses two scratch locals; three multiple-capture layouts preserve old
+  reads, published values and import order. Generic tuple and multi-input
+  guards remain in place. [Contract and pending signoff](binaryen/passes/tuple-optimization/index.md#october-15-retained-reads-and-available-store-runs).
+- The available-store ordering shortcut has separate positive and fallback
+  work bounds. Mixed/ref controls pass13 focused tests; all14,288 WasmGC tests
+  pass. Native831b053c renews58,336 runtime comparisons and GC CLI checks.
+  Paired timing and generated renewal remain open.
+
+### 2026-10-15 — Reuse DAE discovery contexts
+
+- Two immutable-source discovery loops share one context per scan, retaining
+  separate current indices and source/current definition bounds. Empty adjacent
+  roots and dropped-result worklists skip unused graph/snapshot setup without
+  changing output, touched state, effects or trace. Independent review finds a
+  missing-code unwrap regression; its failing test leads to an explicit None
+  return. [Contract and controls](binaryen/passes/dae-optimizing/starshine-strategy.md#october-15-immutable-sink-discovery-and-empty-worklists).
+- All14,279 WasmGC tests and the interface check pass. The native baseline adds
+  1,960 independently expected i32/i64 host-call, trap and public-signature
+  comparisons. Native59c02734 renews all54,696 comparisons and GC CLI checks.
+  Seven paired full-preset1,000-function medians improve1760.135→1731.859ms,
+  with mixed controls and no peak-RSS gain. Fresh generated renewal is pending.
+- Frozen first-emission native58491a9e passes52,736 runtime comparisons and GC
+  CLI checks. Paired enclosing measurements have both improvements and slower
+  controls; no general command or memory gain is established. The remaining
+  wide shared-producer source-order scan needs a separate proof and measurement.
+
+### 2026-10-15 — Bound tuple publication and data sizing costs
+
+- Native `193e58a7` passes all14,267 WasmGC tests and52,736 runtime comparisons
+  across Tuple, numeric locals, Heap2Local and memory/trap lanes, plus GC CLI
+  arguments. Bulk Tuple region publication preserves bytes and reduces the
+  1,024-copy fixture command median60.307→25.767ms and child peak RSS
+  81,732→24,400KiB. [Contract and limits](binaryen/passes/tuple-optimization/index.md#october-15-bulk-publication-and-lowering-follow-up).
+- Counted immutable data payload lengths avoid estimator copies; UInt64
+  accumulation rejects virtual2/4GiB overflow. Red-first type-finalization
+  controls cover public globals/tags and unselected typed blocks. Fresh
+  aggregate renewal remains required; old SL raw losses remain versioned.
+  [SL evidence and costs](binaryen/passes/simplify-locals/structure-result-lifting-and-carrier-cleanup.md#october-15-current-finalization-checkpoint).
+- Four later lowering regressions cover first emission, repeated sole-edge
+  children, suspended stacks and synthetic prefixes. All14,271 WasmGC tests
+  pass. The new native build and measurements are pending. Independent GPT
+  reviews cover these deltas. The later restricted Claude review completed;
+  its deep-child assertion finding now has a direct regression fix.
+
+### 2026-10-15 — Repair report-derived correctness cases
+
+- Current caller/ascending-tuple source passes all14,259 WasmGC tests after
+  red-first controls. New checks cover touched/stack vector materialization,
+  fact-normalized global size selection, late packing after the complete
+  Directize finish, and trusted facts at the caught-O4z command boundary.
+  Wider tuple tests now use lane weights and read-after-write overlap controls;
+  the native fixture exports individual lanes. Independent GPT reviews found
+  no confirmed defect in these deltas. Fresh native and performance renewal
+  remain pending. The later restricted Claude review completed after quota
+  reset and found no high-severity defect.
+- Both older972c10,000-case Tuple/SL campaigns complete with no observed
+  semantic differences. SL retains154raw size losses (306B total); four exact
+  replays trace them to type-section overhead. Fresh export-only body replay
+  covers all20 retained SL bundles,91functions and451calls per variant.
+  Ordinary Tuple callable-generator renewal is still required.
+
+- [Heap2Local](binaryen/passes/heap2local/index.md) now stages owner fields,
+  retains removed-label boundaries, preserves array tee constructor/store order,
+  and transfers control ownership. New red-first tests cover old-owner reads,
+  cycles, packed fields, traps, shared values and control child spans.
+- [TupleOptimization](binaryen/passes/tuple-optimization/index.md) retains
+  captured aliases and stages nested overlapping copies. SimplifyLocals avoids
+  deleting a revisited pending write; CoalesceLocals retains input-body ownership.
+- Bounded cost and scheduling changes have implementing/dispatcher controls.
+  MemoryPacking uses full encoded profitability; SIMD introduction follows the
+  module feature contract. Element effects and nested-memory fallback controls
+  cover previously untested valid inputs.
+- The latest explicit WasmGC gate passes all14,242 tests; `moon info` passes.
+  The170 combined Tuple/SimplifyLocals controls pass. Heap2Local has10,000
+  earlier verified-v133 semantic comparisons and11,568 native runtime checks,
+  including unsigned packed reads. The minimal Tuple Call-parent repair passes
+  11,928 native comparisons. Later size controls expose a separate captured-read
+  and repeated-write alias error in SimplifyLocals. Red-first read/write guards
+  pass the current unit gates. Fresh native `b29aee1d` passes12,432 Tuple/SL,
+  11,568 Heap2Local and15,440 memory16 comparisons; WasmGC CLI entry checks
+  pass. Current Heap2Local and SimplifyLocals generated renewals each pass10,000
+  runtime observations. Heap coverage now has zero empty bodies; independent
+  replay covers all15 ordinary input hashes and the constant-first owner case.
+  Current native `972c897d` repeats all named runtime checks. Guarded numeric
+  local grouping saves4,000B on1,000 mixed-function fixtures, with a measured
+  1.019ms added quiet command cost. Batched checked Tuple control retirement
+  preserves bytes and reduces the128-copy pass median6,024→829µs. The new
+  Tuple and SL aggregate campaigns are running; residual raw gaps remain open.
+  Historical measurements retain their exact source identities.
+- The [Node oracle encoding rule](wasm-compact-import-section-boundary.md)
+  disables Binaryen compact imports only for Node runtime lanes. Its new
+  regression fails before the fix. The earlier SimplifyLocals campaign has
+  10,000 original/Starshine matches and 1,829 broad Binaryen-discrepancy labels;
+  retained cases identify V8 compile blocks, not oracle miscompiles. A fresh
+  campaign on checkpoint `a379e1a3` has10,000 all-equal observations; this
+  predates the newly reduced alias failures and does not sign their repair.
+  Bun passes343 library tests with
+  one existing opt-in Chromium skip using Node 26, wasm-tools 1.260 and verified
+  Binaryen 133. Shared-GC test fixtures now use the released `seqcst` spelling.
+- CoalesceLocals completes 10,000 generated comparisons: 8,750 Node-v2
+  observations agree; 1,250 intentional start-trap cases remain runtime-blocked
+  in that harness. Independent native replay of all four byte-distinct blocked
+  inputs verifies the same start trap in original, Starshine and Binaryen 133.
+  All ten distinct mismatch inputs are inspected. Source contracts, observations
+  and byte savings support scoped wins from inert `nop` and void-loop cleanup;
+  the independent review retains the generated-family limits.
+- Claude's hypothesized stale-branch retirement abort is not reproduced by
+  bounded CLI checks; those checks do not cover a private fused HotFunc stack.
+  Three-/four-lane prefix/trailing copies preserve distinct values and call
+  order in125 bounded probes. New implementing/command tests also cover loops,
+  repeated passes and cleanup. Remaining wider-lane raw differences and nested
+  insertion scaling need separate evidence; no universal size/parity claim.
+- Added a native numeric-local regression lane:12,288 independent checks
+  preserve live i64/f32/f64 values, exact floating bits, parameter positions,
+  import effects and traps through both SL modes once and twice. The old binary
+  fails its encoded declaration-group assertion; `972c897d` passes.
+- Tuple spill/copy/tee generation previously had no callable exports. Red-first
+  tests now require exported observable i32/i64 results while keeping the
+  existing triggers. All179 selected generator tests pass. A fresh native
+  build is running; the earlier campaign retains its exact generator and
+  instantiation-only scope for those ordinary cases.
+- The 56-task intake remains local and untracked at the user's request. Large
+  research and feature proposals remain open.
+  Claude completed a read-only review of 29 scoped files and reported evidence
+  gaps and Tuple repeated-size growth. Later repairs need a separate delta
+  review; the completed review does not cover the entire repository. The next
+  read-only Claude attempt stops at its session usage limit, before review.
+  Independent source review and native replay of the latest SL guard are
+  complete. The current read-only Claude delta review completed after the usage
+  reset and returned an actual assessment. Its confirmed gaps are fixed or have
+  renewed direct evidence; a final delta review remains open after aggregate
+  renewal.
+- OptimizeInstructions completes10,000 generated cases;1,090 descriptor engine
+  compile blocks remain in the original campaign. A separate exact regenerated
+  replay with the explicit Node descriptor flag executes12,294 calls and finds
+  no difference in values, effects, reference identity or traps. Original and
+  both optimized trap diagnostics are retained. This does not close uninspected
+  representation gaps or native memory64/multi-memory execution coverage.
+
+### 2026-10-14 — Assess the supplied optimization report
+
+- The local untracked assessment maps the external report to existing effects,
+  exact sizing, local/global packing, directization, inlining, GC, tuple,
+  segment and tail-call facilities.
+- Records 56 tasks with source owners and measurement/proof requirements.
+  Current DAE2/O, CoalesceLocals and OptimizeInstructions work keeps priority;
+  missing function/type packing and larger research remain future extensions.
+- Installed and verified local MoonBit. Source checking and all 13,962 default
+  wasm-gc tests pass; native release build and CLI help check pass. No optimizer
+  changes or new speedup claims were made at intake. The October 15 repair
+  checkpoint supersedes that initial implementation status.
+- Claude Code's authenticated retry reviewed all 18 scoped snapshot files.
+  Parent replay confirms its Heap2Local producer-order risk: original and
+  verified v133 return 11/10, while Starshine returns 200/100. All modules
+  validate. This is a current release blocker despite the green default suite.
+  At intake, the other review risks remained unverified. The user then requested
+  correctness-first repairs; the October 15 checkpoint records that work.
+
+### 2026-10-11 — Diagnose Wago GC, host-call and cache costs
+
+- [The Wago investigation](tooling/tracing-playbook.md#october-11-2026-wago-wall-time-and-collection-investigation)
+  confirms the root-map ABI rejection behind disabled Wasm collection.
+  It records 13.324 million byte calls, 7.22 GiB host scratch allocation,
+  a 34.72% inclusive GC struct-helper CPU owner and nine copy controls.
+- Fresh 2/3 GiB startup succeeds while cached repeats trap. The codec omits
+  start metadata; a reduced module returns 42 fresh and 0 cached. Its behavior
+  regression fails. This supersedes the earlier heap-size hypothesis.
+  Wago source remains unchanged; no speed improvement or completed Wago O4z
+  execution is claimed.
+
+### 2026-10-11 — Compare Starshine runtime hosts on the debug GC artifact
+
+- [The runtime comparison](tooling/tracing-playbook.md#october-11-2026-gc-native-and-javascript-host-comparison)
+  records the source-built Wago canary, three Starshine artifacts, final
+  three-sample wall/phase measurements, exact output identity and the
+  metadata-driven pass timing limits. Native/Node/Bun wall medians are
+  2.118/3.822/4.724 seconds. Wago fails on a collection-disabled 2 GiB heap;
+  the 3 GiB retry traps at startup. Bun needs the verified larger stack.
+- The GC default file adapter and compact pass-timer forwarding follow
+  failing tests. All 683 GC command tests and the shared Wasm file test pass.
+  The full default suite was interrupted before timing and is not signed off.
+  [Npm package blockers](tooling/node-package-surface.md#october-11-2026-local-package-blockers)
+  remain explicit; the JavaScript timings use a separate current-source runner.
+
 ### 2026-10-09 — Repair direct-pass effects and IR invariants
 
 - [The October 9 repair checkpoint](tooling/validation-gates.md#october-9-2026--optimizer-and-ir-repairs)
@@ -4943,6 +5653,18 @@ fresh run; the 1,984 plus 657 strict differences remain unclassified.
 - 2026-09-10: Runtime-driven renewal passes `11,060/11,060` wasm-gc tests after reduced DAE2 nested-control/capture-order defects and a constraint pending-call defect. Local-flow summaries join nested control definitions and retain shared-expression contexts; dead-block rewriting combines reachability before editing a physical region. The new `binaryen132-array-memory` profile covers all 25 scalar/vector access forms through released offsets/alignment, numeric storage validation, HOT effects and type remapping. Native compiler execution and final generated campaigns remain pending; earlier validating compiler outputs trapped and are not signoff. See [the upgrade evidence](binaryen/version-132-upgrade.md).
 
 - 2026-09-10: The next Binaryen 132 correctness slice passes `11,038/11,038` Moon tests and `75/75` comparison/performance-tool unit tests. DAE2 now materializes tuple lanes once, follows local reaching definitions and retains exception/continuation payload signatures; shared block/try-table completion and resume operations preserve handler escape edges. Effectful producer/handler regressions exposed mistakes masked by the first pure GenValid runs, so those runs are not final signoff. The fresh native CLI `6240c1e0ab834d2336e6540df05cb1cfb52850448525ac913e84a761cb3c033e` validates all 296 DAE2 and eight constraint open/closed upstream intake cases with both Binaryen 132 and wasm-tools. Constraint transitive/copy facts and converged unreachable-block removal are implemented; nested unmodeled handler edges conservatively decline proofs. Renewed observable GenValid campaigns and proposal compatibility work remain active in [the upgrade](binaryen/version-132-upgrade.md).
+
+## October 16, 2026 — DAE measurement and resource follow-up
+
+The [DAE campaign](binaryen/passes/dae2/starshine-strategy.md#separate-process-work-proof-and-the-next-performance-limits)
+now has a separate-process compiled effect proof: three equality calls and
+177 collected instructions before, zero after. The revised frozen ownership
+oracle and nested branch tests pass 22 pass/four command controls on formatted
+live source. Saved Binaryen CPU/wall evidence supports a broad parallel-backend
+investigation, with Starshine pass CPU still unavailable. HOT transfer completes
+both artifact worlds with 220 positive large functions; native clocks remain
+open. Raw fallthrough carry fails a measured sibling undo-capacity bound and
+stays private. Both user projects continue to run; no parity claim is made.
 
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization fifty-nine-effect boundary
 
@@ -26585,3 +27307,76 @@ arrays/typecheck wrappers from the completed return packaging change.
   semantic execution without a cache directory. Historical cache evidence stays
   under its original run/version; current repo rules, pass workflow and backlog
   now require uncached runs.
+
+- DAE performance: the independent payload review found no production defect.
+  The saved gate's driver hashes identify compiled Wasm, while selection hashes
+  identify generated source; an additive audit verifies both and all 14,841
+  saved default results. The strategy page now lists the shared remappers'
+  additional DAE and lowering callers. Allocation cost at those entries and
+  final GenValid signoff remain open. See
+  [DAE2 strategy](binaryen/passes/dae2/starshine-strategy.md) and ignored evidence
+  `payload-ownership-evidence-audit-r1/`.
+
+- DAE performance: the new verified-v133 CPU/wall cohort completes 2,416
+  measured tool values and 48 warmups. Both projects stayed running and every
+  slow sample remains. Independent raw/build/output audit passes; small DAE2's
+  wall interval crosses one and all four wall-parity targets remain open.
+  CPU ratios are separate from the wall target and future process-worker CPU.
+  See [DAE2 strategy](binaryen/passes/dae2/starshine-strategy.md) and ignored
+  `pass-cpu-independent-audit-r2-runners/` evidence.
+
+
+- DAE follow-up: retained typed table initializers now receive type-index
+  remapping during pruning. Two direct baseline tests and the active DAE
+  command fail before repair; all four focused tests and 14,845 default tests
+  pass after repair, with stable source hashes. The private HOT transfer
+  campaign completes 2,448 raw values and 144 warmups, but establishes no real
+  artifact gain. Its adverse controls remain open. The general worker builds
+  and passes mixed-96 behavior; Claude's review is incomplete due to its
+  session limit. See [DAE2 strategy](binaryen/passes/dae2/starshine-strategy.md).
+
+### 2026-10-17 — DAE work checks and exact float-plan comparisons
+
+- DAE plan checks now use existing bit-aware instruction/function comparisons
+  after seven actual NaN/signed-zero baseline failures. Nine focused cases and
+  four existing command controls pass; a renewed full default gate is pending.
+- Private pruning retains 3,060 raw values and improves actual pruning inputs,
+  but its 7.1–7.5% original-large no-prune cost prevents integration. Independent
+  raw and summary audits pass with a documented seeded-resampling adaptation.
+- The general worker passes all four actual large-artifact routes. Retention,
+  refusal, native timing and memory gates remain open. Smaller opaque-journal,
+  local-group and Vacuum work checks also pass, with native gains unproved.
+  Both external projects keep running. See
+  [DAE2 strategy](binaryen/passes/dae2/starshine-strategy.md).
+
+- Renewed the formatted NaN repair gate: 14,856 default behavior tests pass,
+  with all 2,131 source hashes stable. Both new DAE/DAEO command controls pass.
+  The private worker consumption unit passes all 31 native controls with zero
+  logical frame history. Generated C adds a success allocation; native speed,
+  heap and large-input checks stay open. Vacuum has zero observed duplicate
+  removal on all four actual input/pass lanes, so synthetic clocks are deferred.
+
+- The follow-up pruning campaign retains 4,080 raw values and passes the
+  independent raw/identity/summary audit. Original-large component medians
+  improve about 2%; actual decoded pruning snapshots improve 44–47%.
+  Adverse controls still cost up to 16%, so integration remains open.
+  The writer candidate's saved structural/canonical checks and independent
+  nineteen-body review pass; its strict-byte assertion still fails and native
+  gains are unmeasured. The unresolved-read baseline now has five passing
+  groups and the required final resource failure. See
+  [DAE2 strategy](binaryen/passes/dae2/starshine-strategy.md).
+
+- Integrated the reviewed type-prune unit after its source and native audits.
+  All 26 focused tests and 14,873 bounded behavior tests pass with stable source
+  and no API change. The private full-uniform batch accepts the real three-target
+  group; two actual caller-local alias failures are repaired and all19 controls
+  pass. Native gains and final parity remain open. See
+  [DAE2 strategy](binaryen/passes/dae2/starshine-strategy.md).
+
+- The private writer campaign retains 2,856 raw values and passes its
+  independent timing audit. Actual small timing is flat; actual large timing
+  changes direction between orders, with substantial same-binary drift. The
+  candidate stays private. Both external projects keep running; samples and
+  orders remain separate. Unresolved-read preflight passes six bounded tests
+  and ten controls; malformed-input checkpoint tests need a compiler setup
+  correction. See [DAE2 strategy](binaryen/passes/dae2/starshine-strategy.md).

@@ -1,19 +1,99 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-21
+last_reviewed: 2026-10-15
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ./index.md
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_wbtest.mbt
+  - ../../../../../src/validate/gen_valid_heap2local_owner_updates.mbt
+  - ../../../../../src/validate/gen_valid_heap2local_owner_updates_wbtest.mbt
 
 ---
 
 # `heap2local` Fuzzing Profile
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — October 14, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 and v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
+
+## October 15 shared-work build renewal
+
+Fresh native `5d8ea74e23ab4237` and generator `76b922fbe5da4122` complete
+10,000 `heap2local-all` cases at seed `0x5eed` against verified Binaryen 133.
+All 10,000 original/Starshine/Binaryen Node 26 observations agree. Independent
+validation, byte determinism and codec idempotence pass; there are no runtime
+blocks, semantic differences, validation, property, generator or command
+failures. All outputs differ structurally and are smaller in both raw and
+repository-canonical bytes. This is a semantic result, not exact-output parity.
+
+The manifest has 10,000 nonempty records but 2,807 distinct input hashes:
+3,019 struct cases (five hashes), 2,026 array cases (three), 1,944 reference
+cases (seven), and 3,011 owner cases (2,792). All exact manifest call,
+import-effect and exception facts are zero. These pure scalar owner inputs do
+not establish host-effect, handler or nested cleanup coverage. The separate
+permanent runtime/regression lanes retain those obligations; coarse byte-level
+effect flags are not proof of executed calls or exception paths.
+
+The retained 20 bundles have an additional independent replay with 195 explicit
+calls and 45 start calls. Each owner's boolean branch combinations use a
+separate field-array oracle. Three exact same-seed cases cover the
+read-after-write owner family absent from the artifact cap; their input hashes
+match the manifest and 90 additional calls agree with the field oracle. These
+checks are separate from campaign counters. Conditional owner inputs have six constructor sites across the branch arms.
+Three allocations execute per original/Binaryen call; the scalar output has
+zero. This follows from inspected code paths, not an allocation counter. It
+adds 12 i32 locals and more local traffic. Keep that tradeoff explicit; no
+general runtime or memory win follows from size alone. The separate replay
+total is 285 explicit calls and 45 start invocations (330 executions).
+
+Evidence root: local `.tmp/report-optimization-20261014/` with immutable source
+and binary identity in `native-shared-work-reuse/`, campaign and raw cases in
+`fuzz-shared-work-reuse-20261015/heap2local/`, and review/replay records in
+`review/heap-shared-work-current-gpt.txt` and
+`review/heap-shared-work-artifacts/`. The full gate passes 14,300 tests and the
+permanent Heap2Local runtime lane passes 11,568 comparisons. Excluded owner,
+reference, exception and dynamic-array cases below remain outside this claim.
+
+## October 15 current-source owner-publication renewal
+
+Fresh native `b29aee1d5208047c` and generator `55996bb01ef9cfb1` complete
+10,000 `heap2local-all` comparisons against verified Binaryen133. The exact
+source snapshot and build identities are retained in
+`.tmp/report-optimization-20261014/native-write-visit-corrected/`; reports are
+under `fuzz-write-visit/heap2local/`.
+
+All10,000 original/Starshine/Binaryen Node26 observations agree. Independent
+validation, byte determinism and codec idempotence pass all10,000. There are no
+semantic, blocked-runtime, validation, generator, command or property failures.
+All10,000 outputs differ structurally; this is not an exact-output parity claim.
+Starshine is smaller in every case: raw1,195,642 versus1,404,329 bytes total;
+repository-canonical1,187,654 versus1,404,329.
+
+The repaired generator now produces10,000 nonempty constructor/accessor cases,
+with zero empty bodies:3,019 struct,2,026 array,1,944 reference and3,011 owner
+updates. This supersedes the trigger-coverage limit of the earlier batch below,
+not its historical results. There are2,807 distinct input hashes:15 ordinary
+templates and2,792 owner-update value variants.
+
+Independent review reads all20 retained bundles. A separate deterministic replay
+reproduces all15 ordinary input hashes plus the constant-first owner case missing
+from those bundles, checks exact input hashes before optimization, validates
+outputs, and executes explicit calls. This extension is separate from the10,000
+harness counters. The source contract and inspected ordinary families support
+smaller scalar scaffolding. Owner updates remove six static allocations and
+13–15 field reads, with5–13 canonical bytes saved. They also use13 declared
+locals versus Binaryen's1 and52–54 static local operations versus19–21. Keep
+that pressure cost explicit; no general runtime, peak-memory or native-spill gain
+is established by this comparison. The independent review and raw extension
+records are in `review/heap-write-visit-families.txt` and
+`review/heap-write-visit-data/` under the local evidence root.
+
+The same current binary also passes11,568 permanent Heap2Local V8 comparisons,
+including unsigned packed reads and once/twice cleanup. The complete explicit
+WasmGC suite passes14,219 tests. These checks close the reduced owner-publication
+and control-ownership failures in this source snapshot; they do not cover every
+excluded reference, exception or dynamic-array case listed below.
 
 ## 2026-08-21 packed local-read correctness repair
 
@@ -33,13 +113,13 @@ These are repair smoke lanes, not a replacement for the existing full four-lane 
 Regular direct lane:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --wasm-opt-bin <verified-v133-wasm-opt> --require-binaryen-version 133 --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 Dedicated GenValid aggregate: `heap2local-all`.
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --gen-valid-profile heap2local-all --out-dir .tmp/pass-fuzz-heap2local-genvalid-all-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --gen-valid-profile heap2local-all --out-dir .tmp/pass-fuzz-heap2local-genvalid-all-10000 --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --wasm-opt-bin <verified-v133-wasm-opt> --require-binaryen-version 133 --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
 ```
 
 Aliases accepted by GenValid profile lookup: `heap2local`, `heap-to-local`, `h2l`, `heap2local-closeout`, and `heap2local-all-profiles`.
@@ -49,8 +129,11 @@ Aliases accepted by GenValid profile lookup: `heap2local`, `heap-to-local`, `h2l
 - `heap2local-struct`: local-held fresh struct candidates with `struct.new` / `struct.new_default`, `struct.set`, `struct.get`, owner locals, and local-copy-shaped traffic.
 - `heap2local-array`: constant-size local-held array candidates with `array.new_default`, `array.new_fixed`, constant-index `array.get`, and `array.set`.
 - `heap2local-ref`: direct fresh-reference folds with `ref.as_non_null`, `ref.eq`, and `ref.test` over fresh struct allocations.
+- `heap2local-owner-updates`: three conditional allocation epochs assigned to the same nullable three-field owner. Later constructors read the preceding owner's fields, with swapped fields, cyclic reads, and a constant first operand followed by old-field reads. Three independent i32 branch parameters and three exported i32 results make each allocation choice observable.
 
-The aggregate samples all three leaves and records the selected leaf through the normal composite-profile manifest `selected_profile` field. Use that field when triaging generated mismatches so struct scalarization, array lowering, and ref-fold families stay separated.
+The aggregate samples all four leaves and records the selected leaf through the normal composite-profile manifest `selected_profile` field. Use that field when triaging generated mismatches so struct scalarization, array lowering, ref folds, and owner updates stay separated. The older recorded aggregate counts below use the original three leaves.
+
+The owner-update leaf derives bounded field values and its operand family directly from the recorded source seed (`seed % 3`). The usual config label, GC constructor/accessor facts, and exact opcode counts remain available. Its [bounded generator tests](../../../../../src/validate/gen_valid_heap2local_owner_updates_wbtest.mbt) check three adjacent seeds, valid modules, replay equality, same-owner publication order, per-arm field reads, independent branch parameters, and exported numeric observations. Use the singleton profile for a targeted reproduction and `heap2local-all` for ordinary dedicated-profile signoff. The October 15 renewal below includes 3,011 owner-update cases; older three-leaf results keep their historical scope.
 
 ## Current smoke status
 
@@ -117,11 +200,96 @@ H2L is audit-complete for the representable Binaryen v131 direct-pass/O4z scope.
 
 ## Known exclusions
 
-The dedicated profile intentionally focuses on validator-accepted H2L opportunities. It does not force nondefaultable-local repair, broad descriptor-cast traffic, escapes through calls/returns, mixed branch/select provenance, dynamic array sizes/indexes, or the full atomic/RMW/cmpxchg surface. In particular, the v131 shared reference-valued `acqrel` cmpxchg scratch-local fixture is a recorded validator/atomic-semantics blocker, not an accepted parity difference.
+The dedicated profile intentionally focuses on validator-accepted H2L opportunities. It does not force nondefaultable-local repair, broad descriptor-cast traffic, escapes through calls/returns, arbitrary mixed branch/select provenance, dynamic array sizes/indexes, or the full atomic/RMW/cmpxchg surface. The owner-update leaf covers branch-selected fresh structs of one concrete type. In particular, the v131 shared reference-valued `acqrel` cmpxchg scratch-local fixture is a recorded validator/atomic-semantics blocker, not an accepted parity difference.
 
 ## Required signoff use
 
-For ordinary H2L audit signoff, use `heap2local-all` as the pass-specific GenValid lane in addition to regular GenValid, explicit wasm-smith, and the broad random-all-profiles lane.
+For ordinary H2L audit signoff, use the 10,000-case `heap2local-all` lane with a fresh prebuilt native binary and a verified Binaryen 133 oracle. Run a separate external-generator lane only when explicitly requested. The older four-lane records below retain their original scope and versions.
+
+### October 15 owner-publication semantic renewal
+
+Five fixed seeds from the empty-body cases now have red-first generator tests.
+Dedicated struct/reference profiles reserve one GC type slot; array/all profiles
+reserve three because ordinary and packed struct definitions precede the array.
+The existing Natural-mode rule, profile weights, seed streams, public API and
+fact calculation remain unchanged. All 176 selected generator controls pass,
+including [the five constructor/accessor trigger tests](../../../../../src/validate/gen_valid_heap2local_dedicated_trigger_wbtest.mbt).
+This repaired future generated coverage without changing that completed batch.
+The current-source renewal above subsequently establishes10,000 nonempty
+constructor/accessor comparisons.
+
+The owner-publication and control-ownership repairs complete a dedicated native
+10,000-case comparison against verified Binaryen 133. Build `6184d26753bd4cc8`
+contains Heap2Local source `0288fd59306028c6` and SimplifyLocals source
+`abc4325970ae7a`; subsequent Tuple/Coalesce changes require their own build and
+checks. This renews these two repaired source owners, not every later worktree
+change or the older external-generator lanes.
+
+- All 10,000 original/Starshine/Binaryen Node-v2 semantic observations agree.
+  All cases validate, are byte-deterministic, and pass codec idempotence.
+  There are no runtime-blocked, generator, command, or property failures.
+- The aggregate samples 3,011 owner-update, 3,019 struct, 2,026 array, and
+  1,944 reference cases. It has 1,758 normalized matches and 8,242 structural
+  differences. Starshine canonical bytes total 1,124,174 against 1,296,745;
+  every difference is smaller, and no case is larger.
+- Coverage limit: the manifest identifies 1,758 empty function bodies with no
+  heap constructors or accesses (978 array, 514 struct, 266 reference cases).
+  These are exactly the normalized matches; they do not exercise scalarization.
+  The other 8,242 bodies are nonempty. All retained 20 reports have nonempty
+  invocation plans and actual exported calls: 139 calls per tool in total.
+  Per-case plans for the other 9,980 cases were consumed, so their exact total
+  call count is unavailable. Do not describe all 10,000 inputs as heap rewrites.
+- Independent inspection of the 20 retained bundles covers reference/default
+  cleanup (-31 bytes), sequential struct epochs (-26), sequential array epochs
+  (-23), and staged branch-selected updates (-13). **Agent judgment: scoped
+  Starshine wins.** The judgment uses the inspected field/epoch transitions,
+  non-escaping allocation contracts, complete three-way observations, and byte
+  savings. Validation or smaller bytes alone do not establish semantics.
+  The artifact cap does not provide full shape inspection of all 8,242 cases.
+- The separate [native runtime lane](../../../../../scripts/test/heap2local-owner-update-runtime.ts)
+  checks 1,278 cases across eight outputs (10,224 comparisons), including
+  packed bounds, tee-store ordering, non-null references, nested constructors,
+  aborted publication, exceptions, and repeated cleanup. All observations match
+  the original and the oracle. Source regressions additionally check shared
+  control ownership and donor preservation.
+
+The later unsigned packed-read extension uses build `f4a1b19775b649b8`,
+with the same Heap2Local and SimplifyLocals source owners. It adds scalarized
+i8/i16 signed and unsigned reads across struct/array replacement epochs and
+array-tee constructor trap boundaries. All 1,446 cases across eight outputs
+agree (11,568 comparisons). Implementing and dispatcher tests assert masks,
+sign extension, valid round trips, and removal of the tested heap operations.
+This extends semantic coverage; it does not replace the earlier fixture's size
+measurements below. Raw output is in `.tmp/heap2local-owner-runtime-GHbIoM`.
+
+The final whole-build checkpoint `a379e1a3d7d95e79b` reruns all 11,568 native
+comparisons successfully (`.tmp/heap2local-owner-runtime-L2YOSQ`). The expanded
+fixture encodes 6,128 input bytes, 5,855 after Starshine Heap2Local alone and
+5,348 after Binaryen (+507 Starshine bytes). Cleanup gives 4,189 versus 4,435.
+Static local/reference-local totals are 262/75 before cleanup and 70/53 after
+cleanup; original totals are 46/45 and Binaryen cleanup totals 52/45. These
+counts expose storage cost; they do not prove GC retention. The measured
+`repeated` export removes all ten heap instructions and uses eight locals
+(four after cleanup), versus two locals and ten heap instructions in Binaryen.
+Raw footprint, seven rotating CLI rounds and separate V8 samples are in
+`.tmp/report-optimization-20261014/heap-footprint/run-PSB2hK`. This supersedes the
+older fixture totals only for the expanded input hash recorded there.
+
+The combined runtime fixture also exposes a cost: Heap2Local alone emits
+4,944 bytes against Binaryen's 4,240 (+704). The stated cleanup roster emits
+3,482 against 3,724; repeating cleanup emits 3,307 against 3,694. Keep the
+pass-only size gap open for that broader fixture. Per-producer staging adds
+O(producers × retained fields) scalar storage and publication operations.
+These semantic/size checks establish no general runtime, allocation-byte,
+RSS, GC-retention, or startup gain.
+
+Local raw evidence is retained under
+`.tmp/report-optimization-20261014/fuzz-final/heap2local`,
+`.tmp/heap2local-owner-runtime-ND07bu`, and
+`.tmp/report-optimization-20261014/review/final-heap-independent-2.txt`.
+The campaign uses seed `0x5eed`, eight subprocesses, a 5,000 ms semantic
+deadline, determinism, codec idempotence, and a 20 structural-artifact cap.
+No external wasm-smith lane ran.
 
 ### September 15 retained type overhead repair
 

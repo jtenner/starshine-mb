@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-15
 sources:
   - https://github.com/WebAssembly/proposals/blob/main/README.md
   - https://github.com/WebAssembly/compact-import-section/blob/main/proposals/compact-import-section/Overview.md
@@ -15,6 +15,8 @@ sources:
   - ../../src/wast/parser.mbt
   - ../../src/wast/module_wast.mbt
   - ../../src/validate/validate.mbt
+  - ../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../scripts/lib/pass-fuzz-compare-node-imports.test.ts
 related:
   - fuzzing/engine-profile-deep-dive.md
   - wasm-feature-status-and-proposal-boundaries.md
@@ -114,6 +116,16 @@ imports to ordinary imports without changing logical order or use a runtime
 that advertises support for the proposal encoding. Node rejection is runtime
 capability evidence, not a Starshine validation or Binaryen correctness
 failure.
+
+The compare-pass harness now adds `--disable-compact-imports` after
+`--all-features` when the Binaryen output will run through the Node semantic
+oracle or runtime lane. The main oracle and mismatch reducer share this rule;
+comparison projections and lanes without runtime execution retain their
+proposal feature contract. The
+[bounded command regression](../../scripts/lib/pass-fuzz-compare-node-imports.test.ts)
+executes an import fixture and checks the runtime and non-runtime lanes.
+A `binaryen-discrepancy` label can still mean a blocked runtime comparison;
+check the observation classification before calling it a semantic difference.
 
 ## Related Boundaries
 

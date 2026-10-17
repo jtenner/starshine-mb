@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-16
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReorderFunctions.cpp
   - ./index.md
@@ -28,6 +28,23 @@ related:
 ---
 
 # Starshine `reorder-functions` strategy and current status
+
+## October 16 bounded packing experiment
+
+[The fixed-fixture experiment](../../../../../src/passes/index_packing_experiments_wbtest.mbt)
+swaps defined functions 1 and 128 behind a fixed function-import prefix. It
+uses the existing DFE reference rewriter and explicitly pairs code with its
+signature. Direct checks cover calls, body and initializer `ref.func`, elements,
+start, exports, and a decoded function name. Both modules validate; complete
+encoding saves eight bytes. The input bytes remain unchanged.
+
+This fixture has no local or label names, annotations, compiler facts, raw name
+payload, or offset metadata. It therefore does not prove a general remap or
+metadata contract. The public pass remains boundary-only. A production owner
+must prove all excluded surfaces, count references across the whole module,
+check complete encoded cost, and supply a dedicated generator profile before
+the registry can become active. No compile-time, runtime, or memory gain is
+established by this experiment.
 
 ## Current status
 

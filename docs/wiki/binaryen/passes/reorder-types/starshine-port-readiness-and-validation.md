@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-10-16
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -27,6 +27,22 @@ related:
 ---
 
 # `reorder-types`: Starshine port-readiness and validation
+
+## October 16 bounded packing experiment
+
+[The fixed-fixture experiment](../../../../../src/passes/index_packing_experiments_wbtest.mbt)
+permutes independent unshared singleton function types behind no public type
+boundary. It rewrites function declarations, typed blocks, `ref.null`, and a
+decoded type name through the existing DFE helpers. Moving type 64 to 0 saves
+two complete-module bytes from signed block/heap indices. Moving type 128 to 0
+also saves unsigned declaration and name bytes, for four bytes in total. Both
+inputs and outputs must validate.
+
+This experiment does not implement the public pass. Recursive groups, subtype
+and descriptor ordering, shared types, public type identity, field names,
+annotations, facts, and offset metadata remain outside this fixture. The pass
+stays boundary-only until a complete legality and metadata contract has tests.
+No compile-time, runtime, or memory gain is established here.
 
 ## Why this page exists
 

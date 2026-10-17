@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-24
+last_reviewed: 2026-10-16
 sources:
   - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
@@ -235,6 +235,17 @@ As of 2026-06-02, Starshine has a first local policy surface for this split:
 - function-scoped local/label name maps are dropped after inlining rewrites until full name repair exists, avoiding invalid stale local-name metadata;
 - `no_inline_copy_policy_annotations(...)` copies the internal full/partial policy markers from an original function to a copied function, providing the shared hook future clone/copy transforms need to mirror Binaryen `copyFunction` flag preservation;
 - `@metadata.code.inline` annotations are still treated as metadata and do not block full inlining.
+
+Starshine's separate version-1 `compiler.facts` surface now has a bounded bridge
+to this toolchain policy. With `HintsOnly` or explicit `TrustAssertions`,
+`apply-compiler-facts` translates a function `Never` policy to
+`@binaryen.inline "\\00"` and `Always` to `@binaryen.inline "\\7f"` before
+the pass queue runs. A trusted fact follows older annotations for the same
+function, while `starshine.no-full-inline` retains its stronger suppression
+role. `Default` and `Prefer` stay inert because there is no intermediate
+profitability tier. `Ignore` stays inert, and `HintsOnly` continues to block
+semantic assertions. Pass-level and command-level regressions cover both
+policies, trust boundaries, precedence, and the inert cases.
 
 The local policy matches names from the structured name section, including those produced from WAST identifiers by the text lowerer. The annotation storage and `metadata.code.inline` / branch-hint caveats are centralized in [`../../../wast/code-metadata-and-function-annotations.md`](../../../wast/code-metadata-and-function-annotations.md): Starshine's `(@...)` lane is function/import-only and in-memory today, not a binary or expression-level code-metadata model. The broader Compilation Hints proposal boundary lives in [`../../../wasm-compilation-hints-boundary.md`](../../../wasm-compilation-hints-boundary.md); Starshine currently has no typed hint payload parser, byte-offset metadata model, structured WAST hint syntax, generator gate, or optimizer consumer for `compilation_priority`, `instr_freq`, or `call_targets`. The compaction remap preserves both function names and policy annotations through inlining helper removal, and the copy helper covers the currently available clone-survival surface even though Starshine does not yet have an active monomorphize/copy transform consuming it. `[INL]004` is accepted for this current policy surface; partial-inlining-specific no-inline behavior moves with `[INL]005`.
 

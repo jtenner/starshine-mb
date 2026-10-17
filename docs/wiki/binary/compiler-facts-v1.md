@@ -314,7 +314,8 @@ Unknown bits are invalid.
 
 When policy is `TrustAssertions`, Starshine runs `apply-compiler-facts` before the ordinary pass queue. This preparation stage is outside Binaryen-compatible scheduler slots, so the locked O4z roster and slot numbering remain unchanged.
 
-The preparation stage has two semantic consumers under `TrustAssertions`.
+The preparation stage has two semantic consumers and one profitability-policy
+bridge under `TrustAssertions`.
 
 The existing exact-call-target consumer rewrites:
 
@@ -353,6 +354,20 @@ Operand identities come from a known suffix of the abstract operand stack, with 
 
 All opcode offsets are computed once from the original immutable module. Replacements are built into new instruction arrays while queries continue to refer only to that original map; no rewritten instruction position is interpreted as a fact site. After trusted body-relative facts are materialized, the compiler-facts section is cleared before ordinary rewrites can stale offsets. Other index/body-changing `Module` helpers also clear facts conservatively. There is no general fact remapping framework in version 1.
 
+Function `inline_policy` uses the inliner's existing function-annotation
+channel under `HintsOnly` and `TrustAssertions`. `Never` becomes
+`binaryen.inline "\\00"`; `Always` becomes `binaryen.inline "\\7f"`.
+Materialization removes older recognized
+`binaryen.inline` policies for a fact-controlled function before it adds the
+selected policy. It preserves opaque annotations and unrecognized inline
+arguments. Repeated `HintsOnly` application is therefore idempotent and an
+inliner index remap cannot expose an older opposing policy. The
+separate `starshine.no-full-inline` policy still blocks full inlining. `Default`
+and `Prefer` do not create annotations because the current inliner has no
+intermediate preference tier. `Ignore` does not materialize inline policy.
+`HintsOnly` still blocks every semantic assertion. The bridge changes
+profitability only; it supplies no semantic proof for the inline rewrite.
+
 Absent-section fast path:
 
 ```text
@@ -371,7 +386,7 @@ no compiler_fact_custom_section
 | Signed/unsigned integer range or `nonzero` | `apply-compiler-facts`; folds adjacent-root ordered comparisons only when complete matching-signedness ranges prove the result, and folds zero tests when zero is excluded |
 | Null-only/non-null/exact null/exact `ref.func` | `apply-compiler-facts`; folds `ref.is_null` while preserving the reference producer |
 | Broad reference heap bound | validated/queryable but insufficient by itself for `ref.is_null`; no cast/type-test folding yet |
-| Inline policy | serialized/validated hint; source inspection on 2026-08-31 confirmed it is not yet wired to the inliner's existing annotation policy path |
+| Inline policy | `apply-compiler-facts` maps function `Never` / `Always` to the existing `binaryen.inline` policy path under `HintsOnly` or `TrustAssertions`; `Default`, `Prefer`, and `Ignore` remain inert |
 | Hotness/profile/goal hints | serialized/validated; not yet consumed |
 | Known integer bits | not yet consumed |
 | Exact heap type/closed runtime heap types | not yet consumed for `ref.test` or `ref.cast` |

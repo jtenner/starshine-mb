@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-09-10
+last_reviewed: 2026-10-17
 sources:
+  - https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_132/src/passes/DeadArgumentElimination2.cpp
   - https://github.com/WebAssembly/binaryen/pull/8903
   - https://github.com/WebAssembly/binaryen/pull/8994
@@ -17,7 +18,9 @@ related:
   - ../../version-132-upgrade.md
 ---
 
-# Binaryen 132 DAE2 strategy
+# Binaryen DAE2 strategy
+
+## Binaryen 132 behavior
 
 The release expands DAE2 from parameter forwarding to **parameter and result
 usage together** (#8903). This supersedes this dossier's version-129 result
@@ -47,3 +50,22 @@ comparison. Do not map a new public name onto the old implementation.
 
 Binaryen 132 exposes `dae2`, without a `dae2-optimizing` registry entry. A cleanup
 experiment is an explicit sequence and must be measured as such.
+
+
+## Binaryen 133 performance reference
+
+The verified-v133 comparison also has a structural difference. Its global
+liveness locations describe function/type parameters and results;
+function-local analysis records forwarding between those locations.
+Both graph construction and body optimization run across functions in parallel.
+See the tagged [location and function records](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/DeadArgumentElimination2.cpp#L120-L189),
+[analysis walker](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/DeadArgumentElimination2.cpp#L336-L374)
+and [optimizer](https://github.com/WebAssembly/binaryen/blob/version_133/src/passes/DeadArgumentElimination2.cpp#L907-L945).
+
+Starshine retains body-node locations in its module graph. Boundary compression
+and independent function work are investigation leads, with exact old node,
+writer and output behavior still required. A flat boundary relation can grow
+quadratically when consumers share a local subgraph; retaining shared hubs is
+necessary for a general linear-size contract. No implementation or timing gain
+follows from this comparison. See the [current speed campaign](starshine-strategy.md#october-16-2026-dae-family-speed-campaign)
+and [`Dae2Graph`](../../../../../src/passes/dead_argument_elimination2.mbt).

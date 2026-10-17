@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-16
 sources:
   - ./index.md
   - index.md
@@ -39,6 +39,62 @@ It is closer to:
 - keep the cheapest one.
 
 If you keep that model in mind, most of the weird-looking test cases make sense.
+
+## Starshine exact-byte selection
+
+The 2026-10-14 repair retains the existing traffic-ranked candidate and checks
+its complete encoded size before the public pass accepts it. The check includes
+the decoded global name map, body lengths, and section lengths. A 129-global
+fixture showed why index traffic alone is insufficient: the greedy order kept
+694 bytes when a legal swap saved one byte without increasing name indices.
+
+Names can also drive a swap when instruction traffic selects the original
+order. The name-only 129-global regression saves one byte (691 to 690) without
+changing values. The search considers at most one swap per u32 index-width
+boundary and checks at most four complete candidates, including the traffic
+candidate. Names contribute to the rank. Each swap keeps the imported prefix
+fixed and must satisfy every initializer dependency. The pass keeps only a
+strict complete-module saving. This bounded search does not claim a globally
+optimal order. Protected offset metadata prevents a rewrite. Decoded names are remapped;
+stale raw global-name payloads are cleared under the existing contract. The
+internal `always` entry retains its existing candidate policy.
+
+Source and exact-byte tests:
+[`reorder_globals.mbt`](../../../../../src/passes/reorder_globals.mbt) and
+[`encoded_profitability_assessment_wbtest.mbt`](../../../../../src/passes/encoded_profitability_assessment_wbtest.mbt).
+These reduced regressions do not establish new Binaryen-v133 fuzz signoff.
+
+## October 16 combined name-cost candidate
+
+A 130-global fixture has names only for globals 128 and 129. The previous
+single-swap search saved one byte, from 756 to 755. A second independent
+name move saves another byte. The public pass now also tries the existing
+dependency-constrained search with name entries included in its counts. It
+keeps the result only when the complete module is smaller. The fixture now
+encodes to 754 bytes and keeps each name attached to the correct value.
+The added candidate runs after the prior probes, so equal sizes keep the prior
+output shape.
+
+This extra candidate is limited to at most 16,384 globals. This limit keeps
+the existing four-comparison bound and does not displace a candidate at a
+higher index-width boundary. Imports, initializer dependencies, protected
+metadata, and compiler-fact comparison rules keep their existing controls.
+The internal `always` policy is unchanged. This is a bounded search extension,
+not a proof of the minimum possible size. No runtime or memory gain is claimed.
+
+Tests: [direct byte and identity checks](../../../../../src/passes/index_packing_experiments_wbtest.mbt)
+and [command dispatch](../../../../../src/cmd/index_packing_regression_wbtest.mbt).
+
+## October 15 compiler-fact normalization
+
+Public profitability compares both modules without stale compiler facts. A
+candidate's structural setters discard those facts, so their removal must not
+finance larger code or names. A red-first 129-global fixture crosses the
+16,383-byte name-subsection framing boundary and verifies both complete cost
+and the referenced global's value. Rejected candidates keep the original
+module and facts; internal always mode avoids this comparison-only copy.
+See [caller cost regression](../../../../../src/passes/report_caller_cost_regression_wbtest.mbt)
+and [candidate selection](../../../../../src/passes/reorder_globals.mbt).
 
 ## What counts as “cost” here
 

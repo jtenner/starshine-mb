@@ -1,10 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-03
+last_reviewed: 2026-10-16
 sources:
   - ../../../src/passes/constraint_lower.mbt
   - ../../../src/validate/typecheck.mbt
+  - ../../../src/validate/tc_try_table_initialization_wbtest.mbt
+  - ../../../src/validate/tc_try_table_initialization_reference_wbtest.mbt
+  - ../../../src/validate/tc_try_table_initialization_perf_wbtest.mbt
   - ../../../src/binary/encoded_size.mbt
   - ../../../src/binary/encode_control.mbt
   - ../../../src/ir/hot_mutate.mbt
@@ -44,6 +47,386 @@ related:
 ---
 
 # Tracing Playbook
+
+## October 16 output-runtime and bounded candidate experiments
+
+Fixed native snapshot `af9b6af2` is built from 1,884 captured source/config
+files in an isolated build directory. The executable is 15,086,760 bytes.
+The exact source, generated C, tool and binary hashes are retained in local
+`.tmp/report-optimization-20261016-runtime/identity.json`. The oracle is
+verified Binaryen 133, `8f25e9fd`. Node is 24.21.0, V8 13.6.233.17-node.53;
+the Wasmtime Python API is 49.0.0 with library hash `9594714d`. Installed
+Wasmtime CLI 49.0.3 is a separate tool identity, not the measured API engine.
+
+The core lane has 52 independently validated artifacts, 1,036 accepted fresh
+process samples, 28 engine feature rejections and 140 quiet compiler-command
+samples. Seven rotating rounds run on CPU 0 with `BINARYEN_CORES=1` and the
+shared performance lock. Host snapshots preserve unrelated Wago activity.
+Each accepted runtime sample checks the result, first-call import events,
+exported memory bytes and scalar globals. V8 default, baseline-only and
+optimizing-only modes are separate. Wasmtime disables parallel compilation
+and does not enable a module cache. Cold process, compile, instantiate, first
+call, warmed execution and RSS remain separate metrics. OS page-cache state
+is uncontrolled; fixed warmups do not prove default V8 tier convergence.
+
+`runtime-samples.json`, `cli-samples.json`, `artifacts.json`, `commands.json`
+and per-call `logs/` retain raw data. Use `summary.normalized.json` and the
+`*.normalized.json` sample/pair files for analysis: raw runtime payloads
+overwrote the initial harness mode label with the engine name. The recorded
+V8 flags recover every mode without dropping samples. Initial pooled
+summaries remain preserved and are superseded by `analyze.py`.
+
+The reduced GC queue has a measured size interaction: Heap2Local →
+SimplifyLocals → Vacuum is 141 metadata-free bytes; removing those passes in
+turn gives 159, 149 and 147 bytes. Reversing the first two gives 149 bytes.
+Short O2/Oz and full O4z queues are recorded separately. The two Rust corpus
+controls do not prove active Precompute speed: Starshine's direct and full
+outputs preserve their instruction text. Fannkuch's 1,807→1,777 byte change is
+encoding normalization; Nbody stays at 2,067 bytes. Quiet full-command medians
+are 6.696/39.866 ms for Starshine and 9.771/8.524 ms for Binaryen respectively,
+under the explicitly different O4z and O4/shrink2 policies. These controls leave
+enclosing cost open.
+
+The portable GC replay adds 154 accepted samples with zero failures. Binaryen
+uses `--all-features --disable-custom-descriptors` for the shared engine
+target. Metadata-free input / Starshine / Binaryen / Binaryen-after-Starshine
+sizes are 159 / 124 / 163 / 128 bytes. In this separate cohort, Wasmtime's
+300-call warmed medians are 17.049 / 7.002 / 17.281 / 7.225 ms; V8 default
+medians are 0.753 / 0.843 / 0.763 / 0.811 ms. The output has a size and
+Wasmtime benefit plus a V8 cost, so it is not an unconditional runtime win.
+Wasmtime function-symbol bytes are 904 / 407 / 985 / 508. Full cold stages,
+RSS, ranges and paired data remain in `gc-feature-renewal/`.
+
+The original Binaryen `--all-features` output introduces exact references.
+All 28 core engine rejections are this feature boundary. The V8-only replay
+enables `--experimental-wasm-custom-descriptors` for every compared output
+and succeeds; the Wasmtime API lacks this support. The unreduced owner fixture
+also makes Binaryen 133's full preset abort at `Flatten.cpp:231`; preserve the
+input and logs in `preflight-full-gc-binaryen-failure/`. Neither failure is
+counted as an accepted semantic comparison.
+
+Tail-call measurements use depth 1,000, where both engines return 500,500.
+At depth 100,000 the original exhausts each engine's stack, while Starshine
+and Binaryen direct TailCall return 705,082,704. This records a resource-use
+change, not equality of stack-exhaustion behavior. Explicit negative and
+malformed feature metadata prevent Starshine from introducing return calls.
+Both engines compile the existing table64 fixture. V8 accepts the legacy
+catch fixtures, while Wasmtime requires unsupported `legacy_exceptions` even
+with its current exception proposal enabled. These are compile-support
+probes; the handler-preservation assertions remain in the source tests.
+`boundary/` and `tail-policy/` retain exact inputs and outputs.
+
+The separate manual candidates have 112 accepted samples and zero failures.
+All custom sections are removed for the byte column. Runtime columns are
+median totals for the same fixed call batch on each side, with host calls and
+result checks included.
+
+| Raw candidate | Wasm bytes, control→candidate | V8 warm ms | Wasmtime warm ms |
+| --- | ---: | ---: | ---: |
+| Pure repeated region → helper, 100 calls | 129→111 | 1.146→1.305 | 1.867→1.876 |
+| Four scalar loads → v128 load/extracts, 100 calls | 138→148 | 1.219→2.026 | 1.839→2.700 |
+| Hot function late → first, 100 calls | 1,003→1,003 | 1.067→1.084 | 2.754→2.795 |
+| Fixed scalar fill/copy → bulk memory, 50 calls | 154→101 | 1.588→1.030 | 3.105→0.800 |
+
+Outlining and the SIMD candidate regress V8 in all seven pairs. The SIMD
+candidate also regresses Wasmtime in all seven. Layout shows no gain; indices
+stay below the ULEB width boundary. Fixed bulk memory improves both engines
+in all seven pairs, but Wasmtime function-symbol bytes grow 400→579.
+Outlining grows those bytes 387→472. These are raw experiments, not optimizer
+implementations or general safety proofs. The memory fixtures use fixed
+in-bounds ranges and disjoint copy regions. Preserve overlap, address-wrap,
+trap and partial-write obligations before any general transform.
+
+`candidate-probes/` retains inputs, artifact hashes and mode-separated
+samples, paired deltas, MADs and ranges. Wasmtime serialized ELF size,
+page-padded `.text` size and summed function-symbol sizes are distinct metrics;
+the function sum includes engine trampolines. RSS includes host and engine
+storage, plus state-check scratch. This lane has no allocation counters,
+retained-GC measurement, V8 native code-size metric or streaming compile
+measurement. It does not establish general optimizer or application speed.
+
+## October 15 shared batch and statement work
+
+Native `5d8ea74e` is compared with frozen `7273e2ab` on x86_64, with MoonBit
+0.1.20261012, Node 24.21.0 and verified Binaryen 133. Eight fixture sets use
+seven alternating pairs, one warmup, CPU 0 and `BINARYEN_CORES=1`. Traces run
+separately. Other projects' QEMU/Go work stays active and is recorded. Every
+one of the 32 baseline/current output hashes agrees; raw and custom-stripped
+modules pass independent validation and exact engine value/event checks.
+
+| Fixture and command | Previous median | Current median | Median paired delta | Slower current pairs |
+| --- | ---: | ---: | ---: | ---: |
+| DAE optimizing, 128 mixed functions | 18.260 ms | 7.277 ms | −9.991 ms | 0/7 |
+| DAE optimizing, 1,000 mixed functions | 437.241 ms | 30.071 ms | −418.734 ms | 0/7 |
+| DAE optimizing, 1,000 same-type functions | 443.640 ms | 29.339 ms | −421.783 ms | 0/7 |
+| Full O4z, 2 MiB data, 1,000 mixed functions | 1814.577 ms | 635.642 ms | −1186.796 ms | 0/7 |
+| Full O4z, 2 MiB data, 1,000 same-type functions | 1759.895 ms | 684.723 ms | −1106.929 ms | 0/7 |
+| SL only, 1,000 same-type functions | 26.213 ms | 26.518 ms | +0.346 ms | 5/7 |
+| Tuple nested loop, 128 copies | 5.971 ms | 6.262 ms | +0.541 ms | 7/7 |
+
+The direct-GC batch now constructs one graph across unchanged candidates,
+with invalidation before every changed transaction attempt. This removes the
+measured repeated graph cost. The preset result includes all current changes;
+it does not isolate statement-seed reuse or each command proof. Controls are
+mixed. The wide 512-lane command has noisy medians of 28.810/34.285 ms but a
+paired median of −0.532 ms with two slower current pairs. Keep both summaries;
+independent medians do not substitute for paired observations.
+
+DAE 1,000-function MADs are 31.571/2.303 ms; full mixed-preset MADs are
+91.279/17.042 ms. Baseline/current ranges and all raw samples remain in the
+local evidence. Full-preset Starshine O4z and Binaryen O4/shrink2 are different
+policies. Binaryen's mixed DAE command median is 8.231 ms and its full-preset
+median is 62.118 ms. These results leave substantial enclosing cost open.
+
+Native executable size grows 4,664 bytes (15,068,640 to 15,073,304). The GC
+command artifact grows 7,422 bytes (5,233,619 to 5,241,041); this is build size,
+not a native runtime measurement. Compiler child peak RSS does not show a
+material gain: mixed DAE is 16,436/16,552 KiB and full preset 62,596/62,448 KiB.
+Graph/setup counters measure work, not allocated bytes or live memory.
+
+Evidence root: local `.tmp/report-optimization-20261014/`. Exact source/build
+identities are `native-{store-index-admission,shared-work-reuse}/identity.json`.
+Each of `tuple-size-perf`, `sl-local-group-perf`, `sl-large-group-perf`,
+`tuple-nested-perf`, `tuple-wide-perf`, `tuple-wide-mixed-perf`,
+`dae-direct-gc-perf` and `sl-large-group-preset-perf` retains
+`harness-shared-work-reuse.py`, `functional-shared-work-reuse/` and
+`timed-shared-work-reuse/{samples,analysis}.json`. The functional JSON records
+versions, environment policy, fixture/checker hashes and exact binary hashes;
+`commands.json` retains calls and host snapshots accompany timing. Combined
+analysis is `logs/shared-work-reuse-performance-analysis.json`.
+
+Contracts: [DAE graph ownership](../binaryen/passes/dae-optimizing/starshine-strategy.md#october-15-stable-direct-gc-batch-facts),
+[statement state](../binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md#october-15-repeated-statement-initialization),
+and [command byte proofs](cli-command-and-dispatcher.md#candidate-byte-proofs-and-terminal-returns).
+
+## October 15 report experiments
+
+### Available tuple stores and carried reads
+
+Native831b053c follows the shared carried-read repair and available-store
+ordering shortcut. All14,288 WasmGC tests and58,336 independent runtime
+comparisons pass, plus GC CLI arguments. Against native59c02734, all28 paired
+fixture outputs have identical bytes. Seven alternating quiet pairs improve
+wide51231.839→25.711ms (zero adverse pairs) and mixed-type wide512
+38.156→32.301ms (one adverse pair). Child peak RSS medians are18,236→16,212
+and18,256→15,908KiB. Pass timers stay near1.6/1.7ms because the changed
+source-order work is outside that timer. This is a bounded compiler-command
+and child-RSS result, not output-code runtime or retained-GC evidence.
+
+The executable grows6,248B to15,068,640B; WasmGC output grows3,552B to
+5,233,601B. Common controls are mixed. SL mixed1000 initially regresses
+29.547→30.787ms (six adverse pairs); an independent repeat is28.983→29.435ms
+(five adverse pairs). Same-type controls change direction across repeats.
+The full-preset data1000 command is1678.552→1686.158ms with six adverse pairs.
+No general optimizer gain follows. A later small-function admission guard is
+under renewal; these results stay attached to831b053c.
+
+Raw samples, paired median/MAD/ranges, exact identities, controls, independent
+engine checks and host records live under each fixture's
+`{functional,timed}-wide-store-current` and `harness-wide-store-current.py`.
+SL repeats use`timed-wide-store-current-repeat`. The copied harness's old
+"baseline does not support the new layout" limit is obsolete for this pair;
+both actual prepared baselines validate and run. The local
+`review/wide-store-current/benchmark-note.txt` records this correction without
+changing recorded harness hashes. Separate Starshine O4z and Binaryen
+O4/shrink2 preset policies remain distinct. Generated renewal has not started.
+
+### First-emission lowering checkpoint
+
+Native `58491a9e` passes14,271 WasmGC tests and the same52,736 runtime
+comparisons plus GC CLI checks. It preserves every raw/stripped fixture byte
+against `193e58a7`. The native executable grows88B (15,062,368→15,062,456B);
+GC output grows310B. A lazy per-function request bitmap adds bounded scratch;
+measured RSS does not establish a memory improvement.
+
+Seven alternating pairs reduce wide512 quiet median30.560→28.823ms, but four
+pairs are slower. Its main-pipeline trace sample26.621→26.320ms and near-equal
+pass medians do not show a large lowering gain. The guard removes impossible
+buried-stack searches; later source-order scans still grow with shared wide
+producer consumers. Small/large controls have adverse pairs: same-type1000
+24.734→26.088ms (six slower), large-data1000 29.354→30.926ms (six slower).
+Mixed1000 is28.410→26.570ms (one slower). Full O4z data1000 is
+1,783.886→1,789.292ms and same-type1,760.449→1,803.667ms. These samples do
+not prove a general command gain or assign the control shifts to bitmap work.
+Exact hashes, ranges, raw host records and functional checks are under each
+existing fixture directory's `functional-first-emission`, `timed-first-emission`
+and `harness-first-emission.py`; frozen inputs live in `native-first-emission/`.
+
+### Bulk publication and immutable data counting
+
+Native `193e58a7` passes14,267 WasmGC tests and52,736 runtime comparisons,
+plus GC CLI arguments. Its full compiler/config input hashes and source copies
+are in local `native-bulk-data-types/identity.json`. Against `d74c3902`, seven
+alternating pairs after one warmup preserve every fixture byte. Quiet processes
+run before separate traced processes; pass timers exclude boundary finalization.
+All raw and custom-stripped outputs have independent engine checks.
+
+| Fixture | Quiet command median, old→new | Child peak RSS median, old→new |
+| --- | --- | --- |
+| Tuple loop512 | 22.792→14.714ms | 36,824→20,352KiB |
+| Tuple loop1024 | 60.307→25.767ms | 81,732→24,400KiB |
+| Tuple source-only control | 7.543→7.556ms | 17,296→17,200KiB |
+| SL,2MiB data,one function | 8.120→7.317ms | 30,584→26,900KiB |
+| SL,2MiB data,1,000 functions | 36.201→34.760ms | 30,880→28,872KiB |
+
+The Tuple loop1024 traced pass median is40,869→7,206µs. Every quiet pair
+improves at widths512/1024. SL mixed128 regresses7.179→7.558ms in all seven
+pairs and remains open; mixed1000 is32.856→32.154ms with four slower pairs.
+RSS measures process peaks, not allocations or live output-GC roots. Host
+Go/QEMU activity is recorded and left untouched. Raw samples, MAD/ranges,
+commands, hashes and controls are in `{tuple-size,tuple-nested,tuple-wide,
+sl-local-group,sl-large-group,sl-large-group-preset}-perf/` under
+`functional-bulk-data-types` and `timed-bulk-data-types`, with the exact
+`harness-bulk-data-types.py` files. Evidence is local and ignored by git.
+
+Full O4z data1000 is1,778.084→1,751.834ms versus verified133 at60.896ms;
+output is2,121,926B versus2,121,929B. Binaryen uses the explicitly different
+`-O4 --shrink-level=2` policy. The small size win leaves a large compiler-time
+gap. Preset data1 is26.622→23.278ms; same-type1000 is1,741.678→1,734.045ms
+with three adverse pairs; named control is7.386→7.417ms. Inclusive nested
+trace intervals must not be added or treated as self time.
+
+The next shared lowering delta passes14,271 WasmGC tests and independent
+source review. Its first-request bitmap avoids impossible buried reuse scans;
+[the contract](../ir2/architecture-rules.md#counted-data-sizes-and-first-emission-lowering-october-15-2026)
+retains repeated/sole-edge/prefix/suspended-stack cases. Native and enclosing
+performance renewal remain pending. Claude completed the earlier selected
+review; its later attempt hit quota and returned no assessment.
+
+
+### Batched retirement and numeric declaration grouping checkpoint
+
+Native `972c897d` passes14,242 WasmGC tests,12,432 Tuple/SL runtime
+comparisons,11,568 Heap2Local comparisons and15,440 OI memory16 comparisons.
+Its source snapshot and complete build identities are retained under local
+`native-final-batched-groups/`. Fresh Tuple and SL aggregate lanes remain open.
+
+Tuple batching preserves all fixture bytes and reduces the128-copy traced
+pass median6,024→829µs and quiet CLI10.786→5.581ms over seven alternating
+pairs. A single copy is65→77µs; the NOP quiet control2.911→2.962ms.
+The checked forest still allocates graph-sized verification scratch and adds
+pending owner IDs; no peak-memory gain follows from overlapping RSS.
+`tuple-size-perf/{harness-batched.py,functional-batched,timed-batched}` retains
+all commands, raw samples, separate traces, source/output hashes and224 checked
+raw/stripped observations. This supersedes the earlier scaling regression only
+for this delta and fixture scope.
+
+SL numeric grouping saves4,000B on1,000 mixed-numeric functions,32,751→28,751B
+(Binaryen13329,751B). Quiet CLI median25.668→26.687ms is an added compile
+cost; the same-type control25.019→24.799ms has unchanged bytes.119,224
+functional observations match across raw/stripped modules. Boundary grouping
+is outside the pass timer, so near-equal pass times do not remove this cost.
+The lazy eligibility scan avoids candidate construction on unchanged or
+non-repeated layouts. Full encoding, validation and remapping still have a
+positive-path cost. `sl-local-group-perf/{harness.py,functional,timed}` retains
+raw evidence; process RSS cannot establish allocation or GC-retention gains.
+
+
+The first October 15 native release checkpoint is
+`a379e1a3d7d95e79b0d4a95b0149a7507836068bb3f1f2ecf6fbd84b3baffe16`.
+It uses Moon 0.1.20261012 and moonc v0.10.15+943464bfa on native x86_64.
+Local evidence is under `.tmp/report-optimization-20261014/`: the
+`native-correctness-current/identity.json` file records source and binary hashes,
+and its `source/` directory preserves the selected source inputs. Evidence in this ignored
+directory is local, not a published or portable benchmark archive.
+
+The validator try-table change borrows the initialization mask at the fork.
+The existing expression copy-on-write rule still protects the first write.
+Generated native code confirms two copies become one for a first write, and
+one copy becomes zero for unchanged or idempotent writes. Bounded alias tests
+check that parent and sibling masks remain unchanged in
+[the ownership controls](../../../src/validate/tc_try_table_initialization_wbtest.mbt).
+
+An initial sequential benchmark had a large clock shift within the sample
+cohorts. Its apparent write regression is not accepted as a measured cost.
+A repeat uses the same frozen native driver, one pinned CPU, two opposite
+execution orders and seven separately calibrated samples per order. Medians
+below combine fourteen samples per implementation. Each sample contains up to
+100,000 operations; a single-sample variance of zero is not a confidence bound.
+
+| Initialization-mask fixture | Eager fork, ns | Borrowed fork, ns |
+| --- | ---: | ---: |
+| 256 entries, first write | 459.74 | 435.22 |
+| 4,096 entries, first write | 516.61 | 468.95 |
+| 4,096 entries, unchanged | 367.79 | 312.88 |
+| 4,096 entries, idempotent write | 486.13 | 394.25 |
+
+Raw samples, process snapshots, driver hash and analysis are in
+`tc-paired-current/`. The all-false integer masks isolate this helper cost;
+normal parameters and defaultable locals start initialized. These results do
+not measure complete module validation or peak memory use. Keep the existing
+copy-on-write rule; a new mask representation is not justified by this probe.
+
+Other native helper controls show lower costs for leaf effect queries, HSO
+own-call effects, exact-arity Directize suffix queries, and lazy inline padding.
+The multiple-signature padding control has a small cost increase. The
+sequential helper cohorts are diagnostic and are not additive whole-pass gains.
+Raw outputs are in `logs/bench-*.log` and `logs/manual-native-query-bench.log`.
+
+Seven alternating whole-command pairs compare baseline `cbda52bc` with this
+checkpoint. The hot local-ordering fixture is smaller (35,153 to 31,153 bytes),
+but command time rises from 40.892 to 44.324 ms. The exact-cost cleanup still
+validates a grouped candidate that the smaller frequency candidate replaces.
+That compiler cost remains open until a separate candidate-selection change is
+measured against this checkpoint. Smaller output alone does not close it.
+
+The separate selector change ranks both complete encoded costs before validating
+the preferred candidate. It preserves grouping ties and validates a profitable
+fallback if the preferred candidate is invalid. Native checkpoint `ff2b172e`
+also contains the small Tuple call-parent repair; these OI/control fixtures do
+not invoke TupleOptimization. All six fixture outputs remain byte-identical to
+`a379e1a3` in every quiet, traced and repeated run. Thirty-five focused selection
+controls and 15,440 memory/trap runtime comparisons pass.
+
+With one pinned CPU and seven alternating pairs, hot local-ordering command
+medians fall from 43.409 to 40.047 ms; MAD is 0.662/1.337 ms. The paired median
+difference is -3.378 ms, but two of seven pairs regress. The unchanged local
+control is 9.639/9.614 ms. Raw samples, input hashes, commands, CPU affinity,
+per-command process snapshots and binary hashes are in
+`encoded-cost/paired-c3-current/`. This is a bounded observed compiler-time gain,
+not a general throughput claim. Peak RSS is 15,548/15,508 KiB on the hot case;
+that small difference does not establish a memory gain. The same-binary frozen
+selector/cleanup controls remain available in the dedicated skipped native lane.
+
+The later correctness checkpoint `b29aee1d` passes14,219 WasmGC tests and the
+fresh Heap2Local/SimplifyLocals10,000-case campaigns. Native proof includes12,432
+Tuple/SL,11,568 Heap2Local and15,440 memory16 observations. Its exact source and
+binaries are frozen under `native-write-visit-corrected/`.
+
+The corrected C2 size harness explicitly removes all custom sections for its
+metadata-free metric; default `wasm-tools strip` retains names. A second local
+harness defect overwrote the hashed input text with printed diagnostics. The
+pre-timing hash check rejected that setup before samples; v2 keeps those files
+separate. Historical artifacts remain intact. The valid run is
+`tuple-size-perf/{functional-current-v2,timed-current-v2}/`, with
+`harness-current-v2.py`, seven alternating pairs on CPU0 and separate quiet/trace
+batches. All224 raw/metadata-free functional observations agree.
+
+C2 emits fewer bytes, but its copy-retirement path has a confirmed scaling cost.
+At1/32/128 independent opaque copy groups, quiet Starshine CLI medians are
+4.194/4.642/10.073ms before versus4.079/4.340/10.947ms after. The no-copy control
+is3.536/3.729ms. Separate pass traces are68/281/1081µs before and69/538/6087µs
+after. Checked retirement allocates and scans the current graph for each copy;
+this is being reduced without weakening detachment or ownership checks. At128,
+peak RSS medians16,360/16,260KiB do not establish a memory gain. Smaller output
+does not close the pass-time regression.
+
+A separate pinned seven-pair scanner check preserves byte-identical outputs on
+64/512/4096 writes, with60 original/optimized signed-input observations. Quiet
+CLI medians are2.082/5.624/222.200ms before versus2.028/5.588/213.488ms after.
+A no-change control moves24.040→24.372ms, then24.271→24.035ms in a reversed-order
+repeat. The opposite movements do not establish a consistent regression or
+speed gain. RSS ranges overlap. Raw commands, samples and host snapshots are
+in `sl-guard-perf/`; no general allocation or memory claim is supported.
+
+Heap2Local's fixed repeated-allocation fixture removes ten heap operations.
+Seven rotating V8 samples at 1,000 loop iterations improve 7.918 to 1.577 ms;
+Binaryen 133 takes 7.895 ms on that fixture. This is generated-code execution,
+not Starshine optimization time. Across the expanded fixture, Starshine's
+standalone output is 5,855 bytes versus Binaryen's 5,348; after cleanup it is
+4,189 versus 4,435. More reference locals do not prove less GC retention.
+See the [Heap2Local evidence](../binaryen/passes/heap2local/fuzzing.md) for
+correctness, shape differences and limits. No general memory reduction is claimed.
 
 ## DAE priority scan and source-query controls
 
@@ -583,7 +966,7 @@ Current tracing and benchmark ownership is grounded in the local command, optimi
 | Level | Intended use | Current behavior |
 | --- | --- | --- |
 | `pass` | Pass queue and pass-local timing. | Good default for pass signoff, self-opt compare parsing, and `STARSHINE_OPTIMIZE_MAX_PASSES` prefix debugging. |
-| `phase` | Compact optimizer progress checkpoints. | Emits pipeline checkpoints and one deduplicated `phase pass=<name>` line whenever the active pass changes; suppresses per-function lifecycle, skip, detail, and timer floods. This is the default self-opt watchdog channel. |
+| `phase` | Compact optimizer progress checkpoints. | Emits pipeline checkpoints, one deduplicated `phase pass=<name>` line whenever the active pass changes, and `perf:timer name=pass:*` rows. Suppresses per-function lifecycle, skip, detail, and helper-timer floods. This is the default self-opt watchdog channel. |
 | `helper` | Helper-level detail. | Use sparingly for deep optimizer investigation; it can be noisy. |
 
 Precedence follows the CLI dispatcher contract: explicit `--tracing` wins, then `STARSHINE_TRACING`, then config `tracing`. `STARSHINE_OPTIMIZE_MAX_PASSES=<n>` is a separate debug limiter that truncates the scheduled pass queue by prefix length, including `0` for decode/encode baselines, and emits a `pass_limit` trace line when active.
@@ -5160,3 +5543,189 @@ the then-current source before adoption. No wrapper or global flag override was
 added for this screen. Local `native-o3-screen/build-manifest.json` retains exact
 input hashes/compiler command; `native-o3-confirm-*` retains rows and execution.
 All four 1× targets, canonical deficits and full CI/coverage/fuzz gates remain open.
+
+
+## October 11, 2026: GC, native and JavaScript host comparison
+
+The debug GC CLI input is **13,324,080 bytes**, SHA-256
+`bbd21e1ce934ae41b83c61c4c15e806d4123d473f7daec11b450ccd001e6f44e`.
+The release GC runner is **5,208,192 bytes**, SHA-256
+`ee8f55bc83704b460fc7ac6054a8e3695b71b5af6474f33c436d137592f6a13e`.
+The native release runner is **15,007,576 bytes**, SHA-256
+`c1a85d8614d3027a61578d40b990bfd1a1fcae29c9a9c2ef24c114dbe55c0da0`.
+Build source is Starshine `a61c3e418f43a469b480febc4ad590310c1451a1`
+with the shared GC filesystem adapter and phase timer forwarding changes.
+The file optimization and trace contract tests failed before their fixes.
+The [command record](cli-command-and-dispatcher.md#wasm-gc-file-adapter)
+describes the required host ABI.
+
+The final cohort runs one warmup, three fresh-process wall samples and three
+separate traced samples per successful host. Rounds alternate forward/reverse
+host order and never overlap benchmark processes. Wall samples have tracing
+disabled; traced samples use `-O4z --tracing phase`. Native retains its normal
+candidate scheduling, while GC uses its normal serial candidate path.
+Host: AMD Ryzen 7 8845HS, Linux amd64, Moon 0.1.20260920 / moonc 0.10.14,
+Node 26.11.1, Bun 1.4.2 and Go 1.27.1. These are desktop host measurements;
+earlier cohorts and adverse samples remain in the evidence directory.
+
+| Runner | Wall median / range, seconds | MAD, seconds |
+| --- | ---: | ---: |
+| Native release | 2.118 / 2.068–2.119 | 0.000365 |
+| Release GC on Node | 3.822 / 3.773–3.872 | 0.049579 |
+| Release GC on Bun, 64 MiB JSC stack | 4.724 / 4.674–4.825 | 0.050559 |
+| Release GC on Wago, 2 GiB heap | Failed after 77.657 | Not applicable |
+
+Node uses `--stack-size=65536`. Bun's default stack fails in the size-portfolio
+stage; `BUN_JSC_maxPerThreadStackUsage=67108864` with a 128 MiB OS stack succeeds.
+The setting is confirmed by the runtime's option dump. The
+[JSC option source](https://github.com/oven-sh/WebKit/blob/main/Source/JavaScriptCore/runtime/OptionsList.h)
+documents stack usage and environment option overrides.
+
+| Traced phase median, ms | Native | Node GC | Bun GC |
+| --- | ---: | ---: | ---: |
+| Main pass pipeline | 52.681 | 93 | 140 |
+| Final module validation | 347.521 | 433 | 568 |
+| Size portfolio | 710.361 | 1,261 | 1,566 |
+| Candidate selection | 537.522 | 624 | 937 |
+| Decode | 173.382 | 510 | 330 |
+| Encode | 128.209 | 244 | 331 |
+
+This input carries offset-sensitive metadata and has 20,614 definitions.
+The pass trace records many metadata and artifact-size skips. Only
+`strip-debug` emits a pass timer: native production median **0.002 ms**;
+Node/Bun clock readings are below their **1 ms** resolution. A separate
+native `--debug-serial-passes --tracing pass` diagnostic emits **0.001 ms**
+for that pass, takes **3.224 s** wall time with additional validation, and
+writes the same bytes. The portfolio timer is not divided into individual
+pass timers, so these rows do not establish that total pass work is zero.
+
+Wago's CLI canary installation rejected a symlink destination. The fallback
+build uses
+[origin/main at cea8f83f](https://github.com/wago-org/wago/tree/cea8f83f101fbdd0fcad634e9c7faad0377b676e);
+the remote has no `origin/master`. A local MoonBit host plugin supplies the
+file, argument and millisecond clock imports. The 2 GiB heap, 64 MiB nursery,
+64 MiB native-stack run traps before output with
+`collection-disabled heap exhausted`. A 3 GiB retry traps during startup with
+a null reference at function 10716. The source
+[collector admission](https://github.com/wago-org/wago/blob/cea8f83f101fbdd0fcad634e9c7faad0377b676e/src/wago/instantiate.go)
+disables collection for generic GC products without complete native frame
+roots. The larger-heap trap had no established root cause in this first run.
+The follow-up below establishes a compiled-cache initialization defect and
+supersedes the heap-size hypothesis. Neither failure is a valid completed
+optimization time.
+
+All **21 final outputs** pass external `wasm-tools validate --features all`
+and match byte for byte: **5,478,001 bytes**, SHA-256
+`f9424eb5f4b7618aeef5f8ab4ec1143c2510ce782f7e7a9f19e9f3dc4988549e`.
+This is **58.8865%** smaller than the input. Output validation and equality
+do not establish general semantic signoff.
+
+The npm registry returns E404 for `@jtenner/starshine`. A local tarball installs
+in the fake project, but both Node and Bun package CLIs fail on the absent GC
+adapter. The checked-in JS command wrapper also currently returns the decoded
+module after pass expansion. These successful JavaScript rows use a separate
+current-source GC runner; they are **not npm package CLI timings**.
+[Package blockers](node-package-surface.md#october-11-2026-local-package-blockers)
+remain active.
+
+Validation is `moon info`, `moon fmt`, **683 GC command tests** and the shared
+file optimization test on linear-memory Wasm. The complete default test run
+was interrupted after **5 min 35 s** before measurements; full-suite success
+is not claimed. No public interface changed. Local evidence is
+`.tmp/runtime-compare-20261011/`: frozen artifacts, source diff, environment
+manifest, every sample, both failed Wago runs, npm failures, the serial
+diagnostic, and CSV/JSON reports.
+
+## October 11, 2026: Wago wall-time and collection investigation
+
+The follow-up uses the frozen Starshine artifacts and Wago source `cea8f83f`.
+Wago source remains unchanged. A diagnostic host adds call counts and Go
+CPU/allocation profiles and compiles directly, without the compiled cache.
+Its **94.073 s** failed invocation is a profiled diagnostic, not a replacement
+for the earlier unprofiled benchmark.
+
+### Collection admission
+
+`Compiled.GCNativeRootAdmission()` reports `Required=true`, `Exact=false`,
+zero safepoints and `a function import or caller exceeds the exact native call ABI`.
+The first import is `begin_read_string_array(externref) -> externref`.
+The [native root-map checker](https://github.com/wago-org/wago/blob/cea8f83f101fbdd0fcad634e9c7faad0377b676e/src/wago/gc_frame_roots_linux_amd64.go)
+rejects that external-reference call shape.
+[Instantiation](https://github.com/wago-org/wago/blob/cea8f83f101fbdd0fcad634e9c7faad0377b676e/src/wago/instantiate.go)
+then forces collection-disabled throughput mode. The benchmark did not request
+`DisableCollection`. The guard prevents collection from missing a live native
+stack reference. It also excludes the
+[direct native nursery allocation path](https://github.com/wago-org/wago/blob/cea8f83f101fbdd0fcad634e9c7faad0377b676e/src/core/runtime/gc/native/native_alloc.go).
+Admitting this host ABI alone may expose further unsupported callers.
+
+### Measured host and GC costs
+
+The diagnostic counts **13,324,081** byte-read host calls: every input byte
+plus its end marker. The plugin creates one cursor, not one externref per byte.
+Wago validates the incoming token and the plugin resolves it again through
+the same locked reference store.
+
+The allocation profile attributes **7.22 GiB** cumulative allocation to
+`gcResultTemps` at
+[hostcall.go:2292](https://github.com/wago-org/wago/blob/cea8f83f101fbdd0fcad634e9c7faad0377b676e/src/wago/hostcall.go#L2292).
+The integer-returning byte callback does not use that GC-result token buffer.
+A lazy buffer must retain callback invalidation, nested-call and guest-storage
+allocation behavior; pooled capability snapshots would violate the source's
+lifetime contract.
+
+A separate copy-only control uses valid Wasm custom sections, the unchanged
+benchmark plugin and a fresh cache per run. All nine outputs match their inputs.
+No decoder or optimizer work occurs in this control.
+
+| Input | Read median, ms | Whole-copy median, ms | Samples |
+| --- | ---: | ---: | ---: |
+| 8 bytes | 0, below clock resolution | 1 | 3 |
+| 64 KiB | 47 | 77 | 3 |
+| 1 MiB | 743 | 1,231 | 3 |
+
+This is consistent with the earlier 13.32 MB read at 9.171 s. The timer includes
+guest array construction and host transfer, not only the operating-system read.
+
+The CPU profile records **83.36 s** of samples over **94.08 s**. The parked GC
+struct helper path owns **28.94 s / 34.72%** sampled CPU, including
+`StructGetTyped` at **11.72 s / 14.06%**. Those inclusive values overlap and
+must not be added. Reference checks, native/Go transitions, locks and allocation
+are other visible owners. **18.13%** of samples are unlabelled native code, so
+this Go profile cannot attribute every guest function.
+
+Fresh compilation takes **0.784 s** and instantiation **0.188 s**.
+The diagnostic records **21.68 GiB** cumulative Go allocation, about
+**14.91 million** Go allocations, **60** Go collector cycles and about
+**9.48 GiB** sampled peak RSS. The 2 GiB limit bounds Wasm object storage.
+Go metadata and temporary buffers use separate memory. Go's collector still
+runs while Wasm object collection is disabled.
+
+### Cache initialization defect
+
+The earlier 3 GiB startup trap is cache-dependent, not evidence of a 2 GiB
+capacity limit. Fresh `--help` succeeds with both 2 GiB and 3 GiB in about
+1.1 s. Immediate cached repeats fail at both capacities in about 0.21 s.
+
+The [artifact codec](https://github.com/wago-org/wago/blob/cea8f83f101fbdd0fcad634e9c7faad0377b676e/src/wago/codec.go)
+omits `HasStart`, `StartLocalFunc`, `StartIsImport` and `StartImportIdx`.
+Those fields are set by
+[fresh compilation](https://github.com/wago-org/wago/blob/cea8f83f101fbdd0fcad634e9c7faad0377b676e/src/wago/compile_metadata.go).
+Cache adoption does not rebuild them from the original Wasm. Loaded modules
+therefore skip their start function and leave MoonBit globals uninitialized.
+
+A reduced module, independent of GC and the plugin, sets a global from zero
+to 42 in its start function. It returns **42** fresh and **0** cached, both
+with process exit zero. The executable regression requires 42 for both and
+fails on the cached run. This confirms a cache correctness defect and
+supersedes the earlier unconfirmed heap-size explanation.
+
+Fix priorities are start metadata with artifact compatibility and
+local/imported/trapping-start tests; lazy host scratch allocation; proven exact
+root admission for the MoonBit ABI; then measured GC helper and bulk-transfer
+work. Do not force collection with incomplete native roots. No runtime patch
+or speed improvement is claimed.
+
+Evidence is `.tmp/wago-investigation-20261011/`: admission JSON; complete
+CPU/heap profiles and source-line reports; call counts; RSS samples; cache
+controls; the failing reduced start test; nine copy controls; CSV/JSON findings
+and the report. Earlier comparison results remain their original observations.

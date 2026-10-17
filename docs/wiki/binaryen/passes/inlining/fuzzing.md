@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-15
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -14,6 +14,25 @@ related:
 ---
 
 # `inlining` fuzzing and signoff
+
+## October 15 shared-work renewal
+
+Frozen native optimizer
+`5d8ea74e23ab4237542e13a3a51c8da18d27e3cb1d14df743597725422a49166`
+and generator
+`76b922fbe5da41224c16bf9af798b9173cb8d3a3ab4769fad8c409acc2388ae3`
+complete both required 10,000-case lanes at seed `0x5eed` against verified
+Binaryen 133. Plain `inlining` uses `pass-inlining`; `inlining-optimizing` uses
+`inlining-optimizing-all`.
+
+Both lanes are exact normalized matches in all 10,000 cases. All 20,000
+node-v2 observations match without a blocked case. Determinism and codec checks
+are 20,000/20,000. Validation, property, generator, command, and semantic
+failures are zero. Raw and canonical output sizes are equal in every case.
+This renewal covers the frozen inlining source and generator identity. Later
+changes to unrelated deep SimplifyLocals and Precompute observability code do
+not change these recorded binaries. Local evidence:
+`.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/{inlining,inlining-optimizing}/`.
 
 ## September 27 follow-up allocation campaign renewal
 

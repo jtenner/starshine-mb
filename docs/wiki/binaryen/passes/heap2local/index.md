@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-10-15
 sources:
   - ../../release-horizon-and-oracles.md
   - ../tracker.md
@@ -37,6 +37,103 @@ related:
 ---
 
 # `heap2local`
+
+## October 15, 2026 current verification
+
+The owner-publication and control-ownership repairs pass a fresh10,000-case
+aggregate comparison on native `b29aee1d`, with verified Binaryen133 and actual
+Node runtime observations. All observations agree; validation, determinism and
+codec checks pass. The repaired generator supplies10,000 nonempty GC candidates.
+All outputs are smaller in raw and repository-canonical bytes, with structural
+differences independently inspected by family. The same build passes11,568
+permanent Heap2Local runtime comparisons; the full WasmGC suite passes14,219.
+
+Owner staging adds scalar locals and traffic while removing allocations. Keep
+that tradeoff and the bounded execution/shape scope visible. See the
+[current generated evidence](fuzzing.md#october-15-current-source-owner-publication-renewal)
+for exact identities, raw reports, independent replay and exclusions.
+
+## October 14, 2026 owner publication repair
+
+Two branch-selected allocations can replace the same owner. The old scalar
+rewrite published each field while evaluating constructor operands. A later
+operand that reads the previous owner's field therefore read the new value.
+Original and Binaryen 133 returned `11`/`10`; Starshine returned `200`/`100`.
+Validation alone did not detect this value error.
+
+Each replacement producer now has separate staging locals. It evaluates every
+operand before it publishes the shared owner fields. Separate producer scratch
+also preserves an outer operand across a nested owner update. Constructor
+effects and exceptions remain in source order. This adds locals and copies;
+runtime and memory costs require measurement before a footprint claim.
+
+An additional reduced test exposed branches to a result-if label that the
+variant rewrite removed. Variant admission now retains allocations when a
+branch targets one of the control owners or wrappers that scalarization would
+remove. Reference-valued branch transfers need a separate scalar payload
+representation. Branches to retained operand blocks remain eligible.
+
+Sources: [value regressions](../../../../../src/passes/heap2local_owner_update_test.mbt),
+[label regressions](../../../../../src/passes/heap2local_variant_escape_test.mbt),
+[command regressions](../../../../../src/cmd/heap2local_owner_update_wbtest.mbt),
+[V8 runtime lane](../../../../../scripts/test/heap2local-owner-update-runtime.ts),
+and [owner-update generator](../../../../../src/validate/gen_valid_heap2local_owner_updates.mbt).
+The current verification above supplies the runtime, WasmGC and10,000-case
+v133 results. Earlier historical closure below does not cover these cases.
+
+Generic struct scalarization also transfers fresh wrapper ownership to its
+live replacement and retires the unused builder wrapper. Control-label owners
+therefore name the retained control node. The [ownership invariant and
+straight-line non-null tests](../../../../../src/passes/heap2local_straightline_nonnull_regression_wbtest.mbt)
+cover this transfer. A separate combined-pipeline null trap came from
+[SimplifyLocals revisiting a moved pending write](../simplify-locals/structure-result-lifting-and-carrier-cleanup.md),
+rather than owner-field publication.
+
+The [control ownership regressions](../../../../../src/passes/heap2local_control_owner_regression_wbtest.mbt)
+also cover variant publication, variant tees, drop-only owners, and direct
+equality, reference-test, descriptor, and bounds-trap replacements. Fresh
+wrappers transfer their labels and body storage to the retained node and then
+retire. A borrowed control-valued field or array element remains a child of a
+new typed wrapper, so another consumer retains the original control's
+evaluation behavior. Bare shared HOT controls do not declare a value capture:
+the test's original and repaired lowering both emit two marked calls. V8 also
+executes both original fixtures as return `42` with two recorded effects.
+Both the borrowed control and the wrapper retain distinct owners
+and body spans. Non-control forwarding keeps its existing path.
+All fourteen ownership tests failed before this repair on owner/span checks.
+These failures establish an IR defect; no engine failure was established for
+this family. Borrowed controls can add a wrapper to emitted code. Fresh native
+size and runtime checks remain pending, and no memory or performance win is
+claimed.
+
+Straight-line array replacements use a separate element-local vector for each
+allocation epoch. Reads inside the next constructor belong to the previous
+epoch because a direct root `local.set` publishes its owner only after all
+operands complete. The repeated-allocation fence now permits that boundary
+when both adjacent writes are direct root `local.set` allocations; nested and
+scratch-tee boundaries keep the existing fence. Constant out-of-bounds accesses
+lower to an explicit trap at the access position. An `array.set` value still
+executes before the bounds trap. Dynamic indices remain outside this proof.
+Array control wrappers use the same ownership transfer as struct wrappers.
+Direct array tees also place the initializer before their one consuming scalar
+access. Later local reads reuse the initialized fields and do not repeat the
+constructor. This fixes a pre-existing wrong result and lost constructor
+effects in direct tee reads and stores. The same order keeps all constructor
+effects before an intentional bounds trap, with a stored-value effect after
+construction and before the trap.
+Both new regions retain the original tee/access positions. A fresh initializer
+position otherwise makes HOT lowering carry the stored value before the
+constructor, despite the region root order. The store-effect regression
+confirmed that failure before this position repair.
+
+The [pass regressions](../../../../../src/passes/heap2local_straightline_array_regression_wbtest.mbt)
+and [dispatcher regressions](../../../../../src/cmd/heap2local_straightline_array_regression_wbtest.mbt)
+require old-value reads, swaps, cycles, packed signed reads, ordered constructor
+effects, and the negative-index trap frontier to survive with zero heap
+allocation/access operations. Their original failures established the parity
+gap before this repair. The direct tee effect tests also failed before the tee
+repair in both pass and dispatcher lanes. Focused validation and fresh native replay are pending;
+these changes make no new runtime or memory claim.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

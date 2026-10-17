@@ -14,6 +14,9 @@ sources:
   - ../../../../../src/passes/dead_argument_elimination2_legacy.mbt
   - ../../../../../src/passes/dead_argument_elimination2_wbtest.mbt
   - ../../../../../src/passes/dead_argument_elimination2_intake_wbtest.mbt
+  - ../../../../../src/passes/dae2_field_query_regression_wbtest.mbt
+  - ../../../../../src/passes/dae2_field_query_perf_wbtest.mbt
+  - ../../../../../src/ir/hot_mutate.mbt
 related:
   - ./index.md
   - ./fuzzing.md
@@ -64,6 +67,19 @@ A module revision rebuild prevents stale per-function analyses after signature
 changes. HOT verification and final module validation are separate checks;
 execution, normalized opportunity parity and cost need the dedicated lanes in
 [fuzzing](fuzzing.md) and the [upgrade evidence](../../version-132-upgrade.md).
+
+## Checked fields during expression rewriting
+
+The call-prefix filter reads the current opcode with `hot_node_op`. Child-span
+replacement admission reads the current count with `hot_child_count`, then
+compares each slot with the existing checked `hot_child_get`. Live-node and
+deletion checks, child order, unchanged-span revision behavior, and snapshot
+ownership remain intact. Neither query caches a header. The
+[bounded regressions](../../../../../src/passes/dae2_field_query_regression_wbtest.mbt)
+compare these paths with frozen full-header controls. The
+[paired native probe](../../../../../src/passes/dae2_field_query_perf_wbtest.mbt)
+is skipped in the default suite. `HotNode` is already a value record: these
+changes narrow field return traffic, without removing a record heap allocation.
 
 ## Reusing rewritten signatures — 2026-09-11
 

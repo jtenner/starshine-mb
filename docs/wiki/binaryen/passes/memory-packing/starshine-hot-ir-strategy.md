@@ -1,14 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-15
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
   - index.md
   - ../../../../../src/passes/memory_packing.mbt
   - ../../../../../src/passes/memory_packing_test.mbt
+  - ../../../../../src/passes/memory_packing_nested_operands_regression_wbtest.mbt
   - ../../../../../src/passes/memory_packing_rebuild_wbtest.mbt
+  - ../../../../../src/passes/memory_packing_encoded_cost_regression_wbtest.mbt
   - ../../../../../src/cmd/memory_packing_rebuild_wbtest.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -30,6 +32,41 @@ related:
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 
 This page is the current in-tree code map. It is intentionally separate from the upstream algorithm in [`binaryen-strategy.md`](binaryen-strategy.md): Starshine is a module-pass implementation with useful active and passive slices, but it is not a literal port of Binaryen `MemoryPacking.cpp`.
+
+## October 15 packing after the Directize finish
+
+The full-preset Directize finish checks for profitable passive packing after
+InliningOptimizing, RemoveUnusedModuleElements and Vacuum. This placement
+permits removal of the last dynamic copy-helper user before packing. A
+red-first immutable-table/indirect-call fixture keeps 130 passive bytes with
+early packing; the late finish reduces this to two bytes. Explicit short
+presets retain their existing scheduling. See [preset owner](../../../../../src/passes/optimize.mbt)
+and [late-packing regression](../../../../../src/passes/late_memory_packing_regression_test.mbt).
+
+## October 15 memory64 trap-before-write review
+
+The frozen 10,000-case lane has 1,330 dynamic memory64 structural differences.
+Its retained modules do not export or call their functions, so successful
+instantiation alone does not exercise the rewritten bodies. Review-only copies
+added exports after optimization without changing any other section. Original
+and Starshine behavior matched source-based expected results in every call.
+
+Nine retained boundary cases expose a correctness benefit over the Binaryen 133
+shape. A one-page memory receives a passive copy whose full destination ends at
+byte 65,537. WebAssembly checks the full `memory.init` source and destination
+ranges before the first write. Original and Starshine trap with memory
+unchanged. Binaryen's split copy writes the leading nonzero byte, fills the zero
+range, and then traps on the final byte. Six of those safe Starshine outputs are
+larger, so this is a measured correctness and size tradeoff, not a general size
+win.
+
+The bounded regression `memory-packing memory64 split traps before its first
+destination write` uses a profitable 130-byte split. Its evaluator aborts on
+any memory write; the out-of-bounds destination must reach the explicit full
+range trap first. This locks the existing destination preflight order without
+requiring Starshine to preserve an unprofitable unsplit form. The export-only
+replay covers retained families only and does not turn the campaign's 1,284
+blocked active-start traps into successful semantic observations.
 
 ## Short version
 
@@ -65,6 +102,33 @@ generator, or command failures. Its residuals remain the documented active
 zero-length and dynamic Memory64 families; this repair does not alter them.
 
 ## Why this remains a module pass
+
+The October 14 size guard treats active and passive range thresholds as
+candidate admission. A changed candidate must reduce the complete encoded
+module, including retained data names, rewritten code, and section framing.
+If code or globals invalidate compiler facts, the comparison excludes those
+facts from both sides. Removing stale facts cannot pay for data growth.
+Equal-size candidates and encoding failures retain the original module;
+unchanged paths do not run the size comparison. Focused
+[`encoded-cost regressions`](../../../../../src/passes/memory_packing_encoded_cost_regression_wbtest.mbt)
+cover named active and passive losses, profitable controls, and fact removal.
+This guard does not establish new Binaryen-v133 fuzz or performance signoff.
+
+Positive tests now fund dynamic destination guards, temporary locals, and split
+names with 128 zero bytes while still requiring those rewrites and strict
+complete-byte savings. The small trailing startup-trap boundary retains its
+original segment: a verified-v133 replay measured 26 original bytes, 32 for the
+old Starshine split, and 35 for the oracle split. Identity retains the same
+instantiation trap. The enlarged positive still requires the split and its
+out-of-bounds final byte. Named passive comparison retains names on both sides;
+the old reduced case tied at 100 bytes, while the enlarged case fell from 199
+to 102 bytes in both Starshine and the oracle with names retained.
+
+Proven source traps also omit consumed constant source/length operands and a
+constant destination. Dynamic destination evaluation stays in order, including
+its side effects and traps. Three independently encoded valid candidate bodies
+reduced the old trap outputs by nine, six, and nine bytes respectively. Final
+native build and test validation remain separate from these candidate checks.
 
 The historical filename says `starshine-hot-ir-strategy`, but this pass is deliberately module-scoped. A correct rewrite needs the complete memory/import shape, every data segment and its source order, all segment users, index/name/data-count repair, and output validity limits. The module driver is [`memory_packing_run_module_pass(...)`](../../../../../src/passes/memory_packing.mbt); [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches the public spelling.
 
@@ -140,3 +204,71 @@ The local pass has substantial passive support, but these boundaries remain mate
 2. [`wat-shapes.md`](wat-shapes.md) for positive and negative module examples.
 3. [`parity.md`](parity.md) for current evidence and the explicit parity-gap classification.
 4. [`src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt) and [`src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt) for the executable contract.
+
+
+## October 16 report task 39: duplicate passive-data sharing experiment
+
+**Decision: accept the restricted no-drop hypothesis; defer production
+integration. Reject blind index substitution across independent drop states.**
+The [bounded experiment](../../../../../src/passes/passive_data_sharing_experiment_wbtest.mbt)
+is test-only. It admits exactly two equal passive payloads with flat,
+explicitly supported read-only users, and excludes metadata, module expression
+users, imports, structured control and unknown instructions. It rewrites data
+index 1 to 0, removes the duplicate record and updates `data_count`. No
+production pass, dispatcher or preset changed.
+
+Without any `data.drop`, both segments retain the same immutable byte length
+and contents for the whole instance lifetime. Their `memory.init` source
+bounds and copied bytes therefore agree for every source offset and length;
+keeping destination operands and memory indices also keeps destination bounds
+and trap-before-write behavior. The candidate adds **zero globals, locals or
+instructions**. Exact encoded module sizes, also reproduced by wasm-tools
+1.260.0, are:
+
+| Equal payload bytes per original segment | Original | Shared candidate | Saved |
+| --- | ---: | ---: | ---: |
+| 0 | 94 B | 92 B | 2 B |
+| 1 | 96 B | 93 B | 3 B |
+| 64 | 223 B | 156 B | 67 B |
+| 128 | 353 B | 222 B | 131 B |
+
+The 64-byte case saves one additional data-section framing byte. The retained
+negative example also shrinks, 256 to 189 bytes, but is incorrect: after dropping
+segment 0, an initialization from the still-live segment 1 succeeds in the
+original and traps after blind sharing. The reverse direction also differs.
+This includes a zero-length initialization with source offset 1: a dropped
+segment has length zero, so an empty copy can still expose the wrong lifetime.
+Typing and smaller output do not establish equivalence.
+
+Node v26.11.1 compares **96** original/candidate observations across four
+payload lengths, both users, normal and zero-length copies, source and
+destination endpoints, unsigned high bits and trap-before-write cases. All
+agree. Eight independent-drop observations expose **four** differences from
+the deliberately wrong shared candidate. Starshine validates all constructed
+modules; wasm-tools independently validates all ten exported original/candidate
+binaries, including the well-typed but incorrect drop candidate. A direct-IR
+`array.new_data` control locks the experiment's intentional GC-user exclusion;
+it does not claim that every no-drop GC sharing case is unsafe.
+
+The positive test fails with the initial absent candidate. After implementing
+the fixture-scoped builder, all four focused tests pass with `--include-skipped`
+(the fourth test exports the runtime fixtures). Default tests do not write those
+files. An initial GC text fixture hit a parser boundary and was replaced with
+direct IR. The experiment does not establish artifact frequency, compiler
+runtime, peak memory, arbitrary nested/GC user coverage, metadata remapping or
+full pass parity. A general drop-aware design must preserve separate logical
+lifetimes and measure the added state and guards before a production decision.
+No such production design or cost claim is made here.
+
+Commands, from the repository root:
+
+```sh
+flock /tmp/starshine-moon.lock moon test --package jtenner/starshine/passes --file passive_data_sharing_experiment_wbtest.mbt --include-skipped
+/home/dev/.local/share/mise/installs/node/26.11.1/bin/node .tmp/report-optimization-20261016/passive-data-sharing/runtime.mjs
+```
+
+Local evidence: `.tmp/report-optimization-20261016/passive-data-sharing/`,
+including `red-ready.log`, `red-final.log`, `green-export.log`,
+`runtime-results.json`, `encoded-artifacts.json`, and
+`independent-encoder-sizes.json`. This experiment is not a new Binaryen parity
+signoff; historical comparison versions above retain their original scope.

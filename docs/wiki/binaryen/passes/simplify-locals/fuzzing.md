@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-15
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -14,6 +14,36 @@ sources:
 ---
 
 # SimplifyLocals family fuzzing profiles
+
+## October 15 deep-stack current-source renewal
+
+Current native optimizer
+`fbfc16a56d71e191eb9a08d6509c681c3b70664128c8905a4b460cdee919c030`
+and generator
+`3dfffa7e563132bec9e379172f1c3a2f411acb488aa3301f24a2d755cef9b646`
+complete 10,000 `simplify-locals-all` cases against verified Binaryen 133
+after the iterative depth-128 lift, change-tracking repairs, and protected
+no-structure tee cleanup. The final source also tracks an inert root prefix
+incrementally instead of rescanning it for each structured carrier. The lane
+uses eight subprocesses, independent validation, node-v2, determinism, and
+codec idempotence.
+
+The result has 380 exact normalized matches and 9,620 structural differences.
+Every difference is smaller for Starshine. Raw totals are 1,879,401 Starshine
+bytes versus 2,082,380 Binaryen bytes. Canonical totals are 1,864,179 versus
+2,080,551. All 10,000 runtime observations are three-way equal. Determinism
+and codec checks are 10,000/10,000. Runtime blocks, validation, property,
+generator, command, and semantic failures are zero.
+
+The final `cases.jsonl` is byte-identical to the preceding current-source lane.
+Its 10,000 input hashes, every per-case status and size metric, and all retained
+outcomes therefore preserve the reviewed classification. The protected
+no-structure cleanup does not change the plain aggregate's generated outputs.
+The depth-128 command replays remain the direct evidence for that repaired
+boundary.
+
+Local evidence:
+`.tmp/report-optimization-20261014/simplify-locals-linear-final-v133-10000/`.
 
 ## September 27 follow-up allocation campaign renewal
 

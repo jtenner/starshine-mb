@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-08-29
+last_reviewed: 2026-10-11
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/README.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp
@@ -43,6 +43,48 @@ Starshine's CLI is a local command layer inspired by Binaryen's `wasm-opt` shape
 - [`src/passes/optimize.mbt`](../../../src/passes/optimize.mbt) owns the pass registry categories, preset expansion, hot/module pass routing, and final optimizer validation.
 
 Do not infer behavior from Binaryen's full `wasm-opt --help` surface. Starshine intentionally implements a smaller but explicit command contract with its own diagnostics and debug steps. The 2026-06-04 source audit in research note 0707 rechecked the current Binaryen CLI orientation sources and local dispatcher code; it also records the current local `--stdin` gap described below.
+
+## Wasm GC file adapter
+
+On October 11, 2026, the Wasm GC command began using the same filesystem
+callbacks as the linear-memory Wasm command. Before this change, its default
+`CmdIO` had no file reader or writer, so a file optimization returned an error.
+The shared test first failed on Wasm GC, then passed with an exact
+`i32.const 40; i32.const 2; i32.add -> i32.const 42` output assertion.
+
+The host must provide the imported `__moonbit_fs_unstable` functions and the
+`__moonbit_time_unstable.now` clock. Wago therefore needs a MoonBit host plugin
+for this CLI artifact. This host interface is separate from the optimizer.
+Sources: [adapter and entry point](../../../src/cmd/cmd.mbt),
+[file optimization test](../../../src/cmd/cmd_wbtest.mbt).
+
+## Caught O4z and trusted compiler facts
+
+When the conservative caught-O4z path returns its prepared input, the command
+retains materialized trusted facts and removes consumed fact metadata. It
+selects the already encoded prepared result when Trust preparation changed
+the module. Ignore and Hints keep their existing raw-input selection. A
+red-first command test checks all three policies and verifies the trusted
+body instructions and absent consumed metadata. See [command selection](../../../src/cmd/cmd.mbt)
+and [fact-policy regression](../../../src/cmd/o4z_caught_facts_regression_wbtest.mbt).
+
+## Candidate byte proofs and terminal returns
+
+The three provisional O4z candidate selectors retain the existing workers'
+validation proofs for their exact encoded bytes. Labels are unique and the
+candidate row is append-only. Stable size ties keep worker order. Shorter
+unproved bytes still require validation; later cleanup products have no
+inherited proof. This shares an existing proof within one portfolio run.
+It does not cache custom encoder callbacks or certify bytes after replacement.
+
+Terminal-return normalization allocates the function row only after it finds
+a candidate. Prefix copying keeps imported-function offsets and row order.
+Batch validation remains authoritative; an invalid fallthrough body restores
+its original return. No-candidate inputs keep their original module and avoid
+the row copy. [Regression tests](../../../src/cmd/o4z_portfolio_work_regression_wbtest.mbt)
+assert exact output, ties, shorter invalid bytes, invalid fallthrough, input
+ownership and copied rows. [Measurements](tracing-playbook.md#october-15-shared-batch-and-statement-work)
+cover the combined build; they do not isolate each selector's time or memory.
 
 ## Command Shape
 
@@ -167,7 +209,24 @@ The command pipeline intentionally validates at multiple layers:
 
 If a pass segment or validation step fails, `CmdError::OptimizeFailed` preserves multiline diagnostics. If post-encode validation fails in debug-serial mode, the error appends a reproducible command hint that includes active pass flags, levels, trap mode, closed-world mode, and low-memory options.
 
-A no-op wasm input with at least one pass may reuse original input bytes when the optimized module equals the decoded input module, debug-serial post-encode validation is off, and the input format was wasm. Text inputs never reuse original bytes because the output contract is binary wasm.
+A no-op wasm input with at least one pass may reuse original input bytes when
+every optimizer segment returns the same physical module object, encoding
+cleanup has no work, debug-serial post-encode validation is off, and the input
+format was wasm. The command records the identity result at each segment
+boundary and accumulates it across utility-separated segments, before later
+value movement can obscure it. A regression covers a changed first segment and
+an unchanged final segment. A separately rebuilt but structurally equal module
+takes the normal encoding path. This identity rule avoids a recursive
+whole-module equality walk on deep valid input. Text inputs never reuse original
+bytes because the output contract is binary wasm.
+
+An October 15 survey runs every 28 pass spellings shown by the current command
+help over the same valid NaN-bearing wasm input. Twenty-seven no-op pass results
+preserve the exact 41 input bytes. `flatten` is the sole active transform and
+emits a valid 47-byte result, so accumulated change state also blocks input-byte
+reuse when a pass changes the module. This bounded survey does not replace
+active fixtures for every transform family. Local evidence is under
+`.tmp/report-optimization-20261014/noop-byte-reuse-current/`.
 
 ## Tracing And Debug Limits
 
@@ -203,6 +262,20 @@ bun fuzz promote-optimizer <failure-dir>
 `list-optimizer-thresholds` emits `starshine.optimizer-threshold-registry.v1` from the current `InliningOptions::new` defaults and deterministic `N-1/N/N+1` groups. `prove-rewrites` reads declarative integer contracts, runs reduced-width exhaustive checking, invokes Z3 when available, and persists SMT-LIB plus versioned JSON results. These commands do not alter the Starshine module queue or locked preset order.
 
 A machine-readable runtime-interface report emitted directly from Starshine's decoded MoonBit module, an expanded pass-sequence report for presets/composites, and MoonBit-owned threshold export remain pending. Compare-pass currently derives the runtime interface from decoded `wasm-tools print` structure, and the threshold command labels its MoonBit source owner explicitly.
+
+## WasmGC runner argument prefix
+
+MoonBit core `0.1.20261012` documents `@env.args()` as including the executable
+prefix. The WasmGC main entry now removes that prefix, as the native and WASI
+entries already do. Otherwise `moonrun` passes the program path to the module
+parser as an extra input and the requested output is never written.
+
+The [entry-point regression](../../../scripts/test/wasmgc-cli-args.ts) runs the
+prebuilt WasmGC CLI with and without the runner's `--` separator. It requires
+the requested constant-folding pass to run, validates both outputs, executes
+them in V8, and checks byte identity. It failed before the one-line repair and
+passes afterward. Run it after `moon build --target wasm-gc --release src/cmd`
+with `bun scripts/test/wasmgc-cli-args.ts _build/wasm-gc/release/build/cmd/cmd.wasm`.
 
 ## Sources
 

@@ -310,3 +310,30 @@ Examples:
 - annotation-section rewrite bookkeeping
 
 Keeping those buckets separate will make future Binaryen parity work much easier to reason about.
+
+
+## October 16, 2026: bounded encoding-size proof
+
+After the existing simple-type guard and compaction producer, the cleanup gate
+can prove a strictly smaller encoding without encoding every scalar body.
+[`encoded_type_compaction_is_strictly_smaller`](../../../../../src/binary/encoded_type_compaction_proof.mbt)
+uses one paired body walk. It requires stable opcodes and non-type operands,
+permits only nonincreasing standard type indices, and bounds original encoded
+body and section framing below `Int32.max`. Unknown function shapes use the
+existing exact function encoders. Both modules retain the ordinary section,
+data-length, and name encoders for the remaining size comparison.
+
+A `true` result proves strict byte decrease and encoder compatibility within
+that invocation. A `false` result is inconclusive: the caller still runs the
+unchanged full [`encoded_module_sizes`](../../../../../src/binary/encoded_size.mbt)
+comparison. Raw names, compiler facts, uncertain string pools, encoding errors,
+and unsupported proof shapes retain that fallback. The proof does not replace
+module validation and stores no facts across mutable module revisions.
+
+The [binary controls](../../../../../src/binary/encoded_type_compaction_proof_wbtest.mbt)
+cover mixed scalar/SIMD bodies, signed and unsigned LEB boundaries, exact byte
+sizes, bounded body encoding, invalid encoder surfaces, large shared data,
+and string-context restoration. The [DFE gate controls](../../../../../src/passes/dfe_type_compaction_proof_wbtest.mbt)
+require exact smaller output, source ownership, and the full-comparison fallback
+for a body string pool. Runtime and memory gains require separate native
+measurements; this contract alone makes no performance claim.

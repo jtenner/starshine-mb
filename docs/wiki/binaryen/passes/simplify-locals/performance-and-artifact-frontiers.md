@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-09-26
+last_reviewed: 2026-10-15
 sources:
   - ./index.md
   - ../../../../../agent-todo.md
@@ -17,6 +17,29 @@ related:
 ---
 
 # `simplify-locals` Performance And Artifact Frontiers
+
+## October 15 guarded cleanup and carrier-prefix cost
+
+The native release benchmark in
+[`report_guarded_cost_perf_wbtest.mbt`](../../../../../src/passes/report_guarded_cost_perf_wbtest.mbt)
+contains 11 cases. Precompute vector sizing takes 9.67 ns when shrink is off,
+662.65 ns when 128 functions contain no candidate, and 67.32 µs when all 128
+functions require encoded comparison. SimplifyLocals module cleanup returns an
+unchanged module by identity in 10.00 ns and handles 128 changed numeric-local
+candidates in 603.80 µs. A 128-query SIMD admission batch takes 771.77 ns with
+one metadata parse and 665.39 ns after caching. A 4,096-root constant-control
+scan takes 2.39 µs without a candidate and 2.56 µs with a trailing candidate.
+
+The new 4,096-root structured-tee fixtures exposed repeated inert-prefix scans
+in root carrier finalization. Before the repair, an observable later read took
+24.86 ms and a removable dead carrier took 28.21 ms. Tracking the prefix fact
+once reduces them to 298.83 and 289.92 µs, improvements of 83.2x and 97.3x.
+The full 133-case no-structure regression file passes, and the final plain and
+no-structure 10,000-case campaigns reproduce every prior size and runtime
+result. These are native helper timings; they do not establish allocation,
+peak-RSS, artifact-scale, or whole-command gains. Before and after logs are
+`.tmp/report-optimization-20261014/logs/report-guarded-cost-final-bench.log`
+and `.tmp/report-optimization-20261014/logs/report-guarded-cost-linear-prefix-bench.log`.
 
 ## September 27 follow-up allocation campaign renewal
 

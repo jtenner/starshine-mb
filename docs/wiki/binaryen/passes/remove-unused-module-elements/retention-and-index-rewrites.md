@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-16
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
@@ -90,3 +90,35 @@ the same guard. The red fixtures previously remapped references to
 
 Sources: `src/rume/remove_unused_module_elements.mbt`,
 `src/passes/rume_fourth_audit_test.mbt`, and the command dispatcher regressions.
+
+## October 16 final table-image experiment
+
+[The bounded fixture](../../../../../src/passes/final_table_image_experiment_wbtest.mbt)
+uses one internal two-slot table, constant offsets, function-index payloads,
+and pure constant function bodies. An exported function calls both table slots
+and returns their sum. The constructed candidate changes only the element
+section. Input and accepted output modules validate, including an encoded
+roundtrip. Direct checks preserve the table image, function bodies, exports,
+and input bytes.
+
+| Case | Complete bytes | Decision |
+| --- | --- | --- |
+| Two adjacent one-entry segments | 84 → 79 | Accept the bounded candidate; save 5 bytes. |
+| A later segment overwrites slot 1 | 85 → 79 | Accept the bounded candidate; save 6 bytes. |
+| Overwritten function remains live through `ref.func` | 107 → 105 | Reject declaration loss. A four-byte declarative segment restores validity; net saving is 2 bytes. |
+| Retained `elem.drop 1` or `table.init 1` | Naive output fails validation | Reject deletion without a complete segment-index remap. The final image alone is insufficient. |
+| Earlier constant offset is out of bounds | 85 → 79 would remove a trap | Reject. Both modules validate, but input instantiation traps and the candidate succeeds. |
+
+An independent replay with wasm-tools 1.260.0 and Node v24.21.0 confirms the
+byte totals and validation decisions. Accepted candidates keep the exported
+sum at 44. The declaration-preserving case also keeps its exported function
+reference callable with result 22. The out-of-bounds input raises a
+`RuntimeError`; its rejected candidate returns 44.
+
+**Production decision: defer.** These results establish a small profitable
+domain, not a general segment transform. A production owner still needs
+admission checks for all initialization bounds and effects, complete runtime
+segment-index and name remaps, declaration preservation, and metadata handling.
+Imported tables, passive-segment lifetimes, expression payloads, and larger
+index/framing boundaries are outside this experiment. No production pass or
+preset changed. This is not Binaryen-v133 parity, timing, or memory signoff.

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-15
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -33,6 +33,29 @@ related:
 > **Comparison baseline — September 25, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts and results retain their historical versions and do not establish v133 signoff.
 
 The v131 renewal preserves this three-layer design. The new parity work deliberately places HOT region-splice behavior in `simplify_locals.mbt` and exact stackifier-sensitive cleanup/finalization in `pass_manager.mbt`, rather than broadening either layer beyond its proof surface.
+
+## October 15 repeated statement initialization
+
+Pure-suffix copy cleanup already owns a type seed for repeated compound-value
+queries, but statement queries formerly rebuilt the whole initialized-local
+mask. Four intentionally blocked single-consumer stores in a128-local
+environment perform20 such setups (2,560 initialized slots). A red-first
+[regression](../../../../../src/passes/pure_suffix_statement_seed_regression_wbtest.mbt)
+now bounds these statement setups to the one128-slot seed, while preserving
+exact instructions/bytes and validation.
+
+The same invocation-local seed now serves accepted statement queries in wide
+environments. Queries retain fresh owned stacks and escape state; statement
+boundaries and result arrays are recomputed. No seed is made for a terminal
+store with no following query, no candidate, or a small environment. Positive
+forwarding at127/128 locals, unchanged inputs, invalid/escaping probe isolation
+and the existing reference/control/ownership tests remain covered. The separate
+terminal-value typecheck still has its own setup; the bound does not describe
+all typechecker work. Remaining statement scans can still be quadratic.
+All 14,300 WasmGC tests pass. Native `5d8ea74e` renews 58,840 runtime
+comparisons plus GC CLI arguments. [Paired enclosing measurements](../../../tooling/tracing-playbook.md#october-15-shared-batch-and-statement-work)
+have mixed SL controls and strong DAE/preset gains; they do not isolate this
+seed change or establish a memory gain. Generated renewal remains open.
 
 ## Core Design Rule
 

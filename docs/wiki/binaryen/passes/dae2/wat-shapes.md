@@ -124,3 +124,25 @@ and [`dae2-results-cont.wast`](https://github.com/WebAssembly/binaryen/blob/vers
 
 See [bounded fixtures](implementation-structure-and-tests.md) and
 [GenValid families](fuzzing.md) for executable forms and measured signoff.
+
+
+## Unused conditional load returns
+
+The bounded raw-terminator fixture keeps `local.get 1; i32.load; drop; return`
+directly in its true If arm after the private result becomes unused. Its HOT
+reference adds an unreferenced void Block around that same sequence. Function
+return ignores the extra nesting. The raw form saves exactly three encoded
+bytes (81 versus 84), retains both kept parameters and all trap checks, and
+adds no scratch local. Verified Binaryen 133 canonical and downstream outputs
+are byte equal (68 bytes); O2 outputs are also byte equal (52 bytes).
+
+The exact failed assertion outputs are preserved separately from an independently
+assembled original input. Node 24.21.0 checks 81 condition/address/unused-argument
+cases across twenty original, raw, HOT and oracle-derived artifacts: all 1,620
+calls have the expected matching void return or bounds trap. This proves only
+that exact redundant-block removal, not general output-shape equivalence.
+The default test now checks both worlds, complete boundary/write demands, both
+exact bodies, the three-byte reduction, and whole-module equality after replacing
+only the known reference body. Other terminator fixtures retain their strict
+comparator. See [`dae2_raw_terminators_wbtest.mbt`](../../../../../src/passes/dae2_raw_terminators_wbtest.mbt)
+and the [campaign evidence](starshine-strategy.md#october-16-2026-dae-family-speed-campaign).

@@ -96,15 +96,18 @@ an early and late slot at O4z:
 
 Validation modes therefore split into direct DFE behavior and preset-neighborhood behavior. Keep both focused direct tests and preset order/behavior tests green when changing this pass.
 
-The queue retains both slots, but preset execution skips DFE if the original
-or current module has imports or exports. This is the conservative
-host-identity policy: exported functions and references crossing tables,
-globals, or imported callbacks must retain distinct identities. Closed modules
-still execute DFE. Directly named DFE keeps its explicit merge contract.
+The queue retains both slots. Short presets skip DFE if the original or current
+module has imports or exports. Full O4z instead applies the direct pass's
+per-function identity guard, protecting all exports and materialized references
+while merging private equal helpers. This October 14, 2026 policy supersedes
+the blanket full-O4z boundary skip. Closed modules still execute DFE. Directly
+named DFE applies the same identity guard.
 The [Node host regression](../../../../../tests/optimizer/regressions/host-identity.test.ts)
-and `src/passes/optimize_test.mbt` distinguish these cases. The gate trades
-some size opportunities for host correctness until a protected-function escape
-analysis is available.
+and the [full-preset private-helper regression](../../../../../tests/optimizer/regressions/preset-private-dfe.test.ts)
+check host identity preservation. The
+[library regression](../../../../../src/passes/preset_private_dfe_regression_test.mbt)
+checks private helper removal and exposed definitions in both full presets.
+No escape analysis is required: every address-materialized function is retained.
 
 ## Known Starshine-vs-Binaryen split
 

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: strong
-last_reviewed: 2026-09-02
+last_reviewed: 2026-10-15
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -14,6 +14,31 @@ sources:
 ---
 
 # `directize` fuzzing and Binaryen-v131 closeout
+
+## October 15 Binaryen 133 shared-work renewal
+
+Frozen native optimizer `5d8ea74e` and generator `76b922fb` completed 10,000
+`directize-all` cases against verified Binaryen 133. All 10,000 node-v2
+observations, determinism checks, and codec checks match. Every output validates,
+with no blocked observation or validation, generator, command, or property
+failure.
+
+There are 559 exact normalized matches and 9,441 structural differences.
+Starshine canonical output is smaller in every difference and never larger:
+`559,353` bytes versus Binaryen's `570,049`, a 10,696-byte reduction. Every
+retained WAT diff only removes one or two `nop` instructions from otherwise
+empty helper bodies. The per-case canonical delta is minus one byte for the
+ordinary families and minus two bytes for the four select families. All 27
+profile labels have matching runtime observations. The raw-size split includes
+independent metadata and codec representation differences, so the canonical
+comparison owns the size claim.
+
+Agent classification: pass-independent canonical empty-body encoding win. The
+retained artifacts contain no Directize transform-shape difference. The
+20-artifact cap does not inspect all 9,441 outputs, so a fresh run must retain
+any later semantic or validation difference even when this family is present.
+
+Evidence: `.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/directize/`.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

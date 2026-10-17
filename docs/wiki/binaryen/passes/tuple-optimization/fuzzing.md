@@ -1,19 +1,129 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-09-11
+last_reviewed: 2026-10-15
 sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_tuple_alias_captures.mbt
+  - ../../../../../src/validate/gen_valid_tuple_alias_captures_wbtest.mbt
   - ../../../../../src/fuzz/main.mbt
 
 ---
 
 # `tuple-optimization` Fuzzing Profile
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+## October 15 callable aggregate renewal
+
+Native `5d8ea74e` and generator `76b922fb` complete 10,000
+`tuple-optimization-all` comparisons against verified Binaryen 133 at root
+`0x5eed`. All 10,000 original/Starshine/Binaryen runtime observations agree;
+none is blocked. Byte determinism, codec idempotence and the separate
+semantic-idempotence property pass all 10,000. Validation, property, generator
+and command failures are zero. There are 2,225 normalized matches and 7,775
+structural differences; all raw outputs are smaller, with 7,775 smaller and
+2,225 equal repository-canonical outputs. No canonical size loss is observed.
+
+The manifest reports 2,095 input hash identities. Its 6,692 ordinary cases use
+three callable literal templates: 3,339 spill, 1,161 tee and 2,192 copy-chain.
+The 3,308 alias cases contribute 2,092 reported identities across trailing,
+prefix and chain copies. Raw totals are 1,108,274/1,209,862 bytes and
+repository-canonical totals 1,165,590/1,271,862 (Starshine/Binaryen). The
+retained review reads 20 mismatch bundles; it does not individually read the
+7,755 suppressed mismatch bodies or the 2,225 matched bodies.
+
+The ordinary spill, tee and copy-chain generator cases now export `run` and
+return both i32/i64 lanes. Their bodies execute in this campaign. This closes
+the historical exportless ordinary-body observation limit below. It does not
+make their fixed literal templates effectful or wide. Separate regression and
+runtime lanes retain those requirements.
+
+All 20 retained bundles have a source/dataflow review and independent expected
+results. Four inspected mismatch families remove redundant local traffic while
+preserving captured payloads and exact lane order; measured raw/canonical size
+and local-operation counts improve. These are reviewer classifications for the
+inspected families. A separate replay validates 80 input/Starshine/Binaryen/
+Starshine-second-pass modules and checks 200 expected calls. Saved observations
+provide another 138 checked calls. Those counts are separate from the 10,000
+campaign cases; they do not inspect every suppressed raw output.
+
+Local evidence root: `.tmp/report-optimization-20261014/`. Exact source and
+binary identity are in `native-shared-work-reuse/`; generated cases and final
+counters are in `fuzz-shared-work-reuse-20261015/tuple-optimization/`. Review,
+raw audit and replay records are `review/tuple-shared-work-current-gpt.txt`,
+`review/tuple-shared-work-retained-audit.json` and
+`review/tuple-shared-work-retained-replay.{mjs,json}`. The permanent Tuple lane
+passes 17,080 independent comparisons, including effects, host exceptions and
+mixed numeric lanes. The later-delta Claude review returns only a usage-limit
+response and remains incomplete.
+
+
+## October 15 callable ordinary lane fixtures
+
+The spill, copy-chain and tee fixtures previously had no exports or start and
+returned no values. Their Node-v2 all-equal reports checked instantiation only.
+The historical `972c897d` campaign retains that exact generator and scope. Separate
+retained-body probes execute all20 saved bundles with independent contracts;
+this does not repair missing execution of unretained bodies in that campaign.
+
+Three new [generator tests](../../../../../src/validate/gen_valid_tuple_observable_lanes_wbtest.mbt)
+fail on the original missing exports. The generator now retains each original
+carrier and drop trigger, appends reads of the final i32/i64 lanes, and exports
+`run` with those two results. Dedicated configuration allows two results and
+nine spill statements. Profile labels, aggregate weights, seeds and alias-capture
+behavior remain unchanged. All179 selected generator controls pass. At that checkpoint a new native
+build and separate full aggregate remained required. The callable renewal
+above completes that work for `5d8ea74e`; the old campaign must not be
+presented as a callable-body campaign.
+
+
+> **Current comparison baseline — October 14, 2026:** new comparisons use [Binaryen 133](../../release-horizon-and-oracles.md). The v131 and v132 results below retain their original versions and do not establish v133 signoff.
+
+## October 14 loop alias capture profile
+
+The `tuple-optimization-all` aggregate now includes
+`tuple-optimization-alias-captures` at weight `3`. The existing spill, copy-chain,
+and tee weights remain `3`, `2`, and `1`. This additive leaf is also available
+through the ordinary profile-name lookup and all-profiles selection.
+
+The leaf emits two exported integer functions. Both repeat a type-indexed
+two-lane producer in a loop with distinct changing lane values. `snapshot`
+captures the first producer values once and reads them after later producer
+executions. `delayed` copies the previous capture before each new capture; its
+first result is the locals' initial zero values. Seeds select prefix, trailing,
+or two-hop alias copy layouts. Each captured/output lane has one lexical write;
+extra local initializers would hide the stale alias trigger. Host arguments are
+bounded to `1..4` iterations with `(argument & 3) + 1`.
+
+The manifest retains `selected_profile` and uses these case labels:
+
+- `tuple-optimization:alias-captures-prefix`
+- `tuple-optimization:alias-captures-trailing`
+- `tuple-optimization:alias-captures-chain`
+
+The leaf excludes imports, calls, memory, tables, globals, GC, and traps. The
+separate [V8 runtime lane](../../../../../scripts/test/tuple-alias-capture-runtime.ts)
+covers initial parameter values, effect order, traps, mixed lanes, and repeated
+cleanup pipelines. The [generator tests](../../../../../src/validate/gen_valid_tuple_alias_captures_wbtest.mbt)
+check replay, valid modules, exact labels, bounded execution, old captures,
+zero-before-capture behavior, and one lexical write per lane. These checks do
+not replace a fresh v133 aggregate comparison.
+
+Use the aggregate for ordinary dedicated-profile signoff; use the alias leaf
+for targeted reproduction:
+
+```sh
+moon build --target native --release src/cmd
+bun fuzz compare-pass --count 10000 --seed 0x5eed --pass tuple-optimization --gen-valid-profile tuple-optimization-all --out-dir .tmp/pass-fuzz-tuple-optimization-all-v133 --jobs auto --max-subprocesses 8 --max-mismatch-artifacts 20 --wasm-opt-bin <verified-v133-wasm-opt> --require-binaryen-version 133 --starshine-bin _build/native/release/build/cmd/cmd.exe
+```
+
+Source: [alias generator](../../../../../src/validate/gen_valid_tuple_alias_captures.mbt)
+and [profile mapping and weights](../../../../../src/validate/gen_valid.mbt).
+
+The September 10 baseline was Binaryen 132. It superseded earlier baseline
+wording at that time; the following results are historical evidence.
 
 ## September 11 shared capture renewal
 
@@ -85,6 +195,7 @@ Dedicated GenValid profiles now exist for this pass:
 - `tuple-optimization-spill`
 - `tuple-optimization-copy-chain`
 - `tuple-optimization-tee`
+- `tuple-optimization-alias-captures`
 - `tuple-optimization-all`
 
 The aggregate profile emits type-indexed multivalue block carriers and spills/copies/tees tuple lanes through locals. The manifest `profile_case_label` is expected to be one of:
@@ -92,6 +203,9 @@ The aggregate profile emits type-indexed multivalue block carriers and spills/co
 - `tuple-optimization:spill`
 - `tuple-optimization:copy-chain`
 - `tuple-optimization:tee`
+- `tuple-optimization:alias-captures-prefix`
+- `tuple-optimization:alias-captures-trailing`
+- `tuple-optimization:alias-captures-chain`
 
 Recommended dedicated smoke lane:
 

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-01
+last_reviewed: 2026-10-15
 sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -13,7 +13,52 @@ sources:
 
 # `heap-store-optimization` Fuzzing Profile
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+## October 15 runtime-observability repair
+
+The frozen Binaryen 133 campaign compared all 10,000 dedicated-profile cases:
+2,155 were exact and 7,845 matched under `local-cleanup-debris`, with no
+structural, validation, determinism, codec, generator, or command failures.
+However, all 10,000 Node-v2 observations were blocked. The aggregate generator
+gave every leaf custom-descriptor metadata, an active element segment whose
+offset exceeded the one-entry table, and an active data segment for a zero-page
+memory. These inputs established transform shape but did not execute HSO bodies.
+
+Two red-first generator tests now require descriptor metadata only in the
+descriptor leaf and forbid unrelated active element and data segments in all
+nine HSO leaves. The rebuilt native generator is
+`0dc47d3e5b10cafc5f90970f2de17723ca40963a12ef03239fad52758945e2cb`.
+A deterministic one-case matrix executes all seven ordinary leaves with
+three-way original / Starshine / Binaryen agreement. The descriptor and
+shared-ordering leaves remain explicitly blocked under default Node settings,
+then execute with three-way agreement when the harness enables
+`STARSHINE_NODE_CUSTOM_DESCRIPTORS=1` and `STARSHINE_NODE_SHARED_GC=1`.
+An additional direct flag-enabled replay instantiates every generated input and
+calls all nine exported `main` targets without a trap; each returns normally.
+The feature configuration is part of the semantic runtime identity, and both
+variables reject values other than `0` or `1`.
+
+Evidence:
+`.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/heap-store-optimization/`,
+`.tmp/report-optimization-20261014/hso-observable-leaf-matrix-current-v2/`, and
+`.tmp/report-optimization-20261014/hso-feature-leaf-matrix-current/`; direct
+inputs are in `.tmp/report-optimization-20261014/hso-direct-execution-current/`.
+
+Current optimizer `8438fdd849f8dc06da40d8faaebc5d7fc012a09cc3f6f0c1d37a3091a3a7e056`
+and generator `4c85b7ec7fe681858c6b70e34578477c68b79fe3cd6e0d76490b3f0f2afc5a91`
+complete the repaired 10,000-case aggregate against verified Binaryen 133 with
+both feature flags enabled. All 10,000 Node-v2 observations are checked and
+three-way equal. Determinism and codec checks are 10,000/10,000. There are
+2,155 exact and 7,845 `local-cleanup-debris` matches, with zero residual,
+validation, property, generator, command, or observed semantic failures.
+Canonical output is 1,709,121 Starshine bytes versus 1,724,883 Binaryen bytes:
+7,845 smaller and 2,155 equal. Raw Starshine output retains the known `nop`
+debris and is not the size basis for this classified cleanup family. Evidence:
+`.tmp/report-optimization-20261014/hso-current-v133-10000/`.
+
+> **Comparison baseline — October 15, 2026:** new comparisons use verified
+> [Binaryen 133](../../release-horizon-and-oracles.md). Recorded v131 and v132
+> sources, commands, artifacts, and results retain their historical versions
+> and do not establish v133 signoff.
 
 ## Binaryen 132 refresh
 

@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-16
 sources:
   - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
+  - ../../../../../src/passes/dae2_loop_effect_cleanup_wbtest.mbt
+  - ../../../../../src/cmd/dae2_raw_structured_rewrite_wbtest.mbt
   - ../../../../../src/passes/simplify_locals_dew_conditional_order_test.mbt
   - ../../../../../src/passes/simplify_locals_continuation_handler_test.mbt
   - ../../../../../src/passes/simplify_locals_resume_store_test.mbt
@@ -130,6 +132,15 @@ generated gates and whole-pipeline speed selection remain open.
 - The reduced `moonbit.malloc` family is the canonical proof that this is real wrong code, not just output-shape preference.
 
 ### 7. Loop Boundaries
+
+- A tail local write followed by a read outside a void loop must export the
+  loop's result. Copying the tail producer into the outside read executes it
+  twice because it still runs inside the loop. The loop-result rewrite uses
+  the existing result-promotion path for adjacent reads too. The
+  [direct and staged cleanup controls](../../../../../src/passes/dae2_loop_effect_cleanup_wbtest.mbt)
+  check one effectful call for one or two result reads, and the
+  [command control](../../../../../src/cmd/dae2_raw_structured_rewrite_wbtest.mbt)
+  retains both the removed argument's trapping load and the callee's effects.
 
 - Loops are not just structured blocks with a backedge.
 - A pending outer producer cannot simply be treated as available at every loop iteration.

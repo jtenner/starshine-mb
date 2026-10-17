@@ -1,3 +1,27 @@
+## October 15 Binaryen 133 shared-work renewal
+
+Frozen optimizer `5d8ea74e` and generator `76b922fb` compare 10,000/10,000
+`pass-oi-all` cases at seed `0x5eed` with verified Binaryen 133. The campaign
+has 8,623 exact normalized matches and 1,377 residuals. All residuals are
+canonically smaller: Starshine totals 732,509 bytes against Binaryen's 775,236,
+a 42,727-byte reduction. No output is canonically larger. Validation,
+determinism, codec, generator, command, and observed semantic failures are
+zero.
+
+The case ledger and all 20 retained bundles confine the residuals to two
+reviewed families. The 1,080 tuple cases use the established selected-lane
+lowering and are smaller by 26, 53, 54, or 104 bytes per case. The 297
+`oi-boolean-select:value-if-drop-shell` cases replace two dropped result `if`
+expressions with the selected pure constant, saving 16 bytes per case. The
+other eight profile groups are exact, apart from these Boolean cases.
+
+Node v2 observes 8,910 exact original/Starshine results. All 1,090 blocked
+observations are the four descriptor-GC leaves; no other leaf is blocked.
+Those cases remain unverified by this campaign. A separate flag-enabled replay
+executes 12,294 descriptor calls without a difference, but it does not turn the
+blocked aggregate rows into direct observations. Evidence:
+`.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/optimize-instructions/`.
+
 ## October 7 default-gate repair renewal
 
 The repaired source, native CLI SHA-256 `020f898254de9e240d5029483cac43a50f90be1ef1b0626ae21a97b2d57ae024`, and verified Binaryen 133 SHA-256 `8f25e9fd5db0fc5f210003aaa432922feb2e52d309e430def2f929e34da9466b` compared 10,000/10,000 `pass-oi-all` GenValid cases at seed `0x5eed` with eight subprocesses. There are 8,623 normalized matches, 1,377 output differences, and no validation, property, generator, or command failures. Runtime observation was off. The report is `.tmp/test-gate-signoff-oi-10000/result.json`.

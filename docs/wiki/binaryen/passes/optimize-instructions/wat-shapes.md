@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-16
+last_reviewed: 2026-10-15
 sources:
   - ./index.md
 related:
@@ -14,6 +14,35 @@ related:
 ---
 
 # `optimize-instructions` WAT shapes
+
+## October 15, 2026 native verification scope
+
+The report checkpoint `b29aee1d` completes10,000 generated comparisons against
+verified Binaryen133:8,623 normalized matches and1,377 structural differences.
+The default Node-v2 lane has8,910 all-equal observations and1,090 original
+runtime compile blocks for custom descriptor types. These counts remain the
+record of that campaign. All20 retained bundles were inspected; exporting the
+unexported bodies adds60 calls/tool. Two further exact regenerated tuple-family
+inputs add9 calls/tool. This does not execute every unretained body.
+
+A separate replay regenerates and verifies the manifest hashes for all1,090
+descriptor inputs before optimization. Node26 with the explicit
+`--experimental-wasm-custom-descriptors` flag executes4,098 calls/tool,
+12,294 total, with zero differences. Added callable routes and resource probes
+preserve the other section payloads. Checks cover nullable results, fresh
+reference identity, descriptor-operand global effects and traps. Original
+non-null null casts trap with `illegal cast`; both optimizers can fold them to
+`unreachable`. The checker retains raw diagnostics, requires Starshine/Binaryen
+diagnostic agreement and separately checks the specified trap and effects.
+This is separate flag-enabled evidence, not a rewrite of the original blocked
+counters. Replays do not justify uninspected raw representation gaps.
+
+The permanent [memory16 runtime harness](../../../../../scripts/test/oi-memory16-feature-runtime.ts)
+passes15,440 comparisons again on current native `972c897d`. Its memory32
+execution and direct IR memory64/multi-memory controls have different scopes;
+no native memory64/multi-memory or general runtime/peak-memory gain is claimed.
+Raw evidence is retained locally under
+`review/oi-write-visit-data/descriptor-cohort-v2/` in the report investigation.
 
 This page is the beginner-friendly shape catalog for Binaryen's `optimize-instructions` pass. The v132 source review confirms these shape families; the 2026-06-19 `version_130` matrix remains historical Starshine O4z evidence; the examples remain explanatory, while implementation ownership lives in [`index.md`](index.md).
 
@@ -693,6 +722,7 @@ Similarly, `local.get $dst; call $value; i32.const 1; memory.fill`, `global.get`
 
 Important negative shape:
 
+- Size-16 `memory.copy` and `memory.fill` introduce SIMD only at shrink level zero and when `target_features` permits `simd128`. A minus entry in any repeated section, or malformed feature metadata, keeps the bulk instruction. Missing metadata keeps the existing permissive policy. The function lane caches this fact once; it shares the decoder used by MSF and tail-call. Retained fills do not split into scalar stores, which could write memory before a later bounds trap. See the [pass contract regressions](../../../../../src/passes/optimize_instructions_feature_contract_regression_wbtest.mbt), [bounded contract matrix](../../../../../src/passes/optimize_instructions_feature_contract_breadth_wbtest.mbt), and [dispatcher tests](../../../../../src/cmd/optimize_instructions_feature_contract_breadth_wbtest.mbt).
 - zero-size or same-src/dst cases are not blindly dropped in default mode; trap assumptions matter. Starshine now has explicit coverage that Binaryen and Starshine both keep zero-size `memory.copy` / `memory.fill` even when the operands are calls. Non-power-of-two size-3 `memory.copy` and `memory.fill` are also source-backed keep-spelling boundaries rather than multi-store lowering candidates.
 - dynamic call-backed, local, and global size operands are explicit keep-spelling boundaries. Binaryen keeps `memory.copy` / `memory.fill` when the destination/source/value and size operands are calls, when the size is a nonconstant local, and when the size is a nonconstant `global.get`; Starshine has matching public-pipeline coverage for these boundaries.
 - non-flat, non-pure call arguments, wider call-backed fill, and broader control/effect copy forms still need separate localization proof. Binaryen `version_130` keeps the probed call-backed size-16 `memory.fill`, so that SIMD-width call value is a keep-spelling boundary rather than a missed `v128.store` lowering.

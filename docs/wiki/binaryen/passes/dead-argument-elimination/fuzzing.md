@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-15
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -13,6 +13,36 @@ sources:
 ---
 
 # `dead-argument-elimination` Fuzzing Profile
+
+## October 15 Binaryen 133 shared-work renewal
+
+Frozen native optimizer `5d8ea74e` and generator `76b922fb` completed both the
+open- and closed-world 10,000-case direct DAE lanes against verified Binaryen
+133. The two results are identical. All 20,000 node-v2 observations,
+determinism checks, and codec checks match. Every output validates, with no
+blocked observation or validation, generator, command, or property failure.
+
+Each lane has 3,750 exact normalized matches and 6,250 structural differences.
+Every difference is canonically smaller for Starshine and none is larger. The
+canonical total is `701,250` bytes versus Binaryen's `721,250`, a 20,000-byte
+reduction per lane. The family split is:
+
+- constant arguments: 1,875 cases at minus six bytes;
+- unused parameters: 1,875 cases at minus two bytes;
+- convergence: 625 cases at minus four bytes;
+- tail-call boundary: 625 cases at minus two bytes;
+- argument type refinement: 625 cases at minus one byte;
+- return type refinement: 625 cases at minus one byte.
+
+The two refinement families record `binaryen-discrepancy`: Starshine matches the
+original runtime result while Binaryen differs. The other four are the existing
+source-backed stronger-cleanup families. This is a measured Starshine behavior
+or cleanup win, not raw shape parity. The stable generated distribution and
+fixed per-family byte deltas classify all 6,250 cases; retained artifacts remain
+subject to the 20-artifact cap.
+
+Evidence: `.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/dae/`
+and `dae-closed/`.
 
 ## September 27 follow-up allocation campaign renewal
 

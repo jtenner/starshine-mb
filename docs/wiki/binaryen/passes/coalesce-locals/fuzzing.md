@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-16
 sources:
   - ../../../tooling/tracing-playbook.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -12,6 +12,89 @@ sources:
 ---
 
 # `coalesce-locals` Fuzzing Profile
+
+## October 16 prefix-copy scan signoff
+
+Fresh native optimizer `2f393f99` and generator `34a136ac` complete the
+10,000-case `coalesce-locals-all` aggregate against verified Binaryen 133
+`8f25e9fd`. The run uses wasm-tools 1.260.0 as the independent validator,
+eight subprocesses, node-v2 observations, determinism checks, codec
+idempotence, and no mismatch reduction. Validation, generator, command,
+property, determinism, codec, and observed semantic failures are zero.
+
+The result is unchanged from the preceding aggregate: 3,750 exact normalized
+matches and 6,250 reviewed smaller structural differences. Starshine canonical
+output totals 488,125 bytes versus Binaryen's 502,500, with 6,250 smaller,
+3,750 equal, and zero larger cases. Node-v2 matches 8,750 cases. The other
+1,250 original modules have the same documented unconditional start traps;
+this run records them as blocked, so their separate four-shape replay remains
+the execution evidence.
+
+This exact output distribution shows that omitting proved-unnecessary
+loop-prefix suffix queries does not change the dedicated generated shapes. It
+does not establish enclosing pass time, allocation, RSS, or written-source
+scaling gains. Evidence:
+`.tmp/report-optimization-20261016/final-signoff/coalesce-locals-final-source/`.
+
+## October 15 shared-work repeat
+
+The later frozen shared-work optimizer `5d8ea74e` and generator `76b922fb`
+repeat the 10,000-case Binaryen 133 lane without cleanup normalizers. The result
+is identical to the earlier October 15 renewal: 3,750 exact matches, 6,250
+reviewed smaller differences, 488,125 Starshine canonical bytes against
+502,500 Binaryen bytes, 8,750 matching Node-v2 observations, and the same 1,250
+original start-trap blocks. Validation, determinism, codec, generator, command,
+and observed semantic failure counts are zero. The earlier complete family and
+four-shape start-trap review remains the classification evidence. The repeat is
+retained in
+`.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/coalesce-locals/`.
+
+## October 15 ownership and legacy-exception renewal
+
+Frozen native `f4a1b19775b649b8` contains CoalesceLocals source
+`ebfd2362d7c80194`. Its `coalesce-locals-all` lane completes 10,000 cases against
+verified Binaryen 133, with seed `0x5eed`, eight subprocesses, independent
+validation, determinism, codec idempotence, and Node-v2 observations. No external
+generator or extra cleanup normalizers ran. Later Tuple-only changes are outside
+this source-scoped signoff.
+
+- All 10,000 outputs validate, are deterministic, and pass codec idempotence.
+  There are no generator, command, validation or observed semantic failures.
+- Node-v2 agrees for 8,750 cases. The remaining 1,250 inputs intentionally trap
+  in their start function: 625 unreachable and 625 legacy-exception profiles.
+  The harness still reports these as original-runtime-blocked.
+- Independent native V8 replay verifies all four byte-distinct blocked inputs
+  with original, Starshine and Binaryen: no imports, valid compilation, and the
+  same unreachable start trap. Regenerated input hashes match all 10,000 manifest
+  records; the four inspected inputs represent every blocked case. This separate
+  evidence does not change the harness counters or claim export execution.
+- There are 3,750 normalized matches and 6,250 structural differences. Canonical
+  output totals are 488,125 Starshine bytes and 502,500 Binaryen bytes: 6,250
+  smaller, 3,750 equal, zero larger. Independent inspection covers all ten
+  distinct mismatch input hashes and both tool outputs. Agent judgment: scoped
+  Starshine wins from inert `nop` removal (one/two bytes) and removal of a
+  no-backedge void loop plus `nop` (four bytes). The judgment uses the inspected
+  transform contracts and complete three-way observations as well as size.
+  Deterministic regeneration verifies all original input hashes; the five
+  initially unretained variants add an unused local and produce the exact same
+  optimized bytes as the retained counterparts. This classification is confined
+  to these generated families.
+
+Raw campaign and complementary replay are retained in
+`.tmp/report-optimization-20261014/fuzz-final/coalesce-locals` and
+`.tmp/report-optimization-20261014/coalesce-start-replay`. Complete shape coverage
+is in `.tmp/report-optimization-20261014/coalesce-missing-shapes-replay` and
+`.tmp/report-optimization-20261014/review/coalesce-final-families.txt`. These checks provide
+no general runtime, allocation, or GC-retention result. Bounded implementing and
+dispatcher regressions separately cover live local reads through legacy `try`;
+the generated legacy-exception profile only covers an unconditional start trap.
+A separate native V8 replay covers four protected/tagged/catch-all read layouts,
+seven arguments, and direct/repeated/cleanup pipelines: all 84 Starshine and
+84 Binaryen observations return the original value 7. The historical baseline
+fails 24 cleanup observations. Current combined output remains 13 bytes larger
+than Binaryen after cleanup (135 versus 122), an open size gap. Raw inputs,
+commands, identities and observations are in
+`.tmp/report-optimization-20261014/coalesce-live-try-replay`.
 
 ## September 27 follow-up allocation campaign renewal
 

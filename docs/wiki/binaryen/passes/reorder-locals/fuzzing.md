@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-28
+last_reviewed: 2026-10-15
 sources:
   - ./index.md
   - ./parity.md
@@ -14,6 +14,37 @@ sources:
 ---
 
 # `reorder-locals` Fuzzing Profile
+
+## October 15 shared-work renewal
+
+Frozen native optimizer
+`5d8ea74e23ab4237542e13a3a51c8da18d27e3cb1d14df743597725422a49166`
+and generator
+`76b922fbe5da41224c16bf9af798b9173cb8d3a3ab4769fad8c409acc2388ae3`
+complete 10,000 `reorder-locals-all` cases at seed `0x5eed` against verified
+Binaryen 133. All 10,000 node-v2 observations, determinism checks, and codec
+checks match. There are no blocked observations or validation, property,
+generator, command, or semantic failures. Every one of the ten leaves runs.
+
+There are 7,996 normalized matches and 2,004 structural differences. All 1,019
+`unused-trim` differences remove one retained Binaryen `nop` from an otherwise
+empty function. All 985 `structured` differences remove a branch-free,
+single-execution `loop` wrapper around `drop(local.get)`. The 20 retained
+artifacts contain only those two families. Starshine is canonically smaller in
+all 2,004 cases by 3,974 bytes in aggregate and is never canonically larger.
+The direct semantic lane executes every case, so this classification is based
+on the inspected transforms, exact byte deltas, and matching observations.
+
+Raw bytes retain two separate costs. The `name-repair` and `multi-function`
+leaves preserve function, parameter, and local names that the default Binaryen
+command strips; this costs 84,070 bytes over 1,515 cases and preserves the
+pass's metadata-repair contract. The 945 legacy-EH cases retain one equivalent
+function type that Binaryen's IR uniquifies, costing 2,835 bytes. Canonical
+output removes both differences. The legacy type duplication remains an open
+raw representation parity gap; validation or canonical equality does not close
+it. Local evidence:
+`.tmp/report-optimization-20261014/fuzz-shared-work-reuse-20261015/reorder-locals/`
+and `.tmp/report-optimization-20261014/reorder-locals-family-repro-v3/`.
 
 > **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../../release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
 

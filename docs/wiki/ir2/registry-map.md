@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-09-10
+last_reviewed: 2026-10-16
 sources:
   - ../binaryen/passes/reorder-locals/index.md
   - ../../../src/passes/optimize.mbt
@@ -15,7 +15,7 @@ related:
 
 # IR2 Registry Map
 
-> **Comparison baseline — September 10, 2026:** new comparisons use [Binaryen 132](../binaryen/release-horizon-and-oracles.md). This supersedes older current/latest-baseline wording below. Recorded v131 sources, commands, artifacts and results retain their historical version and do not establish v132 signoff.
+> **Comparison baseline — September 25, 2026:** new comparisons use [Binaryen 133](../binaryen/release-horizon-and-oracles.md). Recorded v131 and v132 sources, commands, artifacts, and results retain their historical versions and do not establish v133 signoff.
 
 ## Durable Conclusions
 
@@ -42,7 +42,7 @@ The registry currently has 29 hot entries: `flatten`, `ssa-nomerge`, `ssa`, `vac
 
 These have `ModulePass` category and are runnable through the same pass request path, but apply module-level logic or module-shaped adapters:
 
-The registry currently has 36 module entries: `local-cse`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `merge-similar-functions`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `global-struct-inference-desc-cast`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `coalesce-locals-cfg`, `duplicate-import-elimination`, `strip-debug`, `simplify-globals-optimizing`, `propagate-globals-globally`, `dead-argument-elimination`, `dae`, `dae-optimizing`, `dae2`, `dae2-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inline-main`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, `apply-compiler-facts`, `directize`.
+The registry currently has 45 module entries: `local-cse`, `avoid-reinterprets`, `untee`, `make-shared-objects`, `duplicate-function-elimination`, `merge-similar-functions`, `remove-unused-module-elements`, `remove-empty-function-exports`, `intrinsic-lowering`, `global-effects`, `global-type-optimization`, `i64-to-i32-lowering`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `dealign`, `tail-call`, `once-reduction`, `global-refining`, `global-struct-inference`, `global-struct-inference-desc-cast`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `coalesce-locals-cfg`, `duplicate-import-elimination`, `duplicate-import-elimination-assume-stable-bindings`, `strip-debug`, `simplify-globals-optimizing`, `propagate-globals-globally`, `dead-argument-elimination`, `dae`, `dae-optimizing`, `dae2`, `dae2-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inline-main`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, `apply-compiler-facts`, `directize`.
 
 The three `no-inline` registry bases require a nonempty `=PATTERN` suffix when
 requested as passes. Bare bases are rejected during library expansion and CLI
@@ -50,34 +50,73 @@ parsing before module dispatch.
 
 ### Active presets
 
-`optimize` and `shrink` are wall-time-first scheduler entry points outside O4z. O1/O2 expand to `duplicate-function-elimination -> strip-debug`; O3/O4/Os/Oz expand to `duplicate-function-elimination -> vacuum -> reorder-locals -> strip-debug`. `--optimize` resolves to O2, while `--shrink` and literal `-Oz` resolve to `(2, 2)`; literal `-Os` resolves to `(2, 1)`. Direct passes remain runnable independently.
+`optimize` and `shrink` are wall-time-first scheduler entry points outside O4z. O1/O2 expand to `duplicate-function-elimination -> strip-debug`; O3/O4/Os/Oz expand to `duplicate-function-elimination -> constraint-analysis -> vacuum -> reorder-locals -> strip-debug`. `--optimize` resolves to O2, while `--shrink` and literal `-Oz` resolve to `(2, 2)`; literal `-Os` resolves to `(2, 1)`. Direct passes remain runnable independently.
 
-At O4z with all features enabled, both presets retain the full compatibility scheduler and expose Binaryen v131's exact 56-slot sequence. The prelude is `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> global-struct-inference`; the function phase includes the aggressive `ssa-nomerge -> flatten -> simplify-locals-notee-nostructure -> local-cse` prelude, both `precompute-propagate` slots, all three `remove-unused-brs` slots, and the late cleanup cluster; the post phase ends `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`. Starshine then appends its intentional `strip-debug` extension as slot 57. Generic `merge-similar-functions` runs through the existing validated `optimized-similar-functions` final portfolio candidate, preserving the locked top-level queue while recovering the shrink-level size opportunity.
+At O4z with all features enabled, both presets retain the full compatibility scheduler and expose Binaryen v131's exact 56-slot sequence. The prelude is `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> global-struct-inference`; the function phase includes the aggressive `ssa-nomerge -> flatten -> simplify-locals-notee-nostructure -> local-cse` prelude, both `precompute-propagate` slots, all three `remove-unused-brs` slots, and the late cleanup cluster; the post phase ends `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`. Starshine then appends its intentional `strip-debug` extension as slot 57. The historical 56-slot count describes the v131 core sequence; current O4z also appends the bounded late local convergence queue. Preset Directize runs one `inlining-optimizing -> remove-unused-module-elements -> vacuum` finish only when it changes the module. Preset inlining also admits one late `memory-packing` run after a code change when passive data contains a zero range above the minimum split threshold. Explicit pass requests and short public presets retain their existing queues. Generic `merge-similar-functions` runs through the existing validated `optimized-similar-functions` final portfolio candidate, preserving the locked top-level queue while recovering the shrink-level size opportunity.
 
 Registry preset metadata is generated from the same scheduler instead of retaining duplicate hard-coded arrays. Exact O4z order, fast non-O4z rosters, repeated-slot counts, feature-gated O4z runtime execution, and the final extension are locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt) and [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt).
 
 The queue still lists DFE and, at O4z, DIE in their existing slots. At
-execution, preset-origin DFE skips modules with imports or exports; preset-origin
-DIE skips modules with function imports. This preserves identities and import
-lookups visible to a host. Explicitly requested DFE/DIE retain their merge
-behavior. A closed module still runs preset DFE. The policy and runtime evidence
+execution, short presets skip DFE for modules with imports or exports; full O4z
+uses the direct pass's per-function identity guard and can merge private equal
+helpers. Preset-origin DIE skips modules with function imports. Direct DFE
+protects exported and address-materialized identities; direct DIE preserves
+independent import lookups. A closed module still runs preset DFE. The policy and runtime evidence
 are in the [host-visible identity audit](architecture-rules.md#host-visible-identity-preset-policy).
-The CLI's pure O4z size portfolio applies the same boundary rule to its
-internally constructed DFE/DIE candidate rosters; mixed explicit requests do
+The CLI's pure O4z size portfolio admits guarded DFE and retains its boundary
+filter for DIE candidate rosters; mixed explicit requests do
 not enter that portfolio.
 
 ## Boundary-Only And Removed Behavior
 
-- Boundary-only names are recognized but rejected as not implemented in the hot pipeline. Examples include the closed-world type/signature families (`type-refining`, `signature-pruning`, `unsubtyping`, `reorder-types`) and broader ABI/layout families (`alignment-lowering`, `i64-to-i32-lowering`, `reorder-functions`).
+- Boundary-only names are recognized but rejected as not implemented in the hot pipeline. Examples include the closed-world type/signature families (`type-refining`, `signature-pruning`, `unsubtyping`, `reorder-types`) and broader ABI/layout families (`alignment-lowering`, `reorder-functions`). The active `i64-to-i32-lowering` adapter covers its represented saturating conversion surface; registry acceptance does not imply a full ABI-lowering port.
 - Removed names are recognized but rejected as absent from the active hot pipeline registry. Current removed examples include `re-reloop`, `loop-invariant-code-motion`, `const-hoisting`, `dataflow-optimization`, `optimize-added-constants`, `optimize-added-constants-propagate`, `de-nan`, and the legacy `simplify-locals-no-tee-no-structure` spelling. `flatten`, `precompute-propagate`, and the supported SimplifyLocals aliases are active.
 - The original March batch map is now partially stale because many former Batch 2/3 names have since landed as hot or module passes. Treat research note 0063 as the archived planning map, not a reason to ignore live code.
 
 ## Practical Rule
 
+- Module dispatch decodes the target-feature contract once and passes SIMD
+  admission through a private `HotPassContext` field. Use
+  `HotPassContext::new`; its public signature is unchanged. The generated
+  interface now marks private fields, so external open-struct construction is
+  no longer supported. This is an API restriction, not a new required public
+  constructor argument. Malformed metadata and explicit SIMD bans prevent
+  introduction of SIMD operations; see the
+  [feature-contract regressions](../../../src/passes/optimize_instructions_feature_contract_regression_wbtest.mbt).
 - When the question is "can I run this pass or preset now," trust the live registry and its tests.
 - When adding a pass, update category tests before docs.
 - When scheduling a pass into `optimize` or `shrink`, add slot-level tests that prove its neighborhood and repeated-pass count.
 - Keep legacy names explicit for diagnostics; never reintroduce silent no-op acceptance.
+
+## October 16 source audit
+
+The live source still has 29 hot entries, 45 module entries and two presets.
+It also has 25 boundary-only names and eight removed names, for 109 known
+registry names including aliases. These counts describe accepted names, not
+109 complete transforms. Module adapters can have a limited represented
+surface; registry acceptance does not close their broader porting work.
+The local audit is retained in
+`.tmp/report-optimization-20261016-runtime/registry-audit.json`, with the
+exact registry source hash and the full name lists.
+
+[`HotPassDescriptor`](../../../src/ir/architecture.mbt) records required and
+invalidated analyses. The [analysis cache](../../../src/ir/analysis_cache.mbt)
+binds to the function root-array identity and checks the function revision on
+each lookup. CFG invalidation clears all dependent products; use-def,
+dominance and liveness invalidation also clear their dependent SSA data.
+The [cache tests](../../../src/ir/analysis_cache_test.mbt) cover the dependency
+closure. This contract is distinct from module-adapter setup and command
+portfolio work; hot-pass timers do not include all enclosing costs.
+
+The [feature metadata helper](../../../src/passes/target_feature_contract.mbt)
+rejects proposal introduction for a matching minus entry or malformed metadata.
+The [TailCall pass test](../../../src/passes/tail_call_target_features_wbtest.mbt)
+and [dispatcher test](../../../src/cmd/tail_call_target_features_wbtest.mbt)
+cover an explicit tail-call ban. The
+[Binaryen 133 tail controls](../../../src/passes/binaryen133_tail_parity_wbtest.mbt)
+cover table64, calls in catch handlers and calls protected by a local handler.
+These controls do not establish complete feature-gate coverage for every
+registered transform.
 
 ## Sources
 

@@ -40,6 +40,48 @@ related:
 
 # IR2 Architecture Rules
 
+## Counted data sizes and first-emission lowering (October 15, 2026)
+
+The [size estimator](../../../src/binary/encoded_size.mbt) shares the ordinary
+[encoder's](../../../src/binary/encode.mbt) data-mode/offset writer. It buffers
+section metadata but adds immutable payload lengths in UInt64. Section framing
+retains the u32 limit; public positive Int results reject sizes above
+0x7fffffff before conversion. This prevents a shared 4 MiB payload repeated
+1,024 times from wrapping to a small profitable size. The shared-reference
+regression fails before the repair. [Boundary controls](../../../src/binary/encoded_size_data_regression_wbtest.mbt)
+compare actual encoding in both argument orders for modes, length/count LEB
+boundaries and invalid offsets, plus virtual 2/4 GiB overflow. Other sections
+still allocate their existing scratch buffers; this is not a complete
+counting-sink implementation.
+
+The [lowerer's](../../../src/ir/hot_lower.mbt) private per-function request
+bitmap is an admission filter for buried scalar reuse, not a use-count proof.
+It is initialized from the first incoming stack, marks requests before descent,
+and includes synthetic control-prefix IDs. Incoming diagnostic checks keep their
+original order. A first request cannot reuse an earlier emission; repeat
+requests keep the full old checks. [Regression controls](../../../src/ir/hot_lower_first_emission_regression_wbtest.mbt)
+cover pre-emitted sole-edge children, suspended outer stacks, nested parents,
+prefix values, event order and exact return values. The current 14,271-test
+WasmGC gate passes. Native `58491a9e` also passes52,736 runtime comparisons
+and GC CLI arguments. [Enclosing measurements](../tooling/tracing-playbook.md#first-emission-lowering-checkpoint)
+show mixed controls and no general command or memory gain; other shared wide
+source-order costs remain.
+
+
+Shared lowering must also distinguish a full tuple demand from one physical
+lane consumed by a scalar store. A zero-result, sole-input LocalSet may move
+a present buried lane while preserving all covering values. Generic tuple and
+multi-input paths retain scalar reuse guards. The one-cover lane path reuses
+exact typed scratch pairs only inside a flat four-instruction sequence. Cache
+indices belong to the same allocation array; no saved value spans a call,
+branch or recursive emitter. The [retained-read contract and tests](../binaryen/passes/tuple-optimization/index.md#october-15-retained-reads-and-available-store-runs)
+cover duplicate calls, wrong stored lanes, multiple old reads and typed rows.
+Current native `5d8ea74e` passes all 14,300 full tests and 58,840 runtime
+comparisons plus GC CLI arguments. Fresh generated renewal is running. The
+[paired evidence](../tooling/tracing-playbook.md#october-15-shared-batch-and-statement-work)
+keeps the exact baseline, adverse controls and measurement limits.
+
+
 ## Native immutable value records (September 28, 2026)
 
 `HotNode` and the private lowering operand-query result `HotLowerInputs` use
@@ -536,24 +578,32 @@ made both embedding observations executable. Two same-name function imports
 resolve a JavaScript getter twice and can receive different functions. Two
 equal-body functions exported separately have distinct JavaScript identities.
 Direct `duplicate-import-elimination` now preserves the two import lookups and
-their returned identities. Direct `duplicate-function-elimination` still
-merges equal exported bodies; its distinct identity contract remains asserted
-separately in the same test file.
+their returned identities. Direct `duplicate-function-elimination` now protects
+exported and address-materialized functions. This supersedes the earlier
+equal-exported-body merge contract; the same test file checks preservation.
 
 The explicit `duplicate-import-elimination-assume-stable-bindings` pass keeps
 the earlier merge capability behind a stronger caller contract. Presets and
 `--closed-world` never select it implicitly.
 
-Public presets now retain their scheduled DFE/DIE slots but skip preset-origin
-DFE when the original or current module has imports or exports, and skip
-preset-origin DIE when either module has function imports. A module with no
-host boundary can still run preset DFE. The gate is intentionally broad:
-exports and imports can expose `ref.func` through tables, globals, callbacks,
-and return values, so checking only direct function exports would be unsound.
-The CLI O4z size portfolio also builds automatic candidate rosters containing
-literal DFE/DIE pass names. Those rosters now omit both merges for an original
-module with imports or exports; a closed module keeps them, and a mixed request
-with an explicitly named merge pass does not enter the pure-preset portfolio.
+Public presets retain their scheduled DFE/DIE slots. Short presets skip
+preset-origin DFE when the original or current module has imports or exports.
+Full O4z (`optimize_level >= 4` and `shrink_level >= 4`) instead uses DFE's
+per-function identity guard, so private equal helpers can merge across a host
+boundary. The guard covers exports, `ref.func` in all body/control forms,
+table and global initializers, and active/passive element entries. Declarative
+entries alone do not materialize a runtime address. This conservatively protects
+every materialized function; it does not require an escape analysis.
+Preset-origin DIE still skips modules with function imports. The CLI O4z size
+portfolio admits guarded DFE and retains its existing DIE exclusion for an
+original module with imports or exports. A mixed request with an explicitly
+named merge pass does not enter the pure-preset portfolio. This October 14,
+2026 policy supersedes the earlier blanket full-O4z DFE exclusion. The
+[private-helper regression](../../../tests/optimizer/regressions/preset-private-dfe.test.ts)
+checks helper removal, a byte-size decrease, eight distinct export/table/global/
+body-reference identities, return values, and ordered host calls. The
+[library tests](../../../src/passes/preset_private_dfe_regression_test.mbt)
+check both full presets with inlining thresholds disabled.
 This is a host-correctness divergence from Binaryen 132's merge behavior,
 not a claim of output-shape parity. Direct DIE now enforces the same
 preservation contract even when explicitly requested. DFE policy remains
@@ -3807,6 +3857,13 @@ Set `STARSHINE_NODE_CUSTOM_DESCRIPTORS=1` to pass
 the custom-descriptor setting follows the same strict `0`/`1` validation and
 configured-runtime identity hashing. This path is opt-in because custom
 descriptors remain an active proposal and runtime availability can change.
+
+Set `STARSHINE_NODE_SHARED_GC=1` to pass `--experimental-wasm-shared`. It can
+compose with the custom-descriptor and WasmFX settings, uses the same strict
+`0`/`1` validation, and enters the configured runtime identity. Unset it or use
+`0` for Node's default feature set. Keep this flag opt-in because shared GC is
+an experimental engine surface; a configured worker still reports each compile,
+instantiation, or execution block separately.
 
 The executable regression embeds the exact 93-byte Binaryen v132 output from
 saved seven-pass case 29. Default Node v26.10.0 rejects its exact `ref.cast`;
